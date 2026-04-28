@@ -50,7 +50,6 @@ Workflow = F_C o F_B o F_A
 
 AI coding agent 很容易在局部修 bug 时破坏全局流程，例如：
 
-- 给一个 job 重复打分；
 - 给同一个 item 追加两条记录；
 - 忘记 deduplication；
 - retry 时重复发送副作用；
@@ -349,7 +348,6 @@ termination expectations, and implementation conformance.
 AI coding agents often fix a local bug while damaging the global workflow. For
 example, an agent may accidentally:
 
-- score the same job twice;
 - append duplicate records for the same item;
 - forget deduplication;
 - retry a side effect twice;
