@@ -22,15 +22,19 @@ A model-first function-flow checker for agents and engineers changing stateful s
 
 ## Visual concept
 
-A bright product-diagram flow from input events through function blocks, finite trace exploration, verification gates, counterexample isolation, and safe production output.
+A bright verification-rail sculpture where event tokens branch into finite traces, pass through ceramic verification gates, divert counterexamples, and reach a green implementation gateway only after the model checks hold.
+
+## Material language
+
+Brushed aluminum rails, matte ceramic gates, enamel modules, fiber-optic trace paths, colored state tokens, and crystalline red counterexample fragments.
 
 ## Image keywords
 
-bright conceptual schematic, function-flow, finite traces, verification gates, counterexample isolation, safe implementation
+premium workflow visual, model-first verification, finite traces, ceramic gates, counterexample isolation, safe implementation
 
 ## Generation method
 
-Direct project-specific text-to-image generation using a bright conceptual schematic direction. This hero is not a reused SVG, HTML, Canvas, Pillow, robot-screen scene, or dark dashboard template.
+Direct project-specific text-to-image generation using a premium art-directed product-object workflow direction. The prompt selected a non-glass-dominant material system for this repository instead of reusing a generic transparent workflow template.
 
 ## File paths
 
@@ -40,4 +44,4 @@ Direct project-specific text-to-image generation using a bright conceptual schem
 
 ## README insertion position
 
-Updated the existing README HERO block after the first H1 heading.
+Existing README HERO block after the first H1 heading; image file replaced without rewriting the README body.
