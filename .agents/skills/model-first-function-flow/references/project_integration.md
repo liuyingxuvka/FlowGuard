@@ -14,8 +14,11 @@ If you have a local checkout, use an explicit source path:
 
 ```powershell
 $env:FLOWGUARD_SOURCE = "<path-to-your-FlowGuard-checkout>"
-python -m pip install -e $env:FLOWGUARD_SOURCE --no-deps --no-build-isolation
+python -m pip install -e $env:FLOWGUARD_SOURCE
 ```
+
+Use the normal editable install command in a fresh virtual environment so `pip`
+can prepare the build backend declared in `pyproject.toml`.
 
 Then verify:
 
@@ -34,6 +37,8 @@ python <path-to-model-first-function-flow-skill>\assets\toolchain_preflight.py -
 Use the helper when the target Python environment cannot import FlowGuard and
 you want the Skill to discover the local source tree and print the supported
 install or `PYTHONPATH` command. The helper is standard-library-only.
+If it reports `mode: pythonpath_available`, run one of the recommended commands
+before treating the target environment as connected.
 
 Temporary fallback for pilots:
 

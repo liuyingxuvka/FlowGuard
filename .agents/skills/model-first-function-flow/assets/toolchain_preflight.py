@@ -83,7 +83,7 @@ def check_toolchain(source: Path) -> dict[str, object]:
         "source_exists": source_exists,
         "installed_error": installed_output,
         "recommended_commands": [
-            f"python -m pip install -e {source} --no-deps --no-build-isolation",
+            f"python -m pip install -e {source}",
             f'$env:PYTHONPATH = "{source};$env:PYTHONPATH"',
             'python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"',
         ],
@@ -99,8 +99,6 @@ def install_editable(source: Path) -> dict[str, object]:
             "install",
             "-e",
             str(source),
-            "--no-deps",
-            "--no-build-isolation",
         ],
         check=False,
         capture_output=True,
@@ -122,7 +120,11 @@ def main(argv: list[str] | None = None) -> int:
 
     source = _source_root(args.source).resolve()
     result = check_toolchain(source)
-    if not result["ok"] and args.install_editable and result.get("source_exists"):
+    if (
+        args.install_editable
+        and result.get("source_exists")
+        and result.get("mode") != "installed"
+    ):
         result["install"] = install_editable(source)
         result["after_install"] = check_toolchain(source)
         result["ok"] = bool(result["after_install"]["ok"])

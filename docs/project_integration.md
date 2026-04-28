@@ -21,8 +21,12 @@ If you have a local checkout of this repository, set an explicit source path:
 
 ```powershell
 $env:FLOWGUARD_SOURCE = "<path-to-your-FlowGuard-checkout>"
-python -m pip install -e $env:FLOWGUARD_SOURCE --no-deps --no-build-isolation
+python -m pip install -e $env:FLOWGUARD_SOURCE
 ```
+
+The normal editable install command is intentional. It works in a fresh virtual
+environment because `pip` can prepare the standard build backend declared in
+`pyproject.toml`.
 
 Then verify:
 
@@ -39,6 +43,10 @@ that cannot import FlowGuard yet:
 ```powershell
 python <path-to-model-first-function-flow-skill>\assets\toolchain_preflight.py --json
 ```
+
+If the helper reports `mode: pythonpath_available`, the source tree is usable
+but the active environment has not been permanently connected yet. Run one of
+the recommended commands before treating the adoption as complete.
 
 To point the helper at a local source tree:
 
