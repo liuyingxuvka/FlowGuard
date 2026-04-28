@@ -1,0 +1,131 @@
+# Conformance Testing
+
+FlowGuard first checks the abstract model. Phase 8 adds a second step: replaying representative abstract traces against production code through an adapter.
+
+## Model Checking vs Conformance Testing
+
+Model checking answers:
+
+```text
+Does the abstract model violate its invariants?
+```
+
+Conformance testing answers:
+
+```text
+Does the real implementation behave like the passing abstract trace?
+```
+
+A passing model does not prove production code is correct. The production implementation can still forget a deduplication check, mutate the wrong state, score a job twice, or emit an output that no downstream code expects. Conformance replay connects the model to implementation behavior.
+
+## Trace Export
+
+A model trace records:
+
+- external input sequence;
+- function name;
+- function input;
+- function output;
+- old abstract state;
+- new abstract state;
+- label;
+- reason.
+
+`Trace.to_dict()` and `Trace.to_json_text()` export this information as JSON-compatible data. Complex objects are exported through dataclass fields when possible and through a safe `repr()` fallback when not.
+
+`CheckReport.to_dict()` and `CheckReport.to_json_text()` export traces, violations, dead branches, exceptions, reachability failures, and explored input sequences.
+
+The export is meant to be deterministic, readable, auditable, and saveable. It is not meant to perfectly deserialize every arbitrary Python object.
+
+## Replay Adapter
+
+Production code rarely has the same state shape as the abstract model. A replay adapter bridges the two.
+
+The minimal adapter methods are:
+
+```python
+class ReplayAdapter:
+    def reset(self, initial_state):
+        ...
+
+    def apply_step(self, step):
+        ...
+
+    def observe_state(self):
+        ...
+
+    def observe_output(self):
+        ...
+```
+
+`apply_step()` maps an abstract `TraceStep` to the corresponding production call. It returns a `ReplayObservation` or lets FlowGuard call `observe_state()` and `observe_output()` afterward.
+
+## Projection and Observation
+
+Conformance replay should not require production state to equal abstract state directly. Production state may use mutable lists, dictionaries, ORM objects, caches, database rows, or service-local fields.
+
+The adapter should project production behavior into abstract observations:
+
+- `observed_output`: the production output represented in abstract output terms.
+- `observed_state`: the production state represented in abstract state terms.
+- `label`: the replayed behavior branch.
+
+FlowGuard compares these projections to the expected trace step. This keeps conformance focused on behavior, not internal implementation layout.
+
+## Rules
+
+The default conformance rules are intentionally small:
+
+- projected state matches the expected abstract `new_state`;
+- projected output matches the expected abstract output;
+- observed label matches the expected label;
+- adapter exceptions become violations.
+
+The caller may also pass invariants. In the job-matching example, invariants catch duplicate application records and repeated scoring on projected production state.
+
+## Job-Matching Example
+
+The job-matching example includes:
+
+- `CorrectJobMatchingSystem`: uses score cache, deduplicates records, and follows model decisions.
+- `BrokenDuplicateRecordSystem`: appends duplicate `application_records`.
+- `BrokenRepeatedScoringSystem`: appends duplicate `score_attempts` even when the score cache has the job.
+- `JobMatchingReplayAdapter`: maps `ScoreJob`, `RecordScoredJob`, and `DecideNextAction` trace steps to production method calls and projects production state back to the abstract `State`.
+
+Run it with:
+
+```powershell
+python examples/job_matching/run_conformance.py
+```
+
+The correct implementation passes. The duplicate-record implementation fails with a duplicate `application_records` violation. The repeated-scoring implementation fails with a repeated `score_attempts` violation.
+
+## Limits
+
+Phase 8 is intentionally narrow:
+
+- deterministic only;
+- no random generation;
+- no Hypothesis yet;
+- no probability model;
+- no Monte Carlo;
+- adapter must be written by the user;
+- not a complete formal proof;
+- not a replacement for unit tests;
+- best suited for workflow-level and side-effect-level deviations.
+
+Conformance replay is most useful after a model passes and before or during production implementation. If production behavior intentionally differs from the model, update the model explicitly rather than silently diverging.
+
+## Relationship To Scenario And Loop Review
+
+Conformance replay checks production behavior against representative traces. Scenario review checks whether a catalog of human expectations matches what flowguard observes. Loop review checks graph-level stuck states and non-terminating components.
+
+For workflows with repeated inputs, retry, refresh, queues, reprocessing, human review, uncertain decisions, caching, deduplication, or side effects, use the sequence:
+
+1. Model check.
+2. Scenario sandbox review.
+3. Loop/stuck-state review if cycles or waiting states exist.
+4. Production implementation.
+5. Conformance replay.
+
+Do not let adapter projection hide raw production bugs. If raw production state contains duplicate side effects but projection deduplicates them, the adapter is unsound and needs review.

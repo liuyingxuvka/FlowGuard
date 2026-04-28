@@ -1,0 +1,33 @@
+# AGENTS.md Snippet: Model-First Function Flow
+
+Copy this section into another repository's `AGENTS.md`.
+
+```markdown
+## Model-first function flow
+
+For non-trivial tasks involving behavior, workflows, state, module boundaries, retries, deduplication, idempotency, caching, repeated inputs, or repeated bugs, use the model-first-function-flow skill before editing production code. Build or update a flowguard model, run checks, inspect counterexamples, and only then implement production code.
+
+Rules:
+
+- Before creating model files, verify that the real flowguard package is importable with `python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"`.
+- If flowguard is not importable, connect the real toolchain first, such as by editable install from the local FlowGuard source tree, or record the task as `blocked`. Do not hand-write a temporary mini-framework and claim full flowguard adoption.
+- When available, use the Skill helper `assets/toolchain_preflight.py --json` to discover the editable install or `PYTHONPATH` command for the active Python environment.
+- Do not edit production code first.
+- Represent each function block as `Input x State -> Set(Output x State)`.
+- Define finite external inputs and immutable abstract state.
+- Define possible outputs, state reads, state writes, idempotency rules, and hard invariants.
+- Run flowguard with repeated-input exploration when duplicate side effects are possible.
+- Run scenario review, conformance replay, loop/stuck review, progress/fairness checks, and contract checks when those risks apply.
+- Treat UI state-flow, product architecture, orchestration, and module-boundary changes as model-first unless they are clearly trivial.
+- Trivial copy edits, formatting-only work, and read-only explanation tasks may skip flowguard with an explicit reason.
+- If the task boundary is unclear, mark it as `needs_human_review` or narrow the scope before deciding to skip or model.
+- Treat zero-result and non-consumable branches as reportable failures unless they are explicitly modeled as terminal.
+- Preserve expected-vs-observed status categories; do not hide `needs_human_review`, known limitations, or counterexamples.
+- For real project use, keep a project-local flowguard adoption log. Record status, trigger reason, elapsed time, model files, commands run, findings, counterexamples, skipped steps, friction points, and next actions.
+- Adoption log status should be `in_progress`, `completed`, `blocked`, `skipped_with_reason`, or `failed`; only `completed` means the adoption evidence is final and successful.
+- Prefer `.flowguard/adoption_log.jsonl` for machine-readable entries and `docs/flowguard_adoption_log.md` for human-readable notes.
+- Do not treat skipped flowguard steps as passed checks.
+- Do not call LLM APIs, databases, network services, clocks, random sources, Monte Carlo samplers, or external packages from the model.
+- Do not weaken hard invariants merely to pass checks.
+- Do not replace executable modeling with prose.
+```
