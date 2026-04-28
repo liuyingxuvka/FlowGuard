@@ -22,15 +22,15 @@ A model-first function-flow checker for agents and engineers changing stateful s
 
 ## Visual concept
 
-A cinematic engineering lab where an AI coding agent studies branching function-flow traces that pass through invariant, idempotency, loop-check, and conformance gates before reaching production code.
+A bright product-diagram flow from input events through function blocks, finite trace exploration, verification gates, counterexample isolation, and safe production output.
 
 ## Image keywords
 
-function-flow model, invariant gates, counterexample trace, conformance replay, production code
+bright conceptual schematic, function-flow, finite traces, verification gates, counterexample isolation, safe implementation
 
 ## Generation method
 
-Direct project-specific text-to-image generation. This hero is not a reused SVG, HTML, Canvas, Pillow, or card-grid template.
+Direct project-specific text-to-image generation using a bright conceptual schematic direction. This hero is not a reused SVG, HTML, Canvas, Pillow, robot-screen scene, or dark dashboard template.
 
 ## File paths
 
