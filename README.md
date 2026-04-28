@@ -1,5 +1,15 @@
 # FlowGuard
 
+<!-- README HERO START -->
+<p align="center">
+  <img src="./assets/readme-hero/hero.png" alt="FlowGuard concept hero image" width="100%" />
+</p>
+
+<p align="center">
+  <strong>A model-first function-flow checker for agents and engineers changing stateful software safely.</strong>
+</p>
+<!-- README HERO END -->
+
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
 | `v0.1.1` | `1.0` | Python standard library only | MIT |
