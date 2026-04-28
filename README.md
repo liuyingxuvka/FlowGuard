@@ -2,7 +2,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.1.0` | `1.0` | Python standard library only | MIT |
+| `v0.1.1` | `1.0` | Python standard library only | MIT |
 
 Chinese comes first. The second half is a full English mirror.
 
@@ -50,6 +50,7 @@ Workflow = F_C o F_B o F_A
 
 AI coding agent 很容易在局部修 bug 时破坏全局流程，例如：
 
+- 给同一个对象重复打分；
 - 给同一个 item 追加两条记录；
 - 忘记 deduplication；
 - retry 时重复发送副作用；
@@ -136,21 +137,14 @@ python -m flowguard schema-version
 
 ### 运行示例
 
-Job matching 示例展示重复打分、重复记录、缺少去重、真实实现偏离模型时如何
-被抓住：
-
-```powershell
-python examples/job_matching/run_checks.py
-python examples/job_matching/run_conformance.py
-python examples/job_matching/run_scenario_review.py
-```
-
 Looping workflow 示例展示 stuck state、bottom SCC、unreachable success 和
 progress 问题：
 
 ```powershell
 python examples/looping_workflow/run_loop_review.py
 ```
+
+更多可运行示例见 [examples/](examples/)。
 
 ### 最小代码示例
 
@@ -237,7 +231,7 @@ Skill 里包含：
 - 最小 model template；
 - run checks template；
 - toolchain preflight helper；
-- adoption log template。
+- lightweight run log template。
 
 ### 适合谁
 
@@ -263,8 +257,7 @@ FlowGuard 不适合：
 | [flowguard/](flowguard/) | 核心 Python package |
 | [.agents/skills/model-first-function-flow/](.agents/skills/model-first-function-flow/) | Codex Skill |
 | [docs/](docs/) | 概念、建模协议、conformance、scenario、loop、progress、contract 文档 |
-| [examples/job_matching/](examples/job_matching/) | Stateful workflow 示例 |
-| [examples/looping_workflow/](examples/looping_workflow/) | Loop / stuck / progress 示例 |
+| [examples/](examples/) | Runnable public examples |
 | [tests/](tests/) | 公开测试 |
 | [ROADMAP.md](ROADMAP.md) | 后续路线图 |
 
@@ -272,13 +265,11 @@ FlowGuard 不适合：
 
 这个公开仓库刻意不包含本地维护系统：
 
-- 私有 KB；
-- 内部 adoption history；
-- 私有 pilot 证据；
-- 本地 benchmark 维护语料；
-- 个人路径或机器特定配置；
+- 本地维护记录；
+- 实验过程记录；
+- 机器特定路径或配置；
 - 认证材料、访问令牌或其他敏感配置；
-- 大型内部实验记录。
+- 大型内部实验输出。
 
 公开版保留的是最小可用产品面：核心库、文档、Skill、示例和测试。
 
@@ -348,6 +339,7 @@ termination expectations, and implementation conformance.
 AI coding agents often fix a local bug while damaging the global workflow. For
 example, an agent may accidentally:
 
+- score the same object twice;
 - append duplicate records for the same item;
 - forget deduplication;
 - retry a side effect twice;
@@ -435,21 +427,14 @@ python -m flowguard schema-version
 
 ### Run Examples
 
-The job matching example shows duplicate scoring, duplicate records, missing
-deduplication, and production behavior that diverges from the model:
-
-```powershell
-python examples/job_matching/run_checks.py
-python examples/job_matching/run_conformance.py
-python examples/job_matching/run_scenario_review.py
-```
-
 The looping workflow example shows stuck states, bottom SCCs, unreachable
 success, and progress issues:
 
 ```powershell
 python examples/looping_workflow/run_loop_review.py
 ```
+
+For more runnable examples, see [examples/](examples/).
 
 ### Minimal Python Sketch
 
@@ -536,7 +521,7 @@ The Skill includes:
 - minimal model template;
 - run checks template;
 - toolchain preflight helper;
-- adoption log template.
+- lightweight run log template.
 
 ### Who It Is For
 
@@ -562,8 +547,7 @@ FlowGuard is not for:
 | [flowguard/](flowguard/) | Core Python package |
 | [.agents/skills/model-first-function-flow/](.agents/skills/model-first-function-flow/) | Codex Skill |
 | [docs/](docs/) | Concept, modeling, conformance, scenario, loop, progress, and contract docs |
-| [examples/job_matching/](examples/job_matching/) | Stateful workflow example |
-| [examples/looping_workflow/](examples/looping_workflow/) | Loop / stuck / progress example |
+| [examples/](examples/) | Runnable public examples |
 | [tests/](tests/) | Public test suite |
 | [ROADMAP.md](ROADMAP.md) | Roadmap |
 
@@ -571,13 +555,11 @@ FlowGuard is not for:
 
 This public repository intentionally excludes the local maintenance system:
 
-- private KB;
-- internal adoption history;
-- private pilot evidence;
-- local benchmark maintenance corpus;
-- personal paths or machine-specific configuration;
+- local maintenance records;
+- experiment process notes;
+- machine-specific paths or configuration;
 - authentication material, access tokens, or other sensitive configuration;
-- large internal experiment logs.
+- large internal experiment outputs.
 
 The public surface is the minimal usable product: core library, docs, Skill,
 examples, and tests.
