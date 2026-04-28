@@ -6,15 +6,15 @@ FlowGuard is a lightweight Python framework for modeling function flows before p
 
 ## Target users
 
-AI coding agents, engineers, and maintainers working on stateful workflows, retries, caches, or side effects.
+AI coding agents, engineers, and maintainers working on stateful workflows, retries, caches, idempotency, and side effects.
 
 ## Core problem
 
-Local code edits can break workflow-level contracts such as idempotency, deduplication, ownership, or progress before tests expose the failure.
+Local edits can fix a nearby symptom while breaking workflow-level contracts such as deduplication, cache consistency, idempotent retries, or implementation conformance.
 
 ## Core workflow
 
-Model function blocks, explore finite traces, check invariants and progress, then replay conformance against implementation adapters.
+Define small function-flow models, explore finite traces, inspect counterexamples, revise the design, and replay representative traces against implementation adapters.
 
 ## Hero tagline
 
@@ -22,20 +22,22 @@ A model-first function-flow checker for agents and engineers changing stateful s
 
 ## Visual concept
 
-A finite workflow model expands into traces that pass through invariant, loop, and conformance gates before reaching production code.
+A cinematic engineering lab where an AI coding agent studies branching function-flow traces that pass through invariant, idempotency, loop-check, and conformance gates before reaching production code.
 
 ## Image keywords
 
-Model, Trace, Conformance
+function-flow model, invariant gates, counterexample trace, conformance replay, production code
+
+## Generation method
+
+Direct project-specific text-to-image generation. This hero is not a reused SVG, HTML, Canvas, Pillow, or card-grid template.
 
 ## File paths
 
 - `assets/readme-hero/hero.png`
-- `assets/readme-hero/hero.svg`
-- `assets/readme-hero/hero-background.png`
 - `assets/readme-hero/hero_prompt.md`
 - `assets/readme-hero/hero_design_note.md`
 
 ## README insertion position
 
-Updated the existing README HERO block.
+Updated the existing README HERO block after the first H1 heading.
