@@ -12,7 +12,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.1.2` | `1.0` | Python standard library only | MIT |
+| `v0.1.3` | `1.0` | Python standard library only | MIT |
 
 Chinese comes first. The second half is a full English mirror.
 

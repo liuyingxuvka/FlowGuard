@@ -14,6 +14,7 @@ Include:
 - `examples/looping_workflow/`
 - `tests/`
 - `README.md`
+- `CHANGELOG.md`
 - `ROADMAP.md`
 - `LICENSE`
 - `.gitignore`
