@@ -1,16 +1,28 @@
 ---
 name: model-first-function-flow
-description: Use before implementing non-trivial features, stateful workflows, repeated bug fixes, module-boundary changes, idempotency-sensitive logic, deduplication logic, caching, retry handling, or data-flow changes. Builds an executable function-flow model with flowguard before production code changes.
+description: For coding and repository work, first decide whether FlowGuard applies. Use it before implementing non-trivial features, stateful workflows, repeated bug fixes, module-boundary changes, idempotency-sensitive logic, deduplication logic, caching, retry handling, or data-flow changes.
 ---
 
 # Model-First Function Flow
 
+For coding and repository work, first make a lightweight applicability decision:
+`use_flowguard`, `skip_with_reason`, or `needs_human_review`.
+
 Use this skill before production code changes that may affect behavior, state,
 retries, deduplication, idempotency, caching, side effects, module boundaries,
-or workflow routing.
+or workflow routing. Trivial, formatting-only, and read-only work may skip with
+a reason instead of paying the cost of a model.
 
 ## Rules
 
+- At the start of coding or repository work, ask whether FlowGuard applies.
+- Use `use_flowguard` when the work may affect behavior, state, workflow,
+  retries, deduplication, idempotency, caching, side effects, module boundaries,
+  queue/reprocessing behavior, or production conformance.
+- Use `skip_with_reason` only for clearly trivial copy edits, formatting-only
+  changes, read-only explanation, or work with no behavior/state impact.
+- Use `needs_human_review` or narrow the task when the behavior boundary is
+  unclear.
 - Do not edit production code first.
 - First define or update a FlowGuard model.
 - Represent each function block as:
@@ -63,37 +75,43 @@ Input x State -> Set(Output x State)
 
 ## Workflow
 
-1. Read `references/modeling_protocol.md`.
-2. Choose the smallest behavior boundary that can expose the risk.
-3. Copy `assets/model_template/` into the target project if no model exists.
-4. Replace the template domain with the project's abstract inputs, state,
+1. Decide applicability: `use_flowguard`, `skip_with_reason`, or
+   `needs_human_review`.
+2. If skipping, record the reason when an adoption log is being kept and stop
+   the FlowGuard workflow.
+3. If the boundary is unclear, narrow the scope or request human review before
+   deciding whether to model.
+4. Read `references/modeling_protocol.md`.
+5. Choose the smallest behavior boundary that can expose the risk.
+6. Copy `assets/model_template/` into the target project if no model exists.
+7. Replace the template domain with the project's abstract inputs, state,
    blocks, outputs, and invariants.
-5. Run the model checks.
-6. Inspect any counterexample trace.
-7. Revise the model or intended architecture until the correct model passes.
-8. Preserve important counterexamples as tests or implementation notes.
-9. Edit production code only after the executable model passes.
-10. After production code exists, export representative traces and replay them
+8. Run the model checks.
+9. Inspect any counterexample trace.
+10. Revise the model or intended architecture until the correct model passes.
+11. Preserve important counterexamples as tests or implementation notes.
+12. Edit production code only after the executable model passes.
+13. After production code exists, export representative traces and replay them
     through a conformance adapter when feasible.
-11. Fix production behavior or explicitly revise the model if replay shows
+14. Fix production behavior or explicitly revise the model if replay shows
     divergence.
-12. For workflow-heavy changes, run scenario sandbox review to compare human
+15. For workflow-heavy changes, run scenario sandbox review to compare human
     expectations with observed model behavior.
-13. For retry, refresh, waiting, queue, or reprocessing flows, run loop/stuck
+16. For retry, refresh, waiting, queue, or reprocessing flows, run loop/stuck
     review and document known limitations honestly.
-14. For progress-sensitive cycles, run progress checks and report
+17. For progress-sensitive cycles, run progress checks and report
     `potential_nontermination` or `missing_progress_guarantee` when appropriate.
-15. For contract/refinement-sensitive changes, run contract checks and report
+18. For contract/refinement-sensitive changes, run contract checks and report
     explicit contract findings.
-16. Start an `in_progress` adoption log entry when feasible and finish it with
+19. Start an `in_progress` adoption log entry when feasible and finish it with
     `completed`, `blocked`, `skipped_with_reason`, or `failed`.
-17. Store machine-readable adoption entries in `.flowguard/adoption_log.jsonl`
+20. Store machine-readable adoption entries in `.flowguard/adoption_log.jsonl`
     when feasible.
-18. Store human-readable adoption notes in `docs/flowguard_adoption_log.md` when
+21. Store human-readable adoption notes in `docs/flowguard_adoption_log.md` when
     feasible.
-19. Record skipped steps explicitly. A skipped conformance replay, loop check,
+22. Record skipped steps explicitly. A skipped conformance replay, loop check,
     or contract check is not a pass.
-20. Record friction points and elapsed time so future FlowGuard improvements are
+23. Record friction points and elapsed time so future FlowGuard improvements are
     based on real usage.
 
 ## Resource Map

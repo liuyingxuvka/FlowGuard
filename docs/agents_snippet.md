@@ -5,10 +5,14 @@ Copy this section into another repository's `AGENTS.md`.
 ```markdown
 ## Model-first function flow
 
-For non-trivial tasks involving behavior, workflows, state, module boundaries, retries, deduplication, idempotency, caching, repeated inputs, or repeated bugs, use the model-first-function-flow skill before editing production code. Build or update a flowguard model, run checks, inspect counterexamples, and only then implement production code.
+For coding and repository work, first make a lightweight FlowGuard applicability decision: `use_flowguard`, `skip_with_reason`, or `needs_human_review`. For non-trivial tasks involving behavior, workflows, state, module boundaries, retries, deduplication, idempotency, caching, repeated inputs, production conformance, or repeated bugs, use the model-first-function-flow skill before editing production code. Build or update a flowguard model, run checks, inspect counterexamples, and only then implement production code.
 
 Rules:
 
+- Start each coding or repository task by deciding whether FlowGuard applies.
+- Use `use_flowguard` when the task may affect behavior, state, workflow, retries, deduplication, idempotency, caching, side effects, module boundaries, queue/reprocessing behavior, or production conformance.
+- Use `skip_with_reason` only for clearly trivial copy edits, formatting-only changes, read-only explanation, or work with no behavior/state impact.
+- Use `needs_human_review` or narrow the task when the behavior boundary is unclear.
 - Before creating model files, verify that the real flowguard package is importable with `python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"`.
 - If flowguard is not importable, connect the real toolchain first, such as by editable install from the local FlowGuard source tree, or record the task as `blocked`. Do not hand-write a temporary mini-framework and claim full flowguard adoption.
 - When available, use the Skill helper `assets/toolchain_preflight.py --json` to discover the editable install or `PYTHONPATH` command for the active Python environment.
