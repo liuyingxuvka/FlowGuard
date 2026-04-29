@@ -17,11 +17,16 @@
 Chinese comes first. The second half is a full English mirror.
 
 FlowGuard is a lightweight Python framework for **model-first function-flow
-engineering**. It helps AI coding agents and human engineers build an
-executable abstract model before changing production code, then checks whether
-the design can produce duplicate side effects, impossible branches, broken
-idempotency, cache mismatches, stuck states, or implementation behavior that
-drifts away from the model.
+engineering**. It helps AI coding agents and human engineers move architecture
+work one step earlier: before building a new workflow or modifying an existing
+one, the agent creates an executable abstract model, simulates the finite
+branches it defined, inspects counterexample traces, and revises the design
+before changing production code.
+
+In plain terms: FlowGuard lets an AI agent test a proposed architecture while
+it is still a design, so duplicate side effects, impossible branches, broken
+idempotency, cache mismatches, stuck states, or model/code drift can be found
+before the implementation path is locked in.
 
 FlowGuard is not an LLM wrapper. It does not call model APIs. It does not
 estimate probabilities. It does not run Monte Carlo. It enumerates finite,
@@ -34,6 +39,11 @@ deterministic behavior that you explicitly model.
 ### FlowGuard 是什么
 
 FlowGuard 是一个给 AI coding agent 和工程师使用的功能流建模层。
+
+它最核心的价值是把架构设计提前变成可执行模拟：当 agent 准备新建一个流程、
+重构模块边界，或者修改 retry、cache、deduplication、idempotency 这类行为时，
+先用 FlowGuard 建一个有限抽象模型，跑 scenario、invariant、loop、contract 和
+conformance 检查，看到反例 trace 后再决定怎么改真实代码。
 
 在写真实代码之前，你先把系统行为抽象成一组 function blocks。每个
 function block 都表达成：
@@ -74,6 +84,18 @@ AI coding agent 很容易在局部修 bug 时破坏全局流程，例如：
 
 FlowGuard 的目标不是替代单元测试，而是在写生产代码前，把这些 workflow-level
 和 side-effect-level 问题先暴露出来。
+
+### 用了它和不用它的区别
+
+| 不用 FlowGuard | 用 FlowGuard |
+| --- | --- |
+| Agent 通常从自然语言需求直接进入代码修改。 | Agent 先把新架构或架构改动写成有限的 function-flow 模型。 |
+| 风险往往要到代码写完、测试失败或人工 review 时才暴露。 | 重复输入、分支、状态变化和副作用会先在模型里被枚举和检查。 |
+| “注意 dedup / retry / cache” 只是提示，agent 可能会忘。 | dedup、幂等性、状态所有权、loop、contract 等规则变成可执行 invariant 或 scenario。 |
+| 架构方案是否安全，主要靠直觉和事后调试。 | 失败路径会以 counterexample trace 的形式出现，agent 可以先修正流程设计再写代码。 |
+
+所以 FlowGuard 的实际收益不是“替 AI 写代码”，而是让 AI 在设计阶段就能模拟
+一个流程方案，提前看到架构漏洞和潜在风险，并把更稳的流程带入实现阶段。
 
 ### 它现在能检查什么
 
@@ -321,6 +343,13 @@ MIT. See [LICENSE](LICENSE).
 
 FlowGuard is a function-flow modeling layer for AI coding agents and engineers.
 
+Its core value is turning architecture design into executable simulation. When
+an agent is about to build a new workflow, refactor module boundaries, or change
+retry, cache, deduplication, or idempotency behavior, it first builds a finite
+abstract model in FlowGuard, runs scenario, invariant, loop, contract, and
+conformance checks, studies counterexample traces, and only then changes the
+real code.
+
 Before editing real production code, you describe the system as a set of
 function blocks. Each function block is modeled as:
 
@@ -364,6 +393,19 @@ example, an agent may accidentally:
 FlowGuard is not a replacement for unit tests. It is a pre-production modeling
 layer for exposing workflow-level and side-effect-level defects before the code
 change lands.
+
+### With FlowGuard vs Without It
+
+| Without FlowGuard | With FlowGuard |
+| --- | --- |
+| The agent usually moves from a natural-language request directly into code edits. | The agent first models the new architecture or architecture change as a finite function flow. |
+| Risks often appear only after code is written, tests fail, or review catches the issue. | Repeated inputs, branches, state transitions, and side effects are enumerated and checked in the model first. |
+| "Remember dedup / retry / cache" is only a reminder the agent may miss. | Deduplication, idempotency, state ownership, loops, and contracts become executable invariants or scenarios. |
+| Architecture quality depends mostly on intuition and after-the-fact debugging. | Failed paths appear as counterexample traces, so the agent can revise the workflow design before implementation. |
+
+The practical benefit is not that FlowGuard writes the production code for you.
+It gives the agent a design-time simulation layer, so architectural defects and
+workflow risks can be found before the implementation becomes harder to change.
 
 ### What It Checks Today
 
