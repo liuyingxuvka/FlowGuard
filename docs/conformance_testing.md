@@ -16,7 +16,9 @@ Conformance testing answers:
 Does the real implementation behave like the passing abstract trace?
 ```
 
-A passing model does not prove production code is correct. The production implementation can still forget a deduplication check, mutate the wrong state, score a job twice, or emit an output that no downstream code expects. Conformance replay connects the model to implementation behavior.
+A passing model does not prove production code is correct. The production implementation can still forget a deduplication check, mutate the wrong state, score a job twice, or emit an output that no downstream code expects. Conformance replay connects the model to implementation behavior and helps calibrate whether the model is faithful enough to the real workflow.
+
+If replay or real-world evidence diverges from the abstract trace, first decide whether the production code is wrong, the replay adapter is hiding behavior, or the model is too coarse. Refine the model or adapter and rerun the checks before treating the model result as production confidence.
 
 ## Trace Export
 
@@ -72,6 +74,12 @@ The adapter should project production behavior into abstract observations:
 
 FlowGuard compares these projections to the expected trace step. This keeps conformance focused on behavior, not internal implementation layout.
 
+Projection is part of the simulator boundary. It may simplify production state,
+but it must not invent missing behavior or erase raw evidence that matters for
+the current risk. If projection makes an impossible or buggy production path look
+valid, the adapter is unsound and must be refined before the replay result is
+trusted.
+
 ## Rules
 
 The default conformance rules are intentionally small:
@@ -110,11 +118,12 @@ Phase 8 is intentionally narrow:
 - no probability model;
 - no Monte Carlo;
 - adapter must be written by the user;
+- model fidelity depends on the adapter and scenario oracle;
 - not a complete formal proof;
 - not a replacement for unit tests;
 - best suited for workflow-level and side-effect-level deviations.
 
-Conformance replay is most useful after a model passes and before or during production implementation. If production behavior intentionally differs from the model, update the model explicitly rather than silently diverging.
+Conformance replay is most useful after a model passes and before or during production implementation. If production behavior intentionally differs from the model, update the model explicitly rather than silently diverging. A model that omits relevant production behavior should be treated as incomplete, not as proof that the implementation is safe.
 
 ## Relationship To Scenario And Loop Review
 
