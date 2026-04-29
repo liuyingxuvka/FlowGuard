@@ -17,6 +17,8 @@ Rules:
 - If flowguard is not importable, connect the real toolchain first, such as by editable install from the local FlowGuard source tree, or record the task as `blocked`. Do not hand-write a temporary mini-framework and claim full flowguard adoption.
 - When available, use the Skill helper `assets/toolchain_preflight.py --json` to discover the editable install or `PYTHONPATH` command for the active Python environment.
 - Do not edit production code first.
+- Treat the FlowGuard model as a falsifiable simulator of the real workflow, not as ground truth. Compare representative traces with real code paths, logs, tests, known user workflows, or conformance replay before trusting the model result.
+- Calibrate model fidelity to the current risk. If a trace is impossible, suspicious, or misses known behavior, refine the model, scenario oracle, or replay adapter and rerun the checks.
 - Represent each function block as `Input x State -> Set(Output x State)`.
 - Define finite external inputs and immutable abstract state.
 - Define possible outputs, state reads, state writes, idempotency rules, and hard invariants.
@@ -28,6 +30,7 @@ Rules:
 - Treat zero-result and non-consumable branches as reportable failures unless they are explicitly modeled as terminal.
 - Preserve expected-vs-observed status categories; do not hide `needs_human_review`, known limitations, or counterexamples.
 - For real project use, keep a project-local flowguard adoption log. Record status, trigger reason, elapsed time, model files, commands run, findings, counterexamples, skipped steps, friction points, and next actions.
+- Record model-fidelity gaps and calibration changes when the model had to be made more precise before it found the relevant issue.
 - Adoption log status should be `in_progress`, `completed`, `blocked`, `skipped_with_reason`, or `failed`; only `completed` means the adoption evidence is final and successful.
 - Prefer `.flowguard/adoption_log.jsonl` for machine-readable entries and `docs/flowguard_adoption_log.md` for human-readable notes.
 - Do not treat skipped flowguard steps as passed checks.

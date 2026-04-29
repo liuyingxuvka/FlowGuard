@@ -25,6 +25,17 @@ a reason instead of paying the cost of a model.
   unclear.
 - Do not edit production code first.
 - First define or update a FlowGuard model.
+- Treat the FlowGuard model as a falsifiable simulator of the real workflow,
+  not as ground truth. Before trusting findings, compare important model traces
+  with real code paths, logs, tests, known user workflows, or production
+  conformance evidence when available.
+- Calibrate model fidelity to the current risk. Include the control-flow
+  branches, state writes, retry/cache/deduplication behavior, terminal paths,
+  exceptions, and side effects that could affect the bug class under review.
+- If a trace is impossible, suspicious, or misses known behavior, revise the
+  model, replay adapter, or scenario oracle first, then rerun the checks. Do
+  not report model-level confidence as production confidence until conformance
+  evidence supports it.
 - Represent each function block as:
 
 ```text
@@ -88,31 +99,35 @@ Input x State -> Set(Output x State)
    blocks, outputs, and invariants.
 8. Run the model checks.
 9. Inspect any counterexample trace.
-10. Revise the model or intended architecture until the correct model passes.
-11. Preserve important counterexamples as tests or implementation notes.
-12. Edit production code only after the executable model passes.
-13. After production code exists, export representative traces and replay them
+10. Compare representative model traces against real workflow evidence when
+    available. Record fidelity gaps such as omitted branches, over-abstracted
+    state, missing side effects, or replay adapter projection that hides raw
+    production behavior.
+11. Revise the model or intended architecture until the correct model passes.
+12. Preserve important counterexamples as tests or implementation notes.
+13. Edit production code only after the executable model passes.
+14. After production code exists, export representative traces and replay them
     through a conformance adapter when feasible.
-14. Fix production behavior or explicitly revise the model if replay shows
+15. Fix production behavior or explicitly revise the model if replay shows
     divergence.
-15. For workflow-heavy changes, run scenario sandbox review to compare human
+16. For workflow-heavy changes, run scenario sandbox review to compare human
     expectations with observed model behavior.
-16. For retry, refresh, waiting, queue, or reprocessing flows, run loop/stuck
+17. For retry, refresh, waiting, queue, or reprocessing flows, run loop/stuck
     review and document known limitations honestly.
-17. For progress-sensitive cycles, run progress checks and report
+18. For progress-sensitive cycles, run progress checks and report
     `potential_nontermination` or `missing_progress_guarantee` when appropriate.
-18. For contract/refinement-sensitive changes, run contract checks and report
+19. For contract/refinement-sensitive changes, run contract checks and report
     explicit contract findings.
-19. Start an `in_progress` adoption log entry when feasible and finish it with
+20. Start an `in_progress` adoption log entry when feasible and finish it with
     `completed`, `blocked`, `skipped_with_reason`, or `failed`.
-20. Store machine-readable adoption entries in `.flowguard/adoption_log.jsonl`
+21. Store machine-readable adoption entries in `.flowguard/adoption_log.jsonl`
     when feasible.
-21. Store human-readable adoption notes in `docs/flowguard_adoption_log.md` when
+22. Store human-readable adoption notes in `docs/flowguard_adoption_log.md` when
     feasible.
-22. Record skipped steps explicitly. A skipped conformance replay, loop check,
+23. Record skipped steps explicitly. A skipped conformance replay, loop check,
     or contract check is not a pass.
-23. Record friction points and elapsed time so future FlowGuard improvements are
-    based on real usage.
+24. Record model-fidelity gaps, calibration changes, friction points, and elapsed
+    time so future FlowGuard improvements are based on real usage.
 
 ## Resource Map
 
