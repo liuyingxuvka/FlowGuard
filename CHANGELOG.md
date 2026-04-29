@@ -10,4 +10,6 @@
   production behavior.
 - Updated the reusable AGENTS.md snippet to record model-fidelity gaps and
   calibration changes.
-
+- Refreshed the README positioning around FlowGuard as an architecture
+  simulator / finite-state workflow simulator, including the hero tagline and
+  AI-agent install path.

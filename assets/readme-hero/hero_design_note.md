@@ -2,7 +2,7 @@
 
 ## Project summary
 
-FlowGuard is a lightweight Python framework for modeling function flows before production changes and checking traces, invariants, progress, and conformance.
+FlowGuard is a lightweight architecture simulator and software workflow simulator that turns planned software workflows into finite-state executable models before production changes, then checks traces, invariants, progress, and conformance.
 
 ## Target users
 
@@ -14,11 +14,11 @@ Local edits can fix a nearby symptom while breaking workflow-level contracts suc
 
 ## Core workflow
 
-Define small function-flow models, explore finite traces, inspect counterexamples, revise the design, and replay representative traces against implementation adapters.
+Define finite-state function-flow models, explore reachable traces and state graphs, inspect counterexamples, revise the design, and replay representative traces against implementation adapters.
 
 ## Hero tagline
 
-A model-first function-flow checker for agents and engineers changing stateful software safely.
+An architecture simulator for checking software workflows before AI agents write code.
 
 ## Visual concept
 
