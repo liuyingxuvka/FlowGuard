@@ -50,3 +50,15 @@ python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"
 Record the chosen integration path in the adoption log. If the real toolchain
 cannot be connected, record the task as blocked or partial rather than as a
 passed FlowGuard check.
+
+When the target environment can run `python -m flowguard`, prefer the
+low-friction adoption CLI for start and finish entries:
+
+```powershell
+python -m flowguard adoption-start --task-id <id> --task-summary "<summary>" --trigger-reason "<reason>"
+python -m flowguard adoption-finish --task-id <id> --task-summary "<summary>" --trigger-reason "<reason>" --command "<check command>"
+```
+
+The CLI appends `.flowguard/adoption_log.jsonl` and
+`docs/flowguard_adoption_log.md`. It reduces logging friction but does not
+replace executable checks.

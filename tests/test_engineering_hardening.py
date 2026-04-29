@@ -3,6 +3,7 @@ import subprocess
 import sys
 import unittest
 
+from flowguard.pytest_adapter import assert_no_executable_corpus_regression
 from flowguard.schema import SCHEMA_VERSION, make_artifact, trace_artifact
 from flowguard.templates import project_template_files
 from flowguard.trace import Trace
@@ -62,6 +63,30 @@ class EngineeringHardeningTests(unittest.TestCase):
         self.assertEqual(0, completed.returncode, completed.stdout + completed.stderr)
         self.assertIn("flowguard Adoption Log", completed.stdout)
         self.assertIn("elapsed time", completed.stdout)
+
+    def test_cli_benchmark_wrapper_preserves_baseline_gate(self):
+        completed = subprocess.run(
+            [sys.executable, "-m", "flowguard", "benchmark"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(0, completed.returncode, completed.stdout + completed.stderr)
+        self.assertIn("flowguard executable corpus review", completed.stdout)
+        self.assertIn("real_model_cases: 2100", completed.stdout)
+        self.assertIn("generic_fallback_cases: 0", completed.stdout)
+
+    def test_pytest_adapter_style_regression_assertion(self):
+        class Report:
+            ok = True
+            total_cases = 2100
+            executable_cases = 2100
+            not_executable_yet = 0
+            real_model_cases = 2100
+            generic_fallback_cases = 0
+            failure_cases = 0
+
+        assert_no_executable_corpus_regression(Report())
 
 
 if __name__ == "__main__":

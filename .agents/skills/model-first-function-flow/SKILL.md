@@ -1,6 +1,6 @@
 ---
 name: model-first-function-flow
-description: For coding and repository work, first decide whether FlowGuard applies. Use it before implementing non-trivial features, stateful workflows, repeated bug fixes, module-boundary changes, idempotency-sensitive logic, deduplication logic, caching, retry handling, or data-flow changes.
+description: For coding and repository work, first decide whether flowguard applies. Use before implementing non-trivial features, stateful workflows, repeated bug fixes, module-boundary changes, idempotency-sensitive logic, deduplication logic, caching, retry handling, or data-flow changes.
 ---
 
 # Model-First Function Flow
@@ -10,139 +10,155 @@ For coding and repository work, first make a lightweight applicability decision:
 
 Use this skill before production code changes that may affect behavior, state,
 retries, deduplication, idempotency, caching, side effects, module boundaries,
-or workflow routing. Trivial, formatting-only, and read-only work may skip with
-a reason instead of paying the cost of a model.
+or data flow. Trivial, formatting-only, and read-only work may skip with a
+reason instead of paying the cost of a model.
 
-## Rules
+## Modes
 
-- At the start of coding or repository work, ask whether FlowGuard applies.
-- Use `use_flowguard` when the work may affect behavior, state, workflow,
-  retries, deduplication, idempotency, caching, side effects, module boundaries,
-  queue/reprocessing behavior, or production conformance.
-- Use `skip_with_reason` only for clearly trivial copy edits, formatting-only
-  changes, read-only explanation, or work with no behavior/state impact.
-- Use `needs_human_review` or narrow the task when the behavior boundary is
-  unclear.
-- Do not edit production code first.
-- First define or update a FlowGuard model.
-- Treat the FlowGuard model as a falsifiable simulator of the real workflow,
-  not as ground truth. Before trusting findings, compare important model traces
-  with real code paths, logs, tests, known user workflows, or production
+- `read_only_audit`: inspect an existing project without changing production
+  code. Run import preflight, existing FlowGuard models/replays when present,
+  adoption evidence review, and stale fallback checks. Do not create a new model
+  merely because the task is read-only.
+- `model_first_change`: production behavior may change. Build or update the
+  smallest useful model before editing production code.
+- `model_maintenance`: existing `.flowguard` models, replay adapters, or
+  adoption evidence appear stale. Update those artifacts before making claims
+  from them.
+
+## Daily Rules
+
+- Start with the smallest useful FlowGuard model. The minimal path remains
+  `State + FunctionBlock + Invariant + Explorer`.
+- Keep the API surface boundary clear. Core APIs are for direct modeling and
+  exploration; helper APIs reduce boilerplate; reporting APIs explain gaps;
+  evidence and benchmark APIs validate FlowGuard itself.
+- Do not require ordinary project work to run FlowGuard's internal evidence
+  suites. Use `docs/framework_upgrade_checks.md` only for FlowGuard framework
+  upgrades, benchmark claims, or broad capability claims.
+- Treat the model as a falsifiable simulator, not ground truth. Compare
+  important traces with real code paths, logs, tests, known workflows, or
   conformance evidence when available.
-- Calibrate model fidelity to the current risk. Include the control-flow
-  branches, state writes, retry/cache/deduplication behavior, terminal paths,
-  exceptions, and side effects that could affect the bug class under review.
-- If a trace is impossible, suspicious, or misses known behavior, revise the
-  model, replay adapter, or scenario oracle first, then rerun the checks. Do
-  not report model-level confidence as production confidence until conformance
-  evidence supports it.
+- Calibrate model fidelity to the current risk. Include control-flow branches,
+  state writes, retry/cache/deduplication behavior, terminal paths, exceptions,
+  and side effects that could affect the bug class under review.
+- Before trusting an invariant over a state field, create a state write
+  inventory. Search for every production writer of fields such as
+  `recommendation_status`, `output_status`, `analysis_json`, cache values,
+  queue status, retry counters, and side-effect records. Record modeled writers
+  and skipped writers with reasons.
 - Represent each function block as:
 
 ```text
 Input x State -> Set(Output x State)
 ```
 
-- Define external inputs.
-- Define abstract finite state.
-- Define possible outputs.
-- Define state reads and writes.
-- Define idempotency rules.
-- Define hard invariants.
-- Run FlowGuard checks.
-- Inspect counterexample traces.
-- If the model fails, revise the model or architecture before production code.
-- Only after the model passes may production code be implemented, unless the
-  user explicitly waives modeling.
-- Do not weaken hard invariants merely to pass checks.
-- Do not replace executable modeling with prose.
+- Define external inputs, finite abstract state, possible outputs, state reads,
+  state writes, idempotency rules, and hard invariants.
+- Use property factories or domain packs when they fit, but do not make them a
+  required modeling layer.
+- For recurring Sleep/Dream/Architect/Installer/Reviewer style maintenance
+  systems, use the optional maintenance workflow scaffold when it saves setup
+  time: `python -m flowguard maintenance-template --output .`.
+- Use `FlowGuardCheckPlan` and `run_model_first_checks()` when useful for a
+  low-friction agent path. Direct `Explorer(...)` usage remains valid.
 - Always include repeated-input exploration when duplicate side effects are
   possible.
-- After production code exists, export representative traces and replay them
-  through a conformance adapter when feasible.
-- For retry, refresh, queue, waiting, reprocessing, human review loops,
-  uncertain AI decisions, caching, deduplication, or side effects, run scenario
-  sandbox review and loop/stuck review when they apply.
-- For progress-sensitive workflows, use progress checks when a cycle has an
-  escape edge but no forced progress guarantee.
-- For module-boundary or refinement-sensitive work, define FunctionContract
-  checks for input/output compatibility, forbidden writes, ownership,
-  traceability, and projection refinement.
-- Trivial copy edits, formatting-only work, and read-only explanation tasks may
-  skip FlowGuard, but record the reason when an adoption log is being kept.
-- If the task boundary is unclear, mark it as `needs_human_review` or narrow the
-  scope before deciding to skip or model.
-- For real project adoption, record a project-local FlowGuard adoption log with
-  status, trigger reason, elapsed time, commands, findings, counterexamples,
-  skipped steps, friction points, and next actions.
-- Adoption log status must be one of `in_progress`, `completed`, `blocked`,
-  `skipped_with_reason`, or `failed`.
-- Do not let adoption logging replace executable model checks.
-- Before modeling in another repository, verify the real `flowguard` package is
-  importable with `python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"`.
-- If `flowguard` is not importable, connect the real toolchain first with an
-  editable install or a documented `PYTHONPATH`; do not write a temporary mini-framework and claim full FlowGuard adoption.
-- If the real toolchain cannot be connected, record the task as
-  `blocked/partial` instead of treating it as a passed FlowGuard check.
+- Inspect counterexample traces. If a trace is impossible, suspicious, or
+  misses known behavior, revise the model, scenario oracle, or replay adapter
+  before reporting confidence.
+- Do not weaken hard invariants merely to pass checks.
+- Do not replace executable modeling with prose.
+- Use model quality audit and summary reports as optional reporting aids. Audit
+  warnings are confidence boundaries, not hard failures.
+- Skipped or not-run checks must remain visible. Skipped is not pass.
+
+## Conformance Replay
+
+After the model passes, conformance replay should be the default next check when
+any of these are true:
+
+- the invariant depends on a state field with multiple production write points;
+- production code has database writes or other durable side effects;
+- runtime, cleanup, repair, or finalizer paths can update the same state;
+- the result will be reported as production confidence rather than model-level
+  confidence;
+- adapter projection is required to compare real state with abstract state.
+
+If replay is skipped in one of these cases, record why and report model-level
+confidence only. A skipped replay is not a pass.
+
+## Adoption Logging
+
+For real project use, keep a project-local adoption log when feasible:
+
+- `.flowguard/adoption_log.jsonl`
+- `docs/flowguard_adoption_log.md`
+
+Prefer the low-friction CLI when available:
+
+```powershell
+python -m flowguard adoption-start --task-id <id> --task-summary "<summary>" --trigger-reason "<reason>"
+python -m flowguard adoption-finish --task-id <id> --task-summary "<summary>" --trigger-reason "<reason>" --command "<check command>"
+```
+
+Use final statuses honestly: `completed`, `blocked`, `skipped_with_reason`, or
+`failed`. `in_progress` is useful while working, but it is not final evidence.
+Do not let adoption logging replace executable checks.
 
 ## Workflow
 
 1. Decide applicability: `use_flowguard`, `skip_with_reason`, or
    `needs_human_review`.
-2. If skipping, record the reason when an adoption log is being kept and stop
+2. Choose mode: `read_only_audit`, `model_first_change`, or
+   `model_maintenance`.
+3. If skipping, record the reason when an adoption log is being kept and stop
    the FlowGuard workflow.
-3. If the boundary is unclear, narrow the scope or request human review before
-   deciding whether to model.
-4. Read `references/modeling_protocol.md`.
-5. Choose the smallest behavior boundary that can expose the risk.
-6. Copy `assets/model_template/` into the target project if no model exists.
-7. Replace the template domain with the project's abstract inputs, state,
-   blocks, outputs, and invariants.
-8. Run the model checks.
-9. Inspect any counterexample trace.
-10. Compare representative model traces against real workflow evidence when
-    available. Record fidelity gaps such as omitted branches, over-abstracted
-    state, missing side effects, or replay adapter projection that hides raw
-    production behavior.
-11. Revise the model or intended architecture until the correct model passes.
+4. Verify the real package is importable before modeling in another repository:
+   `python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"`.
+5. If import fails, connect the real toolchain or record the task as
+   blocked/partial. do not write a temporary mini-framework and claim full
+   adoption.
+6. Start an `in_progress` adoption log entry when feasible.
+7. Read the modeling protocol and choose the smallest behavior boundary that
+   can expose the risk.
+8. Build or update the model with explicit inputs, state, blocks, outputs,
+   reads, writes, idempotency, and invariants.
+9. Build the state write inventory for fields used by invariants.
+10. Run `run_model_first_checks()` when useful, or run Explorer directly.
+11. Inspect counterexamples and revise the model or intended architecture until
+    the correct model passes.
 12. Preserve important counterexamples as tests or implementation notes.
-13. Edit production code only after the executable model passes.
-14. After production code exists, export representative traces and replay them
-    through a conformance adapter when feasible.
-15. Fix production behavior or explicitly revise the model if replay shows
-    divergence.
-16. For workflow-heavy changes, run scenario sandbox review to compare human
-    expectations with observed model behavior.
-17. For retry, refresh, waiting, queue, or reprocessing flows, run loop/stuck
-    review and document known limitations honestly.
-18. For progress-sensitive cycles, run progress checks and report
-    `potential_nontermination` or `missing_progress_guarantee` when appropriate.
-19. For contract/refinement-sensitive changes, run contract checks and report
-    explicit contract findings.
-20. Start an `in_progress` adoption log entry when feasible and finish it with
-    `completed`, `blocked`, `skipped_with_reason`, or `failed`.
-21. Store machine-readable adoption entries in `.flowguard/adoption_log.jsonl`
-    when feasible.
-22. Store human-readable adoption notes in `docs/flowguard_adoption_log.md` when
-    feasible.
-23. Record skipped steps explicitly. A skipped conformance replay, loop check,
-    or contract check is not a pass.
-24. Record model-fidelity gaps, calibration changes, friction points, and elapsed
-    time so future FlowGuard improvements are based on real usage.
+13. Edit production code only after executable model checks pass, unless the
+    user explicitly waives modeling.
+14. Run scenario review, loop/stuck review, progress checks, contracts, or
+    conformance replay when those risks apply.
+15. Finish the adoption log with a final status and recorded checks, gaps, and
+    next actions.
 
 ## Resource Map
 
 - `references/modeling_protocol.md`: step-by-step modeling protocol.
-- `references/invariant_examples.md`: invariant patterns for duplicate records,
-  repeated scoring, cache consistency, state ownership, and non-consumable
-  outputs.
+- `references/invariant_examples.md`: invariant patterns.
+- Repository-level `docs/api_surface.md`: public API layer map.
+- Repository-level `docs/state_write_inventory.md`: lightweight state writer
+  checklist for invariant fields.
+- Repository-level `docs/productized_helpers.md`: optional helper-layer
+  reference.
+- Repository-level `docs/check_plan.md`: optional RiskProfile,
+  FlowGuardCheckPlan, runner, and packs.
+- Repository-level `docs/conformance_testing.md`: replay triggers and adapter
+  guidance.
+- `python -m flowguard maintenance-template --output .`: optional scaffold for
+  multi-role maintenance flows.
+- Repository-level `docs/framework_upgrade_checks.md`: FlowGuard-only upgrade
+  and benchmark reference.
 - `references/adoption_protocol.md`: real project adoption logging protocol.
-- `references/project_integration.md`: how to connect the real FlowGuard package
-  in another repository before using the skill.
-- `assets/model_template/model.py`: minimal FlowGuard model template.
+- `references/project_integration.md`: how to connect the real package before
+  using the skill in another repository.
+- `assets/model_template/model.py`: minimal model template.
 - `assets/model_template/run_checks.py`: minimal check runner.
-- `assets/adoption_log_template.md`: human-readable adoption log template.
 - `assets/toolchain_preflight.py`: standard-library helper for detecting or
-  installing a local FlowGuard source checkout in the active Python environment.
+  installing the local FlowGuard toolchain in the active Python environment.
 
 ## Constraints
 

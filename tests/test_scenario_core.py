@@ -3,7 +3,7 @@ import unittest
 from dataclasses import dataclass
 
 from flowguard import FunctionResult, Invariant, InvariantResult, Workflow
-from flowguard.review import review_scenarios
+from flowguard.review import review_scenarios, scenario_status_ok
 from flowguard.scenario import OracleCheckResult, Scenario, ScenarioExpectation, run_exact_sequence
 
 
@@ -133,6 +133,7 @@ class ScenarioCoreTests(unittest.TestCase):
 
         report = review_scenarios(scenarios)
         statuses = {result.scenario_name: result.status for result in report.results}
+        ok_values = {result.scenario_name: result.ok for result in report.results}
 
         self.assertEqual("pass", statuses["ok_case"])
         self.assertEqual("expected_violation_observed", statuses["expected_violation"])
@@ -140,9 +141,24 @@ class ScenarioCoreTests(unittest.TestCase):
         self.assertEqual("missing_expected_violation", statuses["missing_expected_violation"])
         self.assertEqual("needs_human_review", statuses["needs_review"])
         self.assertEqual("oracle_mismatch", statuses["oracle_mismatch"])
+        self.assertIs(True, ok_values["ok_case"])
+        self.assertIs(True, ok_values["expected_violation"])
+        self.assertIs(False, ok_values["unexpected_violation"])
+        self.assertIs(False, ok_values["missing_expected_violation"])
+        self.assertIs(None, ok_values["needs_review"])
+        self.assertIs(False, ok_values["oracle_mismatch"])
         self.assertFalse(report.ok)
-        self.assertIn("Scenario: ok_case", report.format_text())
-        self.assertEqual(report.total_scenarios, json.loads(report.to_json_text())["total_scenarios"])
+        formatted = report.format_text()
+        self.assertIn("Scenario: ok_case", formatted)
+        self.assertIn("Outcome:", formatted)
+        data = json.loads(report.to_json_text())
+        self.assertEqual(report.total_scenarios, data["total_scenarios"])
+        first_result = data["results"][0]
+        self.assertIs(True, first_result["ok"])
+        self.assertIn("status_explanation", first_result)
+
+    def test_scenario_status_ok_explains_unknown_as_review_needed(self):
+        self.assertIsNone(scenario_status_ok("unrecognized_status"))
 
 
 if __name__ == "__main__":

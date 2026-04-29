@@ -20,6 +20,24 @@ A passing model does not prove production code is correct. The production implem
 
 If replay or real-world evidence diverges from the abstract trace, first decide whether the production code is wrong, the replay adapter is hiding behavior, or the model is too coarse. Refine the model or adapter and rerun the checks before treating the model result as production confidence.
 
+## Default Replay Triggers
+
+"When feasible" should not mean "usually skipped." After a model passes,
+conformance replay should be the default next check when the production boundary
+has any of these traits:
+
+- multiple functions, jobs, or methods can write a state field named by an
+  invariant;
+- the change includes database writes or other durable side effects;
+- runtime, cleanup, repair, or finalizer paths can update the same state;
+- the model result will be reported as production confidence rather than
+  model-level confidence;
+- adapter projection is required to compare production state with abstract
+  state.
+
+If replay is skipped in one of these cases, record why it was skipped and what
+confidence remains. A skipped replay is not a pass.
+
 ## Trace Export
 
 A model trace records:
@@ -107,6 +125,30 @@ python examples/job_matching/run_conformance.py
 ```
 
 The correct implementation passes. The duplicate-record implementation fails with a duplicate `application_records` violation. The repeated-scoring implementation fails with a repeated `score_attempts` violation.
+
+## FlowGuard Self-Review Example
+
+FlowGuard also has a conformance replay for its own adoption workflow:
+
+- `CorrectFlowguardOrchestrator`: production-like mock orchestrator for Skill
+  adoption flow;
+- `BrokenNoConformanceOrchestrator`: omits conformance replay for
+  production-facing work;
+- `BrokenToolchainSubstituteOrchestrator`: hides a missing formal package behind
+  an ad-hoc substitute;
+- `FlowguardSelfReviewReplayAdapter`: maps self-review trace steps to the
+  orchestrator methods and projects state/output back to the abstract model.
+
+Run it with:
+
+```powershell
+python examples/flowguard_self_review/run_conformance.py
+python -m flowguard self-conformance
+```
+
+This is not user-facing product behavior. It is a regression guard that checks
+whether the model-first adoption protocol still matches the orchestrator logic
+that future agents are expected to follow.
 
 ## Limits
 

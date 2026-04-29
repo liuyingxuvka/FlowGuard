@@ -110,3 +110,15 @@ That project rule should require:
 - model-first checks before production edits;
 - adoption log entries for real use;
 - explicit blocked status when the real toolchain is unavailable.
+
+When `python -m flowguard` is available, the lightweight adoption CLI can reduce
+manual log drift:
+
+```powershell
+python -m flowguard adoption-start --task-id <id> --task-summary "<summary>" --trigger-reason "<reason>"
+python -m flowguard adoption-finish --task-id <id> --task-summary "<summary>" --trigger-reason "<reason>" --command "<check command>"
+```
+
+These commands append `.flowguard/adoption_log.jsonl` and
+`docs/flowguard_adoption_log.md`. They are evidence helpers, not a substitute
+for executable model checks.

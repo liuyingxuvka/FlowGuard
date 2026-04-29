@@ -22,8 +22,10 @@ Rules:
 - Represent each function block as `Input x State -> Set(Output x State)`.
 - Define finite external inputs and immutable abstract state.
 - Define possible outputs, state reads, state writes, idempotency rules, and hard invariants.
+- Before trusting an invariant over a state field, make a state write inventory: search for every production writer of fields such as `recommendation_status`, `output_status`, `analysis_json`, cache values, queue status, retry counters, and side-effect records. Record modeled writers and skipped writers with reasons.
 - Run flowguard with repeated-input exploration when duplicate side effects are possible.
 - Run scenario review, conformance replay, loop/stuck review, progress/fairness checks, and contract checks when those risks apply.
+- Default to a small conformance replay when production logic has multiple state write points, database side effects, runtime/cleanup/finalizer paths, or production-confidence claims. If replay is skipped, record why; skipped is not pass.
 - Treat UI state-flow, product architecture, orchestration, and module-boundary changes as model-first unless they are clearly trivial.
 - Trivial copy edits, formatting-only work, and read-only explanation tasks may skip flowguard with an explicit reason.
 - If the task boundary is unclear, mark it as `needs_human_review` or narrow the scope before deciding to skip or model.
@@ -33,6 +35,7 @@ Rules:
 - Record model-fidelity gaps and calibration changes when the model had to be made more precise before it found the relevant issue.
 - Adoption log status should be `in_progress`, `completed`, `blocked`, `skipped_with_reason`, or `failed`; only `completed` means the adoption evidence is final and successful.
 - Prefer `.flowguard/adoption_log.jsonl` for machine-readable entries and `docs/flowguard_adoption_log.md` for human-readable notes.
+- When available, use `python -m flowguard adoption-start ...` before model-first work and `python -m flowguard adoption-finish ...` after checks to reduce logging drift.
 - Do not treat skipped flowguard steps as passed checks.
 - Do not call LLM APIs, databases, network services, clocks, random sources, Monte Carlo samplers, or external packages from the model.
 - Do not weaken hard invariants merely to pass checks.

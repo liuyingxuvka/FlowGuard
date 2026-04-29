@@ -12,6 +12,43 @@ from .trace import Trace
 from .workflow import Workflow
 
 
+SCENARIO_STATUS_OK = {
+    "pass": True,
+    "expected_violation_observed": True,
+    "unexpected_violation": False,
+    "missing_expected_violation": False,
+    "oracle_mismatch": False,
+    "needs_human_review": None,
+    "known_limitation": None,
+}
+
+SCENARIO_STATUS_EXPLANATIONS = {
+    "pass": "scenario matched the expected ok behavior",
+    "expected_violation_observed": "scenario intentionally expected a violation and FlowGuard observed it",
+    "unexpected_violation": "scenario expected ok behavior but observed a violation",
+    "missing_expected_violation": "scenario expected a violation but the model did not produce it",
+    "oracle_mismatch": "scenario did not satisfy its declared oracle or evidence requirements",
+    "needs_human_review": "scenario is neither pass nor fail until a human supplies the missing policy expectation",
+    "known_limitation": "scenario records a known limitation rather than a pass or failure",
+}
+
+
+def scenario_status_ok(status: str) -> bool | None:
+    """Return the tri-state ok value for a scenario review status."""
+
+    return SCENARIO_STATUS_OK.get(str(status).strip().lower())
+
+
+def scenario_status_explanation(status: str) -> str:
+    """Return a short explanation for a scenario review status."""
+
+    normalized = str(status).strip().lower()
+    return SCENARIO_STATUS_EXPLANATIONS.get(
+        normalized,
+        f"unknown scenario review status {normalized!r}; treat it as needing review",
+    )
+
+
 @dataclass(frozen=True)
 class OracleReviewResult:
     """Expected-vs-observed result for one scenario."""
@@ -23,6 +60,17 @@ class OracleReviewResult:
     evidence: tuple[str, ...] = ()
     counterexample_trace: Trace | None = None
     scenario_run: ScenarioRun | None = None
+    ok: bool | None = None
+    status_explanation: str = ""
+
+    def __post_init__(self) -> None:
+        status = str(self.status).strip().lower()
+        object.__setattr__(self, "status", status)
+        object.__setattr__(self, "evidence", tuple(self.evidence))
+        if self.ok is None:
+            object.__setattr__(self, "ok", scenario_status_ok(status))
+        if not self.status_explanation:
+            object.__setattr__(self, "status_explanation", scenario_status_explanation(status))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -30,6 +78,8 @@ class OracleReviewResult:
             "expected_summary": self.expected_summary,
             "observed_summary": self.observed_summary,
             "status": self.status,
+            "ok": self.ok,
+            "status_explanation": self.status_explanation,
             "evidence": list(self.evidence),
             "counterexample_trace": (
                 self.counterexample_trace.to_dict()
@@ -82,6 +132,7 @@ class ScenarioReviewReport:
                     f"Expected: {result.expected_summary}",
                     f"Observed: {result.observed_summary}",
                     f"Status: {result.status.upper()}",
+                    f"Outcome: {result.status_explanation}",
                     "Evidence:",
                 ]
             )
@@ -265,4 +316,6 @@ __all__ = [
     "ScenarioReviewReport",
     "review_scenario",
     "review_scenarios",
+    "scenario_status_explanation",
+    "scenario_status_ok",
 ]

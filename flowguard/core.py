@@ -112,6 +112,10 @@ class Invariant:
     name: str
     description: str
     predicate: Callable[[Any, Any], bool | InvariantResult]
+    metadata: FrozenMetadata = field(default_factory=tuple, compare=False)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "metadata", freeze_metadata(self.metadata))
 
     def check(self, state: Any, trace: Any) -> InvariantResult:
         try:

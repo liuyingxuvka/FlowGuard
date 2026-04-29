@@ -1,0 +1,22 @@
+"""Run the real software problem corpus quality review."""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from examples.problem_corpus.matrix import review_problem_corpus  # noqa: E402
+
+
+def main() -> int:
+    report = review_problem_corpus()
+    print(report.format_text())
+    return 0 if report.ok else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

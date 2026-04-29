@@ -85,6 +85,16 @@ This is the main difference from ordinary unit tests. The sandbox checks whether
 - `needs_human_review`: current model intentionally does not claim the scenario is fully validated.
 - `known_limitation`: current algorithm cannot prove or disprove the desired property honestly.
 
+`OracleReviewResult.to_dict()` also includes a tri-state `ok` field:
+
+- `true`: `pass` or `expected_violation_observed`;
+- `false`: unexpected violation, missing expected violation, or oracle mismatch;
+- `null`: `needs_human_review`, `known_limitation`, or an unknown status.
+
+`ok: null` is not a hidden pass. It means the scenario is intentionally outside
+the current automated verdict and should be reported with its
+`status_explanation`.
+
 ## Why Needs Human Review Is Valid
 
 Some scenarios expose policy gaps. In job matching, the same `job_id` may arrive with conflicting features. The current model treats `job_id` as identity and uses cached score, but it does not explicitly model conflict detection. That scenario is marked `needs_human_review` rather than pretending the behavior is fully proven.

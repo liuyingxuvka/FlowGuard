@@ -84,6 +84,19 @@ append_jsonl(".flowguard/adoption_log.jsonl", entry)
 append_markdown_log("docs/flowguard_adoption_log.md", entry)
 ```
 
+## Minimal CLI
+
+When the installed FlowGuard version supports it, use the thin CLI to reduce
+logging drift:
+
+```powershell
+python -m flowguard adoption-start --task-id <id> --task-summary "<summary>" --trigger-reason "<reason>"
+python -m flowguard adoption-finish --task-id <id> --task-summary "<summary>" --trigger-reason "<reason>" --command "<check command>"
+```
+
+The CLI appends both `.flowguard/adoption_log.jsonl` and
+`docs/flowguard_adoption_log.md`. It does not replace executable model checks.
+
 ## Review
 
 At the end of the task, summarize:
