@@ -14,415 +14,23 @@
 | --- | --- | --- | --- |
 | `v0.2.0` | `1.0` | Python standard library only | MIT |
 
-中文在前，后半部分是完整英文镜像。
-
-FlowGuard 的一句话定位：它是一个给 AI coding agent 使用的架构模拟器，把准备
-实现的软件流程先变成有限状态自动机式的可执行模型，在写真实代码之前枚举
-流程路径、检查不变量，并输出能解释问题的反例 trace。
+English comes first; the second half is a full Chinese mirror.
 
 In one sentence: FlowGuard is an architecture simulator for AI coding agents. It
 turns a planned software workflow into a finite-state, executable model before
 real code is written, then checks reachable paths and reports counterexample
 traces.
 
+FlowGuard is not an LLM wrapper, does not call model APIs, does not estimate
+probabilities, and does not run Monte Carlo. It performs finite, deterministic,
+reviewable workflow simulation.
+
+FlowGuard 的一句话定位：它是一个给 AI coding agent 使用的架构模拟器，把准备
+实现的软件流程先变成有限状态自动机式的可执行模型，在写真实代码之前枚举
+流程路径、检查不变量，并输出能解释问题的反例 trace。
+
 FlowGuard 不是 LLM wrapper，不调用模型 API，不做概率估计，也不跑 Monte Carlo。
 它做的是有限、确定、可审查的流程模拟。
-
----
-
-## 中文说明
-
-### FlowGuard 是什么
-
-FlowGuard 是一个在写代码前使用的架构模拟器 / 软件流程模拟器。它不是让 AI
-直接多写一点代码，而是给 AI coding agent 一个先模拟代码流程的环境。
-
-当 agent 要新建 workflow、重构模块边界，或者修改 retry、cache、
-deduplication、idempotency 这类容易出全局问题的逻辑时，FlowGuard 要求它先把
-计划中的程序流程压缩成一个有限、可执行、可枚举的模型。然后 FlowGuard 会跑
-这个模型，保留每条 trace，检查不变量、场景预期、loop/progress、contract 和
-真实实现一致性。真正有价值的地方在于：如果流程有漏洞，反例会在代码写出来之前
-出现。
-
-### 核心吸引点
-
-- 它把“先想清楚架构”变成可以运行的模拟，而不是停留在自然语言讨论。
-- 它把“注意 dedup / retry / cache / 幂等性”变成可执行 invariant，而不是给
-  agent 的一句提醒。
-- 它看的是整个 workflow 的状态转移，不只是某个函数局部能不能跑。
-- 它会枚举重复输入、分支、死路、循环和状态漂移，输出能复现问题的
-  counterexample trace。
-- 它适合放进 Codex 或其他 AI coding agent 的工作流里，让 agent 先模拟、再写码。
-
-### 数学模拟方法：有限状态自动机
-
-FlowGuard 的核心方法接近一个工程化的有限状态自动机 / 有限状态转移系统。你先
-定义四类东西：
-
-- 外部输入：进入 workflow 的事件、对象、重试请求、队列任务或用户动作。
-- 抽象状态：只保留能暴露风险的有限状态，例如记录、缓存、attempt、side effect、
-  decision、owner。
-- 状态转移：每个 function block 如何从当前输入和当前状态，产生输出和新状态。
-- 检查规则：invariant、scenario oracle、loop/progress 规则、contract 和
-  conformance adapter。
-
-在数学上，每个 function block 都表达成：
-
-```text
-F: Input x State -> Set(Output x State)
-```
-
-意思是：一个功能块接收输入和当前状态，返回所有可能的 `(输出, 新状态)`。如果
-只有一个结果，它就是确定性转移；如果有多个结果，它就是显式分支；如果没有结果，
-它就是一条需要报告的死路。FlowGuard 不会抽样，也不会算概率，而是把你建模出来
-的可能结果全部列出来。
-
-多个 function blocks 可以组合成 workflow：
-
-```text
-Workflow = F_C o F_B o F_A
-```
-
-因为每个功能块都可能分支，workflow 会形成一棵执行树或一个可达状态图：
-
-```text
-(input sequence, initial state)
-  -> reachable states
-  -> traces
-  -> invariant / scenario / loop / contract findings
-  -> counterexample trace
-```
-
-这就是 README 里说的“架构模拟”：FlowGuard 在有限边界内穷举这个状态机的路径，
-看每条路径是否违反不变量、场景预期、状态所有权、幂等性、终止性或真实代码一致性。
-
-### 为什么需要它
-
-AI coding agent 很容易在局部修 bug 时破坏全局流程，例如：
-
-- 给同一个对象重复打分；
-- 给同一个 item 追加两条记录；
-- 忘记 deduplication；
-- retry 时重复发送副作用；
-- cache 和 source of truth 不一致；
-- 一个模块修改了另一个模块拥有的状态；
-- 下游函数无法消费上游输出；
-- 记录已经产生，但决策没有产生；
-- 同一个对象同时出现 apply 和 ignore；
-- workflow 有出口，但没有进展保证；
-- 真实代码看起来能跑，但偏离了抽象设计。
-
-FlowGuard 的目标不是替代单元测试，而是在写生产代码前，把这些 workflow-level
-和 side-effect-level 问题先暴露出来。
-
-### 用了它和不用它的区别
-
-| 不用 FlowGuard | 用 FlowGuard |
-| --- | --- |
-| Agent 通常从自然语言需求直接进入代码修改。 | Agent 先把新架构或架构改动写成有限的 function-flow 模型。 |
-| 风险往往要到代码写完、测试失败或人工 review 时才暴露。 | 重复输入、分支、状态变化和副作用会先在模型里被枚举和检查。 |
-| “注意 dedup / retry / cache” 只是提示，agent 可能会忘。 | dedup、幂等性、状态所有权、loop、contract 等规则变成可执行 invariant 或 scenario。 |
-| 架构方案是否安全，主要靠直觉和事后调试。 | 失败路径会以 counterexample trace 的形式出现，agent 可以先修正流程设计再写代码。 |
-
-所以 FlowGuard 的实际收益不是“替 AI 写代码”，而是让 AI 在设计阶段就能模拟
-一个流程方案，提前看到架构漏洞和潜在风险，并把更稳的流程带入实现阶段。
-
-### 它现在能检查什么
-
-| 能力 | FlowGuard 做什么 |
-| --- | --- |
-| Finite-state simulation | 把输入序列、抽象状态和状态转移展开成可达状态图与 trace |
-| Function-flow model | 用 `Input x State -> Set(Output x State)` 表达功能块 |
-| Workflow exploration | 展开多分支 workflow，保留每条 trace |
-| Invariant checking | 检查重复记录、重复处理、矛盾决策、缓存不一致等硬约束 |
-| Repeated input | 明确探索 `[A]`、`[A, A]`、`[A, B, A]` 这类重复输入 |
-| Scenario sandbox | 把人工预期 oracle 和实际观察结果并排比较 |
-| Counterexample trace | 输出能解释问题的失败路径 |
-| Trace export | 把 trace / report 导出为 JSON-compatible 结构 |
-| Conformance replay | 把抽象 trace replay 到真实实现，通过 adapter 比较行为 |
-| Loop / stuck review | 检查 stuck state、bottom SCC、unreachable success |
-| Progress checks | 检查有 escape edge 但没有进展保证的循环 |
-| Contract checks | 检查前置条件、后置条件、读写边界、禁止写入和 traceability |
-| Agent helper layer | 提供 property factories、RiskProfile、check plan、summary report 和 domain packs |
-| Codex Skill | 提供 `model-first-function-flow` Skill，让 Codex 在改代码前先建模 |
-
-### v0.2.0 里的轻量 helper
-
-`v0.2.0` 没有改变核心数学模型。最小路径仍然是：
-
-```text
-State + FunctionBlock + Invariant + Explorer
-```
-
-新增内容是给 AI coding agent 减少手写样板的辅助层：
-
-- 常见 invariant 工厂，例如 duplicate、source trace、cache/source
-  consistency、状态写入 owner 和 label 顺序检查；
-- `RiskProfile`、`FlowGuardCheckPlan` 和 `run_model_first_checks()`，把
-  audit、探索、场景 review、反例缩短和 summary report 组织成一个低摩擦入口；
-- `ScenarioMatrixBuilder` 和四个可选 domain packs，帮助覆盖 repeated input、
-  retry、deduplication、cache 和 side effect 风险；
-- `ModelQualityAudit` 和 `FlowGuardSummaryReport`，把 skipped/not_run/warning
-  显示为可信边界，而不是把它们当作通过；
-- 可选的 adoption evidence review、状态写入点清单和 maintenance workflow
-  scaffold。
-
-这些 helper 都不是强制门槛。`pass_with_gaps` 表示模型检查有用但覆盖有限；没有
-conformance replay 时，不能把模型级信心说成生产级信心。
-
-### 典型工作流
-
-```text
-feature or bugfix request
-  -> define external inputs
-  -> define finite abstract state
-  -> define function blocks
-  -> define state transitions
-  -> define possible outputs
-  -> define invariants
-  -> run workflow exploration
-  -> inspect reachable state graph
-  -> run scenario review
-  -> inspect counterexample traces
-  -> implement or modify production code
-  -> replay representative traces against real code
-  -> update the model when the architecture changes
-```
-
-这套流程特别适合：
-
-- 有状态 workflow；
-- deduplication；
-- idempotency；
-- retry；
-- cache；
-- queue；
-- human review loop；
-- AI/LLM decision pipeline 的抽象输出建模；
-- 模块边界和状态所有权；
-- 真实代码和抽象模型之间的一致性检查。
-
-### 快速开始
-
-FlowGuard 当前发布的是源码安装版本，还没有 PyPI 包。
-
-#### 普通用户最简单的方式：让 AI Agent 安装
-
-如果你使用的是 Codex，或者其他能够读取 GitHub 仓库、操作本地文件并运行命令的
-AI coding agent，最简单的方式不是手动拷贝文件，而是把仓库 URL 或仓库副本交给
-agent：
-
-```text
-https://github.com/liuyingxuvka/Flow-Guard
-```
-
-然后对 agent 说：
-
-```text
-请把这个 GitHub 仓库作为 FlowGuard 工具源安装，并使用
-model-first-function-flow skill。在修改有状态 workflow、retry、cache、
-deduplication、idempotency 或模块边界代码之前，先用它做架构模拟和流程检查。
-```
-
-支持这类能力的 AI coding agent 通常会自动读取仓库里的 `.agents/skills/`、
-克隆或使用本地仓库副本、连接 `flowguard` 包、运行 import/schema 预检，然后在
-目标项目里按 Skill 先建模、检查反例，再改真实代码。
-
-#### 开发者手动安装
-
-```powershell
-git clone https://github.com/liuyingxuvka/Flow-Guard.git
-cd FlowGuard
-python -m pip install -e .
-python -m flowguard schema-version
-```
-
-运行测试：
-
-```powershell
-python -m unittest discover -s tests
-```
-
-如果 `flowguard.exe` 不在 `PATH` 中，优先使用：
-
-```powershell
-python -m flowguard schema-version
-```
-
-### 运行示例
-
-Looping workflow 示例展示 stuck state、bottom SCC、unreachable success 和
-progress 问题：
-
-```powershell
-python examples/looping_workflow/run_loop_review.py
-```
-
-更多可运行示例见 [examples/](examples/)。
-
-### 最小代码示例
-
-```python
-from dataclasses import dataclass
-
-from flowguard import FunctionResult, Invariant, InvariantResult, Workflow, Explorer
-
-
-@dataclass(frozen=True)
-class State:
-    records: tuple[str, ...] = ()
-
-
-class RecordItem:
-    name = "RecordItem"
-    accepted_input_type = str
-    reads = ("records",)
-    writes = ("records",)
-    input_description = "item id"
-    output_description = "record status"
-    idempotency = "same item is recorded once"
-
-    def apply(self, input_obj, state):
-        if input_obj in state.records:
-            yield FunctionResult("already_exists", state, "record_already_exists")
-            return
-        yield FunctionResult(
-            "added",
-            State(records=state.records + (input_obj,)),
-            "record_added",
-        )
-
-
-def no_duplicate_records():
-    def check(state, trace):
-        if len(state.records) != len(set(state.records)):
-            return InvariantResult.fail("duplicate records")
-        return InvariantResult.ok()
-
-    return Invariant("no_duplicate_records", "records are unique", check)
-
-
-workflow = Workflow((RecordItem(),))
-report = Explorer(
-    initial_states=(State(),),
-    external_inputs=("item-1",),
-    workflow=workflow,
-    invariants=(no_duplicate_records(),),
-    max_sequence_length=2,
-).run()
-
-print(report.format_text())
-```
-
-### 和 Codex 或其他 AI Agent 一起使用
-
-仓库内置 `model-first-function-flow` Skill。Codex 是当前最直接的使用路径；其他
-AI Agent 只要能读取仓库文件、运行本地命令，并遵守 Skill/AGENTS.md 指令，也可以
-使用同一套流程。
-
-```text
-.agents/skills/model-first-function-flow/
-```
-
-在另一个项目中，你可以让 Codex 或其他 AI coding agent 使用这个 Skill：
-
-```text
-Use the model-first-function-flow skill before changing this workflow.
-```
-
-也可以把下面规则复制到目标项目的 `AGENTS.md`：
-
-```text
-For non-trivial tasks involving behavior, workflows, state, module boundaries,
-retries, deduplication, idempotency, caching, repeated inputs, or repeated bugs,
-use the model-first-function-flow skill before editing production code.
-```
-
-完整规则见：[docs/agents_snippet.md](docs/agents_snippet.md)。
-
-Skill 里包含：
-
-- 建模协议；
-- invariant 示例；
-- 最小 model template；
-- run checks template；
-- toolchain preflight helper；
-- lightweight run log template。
-
-### 适合谁
-
-FlowGuard 适合：
-
-- 想让 AI coding agent 改代码前先证明功能流设计的人；
-- 经常遇到重复 side effect、retry、cache、dedup、状态边界问题的工程团队；
-- 想把架构讨论从自然语言提醒推进到可执行模型的人；
-- 需要在真实实现前审查 workflow 行为的人。
-
-FlowGuard 不适合：
-
-- 想直接调用 LLM API 的 prompt tool；
-- 想做随机 property-based testing 的工具；
-- 想替代所有 unit tests、integration tests 或 formal verification；
-- 想一键证明完整生产系统正确性；
-- 不愿意手写抽象状态、function block 和 invariants 的项目。
-
-### 公开仓库包含什么
-
-| 路径 | 内容 |
-| --- | --- |
-| [flowguard/](flowguard/) | 核心 Python package |
-| [.agents/skills/model-first-function-flow/](.agents/skills/model-first-function-flow/) | Codex Skill |
-| [docs/](docs/) | 概念、建模协议、conformance、scenario、loop、progress、contract 文档 |
-| [examples/](examples/) | Runnable public examples |
-| [tests/](tests/) | 公开测试 |
-| [ROADMAP.md](ROADMAP.md) | 后续路线图 |
-
-### 公开仓库不包含什么
-
-这个公开仓库刻意不包含本地维护系统：
-
-- 本地维护记录；
-- 实验过程记录；
-- 机器特定路径或配置；
-- 认证材料、访问令牌或其他敏感配置；
-- 大型内部实验输出。
-
-公开版保留的是最小可用产品面：核心库、文档、Skill、示例和测试。
-
-### 文档入口
-
-- [docs/concept.md](docs/concept.md): 世界观和数学模型。
-- [docs/modeling_protocol.md](docs/modeling_protocol.md): 建模流程。
-- [docs/productized_helpers.md](docs/productized_helpers.md): 轻量 helper、audit、summary report。
-- [docs/check_plan.md](docs/check_plan.md): `RiskProfile`、`FlowGuardCheckPlan`、runner 和 packs。
-- [docs/api_surface.md](docs/api_surface.md): 核心 API、helper API、reporting API 和 evidence API 分层。
-- [docs/state_write_inventory.md](docs/state_write_inventory.md): invariant 字段的状态写入点清单。
-- [docs/invariant_examples.md](docs/invariant_examples.md): invariant 模式。
-- [docs/scenario_sandbox.md](docs/scenario_sandbox.md): expected vs observed 场景审查。
-- [docs/conformance_testing.md](docs/conformance_testing.md): 抽象 trace replay 到真实代码。
-- [docs/loop_detection.md](docs/loop_detection.md): stuck state 和 bottom SCC。
-- [docs/progress_properties.md](docs/progress_properties.md): progress 和 escape-edge cycle。
-- [docs/contract_composition.md](docs/contract_composition.md): function contract 和 ownership。
-- [docs/refinement.md](docs/refinement.md): real state 到 abstract state 的 projection。
-- [docs/project_integration.md](docs/project_integration.md): 在其他项目中接入 FlowGuard。
-- [docs/framework_upgrade_checks.md](docs/framework_upgrade_checks.md): FlowGuard 自身升级和 benchmark 检查。
-
-### 当前限制
-
-- 只做确定性的有限枚举。
-- 不做随机测试。
-- 不依赖 Hypothesis。
-- 不做概率模型。
-- 不做 Monte Carlo。
-- 不声称完整形式化证明。
-- 不替代单元测试。
-- conformance replay 需要用户手写 adapter。
-- 当前没有 PyPI 发布。
-- 当前没有稳定完整 CLI，只保留轻量 `python -m flowguard` 入口。
-
-### License
-
-MIT. See [LICENSE](LICENSE).
 
 ---
 
@@ -841,3 +449,399 @@ examples, and tests.
 ### License
 
 MIT. See [LICENSE](LICENSE).
+
+## 中文说明
+
+### FlowGuard 是什么
+
+FlowGuard 是一个在写代码前使用的架构模拟器 / 软件流程模拟器。它不是让 AI
+直接多写一点代码，而是给 AI coding agent 一个先模拟代码流程的环境。
+
+当 agent 要新建 workflow、重构模块边界，或者修改 retry、cache、
+deduplication、idempotency 这类容易出全局问题的逻辑时，FlowGuard 要求它先把
+计划中的程序流程压缩成一个有限、可执行、可枚举的模型。然后 FlowGuard 会跑
+这个模型，保留每条 trace，检查不变量、场景预期、loop/progress、contract 和
+真实实现一致性。真正有价值的地方在于：如果流程有漏洞，反例会在代码写出来之前
+出现。
+
+### 核心吸引点
+
+- 它把“先想清楚架构”变成可以运行的模拟，而不是停留在自然语言讨论。
+- 它把“注意 dedup / retry / cache / 幂等性”变成可执行 invariant，而不是给
+  agent 的一句提醒。
+- 它看的是整个 workflow 的状态转移，不只是某个函数局部能不能跑。
+- 它会枚举重复输入、分支、死路、循环和状态漂移，输出能复现问题的
+  counterexample trace。
+- 它适合放进 Codex 或其他 AI coding agent 的工作流里，让 agent 先模拟、再写码。
+
+### 数学模拟方法：有限状态自动机
+
+FlowGuard 的核心方法接近一个工程化的有限状态自动机 / 有限状态转移系统。你先
+定义四类东西：
+
+- 外部输入：进入 workflow 的事件、对象、重试请求、队列任务或用户动作。
+- 抽象状态：只保留能暴露风险的有限状态，例如记录、缓存、attempt、side effect、
+  decision、owner。
+- 状态转移：每个 function block 如何从当前输入和当前状态，产生输出和新状态。
+- 检查规则：invariant、scenario oracle、loop/progress 规则、contract 和
+  conformance adapter。
+
+在数学上，每个 function block 都表达成：
+
+```text
+F: Input x State -> Set(Output x State)
+```
+
+意思是：一个功能块接收输入和当前状态，返回所有可能的 `(输出, 新状态)`。如果
+只有一个结果，它就是确定性转移；如果有多个结果，它就是显式分支；如果没有结果，
+它就是一条需要报告的死路。FlowGuard 不会抽样，也不会算概率，而是把你建模出来
+的可能结果全部列出来。
+
+多个 function blocks 可以组合成 workflow：
+
+```text
+Workflow = F_C o F_B o F_A
+```
+
+因为每个功能块都可能分支，workflow 会形成一棵执行树或一个可达状态图：
+
+```text
+(input sequence, initial state)
+  -> reachable states
+  -> traces
+  -> invariant / scenario / loop / contract findings
+  -> counterexample trace
+```
+
+这就是 README 里说的“架构模拟”：FlowGuard 在有限边界内穷举这个状态机的路径，
+看每条路径是否违反不变量、场景预期、状态所有权、幂等性、终止性或真实代码一致性。
+
+### 为什么需要它
+
+AI coding agent 很容易在局部修 bug 时破坏全局流程，例如：
+
+- 给同一个对象重复打分；
+- 给同一个 item 追加两条记录；
+- 忘记 deduplication；
+- retry 时重复发送副作用；
+- cache 和 source of truth 不一致；
+- 一个模块修改了另一个模块拥有的状态；
+- 下游函数无法消费上游输出；
+- 记录已经产生，但决策没有产生；
+- 同一个对象同时出现 apply 和 ignore；
+- workflow 有出口，但没有进展保证；
+- 真实代码看起来能跑，但偏离了抽象设计。
+
+FlowGuard 的目标不是替代单元测试，而是在写生产代码前，把这些 workflow-level
+和 side-effect-level 问题先暴露出来。
+
+### 用了它和不用它的区别
+
+| 不用 FlowGuard | 用 FlowGuard |
+| --- | --- |
+| Agent 通常从自然语言需求直接进入代码修改。 | Agent 先把新架构或架构改动写成有限的 function-flow 模型。 |
+| 风险往往要到代码写完、测试失败或人工 review 时才暴露。 | 重复输入、分支、状态变化和副作用会先在模型里被枚举和检查。 |
+| “注意 dedup / retry / cache” 只是提示，agent 可能会忘。 | dedup、幂等性、状态所有权、loop、contract 等规则变成可执行 invariant 或 scenario。 |
+| 架构方案是否安全，主要靠直觉和事后调试。 | 失败路径会以 counterexample trace 的形式出现，agent 可以先修正流程设计再写代码。 |
+
+所以 FlowGuard 的实际收益不是“替 AI 写代码”，而是让 AI 在设计阶段就能模拟
+一个流程方案，提前看到架构漏洞和潜在风险，并把更稳的流程带入实现阶段。
+
+### 它现在能检查什么
+
+| 能力 | FlowGuard 做什么 |
+| --- | --- |
+| Finite-state simulation | 把输入序列、抽象状态和状态转移展开成可达状态图与 trace |
+| Function-flow model | 用 `Input x State -> Set(Output x State)` 表达功能块 |
+| Workflow exploration | 展开多分支 workflow，保留每条 trace |
+| Invariant checking | 检查重复记录、重复处理、矛盾决策、缓存不一致等硬约束 |
+| Repeated input | 明确探索 `[A]`、`[A, A]`、`[A, B, A]` 这类重复输入 |
+| Scenario sandbox | 把人工预期 oracle 和实际观察结果并排比较 |
+| Counterexample trace | 输出能解释问题的失败路径 |
+| Trace export | 把 trace / report 导出为 JSON-compatible 结构 |
+| Conformance replay | 把抽象 trace replay 到真实实现，通过 adapter 比较行为 |
+| Loop / stuck review | 检查 stuck state、bottom SCC、unreachable success |
+| Progress checks | 检查有 escape edge 但没有进展保证的循环 |
+| Contract checks | 检查前置条件、后置条件、读写边界、禁止写入和 traceability |
+| Agent helper layer | 提供 property factories、RiskProfile、check plan、summary report 和 domain packs |
+| Codex Skill | 提供 `model-first-function-flow` Skill，让 Codex 在改代码前先建模 |
+
+### v0.2.0 里的轻量 helper
+
+`v0.2.0` 没有改变核心数学模型。最小路径仍然是：
+
+```text
+State + FunctionBlock + Invariant + Explorer
+```
+
+新增内容是给 AI coding agent 减少手写样板的辅助层：
+
+- 常见 invariant 工厂，例如 duplicate、source trace、cache/source
+  consistency、状态写入 owner 和 label 顺序检查；
+- `RiskProfile`、`FlowGuardCheckPlan` 和 `run_model_first_checks()`，把
+  audit、探索、场景 review、反例缩短和 summary report 组织成一个低摩擦入口；
+- `ScenarioMatrixBuilder` 和四个可选 domain packs，帮助覆盖 repeated input、
+  retry、deduplication、cache 和 side effect 风险；
+- `ModelQualityAudit` 和 `FlowGuardSummaryReport`，把 skipped/not_run/warning
+  显示为可信边界，而不是把它们当作通过；
+- 可选的 adoption evidence review、状态写入点清单和 maintenance workflow
+  scaffold。
+
+这些 helper 都不是强制门槛。`pass_with_gaps` 表示模型检查有用但覆盖有限；没有
+conformance replay 时，不能把模型级信心说成生产级信心。
+
+### 典型工作流
+
+```text
+feature or bugfix request
+  -> define external inputs
+  -> define finite abstract state
+  -> define function blocks
+  -> define state transitions
+  -> define possible outputs
+  -> define invariants
+  -> run workflow exploration
+  -> inspect reachable state graph
+  -> run scenario review
+  -> inspect counterexample traces
+  -> implement or modify production code
+  -> replay representative traces against real code
+  -> update the model when the architecture changes
+```
+
+这套流程特别适合：
+
+- 有状态 workflow；
+- deduplication；
+- idempotency；
+- retry；
+- cache；
+- queue；
+- human review loop；
+- AI/LLM decision pipeline 的抽象输出建模；
+- 模块边界和状态所有权；
+- 真实代码和抽象模型之间的一致性检查。
+
+### 快速开始
+
+FlowGuard 当前发布的是源码安装版本，还没有 PyPI 包。
+
+#### 普通用户最简单的方式：让 AI Agent 安装
+
+如果你使用的是 Codex，或者其他能够读取 GitHub 仓库、操作本地文件并运行命令的
+AI coding agent，最简单的方式不是手动拷贝文件，而是把仓库 URL 或仓库副本交给
+agent：
+
+```text
+https://github.com/liuyingxuvka/Flow-Guard
+```
+
+然后对 agent 说：
+
+```text
+请把这个 GitHub 仓库作为 FlowGuard 工具源安装，并使用
+model-first-function-flow skill。在修改有状态 workflow、retry、cache、
+deduplication、idempotency 或模块边界代码之前，先用它做架构模拟和流程检查。
+```
+
+支持这类能力的 AI coding agent 通常会自动读取仓库里的 `.agents/skills/`、
+克隆或使用本地仓库副本、连接 `flowguard` 包、运行 import/schema 预检，然后在
+目标项目里按 Skill 先建模、检查反例，再改真实代码。
+
+#### 开发者手动安装
+
+```powershell
+git clone https://github.com/liuyingxuvka/Flow-Guard.git
+cd FlowGuard
+python -m pip install -e .
+python -m flowguard schema-version
+```
+
+运行测试：
+
+```powershell
+python -m unittest discover -s tests
+```
+
+如果 `flowguard.exe` 不在 `PATH` 中，优先使用：
+
+```powershell
+python -m flowguard schema-version
+```
+
+### 运行示例
+
+Looping workflow 示例展示 stuck state、bottom SCC、unreachable success 和
+progress 问题：
+
+```powershell
+python examples/looping_workflow/run_loop_review.py
+```
+
+更多可运行示例见 [examples/](examples/)。
+
+### 最小代码示例
+
+```python
+from dataclasses import dataclass
+
+from flowguard import FunctionResult, Invariant, InvariantResult, Workflow, Explorer
+
+
+@dataclass(frozen=True)
+class State:
+    records: tuple[str, ...] = ()
+
+
+class RecordItem:
+    name = "RecordItem"
+    accepted_input_type = str
+    reads = ("records",)
+    writes = ("records",)
+    input_description = "item id"
+    output_description = "record status"
+    idempotency = "same item is recorded once"
+
+    def apply(self, input_obj, state):
+        if input_obj in state.records:
+            yield FunctionResult("already_exists", state, "record_already_exists")
+            return
+        yield FunctionResult(
+            "added",
+            State(records=state.records + (input_obj,)),
+            "record_added",
+        )
+
+
+def no_duplicate_records():
+    def check(state, trace):
+        if len(state.records) != len(set(state.records)):
+            return InvariantResult.fail("duplicate records")
+        return InvariantResult.ok()
+
+    return Invariant("no_duplicate_records", "records are unique", check)
+
+
+workflow = Workflow((RecordItem(),))
+report = Explorer(
+    initial_states=(State(),),
+    external_inputs=("item-1",),
+    workflow=workflow,
+    invariants=(no_duplicate_records(),),
+    max_sequence_length=2,
+).run()
+
+print(report.format_text())
+```
+
+### 和 Codex 或其他 AI Agent 一起使用
+
+仓库内置 `model-first-function-flow` Skill。Codex 是当前最直接的使用路径；其他
+AI Agent 只要能读取仓库文件、运行本地命令，并遵守 Skill/AGENTS.md 指令，也可以
+使用同一套流程。
+
+```text
+.agents/skills/model-first-function-flow/
+```
+
+在另一个项目中，你可以让 Codex 或其他 AI coding agent 使用这个 Skill：
+
+```text
+Use the model-first-function-flow skill before changing this workflow.
+```
+
+也可以把下面规则复制到目标项目的 `AGENTS.md`：
+
+```text
+For non-trivial tasks involving behavior, workflows, state, module boundaries,
+retries, deduplication, idempotency, caching, repeated inputs, or repeated bugs,
+use the model-first-function-flow skill before editing production code.
+```
+
+完整规则见：[docs/agents_snippet.md](docs/agents_snippet.md)。
+
+Skill 里包含：
+
+- 建模协议；
+- invariant 示例；
+- 最小 model template；
+- run checks template；
+- toolchain preflight helper；
+- lightweight run log template。
+
+### 适合谁
+
+FlowGuard 适合：
+
+- 想让 AI coding agent 改代码前先证明功能流设计的人；
+- 经常遇到重复 side effect、retry、cache、dedup、状态边界问题的工程团队；
+- 想把架构讨论从自然语言提醒推进到可执行模型的人；
+- 需要在真实实现前审查 workflow 行为的人。
+
+FlowGuard 不适合：
+
+- 想直接调用 LLM API 的 prompt tool；
+- 想做随机 property-based testing 的工具；
+- 想替代所有 unit tests、integration tests 或 formal verification；
+- 想一键证明完整生产系统正确性；
+- 不愿意手写抽象状态、function block 和 invariants 的项目。
+
+### 公开仓库包含什么
+
+| 路径 | 内容 |
+| --- | --- |
+| [flowguard/](flowguard/) | 核心 Python package |
+| [.agents/skills/model-first-function-flow/](.agents/skills/model-first-function-flow/) | Codex Skill |
+| [docs/](docs/) | 概念、建模协议、conformance、scenario、loop、progress、contract 文档 |
+| [examples/](examples/) | Runnable public examples |
+| [tests/](tests/) | 公开测试 |
+| [ROADMAP.md](ROADMAP.md) | 后续路线图 |
+
+### 公开仓库不包含什么
+
+这个公开仓库刻意不包含本地维护系统：
+
+- 本地维护记录；
+- 实验过程记录；
+- 机器特定路径或配置；
+- 认证材料、访问令牌或其他敏感配置；
+- 大型内部实验输出。
+
+公开版保留的是最小可用产品面：核心库、文档、Skill、示例和测试。
+
+### 文档入口
+
+- [docs/concept.md](docs/concept.md): 世界观和数学模型。
+- [docs/modeling_protocol.md](docs/modeling_protocol.md): 建模流程。
+- [docs/productized_helpers.md](docs/productized_helpers.md): 轻量 helper、audit、summary report。
+- [docs/check_plan.md](docs/check_plan.md): `RiskProfile`、`FlowGuardCheckPlan`、runner 和 packs。
+- [docs/api_surface.md](docs/api_surface.md): 核心 API、helper API、reporting API 和 evidence API 分层。
+- [docs/state_write_inventory.md](docs/state_write_inventory.md): invariant 字段的状态写入点清单。
+- [docs/invariant_examples.md](docs/invariant_examples.md): invariant 模式。
+- [docs/scenario_sandbox.md](docs/scenario_sandbox.md): expected vs observed 场景审查。
+- [docs/conformance_testing.md](docs/conformance_testing.md): 抽象 trace replay 到真实代码。
+- [docs/loop_detection.md](docs/loop_detection.md): stuck state 和 bottom SCC。
+- [docs/progress_properties.md](docs/progress_properties.md): progress 和 escape-edge cycle。
+- [docs/contract_composition.md](docs/contract_composition.md): function contract 和 ownership。
+- [docs/refinement.md](docs/refinement.md): real state 到 abstract state 的 projection。
+- [docs/project_integration.md](docs/project_integration.md): 在其他项目中接入 FlowGuard。
+- [docs/framework_upgrade_checks.md](docs/framework_upgrade_checks.md): FlowGuard 自身升级和 benchmark 检查。
+
+### 当前限制
+
+- 只做确定性的有限枚举。
+- 不做随机测试。
+- 不依赖 Hypothesis。
+- 不做概率模型。
+- 不做 Monte Carlo。
+- 不声称完整形式化证明。
+- 不替代单元测试。
+- conformance replay 需要用户手写 adapter。
+- 当前没有 PyPI 发布。
+- 当前没有稳定完整 CLI，只保留轻量 `python -m flowguard` 入口。
+
+### License
+
+MIT. See [LICENSE](LICENSE).
+
+---
