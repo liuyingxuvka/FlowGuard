@@ -17,9 +17,9 @@
 English lead content comes first; a full Chinese mirror follows below.
 
 In one sentence: FlowGuard is an architecture and process-flow simulator for AI
-agents. It turns a planned software workflow or high-impact process into a
-finite-state, executable model before action, then checks reachable paths and
-reports counterexample traces.
+agents. It helps agents design, experiment with, and check a planned software
+workflow or high-impact process as a finite-state, executable model before
+action, then reports reachable paths and counterexample traces.
 
 FlowGuard is not an LLM wrapper, does not call model APIs, does not estimate
 probabilities, and does not run Monte Carlo. It performs finite, deterministic,
@@ -49,6 +49,27 @@ publication side effects, or rollback concerns. In that mode FlowGuard is a
 process blindspot preflight: it can expose risky paths before the action is
 taken, but it does not prove that live real-world prices, availability, policies,
 or vendor behavior are safe.
+
+### Task Modes
+
+FlowGuard is not only a checker for finished code. The same finite model can
+support several agent tasks:
+
+- **Workflow designer:** turn a proposed process into finite inputs, abstract
+  state, named function blocks, possible outputs, and hard invariants before
+  production code exists.
+- **Pre-change experimenter:** compare candidate designs against repeated
+  inputs, ordering changes, retries, cache/source-of-truth choices, and side
+  effect rules before choosing an implementation.
+- **Workflow bug checker:** surface counterexamples for duplicate side effects,
+  stale caches, contradictory decisions, stuck loops, missing progress, or wrong
+  state ownership.
+- **Implementation guardrail:** replay or compare representative model traces
+  against real code when production code exists, and treat skipped checks as
+  confidence boundaries rather than hidden passes.
+- **Adoption reviewer:** keep lightweight evidence about why FlowGuard was
+  used, which checks ran, what was skipped, and what changed after inspecting
+  the model.
 
 ### Why It Is Interesting
 
@@ -537,6 +558,21 @@ deduplication、idempotency 这类容易出全局问题的逻辑时，FlowGuard 
 外部依赖、不可逆或高成本动作、隐私/声誉风险、付款/预订/发布副作用，或者回滚问题，
 就可以先把它建成有限模型做盲点检查。在这个模式下，FlowGuard 是流程风险预演工具；
 它能暴露危险路径，但不能证明现实世界价格、库存、政策或供应商行为一定安全。
+
+### 任务模式
+
+FlowGuard 不只是用来检查已经写完的代码。同一个有限模型可以支持几类 agent 任务：
+
+- **流程设计者：** 在生产代码出现之前，把一个拟议流程整理成有限输入、抽象状态、
+  命名 function blocks、可能输出和硬性不变量。
+- **改动前实验者：** 在选择实现方案之前，用重复输入、顺序变化、retry 路径、
+  cache/source-of-truth 选择和副作用规则去比较候选设计。
+- **流程错误检查者：** 找出重复副作用、陈旧缓存、矛盾决策、卡住的循环、缺失进展、
+  错误状态所有权等问题的 counterexample。
+- **实现护栏：** 当生产代码已经存在时，把代表性模型 trace replay 到真实代码，
+  或与真实行为对照；没有运行的检查要报告成可信边界，而不是偷偷当成通过。
+- **采用审阅者：** 保留轻量证据，说明为什么使用 FlowGuard、跑了哪些检查、跳过了
+  什么，以及看完模型后改了什么。
 
 ### 核心吸引点
 
