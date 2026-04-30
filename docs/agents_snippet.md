@@ -13,7 +13,7 @@ Rules:
 - Use `use_flowguard` when the task may affect behavior, state, workflow, retries, deduplication, idempotency, caching, side effects, module boundaries, queue/reprocessing behavior, or production conformance.
 - Use `skip_with_reason` only for clearly trivial copy edits, formatting-only changes, read-only explanation, or work with no behavior/state impact.
 - Use `needs_human_review` or narrow the task when the behavior boundary is unclear.
-- Before creating model files, verify that the real flowguard package is importable with `python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"`.
+- Before creating model files, verify that the real flowguard package is importable with `python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"`. This prints the artifact schema version, not the GitHub/package release version.
 - If flowguard is not importable, connect the real toolchain first, such as by editable install from the local FlowGuard source tree, or record the task as `blocked`. Do not hand-write a temporary mini-framework and claim full flowguard adoption.
 - When available, use the Skill helper `assets/toolchain_preflight.py --json` to discover the editable install or `PYTHONPATH` command for the active Python environment.
 - Do not edit production code first.
@@ -31,11 +31,10 @@ Rules:
 - If the task boundary is unclear, mark it as `needs_human_review` or narrow the scope before deciding to skip or model.
 - Treat zero-result and non-consumable branches as reportable failures unless they are explicitly modeled as terminal.
 - Preserve expected-vs-observed status categories; do not hide `needs_human_review`, known limitations, or counterexamples.
-- For real project use, keep a project-local flowguard adoption log. Record status, trigger reason, elapsed time, model files, commands run, findings, counterexamples, skipped steps, friction points, and next actions.
-- Record model-fidelity gaps and calibration changes when the model had to be made more precise before it found the relevant issue.
-- Adoption log status should be `in_progress`, `completed`, `blocked`, `skipped_with_reason`, or `failed`; only `completed` means the adoption evidence is final and successful.
-- Prefer `.flowguard/adoption_log.jsonl` for machine-readable entries and `docs/flowguard_adoption_log.md` for human-readable notes.
-- When available, use `python -m flowguard adoption-start ...` before model-first work and `python -m flowguard adoption-finish ...` after checks to reduce logging drift.
+- When FlowGuard is used, finish with a short adoption note in the project log. Do not treat the task as complete until the note exists.
+- Keep the note plain and useful: why FlowGuard was used or skipped, what workflow or risk was modeled, what checks ran, what FlowGuard found, what was skipped, and what should happen next.
+- If there was a counterexample, preserve the important label or one-sentence trace summary. If a check was skipped, say why.
+- The note can live in `.flowguard/adoption_log.jsonl`, `docs/flowguard_adoption_log.md`, or the existing project log. The `python -m flowguard adoption-start ...` and `python -m flowguard adoption-finish ...` commands can help create it, but CLI output is not a substitute for the short human-readable note when the model found something important.
 - Do not treat skipped flowguard steps as passed checks.
 - Do not call LLM APIs, databases, network services, clocks, random sources, Monte Carlo samplers, or external packages from the model.
 - Do not weaken hard invariants merely to pass checks.

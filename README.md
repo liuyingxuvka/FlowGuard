@@ -12,7 +12,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.2.0` | `1.0` | Python standard library only | MIT |
+| `v0.2.1` | `1.0` | Python standard library only | MIT |
 
 中文在前，后半部分是完整英文镜像。
 

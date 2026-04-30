@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.2.1 - 2026-04-30
+
+- Simplified the `model-first-function-flow` Skill adoption-note wording so
+  agents leave a short plain-language record instead of treating adoption
+  logging as a heavy field checklist.
+- Clarified that the adoption CLI can help create the log entry, but it is not
+  a substitute for a short human-readable note when the model found something
+  important.
+- Updated the reusable AGENTS snippet with the same lighter note guidance.
+- Clarified that `SCHEMA_VERSION` / `python -m flowguard schema-version`
+  reports the artifact schema version, not the GitHub/package release version.
+
 ## v0.2.0 - 2026-04-30
 
 - Added optional standard property factories, model quality audit,

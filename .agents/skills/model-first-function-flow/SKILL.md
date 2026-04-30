@@ -89,21 +89,34 @@ confidence only. A skipped replay is not a pass.
 
 ## Adoption Logging
 
-For real project use, keep a project-local adoption log when feasible:
+Whenever this Skill is used for real project work, finish with a short adoption
+note. Do not treat the task as complete until the note exists.
+
+The note can be JSONL, Markdown, or the existing project log:
 
 - `.flowguard/adoption_log.jsonl`
 - `docs/flowguard_adoption_log.md`
 
-Prefer the low-friction CLI when available:
+Keep it short, but make it useful to a future reviewer. Write these four things
+in plain language:
+
+1. Why FlowGuard was used or skipped.
+2. What workflow or risk was modeled.
+3. What checks or commands ran, and whether they passed or failed.
+4. What FlowGuard found, what was skipped, and what should happen next.
+
+If there was a counterexample, preserve the important label or one-sentence
+trace summary. If a check was skipped, say why. A skipped check is not a pass.
+
+The CLI is a quick way to create the log entry:
 
 ```powershell
 python -m flowguard adoption-start --task-id <id> --task-summary "<summary>" --trigger-reason "<reason>"
 python -m flowguard adoption-finish --task-id <id> --task-summary "<summary>" --trigger-reason "<reason>" --command "<check command>"
 ```
 
-Use final statuses honestly: `completed`, `blocked`, `skipped_with_reason`, or
-`failed`. `in_progress` is useful while working, but it is not final evidence.
-Do not let adoption logging replace executable checks.
+The CLI does not replace the short human-readable note when the model found
+something important. Do not let adoption logging replace executable checks.
 
 ## Workflow
 
@@ -111,14 +124,16 @@ Do not let adoption logging replace executable checks.
    `needs_human_review`.
 2. Choose mode: `read_only_audit`, `model_first_change`, or
    `model_maintenance`.
-3. If skipping, record the reason when an adoption log is being kept and stop
-   the FlowGuard workflow.
+3. If skipping a clearly trivial task, record one sentence explaining why and
+   stop the FlowGuard workflow.
 4. Verify the real package is importable before modeling in another repository:
    `python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"`.
+   This prints the artifact schema version, not the GitHub/package release
+   version.
 5. If import fails, connect the real toolchain or record the task as
    blocked/partial. do not write a temporary mini-framework and claim full
    adoption.
-6. Start an `in_progress` adoption log entry when feasible.
+6. Start a brief adoption note or `in_progress` log entry.
 7. Read the modeling protocol and choose the smallest behavior boundary that
    can expose the risk.
 8. Build or update the model with explicit inputs, state, blocks, outputs,
@@ -132,8 +147,8 @@ Do not let adoption logging replace executable checks.
     user explicitly waives modeling.
 14. Run scenario review, loop/stuck review, progress checks, contracts, or
     conformance replay when those risks apply.
-15. Finish the adoption log with a final status and recorded checks, gaps, and
-    next actions.
+15. Finish the adoption note with the checks run, findings, skipped checks, and
+    next action.
 
 ## Resource Map
 

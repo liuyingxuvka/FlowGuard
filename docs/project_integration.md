@@ -11,6 +11,10 @@ Before modeling in another repository, run:
 python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"
 ```
 
+This prints the artifact schema version, not the GitHub/package release
+version. For example, FlowGuard can be released as `v0.2.1` while the
+trace/report schema remains `1.0`.
+
 If this fails, do not create a temporary local mini-framework and claim the
 project used FlowGuard. Connect the real toolchain first, or record the task as
 blocked or partial.
