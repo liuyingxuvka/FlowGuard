@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.3.0 - 2026-04-30
+
+- Expanded the `model-first-function-flow` Skill from coding/repository-only
+  framing to coding, repository, and process-design work.
+- Added `process_preflight` mode for non-code or mixed workflows that need
+  validation, adjustment, observation, or loss-prevention review before action.
+- Clarified that booking, purchase, publication handoff, operational runbook,
+  data migration, support escalation, and multi-agent coordination flows can be
+  modeled when they have meaningful state, side effects, external dependencies,
+  rollback concerns, or irreversible cost.
+- Preserved the skip boundary for trivial reversible tasks and clarified that
+  non-code process models are risk-discovery preflights, not proof of real-world
+  prices, availability, policies, or vendor behavior.
+- Updated the README, AGENTS snippet, Skill documentation, and Skill doc tests
+  for the broader process-preflight scope.
+
 ## v0.2.1 - 2026-04-30
 
 - Simplified the `model-first-function-flow` Skill adoption-note wording so

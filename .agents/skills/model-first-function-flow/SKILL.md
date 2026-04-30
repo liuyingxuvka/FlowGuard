@@ -1,17 +1,33 @@
 ---
 name: model-first-function-flow
-description: For coding and repository work, first decide whether flowguard applies. Use before implementing non-trivial features, stateful workflows, repeated bug fixes, module-boundary changes, idempotency-sensitive logic, deduplication logic, caching, retry handling, or data-flow changes.
+description: For coding, repository, and process-design work, first decide whether flowguard applies. Use before implementing or changing non-trivial features, stateful workflows, repeated bug fixes, module-boundary changes, idempotency-sensitive logic, deduplication logic, caching, retry handling, data-flow changes, or any meaningful multi-step process that needs validation, adjustment, observation, or loss-prevention preflight.
 ---
 
 # Model-First Function Flow
 
-For coding and repository work, first make a lightweight applicability decision:
-`use_flowguard`, `skip_with_reason`, or `needs_human_review`.
+For coding, repository, and process-design work, first make a lightweight
+applicability decision: `use_flowguard`, `skip_with_reason`, or
+`needs_human_review`.
 
 Use this skill before production code changes that may affect behavior, state,
 retries, deduplication, idempotency, caching, side effects, module boundaries,
 or data flow. Trivial, formatting-only, and read-only work may skip with a
 reason instead of paying the cost of a model.
+
+Also use this skill for non-code workflows when the user is designing,
+checking, adjusting, or observing a process and the process has meaningful
+state, ordering constraints, external dependencies, irreversible or costly
+actions, privacy/reputation risk, payment/reservation/publication side effects,
+or rollback concerns. FlowGuard can model these as process blindspot checks even
+when no software is being edited. Examples include booking or purchase flows,
+publishing/release handoffs, operational runbooks, data migration plans,
+support/escalation procedures, and multi-agent coordination processes.
+
+Do not turn this into a universal ceremony. If the task is trivial, fully
+reversible, has no meaningful state or side effects, and does not need process
+validation, skip with a short reason. Treat non-code models as risk-discovery
+preflights, not as proof that real-world facts, prices, availability, policies,
+or vendor behavior are safe.
 
 ## Modes
 
@@ -24,6 +40,10 @@ reason instead of paying the cost of a model.
 - `model_maintenance`: existing `.flowguard` models, replay adapters, or
   adoption evidence appear stale. Update those artifacts before making claims
   from them.
+- `process_preflight`: a non-code or mixed workflow needs validation,
+  adjustment, observation, or loss-prevention review before action. Build the
+  smallest useful model of the process states, decisions, side effects,
+  confirmations, rollback paths, and hard invariants.
 
 ## Daily Rules
 
@@ -54,6 +74,10 @@ Input x State -> Set(Output x State)
 
 - Define external inputs, finite abstract state, possible outputs, state reads,
   state writes, idempotency rules, and hard invariants.
+- For non-code process models, name the real-world state and side effects
+  explicitly: approvals, confirmations, reservations, payments, published
+  artifacts, customer/user commitments, vendor dependencies, deadlines,
+  cancellation windows, and rollback options.
 - Use property factories or domain packs when they fit, but do not make them a
   required modeling layer.
 - For recurring Sleep/Dream/Architect/Installer/Reviewer style maintenance
@@ -122,8 +146,8 @@ something important. Do not let adoption logging replace executable checks.
 
 1. Decide applicability: `use_flowguard`, `skip_with_reason`, or
    `needs_human_review`.
-2. Choose mode: `read_only_audit`, `model_first_change`, or
-   `model_maintenance`.
+2. Choose mode: `read_only_audit`, `model_first_change`, `model_maintenance`,
+   or `process_preflight`.
 3. If skipping a clearly trivial task, record one sentence explaining why and
    stop the FlowGuard workflow.
 4. Verify the real package is importable before modeling in another repository:
@@ -134,8 +158,8 @@ something important. Do not let adoption logging replace executable checks.
    blocked/partial. do not write a temporary mini-framework and claim full
    adoption.
 6. Start a brief adoption note or `in_progress` log entry.
-7. Read the modeling protocol and choose the smallest behavior boundary that
-   can expose the risk.
+7. Read the modeling protocol and choose the smallest behavior or process
+   boundary that can expose the risk.
 8. Build or update the model with explicit inputs, state, blocks, outputs,
    reads, writes, idempotency, and invariants.
 9. Build the state write inventory for fields used by invariants.
@@ -143,8 +167,8 @@ something important. Do not let adoption logging replace executable checks.
 11. Inspect counterexamples and revise the model or intended architecture until
     the correct model passes.
 12. Preserve important counterexamples as tests or implementation notes.
-13. Edit production code only after executable model checks pass, unless the
-    user explicitly waives modeling.
+13. Edit production code or perform the modeled high-impact action only after
+    executable model checks pass, unless the user explicitly waives modeling.
 14. Run scenario review, loop/stuck review, progress checks, contracts, or
     conformance replay when those risks apply.
 15. Finish the adoption note with the checks run, findings, skipped checks, and

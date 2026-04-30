@@ -15,6 +15,10 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("multiple production write points", text)
         self.assertIn("adoption-start", text)
         self.assertIn("docs/framework_upgrade_checks.md", text)
+        self.assertIn("process-design work", text)
+        self.assertIn("process_preflight", text)
+        self.assertIn("booking or purchase flows", text)
+        self.assertIn("risk-discovery", text)
         self.assertNotIn("Phase 11", text)
         self.assertNotIn("2100-case", text)
 
