@@ -14,7 +14,7 @@ Local edits can fix a nearby symptom while breaking workflow-level contracts suc
 
 ## Core workflow
 
-Choose the smallest risky boundary worth modeling, define a finite-state function-flow model, explore reachable traces and state graphs, inspect counterexamples, revise the design, and replay representative traces against implementation adapters when production code exists.
+Choose the smallest risky boundary worth modeling, define a finite-state function-flow model, explore reachable traces and state graphs, inspect counterexamples, revise the design, replay representative traces against implementation adapters when production code exists, and let repeated models accumulate into a project-specific model library over time.
 
 ## Hero tagline
 
