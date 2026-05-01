@@ -2,7 +2,7 @@
 
 ## Project summary
 
-FlowGuard is a lightweight architecture simulator and software workflow simulator that turns planned software workflows into finite-state executable models before production changes, then checks traces, invariants, progress, and conformance.
+FlowGuard is a lightweight architecture simulator and software workflow simulator that turns the risky part of a planned software workflow into a small finite-state executable model before production changes, then checks traces, invariants, progress, and conformance.
 
 ## Target users
 
@@ -14,11 +14,11 @@ Local edits can fix a nearby symptom while breaking workflow-level contracts suc
 
 ## Core workflow
 
-Define finite-state function-flow models, explore reachable traces and state graphs, inspect counterexamples, revise the design, and replay representative traces against implementation adapters.
+Choose the smallest risky boundary worth modeling, define a finite-state function-flow model, explore reachable traces and state graphs, inspect counterexamples, revise the design, and replay representative traces against implementation adapters when production code exists.
 
 ## Hero tagline
 
-An architecture simulator for checking software workflows before AI agents write code.
+A lightweight finite-state workflow simulator for checking risky AI-agent workflow changes before action.
 
 ## Visual concept
 
