@@ -3,7 +3,7 @@ import unittest
 
 from flowguard import Workflow
 from flowguard.plan import FlowGuardCheckPlan, ScenarioMatrixConfig
-from flowguard.risk import RiskProfile, SkippedCheck
+from flowguard.risk import RiskIntent, RiskProfile, SkippedCheck
 
 
 class Block:
@@ -14,6 +14,46 @@ class Block:
 
 
 class RiskPlanTests(unittest.TestCase):
+    def test_risk_intent_serializes_failure_mode_brief(self):
+        intent = RiskIntent(
+            failure_modes=("duplicate side effect",),
+            protected_harms=("double user notification",),
+            must_model_state=("sent_notifications",),
+            adversarial_inputs=("same request twice",),
+            hard_invariants=("at most one notification per request",),
+            blindspots=("real email provider retries are not replayed",),
+        )
+
+        payload = intent.to_dict()
+
+        self.assertEqual(["duplicate side effect"], payload["failure_modes"])
+        self.assertEqual([], payload["validation_warnings"])
+        self.assertIn("duplicate side effect", intent.format_text())
+
+    def test_risk_profile_accepts_risk_intent_mapping(self):
+        profile = RiskProfile.from_dict(
+            {
+                "modeled_boundary": "publish handoff",
+                "risk_classes": ["side_effect"],
+                "risk_intent": {
+                    "failure_modes": ["published before approval"],
+                    "protected_harms": ["public release with unreviewed artifact"],
+                    "must_model_state": ["approval_status", "published_artifacts"],
+                    "adversarial_inputs": ["retry after partial publish"],
+                    "hard_invariants": ["no publish without approval"],
+                    "blindspots": ["external host availability is not modeled"],
+                },
+            }
+        )
+
+        self.assertIsInstance(profile.risk_intent, RiskIntent)
+        self.assertEqual([], list(profile.validation_warnings))
+        self.assertIn("published before approval", profile.format_text())
+        self.assertEqual(
+            ["published before approval"],
+            profile.to_dict()["risk_intent"]["failure_modes"],
+        )
+
     def test_risk_profile_keeps_unknown_risks_as_warning(self):
         profile = RiskProfile(
             modeled_boundary="job matching",

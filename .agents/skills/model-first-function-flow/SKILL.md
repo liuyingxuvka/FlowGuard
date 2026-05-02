@@ -47,6 +47,11 @@ or vendor behavior are safe.
 
 ## Daily Rules
 
+- Before creating model files, write a short **Risk Intent Brief**. Name the
+  failure modes being prevented, protected harms, state and side effects that
+  must be visible, adversarial inputs or retries to simulate, hard invariants,
+  and residual blindspots. Ask the user only when materially different risk
+  priorities exist and the protected harm cannot be inferred safely.
 - Start with the smallest useful FlowGuard model. The minimal path remains
   `State + FunctionBlock + Invariant + Explorer`.
 - Keep the API surface boundary clear. Core APIs are for direct modeling and
@@ -85,6 +90,12 @@ Input x State -> Set(Output x State)
   time: `python -m flowguard maintenance-template --output .`.
 - Use `FlowGuardCheckPlan` and `run_model_first_checks()` when useful for a
   low-friction agent path. Direct `Explorer(...)` usage remains valid.
+- If the exact same abstract model, scenarios, oracle, invariants, risk
+  boundary, and task revision already passed and none of those inputs changed,
+  it is acceptable to reuse that result instead of rerunning the same
+  simulation only for ceremony. Mention the reuse briefly. Rerunning is still
+  fine when previous evidence is unavailable, stale, requested by the user, or
+  useful as a cheap context refresh.
 - Always include repeated-input exploration when duplicate side effects are
   possible.
 - Inspect counterexample traces. If a trace is impossible, suspicious, or
@@ -158,20 +169,25 @@ something important. Do not let adoption logging replace executable checks.
    blocked/partial. do not write a temporary mini-framework and claim full
    adoption.
 6. Start a brief adoption note or `in_progress` log entry.
-7. Read the modeling protocol and choose the smallest behavior or process
+7. Write the Risk Intent Brief. If the risk priority is unclear and would
+   materially change the model, ask for human review before modeling.
+8. Read the modeling protocol and choose the smallest behavior or process
    boundary that can expose the risk.
-8. Build or update the model with explicit inputs, state, blocks, outputs,
+9. Build or update the model with explicit inputs, state, blocks, outputs,
    reads, writes, idempotency, and invariants.
-9. Build the state write inventory for fields used by invariants.
-10. Run `run_model_first_checks()` when useful, or run Explorer directly.
-11. Inspect counterexamples and revise the model or intended architecture until
+10. Build the state write inventory for fields used by invariants.
+11. Run `run_model_first_checks()` when useful, or run Explorer directly.
+12. Inspect counterexamples and revise the model or intended architecture until
     the correct model passes.
-12. Preserve important counterexamples as tests or implementation notes.
-13. Edit production code or perform the modeled high-impact action only after
+13. Preserve important counterexamples as tests or implementation notes.
+14. Edit production code or perform the modeled high-impact action only after
     executable model checks pass, unless the user explicitly waives modeling.
-14. Run scenario review, loop/stuck review, progress checks, contracts, or
+15. Run scenario review, loop/stuck review, progress checks, contracts, or
     conformance replay when those risks apply.
-15. Finish the adoption note with the checks run, findings, skipped checks, and
+    If this would repeat an unchanged abstract run that already passed, it may
+    be enough to reuse the earlier result and focus post-edit verification on
+    tests, conformance replay, or other production-facing evidence.
+16. Finish the adoption note with the checks run, findings, skipped checks, and
     next action.
 
 ## Resource Map

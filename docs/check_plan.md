@@ -16,14 +16,23 @@ for the API layer map.
 
 ## RiskProfile
 
-`RiskProfile` declares what the current model is trying to cover:
+`RiskProfile` declares what the current model is trying to cover. Start with a
+Risk Intent Brief so the model is aimed at the accidents it should expose:
 
 ```python
-from flowguard import RiskProfile, SkippedCheck
+from flowguard import RiskIntent, RiskProfile, SkippedCheck
 
 risk_profile = RiskProfile(
     modeled_boundary="job recording",
     risk_classes=("deduplication", "idempotency"),
+    risk_intent=RiskIntent(
+        failure_modes=("duplicate job record", "retry creates second side effect"),
+        protected_harms=("downstream workflow acts on the same job twice",),
+        must_model_state=("records", "side_effect_log"),
+        adversarial_inputs=("same job repeated", "retry after partial progress"),
+        hard_invariants=("one record per job", "one side effect per job"),
+        blindspots=("real database isolation is checked by conformance replay"),
+    ),
     confidence_goal="model_level",
     skipped_checks=(
         SkippedCheck("conformance_replay", "no production adapter yet"),
@@ -45,6 +54,13 @@ Known risk classes include:
 
 Unknown risk classes are allowed. They appear as warnings because the audit
 heuristics only know the standard classes.
+
+The `risk_intent` field is optional for backward compatibility, but agents
+should treat a missing or thin Risk Intent Brief as a pre-modeling gap. It
+should explain the failure modes, protected harms, state and side effects that
+must be visible, adversarial inputs to simulate, hard invariants, and known
+blindspots. Direct `Explorer(...)` usage can keep the same brief in comments,
+model notes, or the adoption log instead of using `RiskProfile`.
 
 Confidence goals:
 

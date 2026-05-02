@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.4.0 - 2026-05-02
+
+- Added `RiskIntent` for explicit pre-modeling briefs that name failure modes,
+  protected harms, model-critical state, adversarial inputs, hard invariants,
+  and blindspots.
+- Extended `RiskProfile` with an optional `risk_intent` field and audit
+  suggestions for missing or thin Risk Intent Briefs.
+- Updated the model-first Skill, modeling protocol, check plan docs, API
+  surface docs, and README to make Risk Intent Briefs part of the public
+  FlowGuard workflow.
+- Fixed README version-section ordering so release notes read newest to oldest:
+  `v0.4.0`, `v0.3.1`, `v0.3.0`, then `v0.2.0`.
+
 ## v0.3.1 - 2026-05-02
 
 - Added opt-in Mermaid source exporters for representative traces, generic

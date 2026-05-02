@@ -261,12 +261,17 @@ def audit_model(
 
     if profile is not None:
         for warning in profile.validation_warnings:
+            recommendation = (
+                "Complete the Risk Intent Brief before modeling so the model includes the relevant state, inputs, side effects, and invariants."
+                if warning.startswith("risk_intent")
+                else "Unknown risk classes are allowed, but audit heuristics only know the standard classes."
+            )
             findings.append(
                 _finding(
                     "suggestion",
                     "risk_profile_warning",
                     warning,
-                    "Unknown risk classes are allowed, but audit heuristics only know the standard classes.",
+                    recommendation,
                     {"modeled_boundary": profile.modeled_boundary},
                 )
             )

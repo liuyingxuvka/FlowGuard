@@ -179,7 +179,9 @@ example that prints a Markdown Mermaid code block.
 a low-friction path for AI agents:
 
 1. Start with the smallest useful model.
-2. Declare the intended risk boundary in `RiskProfile`.
+2. Declare the intended risk boundary in `RiskProfile`, preferably with a
+   `RiskIntent` that names failure modes, protected harms, model-critical
+   state, adversarial inputs, hard invariants, and blindspots.
 3. Use property factories or domain packs when they fit.
 4. Run `run_model_first_checks(...)`.
 5. Inspect minimized counterexamples when present.

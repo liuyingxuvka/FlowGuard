@@ -55,7 +55,7 @@ use.
 
 Reporting helpers help an AI agent explain what was checked and what was not:
 
-- `RiskProfile` and `FlowGuardCheckPlan`
+- `RiskIntent`, `RiskProfile`, and `FlowGuardCheckPlan`
 - `run_model_first_checks`
 - `audit_model`
 - `FlowGuardSummaryReport`

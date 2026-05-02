@@ -2,6 +2,31 @@
 
 Use this protocol before implementing non-trivial behavior involving workflows, state, retries, deduplication, idempotency, caching, or module boundaries.
 
+## 0. Write A Risk Intent Brief
+
+Before defining state or function blocks, write the short brief that tells the
+model what accidents it is meant to expose. Ask the user only when materially
+different risk priorities exist and the protected harm cannot be inferred
+safely.
+
+Answer these questions before creating or editing the model:
+
+- Which failure modes are we trying to prevent?
+- What protected harms would happen if those failures slipped through?
+- Which state fields, side effects, confirmations, durable records, or external
+  commitments must be modeled or the failure would be invisible?
+- Which adversarial inputs, repeated inputs, retries, partial successes,
+  ordering changes, concurrent actions, or exception branches must be simulated?
+- Which hard invariants must never be weakened merely to pass checks?
+- What blindspots remain because the model is intentionally smaller than the
+  real workflow?
+
+When using the optional runner path, put the brief into `RiskProfile` through a
+`RiskIntent` or equivalent `risk_intent` mapping. Direct `Explorer(...)` usage
+remains valid; still keep the brief in the model file, adoption note, or review
+summary so reviewers can see why the model includes the chosen state, inputs,
+scenarios, and invariants.
+
 ## 1. Identify External Inputs
 
 List the finite abstract inputs that can enter the workflow. Use behavior classes, not full production payloads.
@@ -204,6 +229,8 @@ bug fixes.
 
 ## Completion Checklist
 
+- A Risk Intent Brief names failure modes, protected harms, model-critical
+  state and side effects, adversarial inputs, hard invariants, and blindspots.
 - The model uses only the Python standard library.
 - Inputs and state are finite and hashable.
 - Every block returns all possible branches.

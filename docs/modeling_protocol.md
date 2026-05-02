@@ -33,6 +33,31 @@ Keep the API surface boundary clear:
 
 See `docs/api_surface.md` for the public API layer map.
 
+## 0.5 Write A Risk Intent Brief
+
+Before defining state or function blocks, write the short brief that tells the
+model what accidents it is meant to expose. This is the agent's own preflight;
+ask the user only when materially different risk priorities exist and the
+protected harm cannot be inferred safely.
+
+Answer these questions before creating or editing the model:
+
+- Which failure modes are we trying to prevent?
+- What protected harms would happen if those failures slipped through?
+- Which state fields, side effects, confirmations, durable records, or external
+  commitments must be modeled or the failure would be invisible?
+- Which adversarial inputs, repeated inputs, retries, partial successes,
+  ordering changes, concurrent actions, or exception branches must be simulated?
+- Which hard invariants must never be weakened merely to pass checks?
+- What blindspots remain because the model is intentionally smaller than the
+  real workflow?
+
+When using the optional runner path, put the brief into `RiskProfile` through a
+`RiskIntent` or equivalent `risk_intent` mapping. Direct `Explorer(...)` usage
+remains valid; still keep the brief in the model file, adoption note, or review
+summary so reviewers can see why the model includes the chosen state, inputs,
+scenarios, and invariants.
+
 ## 1. Identify External Inputs
 
 List the finite abstract inputs that can enter the workflow. Use behavior classes, not full production payloads.
@@ -215,6 +240,15 @@ Do not replace executable modeling with prose.
 ## 12. Only Then Implement Production Code
 
 After the model passes, implement production code against the modeled behavior. Use the model to guide unit tests and code review.
+
+An unchanged abstract run does not need to be repeated just because production
+code was edited. If the same model, scenarios, oracle, invariants, risk
+boundary, and task revision already passed, it is acceptable to reuse that
+result and spend the post-edit check on focused tests, conformance replay, or
+other production-facing evidence. Rerun the abstract model when its inputs
+changed, previous evidence is unavailable or stale, a counterexample or design
+revision needs confirmation, the user asks for a refresh, or a quick rerun
+would materially help confidence.
 
 Production implementation should preserve:
 
@@ -429,6 +463,8 @@ Recommended low-friction agent flow:
 
 ## Completion Checklist
 
+- A Risk Intent Brief names failure modes, protected harms, model-critical
+  state and side effects, adversarial inputs, hard invariants, and blindspots.
 - The model uses only the Python standard library.
 - Inputs and state are finite and hashable.
 - Every block returns all possible branches.

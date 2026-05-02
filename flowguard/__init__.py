@@ -104,7 +104,7 @@ from .review import (
     scenario_status_explanation,
     scenario_status_ok,
 )
-from .risk import RiskProfile, SkippedCheck
+from .risk import RISK_INTENT_FIELDS, RiskIntent, RiskProfile, SkippedCheck
 from .runner import run_model_first_checks
 from .scenario import (
     OracleCheckResult,
@@ -214,6 +214,7 @@ MODELING_HELPER_API = (
 
 REPORTING_HELPER_API = (
     "RiskProfile",
+    "RiskIntent",
     "SkippedCheck",
     "FlowGuardCheckPlan",
     "ScenarioMatrixConfig",
@@ -332,6 +333,7 @@ __all__ = [
     "ReplayAdapter",
     "ReplayObservation",
     "RetryPack",
+    "RiskIntent",
     "RiskProfile",
     "Scenario",
     "ScenarioExpectation",
@@ -346,6 +348,7 @@ __all__ = [
     "EVIDENCE_API",
     "MODELING_HELPER_API",
     "REPORTING_HELPER_API",
+    "RISK_INTENT_FIELDS",
     "SCHEMA_VERSION",
     "TemplateFile",
     "Trace",
