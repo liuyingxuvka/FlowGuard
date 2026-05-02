@@ -90,6 +90,7 @@ class Explorer:
     success_predicate: ReachabilityPredicate | None = None
     required_labels: tuple[str, ...] = ()
     required_reachable: tuple[ReachabilityCondition, ...] = ()
+    assumption_card: Any = None
 
     def __init__(
         self,
@@ -102,6 +103,7 @@ class Explorer:
         success_predicate: ReachabilityPredicate | None = None,
         required_labels: Sequence[str] = (),
         required_reachable: Sequence[ReachabilityCondition] = (),
+        assumption_card: Any = None,
     ) -> None:
         object.__setattr__(self, "workflow", workflow)
         object.__setattr__(self, "initial_states", tuple(initial_states))
@@ -112,6 +114,7 @@ class Explorer:
         object.__setattr__(self, "success_predicate", success_predicate)
         object.__setattr__(self, "required_labels", tuple(required_labels))
         object.__setattr__(self, "required_reachable", tuple(required_reachable))
+        object.__setattr__(self, "assumption_card", assumption_card)
 
     def explore(self) -> CheckReport:
         sequences = enumerate_input_sequences(self.external_inputs, self.max_sequence_length)
@@ -165,6 +168,7 @@ class Explorer:
             exception_branches=tuple(exception_branches),
             reachability_failures=tuple(reachability_failures),
             explored_sequences=sequences,
+            assumption_card=self.assumption_card,
         )
 
     def _check_path_invariants(self, path: WorkflowPath) -> list[InvariantViolation]:

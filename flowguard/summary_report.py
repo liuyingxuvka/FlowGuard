@@ -94,7 +94,7 @@ class FlowGuardSummaryReport:
         for section in self.sections:
             suffix = f" - {section.summary}" if section.summary else ""
             lines.append(f"- {section.name}: {section.status}{suffix}")
-            if verbose and section.findings:
+            if (verbose or _section_always_shows_findings(section)) and section.findings:
                 for finding in section.findings:
                     lines.append(f"  - {finding}")
             elif section.findings and section.status != "pass":
@@ -134,6 +134,12 @@ def _summary_for_sections(sections: tuple[FlowGuardSection, ...]) -> str:
         counts[section.status] += 1
     nonzero = tuple(f"{status}={count}" for status, count in counts.items() if count)
     return " ".join(nonzero) if nonzero else "no sections"
+
+
+def _section_always_shows_findings(section: FlowGuardSection) -> bool:
+    return section.name == "assumption_card" or (
+        ("always_show_findings", True) in section.metadata
+    )
 
 
 def _check_report_findings(report: Any) -> tuple[str, ...]:

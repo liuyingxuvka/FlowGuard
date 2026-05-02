@@ -55,6 +55,9 @@ use.
 
 Reporting helpers help an AI agent explain what was checked and what was not:
 
+- `AssumptionCard` and `ConditionalAssumption` for visible bounded assumptions
+  with explicit preconditions, a `why_not_modeled` explanation, invalidation
+  conditions, rationale, and checks
 - `RiskIntent`, `RiskProfile`, and `FlowGuardCheckPlan`
 - `run_model_first_checks`
 - `audit_model`

@@ -1,7 +1,7 @@
 import unittest
 from dataclasses import dataclass
 
-from flowguard import FunctionResult, InvariantResult, Workflow
+from flowguard import FunctionResult, InvariantResult, Workflow, assumption_card, conditional_assumption
 from flowguard.checks import no_duplicate_values
 from flowguard.plan import FlowGuardCheckPlan
 from flowguard.risk import RiskProfile, SkippedCheck
@@ -43,6 +43,27 @@ class BrokenRecord:
                 label="record_added",
             ),
         )
+
+
+def make_runner_assumption_card():
+    return assumption_card(
+        (
+            conditional_assumption(
+                "same_initial_inputs",
+                "The abstract initial state and external input set are fixed for this comparison.",
+                boundary="uncontrolled caller-provided model inputs",
+                preconditions=("initial states are unchanged", "external inputs are unchanged"),
+                why_not_modeled=(
+                    "This card documents the caller boundary; the workflow model already explores "
+                    "the provided finite inputs but cannot prove the caller did not change them."
+                ),
+                rationale="The helper runner cannot infer whether callers changed their model inputs.",
+                invalidated_by=("initial states change", "external inputs change"),
+                checks=("compare initial state reprs", "compare external input reprs"),
+            ),
+        ),
+        checked_scope="runner metadata propagation",
+    )
 
 
 class RunnerTests(unittest.TestCase):
@@ -133,6 +154,35 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual("skipped_with_reason", sections["conformance_replay"].status)
         self.assertTrue(
             any("production confidence goal" in finding for finding in sections["model_quality_audit"].findings)
+        )
+
+    def test_run_model_first_checks_propagates_assumption_card_to_model_report(self):
+        card = make_runner_assumption_card()
+        plan = FlowGuardCheckPlan(
+            workflow=Workflow((IdempotentRecord(),), name="recording"),
+            initial_states=(State(),),
+            external_inputs=("job_1",),
+            max_sequence_length=1,
+            assumption_card=card,
+        )
+
+        summary = run_model_first_checks(plan)
+        sections = {section.name: section for section in summary.sections}
+        metadata = dict(summary.metadata)
+        model_report = metadata["model_check_report"]
+
+        rendered_summary = summary.format_text()
+        self.assertTrue(model_report.ok, model_report.format_text())
+        self.assertEqual("pass_with_gaps", summary.overall_status)
+        self.assertIn("assumption_card", sections)
+        self.assertIs(card, metadata["assumption_card"])
+        self.assertIs(card, model_report.assumption_card)
+        self.assertIn("assumption_card: provided", plan.format_text())
+        self.assertIn("same_initial_inputs", rendered_summary)
+        self.assertIn("why_not_modeled", rendered_summary)
+        self.assertEqual(
+            "same_initial_inputs",
+            plan.to_dict()["assumption_card"]["assumptions"][0]["name"],
         )
 
 
