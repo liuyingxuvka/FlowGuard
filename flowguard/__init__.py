@@ -12,6 +12,12 @@ from .adoption import (
 )
 from .adoption_audit import AdoptionAuditFinding, AdoptionAuditReport, audit_flowguard_adoption
 from .audit import ModelQualityAuditReport, ModelQualityFinding, audit_model
+from .assumptions import (
+    AssumptionCard,
+    ConditionalAssumption,
+    assumption_card,
+    conditional_assumption,
+)
 from .checks import (
     all_items_have_source,
     at_most_once_by,
@@ -213,6 +219,10 @@ MODELING_HELPER_API = (
 )
 
 REPORTING_HELPER_API = (
+    "AssumptionCard",
+    "ConditionalAssumption",
+    "assumption_card",
+    "conditional_assumption",
     "RiskProfile",
     "RiskIntent",
     "SkippedCheck",
@@ -288,6 +298,7 @@ __all__ = [
     "AdoptionCommandResult",
     "AdoptionAuditFinding",
     "AdoptionAuditReport",
+    "AssumptionCard",
     "AdoptionLogEntry",
     "AdoptionTimer",
     "ADOPTION_STATUSES",
@@ -296,6 +307,7 @@ __all__ = [
     "ConformanceReport",
     "ConformanceRule",
     "ConformanceViolation",
+    "ConditionalAssumption",
     "ContractCheckReport",
     "ContractViolation",
     "BoundedEventuallyProperty",
@@ -376,6 +388,7 @@ __all__ = [
     "append_jsonl",
     "append_markdown_log",
     "adoption_template_files",
+    "assumption_card",
     "maintenance_workflow_template_files",
     "audit_flowguard_adoption",
     "at_most_once_by",
@@ -387,6 +400,7 @@ __all__ = [
     "build_problem_corpus_report",
     "audit_model",
     "cache_matches_source",
+    "conditional_assumption",
     "enumerate_input_sequences",
     "default_conformance_rules",
     "forbid_label_after",

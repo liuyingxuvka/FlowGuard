@@ -73,6 +73,7 @@ class CheckReport:
     exception_branches: tuple[ExceptionBranch, ...] = ()
     reachability_failures: tuple[ReachabilityFailure, ...] = ()
     explored_sequences: tuple[tuple[Any, ...], ...] = ()
+    assumption_card: Any = None
 
     def format_text(self, max_examples: int = 3) -> str:
         lines = [
@@ -83,6 +84,11 @@ class CheckReport:
             f"exceptions: {len(self.exception_branches)}",
             f"reachability_failures: {len(self.reachability_failures)}",
         ]
+
+        if self.assumption_card is not None:
+            formatter = getattr(self.assumption_card, "format_text", None)
+            rendered = formatter() if callable(formatter) else str(self.assumption_card)
+            lines.extend(["", rendered])
 
         for failure in self.reachability_failures[:max_examples]:
             lines.extend(

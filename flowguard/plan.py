@@ -69,6 +69,7 @@ class FlowGuardCheckPlan:
     conformance_status: str | None = None
     conformance_report: Any = None
     scenario_matrix_config: ScenarioMatrixConfig | None = None
+    assumption_card: Any = None
     metadata: FrozenMetadata = field(default_factory=tuple, compare=False)
 
     def __init__(
@@ -86,6 +87,7 @@ class FlowGuardCheckPlan:
         conformance_status: str | None = None,
         conformance_report: Any = None,
         scenario_matrix_config: ScenarioMatrixConfig | Mapping[str, Any] | None = None,
+        assumption_card: Any = None,
         metadata: Mapping[str, Any] | Iterable[tuple[str, Any]] | None = None,
     ) -> None:
         object.__setattr__(self, "workflow", workflow)
@@ -104,6 +106,7 @@ class FlowGuardCheckPlan:
             "scenario_matrix_config",
             _coerce_scenario_matrix_config(scenario_matrix_config),
         )
+        object.__setattr__(self, "assumption_card", assumption_card)
         object.__setattr__(self, "metadata", freeze_metadata(metadata))
 
     def format_text(self) -> str:
@@ -118,6 +121,7 @@ class FlowGuardCheckPlan:
             f"contracts: {len(self.contracts)}",
             f"progress_config: {'provided' if self.progress_config is not None else 'not_provided'}",
             f"conformance_status: {self.conformance_status or 'not_provided'}",
+            f"assumption_card: {'provided' if self.assumption_card is not None else 'not_provided'}",
         ]
         if self.risk_profile is not None:
             lines.append(f"risk_profile: {self.risk_profile.modeled_boundary}")
@@ -152,6 +156,7 @@ class FlowGuardCheckPlan:
                 if self.scenario_matrix_config is not None
                 else None
             ),
+            "assumption_card": _assumption_card_to_jsonable(self.assumption_card),
             "metadata": to_jsonable(self.metadata),
         }
 
@@ -175,6 +180,15 @@ def _coerce_scenario_matrix_config(
     if isinstance(value, Mapping):
         return ScenarioMatrixConfig.from_dict(value)
     raise TypeError("scenario_matrix_config must be a ScenarioMatrixConfig, mapping, or None")
+
+
+def _assumption_card_to_jsonable(value: Any) -> Any:
+    if value is None:
+        return None
+    to_dict = getattr(value, "to_dict", None)
+    if callable(to_dict):
+        return to_dict()
+    return to_jsonable(value)
 
 
 __all__ = ["FlowGuardCheckPlan", "ScenarioMatrixConfig"]

@@ -47,6 +47,9 @@ def run_model_first_checks(plan: FlowGuardCheckPlan) -> FlowGuardSummaryReport:
 
     risk_profile = plan.risk_profile
     risk_classes = risk_profile.risk_classes if risk_profile is not None else ()
+    if plan.assumption_card is not None:
+        artifacts["assumption_card"] = plan.assumption_card
+        _append_assumption_card_section(sections, plan.assumption_card)
     skipped_steps = tuple(
         f"{item.name}: {item.status}; {item.reason}"
         for item in risk_profile.skipped_checks
@@ -95,6 +98,7 @@ def run_model_first_checks(plan: FlowGuardCheckPlan) -> FlowGuardSummaryReport:
             external_inputs=plan.external_inputs,
             invariants=plan.invariants,
             max_sequence_length=plan.max_sequence_length,
+            assumption_card=plan.assumption_card,
         ).explore()
         sections.append(section_from_check_report(model_report))
         artifacts["model_check_report"] = model_report
@@ -182,6 +186,30 @@ def run_model_first_checks(plan: FlowGuardCheckPlan) -> FlowGuardSummaryReport:
     return FlowGuardSummaryReport.from_sections(
         sections,
         metadata=artifacts,
+    )
+
+
+def _append_assumption_card_section(
+    sections: list[FlowGuardSection],
+    assumption_card: Any,
+) -> None:
+    formatter = getattr(assumption_card, "format_text", None)
+    rendered = formatter() if callable(formatter) else str(assumption_card)
+    assumptions = tuple(getattr(assumption_card, "assumptions", ()) or ())
+    sections.append(
+        FlowGuardSection(
+            name="assumption_card",
+            status="pass_with_gaps",
+            summary=(
+                f"conditional assumptions={len(assumptions)}; "
+                "visible boundary, not model pass/fail evidence"
+            ),
+            findings=tuple(rendered.splitlines()),
+            metadata={
+                "assumption_card": assumption_card,
+                "always_show_findings": True,
+            },
+        )
     )
 
 

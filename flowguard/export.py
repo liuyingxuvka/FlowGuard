@@ -127,7 +127,7 @@ def reachability_failure_to_dict(failure: Any) -> JsonDict:
 
 
 def check_report_to_dict(report: Any) -> JsonDict:
-    return {
+    exported = {
         "ok": report.ok,
         "summary": report.summary,
         "traces": [trace_to_dict(trace) for trace in report.traces],
@@ -149,6 +149,11 @@ def check_report_to_dict(report: Any) -> JsonDict:
         ],
         "explored_sequences": to_jsonable(report.explored_sequences),
     }
+    assumption_card = getattr(report, "assumption_card", None)
+    if assumption_card is not None:
+        to_dict = getattr(assumption_card, "to_dict", None)
+        exported["assumption_card"] = to_dict() if callable(to_dict) else to_jsonable(assumption_card)
+    return exported
 
 
 def to_json_text(value: Any, indent: int = 2) -> str:
