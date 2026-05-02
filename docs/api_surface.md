@@ -62,7 +62,7 @@ Reporting helpers help an AI agent explain what was checked and what was not:
 - adoption logging and `audit_flowguard_adoption`
 - thin adoption logging commands such as `adoption-start` and
   `adoption-finish`
-- schema and JSON artifact helpers
+- schema, JSON artifact helpers, and explicit Mermaid source exporters
 
 Warnings, gaps, skipped sections, and `not_run` sections are confidence
 boundaries. They should not be hidden, but they also should not be treated as

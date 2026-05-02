@@ -65,6 +65,12 @@ from .core import FunctionBlock, FunctionResult, Invariant, InvariantResult
 from .explorer import Explorer, ReachabilityCondition, enumerate_input_sequences
 from .export import to_json_text, to_jsonable
 from .loop import GraphEdge, LoopCheckConfig, LoopCheckReport, check_loops, tarjan_scc
+from .mermaid import (
+    graph_to_mermaid_text,
+    loop_report_to_mermaid_text,
+    mermaid_code_block,
+    trace_to_mermaid_text,
+)
 from .progress import (
     BoundedEventuallyProperty,
     EventuallyProperty,
@@ -238,6 +244,10 @@ REPORTING_HELPER_API = (
     "make_artifact",
     "report_artifact",
     "trace_artifact",
+    "graph_to_mermaid_text",
+    "loop_report_to_mermaid_text",
+    "mermaid_code_block",
+    "trace_to_mermaid_text",
     "to_json_text",
     "to_jsonable",
 )
@@ -350,6 +360,9 @@ __all__ = [
     "ModelQualityFinding",
     "ReductionStep",
     "ScenarioMatrixBuilder",
+    "graph_to_mermaid_text",
+    "loop_report_to_mermaid_text",
+    "mermaid_code_block",
     "check_loops",
     "check_progress",
     "check_refinement_projection",
@@ -401,6 +414,7 @@ __all__ = [
     "state_invariant",
     "tarjan_scc",
     "trace_artifact",
+    "trace_to_mermaid_text",
     "to_json_text",
     "to_jsonable",
     "utc_now_text",

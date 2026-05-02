@@ -149,6 +149,30 @@ Status rules:
 Use the summary in PR notes or agent replies to avoid overstating "FlowGuard
 passed" when only the model checker ran.
 
+## Mermaid Source Export
+
+Mermaid export is an explicit reporting helper for situations where a diagram
+will make a trace, counterexample, or reachable state graph easier to inspect.
+It returns text source that can be copied into Markdown, GitHub, docs tooling,
+or another renderer. It does not produce PNG-only output and does not change
+default `format_text()` reports.
+
+Available helpers:
+
+- `trace_to_mermaid_text(trace)`: one representative model trace.
+- `graph_to_mermaid_text(edges, states=..., initial_states=...)`: a generic
+  state graph from `GraphEdge`-like objects.
+- `loop_report_to_mermaid_text(report)`: the reachable graph from a
+  `LoopCheckReport`.
+- `mermaid_code_block(source)`: wrap source in a Markdown Mermaid fence.
+
+Use this when the user asks for a diagram, when a counterexample needs visual
+explanation, or when a loop/stuck-state review is easier to discuss as a graph.
+For routine checks, prefer the normal text or JSON reports.
+
+Run `python examples/mermaid_export_example.py` for a minimal end-to-end
+example that prints a Markdown Mermaid code block.
+
 ## Runner and Domain Packs
 
 `RiskProfile`, `FlowGuardCheckPlan`, and `run_model_first_checks(...)` provide

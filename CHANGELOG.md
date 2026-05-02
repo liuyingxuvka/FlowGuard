@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.3.1 - 2026-05-02
+
+- Added opt-in Mermaid source exporters for representative traces, generic
+  state graphs, and loop review graphs.
+- Exposed `trace_to_mermaid_text`, `graph_to_mermaid_text`,
+  `loop_report_to_mermaid_text`, and `mermaid_code_block` through the public
+  FlowGuard reporting helper API.
+- Updated the README with English and Chinese Mermaid examples showing how
+  FlowGuard turns a risky request into a finite model, reachable traces,
+  findings, and optional conformance replay.
+- Added a runnable `examples/mermaid_export_example.py` script that prints a
+  Markdown Mermaid code block.
+- Documented that Mermaid output is copyable text source and remains off by
+  default so routine reports stay concise.
+
 ## v0.3.0 - 2026-04-30
 
 - Expanded the `model-first-function-flow` Skill from coding/repository-only
