@@ -2,12 +2,60 @@
 
 Use this protocol before implementing non-trivial behavior involving workflows, state, retries, deduplication, idempotency, caching, or module boundaries.
 
-## 0. Write A Risk Intent Brief
+## 0. Choose The Lightest Mode
+
+Before changing files, separate three situations:
+
+- `read_only_audit`: inspect an existing project without changing production
+  code. Run import preflight, existing FlowGuard models/replays when present,
+  adoption evidence review, and stale fallback checks. Do not create a new model
+  solely because the task is read-only.
+- `model_first_change`: production behavior may change. Build or update the
+  fit-for-risk model before editing production code. If no FlowGuard model
+  exists yet, create one from the current plan or adapt the model template.
+- `model_maintenance`: existing `.flowguard` models, replay adapters, or
+  adoption evidence appear stale. Update those artifacts before making claims
+  from them.
+
+If real FlowGuard is importable but a current `.flowguard` Python model still
+claims `flowguard_package_available = False`, uses a fallback explorer, or
+defines local replacement `Explorer`/`Workflow` classes, record a
+`stale_fallback_model` warning. This is a confidence gap, not a hard failure.
+
+Keep the API surface boundary clear:
+
+- core modeling uses `FunctionBlock`, `FunctionResult`, `Invariant`,
+  `Workflow`, and `Explorer`;
+- modeling helpers reduce boilerplate, but direct `Explorer` use remains valid;
+- reporting helpers explain gaps and skipped work, but warnings are not hard
+  failures;
+- evidence and benchmark helpers are mainly for FlowGuard maintenance and
+  upgrade validation, not ordinary project gates.
+
+See `docs/api_surface.md` for the public API layer map.
+
+## 0.25 Create Or Evolve The Model Script
+
+FlowGuard does not require an existing production implementation or an existing
+model script. It does require the real `flowguard` package to be connected
+before claiming FlowGuard adoption. When that import preflight passes and no
+model exists yet, create one from the current plan or adapt the included model
+template. The model script is the executable design artifact that makes the
+proposed workflow inspectable.
+
+The first model should be small enough to review, but it does not have to be
+the shortest possible script. It should be fit for the customer's risk: include
+the state, branches, retries, side effects, ordering constraints, and invariants
+needed to make the important failure modes visible. When later work reveals new
+risks, revise, strengthen, or connect the model instead of treating the first
+version as final.
+
+## 0.5 Write A Risk Intent Brief
 
 Before defining state or function blocks, write the short brief that tells the
-model what accidents it is meant to expose. Ask the user only when materially
-different risk priorities exist and the protected harm cannot be inferred
-safely.
+model what accidents it is meant to expose. This is the agent's own preflight;
+ask the user only when materially different risk priorities exist and the
+protected harm cannot be inferred safely.
 
 Answer these questions before creating or editing the model:
 
@@ -87,10 +135,23 @@ For each block, document:
 This exposes state ownership and prevents the model from spreading writes across the wrong modules.
 
 Before trusting an invariant over a state field, make a state write inventory.
-Search the production code for every writer of fields such as
-`recommendation_status`, `output_status`, `analysis_json`, cache values, queue
-status, retry counters, and side-effect records. Record which writers are
-modeled and which are skipped with reasons.
+For every field named by the invariant, search the production code for all
+writers of that field and record whether each writer is modeled, intentionally
+skipped, or outside the current boundary.
+
+Examples:
+
+- `recommendation_status`
+- `output_status`
+- `analysis_json`
+- cache/source-of-truth fields
+- queue or retry status fields
+
+If a field has multiple production writers, cleanup jobs, runtime repair paths,
+or finalizers, missing one writer is a model-fidelity gap. It is not an
+automatic FlowGuard runtime failure, but it must be visible before claiming
+production confidence. See `docs/state_write_inventory.md` for the lightweight
+table format.
 
 ## 6. Define Idempotency
 
@@ -122,6 +183,35 @@ Examples:
 
 Do not weaken invariants merely to make checks pass.
 
+When the bug class matches a common pattern, prefer the standard property
+factories in `flowguard.checks` over hand-written boilerplate. Examples include
+`no_duplicate_by`, `at_most_once_by`, `all_items_have_source`,
+`no_contradictory_values`, `cache_matches_source`,
+`only_named_block_writes`, `require_label_order`, and `forbid_label_after`.
+These factories still return ordinary `Invariant` objects. They are helper
+building blocks, not a required modeling layer.
+They also attach optional `property_classes` metadata, such as
+`deduplication`, `at_most_once`, or `cache_consistency`, so `audit_model(...)`
+can recognize common property types without relying only on invariant names.
+Custom invariants can add the same metadata when useful, but metadata is not
+required and unknown values are not hard failures.
+
+For common risks, optional domain packs can reduce boilerplate:
+`DeduplicationPack`, `CachePack`, `RetryPack`, and `SideEffectPack`. A pack only
+uses selectors and key functions you provide. It does not infer state, enforce
+a model shape, or become a required structure.
+
+For recurring multi-role maintenance systems, such as
+Sleep/Dream/Architect/Installer/Reviewer flows, the optional maintenance
+template can reduce setup time:
+
+```powershell
+python -m flowguard maintenance-template --output .
+```
+
+It scaffolds repeated-action, missing-report, and install-sync checks. Rename
+the roles and state fields before treating it as project evidence.
+
 ## 9. Run Explorer With Repeated Inputs
 
 Choose:
@@ -132,6 +222,13 @@ Choose:
 - optional required labels or reachable predicates
 
 Always include repeated-input exploration when duplicate side effects are possible. For one input and length two, the explorer must check both `[x]` and `[x, x]`.
+
+When using the optional orchestration path, put the intended coverage boundary
+in a `RiskProfile`, then create a `FlowGuardCheckPlan` and call
+`run_model_first_checks(plan)`. The runner performs audit, optional scenario
+scaffolding, Explorer, counterexample minimization, scenario review, optional
+progress/contract/conformance sections, and a unified summary. This is a
+convenience path, not the only valid way to run FlowGuard.
 
 ## 10. Inspect Counterexamples
 
@@ -145,6 +242,12 @@ When a report fails, read the counterexample trace. A useful trace shows:
 
 The trace should make the failing architecture visible without guessing.
 
+If the failing external input sequence is longer than needed, use
+`minimize_failing_sequence` or `minimize_report_counterexample` to produce a
+smaller deterministic reproduction. Minimization should preserve the original
+counterexample in the report; a shortened trace is easier to review, but it
+does not replace the original evidence.
+
 ## 11. Revise Model or Architecture
 
 If the counterexample shows a real design bug, change the model and intended architecture. If it shows the model is incomplete, fix the model. Then rerun the checks.
@@ -154,6 +257,15 @@ Do not replace executable modeling with prose.
 ## 12. Only Then Implement Production Code
 
 After the model passes, implement production code against the modeled behavior. Use the model to guide unit tests and code review.
+
+An unchanged abstract run does not need to be repeated just because production
+code was edited. If the same model, scenarios, oracle, invariants, risk
+boundary, and task revision already passed, it is acceptable to reuse that
+result and spend the post-edit check on focused tests, conformance replay, or
+other production-facing evidence. Rerun the abstract model when its inputs
+changed, previous evidence is unavailable or stale, a counterexample or design
+revision needs confirmation, the user asks for a refresh, or a quick rerun
+would materially help confidence.
 
 Production implementation should preserve:
 
@@ -167,11 +279,17 @@ Production implementation should preserve:
 
 After production code is implemented or modified, add conformance replay when feasible.
 
-Conformance replay should be the default next check when the production logic
-has multiple state write points, database or durable side effects,
-runtime/cleanup/finalizer paths, production-confidence claims, or adapter
-projection. If replay is skipped in those cases, record why and report
-model-level confidence only.
+Conformance replay should be the default next check when any of these are true:
+
+- the invariant depends on a state field with multiple production write points;
+- the production change has database writes or other durable side effects;
+- runtime, cleanup, repair, or finalizer paths can reach the same state;
+- the model result will be used to claim production behavior, not just
+  model-level behavior;
+- adapter projection is needed to compare model state with real state.
+
+If replay is skipped in one of these cases, record the reason explicitly and
+report the result as model-level confidence only.
 
 The intended order is:
 
@@ -188,6 +306,34 @@ Do not require real internal state to equal abstract state directly. Use project
 - production branch behavior -> observed label.
 
 The production behavior must conform to model expectations or the model must be explicitly revised. Do not silently diverge from the model.
+
+## 13.5 Handle Post-Runtime Model Misses
+
+Treat a runtime, test, replay, log, or manual-validation failure that appears
+after a FlowGuard pass as a model-miss review trigger until proven otherwise.
+The earlier pass is still useful, but it is provisional evidence, not a reason
+to patch and finish directly.
+
+When this happens:
+
+1. Reopen the model-first work and keep completion blocked while the model-miss
+   obligation is open.
+2. Classify why the prior model missed the issue: boundary too narrow, state
+   abstraction too coarse, missing input branch, weak invariant, missing
+   production writer, skipped replay, wrong oracle, or explicitly outside the
+   modeled risk.
+3. If the issue belongs in scope, represent it as executable evidence: scenario,
+   invariant, replay adapter, representative trace, or a model boundary update.
+4. Rerun the relevant model checks and confirm the old weakness is now visible
+   or deliberately out of scope.
+5. Validate the repair with the refined model plus the strongest practical
+   production-facing evidence.
+6. Record the miss classification, model changes, rerun commands, skipped
+   checks, and residual blindspots in the adoption log.
+
+A later green runtime check does not close a known model miss by itself. The
+miss is closed only when it has been classified and represented in the model or
+explicitly recorded as outside the modeled risk.
 
 ## 14. Run Scenario Sandbox Review
 
@@ -206,6 +352,13 @@ Before connecting a model to larger production workflows, run scenario review wh
 
 Write scenarios with explicit human expectations. Expected violations in broken models should be successful review outcomes when flowguard observes the intended violation. Use `needs_human_review` when the model exposes a policy gap that should not be falsely treated as proven.
 
+For retry, deduplication, cache, idempotency, queue, or side-effect risks,
+`ScenarioMatrixBuilder` can scaffold a small deterministic set of high-value
+scenarios: single input, repeated same input, pairwise order, and ABA. Generated
+scenarios default to `needs_human_review` unless you provide a domain
+expectation. They cover input shapes, not business correctness, so they do not
+silently become pass/fail claims.
+
 ## 15. Run Loop / Stuck-State Review
 
 When a workflow has retry, rewrite, waiting, refresh, queue, or human-review cycles, build a reachable state graph and run loop checks.
@@ -220,17 +373,150 @@ Look for:
 
 Do not claim bottom-SCC detection proves universal termination for cycles that have escape edges. Mark those as `known_limitation` or model a progress rule explicitly.
 
-## 16. FlowGuard Framework Upgrades
+## 16. Run The Evidence Baseline Before Upgrades
 
-For FlowGuard framework upgrades, benchmark claims, or broad capability claims,
-use the repository-level `docs/framework_upgrade_checks.md` reference when it
-is available. Do not require the internal benchmark suite for ordinary project
-bug fixes.
+Before starting a major flowguard upgrade, run the evidence baseline:
+
+```powershell
+python examples/evidence_baseline/run_baseline.py
+```
+
+Use it as an upgrade-readiness check. The baseline records:
+
+- unit-test inventory;
+- scenario review outcomes;
+- conformance replay outcomes;
+- model-check outcomes;
+- loop/stuck review outcomes;
+- bug-class scorecard.
+
+An upgrade should improve or preserve the expected-vs-observed scorecard. Do not silently convert `needs_human_review` or `known_limitation` into `pass`. Do not accept new `unexpected_violation`, `missing_expected_violation`, or `oracle_mismatch` cases without a clear reason.
+
+## 17. Keep The Real Software Problem Corpus In View
+
+Before major flowguard framework upgrades, also run the real software problem corpus quality review:
+
+```powershell
+python examples/problem_corpus/run_corpus_review.py
+```
+
+The corpus quality review checks the problem-intent matrix. It is not the same as executable behavior testing. Reports must keep this distinction explicit:
+
+```text
+Problem-intent corpus: 2100 cases
+Executable corpus review: 2100 executable cases, 0 not_executable_yet
+Real-model corpus review: 2100 real_model_cases, 0 generic_fallback_cases
+Evidence baseline: <N> evidence cases
+Unit-test inventory: <U> test entries
+```
+
+For Phase 10.8 and later, also run:
+
+```powershell
+python examples/problem_corpus/run_executable_corpus_review.py
+```
+
+The executable corpus review must run real flowguard checkers, such as `Workflow + ScenarioReview + Invariant` or `LoopCheck`. Do not count a corpus case as executable if it only has prose fields or string evidence.
+
+For Phase 11 and later capability claims, executable coverage is still not enough. The report must also show:
+
+```text
+real_model_cases: 2100
+generic_fallback_cases: 0
+model_variant_total: 150
+model_families_with_six_variants: 25
+```
+
+The main corpus includes `pressure_100`, which is intentionally part of the
+baseline before the next mathematical upgrades. Preserve `known_limitation`
+for pressure cases that current checks cannot prove, rather than converting
+them to `pass`.
+
+The baseline freeze rules are documented in
+`docs/benchmark_baseline_contract.md`.
+
+This means each case is bound to a workflow-family-specific domain model with concrete block names, state slots, model variants, and structural evidence. A generic corpus template can remain useful for plumbing checks, but it is not a valid capability baseline.
+
+For durable product-grade benchmark claims, also run:
+
+```text
+python examples/problem_corpus/run_benchmark_hardening.py
+```
+
+The hardening review must report:
+
+```text
+variant_min_cases >= 8
+variants_below_target: 0
+families_missing_required_case_kinds: 0
+families_missing_required_bug_classes: 0
+benchmark_conformance_family_count = 25
+production_conformance_family_count = 26
+total_replays = 78
+failures = 0
+```
+
+This prevents the benchmark from becoming broad but shallow. A variant should
+not count as mature if it was only touched once.
+
+The corpus is not a roadmap mapping and not a current capability assessment. It defines real software workflow problems independent of future phase ownership.
+
+Use it to keep future work grounded in broad software structures:
+
+- cache and materialized views;
+- retry and side effects;
+- file pipelines;
+- queues and leases;
+- approval and human review;
+- permissions and sessions;
+- payments and inventory;
+- deployment and configuration rollout;
+- audit and traceability;
+- classifier routing without API calls.
+
+Do not add future phase ownership, current support status, or implementation assignment fields to corpus cases. Those belong in later reports, not in the problem case itself.
+
+## 18. Use Quality Audit and Summary Reports As Helpers
+
+`audit_model` provides a lightweight `ModelQualityAuditReport` for obvious
+coverage gaps. It is intentionally heuristic and warning-oriented. A warning
+means "this is a confidence boundary", not "the model failed". A suggestion is
+an improvement idea. Only structural problems such as a workflow with no blocks
+should be treated as audit errors.
+
+Use a `FlowGuardSummaryReport` when you need to present model check, audit,
+scenario review, progress, contract, conformance, and skipped/not-run sections
+together. If Explorer passes but audit warns, the overall status should be
+`pass_with_gaps`, not plain `pass`. If production conformance is not run, record
+`not_run` or `skipped_with_reason`; skipped is not pass.
+
+Do not report model-level confidence as production confidence unless
+conformance replay or another production-facing evidence source supports that
+claim.
+
+Recommended low-friction agent flow:
+
+1. Create a model if none exists yet, or reuse/update the existing model.
+2. Start with the smallest inspectable boundary that still exposes the customer
+   risk.
+3. Declare a lightweight `RiskProfile`.
+4. Use standard property factories or domain packs when they fit.
+5. Run `run_model_first_checks()` when available.
+6. Inspect minimized counterexamples if any.
+7. Treat `pass_with_gaps` as useful but limited confidence.
+8. Do not claim production conformance unless conformance replay or equivalent
+   real-code evidence exists.
+9. Record skipped checks; skipped is not pass.
 
 ## Completion Checklist
 
 - A Risk Intent Brief names failure modes, protected harms, model-critical
   state and side effects, adversarial inputs, hard invariants, and blindspots.
+- If no model existed before FlowGuard applied, an AI-created model script now
+  captures the relevant customer risk instead of waiting for a preexisting
+  script.
+- Existing models are revised or connected when new failure modes make the old
+  boundary too weak.
 - The model uses only the Python standard library.
 - Inputs and state are finite and hashable.
 - Every block returns all possible branches.
@@ -242,6 +528,10 @@ bug fixes.
 - Representative traces can be exported for audit or replay.
 - Production implementations have conformance replay adapters when feasible.
 - Production replay either conforms to the model or documents why the model changed.
+- Post-FlowGuard runtime/test/replay/manual-validation failures trigger
+  model-miss review before completion.
+- Known model misses are classified, represented in executable evidence or
+  marked out of scope, rerun, and then validated with production-facing checks.
 - Scenario reviews compare expected and observed outcomes.
 - Broken-model scenarios produce expected violations rather than ordinary failures.
 - Loop/stuck review is run for workflows with retries, refresh, waiting, or reprocessing.
@@ -258,6 +548,9 @@ bug fixes.
 - Thin CLI, pytest, schema, and template helpers must preserve structured
   expected-vs-observed reports rather than hiding review status.
 - Reports distinguish problem-intent case count, executable case count, evidence baseline count, and unit-test inventory count.
+- ModelQualityAudit warnings, missing conformance, skipped checks, and not-run
+  sections are reported as confidence boundaries rather than hidden or
+  mislabeled as passes.
 - Real project adoptions record status, trigger reason, elapsed time, commands run,
   findings, counterexamples, skipped steps, friction points, and next actions
   in an adoption log.

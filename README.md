@@ -12,7 +12,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.4.1` | `1.0` | Python standard library only | MIT |
+| `v0.4.2` | `1.0` | Python standard library only | MIT |
 
 English lead content comes first; a full Chinese mirror follows below.
 
@@ -280,6 +280,23 @@ behavior space.
 | Contract checks | Checks preconditions, postconditions, read/write ownership, forbidden writes, traceability |
 | Agent helper layer | Provides RiskIntent, property factories, RiskProfile, check plans, summary reports, and domain packs |
 | Codex Skill | Provides a `model-first-function-flow` Skill for model-first coding and process-preflight work |
+
+### Post-Runtime Model-Miss Review In v0.4.2
+
+`v0.4.2` makes a FlowGuard pass provisional until the modeled change or process
+has also been checked against the strongest practical runtime signal: tests,
+conformance replay, logs, manual validation, or another production-facing
+source.
+
+If a later runtime/test/replay/manual-validation step exposes a new issue after
+FlowGuard passed, the agent should not simply patch the code and finish. It
+should reopen the model-first work, classify why the earlier model missed the
+issue, represent the issue as a scenario, invariant, replay, representative
+trace, or explicit out-of-scope boundary, rerun the relevant checks, and then
+validate the repair with production-facing evidence.
+
+This turns "FlowGuard did not catch it last time" into a normal feedback loop:
+the model gets sharper when real validation finds a blindspot.
 
 ### AI-Created Model Scripts In v0.4.1
 
@@ -579,7 +596,9 @@ In another project, ask Codex or another AI coding agent:
 Use the model-first-function-flow skill before changing this workflow or
 preflighting this high-impact process. If no FlowGuard model exists yet, create
 one that captures the current customer-relevant risks, then iterate it when new
-risks appear.
+risks appear. If runtime validation later exposes an issue after FlowGuard
+passed, reopen the model, classify the miss, represent it in executable
+evidence or mark it out of scope, rerun checks, and only then validate the fix.
 ```
 
 You can also copy this rule into the target project's `AGENTS.md`:
@@ -589,7 +608,8 @@ For non-trivial tasks involving behavior, workflows, state, module boundaries,
 retries, deduplication, idempotency, caching, repeated inputs, repeated bugs, or
 meaningful process validation/adjustment/observation with side effects, use the
 model-first-function-flow skill before editing production code or performing the
-high-impact action.
+high-impact action. Treat post-FlowGuard runtime failures as model-miss review
+triggers before final completion.
 ```
 
 See the full rule in [docs/agents_snippet.md](docs/agents_snippet.md).
@@ -896,6 +916,22 @@ specification 或 planning 层面的整理后，FlowGuard 可以进一步检查�
 | Agent helper layer | 提供 RiskIntent、property factories、RiskProfile、check plan、summary report 和 domain packs |
 | Codex Skill | 提供 `model-first-function-flow` Skill，让 Codex 在改代码前或做流程预演前先建模 |
 
+### v0.4.2 的运行后 Model-Miss Review
+
+`v0.4.2` 明确：FlowGuard pass 只是 provisional evidence。只有后续再经过实际测试、
+conformance replay、日志、人工验证，或其他 production-facing 信号检查之后，才能把
+这个模型级结论提升为更可靠的任务结论。
+
+如果 FlowGuard 通过之后，后续运行、测试、replay 或人工验证又暴露了新问题，AI agent
+不应该直接补丁式修代码然后宣布完成。它应该重新打开 model-first 工作，先分类旧模型
+为什么没抓到：边界太窄、状态抽象太粗、输入分支缺失、invariant 太弱、生产 writer
+漏盘点、replay 跳过、oracle 错误，或者这个问题确实在模型范围外。
+
+如果问题属于当前风险范围，AI agent 应该把它写进 FlowGuard 证据里：scenario、
+invariant、replay adapter、代表性 trace，或明确的 out-of-scope boundary。然后重新
+跑相关检查，再用真实测试或 replay 验证修复。这样“FlowGuard 上次没抓到”的问题会
+变成模型变强的反馈，而不是每次都靠事后追问。
+
 ### v0.4.1 的 AI 创建模型脚本说明
 
 `v0.4.1` 明确了没有现成模型时的正常路径。FlowGuard 不要求客户先提供完整模型脚本。
@@ -1175,7 +1211,9 @@ AI Agent 只要能读取仓库文件、运行本地命令，并遵守 Skill/AGEN
 Use the model-first-function-flow skill before changing this workflow or
 preflighting this high-impact process. If no FlowGuard model exists yet, create
 one that captures the current customer-relevant risks, then iterate it when new
-risks appear.
+risks appear. If runtime validation later exposes an issue after FlowGuard
+passed, reopen the model, classify the miss, represent it in executable
+evidence or mark it out of scope, rerun checks, and only then validate the fix.
 ```
 
 也可以把下面规则复制到目标项目的 `AGENTS.md`：
@@ -1185,7 +1223,8 @@ For non-trivial tasks involving behavior, workflows, state, module boundaries,
 retries, deduplication, idempotency, caching, repeated inputs, repeated bugs, or
 meaningful process validation/adjustment/observation with side effects, use the
 model-first-function-flow skill before editing production code or performing the
-high-impact action.
+high-impact action. Treat post-FlowGuard runtime failures as model-miss review
+triggers before final completion.
 ```
 
 完整规则见：[docs/agents_snippet.md](docs/agents_snippet.md)。

@@ -27,6 +27,12 @@ Rules:
 - Treat models as living artifacts. When future tasks expose new failure modes,
   strengthen, extend, or connect the model instead of assuming the first version
   is final.
+- Treat runtime, test, replay, or manual validation failures after a FlowGuard
+  pass as model-miss review triggers until proven otherwise. Do not patch and
+  finish directly: classify why the earlier model missed the issue, represent
+  the issue in FlowGuard as a scenario, invariant, replay, representative trace,
+  or explicit out-of-scope boundary, rerun the relevant checks, and then
+  validate the repair with production-facing evidence.
 - Treat the FlowGuard model as a falsifiable simulator of the real workflow, not as ground truth. Compare representative traces with real code paths, logs, tests, known user workflows, or conformance replay before trusting the model result.
 - Calibrate model fidelity to the current risk. If a trace is impossible, suspicious, or misses known behavior, refine the model, scenario oracle, or replay adapter and rerun the checks.
 - Represent each function block as `Input x State -> Set(Output x State)`.
@@ -37,6 +43,10 @@ Rules:
 - Run flowguard with repeated-input exploration when duplicate side effects are possible.
 - Run scenario review, conformance replay, loop/stuck review, progress/fairness checks, and contract checks when those risks apply.
 - Default to a small conformance replay when production logic has multiple state write points, database side effects, runtime/cleanup/finalizer paths, or production-confidence claims. If replay is skipped, record why; skipped is not pass.
+- Keep FlowGuard pass evidence provisional until runtime validation and any
+  model-miss review obligation are closed. A later green runtime check by itself
+  does not close a known post-FlowGuard model miss unless the miss has been
+  classified and represented or explicitly marked out of scope.
 - Treat UI state-flow, product architecture, orchestration, and module-boundary changes as model-first unless they are clearly trivial.
 - Treat booking, purchase, publication handoff, operational runbook, data migration, support escalation, and multi-agent coordination flows as model-first when they have meaningful state, side effects, external dependencies, rollback concerns, or irreversible cost.
 - Trivial copy edits, formatting-only work, read-only explanation tasks, and fully reversible process steps with no meaningful state or side effects may skip flowguard with an explicit reason.

@@ -60,6 +60,12 @@ or vendor behavior are safe.
 - Treat FlowGuard model scripts as living design artifacts. If no model exists,
   create one. If later work reveals new failure modes, strengthen, extend, or
   connect the model rather than treating the first version as final.
+- Treat a runtime, test, replay, or manual validation failure that appears after
+  a FlowGuard pass as a model-miss review trigger until proven otherwise. Do not
+  patch and finish directly: classify why the earlier model missed it, represent
+  the issue in the model as a scenario, invariant, replay, or explicit
+  out-of-scope boundary, rerun the relevant model checks, and only then validate
+  the repair with production-facing evidence.
 - The minimal technical path remains `State + FunctionBlock + Invariant +
   Explorer`.
 - Keep the API surface boundary clear. Core APIs are for direct modeling and
@@ -130,6 +136,31 @@ any of these are true:
 If replay is skipped in one of these cases, record why and report model-level
 confidence only. A skipped replay is not a pass.
 
+## Post-Runtime Model-Miss Review
+
+FlowGuard passing is provisional until the modeled change or process is checked
+against real tests, replay, logs, manual validation, or another appropriate
+production-facing signal. When FlowGuard is used, keep an open obligation until
+runtime validation and any model-miss review are closed.
+
+If a later runtime/test/replay/manual validation step exposes a new issue after
+FlowGuard passed:
+
+1. Reopen the FlowGuard work instead of treating the prior pass as final.
+2. Classify the miss: boundary too narrow, state abstraction too coarse,
+   missing input branch, weak invariant, missing production writer, skipped
+   replay, wrong oracle, or explicitly outside the modeled risk.
+3. Represent the issue in executable evidence whenever it belongs in scope:
+   add or update a scenario, invariant, replay adapter, representative trace, or
+   model boundary note.
+4. Confirm the old weakness is now visible: the refined model should catch the
+   problem or clearly mark it out of scope before the fix is trusted.
+5. Validate the repair through the refined FlowGuard checks plus the strongest
+   practical runtime/test/replay evidence.
+6. Before finalizing, close or explicitly carry forward the model-miss
+   obligation in the adoption note. A later green runtime check by itself does
+   not close a known model miss unless the miss has been reviewed.
+
 ## Adoption Logging
 
 Whenever this Skill is used for real project work, finish with a short adoption
@@ -197,7 +228,9 @@ something important. Do not let adoption logging replace executable checks.
     If this would repeat an unchanged abstract run that already passed, it may
     be enough to reuse the earlier result and focus post-edit verification on
     tests, conformance replay, or other production-facing evidence.
-16. Finish the adoption note with the checks run, findings, skipped checks, and
+16. If post-edit runtime validation exposes a new issue after FlowGuard passed,
+    enter Post-Runtime Model-Miss Review before claiming completion.
+17. Finish the adoption note with the checks run, findings, skipped checks, and
     next action.
 
 ## Resource Map

@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.4.2 - 2026-05-07
+
+- Added Post-Runtime Model-Miss Review guidance to the model-first Skill:
+  runtime, test, replay, or manual-validation failures after a FlowGuard pass
+  must reopen the model-first loop instead of becoming direct patch-and-finish
+  work.
+- Clarified that agents should classify why the prior model missed the issue,
+  represent in-scope misses as scenarios, invariants, replays, representative
+  traces, or explicit out-of-scope boundaries, then rerun checks before
+  validating the repair.
+- Updated the reusable AGENTS snippet, modeling protocol, project integration
+  notes, README, and Skill doc tests for the new completion gate.
+- No core API, schema, runtime dependency, or CLI behavior changed.
+
 ## v0.4.1 - 2026-05-07
 
 - Clarified that when no FlowGuard model exists yet, the AI agent should create

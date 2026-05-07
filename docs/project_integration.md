@@ -121,6 +121,8 @@ That project rule should require:
 - `flowguard` import preflight;
 - AI-created model scripts when no model exists yet;
 - model-first checks before production edits;
+- post-runtime model-miss review when tests, replay, logs, or manual validation
+  expose a new issue after FlowGuard already passed;
 - adoption log entries for real use;
 - explicit blocked status when the real toolchain is unavailable.
 

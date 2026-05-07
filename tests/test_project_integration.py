@@ -26,6 +26,7 @@ class ProjectIntegrationTests(unittest.TestCase):
         self.assertIn("temporary local mini-framework", text)
         self.assertIn("one-off mini framework", text)
         self.assertIn("blocked_or_partial", text)
+        self.assertIn("post-runtime model-miss review", text)
 
     def test_skill_requires_import_preflight_and_rejects_substitute(self):
         text = (

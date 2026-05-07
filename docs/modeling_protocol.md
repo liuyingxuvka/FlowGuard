@@ -307,6 +307,34 @@ Do not require real internal state to equal abstract state directly. Use project
 
 The production behavior must conform to model expectations or the model must be explicitly revised. Do not silently diverge from the model.
 
+## 13.5 Handle Post-Runtime Model Misses
+
+Treat a runtime, test, replay, log, or manual-validation failure that appears
+after a FlowGuard pass as a model-miss review trigger until proven otherwise.
+The earlier pass is still useful, but it is provisional evidence, not a reason
+to patch and finish directly.
+
+When this happens:
+
+1. Reopen the model-first work and keep completion blocked while the model-miss
+   obligation is open.
+2. Classify why the prior model missed the issue: boundary too narrow, state
+   abstraction too coarse, missing input branch, weak invariant, missing
+   production writer, skipped replay, wrong oracle, or explicitly outside the
+   modeled risk.
+3. If the issue belongs in scope, represent it as executable evidence: scenario,
+   invariant, replay adapter, representative trace, or a model boundary update.
+4. Rerun the relevant model checks and confirm the old weakness is now visible
+   or deliberately out of scope.
+5. Validate the repair with the refined model plus the strongest practical
+   production-facing evidence.
+6. Record the miss classification, model changes, rerun commands, skipped
+   checks, and residual blindspots in the adoption log.
+
+A later green runtime check does not close a known model miss by itself. The
+miss is closed only when it has been classified and represented in the model or
+explicitly recorded as outside the modeled risk.
+
 ## 14. Run Scenario Sandbox Review
 
 Before connecting a model to larger production workflows, run scenario review when the task involves:
@@ -500,6 +528,10 @@ Recommended low-friction agent flow:
 - Representative traces can be exported for audit or replay.
 - Production implementations have conformance replay adapters when feasible.
 - Production replay either conforms to the model or documents why the model changed.
+- Post-FlowGuard runtime/test/replay/manual-validation failures trigger
+  model-miss review before completion.
+- Known model misses are classified, represented in executable evidence or
+  marked out of scope, rerun, and then validated with production-facing checks.
 - Scenario reviews compare expected and observed outcomes.
 - Broken-model scenarios produce expected violations rather than ordinary failures.
 - Loop/stuck review is run for workflows with retries, refresh, waiting, or reprocessing.
