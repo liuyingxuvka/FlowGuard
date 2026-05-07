@@ -5,7 +5,7 @@ Copy this section into another repository's `AGENTS.md`.
 ```markdown
 ## Model-first function flow
 
-For coding, repository, and process-design work, first make a lightweight FlowGuard applicability decision: `use_flowguard`, `skip_with_reason`, or `needs_human_review`. For non-trivial tasks involving behavior, workflows, state, module boundaries, retries, deduplication, idempotency, caching, repeated inputs, production conformance, repeated bugs, or meaningful process validation/adjustment/observation with side effects, use the model-first-function-flow skill before editing production code or performing the high-impact action. Build or update a flowguard model, run checks, inspect counterexamples, and only then implement production code or act on the process.
+For coding, repository, and process-design work, first make a lightweight FlowGuard applicability decision: `use_flowguard`, `skip_with_reason`, or `needs_human_review`. For non-trivial tasks involving behavior, workflows, state, module boundaries, retries, deduplication, idempotency, caching, repeated inputs, production conformance, repeated bugs, or meaningful process validation/adjustment/observation with side effects, use the model-first-function-flow skill before editing production code or performing the high-impact action. Build or update a flowguard model, run checks, inspect counterexamples, and only then implement production code or act on the process. If no FlowGuard model exists yet, create one from the current plan or adapt the included model template; the model should be strong enough to capture the customer's relevant risks and should evolve as new risks appear.
 
 Rules:
 
@@ -17,6 +17,16 @@ Rules:
 - If flowguard is not importable, connect the real toolchain first, such as by editable install from the local FlowGuard source tree, or record the task as `blocked`. Do not hand-write a temporary mini-framework and claim full flowguard adoption.
 - When available, use the Skill helper `assets/toolchain_preflight.py --json` to discover the editable install or `PYTHONPATH` command for the active Python environment.
 - Do not edit production code or perform the modeled high-impact action first.
+- If no FlowGuard model script exists yet, create one. Existing production code
+  is not required; the model script is the executable design artifact the AI
+  creates before action.
+- Do not force every adoption into the shortest possible script. Start with the
+  smallest inspectable boundary that can expose the current risk, then add
+  state, branches, retries, side effects, or invariants when the customer's
+  failure mode would otherwise be invisible.
+- Treat models as living artifacts. When future tasks expose new failure modes,
+  strengthen, extend, or connect the model instead of assuming the first version
+  is final.
 - Treat the FlowGuard model as a falsifiable simulator of the real workflow, not as ground truth. Compare representative traces with real code paths, logs, tests, known user workflows, or conformance replay before trusting the model result.
 - Calibrate model fidelity to the current risk. If a trace is impossible, suspicious, or misses known behavior, refine the model, scenario oracle, or replay adapter and rerun the checks.
 - Represent each function block as `Input x State -> Set(Output x State)`.

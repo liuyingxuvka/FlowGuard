@@ -11,7 +11,8 @@ Before changing files, separate three situations:
   adoption evidence review, and stale fallback checks. Do not create a new model
   solely because the task is read-only.
 - `model_first_change`: production behavior may change. Build or update the
-  smallest useful model before editing production code.
+  fit-for-risk model before editing production code. If no FlowGuard model
+  exists yet, create one from the current plan or adapt the model template.
 - `model_maintenance`: existing `.flowguard` models, replay adapters, or
   adoption evidence appear stale. Update those artifacts before making claims
   from them.
@@ -32,6 +33,22 @@ Keep the API surface boundary clear:
   upgrade validation, not ordinary project gates.
 
 See `docs/api_surface.md` for the public API layer map.
+
+## 0.25 Create Or Evolve The Model Script
+
+FlowGuard does not require an existing production implementation or an existing
+model script. It does require the real `flowguard` package to be connected
+before claiming FlowGuard adoption. When that import preflight passes and no
+model exists yet, create one from the current plan or adapt the included model
+template. The model script is the executable design artifact that makes the
+proposed workflow inspectable.
+
+The first model should be small enough to review, but it does not have to be
+the shortest possible script. It should be fit for the customer's risk: include
+the state, branches, retries, side effects, ordering constraints, and invariants
+needed to make the important failure modes visible. When later work reveals new
+risks, revise, strengthen, or connect the model instead of treating the first
+version as final.
 
 ## 0.5 Write A Risk Intent Brief
 
@@ -451,20 +468,27 @@ claim.
 
 Recommended low-friction agent flow:
 
-1. Start with the smallest useful FlowGuard model.
-2. Declare a lightweight `RiskProfile`.
-3. Use standard property factories or domain packs when they fit.
-4. Run `run_model_first_checks()` when available.
-5. Inspect minimized counterexamples if any.
-6. Treat `pass_with_gaps` as useful but limited confidence.
-7. Do not claim production conformance unless conformance replay or equivalent
+1. Create a model if none exists yet, or reuse/update the existing model.
+2. Start with the smallest inspectable boundary that still exposes the customer
+   risk.
+3. Declare a lightweight `RiskProfile`.
+4. Use standard property factories or domain packs when they fit.
+5. Run `run_model_first_checks()` when available.
+6. Inspect minimized counterexamples if any.
+7. Treat `pass_with_gaps` as useful but limited confidence.
+8. Do not claim production conformance unless conformance replay or equivalent
    real-code evidence exists.
-8. Record skipped checks; skipped is not pass.
+9. Record skipped checks; skipped is not pass.
 
 ## Completion Checklist
 
 - A Risk Intent Brief names failure modes, protected harms, model-critical
   state and side effects, adversarial inputs, hard invariants, and blindspots.
+- If no model existed before FlowGuard applied, an AI-created model script now
+  captures the relevant customer risk instead of waiting for a preexisting
+  script.
+- Existing models are revised or connected when new failure modes make the old
+  boundary too weak.
 - The model uses only the Python standard library.
 - Inputs and state are finite and hashable.
 - Every block returns all possible branches.

@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.4.1 - 2026-05-07
+
+- Clarified that when no FlowGuard model exists yet, the AI agent should create
+  one from the current plan or adapt the included model template instead of
+  refusing the task.
+- Reframed the model as a fit-for-risk, customer-purpose artifact rather than
+  always a minimal script: it should capture the failure modes the customer
+  wants to expose and grow as new risks appear.
+- Updated the README, AGENTS snippet, modeling protocol, project integration
+  notes, and Skill wording to make evolving model scripts part of the public
+  onboarding path.
+- No core API, schema, runtime dependency, or CLI behavior changed.
+
 ## v0.4.0 - 2026-05-02
 
 - Added `RiskIntent` for explicit pre-modeling briefs that name failure modes,

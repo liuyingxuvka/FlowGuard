@@ -36,13 +36,14 @@ or vendor behavior are safe.
   adoption evidence review, and stale fallback checks. Do not create a new model
   merely because the task is read-only.
 - `model_first_change`: production behavior may change. Build or update the
-  smallest useful model before editing production code.
+  fit-for-risk model before editing production code. If no FlowGuard model
+  exists yet, create one from the current plan or adapt the model template.
 - `model_maintenance`: existing `.flowguard` models, replay adapters, or
   adoption evidence appear stale. Update those artifacts before making claims
   from them.
 - `process_preflight`: a non-code or mixed workflow needs validation,
-  adjustment, observation, or loss-prevention review before action. Build the
-  smallest useful model of the process states, decisions, side effects,
+  adjustment, observation, or loss-prevention review before action. Build or
+  update a fit-for-risk model of the process states, decisions, side effects,
   confirmations, rollback paths, and hard invariants.
 
 ## Daily Rules
@@ -52,8 +53,15 @@ or vendor behavior are safe.
   must be visible, adversarial inputs or retries to simulate, hard invariants,
   and residual blindspots. Ask the user only when materially different risk
   priorities exist and the protected harm cannot be inferred safely.
-- Start with the smallest useful FlowGuard model. The minimal path remains
-  `State + FunctionBlock + Invariant + Explorer`.
+- Start with the smallest boundary that can expose the current customer risk,
+  but do not confuse "smallest useful" with "shortest script" or "template
+  only". The model should include enough state, branches, side effects, and
+  invariants to simulate the problem the customer wants to catch.
+- Treat FlowGuard model scripts as living design artifacts. If no model exists,
+  create one. If later work reveals new failure modes, strengthen, extend, or
+  connect the model rather than treating the first version as final.
+- The minimal technical path remains `State + FunctionBlock + Invariant +
+  Explorer`.
 - Keep the API surface boundary clear. Core APIs are for direct modeling and
   exploration; helper APIs reduce boilerplate; reporting APIs explain gaps;
   evidence and benchmark APIs validate FlowGuard itself.
@@ -171,10 +179,12 @@ something important. Do not let adoption logging replace executable checks.
 6. Start a brief adoption note or `in_progress` log entry.
 7. Write the Risk Intent Brief. If the risk priority is unclear and would
    materially change the model, ask for human review before modeling.
-8. Read the modeling protocol and choose the smallest behavior or process
-   boundary that can expose the risk.
-9. Build or update the model with explicit inputs, state, blocks, outputs,
-   reads, writes, idempotency, and invariants.
+8. Read the modeling protocol and choose a behavior or process boundary that is
+   small enough to inspect but strong enough to expose the customer-relevant
+   risk.
+9. If no FlowGuard model exists yet, create one from the current plan or adapt
+   `assets/model_template/`. Build or update the model with explicit inputs,
+   state, blocks, outputs, reads, writes, idempotency, and invariants.
 10. Build the state write inventory for fields used by invariants.
 11. Run `run_model_first_checks()` when useful, or run Explorer directly.
 12. Inspect counterexamples and revise the model or intended architecture until

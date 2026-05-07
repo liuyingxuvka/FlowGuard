@@ -19,6 +19,9 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("process_preflight", text)
         self.assertIn("booking or purchase flows", text)
         self.assertIn("risk-discovery", text)
+        self.assertIn("If no model exists", text)
+        self.assertIn("shortest script", text)
+        self.assertIn("living design artifacts", text)
         self.assertNotIn("Phase 11", text)
         self.assertNotIn("2100-case", text)
 
@@ -36,6 +39,8 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("state write inventory", text)
         self.assertIn("multiple production write", text)
         self.assertIn("model-level confidence only", text)
+        self.assertIn("Create Or Evolve The Model Script", text)
+        self.assertIn("fit for the customer's risk", text)
 
 
 if __name__ == "__main__":

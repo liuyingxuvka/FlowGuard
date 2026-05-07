@@ -178,14 +178,17 @@ example that prints a Markdown Mermaid code block.
 `RiskProfile`, `FlowGuardCheckPlan`, and `run_model_first_checks(...)` provide
 a low-friction path for AI agents:
 
-1. Start with the smallest useful model.
-2. Declare the intended risk boundary in `RiskProfile`, preferably with a
+1. Create a model if none exists yet, or update the existing model.
+2. Start with the smallest inspectable boundary that still exposes the
+   customer-relevant risk; do not reduce the model below the state and branches
+   needed to simulate that risk.
+3. Declare the intended risk boundary in `RiskProfile`, preferably with a
    `RiskIntent` that names failure modes, protected harms, model-critical
    state, adversarial inputs, hard invariants, and blindspots.
-3. Use property factories or domain packs when they fit.
-4. Run `run_model_first_checks(...)`.
-5. Inspect minimized counterexamples when present.
-6. Treat `pass_with_gaps` as useful but limited confidence.
+4. Use property factories or domain packs when they fit.
+5. Run `run_model_first_checks(...)`.
+6. Inspect minimized counterexamples when present.
+7. Treat `pass_with_gaps` as useful but limited confidence.
 
 The runner is orchestration, not a new core checker. It calls existing helpers
 and keeps direct `Explorer` use valid.

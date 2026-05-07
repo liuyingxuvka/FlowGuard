@@ -19,6 +19,12 @@ If this fails, do not create a temporary local mini-framework and claim the
 project used FlowGuard. Connect the real toolchain first, or record the task as
 blocked or partial.
 
+If the import preflight succeeds but the target project has no FlowGuard model
+yet, create one. Existing production code or a prewritten model script is not a
+requirement. The agent should write or adapt a model script from the current
+plan, run it, inspect counterexamples, and strengthen it when the customer's
+risk is not yet visible.
+
 ## Local Source Install
 
 If you have a local checkout of this repository, set an explicit source path:
@@ -93,8 +99,10 @@ Do not:
 - hide import failures behind prose;
 - treat a skipped install as a passed model-first check.
 
-If a temporary model was created because `flowguard` was not available, record
-that as:
+If an AI wrote a model-shaped draft before `flowguard` was available, treat that
+draft as an exploratory sketch only, not as FlowGuard evidence. It cannot count
+as FlowGuard adoption until the real toolchain is connected and the checks run
+against the real package. Record that state as:
 
 ```text
 skill_decision: blocked_or_partial
@@ -111,6 +119,7 @@ target project's `AGENTS.md`.
 That project rule should require:
 
 - `flowguard` import preflight;
+- AI-created model scripts when no model exists yet;
 - model-first checks before production edits;
 - adoption log entries for real use;
 - explicit blocked status when the real toolchain is unavailable.
