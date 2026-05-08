@@ -33,6 +33,13 @@ Rules:
   the issue in FlowGuard as a scenario, invariant, replay, representative trace,
   or explicit out-of-scope boundary, rerun the relevant checks, and then
   validate the repair with production-facing evidence.
+- For FlowGuard or LiveFlowGuard framework upgrades, live failure triage, or
+  broad capability claims, build a full finding ledger first: invariant/model
+  checks, model-quality audit, scenario or live-audit evidence, progress,
+  contracts, conformance, skipped/not-run sections, and adoption evidence.
+  Use that ledger to choose whether to fix the real system, adjust the check
+  flow, extend the model, or mark a boundary out of scope. Do not default to a
+  point-rule patch for the first visible failure.
 - Treat the FlowGuard model as a falsifiable simulator of the real workflow, not as ground truth. Compare representative traces with real code paths, logs, tests, known user workflows, or conformance replay before trusting the model result.
 - Calibrate model fidelity to the current risk. If a trace is impossible, suspicious, or misses known behavior, refine the model, scenario oracle, or replay adapter and rerun the checks.
 - Represent each function block as `Input x State -> Set(Output x State)`.

@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.5.0 - 2026-05-08
+
+- Added `FlowGuardFindingLedger`, `FlowGuardFindingLedgerEntry`, and
+  `build_finding_ledger` to flatten summary findings and skipped/not-run gaps
+  into one coverage-first repair ledger.
+- `FlowGuardSummaryReport.finding_ledger` now exposes the ledger, and
+  `to_dict()` includes it as machine-readable output for agents.
+- Updated the helper-runner self-review with a broken variant that catches
+  point-rule patches made before a full finding ledger is built.
+- Updated the model-first Skill, AGENTS snippet, check-plan docs, framework
+  upgrade guidance, modeling protocol, and README to route FlowGuard or
+  LiveFlowGuard self-upgrades through coverage-first triage.
+- Schema remains `1.0`; runtime dependencies remain Python standard library
+  only.
+
 ## v0.4.2 - 2026-05-07
 
 - Added Post-Runtime Model-Miss Review guidance to the model-first Skill:

@@ -8,6 +8,7 @@ from examples.flowguard_runner_self_review.model import (
     BROKEN_EXPLORER_DOWNGRADED,
     BROKEN_MINIMIZER_DROPS_ORIGINAL,
     BROKEN_PACKS_MANDATORY,
+    BROKEN_POINT_RULE_WITHOUT_LEDGER,
     BROKEN_SCENARIO_AUTO_PASS,
     CORRECT_RUNNER,
     DIRECT_EXPLORER_ALLOWED,
@@ -27,9 +28,9 @@ class FlowguardRunnerSelfReviewTests(unittest.TestCase):
 
     def test_runner_self_review_catalog_matches_expectations(self):
         self.assertTrue(self.review.ok, self.review.format_text(max_counterexamples=1))
-        self.assertEqual(8, self.review.total_scenarios)
+        self.assertEqual(9, self.review.total_scenarios)
         self.assertEqual(2, self.review.passed)
-        self.assertEqual(6, self.review.expected_violations_observed)
+        self.assertEqual(7, self.review.expected_violations_observed)
 
     def test_supported_helper_runner_paths_pass(self):
         for case in (CORRECT_RUNNER, DIRECT_EXPLORER_ALLOWED):
@@ -42,6 +43,7 @@ class FlowguardRunnerSelfReviewTests(unittest.TestCase):
             BROKEN_CONFORMANCE_OVERCLAIM,
             BROKEN_SCENARIO_AUTO_PASS,
             BROKEN_MINIMIZER_DROPS_ORIGINAL,
+            BROKEN_POINT_RULE_WITHOUT_LEDGER,
             BROKEN_PACKS_MANDATORY,
         ):
             self.assertEqual("expected_violation_observed", self.statuses[case.name])
@@ -54,6 +56,7 @@ class FlowguardRunnerSelfReviewTests(unittest.TestCase):
         self.assertEqual("pass_with_gaps", self.sections["scenario_matrix"].status)
         self.assertEqual("pass_with_gaps", self.sections["scenario_review"].status)
         self.assertEqual("not_run", self.sections["conformance_replay"].status)
+        self.assertTrue(self.summary.finding_ledger.entries)
 
     def test_runner_summary_lines_are_easy_to_scan(self):
         lines = representative_summary_lines(self.summary)
@@ -71,7 +74,7 @@ class FlowguardRunnerSelfReviewTests(unittest.TestCase):
         )
         self.assertEqual(0, completed.returncode, completed.stdout + completed.stderr)
         self.assertIn("flowguard runner self-review", completed.stdout)
-        self.assertIn("expected violations observed: 6", completed.stdout)
+        self.assertIn("expected violations observed: 7", completed.stdout)
         self.assertIn("overall_status: pass_with_gaps", completed.stdout)
 
 

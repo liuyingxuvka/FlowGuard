@@ -62,6 +62,8 @@ Reporting helpers help an AI agent explain what was checked and what was not:
 - `run_model_first_checks`
 - `audit_model`
 - `FlowGuardSummaryReport`
+- `FlowGuardFindingLedger` and `build_finding_ledger` for flattening all
+  section findings and skipped/not-run gaps before deciding a repair path
 - adoption logging and `audit_flowguard_adoption`
 - thin adoption logging commands such as `adoption-start` and
   `adoption-finish`

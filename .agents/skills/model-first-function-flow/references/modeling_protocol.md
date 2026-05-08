@@ -318,17 +318,21 @@ When this happens:
 
 1. Reopen the model-first work and keep completion blocked while the model-miss
    obligation is open.
-2. Classify why the prior model missed the issue: boundary too narrow, state
+2. Build or inspect the finding ledger across invariant/model checks,
+   model-quality audit, scenario or live-audit evidence, progress, contracts,
+   conformance, skipped/not-run sections, and adoption evidence. The ledger is
+   the coverage-first view used to avoid patching only the visible failure.
+3. Classify why the prior model missed the issue: boundary too narrow, state
    abstraction too coarse, missing input branch, weak invariant, missing
    production writer, skipped replay, wrong oracle, or explicitly outside the
    modeled risk.
-3. If the issue belongs in scope, represent it as executable evidence: scenario,
+4. If the issue belongs in scope, represent it as executable evidence: scenario,
    invariant, replay adapter, representative trace, or a model boundary update.
-4. Rerun the relevant model checks and confirm the old weakness is now visible
+5. Rerun the relevant model checks and confirm the old weakness is now visible
    or deliberately out of scope.
-5. Validate the repair with the refined model plus the strongest practical
+6. Validate the repair with the refined model plus the strongest practical
    production-facing evidence.
-6. Record the miss classification, model changes, rerun commands, skipped
+7. Record the miss classification, model changes, rerun commands, skipped
    checks, and residual blindspots in the adoption log.
 
 A later green runtime check does not close a known model miss by itself. The
@@ -490,6 +494,14 @@ together. If Explorer passes but audit warns, the overall status should be
 `pass_with_gaps`, not plain `pass`. If production conformance is not run, record
 `not_run` or `skipped_with_reason`; skipped is not pass.
 
+`FlowGuardSummaryReport.finding_ledger` flattens every section finding and
+every non-pass section gap into a `FlowGuardFindingLedger`. Use that ledger
+before FlowGuard/LiveFlowGuard framework upgrades, live failure triage, and
+model-miss repair decisions. The repair choice should be explicit: fix the real
+system, adjust the check flow, extend the model, or mark a boundary out of
+scope. A point rule is acceptable only after the ledger shows it is the right
+repair rather than the first visible patch.
+
 Do not report model-level confidence as production confidence unless
 conformance replay or another production-facing evidence source supports that
 claim.
@@ -502,11 +514,13 @@ Recommended low-friction agent flow:
 3. Declare a lightweight `RiskProfile`.
 4. Use standard property factories or domain packs when they fit.
 5. Run `run_model_first_checks()` when available.
-6. Inspect minimized counterexamples if any.
-7. Treat `pass_with_gaps` as useful but limited confidence.
-8. Do not claim production conformance unless conformance replay or equivalent
+6. Inspect the finding ledger before choosing a repair path for framework
+   upgrades, live failures, or model misses.
+7. Inspect minimized counterexamples if any.
+8. Treat `pass_with_gaps` as useful but limited confidence.
+9. Do not claim production conformance unless conformance replay or equivalent
    real-code evidence exists.
-9. Record skipped checks; skipped is not pass.
+10. Record skipped checks; skipped is not pass.
 
 ## Completion Checklist
 
@@ -530,6 +544,8 @@ Recommended low-friction agent flow:
 - Production replay either conforms to the model or documents why the model changed.
 - Post-FlowGuard runtime/test/replay/manual-validation failures trigger
   model-miss review before completion.
+- FlowGuard/LiveFlowGuard upgrades and live-failure triage use a full finding
+  ledger before point-rule patches.
 - Known model misses are classified, represented in executable evidence or
   marked out of scope, rerun, and then validated with production-facing checks.
 - Scenario reviews compare expected and observed outcomes.

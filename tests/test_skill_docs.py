@@ -24,6 +24,8 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("living design artifacts", text)
         self.assertIn("Post-Runtime Model-Miss Review", text)
         self.assertIn("model-miss review trigger", text)
+        self.assertIn("finding ledger", text)
+        self.assertIn("point rule", text)
         self.assertIn("A later green runtime check by itself does", text)
         self.assertNotIn("Phase 11", text)
         self.assertNotIn("2100-case", text)
@@ -45,6 +47,8 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("Create Or Evolve The Model Script", text)
         self.assertIn("fit for the customer's risk", text)
         self.assertIn("Handle Post-Runtime Model Misses", text)
+        self.assertIn("finding ledger", text)
+        self.assertIn("point-rule patches", text)
         self.assertIn("A later green runtime check does not close a known model miss by itself", text)
 
 

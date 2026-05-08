@@ -35,6 +35,8 @@ class RunnerState:
     generated_scenarios_status: str = "not_generated"
     has_counterexample: bool = False
     minimizer_kept_original: bool = True
+    finding_ledger_status: str = "not_required"
+    point_rule_patch: bool = False
     direct_explorer_supported: bool = True
     runner_required: bool = False
     packs_required: bool = False
@@ -48,6 +50,7 @@ BROKEN_AUDIT_WARNING_PASS = RunnerCase("broken_audit_warning_reported_pass")
 BROKEN_CONFORMANCE_OVERCLAIM = RunnerCase("broken_conformance_not_run_claims_production")
 BROKEN_SCENARIO_AUTO_PASS = RunnerCase("broken_generated_scenario_treated_as_pass")
 BROKEN_MINIMIZER_DROPS_ORIGINAL = RunnerCase("broken_minimizer_drops_original")
+BROKEN_POINT_RULE_WITHOUT_LEDGER = RunnerCase("broken_point_rule_patch_without_finding_ledger")
 BROKEN_PACKS_MANDATORY = RunnerCase("broken_packs_or_runner_mandatory")
 
 
@@ -64,6 +67,8 @@ class EvaluateRunnerArchitecture:
         "generated_scenarios_status",
         "has_counterexample",
         "minimizer_kept_original",
+        "finding_ledger_status",
+        "point_rule_patch",
         "direct_explorer_supported",
         "runner_required",
         "packs_required",
@@ -93,6 +98,7 @@ def _state_for_case(case: RunnerCase) -> RunnerState:
             generated_scenarios_status="needs_human_review",
             has_counterexample=False,
             minimizer_kept_original=True,
+            finding_ledger_status="full",
             direct_explorer_supported=True,
             runner_required=False,
             packs_required=False,
@@ -167,6 +173,18 @@ def _state_for_case(case: RunnerCase) -> RunnerState:
             has_counterexample=True,
             minimizer_kept_original=False,
             notes=("Minimizer must preserve original counterexample",),
+        )
+    if case == BROKEN_POINT_RULE_WITHOUT_LEDGER:
+        return RunnerState(
+            case_name=case.name,
+            explorer_status="pass",
+            audit_status="pass",
+            summary_status="pass",
+            conformance_status="not_run",
+            confidence_claim="model_level",
+            finding_ledger_status="missing",
+            point_rule_patch=True,
+            notes=("FlowGuard upgrades must inventory all findings before point-rule patches",),
         )
     if case == BROKEN_PACKS_MANDATORY:
         return RunnerState(
@@ -255,6 +273,16 @@ def helper_flow_remains_optional(state: RunnerState, trace) -> InvariantResult:
     return InvariantResult.pass_()
 
 
+def coverage_first_ledger_precedes_point_rule_patch(state: RunnerState, trace) -> InvariantResult:
+    del trace
+    if state.point_rule_patch and state.finding_ledger_status != "full":
+        return _fail(
+            "coverage_first_ledger_precedes_point_rule_patch",
+            "Point-rule patch was chosen before a full finding ledger was built",
+        )
+    return InvariantResult.pass_()
+
+
 def build_workflow() -> Workflow:
     return Workflow((EvaluateRunnerArchitecture(),), name="flowguard_runner_self_review")
 
@@ -291,6 +319,11 @@ def invariants() -> tuple[Invariant, ...]:
             "Runner and packs remain optional helper paths",
             helper_flow_remains_optional,
         ),
+        Invariant(
+            "coverage_first_ledger_precedes_point_rule_patch",
+            "FlowGuard/LiveFlowGuard upgrades inventory all findings before point-rule patches",
+            coverage_first_ledger_precedes_point_rule_patch,
+        ),
     )
 
 
@@ -303,6 +336,7 @@ def all_cases() -> tuple[RunnerCase, ...]:
         BROKEN_CONFORMANCE_OVERCLAIM,
         BROKEN_SCENARIO_AUTO_PASS,
         BROKEN_MINIMIZER_DROPS_ORIGINAL,
+        BROKEN_POINT_RULE_WITHOUT_LEDGER,
         BROKEN_PACKS_MANDATORY,
     )
 
@@ -314,6 +348,7 @@ def self_review_scenarios() -> tuple[Scenario, ...]:
         BROKEN_CONFORMANCE_OVERCLAIM.name: ("no_production_confidence_without_conformance",),
         BROKEN_SCENARIO_AUTO_PASS.name: ("generated_scenarios_need_review",),
         BROKEN_MINIMIZER_DROPS_ORIGINAL.name: ("minimizer_preserves_original_counterexample",),
+        BROKEN_POINT_RULE_WITHOUT_LEDGER.name: ("coverage_first_ledger_precedes_point_rule_patch",),
         BROKEN_PACKS_MANDATORY.name: ("helper_flow_remains_optional",),
     }
     workflow = build_workflow()
@@ -389,6 +424,7 @@ __all__ = [
     "BROKEN_EXPLORER_DOWNGRADED",
     "BROKEN_MINIMIZER_DROPS_ORIGINAL",
     "BROKEN_PACKS_MANDATORY",
+    "BROKEN_POINT_RULE_WITHOUT_LEDGER",
     "BROKEN_SCENARIO_AUTO_PASS",
     "CORRECT_RUNNER",
     "DIRECT_EXPLORER_ALLOWED",

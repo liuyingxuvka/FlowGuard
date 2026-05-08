@@ -155,6 +155,10 @@ class RunnerTests(unittest.TestCase):
         self.assertTrue(
             any("production confidence goal" in finding for finding in sections["model_quality_audit"].findings)
         )
+        ledger = summary.finding_ledger
+        self.assertTrue(ledger.entries)
+        self.assertIn("conformance_gap", {entry.category for entry in ledger.entries})
+        self.assertIn("finding_ledger", summary.to_dict())
 
     def test_run_model_first_checks_propagates_assumption_card_to_model_report(self):
         card = make_runner_assumption_card()

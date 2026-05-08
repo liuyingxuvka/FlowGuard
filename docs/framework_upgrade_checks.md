@@ -27,6 +27,25 @@ as:
 Do not use these checks merely because a target project used FlowGuard for one
 model-first change.
 
+## Coverage-First Failure Triage
+
+For FlowGuard or LiveFlowGuard framework upgrades triggered by a concrete
+failure, start with coverage before adding a point rule. Build the full finding
+ledger from the latest model check, model-quality audit, scenario or live-audit
+evidence, progress review, contract checks, conformance replay, skipped/not-run
+sections, and adoption evidence.
+
+Use that ledger to choose the repair class:
+
+- fix the real system when existing checks already expose the defect;
+- adjust the check flow when required checks were skipped, downgraded, or
+  hidden under `pass`;
+- extend the model when the real failure was outside the current abstraction;
+- mark the boundary out of scope when the issue is intentionally not covered.
+
+Do not default to a point-rule patch for the first visible failure until the
+ledger shows the rest of the relevant coverage surface has been considered.
+
 ## Upgrade Baseline
 
 Before and after major FlowGuard upgrades, run:

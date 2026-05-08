@@ -20,6 +20,15 @@ SECTION_STATUSES = (
     "needs_human_review",
 )
 
+LEDGER_SEVERITIES = (
+    "failure",
+    "blocker",
+    "coverage_gap",
+    "confidence_gap",
+    "human_review",
+    "info",
+)
+
 
 @dataclass(frozen=True)
 class FlowGuardSection:
@@ -49,6 +58,90 @@ class FlowGuardSection:
             "findings": to_jsonable(self.findings),
             "metadata": to_jsonable(self.metadata),
         }
+
+
+@dataclass(frozen=True)
+class FlowGuardFindingLedgerEntry:
+    """One flattened finding from a summary section."""
+
+    section_name: str
+    section_status: str
+    severity: str
+    category: str
+    message: str
+    finding_index: int | None = None
+    section_summary: str = ""
+    next_step: str = ""
+    metadata: FrozenMetadata = field(default_factory=tuple, compare=False)
+
+    def __post_init__(self) -> None:
+        severity = str(self.severity).lower()
+        if severity not in LEDGER_SEVERITIES:
+            raise ValueError(f"severity must be one of {LEDGER_SEVERITIES!r}")
+        status = str(self.section_status).lower()
+        if status not in SECTION_STATUSES:
+            raise ValueError(f"section_status must be one of {SECTION_STATUSES!r}")
+        object.__setattr__(self, "section_name", str(self.section_name))
+        object.__setattr__(self, "section_status", status)
+        object.__setattr__(self, "severity", severity)
+        object.__setattr__(self, "category", str(self.category))
+        object.__setattr__(self, "message", str(self.message))
+        object.__setattr__(self, "section_summary", str(self.section_summary or ""))
+        object.__setattr__(self, "next_step", str(self.next_step or ""))
+        object.__setattr__(self, "metadata", freeze_metadata(self.metadata))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "section_name": self.section_name,
+            "section_status": self.section_status,
+            "severity": self.severity,
+            "category": self.category,
+            "message": self.message,
+            "finding_index": self.finding_index,
+            "section_summary": self.section_summary,
+            "next_step": self.next_step,
+            "metadata": to_jsonable(self.metadata),
+        }
+
+
+@dataclass(frozen=True)
+class FlowGuardFindingLedger:
+    """Coverage-first ledger for choosing the next repair path."""
+
+    entries: tuple[FlowGuardFindingLedgerEntry, ...] = ()
+    summary: str = ""
+
+    def __post_init__(self) -> None:
+        entries = tuple(self.entries)
+        object.__setattr__(self, "entries", entries)
+        object.__setattr__(self, "summary", self.summary or _ledger_summary(entries))
+
+    def by_severity(self, severity: str) -> tuple[FlowGuardFindingLedgerEntry, ...]:
+        value = str(severity).lower()
+        return tuple(entry for entry in self.entries if entry.severity == value)
+
+    def format_text(self, max_entries: int = 12) -> str:
+        lines = [
+            "=== flowguard finding ledger ===",
+            self.summary,
+        ]
+        for entry in self.entries[:max_entries]:
+            lines.append(
+                f"- {entry.severity}: {entry.section_name}: "
+                f"{entry.category}: {entry.message}"
+            )
+        if len(self.entries) > max_entries:
+            lines.append(f"- ... {len(self.entries) - max_entries} more")
+        return "\n".join(lines)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "summary": self.summary,
+            "entries": [entry.to_dict() for entry in self.entries],
+        }
+
+    def to_json_text(self, indent: int = 2) -> str:
+        return json.dumps(self.to_dict(), indent=indent, sort_keys=True)
 
 
 @dataclass(frozen=True)
@@ -84,6 +177,12 @@ class FlowGuardSummaryReport:
             metadata=metadata,
         )
 
+    @property
+    def finding_ledger(self) -> FlowGuardFindingLedger:
+        """Return a flattened coverage-first ledger for all section findings."""
+
+        return build_finding_ledger(self.sections)
+
     def format_text(self, verbose: bool = False) -> str:
         lines = [
             "=== flowguard summary ===",
@@ -91,6 +190,9 @@ class FlowGuardSummaryReport:
         ]
         if self.summary:
             lines.append(f"summary: {self.summary}")
+        ledger = self.finding_ledger
+        if ledger.entries:
+            lines.append(f"finding_ledger: {ledger.summary}")
         for section in self.sections:
             suffix = f" - {section.summary}" if section.summary else ""
             lines.append(f"- {section.name}: {section.status}{suffix}")
@@ -106,6 +208,7 @@ class FlowGuardSummaryReport:
             "overall_status": self.overall_status,
             "summary": self.summary,
             "sections": [section.to_dict() for section in self.sections],
+            "finding_ledger": self.finding_ledger.to_dict(),
             "metadata": to_jsonable(self.metadata),
         }
 
@@ -140,6 +243,103 @@ def _section_always_shows_findings(section: FlowGuardSection) -> bool:
     return section.name == "assumption_card" or (
         ("always_show_findings", True) in section.metadata
     )
+
+
+def _ledger_summary(entries: tuple[FlowGuardFindingLedgerEntry, ...]) -> str:
+    counts = {severity: 0 for severity in LEDGER_SEVERITIES}
+    for entry in entries:
+        counts[entry.severity] += 1
+    nonzero = tuple(f"{severity}={count}" for severity, count in counts.items() if count)
+    return f"entries={len(entries)} " + " ".join(nonzero) if entries else "entries=0"
+
+
+def _ledger_severity(section: FlowGuardSection) -> str:
+    if section.status == "failed":
+        return "failure"
+    if section.status == "blocked":
+        return "blocker"
+    if section.status in {"not_run", "skipped_with_reason"}:
+        return "coverage_gap"
+    if section.status == "needs_human_review":
+        return "human_review"
+    if section.status == "pass_with_gaps":
+        return "confidence_gap"
+    return "info"
+
+
+def _ledger_category(section: FlowGuardSection, message: str) -> str:
+    text = f"{section.name} {section.status} {message}".lower()
+    if "needs_human_review" in text or section.status == "needs_human_review":
+        return "human_review"
+    if "missing_conformance" in text or "conformance" in text and "not provided" in text:
+        return "conformance_gap"
+    if section.status in {"not_run", "skipped_with_reason"} or "not_run" in text or "skipped" in text:
+        return "missing_or_skipped_check"
+    if section.status == "blocked":
+        return "blocked_check"
+    if "missing_invariant" in text or "missing_scenario" in text or "missing_progress" in text:
+        return "model_coverage_gap"
+    if section.status == "failed" or "violation" in text or "exception" in text:
+        return "failure"
+    if section.status == "pass_with_gaps":
+        return "confidence_gap"
+    return "finding"
+
+
+def _ledger_next_step(section: FlowGuardSection, category: str) -> str:
+    if section.status == "failed":
+        return "Inspect the counterexample or violation, then decide whether to fix the real system, adjust the check flow, or extend the model."
+    if category == "model_coverage_gap":
+        return "Extend the model, invariant set, scenario oracle, or progress configuration before treating this as covered."
+    if category == "conformance_gap":
+        return "Run conformance replay or record why only model-level confidence is being claimed."
+    if section.status in {"not_run", "skipped_with_reason", "blocked"}:
+        return "Run the missing check when relevant, or keep the skip/blocker visible as a confidence gap."
+    if section.status == "needs_human_review":
+        return "Supply the missing policy expectation or oracle before promoting this to pass."
+    if section.status == "pass_with_gaps":
+        return "Review the confidence gap before treating the run as a clean pass."
+    return "No action required unless this finding affects the current risk boundary."
+
+
+def _format_ledger_message(finding: Any) -> str:
+    if isinstance(finding, str):
+        return finding
+    return repr(finding)
+
+
+def _ledger_entry(
+    section: FlowGuardSection,
+    message: str,
+    finding_index: int | None,
+) -> FlowGuardFindingLedgerEntry:
+    category = _ledger_category(section, message)
+    return FlowGuardFindingLedgerEntry(
+        section_name=section.name,
+        section_status=section.status,
+        severity=_ledger_severity(section),
+        category=category,
+        message=message,
+        finding_index=finding_index,
+        section_summary=section.summary,
+        next_step=_ledger_next_step(section, category),
+    )
+
+
+def build_finding_ledger(
+    sections: Iterable[FlowGuardSection],
+) -> FlowGuardFindingLedger:
+    """Flatten section findings into a coverage-first repair ledger."""
+
+    entries: list[FlowGuardFindingLedgerEntry] = []
+    for section in tuple(sections):
+        if section.findings:
+            for index, finding in enumerate(section.findings, start=1):
+                entries.append(_ledger_entry(section, _format_ledger_message(finding), index))
+        elif section.status != "pass":
+            message = section.summary or f"{section.name} reported {section.status}"
+            entries.append(_ledger_entry(section, message, None))
+    return FlowGuardFindingLedger(tuple(entries))
 
 
 def _check_report_findings(report: Any) -> tuple[str, ...]:
@@ -300,8 +500,12 @@ def build_flowguard_summary_report(
 
 __all__ = [
     "FlowGuardSection",
+    "FlowGuardFindingLedger",
+    "FlowGuardFindingLedgerEntry",
     "FlowGuardSummaryReport",
     "SECTION_STATUSES",
+    "LEDGER_SEVERITIES",
+    "build_finding_ledger",
     "build_flowguard_summary_report",
     "section_from_audit_report",
     "section_from_check_report",

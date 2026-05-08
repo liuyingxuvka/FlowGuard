@@ -8,6 +8,7 @@ from flowguard.report import CheckReport
 from flowguard.summary_report import (
     FlowGuardSection,
     FlowGuardSummaryReport,
+    build_finding_ledger,
     build_flowguard_summary_report,
 )
 
@@ -56,6 +57,8 @@ class SummaryReportTests(unittest.TestCase):
 
         self.assertEqual("failed", report.overall_status)
         self.assertEqual("failed", json.loads(report.to_json_text())["overall_status"])
+        self.assertEqual("failure", report.finding_ledger.entries[0].severity)
+        self.assertEqual("coverage_gap", report.finding_ledger.entries[1].severity)
 
     def test_builder_combines_explorer_pass_with_audit_warnings(self):
         model_report = CheckReport(ok=True, summary="sequences=1 traces=1")
@@ -76,6 +79,7 @@ class SummaryReportTests(unittest.TestCase):
         self.assertEqual("pass_with_gaps", summary.overall_status)
         self.assertEqual(["model_check", "model_quality_audit", "conformance_replay"], [s.name for s in summary.sections])
         self.assertIn("findings:", summary.format_text())
+        self.assertIn("finding_ledger:", summary.format_text())
         self.assertIn("missing_repeated_input", summary.format_text(verbose=True))
 
     def test_empty_summary_is_not_run(self):
@@ -96,6 +100,23 @@ class SummaryReportTests(unittest.TestCase):
         self.assertEqual("failed", summary.overall_status)
         self.assertIn("forbidden_write: changed records", summary.format_text(verbose=True))
         self.assertIn("metadata", json.loads(summary.to_json_text())["sections"][0])
+
+    def test_finding_ledger_flattens_findings_and_section_gaps(self):
+        ledger = build_finding_ledger(
+            (
+                FlowGuardSection("model_quality_audit", "pass_with_gaps", "warnings=1", ("warning: missing_invariant: add hard rule",)),
+                FlowGuardSection("progress_check", "not_run", "progress_config not provided"),
+                FlowGuardSection("model_check", "pass", "ok"),
+            )
+        )
+
+        self.assertEqual(2, len(ledger.entries))
+        self.assertEqual(
+            ["model_coverage_gap", "missing_or_skipped_check"],
+            [entry.category for entry in ledger.entries],
+        )
+        self.assertIn("entries=2", ledger.summary)
+        self.assertIn("finding_ledger", FlowGuardSummaryReport.from_sections(()).to_dict())
 
 
 if __name__ == "__main__":

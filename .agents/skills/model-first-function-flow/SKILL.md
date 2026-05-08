@@ -66,6 +66,14 @@ or vendor behavior are safe.
   the issue in the model as a scenario, invariant, replay, or explicit
   out-of-scope boundary, rerun the relevant model checks, and only then validate
   the repair with production-facing evidence.
+- For FlowGuard or LiveFlowGuard framework upgrades, live failure triage, or
+  broad capability claims, use coverage-first repair: first build a full
+  finding ledger across invariant/model checks, model-quality audit, scenario
+  or live-audit evidence, progress, contracts, conformance, skipped/not-run
+  sections, and adoption evidence. Only after that ledger is visible decide
+  whether to fix the real system, adjust the check flow, extend the model, or
+  mark a boundary out of scope. Do not patch only the immediate failure with a
+  point rule unless the ledger shows that is the right repair.
 - The minimal technical path remains `State + FunctionBlock + Invariant +
   Explorer`.
 - Keep the API surface boundary clear. Core APIs are for direct modeling and
@@ -220,17 +228,21 @@ something important. Do not let adoption logging replace executable checks.
 11. Run `run_model_first_checks()` when useful, or run Explorer directly.
 12. Inspect counterexamples and revise the model or intended architecture until
     the correct model passes.
-13. Preserve important counterexamples as tests or implementation notes.
-14. Edit production code or perform the modeled high-impact action only after
+13. For FlowGuard/LiveFlowGuard self-upgrades or model-miss triage, inspect the
+    full finding ledger before choosing a repair path. Classify each actionable
+    finding as real-system repair, check-flow repair, model extension, or
+    explicit out-of-scope boundary.
+14. Preserve important counterexamples as tests or implementation notes.
+15. Edit production code or perform the modeled high-impact action only after
     executable model checks pass, unless the user explicitly waives modeling.
-15. Run scenario review, loop/stuck review, progress checks, contracts, or
+16. Run scenario review, loop/stuck review, progress checks, contracts, or
     conformance replay when those risks apply.
     If this would repeat an unchanged abstract run that already passed, it may
     be enough to reuse the earlier result and focus post-edit verification on
     tests, conformance replay, or other production-facing evidence.
-16. If post-edit runtime validation exposes a new issue after FlowGuard passed,
+17. If post-edit runtime validation exposes a new issue after FlowGuard passed,
     enter Post-Runtime Model-Miss Review before claiming completion.
-17. Finish the adoption note with the checks run, findings, skipped checks, and
+18. Finish the adoption note with the checks run, findings, skipped checks, and
     next action.
 
 ## Resource Map
