@@ -12,96 +12,201 @@ class TemplateFile:
     content: str
 
 
-MODEL_TEMPLATE = '''"""Minimal flowguard model template."""
+MODEL_TEMPLATE = '''"""Minimal flowguard model template.
 
-from dataclasses import dataclass
+Copy this file before production edits and replace the sample domain with the
+behavior under review.
+"""
 
-from flowguard.core import FunctionResult, Invariant, InvariantResult
-from flowguard.workflow import Workflow
+from __future__ import annotations
 
+from dataclasses import dataclass, replace
+from typing import Iterable
 
-@dataclass(frozen=True)
-class State:
-    records: tuple[str, ...] = ()
+from flowguard import FunctionResult, Invariant, InvariantResult, Workflow
 
 
 @dataclass(frozen=True)
 class Input:
     item_id: str
+    valid: bool
 
 
 @dataclass(frozen=True)
-class Output:
+class Accepted:
     item_id: str
-    status: str
 
 
-class RecordItem:
-    name = "RecordItem"
-    reads = ("records",)
-    writes = ("records",)
-    input_description = "Input"
-    output_description = "Output"
-    idempotency = "same item_id is recorded at most once"
+@dataclass(frozen=True)
+class Rejected:
+    item_id: str
+    reason: str
+
+
+@dataclass(frozen=True)
+class Stored:
+    item_id: str
+
+
+@dataclass(frozen=True)
+class State:
+    seen_ids: tuple[str, ...] = ()
+    stored_ids: tuple[str, ...] = ()
+
+
+class ValidateInput:
+    name = "ValidateInput"
+    reads = ("seen_ids",)
+    writes = ("seen_ids",)
     accepted_input_type = Input
+    input_description = "external abstract input"
+    output_description = "Accepted or Rejected"
+    idempotency = "Repeated item_id returns Rejected('duplicate') without changing state."
 
-    def apply(self, input_obj, state):
-        if input_obj.item_id in state.records:
-            return (
-                FunctionResult(
-                    Output(input_obj.item_id, "already_exists"),
-                    state,
-                    label="record_already_exists",
-                    reason="item was already recorded",
-                ),
+    def apply(self, input_obj: Input, state: State) -> Iterable[FunctionResult]:
+        if not input_obj.valid:
+            yield FunctionResult(
+                output=Rejected(input_obj.item_id, "invalid"),
+                new_state=state,
+                label="rejected_invalid",
             )
-        new_state = State(records=state.records + (input_obj.item_id,))
-        return (
-            FunctionResult(
-                Output(input_obj.item_id, "added"),
-                new_state,
-                label="record_added",
-                reason="item was recorded once",
-            ),
+            return
+        if input_obj.item_id in state.seen_ids:
+            yield FunctionResult(
+                output=Rejected(input_obj.item_id, "duplicate"),
+                new_state=state,
+                label="rejected_duplicate",
+            )
+            return
+        yield FunctionResult(
+            output=Accepted(input_obj.item_id),
+            new_state=replace(state, seen_ids=state.seen_ids + (input_obj.item_id,)),
+            label="accepted",
         )
 
 
-def no_duplicate_records():
-    def predicate(state, _trace):
-        if len(state.records) != len(set(state.records)):
-            return InvariantResult.fail("duplicate records")
-        return InvariantResult.pass_()
+class StoreAccepted:
+    name = "StoreAccepted"
+    reads = ("stored_ids",)
+    writes = ("stored_ids",)
+    accepted_input_type = Accepted
+    input_description = "Accepted"
+    output_description = "Stored"
+    idempotency = "Stores each accepted item once."
 
-    return Invariant("no_duplicate_records", "records are unique", predicate)
+    def apply(self, input_obj: Accepted, state: State) -> Iterable[FunctionResult]:
+        if input_obj.item_id in state.stored_ids:
+            yield FunctionResult(
+                output=Stored(input_obj.item_id),
+                new_state=state,
+                label="already_stored",
+            )
+            return
+        yield FunctionResult(
+            output=Stored(input_obj.item_id),
+            new_state=replace(state, stored_ids=state.stored_ids + (input_obj.item_id,)),
+            label="stored",
+        )
 
 
-def build_workflow():
-    return Workflow((RecordItem(),), name="template_workflow")
+def terminal_predicate(current_output, state, trace) -> bool:
+    del state, trace
+    return isinstance(current_output, Rejected)
+
+
+def no_duplicate_stores(state: State, trace) -> InvariantResult:
+    del trace
+    if len(state.stored_ids) != len(set(state.stored_ids)):
+        return InvariantResult.fail("stored_ids contains duplicates")
+    return InvariantResult.pass_()
+
+
+def every_store_was_accepted(state: State, trace) -> InvariantResult:
+    del state
+    accepted = {
+        step.function_output.item_id
+        for step in trace.steps
+        if step.label == "accepted" and isinstance(step.function_output, Accepted)
+    }
+    stored = {
+        step.function_output.item_id
+        for step in trace.steps
+        if step.label == "stored" and isinstance(step.function_output, Stored)
+    }
+    missing = tuple(sorted(stored - accepted))
+    if missing:
+        return InvariantResult.fail(f"stored without accepted source: {missing!r}")
+    return InvariantResult.pass_()
+
+
+INVARIANTS = (
+    Invariant(
+        name="no_duplicate_stores",
+        description="stored_ids contains each item at most once",
+        predicate=no_duplicate_stores,
+    ),
+    Invariant(
+        name="every_store_was_accepted",
+        description="Stored outputs must be traceable to Accepted outputs",
+        predicate=every_store_was_accepted,
+    ),
+)
+
+
+EXTERNAL_INPUTS = (
+    Input("item_a", True),
+    Input("item_bad", False),
+)
+
+MAX_SEQUENCE_LENGTH = 2
+
+
+def initial_state() -> State:
+    return State()
+
+
+def build_workflow() -> Workflow:
+    return Workflow((ValidateInput(), StoreAccepted()), name="model_template")
+
+
+__all__ = [
+    "EXTERNAL_INPUTS",
+    "INVARIANTS",
+    "MAX_SEQUENCE_LENGTH",
+    "Accepted",
+    "Input",
+    "Rejected",
+    "State",
+    "Stored",
+    "build_workflow",
+    "initial_state",
+    "terminal_predicate",
+]
 '''
 
 
-RUN_CHECKS_TEMPLATE = '''"""Run the minimal flowguard template."""
+RUN_CHECKS_TEMPLATE = '''"""Run the minimal model_template checks."""
 
-from flowguard.scenario import Scenario, ScenarioExpectation, run_exact_sequence
-from flowguard.review import review_scenario
+from __future__ import annotations
 
-from model import Input, State, build_workflow, no_duplicate_records
+from flowguard import Explorer
+import model
 
 
-def main():
-    scenario = Scenario(
-        name="record_same_item_twice",
-        description="Repeated input must not create duplicate records.",
-        initial_state=State(),
-        external_input_sequence=(Input("item-1"), Input("item-1")),
-        expected=ScenarioExpectation(expected_status="ok"),
-        workflow=build_workflow(),
-        invariants=(no_duplicate_records(),),
-    )
-    result = review_scenario(scenario)
-    print(result.observed_summary)
-    print(result.status)
-    return 0 if result.status == "pass" else 1
+def main() -> int:
+    report = Explorer(
+        workflow=model.build_workflow(),
+        initial_states=(model.initial_state(),),
+        external_inputs=model.EXTERNAL_INPUTS,
+        invariants=model.INVARIANTS,
+        max_sequence_length=model.MAX_SEQUENCE_LENGTH,
+        terminal_predicate=model.terminal_predicate,
+        required_labels=("stored", "rejected_duplicate"),
+    ).explore()
+    print(report.format_text())
+    labels = sorted({label for trace in report.traces for label in trace.labels})
+    print("labels: " + ",".join(labels))
+    return 0 if report.ok else 1
 
 
 if __name__ == "__main__":
@@ -639,6 +744,428 @@ Record `needs_human_review` and known limitations honestly.
 """
 
 
+RISK_INTENT_CHECK_PLAN_MODEL_TEMPLATE = '''"""Risk Intent + CheckPlan template.
+
+Use this scaffold when the risk should be named before the function-flow model
+is written. Replace the sample item workflow with the current behavior under
+review.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, replace
+from typing import Iterable
+
+from flowguard import (
+    FlowGuardCheckPlan,
+    FunctionResult,
+    Invariant,
+    InvariantResult,
+    RiskIntent,
+    RiskProfile,
+    SkippedCheck,
+    Workflow,
+    run_model_first_checks,
+)
+
+
+@dataclass(frozen=True)
+class ItemInput:
+    item_id: str
+    should_accept: bool = True
+
+
+@dataclass(frozen=True)
+class Accepted:
+    item_id: str
+
+
+@dataclass(frozen=True)
+class Rejected:
+    item_id: str
+    reason: str
+
+
+@dataclass(frozen=True)
+class State:
+    accepted_ids: tuple[str, ...] = ()
+
+
+class AcceptItem:
+    name = "AcceptItem"
+    reads = ("accepted_ids",)
+    writes = ("accepted_ids",)
+    accepted_input_type = ItemInput
+    input_description = "item request"
+    output_description = "Accepted or Rejected"
+    idempotency = "Repeated item_id is rejected as a duplicate."
+
+    def apply(self, input_obj: ItemInput, state: State) -> Iterable[FunctionResult]:
+        if not input_obj.should_accept:
+            yield FunctionResult(Rejected(input_obj.item_id, "not_allowed"), state, label="rejected")
+            return
+        if input_obj.item_id in state.accepted_ids:
+            yield FunctionResult(Rejected(input_obj.item_id, "duplicate"), state, label="rejected_duplicate")
+            return
+        yield FunctionResult(
+            Accepted(input_obj.item_id),
+            replace(state, accepted_ids=state.accepted_ids + (input_obj.item_id,)),
+            label="accepted",
+        )
+
+
+def no_duplicate_accepts(state: State, _trace) -> InvariantResult:
+    if len(state.accepted_ids) != len(set(state.accepted_ids)):
+        return InvariantResult.fail("accepted_ids contains duplicates")
+    return InvariantResult.pass_()
+
+
+def risk_profile() -> RiskProfile:
+    return RiskProfile(
+        modeled_boundary="sample item acceptance",
+        risk_classes=("deduplication", "idempotency", "side_effect"),
+        risk_intent=RiskIntent(
+            failure_modes=("duplicate acceptance after retry", "invalid item accepted"),
+            protected_harms=("downstream workflow acts on the same item twice",),
+            must_model_state=("accepted_ids",),
+            adversarial_inputs=("same item repeated", "invalid item request"),
+            hard_invariants=("one acceptance per item",),
+            blindspots=("real storage isolation requires a conformance replay adapter"),
+        ),
+        confidence_goal="model_level",
+        skipped_checks=(
+            SkippedCheck("conformance_replay", "no production adapter exists in this starter template"),
+        ),
+    )
+
+
+def build_workflow() -> Workflow:
+    return Workflow((AcceptItem(),), name="risk_intent_template")
+
+
+def build_check_plan() -> FlowGuardCheckPlan:
+    return FlowGuardCheckPlan(
+        workflow=build_workflow(),
+        initial_states=(State(),),
+        external_inputs=(ItemInput("item-1"), ItemInput("item-1"), ItemInput("item-bad", False)),
+        invariants=(
+            Invariant(
+                "no_duplicate_accepts",
+                "accepted_ids contains each item at most once",
+                no_duplicate_accepts,
+                metadata={"property_classes": ("deduplication", "idempotency")},
+            ),
+        ),
+        max_sequence_length=2,
+        risk_profile=risk_profile(),
+    )
+
+
+def run_checks():
+    return run_model_first_checks(build_check_plan())
+'''
+
+
+RISK_INTENT_CHECK_PLAN_RUN_CHECKS_TEMPLATE = '''"""Run the Risk Intent + CheckPlan template."""
+
+from model import risk_profile, run_checks
+
+
+def main() -> int:
+    print(f"risk_intent: {risk_profile().modeled_boundary}")
+    report = run_checks()
+    print(report.format_text())
+    return 0 if report.overall_status in {"pass", "pass_with_gaps"} else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+'''
+
+
+RISK_INTENT_CHECK_PLAN_NOTES_TEMPLATE = """# FlowGuard Risk Intent CheckPlan Notes
+
+Use this scaffold when the main risk should be named before modeling.
+
+## Risk Intent
+
+Record:
+
+- failure modes;
+- protected harms;
+- state and side effects that must be visible;
+- adversarial inputs or retries;
+- hard invariants;
+- blindspots.
+
+## Calibration
+
+This template reports model-level confidence only. Add conformance replay or
+equivalent real-code evidence before claiming production confidence.
+"""
+
+
+MODEL_MISS_REVIEW_MODEL_TEMPLATE = '''"""Post-runtime model-miss review template.
+
+Use this scaffold when a FlowGuard pass is followed by a test, runtime, replay,
+or manual-validation failure. Replace the event names and obligations with the
+bug class under review.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, replace
+from typing import Iterable
+
+from flowguard import FunctionResult, Invariant, InvariantResult, Workflow
+from flowguard.review import review_scenario, review_scenarios
+from flowguard.scenario import Scenario, ScenarioExpectation
+
+
+@dataclass(frozen=True)
+class State:
+    flowguard_passed: bool = False
+    runtime_issue_observed: bool = False
+    model_miss_classified: bool = False
+    issue_represented_in_model: bool = False
+    fix_validated_after_refinement: bool = False
+    completed: bool = False
+
+
+@dataclass(frozen=True)
+class Event:
+    name: str
+
+
+FLOWGUARD_PASS = Event("flowguard_pass")
+RUNTIME_FAIL = Event("runtime_fail")
+CLASSIFY_MISS = Event("classify_miss")
+REPRESENT_ISSUE = Event("represent_issue")
+VALIDATE_FIX = Event("validate_fix")
+FINALIZE = Event("finalize")
+
+
+class ApplyReviewStep:
+    name = "ApplyReviewStep"
+    reads = (
+        "flowguard_passed",
+        "runtime_issue_observed",
+        "model_miss_classified",
+        "issue_represented_in_model",
+        "fix_validated_after_refinement",
+    )
+    writes = (
+        "flowguard_passed",
+        "runtime_issue_observed",
+        "model_miss_classified",
+        "issue_represented_in_model",
+        "fix_validated_after_refinement",
+        "completed",
+    )
+    accepted_input_type = Event
+    input_description = "review event"
+    output_description = "updated model-miss review state"
+    idempotency = "Repeated review events keep one obligation state."
+
+    def apply(self, input_obj: Event, state: State) -> Iterable[FunctionResult]:
+        if input_obj.name == "flowguard_pass":
+            yield FunctionResult("flowguard_passed", replace(state, flowguard_passed=True), label="flowguard_passed")
+            return
+        if input_obj.name == "runtime_fail":
+            if not state.flowguard_passed:
+                yield FunctionResult("runtime_fail_before_model_blocked", state, label="blocked")
+                return
+            yield FunctionResult(
+                "runtime_issue_observed",
+                replace(state, runtime_issue_observed=True, completed=False),
+                label="runtime_issue_observed",
+            )
+            return
+        if input_obj.name == "classify_miss":
+            if not state.runtime_issue_observed:
+                yield FunctionResult("classification_not_needed", state, label="blocked")
+                return
+            yield FunctionResult(
+                "model_miss_classified",
+                replace(state, model_miss_classified=True),
+                label="model_miss_classified",
+            )
+            return
+        if input_obj.name == "represent_issue":
+            if not state.model_miss_classified:
+                yield FunctionResult("representation_blocked", state, label="blocked")
+                return
+            yield FunctionResult(
+                "issue_represented_in_model",
+                replace(state, issue_represented_in_model=True),
+                label="issue_represented_in_model",
+            )
+            return
+        if input_obj.name == "validate_fix":
+            if not state.issue_represented_in_model:
+                yield FunctionResult("fix_validation_blocked", state, label="blocked")
+                return
+            yield FunctionResult(
+                "fix_validated_after_refinement",
+                replace(state, fix_validated_after_refinement=True),
+                label="fix_validated_after_refinement",
+            )
+            return
+        if input_obj.name == "finalize":
+            if state.runtime_issue_observed and not state.fix_validated_after_refinement:
+                yield FunctionResult("finalize_blocked_open_model_miss", state, label="finalize_blocked")
+                return
+            yield FunctionResult("completed", replace(state, completed=True), label="completed")
+            return
+        yield FunctionResult("unknown_event", state, label="blocked")
+
+
+class BrokenFinalizeIgnoresModelMiss(ApplyReviewStep):
+    def apply(self, input_obj: Event, state: State) -> Iterable[FunctionResult]:
+        if input_obj.name == "finalize":
+            yield FunctionResult(
+                "completed_without_review",
+                replace(state, completed=True),
+                label="broken_completed_without_review",
+            )
+            return
+        yield from super().apply(input_obj, state)
+
+
+class BrokenValidateFixWithoutRepresentation(ApplyReviewStep):
+    def apply(self, input_obj: Event, state: State) -> Iterable[FunctionResult]:
+        if input_obj.name == "validate_fix":
+            yield FunctionResult(
+                "fix_validated_without_model_representation",
+                replace(state, fix_validated_after_refinement=True),
+                label="broken_fix_validated_without_model_representation",
+            )
+            return
+        yield from super().apply(input_obj, state)
+
+
+def invariants() -> tuple[Invariant, ...]:
+    def completion_requires_review(state: State, _trace) -> InvariantResult:
+        if state.completed and state.runtime_issue_observed:
+            if not (
+                state.model_miss_classified
+                and state.issue_represented_in_model
+                and state.fix_validated_after_refinement
+            ):
+                return InvariantResult.fail(
+                    "completed runtime issue without classification, model representation, and refined validation"
+                )
+        return InvariantResult.pass_()
+
+    def fix_validation_requires_model_representation(state: State, _trace) -> InvariantResult:
+        if state.fix_validated_after_refinement and not state.issue_represented_in_model:
+            return InvariantResult.fail("fix validated before the issue was represented in the model")
+        return InvariantResult.pass_()
+
+    return (
+        Invariant("completion_requires_review", "Runtime issues must be reviewed before completion.", completion_requires_review),
+        Invariant(
+            "fix_validation_requires_model_representation",
+            "Fix validation requires executable model representation or an explicit boundary.",
+            fix_validation_requires_model_representation,
+        ),
+    )
+
+
+def workflow(block=None) -> Workflow:
+    return Workflow((block or ApplyReviewStep(),), name="model_miss_review_template")
+
+
+def scenario(name, description, events, expected, block=None) -> Scenario:
+    return Scenario(
+        name=name,
+        description=description,
+        initial_state=State(),
+        external_input_sequence=events,
+        expected=expected,
+        workflow=workflow(block),
+        invariants=invariants(),
+    )
+
+
+def run_checks():
+    correct = review_scenario(
+        scenario(
+            "correct_model_miss_review",
+            "Runtime issue is classified, represented, validated, then finalized.",
+            (FLOWGUARD_PASS, RUNTIME_FAIL, CLASSIFY_MISS, REPRESENT_ISSUE, VALIDATE_FIX, FINALIZE),
+            ScenarioExpectation(
+                expected_status="ok",
+                required_trace_labels=("completed",),
+                summary="model-miss obligation is closed before completion",
+            ),
+        )
+    )
+    broken = review_scenarios(
+        (
+            scenario(
+                "finalize_without_review",
+                "Broken workflow finalizes after runtime issue without review.",
+                (FLOWGUARD_PASS, RUNTIME_FAIL, FINALIZE),
+                ScenarioExpectation(
+                    expected_status="violation",
+                    expected_violation_names=("completion_requires_review",),
+                ),
+                block=BrokenFinalizeIgnoresModelMiss(),
+            ),
+            scenario(
+                "validate_fix_without_representation",
+                "Broken workflow validates the fix before representing the issue.",
+                (FLOWGUARD_PASS, RUNTIME_FAIL, CLASSIFY_MISS, VALIDATE_FIX, FINALIZE),
+                ScenarioExpectation(
+                    expected_status="violation",
+                    expected_violation_names=("fix_validation_requires_model_representation",),
+                ),
+                block=BrokenValidateFixWithoutRepresentation(),
+            ),
+        )
+    )
+    return correct, broken
+'''
+
+
+MODEL_MISS_REVIEW_RUN_CHECKS_TEMPLATE = '''"""Run the post-runtime model-miss review template."""
+
+from model import run_checks
+
+
+def main() -> int:
+    correct, broken = run_checks()
+    print(f"{correct.scenario_name}: {correct.status.upper()}")
+    for item in correct.evidence:
+        print(f"  - {item}")
+    print()
+    print(broken.format_text(max_counterexamples=2))
+    return 0 if correct.ok and broken.ok else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+'''
+
+
+MODEL_MISS_REVIEW_NOTES_TEMPLATE = """# FlowGuard Model-Miss Review Notes
+
+Use this scaffold when real validation finds an issue after a FlowGuard pass.
+
+## Review Questions
+
+- Why did the earlier model miss this bug class?
+- Was the boundary too narrow, the state too coarse, an input branch missing, an
+  invariant weak, a replay skipped, or the issue outside the modeled scope?
+- How is the issue now represented: scenario, invariant, replay adapter,
+  representative trace, or explicit out-of-scope boundary?
+- Which refined model checks and runtime checks must pass before completion?
+
+Do not let a later green runtime check close a known model miss by itself.
+"""
+
+
 def project_template_files() -> tuple[TemplateFile, ...]:
     return (
         TemplateFile("model.py", MODEL_TEMPLATE),
@@ -650,6 +1177,22 @@ def adoption_template_files() -> tuple[TemplateFile, ...]:
     return (
         TemplateFile("docs/flowguard_adoption_log.md", ADOPTION_LOG_TEMPLATE),
         TemplateFile("docs/flowguard_model_notes.md", MODEL_NOTES_TEMPLATE),
+    )
+
+
+def risk_intent_template_files() -> tuple[TemplateFile, ...]:
+    return (
+        TemplateFile(".flowguard/risk_intent_check_plan/model.py", RISK_INTENT_CHECK_PLAN_MODEL_TEMPLATE),
+        TemplateFile(".flowguard/risk_intent_check_plan/run_checks.py", RISK_INTENT_CHECK_PLAN_RUN_CHECKS_TEMPLATE),
+        TemplateFile("docs/flowguard_risk_intent_check_plan.md", RISK_INTENT_CHECK_PLAN_NOTES_TEMPLATE),
+    )
+
+
+def model_miss_review_template_files() -> tuple[TemplateFile, ...]:
+    return (
+        TemplateFile(".flowguard/model_miss_review/model.py", MODEL_MISS_REVIEW_MODEL_TEMPLATE),
+        TemplateFile(".flowguard/model_miss_review/run_checks.py", MODEL_MISS_REVIEW_RUN_CHECKS_TEMPLATE),
+        TemplateFile("docs/flowguard_model_miss_review.md", MODEL_MISS_REVIEW_NOTES_TEMPLATE),
     )
 
 
@@ -684,10 +1227,18 @@ __all__ = [
     "MAINTENANCE_WORKFLOW_MODEL_TEMPLATE",
     "MAINTENANCE_WORKFLOW_NOTES_TEMPLATE",
     "MAINTENANCE_WORKFLOW_RUN_CHECKS_TEMPLATE",
+    "MODEL_MISS_REVIEW_MODEL_TEMPLATE",
+    "MODEL_MISS_REVIEW_NOTES_TEMPLATE",
+    "MODEL_MISS_REVIEW_RUN_CHECKS_TEMPLATE",
     "MODEL_NOTES_TEMPLATE",
+    "RISK_INTENT_CHECK_PLAN_MODEL_TEMPLATE",
+    "RISK_INTENT_CHECK_PLAN_NOTES_TEMPLATE",
+    "RISK_INTENT_CHECK_PLAN_RUN_CHECKS_TEMPLATE",
     "TemplateFile",
     "adoption_template_files",
     "maintenance_workflow_template_files",
+    "model_miss_review_template_files",
     "project_template_files",
+    "risk_intent_template_files",
     "write_template_files",
 ]

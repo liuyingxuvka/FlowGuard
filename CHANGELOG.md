@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.5.1 - 2026-05-09
+
+- Refreshed the public project template so package-generated starter files
+  match the richer model-first Skill template with validation, rejection,
+  repeated-input handling, and traceability checks.
+- Added public-safe Risk Intent + CheckPlan and post-runtime model-miss review
+  template scaffolds, including CLI writers for `project-template`,
+  `risk-intent-template`, and `model-miss-template`.
+- Added template execution tests and privacy-marker checks to keep public
+  scaffolds neutral and free of local project details.
+- Schema remains `1.0`; runtime dependencies remain Python standard library
+  only.
+
 ## v0.5.0 - 2026-05-08
 
 - Added `FlowGuardFindingLedger`, `FlowGuardFindingLedgerEntry`, and

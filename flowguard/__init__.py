@@ -137,7 +137,9 @@ from .templates import (
     TemplateFile,
     adoption_template_files,
     maintenance_workflow_template_files,
+    model_miss_review_template_files,
     project_template_files,
+    risk_intent_template_files,
     write_template_files,
 )
 from .trace import Trace, TraceStep
@@ -289,7 +291,9 @@ EVIDENCE_API = (
     "TemplateFile",
     "adoption_template_files",
     "maintenance_workflow_template_files",
+    "model_miss_review_template_files",
     "project_template_files",
+    "risk_intent_template_files",
     "write_template_files",
 )
 
@@ -398,6 +402,7 @@ __all__ = [
     "adoption_template_files",
     "assumption_card",
     "maintenance_workflow_template_files",
+    "model_miss_review_template_files",
     "audit_flowguard_adoption",
     "at_most_once_by",
     "build_executable_corpus_report",
@@ -432,6 +437,7 @@ __all__ = [
     "make_artifact",
     "make_adoption_log_entry",
     "project_template_files",
+    "risk_intent_template_files",
     "report_artifact",
     "section_from_audit_report",
     "section_from_check_report",

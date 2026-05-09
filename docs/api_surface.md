@@ -40,7 +40,8 @@ Modeling helpers reduce boilerplate around common bug classes:
 - property factories such as `no_duplicate_by`, `at_most_once_by`,
   `cache_matches_source`, `require_label_order`, and `forbid_label_after`;
 - state write inventory guidance for fields named by invariants;
-- maintenance workflow templates for recurring multi-role maintenance systems;
+- public starter templates for basic models, Risk Intent check plans,
+  model-miss reviews, and recurring maintenance workflows;
 - scenario review and `ScenarioMatrixBuilder`;
 - deterministic counterexample minimization;
 - optional domain packs such as `DeduplicationPack`, `CachePack`, `RetryPack`,

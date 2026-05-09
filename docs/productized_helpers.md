@@ -204,6 +204,28 @@ They produce optional invariants and scenario scaffolds from selectors and key
 functions supplied by the user or agent. They do not infer production code, add
 hidden requirements, or replace explicit domain modeling.
 
+## Starter Templates
+
+FlowGuard includes small public templates that are safe to copy into another
+project:
+
+```powershell
+python -m flowguard project-template --output .
+python -m flowguard risk-intent-template --output .
+python -m flowguard model-miss-template --output .
+```
+
+The basic project template demonstrates validation, rejection, duplicate input,
+and source-trace invariants. The Risk Intent template shows how to bind a
+`RiskIntent`, `RiskProfile`, and `FlowGuardCheckPlan` before running
+`run_model_first_checks(...)`. The model-miss template models the feedback loop
+used when runtime, tests, replay, or manual validation finds a problem after a
+FlowGuard pass.
+
+These are scaffolds, not reusable business logic. Rename every state field,
+input, output, invariant, and blindspot to match the target project before
+claiming confidence.
+
 ## Maintenance Workflow Template
 
 Use the optional maintenance workflow template for recurring multi-role agent

@@ -37,14 +37,30 @@ statuses, `needs_human_review`, or known limitations.
 
 ## Templates
 
-`flowguard.templates.project_template_files()` returns minimal starter files
-for a model-first workflow:
+`flowguard.templates.project_template_files()` returns starter files for a
+basic model-first workflow:
 
 - `model.py`;
 - `run_checks.py`.
 
-The helper returns content instead of writing files so callers can decide where
-and how to create project files.
+The package also exposes public-safe scaffolds for common agent situations:
+
+- `risk_intent_template_files()`: a Risk Intent + `FlowGuardCheckPlan`
+  starter with model-level confidence boundaries;
+- `model_miss_review_template_files()`: a post-runtime model-miss review
+  starter for cases where real validation finds a gap after a FlowGuard pass;
+- `maintenance_workflow_template_files()`: a recurring maintenance workflow
+  starter.
+
+The helpers return content instead of writing files so callers can decide where
+and how to create project files. The CLI can print or write the same templates:
+
+```powershell
+python -m flowguard project-template --output .
+python -m flowguard risk-intent-template --output .
+python -m flowguard model-miss-template --output .
+python -m flowguard maintenance-template --output .
+```
 
 ## Pytest Adapter
 

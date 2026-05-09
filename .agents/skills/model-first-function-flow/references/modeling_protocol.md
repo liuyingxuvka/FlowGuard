@@ -201,6 +201,18 @@ For common risks, optional domain packs can reduce boilerplate:
 uses selectors and key functions you provide. It does not infer state, enforce
 a model shape, or become a required structure.
 
+For neutral starter scaffolds, the public CLI can print or write templates:
+
+```powershell
+python -m flowguard project-template --output .
+python -m flowguard risk-intent-template --output .
+python -m flowguard model-miss-template --output .
+```
+
+Treat them as starting points only. Rename the state, inputs, outputs,
+invariants, and blindspots to match the real workflow before claiming
+confidence.
+
 For recurring multi-role maintenance systems, such as
 Sleep/Dream/Architect/Installer/Reviewer flows, the optional maintenance
 template can reduce setup time:

@@ -27,6 +27,8 @@ def main() -> int:
         required_labels=("stored", "rejected_duplicate"),
     ).explore()
     print(report.format_text())
+    labels = sorted({label for trace in report.traces for label in trace.labels})
+    print("labels: " + ",".join(labels))
     return 0 if report.ok else 1
 
 

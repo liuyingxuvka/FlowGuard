@@ -107,6 +107,10 @@ Input x State -> Set(Output x State)
   cancellation windows, and rollback options.
 - Use property factories or domain packs when they fit, but do not make them a
   required modeling layer.
+- Use the public starter template CLI when it saves setup time:
+  `python -m flowguard project-template --output .`,
+  `python -m flowguard risk-intent-template --output .`, or
+  `python -m flowguard model-miss-template --output .`.
 - For recurring Sleep/Dream/Architect/Installer/Reviewer style maintenance
   systems, use the optional maintenance workflow scaffold when it saves setup
   time: `python -m flowguard maintenance-template --output .`.
@@ -258,6 +262,12 @@ something important. Do not let adoption logging replace executable checks.
   FlowGuardCheckPlan, runner, and packs.
 - Repository-level `docs/conformance_testing.md`: replay triggers and adapter
   guidance.
+- `python -m flowguard project-template --output .`: basic public starter
+  model.
+- `python -m flowguard risk-intent-template --output .`: Risk Intent +
+  CheckPlan starter.
+- `python -m flowguard model-miss-template --output .`: post-runtime
+  model-miss review starter.
 - `python -m flowguard maintenance-template --output .`: optional scaffold for
   multi-role maintenance flows.
 - Repository-level `docs/framework_upgrade_checks.md`: FlowGuard-only upgrade

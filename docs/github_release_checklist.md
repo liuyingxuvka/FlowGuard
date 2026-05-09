@@ -67,6 +67,9 @@ python examples/job_matching/run_scenario_review.py
 python examples/looping_workflow/run_loop_review.py
 python -m flowguard schema-version
 python -m flowguard adoption-template
+python -m flowguard project-template
+python -m flowguard risk-intent-template
+python -m flowguard model-miss-template
 ```
 
 ## Blockers

@@ -112,6 +112,63 @@ def _run_adoption_template() -> int:
     return 0
 
 
+def _run_file_template(
+    args: argparse.Namespace,
+    *,
+    template_name: str,
+    files: tuple[object, ...],
+) -> int:
+    from .templates import write_template_files
+
+    if args.output:
+        written = write_template_files(args.output, files, overwrite=args.force)
+        print(
+            json.dumps(
+                {
+                    "artifact_type": "flowguard_template_write",
+                    "template": template_name,
+                    "files": [str(path) for path in written],
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return 0
+    print(
+        json.dumps(
+            {
+                "artifact_type": "flowguard_template",
+                "template": template_name,
+                "files": [
+                    {"path": file.path, "content": file.content}
+                    for file in files
+                ],
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
+def _run_project_template(args: argparse.Namespace) -> int:
+    from .templates import project_template_files
+
+    return _run_file_template(args, template_name="project", files=project_template_files())
+
+
+def _run_risk_intent_template(args: argparse.Namespace) -> int:
+    from .templates import risk_intent_template_files
+
+    return _run_file_template(args, template_name="risk_intent_check_plan", files=risk_intent_template_files())
+
+
+def _run_model_miss_template(args: argparse.Namespace) -> int:
+    from .templates import model_miss_review_template_files
+
+    return _run_file_template(args, template_name="model_miss_review", files=model_miss_review_template_files())
+
+
 def _run_adoption_entry(args: argparse.Namespace) -> int:
     from .adoption import (
         AdoptionCommandResult,
@@ -156,38 +213,10 @@ def _run_adoption_entry(args: argparse.Namespace) -> int:
 
 
 def _run_maintenance_template(args: argparse.Namespace) -> int:
-    from .templates import maintenance_workflow_template_files, write_template_files
+    from .templates import maintenance_workflow_template_files
 
     files = maintenance_workflow_template_files()
-    if args.output:
-        written = write_template_files(args.output, files, overwrite=args.force)
-        print(
-            json.dumps(
-                {
-                    "artifact_type": "flowguard_template_write",
-                    "template": "maintenance_workflow",
-                    "files": [str(path) for path in written],
-                },
-                indent=2,
-                sort_keys=True,
-            )
-        )
-        return 0
-    print(
-        json.dumps(
-            {
-                "artifact_type": "flowguard_template",
-                "template": "maintenance_workflow",
-                "files": [
-                    {"path": file.path, "content": file.content}
-                    for file in files
-                ],
-            },
-            indent=2,
-            sort_keys=True,
-        )
-    )
-    return 0
+    return _run_file_template(args, template_name="maintenance_workflow", files=files)
 
 
 COMMANDS: dict[str, Callable[[], int]] = {
@@ -252,6 +281,21 @@ def _add_maintenance_template_parser(subparsers: argparse._SubParsersAction[argp
     parser.set_defaults(handler=_run_maintenance_template)
 
 
+def _add_file_template_parser(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+    name: str,
+    help_text: str,
+    handler: Callable[[argparse.Namespace], int],
+) -> None:
+    parser = subparsers.add_parser(name, help=help_text)
+    parser.add_argument(
+        "--output",
+        help="Project root where template files should be written. If omitted, prints JSON to stdout.",
+    )
+    parser.add_argument("--force", action="store_true", help="Overwrite existing template files.")
+    parser.set_defaults(handler=handler)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m flowguard",
@@ -259,6 +303,24 @@ def main(argv: list[str] | None = None) -> int:
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
     _add_existing_command_subparsers(subparsers)
+    _add_file_template_parser(
+        subparsers,
+        "project-template",
+        "Print or write the basic FlowGuard project model template.",
+        _run_project_template,
+    )
+    _add_file_template_parser(
+        subparsers,
+        "risk-intent-template",
+        "Print or write the Risk Intent + CheckPlan template.",
+        _run_risk_intent_template,
+    )
+    _add_file_template_parser(
+        subparsers,
+        "model-miss-template",
+        "Print or write the post-runtime model-miss review template.",
+        _run_model_miss_template,
+    )
     _add_adoption_entry_args(
         subparsers.add_parser("adoption-start", help="Append an in-progress adoption log entry."),
         default_status="in_progress",
