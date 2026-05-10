@@ -13,8 +13,8 @@ class FlowguardSkillTriggerTests(unittest.TestCase):
 
     def test_skill_trigger_catalog_matches_expectations(self):
         self.assertTrue(self.report.ok, self.report.format_text(max_counterexamples=1))
-        self.assertEqual(11, self.report.total_scenarios)
-        self.assertEqual(4, self.report.passed)
+        self.assertEqual(13, self.report.total_scenarios)
+        self.assertEqual(6, self.report.passed)
         self.assertEqual(6, self.report.expected_violations_observed)
         self.assertEqual(1, self.report.needs_human_review)
 
@@ -24,6 +24,8 @@ class FlowguardSkillTriggerTests(unittest.TestCase):
             "STS02_ui_state_flow_triggers_skill",
             "STS03_trivial_docs_skips_with_reason",
             "STS04_read_only_question_skips_with_reason",
+            "STS06_argument_flow_triggers_skill",
+            "STS07_decision_flow_triggers_skill",
         ):
             self.assertEqual("pass", self.statuses[name])
         self.assertEqual(

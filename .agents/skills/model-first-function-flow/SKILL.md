@@ -1,13 +1,13 @@
 ---
 name: model-first-function-flow
-description: For coding, repository, and process-design work, first decide whether flowguard applies. Use before implementing or changing non-trivial features, stateful workflows, repeated bug fixes, module-boundary changes, idempotency-sensitive logic, deduplication logic, caching, retry handling, data-flow changes, or any meaningful multi-step process that needs validation, adjustment, observation, or loss-prevention preflight.
+description: For coding, repository, process-design work, structured writing/argument, and decision/planning work, first decide whether flowguard applies. Use before implementing or changing non-trivial behavior, stateful workflows, repeated bug fixes, module-boundary changes, idempotency-sensitive logic, deduplication logic, caching, retry handling, data-flow changes, or any meaningful multi-step process, argument chain, or decision path that needs validation, adjustment, observation, or loss-prevention preflight.
 ---
 
 # Model-First Function Flow
 
-For coding, repository, and process-design work, first make a lightweight
-applicability decision: `use_flowguard`, `skip_with_reason`, or
-`needs_human_review`.
+For coding, repository, process-design work, structured writing/argument, and
+decision/planning work, first make a lightweight applicability decision:
+`use_flowguard`, `skip_with_reason`, or `needs_human_review`.
 
 Use this skill before production code changes that may affect behavior, state,
 retries, deduplication, idempotency, caching, side effects, module boundaries,
@@ -15,19 +15,48 @@ or data flow. Trivial, formatting-only, and read-only work may skip with a
 reason instead of paying the cost of a model.
 
 Also use this skill for non-code workflows when the user is designing,
-checking, adjusting, or observing a process and the process has meaningful
-state, ordering constraints, external dependencies, irreversible or costly
-actions, privacy/reputation risk, payment/reservation/publication side effects,
-or rollback concerns. FlowGuard can model these as process blindspot checks even
-when no software is being edited. Examples include booking or purchase flows,
-publishing/release handoffs, operational runbooks, data migration plans,
-support/escalation procedures, and multi-agent coordination processes.
+checking, adjusting, or observing a process, argument, or decision path and it
+has meaningful state, ordering constraints, external dependencies, irreversible
+or costly actions, privacy/reputation risk, evidence or proof dependencies,
+commitment changes, payment/reservation/publication side effects, or rollback
+concerns. FlowGuard can model these as blindspot checks even when no software is
+being edited. Examples include booking or purchase flows, publishing/release
+handoffs, operational runbooks, data migration plans, support/escalation
+procedures, multi-agent coordination processes, structured papers/reports, and
+plan or architecture decision flows.
 
 Do not turn this into a universal ceremony. If the task is trivial, fully
 reversible, has no meaningful state or side effects, and does not need process
 validation, skip with a short reason. Treat non-code models as risk-discovery
 preflights, not as proof that real-world facts, prices, availability, policies,
 or vendor behavior are safe.
+
+Think in three broad flow types. The flow type is a modeling lens, not a
+separate template family. Use the existing project, Risk Intent, model-miss, or
+maintenance templates when they fit; otherwise create a fit-for-risk model from
+`State + FunctionBlock + Invariant`.
+
+- `behavior_flow`: software, automation, operations, releases, UI state, or
+  human workflow actions. Model current phase, completed steps, persisted
+  records, emitted side effects, retries, terminal status, and rollback state.
+  Useful invariants: prerequisites happen before actions; retries do not create
+  duplicate side effects; failures do not become success; terminal states do not
+  keep mutating; non-terminal states are not stuck.
+- `argument_flow`: writing, papers, reports, design docs, README claims,
+  proposals, proofs, or explanations where later claims depend on earlier
+  context. Model reader and argument state explicitly: introduced context,
+  defined terms, declared assumptions, cited evidence, proved claims,
+  referenced figures, and allowed conclusions. Useful invariants: terms are not
+  used before definition; claims are not used before support; conclusions do not
+  exceed available assumptions or evidence; claim dependencies are not circular.
+- `decision_flow`: planning, technical choice, release/open-source choice,
+  roadmap, resource tradeoff, or architecture decision work. Model goals,
+  constraints, assumptions, evidence, options considered, tradeoffs recorded,
+  commitments made, irreversible steps, and changed conditions. Useful
+  invariants: options are not selected before goals and constraints are known;
+  irreversible commitments wait for required checks; changed conditions trigger
+  re-evaluation; rejected options are not silently reintroduced without new
+  evidence.
 
 ## Modes
 
@@ -41,10 +70,11 @@ or vendor behavior are safe.
 - `model_maintenance`: existing `.flowguard` models, replay adapters, or
   adoption evidence appear stale. Update those artifacts before making claims
   from them.
-- `process_preflight`: a non-code or mixed workflow needs validation,
-  adjustment, observation, or loss-prevention review before action. Build or
-  update a fit-for-risk model of the process states, decisions, side effects,
-  confirmations, rollback paths, and hard invariants.
+- `process_preflight`: a non-code or mixed workflow, argument chain, or decision
+  path needs validation, adjustment, observation, or loss-prevention review
+  before action. Build or update a fit-for-risk model of process states,
+  reader/argument states, decisions, side effects, confirmations, rollback
+  paths, commitments, and hard invariants.
 
 ## Daily Rules
 
@@ -104,7 +134,9 @@ Input x State -> Set(Output x State)
 - For non-code process models, name the real-world state and side effects
   explicitly: approvals, confirmations, reservations, payments, published
   artifacts, customer/user commitments, vendor dependencies, deadlines,
-  cancellation windows, and rollback options.
+  cancellation windows, and rollback options. For argument and decision models,
+  name the reader knowledge, established claims, evidence, goals, constraints,
+  assumptions, commitments, and re-evaluation triggers explicitly.
 - Use property factories or domain packs when they fit, but do not make them a
   required modeling layer.
 - Use the public starter template CLI when it saves setup time:
@@ -207,7 +239,8 @@ something important. Do not let adoption logging replace executable checks.
 ## Workflow
 
 1. Decide applicability: `use_flowguard`, `skip_with_reason`, or
-   `needs_human_review`.
+   `needs_human_review`. When using FlowGuard, also classify the main lens as
+   `behavior_flow`, `argument_flow`, or `decision_flow`.
 2. Choose mode: `read_only_audit`, `model_first_change`, `model_maintenance`,
    or `process_preflight`.
 3. If skipping a clearly trivial task, record one sentence explaining why and
@@ -222,9 +255,9 @@ something important. Do not let adoption logging replace executable checks.
 6. Start a brief adoption note or `in_progress` log entry.
 7. Write the Risk Intent Brief. If the risk priority is unclear and would
    materially change the model, ask for human review before modeling.
-8. Read the modeling protocol and choose a behavior or process boundary that is
-   small enough to inspect but strong enough to expose the customer-relevant
-   risk.
+8. Read the modeling protocol and choose a behavior, argument, or decision
+   boundary that is small enough to inspect but strong enough to expose the
+   customer-relevant risk.
 9. If no FlowGuard model exists yet, create one from the current plan or adapt
    `assets/model_template/`. Build or update the model with explicit inputs,
    state, blocks, outputs, reads, writes, idempotency, and invariants.

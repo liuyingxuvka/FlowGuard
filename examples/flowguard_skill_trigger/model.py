@@ -30,6 +30,15 @@ RISK_FLAGS = {
     "loop",
     "identity_conflict",
     "production_change",
+    "argument_dependency",
+    "reader_state",
+    "evidence_chain",
+    "proof_dependency",
+    "decision_commitment",
+    "goal_constraint",
+    "assumption_validation",
+    "reassessment",
+    "irreversible_commitment",
 }
 
 
@@ -142,7 +151,14 @@ class State:
 def requires_flowguard(task: TaskDescription | TaskFact) -> bool:
     if task.kind in {"trivial_docs", "formatting", "read_only_question"}:
         return False
-    if task.kind in {"major_architecture", "stateful_workflow", "new_project", "bug_fix"}:
+    if task.kind in {
+        "major_architecture",
+        "stateful_workflow",
+        "new_project",
+        "bug_fix",
+        "structured_argument",
+        "decision_plan",
+    }:
         return True
     return bool(set(task.risk_flags) & RISK_FLAGS)
 
@@ -193,7 +209,7 @@ class ClassifyTaskRisk:
                 input_obj.task_id,
                 "flowguard_required",
                 checks,
-                "task changes behavior, state, workflow, side effects, or module boundaries",
+                "task changes behavior, state, workflow, side effects, module boundaries, argument dependencies, or decision commitments",
             )
             yield FunctionResult(
                 assessment,
@@ -424,7 +440,7 @@ def risky_tasks_must_trigger_skill() -> Invariant:
 
     return Invariant(
         "risky_tasks_must_trigger_skill",
-        "Risky behavior/state/workflow tasks must trigger model-first-function-flow.",
+        "Risky behavior/state/workflow/argument/decision tasks must trigger model-first-function-flow.",
         predicate,
     )
 
@@ -555,6 +571,18 @@ TASK_AMBIGUOUS = TaskDescription(
     ("unclear_boundary",),
     production_code_exists=True,
 )
+TASK_ARGUMENT = TaskDescription(
+    "paper-argument-flow",
+    "structured_argument",
+    ("argument_dependency", "reader_state", "evidence_chain"),
+    production_code_exists=False,
+)
+TASK_DECISION = TaskDescription(
+    "release-decision-flow",
+    "decision_plan",
+    ("decision_commitment", "goal_constraint", "reassessment"),
+    production_code_exists=False,
+)
 
 
 def build_workflow(
@@ -652,6 +680,24 @@ def skill_trigger_scenarios() -> tuple[Scenario, ...]:
                 expected_status="needs_human_review",
                 required_trace_labels=("risk_needs_human_review", "skill_trigger_needs_human_review"),
                 summary="NEEDS_HUMAN_REVIEW; narrow scope before deciding",
+            ),
+        ),
+        scenario(
+            "STS06_argument_flow_triggers_skill",
+            "Structured writing with claim, evidence, and reader-state dependencies should trigger FlowGuard.",
+            TASK_ARGUMENT,
+            _expect_ok(
+                "OK; argument flow triggers Skill and runs scenario review",
+                labels=("risk_requires_flowguard", "skill_triggered", "model_first_completed"),
+            ),
+        ),
+        scenario(
+            "STS07_decision_flow_triggers_skill",
+            "Planning work with commitments, goals, and reassessment conditions should trigger FlowGuard.",
+            TASK_DECISION,
+            _expect_ok(
+                "OK; decision flow triggers Skill and runs scenario review",
+                labels=("risk_requires_flowguard", "skill_triggered", "model_first_completed"),
             ),
         ),
         scenario(

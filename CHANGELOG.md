@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.5.2 - 2026-05-10
+
+- Clarified the `model-first-function-flow` Skill around three broad FlowGuard
+  scopes: Behavior Flow, Argument Flow, and Decision Flow.
+- Added concise modeling hints for behavior state, reader/argument state, and
+  decision/commitment state without adding new template families or changing
+  the core API.
+- Updated the README and reusable AGENTS snippet so users see that the existing
+  model templates remain the execution scaffolds for all three flow types.
+- Extended the Skill trigger self-review with structured argument and decision
+  planning scenarios.
+- Schema remains `1.0`; runtime dependencies and CLI templates are unchanged.
+
 ## v0.5.1 - 2026-05-09
 
 - Refreshed the public project template so package-generated starter files
