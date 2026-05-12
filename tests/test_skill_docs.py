@@ -36,6 +36,11 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("A later green runtime check by itself does", text)
         self.assertIn("risk-intent-template", text)
         self.assertIn("model-miss-template", text)
+        self.assertIn("multi-model FlowGuard projects", text)
+        self.assertIn("three or more local FlowGuard models", text)
+        self.assertIn("model mesh", text)
+        self.assertIn("evidence tiers", text)
+        self.assertIn("references/model_mesh_protocol.md", text)
         self.assertNotIn("Phase 11", text)
         self.assertNotIn("2100-case", text)
 
@@ -61,6 +66,25 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("A later green runtime check does not close a known model miss by itself", text)
         self.assertIn("risk-intent-template", text)
         self.assertIn("model-miss-template", text)
+        self.assertIn("Check The Local Model Mesh Trigger", text)
+        self.assertIn("three or more local FlowGuard models", text)
+        self.assertIn("model-of-models", text)
+
+    def test_model_mesh_protocol_reference_exists(self):
+        text = (
+            ROOT
+            / ".agents"
+            / "skills"
+            / "model-first-function-flow"
+            / "references"
+            / "model_mesh_protocol.md"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("Local Model Mesh Protocol", text)
+        self.assertIn("three or more local FlowGuard models", text)
+        self.assertIn("evidence tiers", text)
+        self.assertIn("Prompt Template", text)
+        self.assertIn("Required Hazards", text)
 
 
 if __name__ == "__main__":

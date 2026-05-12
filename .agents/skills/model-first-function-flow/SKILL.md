@@ -1,6 +1,6 @@
 ---
 name: model-first-function-flow
-description: For coding, repository, process-design work, structured writing/argument, and decision/planning work, first decide whether flowguard applies. Use before implementing or changing non-trivial behavior, stateful workflows, repeated bug fixes, module-boundary changes, idempotency-sensitive logic, deduplication logic, caching, retry handling, data-flow changes, or any meaningful multi-step process, argument chain, or decision path that needs validation, adjustment, observation, or loss-prevention preflight.
+description: For coding, repository, process-design work, structured writing/argument, and decision/planning work, first decide whether flowguard applies. Use before implementing or changing non-trivial behavior, stateful workflows, repeated bug fixes, module-boundary changes, idempotency-sensitive logic, deduplication logic, caching, retry handling, data-flow changes, multi-model FlowGuard projects that need a model mesh, or any meaningful multi-step process, argument chain, or decision path that needs validation, adjustment, observation, or loss-prevention preflight.
 ---
 
 # Model-First Function Flow
@@ -69,7 +69,9 @@ maintenance templates when they fit; otherwise create a fit-for-risk model from
   exists yet, create one from the current plan or adapt the model template.
 - `model_maintenance`: existing `.flowguard` models, replay adapters, or
   adoption evidence appear stale. Update those artifacts before making claims
-  from them.
+  from them. If the project has three or more local FlowGuard models, also
+  inventory them and create or update a local model mesh before making broad
+  continue, release, completion, or production-confidence claims.
 - `process_preflight`: a non-code or mixed workflow, argument chain, or decision
   path needs validation, adjustment, observation, or loss-prevention review
   before action. Build or update a fit-for-risk model of process states,
@@ -90,6 +92,20 @@ maintenance templates when they fit; otherwise create a fit-for-risk model from
 - Treat FlowGuard model scripts as living design artifacts. If no model exists,
   create one. If later work reveals new failure modes, strengthen, extend, or
   connect the model rather than treating the first version as final.
+- When a project has three or more local FlowGuard models, do not trust them as
+  isolated green islands. Create or update a model mesh: inventory child
+  models, runners, result files, adoption logs, evidence tiers, freshness rules,
+  live/conformance adapters, cross-model dependencies, and skipped/not-run
+  sections. The mesh should treat child models as evidence contracts, not inline
+  every child state graph. Use `references/model_mesh_protocol.md` for the
+  checklist and prompt template.
+- A model mesh is required before a broad continue/release/completion claim if
+  model results can be stale, if multiple models cover the same workflow from
+  different angles, if one model's output is another model's input, if live
+  state or conformance evidence can contradict abstract results, or if a
+  post-runtime model miss shows that isolated models did not catch the bug
+  class. The mesh must make known-bad hazards fail before production work uses
+  the plan.
 - Treat a runtime, test, replay, or manual validation failure that appears after
   a FlowGuard pass as a model-miss review trigger until proven otherwise. Do not
   patch and finish directly: classify why the earlier model missed it, represent
@@ -252,34 +268,39 @@ something important. Do not let adoption logging replace executable checks.
 5. If import fails, connect the real toolchain or record the task as
    blocked/partial. do not write a temporary mini-framework and claim full
    adoption.
-6. Start a brief adoption note or `in_progress` log entry.
-7. Write the Risk Intent Brief. If the risk priority is unclear and would
+6. Inventory existing local FlowGuard models before trusting prior green
+   evidence. If there are three or more, or if multiple model boundaries can
+   affect the current decision, create or update a model mesh using
+   `references/model_mesh_protocol.md`.
+7. Start a brief adoption note or `in_progress` log entry.
+8. Write the Risk Intent Brief. If the risk priority is unclear and would
    materially change the model, ask for human review before modeling.
-8. Read the modeling protocol and choose a behavior, argument, or decision
+9. Read the modeling protocol and choose a behavior, argument, or decision
    boundary that is small enough to inspect but strong enough to expose the
    customer-relevant risk.
-9. If no FlowGuard model exists yet, create one from the current plan or adapt
+10. If no FlowGuard model exists yet, create one from the current plan or adapt
    `assets/model_template/`. Build or update the model with explicit inputs,
    state, blocks, outputs, reads, writes, idempotency, and invariants.
-10. Build the state write inventory for fields used by invariants.
-11. Run `run_model_first_checks()` when useful, or run Explorer directly.
-12. Inspect counterexamples and revise the model or intended architecture until
+11. Build the state write inventory for fields used by invariants.
+12. Run `run_model_first_checks()` when useful, or run Explorer directly.
+13. Inspect counterexamples and revise the model or intended architecture until
     the correct model passes.
-13. For FlowGuard/LiveFlowGuard self-upgrades or model-miss triage, inspect the
+14. For FlowGuard/LiveFlowGuard self-upgrades, multi-model mesh upgrades, or
+    model-miss triage, inspect the
     full finding ledger before choosing a repair path. Classify each actionable
     finding as real-system repair, check-flow repair, model extension, or
     explicit out-of-scope boundary.
-14. Preserve important counterexamples as tests or implementation notes.
-15. Edit production code or perform the modeled high-impact action only after
+15. Preserve important counterexamples as tests or implementation notes.
+16. Edit production code or perform the modeled high-impact action only after
     executable model checks pass, unless the user explicitly waives modeling.
-16. Run scenario review, loop/stuck review, progress checks, contracts, or
+17. Run scenario review, loop/stuck review, progress checks, contracts, or
     conformance replay when those risks apply.
     If this would repeat an unchanged abstract run that already passed, it may
     be enough to reuse the earlier result and focus post-edit verification on
     tests, conformance replay, or other production-facing evidence.
-17. If post-edit runtime validation exposes a new issue after FlowGuard passed,
+18. If post-edit runtime validation exposes a new issue after FlowGuard passed,
     enter Post-Runtime Model-Miss Review before claiming completion.
-18. Finish the adoption note with the checks run, findings, skipped checks, and
+19. Finish the adoption note with the checks run, findings, skipped checks, and
     next action.
 
 ## Resource Map
@@ -295,6 +316,9 @@ something important. Do not let adoption logging replace executable checks.
   FlowGuardCheckPlan, runner, and packs.
 - Repository-level `docs/conformance_testing.md`: replay triggers and adapter
   guidance.
+- `references/model_mesh_protocol.md`: trigger, inventory, evidence tiers,
+  required hazards, prompt template, and completion standard for projects with
+  three or more local FlowGuard models.
 - `python -m flowguard project-template --output .`: basic public starter
   model.
 - `python -m flowguard risk-intent-template --output .`: Risk Intent +

@@ -5,7 +5,7 @@ Copy this section into another repository's `AGENTS.md`.
 ```markdown
 ## Model-first function flow
 
-For coding, repository, process-design work, structured writing/argument, and decision/planning work, first make a lightweight FlowGuard applicability decision: `use_flowguard`, `skip_with_reason`, or `needs_human_review`. For non-trivial tasks involving behavior, workflows, state, module boundaries, retries, deduplication, idempotency, caching, repeated inputs, production conformance, repeated bugs, meaningful process validation/adjustment/observation with side effects, argument chains with prerequisite claims, or decision paths with assumptions and commitments, use the model-first-function-flow skill before editing production code, performing the high-impact action, relying on the argument, or locking in the decision. Build or update a flowguard model, run checks, inspect counterexamples, and only then implement production code, act on the process, use the argument, or commit to the decision. If no FlowGuard model exists yet, create one from the current plan or adapt the included model template; the model should be strong enough to capture the customer's relevant risks and should evolve as new risks appear.
+For coding, repository, process-design work, structured writing/argument, and decision/planning work, first make a lightweight FlowGuard applicability decision: `use_flowguard`, `skip_with_reason`, or `needs_human_review`. For non-trivial tasks involving behavior, workflows, state, module boundaries, retries, deduplication, idempotency, caching, repeated inputs, production conformance, repeated bugs, multiple local FlowGuard models, meaningful process validation/adjustment/observation with side effects, argument chains with prerequisite claims, or decision paths with assumptions and commitments, use the model-first-function-flow skill before editing production code, performing the high-impact action, relying on the argument, or locking in the decision. Build or update a flowguard model, run checks, inspect counterexamples, and only then implement production code, act on the process, use the argument, or commit to the decision. If no FlowGuard model exists yet, create one from the current plan or adapt the included model template; the model should be strong enough to capture the customer's relevant risks and should evolve as new risks appear.
 
 Rules:
 
@@ -28,6 +28,19 @@ Rules:
 - Treat models as living artifacts. When future tasks expose new failure modes,
   strengthen, extend, or connect the model instead of assuming the first version
   is final.
+- If the project has three or more local FlowGuard models, create or update a
+  local model mesh before broad continue, release, completion, or
+  production-confidence claims. The mesh is a model-of-models: inventory child
+  models, evidence tiers, freshness rules, live/conformance adapters,
+  cross-model dependencies, skipped/not-run sections, and blindspots. Do not
+  inline every child state graph unless a specific contradiction needs a narrow
+  adapter.
+- The model mesh must make known-bad hazards fail: abstract-only permission,
+  hidden skipped live/replay checks, stale result reuse, unregistered model
+  evidence, cross-model contradictions, hidden blockers, missing conformance,
+  unrepresented model misses, sealed/private body reads, stale installed
+  skill/source copies, oversized mesh expansion, and absence of a mesh when the
+  three-model threshold is met.
 - Treat runtime, test, replay, or manual validation failures after a FlowGuard
   pass as model-miss review triggers until proven otherwise. Do not patch and
   finish directly: classify why the earlier model missed the issue, represent

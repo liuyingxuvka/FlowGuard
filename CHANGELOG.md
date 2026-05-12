@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.5.3 - 2026-05-12
+
+- Added a local model mesh protocol for projects with three or more FlowGuard
+  models, including inventory fields, evidence tiers, required hazards, a prompt
+  template, and a completion standard.
+- Updated the `model-first-function-flow` Skill so multi-model FlowGuard
+  projects must inventory and connect existing models before broad continue,
+  release, completion, or production-confidence claims.
+- Extended the FlowGuard Skill trigger self-review with a multi-model
+  maintenance scenario and a broken variant that catches omitted model-mesh
+  checks.
+- Updated the reusable AGENTS snippet and modeling protocol docs with the
+  model-of-models trigger.
+- Schema remains `1.0`; runtime dependencies and CLI templates are unchanged.
+
 ## v0.5.2 - 2026-05-10
 
 - Clarified the `model-first-function-flow` Skill around three broad FlowGuard

@@ -50,6 +50,28 @@ needed to make the important failure modes visible. When later work reveals new
 risks, revise, strengthen, or connect the model instead of treating the first
 version as final.
 
+## 0.3 Check The Local Model Mesh Trigger
+
+Before trusting prior green results, scan for existing local FlowGuard models,
+runners, persisted result files, adoption logs, and replay/conformance
+artifacts. If the project has three or more local FlowGuard models, or the
+current decision spans multiple existing model boundaries, create or update a
+local model mesh before making broad continue, release, completion, or
+production-confidence claims.
+
+The mesh is a model-of-models. It should inventory child models and classify
+their evidence tiers, freshness rules, dependencies, contracts, skipped checks,
+and blindspots. Do not inline every child model's full state graph unless a
+specific contradiction requires a narrow adapter.
+
+Read `references/model_mesh_protocol.md` for the inventory fields, evidence
+tiers, required hazards, prompt template, and completion standard. At minimum,
+the mesh must catch abstract-only permission, hidden skipped live/replay checks,
+stale result reuse, unregistered model evidence, cross-model contradictions,
+hidden blockers, missing conformance, unrepresented model misses, sealed/private
+body reads, stale installed skill/source copies, oversized mesh expansion, and
+absence of a mesh when the model count threshold is met.
+
 ## 0.5 Write A Risk Intent Brief
 
 Before defining state or function blocks, write the short brief that tells the
@@ -543,6 +565,12 @@ Recommended low-friction agent flow:
   script.
 - Existing models are revised or connected when new failure modes make the old
   boundary too weak.
+- Projects with three or more local FlowGuard models have a model mesh, or an
+  explicit reason why the current narrow task does not rely on cross-model
+  evidence.
+- The model mesh, when required, inventories child models, evidence tiers,
+  freshness, dependencies, skipped checks, live/conformance adapters, and
+  cross-model contradictions before broad continue/release/completion claims.
 - The model uses only the Python standard library.
 - Inputs and state are finite and hashable.
 - Every block returns all possible branches.

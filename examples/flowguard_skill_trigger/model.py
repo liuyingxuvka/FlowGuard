@@ -39,6 +39,9 @@ RISK_FLAGS = {
     "assumption_validation",
     "reassessment",
     "irreversible_commitment",
+    "many_flowguard_models",
+    "cross_model_evidence",
+    "stale_model_result",
 }
 
 
@@ -158,6 +161,7 @@ def requires_flowguard(task: TaskDescription | TaskFact) -> bool:
         "bug_fix",
         "structured_argument",
         "decision_plan",
+        "model_maintenance",
     }:
         return True
     return bool(set(task.risk_flags) & RISK_FLAGS)
@@ -180,6 +184,8 @@ def required_checks_for(task: TaskDescription | TaskFact) -> tuple[str, ...]:
         checks.append("progress")
     if flags & {"module_boundary", "migration"}:
         checks.append("contract")
+    if flags & {"many_flowguard_models", "cross_model_evidence", "stale_model_result"}:
+        checks.append("model_mesh")
     return tuple(dict.fromkeys(checks))
 
 
@@ -373,6 +379,23 @@ class BrokenRunMissingConformance(RunModelFirstAction):
                 state.with_action(action),
                 label="broken_missing_conformance",
                 reason="broken action omits required conformance replay",
+            )
+            return
+        yield from super().apply(input_obj, state)
+
+
+class BrokenRunMissingModelMesh(RunModelFirstAction):
+    name = "RunModelFirstAction"
+
+    def apply(self, input_obj: SkillTriggerDecision, state: State) -> Iterable[FunctionResult]:
+        if input_obj.action == "trigger_skill":
+            checks = tuple(check for check in input_obj.required_checks if check != "model_mesh")
+            action = ModelFirstAction(input_obj.task_id, True, checks, "completed", "")
+            yield FunctionResult(
+                action,
+                state.with_action(action),
+                label="broken_missing_model_mesh",
+                reason="broken action omits required model mesh for multi-model project",
             )
             return
         yield from super().apply(input_obj, state)
@@ -583,6 +606,12 @@ TASK_DECISION = TaskDescription(
     ("decision_commitment", "goal_constraint", "reassessment"),
     production_code_exists=False,
 )
+TASK_MULTI_MODEL = TaskDescription(
+    "multi-model-flowguard-project",
+    "model_maintenance",
+    ("many_flowguard_models", "cross_model_evidence", "stale_model_result"),
+    production_code_exists=True,
+)
 
 
 def build_workflow(
@@ -701,6 +730,15 @@ def skill_trigger_scenarios() -> tuple[Scenario, ...]:
             ),
         ),
         scenario(
+            "STS08_multi_model_project_requires_model_mesh",
+            "Projects with several local FlowGuard models should require a model mesh.",
+            TASK_MULTI_MODEL,
+            _expect_ok(
+                "OK; multi-model project triggers Skill and runs model mesh",
+                labels=("risk_requires_flowguard", "skill_triggered", "model_first_completed"),
+            ),
+        ),
+        scenario(
             "STB01_broken_skips_risky_architecture",
             "Broken trigger skips a risky architecture task.",
             TASK_ARCHITECTURE,
@@ -759,6 +797,16 @@ def skill_trigger_scenarios() -> tuple[Scenario, ...]:
                 ("ambiguous_tasks_need_human_review",),
             ),
             workflow=build_workflow(classify_block=BrokenClassifyAmbiguousAsSkip()),
+        ),
+        scenario(
+            "STB07_broken_missing_model_mesh",
+            "Broken action skips the required model mesh for a multi-model project.",
+            TASK_MULTI_MODEL,
+            _expect_violation(
+                "VIOLATION required_checks_must_run",
+                ("required_checks_must_run",),
+            ),
+            workflow=build_workflow(action_block=BrokenRunMissingModelMesh()),
         ),
     )
 

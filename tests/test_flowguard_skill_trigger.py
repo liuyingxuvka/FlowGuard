@@ -13,9 +13,9 @@ class FlowguardSkillTriggerTests(unittest.TestCase):
 
     def test_skill_trigger_catalog_matches_expectations(self):
         self.assertTrue(self.report.ok, self.report.format_text(max_counterexamples=1))
-        self.assertEqual(13, self.report.total_scenarios)
-        self.assertEqual(6, self.report.passed)
-        self.assertEqual(6, self.report.expected_violations_observed)
+        self.assertEqual(15, self.report.total_scenarios)
+        self.assertEqual(7, self.report.passed)
+        self.assertEqual(7, self.report.expected_violations_observed)
         self.assertEqual(1, self.report.needs_human_review)
 
     def test_correct_trigger_scenarios_pass_or_need_review(self):
@@ -26,6 +26,7 @@ class FlowguardSkillTriggerTests(unittest.TestCase):
             "STS04_read_only_question_skips_with_reason",
             "STS06_argument_flow_triggers_skill",
             "STS07_decision_flow_triggers_skill",
+            "STS08_multi_model_project_requires_model_mesh",
         ):
             self.assertEqual("pass", self.statuses[name])
         self.assertEqual(
@@ -41,6 +42,7 @@ class FlowguardSkillTriggerTests(unittest.TestCase):
             "STB04_broken_skip_without_reason",
             "STB05_broken_in_progress_evidence_finalized",
             "STB06_broken_ambiguous_scope_skipped",
+            "STB07_broken_missing_model_mesh",
         }
         for name in expected:
             self.assertEqual("expected_violation_observed", self.statuses[name])
