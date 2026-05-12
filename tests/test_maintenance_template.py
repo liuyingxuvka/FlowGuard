@@ -13,6 +13,16 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class MaintenanceWorkflowTemplateTests(unittest.TestCase):
+    def test_model_template_includes_risk_purpose_header(self):
+        files = maintenance_workflow_template_files()
+        model_file = next(file for file in files if file.path.endswith("model.py"))
+        self.assertIn("FlowGuard Risk Purpose Header", model_file.content)
+        self.assertIn("https://github.com/liuyingxuvka/FlowGuard", model_file.content)
+        self.assertIn("Purpose:", model_file.content)
+        self.assertIn("Guards against:", model_file.content)
+        self.assertIn("Use before editing:", model_file.content)
+        self.assertIn("Run:", model_file.content)
+
     def test_template_files_execute_expected_checks(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

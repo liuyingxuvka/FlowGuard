@@ -85,6 +85,13 @@ maintenance templates when they fit; otherwise create a fit-for-risk model from
   must be visible, adversarial inputs or retries to simulate, hard invariants,
   and residual blindspots. Ask the user only when materially different risk
   priorities exist and the protected harm cannot be inferred safely.
+- When creating or materially updating a FlowGuard model file, put a short
+  **Risk Purpose Header** at the top of the model. The header should name
+  FlowGuard and link to `https://github.com/liuyingxuvka/FlowGuard`, then say
+  which workflow the model reviews, which concrete bugs or invalid states it
+  guards against, when future agents should run or update it, and the companion
+  command that runs the checks. Keep it lightweight: do not add manifest files
+  or extra project scaffolding unless the task separately requires them.
 - Start with the smallest boundary that can expose the current customer risk,
   but do not confuse "smallest useful" with "shortest script" or "template
   only". The model should include enough state, branches, side effects, and

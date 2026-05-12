@@ -24,6 +24,15 @@ def _template_env():
 
 
 class PublicTemplateTests(unittest.TestCase):
+    def assert_risk_purpose_header(self, text):
+        self.assertIn("FlowGuard Risk Purpose Header", text)
+        self.assertIn("Created with FlowGuard:", text)
+        self.assertIn("https://github.com/liuyingxuvka/FlowGuard", text)
+        self.assertIn("Purpose:", text)
+        self.assertIn("Guards against:", text)
+        self.assertIn("Use before editing:", text)
+        self.assertIn("Run:", text)
+
     def run_written_template(self, files, run_dir_parts):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -60,6 +69,15 @@ class PublicTemplateTests(unittest.TestCase):
         )
         self.assertIn("correct_model_miss_review: PASS", output)
         self.assertIn("expected violations observed: 2", output)
+
+    def test_public_model_templates_include_risk_purpose_headers(self):
+        for files in (
+            project_template_files(),
+            risk_intent_template_files(),
+            model_miss_review_template_files(),
+        ):
+            model_file = next(file for file in files if file.path.endswith("model.py"))
+            self.assert_risk_purpose_header(model_file.content)
 
     def test_template_cli_prints_and_writes_new_templates(self):
         commands = {

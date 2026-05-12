@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.5.4 - 2026-05-12
+
+- Added Risk Purpose Headers to generated FlowGuard model templates so future
+  agents can see the FlowGuard source repository, modeled workflow, guarded
+  failure modes, use-before-editing guidance, and companion run command.
+- Updated the `model-first-function-flow` Skill and reusable AGENTS snippet so
+  AI-created or AI-updated FlowGuard model files carry the same lightweight
+  header instead of only saying that they are FlowGuard artifacts.
+- Used a local FlowGuard rollout model for this release that catches generic
+  link-only headers, partial template coverage, missing Skill/AGENTS guidance,
+  missing tests, manifest-style scope creep, and premature publication.
+- Added focused tests for generated model template headers and Skill/AGENTS
+  header guidance.
+- Schema remains `1.0`; runtime dependencies remain Python standard library
+  only.
+
 ## v0.5.3 - 2026-05-12
 
 - Added a local model mesh protocol for projects with three or more FlowGuard

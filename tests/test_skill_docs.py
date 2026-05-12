@@ -41,6 +41,9 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("model mesh", text)
         self.assertIn("evidence tiers", text)
         self.assertIn("references/model_mesh_protocol.md", text)
+        self.assertIn("Risk Purpose Header", text)
+        self.assertIn("https://github.com/liuyingxuvka/FlowGuard", text)
+        self.assertIn("which concrete bugs or invalid states it", text)
         self.assertNotIn("Phase 11", text)
         self.assertNotIn("2100-case", text)
 
@@ -69,6 +72,15 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("Check The Local Model Mesh Trigger", text)
         self.assertIn("three or more local FlowGuard models", text)
         self.assertIn("model-of-models", text)
+        self.assertIn("Risk Purpose Header", text)
+        self.assertIn("https://github.com/liuyingxuvka/FlowGuard", text)
+
+    def test_agents_snippet_carries_risk_purpose_header_rule(self):
+        text = (ROOT / "docs" / "agents_snippet.md").read_text(encoding="utf-8")
+
+        self.assertIn("Risk Purpose Header", text)
+        self.assertIn("https://github.com/liuyingxuvka/FlowGuard", text)
+        self.assertIn("which concrete bugs or invalid states it", text)
 
     def test_model_mesh_protocol_reference_exists(self):
         text = (

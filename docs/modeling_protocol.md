@@ -50,6 +50,15 @@ needed to make the important failure modes visible. When later work reveals new
 risks, revise, strengthen, or connect the model instead of treating the first
 version as final.
 
+When creating or materially updating a FlowGuard model file, put a short
+**Risk Purpose Header** at the top of the model. It should identify FlowGuard
+and link to `https://github.com/liuyingxuvka/FlowGuard`, then explain which
+workflow the model reviews, which concrete bugs or invalid states it guards
+against, when future agents should run or update it, and the companion command
+that runs the checks. Keep this as a lightweight model header; do not add
+manifest files or extra project scaffolding unless the task separately requires
+them.
+
 ## 0.3 Check The Local Model Mesh Trigger
 
 Before trusting prior green results, scan for existing local FlowGuard models,

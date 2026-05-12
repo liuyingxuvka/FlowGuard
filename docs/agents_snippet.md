@@ -21,6 +21,13 @@ Rules:
 - If no FlowGuard model script exists yet, create one. Existing production code
   is not required; the model script is the executable design artifact the AI
   creates before action.
+- When creating or materially updating a FlowGuard model file, put a short
+  **Risk Purpose Header** at the top of the model. The header should name
+  FlowGuard and link to `https://github.com/liuyingxuvka/FlowGuard`, then say
+  which workflow the model reviews, which concrete bugs or invalid states it
+  guards against, when future agents should run or update it, and the companion
+  command that runs the checks. Keep it lightweight: do not add manifest files
+  or extra project scaffolding unless the task separately requires them.
 - Do not force every adoption into the shortest possible script. Start with the
   smallest inspectable boundary that can expose the current risk, then add
   state, branches, retries, side effects, or invariants when the customer's

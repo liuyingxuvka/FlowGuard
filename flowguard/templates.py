@@ -12,10 +12,26 @@ class TemplateFile:
     content: str
 
 
-MODEL_TEMPLATE = '''"""Minimal flowguard model template.
+MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header.
 
-Copy this file before production edits and replace the sample domain with the
-behavior under review.
+Created with FlowGuard:
+https://github.com/liuyingxuvka/FlowGuard
+
+Purpose:
+Models a sample validate-and-store workflow before related production changes.
+
+Guards against:
+- duplicate item storage when the same input is repeated;
+- invalid inputs being stored as accepted records;
+- stored outputs that cannot be traced to an Accepted output.
+
+Use before editing:
+validation, deduplication, storage, retry, or state-transition logic.
+
+Run:
+python run_checks.py
+
+Replace this sample domain with the workflow under review.
 """
 
 from __future__ import annotations
@@ -214,10 +230,28 @@ if __name__ == "__main__":
 '''
 
 
-MAINTENANCE_WORKFLOW_MODEL_TEMPLATE = '''"""Maintenance workflow template for recurring multi-role agent systems.
+MAINTENANCE_WORKFLOW_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header.
 
-This template is useful for Sleep/Dream/Architect/Installer/Reviewer style
-flows. Rename the roles and state fields to match the project under review.
+Created with FlowGuard:
+https://github.com/liuyingxuvka/FlowGuard
+
+Purpose:
+Models a recurring multi-role maintenance workflow for agent systems before
+changing automation or publication behavior.
+
+Guards against:
+- duplicate maintenance actions when the same input is repeated;
+- completion without required reports or executable evidence;
+- publishing before install/runtime sync or treating skipped steps as pass.
+
+Use before editing:
+Sleep/Dream/Architect/Installer/Reviewer-style maintenance, automation,
+publication, adoption-log, or sync workflows.
+
+Run:
+python .flowguard/maintenance_workflow/run_checks.py
+
+Rename the roles and state fields to match the project under review.
 """
 
 from dataclasses import dataclass
@@ -744,11 +778,28 @@ Record `needs_human_review` and known limitations honestly.
 """
 
 
-RISK_INTENT_CHECK_PLAN_MODEL_TEMPLATE = '''"""Risk Intent + CheckPlan template.
+RISK_INTENT_CHECK_PLAN_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header.
 
-Use this scaffold when the risk should be named before the function-flow model
-is written. Replace the sample item workflow with the current behavior under
-review.
+Created with FlowGuard:
+https://github.com/liuyingxuvka/FlowGuard
+
+Purpose:
+Models a sample item-acceptance workflow with an explicit Risk Intent before
+related production changes.
+
+Guards against:
+- duplicate acceptance after retries;
+- invalid item requests being accepted;
+- skipped conformance gaps being hidden as full production confidence.
+
+Use before editing:
+acceptance, deduplication, idempotency, side-effect, or confidence-reporting
+logic.
+
+Run:
+python .flowguard/risk_intent_check_plan/run_checks.py
+
+Replace this sample item workflow with the current behavior under review.
 """
 
 from __future__ import annotations
@@ -905,11 +956,28 @@ equivalent real-code evidence before claiming production confidence.
 """
 
 
-MODEL_MISS_REVIEW_MODEL_TEMPLATE = '''"""Post-runtime model-miss review template.
+MODEL_MISS_REVIEW_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header.
 
-Use this scaffold when a FlowGuard pass is followed by a test, runtime, replay,
-or manual-validation failure. Replace the event names and obligations with the
-bug class under review.
+Created with FlowGuard:
+https://github.com/liuyingxuvka/FlowGuard
+
+Purpose:
+Models the review loop required when a FlowGuard pass is followed by a test,
+runtime, replay, or manual-validation failure.
+
+Guards against:
+- finalizing after a runtime issue without classifying the model miss;
+- validating a fix before representing the issue in the model;
+- treating a later green runtime check as enough to close a known miss.
+
+Use before editing:
+bug-fix, model-miss, runtime-validation, replay, or completion-gate logic after
+FlowGuard already passed.
+
+Run:
+python .flowguard/model_miss_review/run_checks.py
+
+Replace the event names and obligations with the bug class under review.
 """
 
 from __future__ import annotations
