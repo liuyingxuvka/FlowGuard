@@ -257,6 +257,13 @@ Choose:
 
 Always include repeated-input exploration when duplicate side effects are possible. For one input and length two, the explorer must check both `[x]` and `[x, x]`.
 
+Direct `Explorer(...)` runs emit bounded ten-step progress on `stderr` by
+default, counted by top-level `initial_state x input_sequence` work units. This
+helps agents distinguish a long serial run from a silent process, but it is not
+pass/fail evidence and it does not change `CheckReport` semantics. Use
+`progress_steps=0` or `FLOWGUARD_PROGRESS=0` when a strict environment requires
+no progress output.
+
 When using the optional orchestration path, put the intended coverage boundary
 in a `RiskProfile`, then create a `FlowGuardCheckPlan` and call
 `run_model_first_checks(plan)`. The runner performs audit, optional scenario

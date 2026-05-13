@@ -171,6 +171,11 @@ Input x State -> Set(Output x State)
   time: `python -m flowguard maintenance-template --output .`.
 - Use `FlowGuardCheckPlan` and `run_model_first_checks()` when useful for a
   low-friction agent path. Direct `Explorer(...)` usage remains valid.
+- Direct `Explorer(...)` runs emit bounded ten-step progress on `stderr` by
+  default, counted by top-level `initial_state x input_sequence` work units.
+  Treat this as liveness/observability only, not pass/fail evidence. Use
+  `progress_steps=0` or `FLOWGUARD_PROGRESS=0` when a strict environment must
+  stay silent.
 - If the exact same abstract model, scenarios, oracle, invariants, risk
   boundary, and task revision already passed and none of those inputs changed,
   it is acceptable to reuse that result instead of rerunning the same

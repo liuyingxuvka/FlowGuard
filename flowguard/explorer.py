@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+import sys
 from dataclasses import dataclass
 from itertools import product
 from typing import Any, Callable, Iterable, Sequence
@@ -77,6 +79,22 @@ def _check_invariant(invariant: Any, state: Any, trace: Trace) -> InvariantResul
     return InvariantResult.fail(f"invariant failed: {_invariant_name(invariant)}")
 
 
+def _progress_disabled_by_environment() -> bool:
+    value = os.environ.get("FLOWGUARD_PROGRESS")
+    return value is not None and value.strip().lower() in {"0", "false", "no", "off"}
+
+
+def _progress_thresholds(total_work: int, progress_steps: int) -> tuple[tuple[int, int], ...]:
+    if total_work < 1 or progress_steps < 1:
+        return ()
+    thresholds: dict[int, int] = {}
+    for step in range(1, progress_steps + 1):
+        threshold = max(1, (total_work * step + progress_steps - 1) // progress_steps)
+        percent = min(100, (step * 100) // progress_steps)
+        thresholds[threshold] = percent
+    return tuple(sorted(thresholds.items()))
+
+
 @dataclass(frozen=True)
 class Explorer:
     """Exhaustively explore finite external input sequences."""
@@ -91,6 +109,7 @@ class Explorer:
     required_labels: tuple[str, ...] = ()
     required_reachable: tuple[ReachabilityCondition, ...] = ()
     assumption_card: Any = None
+    progress_steps: int = 10
 
     def __init__(
         self,
@@ -104,6 +123,7 @@ class Explorer:
         required_labels: Sequence[str] = (),
         required_reachable: Sequence[ReachabilityCondition] = (),
         assumption_card: Any = None,
+        progress_steps: int = 10,
     ) -> None:
         object.__setattr__(self, "workflow", workflow)
         object.__setattr__(self, "initial_states", tuple(initial_states))
@@ -115,6 +135,7 @@ class Explorer:
         object.__setattr__(self, "required_labels", tuple(required_labels))
         object.__setattr__(self, "required_reachable", tuple(required_reachable))
         object.__setattr__(self, "assumption_card", assumption_card)
+        object.__setattr__(self, "progress_steps", int(progress_steps))
 
     def explore(self) -> CheckReport:
         sequences = enumerate_input_sequences(self.external_inputs, self.max_sequence_length)
@@ -122,6 +143,19 @@ class Explorer:
         dead_branches: list[DeadBranch] = []
         exception_branches: list[ExceptionBranch] = []
         observed_paths: list[WorkflowPath] = []
+        total_work = len(self.initial_states) * len(sequences)
+        progress_enabled = self.progress_steps > 0 and not _progress_disabled_by_environment()
+        progress_thresholds = _progress_thresholds(total_work, self.progress_steps)
+        next_threshold_index = 0
+        completed_work = 0
+
+        if progress_enabled and total_work:
+            print(
+                f"[flowguard] start phase=explore work_total={total_work} "
+                f"progress_steps={self.progress_steps}",
+                file=sys.stderr,
+                flush=True,
+            )
 
         for initial_state in self.initial_states:
             for sequence in sequences:
@@ -151,6 +185,20 @@ class Explorer:
                     active = tuple(next_active)
                     if not active:
                         break
+                completed_work += 1
+                if progress_enabled:
+                    while (
+                        next_threshold_index < len(progress_thresholds)
+                        and completed_work >= progress_thresholds[next_threshold_index][0]
+                    ):
+                        _, percent = progress_thresholds[next_threshold_index]
+                        print(
+                            f"[flowguard] progress {percent}% work={completed_work}/{total_work} "
+                            f"traces={len(observed_paths)} violations={len(violations)}",
+                            file=sys.stderr,
+                            flush=True,
+                        )
+                        next_threshold_index += 1
 
         traces = tuple(path.trace for path in observed_paths)
         reachability_failures = self._check_reachability(observed_paths)

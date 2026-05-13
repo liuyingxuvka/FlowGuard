@@ -33,6 +33,12 @@ Core APIs are the stable objects needed to build and run a direct finite model:
 These APIs should stay small and backward compatible. New helpers should not
 change the meaning of `FunctionBlock`, `Workflow`, or `Explorer`.
 
+`Explorer.explore()` emits minimal progress visibility by default: a start line
+and bounded ten-step progress lines on `stderr`, counted by top-level
+`initial_state x input_sequence` work units. This is observability only; it
+does not change `CheckReport`, traces, pass/fail status, or stdout output. Use
+`Explorer(..., progress_steps=0)` or `FLOWGUARD_PROGRESS=0` for silent runs.
+
 ## Modeling Helpers
 
 Modeling helpers reduce boilerplate around common bug classes:

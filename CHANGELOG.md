@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.5.5 - 2026-05-13
+
+- Added default ten-step progress output for `Explorer.explore()` so long
+  serial model runs emit start and progress lines on `stderr` while preserving
+  `stdout` for reports and JSON pipelines.
+- Counted progress by top-level `initial_state x input_sequence` work units and
+  kept the run serial and deterministic.
+- Added `progress_steps=0` and `FLOWGUARD_PROGRESS=0` opt-outs for strict CI or
+  callers that need silent runs.
+- Added a FlowGuard rollout model plus focused tests for stderr routing,
+  bounded output, small totals, opt-outs, runner inheritance, and report
+  stability.
+- Schema remains `1.0`; runtime dependencies remain Python standard library
+  only.
+
 ## v0.5.4 - 2026-05-12
 
 - Added Risk Purpose Headers to generated FlowGuard model templates so future

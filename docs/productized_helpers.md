@@ -193,6 +193,11 @@ a low-friction path for AI agents:
 The runner is orchestration, not a new core checker. It calls existing helpers
 and keeps direct `Explorer` use valid.
 
+Because the runner delegates model exploration to core `Explorer(...)`, it
+inherits the default ten-step `stderr` progress output. Do not add a second
+runner-specific progress loop; silence progress with `FLOWGUARD_PROGRESS=0` or
+`Explorer(..., progress_steps=0)` when needed.
+
 Domain packs are small recipes:
 
 - `DeduplicationPack`
