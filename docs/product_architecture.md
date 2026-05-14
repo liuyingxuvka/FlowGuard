@@ -120,6 +120,36 @@ Broken variants caught:
 - final evidence stays `in_progress`;
 - ambiguous redesign scope is silently skipped.
 
+## Skill Orchestrator Collaboration Self-Review
+
+Optional cooperation with spec/SPAC-style planning skills is modeled in:
+
+- `examples/flowguard_skill_collaboration/model.py`
+- `examples/flowguard_skill_collaboration/run_review.py`
+
+The model checks:
+
+- FlowGuard still works when no upstream planner is installed;
+- a complete upstream handoff can pass after FlowGuard review;
+- missing upstream tools fall back to standalone FlowGuard;
+- incomplete handoffs block collaboration before execution;
+- side effects must be mapped before execution;
+- parallel agent work needs explicit ownership;
+- skipped checks need reasons;
+- counterexamples block execution;
+- trivial read-only work does not over-trigger;
+- risky work cannot be recorded complete without evidence.
+
+Current review:
+
+```text
+total: 12
+passed: 5
+expected violations observed: 7
+unexpected violations: 0
+missing expected violations: 0
+```
+
 ## Product Decision
 
 The product architecture should not collect external project models as reusable
@@ -144,7 +174,7 @@ FlowGuard should not collect:
 
 ## Next Architecture Work
 
-Before a public GitHub release, run the product-boundary review and the Skill
-trigger review again. If either report changes from expected outcomes, fix the
-architecture or update the model with an explicit reason before publishing.
-
+Before a public GitHub release, run the product-boundary review, the Skill
+trigger review, and the skill-orchestrator collaboration review again. If any
+report changes from expected outcomes, fix the architecture or update the model
+with an explicit reason before publishing.

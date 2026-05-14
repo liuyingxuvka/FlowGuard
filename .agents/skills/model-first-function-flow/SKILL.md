@@ -31,6 +31,15 @@ validation, skip with a short reason. Treat non-code models as risk-discovery
 preflights, not as proof that real-world facts, prices, availability, policies,
 or vendor behavior are safe.
 
+FlowGuard must stay useful without any external spec, SPAC, or planning skill
+installed. If an upstream planning or orchestration skill is available and has
+already decomposed the task, treat its plan as optional input: inspect the
+handoff for state, side effects, retries, parallel ownership, skipped checks,
+counterexamples, and completion evidence. If no upstream planner exists or the
+handoff is incomplete, fall back to the normal FlowGuard path or request the
+missing handoff details; do not make the external planner a prerequisite for
+FlowGuard.
+
 Think in three broad flow types. The flow type is a modeling lens, not a
 separate template family. Use the existing project, Risk Intent, model-miss, or
 maintenance templates when they fit; otherwise create a fit-for-risk model from
@@ -169,6 +178,11 @@ Input x State -> Set(Output x State)
 - For recurring Sleep/Dream/Architect/Installer/Reviewer style maintenance
   systems, use the optional maintenance workflow scaffold when it saves setup
   time: `python -m flowguard maintenance-template --output .`.
+- For optional spec/SPAC-style planner cooperation, use the upstream handoff
+  only as a convenience layer. A valid handoff names the task, planned steps,
+  state fields, side effects, parallel ownership, repeat or retry points,
+  skipped checks with reasons, and completion evidence. A missing handoff may
+  block collaboration mode, but it must not block standalone FlowGuard use.
 - Use `FlowGuardCheckPlan` and `run_model_first_checks()` when useful for a
   low-friction agent path. Direct `Explorer(...)` usage remains valid.
 - Direct `Explorer(...)` runs emit bounded ten-step progress on `stderr` by
@@ -271,48 +285,53 @@ something important. Do not let adoption logging replace executable checks.
    `behavior_flow`, `argument_flow`, or `decision_flow`.
 2. Choose mode: `read_only_audit`, `model_first_change`, `model_maintenance`,
    or `process_preflight`.
-3. If skipping a clearly trivial task, record one sentence explaining why and
+3. If a spec/SPAC-style planner has already decomposed the task, inspect its
+   handoff as optional context. Check for state, side effects, parallel
+   ownership, repeat or retry points, skipped checks with reasons, and
+   completion evidence. If the planner is absent, continue with standalone
+   FlowGuard.
+4. If skipping a clearly trivial task, record one sentence explaining why and
    stop the FlowGuard workflow.
-4. Verify the real package is importable before modeling in another repository:
+5. Verify the real package is importable before modeling in another repository:
    `python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"`.
    This prints the artifact schema version, not the GitHub/package release
    version.
-5. If import fails, connect the real toolchain or record the task as
+6. If import fails, connect the real toolchain or record the task as
    blocked/partial. do not write a temporary mini-framework and claim full
    adoption.
-6. Inventory existing local FlowGuard models before trusting prior green
+7. Inventory existing local FlowGuard models before trusting prior green
    evidence. If there are three or more, or if multiple model boundaries can
    affect the current decision, create or update a model mesh using
    `references/model_mesh_protocol.md`.
-7. Start a brief adoption note or `in_progress` log entry.
-8. Write the Risk Intent Brief. If the risk priority is unclear and would
+8. Start a brief adoption note or `in_progress` log entry.
+9. Write the Risk Intent Brief. If the risk priority is unclear and would
    materially change the model, ask for human review before modeling.
-9. Read the modeling protocol and choose a behavior, argument, or decision
+10. Read the modeling protocol and choose a behavior, argument, or decision
    boundary that is small enough to inspect but strong enough to expose the
    customer-relevant risk.
-10. If no FlowGuard model exists yet, create one from the current plan or adapt
-   `assets/model_template/`. Build or update the model with explicit inputs,
-   state, blocks, outputs, reads, writes, idempotency, and invariants.
-11. Build the state write inventory for fields used by invariants.
-12. Run `run_model_first_checks()` when useful, or run Explorer directly.
-13. Inspect counterexamples and revise the model or intended architecture until
+11. If no FlowGuard model exists yet, create one from the current plan or adapt
+    `assets/model_template/`. Build or update the model with explicit inputs,
+    state, blocks, outputs, reads, writes, idempotency, and invariants.
+12. Build the state write inventory for fields used by invariants.
+13. Run `run_model_first_checks()` when useful, or run Explorer directly.
+14. Inspect counterexamples and revise the model or intended architecture until
     the correct model passes.
-14. For FlowGuard/LiveFlowGuard self-upgrades, multi-model mesh upgrades, or
+15. For FlowGuard/LiveFlowGuard self-upgrades, multi-model mesh upgrades, or
     model-miss triage, inspect the
     full finding ledger before choosing a repair path. Classify each actionable
     finding as real-system repair, check-flow repair, model extension, or
     explicit out-of-scope boundary.
-15. Preserve important counterexamples as tests or implementation notes.
-16. Edit production code or perform the modeled high-impact action only after
+16. Preserve important counterexamples as tests or implementation notes.
+17. Edit production code or perform the modeled high-impact action only after
     executable model checks pass, unless the user explicitly waives modeling.
-17. Run scenario review, loop/stuck review, progress checks, contracts, or
+18. Run scenario review, loop/stuck review, progress checks, contracts, or
     conformance replay when those risks apply.
     If this would repeat an unchanged abstract run that already passed, it may
     be enough to reuse the earlier result and focus post-edit verification on
     tests, conformance replay, or other production-facing evidence.
-18. If post-edit runtime validation exposes a new issue after FlowGuard passed,
+19. If post-edit runtime validation exposes a new issue after FlowGuard passed,
     enter Post-Runtime Model-Miss Review before claiming completion.
-19. Finish the adoption note with the checks run, findings, skipped checks, and
+20. Finish the adoption note with the checks run, findings, skipped checks, and
     next action.
 
 ## Resource Map
@@ -331,6 +350,8 @@ something important. Do not let adoption logging replace executable checks.
 - `references/model_mesh_protocol.md`: trigger, inventory, evidence tiers,
   required hazards, prompt template, and completion standard for projects with
   three or more local FlowGuard models.
+- Repository-level `docs/skill_orchestrator_collaboration.md`: optional
+  spec/SPAC-style planner handoff contract and collaboration hazards.
 - `python -m flowguard project-template --output .`: basic public starter
   model.
 - `python -m flowguard risk-intent-template --output .`: Risk Intent +

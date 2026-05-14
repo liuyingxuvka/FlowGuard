@@ -14,6 +14,12 @@ Rules:
 - When FlowGuard applies, classify the main lens as `behavior_flow`, `argument_flow`, or `decision_flow`. This lens guides the state fields and invariants; it does not replace the existing project, Risk Intent, model-miss, or maintenance templates.
 - Use `skip_with_reason` only for clearly trivial copy edits, formatting-only changes, read-only explanation, or work with no behavior/state impact.
 - Use `needs_human_review` or narrow the task when the behavior boundary is unclear.
+- If a spec/SPAC-style planning or orchestration skill has already decomposed
+  the task, treat its plan as optional handoff context. Check that the handoff
+  names planned steps, state fields, side effects, parallel ownership, repeat
+  or retry points, skipped checks with reasons, and completion evidence. If the
+  planner is absent, continue with standalone FlowGuard; no external planning
+  skill is a FlowGuard prerequisite.
 - Before creating model files, verify that the real flowguard package is importable with `python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"`. This prints the artifact schema version, not the GitHub/package release version.
 - If flowguard is not importable, connect the real toolchain first, such as by editable install from the local FlowGuard source tree, or record the task as `blocked`. Do not hand-write a temporary mini-framework and claim full flowguard adoption.
 - When available, use the Skill helper `assets/toolchain_preflight.py --json` to discover the editable install or `PYTHONPATH` command for the active Python environment.

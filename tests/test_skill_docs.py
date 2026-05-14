@@ -41,6 +41,9 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("model mesh", text)
         self.assertIn("evidence tiers", text)
         self.assertIn("references/model_mesh_protocol.md", text)
+        self.assertIn("spec/SPAC", text)
+        self.assertIn("upstream handoff", text)
+        self.assertIn("must not block standalone FlowGuard use", text)
         self.assertIn("Risk Purpose Header", text)
         self.assertIn("https://github.com/liuyingxuvka/FlowGuard", text)
         self.assertIn("which concrete bugs or invalid states it", text)
@@ -81,6 +84,19 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("Risk Purpose Header", text)
         self.assertIn("https://github.com/liuyingxuvka/FlowGuard", text)
         self.assertIn("which concrete bugs or invalid states it", text)
+        self.assertIn("no external planning", text)
+
+    def test_skill_orchestrator_collaboration_doc_defends_standalone_mode(self):
+        text = (ROOT / "docs" / "skill_orchestrator_collaboration.md").read_text(encoding="utf-8")
+
+        self.assertIn("Standalone mode", text)
+        self.assertIn("Collaboration mode", text)
+        self.assertIn("Fallback mode", text)
+        self.assertIn("must remain fully useful without any external spec, SPAC", text)
+        self.assertIn("H01", text)
+        self.assertIn("side effects", text)
+        self.assertIn("parallel ownership", text)
+        self.assertIn("completion evidence", text)
 
     def test_model_mesh_protocol_reference_exists(self):
         text = (

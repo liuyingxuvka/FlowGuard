@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.6.0 - 2026-05-14
+
+- Added an optional spec/SPAC-style skill-orchestrator collaboration model that
+  keeps FlowGuard standalone while allowing upstream planning tools to hand off
+  structured plans for risk review.
+- Added `docs/skill_orchestrator_collaboration.md` with the three operating
+  modes, the handoff contract, the upgrade sequence, known hazards, validation
+  order, and non-goals.
+- Updated the `model-first-function-flow` Skill, reusable AGENTS snippet, and
+  project integration docs so upstream planner handoffs are optional context,
+  not a FlowGuard dependency.
+- Added tests that prove complete handoffs pass, missing upstream planners fall
+  back to standalone FlowGuard, incomplete handoffs block collaboration only,
+  and broken variants are caught for hard dependencies, hidden side effects,
+  missing parallel ownership, skip-without-reason, ignored counterexamples,
+  over-triggering trivial work, and completion without evidence.
+- Schema remains `1.0`; runtime dependencies remain Python standard library
+  only.
+
 ## v0.5.5 - 2026-05-13
 
 - Added default ten-step progress output for `Explorer.explore()` so long

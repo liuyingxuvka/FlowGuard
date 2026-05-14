@@ -126,6 +126,13 @@ That project rule should require:
 - adoption log entries for real use;
 - explicit blocked status when the real toolchain is unavailable.
 
+If the target project also uses a spec/SPAC-style planning or orchestration
+skill, treat that tool's plan as optional FlowGuard handoff context. The handoff
+should name planned steps, state fields, side effects, parallel ownership,
+repeat or retry points, skipped checks with reasons, and completion evidence.
+Missing planner support should not block FlowGuard; the agent should fall back
+to the normal standalone model-first path.
+
 When `python -m flowguard` is available, the lightweight adoption CLI can reduce
 manual log drift:
 
