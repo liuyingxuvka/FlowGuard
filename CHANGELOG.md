@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.6.1 - 2026-05-14
+
+- Added a standard background-log contract for long-running FlowGuard checks:
+  `tmp/flowguard_background/` with stdout, stderr, combined output, exit-code,
+  and metadata artifacts.
+- Updated the `model-first-function-flow` Skill and reusable AGENTS snippet so
+  agents must inspect actual log and exit artifacts before reporting long checks
+  as complete.
+- Clarified that direct `Explorer(...)` progress and legacy/custom runner final
+  reports are different evidence types; final summaries are not live progress.
+- Added OpenSpec change artifacts and doc tests that pin the log root, artifact
+  names, completion evidence, and proof-reuse reporting expectations.
+- Schema remains `1.0`; runtime dependencies remain Python standard library
+  only.
+
 ## v0.6.0 - 2026-05-14
 
 - Added an optional spec/SPAC-style skill-orchestrator collaboration model that
