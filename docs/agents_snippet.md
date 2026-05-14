@@ -79,6 +79,23 @@ Rules:
 - Before trusting an invariant over a state field, make a state write inventory: search for every production writer of fields such as `recommendation_status`, `output_status`, `analysis_json`, cache values, queue status, retry counters, and side-effect records. Record modeled writers and skipped writers with reasons.
 - Run flowguard with repeated-input exploration when duplicate side effects are possible.
 - Run scenario review, conformance replay, loop/stuck review, progress/fairness checks, and contract checks when those risks apply.
+- Direct `Explorer(...)` runs emit bounded ten-step progress on `stderr` by
+  default. Treat progress as liveness/observability only, not pass/fail
+  evidence.
+- For long-running FlowGuard checks launched in the background, default to
+  `tmp/flowguard_background/` unless the repository defines a stricter
+  convention. For each long check, use a stable command base name and record
+  `<name>.out.txt`, `<name>.err.txt`, `<name>.combined.txt`,
+  `<name>.exit.txt`, and `<name>.meta.json`.
+- Before reporting a long check as complete, inspect the actual artifacts and
+  report the log root, stdout/stderr/combined paths, exit code, last update
+  time, completion status, and whether the result was newly executed or reused
+  from a valid proof. A path-only report, an in-progress log, or a missing exit
+  artifact is not completion evidence.
+- Distinguish direct Explorer progress from project-specific or legacy custom
+  runners. A custom runner that bypasses `Explorer(...)` may only emit a final
+  report until it implements its own progress signal. Do not describe final report sections as live progress; final summaries become completion evidence
+  only after the exit and log artifacts exist.
 - Default to a small conformance replay when production logic has multiple state write points, database side effects, runtime/cleanup/finalizer paths, or production-confidence claims. If replay is skipped, record why; skipped is not pass.
 - Keep FlowGuard pass evidence provisional until runtime validation and any
   model-miss review obligation are closed. A later green runtime check by itself

@@ -190,6 +190,20 @@ Input x State -> Set(Output x State)
   Treat this as liveness/observability only, not pass/fail evidence. Use
   `progress_steps=0` or `FLOWGUARD_PROGRESS=0` when a strict environment must
   stay silent.
+- For long-running FlowGuard checks launched in the background, default to a
+  project-local log root at `tmp/flowguard_background/` unless the repository
+  has a stricter convention. For each long check, keep a stable command base
+  name and write these artifacts: `<name>.out.txt`, `<name>.err.txt`,
+  `<name>.combined.txt`, `<name>.exit.txt`, and `<name>.meta.json`.
+- Before reporting a long check as complete, inspect the actual log artifacts
+  and report the log root, stdout/stderr/combined paths, exit code, last update
+  time, completion status, and whether the result was newly executed or reused
+  from a valid proof. Do not treat a path-only report, an in-progress log, or a
+  missing exit artifact as completion evidence.
+- Distinguish direct Explorer progress from project-specific or legacy custom
+  runners. A custom runner that bypasses `Explorer(...)` may only emit a final
+  report until it implements its own progress signal. Do not describe final report sections as live progress; final summaries become completion evidence
+  only after the exit and log artifacts exist.
 - If the exact same abstract model, scenarios, oracle, invariants, risk
   boundary, and task revision already passed and none of those inputs changed,
   it is acceptable to reuse that result instead of rerunning the same

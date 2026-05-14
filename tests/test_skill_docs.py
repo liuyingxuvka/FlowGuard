@@ -47,6 +47,15 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("Risk Purpose Header", text)
         self.assertIn("https://github.com/liuyingxuvka/FlowGuard", text)
         self.assertIn("which concrete bugs or invalid states it", text)
+        self.assertIn("tmp/flowguard_background", text)
+        self.assertIn("<name>.out.txt", text)
+        self.assertIn("<name>.err.txt", text)
+        self.assertIn("<name>.combined.txt", text)
+        self.assertIn("<name>.exit.txt", text)
+        self.assertIn("<name>.meta.json", text)
+        self.assertIn("path-only report", text)
+        self.assertIn("valid proof", text)
+        self.assertIn("final report sections as live progress", text)
         self.assertNotIn("Phase 11", text)
         self.assertNotIn("2100-case", text)
 
@@ -85,6 +94,9 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("https://github.com/liuyingxuvka/FlowGuard", text)
         self.assertIn("which concrete bugs or invalid states it", text)
         self.assertIn("no external planning", text)
+        self.assertIn("tmp/flowguard_background", text)
+        self.assertIn("<name>.exit.txt", text)
+        self.assertIn("final report sections as live progress", text)
 
     def test_skill_orchestrator_collaboration_doc_defends_standalone_mode(self):
         text = (ROOT / "docs" / "skill_orchestrator_collaboration.md").read_text(encoding="utf-8")
