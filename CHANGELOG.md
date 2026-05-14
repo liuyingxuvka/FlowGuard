@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.7.0 - 2026-05-14
+
+- Added budgeted model-group execution for large reachable graph models via
+  `BudgetedGraphConfig` and `run_budgeted_graph_checks()`.
+- Added a SQLite ledger that records seen, pending, processed, labels, failure
+  samples, and shard summaries so repeated runs continue from pending work
+  instead of starting over.
+- Added fingerprinted run directories so changed model inputs, budgets,
+  invariants, required labels, or caller-provided fingerprint parts do not reuse
+  stale model evidence.
+- Added whole-group reporting that distinguishes `complete`, `incomplete`, and
+  `failed`; `ok` is true only when no pending states, failures, or missing
+  required labels remain.
+- Added shard-local progress plus model-group processed/pending totals on
+  `stderr`, while preserving existing `Explorer` progress behavior.
+- Added OpenSpec artifacts, a FlowGuard rollout self-model, focused tests,
+  documentation, and a FlowPilot-style example for budgeted graph checks.
+- Schema remains `1.0`; runtime dependencies remain Python standard library
+  only.
+
 ## v0.6.1 - 2026-05-14
 
 - Added a standard background-log contract for long-running FlowGuard checks:

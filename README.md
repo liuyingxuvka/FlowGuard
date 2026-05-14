@@ -12,7 +12,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.6.1` | `1.0` | Python standard library only | MIT |
+| `v0.7.0` | `1.0` | Python standard library only | MIT |
 
 English lead content comes first; a full Chinese mirror follows below.
 
@@ -187,6 +187,13 @@ explain process or agent coordination behavior.
 That long-term model library is still bounded and explicit. It is powerful
 because each piece remains small enough to review, rerun, revise, and connect
 when the project evolves.
+
+For graph-style models that grow too large for one comfortable run, FlowGuard
+also provides budgeted model groups. A budgeted model group runs the same
+reachable graph in shards, defaults to 10,000 processed states per shard, keeps
+a SQLite ledger of seen/pending/processed states, and reports the whole group
+as `incomplete` until no pending states remain. This is different from progress
+visibility: a shard can show 100% while the model group is still incomplete.
 
 ### Why It Exists
 
@@ -1004,6 +1011,11 @@ conformance adapter 可以逐渐积累成一个项目专属的模型库。时间
 
 这个长期模型库仍然是有限、显式、有边界的。它强在每一块都足够小，可以被 review、
 rerun、revision，并在项目演进时继续连接起来。
+
+对于那种状态图特别大的模型，FlowGuard 也提供 budgeted model group。它不会换成
+一个轻量替代模型，而是把同一个可达状态图按片运行，默认每片处理 10,000 个状态，
+并用 SQLite 账本记录 seen / pending / processed。只要账本里还有 pending state，
+整个 model group 就是 `incomplete`，不能因为当前 shard 显示 100% 就当作全局通过。
 
 ### 为什么需要它
 

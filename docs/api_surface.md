@@ -53,6 +53,9 @@ Modeling helpers reduce boilerplate around common bug classes:
 - optional domain packs such as `DeduplicationPack`, `CachePack`, `RetryPack`,
   and `SideEffectPack`;
 - optional loop, progress, contract, conformance, and replay helpers.
+- optional budgeted model-group helpers such as `BudgetedGraphConfig` and
+  `run_budgeted_graph_checks()` for large reachable graph models that need
+  shard-by-shard execution with a durable ledger.
 
 These helpers return or consume the same core model objects. They are useful
 shortcuts, not a new modeling language and not mandatory for valid FlowGuard

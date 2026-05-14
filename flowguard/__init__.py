@@ -38,6 +38,15 @@ from .baseline import (
     build_evidence_baseline_report,
 )
 from .benchmark import BenchmarkScorecard, build_benchmark_scorecard
+from .budgeted import (
+    BudgetedGraphConfig,
+    BudgetedGraphFailure,
+    BudgetedGraphReport,
+    BudgetedShardReport,
+    budgeted_graph_fingerprint,
+    budgeted_graph_run_dir,
+    run_budgeted_graph_checks,
+)
 from .corpus import (
     ProblemCase,
     ProblemCorpus,
@@ -221,6 +230,13 @@ MODELING_HELPER_API = (
     "ProgressCheckReport",
     "ProgressFinding",
     "check_progress",
+    "BudgetedGraphConfig",
+    "BudgetedGraphFailure",
+    "BudgetedGraphReport",
+    "BudgetedShardReport",
+    "budgeted_graph_fingerprint",
+    "budgeted_graph_run_dir",
+    "run_budgeted_graph_checks",
 )
 
 REPORTING_HELPER_API = (
@@ -321,6 +337,10 @@ __all__ = [
     "ContractCheckReport",
     "ContractViolation",
     "BoundedEventuallyProperty",
+    "BudgetedGraphConfig",
+    "BudgetedGraphFailure",
+    "BudgetedGraphReport",
+    "BudgetedShardReport",
     "DeadBranch",
     "EvidenceBaselineReport",
     "EvidenceCaseResult",
@@ -408,6 +428,8 @@ __all__ = [
     "build_executable_corpus_report",
     "build_benchmark_scorecard",
     "build_benchmark_coverage_audit",
+    "budgeted_graph_fingerprint",
+    "budgeted_graph_run_dir",
     "build_evidence_baseline_report",
     "build_flowguard_summary_report",
     "build_finding_ledger",
@@ -433,6 +455,7 @@ __all__ = [
     "scenario_status_explanation",
     "scenario_status_ok",
     "run_model_first_checks",
+    "run_budgeted_graph_checks",
     "run_exact_sequence",
     "make_artifact",
     "make_adoption_log_entry",
