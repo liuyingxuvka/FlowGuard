@@ -41,6 +41,31 @@ Rules:
 - Treat models as living artifacts. When future tasks expose new failure modes,
   strengthen, extend, or connect the model instead of assuming the first version
   is final.
+- For complex optimizations, repeated bug repairs, stateful refactors, broad
+  workflow changes, or model-miss-sensitive work, complete a
+  **Pre-Implementation Model Hardening Gate** before production code edits or
+  other high-impact actions. The gate records a concrete change inventory, a
+  risk catalog, and a risk-to-model coverage matrix.
+- The risk-to-model coverage matrix maps each important planned change to
+  possible bugs, modeled state or events, invariants or oracles,
+  representative known-bad hazards, check evidence, and residual blindspots.
+  A happy-path pass is not enough: representative bad variants must fail, or
+  the risk must be marked out of scope with the production-facing check or
+  human review that covers it.
+- Handle expensive project-specific model groups with tiered evidence. Run the
+  smallest sufficient model boundary first. Long checks may run in the
+  background with the standard artifact contract, but skipped or deferred heavy
+  checks must record the touched boundary, reason, and residual risk. Do not
+  hard-code current-project model names into generic guidance as always heavy
+  or always skippable. If a heavy model owns the state, contract, or risk being
+  changed, run it, shard it, background it with completion evidence, or report
+  the blocker.
+- After the model-hardening gate passes, implement complex work in small
+  change slices and validate each slice with the strongest practical focused
+  model, replay, test, or manual check before continuing when practical.
+  Preserve user and peer-agent changes; if the workspace changed after earlier
+  model or test evidence, treat that evidence as stale unless the model inputs,
+  production inputs, and touched files are explicitly unchanged.
 - If the project has three or more local FlowGuard models, create or update a
   local model mesh before broad continue, release, completion, or
   production-confidence claims. The mesh is a model-of-models: inventory child

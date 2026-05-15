@@ -56,6 +56,13 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("path-only report", text)
         self.assertIn("valid proof", text)
         self.assertIn("final report sections as live progress", text)
+        self.assertIn("Pre-Implementation Model Hardening Gate", text)
+        self.assertIn("risk-to-model coverage matrix", text)
+        self.assertIn("representative bad variants must fail", text)
+        self.assertIn("heavy model owns the", text)
+        self.assertIn("current-project model names", text)
+        self.assertIn("Preserve user and peer-agent changes", text)
+        self.assertIn("treat that evidence as stale", text)
         self.assertNotIn("Phase 11", text)
         self.assertNotIn("2100-case", text)
 
@@ -97,6 +104,11 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("tmp/flowguard_background", text)
         self.assertIn("<name>.exit.txt", text)
         self.assertIn("final report sections as live progress", text)
+        self.assertIn("Pre-Implementation Model Hardening Gate", text)
+        self.assertIn("risk-to-model coverage matrix", text)
+        self.assertIn("A happy-path pass is not enough", text)
+        self.assertIn("current-project model names", text)
+        self.assertIn("Preserve user and peer-agent changes", text)
 
     def test_skill_orchestrator_collaboration_doc_defends_standalone_mode(self):
         text = (ROOT / "docs" / "skill_orchestrator_collaboration.md").read_text(encoding="utf-8")

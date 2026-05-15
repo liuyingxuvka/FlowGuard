@@ -94,6 +94,30 @@ maintenance templates when they fit; otherwise create a fit-for-risk model from
   must be visible, adversarial inputs or retries to simulate, hard invariants,
   and residual blindspots. Ask the user only when materially different risk
   priorities exist and the protected harm cannot be inferred safely.
+- For complex optimizations, repeated bug repairs, stateful refactors, broad
+  workflow changes, or model-miss-sensitive work, complete a
+  **Pre-Implementation Model Hardening Gate** before production code edits or
+  other high-impact actions. Write a concrete change inventory, a risk catalog,
+  and a risk-to-model coverage matrix that maps each important planned change
+  to possible bugs, modeled state or events, invariants or oracles, known-bad
+  hazards, check evidence, and residual blindspots. A happy-path pass is not
+  enough: representative bad variants must fail, or the risk must be marked
+  out of scope with the production-facing check or human review that covers it.
+- Handle expensive project-specific model groups with a tiered evidence policy.
+  Run the smallest sufficient model boundary first, launch long checks in the
+  background with the standard artifact contract when useful, and record any
+  skipped or deferred heavy check with the touched boundary, reason, and
+  residual risk. Do not hard-code current-project model names into generic
+  skill guidance as always heavy or always skippable. If a heavy model owns the
+  state, contract, or risk being changed, run it, shard it, background it with
+  completion evidence, or report the remaining blocker instead of silently
+  skipping it.
+- After the model-hardening gate passes, implement complex work in small
+  change slices. Validate each slice with the strongest practical focused
+  model, replay, test, or manual check before continuing when practical.
+  Preserve user and peer-agent changes; if the workspace changed after earlier
+  model or test evidence, treat that evidence as stale unless the model inputs,
+  production inputs, and touched files are explicitly unchanged.
 - When creating or materially updating a FlowGuard model file, put a short
   **Risk Purpose Header** at the top of the model. The header should name
   FlowGuard and link to `https://github.com/liuyingxuvka/FlowGuard`, then say
@@ -320,32 +344,55 @@ something important. Do not let adoption logging replace executable checks.
 8. Start a brief adoption note or `in_progress` log entry.
 9. Write the Risk Intent Brief. If the risk priority is unclear and would
    materially change the model, ask for human review before modeling.
-10. Read the modeling protocol and choose a behavior, argument, or decision
-   boundary that is small enough to inspect but strong enough to expose the
-   customer-relevant risk.
-11. If no FlowGuard model exists yet, create one from the current plan or adapt
+10. For complex optimizations, repeated bug repairs, stateful refactors, broad
+    workflow changes, or model-miss-sensitive work, write the
+    Pre-Implementation Model Hardening Gate artifacts: a change inventory, a
+    risk catalog, and a risk-to-model coverage matrix.
+11. In the coverage matrix, map each important planned change to possible bugs,
+    modeled state or events, invariants or oracles, representative known-bad
+    hazards, check commands or evidence, and residual blindspots. If a risk is
+    outside model scope, name the production-facing validation or human review
+    that will cover it.
+12. Update or extend the model until representative known-bad hazards fail
+    before trusting the model for the target bug class. A happy-path pass alone
+    is not enough.
+13. Classify expensive project-specific model groups by boundary and risk.
+    Run the smallest sufficient boundary first. If a heavy model owns the
+    touched state, contract, or risk, run it, shard it, background it with
+    completion evidence, or report the blocker. If it is not on the touched
+    boundary, record the deferred boundary and residual risk instead of naming
+    it as universally skippable.
+14. Read the modeling protocol and choose a behavior, argument, or decision
+    boundary that is small enough to inspect but strong enough to expose the
+    customer-relevant risk.
+15. If no FlowGuard model exists yet, create one from the current plan or adapt
     `assets/model_template/`. Build or update the model with explicit inputs,
     state, blocks, outputs, reads, writes, idempotency, and invariants.
-12. Build the state write inventory for fields used by invariants.
-13. Run `run_model_first_checks()` when useful, or run Explorer directly.
-14. Inspect counterexamples and revise the model or intended architecture until
+16. Build the state write inventory for fields used by invariants.
+17. Run `run_model_first_checks()` when useful, or run Explorer directly.
+18. Inspect counterexamples and revise the model or intended architecture until
     the correct model passes.
-15. For FlowGuard/LiveFlowGuard self-upgrades, multi-model mesh upgrades, or
+19. For FlowGuard/LiveFlowGuard self-upgrades, multi-model mesh upgrades, or
     model-miss triage, inspect the
     full finding ledger before choosing a repair path. Classify each actionable
     finding as real-system repair, check-flow repair, model extension, or
     explicit out-of-scope boundary.
-16. Preserve important counterexamples as tests or implementation notes.
-17. Edit production code or perform the modeled high-impact action only after
+20. Preserve important counterexamples as tests or implementation notes.
+21. Edit production code or perform the modeled high-impact action only after
     executable model checks pass, unless the user explicitly waives modeling.
-18. Run scenario review, loop/stuck review, progress checks, contracts, or
+22. For complex optimized work, implement in change slices. After each slice,
+    run the relevant focused model, replay, test, or manual validation when
+    practical, and preserve user or peer-agent changes. Treat earlier model or
+    test evidence as stale when the workspace, model inputs, production inputs,
+    or touched files changed.
+23. Run scenario review, loop/stuck review, progress checks, contracts, or
     conformance replay when those risks apply.
     If this would repeat an unchanged abstract run that already passed, it may
     be enough to reuse the earlier result and focus post-edit verification on
     tests, conformance replay, or other production-facing evidence.
-19. If post-edit runtime validation exposes a new issue after FlowGuard passed,
+24. If post-edit runtime validation exposes a new issue after FlowGuard passed,
     enter Post-Runtime Model-Miss Review before claiming completion.
-20. Finish the adoption note with the checks run, findings, skipped checks, and
+25. Finish the adoption note with the checks run, findings, skipped checks, and
     next action.
 
 ## Resource Map

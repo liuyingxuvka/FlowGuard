@@ -7,6 +7,7 @@ __pycache__/
 .ruff_cache/
 .coverage
 htmlcov/
+tmp/
 
 build/
 dist/
@@ -20,4 +21,3 @@ env/
 kb/
 docs/flowguard_adoption_log.md
 docs/adoption_review_*.md
-

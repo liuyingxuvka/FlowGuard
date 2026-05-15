@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.7.1 - 2026-05-15
+
+- Added a pre-implementation model-hardening gate to the
+  `model-first-function-flow` Skill for complex optimizations, repeated bug
+  repairs, stateful refactors, and model-miss-sensitive work.
+- Required agents to write a change inventory, risk catalog, and risk-to-model
+  coverage matrix before complex FlowGuard-backed edits.
+- Clarified that representative known-bad hazards must fail before a model is
+  trusted for the target bug class; happy-path checks alone are not enough.
+- Added tiered handling for expensive project-specific model groups without
+  hard-coding local model names as universally heavy or skippable.
+- Updated the reusable AGENTS snippet, OpenSpec artifacts, focused tests, and a
+  FlowGuard rollout model that catches code-first, happy-path-only, hard-coded
+  heavy-model, peer-change, touched-heavy-skip, and premature-release variants.
+- Ignored `tmp/` so background check logs and template smoke outputs do not
+  appear as release candidates.
+- Schema remains `1.0`; runtime dependencies remain Python standard library
+  only.
+
 ## v0.7.0 - 2026-05-14
 
 - Added budgeted model-group execution for large reachable graph models via

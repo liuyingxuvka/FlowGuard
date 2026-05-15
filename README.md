@@ -12,7 +12,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.7.0` | `1.0` | Python standard library only | MIT |
+| `v0.7.1` | `1.0` | Python standard library only | MIT |
 
 English lead content comes first; a full Chinese mirror follows below.
 
