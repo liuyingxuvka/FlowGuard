@@ -148,10 +148,14 @@ maintenance templates when they fit; otherwise create a fit-for-risk model from
   the plan.
 - Treat a runtime, test, replay, or manual validation failure that appears after
   a FlowGuard pass as a model-miss review trigger until proven otherwise. Do not
-  patch and finish directly: classify why the earlier model missed it, represent
-  the issue in the model as a scenario, invariant, replay, or explicit
-  out-of-scope boundary, rerun the relevant model checks, and only then validate
-  the repair with production-facing evidence.
+  patch and finish directly: classify why the earlier model missed it using the
+  five practical types `boundary_missing`, `state_too_coarse`,
+  `input_branch_missing`, `invariant_too_weak`, or `evidence_overclaimed`; if
+  the issue belongs in scope, represent the observed issue plus one same-class
+  generalized bad case when practical; rerun the relevant model checks; and only
+  then validate the repair with production-facing evidence. Do not add a hazard
+  registry, upgrade reviewer, default model mesh, full coverage matrix, or
+  evidence-level field as a default response to ordinary model misses.
 - For FlowGuard or LiveFlowGuard framework upgrades, live failure triage, or
   broad capability claims, use coverage-first repair: first build a full
   finding ledger across invariant/model checks, model-quality audit, scenario
@@ -271,19 +275,24 @@ If a later runtime/test/replay/manual validation step exposes a new issue after
 FlowGuard passed:
 
 1. Reopen the FlowGuard work instead of treating the prior pass as final.
-2. Classify the miss: boundary too narrow, state abstraction too coarse,
-   missing input branch, weak invariant, missing production writer, skipped
-   replay, wrong oracle, or explicitly outside the modeled risk.
+2. Classify the miss with one of five practical types:
+   `boundary_missing`, `state_too_coarse`, `input_branch_missing`,
+   `invariant_too_weak`, or `evidence_overclaimed`. Keep unusual details as a
+   short note instead of adding more formal daily categories.
 3. Represent the issue in executable evidence whenever it belongs in scope:
    add or update a scenario, invariant, replay adapter, representative trace, or
-   model boundary note.
+   model boundary note for the observed issue, plus one same-class generalized
+   bad case when practical.
 4. Confirm the old weakness is now visible: the refined model should catch the
-   problem or clearly mark it out of scope before the fix is trusted.
+   observed issue and the same-class case, or clearly mark the generalized case
+   out of scope before the fix is trusted.
 5. Validate the repair through the refined FlowGuard checks plus the strongest
    practical runtime/test/replay evidence.
 6. Before finalizing, close or explicitly carry forward the model-miss
-   obligation in the adoption note. A later green runtime check by itself does
-   not close a known model miss unless the miss has been reviewed.
+   obligation in the adoption note. Record `Miss type: <one of the five>` and
+   `Generalized case: <one sentence>` or the reason no generalized case was
+   added. A later green runtime check by itself does not close a known model
+   miss unless the miss has been reviewed.
 
 ## Adoption Logging
 

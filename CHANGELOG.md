@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.7.2 - 2026-05-15
+
+- Simplified post-runtime model-miss review in the `model-first-function-flow`
+  Skill to five practical miss types: `boundary_missing`,
+  `state_too_coarse`, `input_branch_missing`, `invariant_too_weak`, and
+  `evidence_overclaimed`.
+- Required in-scope model misses to represent the observed issue plus one
+  same-class generalized bad case when practical, so repairs do not stop at the
+  exact bug that was just found.
+- Kept the model-miss workflow lightweight: ordinary model misses do not add a
+  default hazard registry, upgrade reviewer, model mesh, full coverage matrix,
+  or evidence-level field.
+- Updated OpenSpec artifacts, the reusable AGENTS snippet, modeling protocol,
+  focused docs tests, and a FlowGuard rollout model for the revised workflow.
+- Schema remains `1.0`; runtime dependencies remain Python standard library
+  only.
+
 ## v0.7.1 - 2026-05-15
 
 - Added a pre-implementation model-hardening gate to the

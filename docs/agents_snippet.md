@@ -81,10 +81,14 @@ Rules:
   three-model threshold is met.
 - Treat runtime, test, replay, or manual validation failures after a FlowGuard
   pass as model-miss review triggers until proven otherwise. Do not patch and
-  finish directly: classify why the earlier model missed the issue, represent
-  the issue in FlowGuard as a scenario, invariant, replay, representative trace,
-  or explicit out-of-scope boundary, rerun the relevant checks, and then
-  validate the repair with production-facing evidence.
+  finish directly: classify why the earlier model missed the issue using one of
+  `boundary_missing`, `state_too_coarse`, `input_branch_missing`,
+  `invariant_too_weak`, or `evidence_overclaimed`; represent the observed issue
+  plus one same-class generalized bad case when practical; rerun the relevant
+  checks; and then validate the repair with production-facing evidence. Keep
+  ordinary model misses lightweight: do not add a hazard registry, upgrade
+  reviewer, default model mesh, full coverage matrix, or evidence-level field as
+  the default response.
 - For FlowGuard or LiveFlowGuard framework upgrades, live failure triage, or
   broad capability claims, build a full finding ledger first: invariant/model
   checks, model-quality audit, scenario or live-audit evidence, progress,
@@ -125,7 +129,9 @@ Rules:
 - Keep FlowGuard pass evidence provisional until runtime validation and any
   model-miss review obligation are closed. A later green runtime check by itself
   does not close a known post-FlowGuard model miss unless the miss has been
-  classified and represented or explicitly marked out of scope.
+  classified and represented or explicitly marked out of scope. Adoption notes
+  for model misses should include `Miss type` and `Generalized case`, or the
+  reason no generalized case was added.
 - Treat UI state-flow, product architecture, orchestration, and module-boundary changes as model-first unless they are clearly trivial.
 - Treat booking, purchase, publication handoff, operational runbook, data migration, support escalation, and multi-agent coordination flows as model-first when they have meaningful state, side effects, external dependencies, rollback concerns, or irreversible cost.
 - Trivial copy edits, formatting-only work, read-only explanation tasks, and fully reversible process steps with no meaningful state or side effects may skip flowguard with an explicit reason.

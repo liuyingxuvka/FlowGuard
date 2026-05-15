@@ -372,18 +372,22 @@ When this happens:
    model-quality audit, scenario or live-audit evidence, progress, contracts,
    conformance, skipped/not-run sections, and adoption evidence. The ledger is
    the coverage-first view used to avoid patching only the visible failure.
-3. Classify why the prior model missed the issue: boundary too narrow, state
-   abstraction too coarse, missing input branch, weak invariant, missing
-   production writer, skipped replay, wrong oracle, or explicitly outside the
-   modeled risk.
+3. Classify why the prior model missed the issue with one of five practical
+   categories: `boundary_missing`, `state_too_coarse`,
+   `input_branch_missing`, `invariant_too_weak`, or `evidence_overclaimed`.
+   Record unusual details in plain language instead of expanding the formal
+   daily category list.
 4. If the issue belongs in scope, represent it as executable evidence: scenario,
-   invariant, replay adapter, representative trace, or a model boundary update.
-5. Rerun the relevant model checks and confirm the old weakness is now visible
-   or deliberately out of scope.
+   invariant, replay adapter, representative trace, or a model boundary update
+   for the observed issue, plus one same-class generalized bad case when
+   practical.
+5. Rerun the relevant model checks and confirm the old weakness plus the
+   same-class case are now visible, or deliberately out of scope.
 6. Validate the repair with the refined model plus the strongest practical
    production-facing evidence.
-7. Record the miss classification, model changes, rerun commands, skipped
-   checks, and residual blindspots in the adoption log.
+7. Record `Miss type` and `Generalized case` in the adoption log, or the reason
+   no generalized case was added, along with rerun commands, skipped checks, and
+   residual blindspots.
 
 A later green runtime check does not close a known model miss by itself. The
 miss is closed only when it has been classified and represented in the model or
@@ -604,6 +608,7 @@ Recommended low-friction agent flow:
   ledger before point-rule patches.
 - Known model misses are classified, represented in executable evidence or
   marked out of scope, rerun, and then validated with production-facing checks.
+  In-scope misses add one same-class generalized bad case when practical.
 - Scenario reviews compare expected and observed outcomes.
 - Broken-model scenarios produce expected violations rather than ordinary failures.
 - Loop/stuck review is run for workflows with retries, refresh, waiting, or reprocessing.
