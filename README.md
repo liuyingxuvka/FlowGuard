@@ -12,7 +12,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.7.2` | `1.0` | Python standard library only | MIT |
+| `v0.7.3` | `1.0` | Python standard library only | MIT |
 
 English lead content comes first; a full Chinese mirror follows below.
 
@@ -194,6 +194,14 @@ reachable graph in shards, defaults to 10,000 processed states per shard, keeps
 a SQLite ledger of seen/pending/processed states, and reports the whole group
 as `incomplete` until no pending states remain. This is different from progress
 visibility: a shard can show 100% while the model group is still incomplete.
+
+For projects that grow into several models, or for one model that becomes too
+large to inspect comfortably, FlowGuard also provides hierarchical model-mesh
+helpers. A parent model is treated like a total map, child models are region
+maps, and `review_hierarchical_mesh(...)` checks whether the regions cover the
+parent space without unsafe overlap. The same mesh can trigger large-model
+split review, classify legacy models, and keep stale, skipped, or incomplete
+evidence visible.
 
 ### Why It Exists
 
@@ -381,6 +389,25 @@ installed skill copies, and no mesh at the three-model threshold.
 
 See [docs/model_mesh_protocol.md](docs/model_mesh_protocol.md) for the
 inventory checklist and prompt template.
+
+### Hierarchical Model Mesh In v0.7.3
+
+`v0.7.3` adds optional helper APIs for multi-level model partition governance.
+Use `HierarchyPartitionMap`, `HierarchyCoverageItem`, `ChildModelEvidence`, and
+`review_hierarchical_mesh(...)` when a parent model needs child regions, when a
+project reaches three or more models, or when one model crosses a large-model
+threshold such as 10,000 estimated or observed states.
+
+The review checks parent coverage gaps, unsafe sibling overlap, duplicate
+state-write ownership, duplicate side-effect ownership, stale/skipped child
+evidence, large-model split decisions, and legacy compatibility contracts. It
+does not expand every child state graph into the parent; child models remain
+contract-bearing evidence sources.
+
+Run `python examples/hierarchical_model_mesh/run_review.py` for a minimal nested
+hierarchy example. See
+[docs/hierarchical_model_mesh.md](docs/hierarchical_model_mesh.md) for the
+plain-language workflow and API sketch.
 
 ### Three Flow Types In v0.5.2
 
@@ -1017,6 +1044,12 @@ rerun、revision，并在项目演进时继续连接起来。
 并用 SQLite 账本记录 seen / pending / processed。只要账本里还有 pending state，
 整个 model group 就是 `incomplete`，不能因为当前 shard 显示 100% 就当作全局通过。
 
+当项目逐渐有多个模型，或者一个模型本身已经大到不容易 review 时，FlowGuard 也提供
+hierarchical model-mesh helper。可以把父模型理解成总地图，子模型理解成分区地图，
+`review_hierarchical_mesh(...)` 会检查这些分区有没有覆盖完整、有没有危险重叠。
+同一层 mesh 也会触发大模型拆分 review、分类旧模型，并把 stale、skipped 或
+incomplete 证据显式暴露出来。
+
 ### 为什么需要它
 
 AI coding agent 很容易在局部修 bug 时破坏全局流程，例如：
@@ -1184,6 +1217,26 @@ watchdog。严格环境可以用 `Explorer(..., progress_steps=0)` 或 `FLOWGUAR
 安装副本过期，以及模型数达到三但没有 mesh。
 
 清单和提示词见 [docs/model_mesh_protocol.md](docs/model_mesh_protocol.md)。
+
+### v0.7.3 的分层模型 Mesh
+
+`v0.7.3` 增加了多层模型分区治理的可选 helper API。项目达到三个或更多模型、某个
+模型超过大模型阈值（默认可以按 10,000 个估计或观测状态理解）、或者父模型需要拆出
+子区域时，可以用 `HierarchyPartitionMap`、`HierarchyCoverageItem`、
+`ChildModelEvidence` 和 `review_hierarchical_mesh(...)`。
+
+这个 review 会检查父模型覆盖缺口、兄弟子模型危险重叠、重复 state-write owner、
+重复 side-effect owner、stale/skipped 子模型证据、大模型拆分决策，以及旧模型的
+compatibility contract。它不会把所有子模型状态图展开塞回父模型；子模型仍然只是带
+contract 的证据来源。
+
+最小示例可以运行：
+
+```powershell
+python examples/hierarchical_model_mesh/run_review.py
+```
+
+完整说明见 [docs/hierarchical_model_mesh.md](docs/hierarchical_model_mesh.md)。
 
 ### v0.5.2 的三大 Flow 类型
 

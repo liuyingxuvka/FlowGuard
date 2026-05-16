@@ -8,6 +8,11 @@ a model miss suggests that local models are individually deep but disconnected.
 Create or update a local model mesh when any of these are true:
 
 - the project has three or more local FlowGuard models;
+- a single model is too large to review comfortably, such as an estimated or
+  observed state count above the configured threshold, defaulting to `10_000`;
+- a budgeted model group remains incomplete with pending states;
+- a model contains several unrelated functional areas that could be child
+  model boundaries;
 - a change can affect more than one existing model boundary;
 - a green model result is being reused for a changed workflow, changed source,
   changed prompt, changed route, or changed runtime evidence;
@@ -19,6 +24,12 @@ Do not merge every child model into one giant state graph. The mesh is a
 model-of-models: it treats child models as contract-bearing evidence sources
 with inputs, outputs, state ownership, evidence tier, freshness, and known
 blindspots.
+
+For hierarchical projects, treat each parent/child boundary as a partition map:
+the parent is the total map, child models are region maps, and the mesh checks
+whether those regions cover the parent space without unsafe overlap. A child can
+become a parent when it grows large enough to split again, so mesh review can
+apply at several levels.
 
 ## Inventory
 
@@ -37,6 +48,25 @@ Before trusting existing models, write a compact inventory:
 | `evidence_tier` | Current tier from the list below. |
 | `freshness_rule` | What makes this result stale. |
 | `blindspots` | Known not-modeled areas and skipped checks. |
+| `coverage_owned` | Parent partition items owned by this child. |
+| `side_effects_owned` | Side effects this child can emit. |
+| `large_model_signal` | Estimated/observed state count, incomplete budgeted run, or unrelated functional areas that trigger split review. |
+
+## Partition And Overlap Review
+
+When a mesh represents a parent/child hierarchy, add a compact partition map.
+The map should classify parent-space items by function, state, input, output,
+side effect, invariant, or failure mode. Each item must be one of:
+
+- `child`: exactly one child owns the item;
+- `parent`: the parent owns the item;
+- `read_only`: a child reads the item but does not own it;
+- `shared_kernel`: a deliberate shared kernel owns the item.
+
+Coverage gaps block confidence: every parent-space item needs an owner or an
+explicit out-of-scope note. Unsafe overlap also blocks confidence: sibling child
+models must not both own the same state write, side effect, or core functional
+area. Shared reads are fine; shared ownership needs an explicit shared kernel.
 
 Suggested evidence tiers:
 
@@ -64,6 +94,9 @@ Keep the mesh finite and inspectable. A useful mesh state usually contains:
 - cross-model dependencies and contract obligations;
 - skipped, not-run, or parse-error sections;
 - current decision: continue, block, add evidence, update child model, or split.
+- parent partition coverage, sibling overlap, state ownership, and side-effect
+  ownership for hierarchical boundaries;
+- large-model split decisions for oversized new or legacy models.
 
 Useful function blocks:
 
@@ -72,6 +105,9 @@ InventoryModels x State -> Set(ModelInventory x State)
 IngestChildEvidence x State -> Set(EvidenceTier x State)
 ProjectLiveFacts x State -> Set(ProjectedLiveState x State)
 CheckCrossModelContracts x State -> Set(ContradictionReport x State)
+CheckPartitionCoverage x State -> Set(CoverageReport x State)
+CheckSiblingOverlap x State -> Set(OverlapReport x State)
+ReviewLargeModelSplit x State -> Set(SplitDecision x State)
 DecideMeshAuthority x State -> Set(ContinueOrBlock x State)
 ```
 
@@ -98,6 +134,12 @@ At minimum, the mesh must make these broken variants fail:
 11. The mesh expands every child state graph and becomes too large to inspect.
 12. The project has three or more FlowGuard models but no mesh decision is
    created before a broad continue/release/completion claim.
+13. A single oversized model does not trigger large-model split review.
+14. Parent partition items have no child, parent, or shared-kernel owner.
+15. Two sibling child models both own the same state write, side effect, or
+    core functional area without an explicit shared-kernel boundary.
+16. A legacy model is used as strong child evidence before compatibility
+    classification and contract wrapping.
 
 ## Prompt Template
 
@@ -110,6 +152,8 @@ Context:
 - Project root: <path>
 - Planned change or decision: <summary>
 - Existing model count: <N>
+- Large-model signals: <estimated/observed state counts, incomplete budgeted
+  groups, or unrelated functional areas>
 - Known model files/runners/results: <paths or "scan first">
 - Current live/runtime artifacts to project: <paths or "none">
 - Protected harms: <what must not slip through>
@@ -125,13 +169,18 @@ Tasks:
 4. Create or update a model-of-models. Treat child models as evidence contracts;
    do not inline all child internals unless a contradiction requires a narrower
    adapter.
-5. Encode the required hazards from `model_mesh_protocol.md` as broken variants.
-6. Run Explorer plus progress/stuck review, hazard review, and conformance or
+5. For each parent boundary, create a partition map that assigns parent-space
+   functions, state, side effects, invariants, and failure modes to a child,
+   the parent, read-only use, or an explicit shared kernel.
+6. Encode the required hazards from `model_mesh_protocol.md` as broken variants.
+7. Run Explorer plus progress/stuck review, hazard review, and conformance or
    live projection when applicable.
-7. Return a decision: `mesh_green_can_continue`, `add_evidence`,
-   `update_child_model`, `split_model_boundary`, `blocked_by_stale_evidence`,
+8. Return a decision: `mesh_green_can_continue`, `add_evidence`,
+   `update_child_model`, `split_model_boundary`, `coverage_gap_blocked`,
+   `overlap_too_high_refactor_needed`, `ownership_conflict`,
+   `large_model_split_review_required`, `blocked_by_stale_evidence`,
    `blocked_by_cross_model_contradiction`, or `model_coverage_insufficient`.
-8. Report what the mesh proves, what it does not prove, and which checks were
+9. Report what the mesh proves, what it does not prove, and which checks were
    skipped. Skipped is not pass.
 ```
 
@@ -144,5 +193,9 @@ The mesh is sufficient for the current decision only when:
 - known-bad hazards fail for the intended reasons;
 - skipped or missing live/conformance checks remain visible;
 - cross-model contradictions are either absent or converted into blockers;
+- each parent partition item is covered or explicitly out of scope;
+- sibling overlap is either read-only, shared-kernel-owned, or converted into a
+  split/merge/refactor decision;
+- oversized new or legacy models have a split-review decision;
 - the final decision distinguishes model classification from permission to
   continue the real workflow.

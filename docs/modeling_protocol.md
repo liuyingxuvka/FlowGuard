@@ -66,12 +66,22 @@ runners, persisted result files, adoption logs, and replay/conformance
 artifacts. If the project has three or more local FlowGuard models, or the
 current decision spans multiple existing model boundaries, create or update a
 local model mesh before making broad continue, release, completion, or
-production-confidence claims.
+production-confidence claims. Also trigger mesh review when a single new or
+legacy model is too large to inspect comfortably, such as an estimated or
+observed state count above the configured threshold, a budgeted model group that
+remains incomplete, or one model mixing several unrelated functional areas.
 
 The mesh is a model-of-models. It should inventory child models and classify
 their evidence tiers, freshness rules, dependencies, contracts, skipped checks,
 and blindspots. Do not inline every child model's full state graph unless a
 specific contradiction requires a narrow adapter.
+
+For hierarchical modeling, treat the parent model as a total map and child
+models as region maps. The mesh should check the partition map for complete
+coverage, excessive sibling overlap, duplicate state-write ownership, duplicate
+side-effect ownership, stale evidence, and split-review decisions for oversized
+models. A child can become a parent and have its own local partition map and
+mesh review when that child grows large enough to split again.
 
 Read `docs/model_mesh_protocol.md` for the inventory fields, evidence tiers,
 required hazards, prompt template, and completion standard. At minimum, the
@@ -79,7 +89,7 @@ mesh must catch abstract-only permission, hidden skipped live/replay checks,
 stale result reuse, unregistered model evidence, cross-model contradictions,
 hidden blockers, missing conformance, unrepresented model misses, sealed/private
 body reads, stale installed skill/source copies, oversized mesh expansion, and
-absence of a mesh when the model count threshold is met.
+absence of a mesh when the model count or large-model threshold is met.
 
 ## 0.5 Write A Risk Intent Brief
 

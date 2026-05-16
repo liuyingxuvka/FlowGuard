@@ -56,6 +56,10 @@ Modeling helpers reduce boilerplate around common bug classes:
 - optional budgeted model-group helpers such as `BudgetedGraphConfig` and
   `run_budgeted_graph_checks()` for large reachable graph models that need
   shard-by-shard execution with a durable ledger.
+- optional hierarchical mesh helpers such as `HierarchyPartitionMap`,
+  `ChildModelEvidence`, `review_hierarchical_mesh()`, `LegacyModelRecord`, and
+  `classify_legacy_model()` for reviewing parent/child partition coverage,
+  sibling overlap, large-model split triggers, and legacy compatibility.
 
 These helpers return or consume the same core model objects. They are useful
 shortcuts, not a new modeling language and not mandatory for valid FlowGuard

@@ -80,7 +80,11 @@ maintenance templates when they fit; otherwise create a fit-for-risk model from
   adoption evidence appear stale. Update those artifacts before making claims
   from them. If the project has three or more local FlowGuard models, also
   inventory them and create or update a local model mesh before making broad
-  continue, release, completion, or production-confidence claims.
+  continue, release, completion, or production-confidence claims. Also trigger
+  mesh review when a single model is too large to inspect comfortably, such as
+  an estimated or observed state count above the configured threshold, an
+  incomplete budgeted model group, or a model that mixes several unrelated
+  functional areas.
 - `process_preflight`: a non-code or mixed workflow, argument chain, or decision
   path needs validation, adjustment, observation, or loss-prevention review
   before action. Build or update a fit-for-risk model of process states,
@@ -132,13 +136,15 @@ maintenance templates when they fit; otherwise create a fit-for-risk model from
 - Treat FlowGuard model scripts as living design artifacts. If no model exists,
   create one. If later work reveals new failure modes, strengthen, extend, or
   connect the model rather than treating the first version as final.
-- When a project has three or more local FlowGuard models, do not trust them as
-  isolated green islands. Create or update a model mesh: inventory child
-  models, runners, result files, adoption logs, evidence tiers, freshness rules,
-  live/conformance adapters, cross-model dependencies, and skipped/not-run
-  sections. The mesh should treat child models as evidence contracts, not inline
-  every child state graph. Use `references/model_mesh_protocol.md` for the
-  checklist and prompt template.
+- When a project has three or more local FlowGuard models, or when a single new
+  or legacy model is too large, do not trust the model layout as-is. Create or
+  update a model mesh: inventory child models, runners, result files, adoption
+  logs, evidence tiers, freshness rules, live/conformance adapters, cross-model
+  dependencies, skipped/not-run sections, parent partition coverage, sibling
+  overlap, state ownership, side-effect ownership, and large-model split
+  decisions. The mesh should treat child models as evidence contracts, not
+  inline every child state graph. Use `references/model_mesh_protocol.md` for
+  the checklist and prompt template.
 - A model mesh is required before a broad continue/release/completion claim if
   model results can be stale, if multiple models cover the same workflow from
   different angles, if one model's output is another model's input, if live
@@ -347,9 +353,9 @@ something important. Do not let adoption logging replace executable checks.
    blocked/partial. do not write a temporary mini-framework and claim full
    adoption.
 7. Inventory existing local FlowGuard models before trusting prior green
-   evidence. If there are three or more, or if multiple model boundaries can
-   affect the current decision, create or update a model mesh using
-   `references/model_mesh_protocol.md`.
+   evidence. If there are three or more, if multiple model boundaries can
+   affect the current decision, or if one new or legacy model is too large,
+   create or update a model mesh using `references/model_mesh_protocol.md`.
 8. Start a brief adoption note or `in_progress` log entry.
 9. Write the Risk Intent Brief. If the risk priority is unclear and would
    materially change the model, ask for human review before modeling.

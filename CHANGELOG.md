@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.7.3 - 2026-05-16
+
+- Added hierarchical model-mesh helper APIs for parent partition maps, child
+  model evidence summaries, mesh findings, and mesh decisions.
+- Added `review_hierarchical_mesh(...)` to check parent coverage gaps, unsafe
+  sibling overlap, duplicate state-write ownership, duplicate side-effect
+  ownership, stale/skipped child evidence, large-model split triggers, and
+  legacy compatibility boundaries.
+- Added `classify_legacy_model(...)` so existing model scripts can be
+  registered and wrapped before they are trusted as strong child evidence.
+- Extended model-mesh guidance to trigger from both model count and single-model
+  scale, including estimated/observed state counts above 10,000, incomplete
+  budgeted model groups, and models with unrelated functional areas.
+- Added a nested hierarchy example, OpenSpec artifacts, focused tests, and a
+  FlowGuard rollout model that catches missing scale triggers, coverage gaps,
+  hidden overlap, duplicate ownership, legacy direct trust, child-graph
+  expansion, background-check overclaims, and release-sync omissions.
+- Schema remains `1.0`; runtime dependencies remain Python standard library
+  only.
+
 ## v0.7.2 - 2026-05-15
 
 - Simplified post-runtime model-miss review in the `model-first-function-flow`
