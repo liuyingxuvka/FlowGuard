@@ -1,7 +1,21 @@
 # TestMesh Protocol
 
 Use TestMesh when the question is not "does this FlowGuard model pass?" but
-"can this layered test evidence support the parent validation claim?"
+"can this parent/child test hierarchy support the parent validation claim?"
+
+TestMesh is the test-side sibling of ModelMesh and StructureMesh. All three use
+the same parent/child partition principle:
+
+- ModelMesh partitions a large FlowGuard model into child model regions.
+- TestMesh partitions a large test script, suite, or validation flow into child
+  test scripts or child suites.
+- StructureMesh partitions a large script, module, package, command, or API
+  surface into child structural owners.
+
+The parent TestMesh should consume child ownership and evidence contracts. It
+should not inline every child test case, fixture, or internal state route. When
+a child suite grows too large, it can become its own parent gate with another
+local TestMesh.
 
 ## Trigger
 
@@ -9,6 +23,8 @@ Create or update a TestMesh when:
 
 - a test or regression command is slow enough that routine agents skip it,
   timeout, or cannot wait for it before continuing useful work;
+- a large test script or suite is being split into smaller child suites or
+  child test scripts;
 - one large command mixes unrelated behavior, state, side effects, or release
   gates;
 - a parent validation claim depends on several child suites, background jobs,
@@ -20,7 +36,7 @@ Create or update a TestMesh when:
 
 ## Partition Checklist
 
-For the parent gate, list each partition item:
+For the parent test gate, list each partition item:
 
 - behavior or workflow boundary;
 - state field or state-write owner;
@@ -35,7 +51,7 @@ or side-effect owners are blockers unless the overlap is explicitly allowed.
 
 ## Evidence Checklist
 
-For each child suite, record:
+For each child suite or child test script, record:
 
 - command and layer;
 - result status;
@@ -63,7 +79,11 @@ claims. Release-required suites must be current and passed.
 ## Prompt Template
 
 ```text
-Build a FlowGuard TestMesh for this repository's validation flow.
+Build a FlowGuard TestMesh for this repository's validation flow. Treat the
+current broad test command or suite as the parent test gate and the extracted
+or selected suites/scripts as child validation regions. Do not inline every
+child test case into the parent; expose each child through ownership and
+evidence contracts.
 
 Parent gate:
 - name:
@@ -93,6 +113,9 @@ Child suite evidence:
 Known hazards that must fail:
 - missing child owner;
 - unregistered owner suite;
+- flat test split with no parent/child ownership map;
+- parent gate expands every child test case instead of consuming child
+  contracts;
 - duplicate partition or state owner;
 - hidden skipped tests;
 - stale evidence;
@@ -108,6 +131,8 @@ A TestMesh review can support the parent only when:
 - every partition item is owned;
 - every child owner is registered;
 - sibling ownership conflicts are absent or explicitly shared;
+- parent confidence is based on child contracts rather than expanded child
+  internals;
 - all required suites have current pass evidence for the requested scope;
 - skipped, not-run, timeout, and stale evidence remain visible;
 - background jobs have final completion artifacts;

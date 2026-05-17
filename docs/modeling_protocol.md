@@ -1,5 +1,11 @@
 # Modeling Protocol
 
+This document is the `core_modeling` sub-protocol for the FlowGuard Skill
+Kernel. The main Skill routes here for ordinary model-first work. Specialized
+routes such as ModelMesh, TestMesh, StructureMesh, model-miss review,
+conformance/adoption, long-check observability, and framework upgrades live in
+their dedicated reference protocols.
+
 Use this protocol before implementing non-trivial behavior involving workflows, state, retries, deduplication, idempotency, caching, or module boundaries.
 
 ## 0. Choose The Lightest Mode
@@ -16,9 +22,14 @@ Before changing files, separate three situations:
 - `model_maintenance`: existing `.flowguard` models, replay adapters, or
   adoption evidence appear stale. Update those artifacts before making claims
   from them.
-- `test_mesh_maintenance`: validation is too slow, broad, stale-prone, or
-  layered to trust as one flat test command. Build a TestMesh that partitions
-  parent test confidence into child-suite ownership and evidence contracts.
+- `test_mesh_maintenance`: validation is too large, broad, stale-prone, or
+  layered to trust as one flat test command or script. Build a TestMesh that
+  partitions parent test confidence into child-suite/script ownership and
+  evidence contracts.
+- `structure_mesh_maintenance`: structure refactoring is the risky boundary.
+  Build a StructureMesh that partitions a large script, package, module,
+  command, or API surface into child-module ownership and compatibility
+  evidence contracts.
 
 If real FlowGuard is importable but a current `.flowguard` Python model still
 claims `flowguard_package_available = False`, uses a fallback explorer, or
@@ -97,21 +108,46 @@ absence of a mesh when the model count or large-model threshold is met.
 ## 0.4 Check The TestMesh Trigger
 
 Before trusting a broad validation claim, ask whether tests need their own
-layered evidence mesh. Trigger TestMesh when a suite is too slow for routine
-work, mixes unrelated behavior or release gates, runs in the background, hides
-skips or timeouts, or depends on stale result reuse.
+parent/child hierarchy mesh. Trigger TestMesh when a large test script, suite,
+or validation flow should split into child suites/scripts, when a suite is too
+slow for routine work, mixes unrelated behavior or release gates, runs in the
+background, hides skips or timeouts, or depends on stale result reuse.
 
-The TestMesh is a validation-evidence model. It does not run pytest, unittest,
-Playwright, shell commands, or manual checks. Project adapters run the suites
-and pass `TestSuiteEvidence` into FlowGuard. The parent gate lists
-`TestPartitionItem` entries for behavior, state, module, command, side effect,
-invariant, or release boundaries. `review_test_mesh(...)` checks coverage,
-ownership conflicts, freshness, skipped visibility, timeout/failure status,
-background completion artifacts, and routine-vs-release confidence.
+The TestMesh is the test-side sibling of ModelMesh and StructureMesh: the
+parent test gate is the total validation contract, while child suites or child test scripts own regions of that contract. The parent layer consumes child
+ownership and evidence contracts instead of expanding every child test case,
+fixture, or internal state route. A child suite can become its own parent gate
+when it grows large enough to split again.
+
+TestMesh does not run pytest, unittest, Playwright, shell commands, or manual
+checks. Project adapters run the suites and pass `TestSuiteEvidence` into
+FlowGuard. The parent gate lists `TestPartitionItem` entries for behavior,
+state, module, command, side effect, invariant, or release boundaries.
+`review_test_mesh(...)` checks coverage, ownership conflicts, freshness,
+skipped visibility, timeout/failure status, background completion artifacts,
+and routine-vs-release confidence.
 
 Read `docs/test_evidence_mesh.md` for the API sketch and
 `.agents/skills/model-first-function-flow/references/test_mesh_protocol.md` for
 the agent checklist.
+
+## 0.45 Check The StructureMesh Trigger
+
+Before trusting a large script or module split, ask whether the structure needs
+its own parent/child ownership mesh. Trigger StructureMesh when functions,
+state, config, side effects, public entrypoints, behavior contracts, or release
+obligations are being split across child modules.
+
+The StructureMesh is a structure-refactor evidence model. It does not move code
+or parse source files. Project adapters collect source inventory, dependency
+edges, facade status, public entrypoint compatibility, config/default changes,
+and parity evidence, then pass `ModuleStructureEvidence`,
+`PublicEntrypointEvidence`, and `StructurePartitionItem` objects into
+`review_structure_mesh(...)`.
+
+Read `docs/structure_mesh.md` for the API sketch and
+`.agents/skills/model-first-function-flow/references/structure_mesh_protocol.md`
+for the agent checklist.
 
 ## 0.5 Write A Risk Intent Brief
 
@@ -270,6 +306,7 @@ For neutral starter scaffolds, the public CLI can print or write templates:
 python -m flowguard project-template --output .
 python -m flowguard risk-intent-template --output .
 python -m flowguard model-miss-template --output .
+python -m flowguard structure-mesh-template --output .
 ```
 
 Treat them as starting points only. Rename the state, inputs, outputs,
@@ -623,6 +660,11 @@ Recommended low-friction agent flow:
 - The model mesh, when required, inventories child models, evidence tiers,
   freshness, dependencies, skipped checks, live/conformance adapters, and
   cross-model contradictions before broad continue/release/completion claims.
+- Large script or module splits have a StructureMesh, or an explicit reason why
+  the current narrow task does not rely on parent/child refactor evidence.
+- The StructureMesh, when required, inventories function, state, config,
+  side-effect, public-entrypoint, facade, dependency, parity, and release-scope
+  ownership before broad refactor or compatibility claims.
 - The model uses only the Python standard library.
 - Inputs and state are finite and hashable.
 - Every block returns all possible branches.

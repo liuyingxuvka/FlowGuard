@@ -175,6 +175,12 @@ def _run_test_mesh_template(args: argparse.Namespace) -> int:
     return _run_file_template(args, template_name="test_mesh", files=test_mesh_template_files())
 
 
+def _run_structure_mesh_template(args: argparse.Namespace) -> int:
+    from .templates import structure_mesh_template_files
+
+    return _run_file_template(args, template_name="structure_mesh", files=structure_mesh_template_files())
+
+
 def _run_adoption_entry(args: argparse.Namespace) -> int:
     from .adoption import (
         AdoptionCommandResult,
@@ -332,6 +338,12 @@ def main(argv: list[str] | None = None) -> int:
         "test-mesh-template",
         "Print or write the TestMesh validation hierarchy template.",
         _run_test_mesh_template,
+    )
+    _add_file_template_parser(
+        subparsers,
+        "structure-mesh-template",
+        "Print or write the StructureMesh refactor hierarchy template.",
+        _run_structure_mesh_template,
     )
     _add_adoption_entry_args(
         subparsers.add_parser("adoption-start", help="Append an in-progress adoption log entry."),

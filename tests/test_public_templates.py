@@ -10,6 +10,7 @@ from flowguard.templates import (
     model_miss_review_template_files,
     project_template_files,
     risk_intent_template_files,
+    structure_mesh_template_files,
     test_mesh_template_files,
     write_template_files,
 )
@@ -80,12 +81,31 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("release_obligations", output)
         self.assertIn("stale_test_evidence", output)
 
+    def test_test_mesh_template_teaches_parent_child_hierarchy(self):
+        files = test_mesh_template_files()
+        combined = "\n".join(file.content for file in files)
+
+        self.assertIn("parent test gate", combined)
+        self.assertIn("child suites/scripts", combined)
+        self.assertIn("parallel to ModelMesh and StructureMesh", combined)
+        self.assertIn("one giant parent graph", combined)
+
+    def test_structure_mesh_template_executes(self):
+        output = self.run_written_template(
+            structure_mesh_template_files(),
+            (".flowguard", "structure_mesh"),
+        )
+        self.assertIn("flowguard structure mesh", output)
+        self.assertIn("release_obligations", output)
+        self.assertIn("duplicate_state_owner", output)
+
     def test_public_model_templates_include_risk_purpose_headers(self):
         for files in (
             project_template_files(),
             risk_intent_template_files(),
             model_miss_review_template_files(),
             test_mesh_template_files(),
+            structure_mesh_template_files(),
         ):
             model_file = next(file for file in files if file.path.endswith("model.py"))
             self.assert_risk_purpose_header(model_file.content)
@@ -96,6 +116,7 @@ class PublicTemplateTests(unittest.TestCase):
             "risk-intent-template": "risk_intent_check_plan",
             "model-miss-template": "model_miss_review",
             "test-mesh-template": "test_mesh",
+            "structure-mesh-template": "structure_mesh",
         }
         for command, template_name in commands.items():
             printed = subprocess.run(
@@ -137,6 +158,7 @@ class PublicTemplateTests(unittest.TestCase):
             risk_intent_template_files(),
             model_miss_review_template_files(),
             test_mesh_template_files(),
+            structure_mesh_template_files(),
         ):
             for file in files:
                 for marker in private_markers:

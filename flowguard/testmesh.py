@@ -1,8 +1,9 @@
-"""Test evidence mesh governance helpers.
+"""Test hierarchy and evidence mesh governance helpers.
 
-TestMesh reviews whether a layered validation surface is trustworthy. It does
-not run pytest, unittest, Playwright, or shell commands. Project adapters run
-tests and pass structured evidence here for coverage, freshness, background
+TestMesh reviews whether a parent test gate can trust child suites or child
+test scripts as owned validation regions. It does not run pytest, unittest,
+Playwright, or shell commands. Project adapters run tests and pass structured
+evidence here for hierarchy coverage, ownership, freshness, background
 completion, and routine/release gate review.
 """
 
@@ -55,7 +56,7 @@ def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
 
 @dataclass(frozen=True)
 class TestPartitionItem:
-    """One behavior, state, command, or release boundary owned by a test suite."""
+    """One parent test partition owned by a child suite/script or parent gate."""
 
     item_id: str
     item_type: str = "behavior"
@@ -85,7 +86,7 @@ class TestPartitionItem:
 
 @dataclass(frozen=True)
 class TestSuiteEvidence:
-    """Evidence summary for one child, parent, or release-only test suite."""
+    """Evidence summary for one child suite/script, parent, or release-only test."""
 
     suite_id: str
     command: str = ""
@@ -170,7 +171,7 @@ class TestSuiteEvidence:
 
 @dataclass(frozen=True)
 class TestMeshPlan:
-    """A parent test-suite boundary and the child evidence used for a decision."""
+    """A parent test boundary and the child evidence used for a decision."""
 
     parent_suite_id: str
     partition_items: tuple[TestPartitionItem, ...] = ()

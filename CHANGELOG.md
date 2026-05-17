@@ -1,5 +1,39 @@
 # Changelog
 
+## v0.9.0 - 2026-05-17
+
+- Added StructureMesh helper APIs for parent/child structure refactor
+  governance: `StructureMeshPlan`, `StructurePartitionItem`,
+  `ModuleStructureEvidence`, `PublicEntrypointEvidence`,
+  `StructureMeshFinding`, `StructureMeshReport`, and
+  `review_structure_mesh(...)`.
+- Added checks for missing or unregistered partition owners, duplicate
+  partition owners, duplicate state/side-effect/config ownership, removed
+  public entrypoints, missing facades, unsafe dependency cycles, config/default
+  drift, missing or stale behavior parity, insufficient evidence tiers, and
+  release-required parity gaps.
+- Split routine and release refactor scopes so release-only structure evidence
+  can remain visible as deferred obligations during routine work while still
+  blocking release confidence when missing.
+- Added a `structure-mesh-template` CLI scaffold, StructureMesh documentation,
+  OpenSpec artifacts, Skill guidance, reusable AGENTS guidance, focused tests,
+  and a FlowGuard rollout model for large script/module split governance.
+- Modularized the `model-first-function-flow` Skill into a compact FlowGuard
+  Skill Kernel plus dedicated sub-protocol references for core modeling,
+  ModelMesh, TestMesh, StructureMesh, post-runtime model misses,
+  conformance/adoption, long-check observability, and FlowGuard framework
+  upgrades.
+- Added a Skill Kernel rollout model that catches missing hard gates, route
+  gaps, duplicate rule ownership, helper APIs mislabeled as sub-skills,
+  standalone FlowGuard regressions, heavy-check over-triggering, and missing
+  release/install sync routes.
+- Clarified TestMesh as the test-side sibling of ModelMesh and StructureMesh:
+  large test scripts, suites, or validation flows split into parent/child test
+  hierarchy layers while parent gates consume child ownership and evidence
+  contracts instead of expanded child internals.
+- Schema remains `1.0`; runtime dependencies remain Python standard library
+  only.
+
 ## v0.8.0 - 2026-05-17
 
 - Added TestMesh helper APIs for layered validation governance:

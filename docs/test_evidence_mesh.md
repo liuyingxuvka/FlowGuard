@@ -1,13 +1,18 @@
 # Test Evidence Mesh
 
-Test Evidence Mesh is for projects where validation is becoming too expensive
-or too broad to treat as one flat test command.
+Test Evidence Mesh is for projects where validation is becoming too large,
+expensive, or broad to treat as one flat test command, script, or suite.
+
+It is the test-side sibling of ModelMesh and StructureMesh. ModelMesh
+partitions large models into child models, StructureMesh partitions large code
+structures into child modules/scripts, and TestMesh partitions large test
+structures into child suites/scripts.
 
 Use the plain mental model:
 
 ```text
 Parent test gate = total validation contract
-Child suite      = owned validation region
+Child suite/script = owned validation region
 TestMesh review  = checks whether child evidence can support the parent gate
 ```
 
@@ -16,6 +21,12 @@ jobs. Project adapters run those commands and pass structured evidence into
 FlowGuard. FlowGuard then checks coverage, ownership, freshness, skipped tests,
 background completion, and routine-vs-release confidence.
 
+The parent test gate should not inline every child test case, fixture, or
+internal state route. It should consume each child suite/script as a contract:
+owned partition, freshness rule, result status, skipped visibility, and output
+evidence. A child can become its own parent gate when its internal test layout
+needs another split.
+
 ## When To Trigger It
 
 Run a TestMesh review when test execution or validation confidence needs a
@@ -23,8 +34,10 @@ layered plan:
 
 - a routine test run is taking long enough that agents keep skipping or timing
   it out;
-- one large regression command mixes unrelated behavior, state, side effects,
-  or release gates;
+- one large regression command, test script, or suite mixes unrelated behavior,
+  state, side effects, or release gates;
+- a broad suite should be split into child suites/scripts with explicit owned
+  validation regions;
 - a parent validation claim depends on several child commands or background
   jobs;
 - skipped, stale, timeout, or progress-only evidence could be hidden inside a
@@ -32,8 +45,9 @@ layered plan:
 - a release-only suite should stay visible without blocking routine local
   confidence.
 
-This is different from hierarchical model mesh. Hierarchical model mesh governs
-FlowGuard model boundaries. TestMesh governs test and validation evidence.
+This is different from hierarchical model mesh only in what is being split.
+Hierarchical model mesh governs FlowGuard model boundaries. TestMesh governs
+test and validation boundaries.
 
 ## Partition Ownership
 
@@ -52,7 +66,7 @@ declared read-only or shared-kernel.
 
 ## Evidence Contracts
 
-Each child suite reports a `TestSuiteEvidence` summary:
+Each child suite or child test script reports a `TestSuiteEvidence` summary:
 
 - command and layer;
 - result status such as `passed`, `failed`, `timeout`, `running`, or `not_run`;
