@@ -169,6 +169,12 @@ def _run_model_miss_template(args: argparse.Namespace) -> int:
     return _run_file_template(args, template_name="model_miss_review", files=model_miss_review_template_files())
 
 
+def _run_test_mesh_template(args: argparse.Namespace) -> int:
+    from .templates import test_mesh_template_files
+
+    return _run_file_template(args, template_name="test_mesh", files=test_mesh_template_files())
+
+
 def _run_adoption_entry(args: argparse.Namespace) -> int:
     from .adoption import (
         AdoptionCommandResult,
@@ -320,6 +326,12 @@ def main(argv: list[str] | None = None) -> int:
         "model-miss-template",
         "Print or write the post-runtime model-miss review template.",
         _run_model_miss_template,
+    )
+    _add_file_template_parser(
+        subparsers,
+        "test-mesh-template",
+        "Print or write the TestMesh validation hierarchy template.",
+        _run_test_mesh_template,
     )
     _add_adoption_entry_args(
         subparsers.add_parser("adoption-start", help="Append an in-progress adoption log entry."),

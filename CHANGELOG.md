@@ -1,5 +1,28 @@
 # Changelog
 
+## v0.8.0 - 2026-05-17
+
+- Added TestMesh helper APIs for layered validation governance:
+  `TestMeshPlan`, `TestPartitionItem`, `TestSuiteEvidence`,
+  `TestMeshFinding`, `TestMeshReport`, and `review_test_mesh(...)`.
+- Added parent/child test partition checks for missing owners, unregistered
+  owners, duplicate partition ownership, duplicate state-write ownership, and
+  duplicate side-effect ownership.
+- Added evidence checks for stale results, hidden skipped tests, failed suites,
+  timeout suites, insufficient evidence tiers, and background progress without
+  final exit/result artifacts.
+- Split routine and release validation scopes so release-only suites can remain
+  visible as deferred obligations during routine work while still blocking
+  release confidence when missing.
+- Added a `test-mesh-template` CLI scaffold, TestMesh documentation, OpenSpec
+  artifacts, Skill guidance, reusable AGENTS guidance, focused tests, and a
+  FlowGuard rollout model that catches flat slow gates, missing/unregistered
+  owners, duplicate owners, stale/hidden/timeout evidence, background
+  progress-only overclaims, missing release evidence, and direct-test-runner
+  scope creep.
+- Schema remains `1.0`; runtime dependencies remain Python standard library
+  only.
+
 ## v0.7.3 - 2026-05-16
 
 - Added hierarchical model-mesh helper APIs for parent partition maps, child

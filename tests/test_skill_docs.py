@@ -73,6 +73,12 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("current-project model names", text)
         self.assertIn("Preserve user and peer-agent changes", text)
         self.assertIn("treat that evidence as stale", text)
+        self.assertIn("test_mesh_maintenance", text)
+        self.assertIn("slow or layered tests", text)
+        self.assertIn("references/test_mesh_protocol.md", text)
+        self.assertIn("test-mesh-template", text)
+        self.assertIn("routine-vs-release", text)
+        self.assertIn("progress-only background run", text)
         self.assertNotIn("Phase 11", text)
         self.assertNotIn("2100-case", text)
 
@@ -106,6 +112,9 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("model-of-models", text)
         self.assertIn("Risk Purpose Header", text)
         self.assertIn("https://github.com/liuyingxuvka/FlowGuard", text)
+        self.assertIn("test_mesh_maintenance", text)
+        self.assertIn("Check The TestMesh Trigger", text)
+        self.assertIn("docs/test_evidence_mesh.md", text)
 
     def test_agents_snippet_carries_risk_purpose_header_rule(self):
         text = (ROOT / "docs" / "agents_snippet.md").read_text(encoding="utf-8")
@@ -127,6 +136,9 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("Generalized case", text)
         self.assertIn("current-project model names", text)
         self.assertIn("Preserve user and peer-agent changes", text)
+        self.assertIn("slow or layered validation evidence", text)
+        self.assertIn("FlowGuard TestMesh", text)
+        self.assertIn("references/test_mesh_protocol.md", text)
 
     def test_skill_orchestrator_collaboration_doc_defends_standalone_mode(self):
         text = (ROOT / "docs" / "skill_orchestrator_collaboration.md").read_text(encoding="utf-8")
@@ -155,6 +167,23 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("evidence tiers", text)
         self.assertIn("Prompt Template", text)
         self.assertIn("Required Hazards", text)
+
+    def test_test_mesh_protocol_reference_exists(self):
+        text = (
+            ROOT
+            / ".agents"
+            / "skills"
+            / "model-first-function-flow"
+            / "references"
+            / "test_mesh_protocol.md"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("TestMesh Protocol", text)
+        self.assertIn("slow enough", text)
+        self.assertIn("Partition Checklist", text)
+        self.assertIn("Evidence Checklist", text)
+        self.assertIn("Routine And Release Scope", text)
+        self.assertIn("progress-only", text)
 
 
 if __name__ == "__main__":

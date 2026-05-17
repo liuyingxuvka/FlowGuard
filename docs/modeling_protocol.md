@@ -16,6 +16,9 @@ Before changing files, separate three situations:
 - `model_maintenance`: existing `.flowguard` models, replay adapters, or
   adoption evidence appear stale. Update those artifacts before making claims
   from them.
+- `test_mesh_maintenance`: validation is too slow, broad, stale-prone, or
+  layered to trust as one flat test command. Build a TestMesh that partitions
+  parent test confidence into child-suite ownership and evidence contracts.
 
 If real FlowGuard is importable but a current `.flowguard` Python model still
 claims `flowguard_package_available = False`, uses a fallback explorer, or
@@ -90,6 +93,25 @@ stale result reuse, unregistered model evidence, cross-model contradictions,
 hidden blockers, missing conformance, unrepresented model misses, sealed/private
 body reads, stale installed skill/source copies, oversized mesh expansion, and
 absence of a mesh when the model count or large-model threshold is met.
+
+## 0.4 Check The TestMesh Trigger
+
+Before trusting a broad validation claim, ask whether tests need their own
+layered evidence mesh. Trigger TestMesh when a suite is too slow for routine
+work, mixes unrelated behavior or release gates, runs in the background, hides
+skips or timeouts, or depends on stale result reuse.
+
+The TestMesh is a validation-evidence model. It does not run pytest, unittest,
+Playwright, shell commands, or manual checks. Project adapters run the suites
+and pass `TestSuiteEvidence` into FlowGuard. The parent gate lists
+`TestPartitionItem` entries for behavior, state, module, command, side effect,
+invariant, or release boundaries. `review_test_mesh(...)` checks coverage,
+ownership conflicts, freshness, skipped visibility, timeout/failure status,
+background completion artifacts, and routine-vs-release confidence.
+
+Read `docs/test_evidence_mesh.md` for the API sketch and
+`.agents/skills/model-first-function-flow/references/test_mesh_protocol.md` for
+the agent checklist.
 
 ## 0.5 Write A Risk Intent Brief
 

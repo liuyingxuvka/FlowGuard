@@ -10,6 +10,7 @@ from flowguard.templates import (
     model_miss_review_template_files,
     project_template_files,
     risk_intent_template_files,
+    test_mesh_template_files,
     write_template_files,
 )
 
@@ -70,11 +71,21 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("correct_model_miss_review: PASS", output)
         self.assertIn("expected violations observed: 2", output)
 
+    def test_test_mesh_template_executes(self):
+        output = self.run_written_template(
+            test_mesh_template_files(),
+            (".flowguard", "test_mesh"),
+        )
+        self.assertIn("flowguard test mesh", output)
+        self.assertIn("release_obligations", output)
+        self.assertIn("stale_test_evidence", output)
+
     def test_public_model_templates_include_risk_purpose_headers(self):
         for files in (
             project_template_files(),
             risk_intent_template_files(),
             model_miss_review_template_files(),
+            test_mesh_template_files(),
         ):
             model_file = next(file for file in files if file.path.endswith("model.py"))
             self.assert_risk_purpose_header(model_file.content)
@@ -84,6 +95,7 @@ class PublicTemplateTests(unittest.TestCase):
             "project-template": "project",
             "risk-intent-template": "risk_intent_check_plan",
             "model-miss-template": "model_miss_review",
+            "test-mesh-template": "test_mesh",
         }
         for command, template_name in commands.items():
             printed = subprocess.run(
@@ -124,6 +136,7 @@ class PublicTemplateTests(unittest.TestCase):
             project_template_files(),
             risk_intent_template_files(),
             model_miss_review_template_files(),
+            test_mesh_template_files(),
         ):
             for file in files:
                 for marker in private_markers:

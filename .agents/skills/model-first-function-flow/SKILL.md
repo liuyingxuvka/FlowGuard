@@ -1,6 +1,6 @@
 ---
 name: model-first-function-flow
-description: For coding, repository, process-design work, structured writing/argument, and decision/planning work, first decide whether flowguard applies. Use before implementing or changing non-trivial behavior, stateful workflows, repeated bug fixes, module-boundary changes, idempotency-sensitive logic, deduplication logic, caching, retry handling, data-flow changes, multi-model FlowGuard projects that need a model mesh, or any meaningful multi-step process, argument chain, or decision path that needs validation, adjustment, observation, or loss-prevention preflight.
+description: For coding, repository, process-design work, structured writing/argument, and decision/planning work, first decide whether flowguard applies. Use before implementing or changing non-trivial behavior, stateful workflows, repeated bug fixes, module-boundary changes, idempotency-sensitive logic, deduplication logic, caching, retry handling, data-flow changes, multi-model FlowGuard projects that need a model mesh, slow or layered tests that need TestMesh, or any meaningful multi-step process, argument chain, or decision path that needs validation, adjustment, observation, or loss-prevention preflight.
 ---
 
 # Model-First Function Flow
@@ -85,6 +85,12 @@ maintenance templates when they fit; otherwise create a fit-for-risk model from
   an estimated or observed state count above the configured threshold, an
   incomplete budgeted model group, or a model that mixes several unrelated
   functional areas.
+- `test_mesh_maintenance`: slow, timeout-prone, background, or release-only
+  tests need a parent/child validation evidence plan. Use TestMesh to partition
+  the parent test gate into child-suite ownership contracts and to review
+  freshness, skipped tests, timeout status, background completion artifacts,
+  and routine-vs-release confidence. TestMesh does not run tests; project
+  adapters run the suites and pass structured evidence into FlowGuard.
 - `process_preflight`: a non-code or mixed workflow, argument chain, or decision
   path needs validation, adjustment, observation, or loss-prevention review
   before action. Build or update a fit-for-risk model of process states,
@@ -152,6 +158,21 @@ maintenance templates when they fit; otherwise create a fit-for-risk model from
   post-runtime model miss shows that isolated models did not catch the bug
   class. The mesh must make known-bad hazards fail before production work uses
   the plan.
+- When tests are too slow or too broad to trust as one flat gate, enter
+  `test_mesh_maintenance`. Partition validation by behavior, state, module,
+  command, side effect, invariant, or release boundary. Bind every partition to
+  a parent, child, read-only, or shared-kernel owner. Record child-suite
+  evidence with status, evidence tier, freshness, selected/skipped counts,
+  visible skips, timeout, exit code, result path, background artifacts, owned
+  state, and owned side effects. Use `references/test_mesh_protocol.md` for the
+  checklist and prompt template.
+- A TestMesh must make known-bad hazards fail before parent confidence is
+  trusted: missing owner, unregistered owner, duplicate partition owner,
+  duplicate state or side-effect owner, hidden skipped tests, stale evidence,
+  failed or timeout suite, progress-only background run, missing exit/result
+  artifact, and missing release-required suite under release scope. Routine
+  scope may defer release-only suites only when the report keeps the release
+  obligation visible.
 - Treat a runtime, test, replay, or manual validation failure that appears after
   a FlowGuard pass as a model-miss review trigger until proven otherwise. Do not
   patch and finish directly: classify why the earlier model missed it using the
@@ -209,6 +230,8 @@ Input x State -> Set(Output x State)
   `python -m flowguard project-template --output .`,
   `python -m flowguard risk-intent-template --output .`, or
   `python -m flowguard model-miss-template --output .`.
+- For layered test evidence, use the TestMesh starter when it saves setup time:
+  `python -m flowguard test-mesh-template --output .`.
 - For recurring Sleep/Dream/Architect/Installer/Reviewer style maintenance
   systems, use the optional maintenance workflow scaffold when it saves setup
   time: `python -m flowguard maintenance-template --output .`.
@@ -337,7 +360,7 @@ something important. Do not let adoption logging replace executable checks.
    `needs_human_review`. When using FlowGuard, also classify the main lens as
    `behavior_flow`, `argument_flow`, or `decision_flow`.
 2. Choose mode: `read_only_audit`, `model_first_change`, `model_maintenance`,
-   or `process_preflight`.
+   `test_mesh_maintenance`, or `process_preflight`.
 3. If a spec/SPAC-style planner has already decomposed the task, inspect its
    handoff as optional context. Check for state, side effects, parallel
    ownership, repeat or retry points, skipped checks with reasons, and
@@ -356,58 +379,61 @@ something important. Do not let adoption logging replace executable checks.
    evidence. If there are three or more, if multiple model boundaries can
    affect the current decision, or if one new or legacy model is too large,
    create or update a model mesh using `references/model_mesh_protocol.md`.
-8. Start a brief adoption note or `in_progress` log entry.
-9. Write the Risk Intent Brief. If the risk priority is unclear and would
+8. If validation itself is the slow or layered boundary, create or update a
+   TestMesh using `references/test_mesh_protocol.md`. Distinguish routine and
+   release scope before parent test confidence is claimed.
+9. Start a brief adoption note or `in_progress` log entry.
+10. Write the Risk Intent Brief. If the risk priority is unclear and would
    materially change the model, ask for human review before modeling.
-10. For complex optimizations, repeated bug repairs, stateful refactors, broad
+11. For complex optimizations, repeated bug repairs, stateful refactors, broad
     workflow changes, or model-miss-sensitive work, write the
     Pre-Implementation Model Hardening Gate artifacts: a change inventory, a
     risk catalog, and a risk-to-model coverage matrix.
-11. In the coverage matrix, map each important planned change to possible bugs,
+12. In the coverage matrix, map each important planned change to possible bugs,
     modeled state or events, invariants or oracles, representative known-bad
     hazards, check commands or evidence, and residual blindspots. If a risk is
     outside model scope, name the production-facing validation or human review
     that will cover it.
-12. Update or extend the model until representative known-bad hazards fail
+13. Update or extend the model until representative known-bad hazards fail
     before trusting the model for the target bug class. A happy-path pass alone
     is not enough.
-13. Classify expensive project-specific model groups by boundary and risk.
+14. Classify expensive project-specific model groups by boundary and risk.
     Run the smallest sufficient boundary first. If a heavy model owns the
     touched state, contract, or risk, run it, shard it, background it with
     completion evidence, or report the blocker. If it is not on the touched
     boundary, record the deferred boundary and residual risk instead of naming
     it as universally skippable.
-14. Read the modeling protocol and choose a behavior, argument, or decision
+15. Read the modeling protocol and choose a behavior, argument, or decision
     boundary that is small enough to inspect but strong enough to expose the
     customer-relevant risk.
-15. If no FlowGuard model exists yet, create one from the current plan or adapt
+16. If no FlowGuard model exists yet, create one from the current plan or adapt
     `assets/model_template/`. Build or update the model with explicit inputs,
     state, blocks, outputs, reads, writes, idempotency, and invariants.
-16. Build the state write inventory for fields used by invariants.
-17. Run `run_model_first_checks()` when useful, or run Explorer directly.
-18. Inspect counterexamples and revise the model or intended architecture until
+17. Build the state write inventory for fields used by invariants.
+18. Run `run_model_first_checks()` when useful, or run Explorer directly.
+19. Inspect counterexamples and revise the model or intended architecture until
     the correct model passes.
-19. For FlowGuard/LiveFlowGuard self-upgrades, multi-model mesh upgrades, or
+20. For FlowGuard/LiveFlowGuard self-upgrades, multi-model mesh upgrades, or
     model-miss triage, inspect the
     full finding ledger before choosing a repair path. Classify each actionable
     finding as real-system repair, check-flow repair, model extension, or
     explicit out-of-scope boundary.
-20. Preserve important counterexamples as tests or implementation notes.
-21. Edit production code or perform the modeled high-impact action only after
+21. Preserve important counterexamples as tests or implementation notes.
+22. Edit production code or perform the modeled high-impact action only after
     executable model checks pass, unless the user explicitly waives modeling.
-22. For complex optimized work, implement in change slices. After each slice,
+23. For complex optimized work, implement in change slices. After each slice,
     run the relevant focused model, replay, test, or manual validation when
     practical, and preserve user or peer-agent changes. Treat earlier model or
     test evidence as stale when the workspace, model inputs, production inputs,
     or touched files changed.
-23. Run scenario review, loop/stuck review, progress checks, contracts, or
+24. Run scenario review, loop/stuck review, progress checks, contracts, or
     conformance replay when those risks apply.
     If this would repeat an unchanged abstract run that already passed, it may
     be enough to reuse the earlier result and focus post-edit verification on
     tests, conformance replay, or other production-facing evidence.
-24. If post-edit runtime validation exposes a new issue after FlowGuard passed,
+25. If post-edit runtime validation exposes a new issue after FlowGuard passed,
     enter Post-Runtime Model-Miss Review before claiming completion.
-25. Finish the adoption note with the checks run, findings, skipped checks, and
+26. Finish the adoption note with the checks run, findings, skipped checks, and
     next action.
 
 ## Resource Map
@@ -426,6 +452,9 @@ something important. Do not let adoption logging replace executable checks.
 - `references/model_mesh_protocol.md`: trigger, inventory, evidence tiers,
   required hazards, prompt template, and completion standard for projects with
   three or more local FlowGuard models.
+- `references/test_mesh_protocol.md`: trigger, partition checklist, evidence
+  checklist, prompt template, and completion standard for layered test
+  validation.
 - Repository-level `docs/skill_orchestrator_collaboration.md`: optional
   spec/SPAC-style planner handoff contract and collaboration hazards.
 - `python -m flowguard project-template --output .`: basic public starter
@@ -434,6 +463,8 @@ something important. Do not let adoption logging replace executable checks.
   CheckPlan starter.
 - `python -m flowguard model-miss-template --output .`: post-runtime
   model-miss review starter.
+- `python -m flowguard test-mesh-template --output .`: layered test evidence
+  starter.
 - `python -m flowguard maintenance-template --output .`: optional scaffold for
   multi-role maintenance flows.
 - Repository-level `docs/framework_upgrade_checks.md`: FlowGuard-only upgrade

@@ -5,12 +5,13 @@ Copy this section into another repository's `AGENTS.md`.
 ```markdown
 ## Model-first function flow
 
-For coding, repository, process-design work, structured writing/argument, and decision/planning work, first make a lightweight FlowGuard applicability decision: `use_flowguard`, `skip_with_reason`, or `needs_human_review`. For non-trivial tasks involving behavior, workflows, state, module boundaries, retries, deduplication, idempotency, caching, repeated inputs, production conformance, repeated bugs, multiple local FlowGuard models, meaningful process validation/adjustment/observation with side effects, argument chains with prerequisite claims, or decision paths with assumptions and commitments, use the model-first-function-flow skill before editing production code, performing the high-impact action, relying on the argument, or locking in the decision. Build or update a flowguard model, run checks, inspect counterexamples, and only then implement production code, act on the process, use the argument, or commit to the decision. If no FlowGuard model exists yet, create one from the current plan or adapt the included model template; the model should be strong enough to capture the customer's relevant risks and should evolve as new risks appear.
+For coding, repository, process-design work, structured writing/argument, and decision/planning work, first make a lightweight FlowGuard applicability decision: `use_flowguard`, `skip_with_reason`, or `needs_human_review`. For non-trivial tasks involving behavior, workflows, state, module boundaries, retries, deduplication, idempotency, caching, repeated inputs, production conformance, repeated bugs, multiple local FlowGuard models, slow or layered validation evidence, meaningful process validation/adjustment/observation with side effects, argument chains with prerequisite claims, or decision paths with assumptions and commitments, use the model-first-function-flow skill before editing production code, performing the high-impact action, relying on the argument, or locking in the decision. Build or update a flowguard model, run checks, inspect counterexamples, and only then implement production code, act on the process, use the argument, or commit to the decision. If no FlowGuard model exists yet, create one from the current plan or adapt the included model template; the model should be strong enough to capture the customer's relevant risks and should evolve as new risks appear.
 
 Rules:
 
 - Start each coding, repository, or process-design task by deciding whether FlowGuard applies.
 - Use `use_flowguard` when the task may affect behavior, state, workflow, retries, deduplication, idempotency, caching, side effects, module boundaries, queue/reprocessing behavior, production conformance, external process dependencies, rollback concerns, costly/irreversible process actions, argument prerequisites, evidence/proof dependencies, decision assumptions, or commitments.
+- Also use FlowGuard's TestMesh route when slow, timeout-prone, background, or release-only tests need a parent/child validation plan before a broad test or release confidence claim.
 - When FlowGuard applies, classify the main lens as `behavior_flow`, `argument_flow`, or `decision_flow`. This lens guides the state fields and invariants; it does not replace the existing project, Risk Intent, model-miss, or maintenance templates.
 - Use `skip_with_reason` only for clearly trivial copy edits, formatting-only changes, read-only explanation, or work with no behavior/state impact.
 - Use `needs_human_review` or narrow the task when the behavior boundary is unclear.
@@ -82,6 +83,22 @@ Rules:
   skill/source copies, oversized mesh expansion, missing large-model split
   review, parent coverage gaps, unsafe sibling overlap, and absence of a mesh
   when the three-model or large-model threshold is met.
+- If tests are too slow or too broad to run as one flat gate, create or update
+  a FlowGuard TestMesh before reporting parent test confidence. The TestMesh
+  partitions validation by behavior, state, module, command, side effect,
+  invariant, or release boundary; binds each partition to a parent, child,
+  read-only, or shared-kernel owner; and records child-suite evidence such as
+  status, evidence tier, freshness, selected/skipped counts, visible skips,
+  timeout, exit code, result path, background artifacts, owned state, and owned
+  side effects. TestMesh does not run tests; adapters run pytest, unittest,
+  Playwright, shell commands, or manual checks and pass structured evidence
+  into FlowGuard. Use `references/test_mesh_protocol.md` for the checklist.
+- A TestMesh must make known-bad hazards fail: missing owner, unregistered
+  owner, duplicate partition/state/side-effect owner, hidden skipped tests,
+  stale evidence, failed or timeout suite, progress-only background run,
+  missing exit/result artifact, and missing release-required suite under
+  release scope. Routine scope may defer release-only suites only when the
+  release obligation remains visible.
 - Treat runtime, test, replay, or manual validation failures after a FlowGuard
   pass as model-miss review triggers until proven otherwise. Do not patch and
   finish directly: classify why the earlier model missed the issue using one of

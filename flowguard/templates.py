@@ -1234,6 +1234,128 @@ Do not let a later green runtime check close a known model miss by itself.
 """
 
 
+TEST_MESH_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header
+
+Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
+Purpose: Review whether layered test evidence can support parent validation confidence.
+Guards against: stale child suites, hidden skips, progress-only background runs, duplicate ownership, and release checks blocking routine confidence.
+Use before editing: Update this TestMesh when changing validation layout, test partitions, slow regression gates, or background evidence contracts.
+Run: python .flowguard/test_mesh/run_checks.py
+"""
+
+from __future__ import annotations
+
+from flowguard import (
+    EVIDENCE_ABSTRACT_GREEN,
+    EVIDENCE_CONFORMANCE_GREEN,
+    TestMeshPlan,
+    TestPartitionItem,
+    TestSuiteEvidence,
+    review_test_mesh,
+)
+
+
+def routine_plan() -> TestMeshPlan:
+    return TestMeshPlan(
+        parent_suite_id="project-validation",
+        decision_scope="routine",
+        partition_items=(
+            TestPartitionItem("unit-fast", owner_suite_id="unit"),
+            TestPartitionItem("runtime-contract", owner_suite_id="runtime"),
+        ),
+        child_suites=(
+            TestSuiteEvidence(
+                "unit",
+                command="python -m unittest tests.test_fast",
+                result_status="passed",
+                evidence_tier=EVIDENCE_ABSTRACT_GREEN,
+                evidence_current=True,
+                test_count=12,
+                selected_count=12,
+            ),
+            TestSuiteEvidence(
+                "runtime",
+                command="python -m unittest tests.test_runtime_contract",
+                result_status="passed",
+                evidence_tier=EVIDENCE_ABSTRACT_GREEN,
+                evidence_current=True,
+                test_count=8,
+                selected_count=8,
+            ),
+            TestSuiteEvidence(
+                "release-full",
+                command="python -m unittest discover -s tests",
+                layer="release",
+                result_status="not_run",
+                evidence_tier=EVIDENCE_CONFORMANCE_GREEN,
+                release_required=True,
+                not_run_reason="release-only regression deferred during routine check",
+            ),
+        ),
+    )
+
+
+def broken_plan() -> TestMeshPlan:
+    return TestMeshPlan(
+        parent_suite_id="project-validation",
+        partition_items=(TestPartitionItem("runtime-contract", owner_suite_id="runtime"),),
+        child_suites=(
+            TestSuiteEvidence(
+                "runtime",
+                command="python -m unittest tests.test_runtime_contract",
+                result_status="passed",
+                evidence_tier=EVIDENCE_ABSTRACT_GREEN,
+                evidence_current=False,
+                skipped_count=2,
+                skipped_visible=False,
+                stale_reasons=("source_changed",),
+            ),
+        ),
+    )
+
+
+def run_checks():
+    return review_test_mesh(routine_plan()), review_test_mesh(broken_plan())
+'''
+
+
+TEST_MESH_RUN_CHECKS_TEMPLATE = '''"""Run the TestMesh template checks."""
+
+from __future__ import annotations
+
+from model import run_checks
+
+
+def main() -> int:
+    routine, broken = run_checks()
+    print(routine.format_text())
+    print()
+    print(broken.format_text(max_findings=3))
+    return 0 if routine.ok and not broken.ok else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+'''
+
+
+TEST_MESH_NOTES_TEMPLATE = """# FlowGuard TestMesh Notes
+
+Use this scaffold to keep a project's validation hierarchy explicit.
+
+## What TestMesh Reviews
+
+- which suite owns each behavior, state, command, or release partition;
+- whether child suite evidence is current and strong enough for the parent;
+- whether background logs include final exit/result artifacts;
+- whether skipped, timed-out, not-run, or release-only checks remain visible.
+
+TestMesh does not run your tests. Project adapters should run pytest, unittest,
+Playwright, simulation runners, or shell commands, then feed structured evidence
+into the TestMesh model.
+"""
+
+
 def project_template_files() -> tuple[TemplateFile, ...]:
     return (
         TemplateFile("model.py", MODEL_TEMPLATE),
@@ -1272,6 +1394,14 @@ def maintenance_workflow_template_files() -> tuple[TemplateFile, ...]:
     )
 
 
+def test_mesh_template_files() -> tuple[TemplateFile, ...]:
+    return (
+        TemplateFile(".flowguard/test_mesh/model.py", TEST_MESH_MODEL_TEMPLATE),
+        TemplateFile(".flowguard/test_mesh/run_checks.py", TEST_MESH_RUN_CHECKS_TEMPLATE),
+        TemplateFile("docs/flowguard_test_mesh.md", TEST_MESH_NOTES_TEMPLATE),
+    )
+
+
 def write_template_files(
     root: str | Path,
     files: tuple[TemplateFile, ...],
@@ -1302,11 +1432,15 @@ __all__ = [
     "RISK_INTENT_CHECK_PLAN_MODEL_TEMPLATE",
     "RISK_INTENT_CHECK_PLAN_NOTES_TEMPLATE",
     "RISK_INTENT_CHECK_PLAN_RUN_CHECKS_TEMPLATE",
+    "TEST_MESH_MODEL_TEMPLATE",
+    "TEST_MESH_NOTES_TEMPLATE",
+    "TEST_MESH_RUN_CHECKS_TEMPLATE",
     "TemplateFile",
     "adoption_template_files",
     "maintenance_workflow_template_files",
     "model_miss_review_template_files",
     "project_template_files",
     "risk_intent_template_files",
+    "test_mesh_template_files",
     "write_template_files",
 ]
