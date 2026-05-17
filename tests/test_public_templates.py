@@ -7,6 +7,7 @@ import unittest
 from pathlib import Path
 
 from flowguard.templates import (
+    code_structure_recommendation_template_files,
     model_miss_review_template_files,
     model_test_alignment_template_files,
     project_template_files,
@@ -108,6 +109,15 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("child suites/scripts", combined)
         self.assertIn("parallel to ModelMesh and StructureMesh", combined)
         self.assertIn("one giant parent graph", combined)
+        self.assertIn("model-derived split", combined)
+
+    def test_code_structure_recommendation_template_executes(self):
+        output = self.run_written_template(
+            code_structure_recommendation_template_files(),
+            (".flowguard", "code_structure_recommendation"),
+        )
+        self.assertIn("flowguard code structure recommendation", output)
+        self.assertIn("missing_source_model", output)
 
     def test_structure_mesh_template_executes(self):
         output = self.run_written_template(
@@ -124,6 +134,7 @@ class PublicTemplateTests(unittest.TestCase):
             risk_intent_template_files(),
             model_miss_review_template_files(),
             model_test_alignment_template_files(),
+            code_structure_recommendation_template_files(),
             test_mesh_template_files(),
             structure_mesh_template_files(),
         ):
@@ -136,6 +147,7 @@ class PublicTemplateTests(unittest.TestCase):
             "risk-intent-template": "risk_intent_check_plan",
             "model-miss-template": "model_miss_review",
             "model-test-alignment-template": "model_test_alignment",
+            "code-structure-recommendation-template": "code_structure_recommendation",
             "test-mesh-template": "test_mesh",
             "structure-mesh-template": "structure_mesh",
         }
@@ -179,6 +191,7 @@ class PublicTemplateTests(unittest.TestCase):
             risk_intent_template_files(),
             model_miss_review_template_files(),
             model_test_alignment_template_files(),
+            code_structure_recommendation_template_files(),
             test_mesh_template_files(),
             structure_mesh_template_files(),
         ):

@@ -16,6 +16,12 @@ The mesh does not expand every child state graph. Each child remains responsible
 for its own internal states and invariants. The parent boundary only reads the
 child's contract and evidence summary.
 
+Before the parent mesh trusts a child-model layout, it should record the target
+split derivation from a FlowGuard source model or model-of-models. The
+derivation names the source model, target child models, covered partition items,
+state owner fields, side-effect owner fields, and rationale for the split. A
+partition map without this derivation is not enough for green mesh confidence.
+
 ## When To Trigger It
 
 Run a hierarchical mesh review when either quantity or scale suggests the model
@@ -32,6 +38,20 @@ Quantity means coordination risk. Scale means split risk. Either one is enough
 to ask the mesh whether the current model layout is still healthy.
 
 ## Partition Maps
+
+## Target Split Derivation
+
+Each parent boundary should include a `ModelTargetSplitDerivation`:
+
+- `source_model_id`: the FlowGuard model used to derive the split;
+- `target_child_model_ids`: child model regions in the target layout;
+- `covered_partition_item_ids`: parent partition items covered by the split;
+- `state_owner_fields` and `side_effect_owner_fields`: ownership boundaries
+  that shaped the split;
+- `rationale`: why this target layout follows from the model.
+
+Missing source, missing target children, incomplete coverage, or prose-only
+derivations block parent mesh confidence.
 
 Each parent boundary should declare a partition map. A partition map names the
 parent-space items and who owns them:
@@ -89,6 +109,7 @@ from flowguard import (
     ChildModelEvidence,
     HierarchyCoverageItem,
     HierarchyPartitionMap,
+    ModelTargetSplitDerivation,
     review_hierarchical_mesh,
 )
 
@@ -102,6 +123,12 @@ partition = HierarchyPartitionMap(
     child_models=(
         ChildModelEvidence("payment", evidence_tier="abstract_green"),
         ChildModelEvidence("inventory", evidence_tier="abstract_green"),
+    ),
+    target_split_derivation=ModelTargetSplitDerivation(
+        "checkout_root",
+        target_child_model_ids=("payment", "inventory"),
+        covered_partition_item_ids=("payment", "inventory", "order_status"),
+        rationale="derived from checkout model blocks and ownership boundaries",
     ),
 )
 

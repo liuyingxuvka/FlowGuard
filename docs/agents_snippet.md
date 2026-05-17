@@ -40,6 +40,7 @@ Route map:
 | Trigger | Route |
 | --- | --- |
 | Ordinary modeling, Risk Intent, state write inventory, invariants, Explorer | `core_modeling` |
+| Direct architecture recommendation or model-derived implementation structure | `code_structure_recommendation` |
 | Direct comparison between FlowGuard model obligations and ordinary test evidence | `model_test_alignment` |
 | Three or more local models, oversized model, parent/child model evidence | `model_mesh_maintenance` |
 | Large test script/suite split, parent/child test hierarchy, slow/stale/release-only tests | `test_mesh_maintenance` |
@@ -51,9 +52,9 @@ Route map:
 
 Use the matching Skill reference protocol for details. Helper APIs such as
 `RiskIntent`, property factories, packs, `FlowGuardCheckPlan`,
-`review_model_test_alignment()`, `review_test_mesh()`,
-`review_structure_mesh()`, templates, and starter CLIs are package helpers,
-not standalone sub-skills.
+`review_code_structure_recommendation()`, `review_model_test_alignment()`,
+`review_test_mesh()`, `review_structure_mesh()`, templates, and starter CLIs
+are package helpers, not standalone sub-skills.
 
 Use Model-Test Alignment when a model's scenarios, invariants, hazards,
 transitions, or contracts need direct test evidence. It compares plain
@@ -68,9 +69,15 @@ LongCheck observability.
 
 Treat ModelMesh, TestMesh, and StructureMesh as sibling parent/child partition
 routes: models split into child models, tests split into child suites/scripts,
-and code structure splits into child modules/scripts. Parent layers consume
+and existing code structure splits into child modules/scripts. StructureMesh
+splits must include model-derived target code structure. Parent layers consume
 child contracts and evidence; they should not expand every child internal route
 into one large parent graph.
+
+For ModelMesh and TestMesh, the parent split needs a FlowGuard-derived target
+structure before green parent confidence: source model, target children,
+covered partition items, ownership fields, and rationale. A supplied partition
+map or flat child list alone is not enough.
 
 For post-runtime model misses, classify the miss as `boundary_missing`,
 `state_too_coarse`, `input_branch_missing`, `invariant_too_weak`, or

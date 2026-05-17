@@ -6,6 +6,7 @@ from flowguard import (
     TestMeshPlan,
     TestPartitionItem,
     TestSuiteEvidence,
+    TestTargetSplitDerivation,
     review_test_mesh,
 )
 
@@ -21,6 +22,17 @@ def suite(suite_id, **kwargs):
     return TestSuiteEvidence(suite_id, **defaults)
 
 
+def target(source_model_id, suite_ids, item_ids, *, state=False, side_effect=False):
+    return TestTargetSplitDerivation(
+        source_model_id,
+        target_suite_ids=tuple(suite_ids),
+        covered_partition_item_ids=tuple(item_ids),
+        state_owner_fields=("state_owner_map",) if state else (),
+        side_effect_owner_fields=("side_effect_owner_map",) if side_effect else (),
+        rationale="derived from parent FlowGuard validation structure model",
+    )
+
+
 class TestMeshTests(unittest.TestCase):
     def test_complete_test_mesh_can_continue(self):
         plan = TestMeshPlan(
@@ -30,6 +42,11 @@ class TestMeshTests(unittest.TestCase):
                 TestPartitionItem("packets", owner_suite_id="packets"),
             ),
             child_suites=(suite("controller"), suite("packets")),
+            target_split_derivation=target(
+                "router-runtime-validation",
+                ("controller", "packets"),
+                ("controller", "packets"),
+            ),
         )
 
         report = review_test_mesh(plan)
@@ -44,6 +61,7 @@ class TestMeshTests(unittest.TestCase):
             parent_suite_id="router-runtime",
             partition_items=(TestPartitionItem("startup", owner_suite_id=""),),
             child_suites=(suite("controller"),),
+            target_split_derivation=target("router-runtime-validation", ("controller",), ("startup",)),
         )
 
         report = review_test_mesh(plan)
@@ -57,6 +75,7 @@ class TestMeshTests(unittest.TestCase):
             parent_suite_id="router-runtime",
             partition_items=(TestPartitionItem("startup", owner_suite_id="startup-daemon"),),
             child_suites=(suite("controller"),),
+            target_split_derivation=target("router-runtime-validation", ("controller",), ("startup",)),
         )
 
         report = review_test_mesh(plan)
@@ -74,6 +93,13 @@ class TestMeshTests(unittest.TestCase):
             child_suites=(
                 suite("route-a", owns_state=("run_state",), owns_side_effects=("write_ledger",)),
                 suite("route-b", owns_state=("run_state",), owns_side_effects=("write_ledger",)),
+            ),
+            target_split_derivation=target(
+                "router-runtime-validation",
+                ("route-a", "route-b"),
+                ("route-state",),
+                state=True,
+                side_effect=True,
             ),
         )
 
@@ -99,6 +125,7 @@ class TestMeshTests(unittest.TestCase):
                     progress_only=True,
                 ),
             ),
+            target_split_derivation=target("router-runtime-validation", ("startup",), ("startup",)),
         )
 
         report = review_test_mesh(plan)
@@ -114,6 +141,7 @@ class TestMeshTests(unittest.TestCase):
                     parent_suite_id="router-runtime",
                     partition_items=(TestPartitionItem(status, owner_suite_id=status),),
                     child_suites=(suite(status, result_status=status),),
+                    target_split_derivation=target("router-runtime-validation", (status,), (status,)),
                 )
                 self.assertEqual(decision, review_test_mesh(plan).decision)
 
@@ -121,6 +149,7 @@ class TestMeshTests(unittest.TestCase):
             parent_suite_id="router-runtime",
             partition_items=(TestPartitionItem("controller", owner_suite_id="controller"),),
             child_suites=(suite("controller", evidence_current=False, stale_reasons=("source_changed",)),),
+            target_split_derivation=target("router-runtime-validation", ("controller",), ("controller",)),
         )
         self.assertEqual("stale_test_evidence", review_test_mesh(stale).decision)
 
@@ -129,6 +158,7 @@ class TestMeshTests(unittest.TestCase):
             parent_suite_id="router-runtime",
             partition_items=(TestPartitionItem("cards", owner_suite_id="cards"),),
             child_suites=(suite("cards", skipped_count=2, skipped_visible=False),),
+            target_split_derivation=target("router-runtime-validation", ("cards",), ("cards",)),
         )
 
         report = review_test_mesh(plan)
@@ -142,6 +172,7 @@ class TestMeshTests(unittest.TestCase):
             required_evidence_tier=EVIDENCE_CONFORMANCE_GREEN,
             partition_items=(TestPartitionItem("publish", owner_suite_id="publish"),),
             child_suites=(suite("publish", evidence_tier=EVIDENCE_ABSTRACT_GREEN),),
+            target_split_derivation=target("release-validation", ("publish",), ("publish",)),
         )
 
         report = review_test_mesh(plan)
@@ -159,6 +190,7 @@ class TestMeshTests(unittest.TestCase):
                 suite("unit"),
                 suite("full-release", layer="release", release_required=True, result_status="not_run"),
             ),
+            target_split_derivation=target("validation-model", ("unit", "full-release"), ("unit",)),
         )
 
         report = review_test_mesh(plan)
@@ -177,6 +209,7 @@ class TestMeshTests(unittest.TestCase):
                 suite("unit"),
                 suite("full-release", layer="release", release_required=True, result_status="not_run"),
             ),
+            target_split_derivation=target("validation-model", ("unit", "full-release"), ("unit",)),
         )
 
         report = review_test_mesh(plan)
@@ -184,6 +217,44 @@ class TestMeshTests(unittest.TestCase):
         self.assertFalse(report.ok)
         self.assertEqual("missing_release_evidence", report.decision)
         self.assertIn("release_suite_not_current", [finding.code for finding in report.findings])
+
+    def test_missing_target_split_derivation_blocks_parent_green(self):
+        plan = TestMeshPlan(
+            parent_suite_id="router-runtime",
+            partition_items=(TestPartitionItem("controller", owner_suite_id="controller"),),
+            child_suites=(suite("controller"),),
+        )
+
+        report = review_test_mesh(plan)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("target_split_derivation_required", report.decision)
+        self.assertIn("missing_target_split_derivation", [finding.code for finding in report.findings])
+
+    def test_incomplete_target_split_derivation_blocks_parent_green(self):
+        plan = TestMeshPlan(
+            parent_suite_id="router-runtime",
+            partition_items=(
+                TestPartitionItem("controller", owner_suite_id="controller"),
+                TestPartitionItem("packets", owner_suite_id="packets"),
+            ),
+            child_suites=(suite("controller"), suite("packets")),
+            target_split_derivation=TestTargetSplitDerivation(
+                "router-runtime-validation",
+                target_suite_ids=("controller", "unknown"),
+                covered_partition_item_ids=("controller",),
+                rationale="derived from a partial validation model",
+            ),
+        )
+
+        report = review_test_mesh(plan)
+        codes = [finding.code for finding in report.findings]
+
+        self.assertFalse(report.ok)
+        self.assertEqual("target_split_derivation_required", report.decision)
+        self.assertIn("unknown_target_suite", codes)
+        self.assertIn("incomplete_target_suites", codes)
+        self.assertIn("incomplete_target_split_coverage", codes)
 
 
 if __name__ == "__main__":

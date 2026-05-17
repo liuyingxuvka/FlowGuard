@@ -27,6 +27,13 @@ owned partition, freshness rule, result status, skipped visibility, and output
 evidence. A child can become its own parent gate when its internal test layout
 needs another split.
 
+Before the parent gate trusts a child-suite layout, it should record the target
+split derivation from a FlowGuard validation-structure model. The derivation
+names the source model, target child suites/scripts, covered partition items,
+state owner fields, side-effect owner fields, and rationale for the validation
+split. A partition map without this derivation is not enough for green parent
+confidence.
+
 ## When To Trigger It
 
 Run a TestMesh review when test execution or validation confidence needs a
@@ -50,6 +57,22 @@ Hierarchical model mesh governs FlowGuard model boundaries. TestMesh governs
 test and validation boundaries.
 
 ## Partition Ownership
+
+## Target Split Derivation
+
+Each parent test gate should include a `TestTargetSplitDerivation`:
+
+- `source_model_id`: the FlowGuard validation-structure model used to derive
+  the split;
+- `target_suite_ids`: child suites or scripts in the target layout;
+- `covered_partition_item_ids`: parent validation partitions covered by the
+  split;
+- `state_owner_fields` and `side_effect_owner_fields`: ownership boundaries
+  that shaped the split;
+- `rationale`: why this suite/script layout follows from the model.
+
+Missing source, unknown target suites, incomplete partition coverage, or
+prose-only derivations block parent gate confidence.
 
 Each parent test gate should declare partition items. A partition item can name
 a behavior, state field, module, command, side effect, invariant, or release
@@ -100,6 +123,7 @@ from flowguard import (
     TestMeshPlan,
     TestPartitionItem,
     TestSuiteEvidence,
+    TestTargetSplitDerivation,
     review_test_mesh,
 )
 
@@ -131,6 +155,13 @@ plan = TestMeshPlan(
             exit_code=0,
             owns_state=("runtime_state",),
         ),
+    ),
+    target_split_derivation=TestTargetSplitDerivation(
+        "project-validation-model",
+        target_suite_ids=("unit", "runtime"),
+        covered_partition_item_ids=("unit-fast", "runtime-contract"),
+        state_owner_fields=("runtime_state",),
+        rationale="derived from validation model partitions and runtime state ownership",
     ),
 )
 

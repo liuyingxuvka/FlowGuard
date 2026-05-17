@@ -31,6 +31,13 @@ whether those regions cover the parent space without unsafe overlap. A child can
 become a parent when it grows large enough to split again, so mesh review can
 apply at several levels.
 
+Before a parent/child model layout supports mesh confidence, derive the target
+child model structure from a FlowGuard source model or model-of-models. The
+target split derivation should name the source model, target child model ids,
+covered parent partition items, state ownership fields, side-effect ownership
+fields, and the rationale for the split. A supplied partition map is review
+input, not authority by itself.
+
 ## Inventory
 
 Before trusting existing models, write a compact inventory:
@@ -51,8 +58,25 @@ Before trusting existing models, write a compact inventory:
 | `coverage_owned` | Parent partition items owned by this child. |
 | `side_effects_owned` | Side effects this child can emit. |
 | `large_model_signal` | Estimated/observed state count, incomplete budgeted run, or unrelated functional areas that trigger split review. |
+| `target_split_derivation` | Source FlowGuard model and target child model layout that derived this parent split. |
 
 ## Partition And Overlap Review
+
+## Target Split Derivation
+
+For each parent model boundary, record a target split derivation before green
+mesh confidence:
+
+- source FlowGuard model or model-of-models id;
+- target child model ids;
+- parent coverage items represented by the target split;
+- state and side-effect owner fields that shaped the split;
+- rationale for why these child model regions are the right target structure.
+
+Missing, source-less, target-less, prose-only, or coverage-incomplete target
+derivations are blockers. The mesh still should not expand every child state
+graph; it derives the target child layout, then consumes each child model as a
+contract-bearing evidence source.
 
 When a mesh represents a parent/child hierarchy, add a compact partition map.
 The map should classify parent-space items by function, state, input, output,
@@ -172,15 +196,19 @@ Tasks:
 5. For each parent boundary, create a partition map that assigns parent-space
    functions, state, side effects, invariants, and failure modes to a child,
    the parent, read-only use, or an explicit shared kernel.
-6. Encode the required hazards from `model_mesh_protocol.md` as broken variants.
-7. Run Explorer plus progress/stuck review, hazard review, and conformance or
+6. Record the target split derivation from the FlowGuard source model to the
+   proposed child model layout. Include source model, targets, coverage, state
+   owners, side-effect owners, and rationale.
+7. Encode the required hazards from `model_mesh_protocol.md` as broken variants.
+8. Run Explorer plus progress/stuck review, hazard review, and conformance or
    live projection when applicable.
-8. Return a decision: `mesh_green_can_continue`, `add_evidence`,
+9. Return a decision: `mesh_green_can_continue`, `add_evidence`,
    `update_child_model`, `split_model_boundary`, `coverage_gap_blocked`,
    `overlap_too_high_refactor_needed`, `ownership_conflict`,
-   `large_model_split_review_required`, `blocked_by_stale_evidence`,
-   `blocked_by_cross_model_contradiction`, or `model_coverage_insufficient`.
-9. Report what the mesh proves, what it does not prove, and which checks were
+   `target_split_derivation_required`, `large_model_split_review_required`,
+   `blocked_by_stale_evidence`, `blocked_by_cross_model_contradiction`, or
+   `model_coverage_insufficient`.
+10. Report what the mesh proves, what it does not prove, and which checks were
    skipped. Skipped is not pass.
 ```
 
@@ -194,6 +222,8 @@ The mesh is sufficient for the current decision only when:
 - skipped or missing live/conformance checks remain visible;
 - cross-model contradictions are either absent or converted into blockers;
 - each parent partition item is covered or explicitly out of scope;
+- the target child model layout is derived from a FlowGuard model and covers
+  the parent partition items used by the decision;
 - sibling overlap is either read-only, shared-kernel-owned, or converted into a
   split/merge/refactor decision;
 - oversized new or legacy models have a split-review decision;

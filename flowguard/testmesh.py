@@ -170,12 +170,48 @@ class TestSuiteEvidence:
 
 
 @dataclass(frozen=True)
+class TestTargetSplitDerivation:
+    """Model-derived target child-suite layout for one parent TestMesh gate."""
+
+    source_model_id: str
+    target_suite_ids: tuple[str, ...] = ()
+    covered_partition_item_ids: tuple[str, ...] = ()
+    state_owner_fields: tuple[str, ...] = ()
+    side_effect_owner_fields: tuple[str, ...] = ()
+    source_model_path: str = ""
+    rationale: str = ""
+    derived_from_flowguard_model: bool = True
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "source_model_id", str(self.source_model_id))
+        object.__setattr__(self, "target_suite_ids", _as_tuple(self.target_suite_ids))
+        object.__setattr__(self, "covered_partition_item_ids", _as_tuple(self.covered_partition_item_ids))
+        object.__setattr__(self, "state_owner_fields", _as_tuple(self.state_owner_fields))
+        object.__setattr__(self, "side_effect_owner_fields", _as_tuple(self.side_effect_owner_fields))
+        object.__setattr__(self, "source_model_path", str(self.source_model_path))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "source_model_id": self.source_model_id,
+            "target_suite_ids": list(self.target_suite_ids),
+            "covered_partition_item_ids": list(self.covered_partition_item_ids),
+            "state_owner_fields": list(self.state_owner_fields),
+            "side_effect_owner_fields": list(self.side_effect_owner_fields),
+            "source_model_path": self.source_model_path,
+            "rationale": self.rationale,
+            "derived_from_flowguard_model": self.derived_from_flowguard_model,
+        }
+
+
+@dataclass(frozen=True)
 class TestMeshPlan:
     """A parent test boundary and the child evidence used for a decision."""
 
     parent_suite_id: str
     partition_items: tuple[TestPartitionItem, ...] = ()
     child_suites: tuple[TestSuiteEvidence, ...] = ()
+    target_split_derivation: TestTargetSplitDerivation | None = None
     required_evidence_tier: str = EVIDENCE_ABSTRACT_GREEN
     decision_scope: str = TEST_SCOPE_ROUTINE
     release_deferred_allowed: bool = True
@@ -196,6 +232,11 @@ class TestMeshPlan:
             "parent_suite_id": self.parent_suite_id,
             "partition_items": [item.to_dict() for item in self.partition_items],
             "child_suites": [suite.to_dict() for suite in self.child_suites],
+            "target_split_derivation": (
+                self.target_split_derivation.to_dict()
+                if self.target_split_derivation is not None
+                else None
+            ),
             "required_evidence_tier": self.required_evidence_tier,
             "decision_scope": self.decision_scope,
             "release_deferred_allowed": self.release_deferred_allowed,
@@ -314,6 +355,15 @@ def _decision_for_findings(findings: Sequence[TestMeshFinding]) -> str:
     if not blockers:
         return "test_mesh_green_can_continue"
     priority = [
+        ("missing_target_split_derivation", "target_split_derivation_required"),
+        ("invalid_target_split_derivation", "target_split_derivation_required"),
+        ("missing_target_suites", "target_split_derivation_required"),
+        ("unknown_target_suite", "target_split_derivation_required"),
+        ("incomplete_target_suites", "target_split_derivation_required"),
+        ("incomplete_target_split_coverage", "target_split_derivation_required"),
+        ("missing_target_state_owner_map", "target_split_derivation_required"),
+        ("missing_target_side_effect_owner_map", "target_split_derivation_required"),
+        ("missing_target_split_rationale", "target_split_derivation_required"),
         ("coverage_gap", "coverage_gap_blocked"),
         ("duplicate_partition_owner", "ownership_conflict"),
         ("duplicate_state_owner", "ownership_conflict"),
@@ -331,6 +381,107 @@ def _decision_for_findings(findings: Sequence[TestMeshFinding]) -> str:
         if code in codes:
             return decision
     return "test_mesh_blocked"
+
+
+def _target_split_derivation_findings(plan: TestMeshPlan) -> list[TestMeshFinding]:
+    findings: list[TestMeshFinding] = []
+    if not plan.partition_items and not plan.child_suites:
+        return findings
+
+    derivation = plan.target_split_derivation
+    if derivation is None:
+        return [
+            TestMeshFinding(
+                "missing_target_split_derivation",
+                "parent test gate lacks FlowGuard-derived target split structure",
+                suite_id=plan.parent_suite_id,
+            )
+        ]
+
+    if not derivation.derived_from_flowguard_model or not derivation.source_model_id:
+        findings.append(
+            TestMeshFinding(
+                "invalid_target_split_derivation",
+                "target test split derivation must name the FlowGuard source model",
+                suite_id=plan.parent_suite_id,
+                metadata=derivation.to_dict(),
+            )
+        )
+
+    suite_ids = {suite.suite_id for suite in plan.child_suites}
+    target_ids = set(derivation.target_suite_ids)
+    if not target_ids:
+        findings.append(
+            TestMeshFinding(
+                "missing_target_suites",
+                "target test split derivation has no target child suites",
+                suite_id=plan.parent_suite_id,
+                metadata=derivation.to_dict(),
+            )
+        )
+    else:
+        unknown_targets = tuple(sorted(target_ids - suite_ids))
+        if unknown_targets:
+            findings.append(
+                TestMeshFinding(
+                    "unknown_target_suite",
+                    "target test split derivation names unregistered child suites",
+                    suite_id=plan.parent_suite_id,
+                    metadata={"unknown_targets": unknown_targets, "derivation": derivation.to_dict()},
+                )
+            )
+        missing_targets = tuple(sorted(suite_ids - target_ids))
+        if missing_targets:
+            findings.append(
+                TestMeshFinding(
+                    "incomplete_target_suites",
+                    "target test split derivation omits registered child suites",
+                    suite_id=plan.parent_suite_id,
+                    metadata={"missing_targets": missing_targets, "derivation": derivation.to_dict()},
+                )
+            )
+
+    partition_ids = {item.item_id for item in plan.partition_items}
+    covered_ids = set(derivation.covered_partition_item_ids)
+    missing_coverage = tuple(sorted(partition_ids - covered_ids))
+    if missing_coverage:
+        findings.append(
+            TestMeshFinding(
+                "incomplete_target_split_coverage",
+                "target test split derivation does not cover all parent partition items",
+                suite_id=plan.parent_suite_id,
+                metadata={"missing_coverage": missing_coverage, "derivation": derivation.to_dict()},
+            )
+        )
+
+    if not derivation.state_owner_fields and any(suite.owns_state for suite in plan.child_suites):
+        findings.append(
+            TestMeshFinding(
+                "missing_target_state_owner_map",
+                "target test split derivation omits state owner fields",
+                suite_id=plan.parent_suite_id,
+                metadata=derivation.to_dict(),
+            )
+        )
+    if not derivation.side_effect_owner_fields and any(suite.owns_side_effects for suite in plan.child_suites):
+        findings.append(
+            TestMeshFinding(
+                "missing_target_side_effect_owner_map",
+                "target test split derivation omits side-effect owner fields",
+                suite_id=plan.parent_suite_id,
+                metadata=derivation.to_dict(),
+            )
+        )
+    if not derivation.rationale:
+        findings.append(
+            TestMeshFinding(
+                "missing_target_split_rationale",
+                "target test split derivation lacks rationale",
+                suite_id=plan.parent_suite_id,
+                metadata=derivation.to_dict(),
+            )
+        )
+    return findings
 
 
 def _partition_findings(plan: TestMeshPlan) -> list[TestMeshFinding]:
@@ -513,6 +664,7 @@ def review_test_mesh(plan: TestMeshPlan) -> TestMeshReport:
     """Review a test hierarchy without running the tests."""
 
     findings = _partition_findings(plan)
+    findings.extend(_target_split_derivation_findings(plan))
     findings.extend(
         _duplicate_value_findings(
             plan.child_suites,
@@ -561,5 +713,6 @@ __all__ = [
     "TestMeshReport",
     "TestPartitionItem",
     "TestSuiteEvidence",
+    "TestTargetSplitDerivation",
     "review_test_mesh",
 ]

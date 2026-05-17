@@ -37,6 +37,7 @@ class SkillDocsTests(unittest.TestCase):
 
         expected_routes = (
             "core_modeling",
+            "code_structure_recommendation",
             "model_test_alignment",
             "model_mesh_maintenance",
             "test_mesh_maintenance",
@@ -49,6 +50,7 @@ class SkillDocsTests(unittest.TestCase):
         expected_refs = (
             "references/skill_kernel_protocol.md",
             "references/modeling_protocol.md",
+            "references/code_structure_recommendation_protocol.md",
             "references/model_test_alignment_protocol.md",
             "references/model_mesh_protocol.md",
             "references/test_mesh_protocol.md",
@@ -111,6 +113,8 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("docs/test_evidence_mesh.md", text)
         self.assertIn("Check The StructureMesh Trigger", text)
         self.assertIn("docs/structure_mesh.md", text)
+        self.assertIn("Check The Code Structure Recommendation Route", text)
+        self.assertIn("docs/code_structure_recommendation.md", text)
 
     def test_agents_snippet_uses_kernel_route_map(self):
         text = (ROOT / "docs" / "agents_snippet.md").read_text(encoding="utf-8")
@@ -118,6 +122,7 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("Hard gates", text)
         self.assertIn("Route map", text)
         self.assertIn("core_modeling", text)
+        self.assertIn("code_structure_recommendation", text)
         self.assertIn("test_mesh_maintenance", text)
         self.assertIn("model_test_alignment", text)
         self.assertIn("does not invoke", text)
@@ -155,16 +160,24 @@ class SkillDocsTests(unittest.TestCase):
         model_mesh = (SKILL_ROOT / "references" / "model_mesh_protocol.md").read_text(encoding="utf-8")
         test_mesh = (SKILL_ROOT / "references" / "test_mesh_protocol.md").read_text(encoding="utf-8")
         structure_mesh = (SKILL_ROOT / "references" / "structure_mesh_protocol.md").read_text(encoding="utf-8")
+        code_structure = (SKILL_ROOT / "references" / "code_structure_recommendation_protocol.md").read_text(encoding="utf-8")
 
+        self.assertIn("Code Structure Recommendation Protocol", code_structure)
+        self.assertIn("FunctionBlock-to-module ownership", code_structure)
+        self.assertIn("not a mandatory step", code_structure)
         self.assertIn("Local Model Mesh Protocol", model_mesh)
         self.assertIn("Required Hazards", model_mesh)
+        self.assertIn("target split derivation", model_mesh)
         self.assertIn("TestMesh Protocol", test_mesh)
         self.assertIn("test-side sibling of ModelMesh and StructureMesh", test_mesh)
+        self.assertIn("target split derivation", test_mesh)
         self.assertIn("child test scripts", test_mesh)
         self.assertIn("become its own parent gate", test_mesh)
         self.assertIn("Routine And Release Scope", test_mesh)
         self.assertIn("StructureMesh Protocol", structure_mesh)
         self.assertIn("dependency cycle", structure_mesh)
+        self.assertIn("Target Structure Derivation", structure_mesh)
+        self.assertIn("mandatory for existing", structure_mesh)
 
     def test_new_skill_kernel_protocol_references_exist(self):
         kernel = (SKILL_ROOT / "references" / "skill_kernel_protocol.md").read_text(encoding="utf-8")

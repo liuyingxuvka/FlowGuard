@@ -1,5 +1,35 @@
 # Changelog
 
+## v0.11.0 - 2026-05-17
+
+- Added Code Structure Recommendation helper APIs:
+  `TargetModuleRecommendation`, `CodeStructureRecommendation`,
+  `CodeStructureFinding`, `CodeStructureRecommendationReport`, and
+  `review_code_structure_recommendation(...)`.
+- Added review checks for missing source FlowGuard model evidence, missing
+  parent boundary, missing target modules, missing FunctionBlock maps, missing
+  validation plans, missing module rationales, unregistered owners, and
+  duplicate FunctionBlock/state/side-effect/config ownership.
+- Added a `code-structure-recommendation-template` CLI scaffold, public
+  documentation, Skill Kernel route guidance, OpenSpec artifacts, focused
+  tests, and a StructureMesh rollout model that catches target structures that
+  are not model-derived or do not map model boundaries.
+- Upgraded StructureMesh so existing large-script or large-module splits must
+  include model-derived target code structure evidence inside the
+  `StructureMeshPlan`; missing or mismatched target structure now blocks
+  refactor confidence.
+- Upgraded ModelMesh and TestMesh parent confidence checks to require
+  FlowGuard-derived target split derivations before trusting child model or
+  child suite/script ownership.
+- Added `ModelTargetSplitDerivation` and `TestTargetSplitDerivation` helper
+  records, protocol guidance, focused tests, and a FlowGuard rollout model for
+  target split derivation coverage.
+- Kept ordinary model-first work flexible: Code Structure Recommendation is a
+  parallel route for direct architecture/file-split recommendations, not a hard
+  gate for every FlowGuard model.
+- Schema remains `1.0`; runtime dependencies remain Python standard library
+  only.
+
 ## v0.10.0 - 2026-05-17
 
 - Added standalone Model-Test Alignment helper APIs:

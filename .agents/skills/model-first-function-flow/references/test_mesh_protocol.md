@@ -17,6 +17,12 @@ should not inline every child test case, fixture, or internal state route. When
 a child suite grows too large, it can become its own parent gate with another
 local TestMesh.
 
+Before child suite evidence can support parent confidence, derive the target
+child suite/script structure from a FlowGuard validation-structure model. The
+target split derivation should name the source model, target suite ids, covered
+partition items, state ownership fields, side-effect ownership fields, and the
+rationale for the validation split. A flat list of suites is not enough.
+
 ## Trigger
 
 Create or update a TestMesh when:
@@ -35,6 +41,22 @@ Create or update a TestMesh when:
   confidence.
 
 ## Partition Checklist
+
+## Target Split Derivation
+
+For the parent test gate, record a target split derivation before green parent
+confidence:
+
+- source FlowGuard validation-structure model id;
+- target child suite or script ids;
+- parent partition items represented by the target validation split;
+- state and side-effect owner fields that shaped the split;
+- rationale for why these suites/scripts are the target validation structure.
+
+Missing, source-less, target-less, unknown-suite, prose-only, or
+coverage-incomplete derivations are blockers. TestMesh still does not run tests;
+it derives the target validation layout, then reviews the evidence supplied by
+the registered child suites/scripts.
 
 For the parent test gate, list each partition item:
 
@@ -110,7 +132,18 @@ Child suite evidence:
 - owned side effects:
 - not-run or stale reasons:
 
+Target split derivation:
+- source FlowGuard validation model:
+- target child suites/scripts:
+- covered partition items:
+- state owner fields:
+- side-effect owner fields:
+- rationale:
+
 Known hazards that must fail:
+- missing target split derivation;
+- target split derivation not sourced from a FlowGuard model;
+- target split derivation omits target suites or partition coverage;
 - missing child owner;
 - unregistered owner suite;
 - flat test split with no parent/child ownership map;
@@ -129,6 +162,8 @@ Known hazards that must fail:
 A TestMesh review can support the parent only when:
 
 - every partition item is owned;
+- the target suite/script layout is derived from a FlowGuard model and covers
+  the parent partition items used by the decision;
 - every child owner is registered;
 - sibling ownership conflicts are absent or explicitly shared;
 - parent confidence is based on child contracts rather than expanded child

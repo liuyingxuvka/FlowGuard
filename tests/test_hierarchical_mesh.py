@@ -6,6 +6,7 @@ from flowguard import (
     HierarchyCoverageItem,
     HierarchyPartitionMap,
     LegacyModelRecord,
+    ModelTargetSplitDerivation,
     classify_legacy_model,
     review_hierarchical_mesh,
 )
@@ -20,6 +21,17 @@ def child(model_id, **kwargs):
     return ChildModelEvidence(model_id, **defaults)
 
 
+def target(source_model_id, child_ids, item_ids, *, state=False, side_effect=False):
+    return ModelTargetSplitDerivation(
+        source_model_id,
+        target_child_model_ids=tuple(child_ids),
+        covered_partition_item_ids=tuple(item_ids),
+        state_owner_fields=("state_owner_map",) if state else (),
+        side_effect_owner_fields=("side_effect_owner_map",) if side_effect else (),
+        rationale="derived from parent FlowGuard model blocks, state writes, and side effects",
+    )
+
+
 class HierarchicalMeshTests(unittest.TestCase):
     def test_complete_partition_map_can_continue(self):
         partition = HierarchyPartitionMap(
@@ -30,6 +42,11 @@ class HierarchicalMeshTests(unittest.TestCase):
                 HierarchyCoverageItem("order_status", ownership="parent"),
             ),
             child_models=(child("payment"), child("inventory")),
+            target_split_derivation=target(
+                "checkout",
+                ("payment", "inventory"),
+                ("payment", "inventory", "order_status"),
+            ),
         )
 
         report = review_hierarchical_mesh(partition)
@@ -44,6 +61,7 @@ class HierarchicalMeshTests(unittest.TestCase):
             parent_model_id="checkout",
             coverage_items=(HierarchyCoverageItem("fulfillment", owner_model_id=""),),
             child_models=(child("payment"),),
+            target_split_derivation=target("checkout", ("payment",), ("fulfillment",)),
         )
 
         report = review_hierarchical_mesh(partition)
@@ -60,6 +78,11 @@ class HierarchicalMeshTests(unittest.TestCase):
                 HierarchyCoverageItem("order_id", owner_model_id="fulfillment", ownership="read_only"),
             ),
             child_models=(child("payment"), child("fulfillment")),
+            target_split_derivation=target(
+                "checkout",
+                ("payment", "fulfillment"),
+                ("order_id",),
+            ),
         )
         conflict = HierarchyPartitionMap(
             parent_model_id="checkout",
@@ -68,6 +91,11 @@ class HierarchicalMeshTests(unittest.TestCase):
                 HierarchyCoverageItem("order_status", owner_model_id="fulfillment"),
             ),
             child_models=(child("payment"), child("fulfillment")),
+            target_split_derivation=target(
+                "checkout",
+                ("payment", "fulfillment"),
+                ("order_status",),
+            ),
         )
 
         self.assertTrue(review_hierarchical_mesh(allowed).ok)
@@ -85,6 +113,13 @@ class HierarchicalMeshTests(unittest.TestCase):
             child_models=(
                 child("payment", state_owned=("order_status",), side_effects_owned=("send_email",)),
                 child("fulfillment", state_owned=("order_status",), side_effects_owned=("send_email",)),
+            ),
+            target_split_derivation=target(
+                "checkout",
+                ("payment", "fulfillment"),
+                ("payment", "fulfillment"),
+                state=True,
+                side_effect=True,
             ),
         )
 
@@ -106,6 +141,7 @@ class HierarchicalMeshTests(unittest.TestCase):
                 child("payment", functional_areas=("payment", "fraud")),
                 child("risk", functional_areas=("fraud", "risk")),
             ),
+            target_split_derivation=target("checkout", ("payment", "risk"), ("payment", "risk")),
         )
 
         report = review_hierarchical_mesh(partition)
@@ -118,6 +154,7 @@ class HierarchicalMeshTests(unittest.TestCase):
             parent_model_id="checkout",
             coverage_items=partition.coverage_items,
             child_models=partition.child_models,
+            target_split_derivation=partition.target_split_derivation,
             allowed_shared_areas=("fraud",),
         )
         self.assertTrue(review_hierarchical_mesh(allowed).ok)
@@ -135,6 +172,7 @@ class HierarchicalMeshTests(unittest.TestCase):
                 child("b", estimated_state_count=10_001, structurally_cohesive=True),
                 child("c"),
             ),
+            target_split_derivation=target("checkout", ("a", "b", "c"), ("a", "b", "c")),
         )
 
         report = review_hierarchical_mesh(partition)
@@ -156,6 +194,7 @@ class HierarchicalMeshTests(unittest.TestCase):
                     structurally_cohesive=False,
                 ),
             ),
+            target_split_derivation=target("workflow", ("large",), ("large",)),
         )
 
         report = review_hierarchical_mesh(partition)
@@ -178,6 +217,7 @@ class HierarchicalMeshTests(unittest.TestCase):
                     not_run_checks=("live_projection",),
                 ),
             ),
+            target_split_derivation=target("release", ("publisher",), ("publish",)),
         )
 
         report = review_hierarchical_mesh(partition)
@@ -202,12 +242,50 @@ class HierarchicalMeshTests(unittest.TestCase):
             parent_model_id="legacy_parent",
             coverage_items=(HierarchyCoverageItem("old", owner_model_id="old_model"),),
             child_models=(child("old_model", is_legacy=True, has_compatibility_contract=False),),
+            target_split_derivation=target("legacy_parent", ("old_model",), ("old",)),
         )
         report = review_hierarchical_mesh(partition)
 
         self.assertFalse(report.ok)
         self.assertEqual("legacy_compatibility_required", report.decision)
         self.assertIn("legacy_without_contract", [finding.code for finding in report.findings])
+
+    def test_missing_target_split_derivation_blocks_parent_green(self):
+        partition = HierarchyPartitionMap(
+            parent_model_id="checkout",
+            coverage_items=(HierarchyCoverageItem("payment", owner_model_id="payment"),),
+            child_models=(child("payment"),),
+        )
+
+        report = review_hierarchical_mesh(partition)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("target_split_derivation_required", report.decision)
+        self.assertIn("missing_target_split_derivation", [finding.code for finding in report.findings])
+
+    def test_incomplete_target_split_derivation_blocks_parent_green(self):
+        partition = HierarchyPartitionMap(
+            parent_model_id="checkout",
+            coverage_items=(
+                HierarchyCoverageItem("payment", owner_model_id="payment"),
+                HierarchyCoverageItem("inventory", owner_model_id="inventory"),
+            ),
+            child_models=(child("payment"), child("inventory")),
+            target_split_derivation=ModelTargetSplitDerivation(
+                "checkout",
+                target_child_model_ids=("payment",),
+                covered_partition_item_ids=("payment",),
+                rationale="derived from a partial parent model",
+            ),
+        )
+
+        report = review_hierarchical_mesh(partition)
+        codes = [finding.code for finding in report.findings]
+
+        self.assertFalse(report.ok)
+        self.assertEqual("target_split_derivation_required", report.decision)
+        self.assertIn("incomplete_target_children", codes)
+        self.assertIn("incomplete_target_split_coverage", codes)
 
 
 if __name__ == "__main__":

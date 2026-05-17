@@ -7,8 +7,8 @@ cycles, config drift, or overclaimed behavior parity.
 
 StructureMesh is a parent/child ownership model. It does not refactor code,
 parse files, or run tests. Project adapters or agents collect source inventory,
-dependency, facade, and parity evidence, then pass that evidence into
-`review_structure_mesh(...)`.
+FlowGuard model-derived target structure, dependency, facade, and parity
+evidence, then pass that evidence into `review_structure_mesh(...)`.
 
 ## Trigger
 
@@ -22,6 +22,26 @@ Create or update a StructureMesh when any of these are true:
 - a child module depends on another child and cycles may appear;
 - routine refactor confidence and release confidence require different
   evidence.
+
+## Target Structure Derivation
+
+Before reviewing ownership, derive the target child script/module structure
+from a FlowGuard functional model. This step is mandatory for existing
+large-script or large-module splits. It is not an optional call to another
+skill and it does not make StructureMesh a no-code architecture planner.
+
+Record:
+
+- source FlowGuard model id and path;
+- target child modules and paths;
+- FunctionBlock-to-module ownership;
+- state-owner mapping;
+- side-effect-owner mapping;
+- config-owner mapping when config/defaults matter;
+- public entrypoint or facade plan;
+- validation boundaries that will prove parity;
+- rationale for grouping related blocks and avoiding mechanical one-block-per-file
+  over-splitting.
 
 ## Partition Checklist
 
@@ -79,6 +99,10 @@ release-required parity evidence is missing or stale.
 Before trusting parent refactor confidence, the StructureMesh model must make
 these known-bad variants fail:
 
+- missing model-derived target structure;
+- target structure not derived from a FlowGuard functional model;
+- target structure missing FunctionBlock, state, side-effect, facade, or
+  validation mappings;
 - missing partition owner;
 - unregistered partition owner;
 - duplicate partition owner;
@@ -101,13 +125,16 @@ StructureMesh:
 
 ```text
 Build a FlowGuard StructureMesh for this refactor. Treat the original module as
-the parent and the extracted files as child modules. Inventory functions,
+the parent and the extracted files as child modules. First derive the target
+child structure from a FlowGuard functional model, including FunctionBlock,
+state, side-effect, facade, and validation mappings. Inventory functions,
 state, config, side effects, public entrypoints, behavior contracts, dependency
 edges, facades, and parity evidence. Do not inline each child implementation.
 Review routine scope and release scope separately. The mesh must catch missing
-owners, unregistered owners, duplicate ownership, removed entrypoints, missing
-facades, dependency cycles, config drift, stale parity, and release-only parity
-gaps before parent refactor confidence is claimed.
+model-derived target structure, missing owners, unregistered owners, duplicate
+ownership, removed entrypoints, missing facades, dependency cycles, config
+drift, stale parity, and release-only parity gaps before parent refactor
+confidence is claimed.
 ```
 
 ## Completion Standard
@@ -115,6 +142,9 @@ gaps before parent refactor confidence is claimed.
 A StructureMesh is complete when:
 
 - the parent partition map covers the moved or retained structure;
+- the target child structure is derived from a named FlowGuard functional model
+  and maps model blocks, state, side effects, facades, and validation
+  boundaries into structured evidence;
 - every owner is registered or explicitly parent/read-only/shared-kernel;
 - duplicate state, side-effect, and config ownership is absent or documented as
   allowed shared ownership;

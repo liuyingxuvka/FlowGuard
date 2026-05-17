@@ -12,6 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
+from .code_structure import CodeStructureRecommendation, review_code_structure_recommendation
 from .export import to_jsonable
 from .hierarchy import (
     EVIDENCE_ABSTRACT_GREEN,
@@ -202,6 +203,7 @@ class StructureMeshPlan:
     partition_items: tuple[StructurePartitionItem, ...] = ()
     child_modules: tuple[ModuleStructureEvidence, ...] = ()
     public_entrypoints: tuple[PublicEntrypointEvidence, ...] = ()
+    target_structure: CodeStructureRecommendation | None = None
     required_evidence_tier: str = EVIDENCE_ABSTRACT_GREEN
     decision_scope: str = STRUCTURE_SCOPE_ROUTINE
     release_deferred_allowed: bool = True
@@ -228,6 +230,7 @@ class StructureMeshPlan:
             "partition_items": [item.to_dict() for item in self.partition_items],
             "child_modules": [module.to_dict() for module in self.child_modules],
             "public_entrypoints": [entrypoint.to_dict() for entrypoint in self.public_entrypoints],
+            "target_structure": self.target_structure.to_dict() if self.target_structure else None,
             "required_evidence_tier": self.required_evidence_tier,
             "decision_scope": self.decision_scope,
             "release_deferred_allowed": self.release_deferred_allowed,
@@ -348,11 +351,25 @@ def _decision_for_findings(findings: Sequence[StructureMeshFinding]) -> str:
     if not blockers:
         return "structure_mesh_green_can_continue"
     priority = [
+        ("missing_target_structure", "target_structure_missing"),
+        ("missing_source_model", "target_structure_blocked"),
+        ("missing_target_modules", "target_structure_blocked"),
+        ("missing_function_block_map", "target_structure_blocked"),
+        ("missing_validation_plan", "target_structure_blocked"),
+        ("missing_structure_rationale", "target_structure_blocked"),
+        ("target_structure_parent_mismatch", "target_structure_blocked"),
+        ("target_module_missing", "target_structure_blocked"),
         ("coverage_gap", "coverage_gap_blocked"),
         ("duplicate_partition_owner", "ownership_conflict"),
         ("duplicate_state_owner", "ownership_conflict"),
         ("duplicate_side_effect_owner", "ownership_conflict"),
         ("duplicate_config_owner", "ownership_conflict"),
+        ("target_function_owner_mismatch", "target_structure_blocked"),
+        ("target_state_owner_mismatch", "target_structure_blocked"),
+        ("target_side_effect_owner_mismatch", "target_structure_blocked"),
+        ("target_config_owner_mismatch", "target_structure_blocked"),
+        ("target_entrypoint_owner_mismatch", "target_structure_blocked"),
+        ("target_facade_missing", "target_structure_blocked"),
         ("entrypoint_removed", "entrypoint_compatibility_blocked"),
         ("facade_missing", "facade_compatibility_blocked"),
         ("dependency_cycle", "dependency_cycle_blocked"),
@@ -422,6 +439,176 @@ def _partition_findings(plan: StructureMeshPlan) -> list[StructureMeshFinding]:
                     metadata={"owners": [owner.to_dict() for owner in owners]},
                 )
             )
+    return findings
+
+
+def _target_structure_findings(plan: StructureMeshPlan) -> list[StructureMeshFinding]:
+    findings: list[StructureMeshFinding] = []
+    recommendation = plan.target_structure
+    if recommendation is None:
+        return [
+            StructureMeshFinding(
+                "missing_target_structure",
+                "StructureMesh split has no FlowGuard model-derived target code structure",
+                metadata={"parent_module_id": plan.parent_module_id},
+            )
+        ]
+
+    report = review_code_structure_recommendation(recommendation)
+    for finding in report.findings:
+        findings.append(
+            StructureMeshFinding(
+                finding.code,
+                finding.message,
+                severity=finding.severity,
+                module_id=finding.module_id,
+                item_id=finding.item_id,
+                metadata=finding.metadata,
+            )
+        )
+
+    if recommendation.parent_module_id != plan.parent_module_id:
+        findings.append(
+            StructureMeshFinding(
+                "target_structure_parent_mismatch",
+                "target structure recommendation parent does not match StructureMesh parent",
+                metadata={
+                    "structure_parent": plan.parent_module_id,
+                    "recommendation_parent": recommendation.parent_module_id,
+                },
+            )
+        )
+
+    target_modules = set(recommendation.module_ids())
+    for module in plan.child_modules:
+        if module.is_release_only():
+            continue
+        if module.module_id not in target_modules:
+            findings.append(
+                StructureMeshFinding(
+                    "target_module_missing",
+                    f"child module {module.module_id} is not present in the model-derived target structure",
+                    module_id=module.module_id,
+                    metadata=module.to_dict(),
+                )
+            )
+
+    function_owners = recommendation.function_block_owners()
+    state_owners = recommendation.state_owners()
+    side_effect_owners = recommendation.side_effect_owners()
+    config_owners = recommendation.config_owners()
+    entrypoint_owners = recommendation.public_entrypoint_owners()
+
+    for item in plan.partition_items:
+        if item.ownership != OWNERSHIP_CHILD:
+            continue
+        if item.item_type == "function":
+            owner = function_owners.get(item.item_id)
+            if owner != item.owner_module_id:
+                findings.append(
+                    StructureMeshFinding(
+                        "target_function_owner_mismatch",
+                        f"function {item.item_id} target owner {owner or '(missing)'} does not match partition owner {item.owner_module_id}",
+                        module_id=item.owner_module_id,
+                        item_id=item.item_id,
+                        metadata=item.to_dict(),
+                    )
+                )
+        elif item.item_type in {"state", "state_field"}:
+            owner = state_owners.get(item.item_id)
+            if owner != item.owner_module_id:
+                findings.append(
+                    StructureMeshFinding(
+                        "target_state_owner_mismatch",
+                        f"state {item.item_id} target owner {owner or '(missing)'} does not match partition owner {item.owner_module_id}",
+                        module_id=item.owner_module_id,
+                        item_id=item.item_id,
+                        metadata=item.to_dict(),
+                    )
+                )
+        elif item.item_type == "side_effect":
+            owner = side_effect_owners.get(item.item_id)
+            if owner != item.owner_module_id:
+                findings.append(
+                    StructureMeshFinding(
+                        "target_side_effect_owner_mismatch",
+                        f"side effect {item.item_id} target owner {owner or '(missing)'} does not match partition owner {item.owner_module_id}",
+                        module_id=item.owner_module_id,
+                        item_id=item.item_id,
+                        metadata=item.to_dict(),
+                    )
+                )
+        elif item.item_type == "config":
+            owner = config_owners.get(item.item_id)
+            if owner != item.owner_module_id:
+                findings.append(
+                    StructureMeshFinding(
+                        "target_config_owner_mismatch",
+                        f"config {item.item_id} target owner {owner or '(missing)'} does not match partition owner {item.owner_module_id}",
+                        module_id=item.owner_module_id,
+                        item_id=item.item_id,
+                        metadata=item.to_dict(),
+                    )
+                )
+        elif item.item_type == "entrypoint":
+            owner = entrypoint_owners.get(item.item_id) or recommendation.facade_module_id
+            if owner != item.owner_module_id:
+                findings.append(
+                    StructureMeshFinding(
+                        "target_entrypoint_owner_mismatch",
+                        f"entrypoint {item.item_id} target owner {owner or '(missing)'} does not match partition owner {item.owner_module_id}",
+                        module_id=item.owner_module_id,
+                        item_id=item.item_id,
+                        metadata=item.to_dict(),
+                    )
+                )
+
+    for module in plan.child_modules:
+        for state_id in module.owns_state:
+            owner = state_owners.get(state_id)
+            if owner != module.module_id:
+                findings.append(
+                    StructureMeshFinding(
+                        "target_state_owner_mismatch",
+                        f"state {state_id} target owner {owner or '(missing)'} does not match module owner {module.module_id}",
+                        module_id=module.module_id,
+                        item_id=state_id,
+                        metadata=module.to_dict(),
+                    )
+                )
+        for side_effect_id in module.owns_side_effects:
+            owner = side_effect_owners.get(side_effect_id)
+            if owner != module.module_id:
+                findings.append(
+                    StructureMeshFinding(
+                        "target_side_effect_owner_mismatch",
+                        f"side effect {side_effect_id} target owner {owner or '(missing)'} does not match module owner {module.module_id}",
+                        module_id=module.module_id,
+                        item_id=side_effect_id,
+                        metadata=module.to_dict(),
+                    )
+                )
+        for config_id in module.owns_config:
+            owner = config_owners.get(config_id)
+            if owner != module.module_id:
+                findings.append(
+                    StructureMeshFinding(
+                        "target_config_owner_mismatch",
+                        f"config {config_id} target owner {owner or '(missing)'} does not match module owner {module.module_id}",
+                        module_id=module.module_id,
+                        item_id=config_id,
+                        metadata=module.to_dict(),
+                    )
+                )
+
+    if plan.public_entrypoints and not recommendation.facade_module_id:
+        findings.append(
+            StructureMeshFinding(
+                "target_facade_missing",
+                "target structure recommendation has no facade module for public entrypoints",
+                metadata={"entrypoints": [entrypoint.to_dict() for entrypoint in plan.public_entrypoints]},
+            )
+        )
     return findings
 
 
@@ -618,6 +805,7 @@ def review_structure_mesh(plan: StructureMeshPlan) -> StructureMeshReport:
 
     findings: list[StructureMeshFinding] = []
     release_obligations: list[str] = []
+    findings.extend(_target_structure_findings(plan))
     findings.extend(_partition_findings(plan))
     findings.extend(
         _duplicate_value_findings(
@@ -667,6 +855,7 @@ __all__ = [
     "STRUCTURE_EVIDENCE_ORDER",
     "STRUCTURE_SCOPE_RELEASE",
     "STRUCTURE_SCOPE_ROUTINE",
+    "CodeStructureRecommendation",
     "ModuleStructureEvidence",
     "PublicEntrypointEvidence",
     "StructureMeshFinding",

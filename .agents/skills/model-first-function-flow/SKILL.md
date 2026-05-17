@@ -54,6 +54,7 @@ package APIs.
 | Trigger | Route | Reference |
 | --- | --- | --- |
 | Ordinary model-first workflow, flow types, Risk Intent, state write inventory | `core_modeling` | `references/modeling_protocol.md` |
+| Direct architecture recommendation, model-derived implementation structure, pre-code module split planning | `code_structure_recommendation` | `references/code_structure_recommendation_protocol.md` |
 | FlowGuard model obligations need direct comparison with ordinary test evidence | `model_test_alignment` | `references/model_test_alignment_protocol.md` |
 | Three or more local FlowGuard models, oversized model, stale child evidence, parent/child model partition | `model_mesh_maintenance` | `references/model_mesh_protocol.md` |
 | Large test script/suite split, parent/child test hierarchy, slow/background/stale/skipped/release-only validation evidence | `test_mesh_maintenance` | `references/test_mesh_protocol.md` |
@@ -132,6 +133,9 @@ fit, but do not describe them as independently triggerable agent sub-skills:
   sub-protocols.
 - `references/modeling_protocol.md`: core modeling protocol, flow lenses,
   Risk Intent, state write inventory, invariants, Explorer, and CheckPlan.
+- `references/code_structure_recommendation_protocol.md`: model-derived
+  implementation structure recommendation, ownership maps, facades, and
+  validation boundaries.
 - `references/model_test_alignment_protocol.md`: direct model-obligation to
   ordinary test-evidence alignment without TestMesh or StructureMesh.
 - `references/model_mesh_protocol.md`: ModelMesh trigger, evidence tiers,

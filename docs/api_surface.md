@@ -57,16 +57,19 @@ Modeling helpers reduce boilerplate around common bug classes:
   `run_budgeted_graph_checks()` for large reachable graph models that need
   shard-by-shard execution with a durable ledger.
 - optional hierarchical mesh helpers such as `HierarchyPartitionMap`,
-  `ChildModelEvidence`, `review_hierarchical_mesh()`, `LegacyModelRecord`, and
-  `classify_legacy_model()` for reviewing parent/child partition coverage,
-  sibling overlap, large-model split triggers, and legacy compatibility.
+  `ModelTargetSplitDerivation`, `ChildModelEvidence`,
+  `review_hierarchical_mesh()`, `LegacyModelRecord`, and
+  `classify_legacy_model()` for reviewing model-derived target child layouts,
+  parent/child partition coverage, sibling overlap, large-model split triggers,
+  and legacy compatibility.
 - optional model-test alignment helpers such as `ModelObligation`,
   `TestEvidence`, `ModelTestAlignmentPlan`, and
   `review_model_test_alignment()` for directly comparing model obligations with
   ordinary test evidence without invoking TestMesh or StructureMesh.
 - optional TestMesh helpers such as `TestMeshPlan`, `TestPartitionItem`,
-  `TestSuiteEvidence`, and `review_test_mesh()` for reviewing parent/child
-  test hierarchy coverage, child suite/script ownership, evidence freshness,
+  `TestTargetSplitDerivation`, `TestSuiteEvidence`, and `review_test_mesh()`
+  for reviewing model-derived target suite/script layouts, parent/child test
+  hierarchy coverage, child suite/script ownership, evidence freshness,
   background completion, and routine-vs-release validation confidence.
 - optional StructureMesh helpers such as `StructureMeshPlan`,
   `StructurePartitionItem`, `ModuleStructureEvidence`,
@@ -74,6 +77,10 @@ Modeling helpers reduce boilerplate around common bug classes:
   script or module splits, child ownership, public entrypoint compatibility,
   facades, dependency cycles, config drift, behavior parity, and
   routine-vs-release refactor confidence.
+- optional Code Structure Recommendation helpers such as
+  `CodeStructureRecommendation`, `TargetModuleRecommendation`, and
+  `review_code_structure_recommendation()` for recommending implementation
+  structure from a FlowGuard functional model before code is written.
 
 These helpers return or consume the same core model objects. They are useful
 shortcuts, not a new modeling language and not mandatory for valid FlowGuard
@@ -110,6 +117,7 @@ Evidence APIs are used to keep FlowGuard itself honest:
 - problem corpus and executable corpus reports;
 - pytest/template helpers used by examples and framework validation;
 - public template writers, including `model_test_alignment_template_files()`,
+  `code_structure_recommendation_template_files()`,
   `test_mesh_template_files()`, and `structure_mesh_template_files()`.
 
 These tools are valuable for FlowGuard maintenance. Ordinary project models do
@@ -135,9 +143,13 @@ Start with the core path when it is enough. Add helpers only when they clarify a
 real risk, reduce repetitive code, or improve reporting honesty. Keep skipped
 checks visible. When model obligations and tests both exist, use Model-Test
 Alignment to compare them directly before claiming coverage agreement. For
+large model or validation meshes, record the target split derivation from the
+FlowGuard source model before trusting parent/child ownership and evidence. For
 large, slow, or layered validation, use TestMesh to split the parent test gate
 into child suites/scripts and make their ownership and evidence visible before
 trusting the parent. For large structure refactors, use StructureMesh to make
-child-module ownership and compatibility evidence visible before trusting a
-parent split. Do not claim production confidence from a model-only pass unless
-conformance replay or equivalent real-code evidence exists.
+model-derived target structure, child-module ownership, and compatibility
+evidence visible before trusting a parent split. Use Code Structure
+Recommendation for direct pre-code architecture recommendations. Do not claim
+production confidence from a model-only pass unless conformance replay or
+equivalent real-code evidence exists.

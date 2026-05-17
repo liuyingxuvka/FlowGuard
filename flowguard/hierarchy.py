@@ -139,12 +139,48 @@ class ChildModelEvidence:
 
 
 @dataclass(frozen=True)
+class ModelTargetSplitDerivation:
+    """Model-derived target child layout for one parent ModelMesh boundary."""
+
+    source_model_id: str
+    target_child_model_ids: tuple[str, ...] = ()
+    covered_partition_item_ids: tuple[str, ...] = ()
+    state_owner_fields: tuple[str, ...] = ()
+    side_effect_owner_fields: tuple[str, ...] = ()
+    source_model_path: str = ""
+    rationale: str = ""
+    derived_from_flowguard_model: bool = True
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "source_model_id", str(self.source_model_id))
+        object.__setattr__(self, "target_child_model_ids", _as_tuple(self.target_child_model_ids))
+        object.__setattr__(self, "covered_partition_item_ids", _as_tuple(self.covered_partition_item_ids))
+        object.__setattr__(self, "state_owner_fields", _as_tuple(self.state_owner_fields))
+        object.__setattr__(self, "side_effect_owner_fields", _as_tuple(self.side_effect_owner_fields))
+        object.__setattr__(self, "source_model_path", str(self.source_model_path))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "source_model_id": self.source_model_id,
+            "target_child_model_ids": list(self.target_child_model_ids),
+            "covered_partition_item_ids": list(self.covered_partition_item_ids),
+            "state_owner_fields": list(self.state_owner_fields),
+            "side_effect_owner_fields": list(self.side_effect_owner_fields),
+            "source_model_path": self.source_model_path,
+            "rationale": self.rationale,
+            "derived_from_flowguard_model": self.derived_from_flowguard_model,
+        }
+
+
+@dataclass(frozen=True)
 class HierarchyPartitionMap:
     """Partition map for one parent model boundary."""
 
     parent_model_id: str
     coverage_items: tuple[HierarchyCoverageItem, ...] = ()
     child_models: tuple[ChildModelEvidence, ...] = ()
+    target_split_derivation: ModelTargetSplitDerivation | None = None
     required_evidence_tier: str = EVIDENCE_ABSTRACT_GREEN
     allowed_shared_areas: tuple[str, ...] = ()
 
@@ -160,6 +196,11 @@ class HierarchyPartitionMap:
             "parent_model_id": self.parent_model_id,
             "coverage_items": [item.to_dict() for item in self.coverage_items],
             "child_models": [child.to_dict() for child in self.child_models],
+            "target_split_derivation": (
+                self.target_split_derivation.to_dict()
+                if self.target_split_derivation is not None
+                else None
+            ),
             "required_evidence_tier": self.required_evidence_tier,
             "allowed_shared_areas": list(self.allowed_shared_areas),
         }
@@ -378,6 +419,107 @@ def classify_legacy_model(
     )
 
 
+def _target_split_derivation_findings(partition_map: HierarchyPartitionMap) -> list[HierarchyMeshFinding]:
+    findings: list[HierarchyMeshFinding] = []
+    if not partition_map.coverage_items and not partition_map.child_models:
+        return findings
+
+    derivation = partition_map.target_split_derivation
+    if derivation is None:
+        return [
+            HierarchyMeshFinding(
+                "missing_target_split_derivation",
+                "parent model boundary lacks FlowGuard-derived target split structure",
+                model_id=partition_map.parent_model_id,
+            )
+        ]
+
+    if not derivation.derived_from_flowguard_model or not derivation.source_model_id:
+        findings.append(
+            HierarchyMeshFinding(
+                "invalid_target_split_derivation",
+                "target model split derivation must name the FlowGuard source model",
+                model_id=partition_map.parent_model_id,
+                metadata=derivation.to_dict(),
+            )
+        )
+
+    child_ids = {child.model_id for child in partition_map.child_models}
+    target_ids = set(derivation.target_child_model_ids)
+    if not target_ids:
+        findings.append(
+            HierarchyMeshFinding(
+                "missing_target_children",
+                "target model split derivation has no target child models",
+                model_id=partition_map.parent_model_id,
+                metadata=derivation.to_dict(),
+            )
+        )
+    else:
+        unknown_targets = tuple(sorted(target_ids - child_ids))
+        if unknown_targets:
+            findings.append(
+                HierarchyMeshFinding(
+                    "unknown_target_child_model",
+                    "target model split derivation names unregistered child models",
+                    model_id=partition_map.parent_model_id,
+                    metadata={"unknown_targets": unknown_targets, "derivation": derivation.to_dict()},
+                )
+            )
+        missing_targets = tuple(sorted(child_ids - target_ids))
+        if missing_targets:
+            findings.append(
+                HierarchyMeshFinding(
+                    "incomplete_target_children",
+                    "target model split derivation omits registered child models",
+                    model_id=partition_map.parent_model_id,
+                    metadata={"missing_targets": missing_targets, "derivation": derivation.to_dict()},
+                )
+            )
+
+    coverage_ids = {item.item_id for item in partition_map.coverage_items}
+    derived_coverage = set(derivation.covered_partition_item_ids)
+    missing_coverage = tuple(sorted(coverage_ids - derived_coverage))
+    if missing_coverage:
+        findings.append(
+            HierarchyMeshFinding(
+                "incomplete_target_split_coverage",
+                "target model split derivation does not cover all parent partition items",
+                model_id=partition_map.parent_model_id,
+                metadata={"missing_coverage": missing_coverage, "derivation": derivation.to_dict()},
+            )
+        )
+
+    if not derivation.state_owner_fields and any(child.state_owned for child in partition_map.child_models):
+        findings.append(
+            HierarchyMeshFinding(
+                "missing_target_state_owner_map",
+                "target model split derivation omits state owner fields",
+                model_id=partition_map.parent_model_id,
+                metadata=derivation.to_dict(),
+            )
+        )
+    if not derivation.side_effect_owner_fields and any(child.side_effects_owned for child in partition_map.child_models):
+        findings.append(
+            HierarchyMeshFinding(
+                "missing_target_side_effect_owner_map",
+                "target model split derivation omits side-effect owner fields",
+                model_id=partition_map.parent_model_id,
+                metadata=derivation.to_dict(),
+            )
+        )
+    if not derivation.rationale:
+        findings.append(
+            HierarchyMeshFinding(
+                "missing_target_split_rationale",
+                "target model split derivation lacks rationale",
+                model_id=partition_map.parent_model_id,
+                metadata=derivation.to_dict(),
+            )
+        )
+    return findings
+
+
 def review_hierarchical_mesh(
     partition_map: HierarchyPartitionMap,
     *,
@@ -396,6 +538,8 @@ def review_hierarchical_mesh(
     for child in partition_map.child_models:
         if _is_large_child(child, large_model_threshold):
             activation_reasons.append(f"large_model:{child.model_id}")
+
+    findings.extend(_target_split_derivation_findings(partition_map))
 
     owner_by_item: dict[str, list[HierarchyCoverageItem]] = {}
     for item in partition_map.coverage_items:
@@ -538,6 +682,18 @@ def review_hierarchical_mesh(
     blocking = [finding for finding in findings if finding.severity in {"blocker", "refactor"}]
     if not blocking:
         decision = "mesh_green_can_continue"
+    elif any(finding.code in {
+        "missing_target_split_derivation",
+        "invalid_target_split_derivation",
+        "missing_target_children",
+        "unknown_target_child_model",
+        "incomplete_target_children",
+        "incomplete_target_split_coverage",
+        "missing_target_state_owner_map",
+        "missing_target_side_effect_owner_map",
+        "missing_target_split_rationale",
+    } for finding in blocking):
+        decision = "target_split_derivation_required"
     elif any(finding.code == "coverage_gap" for finding in blocking):
         decision = "coverage_gap_blocked"
     elif any(finding.code == "excessive_functional_overlap" for finding in blocking):
@@ -605,6 +761,7 @@ __all__ = [
     "ChildModelEvidence",
     "LegacyModelClassification",
     "LegacyModelRecord",
+    "ModelTargetSplitDerivation",
     "OWNERSHIP_CHILD",
     "OWNERSHIP_PARENT",
     "OWNERSHIP_READ_ONLY",

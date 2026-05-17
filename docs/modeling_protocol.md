@@ -2,9 +2,10 @@
 
 This document is the `core_modeling` sub-protocol for the FlowGuard Skill
 Kernel. The main Skill routes here for ordinary model-first work. Specialized
-routes such as model-test alignment, ModelMesh, TestMesh, StructureMesh,
-model-miss review, conformance/adoption, long-check observability, and
-framework upgrades live in their dedicated reference protocols.
+routes such as code structure recommendation, model-test alignment, ModelMesh,
+TestMesh, StructureMesh, model-miss review, conformance/adoption, long-check
+observability, and framework upgrades live in their dedicated reference
+protocols.
 
 Use this protocol before implementing non-trivial behavior involving workflows, state, retries, deduplication, idempotency, caching, or module boundaries.
 
@@ -33,6 +34,11 @@ Before changing files, separate three situations:
   Build a StructureMesh that partitions a large script, package, module,
   command, or API surface into child-module ownership and compatibility
   evidence contracts.
+- `code_structure_recommendation`: implementation structure is unclear or the
+  user asks for a code architecture recommendation. Use or create a FlowGuard
+  functional model, then recommend module boundaries, ownership maps, facades,
+  side-effect adapters, and validation boundaries without writing production
+  code.
 
 If real FlowGuard is importable but a current `.flowguard` Python model still
 claims `flowguard_package_available = False`, uses a fallback explorer, or
@@ -123,6 +129,12 @@ side-effect ownership, stale evidence, and split-review decisions for oversized
 models. A child can become a parent and have its own local partition map and
 mesh review when that child grows large enough to split again.
 
+Before a ModelMesh parent can trust the child-model layout, record a target
+split derivation from the FlowGuard source model or model-of-models. The
+derivation must name the source model, target child model ids, covered partition
+items, state owner fields, side-effect owner fields, and rationale for the
+split. A partition map alone is not enough parent confidence.
+
 Read `docs/model_mesh_protocol.md` for the inventory fields, evidence tiers,
 required hazards, prompt template, and completion standard. At minimum, the
 mesh must catch abstract-only permission, hidden skipped live/replay checks,
@@ -153,6 +165,12 @@ state, module, command, side effect, invariant, or release boundaries.
 skipped visibility, timeout/failure status, background completion artifacts,
 and routine-vs-release confidence.
 
+Before TestMesh parent confidence, record a target split derivation from a
+FlowGuard validation-structure model. The derivation must name the source
+model, target child suites/scripts, covered partition items, state owner fields,
+side-effect owner fields, and rationale for the split. A flat child-suite list
+without derivation is not enough.
+
 Read `docs/test_evidence_mesh.md` for the API sketch and
 `.agents/skills/model-first-function-flow/references/test_mesh_protocol.md` for
 the agent checklist.
@@ -164,16 +182,32 @@ its own parent/child ownership mesh. Trigger StructureMesh when functions,
 state, config, side effects, public entrypoints, behavior contracts, or release
 obligations are being split across child modules.
 
-The StructureMesh is a structure-refactor evidence model. It does not move code
-or parse source files. Project adapters collect source inventory, dependency
-edges, facade status, public entrypoint compatibility, config/default changes,
-and parity evidence, then pass `ModuleStructureEvidence`,
+The StructureMesh is a structure-refactor evidence model for existing large
+scripts or modules. It does not move code or parse source files. Before
+ownership review, it requires a FlowGuard model-derived target child structure:
+FunctionBlock-to-module, state-owner, side-effect-owner, facade, and validation
+maps. Project adapters collect source inventory, model-derived target
+structure, dependency edges, facade status, public entrypoint compatibility,
+config/default changes, and parity evidence, then pass
+`CodeStructureRecommendation`, `ModuleStructureEvidence`,
 `PublicEntrypointEvidence`, and `StructurePartitionItem` objects into
 `review_structure_mesh(...)`.
 
 Read `docs/structure_mesh.md` for the API sketch and
 `.agents/skills/model-first-function-flow/references/structure_mesh_protocol.md`
 for the agent checklist.
+
+## 0.47 Check The Code Structure Recommendation Route
+
+Use the parallel code structure recommendation route when a user directly asks
+for a code architecture recommendation, or when a functional model exists and
+the next implementation step needs a module/function split plan. This route can
+create or use a functional or hierarchical model, but it does not write
+production code and it is not mandatory for every ordinary model-first task.
+
+Read `docs/code_structure_recommendation.md` and
+`.agents/skills/model-first-function-flow/references/code_structure_recommendation_protocol.md`
+for the recommendation shape.
 
 ## 0.5 Write A Risk Intent Brief
 
@@ -332,6 +366,7 @@ For neutral starter scaffolds, the public CLI can print or write templates:
 python -m flowguard project-template --output .
 python -m flowguard risk-intent-template --output .
 python -m flowguard model-miss-template --output .
+python -m flowguard code-structure-recommendation-template --output .
 python -m flowguard structure-mesh-template --output .
 ```
 
@@ -689,8 +724,12 @@ Recommended low-friction agent flow:
 - Large script or module splits have a StructureMesh, or an explicit reason why
   the current narrow task does not rely on parent/child refactor evidence.
 - The StructureMesh, when required, inventories function, state, config,
-  side-effect, public-entrypoint, facade, dependency, parity, and release-scope
-  ownership before broad refactor or compatibility claims.
+  side-effect, public-entrypoint, facade, model-derived target structure,
+  dependency, parity, and release-scope ownership before broad refactor or
+  compatibility claims.
+- Direct code architecture recommendations, when requested, include a source
+  FlowGuard functional model, target modules, ownership maps, validation
+  boundaries, and rationale instead of only prose.
 - The model uses only the Python standard library.
 - Inputs and state are finite and hashable.
 - Every block returns all possible branches.

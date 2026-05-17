@@ -1,0 +1,16 @@
+- [x] 1.1 Add FlowGuard model coverage for the new route and StructureMesh target-structure obligation.
+- [x] 1.2 Add public code structure recommendation dataclasses and a review helper.
+- [x] 1.3 Extend StructureMesh plan/report review to require and validate model-derived target split evidence.
+- [x] 1.4 Export the new public APIs and API surface groupings.
+- [x] 2.1 Add a code structure recommendation template and CLI entrypoint.
+- [x] 2.2 Update the StructureMesh template to include model-derived target split evidence.
+- [x] 2.3 Update Skill Kernel route map and add the dedicated code structure recommendation protocol.
+- [x] 2.4 Update StructureMesh and modeling protocols without turning ordinary modeling into a hard gate.
+- [x] 2.5 Update public docs, README, changelog, and agents snippet.
+- [x] 3.1 Add focused unit tests for recommendation review and StructureMesh blockers/mismatches.
+- [x] 3.2 Add public template and Skill doc tests.
+- [x] 3.3 Run OpenSpec validation and focused tests.
+- [x] 3.4 Run full repository tests/model regressions and repair failures.
+- [x] 4.1 Bump package version and synchronize release notes.
+- [x] 4.2 Sync editable local install and shadow workspace.
+- [x] 4.3 Publish v0.11.0 to GitHub after the user explicitly resumed release.

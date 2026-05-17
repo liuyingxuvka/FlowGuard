@@ -1424,6 +1424,7 @@ from flowguard import (
     TestMeshPlan,
     TestPartitionItem,
     TestSuiteEvidence,
+    TestTargetSplitDerivation,
     review_test_mesh,
 )
 
@@ -1465,6 +1466,12 @@ def routine_plan() -> TestMeshPlan:
                 not_run_reason="release-only regression deferred during routine check",
             ),
         ),
+        target_split_derivation=TestTargetSplitDerivation(
+            "project-validation-model",
+            target_suite_ids=("unit", "runtime", "release-full"),
+            covered_partition_item_ids=("unit-fast", "runtime-contract"),
+            rationale="derived from the parent validation FlowGuard model and release gate boundaries",
+        ),
     )
 
 
@@ -1483,6 +1490,12 @@ def broken_plan() -> TestMeshPlan:
                 skipped_visible=False,
                 stale_reasons=("source_changed",),
             ),
+        ),
+        target_split_derivation=TestTargetSplitDerivation(
+            "project-validation-model",
+            target_suite_ids=("runtime",),
+            covered_partition_item_ids=("runtime-contract",),
+            rationale="derived from the parent validation FlowGuard model and runtime contract boundary",
         ),
     )
 
@@ -1519,6 +1532,8 @@ Use this scaffold to keep a project's validation hierarchy explicit.
 ## What TestMesh Reviews
 
 - how a broad parent test gate is split into child suites or child scripts;
+- which FlowGuard validation-structure model derived the target child
+  suites/scripts before evidence is trusted;
 - which child owns each behavior, state, command, invariant, or release
   partition;
 - whether child suite/script evidence is current and strong enough for the
@@ -1531,9 +1546,130 @@ the test structure. The parent should consume child ownership and evidence
 contracts instead of expanding every child test case into one giant parent graph.
 A child suite can become its own parent gate when it needs another layer.
 
+The target child-suite layout should be recorded as a model-derived split
+before parent confidence is claimed. A partition map by itself is not enough.
+
 TestMesh does not run your tests. Project adapters should run pytest, unittest,
 Playwright, simulation runners, or shell commands, then feed structured evidence
 into the TestMesh model.
+"""
+
+
+CODE_STRUCTURE_RECOMMENDATION_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header
+
+Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
+Purpose: Recommend an implementation structure from a FlowGuard functional model before production code is written.
+Guards against: monolithic implementation plans, unclear state ownership, mixed side effects, missing facades, and test boundaries that do not map back to the model.
+Use before editing: Ask for this recommendation when a model-first feature needs a code architecture plan before implementation.
+Run: python .flowguard/code_structure_recommendation/run_checks.py
+"""
+
+from __future__ import annotations
+
+from flowguard import (
+    CodeStructureRecommendation,
+    TargetModuleRecommendation,
+    review_code_structure_recommendation,
+)
+
+
+def recommendation() -> CodeStructureRecommendation:
+    return CodeStructureRecommendation(
+        "checkout-target-structure",
+        source_model_id="checkout-functional-model",
+        source_model_path=".flowguard/checkout/model.py",
+        parent_module_id="checkout",
+        target_modules=(
+            TargetModuleRecommendation(
+                "orchestrator",
+                path="checkout/orchestrator.py",
+                owns_function_blocks=("RouteCheckout",),
+                validation_boundaries=("route scenario test",),
+                rationale="The orchestrator owns ordering only and does not own durable state.",
+            ),
+            TargetModuleRecommendation(
+                "state",
+                path="checkout/state.py",
+                owns_state=("orders", "attempts"),
+                validation_boundaries=("state shape test",),
+                rationale="State and type definitions stay separate from transition logic.",
+            ),
+            TargetModuleRecommendation(
+                "effects",
+                path="checkout/effects.py",
+                owns_function_blocks=("PersistOrder",),
+                owns_side_effects=("write_order",),
+                validation_boundaries=("effect idempotency replay",),
+                rationale="Durable writes are isolated behind an adapter boundary.",
+            ),
+        ),
+        function_block_map=(
+            ("RouteCheckout", "orchestrator"),
+            ("PersistOrder", "effects"),
+        ),
+        state_owner_map=(("orders", "state"), ("attempts", "state")),
+        side_effect_owner_map=(("write_order", "effects"),),
+        validation_boundaries=("route scenario test", "state shape test", "effect idempotency replay"),
+        rationale="The functional model separates ordering, abstract state, and durable side effects.",
+    )
+
+
+def broken_recommendation() -> CodeStructureRecommendation:
+    return CodeStructureRecommendation(
+        "checkout-broken-structure",
+        source_model_id="",
+        parent_module_id="checkout",
+        target_modules=(TargetModuleRecommendation("checkout"),),
+        function_block_map=(),
+    )
+
+
+def run_checks():
+    return (
+        review_code_structure_recommendation(recommendation()),
+        review_code_structure_recommendation(broken_recommendation()),
+    )
+'''
+
+
+CODE_STRUCTURE_RECOMMENDATION_RUN_CHECKS_TEMPLATE = '''"""Run the Code Structure Recommendation template checks."""
+
+from __future__ import annotations
+
+from model import run_checks
+
+
+def main() -> int:
+    recommendation, broken = run_checks()
+    print(recommendation.format_text())
+    print()
+    print(broken.format_text(max_findings=5))
+    return 0 if recommendation.ok and not broken.ok else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+'''
+
+
+CODE_STRUCTURE_RECOMMENDATION_NOTES_TEMPLATE = """# FlowGuard Code Structure Recommendation Notes
+
+Use this scaffold when a user or agent wants a recommended code architecture
+before writing production code.
+
+## What This Route Produces
+
+- the FlowGuard functional model used as source evidence;
+- recommended target modules and paths;
+- FunctionBlock-to-module ownership;
+- state, config, and side-effect owner maps;
+- public entrypoint or facade plans when relevant;
+- validation boundaries that keep the recommendation tied to executable model
+  evidence.
+
+This route recommends structure. It does not write production code and does not
+replace StructureMesh. StructureMesh uses model-derived target structure when an
+existing large script or module is being split.
 """
 
 
@@ -1549,19 +1685,70 @@ Run: python .flowguard/structure_mesh/run_checks.py
 from __future__ import annotations
 
 from flowguard import (
+    CodeStructureRecommendation,
     EVIDENCE_ABSTRACT_GREEN,
     EVIDENCE_CONFORMANCE_GREEN,
     ModuleStructureEvidence,
     PublicEntrypointEvidence,
     StructureMeshPlan,
     StructurePartitionItem,
+    TargetModuleRecommendation,
     review_structure_mesh,
 )
+
+
+def target_structure_recommendation() -> CodeStructureRecommendation:
+    return CodeStructureRecommendation(
+        "legacy-reporter-target-structure",
+        source_model_id="legacy-reporter-functional-model",
+        source_model_path=".flowguard/legacy_reporter/model.py",
+        parent_module_id="legacy_reporter",
+        target_modules=(
+            TargetModuleRecommendation(
+                "cli",
+                path="reporter/cli.py",
+                owns_function_blocks=("parse_args",),
+                public_entrypoints=("python -m reporter",),
+                validation_boundaries=("cli parity test",),
+                rationale="CLI parsing and the public entrypoint stay together behind the facade.",
+            ),
+            TargetModuleRecommendation(
+                "config",
+                path="reporter/config.py",
+                owns_function_blocks=("load_config",),
+                owns_config=("report_defaults",),
+                validation_boundaries=("config default parity test",),
+                rationale="Configuration defaults have one owner to avoid drift.",
+            ),
+            TargetModuleRecommendation(
+                "renderer",
+                path="reporter/renderer.py",
+                owns_function_blocks=("render_report",),
+                owns_state=("render_cache",),
+                owns_side_effects=("write_report",),
+                validation_boundaries=("render replay",),
+                rationale="Rendering owns cached render state and report writing side effects.",
+            ),
+        ),
+        function_block_map=(
+            ("parse_args", "cli"),
+            ("load_config", "config"),
+            ("render_report", "renderer"),
+        ),
+        state_owner_map=(("render_cache", "renderer"),),
+        side_effect_owner_map=(("write_report", "renderer"),),
+        config_owner_map=(("report_defaults", "config"),),
+        public_entrypoint_map=(("python -m reporter", "cli"),),
+        facade_module_id="cli",
+        validation_boundaries=("cli parity test", "config default parity test", "render replay"),
+        rationale="The FlowGuard functional model separates CLI intake, config loading, and rendering side effects.",
+    )
 
 
 def routine_plan() -> StructureMeshPlan:
     return StructureMeshPlan(
         parent_module_id="legacy_reporter",
+        target_structure=target_structure_recommendation(),
         decision_scope="routine",
         required_evidence_tier=EVIDENCE_ABSTRACT_GREEN,
         partition_items=(
@@ -1691,6 +1878,8 @@ Use this scaffold to keep a module or script split explicit before code moves.
 
 - which child module owns each function, state item, config key, side effect,
   public entrypoint, or behavior contract;
+- which FlowGuard functional model derived the target child-module structure
+  before the existing script or module is split;
 - whether old public imports, CLI commands, API routes, and data shapes remain
   available through a facade or compatibility layer;
 - whether duplicated state, duplicated side effects, unsafe dependency cycles,
@@ -1699,8 +1888,8 @@ Use this scaffold to keep a module or script split explicit before code moves.
   deferred obligations.
 
 StructureMesh does not refactor code. Project adapters or agents should collect
-source inventory, ownership, dependency, and parity evidence, then feed that
-evidence into the StructureMesh model.
+source inventory, model-derived target structure, ownership, dependency, and
+parity evidence, then feed that evidence into the StructureMesh model.
 """
 
 
@@ -1750,6 +1939,23 @@ def model_test_alignment_template_files() -> tuple[TemplateFile, ...]:
     )
 
 
+def code_structure_recommendation_template_files() -> tuple[TemplateFile, ...]:
+    return (
+        TemplateFile(
+            ".flowguard/code_structure_recommendation/model.py",
+            CODE_STRUCTURE_RECOMMENDATION_MODEL_TEMPLATE,
+        ),
+        TemplateFile(
+            ".flowguard/code_structure_recommendation/run_checks.py",
+            CODE_STRUCTURE_RECOMMENDATION_RUN_CHECKS_TEMPLATE,
+        ),
+        TemplateFile(
+            "docs/flowguard_code_structure_recommendation.md",
+            CODE_STRUCTURE_RECOMMENDATION_NOTES_TEMPLATE,
+        ),
+    )
+
+
 def test_mesh_template_files() -> tuple[TemplateFile, ...]:
     return (
         TemplateFile(".flowguard/test_mesh/model.py", TEST_MESH_MODEL_TEMPLATE),
@@ -1786,6 +1992,9 @@ def write_template_files(
 
 __all__ = [
     "ADOPTION_LOG_TEMPLATE",
+    "CODE_STRUCTURE_RECOMMENDATION_MODEL_TEMPLATE",
+    "CODE_STRUCTURE_RECOMMENDATION_NOTES_TEMPLATE",
+    "CODE_STRUCTURE_RECOMMENDATION_RUN_CHECKS_TEMPLATE",
     "MAINTENANCE_WORKFLOW_MODEL_TEMPLATE",
     "MAINTENANCE_WORKFLOW_NOTES_TEMPLATE",
     "MAINTENANCE_WORKFLOW_RUN_CHECKS_TEMPLATE",
@@ -1807,6 +2016,7 @@ __all__ = [
     "TEST_MESH_RUN_CHECKS_TEMPLATE",
     "TemplateFile",
     "adoption_template_files",
+    "code_structure_recommendation_template_files",
     "maintenance_workflow_template_files",
     "model_miss_review_template_files",
     "model_test_alignment_template_files",
