@@ -21,6 +21,7 @@ Detailed procedures live in sub-protocol references.
 | Sub-protocol | Owns |
 | --- | --- |
 | `core_modeling` | Risk Intent, state write inventory, function blocks, invariants, Explorer, CheckPlan |
+| `model_test_alignment` | direct comparison of model obligations with ordinary test evidence |
 | `model_mesh_maintenance` | parent/child model hierarchy and oversized-model governance |
 | `test_mesh_maintenance` | parent/child test hierarchy plus validation evidence |
 | `structure_mesh_maintenance` | parent/child script/module structure split evidence |
@@ -35,6 +36,7 @@ These are package helpers:
 
 - `RiskIntent`, `RiskProfile`, `FlowGuardCheckPlan`;
 - property factories and packs;
+- `review_model_test_alignment()`;
 - `review_hierarchical_mesh()`, `review_test_mesh()`,
   `review_structure_mesh()`;
 - public starter templates.
@@ -48,6 +50,8 @@ sub-skills.
 - Add detailed procedures to references, not the kernel.
 - Keep ModelMesh, TestMesh, and StructureMesh aligned as sibling
   parent/child partition routes for models, tests, and code structure.
+- Keep Model-Test Alignment independent from mesh routes; it compares plain
+  obligation rows with plain evidence rows and does not split tests or code.
 - Keep oversize guidance as a short consideration hint, not a threshold policy
   or forced split rule.
 - Avoid duplicate ownership of the same rule across multiple references.

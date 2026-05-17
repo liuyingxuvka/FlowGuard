@@ -218,6 +218,7 @@ project:
 python -m flowguard project-template --output .
 python -m flowguard risk-intent-template --output .
 python -m flowguard model-miss-template --output .
+python -m flowguard model-test-alignment-template --output .
 ```
 
 The basic project template demonstrates validation, rejection, duplicate input,
@@ -225,7 +226,10 @@ and source-trace invariants. The Risk Intent template shows how to bind a
 `RiskIntent`, `RiskProfile`, and `FlowGuardCheckPlan` before running
 `run_model_first_checks(...)`. The model-miss template models the feedback loop
 used when runtime, tests, replay, or manual validation finds a problem after a
-FlowGuard pass.
+FlowGuard pass. The model-test alignment template compares explicit
+`ModelObligation` rows with plain `TestEvidence` rows so a project can see
+whether model scenarios, invariants, hazards, transitions, or contracts have
+matching current tests.
 
 These are scaffolds, not reusable business logic. Rename every state field,
 input, output, invariant, and blindspot to match the target project before

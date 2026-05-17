@@ -1,6 +1,6 @@
 ---
 name: model-first-function-flow
-description: For coding, repository, process-design work, structured writing/argument, and decision/planning work, first decide whether FlowGuard applies. Use before implementing or changing non-trivial behavior, stateful workflows, repeated bug fixes, module-boundary changes, idempotency-sensitive logic, deduplication logic, caching, retry handling, data-flow changes, multi-model FlowGuard projects that need ModelMesh, slow or layered tests that need TestMesh, large script or module refactors that need StructureMesh, post-runtime model misses, framework upgrades, or any meaningful multi-step process, argument chain, or decision path that needs validation, adjustment, observation, or loss-prevention preflight.
+description: For coding, repository, process-design work, structured writing/argument, and decision/planning work, first decide whether FlowGuard applies. Use before implementing or changing non-trivial behavior, stateful workflows, repeated bug fixes, module-boundary changes, idempotency-sensitive logic, deduplication logic, caching, retry handling, data-flow changes, model-test alignment, multi-model FlowGuard projects that need ModelMesh, slow or layered tests that need TestMesh, large script or module refactors that need StructureMesh, post-runtime model misses, framework upgrades, or any meaningful multi-step process, argument chain, or decision path that needs validation, adjustment, observation, or loss-prevention preflight.
 ---
 
 # Model-First Function Flow
@@ -14,8 +14,9 @@ decision/planning work, first make a lightweight applicability decision:
 
 Use FlowGuard when the work may affect behavior, workflow state, retries,
 deduplication, idempotency, caching, side effects, module boundaries, data
-flow, production conformance, repeated-bug handling, large model layout, large
-test/script validation layout, large script/module decomposition, slow
+flow, production conformance, repeated-bug handling, large model layout,
+model-test obligation coverage, large test/script validation layout, large
+script/module decomposition, slow
 validation evidence, irreversible process actions, publication/release side
 effects, argument prerequisites, or decision commitments.
 
@@ -53,6 +54,7 @@ package APIs.
 | Trigger | Route | Reference |
 | --- | --- | --- |
 | Ordinary model-first workflow, flow types, Risk Intent, state write inventory | `core_modeling` | `references/modeling_protocol.md` |
+| FlowGuard model obligations need direct comparison with ordinary test evidence | `model_test_alignment` | `references/model_test_alignment_protocol.md` |
 | Three or more local FlowGuard models, oversized model, stale child evidence, parent/child model partition | `model_mesh_maintenance` | `references/model_mesh_protocol.md` |
 | Large test script/suite split, parent/child test hierarchy, slow/background/stale/skipped/release-only validation evidence | `test_mesh_maintenance` | `references/test_mesh_protocol.md` |
 | Large script/module/package/command/API split, facade-first refactor, public entrypoint compatibility, ownership split | `structure_mesh_maintenance` | `references/structure_mesh_protocol.md` |
@@ -118,8 +120,10 @@ fit, but do not describe them as independently triggerable agent sub-skills:
   `SideEffectPack`.
 - Mesh review APIs such as `review_hierarchical_mesh()`,
   `review_test_mesh()`, and `review_structure_mesh()`.
+- Alignment APIs such as `review_model_test_alignment()`.
 - Template CLIs such as `project-template`, `risk-intent-template`,
-  `model-miss-template`, `test-mesh-template`, `structure-mesh-template`, and
+  `model-miss-template`, `model-test-alignment-template`,
+  `test-mesh-template`, `structure-mesh-template`, and
   `maintenance-template`.
 
 ## Resource Map
@@ -128,6 +132,8 @@ fit, but do not describe them as independently triggerable agent sub-skills:
   sub-protocols.
 - `references/modeling_protocol.md`: core modeling protocol, flow lenses,
   Risk Intent, state write inventory, invariants, Explorer, and CheckPlan.
+- `references/model_test_alignment_protocol.md`: direct model-obligation to
+  ordinary test-evidence alignment without TestMesh or StructureMesh.
 - `references/model_mesh_protocol.md`: ModelMesh trigger, evidence tiers,
   required hazards, prompt template, and completion standard.
 - `references/test_mesh_protocol.md`: TestMesh test-hierarchy trigger,

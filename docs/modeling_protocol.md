@@ -2,9 +2,9 @@
 
 This document is the `core_modeling` sub-protocol for the FlowGuard Skill
 Kernel. The main Skill routes here for ordinary model-first work. Specialized
-routes such as ModelMesh, TestMesh, StructureMesh, model-miss review,
-conformance/adoption, long-check observability, and framework upgrades live in
-their dedicated reference protocols.
+routes such as model-test alignment, ModelMesh, TestMesh, StructureMesh,
+model-miss review, conformance/adoption, long-check observability, and
+framework upgrades live in their dedicated reference protocols.
 
 Use this protocol before implementing non-trivial behavior involving workflows, state, retries, deduplication, idempotency, caching, or module boundaries.
 
@@ -22,6 +22,9 @@ Before changing files, separate three situations:
 - `model_maintenance`: existing `.flowguard` models, replay adapters, or
   adoption evidence appear stale. Update those artifacts before making claims
   from them.
+- `model_test_alignment`: model obligations and ordinary tests both exist, and
+  the risk is whether scenarios, invariants, hazards, transitions, or contracts
+  have matching current test evidence.
 - `test_mesh_maintenance`: validation is too large, broad, stale-prone, or
   layered to trust as one flat test command or script. Build a TestMesh that
   partitions parent test confidence into child-suite/script ownership and
@@ -73,7 +76,30 @@ that runs the checks. Keep this as a lightweight model header; do not add
 manifest files or extra project scaffolding unless the task separately requires
 them.
 
-## 0.3 Check The Local Model Mesh Trigger
+## 0.3 Check The Model-Test Alignment Trigger
+
+Before trusting a claim that model coverage and test coverage agree, ask
+whether the model obligations need a direct test-evidence alignment review.
+Trigger Model-Test Alignment when a FlowGuard model has explicit scenarios,
+invariants, hazards, state transitions, or input/output contracts and ordinary
+tests are expected to prove those obligations.
+
+Model-Test Alignment is not a mesh route. It does not split tests, split code,
+or read TestMesh, StructureMesh, or ModelMesh reports. It compares
+`ModelObligation` rows with `TestEvidence` rows and reports missing evidence,
+orphan tests, duplicate same-kind test claims, stale/non-passing evidence,
+missing required test kinds, and overclaimed model confidence.
+Use `review_model_test_alignment(...)` for this direct comparison.
+
+Use TestMesh only when the validation flow itself is large, slow, layered, or
+needs parent/child suite ownership. Use StructureMesh only when a large script,
+module, command, or API surface is being split.
+
+Read
+`.agents/skills/model-first-function-flow/references/model_test_alignment_protocol.md`
+for the checklist and prompt template.
+
+## 0.35 Check The Local Model Mesh Trigger
 
 Before trusting prior green results, scan for existing local FlowGuard models,
 runners, persisted result files, adoption logs, and replay/conformance

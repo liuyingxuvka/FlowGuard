@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.10.0 - 2026-05-17
+
+- Added standalone Model-Test Alignment helper APIs:
+  `ModelObligation`, `TestEvidence`, `ModelTestAlignmentPlan`,
+  `ModelTestAlignmentFinding`, `ModelTestAlignmentReport`, and
+  `review_model_test_alignment(...)`.
+- Added coverage checks for missing model obligations, missing required test
+  kinds, orphan or unknown test evidence, duplicate evidence ownership,
+  stale/non-passing evidence, overclaimed confidence, and duplicate model
+  obligation IDs.
+- Added a `model-test-alignment-template` CLI scaffold, public documentation,
+  Skill Kernel route guidance, OpenSpec artifacts, focused tests, and a
+  FlowGuard rollout model that catches missing route visibility and accidental
+  dependency on TestMesh, StructureMesh, or ModelMesh.
+- Kept Model-Test Alignment independent from mesh split helpers: it compares
+  explicit model obligations with explicit test evidence and does not split
+  tests, refactor code, or read mesh reports.
+- Schema remains `1.0`; runtime dependencies remain Python standard library
+  only.
+
 ## v0.9.0 - 2026-05-17
 
 - Added StructureMesh helper APIs for parent/child structure refactor

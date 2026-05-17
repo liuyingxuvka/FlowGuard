@@ -169,6 +169,12 @@ def _run_model_miss_template(args: argparse.Namespace) -> int:
     return _run_file_template(args, template_name="model_miss_review", files=model_miss_review_template_files())
 
 
+def _run_model_test_alignment_template(args: argparse.Namespace) -> int:
+    from .templates import model_test_alignment_template_files
+
+    return _run_file_template(args, template_name="model_test_alignment", files=model_test_alignment_template_files())
+
+
 def _run_test_mesh_template(args: argparse.Namespace) -> int:
     from .templates import test_mesh_template_files
 
@@ -332,6 +338,12 @@ def main(argv: list[str] | None = None) -> int:
         "model-miss-template",
         "Print or write the post-runtime model-miss review template.",
         _run_model_miss_template,
+    )
+    _add_file_template_parser(
+        subparsers,
+        "model-test-alignment-template",
+        "Print or write the model-test alignment template.",
+        _run_model_test_alignment_template,
     )
     _add_file_template_parser(
         subparsers,

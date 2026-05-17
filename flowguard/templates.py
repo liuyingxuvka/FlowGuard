@@ -1234,6 +1234,179 @@ Do not let a later green runtime check close a known model miss by itself.
 """
 
 
+MODEL_TEST_ALIGNMENT_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header.
+
+Created with FlowGuard:
+https://github.com/liuyingxuvka/FlowGuard
+
+Purpose:
+Reviews whether explicit FlowGuard model obligations and ordinary test
+evidence describe the same behavioral surface.
+
+Guards against:
+- model scenarios, invariants, hazards, or transitions with no test evidence;
+- tests that are not bound to any model obligation;
+- duplicate tests claiming the same model obligation without clear intent;
+- risky model paths covered only by happy-path tests;
+- stale, skipped, failed, timeout, not-run, or overclaiming test evidence.
+
+Use before editing:
+test coverage claims, model confidence reports, model-backed feature work, or
+release notes that claim model and test coverage agree.
+
+Run:
+python .flowguard/model_test_alignment/run_checks.py
+
+This template does not use TestMesh, StructureMesh, or ModelMesh. It compares
+plain model obligations with plain test evidence.
+"""
+
+from __future__ import annotations
+
+from flowguard import (
+    ModelObligation,
+    ModelTestAlignmentPlan,
+    TEST_KIND_FAILURE_PATH,
+    TEST_KIND_HAPPY_PATH,
+    TestEvidence,
+    review_model_test_alignment,
+)
+
+
+def aligned_plan() -> ModelTestAlignmentPlan:
+    return ModelTestAlignmentPlan(
+        model_id="sample_checkout_model",
+        obligations=(
+            ModelObligation(
+                "accept_valid_order",
+                obligation_type="scenario",
+                description="valid order reaches Accepted",
+                required_test_kinds=(TEST_KIND_HAPPY_PATH,),
+            ),
+            ModelObligation(
+                "reject_duplicate_order",
+                obligation_type="hazard",
+                description="duplicate order is rejected without a second side effect",
+                required_test_kinds=(TEST_KIND_HAPPY_PATH, TEST_KIND_FAILURE_PATH),
+            ),
+        ),
+        test_evidence=(
+            TestEvidence(
+                "test_accept_valid_order",
+                test_name="test_accept_valid_order",
+                path="tests/test_checkout.py",
+                result_status="passed",
+                test_kind=TEST_KIND_HAPPY_PATH,
+                covered_obligations=("accept_valid_order",),
+            ),
+            TestEvidence(
+                "test_reject_duplicate_order_happy",
+                test_name="test_reject_duplicate_order_happy",
+                path="tests/test_checkout.py",
+                result_status="passed",
+                test_kind=TEST_KIND_HAPPY_PATH,
+                covered_obligations=("reject_duplicate_order",),
+            ),
+            TestEvidence(
+                "test_reject_duplicate_order_failure",
+                test_name="test_reject_duplicate_order_failure",
+                path="tests/test_checkout.py",
+                result_status="passed",
+                test_kind=TEST_KIND_FAILURE_PATH,
+                covered_obligations=("reject_duplicate_order",),
+            ),
+        ),
+    )
+
+
+def broken_plan() -> ModelTestAlignmentPlan:
+    return ModelTestAlignmentPlan(
+        model_id="sample_checkout_model",
+        obligations=(
+            ModelObligation(
+                "reject_duplicate_order",
+                obligation_type="hazard",
+                required_test_kinds=(TEST_KIND_HAPPY_PATH, TEST_KIND_FAILURE_PATH),
+            ),
+        ),
+        test_evidence=(
+            TestEvidence(
+                "test_duplicate_only_happy",
+                test_name="test_duplicate_only_happy",
+                path="tests/test_checkout.py",
+                result_status="passed",
+                test_kind=TEST_KIND_HAPPY_PATH,
+                covered_obligations=("reject_duplicate_order",),
+            ),
+            TestEvidence(
+                "test_unbound_helper",
+                test_name="test_unbound_helper",
+                path="tests/test_checkout.py",
+                result_status="passed",
+            ),
+        ),
+    )
+
+
+def run_checks():
+    return review_model_test_alignment(aligned_plan()), review_model_test_alignment(broken_plan())
+'''
+
+
+MODEL_TEST_ALIGNMENT_RUN_CHECKS_TEMPLATE = '''"""Run the Model-Test Alignment template checks."""
+
+from __future__ import annotations
+
+from model import run_checks
+
+
+def main() -> int:
+    aligned, broken = run_checks()
+    print(aligned.format_text())
+    print()
+    print(broken.format_text(max_findings=5))
+    return 0 if aligned.ok and not broken.ok else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+'''
+
+
+MODEL_TEST_ALIGNMENT_NOTES_TEMPLATE = """# FlowGuard Model-Test Alignment Notes
+
+Use this scaffold to compare a FlowGuard model's explicit obligations with
+ordinary test evidence.
+
+## Inputs
+
+List model obligations:
+
+- scenario ids;
+- invariant ids;
+- hazard ids;
+- state-transition or input/output contract ids;
+- required test kinds such as happy path, failure path, edge path, negative
+  path, or replay.
+
+List test evidence:
+
+- evidence id;
+- test name and path;
+- command or runner;
+- pass, fail, timeout, skipped, not-run, running, or error status;
+- freshness and stale reasons;
+- covered model obligation ids.
+
+## Boundary
+
+Model-Test Alignment does not split tests and does not split source code. Use
+TestMesh only when a large validation flow needs parent/child test hierarchy
+ownership. Use StructureMesh only when a large script, module, command, or API
+surface is being split.
+"""
+
+
 TEST_MESH_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header
 
 Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
@@ -1569,6 +1742,14 @@ def maintenance_workflow_template_files() -> tuple[TemplateFile, ...]:
     )
 
 
+def model_test_alignment_template_files() -> tuple[TemplateFile, ...]:
+    return (
+        TemplateFile(".flowguard/model_test_alignment/model.py", MODEL_TEST_ALIGNMENT_MODEL_TEMPLATE),
+        TemplateFile(".flowguard/model_test_alignment/run_checks.py", MODEL_TEST_ALIGNMENT_RUN_CHECKS_TEMPLATE),
+        TemplateFile("docs/flowguard_model_test_alignment.md", MODEL_TEST_ALIGNMENT_NOTES_TEMPLATE),
+    )
+
+
 def test_mesh_template_files() -> tuple[TemplateFile, ...]:
     return (
         TemplateFile(".flowguard/test_mesh/model.py", TEST_MESH_MODEL_TEMPLATE),
@@ -1611,6 +1792,9 @@ __all__ = [
     "MODEL_MISS_REVIEW_MODEL_TEMPLATE",
     "MODEL_MISS_REVIEW_NOTES_TEMPLATE",
     "MODEL_MISS_REVIEW_RUN_CHECKS_TEMPLATE",
+    "MODEL_TEST_ALIGNMENT_MODEL_TEMPLATE",
+    "MODEL_TEST_ALIGNMENT_NOTES_TEMPLATE",
+    "MODEL_TEST_ALIGNMENT_RUN_CHECKS_TEMPLATE",
     "MODEL_NOTES_TEMPLATE",
     "RISK_INTENT_CHECK_PLAN_MODEL_TEMPLATE",
     "RISK_INTENT_CHECK_PLAN_NOTES_TEMPLATE",
@@ -1625,6 +1809,7 @@ __all__ = [
     "adoption_template_files",
     "maintenance_workflow_template_files",
     "model_miss_review_template_files",
+    "model_test_alignment_template_files",
     "project_template_files",
     "risk_intent_template_files",
     "structure_mesh_template_files",

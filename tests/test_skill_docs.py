@@ -28,6 +28,7 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("RiskIntent", text)
         self.assertIn("review_test_mesh()", text)
         self.assertIn("review_structure_mesh()", text)
+        self.assertIn("review_model_test_alignment()", text)
         self.assertNotIn("Phase 11", text)
         self.assertNotIn("2100-case", text)
 
@@ -36,6 +37,7 @@ class SkillDocsTests(unittest.TestCase):
 
         expected_routes = (
             "core_modeling",
+            "model_test_alignment",
             "model_mesh_maintenance",
             "test_mesh_maintenance",
             "structure_mesh_maintenance",
@@ -47,6 +49,7 @@ class SkillDocsTests(unittest.TestCase):
         expected_refs = (
             "references/skill_kernel_protocol.md",
             "references/modeling_protocol.md",
+            "references/model_test_alignment_protocol.md",
             "references/model_mesh_protocol.md",
             "references/test_mesh_protocol.md",
             "references/structure_mesh_protocol.md",
@@ -60,6 +63,7 @@ class SkillDocsTests(unittest.TestCase):
         for reference in expected_refs:
             self.assertIn(reference, text)
         self.assertIn("parent/child test hierarchy", text)
+        self.assertIn("ordinary test evidence", text)
 
     def test_skill_kernel_has_soft_generic_oversize_hint(self):
         text = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
@@ -97,6 +101,9 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("Create Or Evolve The Model Script", text)
         self.assertIn("fit for the customer's risk", text)
         self.assertIn("Check The Local Model Mesh Trigger", text)
+        self.assertIn("Check The Model-Test Alignment Trigger", text)
+        self.assertIn("Model-Test Alignment is not a mesh route", text)
+        self.assertIn("review_model_test_alignment", text)
         self.assertIn("three or more local FlowGuard models", text)
         self.assertIn("Check The TestMesh Trigger", text)
         self.assertIn("parent/child hierarchy mesh", text)
@@ -112,6 +119,8 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("Route map", text)
         self.assertIn("core_modeling", text)
         self.assertIn("test_mesh_maintenance", text)
+        self.assertIn("model_test_alignment", text)
+        self.assertIn("does not invoke", text)
         self.assertIn("tests split into child suites/scripts", text)
         self.assertIn("structure_mesh_maintenance", text)
         self.assertIn("model_miss_review", text)
@@ -166,6 +175,11 @@ class SkillDocsTests(unittest.TestCase):
 
         self.assertIn("FlowGuard Skill Kernel Protocol", kernel)
         self.assertIn("Helper APIs Are Not Sub-Skills", kernel)
+        self.assertIn("model_test_alignment", kernel)
+        model_test_alignment = (SKILL_ROOT / "references" / "model_test_alignment_protocol.md").read_text(encoding="utf-8")
+        self.assertIn("Model-Test Alignment Protocol", model_test_alignment)
+        self.assertIn("does not split tests", model_test_alignment)
+        self.assertIn("Do not invoke TestMesh", model_test_alignment)
         self.assertIn("Post-Runtime Model-Miss Protocol", model_miss)
         self.assertIn("boundary_missing", model_miss)
         self.assertIn("Generalized case", model_miss)

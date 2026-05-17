@@ -11,10 +11,11 @@ decision: `use_flowguard`, `skip_with_reason`, or `needs_human_review`.
 
 Use FlowGuard before non-trivial work involving behavior, workflows, state,
 module boundaries, retries, deduplication, idempotency, caching, side effects,
-production conformance, repeated bugs, multiple local FlowGuard models, large
-test scripts/suites, slow or layered validation evidence, large script/module
-splits, public entrypoint compatibility, meaningful process side effects,
-argument prerequisites, or decision commitments.
+production conformance, repeated bugs, model-test coverage alignment, multiple
+local FlowGuard models, large test scripts/suites, slow or layered validation
+evidence, large script/module splits, public entrypoint compatibility,
+meaningful process side effects, argument prerequisites, or decision
+commitments.
 
 Hard gates:
 
@@ -39,6 +40,7 @@ Route map:
 | Trigger | Route |
 | --- | --- |
 | Ordinary modeling, Risk Intent, state write inventory, invariants, Explorer | `core_modeling` |
+| Direct comparison between FlowGuard model obligations and ordinary test evidence | `model_test_alignment` |
 | Three or more local models, oversized model, parent/child model evidence | `model_mesh_maintenance` |
 | Large test script/suite split, parent/child test hierarchy, slow/stale/release-only tests | `test_mesh_maintenance` |
 | Large script/module/API split, public entrypoint compatibility, facade, ownership | `structure_mesh_maintenance` |
@@ -49,8 +51,14 @@ Route map:
 
 Use the matching Skill reference protocol for details. Helper APIs such as
 `RiskIntent`, property factories, packs, `FlowGuardCheckPlan`,
-`review_test_mesh()`, `review_structure_mesh()`, templates, and starter CLIs
-are package helpers, not standalone sub-skills.
+`review_model_test_alignment()`, `review_test_mesh()`,
+`review_structure_mesh()`, templates, and starter CLIs are package helpers,
+not standalone sub-skills.
+
+Use Model-Test Alignment when a model's scenarios, invariants, hazards,
+transitions, or contracts need direct test evidence. It compares plain
+`ModelObligation` rows with plain `TestEvidence` rows. It does not invoke
+TestMesh, StructureMesh, or ModelMesh.
 
 If a model, test, script, module, or command is becoming large, slow, or hard
 to follow, consider whether a parent/child split would make it easier to

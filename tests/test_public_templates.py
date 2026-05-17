@@ -8,6 +8,7 @@ from pathlib import Path
 
 from flowguard.templates import (
     model_miss_review_template_files,
+    model_test_alignment_template_files,
     project_template_files,
     risk_intent_template_files,
     structure_mesh_template_files,
@@ -72,6 +73,24 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("correct_model_miss_review: PASS", output)
         self.assertIn("expected violations observed: 2", output)
 
+    def test_model_test_alignment_template_executes(self):
+        output = self.run_written_template(
+            model_test_alignment_template_files(),
+            (".flowguard", "model_test_alignment"),
+        )
+        self.assertIn("flowguard model-test alignment", output)
+        self.assertIn("missing_required_test_kind", output)
+
+    def test_model_test_alignment_template_is_not_mesh_coupled(self):
+        files = model_test_alignment_template_files()
+        combined = "\n".join(file.content for file in files)
+
+        self.assertIn("does not use TestMesh, StructureMesh, or ModelMesh", combined)
+        self.assertIn("plain model obligations", combined)
+        self.assertIn("plain test evidence", combined)
+        self.assertNotIn("review_test_mesh", combined)
+        self.assertNotIn("review_structure_mesh", combined)
+
     def test_test_mesh_template_executes(self):
         output = self.run_written_template(
             test_mesh_template_files(),
@@ -104,6 +123,7 @@ class PublicTemplateTests(unittest.TestCase):
             project_template_files(),
             risk_intent_template_files(),
             model_miss_review_template_files(),
+            model_test_alignment_template_files(),
             test_mesh_template_files(),
             structure_mesh_template_files(),
         ):
@@ -115,6 +135,7 @@ class PublicTemplateTests(unittest.TestCase):
             "project-template": "project",
             "risk-intent-template": "risk_intent_check_plan",
             "model-miss-template": "model_miss_review",
+            "model-test-alignment-template": "model_test_alignment",
             "test-mesh-template": "test_mesh",
             "structure-mesh-template": "structure_mesh",
         }
@@ -157,6 +178,7 @@ class PublicTemplateTests(unittest.TestCase):
             project_template_files(),
             risk_intent_template_files(),
             model_miss_review_template_files(),
+            model_test_alignment_template_files(),
             test_mesh_template_files(),
             structure_mesh_template_files(),
         ):

@@ -49,6 +49,8 @@ The package also exposes public-safe scaffolds for common agent situations:
   starter with model-level confidence boundaries;
 - `model_miss_review_template_files()`: a post-runtime model-miss review
   starter for cases where real validation finds a gap after a FlowGuard pass;
+- `model_test_alignment_template_files()`: a direct model-obligation to
+  ordinary test-evidence alignment starter;
 - `maintenance_workflow_template_files()`: a recurring maintenance workflow
   starter.
 
@@ -59,6 +61,7 @@ and how to create project files. The CLI can print or write the same templates:
 python -m flowguard project-template --output .
 python -m flowguard risk-intent-template --output .
 python -m flowguard model-miss-template --output .
+python -m flowguard model-test-alignment-template --output .
 python -m flowguard maintenance-template --output .
 ```
 

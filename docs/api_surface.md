@@ -60,6 +60,10 @@ Modeling helpers reduce boilerplate around common bug classes:
   `ChildModelEvidence`, `review_hierarchical_mesh()`, `LegacyModelRecord`, and
   `classify_legacy_model()` for reviewing parent/child partition coverage,
   sibling overlap, large-model split triggers, and legacy compatibility.
+- optional model-test alignment helpers such as `ModelObligation`,
+  `TestEvidence`, `ModelTestAlignmentPlan`, and
+  `review_model_test_alignment()` for directly comparing model obligations with
+  ordinary test evidence without invoking TestMesh or StructureMesh.
 - optional TestMesh helpers such as `TestMeshPlan`, `TestPartitionItem`,
   `TestSuiteEvidence`, and `review_test_mesh()` for reviewing parent/child
   test hierarchy coverage, child suite/script ownership, evidence freshness,
@@ -105,8 +109,8 @@ Evidence APIs are used to keep FlowGuard itself honest:
 - benchmark scorecards and benchmark coverage audits;
 - problem corpus and executable corpus reports;
 - pytest/template helpers used by examples and framework validation;
-- public template writers, including `test_mesh_template_files()` and
-  `structure_mesh_template_files()`.
+- public template writers, including `model_test_alignment_template_files()`,
+  `test_mesh_template_files()`, and `structure_mesh_template_files()`.
 
 These tools are valuable for FlowGuard maintenance. Ordinary project models do
 not have to run the full evidence baseline, problem corpus, or benchmark suite
@@ -129,10 +133,11 @@ runtime policy and they do not make helper layers mandatory.
 
 Start with the core path when it is enough. Add helpers only when they clarify a
 real risk, reduce repetitive code, or improve reporting honesty. Keep skipped
-checks visible. For large, slow, or layered validation, use TestMesh to split
-the parent test gate into child suites/scripts and make their ownership and
-evidence visible before trusting the parent. For large structure refactors, use
-StructureMesh to make child-module ownership and compatibility evidence visible
-before trusting a parent split. Do not claim production confidence from a
-model-only pass unless conformance replay or equivalent real-code evidence
-exists.
+checks visible. When model obligations and tests both exist, use Model-Test
+Alignment to compare them directly before claiming coverage agreement. For
+large, slow, or layered validation, use TestMesh to split the parent test gate
+into child suites/scripts and make their ownership and evidence visible before
+trusting the parent. For large structure refactors, use StructureMesh to make
+child-module ownership and compatibility evidence visible before trusting a
+parent split. Do not claim production confidence from a model-only pass unless
+conformance replay or equivalent real-code evidence exists.
