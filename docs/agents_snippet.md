@@ -21,7 +21,7 @@ Hard gates:
 - Verify the real package before modeling:
   `python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"`.
 - Do not create a fake mini-framework and claim FlowGuard adoption.
-- Keep FlowGuard usable without any external spec, SPAC, or planning skill.
+- Keep FlowGuard usable without any external planner or specification workflow.
   Planner handoffs are optional context, not prerequisites.
 - Represent each block as `Input x State -> Set(Output x State)`.
 - Do not replace executable modeling with prose.
@@ -51,6 +51,12 @@ Use the matching Skill reference protocol for details. Helper APIs such as
 `RiskIntent`, property factories, packs, `FlowGuardCheckPlan`,
 `review_test_mesh()`, `review_structure_mesh()`, templates, and starter CLIs
 are package helpers, not standalone sub-skills.
+
+If a model, test, script, module, or command is becoming large, slow, or hard
+to follow, consider whether a parent/child split would make it easier to
+maintain or verify. For models consider ModelMesh; for tests consider TestMesh;
+for scripts, modules, or APIs consider StructureMesh; for long checks consider
+LongCheck observability.
 
 Treat ModelMesh, TestMesh, and StructureMesh as sibling parent/child partition
 routes: models split into child models, tests split into child suites/scripts,

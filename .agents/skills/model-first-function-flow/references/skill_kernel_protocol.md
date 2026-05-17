@@ -9,6 +9,8 @@ Detailed procedures live in sub-protocol references.
 - applicability decision: `use_flowguard`, `skip_with_reason`, or
   `needs_human_review`;
 - flow lens: `behavior_flow`, `argument_flow`, or `decision_flow`;
+- a soft oversize hint that suggests considering parent/child splits for large
+  or hard-to-follow models, tests, scripts, modules, and commands;
 - hard gates: real package import, no fake mini-framework, executable evidence
   over prose, skipped is not pass, and adoption evidence for real use;
 - route map to specialized protocols;
@@ -46,6 +48,8 @@ sub-skills.
 - Add detailed procedures to references, not the kernel.
 - Keep ModelMesh, TestMesh, and StructureMesh aligned as sibling
   parent/child partition routes for models, tests, and code structure.
+- Keep oversize guidance as a short consideration hint, not a threshold policy
+  or forced split rule.
 - Avoid duplicate ownership of the same rule across multiple references.
-- Preserve standalone FlowGuard use; OpenSpec/SPAC handoff remains optional.
+- Preserve standalone FlowGuard use; external planner handoffs remain optional.
 - Before broad release, verify the installed Skill and source Skill match.

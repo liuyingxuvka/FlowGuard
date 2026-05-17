@@ -61,6 +61,33 @@ class SkillDocsTests(unittest.TestCase):
             self.assertIn(reference, text)
         self.assertIn("parent/child test hierarchy", text)
 
+    def test_skill_kernel_has_soft_generic_oversize_hint(self):
+        text = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
+        snippet = (ROOT / "docs" / "agents_snippet.md").read_text(encoding="utf-8")
+        kernel = (SKILL_ROOT / "references" / "skill_kernel_protocol.md").read_text(encoding="utf-8")
+        combined = "\n".join((text, snippet, kernel))
+
+        self.assertIn("consider whether a parent/child split", text)
+        self.assertIn("For models consider ModelMesh", text)
+        self.assertIn("for tests consider TestMesh", text)
+        self.assertIn("for long checks consider", text)
+        self.assertIn("consider whether a parent/child split", snippet)
+        self.assertIn("short consideration hint", kernel)
+        self.assertIn("external planner handoffs remain optional", kernel)
+
+        forbidden = (
+            "OpenStack",
+            "OpenSpac",
+            "OpenSpec",
+            "SPAC",
+            "must split",
+            "required after",
+            "fixed runtime threshold",
+            "Hierarchy Split Gate",
+        )
+        for phrase in forbidden:
+            self.assertNotIn(phrase, combined)
+
     def test_core_modeling_protocol_keeps_state_inventory_and_mesh_links(self):
         text = (ROOT / "docs" / "modeling_protocol.md").read_text(encoding="utf-8")
 

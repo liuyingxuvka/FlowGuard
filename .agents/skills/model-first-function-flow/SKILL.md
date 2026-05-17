@@ -29,8 +29,8 @@ unclear, narrow the task or mark `needs_human_review`.
   `python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"`.
 - If the import fails, connect the real toolchain or record the task as
   blocked/partial. do not write a temporary mini-framework or fake mini-framework and claim FlowGuard use.
-- FlowGuard must remain useful without OpenSpec, SPAC, FlowPilot, or any other
-  upstream planner. Planner handoffs are optional context, not prerequisites.
+- FlowGuard must remain useful without any external planner or specification
+  workflow. Planner handoffs are optional context, not prerequisites.
 - Represent each modeled block as `Input x State -> Set(Output x State)`.
 - Do not replace executable modeling with prose.
 - Do not weaken hard invariants merely to pass checks.
@@ -60,7 +60,13 @@ package APIs.
 | Production confidence, multiple production writers, install sync, shadow workspace sync, adoption evidence | `conformance_adoption` | `references/conformance_adoption_protocol.md` |
 | Long model/test/check command that should not block the agent thread | `long_check_observability` | `references/long_check_protocol.md` |
 | FlowGuard/LiveFlowGuard self-upgrade, benchmark/corpus capability claim, broad framework behavior claim | `framework_upgrade` | `references/framework_upgrade_protocol.md` |
-| Spec/SPAC/OpenSpec planner already decomposed the work | `optional_planner_handoff` | `docs/skill_orchestrator_collaboration.md` |
+| Compatible planning or specification artifact already decomposed the work | `optional_planner_handoff` | `docs/skill_orchestrator_collaboration.md` |
+
+If a model, test, script, module, or command is becoming large, slow, or hard
+to follow, consider whether a parent/child split would make it easier to
+maintain or verify. For models consider ModelMesh; for tests consider TestMesh;
+for scripts, modules, or APIs consider StructureMesh; for long checks consider
+LongCheck observability.
 
 ### Flow Lenses
 
@@ -83,8 +89,8 @@ Classify the main lens when using FlowGuard:
 2. Classify the main lens: `behavior_flow`, `argument_flow`, or
    `decision_flow`.
 3. Choose the needed route(s) from the Route Map.
-4. If an upstream OpenSpec/SPAC-style planner exists, inspect its handoff as
-   optional context. Continue standalone if no handoff exists.
+4. If a compatible upstream planning or specification artifact exists, inspect
+   it as optional context. Continue standalone if no handoff exists.
 5. Verify the real FlowGuard package is importable.
 6. Start or plan adoption evidence for real project work.
 7. Follow the chosen sub-protocol reference(s).

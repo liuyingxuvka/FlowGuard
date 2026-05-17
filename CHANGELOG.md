@@ -31,6 +31,10 @@
   large test scripts, suites, or validation flows split into parent/child test
   hierarchy layers while parent gates consume child ownership and evidence
   contracts instead of expanded child internals.
+- Added a soft oversize hint to the Skill Kernel so agents consider
+  parent/child splits for large, slow, or hard-to-follow models, tests, scripts,
+  modules, and commands without adding fixed thresholds or external planner
+  dependencies.
 - Schema remains `1.0`; runtime dependencies remain Python standard library
   only.
 
