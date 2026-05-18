@@ -2,7 +2,8 @@
 
 The `model-first-function-flow` Skill is a kernel, not a monolith. The kernel
 owns trigger selection, hard gates, route selection, and resource discovery.
-Detailed procedures live in sub-protocol references.
+Detailed procedures live in sub-protocol references or in route-specific
+standalone satellite skills.
 
 ## Kernel Owns
 
@@ -13,8 +14,27 @@ Detailed procedures live in sub-protocol references.
   or hard-to-follow models, tests, scripts, modules, and commands;
 - hard gates: real package import, no fake mini-framework, executable evidence
   over prose, skipped is not pass, and adoption evidence for real use;
-- route map to specialized protocols;
+- route map to specialized protocols and first-batch satellite skills;
 - distinction between agent sub-protocols and package helper APIs.
+
+## Standalone Satellite Skills
+
+These route-specific Codex skills can be invoked directly when the user's
+request clearly matches their trigger:
+
+| Satellite skill | Route |
+| --- | --- |
+| `flowguard-model-test-alignment` | `model_test_alignment` |
+| `flowguard-development-process-flow` | `development_process_flow` |
+| `flowguard-model-miss-review` | `model_miss_review` |
+| `flowguard-code-structure-recommendation` | `code_structure_recommendation` |
+| `flowguard-model-mesh` | `model_mesh_maintenance` |
+| `flowguard-test-mesh` | `test_mesh_maintenance` |
+| `flowguard-structure-mesh` | `structure_mesh_maintenance` |
+
+If a task is ambiguous, cross-route, or starts from a general FlowGuard
+applicability question, use the kernel first. Satellite skills must route back
+to the kernel instead of taking ownership of unclear work.
 
 ## Sub-Protocols Own
 
@@ -50,6 +70,7 @@ sub-skills.
 
 - Keep `SKILL.md` short enough to scan as a router.
 - Add detailed procedures to references, not the kernel.
+- Keep satellite skills concise and self-contained enough for direct Codex use.
 - Keep ModelMesh, TestMesh, and StructureMesh aligned as sibling
   parent/child partition routes for models, tests, and code structure.
 - Keep Model-Test Alignment independent from mesh routes; it compares plain
@@ -62,4 +83,5 @@ sub-skills.
   or forced split rule.
 - Avoid duplicate ownership of the same rule across multiple references.
 - Preserve standalone FlowGuard use; external planner handoffs remain optional.
-- Before broad release, verify the installed Skill and source Skill match.
+- Before broad release, verify the installed kernel and satellite skills match
+  the source skill directories.

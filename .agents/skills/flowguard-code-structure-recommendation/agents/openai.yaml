@@ -1,0 +1,4 @@
+interface:
+  display_name: "FlowGuard Code Structure"
+  short_description: "Derive code structure from FlowGuard models"
+  default_prompt: "Use $flowguard-code-structure-recommendation to derive module and ownership structure from a FlowGuard model."

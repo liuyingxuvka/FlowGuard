@@ -1,0 +1,4 @@
+interface:
+  display_name: "FlowGuard Development Process Flow"
+  short_description: "Check validation freshness across workflow steps"
+  default_prompt: "Use $flowguard-development-process-flow to decide whether later development changes make earlier validation stale."

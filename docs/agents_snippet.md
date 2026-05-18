@@ -52,11 +52,28 @@ Route map:
 | Long-running model/test/regression checks | `long_check_observability` |
 | FlowGuard framework upgrade or broad benchmark/capability claim | `framework_upgrade` |
 
-Use the matching Skill reference protocol for details. Helper APIs such as
+First-batch directly invokable Codex skills:
+
+| Skill | Route |
+| --- | --- |
+| `flowguard-model-test-alignment` | `model_test_alignment` |
+| `flowguard-development-process-flow` | `development_process_flow` |
+| `flowguard-model-miss-review` | `model_miss_review` |
+| `flowguard-code-structure-recommendation` | `code_structure_recommendation` |
+| `flowguard-model-mesh` | `model_mesh_maintenance` |
+| `flowguard-test-mesh` | `test_mesh_maintenance` |
+| `flowguard-structure-mesh` | `structure_mesh_maintenance` |
+
+Use a satellite skill directly only when the request clearly matches that
+route. For ambiguous, cross-route, or general FlowGuard applicability work,
+start with `model-first-function-flow`.
+
+Use the matching Skill reference protocol for support routes. Helper APIs such as
 `RiskIntent`, property factories, packs, `FlowGuardCheckPlan`,
 `review_code_structure_recommendation()`, `review_model_test_alignment()`,
 `review_development_process_flow()`, `review_test_mesh()`,
-`review_structure_mesh()`, templates, and starter CLIs are package helpers, not standalone sub-skills.
+`review_structure_mesh()`, templates, and starter CLIs are package helpers, not
+Codex skills by themselves.
 
 Use Model-Test Alignment when a model's scenarios, invariants, hazards,
 transitions, contracts, or optional code external contracts need direct test

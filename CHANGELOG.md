@@ -2,6 +2,16 @@
 
 ## v0.14.0 - 2026-05-18
 
+- Upgraded the Codex-facing skill architecture to one FlowGuard Skill Kernel
+  plus seven directly invokable satellite skills:
+  `flowguard-model-test-alignment`, `flowguard-development-process-flow`,
+  `flowguard-model-miss-review`, `flowguard-code-structure-recommendation`,
+  `flowguard-model-mesh`, `flowguard-test-mesh`, and
+  `flowguard-structure-mesh`.
+- Updated the global AGENTS snippet, README, product architecture docs, release
+  checklist, OpenSpec artifacts, and skill-doc tests so the first-batch
+  satellite topology is explicit while helper APIs and CLI templates remain
+  package helpers rather than Codex skills.
 - Added DevelopmentProcessFlow helper APIs:
   `ProcessArtifact`, `ActionEffect`, `ProcessAction`, `ProcessEvidence`,
   `FreshnessRule`, `ValidationRequirement`, `DevelopmentProcessPlan`,

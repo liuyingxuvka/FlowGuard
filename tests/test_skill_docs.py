@@ -4,6 +4,15 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILL_ROOT = ROOT / ".agents" / "skills" / "model-first-function-flow"
+SATELLITE_SKILLS = {
+    "flowguard-model-test-alignment": "model_test_alignment_protocol.md",
+    "flowguard-development-process-flow": "development_process_flow_protocol.md",
+    "flowguard-model-miss-review": "model_miss_protocol.md",
+    "flowguard-code-structure-recommendation": "code_structure_recommendation_protocol.md",
+    "flowguard-model-mesh": "model_mesh_protocol.md",
+    "flowguard-test-mesh": "test_mesh_protocol.md",
+    "flowguard-structure-mesh": "structure_mesh_protocol.md",
+}
 
 
 class SkillDocsTests(unittest.TestCase):
@@ -32,6 +41,9 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("audit_python_code_contracts()", text)
         self.assertIn("audit_python_test_assertions()", text)
         self.assertIn("review_python_contract_source_audit()", text)
+        self.assertIn("Standalone Satellite Skills", text)
+        self.assertIn("flowguard-model-test-alignment", text)
+        self.assertIn("flowguard-development-process-flow", text)
         self.assertNotIn("Phase 11", text)
         self.assertNotIn("2100-case", text)
 
@@ -71,6 +83,68 @@ class SkillDocsTests(unittest.TestCase):
             self.assertIn(reference, text)
         self.assertIn("parent/child test hierarchy", text)
         self.assertIn("ordinary test evidence", text)
+
+    def test_standalone_satellite_skills_exist_with_references(self):
+        skills_root = ROOT / ".agents" / "skills"
+
+        for skill_name, reference_name in SATELLITE_SKILLS.items():
+            with self.subTest(skill=skill_name):
+                skill_root = skills_root / skill_name
+                skill_text = (skill_root / "SKILL.md").read_text(encoding="utf-8")
+                openai_yaml = (skill_root / "agents" / "openai.yaml").read_text(encoding="utf-8")
+                reference_text = (skill_root / "references" / reference_name).read_text(encoding="utf-8")
+
+                self.assertIn(f"name: {skill_name}", skill_text)
+                self.assertIn("standalone FlowGuard satellite skill", skill_text)
+                self.assertIn("model-first-function-flow", skill_text)
+                self.assertIn("real package", skill_text)
+                self.assertIn("fake mini-framework", skill_text)
+                self.assertIn("Non-Goals", skill_text)
+                self.assertIn(skill_name, openai_yaml)
+                self.assertGreater(len(reference_text), 200)
+
+    def test_satellite_skills_keep_distinct_ownership(self):
+        skills_root = ROOT / ".agents" / "skills"
+        expectations = {
+            "flowguard-model-test-alignment": (
+                "review_model_test_alignment",
+                "Do not invoke TestMesh",
+            ),
+            "flowguard-development-process-flow": (
+                "review_development_process_flow",
+                "does not inspect",
+            ),
+            "flowguard-model-miss-review": (
+                "boundary_missing",
+                "same-class generalized bad case",
+            ),
+            "flowguard-code-structure-recommendation": (
+                "review_code_structure_recommendation",
+                "FunctionBlock-to-module ownership",
+            ),
+            "flowguard-model-mesh": (
+                "review_hierarchical_mesh",
+                "Required Hazards",
+            ),
+            "flowguard-test-mesh": (
+                "review_test_mesh",
+                "child test scripts",
+            ),
+            "flowguard-structure-mesh": (
+                "review_structure_mesh",
+                "dependency cycle",
+            ),
+        }
+
+        for skill_name, phrases in expectations.items():
+            with self.subTest(skill=skill_name):
+                skill_root = skills_root / skill_name
+                combined = "\n".join(
+                    path.read_text(encoding="utf-8")
+                    for path in (skill_root / "SKILL.md", *sorted((skill_root / "references").glob("*.md")))
+                )
+                for phrase in phrases:
+                    self.assertIn(phrase, combined)
 
     def test_skill_kernel_has_soft_generic_oversize_hint(self):
         text = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
@@ -142,7 +216,14 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("same-class", text)
         self.assertIn("generalized bad case", text)
         self.assertIn("A later green runtime check by itself does not close", text)
-        self.assertIn("not standalone sub-skills", text)
+        self.assertIn("flowguard-model-test-alignment", text)
+        self.assertIn("flowguard-development-process-flow", text)
+        self.assertIn("flowguard-model-miss-review", text)
+        self.assertIn("flowguard-code-structure-recommendation", text)
+        self.assertIn("flowguard-model-mesh", text)
+        self.assertIn("flowguard-test-mesh", text)
+        self.assertIn("flowguard-structure-mesh", text)
+        self.assertIn("package helpers, not", text)
 
     def test_skill_orchestrator_collaboration_doc_defends_standalone_mode(self):
         text = (ROOT / "docs" / "skill_orchestrator_collaboration.md").read_text(encoding="utf-8")
@@ -203,6 +284,8 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("Helper APIs Are Not Sub-Skills", kernel)
         self.assertIn("model_test_alignment", kernel)
         self.assertIn("development_process_flow", kernel)
+        self.assertIn("Standalone Satellite Skills", kernel)
+        self.assertIn("flowguard-model-mesh", kernel)
         model_test_alignment = (SKILL_ROOT / "references" / "model_test_alignment_protocol.md").read_text(encoding="utf-8")
         self.assertIn("Model-Test Alignment Protocol", model_test_alignment)
         self.assertIn("CodeContract", model_test_alignment)

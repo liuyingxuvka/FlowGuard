@@ -1,0 +1,4 @@
+interface:
+  display_name: "FlowGuard TestMesh"
+  short_description: "Split large or slow validation evidence"
+  default_prompt: "Use $flowguard-test-mesh when tests, checks, or validation evidence need parent and child structure."

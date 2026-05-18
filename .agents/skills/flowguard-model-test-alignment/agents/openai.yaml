@@ -1,0 +1,4 @@
+interface:
+  display_name: "FlowGuard Model-Test Alignment"
+  short_description: "Align FlowGuard model obligations with tests"
+  default_prompt: "Use $flowguard-model-test-alignment to compare FlowGuard model obligations, code contracts, and test evidence."

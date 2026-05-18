@@ -9,6 +9,13 @@ Include:
 
 - `flowguard/`
 - `.agents/skills/model-first-function-flow/`
+- `.agents/skills/flowguard-model-test-alignment/`
+- `.agents/skills/flowguard-development-process-flow/`
+- `.agents/skills/flowguard-model-miss-review/`
+- `.agents/skills/flowguard-code-structure-recommendation/`
+- `.agents/skills/flowguard-model-mesh/`
+- `.agents/skills/flowguard-test-mesh/`
+- `.agents/skills/flowguard-structure-mesh/`
 - `docs/`
 - `examples/job_matching/`
 - `examples/looping_workflow/`

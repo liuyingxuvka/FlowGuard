@@ -1,0 +1,4 @@
+interface:
+  display_name: "FlowGuard ModelMesh"
+  short_description: "Split oversized FlowGuard models safely"
+  default_prompt: "Use $flowguard-model-mesh when a FlowGuard model set needs parent and child model partitioning."

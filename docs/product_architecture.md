@@ -17,7 +17,8 @@ This is the surface that belongs in a future public GitHub release:
 - modeling protocol;
 - invariant cookbook;
 - scenario, loop, progress, contract, and conformance examples;
-- `model-first-function-flow` Skill;
+- `model-first-function-flow` Skill Kernel;
+- seven `flowguard-*` satellite skills for mature direct routes;
 - `AGENTS.md` snippet;
 - lightweight adoption log support;
 - small examples such as `job_matching` and `looping_workflow`;
@@ -80,7 +81,7 @@ missing expected violations: 0
 Broken variants caught:
 
 - internal KB/private pilot evidence exposed publicly;
-- public release omits the Codex Skill trigger;
+- public release omits the Codex Skill Kernel or satellite triggers;
 - public adoption log becomes manual user burden.
 
 ## Skill Trigger Self-Review

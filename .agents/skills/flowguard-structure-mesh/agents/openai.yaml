@@ -1,0 +1,4 @@
+interface:
+  display_name: "FlowGuard StructureMesh"
+  short_description: "Govern large module or script refactors"
+  default_prompt: "Use $flowguard-structure-mesh when code structure refactors need facade, dependency, and parity gates."

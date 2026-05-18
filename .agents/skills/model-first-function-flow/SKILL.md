@@ -6,7 +6,8 @@ description: For coding, repository, process-design work, structured writing/arg
 # Model-First Function Flow
 
 This Skill is the **FlowGuard Skill Kernel**. Keep this file as the compact
-router and hard-gate layer. Put detailed procedures in `references/*.md`.
+router and hard-gate layer. Put detailed procedures in `references/*.md` or in
+the route-specific standalone satellite skills.
 
 For repository, coding, process-design, structured writing/argument, and
 decision/planning work, first make a lightweight applicability decision:
@@ -49,19 +50,19 @@ unclear, narrow the task or mark `needs_human_review`.
 
 ## Route Map
 
-Choose one or more sub-protocols. These are agent behavior protocols, not
-package APIs.
+Choose one or more routes. Some routes also have directly invokable Codex
+satellite skills. The routes are agent behavior protocols, not package APIs.
 
-| Trigger | Route | Reference |
+| Trigger | Route | Direct skill or reference |
 | --- | --- | --- |
 | Ordinary model-first workflow, flow types, Risk Intent, state write inventory | `core_modeling` | `references/modeling_protocol.md` |
-| Direct architecture recommendation, model-derived implementation structure, pre-code module split planning | `code_structure_recommendation` | `references/code_structure_recommendation_protocol.md` |
-| FlowGuard model obligations, optional code external contracts, and ordinary test evidence need direct comparison | `model_test_alignment` | `references/model_test_alignment_protocol.md` |
-| Three or more local FlowGuard models, oversized model, stale child evidence, parent/child model partition | `model_mesh_maintenance` | `references/model_mesh_protocol.md` |
-| Large test script/suite split, parent/child test hierarchy, slow/background/stale/skipped/release-only validation evidence | `test_mesh_maintenance` | `references/test_mesh_protocol.md` |
-| Large script/module/package/command/API split, facade-first refactor, public entrypoint compatibility, ownership split | `structure_mesh_maintenance` | `references/structure_mesh_protocol.md` |
-| Development lifecycle ordering, artifact overwrite, validation freshness, minimum revalidation, V-style process confidence | `development_process_flow` | `references/development_process_flow_protocol.md` |
-| Runtime, test, replay, log, or manual validation fails after a FlowGuard pass | `model_miss_review` | `references/model_miss_protocol.md` |
+| Direct architecture recommendation, model-derived implementation structure, pre-code module split planning | `code_structure_recommendation` | `flowguard-code-structure-recommendation` |
+| FlowGuard model obligations, optional code external contracts, and ordinary test evidence need direct comparison | `model_test_alignment` | `flowguard-model-test-alignment` |
+| Three or more local FlowGuard models, oversized model, stale child evidence, parent/child model partition | `model_mesh_maintenance` | `flowguard-model-mesh` |
+| Large test script/suite split, parent/child test hierarchy, slow/background/stale/skipped/release-only validation evidence | `test_mesh_maintenance` | `flowguard-test-mesh` |
+| Large script/module/package/command/API split, facade-first refactor, public entrypoint compatibility, ownership split | `structure_mesh_maintenance` | `flowguard-structure-mesh` |
+| Development lifecycle ordering, artifact overwrite, validation freshness, minimum revalidation, V-style process confidence | `development_process_flow` | `flowguard-development-process-flow` |
+| Runtime, test, replay, log, or manual validation fails after a FlowGuard pass | `model_miss_review` | `flowguard-model-miss-review` |
 | Production confidence, multiple production writers, install sync, shadow workspace sync, adoption evidence | `conformance_adoption` | `references/conformance_adoption_protocol.md` |
 | Long model/test/check command that should not block the agent thread | `long_check_observability` | `references/long_check_protocol.md` |
 | FlowGuard/LiveFlowGuard self-upgrade, benchmark/corpus capability claim, broad framework behavior claim | `framework_upgrade` | `references/framework_upgrade_protocol.md` |
@@ -114,7 +115,8 @@ Classify the main lens when using FlowGuard:
 ## Helper APIs Are Not Sub-Skills
 
 The following are FlowGuard package helpers or CLI scaffolds. Use them when they
-fit, but do not describe them as independently triggerable agent sub-skills:
+fit, but do not describe the helper itself as an independently triggerable
+Codex skill:
 
 - `RiskIntent`, `RiskProfile`, `FlowGuardCheckPlan`,
   `run_model_first_checks()`.
@@ -133,6 +135,15 @@ fit, but do not describe them as independently triggerable agent sub-skills:
   `model-miss-template`, `model-test-alignment-template`,
   `development-process-flow-template`, `test-mesh-template`,
   `structure-mesh-template`, and `maintenance-template`.
+
+## Standalone Satellite Skills
+
+The first-batch satellite skills are:
+`flowguard-model-test-alignment`, `flowguard-development-process-flow`,
+`flowguard-model-miss-review`, `flowguard-code-structure-recommendation`,
+`flowguard-model-mesh`, `flowguard-test-mesh`, and
+`flowguard-structure-mesh`. Use them directly only when the user's request
+clearly matches that route; otherwise start here in the kernel.
 
 ## Resource Map
 
