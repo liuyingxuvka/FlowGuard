@@ -86,6 +86,7 @@ class SkillDocsTests(unittest.TestCase):
             self.assertIn(reference, text)
         self.assertIn("parent/child test hierarchy", text)
         self.assertIn("ordinary test evidence", text)
+        self.assertIn("parent reattachment gate", text)
 
     def test_standalone_satellite_skills_exist_with_references(self):
         skills_root = ROOT / ".agents" / "skills"
@@ -120,6 +121,7 @@ class SkillDocsTests(unittest.TestCase):
             "flowguard-model-miss-review": (
                 "boundary_missing",
                 "same-class generalized bad case",
+                "parent reattachment gate",
             ),
             "flowguard-code-structure-recommendation": (
                 "review_code_structure_recommendation",
@@ -133,6 +135,7 @@ class SkillDocsTests(unittest.TestCase):
             "flowguard-model-mesh": (
                 "review_hierarchical_mesh",
                 "Required Hazards",
+                "Child Reattachment Gate",
             ),
             "flowguard-test-mesh": (
                 "review_test_mesh",
@@ -281,6 +284,8 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("Local Model Mesh Protocol", model_mesh)
         self.assertIn("Required Hazards", model_mesh)
         self.assertIn("target split derivation", model_mesh)
+        self.assertIn("Child Reattachment Gate", model_mesh)
+        self.assertIn("child_reattachment_required", model_mesh)
         self.assertIn("TestMesh Protocol", test_mesh)
         self.assertIn("test-side sibling of ModelMesh and StructureMesh", test_mesh)
         self.assertIn("target split derivation", test_mesh)
@@ -342,6 +347,7 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("Post-Runtime Model-Miss Protocol", model_miss)
         self.assertIn("boundary_missing", model_miss)
         self.assertIn("Generalized case", model_miss)
+        self.assertIn("parent child-reattachment gate", model_miss)
         self.assertIn("Conformance And Adoption Protocol", conformance)
         self.assertIn("shadow workspace", conformance)
         self.assertIn("Long Check Observability Protocol", long_check)

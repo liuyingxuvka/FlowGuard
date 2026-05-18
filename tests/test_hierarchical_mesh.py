@@ -3,6 +3,7 @@ import unittest
 
 from flowguard import (
     ChildModelEvidence,
+    ChildReattachmentContract,
     HierarchyCoverageItem,
     HierarchyPartitionMap,
     LegacyModelRecord,
@@ -30,6 +31,20 @@ def target(source_model_id, child_ids, item_ids, *, state=False, side_effect=Fal
         side_effect_owner_fields=("side_effect_owner_map",) if side_effect else (),
         rationale="derived from parent FlowGuard model blocks, state writes, and side effects",
     )
+
+
+def reattachment(child_model_id, **kwargs):
+    defaults = {
+        "consumed_evidence_id": f"{child_model_id}:v1",
+        "expected_inputs": ("parent_input",),
+        "expected_outputs": ("child_done",),
+        "expected_state_owned": ("child_state",),
+        "expected_side_effects_owned": ("child_effect",),
+        "expected_contracts_out": ("child.guarantee",),
+        "rationale": "parent consumes this child contract after a local model repair",
+    }
+    defaults.update(kwargs)
+    return ChildReattachmentContract(child_model_id, **defaults)
 
 
 class HierarchicalMeshTests(unittest.TestCase):
@@ -286,6 +301,137 @@ class HierarchicalMeshTests(unittest.TestCase):
         self.assertEqual("target_split_derivation_required", report.decision)
         self.assertIn("incomplete_target_children", codes)
         self.assertIn("incomplete_target_split_coverage", codes)
+
+    def test_child_reattachment_contract_can_continue(self):
+        partition = HierarchyPartitionMap(
+            parent_model_id="checkout",
+            coverage_items=(HierarchyCoverageItem("payment", owner_model_id="payment"),),
+            child_models=(
+                child(
+                    "payment",
+                    evidence_id="payment:v1",
+                    inputs_accepted=("parent_input",),
+                    outputs_emitted=("child_done",),
+                    state_owned=("child_state",),
+                    side_effects_owned=("child_effect",),
+                    contracts_out=("child.guarantee",),
+                ),
+            ),
+            target_split_derivation=target(
+                "checkout",
+                ("payment",),
+                ("payment",),
+                state=True,
+                side_effect=True,
+            ),
+            reattachment_contracts=(reattachment("payment"),),
+        )
+
+        report = review_hierarchical_mesh(partition)
+
+        self.assertTrue(report.ok)
+        self.assertEqual("mesh_green_can_continue", report.decision)
+
+    def test_child_reattachment_requires_parent_consumed_evidence(self):
+        partition = HierarchyPartitionMap(
+            parent_model_id="checkout",
+            coverage_items=(HierarchyCoverageItem("payment", owner_model_id="payment"),),
+            child_models=(child("payment", evidence_id="payment:v2"),),
+            target_split_derivation=target("checkout", ("payment",), ("payment",)),
+            reattachment_contracts=(reattachment("payment", consumed_evidence_id=""),),
+        )
+
+        report = review_hierarchical_mesh(partition)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("child_reattachment_required", report.decision)
+        self.assertIn(
+            "child_reattachment_missing_parent_consumption",
+            [finding.code for finding in report.findings],
+        )
+
+    def test_child_reattachment_rejects_stale_parent_evidence_id(self):
+        partition = HierarchyPartitionMap(
+            parent_model_id="checkout",
+            coverage_items=(HierarchyCoverageItem("payment", owner_model_id="payment"),),
+            child_models=(child("payment", evidence_id="payment:v2"),),
+            target_split_derivation=target("checkout", ("payment",), ("payment",)),
+            reattachment_contracts=(reattachment("payment", consumed_evidence_id="payment:v1"),),
+        )
+
+        report = review_hierarchical_mesh(partition)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("child_reattachment_required", report.decision)
+        self.assertIn("child_reattachment_stale_evidence", [finding.code for finding in report.findings])
+
+    def test_child_reattachment_rejects_input_and_output_drift(self):
+        partition = HierarchyPartitionMap(
+            parent_model_id="checkout",
+            coverage_items=(HierarchyCoverageItem("payment", owner_model_id="payment"),),
+            child_models=(
+                child(
+                    "payment",
+                    evidence_id="payment:v1",
+                    inputs_accepted=("unexpected_input",),
+                    outputs_emitted=("child_done", "unexpected_output"),
+                ),
+            ),
+            target_split_derivation=target("checkout", ("payment",), ("payment",)),
+            reattachment_contracts=(
+                reattachment(
+                    "payment",
+                    expected_inputs=("parent_input",),
+                    expected_outputs=("child_done",),
+                    expected_state_owned=(),
+                    expected_side_effects_owned=(),
+                    expected_contracts_out=(),
+                ),
+            ),
+        )
+
+        report = review_hierarchical_mesh(partition)
+        codes = [finding.code for finding in report.findings]
+
+        self.assertFalse(report.ok)
+        self.assertEqual("child_reattachment_required", report.decision)
+        self.assertIn("child_reattachment_missing_input", codes)
+        self.assertIn("child_reattachment_extra_input", codes)
+        self.assertIn("child_reattachment_extra_output", codes)
+
+    def test_child_reattachment_rejects_ownership_and_contract_drift(self):
+        partition = HierarchyPartitionMap(
+            parent_model_id="checkout",
+            coverage_items=(HierarchyCoverageItem("payment", owner_model_id="payment"),),
+            child_models=(
+                child(
+                    "payment",
+                    evidence_id="payment:v1",
+                    inputs_accepted=("parent_input",),
+                    outputs_emitted=("child_done",),
+                    state_owned=("other_state",),
+                    side_effects_owned=(),
+                    contracts_out=("other.guarantee",),
+                ),
+            ),
+            target_split_derivation=target(
+                "checkout",
+                ("payment",),
+                ("payment",),
+                state=True,
+                side_effect=True,
+            ),
+            reattachment_contracts=(reattachment("payment"),),
+        )
+
+        report = review_hierarchical_mesh(partition)
+        codes = [finding.code for finding in report.findings]
+
+        self.assertFalse(report.ok)
+        self.assertEqual("child_reattachment_required", report.decision)
+        self.assertIn("child_reattachment_missing_state_owner", codes)
+        self.assertIn("child_reattachment_missing_side_effect_owner", codes)
+        self.assertIn("child_reattachment_missing_contract", codes)
 
 
 if __name__ == "__main__":

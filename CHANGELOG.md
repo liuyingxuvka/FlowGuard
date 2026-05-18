@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.17.0 - 2026-05-18
+
+- Added the ModelMesh child reattachment gate for local child model repairs:
+  parent mesh confidence now requires current child evidence consumption plus
+  stable input, output, state ownership, side-effect ownership, and outgoing
+  contract handoffs.
+- Added public helper API `ChildReattachmentContract` and extended
+  `ChildModelEvidence` with evidence id, accepted inputs, emitted outputs, and
+  incoming contract fields.
+- Updated post-runtime model-miss review so a miss repaired inside a child model
+  under a parent mesh remains open until the affected parent reattachment gate
+  passes or records a blocker.
+- Updated OpenSpec artifacts, Skill docs, public docs, examples, README, and
+  focused tests to make "child-local green is not parent green" explicit.
+- Schema remains `1.0`; runtime dependencies remain Python standard library
+  only.
+
 ## v0.16.0 - 2026-05-18
 
 - Added the UI Text Hierarchy Blueprint capability as the next public UI route.

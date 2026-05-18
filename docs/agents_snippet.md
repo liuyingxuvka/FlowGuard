@@ -141,12 +141,18 @@ structure before green parent confidence: source model, target children,
 covered partition items, ownership fields, and rationale. A supplied partition
 map or flat child list alone is not enough.
 
+When a bug repair changes a local child FlowGuard model, child-local green is
+not enough. The affected parent ModelMesh must consume the current child
+evidence id and confirm the child's inputs, outputs, state ownership,
+side-effect ownership, and outgoing guarantees still reattach to the parent
+flow.
+
 For post-runtime model misses, classify the miss as `boundary_missing`,
 `state_too_coarse`, `input_branch_missing`, `invariant_too_weak`, or
 `evidence_overclaimed`; represent the observed issue and one same-class
 generalized bad case when practical; rerun; then validate with production-facing
-evidence. A later green runtime check by itself does not close a known model
-miss.
+evidence. If the repair changed a child model under a parent mesh, rerun the
+parent reattachment gate before closing the miss. A later green runtime check by itself does not close a known model miss.
 
 Do not require ordinary project work to run FlowGuard's internal framework
 evidence suites. Use those only for FlowGuard/LiveFlowGuard upgrades, benchmark

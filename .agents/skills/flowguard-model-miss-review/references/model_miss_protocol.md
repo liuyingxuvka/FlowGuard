@@ -21,7 +21,12 @@ not close a known model miss unless the miss has been reviewed.
    or deliberately mark the generalized case out of scope.
 6. Validate the repair with the refined model plus the strongest practical
    production-facing evidence.
-7. Record `Miss type` and `Generalized case` in adoption evidence, or explain
+7. If the repair changed a child model under a parent ModelMesh, rerun the
+   affected parent child-reattachment gate. The parent must consume the current
+   child evidence id and confirm the child's inputs, outputs, state ownership,
+   side-effect ownership, and outgoing guarantees still fit the parent flow.
+8. Record `Miss type`, `Generalized case`, and any parent reattachment decision
+   in adoption evidence, or explain
    why no generalized case was added.
 
 ## What Not To Add By Default
@@ -29,10 +34,13 @@ not close a known model miss unless the miss has been reviewed.
 Do not add a hazard registry, upgrade reviewer, default model mesh, full
 coverage matrix, or evidence-level field as the default response to ordinary
 model misses. Use those only when the task already has framework-upgrade or
-broad-capability risk.
+broad-capability risk. This does not waive the parent reattachment gate when the
+miss repair changed a child model that an existing parent ModelMesh depends on.
 
 ## Completion Standard
 
 The model miss is closed only when it is classified, represented in executable
 evidence or explicitly out of scope, rerun, and validated with production-facing
-evidence. A patch plus a later green runtime check is not enough by itself.
+evidence. When the miss was repaired in a child model under a parent mesh, the
+affected parent reattachment gate must also pass or remain an explicit blocker.
+A patch plus a later green runtime check is not enough by itself.

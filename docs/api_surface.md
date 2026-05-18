@@ -58,10 +58,11 @@ Modeling helpers reduce boilerplate around common bug classes:
   shard-by-shard execution with a durable ledger.
 - optional hierarchical mesh helpers such as `HierarchyPartitionMap`,
   `ModelTargetSplitDerivation`, `ChildModelEvidence`,
+  `ChildReattachmentContract`,
   `review_hierarchical_mesh()`, `LegacyModelRecord`, and
   `classify_legacy_model()` for reviewing model-derived target child layouts,
-  parent/child partition coverage, sibling overlap, large-model split triggers,
-  and legacy compatibility.
+  parent/child partition coverage, repaired child reattachment, sibling overlap,
+  large-model split triggers, and legacy compatibility.
 - optional model-test alignment helpers such as `ModelObligation`,
   `CodeContract`, `TestEvidence`, `ModelTestAlignmentPlan`, and
   `review_model_test_alignment()` for directly comparing model obligations

@@ -25,6 +25,11 @@ model-of-models: it treats child models as contract-bearing evidence sources
 with inputs, outputs, state ownership, evidence tier, freshness, and known
 blindspots.
 
+When a child model is repaired after a model miss, a child-local green result is
+not parent confidence by itself. The parent mesh must reattach the child through
+the input, output, state, side-effect, outgoing-contract, and evidence-id
+handoff that the parent flow consumes.
+
 For hierarchical projects, treat each parent/child boundary as a partition map:
 the parent is the total map, child models are region maps, and the mesh checks
 whether those regions cover the parent space without unsafe overlap. A child can
@@ -45,11 +50,15 @@ Before trusting existing models, write a compact inventory:
 | Field | Meaning |
 | --- | --- |
 | `model_id` | Stable name for the child model. |
+| `evidence_id` | Current child evidence id that a parent can consume. |
 | `model_file` | Path to the model script. |
 | `runner_file` | Path to the check runner, if any. |
 | `result_file` | Last persisted result, if any. |
 | `risk_boundary` | Bug class or workflow protected by the model. |
+| `inputs_accepted` | Abstract input classes this child accepts from the parent or upstream flow. |
+| `outputs_emitted` | Abstract output classes this child can return to the parent flow. |
 | `state_owned` | Abstract state fields or production fields represented. |
+| `contracts_in` | Preconditions or upstream guarantees the child depends on. |
 | `contracts_out` | Outputs, guarantees, or evidence other models depend on. |
 | `depends_on` | Upstream models, live state, logs, fixtures, or artifacts. |
 | `evidence_tier` | Current tier from the list below. |
@@ -59,6 +68,7 @@ Before trusting existing models, write a compact inventory:
 | `side_effects_owned` | Side effects this child can emit. |
 | `large_model_signal` | Estimated/observed state count, incomplete budgeted run, or unrelated functional areas that trigger split review. |
 | `target_split_derivation` | Source FlowGuard model and target child model layout that derived this parent split. |
+| `reattachment_contracts` | Parent expectations for repaired child inputs, outputs, ownership, outgoing guarantees, and consumed evidence ids. |
 
 ## Partition And Overlap Review
 
@@ -92,6 +102,27 @@ explicit out-of-scope note. Unsafe overlap also blocks confidence: sibling child
 models must not both own the same state write, side effect, or core functional
 area. Shared reads are fine; shared ownership needs an explicit shared kernel.
 
+## Child Reattachment Gate
+
+Use this gate whenever a local child model is changed to repair a bug or model
+miss and a parent model still needs to trust that child as part of a larger
+workflow. The parent should record a compact reattachment contract for the child:
+
+- child model id;
+- current child evidence id consumed by the parent;
+- input classes the child must still accept;
+- output classes the child must still emit;
+- state fields and side effects the parent expects the child to own;
+- outgoing guarantees or contract ids the parent depends on;
+- rationale linking the reattachment to the parent flow.
+
+The parent mesh must block when the child is locally green but the parent did
+not consume the updated evidence id, consumed an older child evidence id, or the
+child's declared inputs, outputs, state ownership, side-effect ownership, or
+outgoing guarantees drift from the parent expectation. This gate does not inline
+the child state graph; it checks whether the child can still plug into the
+parent's modeled handoff.
+
 Suggested evidence tiers:
 
 - `candidate_only`: model exists but has not produced trustworthy current
@@ -116,6 +147,8 @@ Keep the mesh finite and inspectable. A useful mesh state usually contains:
 - evidence tier and freshness for each child model;
 - live/current run or artifact facts that the decision depends on;
 - cross-model dependencies and contract obligations;
+- child reattachment contracts and consumed child evidence ids when a repaired
+  child supports parent confidence;
 - skipped, not-run, or parse-error sections;
 - current decision: continue, block, add evidence, update child model, or split.
 - parent partition coverage, sibling overlap, state ownership, and side-effect
@@ -129,6 +162,7 @@ InventoryModels x State -> Set(ModelInventory x State)
 IngestChildEvidence x State -> Set(EvidenceTier x State)
 ProjectLiveFacts x State -> Set(ProjectedLiveState x State)
 CheckCrossModelContracts x State -> Set(ContradictionReport x State)
+CheckChildReattachment x State -> Set(ReattachmentReport x State)
 CheckPartitionCoverage x State -> Set(CoverageReport x State)
 CheckSiblingOverlap x State -> Set(OverlapReport x State)
 ReviewLargeModelSplit x State -> Set(SplitDecision x State)
@@ -164,6 +198,15 @@ At minimum, the mesh must make these broken variants fail:
     core functional area without an explicit shared-kernel boundary.
 16. A legacy model is used as strong child evidence before compatibility
     classification and contract wrapping.
+17. A repaired child model is green locally, but the parent did not consume its
+    updated evidence id.
+18. A parent consumes a stale child evidence id after the child model changed.
+19. A repaired child changes accepted inputs or emitted outputs without a parent
+    reattachment blocker.
+20. A repaired child loses state or side-effect ownership that the parent flow
+    still depends on.
+21. A repaired child drops an outgoing guarantee or contract that the parent
+    mesh consumes.
 
 ## Prompt Template
 
@@ -199,16 +242,19 @@ Tasks:
 6. Record the target split derivation from the FlowGuard source model to the
    proposed child model layout. Include source model, targets, coverage, state
    owners, side-effect owners, and rationale.
-7. Encode the required hazards from `model_mesh_protocol.md` as broken variants.
-8. Run Explorer plus progress/stuck review, hazard review, and conformance or
+7. For each repaired child model, record the parent reattachment contract:
+   expected inputs, expected outputs, expected state and side-effect ownership,
+   expected outgoing guarantees, and the consumed child evidence id.
+8. Encode the required hazards from `model_mesh_protocol.md` as broken variants.
+9. Run Explorer plus progress/stuck review, hazard review, and conformance or
    live projection when applicable.
-9. Return a decision: `mesh_green_can_continue`, `add_evidence`,
+10. Return a decision: `mesh_green_can_continue`, `add_evidence`,
    `update_child_model`, `split_model_boundary`, `coverage_gap_blocked`,
    `overlap_too_high_refactor_needed`, `ownership_conflict`,
    `target_split_derivation_required`, `large_model_split_review_required`,
-   `blocked_by_stale_evidence`, `blocked_by_cross_model_contradiction`, or
-   `model_coverage_insufficient`.
-10. Report what the mesh proves, what it does not prove, and which checks were
+   `child_reattachment_required`, `blocked_by_stale_evidence`,
+   `blocked_by_cross_model_contradiction`, or `model_coverage_insufficient`.
+11. Report what the mesh proves, what it does not prove, and which checks were
    skipped. Skipped is not pass.
 ```
 
@@ -224,6 +270,8 @@ The mesh is sufficient for the current decision only when:
 - each parent partition item is covered or explicitly out of scope;
 - the target child model layout is derived from a FlowGuard model and covers
   the parent partition items used by the decision;
+- repaired child models reattach through current parent-consumed evidence ids
+  and stable input, output, state, side-effect, and outgoing-contract handoffs;
 - sibling overlap is either read-only, shared-kernel-owned, or converted into a
   split/merge/refactor decision;
 - oversized new or legacy models have a split-review decision;

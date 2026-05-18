@@ -81,6 +81,10 @@ maintain or verify. For models consider ModelMesh; for tests consider TestMesh;
 for scripts, modules, or APIs consider StructureMesh; for long checks consider
 LongCheck observability.
 
+When a post-runtime model miss is repaired in a local child model that belongs
+to a parent ModelMesh, route through both `model_miss_review` and
+`model_mesh_maintenance`. The child-local pass is not complete until the parent reattachment gate consumes the current child evidence and confirms the input, output, state, side-effect, and outgoing-contract handoff still matches.
+
 ### Flow Lenses
 
 Classify the main lens when using FlowGuard:

@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from flowguard import (
     ChildModelEvidence,
+    ChildReattachmentContract,
     HierarchyCoverageItem,
     HierarchyPartitionMap,
     LegacyModelRecord,
+    ModelTargetSplitDerivation,
     classify_legacy_model,
     review_hierarchical_mesh,
 )
@@ -22,6 +24,17 @@ def _child(model_id: str, **kwargs) -> ChildModelEvidence:
     return ChildModelEvidence(model_id, **defaults)
 
 
+def _target(parent_id: str, child_ids: tuple[str, ...], item_ids: tuple[str, ...]) -> ModelTargetSplitDerivation:
+    return ModelTargetSplitDerivation(
+        parent_id,
+        target_child_model_ids=child_ids,
+        covered_partition_item_ids=item_ids,
+        state_owner_fields=("state_owner_map",),
+        side_effect_owner_fields=("side_effect_owner_map",),
+        rationale="derived from parent model blocks, state writes, and side effects",
+    )
+
+
 def build_root_partition() -> HierarchyPartitionMap:
     return HierarchyPartitionMap(
         parent_model_id="checkout_root",
@@ -32,9 +45,33 @@ def build_root_partition() -> HierarchyPartitionMap:
             HierarchyCoverageItem("order_status", "state", ownership="parent"),
         ),
         child_models=(
-            _child("payment", side_effects_owned=("charge_card",)),
+            _child(
+                "payment",
+                evidence_id="payment:model-check:v1",
+                inputs_accepted=("payment_request",),
+                outputs_emitted=("payment_result",),
+                side_effects_owned=("charge_card",),
+                contracts_out=("payment.result",),
+            ),
             _child("inventory", side_effects_owned=("reserve_stock",)),
             _child("fulfillment", side_effects_owned=("ship_order",)),
+        ),
+        target_split_derivation=_target(
+            "checkout_root",
+            ("payment", "inventory", "fulfillment"),
+            ("payment", "inventory", "fulfillment", "order_status"),
+        ),
+        reattachment_contracts=(
+            ChildReattachmentContract(
+                "payment",
+                consumed_evidence_id="payment:model-check:v1",
+                expected_inputs=("payment_request",),
+                expected_outputs=("payment_result",),
+                expected_state_owned=("payment_state",),
+                expected_side_effects_owned=("charge_card",),
+                expected_contracts_out=("payment.result",),
+                rationale="checkout parent consumes the repaired payment child handoff",
+            ),
         ),
     )
 
@@ -51,6 +88,11 @@ def build_nested_fulfillment_partition() -> HierarchyPartitionMap:
             _child("packing", side_effects_owned=("create_package",)),
             _child("shipping", side_effects_owned=("buy_label", "notify_carrier")),
         ),
+        target_split_derivation=_target(
+            "fulfillment",
+            ("packing", "shipping"),
+            ("packing", "shipping", "tracking"),
+        ),
     )
 
 
@@ -66,6 +108,11 @@ def build_bad_partition() -> HierarchyPartitionMap:
         child_models=(
             _child("payment", functional_areas=("payment", "fraud"), side_effects_owned=("send_email",)),
             _child("fulfillment", functional_areas=("fulfillment", "fraud"), side_effects_owned=("send_email",)),
+        ),
+        target_split_derivation=_target(
+            "checkout_root",
+            ("payment", "fulfillment"),
+            ("payment", "inventory", "order_status"),
         ),
     )
 

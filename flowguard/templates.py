@@ -1229,8 +1229,12 @@ Use this scaffold when real validation finds an issue after a FlowGuard pass.
 - How is the issue now represented: scenario, invariant, replay adapter,
   representative trace, or explicit out-of-scope boundary?
 - Which refined model checks and runtime checks must pass before completion?
+- If the repair changed a child model under a parent ModelMesh, which parent
+  reattachment gate consumed the new child evidence id?
 
 Do not let a later green runtime check close a known model miss by itself.
+Child-local green is not enough when parent mesh confidence depends on the
+child's input/output/state/side-effect handoff.
 """
 
 

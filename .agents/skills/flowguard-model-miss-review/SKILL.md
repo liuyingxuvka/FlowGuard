@@ -21,6 +21,9 @@ multiple FlowGuard routes.
 - Preserve the observed failure and at least one same-class generalized bad
   case when practical.
 - Do not weaken hard invariants merely to make the miss disappear.
+- If the repair changes a local child model that belongs to a parent ModelMesh,
+  do not close the miss until the parent reattachment gate consumes current
+  child evidence and confirms the child still fits the parent flow.
 
 ## Workflow
 
@@ -33,7 +36,9 @@ multiple FlowGuard routes.
 4. Add the observed failure and a generalized same-class bad case to the model
    or replay evidence.
 5. Rerun the model and production-facing validation.
-6. Close only when the corrected model catches the bad case and the relevant
+6. If a repaired child model is part of a parent mesh, rerun the affected
+   parent ModelMesh reattachment gate.
+7. Close only when the corrected model catches the bad case and the relevant
    runtime/test/replay evidence is current.
 
 ## Owned Helpers

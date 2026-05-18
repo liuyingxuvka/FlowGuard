@@ -44,7 +44,7 @@ to the kernel instead of taking ownership of unclear work.
 | `core_modeling` | Risk Intent, state write inventory, function blocks, invariants, Explorer, CheckPlan |
 | `ui_flow_structure` | UI interaction model, state/control/event/display transitions, parent/child UI topology, menu levels, overlays, stable placements, UI text hierarchy blueprint, and intentional redundancy |
 | `model_test_alignment` | direct comparison of model obligations with ordinary test evidence |
-| `model_mesh_maintenance` | parent/child model hierarchy and oversized-model governance |
+| `model_mesh_maintenance` | parent/child model hierarchy, child reattachment, and oversized-model governance |
 | `test_mesh_maintenance` | parent/child test hierarchy plus validation evidence |
 | `structure_mesh_maintenance` | parent/child script/module structure split evidence |
 | `development_process_flow` | development lifecycle ordering, artifact overwrite, evidence freshness, and minimum revalidation |
@@ -78,6 +78,9 @@ sub-skills.
 - Keep satellite skills concise and self-contained enough for direct Codex use.
 - Keep ModelMesh, TestMesh, and StructureMesh aligned as sibling
   parent/child partition routes for models, tests, and code structure.
+- When a model miss repair changes a child model under a parent ModelMesh, keep
+  Model-Miss Review responsible for the miss and ModelMesh responsible for the
+  parent reattachment gate.
 - Keep Model-Test Alignment independent from mesh routes; it compares plain
   obligation rows with plain evidence rows and does not split tests or code.
 - Keep DevelopmentProcessFlow as a sibling lifecycle route. It may reference

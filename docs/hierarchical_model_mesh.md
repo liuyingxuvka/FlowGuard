@@ -16,6 +16,12 @@ The mesh does not expand every child state graph. Each child remains responsible
 for its own internal states and invariants. The parent boundary only reads the
 child's contract and evidence summary.
 
+If a child model was changed to repair a bug, its own green result is not enough
+for parent confidence. The parent must reattach that child by consuming the
+current child evidence id and checking that the child still accepts the expected
+inputs, emits the expected outputs, owns the expected state and side effects,
+and provides the outgoing guarantees the parent flow depends on.
+
 Before the parent mesh trusts a child-model layout, it should record the target
 split derivation from a FlowGuard source model or model-of-models. The
 derivation names the source model, target child models, covered partition items,
@@ -52,6 +58,20 @@ Each parent boundary should include a `ModelTargetSplitDerivation`:
 
 Missing source, missing target children, incomplete coverage, or prose-only
 derivations block parent mesh confidence.
+
+## Child Reattachment
+
+Use `ChildReattachmentContract` when a parent mesh depends on a child model that
+was just repaired or rerun. It records the parent-side expectation:
+
+- the child model id;
+- the child evidence id consumed by the parent;
+- expected input and output classes;
+- expected state and side-effect ownership;
+- expected outgoing guarantees.
+
+If those fields drift, `review_hierarchical_mesh(...)` returns
+`child_reattachment_required` instead of green parent confidence.
 
 Each parent boundary should declare a partition map. A partition map names the
 parent-space items and who owns them:
@@ -107,6 +127,7 @@ rule, skipped checks, and evidence tier.
 ```python
 from flowguard import (
     ChildModelEvidence,
+    ChildReattachmentContract,
     HierarchyCoverageItem,
     HierarchyPartitionMap,
     ModelTargetSplitDerivation,
@@ -121,7 +142,13 @@ partition = HierarchyPartitionMap(
         HierarchyCoverageItem("order_status", ownership="parent"),
     ),
     child_models=(
-        ChildModelEvidence("payment", evidence_tier="abstract_green"),
+        ChildModelEvidence(
+            "payment",
+            evidence_id="payment:model-check:v1",
+            evidence_tier="abstract_green",
+            inputs_accepted=("payment_request",),
+            outputs_emitted=("payment_result",),
+        ),
         ChildModelEvidence("inventory", evidence_tier="abstract_green"),
     ),
     target_split_derivation=ModelTargetSplitDerivation(
@@ -129,6 +156,14 @@ partition = HierarchyPartitionMap(
         target_child_model_ids=("payment", "inventory"),
         covered_partition_item_ids=("payment", "inventory", "order_status"),
         rationale="derived from checkout model blocks and ownership boundaries",
+    ),
+    reattachment_contracts=(
+        ChildReattachmentContract(
+            "payment",
+            consumed_evidence_id="payment:model-check:v1",
+            expected_inputs=("payment_request",),
+            expected_outputs=("payment_result",),
+        ),
     ),
 )
 

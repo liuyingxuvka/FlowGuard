@@ -162,13 +162,21 @@ derivation must name the source model, target child model ids, covered partition
 items, state owner fields, side-effect owner fields, and rationale for the
 split. A partition map alone is not enough parent confidence.
 
+When a post-runtime miss is repaired in a local child model, route through
+Model-Miss Review and the affected ModelMesh. The child-local pass is not
+complete until the parent reattachment gate consumes the current child evidence
+id and confirms the input, output, state, side-effect, and outgoing-contract
+handoff still matches the parent flow.
+
 Read `docs/model_mesh_protocol.md` for the inventory fields, evidence tiers,
 required hazards, prompt template, and completion standard. At minimum, the
 mesh must catch abstract-only permission, hidden skipped live/replay checks,
 stale result reuse, unregistered model evidence, cross-model contradictions,
 hidden blockers, missing conformance, unrepresented model misses, sealed/private
 body reads, stale installed skill/source copies, oversized mesh expansion, and
-absence of a mesh when the model count or large-model threshold is met.
+absence of a mesh when the model count or large-model threshold is met. For
+child repairs, it must also catch child-local green evidence that was not
+reattached to the parent.
 
 ## 0.4 Check The TestMesh Trigger
 
@@ -571,9 +579,12 @@ When this happens:
    same-class case are now visible, or deliberately out of scope.
 6. Validate the repair with the refined model plus the strongest practical
    production-facing evidence.
-7. Record `Miss type` and `Generalized case` in the adoption log, or the reason
-   no generalized case was added, along with rerun commands, skipped checks, and
-   residual blindspots.
+7. If the repair changed a child model under a parent ModelMesh, rerun the
+   affected parent reattachment gate and keep the miss open until the parent
+   consumes current child evidence.
+8. Record `Miss type`, `Generalized case`, and any parent reattachment decision
+   in the adoption log, or the reason no generalized case was added, along with
+   rerun commands, skipped checks, and residual blindspots.
 
 A later green runtime check does not close a known model miss by itself. The
 miss is closed only when it has been classified and represented in the model or
@@ -777,6 +788,8 @@ Recommended low-friction agent flow:
 - The model mesh, when required, inventories child models, evidence tiers,
   freshness, dependencies, skipped checks, live/conformance adapters, and
   cross-model contradictions before broad continue/release/completion claims.
+- Child model repairs under a parent mesh pass the parent reattachment gate, or
+  the stale/missing/drifted handoff remains a visible blocker.
 - Large script or module splits have a StructureMesh, or an explicit reason why
   the current narrow task does not rely on parent/child refactor evidence.
 - The StructureMesh, when required, inventories function, state, config,

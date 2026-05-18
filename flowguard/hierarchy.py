@@ -67,10 +67,14 @@ class ChildModelEvidence:
     """Contract and evidence summary for one child model."""
 
     model_id: str
+    evidence_id: str = ""
     risk_boundary: str = ""
+    inputs_accepted: tuple[str, ...] = ()
+    outputs_emitted: tuple[str, ...] = ()
     state_owned: tuple[str, ...] = ()
     side_effects_owned: tuple[str, ...] = ()
     functional_areas: tuple[str, ...] = ()
+    contracts_in: tuple[str, ...] = ()
     contracts_out: tuple[str, ...] = ()
     depends_on: tuple[str, ...] = ()
     evidence_tier: str = EVIDENCE_CANDIDATE_ONLY
@@ -88,10 +92,14 @@ class ChildModelEvidence:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "model_id", str(self.model_id))
+        object.__setattr__(self, "evidence_id", str(self.evidence_id))
         object.__setattr__(self, "risk_boundary", str(self.risk_boundary))
+        object.__setattr__(self, "inputs_accepted", _as_tuple(self.inputs_accepted))
+        object.__setattr__(self, "outputs_emitted", _as_tuple(self.outputs_emitted))
         object.__setattr__(self, "state_owned", _as_tuple(self.state_owned))
         object.__setattr__(self, "side_effects_owned", _as_tuple(self.side_effects_owned))
         object.__setattr__(self, "functional_areas", _as_tuple(self.functional_areas))
+        object.__setattr__(self, "contracts_in", _as_tuple(self.contracts_in))
         object.__setattr__(self, "contracts_out", _as_tuple(self.contracts_out))
         object.__setattr__(self, "depends_on", _as_tuple(self.depends_on))
         object.__setattr__(self, "evidence_tier", str(self.evidence_tier))
@@ -117,10 +125,14 @@ class ChildModelEvidence:
     def to_dict(self) -> dict[str, Any]:
         return {
             "model_id": self.model_id,
+            "evidence_id": self.evidence_id,
             "risk_boundary": self.risk_boundary,
+            "inputs_accepted": list(self.inputs_accepted),
+            "outputs_emitted": list(self.outputs_emitted),
             "state_owned": list(self.state_owned),
             "side_effects_owned": list(self.side_effects_owned),
             "functional_areas": list(self.functional_areas),
+            "contracts_in": list(self.contracts_in),
             "contracts_out": list(self.contracts_out),
             "depends_on": list(self.depends_on),
             "evidence_tier": self.evidence_tier,
@@ -174,6 +186,46 @@ class ModelTargetSplitDerivation:
 
 
 @dataclass(frozen=True)
+class ChildReattachmentContract:
+    """Parent expectations for one child model's handoff back into the mesh."""
+
+    child_model_id: str
+    consumed_evidence_id: str = ""
+    expected_inputs: tuple[str, ...] = ()
+    expected_outputs: tuple[str, ...] = ()
+    expected_state_owned: tuple[str, ...] = ()
+    expected_side_effects_owned: tuple[str, ...] = ()
+    expected_contracts_out: tuple[str, ...] = ()
+    allow_extra_inputs: bool = False
+    allow_extra_outputs: bool = False
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "child_model_id", str(self.child_model_id))
+        object.__setattr__(self, "consumed_evidence_id", str(self.consumed_evidence_id))
+        object.__setattr__(self, "expected_inputs", _as_tuple(self.expected_inputs))
+        object.__setattr__(self, "expected_outputs", _as_tuple(self.expected_outputs))
+        object.__setattr__(self, "expected_state_owned", _as_tuple(self.expected_state_owned))
+        object.__setattr__(self, "expected_side_effects_owned", _as_tuple(self.expected_side_effects_owned))
+        object.__setattr__(self, "expected_contracts_out", _as_tuple(self.expected_contracts_out))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "child_model_id": self.child_model_id,
+            "consumed_evidence_id": self.consumed_evidence_id,
+            "expected_inputs": list(self.expected_inputs),
+            "expected_outputs": list(self.expected_outputs),
+            "expected_state_owned": list(self.expected_state_owned),
+            "expected_side_effects_owned": list(self.expected_side_effects_owned),
+            "expected_contracts_out": list(self.expected_contracts_out),
+            "allow_extra_inputs": self.allow_extra_inputs,
+            "allow_extra_outputs": self.allow_extra_outputs,
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
 class HierarchyPartitionMap:
     """Partition map for one parent model boundary."""
 
@@ -181,6 +233,7 @@ class HierarchyPartitionMap:
     coverage_items: tuple[HierarchyCoverageItem, ...] = ()
     child_models: tuple[ChildModelEvidence, ...] = ()
     target_split_derivation: ModelTargetSplitDerivation | None = None
+    reattachment_contracts: tuple[ChildReattachmentContract, ...] = ()
     required_evidence_tier: str = EVIDENCE_ABSTRACT_GREEN
     allowed_shared_areas: tuple[str, ...] = ()
 
@@ -188,6 +241,7 @@ class HierarchyPartitionMap:
         object.__setattr__(self, "parent_model_id", str(self.parent_model_id))
         object.__setattr__(self, "coverage_items", tuple(self.coverage_items))
         object.__setattr__(self, "child_models", tuple(self.child_models))
+        object.__setattr__(self, "reattachment_contracts", tuple(self.reattachment_contracts))
         object.__setattr__(self, "required_evidence_tier", str(self.required_evidence_tier))
         object.__setattr__(self, "allowed_shared_areas", _as_tuple(self.allowed_shared_areas))
 
@@ -201,6 +255,9 @@ class HierarchyPartitionMap:
                 if self.target_split_derivation is not None
                 else None
             ),
+            "reattachment_contracts": [
+                contract.to_dict() for contract in self.reattachment_contracts
+            ],
             "required_evidence_tier": self.required_evidence_tier,
             "allowed_shared_areas": list(self.allowed_shared_areas),
         }
@@ -520,6 +577,142 @@ def _target_split_derivation_findings(partition_map: HierarchyPartitionMap) -> l
     return findings
 
 
+def _missing_items(expected: Sequence[str], actual: Sequence[str]) -> tuple[str, ...]:
+    return tuple(sorted(set(expected) - set(actual)))
+
+
+def _extra_items(expected: Sequence[str], actual: Sequence[str]) -> tuple[str, ...]:
+    return tuple(sorted(set(actual) - set(expected)))
+
+
+def _add_reattachment_set_finding(
+    findings: list[HierarchyMeshFinding],
+    *,
+    code: str,
+    message: str,
+    contract: ChildReattachmentContract,
+    values: tuple[str, ...],
+) -> None:
+    if not values:
+        return
+    findings.append(
+        HierarchyMeshFinding(
+            code,
+            message,
+            model_id=contract.child_model_id,
+            metadata={
+                "values": values,
+                "reattachment_contract": contract.to_dict(),
+            },
+        )
+    )
+
+
+def _child_reattachment_findings(partition_map: HierarchyPartitionMap) -> list[HierarchyMeshFinding]:
+    findings: list[HierarchyMeshFinding] = []
+    children = {child.model_id: child for child in partition_map.child_models}
+
+    for contract in partition_map.reattachment_contracts:
+        child = children.get(contract.child_model_id)
+        if child is None:
+            findings.append(
+                HierarchyMeshFinding(
+                    "child_reattachment_unknown_child",
+                    "parent reattachment contract names an unregistered child model",
+                    model_id=contract.child_model_id,
+                    metadata=contract.to_dict(),
+                )
+            )
+            continue
+
+        if not contract.consumed_evidence_id:
+            findings.append(
+                HierarchyMeshFinding(
+                    "child_reattachment_missing_parent_consumption",
+                    "parent mesh does not record the child evidence id it consumed",
+                    model_id=child.model_id,
+                    metadata={"child": child.to_dict(), "reattachment_contract": contract.to_dict()},
+                )
+            )
+        elif not child.evidence_id:
+            findings.append(
+                HierarchyMeshFinding(
+                    "child_reattachment_missing_child_evidence_id",
+                    "child model evidence has no current evidence id for parent consumption",
+                    model_id=child.model_id,
+                    metadata={"child": child.to_dict(), "reattachment_contract": contract.to_dict()},
+                )
+            )
+        elif child.evidence_id != contract.consumed_evidence_id:
+            findings.append(
+                HierarchyMeshFinding(
+                    "child_reattachment_stale_evidence",
+                    "parent mesh consumed a stale child evidence id",
+                    model_id=child.model_id,
+                    metadata={
+                        "child_evidence_id": child.evidence_id,
+                        "consumed_evidence_id": contract.consumed_evidence_id,
+                    },
+                )
+            )
+
+        _add_reattachment_set_finding(
+            findings,
+            code="child_reattachment_missing_input",
+            message="child no longer accepts an input expected by the parent",
+            contract=contract,
+            values=_missing_items(contract.expected_inputs, child.inputs_accepted),
+        )
+        if not contract.allow_extra_inputs:
+            _add_reattachment_set_finding(
+                findings,
+                code="child_reattachment_extra_input",
+                message="child accepts an input outside the parent handoff",
+                contract=contract,
+                values=_extra_items(contract.expected_inputs, child.inputs_accepted),
+            )
+
+        _add_reattachment_set_finding(
+            findings,
+            code="child_reattachment_missing_output",
+            message="child no longer emits an output expected by the parent",
+            contract=contract,
+            values=_missing_items(contract.expected_outputs, child.outputs_emitted),
+        )
+        if not contract.allow_extra_outputs:
+            _add_reattachment_set_finding(
+                findings,
+                code="child_reattachment_extra_output",
+                message="child emits an output outside the parent handoff",
+                contract=contract,
+                values=_extra_items(contract.expected_outputs, child.outputs_emitted),
+            )
+
+        _add_reattachment_set_finding(
+            findings,
+            code="child_reattachment_missing_state_owner",
+            message="child no longer owns a state field expected by the parent",
+            contract=contract,
+            values=_missing_items(contract.expected_state_owned, child.state_owned),
+        )
+        _add_reattachment_set_finding(
+            findings,
+            code="child_reattachment_missing_side_effect_owner",
+            message="child no longer owns a side effect expected by the parent",
+            contract=contract,
+            values=_missing_items(contract.expected_side_effects_owned, child.side_effects_owned),
+        )
+        _add_reattachment_set_finding(
+            findings,
+            code="child_reattachment_missing_contract",
+            message="child no longer declares an outgoing guarantee expected by the parent",
+            contract=contract,
+            values=_missing_items(contract.expected_contracts_out, child.contracts_out),
+        )
+
+    return findings
+
+
 def review_hierarchical_mesh(
     partition_map: HierarchyPartitionMap,
     *,
@@ -540,6 +733,7 @@ def review_hierarchical_mesh(
             activation_reasons.append(f"large_model:{child.model_id}")
 
     findings.extend(_target_split_derivation_findings(partition_map))
+    findings.extend(_child_reattachment_findings(partition_map))
 
     owner_by_item: dict[str, list[HierarchyCoverageItem]] = {}
     for item in partition_map.coverage_items:
@@ -694,6 +888,8 @@ def review_hierarchical_mesh(
         "missing_target_split_rationale",
     } for finding in blocking):
         decision = "target_split_derivation_required"
+    elif any(finding.code.startswith("child_reattachment_") for finding in blocking):
+        decision = "child_reattachment_required"
     elif any(finding.code == "coverage_gap" for finding in blocking):
         decision = "coverage_gap_blocked"
     elif any(finding.code == "excessive_functional_overlap" for finding in blocking):
@@ -758,6 +954,7 @@ __all__ = [
     "HierarchyMeshFinding",
     "HierarchyMeshReport",
     "HierarchyPartitionMap",
+    "ChildReattachmentContract",
     "ChildModelEvidence",
     "LegacyModelClassification",
     "LegacyModelRecord",
