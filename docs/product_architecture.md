@@ -18,7 +18,9 @@ This is the surface that belongs in a future public GitHub release:
 - invariant cookbook;
 - scenario, loop, progress, contract, and conformance examples;
 - `model-first-function-flow` Skill Kernel;
-- seven `flowguard-*` satellite skills for mature direct routes;
+- `flowguard-*` satellite skills for mature direct routes, including UI flow
+  structure, code structure, model-test alignment, process flow, model misses,
+  ModelMesh, TestMesh, and StructureMesh;
 - `AGENTS.md` snippet;
 - lightweight adoption log support;
 - small examples such as `job_matching` and `looping_workflow`;
@@ -83,6 +85,21 @@ Broken variants caught:
 - internal KB/private pilot evidence exposed publicly;
 - public release omits the Codex Skill Kernel or satellite triggers;
 - public adoption log becomes manual user burden.
+
+## UI Flow Structure
+
+UI Flow Structure is the UI-facing sibling of Code Structure Recommendation.
+It does not start by arranging buttons on a screen. It first builds or reviews
+a UI interaction model: initial UI state, controls, information displays,
+events, state transitions, failure/recovery paths, terminal states, state
+availability, and intentional redundancy. It then
+derives parent/child UI topology, first-level persistent menus, second-level
+contextual regions, third-level local controls, information-display ownership,
+overlay hierarchy, and stable placement rules from that model.
+
+This keeps workflow-heavy UI design from drifting into arbitrary placement. The
+visual design and frontend implementation can still be creative, but they
+receive a stable structure contract first.
 
 ## Skill Trigger Self-Review
 

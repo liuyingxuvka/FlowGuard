@@ -185,6 +185,16 @@ def _run_code_structure_recommendation_template(args: argparse.Namespace) -> int
     )
 
 
+def _run_ui_flow_structure_template(args: argparse.Namespace) -> int:
+    from .templates import ui_flow_structure_template_files
+
+    return _run_file_template(
+        args,
+        template_name="ui_flow_structure",
+        files=ui_flow_structure_template_files(),
+    )
+
+
 def _run_development_process_flow_template(args: argparse.Namespace) -> int:
     from .templates import development_process_flow_template_files
 
@@ -370,6 +380,12 @@ def main(argv: list[str] | None = None) -> int:
         "code-structure-recommendation-template",
         "Print or write the code structure recommendation template.",
         _run_code_structure_recommendation_template,
+    )
+    _add_file_template_parser(
+        subparsers,
+        "ui-flow-structure-template",
+        "Print or write the UI interaction flow and structure derivation template.",
+        _run_ui_flow_structure_template,
     )
     _add_file_template_parser(
         subparsers,

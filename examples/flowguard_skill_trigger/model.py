@@ -26,6 +26,8 @@ RISK_FLAGS = {
     "module_boundary",
     "migration",
     "ui_state_flow",
+    "ui_display_redundancy",
+    "ui_control_overlap",
     "queue",
     "loop",
     "identity_conflict",
@@ -184,6 +186,8 @@ def required_checks_for(task: TaskDescription | TaskFact) -> tuple[str, ...]:
         checks.append("progress")
     if flags & {"module_boundary", "migration"}:
         checks.append("contract")
+    if flags & {"ui_state_flow", "ui_display_redundancy", "ui_control_overlap"}:
+        checks.append("ui_flow_structure")
     if flags & {"many_flowguard_models", "cross_model_evidence", "stale_model_result"}:
         checks.append("model_mesh")
     return tuple(dict.fromkeys(checks))
@@ -679,7 +683,7 @@ def skill_trigger_scenarios() -> tuple[Scenario, ...]:
             "UI state flow changes still have workflow state and side effects.",
             TASK_UI_STATE,
             _expect_ok(
-                "OK; UI state workflow triggers Skill even without production conformance yet",
+                "OK; UI state workflow triggers Skill and includes UI flow structure",
                 labels=("risk_requires_flowguard", "skill_triggered", "model_first_completed"),
             ),
         ),

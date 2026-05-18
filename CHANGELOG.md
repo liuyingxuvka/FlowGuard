@@ -1,5 +1,35 @@
 # Changelog
 
+## v0.15.0 - 2026-05-18
+
+- Added the UI Flow Structure route for model-first interface design. The new
+  helper first reviews a UI interaction model covering initial states, controls,
+  events, state nodes, transitions, failures, recovery paths, terminal states,
+  and control availability before deriving layout structure.
+- Added UI flow structure helper APIs:
+  `UIControl`, `UIDisplayElement`, `UIStateNode`, `UITransition`,
+  `UIInteractionModel`, `UIRegionRecommendation`, `UIStructureDerivation`,
+  `UIFlowStructureFinding`, `UIInteractionModelReport`,
+  `UIStructureDerivationReport`, `review_ui_interaction_model(...)`, and
+  `review_ui_structure_derivation(...)`.
+- Added findings for missing initial states, missing availability matrices,
+  unmodeled controls, failures without recovery, destructive primary/global
+  controls, duplicate information in one state, same-level controls that
+  trigger the same modeled function without a rationale, structure derivation
+  before reviewed interaction evidence, missing parent surfaces, missing region
+  maps, duplicate region ownership, duplicate information in one region,
+  contextual controls placed globally, and overlays without origin or return
+  paths.
+- Added a `ui-flow-structure-template` CLI scaffold and public documentation
+  for deriving first-level persistent areas, second-level contextual regions,
+  third-level local actions, overlays, navigation ownership, and stable control
+  placement from modeled UI behavior.
+- Added the `flowguard-ui-flow-structure` Codex satellite skill and updated the
+  Skill Kernel route map, AGENTS snippet, modeling protocol docs, API surface,
+  product architecture docs, README, OpenSpec artifacts, and focused tests.
+- Schema remains `1.0`; runtime dependencies remain Python standard library
+  only.
+
 ## v0.14.0 - 2026-05-18
 
 - Upgraded the Codex-facing skill architecture to one FlowGuard Skill Kernel

@@ -15,6 +15,7 @@ from flowguard.templates import (
     risk_intent_template_files,
     structure_mesh_template_files,
     test_mesh_template_files,
+    ui_flow_structure_template_files,
     write_template_files,
 )
 
@@ -142,6 +143,16 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("flowguard code structure recommendation", output)
         self.assertIn("missing_source_model", output)
 
+    def test_ui_flow_structure_template_executes(self):
+        output = self.run_written_template(
+            ui_flow_structure_template_files(),
+            (".flowguard", "ui_flow_structure"),
+        )
+        self.assertIn("flowguard UI interaction model", output)
+        self.assertIn("flowguard UI structure derivation", output)
+        self.assertIn("missing_state_availability_matrix", output)
+        self.assertIn("source_interaction_model_not_reviewed", output)
+
     def test_structure_mesh_template_executes(self):
         output = self.run_written_template(
             structure_mesh_template_files(),
@@ -177,6 +188,7 @@ class PublicTemplateTests(unittest.TestCase):
             model_miss_review_template_files(),
             model_test_alignment_template_files(),
             code_structure_recommendation_template_files(),
+            ui_flow_structure_template_files(),
             development_process_flow_template_files(),
             test_mesh_template_files(),
             structure_mesh_template_files(),
@@ -191,6 +203,7 @@ class PublicTemplateTests(unittest.TestCase):
             "model-miss-template": "model_miss_review",
             "model-test-alignment-template": "model_test_alignment",
             "code-structure-recommendation-template": "code_structure_recommendation",
+            "ui-flow-structure-template": "ui_flow_structure",
             "development-process-flow-template": "development_process_flow",
             "test-mesh-template": "test_mesh",
             "structure-mesh-template": "structure_mesh",
@@ -224,7 +237,7 @@ class PublicTemplateTests(unittest.TestCase):
     def test_public_templates_do_not_contain_local_project_markers(self):
         private_markers = (
             "C:\\Users",
-            "liu_y",
+            Path.home().name,
             "FlowGuardProjectAutopilot",
             "FlowPilot",
             "Cockpit",
@@ -236,6 +249,7 @@ class PublicTemplateTests(unittest.TestCase):
             model_miss_review_template_files(),
             model_test_alignment_template_files(),
             code_structure_recommendation_template_files(),
+            ui_flow_structure_template_files(),
             development_process_flow_template_files(),
             test_mesh_template_files(),
             structure_mesh_template_files(),

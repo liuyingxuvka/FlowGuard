@@ -15,7 +15,11 @@ production conformance, repeated bugs, model-test coverage alignment, optional
 external code contract coverage, multiple local FlowGuard models, large test
 scripts/suites, slow or layered validation evidence, large script/module
 splits, public entrypoint compatibility, development lifecycle evidence
-freshness, meaningful process side effects, argument prerequisites, or decision
+freshness, UI interaction topology, screen or region ownership, navigation
+state, component event flow, visible UI state transitions, UI information
+display ownership, duplicate UI information, overlapping same-level controls,
+validation/error states, parent/child UI structure derived from modeled user interactions,
+meaningful process side effects, argument prerequisites, or decision
 commitments.
 
 Hard gates:
@@ -42,6 +46,7 @@ Route map:
 | --- | --- |
 | Ordinary modeling, Risk Intent, state write inventory, invariants, Explorer | `core_modeling` |
 | Direct architecture recommendation or model-derived implementation structure | `code_structure_recommendation` |
+| UI interaction model, screen/region topology, parent/child UI hierarchy, menu levels, overlays, stable placement, display ownership, duplicate information, or overlapping controls | `ui_flow_structure` |
 | Direct comparison between FlowGuard model obligations, optional code external contracts, and ordinary test evidence | `model_test_alignment` |
 | Three or more local models, oversized model, parent/child model evidence | `model_mesh_maintenance` |
 | Large test script/suite split, parent/child test hierarchy, slow/stale/release-only tests | `test_mesh_maintenance` |
@@ -52,7 +57,7 @@ Route map:
 | Long-running model/test/regression checks | `long_check_observability` |
 | FlowGuard framework upgrade or broad benchmark/capability claim | `framework_upgrade` |
 
-First-batch directly invokable Codex skills:
+Directly invokable FlowGuard satellite skills:
 
 | Skill | Route |
 | --- | --- |
@@ -60,6 +65,7 @@ First-batch directly invokable Codex skills:
 | `flowguard-development-process-flow` | `development_process_flow` |
 | `flowguard-model-miss-review` | `model_miss_review` |
 | `flowguard-code-structure-recommendation` | `code_structure_recommendation` |
+| `flowguard-ui-flow-structure` | `ui_flow_structure` |
 | `flowguard-model-mesh` | `model_mesh_maintenance` |
 | `flowguard-test-mesh` | `test_mesh_maintenance` |
 | `flowguard-structure-mesh` | `structure_mesh_maintenance` |
@@ -71,6 +77,8 @@ start with `model-first-function-flow`.
 Use the matching Skill reference protocol for support routes. Helper APIs such as
 `RiskIntent`, property factories, packs, `FlowGuardCheckPlan`,
 `review_code_structure_recommendation()`, `review_model_test_alignment()`,
+`UIDisplayElement`, `review_ui_interaction_model()`,
+`review_ui_structure_derivation()`,
 `review_development_process_flow()`, `review_test_mesh()`,
 `review_structure_mesh()`, templates, and starter CLIs are package helpers, not
 Codex skills by themselves.
@@ -110,6 +118,16 @@ peer writes, or evidence freshness determine whether a done, release, archive,
 or publish claim is supported. It may reference sibling route evidence ids, but
 it does not inspect, supervise, or replace ModelMesh, TestMesh, StructureMesh,
 Model-Test Alignment, LongCheck, or Conformance Adoption internals.
+
+Use UI Flow Structure when the missing artifact is the UI interaction model
+itself: initial UI state, controls, events, state nodes, transitions, recovery
+paths, and state availability. After that model is reviewed, derive first-level
+persistent menus, second-level contextual regions, third-level local controls,
+overlays, stable layout positions, navigation ownership, and parent/child UI
+topology. Do not route this as ordinary Code Structure Recommendation when the
+question is still UI behavior and hierarchy; use code structure only for
+implementation module advice and StructureMesh only for existing-code refactor
+governance.
 
 For ModelMesh and TestMesh, the parent split needs a FlowGuard-derived target
 structure before green parent confidence: source model, target children,

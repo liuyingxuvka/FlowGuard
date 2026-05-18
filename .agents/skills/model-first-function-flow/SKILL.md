@@ -1,6 +1,6 @@
 ---
 name: model-first-function-flow
-description: For coding, repository, process-design work, structured writing/argument, and decision/planning work, first decide whether FlowGuard applies. Use before implementing or changing non-trivial behavior, stateful workflows, repeated bug fixes, module-boundary changes, idempotency-sensitive logic, deduplication logic, caching, retry handling, data-flow changes, model-test alignment, multi-model FlowGuard projects that need ModelMesh, slow or layered tests that need TestMesh, large script or module refactors that need StructureMesh, post-runtime model misses, framework upgrades, or any meaningful multi-step process, argument chain, or decision path that needs validation, adjustment, observation, or loss-prevention preflight.
+description: For coding, repository, process-design work, structured writing/argument, and decision/planning work, first decide whether FlowGuard applies. Use before implementing or changing non-trivial behavior, stateful workflows, repeated bug fixes, module-boundary changes, idempotency-sensitive logic, deduplication logic, caching, retry handling, data-flow changes, UI interaction topology, model-test alignment, multi-model FlowGuard projects that need ModelMesh, slow or layered tests that need TestMesh, large script or module refactors that need StructureMesh, post-runtime model misses, framework upgrades, or any meaningful multi-step process, argument chain, or decision path that needs validation, adjustment, observation, or loss-prevention preflight.
 ---
 
 # Model-First Function Flow
@@ -16,11 +16,15 @@ decision/planning work, first make a lightweight applicability decision:
 Use FlowGuard when the work may affect behavior, workflow state, retries,
 deduplication, idempotency, caching, side effects, module boundaries, data
 flow, production conformance, repeated-bug handling, large model layout,
-model-test obligation and optional external code contract coverage, large
+UI information display ownership, duplicate UI information or overlapping
+same-level controls, model-test obligation and optional external code contract coverage, large
 test/script validation layout, large script/module decomposition, slow
 validation evidence, irreversible process actions, development lifecycle
 ordering, artifact overwrite, evidence freshness, publication/release side
-effects, argument prerequisites, or decision commitments.
+effects, UI interaction topology, screen or region ownership, navigation state,
+component event flow, visible UI state transitions, validation/error states,
+parent/child UI structure derived from modeled user interactions, argument
+prerequisites, or decision commitments.
 
 Skip only for clearly trivial copy edits, formatting-only changes, read-only
 explanation, or work with no behavior/state/process impact. If the boundary is
@@ -57,6 +61,7 @@ satellite skills. The routes are agent behavior protocols, not package APIs.
 | --- | --- | --- |
 | Ordinary model-first workflow, flow types, Risk Intent, state write inventory | `core_modeling` | `references/modeling_protocol.md` |
 | Direct architecture recommendation, model-derived implementation structure, pre-code module split planning | `code_structure_recommendation` | `flowguard-code-structure-recommendation` |
+| UI interaction flow model, screen/region topology, parent/child UI structure, navigation/state/event/display ownership, duplicate information, or overlapping same-level controls derived from modeled UI behavior | `ui_flow_structure` | `flowguard-ui-flow-structure` |
 | FlowGuard model obligations, optional code external contracts, and ordinary test evidence need direct comparison | `model_test_alignment` | `flowguard-model-test-alignment` |
 | Three or more local FlowGuard models, oversized model, stale child evidence, parent/child model partition | `model_mesh_maintenance` | `flowguard-model-mesh` |
 | Large test script/suite split, parent/child test hierarchy, slow/background/stale/skipped/release-only validation evidence | `test_mesh_maintenance` | `flowguard-test-mesh` |
@@ -131,18 +136,22 @@ Codex skill:
   rows consumed by the model-test alignment plan.
 - Development lifecycle helpers such as `review_development_process_flow()`
   and `derive_revalidation_plan()`.
+- UI flow structure helpers such as `UIDisplayElement`,
+  `review_ui_interaction_model()`, and `review_ui_structure_derivation()`.
 - Template CLIs such as `project-template`, `risk-intent-template`,
   `model-miss-template`, `model-test-alignment-template`,
-  `development-process-flow-template`, `test-mesh-template`,
-  `structure-mesh-template`, and `maintenance-template`.
+  `ui-flow-structure-template`, `development-process-flow-template`,
+  `test-mesh-template`, `structure-mesh-template`, and
+  `maintenance-template`.
 
 ## Standalone Satellite Skills
 
-The first-batch satellite skills are:
+The directly invokable satellite skills are:
 `flowguard-model-test-alignment`, `flowguard-development-process-flow`,
 `flowguard-model-miss-review`, `flowguard-code-structure-recommendation`,
-`flowguard-model-mesh`, `flowguard-test-mesh`, and
-`flowguard-structure-mesh`. Use them directly only when the user's request
+`flowguard-ui-flow-structure`, `flowguard-model-mesh`,
+`flowguard-test-mesh`, and `flowguard-structure-mesh`. Use them directly only
+when the user's request
 clearly matches that route; otherwise start here in the kernel.
 
 ## Resource Map
@@ -154,6 +163,9 @@ clearly matches that route; otherwise start here in the kernel.
 - `references/code_structure_recommendation_protocol.md`: model-derived
   implementation structure recommendation, ownership maps, facades, and
   validation boundaries.
+- `flowguard-ui-flow-structure`: directly invokable route for building a UI
+  interaction model first, then deriving parent/child UI topology, menu levels,
+  overlays, stable control placement, and interface hierarchy.
 - `references/model_test_alignment_protocol.md`: direct model-obligation,
   optional code external contract, and ordinary test-evidence alignment without
   TestMesh, StructureMesh, or ModelMesh.

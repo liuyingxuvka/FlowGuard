@@ -2031,6 +2031,316 @@ existing large script or module is being split.
 """
 
 
+UI_FLOW_STRUCTURE_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header
+
+Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
+Purpose: Model UI-level interaction behavior first, then derive parent/child UI structure from that model.
+Guards against: layout-only UI plans, unmodeled controls, missing recovery actions, drifting menu levels, unstable global controls, duplicate information, overlapping same-level controls, and hierarchy recommendations that are not tied to UI state.
+Use before editing: Ask for this route before visual design or frontend implementation when UI controls, states, navigation, panels, menus, overlays, or parent/child UI topology matter.
+Run: python .flowguard/ui_flow_structure/run_checks.py
+"""
+
+from __future__ import annotations
+
+from flowguard import (
+    UIControl,
+    UIDisplayElement,
+    UIInteractionModel,
+    UIRegionRecommendation,
+    UIStateNode,
+    UIStructureDerivation,
+    UITransition,
+    review_ui_interaction_model,
+    review_ui_structure_derivation,
+)
+
+
+def interaction_model() -> UIInteractionModel:
+    return UIInteractionModel(
+        "import-run-ui-flow",
+        initial_state_id="empty",
+        source_product_model_id="import-run-product-flow",
+        states=(
+            UIStateNode(
+                "empty",
+                visible_controls=("import", "settings", "run", "export"),
+                enabled_controls=("import", "settings"),
+                disabled_controls=("run", "export"),
+                rationale="The first screen lets the user import data or adjust global settings.",
+            ),
+            UIStateNode(
+                "loaded",
+                visible_controls=("run", "settings", "export"),
+                enabled_controls=("run", "settings"),
+                disabled_controls=("export",),
+                rationale="A loaded file enables the primary run action.",
+            ),
+            UIStateNode(
+                "running",
+                visible_controls=("cancel", "settings"),
+                enabled_controls=("cancel",),
+                disabled_controls=("run", "export"),
+                rationale="Running work scopes the UI to cancellation and status.",
+            ),
+            UIStateNode(
+                "result_ready",
+                visible_controls=("run", "export", "settings"),
+                enabled_controls=("run", "export", "settings"),
+                visible_displays=("summary_card", "result_table"),
+                terminal=True,
+                rationale="The result state enables export and rerun actions.",
+            ),
+            UIStateNode(
+                "failed",
+                visible_controls=("retry", "settings"),
+                enabled_controls=("retry", "settings"),
+                recovery_controls=("retry",),
+                failure=True,
+                rationale="A recoverable failure offers retry and global settings.",
+            ),
+        ),
+        controls=(
+            UIControl(
+                "settings",
+                label="Settings",
+                level="global",
+                placement_hint="top-toolbar",
+                persistent=True,
+                rationale="Settings are always available and should not drift between screens.",
+            ),
+            UIControl("import", label="Import", level="primary", rationale="Import starts the main workflow."),
+            UIControl(
+                "run",
+                label="Run",
+                level="primary",
+                depends_on_states=("loaded", "result_ready"),
+                rationale="Run advances the main workflow after input exists.",
+            ),
+            UIControl(
+                "cancel",
+                label="Cancel",
+                level="contextual",
+                depends_on_states=("running",),
+                rationale="Cancel only exists while work is running.",
+            ),
+            UIControl(
+                "retry",
+                label="Retry",
+                level="contextual",
+                depends_on_states=("failed",),
+                rationale="Retry recovers from a failed run.",
+            ),
+            UIControl(
+                "export",
+                label="Export",
+                level="secondary",
+                depends_on_states=("result_ready",),
+                rationale="Export depends on completed results.",
+            ),
+        ),
+        displays=(
+            UIDisplayElement(
+                "summary_card",
+                "run_summary",
+                label="Run summary",
+                display_type="status",
+                depends_on_states=("result_ready",),
+                rationale="The compact summary states the result once.",
+            ),
+            UIDisplayElement(
+                "result_table",
+                "result_rows",
+                label="Result table",
+                display_type="table",
+                depends_on_states=("result_ready",),
+                rationale="The table shows row-level output, not a duplicate summary.",
+            ),
+        ),
+        transitions=(
+            UITransition("click_import", "import", "empty", "loaded", function_block="ImportFile", output="file_loaded", rationale="Import creates the loaded state."),
+            UITransition("click_run", "run", "loaded", "running", function_block="StartRun", output="run_started", rationale="Run starts the primary processing state."),
+            UITransition("click_cancel", "cancel", "running", "loaded", function_block="CancelRun", output="run_cancelled", rationale="Cancel returns to the loaded state."),
+            UITransition("run_success", "run", "running", "result_ready", function_block="FinishRun", output="result_ready", rationale="A successful run exposes results."),
+            UITransition("run_failure", "run", "running", "failed", function_block="FailRun", output="recoverable_error", rationale="A failed run enters a recoverable failure state."),
+            UITransition("click_retry", "retry", "failed", "running", function_block="RetryRun", output="retry_started", rationale="Retry returns to the running state."),
+            UITransition("click_export", "export", "result_ready", "result_ready", function_block="ExportResult", output="exported", rationale="Export is terminal-state output, not a new workflow phase."),
+        ),
+        validation_boundaries=("UI scenario review", "browser state transition test"),
+        rationale="The model separates initial, loaded, running, result, and failure UI states before any layout is derived.",
+    )
+
+
+def structure_derivation() -> UIStructureDerivation:
+    return UIStructureDerivation(
+        "import-run-ui-structure",
+        source_interaction_model_id="import-run-ui-flow",
+        parent_surface_id="import-run-workbench",
+        interaction_model_reviewed=True,
+        target_regions=(
+            UIRegionRecommendation(
+                "top-toolbar",
+                level="global",
+                placement="top-toolbar",
+                owns_controls=("settings",),
+                stable_across_states=True,
+                rationale="Global settings live in a first-level stable toolbar.",
+            ),
+            UIRegionRecommendation(
+                "primary-workspace",
+                level="primary",
+                placement="main",
+                owns_states=("empty", "loaded", "running", "result_ready"),
+                owns_controls=("import", "run", "export"),
+                owns_displays=("summary_card", "result_table"),
+                owns_events=("click_import", "click_run", "run_success", "click_export"),
+                stable_across_states=True,
+                rationale="Main workflow actions live in the primary workspace.",
+            ),
+            UIRegionRecommendation(
+                "failure-inspector",
+                level="secondary",
+                placement="right-inspector",
+                parent_region_id="primary-workspace",
+                owns_states=("failed",),
+                owns_controls=("retry",),
+                owns_events=("run_failure", "click_retry"),
+                rationale="Recoverable failure is a child inspector of the main workflow.",
+            ),
+            UIRegionRecommendation(
+                "cancel-overlay",
+                level="overlay",
+                placement="modal",
+                parent_region_id="primary-workspace",
+                owns_controls=("cancel",),
+                owns_events=("click_cancel",),
+                rationale="Cancel temporarily scopes the running parent flow.",
+            ),
+        ),
+        state_region_map=(
+            ("empty", "primary-workspace"),
+            ("loaded", "primary-workspace"),
+            ("running", "primary-workspace"),
+            ("result_ready", "primary-workspace"),
+            ("failed", "failure-inspector"),
+        ),
+        control_region_map=(
+            ("settings", "top-toolbar"),
+            ("import", "primary-workspace"),
+            ("run", "primary-workspace"),
+            ("export", "primary-workspace"),
+            ("retry", "failure-inspector"),
+            ("cancel", "cancel-overlay"),
+        ),
+        display_region_map=(
+            ("summary_card", "primary-workspace"),
+            ("result_table", "primary-workspace"),
+        ),
+        event_region_map=(
+            ("click_import", "primary-workspace"),
+            ("click_run", "primary-workspace"),
+            ("run_success", "primary-workspace"),
+            ("run_failure", "failure-inspector"),
+            ("click_retry", "failure-inspector"),
+            ("click_cancel", "cancel-overlay"),
+            ("click_export", "primary-workspace"),
+        ),
+        hierarchy_edges=(("primary-workspace", "failure-inspector"), ("primary-workspace", "cancel-overlay")),
+        persistent_control_ids=("settings",),
+        contextual_control_ids=("retry", "cancel"),
+        overlay_region_ids=("cancel-overlay",),
+        stable_region_ids=("top-toolbar", "primary-workspace"),
+        validation_boundaries=("browser state transition test", "design implementation review"),
+        rationale="First-level persistent controls stay in the toolbar; phase controls and overlays follow the UI model.",
+    )
+
+
+def broken_interaction_model() -> UIInteractionModel:
+    return UIInteractionModel(
+        "broken-ui-flow",
+        initial_state_id="empty",
+        states=(UIStateNode("empty"), UIStateNode("failed", failure=True)),
+        controls=(UIControl("delete", label="Delete", level="primary", destructive=True),),
+        displays=(
+            UIDisplayElement("chart", "same_summary", display_type="chart"),
+            UIDisplayElement("text", "same_summary", display_type="text"),
+        ),
+        transitions=(UITransition("click_delete", "delete", "empty", "failed"),),
+    )
+
+
+def broken_structure_derivation() -> UIStructureDerivation:
+    return UIStructureDerivation(
+        "broken-ui-structure",
+        source_interaction_model_id="import-run-ui-flow",
+        parent_surface_id="import-run-workbench",
+        target_regions=(UIRegionRecommendation("main"),),
+        state_region_map=(("empty", "main"),),
+        control_region_map=(("settings", "main"),),
+        display_region_map=(("chart", "main"), ("text", "main")),
+    )
+
+
+def run_checks():
+    model_report = review_ui_interaction_model(interaction_model())
+    structure_report = review_ui_structure_derivation(structure_derivation(), interaction_model=interaction_model())
+    broken_model_report = review_ui_interaction_model(broken_interaction_model())
+    broken_structure_report = review_ui_structure_derivation(
+        broken_structure_derivation(),
+        interaction_model=interaction_model(),
+    )
+    return model_report, structure_report, broken_model_report, broken_structure_report
+'''
+
+
+UI_FLOW_STRUCTURE_RUN_CHECKS_TEMPLATE = '''"""Run the UI Flow Structure template checks."""
+
+from __future__ import annotations
+
+from model import run_checks
+
+
+def main() -> int:
+    model_report, structure_report, broken_model, broken_structure = run_checks()
+    print(model_report.format_text())
+    print()
+    print(structure_report.format_text())
+    print()
+    print(broken_model.format_text(max_findings=5))
+    print()
+    print(broken_structure.format_text(max_findings=5))
+    return 0 if model_report.ok and structure_report.ok and not broken_model.ok and not broken_structure.ok else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+'''
+
+
+UI_FLOW_STRUCTURE_NOTES_TEMPLATE = """# FlowGuard UI Flow Structure Notes
+
+Use this scaffold before visual design or frontend implementation when the UI
+itself needs a model-first interaction flow.
+
+## What This Route Produces
+
+- a UI interaction model: initial state, controls, events, state nodes,
+  transitions, failure and recovery states, terminal states, and availability;
+- a structure derivation from that model: parent/child UI nodes, first-level
+  persistent menus, second-level contextual regions, third-level local actions,
+  overlays, stable layout positions, and validation boundaries;
+- review findings when a control has no modeled event, a failure state has no
+  recovery path, a destructive control is too prominent, or a persistent
+  control is not assigned to a stable global region;
+- redundancy findings when the same page/state shows the same semantic
+  information twice or exposes multiple same-level controls for one function
+  without an explicit rationale.
+
+UI Flow Structure does not choose the visual style or implement frontend code.
+Use the derived structure contract as input to Figma, frontend implementation,
+browser checks, and design implementation review.
+"""
+
+
 STRUCTURE_MESH_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header
 
 Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
@@ -2322,6 +2632,14 @@ def code_structure_recommendation_template_files() -> tuple[TemplateFile, ...]:
     )
 
 
+def ui_flow_structure_template_files() -> tuple[TemplateFile, ...]:
+    return (
+        TemplateFile(".flowguard/ui_flow_structure/model.py", UI_FLOW_STRUCTURE_MODEL_TEMPLATE),
+        TemplateFile(".flowguard/ui_flow_structure/run_checks.py", UI_FLOW_STRUCTURE_RUN_CHECKS_TEMPLATE),
+        TemplateFile("docs/flowguard_ui_flow_structure.md", UI_FLOW_STRUCTURE_NOTES_TEMPLATE),
+    )
+
+
 def test_mesh_template_files() -> tuple[TemplateFile, ...]:
     return (
         TemplateFile(".flowguard/test_mesh/model.py", TEST_MESH_MODEL_TEMPLATE),
@@ -2394,5 +2712,6 @@ __all__ = [
     "risk_intent_template_files",
     "structure_mesh_template_files",
     "test_mesh_template_files",
+    "ui_flow_structure_template_files",
     "write_template_files",
 ]

@@ -2,10 +2,10 @@
 
 This document is the `core_modeling` sub-protocol for the FlowGuard Skill
 Kernel. The main Skill routes here for ordinary model-first work. Specialized
-routes such as code structure recommendation, model-test alignment, ModelMesh,
-TestMesh, StructureMesh, DevelopmentProcessFlow, model-miss review,
-conformance/adoption, long-check observability, and framework upgrades live in
-their dedicated reference protocols.
+routes such as UI flow structure, code structure recommendation, model-test
+alignment, ModelMesh, TestMesh, StructureMesh, DevelopmentProcessFlow,
+model-miss review, conformance/adoption, long-check observability, and
+framework upgrades live in their dedicated reference protocols.
 
 Use this protocol before implementing non-trivial behavior involving workflows, state, retries, deduplication, idempotency, caching, or module boundaries.
 
@@ -39,6 +39,10 @@ Before changing files, separate three situations:
   functional model, then recommend module boundaries, ownership maps, facades,
   side-effect adapters, and validation boundaries without writing production
   code.
+- `ui_flow_structure`: UI interaction behavior itself needs modeling before
+  layout or visual design. Build or review the UI interaction model first,
+  then derive parent/child UI topology, menu levels, stable placements,
+  overlays, navigation ownership, and state/control/event ownership.
 - `development_process_flow`: development lifecycle ordering, artifact
   overwrite, validation evidence freshness, peer writes, V-style validation
   pairs, or minimum revalidation is the risky boundary. Use this sibling route
@@ -214,7 +218,23 @@ Read `docs/code_structure_recommendation.md` and
 `.agents/skills/model-first-function-flow/references/code_structure_recommendation_protocol.md`
 for the recommendation shape.
 
-## 0.48 Check The DevelopmentProcessFlow Route
+## 0.48 Check The UI Flow Structure Route
+
+Use the parallel UI flow structure route when a UI's buttons, menus, controls,
+screens, panels, overlays, navigation, information displays, state
+availability, or duplicate/overlapping controls need a model-first interaction
+flow before visual design or frontend implementation. This route models the UI
+as `UI event x UI state -> Set(UI output x UI state)`, reviews that
+interaction model, and then derives parent/child UI topology, first-level
+persistent menus, second-level contextual regions, third-level local controls,
+information-display ownership, stable layout positions, overlay hierarchy, and
+explicit rationale for intentional redundancy.
+
+Read `docs/ui_flow_structure.md` and
+`.agents/skills/flowguard-ui-flow-structure/references/ui_flow_structure_protocol.md`
+for the route shape.
+
+## 0.49 Check The DevelopmentProcessFlow Route
 
 Use the parallel development process route when the question is whether a done,
 release, archive, or publish claim still has current evidence after lifecycle

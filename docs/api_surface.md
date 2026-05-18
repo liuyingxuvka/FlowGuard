@@ -89,6 +89,14 @@ Modeling helpers reduce boilerplate around common bug classes:
   `CodeStructureRecommendation`, `TargetModuleRecommendation`, and
   `review_code_structure_recommendation()` for recommending implementation
   structure from a FlowGuard functional model before code is written.
+- optional UI Flow Structure helpers such as `UIInteractionModel`,
+  `UIControl`, `UIDisplayElement`, `UIStateNode`, `UITransition`,
+  `UIStructureDerivation`, `UIRegionRecommendation`,
+  `review_ui_interaction_model()`, and
+  `review_ui_structure_derivation()` for modeling UI interactions first and
+  then deriving parent/child UI topology, menu levels, stable placement,
+  overlays, control hierarchy, information-display ownership, and intentional
+  redundancy before visual design or frontend implementation.
 - optional DevelopmentProcessFlow helpers such as `ProcessArtifact`,
   `ProcessAction`, `ProcessEvidence`, `ValidationRequirement`,
   `DevelopmentProcessPlan`, `review_development_process_flow()`, and
@@ -175,7 +183,11 @@ and evidence visible before trusting the parent. For large structure refactors,
 use StructureMesh to make model-derived target structure, child-module
 ownership, and compatibility evidence visible before trusting a parent split.
 Use Code Structure Recommendation for direct pre-code architecture
-recommendations. Use DevelopmentProcessFlow when development lifecycle
+recommendations. Use UI Flow Structure when a UI's controls, state transitions,
+navigation, regions, overlays, menu levels, information displays,
+duplicate/redundant content, overlapping controls, or parent/child hierarchy
+need a reviewed UI interaction model before layout and visual implementation. Use
+DevelopmentProcessFlow when development lifecycle
 ordering, artifact overwrite, verifier changes, peer writes, or evidence
 freshness determine whether a done, release, archive, or publish claim is
 supported; do not use it as a universal gate or a supervisor for sibling

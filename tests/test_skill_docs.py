@@ -9,6 +9,7 @@ SATELLITE_SKILLS = {
     "flowguard-development-process-flow": "development_process_flow_protocol.md",
     "flowguard-model-miss-review": "model_miss_protocol.md",
     "flowguard-code-structure-recommendation": "code_structure_recommendation_protocol.md",
+    "flowguard-ui-flow-structure": "ui_flow_structure_protocol.md",
     "flowguard-model-mesh": "model_mesh_protocol.md",
     "flowguard-test-mesh": "test_mesh_protocol.md",
     "flowguard-structure-mesh": "structure_mesh_protocol.md",
@@ -44,6 +45,7 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("Standalone Satellite Skills", text)
         self.assertIn("flowguard-model-test-alignment", text)
         self.assertIn("flowguard-development-process-flow", text)
+        self.assertIn("flowguard-ui-flow-structure", text)
         self.assertNotIn("Phase 11", text)
         self.assertNotIn("2100-case", text)
 
@@ -53,6 +55,7 @@ class SkillDocsTests(unittest.TestCase):
         expected_routes = (
             "core_modeling",
             "code_structure_recommendation",
+            "ui_flow_structure",
             "model_test_alignment",
             "model_mesh_maintenance",
             "test_mesh_maintenance",
@@ -121,6 +124,11 @@ class SkillDocsTests(unittest.TestCase):
             "flowguard-code-structure-recommendation": (
                 "review_code_structure_recommendation",
                 "FunctionBlock-to-module ownership",
+            ),
+            "flowguard-ui-flow-structure": (
+                "review_ui_interaction_model",
+                "UI event x UI state",
+                "UIDisplayElement",
             ),
             "flowguard-model-mesh": (
                 "review_hierarchical_mesh",
@@ -194,6 +202,8 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("docs/structure_mesh.md", text)
         self.assertIn("Check The Code Structure Recommendation Route", text)
         self.assertIn("docs/code_structure_recommendation.md", text)
+        self.assertIn("Check The UI Flow Structure Route", text)
+        self.assertIn("docs/ui_flow_structure.md", text)
         self.assertIn("Check The DevelopmentProcessFlow Route", text)
         self.assertIn("docs/development_process_flow.md", text)
 
@@ -204,6 +214,7 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("Route map", text)
         self.assertIn("core_modeling", text)
         self.assertIn("code_structure_recommendation", text)
+        self.assertIn("ui_flow_structure", text)
         self.assertIn("test_mesh_maintenance", text)
         self.assertIn("model_test_alignment", text)
         self.assertIn("does not invoke", text)
@@ -220,6 +231,7 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("flowguard-development-process-flow", text)
         self.assertIn("flowguard-model-miss-review", text)
         self.assertIn("flowguard-code-structure-recommendation", text)
+        self.assertIn("flowguard-ui-flow-structure", text)
         self.assertIn("flowguard-model-mesh", text)
         self.assertIn("flowguard-test-mesh", text)
         self.assertIn("flowguard-structure-mesh", text)
@@ -250,11 +262,22 @@ class SkillDocsTests(unittest.TestCase):
         test_mesh = (SKILL_ROOT / "references" / "test_mesh_protocol.md").read_text(encoding="utf-8")
         structure_mesh = (SKILL_ROOT / "references" / "structure_mesh_protocol.md").read_text(encoding="utf-8")
         code_structure = (SKILL_ROOT / "references" / "code_structure_recommendation_protocol.md").read_text(encoding="utf-8")
+        ui_structure = (
+            ROOT
+            / ".agents"
+            / "skills"
+            / "flowguard-ui-flow-structure"
+            / "references"
+            / "ui_flow_structure_protocol.md"
+        ).read_text(encoding="utf-8")
         development_process = (SKILL_ROOT / "references" / "development_process_flow_protocol.md").read_text(encoding="utf-8")
 
         self.assertIn("Code Structure Recommendation Protocol", code_structure)
         self.assertIn("FunctionBlock-to-module ownership", code_structure)
         self.assertIn("not a mandatory step", code_structure)
+        self.assertIn("UI Flow Structure Protocol", ui_structure)
+        self.assertIn("UI event x UI state", ui_structure)
+        self.assertIn("first-level persistent controls", ui_structure)
         self.assertIn("Local Model Mesh Protocol", model_mesh)
         self.assertIn("Required Hazards", model_mesh)
         self.assertIn("target split derivation", model_mesh)
@@ -286,6 +309,7 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("development_process_flow", kernel)
         self.assertIn("Standalone Satellite Skills", kernel)
         self.assertIn("flowguard-model-mesh", kernel)
+        self.assertIn("flowguard-ui-flow-structure", kernel)
         model_test_alignment = (SKILL_ROOT / "references" / "model_test_alignment_protocol.md").read_text(encoding="utf-8")
         self.assertIn("Model-Test Alignment Protocol", model_test_alignment)
         self.assertIn("CodeContract", model_test_alignment)
