@@ -55,6 +55,13 @@ class ApiSurfaceTests(unittest.TestCase):
             "CODE_CONTRACT_ROLE_ADAPTER",
             "CODE_CONTRACT_ROLE_FACADE",
             "CODE_CONTRACT_ROLE_READ_ONLY",
+            "PythonCodeContractEvidence",
+            "PythonTestAssertionEvidence",
+            "ContractSourceAuditFinding",
+            "ContractSourceAuditReport",
+            "audit_python_code_contracts",
+            "audit_python_test_assertions",
+            "review_python_contract_source_audit",
         )
 
         for name in expected:

@@ -121,8 +121,10 @@ fit, but do not describe them as independently triggerable agent sub-skills:
   `SideEffectPack`.
 - Mesh review APIs such as `review_hierarchical_mesh()`,
   `review_test_mesh()`, and `review_structure_mesh()`.
-- Alignment APIs such as `review_model_test_alignment()` and optional code
-  external contract rows consumed by the model-test alignment plan.
+- Alignment APIs such as `review_model_test_alignment()`,
+  `audit_python_code_contracts()`, `audit_python_test_assertions()`,
+  `review_python_contract_source_audit()`, and optional code external contract
+  rows consumed by the model-test alignment plan.
 - Template CLIs such as `project-template`, `risk-intent-template`,
   `model-miss-template`, `model-test-alignment-template`,
   `test-mesh-template`, `structure-mesh-template`, and

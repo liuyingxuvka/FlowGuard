@@ -93,9 +93,26 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("code external contracts", combined)
         self.assertIn("CodeContract", combined)
         self.assertIn("covered code contract ids", combined)
+        self.assertIn("audit_python_code_contracts", combined)
+        self.assertIn("audit_python_test_assertions", combined)
+        self.assertIn("review_python_contract_source_audit", combined)
         self.assertNotIn("review_hierarchical_mesh", combined)
         self.assertNotIn("review_test_mesh", combined)
         self.assertNotIn("review_structure_mesh", combined)
+
+    def test_model_test_alignment_template_teaches_conservative_python_source_audit(self):
+        files = model_test_alignment_template_files()
+        combined = "\n".join(file.content for file in files)
+
+        self.assertIn("audit_python_code_contracts", combined)
+        self.assertIn("audit_python_test_assertions", combined)
+        self.assertIn("review_python_contract_source_audit", combined)
+        self.assertIn("PythonCodeContractEvidence", combined)
+        self.assertIn("PythonTestAssertionEvidence", combined)
+        self.assertIn("function signatures, return values, raises, assignments, and calls", combined)
+        self.assertIn("tests must call the declared code contract symbol", combined)
+        self.assertIn("assert or unittest assertion", combined)
+        self.assertIn("conservative source audit", combined)
 
     def test_test_mesh_template_executes(self):
         output = self.run_written_template(

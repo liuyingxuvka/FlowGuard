@@ -64,6 +64,14 @@ externally visible code surface is in scope. It does not invoke TestMesh,
 StructureMesh, or ModelMesh, and it does not split tests, split code, or split
 models.
 
+When real Python source and tests are available for those rows, add a
+conservative source audit first: inspect AST-visible code surfaces and
+AST-visible test assertions to generate or check code-contract evidence and
+test-assertion evidence, then feed those rows into Model-Test Alignment. Treat
+the audit as conservative support, not a perfect semantic proof. Dynamic or
+complex behavior requires manual review, and source audit does not replace
+conformance replay or other production-facing validation.
+
 If a model, test, script, module, or command is becoming large, slow, or hard
 to follow, consider whether a parent/child split would make it easier to
 maintain or verify. For models consider ModelMesh; for tests consider TestMesh;

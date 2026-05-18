@@ -10,6 +10,15 @@ It does not split tests, split code, split models, or read mesh reports. It
 compares explicit model obligations, optional code external contracts, and
 plain test evidence.
 
+When real Python source and tests are available, add the conservative source audit
+layer before trusting hand-authored rows. This layer reads Python ASTs to
+generate or check `PythonCodeContractEvidence` and
+`PythonTestAssertionEvidence`, then feeds the resulting rows and confidence
+boundaries into the same Model-Test Alignment review. Use
+`audit_python_code_contracts()`, `audit_python_test_assertions()`, and
+`review_python_contract_source_audit()` when the Python source is available.
+It is an evidence collector, not a semantic proof engine.
+
 ## Trigger
 
 Create or update a model-test alignment review when:
@@ -28,6 +37,8 @@ Create or update a model-test alignment review when:
 - reviewers suspect orphan tests, orphan code contracts, duplicated test
   claims, duplicated code contract owners, stale evidence, internal-path-only
   tests, or happy-path-only coverage of risky model obligations.
+- declared `CodeContract` or `TestEvidence` rows need to be checked against
+  real Python source/test files before a coverage claim is trusted.
 
 Do not trigger this protocol merely because tests are large or slow. Use
 TestMesh for parent/child test hierarchy problems. Do not trigger it merely
@@ -54,7 +65,9 @@ List `ModelObligation` rows:
   visible behavior is also a gap.
 
 List optional `CodeContract` rows when an externally visible code surface is in
-scope. Do not invent or refactor code solely to fill this section.
+scope. Do not invent or refactor code solely to fill this section. When Python
+source audit is available, record whether each row is hand-authored,
+AST-supported, partial, missing, ambiguous, dynamic, or manual-review-required.
 
 - code contract id;
 - path, symbol, and surface type such as function, class, API, CLI, facade, or
@@ -64,6 +77,8 @@ scope. Do not invent or refactor code solely to fill this section.
 - externally visible inputs and outputs;
 - state reads, state writes, side effects, and error paths;
 - whether the contract is required.
+- source-audit notes: inspected path, discovered symbol, supported fields,
+  missing fields, dynamic features, and manual-review reason.
 
 List `TestEvidence` rows:
 
@@ -77,6 +92,47 @@ List `TestEvidence` rows:
 - assertion scope: `external_contract`, `internal_path`, `mixed`, or
   `unknown`;
 - whether the test overclaims full model confidence.
+- source-audit notes: asserted symbol, assertion forms, expected exceptions,
+  output/state/call/persisted-output checks, monkeypatch/fixture usage, and
+  manual-review reason.
+
+## Conservative Source Audit Checklist
+
+Use this checklist only when real Python source or tests are in scope:
+
+- parse Python files with `ast` and inspect real definitions, imports,
+  decorators, calls, returns, yields, raises, assignments, context managers, and
+  writes that are visible without executing the program;
+- inspect function signatures, return values, raises, assignments, and calls,
+  then keep missing Python symbol, missing input, missing output, missing state write,
+  and extra side effect findings visible;
+- identify external surfaces such as public functions, classes, methods, CLIs,
+  facades, adapters, and persisted outputs;
+- compare AST-visible inputs, outputs, state reads, state writes, side effects,
+  and error paths with declared `CodeContract` fields;
+- inspect Python tests for direct calls to the external surface, assertions,
+  expected exceptions, output checks, state checks, call checks, persisted-output
+  checks, parametrization, pytest markers, fixtures, and monkeypatching;
+- check that tests must call the declared code contract symbol and contain an
+  assert or unittest assertion; keep helper/internal path and no assert findings
+  visible;
+- classify assertion scope as `external_contract`, `mixed`, `internal_path`, or
+  `unknown`;
+- treat name similarity as a candidate binding only; require explicit ids,
+  reviewer maps, direct calls, or other strong evidence for high-confidence
+  model/code/test bindings;
+- preserve execution status and freshness: AST-visible assertions in skipped,
+  stale, failed, timeout, not-run, running, or error tests are not current
+  coverage;
+- mark dynamic imports, reflection, generated attributes, monkeypatch-heavy
+  behavior, framework lifecycle hooks, concurrency, external services, and
+  runtime-value-dependent behavior as ambiguous or manual-review-required unless
+  stronger evidence is supplied.
+
+The audit must never claim perfect Python semantics. It also must not replace
+conformance replay when production state, durable side effects, external
+systems, trace-level behavior, or adapter projection is part of the confidence
+claim.
 
 ## Required Findings
 
@@ -118,6 +174,12 @@ The review must keep these findings visible:
   error evidence is not coverage;
 - `test_overclaims_model_confidence`: a test report claims broader model
   confidence than its bindings prove.
+- `source_audit_partial_contract`: AST-visible code supports only part of a
+  declared code contract;
+- `source_audit_dynamic_or_ambiguous`: source or test behavior depends on
+  dynamic features the conservative audit cannot prove;
+- `source_audit_manual_review_required`: complex behavior needs human review
+  before the evidence can support an external-contract claim.
 
 ## Prompt Template
 
@@ -166,13 +228,20 @@ Test evidence:
 - covered code contract ids:
 - assertion scope:
 - overclaiming:
+- source-audit notes:
+
+If real Python source or tests are available, first perform a conservative AST
+audit of code contracts and test assertions. Use it to generate or check the
+CodeContract and TestEvidence rows, but do not treat it as a perfect semantic
+proof or a conformance replay substitute.
 
 Flag missing model-obligation coverage, missing or mismatched code external
 contracts, missing external-contract test evidence, orphan tests, orphan code
 contracts, unknown references, duplicate same-kind test claims, duplicate code
 contract owners, internal-path-only tests, model-code-test binding mismatches,
 happy-path-only coverage for risky obligations, stale or non-passing evidence,
-and overclaimed model confidence.
+partial source-audit support, dynamic or ambiguous source-audit findings,
+manual-review-required findings, and overclaimed model confidence.
 ```
 
 ## Completion Standard
@@ -201,5 +270,8 @@ A model-test alignment review can support a coverage claim only when:
   behavior;
 - stale, skipped, failed, timeout, not-run, running, and error evidence remain
   visible as gaps;
+- conservative source-audit findings are not overclaimed as semantic proof;
+- partial, dynamic, ambiguous, or manual-review-required audit results remain
+  visible as confidence boundaries;
 - the report does not claim production conformance unless a separate
   conformance replay or equivalent production-facing check supports that claim.

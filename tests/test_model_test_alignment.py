@@ -56,6 +56,10 @@ def finding_codes(report):
     return [finding.code for finding in report.findings]
 
 
+def source_audit_finding_codes(report):
+    return [finding.code for finding in report.findings]
+
+
 class ModelTestAlignmentTests(unittest.TestCase):
     def test_legacy_model_test_only_alignment_can_continue(self):
         plan = ModelTestAlignmentPlan(
@@ -458,6 +462,147 @@ class ModelTestAlignmentTests(unittest.TestCase):
         report = review_model_test_alignment(plan)
 
         self.assertTrue(report.ok)
+
+    def test_python_source_audit_accepts_external_contract_test(self):
+        contract = code_contract(
+            "checkout.submit",
+            "accept_valid_order",
+            path="checkout.py",
+            symbol="submit_order",
+            external_inputs=("order_id",),
+            external_outputs=("accepted",),
+            state_writes=("order_status",),
+            side_effects=("publish_accept",),
+            error_paths=("ValueError",),
+        )
+        test_item = contract_evidence(
+            "test_submit_order",
+            "accept_valid_order",
+            "checkout.submit",
+            path="test_checkout.py",
+            test_name="test_submit_order",
+        )
+        code_source = '''
+def submit_order(order_id):
+    if order_id == "bad":
+        raise ValueError("bad order")
+    state = {}
+    state["order_status"] = "accepted"
+    publish_accept(order_id)
+    return "accepted"
+'''
+        test_source = '''
+def test_submit_order():
+    result = submit_order("order-1")
+    assert result == "accepted"
+'''
+
+        code_audit = api_name("audit_python_code_contracts")((contract,), {"checkout.py": code_source})
+        test_audit = api_name("audit_python_test_assertions")((test_item,), (contract,), {"test_checkout.py": test_source})
+        report = api_name("review_python_contract_source_audit")((contract,), (test_item,), code_audit, test_audit)
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual("python_contract_source_audit_green", report.decision)
+        self.assertEqual(["order_id"], list(code_audit[0].parameters))
+        self.assertIn("ValueError", code_audit[0].raised_errors)
+        self.assertIn("publish_accept", code_audit[0].side_effects)
+        self.assertIn("publish_accept", code_audit[0].calls)
+        self.assertEqual(("checkout.submit",), test_audit[0].called_code_contracts)
+
+    def test_python_source_audit_flags_code_contract_gaps(self):
+        contract = code_contract(
+            "checkout.submit",
+            "accept_valid_order",
+            path="checkout.py",
+            symbol="submit_order",
+            external_inputs=("order_id", "payment_token"),
+            external_outputs=("accepted",),
+            state_writes=("order_status",),
+        )
+        code_source = '''
+def submit_order(order_id):
+    publish_metric("accepted")
+'''
+
+        code_audit = api_name("audit_python_code_contracts")((contract,), {"checkout.py": code_source})
+        report = api_name("review_python_contract_source_audit")((contract,), (), code_audit, ())
+        codes = [finding.code for finding in report.findings]
+
+        self.assertFalse(report.ok)
+        self.assertEqual("source_contract_missing_input", report.decision)
+        self.assertIn("source_contract_missing_input", codes)
+        self.assertIn("source_contract_missing_output", codes)
+        self.assertIn("source_contract_missing_state_write", codes)
+        self.assertIn("source_contract_extra_side_effect", codes)
+
+    def test_python_source_audit_flags_missing_symbol(self):
+        contract = code_contract(
+            "checkout.submit",
+            "accept_valid_order",
+            path="checkout.py",
+            symbol="submit_order",
+        )
+
+        code_audit = api_name("audit_python_code_contracts")((contract,), {"checkout.py": "def other(): pass"})
+        report = api_name("review_python_contract_source_audit")((contract,), (), code_audit, ())
+
+        self.assertFalse(report.ok)
+        self.assertEqual("source_contract_missing_symbol", report.decision)
+
+    def test_python_test_audit_flags_internal_path_only_test(self):
+        contract = code_contract(
+            "checkout.submit",
+            "accept_valid_order",
+            path="checkout.py",
+            symbol="submit_order",
+        )
+        test_item = contract_evidence(
+            "test_submit_order",
+            "accept_valid_order",
+            "checkout.submit",
+            path="test_checkout.py",
+            test_name="test_submit_order",
+        )
+        test_source = '''
+def test_submit_order():
+    result = helper_submit("order-1")
+    assert result == "accepted"
+'''
+
+        test_audit = api_name("audit_python_test_assertions")((test_item,), (contract,), {"test_checkout.py": test_source})
+        report = api_name("review_python_contract_source_audit")((contract,), (test_item,), (), test_audit)
+        codes = [finding.code for finding in report.findings]
+
+        self.assertFalse(report.ok)
+        self.assertEqual("source_contract_missing_symbol", report.decision)
+        self.assertIn("source_test_missing_code_contract_call", codes)
+        self.assertIn("source_test_internal_path_only", codes)
+
+    def test_python_test_audit_flags_missing_external_assertion(self):
+        contract = code_contract(
+            "checkout.submit",
+            "accept_valid_order",
+            path="checkout.py",
+            symbol="submit_order",
+        )
+        test_item = contract_evidence(
+            "test_submit_order",
+            "accept_valid_order",
+            "checkout.submit",
+            path="test_checkout.py",
+            test_name="test_submit_order",
+        )
+        test_source = '''
+def test_submit_order():
+    submit_order("order-1")
+'''
+
+        test_audit = api_name("audit_python_test_assertions")((test_item,), (contract,), {"test_checkout.py": test_source})
+        report = api_name("review_python_contract_source_audit")((contract,), (test_item,), (), test_audit)
+        codes = [finding.code for finding in report.findings]
+
+        self.assertFalse(report.ok)
+        self.assertIn("source_test_missing_external_assertion", codes)
 
 
 if __name__ == "__main__":

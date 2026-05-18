@@ -1,5 +1,30 @@
 # Changelog
 
+## v0.13.0 - 2026-05-18
+
+- Added conservative Python source-audit helpers for Model-Test Alignment:
+  `PythonCodeContractEvidence`, `PythonTestAssertionEvidence`,
+  `ContractSourceAuditFinding`, `ContractSourceAuditReport`,
+  `audit_python_code_contracts(...)`, `audit_python_test_assertions(...)`, and
+  `review_python_contract_source_audit(...)`.
+- The source audit checks real Python functions for declared symbols, external
+  inputs, return values for external outputs, state writes, declared side
+  effects, and side-effect-looking extra calls before trusting `CodeContract`
+  rows.
+- The test audit checks real Python tests for target code-contract calls and
+  assertions before trusting `TestEvidence` rows that claim external-contract
+  proof.
+- Added source-level findings such as `source_contract_missing_symbol`,
+  `source_contract_missing_input`, `source_contract_missing_output`,
+  `source_contract_missing_state_write`, `source_contract_extra_side_effect`,
+  `source_test_missing_code_contract_call`,
+  `source_test_missing_external_assertion`, and
+  `source_test_internal_path_only`.
+- Updated templates, docs, Skill guidance, OpenSpec artifacts, focused tests,
+  and a FlowGuard rollout model for source-audit hazards.
+- Schema remains `1.0`; runtime dependencies remain Python standard library
+  only.
+
 ## v0.12.0 - 2026-05-18
 
 - Upgraded Model-Test Alignment so `review_model_test_alignment(...)` can

@@ -67,6 +67,13 @@ Modeling helpers reduce boilerplate around common bug classes:
   `review_model_test_alignment()` for directly comparing model obligations
   with ordinary test evidence and optional code external contracts without
   invoking TestMesh or StructureMesh.
+- optional conservative Python source-audit helpers such as
+  `PythonCodeContractEvidence`, `PythonTestAssertionEvidence`,
+  `ContractSourceAuditReport`, `audit_python_code_contracts()`,
+  `audit_python_test_assertions()`, and
+  `review_python_contract_source_audit()` for feeding AST-visible code and test
+  assertion evidence into Model-Test Alignment without presenting it as perfect
+  semantic proof or a replacement for conformance replay.
 - optional TestMesh helpers such as `TestMeshPlan`, `TestPartitionItem`,
   `TestTargetSplitDerivation`, `TestSuiteEvidence`, and `review_test_mesh()`
   for reviewing model-derived target suite/script layouts, parent/child test
@@ -146,7 +153,13 @@ checks visible. When model obligations and tests both exist, use Model-Test
 Alignment to compare them directly before claiming coverage agreement; when
 code contracts are supplied, also bind each model obligation to the external
 code surface and require tests to prove that external contract rather than only
-an internal path. For large model or validation meshes, record the target split
+an internal path. When real Python source and tests are available, use
+`audit_python_code_contracts()`, `audit_python_test_assertions()`, and
+`review_python_contract_source_audit()` to check whether the declared code
+contracts and test evidence are supported by AST-visible code and assertions
+before trusting the three-way claim; send ambiguous or complex behavior to
+manual review and keep conformance replay for production-facing confidence. For large model or
+validation meshes, record the target split
 derivation from the FlowGuard source model before trusting parent/child
 ownership and evidence. For large, slow, or layered validation, use TestMesh to
 split the parent test gate into child suites/scripts and make their ownership

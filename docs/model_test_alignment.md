@@ -8,6 +8,41 @@ read TestMesh, StructureMesh, or ModelMesh reports.
 Use it before claiming that model coverage, code behavior, and test coverage
 describe the same behavioral surface.
 
+## Conservative Source Audit
+
+When real Python source and tests are available, add a conservative source
+audit before relying on hand-authored `CodeContract` and `TestEvidence` rows.
+The audit reads Python ASTs and asks whether observable code structure and
+observable test assertions support the declared external contracts.
+
+Use `audit_python_code_contracts(...)` to produce
+`PythonCodeContractEvidence`, `audit_python_test_assertions(...)` to produce
+`PythonTestAssertionEvidence`, and `review_python_contract_source_audit(...)`
+to report source-level findings before trusting the declared rows.
+
+The source audit can support or challenge alignment rows by recording:
+
+- code-contract evidence for public functions, classes, methods, CLIs, facades,
+  adapters, and persisted outputs;
+- AST-visible external inputs, outputs, state reads, state writes, side effects,
+  and error paths;
+- test-assertion evidence from real Python tests, including assertions,
+  expected exceptions, output checks, state checks, call checks, and persisted
+  output checks;
+- assertion scope: `external_contract`, `mixed`, `internal_path`, or
+  `unknown`;
+- confidence boundaries such as partial support, missing symbols, dynamic
+  behavior, internal-only tests, stale execution evidence, or required manual
+  review.
+
+This is deliberately conservative. It is not a perfect Python semantic prover,
+does not infer arbitrary dynamic behavior, and does not replace conformance
+replay or production-facing checks. If behavior depends on runtime values,
+reflection, monkeypatching, generated attributes, framework lifecycle hooks,
+concurrency, external services, durable side effects, or trace projection, keep
+the audit result as ambiguous or manual-review-required until stronger evidence
+exists.
+
 ## Inputs
 
 List model obligations with `ModelObligation`:
@@ -22,7 +57,8 @@ List model obligations with `ModelObligation`:
   confidence.
 
 List code external contracts with `CodeContract` when model-to-code alignment
-is in scope:
+is in scope. These rows may be hand-authored, generated from conservative source
+audit, or hand-authored and then checked against source audit evidence:
 
 - code contract id, path, symbol, and surface type;
 - role: owner, helper, adapter, facade, or read-only support;
@@ -40,6 +76,8 @@ List test evidence with `TestEvidence`:
 - covered code contract ids;
 - assertion scope, especially whether the test proves the external contract or
   only an internal path.
+- optional source-audit notes when real tests were inspected: asserted symbols,
+  assertion forms, status/freshness source, and manual-review reasons.
 
 ## Findings
 
@@ -57,6 +95,8 @@ The review keeps these gaps visible:
   are meant to prove;
 - tests that bind a code contract but only inspect internal implementation
   paths;
+- audited source evidence that is partial, ambiguous, dynamic, or requires
+  manual review;
 - model, code, and test bindings that do not refer to the same obligation.
 
 ## Boundary
@@ -66,3 +106,8 @@ validation flow itself needs parent/child suite ownership. Use StructureMesh
 when a large script, module, command, or API surface is being split. Model-Test
 Alignment stays focused on declared obligations, optional code external
 contracts, and the tests that prove them.
+
+Conservative source audit is also not conformance replay. Use replay when the
+claim depends on real production state, side effects, external systems,
+trace-level behavior, or adapter projection between model traces and runtime
+observations.

@@ -25,7 +25,9 @@ Before changing files, separate three situations:
   from them.
 - `model_test_alignment`: model obligations and ordinary tests both exist, and
   the risk is whether scenarios, invariants, hazards, transitions, contracts,
-  or optional code external contracts have matching current test evidence.
+  or optional code external contracts have matching current test evidence. When
+  real Python source/tests are in scope, first run or request conservative
+  source audit evidence for the code and test rows.
 - `test_mesh_maintenance`: validation is too large, broad, stale-prone, or
   layered to trust as one flat test command or script. Build a TestMesh that
   partitions parent test confidence into child-suite/script ownership and
@@ -101,6 +103,15 @@ contracts, orphan tests, orphan code contracts, duplicate same-kind test
 claims, duplicate code contract owners, internal-path-only tests,
 model-code-test binding mismatches, stale/non-passing evidence, missing
 required test kinds, and overclaimed model confidence.
+
+When real Python code and tests are available, add conservative source audit
+evidence before trusting the rows. The audit should parse AST-visible source
+and test structure, generate or check code-contract evidence and
+test-assertion evidence, and feed those rows into the same alignment review.
+It is deliberately limited: it is not a perfect semantic proof for Python, does
+not replace conformance replay, and must send dynamic, ambiguous, or complex
+behavior to manual review.
+
 Use `review_model_test_alignment(...)` for this direct comparison.
 
 Use TestMesh only when the validation flow itself is large, slow, layered, or

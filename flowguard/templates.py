@@ -1278,6 +1278,9 @@ from flowguard import (
     TEST_KIND_FAILURE_PATH,
     TEST_KIND_HAPPY_PATH,
     TestEvidence,
+    audit_python_code_contracts,
+    audit_python_test_assertions,
+    review_python_contract_source_audit,
     review_model_test_alignment,
 )
 
@@ -1410,8 +1413,71 @@ def broken_plan() -> ModelTestAlignmentPlan:
     )
 
 
+ALIGNED_SOURCE = {
+    "checkout/service.py": """
+def accept_order(order_id, payment_token):
+    state = {}
+    state["order_status"] = "Accepted"
+    return "Accepted"
+
+def reject_duplicate_order(order_id):
+    if order_id:
+        return "Rejected"
+    raise duplicate_order()
+""",
+    "tests/test_checkout.py": """
+def test_accept_valid_order():
+    result = accept_order("order-1", "token")
+    assert result == "Accepted"
+
+def test_reject_duplicate_order_happy():
+    result = reject_duplicate_order("order-1")
+    assert result == "Rejected"
+
+def test_reject_duplicate_order_failure():
+    result = reject_duplicate_order("order-1")
+    assert result == "Rejected"
+""",
+}
+
+
+BROKEN_SOURCE = {
+    "checkout/service.py": """
+def reject_duplicate_order(order_id):
+    publish_duplicate_metric(order_id)
+    return "Rejected"
+""",
+    "tests/test_checkout.py": """
+def test_duplicate_only_happy():
+    result = helper_reject_duplicate("order-1")
+    assert result == "Rejected"
+
+def test_unbound_helper():
+    assert helper_reject_duplicate("order-1") == "Rejected"
+""",
+}
+
+
+def source_audit(plan: ModelTestAlignmentPlan, source_by_path: dict[str, str]):
+    code_evidence = audit_python_code_contracts(plan.code_contracts, source_by_path)
+    test_assertions = audit_python_test_assertions(plan.test_evidence, plan.code_contracts, source_by_path)
+    return review_python_contract_source_audit(
+        plan.code_contracts,
+        plan.test_evidence,
+        code_evidence,
+        test_assertions,
+    )
+
+
 def run_checks():
-    return review_model_test_alignment(aligned_plan()), review_model_test_alignment(broken_plan())
+    aligned = aligned_plan()
+    broken = broken_plan()
+    return (
+        review_model_test_alignment(aligned),
+        review_model_test_alignment(broken),
+        source_audit(aligned, ALIGNED_SOURCE),
+        source_audit(broken, BROKEN_SOURCE),
+    )
 '''
 
 
@@ -1423,11 +1489,15 @@ from model import run_checks
 
 
 def main() -> int:
-    aligned, broken = run_checks()
+    aligned, broken, aligned_source, broken_source = run_checks()
     print(aligned.format_text())
     print()
     print(broken.format_text(max_findings=5))
-    return 0 if aligned.ok and not broken.ok else 1
+    print()
+    print(aligned_source.format_text())
+    print()
+    print(broken_source.format_text(max_findings=5))
+    return 0 if aligned.ok and not broken.ok and aligned_source.ok and not broken_source.ok else 1
 
 
 if __name__ == "__main__":
@@ -1438,7 +1508,8 @@ if __name__ == "__main__":
 MODEL_TEST_ALIGNMENT_NOTES_TEMPLATE = """# FlowGuard Model-Test Alignment Notes
 
 Use this scaffold to compare a FlowGuard model's explicit obligations with
-optional code external contracts and ordinary test evidence.
+optional code external contracts, ordinary test evidence, and conservative
+Python source audits for those contracts.
 
 ## Inputs
 
@@ -1478,6 +1549,23 @@ List test evidence:
 - covered code contract ids;
 - assertion scope, especially whether the test proves the external contract or
   only an internal path.
+
+Optionally run the conservative source audit:
+
+- `audit_python_code_contracts(...)` returns `PythonCodeContractEvidence` from
+  real Python functions: symbol presence, parameters, return statements,
+  raises, state writes, and side-effect-looking calls.
+- `audit_python_test_assertions(...)` returns `PythonTestAssertionEvidence`
+  from real Python tests: whether the test calls the target code contract and
+  contains assertions.
+- `review_python_contract_source_audit(...)` flags source-level gaps before the
+  declared rows are trusted. This is not a full semantic proof.
+- Code audits inspect function signatures, return values, raises, assignments, and calls.
+  They can flag a missing Python symbol, missing input, missing output, missing
+  state write, and extra side effect.
+- Test audits check that tests must call the declared code contract symbol and
+  contain an assert or unittest assertion; helper/internal path evidence and no
+  assert evidence stay visible as source-level gaps.
 
 ## Boundary
 
