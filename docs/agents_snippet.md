@@ -14,8 +14,9 @@ module boundaries, retries, deduplication, idempotency, caching, side effects,
 production conformance, repeated bugs, model-test coverage alignment, optional
 external code contract coverage, multiple local FlowGuard models, large test
 scripts/suites, slow or layered validation evidence, large script/module
-splits, public entrypoint compatibility, meaningful process side effects,
-argument prerequisites, or decision commitments.
+splits, public entrypoint compatibility, development lifecycle evidence
+freshness, meaningful process side effects, argument prerequisites, or decision
+commitments.
 
 Hard gates:
 
@@ -45,6 +46,7 @@ Route map:
 | Three or more local models, oversized model, parent/child model evidence | `model_mesh_maintenance` |
 | Large test script/suite split, parent/child test hierarchy, slow/stale/release-only tests | `test_mesh_maintenance` |
 | Large script/module/API split, public entrypoint compatibility, facade, ownership | `structure_mesh_maintenance` |
+| Development lifecycle ordering, artifact overwrite, validation freshness, minimum revalidation | `development_process_flow` |
 | Runtime/test/replay/manual validation fails after FlowGuard passed | `model_miss_review` |
 | Production conformance, install sync, shadow workspace sync, adoption evidence | `conformance_adoption` |
 | Long-running model/test/regression checks | `long_check_observability` |
@@ -53,8 +55,8 @@ Route map:
 Use the matching Skill reference protocol for details. Helper APIs such as
 `RiskIntent`, property factories, packs, `FlowGuardCheckPlan`,
 `review_code_structure_recommendation()`, `review_model_test_alignment()`,
-`review_test_mesh()`, `review_structure_mesh()`, templates, and starter CLIs
-are package helpers, not standalone sub-skills.
+`review_development_process_flow()`, `review_test_mesh()`,
+`review_structure_mesh()`, templates, and starter CLIs are package helpers, not standalone sub-skills.
 
 Use Model-Test Alignment when a model's scenarios, invariants, hazards,
 transitions, contracts, or optional code external contracts need direct test
@@ -84,6 +86,13 @@ and existing code structure splits into child modules/scripts. StructureMesh
 splits must include model-derived target code structure. Parent layers consume
 child contracts and evidence; they should not expand every child internal route
 into one large parent graph.
+
+Treat DevelopmentProcessFlow as another sibling route, not a parent route. Use
+it when development lifecycle ordering, artifact overwrite, verifier changes,
+peer writes, or evidence freshness determine whether a done, release, archive,
+or publish claim is supported. It may reference sibling route evidence ids, but
+it does not inspect, supervise, or replace ModelMesh, TestMesh, StructureMesh,
+Model-Test Alignment, LongCheck, or Conformance Adoption internals.
 
 For ModelMesh and TestMesh, the parent split needs a FlowGuard-derived target
 structure before green parent confidence: source model, target children,

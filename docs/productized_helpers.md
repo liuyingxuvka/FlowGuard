@@ -219,6 +219,7 @@ python -m flowguard project-template --output .
 python -m flowguard risk-intent-template --output .
 python -m flowguard model-miss-template --output .
 python -m flowguard model-test-alignment-template --output .
+python -m flowguard development-process-flow-template --output .
 ```
 
 The basic project template demonstrates validation, rejection, duplicate input,
@@ -229,11 +230,18 @@ used when runtime, tests, replay, or manual validation finds a problem after a
 FlowGuard pass. The model-test alignment template compares explicit
 `ModelObligation` rows with plain `TestEvidence` rows so a project can see
 whether model scenarios, invariants, hazards, transitions, or contracts have
-matching current tests.
+matching current tests. The development process flow template models lifecycle
+ordering, artifact overwrite, validation freshness, V-style validation pairs,
+and minimum revalidation before done or release claims.
 
 These are scaffolds, not reusable business logic. Rename every state field,
 input, output, invariant, and blindspot to match the target project before
 claiming confidence.
+
+The development process flow helper is a sibling route. It can reference
+evidence produced by ModelMesh, TestMesh, StructureMesh, Model-Test Alignment,
+LongCheck, or Conformance Adoption through evidence ids and artifact-version
+metadata, but it does not inspect or supervise those routes.
 
 ## Maintenance Workflow Template
 

@@ -8,6 +8,7 @@ from pathlib import Path
 
 from flowguard.templates import (
     code_structure_recommendation_template_files,
+    development_process_flow_template_files,
     model_miss_review_template_files,
     model_test_alignment_template_files,
     project_template_files,
@@ -150,6 +151,25 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("release_obligations", output)
         self.assertIn("duplicate_state_owner", output)
 
+    def test_development_process_flow_template_executes(self):
+        output = self.run_written_template(
+            development_process_flow_template_files(),
+            (".flowguard", "development_process_flow"),
+        )
+        self.assertIn("flowguard development process flow", output)
+        self.assertIn("release_claim_with_stale_evidence", output)
+        self.assertIn("revalidation", output)
+
+    def test_development_process_flow_template_keeps_sibling_boundary(self):
+        files = development_process_flow_template_files()
+        combined = "\n".join(file.content for file in files)
+
+        self.assertIn("sibling sub-protocol", combined)
+        self.assertIn("does not inspect", combined)
+        self.assertIn("does not make FlowGuard a task orchestrator", combined)
+        self.assertIn("producer_route=\"test_mesh_maintenance\"", combined)
+        self.assertIn("FlowGuard Risk Purpose Header", combined)
+
     def test_public_model_templates_include_risk_purpose_headers(self):
         for files in (
             project_template_files(),
@@ -157,6 +177,7 @@ class PublicTemplateTests(unittest.TestCase):
             model_miss_review_template_files(),
             model_test_alignment_template_files(),
             code_structure_recommendation_template_files(),
+            development_process_flow_template_files(),
             test_mesh_template_files(),
             structure_mesh_template_files(),
         ):
@@ -170,6 +191,7 @@ class PublicTemplateTests(unittest.TestCase):
             "model-miss-template": "model_miss_review",
             "model-test-alignment-template": "model_test_alignment",
             "code-structure-recommendation-template": "code_structure_recommendation",
+            "development-process-flow-template": "development_process_flow",
             "test-mesh-template": "test_mesh",
             "structure-mesh-template": "structure_mesh",
         }
@@ -214,6 +236,7 @@ class PublicTemplateTests(unittest.TestCase):
             model_miss_review_template_files(),
             model_test_alignment_template_files(),
             code_structure_recommendation_template_files(),
+            development_process_flow_template_files(),
             test_mesh_template_files(),
             structure_mesh_template_files(),
         ):

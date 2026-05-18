@@ -1577,6 +1577,194 @@ command, or API surface is being split.
 """
 
 
+DEVELOPMENT_PROCESS_FLOW_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header
+
+Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
+Purpose: Review a development lifecycle as a sibling process route, tracking artifact versions and validation evidence freshness before done or release claims.
+Guards against: stale validation after code/test/model/requirement changes, progress-only evidence, hidden skips, missing V-style validation pairs, peer writes, and release overclaims.
+Use before editing: Update this development process flow when changing development ordering, validation gates, release readiness, or evidence freshness policy.
+Run: python .flowguard/development_process_flow/run_checks.py
+"""
+
+from __future__ import annotations
+
+from flowguard import (
+    PROCESS_ARTIFACT_CODE,
+    PROCESS_ARTIFACT_MODEL,
+    PROCESS_ARTIFACT_REQUIREMENT,
+    PROCESS_ARTIFACT_TEST,
+    PROCESS_EVIDENCE_PASSED,
+    PROCESS_SCOPE_RELEASE,
+    DevelopmentProcessPlan,
+    FreshnessRule,
+    ProcessAction,
+    ProcessArtifact,
+    ProcessEvidence,
+    ValidationRequirement,
+    review_development_process_flow,
+)
+
+
+def artifacts(code_version: str = "2", test_version: str = "1", requirement_version: str = "1"):
+    return (
+        ProcessArtifact("requirements.checkout", PROCESS_ARTIFACT_REQUIREMENT, requirement_version),
+        ProcessArtifact(
+            "model.checkout",
+            PROCESS_ARTIFACT_MODEL,
+            "1",
+            upstream_artifact_ids=("requirements.checkout",),
+        ),
+        ProcessArtifact(
+            "code.checkout",
+            PROCESS_ARTIFACT_CODE,
+            code_version,
+            upstream_artifact_ids=("requirements.checkout", "model.checkout"),
+        ),
+        ProcessArtifact("tests.checkout", PROCESS_ARTIFACT_TEST, test_version),
+    )
+
+
+def routine_plan() -> DevelopmentProcessPlan:
+    return DevelopmentProcessPlan(
+        "checkout-development-lifecycle",
+        artifacts=artifacts(code_version="2"),
+        actions=(
+            ProcessAction("edit-code", writes_artifacts=("code.checkout",)),
+            ProcessAction("run-unit", produced_evidence_ids=("unit-pass",)),
+            ProcessAction("claim-done", action_type="claim_done", required_validation_ids=("unit-current",)),
+        ),
+        evidence=(
+            ProcessEvidence(
+                "unit-pass",
+                evidence_kind="unit",
+                producer_route="test_mesh_maintenance",
+                status=PROCESS_EVIDENCE_PASSED,
+                covers_artifacts=("code.checkout",),
+                verifier_artifacts=("tests.checkout",),
+                covered_versions={"code.checkout": "2", "tests.checkout": "1"},
+                validation_requirement_ids=("unit-current",),
+                produced_by_action_id="run-unit",
+                command="python -m unittest tests.test_checkout",
+            ),
+        ),
+        validation_requirements=(
+            ValidationRequirement(
+                "unit-current",
+                required_artifact_ids=("code.checkout",),
+                required_evidence_kinds=("unit",),
+                v_model_pair=True,
+                command="python -m unittest tests.test_checkout",
+            ),
+        ),
+    )
+
+
+def broken_plan() -> DevelopmentProcessPlan:
+    return DevelopmentProcessPlan(
+        "checkout-broken-lifecycle",
+        artifacts=artifacts(code_version="2", requirement_version="2"),
+        actions=(
+            ProcessAction("run-unit", produced_evidence_ids=("unit-pass",)),
+            ProcessAction("edit-code", writes_artifacts=("code.checkout",)),
+            ProcessAction("edit-requirement", writes_artifacts=("requirements.checkout",)),
+            ProcessAction(
+                "claim-release",
+                action_type="claim_release",
+                required_evidence_ids=("unit-pass",),
+                decision_scope=PROCESS_SCOPE_RELEASE,
+            ),
+        ),
+        evidence=(
+            ProcessEvidence(
+                "unit-pass",
+                evidence_kind="unit",
+                producer_route="test_mesh_maintenance",
+                status=PROCESS_EVIDENCE_PASSED,
+                covers_artifacts=("code.checkout",),
+                verifier_artifacts=("tests.checkout",),
+                covered_versions={"code.checkout": "1", "tests.checkout": "1"},
+                validation_requirement_ids=("unit-current",),
+                produced_by_action_id="run-unit",
+                command="python -m unittest tests.test_checkout",
+            ),
+        ),
+        validation_requirements=(
+            ValidationRequirement(
+                "unit-current",
+                required_artifact_ids=("code.checkout",),
+                required_evidence_kinds=("unit",),
+                evidence_ids=("unit-pass",),
+                v_model_pair=True,
+                command="python -m unittest tests.test_checkout",
+            ),
+        ),
+        freshness_rules=(
+            FreshnessRule(
+                "requirements-affect-code-validation",
+                upstream_artifact_id="requirements.checkout",
+                invalidates_artifact_ids=("code.checkout", "model.checkout"),
+            ),
+        ),
+        decision_scope=PROCESS_SCOPE_RELEASE,
+    )
+
+
+def run_checks():
+    return review_development_process_flow(routine_plan()), review_development_process_flow(broken_plan())
+'''
+
+
+DEVELOPMENT_PROCESS_FLOW_RUN_CHECKS_TEMPLATE = '''"""Run the DevelopmentProcessFlow template checks."""
+
+from __future__ import annotations
+
+from model import run_checks
+
+
+def main() -> int:
+    routine, broken = run_checks()
+    print(routine.format_text())
+    print()
+    print(broken.format_text(max_findings=6))
+    return 0 if routine.ok and not broken.ok else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+'''
+
+
+DEVELOPMENT_PROCESS_FLOW_NOTES_TEMPLATE = """# FlowGuard DevelopmentProcessFlow Notes
+
+Use this scaffold to model a development lifecycle as a stateful process.
+
+## What DevelopmentProcessFlow Reviews
+
+- versioned requirements, designs, models, code, tests, docs, release assets,
+  adapters, and sibling route report artifacts;
+- ordered development actions that read, write, invalidate, or claim evidence;
+- validation evidence and the exact artifact versions it covers;
+- verifier changes, such as tests or model files changing after evidence was
+  produced;
+- freshness rules that propagate upstream changes to downstream artifacts;
+- whether done, release, archive, or publish claims have current evidence;
+- the minimum revalidation needed when evidence is stale or missing.
+
+## Sibling Route Boundary
+
+This is a sibling sub-protocol. It can reference evidence produced by ModelMesh,
+TestMesh, StructureMesh, Model-Test Alignment, LongCheck, or Conformance
+Adoption through evidence ids and freshness metadata. It does not inspect,
+supervise, replace, or repair those routes. If sibling evidence is failed,
+stale, skipped, missing, or progress-only, this route keeps that lifecycle gap
+visible for the current process claim.
+
+Use this route when development ordering, artifact overwrite, verification
+freshness, or release readiness is the risk. It is not mandatory for every
+small edit and it does not make FlowGuard a task orchestrator.
+"""
+
+
 TEST_MESH_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header
 
 Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
@@ -2109,6 +2297,14 @@ def model_test_alignment_template_files() -> tuple[TemplateFile, ...]:
     )
 
 
+def development_process_flow_template_files() -> tuple[TemplateFile, ...]:
+    return (
+        TemplateFile(".flowguard/development_process_flow/model.py", DEVELOPMENT_PROCESS_FLOW_MODEL_TEMPLATE),
+        TemplateFile(".flowguard/development_process_flow/run_checks.py", DEVELOPMENT_PROCESS_FLOW_RUN_CHECKS_TEMPLATE),
+        TemplateFile("docs/flowguard_development_process_flow.md", DEVELOPMENT_PROCESS_FLOW_NOTES_TEMPLATE),
+    )
+
+
 def code_structure_recommendation_template_files() -> tuple[TemplateFile, ...]:
     return (
         TemplateFile(
@@ -2165,6 +2361,9 @@ __all__ = [
     "CODE_STRUCTURE_RECOMMENDATION_MODEL_TEMPLATE",
     "CODE_STRUCTURE_RECOMMENDATION_NOTES_TEMPLATE",
     "CODE_STRUCTURE_RECOMMENDATION_RUN_CHECKS_TEMPLATE",
+    "DEVELOPMENT_PROCESS_FLOW_MODEL_TEMPLATE",
+    "DEVELOPMENT_PROCESS_FLOW_NOTES_TEMPLATE",
+    "DEVELOPMENT_PROCESS_FLOW_RUN_CHECKS_TEMPLATE",
     "MAINTENANCE_WORKFLOW_MODEL_TEMPLATE",
     "MAINTENANCE_WORKFLOW_NOTES_TEMPLATE",
     "MAINTENANCE_WORKFLOW_RUN_CHECKS_TEMPLATE",
@@ -2187,6 +2386,7 @@ __all__ = [
     "TemplateFile",
     "adoption_template_files",
     "code_structure_recommendation_template_files",
+    "development_process_flow_template_files",
     "maintenance_workflow_template_files",
     "model_miss_review_template_files",
     "model_test_alignment_template_files",

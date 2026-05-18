@@ -25,6 +25,7 @@ Detailed procedures live in sub-protocol references.
 | `model_mesh_maintenance` | parent/child model hierarchy and oversized-model governance |
 | `test_mesh_maintenance` | parent/child test hierarchy plus validation evidence |
 | `structure_mesh_maintenance` | parent/child script/module structure split evidence |
+| `development_process_flow` | development lifecycle ordering, artifact overwrite, evidence freshness, and minimum revalidation |
 | `model_miss_review` | post-runtime model miss classification and closure |
 | `conformance_adoption` | replay, install sync, shadow workspace sync, release sync, adoption evidence |
 | `long_check_observability` | background log artifacts and completion proof |
@@ -39,6 +40,7 @@ These are package helpers:
 - `review_model_test_alignment()`;
 - `review_hierarchical_mesh()`, `review_test_mesh()`,
   `review_structure_mesh()`;
+- `review_development_process_flow()` and `derive_revalidation_plan()`;
 - public starter templates.
 
 They can support a route, but they are not independently triggerable agent
@@ -52,6 +54,10 @@ sub-skills.
   parent/child partition routes for models, tests, and code structure.
 - Keep Model-Test Alignment independent from mesh routes; it compares plain
   obligation rows with plain evidence rows and does not split tests or code.
+- Keep DevelopmentProcessFlow as a sibling lifecycle route. It may reference
+  evidence ids from ModelMesh, TestMesh, StructureMesh, Model-Test Alignment,
+  LongCheck, or Conformance Adoption, but it must not supervise, inspect, or
+  replace those sibling route internals.
 - Keep oversize guidance as a short consideration hint, not a threshold policy
   or forced split rule.
 - Avoid duplicate ownership of the same rule across multiple references.

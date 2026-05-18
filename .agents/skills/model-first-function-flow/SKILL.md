@@ -17,7 +17,8 @@ deduplication, idempotency, caching, side effects, module boundaries, data
 flow, production conformance, repeated-bug handling, large model layout,
 model-test obligation and optional external code contract coverage, large
 test/script validation layout, large script/module decomposition, slow
-validation evidence, irreversible process actions, publication/release side
+validation evidence, irreversible process actions, development lifecycle
+ordering, artifact overwrite, evidence freshness, publication/release side
 effects, argument prerequisites, or decision commitments.
 
 Skip only for clearly trivial copy edits, formatting-only changes, read-only
@@ -59,6 +60,7 @@ package APIs.
 | Three or more local FlowGuard models, oversized model, stale child evidence, parent/child model partition | `model_mesh_maintenance` | `references/model_mesh_protocol.md` |
 | Large test script/suite split, parent/child test hierarchy, slow/background/stale/skipped/release-only validation evidence | `test_mesh_maintenance` | `references/test_mesh_protocol.md` |
 | Large script/module/package/command/API split, facade-first refactor, public entrypoint compatibility, ownership split | `structure_mesh_maintenance` | `references/structure_mesh_protocol.md` |
+| Development lifecycle ordering, artifact overwrite, validation freshness, minimum revalidation, V-style process confidence | `development_process_flow` | `references/development_process_flow_protocol.md` |
 | Runtime, test, replay, log, or manual validation fails after a FlowGuard pass | `model_miss_review` | `references/model_miss_protocol.md` |
 | Production confidence, multiple production writers, install sync, shadow workspace sync, adoption evidence | `conformance_adoption` | `references/conformance_adoption_protocol.md` |
 | Long model/test/check command that should not block the agent thread | `long_check_observability` | `references/long_check_protocol.md` |
@@ -125,10 +127,12 @@ fit, but do not describe them as independently triggerable agent sub-skills:
   `audit_python_code_contracts()`, `audit_python_test_assertions()`,
   `review_python_contract_source_audit()`, and optional code external contract
   rows consumed by the model-test alignment plan.
+- Development lifecycle helpers such as `review_development_process_flow()`
+  and `derive_revalidation_plan()`.
 - Template CLIs such as `project-template`, `risk-intent-template`,
   `model-miss-template`, `model-test-alignment-template`,
-  `test-mesh-template`, `structure-mesh-template`, and
-  `maintenance-template`.
+  `development-process-flow-template`, `test-mesh-template`,
+  `structure-mesh-template`, and `maintenance-template`.
 
 ## Resource Map
 
@@ -149,6 +153,8 @@ fit, but do not describe them as independently triggerable agent sub-skills:
   routine/release standard.
 - `references/structure_mesh_protocol.md`: StructureMesh trigger, ownership,
   facade, public entrypoint, dependency, config, parity, and release standard.
+- `references/development_process_flow_protocol.md`: development lifecycle
+  ordering, artifact overwrite, validation freshness, and revalidation standard.
 - `references/model_miss_protocol.md`: post-runtime model-miss handling.
 - `references/conformance_adoption_protocol.md`: conformance replay, install
   sync, shadow workspace sync, release sync, and adoption evidence.

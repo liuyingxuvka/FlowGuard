@@ -89,6 +89,13 @@ Modeling helpers reduce boilerplate around common bug classes:
   `CodeStructureRecommendation`, `TargetModuleRecommendation`, and
   `review_code_structure_recommendation()` for recommending implementation
   structure from a FlowGuard functional model before code is written.
+- optional DevelopmentProcessFlow helpers such as `ProcessArtifact`,
+  `ProcessAction`, `ProcessEvidence`, `ValidationRequirement`,
+  `DevelopmentProcessPlan`, `review_development_process_flow()`, and
+  `derive_revalidation_plan()` for reviewing lifecycle ordering, artifact
+  overwrite, evidence freshness, and minimum revalidation as a sibling route
+  without supervising ModelMesh, TestMesh, StructureMesh, or Model-Test
+  Alignment.
 
 These helpers return or consume the same core model objects. They are useful
 shortcuts, not a new modeling language and not mandatory for valid FlowGuard
@@ -126,7 +133,8 @@ Evidence APIs are used to keep FlowGuard itself honest:
 - pytest/template helpers used by examples and framework validation;
 - public template writers, including `model_test_alignment_template_files()`,
   `code_structure_recommendation_template_files()`,
-  `test_mesh_template_files()`, and `structure_mesh_template_files()`.
+  `development_process_flow_template_files()`, `test_mesh_template_files()`,
+  and `structure_mesh_template_files()`.
 
 These tools are valuable for FlowGuard maintenance. Ordinary project models do
 not have to run the full evidence baseline, problem corpus, or benchmark suite
@@ -167,5 +175,9 @@ and evidence visible before trusting the parent. For large structure refactors,
 use StructureMesh to make model-derived target structure, child-module
 ownership, and compatibility evidence visible before trusting a parent split.
 Use Code Structure Recommendation for direct pre-code architecture
-recommendations. Do not claim production confidence from a model-only pass
-unless conformance replay or equivalent real-code evidence exists.
+recommendations. Use DevelopmentProcessFlow when development lifecycle
+ordering, artifact overwrite, verifier changes, peer writes, or evidence
+freshness determine whether a done, release, archive, or publish claim is
+supported; do not use it as a universal gate or a supervisor for sibling
+routes. Do not claim production confidence from a model-only pass unless
+conformance replay or equivalent real-code evidence exists.

@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.14.0 - 2026-05-18
+
+- Added DevelopmentProcessFlow helper APIs:
+  `ProcessArtifact`, `ActionEffect`, `ProcessAction`, `ProcessEvidence`,
+  `FreshnessRule`, `ValidationRequirement`, `DevelopmentProcessPlan`,
+  `RevalidationRecommendation`, `ProcessFlowFinding`,
+  `DevelopmentProcessFlowReport`, `review_development_process_flow(...)`, and
+  `derive_revalidation_plan(...)`.
+- Added lifecycle findings for stale evidence after artifact changes, verifier
+  changes after validation, model-test alignment evidence after model changes,
+  requirement freshness propagation, unknown peer writes, ambiguous freshness
+  policy, progress-only evidence, hidden skipped validation, failed/not-run
+  evidence, missing V-style validation pairs, and release overclaims.
+- Added a `development-process-flow-template` CLI scaffold and public docs for
+  modeling development lifecycle ordering, artifact overwrite, evidence
+  freshness, and minimum revalidation as a sibling route.
+- Updated the model-first Skill Kernel, AGENTS snippet, API surface, README,
+  OpenSpec artifacts, focused tests, and FlowGuard rollout model.
+- Schema remains `1.0`; runtime dependencies remain Python standard library
+  only.
+
 ## v0.13.0 - 2026-05-18
 
 - Added conservative Python source-audit helpers for Model-Test Alignment:

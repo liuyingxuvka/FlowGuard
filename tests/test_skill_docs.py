@@ -45,6 +45,7 @@ class SkillDocsTests(unittest.TestCase):
             "model_mesh_maintenance",
             "test_mesh_maintenance",
             "structure_mesh_maintenance",
+            "development_process_flow",
             "model_miss_review",
             "conformance_adoption",
             "long_check_observability",
@@ -58,6 +59,7 @@ class SkillDocsTests(unittest.TestCase):
             "references/model_mesh_protocol.md",
             "references/test_mesh_protocol.md",
             "references/structure_mesh_protocol.md",
+            "references/development_process_flow_protocol.md",
             "references/model_miss_protocol.md",
             "references/conformance_adoption_protocol.md",
             "references/long_check_protocol.md",
@@ -118,6 +120,8 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("docs/structure_mesh.md", text)
         self.assertIn("Check The Code Structure Recommendation Route", text)
         self.assertIn("docs/code_structure_recommendation.md", text)
+        self.assertIn("Check The DevelopmentProcessFlow Route", text)
+        self.assertIn("docs/development_process_flow.md", text)
 
     def test_agents_snippet_uses_kernel_route_map(self):
         text = (ROOT / "docs" / "agents_snippet.md").read_text(encoding="utf-8")
@@ -131,6 +135,7 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("does not invoke", text)
         self.assertIn("tests split into child suites/scripts", text)
         self.assertIn("structure_mesh_maintenance", text)
+        self.assertIn("development_process_flow", text)
         self.assertIn("model_miss_review", text)
         self.assertIn("long_check_observability", text)
         self.assertIn("framework_upgrade", text)
@@ -164,6 +169,7 @@ class SkillDocsTests(unittest.TestCase):
         test_mesh = (SKILL_ROOT / "references" / "test_mesh_protocol.md").read_text(encoding="utf-8")
         structure_mesh = (SKILL_ROOT / "references" / "structure_mesh_protocol.md").read_text(encoding="utf-8")
         code_structure = (SKILL_ROOT / "references" / "code_structure_recommendation_protocol.md").read_text(encoding="utf-8")
+        development_process = (SKILL_ROOT / "references" / "development_process_flow_protocol.md").read_text(encoding="utf-8")
 
         self.assertIn("Code Structure Recommendation Protocol", code_structure)
         self.assertIn("FunctionBlock-to-module ownership", code_structure)
@@ -181,6 +187,10 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("dependency cycle", structure_mesh)
         self.assertIn("Target Structure Derivation", structure_mesh)
         self.assertIn("mandatory for existing", structure_mesh)
+        self.assertIn("DevelopmentProcessFlow Protocol", development_process)
+        self.assertIn("sibling sub-protocol", development_process)
+        self.assertIn("does not inspect", development_process)
+        self.assertIn("minimum revalidation", development_process)
 
     def test_new_skill_kernel_protocol_references_exist(self):
         kernel = (SKILL_ROOT / "references" / "skill_kernel_protocol.md").read_text(encoding="utf-8")
@@ -192,6 +202,7 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("FlowGuard Skill Kernel Protocol", kernel)
         self.assertIn("Helper APIs Are Not Sub-Skills", kernel)
         self.assertIn("model_test_alignment", kernel)
+        self.assertIn("development_process_flow", kernel)
         model_test_alignment = (SKILL_ROOT / "references" / "model_test_alignment_protocol.md").read_text(encoding="utf-8")
         self.assertIn("Model-Test Alignment Protocol", model_test_alignment)
         self.assertIn("CodeContract", model_test_alignment)
