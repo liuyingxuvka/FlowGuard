@@ -2034,8 +2034,8 @@ existing large script or module is being split.
 UI_FLOW_STRUCTURE_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header
 
 Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
-Purpose: Model UI-level interaction behavior first, then derive parent/child UI structure from that model.
-Guards against: layout-only UI plans, unmodeled controls, missing recovery actions, drifting menu levels, unstable global controls, duplicate information, overlapping same-level controls, and hierarchy recommendations that are not tied to UI state.
+Purpose: Model UI-level interaction behavior first, then derive parent/child UI structure and text hierarchy from that model.
+Guards against: layout-only UI plans, unmodeled controls, missing recovery actions, drifting menu levels, unstable global controls, duplicate information, overlapping same-level controls, ad hoc headings, over-prominent button text, and hierarchy recommendations that are not tied to UI state.
 Use before editing: Ask for this route before visual design or frontend implementation when UI controls, states, navigation, panels, menus, overlays, or parent/child UI topology matter.
 Run: python .flowguard/ui_flow_structure/run_checks.py
 """
@@ -2049,9 +2049,13 @@ from flowguard import (
     UIRegionRecommendation,
     UIStateNode,
     UIStructureDerivation,
+    UITextElement,
+    UITextHierarchyBlueprint,
+    UITypographyToken,
     UITransition,
     review_ui_interaction_model,
     review_ui_structure_derivation,
+    review_ui_text_hierarchy,
 )
 
 
@@ -2254,6 +2258,139 @@ def structure_derivation() -> UIStructureDerivation:
     )
 
 
+def typography_token(token_id: str, level: int, roles: tuple[str, ...]) -> UITypographyToken:
+    return UITypographyToken(
+        token_id,
+        hierarchy_level=level,
+        text_roles=roles,
+        scale=f"level-{level}",
+        weight="regular" if level >= 4 else "semibold",
+        color_role="default",
+        rationale=f"{token_id} is reserved for {roles}.",
+    )
+
+
+def text_hierarchy() -> UITextHierarchyBlueprint:
+    return UITextHierarchyBlueprint(
+        "import-run-text-hierarchy",
+        source_interaction_model_id="import-run-ui-flow",
+        source_structure_derivation_id="import-run-ui-structure",
+        parent_surface_id="import-run-workbench",
+        structure_derivation_reviewed=True,
+        typography_tokens=(
+            typography_token("page-title", 1, ("page_title",)),
+            typography_token("section-title", 2, ("section_title",)),
+            typography_token("panel-title", 3, ("panel_title",)),
+            typography_token("control-label", 4, ("button_label", "menu_label", "tab_label", "control_label")),
+            typography_token("status-text", 4, ("status_text", "error_text")),
+            typography_token("body-text", 5, ("body_text", "field_label", "data_value")),
+            typography_token("caption-text", 6, ("caption", "help_text")),
+        ),
+        text_elements=(
+            UITextElement(
+                "surface_title",
+                "page_title",
+                "page-title",
+                "surface_title",
+                label="Import Run",
+                region_id="primary-workspace",
+                rationale="The parent surface title names the full workflow.",
+            ),
+            UITextElement(
+                "workspace_title",
+                "section_title",
+                "section-title",
+                "workflow_area",
+                label="Run workspace",
+                region_id="primary-workspace",
+                parent_text_id="surface_title",
+                rationale="The primary region gets one section title below the surface title.",
+            ),
+            UITextElement(
+                "settings_label",
+                "button_label",
+                "control-label",
+                "settings_action",
+                label="Settings",
+                region_id="top-toolbar",
+                source_control_id="settings",
+                rationale="The global settings control uses the shared control-label token.",
+            ),
+            UITextElement("import_label", "button_label", "control-label", "import_action", label="Import", region_id="primary-workspace", source_control_id="import", rationale="Import is an action label, not a heading."),
+            UITextElement("run_label", "button_label", "control-label", "run_action", label="Run", region_id="primary-workspace", source_control_id="run", rationale="Run is an action label, not a heading."),
+            UITextElement("export_label", "button_label", "control-label", "export_action", label="Export", region_id="primary-workspace", source_control_id="export", rationale="Export is an action label, not a heading."),
+            UITextElement(
+                "results_title",
+                "panel_title",
+                "panel-title",
+                "results_panel",
+                label="Results",
+                region_id="primary-workspace",
+                parent_text_id="workspace_title",
+                source_state_ids=("result_ready",),
+                rationale="The result panel is subordinate to the primary workspace.",
+            ),
+            UITextElement(
+                "summary_value",
+                "status_text",
+                "status-text",
+                "run_summary",
+                label="Run completed",
+                region_id="primary-workspace",
+                source_display_id="summary_card",
+                visible_in_states=("result_ready",),
+                rationale="The summary card text uses a status role tied to the modeled display.",
+            ),
+            UITextElement(
+                "result_table_caption",
+                "caption",
+                "caption-text",
+                "result_rows",
+                label="Result rows",
+                region_id="primary-workspace",
+                source_display_id="result_table",
+                visible_in_states=("result_ready",),
+                rationale="The table caption is less prominent than the result panel title.",
+            ),
+            UITextElement(
+                "failure_title",
+                "panel_title",
+                "panel-title",
+                "failure_panel",
+                label="Recovery",
+                region_id="failure-inspector",
+                parent_text_id="workspace_title",
+                source_state_ids=("failed",),
+                rationale="The failure inspector title is a child of the main workflow section.",
+            ),
+            UITextElement(
+                "retry_label",
+                "button_label",
+                "control-label",
+                "retry_action",
+                label="Retry",
+                region_id="failure-inspector",
+                source_control_id="retry",
+                visible_in_states=("failed",),
+                rationale="Retry is a recovery action label scoped to the failure inspector.",
+            ),
+            UITextElement(
+                "cancel_label",
+                "button_label",
+                "control-label",
+                "cancel_action",
+                label="Cancel",
+                region_id="cancel-overlay",
+                source_control_id="cancel",
+                visible_in_states=("running",),
+                rationale="Cancel is an overlay action label, not a panel heading.",
+            ),
+        ),
+        validation_boundaries=("design token review", "browser text hierarchy review"),
+        rationale="Text roles and typography tokens are derived from source regions, controls, displays, and states.",
+    )
+
+
 def broken_interaction_model() -> UIInteractionModel:
     return UIInteractionModel(
         "broken-ui-flow",
@@ -2280,15 +2417,72 @@ def broken_structure_derivation() -> UIStructureDerivation:
     )
 
 
+def broken_text_hierarchy() -> UITextHierarchyBlueprint:
+    return UITextHierarchyBlueprint(
+        "broken-text-hierarchy",
+        source_interaction_model_id="import-run-ui-flow",
+        source_structure_derivation_id="import-run-ui-structure",
+        parent_surface_id="import-run-workbench",
+        typography_tokens=(
+            typography_token("section-title", 2, ("section_title",)),
+            typography_token("hero-button", 1, ("button_label",)),
+        ),
+        text_elements=(
+            UITextElement(
+                "primary_section",
+                "section_title",
+                "section-title",
+                "run_summary",
+                label="Summary",
+                region_id="primary-workspace",
+                visible_in_states=("result_ready",),
+                rationale="First duplicate summary heading.",
+            ),
+            UITextElement(
+                "duplicate_summary",
+                "section_title",
+                "section-title",
+                "run_summary",
+                label="Summary again",
+                region_id="primary-workspace",
+                visible_in_states=("result_ready",),
+                rationale="Second duplicate summary heading without a redundancy reason.",
+            ),
+            UITextElement(
+                "import_label",
+                "button_label",
+                "hero-button",
+                "import_action",
+                label="Import",
+                region_id="primary-workspace",
+                source_control_id="import",
+                rationale="Broken because a button label uses a top-level token.",
+            ),
+        ),
+        validation_boundaries=("text hierarchy review",),
+        rationale="This intentionally broken blueprint demonstrates duplicate text and over-prominent action labels.",
+    )
+
+
 def run_checks():
     model_report = review_ui_interaction_model(interaction_model())
     structure_report = review_ui_structure_derivation(structure_derivation(), interaction_model=interaction_model())
+    text_report = review_ui_text_hierarchy(
+        text_hierarchy(),
+        interaction_model=interaction_model(),
+        structure_derivation=structure_derivation(),
+    )
     broken_model_report = review_ui_interaction_model(broken_interaction_model())
     broken_structure_report = review_ui_structure_derivation(
         broken_structure_derivation(),
         interaction_model=interaction_model(),
     )
-    return model_report, structure_report, broken_model_report, broken_structure_report
+    broken_text_report = review_ui_text_hierarchy(
+        broken_text_hierarchy(),
+        interaction_model=interaction_model(),
+        structure_derivation=structure_derivation(),
+    )
+    return model_report, structure_report, text_report, broken_model_report, broken_structure_report, broken_text_report
 '''
 
 
@@ -2300,15 +2494,19 @@ from model import run_checks
 
 
 def main() -> int:
-    model_report, structure_report, broken_model, broken_structure = run_checks()
+    model_report, structure_report, text_report, broken_model, broken_structure, broken_text = run_checks()
     print(model_report.format_text())
     print()
     print(structure_report.format_text())
     print()
+    print(text_report.format_text())
+    print()
     print(broken_model.format_text(max_findings=5))
     print()
     print(broken_structure.format_text(max_findings=5))
-    return 0 if model_report.ok and structure_report.ok and not broken_model.ok and not broken_structure.ok else 1
+    print()
+    print(broken_text.format_text(max_findings=5))
+    return 0 if model_report.ok and structure_report.ok and text_report.ok and not broken_model.ok and not broken_structure.ok and not broken_text.ok else 1
 
 
 if __name__ == "__main__":
@@ -2328,16 +2526,23 @@ itself needs a model-first interaction flow.
 - a structure derivation from that model: parent/child UI nodes, first-level
   persistent menus, second-level contextual regions, third-level local actions,
   overlays, stable layout positions, and validation boundaries;
+- a text hierarchy blueprint from that reviewed structure: page titles,
+  section titles, panel titles, labels, button text, status text, captions,
+  semantic text keys, typography tokens, parent/child text priority, and
+  redundancy rationale;
 - review findings when a control has no modeled event, a failure state has no
   recovery path, a destructive control is too prominent, or a persistent
   control is not assigned to a stable global region;
 - redundancy findings when the same page/state shows the same semantic
   information twice or exposes multiple same-level controls for one function
-  without an explicit rationale.
+  without an explicit rationale;
+- text hierarchy findings when a button label uses a heading token, a child
+  title is not visually subordinate to its parent title, or the same semantic
+  text is repeated in one region and state without a modeled reason.
 
-UI Flow Structure does not choose the visual style or implement frontend code.
-Use the derived structure contract as input to Figma, frontend implementation,
-browser checks, and design implementation review.
+UI Flow Structure does not choose final brand styling or implement frontend
+code. Use the derived structure and text hierarchy contract as input to Figma,
+frontend implementation, browser checks, and design implementation review.
 """
 
 

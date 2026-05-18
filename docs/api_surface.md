@@ -92,11 +92,13 @@ Modeling helpers reduce boilerplate around common bug classes:
 - optional UI Flow Structure helpers such as `UIInteractionModel`,
   `UIControl`, `UIDisplayElement`, `UIStateNode`, `UITransition`,
   `UIStructureDerivation`, `UIRegionRecommendation`,
+  `UITextHierarchyBlueprint`, `UITextElement`, `UITypographyToken`,
   `review_ui_interaction_model()`, and
-  `review_ui_structure_derivation()` for modeling UI interactions first and
-  then deriving parent/child UI topology, menu levels, stable placement,
-  overlays, control hierarchy, information-display ownership, and intentional
-  redundancy before visual design or frontend implementation.
+  `review_ui_structure_derivation()`, and `review_ui_text_hierarchy()` for
+  modeling UI interactions first, deriving parent/child UI topology, menu
+  levels, stable placement, overlays, control hierarchy, information-display
+  ownership, and then deriving semantic text hierarchy tokens before visual
+  design or frontend implementation.
 - optional DevelopmentProcessFlow helpers such as `ProcessArtifact`,
   `ProcessAction`, `ProcessEvidence`, `ValidationRequirement`,
   `DevelopmentProcessPlan`, `review_development_process_flow()`, and

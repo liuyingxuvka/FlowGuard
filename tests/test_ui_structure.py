@@ -7,9 +7,13 @@ from flowguard import (
     UIRegionRecommendation,
     UIStateNode,
     UIStructureDerivation,
+    UITextElement,
+    UITextHierarchyBlueprint,
+    UITypographyToken,
     UITransition,
     review_ui_interaction_model,
     review_ui_structure_derivation,
+    review_ui_text_hierarchy,
 )
 
 
@@ -202,6 +206,121 @@ def derivation() -> UIStructureDerivation:
         stable_region_ids=("top-toolbar", "primary-workspace"),
         validation_boundaries=("browser state transition test",),
         rationale="Global settings stay in the top toolbar; phase controls stay in the owning workspace or child region.",
+    )
+
+
+def typography_token(token_id: str, hierarchy_level: int, text_roles: tuple[str, ...]) -> UITypographyToken:
+    return UITypographyToken(
+        token_id,
+        hierarchy_level=hierarchy_level,
+        text_roles=text_roles,
+        scale=f"level-{hierarchy_level}",
+        weight="regular" if hierarchy_level >= 4 else "semibold",
+        color_role="default",
+        rationale=f"{token_id} is the typography token for {text_roles}",
+    )
+
+
+def text_element(text_id: str, role: str, token_id: str, semantic_key: str, **kwargs) -> UITextElement:
+    defaults = {
+        "label": text_id.replace("_", " ").title(),
+        "region_id": "primary-workspace",
+        "rationale": f"{text_id} is derived from the modeled UI hierarchy",
+    }
+    defaults.update(kwargs)
+    return UITextElement(text_id, role, token_id, semantic_key, **defaults)
+
+
+def text_hierarchy() -> UITextHierarchyBlueprint:
+    return UITextHierarchyBlueprint(
+        "import-run-text-hierarchy",
+        source_interaction_model_id="import-run-ui-flow",
+        source_structure_derivation_id="import-run-ui-structure",
+        parent_surface_id="import-run-workbench",
+        structure_derivation_reviewed=True,
+        typography_tokens=(
+            typography_token("page-title", 1, ("page_title",)),
+            typography_token("section-title", 2, ("section_title",)),
+            typography_token("panel-title", 3, ("panel_title",)),
+            typography_token("control-label", 4, ("button_label", "menu_label", "tab_label", "control_label")),
+            typography_token("status-text", 4, ("status_text", "error_text")),
+            typography_token("body-text", 5, ("body_text", "field_label", "data_value")),
+            typography_token("caption-text", 6, ("caption", "help_text")),
+        ),
+        text_elements=(
+            text_element("surface_title", "page_title", "page-title", "surface_title"),
+            text_element(
+                "workspace_title",
+                "section_title",
+                "section-title",
+                "workflow_area",
+                parent_text_id="surface_title",
+            ),
+            text_element(
+                "settings_label",
+                "button_label",
+                "control-label",
+                "settings_action",
+                region_id="top-toolbar",
+                source_control_id="settings",
+            ),
+            text_element("import_label", "button_label", "control-label", "import_action", source_control_id="import"),
+            text_element("run_label", "button_label", "control-label", "run_action", source_control_id="run"),
+            text_element("export_label", "button_label", "control-label", "export_action", source_control_id="export"),
+            text_element(
+                "results_title",
+                "panel_title",
+                "panel-title",
+                "results_panel",
+                parent_text_id="workspace_title",
+                source_state_ids=("result_ready",),
+            ),
+            text_element(
+                "summary_value",
+                "status_text",
+                "status-text",
+                "run_summary",
+                source_display_id="summary_card",
+                visible_in_states=("result_ready",),
+            ),
+            text_element(
+                "result_table_caption",
+                "caption",
+                "caption-text",
+                "result_rows",
+                source_display_id="result_table",
+                visible_in_states=("result_ready",),
+            ),
+            text_element(
+                "failure_title",
+                "panel_title",
+                "panel-title",
+                "failure_panel",
+                region_id="failure-inspector",
+                parent_text_id="workspace_title",
+                source_state_ids=("failed",),
+            ),
+            text_element(
+                "retry_label",
+                "button_label",
+                "control-label",
+                "retry_action",
+                region_id="failure-inspector",
+                source_control_id="retry",
+                visible_in_states=("failed",),
+            ),
+            text_element(
+                "cancel_label",
+                "button_label",
+                "control-label",
+                "cancel_action",
+                region_id="cancel-overlay",
+                source_control_id="cancel",
+                visible_in_states=("running",),
+            ),
+        ),
+        validation_boundaries=("design token review", "browser text hierarchy review"),
+        rationale="Text roles and tokens are derived from the reviewed UI structure, not chosen ad hoc.",
     )
 
 
@@ -456,6 +575,181 @@ class UIStructureDerivationTests(unittest.TestCase):
 
         self.assertFalse(report.ok)
         self.assertIn("duplicate_information_same_region", [finding.code for finding in report.findings])
+
+
+class UITextHierarchyTests(unittest.TestCase):
+    def test_complete_text_hierarchy_can_continue(self):
+        model = ui_model()
+        structure = derivation()
+        self.assertTrue(review_ui_interaction_model(model).ok)
+        self.assertTrue(review_ui_structure_derivation(structure, interaction_model=model).ok)
+
+        report = review_ui_text_hierarchy(
+            text_hierarchy(),
+            interaction_model=model,
+            structure_derivation=structure,
+        )
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual(0, report.blocker_count())
+
+    def test_text_hierarchy_before_review_and_unknown_source_blocks(self):
+        broken = UITextHierarchyBlueprint(
+            "broken-text-hierarchy",
+            source_interaction_model_id="wrong-model",
+            source_structure_derivation_id="wrong-structure",
+            parent_surface_id="workbench",
+            typography_tokens=(typography_token("control-label", 4, ("button_label",)),),
+            text_elements=(
+                text_element(
+                    "ghost_button",
+                    "button_label",
+                    "control-label",
+                    "ghost_action",
+                    source_control_id="ghost",
+                ),
+            ),
+            validation_boundaries=("text review",),
+            rationale="broken source references",
+        )
+
+        report = review_ui_text_hierarchy(
+            broken,
+            interaction_model=ui_model(),
+            structure_derivation=derivation(),
+        )
+        codes = {finding.code for finding in report.findings}
+
+        self.assertFalse(report.ok)
+        self.assertIn("source_interaction_model_mismatch", codes)
+        self.assertIn("source_structure_derivation_mismatch", codes)
+        self.assertIn("source_structure_derivation_not_reviewed", codes)
+        self.assertIn("text_control_not_in_interaction_model", codes)
+
+    def test_prominent_button_and_flat_child_title_block(self):
+        broken = UITextHierarchyBlueprint(
+            "broken-prominence",
+            source_interaction_model_id="import-run-ui-flow",
+            source_structure_derivation_id="import-run-ui-structure",
+            parent_surface_id="import-run-workbench",
+            structure_derivation_reviewed=True,
+            typography_tokens=(
+                typography_token("section-title", 2, ("section_title",)),
+                typography_token("panel-at-section-level", 2, ("panel_title",)),
+                typography_token("hero-button", 1, ("button_label",)),
+            ),
+            text_elements=(
+                text_element("parent_section", "section_title", "section-title", "parent_section"),
+                text_element(
+                    "child_panel",
+                    "panel_title",
+                    "panel-at-section-level",
+                    "child_panel",
+                    parent_text_id="parent_section",
+                ),
+                text_element(
+                    "import_label",
+                    "button_label",
+                    "hero-button",
+                    "import_action",
+                    source_control_id="import",
+                ),
+            ),
+            validation_boundaries=("text review",),
+            rationale="broken hierarchy",
+        )
+
+        report = review_ui_text_hierarchy(
+            broken,
+            interaction_model=ui_model(),
+            structure_derivation=derivation(),
+        )
+        codes = {finding.code for finding in report.findings}
+
+        self.assertFalse(report.ok)
+        self.assertIn("child_text_not_less_prominent_than_parent", codes)
+        self.assertIn("text_role_too_prominent", codes)
+
+    def test_duplicate_text_semantic_same_region_state_requires_rationale(self):
+        broken = UITextHierarchyBlueprint(
+            "duplicate-text",
+            source_interaction_model_id="import-run-ui-flow",
+            source_structure_derivation_id="import-run-ui-structure",
+            parent_surface_id="import-run-workbench",
+            structure_derivation_reviewed=True,
+            typography_tokens=(typography_token("status-text", 4, ("status_text",)),),
+            text_elements=(
+                text_element(
+                    "summary_status",
+                    "status_text",
+                    "status-text",
+                    "run_summary",
+                    source_display_id="summary_card",
+                    visible_in_states=("result_ready",),
+                ),
+                text_element(
+                    "summary_sentence",
+                    "status_text",
+                    "status-text",
+                    "run_summary",
+                    source_display_id="summary_card",
+                    visible_in_states=("result_ready",),
+                ),
+            ),
+            validation_boundaries=("text review",),
+            rationale="broken duplicate semantic text",
+        )
+
+        report = review_ui_text_hierarchy(
+            broken,
+            interaction_model=ui_model(),
+            structure_derivation=derivation(),
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("duplicate_text_semantic_same_region_state", [finding.code for finding in report.findings])
+
+    def test_justified_duplicate_text_semantic_can_continue(self):
+        blueprint = UITextHierarchyBlueprint(
+            "justified-duplicate-text",
+            source_interaction_model_id="import-run-ui-flow",
+            source_structure_derivation_id="import-run-ui-structure",
+            parent_surface_id="import-run-workbench",
+            structure_derivation_reviewed=True,
+            typography_tokens=(typography_token("status-text", 4, ("status_text",)),),
+            text_elements=(
+                text_element(
+                    "summary_status",
+                    "status_text",
+                    "status-text",
+                    "run_summary",
+                    source_display_id="summary_card",
+                    visible_in_states=("result_ready",),
+                    duplicate_group="summary-accessibility",
+                    redundancy_rationale="The compact metric and screen-reader sentence expose the same semantic result intentionally.",
+                ),
+                text_element(
+                    "summary_sentence",
+                    "status_text",
+                    "status-text",
+                    "run_summary",
+                    source_display_id="summary_card",
+                    visible_in_states=("result_ready",),
+                    duplicate_group="summary-accessibility",
+                    redundancy_rationale="The sentence carries the same summary for accessibility.",
+                ),
+            ),
+            validation_boundaries=("text review",),
+            rationale="intentional duplicate semantic text is modeled",
+        )
+
+        report = review_ui_text_hierarchy(
+            blueprint,
+            interaction_model=ui_model(),
+            structure_derivation=derivation(),
+        )
+
+        self.assertTrue(report.ok, report.format_text())
 
 
 if __name__ == "__main__":

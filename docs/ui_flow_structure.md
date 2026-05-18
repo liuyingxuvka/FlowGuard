@@ -2,7 +2,8 @@
 
 UI Flow Structure is FlowGuard's helper layer for model-first interface
 planning. It first models the UI's interaction behavior, then derives the UI
-structure from that model.
+structure from that model, then derives a UI text hierarchy blueprint from the
+reviewed structure.
 
 This route is for workflow-heavy interfaces where button placement, menu
 levels, panels, overlays, persistent controls, and state-dependent actions need
@@ -10,6 +11,9 @@ to follow the product behavior instead of being placed arbitrarily.
 It also reviews information and control redundancy: the same semantic
 information or same-level function can be repeated only when the model records
 why the repetition is intentional.
+The final blueprint stage keeps headings, labels, action text, status
+messages, helper text, and error/recovery copy slots tied to modeled UI states
+and owned regions before visual design or frontend implementation begins.
 
 ## Use Cases
 
@@ -24,12 +28,16 @@ Use it when:
   child-level, contextual, local, destructive, terminal, or recovery actions;
 - a design needs first-level persistent menus, second-level contextual regions,
   third-level local controls, overlay hierarchy, stable toolbar placement, or
-  parent/child UI topology before visual styling.
+  parent/child UI topology before visual styling;
 - a page may show the same information through a chart, card, table, text, or
   image, and repeated display needs to be checked for value rather than visual
   clutter;
 - two buttons or menu items appear to trigger the same function at the same
-  hierarchy level and need an explicit reason to remain separate.
+  hierarchy level and need an explicit reason to remain separate;
+- headings, labels, action text, status messages, helper text, empty/error
+  states, validation text, or recovery copy slots need to follow the modeled
+  interaction and region hierarchy instead of being invented as late visual
+  copy.
 
 Skip it for tiny visual-only edits with no behavior, state, navigation, or
 control-availability impact.
@@ -66,7 +74,23 @@ The structure derivation objects are:
 - `review_ui_structure_derivation(derivation, interaction_model=...)`: checks
   whether the UI structure follows from a reviewed UI interaction model.
 
-## Two-Stage Workflow
+The text hierarchy blueprint objects are:
+
+- `UITypographyToken`: one semantic text style token with hierarchy level,
+  allowed text roles, scale, weight, color role, and rationale. These are
+  semantic tokens, not final brand font choices.
+- `UITextElement`: one modeled text slot with role, token, semantic key,
+  region, parent text, source state/control/display, state visibility, and
+  redundancy rationale.
+- `UITextHierarchyBlueprint`: the complete text hierarchy derivation, including
+  source interaction model id, source structure derivation id, parent surface,
+  typography tokens, text elements, validation boundaries, and rationale.
+- `UITextHierarchyReport`: structured review output.
+- `review_ui_text_hierarchy(blueprint, interaction_model=..., structure_derivation=...)`:
+  checks whether text roles and tokens follow the reviewed UI model and
+  structure.
+
+## Three-Stage Workflow
 
 ```text
 product/workflow intent
@@ -74,7 +98,9 @@ product/workflow intent
 -> review UI controls, states, transitions, availability, failures
 -> UI structure derivation
 -> review regions, menu levels, displays, overlays, stable placement, hierarchy
--> handoff to Figma, frontend implementation, browser checks, or design review
+-> UI text hierarchy blueprint
+-> review headings, labels, action text, status/helper/error/recovery slots
+-> handoff to Figma, frontend implementation, browser checks, copy/design, or design review
 ```
 
 The first stage models the UI as:
@@ -96,6 +122,20 @@ The second stage derives placement and hierarchy from that flow:
 - destructive controls are structurally separated from ordinary primary
   progression.
 
+The third stage derives text ownership and priority from the reviewed
+structure:
+
+- page or surface titles name the parent workflow or surface;
+- region headings name the state group, display group, or child workflow owned
+  by that region;
+- primary, secondary, contextual, local, destructive, recovery, cancel, retry,
+  export, and terminal action labels map to modeled control events;
+- status, progress, success, warning, failure, terminal, helper, validation,
+  empty-state, confirmation, diagnostic, and recovery text slots map to the
+  UI state, control, display, region, or overlay that owns them;
+- repeated text intent needs a rationale when it appears in more than one
+  region or hierarchy level.
+
 The redundancy review is intentionally conservative:
 
 - two display elements with the same `semantic_key` in one state need a
@@ -107,6 +147,11 @@ The redundancy review is intentionally conservative:
 - summary plus detail can be acceptable when the model explains the difference
   between the summary and the detail.
 
+The text blueprint is intentionally not final marketing copy. It should tell a
+frontend, Figma, copy, or design-review workflow which text slots exist, what
+each slot must communicate, which state or region owns it, and which labels
+must remain stable across states.
+
 ## Example
 
 ```python
@@ -117,9 +162,13 @@ from flowguard import (
     UIRegionRecommendation,
     UIStateNode,
     UIStructureDerivation,
+    UITextElement,
+    UITextHierarchyBlueprint,
+    UITypographyToken,
     UITransition,
     review_ui_interaction_model,
     review_ui_structure_derivation,
+    review_ui_text_hierarchy,
 )
 
 
@@ -199,8 +248,74 @@ derivation = UIStructureDerivation(
 )
 
 structure_report = review_ui_structure_derivation(derivation, interaction_model=model)
+
+text_blueprint = UITextHierarchyBlueprint(
+    "import-run-text-hierarchy",
+    source_interaction_model_id="import-run-ui-flow",
+    source_structure_derivation_id="import-run-ui-structure",
+    parent_surface_id="workbench",
+    structure_derivation_reviewed=structure_report.ok,
+    typography_tokens=(
+        UITypographyToken(
+            "page-title",
+            hierarchy_level=1,
+            text_roles=("page_title",),
+            rationale="The surface title is the highest text role.",
+        ),
+        UITypographyToken(
+            "control-label",
+            hierarchy_level=4,
+            text_roles=("button_label", "menu_label", "control_label"),
+            rationale="Control labels stay below headings.",
+        ),
+        UITypographyToken(
+            "status-text",
+            hierarchy_level=4,
+            text_roles=("status_text",),
+            rationale="Status text belongs to the state or display owner.",
+        ),
+    ),
+    text_elements=(
+        UITextElement(
+            "surface_title",
+            "page_title",
+            "page-title",
+            "surface_title",
+            region_id="main",
+            rationale="The page title names the parent workflow.",
+        ),
+        UITextElement(
+            "import_label",
+            "button_label",
+            "control-label",
+            "import_action",
+            region_id="main",
+            source_control_id="import",
+            rationale="Import is an action label, not a heading.",
+        ),
+        UITextElement(
+            "result_summary_text",
+            "status_text",
+            "status-text",
+            "run_summary",
+            region_id="main",
+            source_display_id="result_summary",
+            visible_in_states=("result_ready",),
+            rationale="The summary text follows the modeled result display.",
+        ),
+    ),
+    validation_boundaries=("design token review",),
+    rationale="Text roles are derived from regions, controls, displays, and states.",
+)
+
+text_report = review_ui_text_hierarchy(
+    text_blueprint,
+    interaction_model=model,
+    structure_derivation=derivation,
+)
 print(model_report.format_text())
 print(structure_report.format_text())
+print(text_report.format_text())
 ```
 
 For a ready scaffold, run:
@@ -212,8 +327,8 @@ python -m flowguard ui-flow-structure-template --output .
 ## Relationship To Other Routes
 
 UI Flow Structure does not choose the visual style and does not implement
-frontend code. It produces a structure contract that frontend, Figma, browser,
-and design-review workflows can use.
+frontend code. It produces a structure and text hierarchy contract that
+frontend, Figma, browser, copy, and design-review workflows can use.
 
 Use Code Structure Recommendation when the question is how to split
 implementation modules or files. Use StructureMesh when an existing codebase

@@ -21,6 +21,7 @@ This is the surface that belongs in a future public GitHub release:
 - `flowguard-*` satellite skills for mature direct routes, including UI flow
   structure, code structure, model-test alignment, process flow, model misses,
   ModelMesh, TestMesh, and StructureMesh;
+- UI Text Hierarchy Blueprint helpers for the `v0.16.0` public UI text route;
 - `AGENTS.md` snippet;
 - lightweight adoption log support;
 - small examples such as `job_matching` and `looping_workflow`;
@@ -85,6 +86,28 @@ Broken variants caught:
 - internal KB/private pilot evidence exposed publicly;
 - public release omits the Codex Skill Kernel or satellite triggers;
 - public adoption log becomes manual user burden.
+
+## UI Text Hierarchy Blueprint
+
+UI Text Hierarchy Blueprint is the text-facing sibling of UI Flow Structure.
+It does not write final marketing copy or localize strings. It inventories the
+text a UI exposes in each state and region, then assigns roles, owners,
+semantic keys, hierarchy priority, duplication rationale, and warning/error
+escalation rules.
+
+This closes a gap that remains after interaction structure is correct: a UI can
+have the right controls and still bury the primary state message under helper
+text, repeat the same result in three places, leave loading text visible after
+success, or hide a blocking warning at a local hierarchy level. The blueprint
+keeps headings, labels, CTA text, helper text, status text, empty/loading/
+success/failure text, warnings, errors, and assistive text aligned with the UI
+state where each message is true.
+
+The package exposes `UITypographyToken`, `UITextElement`,
+`UITextHierarchyBlueprint`, `UITextHierarchyReport`, and
+`review_ui_text_hierarchy(...)` so this handoff can be checked before
+copywriting, visual design, frontend implementation, and accessibility review.
+It is not itself a browser or accessibility validation pass.
 
 ## UI Flow Structure
 

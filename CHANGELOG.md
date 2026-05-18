@@ -1,5 +1,33 @@
 # Changelog
 
+## v0.16.0 - 2026-05-18
+
+- Added the UI Text Hierarchy Blueprint capability as the next public UI route.
+  It reviews visible and assistive UI text by state, region, role, semantic
+  key, owner, priority, duplication rationale, and warning/error escalation
+  before copy, layout, or implementation flatten everything into equal prose.
+- Added UI text hierarchy helper APIs:
+  `UITypographyToken`, `UITextElement`, `UITextHierarchyBlueprint`,
+  `UITextHierarchyReport`, and `review_ui_text_hierarchy(...)`.
+- Updated `ui-flow-structure-template` so generated UI models now run the full
+  three-stage review: interaction model, structure derivation, and text
+  hierarchy blueprint, including known-bad text hierarchy hazards.
+- Positioned UI Text Hierarchy Blueprint as a sibling to UI Flow Structure:
+  UI Flow Structure derives controls, regions, overlays, and stable placement
+  from modeled interaction behavior, while UI Text Hierarchy Blueprint derives
+  which headings, labels, helper text, status text, empty/loading/success/
+  failure text, CTA text, warnings, and errors should dominate or stay local in
+  each state.
+- Added OpenSpec artifacts under
+  `openspec/changes/add-ui-text-hierarchy/` covering proposal, design, tasks,
+  and requirements for text inventory, primary/secondary hierarchy, duplicate
+  semantic text, state-specific copy, blocking warnings, assistive rationale,
+  and handoff boundaries.
+- Updated README and product architecture docs to foreground the new capability
+  while preserving the `v0.15.0` UI Flow Structure material.
+- Schema remains `1.0`; runtime dependencies remain Python standard library
+  only.
+
 ## v0.15.0 - 2026-05-18
 
 - Added the UI Flow Structure route for model-first interface design. The new

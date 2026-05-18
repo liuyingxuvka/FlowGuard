@@ -19,6 +19,8 @@ freshness, UI interaction topology, screen or region ownership, navigation
 state, component event flow, visible UI state transitions, UI information
 display ownership, duplicate UI information, overlapping same-level controls,
 validation/error states, parent/child UI structure derived from modeled user interactions,
+UI text hierarchy blueprint ownership for headings, labels, action text,
+status/helper messages, and error/recovery copy slots,
 meaningful process side effects, argument prerequisites, or decision
 commitments.
 
@@ -46,7 +48,7 @@ Route map:
 | --- | --- |
 | Ordinary modeling, Risk Intent, state write inventory, invariants, Explorer | `core_modeling` |
 | Direct architecture recommendation or model-derived implementation structure | `code_structure_recommendation` |
-| UI interaction model, screen/region topology, parent/child UI hierarchy, menu levels, overlays, stable placement, display ownership, duplicate information, or overlapping controls | `ui_flow_structure` |
+| UI interaction model, screen/region topology, parent/child UI hierarchy, menu levels, overlays, stable placement, display/text ownership, text hierarchy blueprint, duplicate information, or overlapping controls | `ui_flow_structure` |
 | Direct comparison between FlowGuard model obligations, optional code external contracts, and ordinary test evidence | `model_test_alignment` |
 | Three or more local models, oversized model, parent/child model evidence | `model_mesh_maintenance` |
 | Large test script/suite split, parent/child test hierarchy, slow/stale/release-only tests | `test_mesh_maintenance` |
@@ -77,8 +79,9 @@ start with `model-first-function-flow`.
 Use the matching Skill reference protocol for support routes. Helper APIs such as
 `RiskIntent`, property factories, packs, `FlowGuardCheckPlan`,
 `review_code_structure_recommendation()`, `review_model_test_alignment()`,
-`UIDisplayElement`, `review_ui_interaction_model()`,
-`review_ui_structure_derivation()`,
+`UIDisplayElement`, `UITextHierarchyBlueprint`,
+`review_ui_interaction_model()`, `review_ui_structure_derivation()`,
+`review_ui_text_hierarchy()`,
 `review_development_process_flow()`, `review_test_mesh()`,
 `review_structure_mesh()`, templates, and starter CLIs are package helpers, not
 Codex skills by themselves.
@@ -124,10 +127,14 @@ itself: initial UI state, controls, events, state nodes, transitions, recovery
 paths, and state availability. After that model is reviewed, derive first-level
 persistent menus, second-level contextual regions, third-level local controls,
 overlays, stable layout positions, navigation ownership, and parent/child UI
-topology. Do not route this as ordinary Code Structure Recommendation when the
-question is still UI behavior and hierarchy; use code structure only for
-implementation module advice and StructureMesh only for existing-code refactor
-governance.
+topology. Then derive the UI text hierarchy blueprint from the reviewed
+structure: page and region headings, labels, primary/secondary/contextual
+action text, status/helper messages, validation text, empty/error/recovery copy
+slots, semantic display labels, and text ownership by state, control, display,
+region, and hierarchy level. Do not route this as ordinary Code Structure
+Recommendation when the question is still UI behavior, hierarchy, and text
+ownership; use code structure only for implementation module advice and
+StructureMesh only for existing-code refactor governance.
 
 For ModelMesh and TestMesh, the parent split needs a FlowGuard-derived target
 structure before green parent confidence: source model, target children,

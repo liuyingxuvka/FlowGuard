@@ -3,7 +3,10 @@
 UI flow structure keeps UI design model-first. It first reviews a UI-level
 interaction model, then reviews a structure derivation that maps that model to
 regions, menu levels, parent/child nodes, overlays, stable placements, and
-intentional display/control redundancy.
+intentional display/control redundancy. A third review surface derives text
+roles and typography tokens from the reviewed UI structure so headings, labels,
+buttons, status text, and repeated semantic content follow the modeled UI
+topology instead of ad hoc styling.
 """
 
 from __future__ import annotations
@@ -28,6 +31,13 @@ def _as_pairs(values: Sequence[tuple[str, str]] | None) -> tuple[tuple[str, str]
 
 def _pair_map(pairs: Sequence[tuple[str, str]]) -> dict[str, str]:
     return {str(key): str(value) for key, value in pairs}
+
+
+def _as_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
 
 
 @dataclass(frozen=True)
@@ -390,6 +400,147 @@ class UIStructureDerivation:
 
 
 @dataclass(frozen=True)
+class UITypographyToken:
+    """One semantic text style token derived from UI hierarchy."""
+
+    token_id: str
+    hierarchy_level: int = 4
+    text_roles: tuple[str, ...] = ()
+    scale: str = ""
+    weight: str = ""
+    color_role: str = ""
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "token_id", str(self.token_id))
+        object.__setattr__(self, "hierarchy_level", _as_int(self.hierarchy_level, default=0))
+        object.__setattr__(self, "text_roles", _as_tuple(self.text_roles))
+        object.__setattr__(self, "scale", str(self.scale))
+        object.__setattr__(self, "weight", str(self.weight))
+        object.__setattr__(self, "color_role", str(self.color_role))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "token_id": self.token_id,
+            "hierarchy_level": self.hierarchy_level,
+            "text_roles": list(self.text_roles),
+            "scale": self.scale,
+            "weight": self.weight,
+            "color_role": self.color_role,
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class UITextElement:
+    """One modeled text element anchored to UI structure or interaction state."""
+
+    text_id: str
+    role: str
+    token_id: str
+    semantic_key: str
+    label: str = ""
+    region_id: str = ""
+    parent_text_id: str = ""
+    source_state_ids: tuple[str, ...] = ()
+    source_control_id: str = ""
+    source_display_id: str = ""
+    visible_in_states: tuple[str, ...] = ()
+    duplicate_group: str = ""
+    redundancy_rationale: str = ""
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "text_id", str(self.text_id))
+        object.__setattr__(self, "role", str(self.role))
+        object.__setattr__(self, "token_id", str(self.token_id))
+        object.__setattr__(self, "semantic_key", str(self.semantic_key))
+        object.__setattr__(self, "label", str(self.label))
+        object.__setattr__(self, "region_id", str(self.region_id))
+        object.__setattr__(self, "parent_text_id", str(self.parent_text_id))
+        object.__setattr__(self, "source_state_ids", _as_tuple(self.source_state_ids))
+        object.__setattr__(self, "source_control_id", str(self.source_control_id))
+        object.__setattr__(self, "source_display_id", str(self.source_display_id))
+        object.__setattr__(self, "visible_in_states", _as_tuple(self.visible_in_states))
+        object.__setattr__(self, "duplicate_group", str(self.duplicate_group))
+        object.__setattr__(self, "redundancy_rationale", str(self.redundancy_rationale))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def state_scope(self) -> tuple[str, ...]:
+        return self.visible_in_states or self.source_state_ids or ("*",)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "text_id": self.text_id,
+            "role": self.role,
+            "token_id": self.token_id,
+            "semantic_key": self.semantic_key,
+            "label": self.label,
+            "region_id": self.region_id,
+            "parent_text_id": self.parent_text_id,
+            "source_state_ids": list(self.source_state_ids),
+            "source_control_id": self.source_control_id,
+            "source_display_id": self.source_display_id,
+            "visible_in_states": list(self.visible_in_states),
+            "duplicate_group": self.duplicate_group,
+            "redundancy_rationale": self.redundancy_rationale,
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class UITextHierarchyBlueprint:
+    """Text hierarchy derived from a reviewed UI interaction and structure model."""
+
+    blueprint_id: str
+    source_interaction_model_id: str
+    source_structure_derivation_id: str
+    parent_surface_id: str
+    typography_tokens: tuple[UITypographyToken, ...] = ()
+    text_elements: tuple[UITextElement, ...] = ()
+    structure_derivation_reviewed: bool = False
+    validation_boundaries: tuple[str, ...] = ()
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "blueprint_id", str(self.blueprint_id))
+        object.__setattr__(self, "source_interaction_model_id", str(self.source_interaction_model_id))
+        object.__setattr__(self, "source_structure_derivation_id", str(self.source_structure_derivation_id))
+        object.__setattr__(self, "parent_surface_id", str(self.parent_surface_id))
+        object.__setattr__(self, "typography_tokens", tuple(self.typography_tokens))
+        object.__setattr__(self, "text_elements", tuple(self.text_elements))
+        object.__setattr__(self, "structure_derivation_reviewed", bool(self.structure_derivation_reviewed))
+        object.__setattr__(self, "validation_boundaries", _as_tuple(self.validation_boundaries))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def token_ids(self) -> tuple[str, ...]:
+        return tuple(token.token_id for token in self.typography_tokens)
+
+    def text_ids(self) -> tuple[str, ...]:
+        return tuple(text.text_id for text in self.text_elements)
+
+    def tokens_by_id(self) -> dict[str, UITypographyToken]:
+        return {token.token_id: token for token in self.typography_tokens}
+
+    def text_by_id(self) -> dict[str, UITextElement]:
+        return {text.text_id: text for text in self.text_elements}
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "blueprint_id": self.blueprint_id,
+            "source_interaction_model_id": self.source_interaction_model_id,
+            "source_structure_derivation_id": self.source_structure_derivation_id,
+            "parent_surface_id": self.parent_surface_id,
+            "typography_tokens": [token.to_dict() for token in self.typography_tokens],
+            "text_elements": [text.to_dict() for text in self.text_elements],
+            "structure_derivation_reviewed": self.structure_derivation_reviewed,
+            "validation_boundaries": list(self.validation_boundaries),
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
 class UIFlowStructureFinding:
     """One finding from reviewing a UI interaction model or structure derivation."""
 
@@ -518,6 +669,57 @@ class UIStructureDerivationReport:
         }
 
 
+@dataclass(frozen=True)
+class UITextHierarchyReport:
+    """Structured review result for a UI text hierarchy blueprint."""
+
+    ok: bool
+    blueprint_id: str
+    findings: tuple[UIFlowStructureFinding, ...] = ()
+    summary: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "blueprint_id", str(self.blueprint_id))
+        object.__setattr__(self, "findings", tuple(self.findings))
+        if not self.summary:
+            status = "OK" if self.ok else "BLOCKED"
+            object.__setattr__(
+                self,
+                "summary",
+                f"{status}: ui_text_hierarchy={self.blueprint_id} findings={len(self.findings)}",
+            )
+
+    def blocker_count(self) -> int:
+        return sum(1 for finding in self.findings if finding.severity == "blocker")
+
+    def format_text(self, max_findings: int = 10) -> str:
+        lines = [
+            "=== flowguard UI text hierarchy review ===",
+            f"status: {'OK' if self.ok else 'BLOCKED'}",
+            f"blueprint: {self.blueprint_id}",
+            f"findings: {len(self.findings)}",
+        ]
+        for finding in self.findings[:max_findings]:
+            lines.extend(
+                [
+                    "",
+                    f"finding: {finding.code}",
+                    f"severity: {finding.severity}",
+                    f"item: {finding.item_id or '(none)'}",
+                    f"message: {finding.message}",
+                ]
+            )
+        return "\n".join(lines)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "ok": self.ok,
+            "blueprint_id": self.blueprint_id,
+            "findings": [finding.to_dict() for finding in self.findings],
+            "summary": self.summary,
+        }
+
+
 def _blocker_findings(findings: Sequence[UIFlowStructureFinding]) -> tuple[UIFlowStructureFinding, ...]:
     return tuple(finding for finding in findings if finding.severity == "blocker")
 
@@ -573,6 +775,42 @@ def _redundancy_justified(items: Sequence[Any]) -> bool:
         if getattr(item, "duplicate_group", "")
     }
     return len(duplicate_groups) == 1
+
+
+_CONTROL_TEXT_ROLES = {"button_label", "menu_label", "tab_label", "control_label"}
+_TITLE_TEXT_ROLES = {"page_title", "section_title", "panel_title"}
+_ROLE_MIN_HIERARCHY_LEVEL = {
+    "page_title": 1,
+    "section_title": 2,
+    "panel_title": 3,
+    "field_label": 4,
+    "button_label": 4,
+    "menu_label": 4,
+    "tab_label": 4,
+    "control_label": 4,
+    "status_text": 4,
+    "error_text": 4,
+    "data_value": 5,
+    "body_text": 5,
+    "help_text": 5,
+    "caption": 6,
+}
+
+
+def _scoped_groups_by_key(text_elements: Sequence[UITextElement], key_name: str) -> dict[tuple[str, str, str], list[UITextElement]]:
+    groups: dict[tuple[str, str, str], list[UITextElement]] = {}
+    for text in text_elements:
+        if key_name == "semantic_key":
+            value = text.semantic_key
+        elif key_name == "role":
+            value = text.role
+        else:
+            value = ""
+        if not value:
+            continue
+        for state_id in text.state_scope():
+            groups.setdefault((text.region_id, state_id, value), []).append(text)
+    return groups
 
 
 def review_ui_interaction_model(model: UIInteractionModel) -> UIInteractionModelReport:
@@ -1148,6 +1386,389 @@ def review_ui_structure_derivation(
     )
 
 
+def review_ui_text_hierarchy(
+    blueprint: UITextHierarchyBlueprint,
+    *,
+    interaction_model: UIInteractionModel | None = None,
+    structure_derivation: UIStructureDerivation | None = None,
+) -> UITextHierarchyReport:
+    """Review whether UI text hierarchy follows from the modeled UI structure."""
+
+    findings: list[UIFlowStructureFinding] = []
+    token_ids = set(blueprint.token_ids())
+    text_ids = set(blueprint.text_ids())
+    tokens_by_id = blueprint.tokens_by_id()
+    text_by_id = blueprint.text_by_id()
+    region_ids = set(structure_derivation.region_ids()) if structure_derivation is not None else set()
+    state_regions = structure_derivation.state_regions() if structure_derivation is not None else {}
+    control_regions = structure_derivation.control_regions() if structure_derivation is not None else {}
+    display_regions = structure_derivation.display_regions() if structure_derivation is not None else {}
+
+    if not blueprint.blueprint_id:
+        findings.append(UIFlowStructureFinding("missing_text_blueprint_id", "UI text hierarchy has no blueprint id"))
+    if not blueprint.source_interaction_model_id:
+        findings.append(
+            UIFlowStructureFinding(
+                "missing_source_interaction_model",
+                "UI text hierarchy has no source UI interaction model id",
+            )
+        )
+    if interaction_model is not None and blueprint.source_interaction_model_id != interaction_model.model_id:
+        findings.append(
+            UIFlowStructureFinding(
+                "source_interaction_model_mismatch",
+                "UI text hierarchy does not reference the supplied interaction model",
+                metadata={
+                    "blueprint_source": blueprint.source_interaction_model_id,
+                    "interaction_model": interaction_model.model_id,
+                },
+            )
+        )
+    if not blueprint.source_structure_derivation_id:
+        findings.append(
+            UIFlowStructureFinding(
+                "missing_source_structure_derivation",
+                "UI text hierarchy has no source UI structure derivation id",
+            )
+        )
+    if structure_derivation is not None and blueprint.source_structure_derivation_id != structure_derivation.derivation_id:
+        findings.append(
+            UIFlowStructureFinding(
+                "source_structure_derivation_mismatch",
+                "UI text hierarchy does not reference the supplied structure derivation",
+                metadata={
+                    "blueprint_source": blueprint.source_structure_derivation_id,
+                    "structure_derivation": structure_derivation.derivation_id,
+                },
+            )
+        )
+    if not blueprint.structure_derivation_reviewed:
+        findings.append(
+            UIFlowStructureFinding(
+                "source_structure_derivation_not_reviewed",
+                "UI text hierarchy was derived before the UI structure derivation was marked reviewed",
+            )
+        )
+    if not blueprint.parent_surface_id:
+        findings.append(UIFlowStructureFinding("missing_parent_surface", "UI text hierarchy has no parent UI surface"))
+    if not blueprint.typography_tokens:
+        findings.append(
+            UIFlowStructureFinding("missing_typography_tokens", "UI text hierarchy defines no typography tokens")
+        )
+    if not blueprint.text_elements:
+        findings.append(UIFlowStructureFinding("missing_text_elements", "UI text hierarchy defines no text elements"))
+    if not blueprint.validation_boundaries:
+        findings.append(
+            UIFlowStructureFinding("missing_validation_plan", "UI text hierarchy has no validation boundaries")
+        )
+    if not blueprint.rationale:
+        findings.append(
+            UIFlowStructureFinding(
+                "missing_text_hierarchy_rationale",
+                "UI text hierarchy has no rationale for deriving text roles from UI structure",
+            )
+        )
+
+    findings.extend(_duplicate_values(blueprint.token_ids(), code="duplicate_typography_token_id", noun="token"))
+    findings.extend(_duplicate_values(blueprint.text_ids(), code="duplicate_text_element_id", noun="text"))
+
+    for token in blueprint.typography_tokens:
+        if not token.token_id:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_typography_token_id",
+                    "typography token has no token id",
+                    metadata=token.to_dict(),
+                )
+            )
+        if token.hierarchy_level < 1:
+            findings.append(
+                UIFlowStructureFinding(
+                    "invalid_typography_hierarchy_level",
+                    f"typography token {token.token_id} has invalid hierarchy level {token.hierarchy_level}",
+                    item_id=token.token_id,
+                )
+            )
+        if not token.text_roles:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_typography_token_roles",
+                    f"typography token {token.token_id} is not assigned to any text roles",
+                    item_id=token.token_id,
+                )
+            )
+        if not token.rationale:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_typography_token_rationale",
+                    f"typography token {token.token_id} has no hierarchy rationale",
+                    item_id=token.token_id,
+                )
+            )
+
+    known_states = set(interaction_model.state_ids()) if interaction_model is not None else set()
+    known_controls = set(interaction_model.control_ids()) if interaction_model is not None else set()
+    known_displays = set(interaction_model.display_ids()) if interaction_model is not None else set()
+    controls_by_id = interaction_model.controls_by_id() if interaction_model is not None else {}
+    displays_by_id = interaction_model.displays_by_id() if interaction_model is not None else {}
+
+    for text in blueprint.text_elements:
+        if not text.text_id:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_text_element_id",
+                    "text element has no text id",
+                    metadata=text.to_dict(),
+                )
+            )
+        if not text.role:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_text_role",
+                    f"text element {text.text_id} has no semantic text role",
+                    item_id=text.text_id,
+                )
+            )
+        if not text.token_id:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_text_token",
+                    f"text element {text.text_id} has no typography token",
+                    item_id=text.text_id,
+                )
+            )
+        elif text.token_id not in token_ids:
+            findings.append(
+                UIFlowStructureFinding(
+                    "text_token_not_registered",
+                    f"text element {text.text_id} references unknown typography token {text.token_id}",
+                    item_id=text.text_id,
+                )
+            )
+        else:
+            token = tokens_by_id[text.token_id]
+            if token.text_roles and text.role not in token.text_roles:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "text_token_role_mismatch",
+                        f"text element {text.text_id} role {text.role} does not match token {text.token_id}",
+                        item_id=text.text_id,
+                        metadata={"token_roles": list(token.text_roles)},
+                    )
+                )
+            minimum_level = _ROLE_MIN_HIERARCHY_LEVEL.get(text.role)
+            if minimum_level is not None and token.hierarchy_level < minimum_level:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "text_role_too_prominent",
+                        f"text element {text.text_id} uses token {text.token_id} above its role level",
+                        item_id=text.text_id,
+                        metadata={
+                            "role": text.role,
+                            "token_level": token.hierarchy_level,
+                            "minimum_level": minimum_level,
+                        },
+                    )
+                )
+        if not text.semantic_key:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_text_semantic_key",
+                    f"text element {text.text_id} has no semantic key for duplicate text review",
+                    item_id=text.text_id,
+                )
+            )
+        if structure_derivation is not None and not text.region_id:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_text_region",
+                    f"text element {text.text_id} is not assigned to a UI region",
+                    item_id=text.text_id,
+                )
+            )
+        if structure_derivation is not None and text.region_id and text.region_id not in region_ids:
+            findings.append(
+                UIFlowStructureFinding(
+                    "text_region_not_registered",
+                    f"text element {text.text_id} is assigned to unknown region {text.region_id}",
+                    item_id=text.text_id,
+                )
+            )
+        if text.parent_text_id and text.parent_text_id not in text_ids:
+            findings.append(
+                UIFlowStructureFinding(
+                    "parent_text_not_registered",
+                    f"text element {text.text_id} references unknown parent text {text.parent_text_id}",
+                    item_id=text.text_id,
+                )
+            )
+        if not text.rationale:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_text_rationale",
+                    f"text element {text.text_id} has no role or hierarchy rationale",
+                    item_id=text.text_id,
+                )
+            )
+        if (
+            text.role not in {"page_title", "section_title", "panel_title"}
+            and not text.source_control_id
+            and not text.source_display_id
+            and not text.source_state_ids
+            and not text.parent_text_id
+        ):
+            findings.append(
+                UIFlowStructureFinding(
+                    "unanchored_text_element",
+                    f"text element {text.text_id} is not anchored to a state, control, display, or parent text",
+                    item_id=text.text_id,
+                )
+            )
+
+        for state_id in text.source_state_ids + text.visible_in_states:
+            if interaction_model is not None and state_id not in known_states:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "text_state_not_in_interaction_model",
+                        f"text element {text.text_id} references unknown state {state_id}",
+                        item_id=text.text_id,
+                    )
+                )
+        if interaction_model is not None and text.source_control_id:
+            if text.source_control_id not in known_controls:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "text_control_not_in_interaction_model",
+                        f"text element {text.text_id} references unknown control {text.source_control_id}",
+                        item_id=text.text_id,
+                    )
+                )
+            elif text.role not in _CONTROL_TEXT_ROLES:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "control_text_role_mismatch",
+                        f"control text {text.text_id} uses role {text.role} instead of a control label role",
+                        item_id=text.text_id,
+                    )
+                )
+        if interaction_model is not None and text.source_display_id:
+            if text.source_display_id not in known_displays:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "text_display_not_in_interaction_model",
+                        f"text element {text.text_id} references unknown display {text.source_display_id}",
+                        item_id=text.text_id,
+                    )
+                )
+            else:
+                display = displays_by_id[text.source_display_id]
+                if display.semantic_key and text.semantic_key and text.semantic_key != display.semantic_key:
+                    findings.append(
+                        UIFlowStructureFinding(
+                            "text_display_semantic_mismatch",
+                            f"text element {text.text_id} semantic key does not match source display {text.source_display_id}",
+                            item_id=text.text_id,
+                            metadata={"text_semantic_key": text.semantic_key, "display_semantic_key": display.semantic_key},
+                        )
+                    )
+                if text.role in _CONTROL_TEXT_ROLES:
+                    findings.append(
+                        UIFlowStructureFinding(
+                            "display_text_role_mismatch",
+                            f"display text {text.text_id} uses control label role {text.role}",
+                            item_id=text.text_id,
+                        )
+                    )
+
+        if structure_derivation is not None and text.source_control_id:
+            expected_region = control_regions.get(text.source_control_id, "")
+            if expected_region and text.region_id and text.region_id != expected_region:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "text_region_mismatch_control_owner",
+                        f"text element {text.text_id} is not in the owning region for control {text.source_control_id}",
+                        item_id=text.text_id,
+                        metadata={"text_region": text.region_id, "expected_region": expected_region},
+                    )
+                )
+        if structure_derivation is not None and text.source_display_id:
+            expected_region = display_regions.get(text.source_display_id, "")
+            if expected_region and text.region_id and text.region_id != expected_region:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "text_region_mismatch_display_owner",
+                        f"text element {text.text_id} is not in the owning region for display {text.source_display_id}",
+                        item_id=text.text_id,
+                        metadata={"text_region": text.region_id, "expected_region": expected_region},
+                    )
+                )
+        if structure_derivation is not None and text.source_state_ids and text.region_id:
+            expected_regions = {state_regions.get(state_id, "") for state_id in text.source_state_ids}
+            expected_regions.discard("")
+            if len(expected_regions) == 1 and text.region_id not in expected_regions:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "text_region_mismatch_state_owner",
+                        f"text element {text.text_id} is not in the owning region for its source state",
+                        item_id=text.text_id,
+                        metadata={"text_region": text.region_id, "expected_regions": sorted(expected_regions)},
+                    )
+                )
+
+    for text in blueprint.text_elements:
+        if not text.parent_text_id or text.parent_text_id not in text_by_id:
+            continue
+        parent = text_by_id[text.parent_text_id]
+        parent_token = tokens_by_id.get(parent.token_id)
+        child_token = tokens_by_id.get(text.token_id)
+        if parent_token is None or child_token is None:
+            continue
+        if child_token.hierarchy_level <= parent_token.hierarchy_level:
+            findings.append(
+                UIFlowStructureFinding(
+                    "child_text_not_less_prominent_than_parent",
+                    f"text element {text.text_id} is not visually subordinate to parent {parent.text_id}",
+                    item_id=text.text_id,
+                    metadata={
+                        "parent_level": parent_token.hierarchy_level,
+                        "child_level": child_token.hierarchy_level,
+                    },
+                )
+            )
+
+    for (region_id, state_id, semantic_key), elements in sorted(
+        _scoped_groups_by_key(blueprint.text_elements, "semantic_key").items()
+    ):
+        if len(elements) > 1 and not _redundancy_justified(elements):
+            findings.append(
+                UIFlowStructureFinding(
+                    "duplicate_text_semantic_same_region_state",
+                    f"region {region_id or '(none)'} repeats semantic text {semantic_key} in state {state_id}",
+                    item_id=region_id,
+                    metadata={"text_ids": sorted(text.text_id for text in elements)},
+                )
+            )
+
+    title_elements = [text for text in blueprint.text_elements if text.role in _TITLE_TEXT_ROLES]
+    for (region_id, state_id, role), elements in sorted(_scoped_groups_by_key(title_elements, "role").items()):
+        if len(elements) > 1 and not _redundancy_justified(elements):
+            findings.append(
+                UIFlowStructureFinding(
+                    "duplicate_title_role_same_region_state",
+                    f"region {region_id or '(none)'} has multiple {role} text elements in state {state_id}",
+                    item_id=region_id,
+                    metadata={"text_ids": sorted(text.text_id for text in elements)},
+                )
+            )
+
+    blockers = _blocker_findings(findings)
+    return UITextHierarchyReport(
+        ok=not blockers,
+        blueprint_id=blueprint.blueprint_id,
+        findings=tuple(findings),
+    )
+
+
 __all__ = [
     "UIControl",
     "UIDisplayElement",
@@ -1158,7 +1779,12 @@ __all__ = [
     "UIStateNode",
     "UIStructureDerivation",
     "UIStructureDerivationReport",
+    "UITextElement",
+    "UITextHierarchyBlueprint",
+    "UITextHierarchyReport",
+    "UITypographyToken",
     "UITransition",
     "review_ui_interaction_model",
     "review_ui_structure_derivation",
+    "review_ui_text_hierarchy",
 ]

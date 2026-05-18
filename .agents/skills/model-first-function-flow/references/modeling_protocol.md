@@ -42,7 +42,9 @@ Before changing files, separate three situations:
 - `ui_flow_structure`: UI interaction behavior itself needs modeling before
   layout or visual design. Build or review the UI interaction model first,
   then derive parent/child UI topology, menu levels, stable placements,
-  overlays, navigation ownership, and state/control/event ownership.
+  overlays, navigation ownership, state/control/event ownership, and the UI
+  text hierarchy blueprint for headings, labels, action text, state/status
+  messages, helper text, and error/recovery copy slots.
 - `development_process_flow`: development lifecycle ordering, artifact
   overwrite, validation evidence freshness, peer writes, V-style validation
   pairs, or minimum revalidation is the risky boundary. Use this sibling route
@@ -222,13 +224,15 @@ for the recommendation shape.
 
 Use the parallel UI flow structure route when a UI's buttons, menus, controls,
 screens, panels, overlays, navigation, information displays, state
-availability, or duplicate/overlapping controls need a model-first interaction
-flow before visual design or frontend implementation. This route models the UI
-as `UI event x UI state -> Set(UI output x UI state)`, reviews that
-interaction model, and then derives parent/child UI topology, first-level
+availability, duplicate/overlapping controls, headings, labels, action text,
+status/helper messages, or error/recovery copy slots need a model-first
+interaction flow before visual design or frontend implementation. This route
+models the UI as `UI event x UI state -> Set(UI output x UI state)`, reviews
+that interaction model, derives parent/child UI topology, first-level
 persistent menus, second-level contextual regions, third-level local controls,
 information-display ownership, stable layout positions, overlay hierarchy, and
-explicit rationale for intentional redundancy.
+explicit rationale for intentional redundancy, then derives the UI text
+hierarchy blueprint from the reviewed structure.
 
 Read `docs/ui_flow_structure.md` and
 `.agents/skills/flowguard-ui-flow-structure/references/ui_flow_structure_protocol.md`

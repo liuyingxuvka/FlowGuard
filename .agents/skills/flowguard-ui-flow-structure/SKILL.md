@@ -1,14 +1,15 @@
 ---
 name: flowguard-ui-flow-structure
-description: Use when a FlowGuard model should be built or reviewed for UI-level interaction behavior first, then used to derive UI parent/child topology, screen or region structure, menu levels, stable control placement, navigation state, button/event ownership, information display ownership, duplicate information/control-function review, overlays, recovery actions, and model-derived interface hierarchy before visual design or frontend implementation.
+description: Use when a FlowGuard model should be built or reviewed for UI-level interaction behavior first, then used to derive UI parent/child topology, screen or region structure, menu levels, stable control placement, navigation state, button/event ownership, information display ownership, duplicate information/control-function review, overlays, recovery actions, model-derived interface hierarchy, and a UI text hierarchy blueprint before visual design, copywriting, or frontend implementation.
 ---
 
 # FlowGuard UI Flow Structure
 
 This is a standalone FlowGuard satellite skill for model-first UI interaction
 structure. Use it directly when the user asks how a UI's buttons, controls,
-states, navigation, regions, menus, panels, or overlays should work and fit
-together before visual design or frontend implementation.
+states, navigation, regions, menus, panels, overlays, labels, headings, status
+text, or empty/error/recovery messages should work and fit together before
+visual design, copywriting, or frontend implementation.
 
 Return to `model-first-function-flow` when the UI behavior boundary is unclear,
 when the request is visual-only or trivial, or when multiple FlowGuard routes
@@ -20,16 +21,24 @@ need coordination.
   `python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"`.
 - Do not create a fake mini-framework or prose-only substitute.
 - Do not skip the UI interaction model and jump straight to layout prose.
+- Do not skip the structure derivation and jump straight to microcopy or
+  screen text.
 - Represent UI behavior as `UI event x UI state -> Set(UI output x UI state)`.
 - Derive hierarchy, menu levels, regions, overlays, stable placements, and
   information-display ownership from modeled UI states, controls, displays,
   events, transitions, and dependencies.
+- Derive the UI text hierarchy blueprint from the reviewed structure:
+  headings, section labels, primary/secondary action labels, status text,
+  helper text, empty states, error/recovery copy slots, and text ownership must
+  trace back to modeled states, controls, displays, regions, and hierarchy
+  levels.
 - Treat repeated information and repeated controls as reviewable design
   obligations: allow intentional duplication only when the model records why it
   is necessary, such as accessibility, persistent navigation, summary plus
   detail, or two user vocabularies for the same action.
 - Keep visual design, Figma execution, frontend implementation, browser QA, and
-  design review as downstream work, not proof that the UI flow model is sound.
+  design review as downstream work, not proof that the UI flow model, structure
+  derivation, or text hierarchy blueprint is sound.
 - Keep skipped, deferred, stale, or not-run checks visible.
 
 ## Workflow
@@ -45,23 +54,33 @@ need coordination.
    navigation ownership, display ownership, duplicate/redundancy rationale, and
    validation boundaries.
 5. Run `review_ui_structure_derivation(...)` when available.
-6. Hand the resulting UI structure contract to frontend, Figma, browser, or
-   design-review workflows only after the model and derivation are explicit.
+6. Derive the UI text hierarchy blueprint from the reviewed structure: page and
+   region headings, labels, action text, state/status messages, helper text,
+   validation text, recovery/error copy slots, and text priority/ownership.
+7. Hand the resulting UI structure and text hierarchy contract to frontend,
+   Figma, browser, copy/design, or design-review workflows only after the model,
+   derivation, and blueprint are explicit.
 
 ## Owned Helpers
 
 - `UIInteractionModel`, `UIControl`, `UIDisplayElement`, `UIStateNode`,
   `UITransition`
 - `UIStructureDerivation`, `UIRegionRecommendation`
+- `UITextHierarchyBlueprint`, `UITextElement`, `UITypographyToken`
 - `review_ui_interaction_model(...)`
 - `review_ui_structure_derivation(...)`
+- `review_ui_text_hierarchy(...)`
 - `ui-flow-structure-template`
 - `docs/ui_flow_structure.md`
 - `references/ui_flow_structure_protocol.md`
 
 ## Non-Goals
 
-- Do not choose brand style, typography, color palette, or visual polish.
+- Do not choose brand style, final font family, color palette, or visual
+  polish. Semantic typography tokens are allowed when they are derived from the
+  UI model and text hierarchy.
+- Do not write final brand copy or marketing language; produce the hierarchy,
+  ownership, and intent of UI text slots.
 - Do not implement frontend code.
 - Do not replace `frontend-design`, Figma, Browser checks, or
   `design-implementation-reviewer`.

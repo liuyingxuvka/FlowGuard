@@ -1,8 +1,9 @@
 # UI Flow Structure Protocol
 
 Use this route when UI design needs a model-first interaction structure before
-visual design or frontend implementation. The route has two stages: build or
-review a UI interaction model, then derive UI structure from that model.
+visual design or frontend implementation. The route has three stages: build or
+review a UI interaction model, derive UI structure from that model, then derive
+a UI text hierarchy blueprint from the reviewed structure.
 
 ## Trigger
 
@@ -17,10 +18,14 @@ Use UI Flow Structure when:
 - the agent needs to decide which functions are global, parent-level,
   child-level, contextual, local, destructive, terminal, or recovery actions;
 - the UI needs parent/child topology, menu levels, stable toolbar placement,
-  overlay hierarchy, or stage-dependent controls derived from behavior.
+  overlay hierarchy, or stage-dependent controls derived from behavior;
 - the UI may show the same information or expose the same function in multiple
   places, and the agent needs to distinguish useful redundancy from clutter,
-  conflict, or same-level duplication.
+  conflict, or same-level duplication;
+- the UI needs heading levels, labels, button text slots, status text,
+  helper text, empty/error/recovery copy slots, or text priority derived from
+  the modeled interaction and structure instead of invented late in visual
+  design.
 
 Skip with a reason when the request is a tiny visual-only edit with no
 behavior, state, navigation, or control-availability impact.
@@ -41,6 +46,8 @@ Collect the lightest fit-for-risk UI evidence:
 - UI states and parent/child state groups;
 - failure, recovery, cancel, retry, rollback, terminal, and export paths;
 - state availability: visible, enabled, disabled, hidden controls per state;
+- existing or proposed heading, label, button, status, helper, empty-state,
+  error, recovery, validation, and success text when available;
 - downstream validation boundaries such as scenario review, browser checks,
   implementation tests, Figma review, or design implementation review.
 
@@ -126,6 +133,60 @@ Known-bad hazards:
 - overlay controls are not represented as blocking or scoped child regions;
 - validation boundaries are missing.
 
+## Stage 3: UI Text Hierarchy Blueprint
+
+After the UI structure derivation is reviewed, derive the text hierarchy
+blueprint with `UITextHierarchyBlueprint`, `UITextElement`,
+`UITypographyToken`, and `review_ui_text_hierarchy(...)` when the package API is
+available. This is not final copywriting, brand voice, final font choice, or
+visual polish. It is the model-derived ownership, priority, and semantic
+typography-token map for UI text slots:
+
+- root page or surface title and its owning parent surface;
+- region headings and section labels for each derived region;
+- control labels for primary, secondary, contextual, local, destructive,
+  recovery, cancel, retry, export, and terminal actions;
+- status, progress, success, warning, failure, and terminal-state messages;
+- helper, validation, empty-state, recovery, confirmation, and diagnostic text
+  slots;
+- semantic information labels for displays, charts, cards, tables, and
+  summaries;
+- text priority by hierarchy level: global, parent workflow, contextual region,
+  local child item, overlay, or inline validation;
+- state-to-text map that names which text appears, changes, or disappears per
+  UI state;
+- control-to-label map that keeps action text aligned with modeled events and
+  control ownership;
+- display-to-label map that keeps semantic display labels aligned with the
+  display ownership map;
+- redundancy rationale when the same text intent appears in multiple places.
+
+Text hierarchy recommendations should be explicit:
+
+- top-level headings name the current parent surface or workflow stage, not a
+  local child action;
+- region headings describe owned state groups, displays, or child workflows;
+- primary action labels map to modeled progression events;
+- destructive, terminal, and recovery action labels must expose their modeled
+  consequence or recovery role;
+- status text belongs to the state or region that owns the state transition;
+- helper and validation text stay near the input, control, or child state they
+  constrain;
+- overlay text names the blocked or scoped parent interaction it interrupts.
+
+Known-bad hazards:
+
+- final UI copy is written before the interaction model and structure are
+  reviewed;
+- headings are chosen by visual size rather than parent/child structure;
+- a button label does not match its modeled event or consequence;
+- error or recovery text exists without a modeled failure or recovery path;
+- repeated labels or messages create competing sources of truth without
+  rationale;
+- text ownership is ambiguous across parent, child, overlay, and local regions;
+- downstream copy/design work receives only prose, not state/control/display
+  maps for the text slots.
+
 ## Recommendation Shape
 
 Produce a UI structure contract with:
@@ -140,9 +201,13 @@ Produce a UI structure contract with:
 - parent/child topology;
 - recovery and terminal behavior;
 - downstream validation boundaries;
-- rationale for grouping and placement decisions.
+- rationale for grouping and placement decisions;
 - rationale for intentional repetition, such as accessibility, persistent
-  navigation, summary plus details, or cross-page continuity.
+  navigation, summary plus details, or cross-page continuity;
+- UI text hierarchy blueprint: page/surface title, region headings, labels,
+  action text slots, state/status messages, helper/validation text, recovery
+  and error copy slots, semantic display labels, text ownership maps, priority
+  levels, and rationale for repeated text.
 
 ## Relationship To Other Routes
 
@@ -154,7 +219,7 @@ refactored and needs facade, dependency, parity, public-entrypoint, or release
 evidence.
 
 Use frontend, Figma, Browser, and design review workflows after the UI flow
-structure contract exists.
+structure and UI text hierarchy contracts exist.
 
 ## Completion Standard
 
@@ -166,6 +231,10 @@ The route is complete when:
 - the UI structure derivation names parent/child UI regions, menu levels,
   persistent/global controls, contextual controls, overlay hierarchy, stable
   layout positions, display ownership, validation boundaries, and rationale;
+- the UI text hierarchy blueprint names page/surface titles, region headings,
+  control labels, action text slots, status/state messages, helper/validation
+  text, error/recovery copy slots, semantic display labels, state/control/text
+  ownership, priority levels, and rationale for repeated text;
 - known-bad layout-only, unmodeled-control, missing-recovery, unstable-global,
-  repeated-information, duplicate-control, and wrong-level hazards are rejected
-  or explicitly out of scope.
+  repeated-information, duplicate-control, wrong-level, and unowned-text
+  hazards are rejected or explicitly out of scope.

@@ -23,8 +23,10 @@ validation evidence, irreversible process actions, development lifecycle
 ordering, artifact overwrite, evidence freshness, publication/release side
 effects, UI interaction topology, screen or region ownership, navigation state,
 component event flow, visible UI state transitions, validation/error states,
-parent/child UI structure derived from modeled user interactions, argument
-prerequisites, or decision commitments.
+parent/child UI structure derived from modeled user interactions, UI text
+hierarchy blueprint ownership for headings, labels, action text, status/helper
+messages, and error/recovery copy slots, argument prerequisites, or decision
+commitments.
 
 Skip only for clearly trivial copy edits, formatting-only changes, read-only
 explanation, or work with no behavior/state/process impact. If the boundary is
@@ -61,7 +63,7 @@ satellite skills. The routes are agent behavior protocols, not package APIs.
 | --- | --- | --- |
 | Ordinary model-first workflow, flow types, Risk Intent, state write inventory | `core_modeling` | `references/modeling_protocol.md` |
 | Direct architecture recommendation, model-derived implementation structure, pre-code module split planning | `code_structure_recommendation` | `flowguard-code-structure-recommendation` |
-| UI interaction flow model, screen/region topology, parent/child UI structure, navigation/state/event/display ownership, duplicate information, or overlapping same-level controls derived from modeled UI behavior | `ui_flow_structure` | `flowguard-ui-flow-structure` |
+| UI interaction flow model, screen/region topology, parent/child UI structure, navigation/state/event/display/text ownership, text hierarchy blueprint, duplicate information, or overlapping same-level controls derived from modeled UI behavior | `ui_flow_structure` | `flowguard-ui-flow-structure` |
 | FlowGuard model obligations, optional code external contracts, and ordinary test evidence need direct comparison | `model_test_alignment` | `flowguard-model-test-alignment` |
 | Three or more local FlowGuard models, oversized model, stale child evidence, parent/child model partition | `model_mesh_maintenance` | `flowguard-model-mesh` |
 | Large test script/suite split, parent/child test hierarchy, slow/background/stale/skipped/release-only validation evidence | `test_mesh_maintenance` | `flowguard-test-mesh` |
@@ -137,7 +139,8 @@ Codex skill:
 - Development lifecycle helpers such as `review_development_process_flow()`
   and `derive_revalidation_plan()`.
 - UI flow structure helpers such as `UIDisplayElement`,
-  `review_ui_interaction_model()`, and `review_ui_structure_derivation()`.
+  `UITextHierarchyBlueprint`, `review_ui_interaction_model()`,
+  `review_ui_structure_derivation()`, and `review_ui_text_hierarchy()`.
 - Template CLIs such as `project-template`, `risk-intent-template`,
   `model-miss-template`, `model-test-alignment-template`,
   `ui-flow-structure-template`, `development-process-flow-template`,
@@ -164,8 +167,10 @@ clearly matches that route; otherwise start here in the kernel.
   implementation structure recommendation, ownership maps, facades, and
   validation boundaries.
 - `flowguard-ui-flow-structure`: directly invokable route for building a UI
-  interaction model first, then deriving parent/child UI topology, menu levels,
-  overlays, stable control placement, and interface hierarchy.
+  interaction model first, deriving parent/child UI topology, menu levels,
+  overlays, stable control placement, and interface hierarchy, then deriving a
+  UI text hierarchy blueprint for headings, labels, action text, state/status
+  messages, helper text, and error/recovery copy slots.
 - `references/model_test_alignment_protocol.md`: direct model-obligation,
   optional code external contract, and ordinary test-evidence alignment without
   TestMesh, StructureMesh, or ModelMesh.
