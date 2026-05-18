@@ -1,5 +1,28 @@
 # Changelog
 
+## v0.12.0 - 2026-05-18
+
+- Upgraded Model-Test Alignment so `review_model_test_alignment(...)` can
+  compare FlowGuard model obligations, optional code external contracts, and
+  ordinary test evidence in one direct review.
+- Added `CodeContract`, code-contract role constants, test assertion-scope
+  constants, and optional external-contract fields on `ModelObligation`,
+  `TestEvidence`, and `ModelTestAlignmentPlan`.
+- Added findings for missing code contract owners, code contracts that miss
+  model-declared external behavior, exact contracts that add extra external
+  behavior, missing code-contract test evidence, tests that bind only model
+  obligations when code contracts are in scope, internal-path-only tests,
+  unknown code contract references, duplicate code contract owners, and
+  model-code-test binding mismatches.
+- Kept model-test-only reviews backward compatible: code contracts are optional
+  unless a plan explicitly requires them.
+- Updated the Model-Test Alignment template, CLI help, public documentation,
+  README, API surface docs, Skill Kernel route guidance, AGENTS snippet,
+  OpenSpec artifacts, focused tests, and a FlowGuard rollout model for the new
+  contract-alignment hazards.
+- Schema remains `1.0`; runtime dependencies remain Python standard library
+  only.
+
 ## v0.11.0 - 2026-05-17
 
 - Added Code Structure Recommendation helper APIs:

@@ -1,5 +1,6 @@
 import unittest
 
+import flowguard
 from flowguard import (
     ModelObligation,
     ModelTestAlignmentPlan,
@@ -10,10 +11,25 @@ from flowguard import (
 )
 
 
+def api_name(name):
+    return getattr(flowguard, name)
+
+
 def obligation(obligation_id, **kwargs):
     defaults = {"required_test_kinds": (TEST_KIND_HAPPY_PATH,)}
     defaults.update(kwargs)
     return ModelObligation(obligation_id, **defaults)
+
+
+def code_contract(contract_id, *covered, **kwargs):
+    defaults = {
+        "path": "checkout/service.py",
+        "symbol": "CheckoutService.submit",
+        "role": api_name("CODE_CONTRACT_ROLE_OWNER"),
+        "implements_obligations": tuple(covered),
+    }
+    defaults.update(kwargs)
+    return api_name("CodeContract")(contract_id, **defaults)
 
 
 def evidence(evidence_id, *covered, **kwargs):
@@ -27,8 +43,21 @@ def evidence(evidence_id, *covered, **kwargs):
     return TestEvidence(evidence_id, **defaults)
 
 
+def contract_evidence(evidence_id, obligation_id, contract_id, **kwargs):
+    defaults = {
+        "covered_code_contracts": (contract_id,),
+        "assertion_scope": api_name("TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT"),
+    }
+    defaults.update(kwargs)
+    return evidence(evidence_id, obligation_id, **defaults)
+
+
+def finding_codes(report):
+    return [finding.code for finding in report.findings]
+
+
 class ModelTestAlignmentTests(unittest.TestCase):
-    def test_complete_alignment_can_continue(self):
+    def test_legacy_model_test_only_alignment_can_continue(self):
         plan = ModelTestAlignmentPlan(
             model_id="checkout",
             obligations=(
@@ -48,6 +77,271 @@ class ModelTestAlignmentTests(unittest.TestCase):
         self.assertEqual([], report.to_dict()["findings"])
         self.assertIn("flowguard model-test alignment", report.format_text())
 
+    def test_model_code_contract_and_test_evidence_alignment_can_continue(self):
+        plan = ModelTestAlignmentPlan(
+            model_id="checkout",
+            obligations=(
+                obligation(
+                    "accept_valid_order",
+                    external_inputs=("order",),
+                    external_outputs=("accepted",),
+                ),
+                obligation(
+                    "reject_duplicate_order",
+                    required_test_kinds=(TEST_KIND_HAPPY_PATH, TEST_KIND_FAILURE_PATH),
+                    external_inputs=("order",),
+                    external_outputs=("rejected_duplicate",),
+                    side_effects=("preserve_single_write",),
+                ),
+            ),
+            code_contracts=(
+                code_contract(
+                    "checkout.submit",
+                    "accept_valid_order",
+                    external_inputs=("order",),
+                    external_outputs=("accepted",),
+                ),
+                code_contract(
+                    "checkout.reject_duplicate",
+                    "reject_duplicate_order",
+                    external_inputs=("order",),
+                    external_outputs=("rejected_duplicate",),
+                    side_effects=("preserve_single_write",),
+                ),
+            ),
+            test_evidence=(
+                contract_evidence(
+                    "test_accept_valid_order",
+                    "accept_valid_order",
+                    "checkout.submit",
+                ),
+                contract_evidence(
+                    "test_reject_duplicate_order_happy",
+                    "reject_duplicate_order",
+                    "checkout.reject_duplicate",
+                ),
+                contract_evidence(
+                    "test_reject_duplicate_order_failure",
+                    "reject_duplicate_order",
+                    "checkout.reject_duplicate",
+                    test_kind=TEST_KIND_FAILURE_PATH,
+                ),
+            ),
+        )
+
+        report = review_model_test_alignment(plan)
+
+        self.assertTrue(report.ok)
+        self.assertEqual("model_test_alignment_green", report.decision)
+        self.assertEqual([], report.to_dict()["findings"])
+        self.assertEqual(
+            ["checkout.submit", "checkout.reject_duplicate"],
+            [item["code_contract_id"] for item in plan.to_dict()["code_contracts"]],
+        )
+
+    def test_missing_code_contract_blocks_required_external_contract(self):
+        plan = ModelTestAlignmentPlan(
+            model_id="checkout",
+            obligations=(
+                obligation(
+                    "accept_valid_order",
+                    external_inputs=("order",),
+                    external_outputs=("accepted",),
+                ),
+                obligation(
+                    "reject_duplicate_order",
+                    external_inputs=("order",),
+                    external_outputs=("rejected_duplicate",),
+                ),
+            ),
+            code_contracts=(
+                code_contract(
+                    "checkout.submit",
+                    "accept_valid_order",
+                    external_inputs=("order",),
+                    external_outputs=("accepted",),
+                ),
+            ),
+            test_evidence=(
+                contract_evidence(
+                    "test_accept_valid_order",
+                    "accept_valid_order",
+                    "checkout.submit",
+                ),
+                evidence("test_reject_duplicate_order", "reject_duplicate_order"),
+            ),
+        )
+
+        report = review_model_test_alignment(plan)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("missing_code_contract", report.decision)
+        self.assertIn("missing_code_contract", finding_codes(report))
+
+    def test_code_contract_extra_behavior_blocks_green(self):
+        plan = ModelTestAlignmentPlan(
+            model_id="checkout",
+            obligations=(
+                obligation(
+                    "accept_valid_order",
+                    external_inputs=("order",),
+                    external_outputs=("accepted",),
+                    exact_external_contract=True,
+                ),
+            ),
+            code_contracts=(
+                code_contract(
+                    "checkout.submit",
+                    "accept_valid_order",
+                    external_inputs=("order",),
+                    external_outputs=("accepted", "silently_upgraded"),
+                ),
+            ),
+            test_evidence=(
+                contract_evidence(
+                    "test_accept_valid_order",
+                    "accept_valid_order",
+                    "checkout.submit",
+                ),
+            ),
+        )
+
+        report = review_model_test_alignment(plan)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("code_contract_extra_behavior", report.decision)
+        self.assertIn("code_contract_extra_behavior", finding_codes(report))
+
+    def test_code_contract_missing_behavior_blocks_green(self):
+        plan = ModelTestAlignmentPlan(
+            model_id="checkout",
+            obligations=(
+                obligation(
+                    "reject_duplicate_order",
+                    external_inputs=("order",),
+                    external_outputs=("rejected_duplicate",),
+                    side_effects=("preserve_single_write",),
+                ),
+            ),
+            code_contracts=(
+                code_contract(
+                    "checkout.reject_duplicate",
+                    "reject_duplicate_order",
+                    external_inputs=("order",),
+                    external_outputs=("rejected_duplicate",),
+                ),
+            ),
+            test_evidence=(
+                contract_evidence(
+                    "test_reject_duplicate_order",
+                    "reject_duplicate_order",
+                    "checkout.reject_duplicate",
+                ),
+            ),
+        )
+
+        report = review_model_test_alignment(plan)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("code_contract_missing_behavior", report.decision)
+        self.assertIn("code_contract_missing_behavior", finding_codes(report))
+
+    def test_model_test_evidence_must_bind_to_code_contract(self):
+        plan = ModelTestAlignmentPlan(
+            model_id="checkout",
+            obligations=(
+                obligation(
+                    "accept_valid_order",
+                    external_inputs=("order",),
+                    external_outputs=("accepted",),
+                ),
+            ),
+            code_contracts=(
+                code_contract(
+                    "checkout.submit",
+                    "accept_valid_order",
+                    external_inputs=("order",),
+                    external_outputs=("accepted",),
+                ),
+            ),
+            test_evidence=(evidence("test_accept_valid_order", "accept_valid_order"),),
+        )
+
+        report = review_model_test_alignment(plan)
+        codes = set(finding_codes(report))
+
+        self.assertFalse(report.ok)
+        self.assertTrue(
+            {"test_not_bound_to_code_contract", "missing_code_contract_test_evidence"} & codes,
+            codes,
+        )
+
+    def test_internal_path_only_test_does_not_satisfy_code_contract(self):
+        plan = ModelTestAlignmentPlan(
+            model_id="checkout",
+            obligations=(
+                obligation(
+                    "accept_valid_order",
+                    external_inputs=("order",),
+                    external_outputs=("accepted",),
+                ),
+            ),
+            code_contracts=(
+                code_contract(
+                    "checkout.submit",
+                    "accept_valid_order",
+                    external_inputs=("order",),
+                    external_outputs=("accepted",),
+                ),
+            ),
+            test_evidence=(
+                contract_evidence(
+                    "test_accept_valid_order_internal_helper",
+                    "accept_valid_order",
+                    "checkout.submit",
+                    assertion_scope=api_name("TEST_ASSERTION_SCOPE_INTERNAL_PATH"),
+                ),
+            ),
+        )
+
+        report = review_model_test_alignment(plan)
+
+        self.assertFalse(report.ok)
+        self.assertIn("test_checks_internal_path_only", finding_codes(report))
+
+    def test_unknown_code_contract_reference_is_visible(self):
+        plan = ModelTestAlignmentPlan(
+            model_id="checkout",
+            obligations=(
+                obligation(
+                    "accept_valid_order",
+                    external_inputs=("order",),
+                    external_outputs=("accepted",),
+                ),
+            ),
+            code_contracts=(
+                code_contract(
+                    "checkout.submit",
+                    "accept_valid_order",
+                    external_inputs=("order",),
+                    external_outputs=("accepted",),
+                ),
+            ),
+            test_evidence=(
+                contract_evidence(
+                    "test_accept_valid_order",
+                    "accept_valid_order",
+                    "checkout.submit",
+                    covered_code_contracts=("checkout.submit", "checkout.not_declared"),
+                ),
+            ),
+        )
+
+        report = review_model_test_alignment(plan)
+
+        self.assertFalse(report.ok)
+        self.assertIn("unknown_code_contract_reference", finding_codes(report))
+
     def test_missing_test_evidence_blocks_green(self):
         plan = ModelTestAlignmentPlan(
             model_id="checkout",
@@ -59,7 +353,7 @@ class ModelTestAlignmentTests(unittest.TestCase):
 
         self.assertFalse(report.ok)
         self.assertEqual("missing_test_evidence", report.decision)
-        self.assertIn("missing_test_evidence", [finding.code for finding in report.findings])
+        self.assertIn("missing_test_evidence", finding_codes(report))
 
     def test_orphan_and_unknown_test_evidence_are_visible(self):
         plan = ModelTestAlignmentPlan(
@@ -73,7 +367,7 @@ class ModelTestAlignmentTests(unittest.TestCase):
         )
 
         report = review_model_test_alignment(plan)
-        codes = [finding.code for finding in report.findings]
+        codes = finding_codes(report)
 
         self.assertFalse(report.ok)
         self.assertEqual("orphan_test_evidence", report.decision)
@@ -119,7 +413,7 @@ class ModelTestAlignmentTests(unittest.TestCase):
                 )
 
                 report = review_model_test_alignment(plan)
-                codes = [finding.code for finding in report.findings]
+                codes = finding_codes(report)
 
                 self.assertFalse(report.ok)
                 self.assertIn("missing_test_evidence", codes)
@@ -140,7 +434,7 @@ class ModelTestAlignmentTests(unittest.TestCase):
 
         self.assertFalse(report.ok)
         self.assertEqual("missing_required_test_kind", report.decision)
-        self.assertIn("missing_required_test_kind", [finding.code for finding in report.findings])
+        self.assertIn("missing_required_test_kind", finding_codes(report))
 
     def test_distinct_required_kinds_are_not_duplicate_ownership(self):
         plan = ModelTestAlignmentPlan(

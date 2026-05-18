@@ -82,13 +82,18 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("flowguard model-test alignment", output)
         self.assertIn("missing_required_test_kind", output)
 
-    def test_model_test_alignment_template_is_not_mesh_coupled(self):
+    def test_model_test_alignment_template_covers_code_contracts_without_mesh_helpers(self):
         files = model_test_alignment_template_files()
         combined = "\n".join(file.content for file in files)
 
         self.assertIn("does not use TestMesh, StructureMesh, or ModelMesh", combined)
         self.assertIn("plain model obligations", combined)
-        self.assertIn("plain test evidence", combined)
+        self.assertIn("plain test", combined)
+        self.assertIn("evidence", combined)
+        self.assertIn("code external contracts", combined)
+        self.assertIn("CodeContract", combined)
+        self.assertIn("covered code contract ids", combined)
+        self.assertNotIn("review_hierarchical_mesh", combined)
         self.assertNotIn("review_test_mesh", combined)
         self.assertNotIn("review_structure_mesh", combined)
 

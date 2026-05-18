@@ -1,86 +1,68 @@
 # Model-Test Alignment
 
-Model-Test Alignment checks whether a FlowGuard model's explicit obligations
-and ordinary test evidence cover the same behavioral surface.
+Model-Test Alignment compares a FlowGuard model's explicit obligations with
+ordinary test evidence and, when supplied, code external contracts. It is still
+a direct alignment helper: it does not split tests, refactor source code, or
+read TestMesh, StructureMesh, or ModelMesh reports.
 
-It is intentionally small:
+Use it before claiming that model coverage, code behavior, and test coverage
+describe the same behavioral surface.
 
-```text
-ModelObligation rows + TestEvidence rows
-  -> review_model_test_alignment(...)
-  -> missing evidence, orphan tests, duplicate claims, stale evidence, and
-     missing required test kinds
-```
+## Inputs
 
-It does not split tests, split source code, run pytest, or read TestMesh,
-StructureMesh, or ModelMesh reports.
+List model obligations with `ModelObligation`:
 
-## Basic Use
+- obligation id, type, description, and required flag;
+- required test kinds such as `happy_path`, `failure_path`, `edge_path`,
+  `negative_path`, or `replay`;
+- external inputs and outputs;
+- state reads and writes;
+- side effects and error paths;
+- `exact_external_contract=True` when code-visible extras should block
+  confidence.
 
-```python
-from flowguard import (
-    ModelObligation,
-    ModelTestAlignmentPlan,
-    TestEvidence,
-    TEST_KIND_FAILURE_PATH,
-    TEST_KIND_HAPPY_PATH,
-    review_model_test_alignment,
-)
+List code external contracts with `CodeContract` when model-to-code alignment
+is in scope:
 
-plan = ModelTestAlignmentPlan(
-    model_id="checkout_model",
-    obligations=(
-        ModelObligation(
-            "reject_duplicate_order",
-            obligation_type="hazard",
-            required_test_kinds=(TEST_KIND_HAPPY_PATH, TEST_KIND_FAILURE_PATH),
-        ),
-    ),
-    test_evidence=(
-        TestEvidence(
-            "test_reject_duplicate_order",
-            test_name="test_reject_duplicate_order",
-            path="tests/test_checkout.py",
-            result_status="passed",
-            test_kind=TEST_KIND_FAILURE_PATH,
-            covered_obligations=("reject_duplicate_order",),
-        ),
-    ),
-)
+- code contract id, path, symbol, and surface type;
+- role: owner, helper, adapter, facade, or read-only support;
+- implemented model obligation ids;
+- external inputs and outputs;
+- state reads and writes;
+- side effects and error paths.
 
-report = review_model_test_alignment(plan)
-print(report.format_text())
-```
+List test evidence with `TestEvidence`:
+
+- evidence id, test name, path, and command;
+- result status and freshness;
+- test kind;
+- covered model obligation ids;
+- covered code contract ids;
+- assertion scope, especially whether the test proves the external contract or
+  only an internal path.
 
 ## Findings
 
-The report keeps these gaps visible:
+The review keeps these gaps visible:
 
-- `missing_test_evidence`: a required model obligation has no current passing
-  test evidence.
-- `missing_required_test_kind`: an obligation requires a path kind that is not
-  covered.
-- `orphan_test_evidence`: a test is not bound to any model obligation.
-- `unknown_obligation_reference`: a test references an obligation the model
-  does not declare.
-- `duplicate_test_evidence_owner`: multiple current passing tests claim the
-  same obligation and kind without explicit shared intent.
-- `stale_test_evidence`: passing evidence is stale and cannot support current
-  coverage.
-- `test_evidence_not_passing`: skipped, failed, timeout, not-run, running, or
-  error evidence is visible but not coverage.
-- `test_overclaims_model_confidence`: a test claims broader model confidence
-  than its obligation bindings prove.
+- model obligations with no current passing test evidence;
+- missing required test kinds;
+- stale, skipped, failed, timeout, not-run, running, or error evidence;
+- orphan tests, unknown obligation references, and duplicate same-kind test
+  evidence owners;
+- model obligations with no code external contract owner;
+- code contracts that miss model-declared external behavior;
+- exact code contracts that add model-forbidden external behavior;
+- tests that cover a model obligation without binding the code contract they
+  are meant to prove;
+- tests that bind a code contract but only inspect internal implementation
+  paths;
+- model, code, and test bindings that do not refer to the same obligation.
 
-## Template
+## Boundary
 
-Generate a starter review:
-
-```powershell
-python -m flowguard model-test-alignment-template --output .
-python .flowguard/model_test_alignment/run_checks.py
-```
-
-Use TestMesh separately only when a large or slow validation flow needs
-parent/child suite ownership. Use StructureMesh separately only when source
-structure is being split.
+This helper is not TestMesh and not StructureMesh. Use TestMesh when the
+validation flow itself needs parent/child suite ownership. Use StructureMesh
+when a large script, module, command, or API surface is being split. Model-Test
+Alignment stays focused on declared obligations, optional code external
+contracts, and the tests that prove them.

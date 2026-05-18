@@ -1240,12 +1240,17 @@ Created with FlowGuard:
 https://github.com/liuyingxuvka/FlowGuard
 
 Purpose:
-Reviews whether explicit FlowGuard model obligations and ordinary test
-evidence describe the same behavioral surface.
+Reviews whether explicit FlowGuard model obligations, optional code external
+contracts, and ordinary test evidence describe the same behavioral surface.
 
 Guards against:
 - model scenarios, invariants, hazards, or transitions with no test evidence;
+- model obligations with no code external contract owner;
+- code functions or entrypoints that miss model-declared external behavior;
+- code functions or entrypoints that add model-forbidden external behavior;
 - tests that are not bound to any model obligation;
+- tests that are not bound to the code contract they are meant to prove;
+- tests that inspect only internal paths while claiming external contract proof;
 - duplicate tests claiming the same model obligation without clear intent;
 - risky model paths covered only by happy-path tests;
 - stale, skipped, failed, timeout, not-run, or overclaiming test evidence.
@@ -1258,14 +1263,18 @@ Run:
 python .flowguard/model_test_alignment/run_checks.py
 
 This template does not use TestMesh, StructureMesh, or ModelMesh. It compares
-plain model obligations with plain test evidence.
+plain model obligations, optional code external contracts, and plain test
+evidence.
 """
 
 from __future__ import annotations
 
 from flowguard import (
+    CodeContract,
     ModelObligation,
     ModelTestAlignmentPlan,
+    TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
+    TEST_ASSERTION_SCOPE_INTERNAL_PATH,
     TEST_KIND_FAILURE_PATH,
     TEST_KIND_HAPPY_PATH,
     TestEvidence,
@@ -1281,13 +1290,43 @@ def aligned_plan() -> ModelTestAlignmentPlan:
                 "accept_valid_order",
                 obligation_type="scenario",
                 description="valid order reaches Accepted",
+                external_inputs=("order_id", "payment_token"),
+                external_outputs=("Accepted",),
+                state_writes=("order_status",),
                 required_test_kinds=(TEST_KIND_HAPPY_PATH,),
             ),
             ModelObligation(
                 "reject_duplicate_order",
                 obligation_type="hazard",
                 description="duplicate order is rejected without a second side effect",
+                external_inputs=("order_id",),
+                external_outputs=("Rejected",),
+                state_reads=("order_status",),
+                side_effects=(),
+                error_paths=("duplicate_order",),
+                exact_external_contract=True,
                 required_test_kinds=(TEST_KIND_HAPPY_PATH, TEST_KIND_FAILURE_PATH),
+            ),
+        ),
+        code_contracts=(
+            CodeContract(
+                "checkout_accept_order",
+                path="checkout/service.py",
+                symbol="accept_order",
+                implements_obligations=("accept_valid_order",),
+                external_inputs=("order_id", "payment_token"),
+                external_outputs=("Accepted",),
+                state_writes=("order_status",),
+            ),
+            CodeContract(
+                "checkout_reject_duplicate",
+                path="checkout/service.py",
+                symbol="reject_duplicate_order",
+                implements_obligations=("reject_duplicate_order",),
+                external_inputs=("order_id",),
+                external_outputs=("Rejected",),
+                state_reads=("order_status",),
+                error_paths=("duplicate_order",),
             ),
         ),
         test_evidence=(
@@ -1298,6 +1337,8 @@ def aligned_plan() -> ModelTestAlignmentPlan:
                 result_status="passed",
                 test_kind=TEST_KIND_HAPPY_PATH,
                 covered_obligations=("accept_valid_order",),
+                covered_code_contracts=("checkout_accept_order",),
+                assertion_scope=TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
             ),
             TestEvidence(
                 "test_reject_duplicate_order_happy",
@@ -1306,6 +1347,8 @@ def aligned_plan() -> ModelTestAlignmentPlan:
                 result_status="passed",
                 test_kind=TEST_KIND_HAPPY_PATH,
                 covered_obligations=("reject_duplicate_order",),
+                covered_code_contracts=("checkout_reject_duplicate",),
+                assertion_scope=TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
             ),
             TestEvidence(
                 "test_reject_duplicate_order_failure",
@@ -1314,6 +1357,8 @@ def aligned_plan() -> ModelTestAlignmentPlan:
                 result_status="passed",
                 test_kind=TEST_KIND_FAILURE_PATH,
                 covered_obligations=("reject_duplicate_order",),
+                covered_code_contracts=("checkout_reject_duplicate",),
+                assertion_scope=TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
             ),
         ),
     )
@@ -1326,7 +1371,22 @@ def broken_plan() -> ModelTestAlignmentPlan:
             ModelObligation(
                 "reject_duplicate_order",
                 obligation_type="hazard",
+                external_outputs=("Rejected",),
+                side_effects=(),
+                error_paths=("duplicate_order",),
+                exact_external_contract=True,
                 required_test_kinds=(TEST_KIND_HAPPY_PATH, TEST_KIND_FAILURE_PATH),
+            ),
+        ),
+        code_contracts=(
+            CodeContract(
+                "checkout_reject_duplicate",
+                path="checkout/service.py",
+                symbol="reject_duplicate_order",
+                implements_obligations=("reject_duplicate_order",),
+                external_outputs=("Rejected",),
+                side_effects=("publish_duplicate_metric",),
+                error_paths=("duplicate_order",),
             ),
         ),
         test_evidence=(
@@ -1337,6 +1397,8 @@ def broken_plan() -> ModelTestAlignmentPlan:
                 result_status="passed",
                 test_kind=TEST_KIND_HAPPY_PATH,
                 covered_obligations=("reject_duplicate_order",),
+                covered_code_contracts=("checkout_reject_duplicate",),
+                assertion_scope=TEST_ASSERTION_SCOPE_INTERNAL_PATH,
             ),
             TestEvidence(
                 "test_unbound_helper",
@@ -1376,7 +1438,7 @@ if __name__ == "__main__":
 MODEL_TEST_ALIGNMENT_NOTES_TEMPLATE = """# FlowGuard Model-Test Alignment Notes
 
 Use this scaffold to compare a FlowGuard model's explicit obligations with
-ordinary test evidence.
+optional code external contracts and ordinary test evidence.
 
 ## Inputs
 
@@ -1386,8 +1448,24 @@ List model obligations:
 - invariant ids;
 - hazard ids;
 - state-transition or input/output contract ids;
+- external inputs and outputs;
+- state reads and writes;
+- side effects and error paths;
+- whether the external contract is exact, so extra code-visible behavior blocks
+  confidence;
 - required test kinds such as happy path, failure path, edge path, negative
   path, or replay.
+
+List code external contracts when the review needs model-to-code alignment:
+
+- code contract id;
+- path, symbol, and surface type;
+- whether the surface is the obligation owner, helper, adapter, facade, or
+  read-only support;
+- implemented model obligation ids;
+- external inputs and outputs;
+- state reads and writes;
+- side effects and error paths.
 
 List test evidence:
 
@@ -1397,13 +1475,17 @@ List test evidence:
 - pass, fail, timeout, skipped, not-run, running, or error status;
 - freshness and stale reasons;
 - covered model obligation ids.
+- covered code contract ids;
+- assertion scope, especially whether the test proves the external contract or
+  only an internal path.
 
 ## Boundary
 
-Model-Test Alignment does not split tests and does not split source code. Use
-TestMesh only when a large validation flow needs parent/child test hierarchy
-ownership. Use StructureMesh only when a large script, module, command, or API
-surface is being split.
+Model-Test Alignment does not split tests, refactor source code, or read mesh
+reports. It compares declared obligations, optional external code contracts,
+and evidence. Use TestMesh only when a large validation flow needs parent/child
+test hierarchy ownership. Use StructureMesh only when a large script, module,
+command, or API surface is being split.
 """
 
 
@@ -1935,7 +2017,7 @@ def model_test_alignment_template_files() -> tuple[TemplateFile, ...]:
     return (
         TemplateFile(".flowguard/model_test_alignment/model.py", MODEL_TEST_ALIGNMENT_MODEL_TEMPLATE),
         TemplateFile(".flowguard/model_test_alignment/run_checks.py", MODEL_TEST_ALIGNMENT_RUN_CHECKS_TEMPLATE),
-        TemplateFile("docs/flowguard_model_test_alignment.md", MODEL_TEST_ALIGNMENT_NOTES_TEMPLATE),
+        TemplateFile("docs/model_test_alignment.md", MODEL_TEST_ALIGNMENT_NOTES_TEMPLATE),
     )
 
 

@@ -24,8 +24,8 @@ Before changing files, separate three situations:
   adoption evidence appear stale. Update those artifacts before making claims
   from them.
 - `model_test_alignment`: model obligations and ordinary tests both exist, and
-  the risk is whether scenarios, invariants, hazards, transitions, or contracts
-  have matching current test evidence.
+  the risk is whether scenarios, invariants, hazards, transitions, contracts,
+  or optional code external contracts have matching current test evidence.
 - `test_mesh_maintenance`: validation is too large, broad, stale-prone, or
   layered to trust as one flat test command or script. Build a TestMesh that
   partitions parent test confidence into child-suite/script ownership and
@@ -88,18 +88,25 @@ Before trusting a claim that model coverage and test coverage agree, ask
 whether the model obligations need a direct test-evidence alignment review.
 Trigger Model-Test Alignment when a FlowGuard model has explicit scenarios,
 invariants, hazards, state transitions, or input/output contracts and ordinary
-tests are expected to prove those obligations.
+tests are expected to prove those obligations. If the reviewed behavior also
+depends on a public function, API, CLI, facade, adapter, persisted output, or
+other externally visible code surface, include optional code external contract
+rows in the same direct review.
 
 Model-Test Alignment is not a mesh route. It does not split tests, split code,
-or read TestMesh, StructureMesh, or ModelMesh reports. It compares
-`ModelObligation` rows with `TestEvidence` rows and reports missing evidence,
-orphan tests, duplicate same-kind test claims, stale/non-passing evidence,
-missing required test kinds, and overclaimed model confidence.
+split models, or read TestMesh, StructureMesh, or ModelMesh reports. It
+compares `ModelObligation` rows, optional `CodeContract` rows, and
+`TestEvidence` rows and reports missing evidence, missing or mismatched code
+contracts, orphan tests, orphan code contracts, duplicate same-kind test
+claims, duplicate code contract owners, internal-path-only tests,
+model-code-test binding mismatches, stale/non-passing evidence, missing
+required test kinds, and overclaimed model confidence.
 Use `review_model_test_alignment(...)` for this direct comparison.
 
 Use TestMesh only when the validation flow itself is large, slow, layered, or
 needs parent/child suite ownership. Use StructureMesh only when a large script,
-module, command, or API surface is being split.
+module, command, or API surface is being split. Use ModelMesh only when the
+risk is parent/child model evidence or model partitioning.
 
 Read
 `.agents/skills/model-first-function-flow/references/model_test_alignment_protocol.md`

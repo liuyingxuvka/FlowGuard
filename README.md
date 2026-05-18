@@ -12,7 +12,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.11.0` | `1.0` | Python standard library only | MIT |
+| `v0.12.0` | `1.0` | Python standard library only | MIT |
 
 English lead content comes first; a full Chinese mirror follows below.
 
@@ -347,20 +347,26 @@ python .flowguard/code_structure_recommendation/run_checks.py
 See [docs/code_structure_recommendation.md](docs/code_structure_recommendation.md)
 for the API and workflow.
 
-### Model-Test Alignment In v0.10.0
+### Model-Test Alignment In v0.10.0 And v0.12.0
 
-`v0.10.0` adds a standalone Model-Test Alignment helper for checking whether a
-FlowGuard model and ordinary tests cover the same obligations. Use
-`ModelObligation`, `TestEvidence`, `ModelTestAlignmentPlan`, and
-`review_model_test_alignment(...)` when scenarios, invariants, hazards, state
-transitions, or input/output contracts need matching current test evidence.
+`v0.10.0` added a standalone Model-Test Alignment helper for checking whether a
+FlowGuard model and ordinary tests cover the same obligations. The helper now
+also accepts optional code external contracts, so one review can compare model
+obligations, code-visible behavior, and test evidence without invoking a mesh
+route. Use `ModelObligation`, `CodeContract`, `TestEvidence`,
+`ModelTestAlignmentPlan`, and `review_model_test_alignment(...)` when
+scenarios, invariants, hazards, state transitions, or input/output contracts
+need matching current test evidence and code contract proof.
 
-The review flags missing test evidence, orphan tests, unknown obligation
-references, duplicate same-kind test claims, stale or non-passing evidence,
-missing required test kinds, and tests that overclaim model confidence.
+The review flags missing test evidence, orphan tests, unknown obligation or
+code-contract references, duplicate same-kind test claims, stale or non-passing
+evidence, missing required test kinds, tests that overclaim model confidence,
+missing code contract owners, code contracts that miss model-declared external
+behavior, exact contracts that add model-forbidden external behavior, and tests
+that inspect only internal paths while claiming external contract proof.
 
-This is not TestMesh and not StructureMesh. It does not split tests or code and
-does not read mesh reports. Use TestMesh only when the validation flow itself
+This is not TestMesh and not StructureMesh. It does not split tests, refactor
+code, or read mesh reports. Use TestMesh only when the validation flow itself
 needs parent/child test hierarchy ownership. Use StructureMesh only when source
 structure is being split.
 
@@ -1362,19 +1368,22 @@ python .flowguard/code_structure_recommendation/run_checks.py
 完整说明见
 [docs/code_structure_recommendation.md](docs/code_structure_recommendation.md)。
 
-### v0.10.0 的 Model-Test Alignment
+### v0.10.0 和 v0.12.0 的 Model-Test Alignment
 
 `v0.10.0` 增加了独立的 Model-Test Alignment helper，用来检查 FlowGuard 模型
-和普通测试是否覆盖同一组义务。当模型里的 scenario、invariant、hazard、state
-transition 或 input/output contract 需要对应的当前测试证据时，可以用
-`ModelObligation`、`TestEvidence`、`ModelTestAlignmentPlan` 和
-`review_model_test_alignment(...)`。
+和普通测试是否覆盖同一组义务。这个 helper 现在也可以接收可选的代码外部契约，所以同一个
+review 可以对照模型义务、代码可见行为和测试证据，而不需要启动 mesh 路线。当模型里的
+scenario、invariant、hazard、state transition 或 input/output contract 需要对应的
+当前测试证据和代码契约证明时，可以用 `ModelObligation`、`CodeContract`、
+`TestEvidence`、`ModelTestAlignmentPlan` 和 `review_model_test_alignment(...)`。
 
-这个 review 会标出缺少测试证据的模型义务、没有绑定模型义务的孤儿测试、引用未知义务的
-测试、重复声明同一种义务覆盖的测试、stale 或非 pass 的证据、缺少 failure/edge/replay
-等必要测试路径，以及测试报告过度声明模型置信度的问题。
+这个 review 会标出缺少测试证据的模型义务、没有绑定模型义务的孤儿测试、引用未知义务或
+未知代码契约的测试、重复声明同一种义务覆盖的测试、stale 或非 pass 的证据、缺少
+failure/edge/replay 等必要测试路径、测试报告过度声明模型置信度、缺少代码契约 owner、
+代码契约少做模型要求的外部行为、exact 契约多做模型没有允许的外部行为，以及只检查内部路径
+却声称证明外部契约的测试。
 
-它不是 TestMesh，也不是 StructureMesh。它不会拆测试、不会拆代码，也不会读取 mesh
+它不是 TestMesh，也不是 StructureMesh。它不会拆测试、不会重构代码，也不会读取 mesh
 报告。只有当测试流程本身需要父子测试层级 ownership 时才用 TestMesh；只有当源码结构
 被拆分时才用 StructureMesh。
 

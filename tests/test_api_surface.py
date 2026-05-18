@@ -43,6 +43,26 @@ class ApiSurfaceTests(unittest.TestCase):
         self.assertIn("build_evidence_baseline_report", flowguard.EVIDENCE_API)
         self.assertNotIn("build_executable_corpus_report", flowguard.CORE_API)
 
+    def test_model_test_alignment_code_contract_api_is_public_helper(self):
+        expected = (
+            "CodeContract",
+            "TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT",
+            "TEST_ASSERTION_SCOPE_INTERNAL_PATH",
+            "TEST_ASSERTION_SCOPE_MIXED",
+            "TEST_ASSERTION_SCOPE_UNKNOWN",
+            "CODE_CONTRACT_ROLE_OWNER",
+            "CODE_CONTRACT_ROLE_HELPER",
+            "CODE_CONTRACT_ROLE_ADAPTER",
+            "CODE_CONTRACT_ROLE_FACADE",
+            "CODE_CONTRACT_ROLE_READ_ONLY",
+        )
+
+        for name in expected:
+            self.assertIn(name, flowguard.MODELING_HELPER_API)
+            self.assertIn(name, flowguard.__all__)
+            self.assertTrue(hasattr(flowguard, name), name)
+            self.assertNotIn(name, flowguard.CORE_API)
+
 
 if __name__ == "__main__":
     unittest.main()

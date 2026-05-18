@@ -11,11 +11,11 @@ decision: `use_flowguard`, `skip_with_reason`, or `needs_human_review`.
 
 Use FlowGuard before non-trivial work involving behavior, workflows, state,
 module boundaries, retries, deduplication, idempotency, caching, side effects,
-production conformance, repeated bugs, model-test coverage alignment, multiple
-local FlowGuard models, large test scripts/suites, slow or layered validation
-evidence, large script/module splits, public entrypoint compatibility,
-meaningful process side effects, argument prerequisites, or decision
-commitments.
+production conformance, repeated bugs, model-test coverage alignment, optional
+external code contract coverage, multiple local FlowGuard models, large test
+scripts/suites, slow or layered validation evidence, large script/module
+splits, public entrypoint compatibility, meaningful process side effects,
+argument prerequisites, or decision commitments.
 
 Hard gates:
 
@@ -41,7 +41,7 @@ Route map:
 | --- | --- |
 | Ordinary modeling, Risk Intent, state write inventory, invariants, Explorer | `core_modeling` |
 | Direct architecture recommendation or model-derived implementation structure | `code_structure_recommendation` |
-| Direct comparison between FlowGuard model obligations and ordinary test evidence | `model_test_alignment` |
+| Direct comparison between FlowGuard model obligations, optional code external contracts, and ordinary test evidence | `model_test_alignment` |
 | Three or more local models, oversized model, parent/child model evidence | `model_mesh_maintenance` |
 | Large test script/suite split, parent/child test hierarchy, slow/stale/release-only tests | `test_mesh_maintenance` |
 | Large script/module/API split, public entrypoint compatibility, facade, ownership | `structure_mesh_maintenance` |
@@ -57,9 +57,12 @@ Use the matching Skill reference protocol for details. Helper APIs such as
 are package helpers, not standalone sub-skills.
 
 Use Model-Test Alignment when a model's scenarios, invariants, hazards,
-transitions, or contracts need direct test evidence. It compares plain
-`ModelObligation` rows with plain `TestEvidence` rows. It does not invoke
-TestMesh, StructureMesh, or ModelMesh.
+transitions, contracts, or optional code external contracts need direct test
+evidence. It compares plain `ModelObligation` rows, optional `CodeContract`
+rows, and plain `TestEvidence` rows. Include code contracts only when an
+externally visible code surface is in scope. It does not invoke TestMesh,
+StructureMesh, or ModelMesh, and it does not split tests, split code, or split
+models.
 
 If a model, test, script, module, or command is becoming large, slow, or hard
 to follow, consider whether a parent/child split would make it easier to

@@ -63,9 +63,10 @@ Modeling helpers reduce boilerplate around common bug classes:
   parent/child partition coverage, sibling overlap, large-model split triggers,
   and legacy compatibility.
 - optional model-test alignment helpers such as `ModelObligation`,
-  `TestEvidence`, `ModelTestAlignmentPlan`, and
-  `review_model_test_alignment()` for directly comparing model obligations with
-  ordinary test evidence without invoking TestMesh or StructureMesh.
+  `CodeContract`, `TestEvidence`, `ModelTestAlignmentPlan`, and
+  `review_model_test_alignment()` for directly comparing model obligations
+  with ordinary test evidence and optional code external contracts without
+  invoking TestMesh or StructureMesh.
 - optional TestMesh helpers such as `TestMeshPlan`, `TestPartitionItem`,
   `TestTargetSplitDerivation`, `TestSuiteEvidence`, and `review_test_mesh()`
   for reviewing model-derived target suite/script layouts, parent/child test
@@ -142,14 +143,16 @@ runtime policy and they do not make helper layers mandatory.
 Start with the core path when it is enough. Add helpers only when they clarify a
 real risk, reduce repetitive code, or improve reporting honesty. Keep skipped
 checks visible. When model obligations and tests both exist, use Model-Test
-Alignment to compare them directly before claiming coverage agreement. For
-large model or validation meshes, record the target split derivation from the
-FlowGuard source model before trusting parent/child ownership and evidence. For
-large, slow, or layered validation, use TestMesh to split the parent test gate
-into child suites/scripts and make their ownership and evidence visible before
-trusting the parent. For large structure refactors, use StructureMesh to make
-model-derived target structure, child-module ownership, and compatibility
-evidence visible before trusting a parent split. Use Code Structure
-Recommendation for direct pre-code architecture recommendations. Do not claim
-production confidence from a model-only pass unless conformance replay or
-equivalent real-code evidence exists.
+Alignment to compare them directly before claiming coverage agreement; when
+code contracts are supplied, also bind each model obligation to the external
+code surface and require tests to prove that external contract rather than only
+an internal path. For large model or validation meshes, record the target split
+derivation from the FlowGuard source model before trusting parent/child
+ownership and evidence. For large, slow, or layered validation, use TestMesh to
+split the parent test gate into child suites/scripts and make their ownership
+and evidence visible before trusting the parent. For large structure refactors,
+use StructureMesh to make model-derived target structure, child-module
+ownership, and compatibility evidence visible before trusting a parent split.
+Use Code Structure Recommendation for direct pre-code architecture
+recommendations. Do not claim production confidence from a model-only pass
+unless conformance replay or equivalent real-code evidence exists.

@@ -1,0 +1,19 @@
+- [x] 1.1 Create the OpenSpec change with proposal, design, spec, and task artifacts.
+- [x] 1.2 Validate the change shape with `openspec validate upgrade-model-test-code-alignment --strict`.
+- [x] 2.1 Extend `ModelObligation` with optional external-contract fields.
+- [x] 2.2 Add `CodeContract` and assertion-scope/role constants.
+- [x] 2.3 Extend `TestEvidence` and `ModelTestAlignmentPlan` for code-contract bindings.
+- [x] 2.4 Update `review_model_test_alignment(...)` with missing/mismatched code contract findings.
+- [x] 2.5 Preserve model-test-only backward compatibility when no code contract is in scope.
+- [x] 3.1 Export the new public helper API and update API surface grouping.
+- [x] 3.2 Update the `model-test-alignment-template` scaffold and CLI help text.
+- [x] 3.3 Add canonical public documentation for Model-Test Alignment.
+- [x] 3.4 Update README, API surface docs, changelog, modeling protocol, AGENTS snippet, and Skill protocol.
+- [x] 4.1 Add focused tests for legacy model-test alignment, code contracts, missing/extra behavior, code-contract test evidence, internal-path-only tests, and unknown references.
+- [x] 4.2 Add a FlowGuard rollout model for model/test/code contract alignment hazards.
+- [x] 4.3 Run focused unit, template, Skill-doc, OpenSpec, and rollout-model checks.
+- [x] 4.4 Run full repository tests and repair any integration failures.
+- [x] 5.1 Bump package/public version and synchronize release notes.
+- [x] 5.2 Sync editable local install and installed Codex Skill copy.
+- [x] 5.3 Resolve local git repository availability and record whether commit/tag sync is possible from this workspace.
+- [x] 5.4 Record FlowGuard adoption evidence and KB postflight.

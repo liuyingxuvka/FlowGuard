@@ -15,8 +15,8 @@ decision/planning work, first make a lightweight applicability decision:
 Use FlowGuard when the work may affect behavior, workflow state, retries,
 deduplication, idempotency, caching, side effects, module boundaries, data
 flow, production conformance, repeated-bug handling, large model layout,
-model-test obligation coverage, large test/script validation layout, large
-script/module decomposition, slow
+model-test obligation and optional external code contract coverage, large
+test/script validation layout, large script/module decomposition, slow
 validation evidence, irreversible process actions, publication/release side
 effects, argument prerequisites, or decision commitments.
 
@@ -55,7 +55,7 @@ package APIs.
 | --- | --- | --- |
 | Ordinary model-first workflow, flow types, Risk Intent, state write inventory | `core_modeling` | `references/modeling_protocol.md` |
 | Direct architecture recommendation, model-derived implementation structure, pre-code module split planning | `code_structure_recommendation` | `references/code_structure_recommendation_protocol.md` |
-| FlowGuard model obligations need direct comparison with ordinary test evidence | `model_test_alignment` | `references/model_test_alignment_protocol.md` |
+| FlowGuard model obligations, optional code external contracts, and ordinary test evidence need direct comparison | `model_test_alignment` | `references/model_test_alignment_protocol.md` |
 | Three or more local FlowGuard models, oversized model, stale child evidence, parent/child model partition | `model_mesh_maintenance` | `references/model_mesh_protocol.md` |
 | Large test script/suite split, parent/child test hierarchy, slow/background/stale/skipped/release-only validation evidence | `test_mesh_maintenance` | `references/test_mesh_protocol.md` |
 | Large script/module/package/command/API split, facade-first refactor, public entrypoint compatibility, ownership split | `structure_mesh_maintenance` | `references/structure_mesh_protocol.md` |
@@ -121,7 +121,8 @@ fit, but do not describe them as independently triggerable agent sub-skills:
   `SideEffectPack`.
 - Mesh review APIs such as `review_hierarchical_mesh()`,
   `review_test_mesh()`, and `review_structure_mesh()`.
-- Alignment APIs such as `review_model_test_alignment()`.
+- Alignment APIs such as `review_model_test_alignment()` and optional code
+  external contract rows consumed by the model-test alignment plan.
 - Template CLIs such as `project-template`, `risk-intent-template`,
   `model-miss-template`, `model-test-alignment-template`,
   `test-mesh-template`, `structure-mesh-template`, and
@@ -136,8 +137,9 @@ fit, but do not describe them as independently triggerable agent sub-skills:
 - `references/code_structure_recommendation_protocol.md`: model-derived
   implementation structure recommendation, ownership maps, facades, and
   validation boundaries.
-- `references/model_test_alignment_protocol.md`: direct model-obligation to
-  ordinary test-evidence alignment without TestMesh or StructureMesh.
+- `references/model_test_alignment_protocol.md`: direct model-obligation,
+  optional code external contract, and ordinary test-evidence alignment without
+  TestMesh, StructureMesh, or ModelMesh.
 - `references/model_mesh_protocol.md`: ModelMesh trigger, evidence tiers,
   required hazards, prompt template, and completion standard.
 - `references/test_mesh_protocol.md`: TestMesh test-hierarchy trigger,
