@@ -74,7 +74,23 @@ class PublicTemplateTests(unittest.TestCase):
             (".flowguard", "model_miss_review"),
         )
         self.assertIn("correct_model_miss_review: PASS", output)
-        self.assertIn("expected violations observed: 2", output)
+        self.assertIn("expected violations observed: 4", output)
+
+    def test_model_miss_review_template_requires_generalized_bad_case(self):
+        files = model_miss_review_template_files()
+        combined = "\n".join(file.content for file in files)
+
+        self.assertIn("generalized_bad_case_in_scope", combined)
+        self.assertIn("generalized_bad_case_represented_in_model", combined)
+        self.assertIn("known_bug_used_as_holdout", combined)
+        self.assertIn("represent_generalized_bad_case", combined)
+        self.assertIn("record_known_bug_holdout", combined)
+        self.assertIn("fix_validation_requires_generalized_bad_case", combined)
+        self.assertIn("fix_validation_requires_known_bug_holdout_role", combined)
+        self.assertIn("point_fix_only_without_generalized_bad_case", combined)
+        self.assertIn("validate_without_known_bug_holdout_role", combined)
+        self.assertIn("broken_point_fix_only_validation", combined)
+        self.assertIn("same-class generalized bad case", combined)
 
     def test_model_test_alignment_template_executes(self):
         output = self.run_written_template(

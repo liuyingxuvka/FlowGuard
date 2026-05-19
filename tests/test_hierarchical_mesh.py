@@ -10,6 +10,7 @@ from flowguard import (
     ModelTargetSplitDerivation,
     classify_legacy_model,
     review_hierarchical_mesh,
+    summarize_child_boundary_change,
 )
 
 
@@ -42,6 +43,20 @@ def reattachment(child_model_id, **kwargs):
         "expected_side_effects_owned": ("child_effect",),
         "expected_contracts_out": ("child.guarantee",),
         "rationale": "parent consumes this child contract after a local model repair",
+    }
+    defaults.update(kwargs)
+    return ChildReattachmentContract(child_model_id, **defaults)
+
+
+def reattachment_empty(child_model_id, **kwargs):
+    defaults = {
+        "consumed_evidence_id": f"{child_model_id}:v1",
+        "expected_inputs": (),
+        "expected_outputs": (),
+        "expected_state_owned": (),
+        "expected_side_effects_owned": (),
+        "expected_contracts_out": (),
+        "rationale": "parent consumes current child evidence without extra handoff expectations",
     }
     defaults.update(kwargs)
     return ChildReattachmentContract(child_model_id, **defaults)
@@ -432,6 +447,197 @@ class HierarchicalMeshTests(unittest.TestCase):
         self.assertIn("child_reattachment_missing_state_owner", codes)
         self.assertIn("child_reattachment_missing_side_effect_owner", codes)
         self.assertIn("child_reattachment_missing_contract", codes)
+
+    def test_boundary_diff_reattach_only_can_continue_after_parent_consumes_evidence(self):
+        previous = child("payment", evidence_id="payment:v1")
+        current = child("payment", evidence_id="payment:v2")
+        summary = summarize_child_boundary_change(previous, current)
+        partition = HierarchyPartitionMap(
+            parent_model_id="checkout",
+            coverage_items=(HierarchyCoverageItem("payment", owner_model_id="payment"),),
+            child_models=(current,),
+            target_split_derivation=target("checkout", ("payment",), ("payment",)),
+            reattachment_contracts=(reattachment_empty("payment", consumed_evidence_id="payment:v2"),),
+            boundary_changes=(summary,),
+        )
+
+        report = review_hierarchical_mesh(partition)
+
+        self.assertTrue(report.ok)
+        self.assertEqual("reattach_only", report.boundary_change_decisions["payment"])
+        self.assertEqual("mesh_green_can_continue", report.decision)
+        self.assertIn("boundary_change_decisions", report.to_dict())
+
+    def test_boundary_diff_non_intersecting_sibling_stays_fresh(self):
+        previous = child("payment", evidence_id="payment:v1", state_owned=("payment_state",))
+        current = child("payment", evidence_id="payment:v2", state_owned=("payment_state",))
+        inventory = child("inventory", evidence_id="inventory:v1", state_owned=("inventory_state",))
+        summary = summarize_child_boundary_change(previous, current, sibling_models=(inventory,))
+        partition = HierarchyPartitionMap(
+            parent_model_id="checkout",
+            coverage_items=(
+                HierarchyCoverageItem("payment", owner_model_id="payment"),
+                HierarchyCoverageItem("inventory", owner_model_id="inventory"),
+            ),
+            child_models=(current, inventory),
+            target_split_derivation=target(
+                "checkout",
+                ("payment", "inventory"),
+                ("payment", "inventory"),
+                state=True,
+            ),
+            reattachment_contracts=(
+                reattachment_empty("payment", consumed_evidence_id="payment:v2", expected_state_owned=("payment_state",)),
+            ),
+            boundary_changes=(summary,),
+        )
+
+        report = review_hierarchical_mesh(partition)
+
+        self.assertTrue(report.ok)
+        self.assertEqual("reattach_only", summary.propagation)
+        self.assertEqual("mesh_green_can_continue", report.decision)
+
+    def test_boundary_diff_reattach_only_blocks_stale_parent_evidence(self):
+        previous = child("payment", evidence_id="payment:v1")
+        current = child("payment", evidence_id="payment:v2")
+        summary = summarize_child_boundary_change(previous, current)
+        partition = HierarchyPartitionMap(
+            parent_model_id="checkout",
+            coverage_items=(HierarchyCoverageItem("payment", owner_model_id="payment"),),
+            child_models=(current,),
+            target_split_derivation=target("checkout", ("payment",), ("payment",)),
+            reattachment_contracts=(reattachment_empty("payment", consumed_evidence_id="payment:v1"),),
+            boundary_changes=(summary,),
+        )
+
+        report = review_hierarchical_mesh(partition)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("reattach_only", report.boundary_change_decisions["payment"])
+        self.assertIn("boundary_change_reattachment_required", [finding.code for finding in report.findings])
+
+    def test_boundary_diff_parent_rerun_required_on_handoff_drift(self):
+        previous = child(
+            "payment",
+            evidence_id="payment:v1",
+            inputs_accepted=("parent_input",),
+            outputs_emitted=("child_done",),
+        )
+        current = child(
+            "payment",
+            evidence_id="payment:v2",
+            inputs_accepted=("parent_input", "manual_retry"),
+            outputs_emitted=("child_done",),
+        )
+        summary = summarize_child_boundary_change(
+            previous,
+            current,
+            parent_contract=reattachment(
+                "payment",
+                consumed_evidence_id="payment:v2",
+                expected_inputs=("parent_input",),
+                expected_outputs=("child_done",),
+                expected_state_owned=(),
+                expected_side_effects_owned=(),
+                expected_contracts_out=(),
+            ),
+        )
+        partition = HierarchyPartitionMap(
+            parent_model_id="checkout",
+            coverage_items=(HierarchyCoverageItem("payment", owner_model_id="payment"),),
+            child_models=(current,),
+            target_split_derivation=target("checkout", ("payment",), ("payment",)),
+            reattachment_contracts=(
+                reattachment_empty(
+                    "payment",
+                    consumed_evidence_id="payment:v2",
+                    expected_inputs=("parent_input", "manual_retry"),
+                    expected_outputs=("child_done",),
+                ),
+            ),
+            boundary_changes=(summary,),
+        )
+
+        report = review_hierarchical_mesh(partition)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("parent_rerun_required", summary.propagation)
+        self.assertEqual("parent_rerun_required", report.decision)
+        self.assertIn("boundary_change_parent_rerun_required", [finding.code for finding in report.findings])
+
+    def test_boundary_diff_sibling_rerun_required_on_shared_state(self):
+        previous = child("payment", evidence_id="payment:v1", state_owned=("payment_state",))
+        current = child("payment", evidence_id="payment:v2", state_owned=("order_state",))
+        fulfillment = child("fulfillment", evidence_id="fulfillment:v1", depends_on=("order_state",))
+        summary = summarize_child_boundary_change(previous, current, sibling_models=(fulfillment,))
+        partition = HierarchyPartitionMap(
+            parent_model_id="checkout",
+            coverage_items=(
+                HierarchyCoverageItem("payment", owner_model_id="payment"),
+                HierarchyCoverageItem("fulfillment", owner_model_id="fulfillment"),
+            ),
+            child_models=(current, fulfillment),
+            target_split_derivation=target(
+                "checkout",
+                ("payment", "fulfillment"),
+                ("payment", "fulfillment"),
+                state=True,
+            ),
+            reattachment_contracts=(
+                reattachment_empty("payment", consumed_evidence_id="payment:v2", expected_state_owned=("order_state",)),
+            ),
+            boundary_changes=(summary,),
+        )
+
+        report = review_hierarchical_mesh(partition)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("sibling_rerun_required", summary.propagation)
+        self.assertEqual("sibling_rerun_required", report.decision)
+        self.assertIn("boundary_change_sibling_rerun_required", [finding.code for finding in report.findings])
+
+    def test_boundary_diff_rejects_observed_bug_as_only_model_target(self):
+        previous = child("dedupe", evidence_id="dedupe:v1", risk_boundary="duplicate-job-risk")
+        current = child("dedupe", evidence_id="dedupe:v2", risk_boundary="BUG-123")
+        summary = summarize_child_boundary_change(previous, current, current_bug_id="BUG-123")
+        partition = HierarchyPartitionMap(
+            parent_model_id="job-flow",
+            coverage_items=(HierarchyCoverageItem("dedupe", owner_model_id="dedupe"),),
+            child_models=(current,),
+            target_split_derivation=target("job-flow", ("dedupe",), ("dedupe",)),
+            reattachment_contracts=(reattachment_empty("dedupe", consumed_evidence_id="dedupe:v2"),),
+            boundary_changes=(summary,),
+        )
+
+        report = review_hierarchical_mesh(partition)
+        codes = [finding.code for finding in report.findings]
+
+        self.assertFalse(report.ok)
+        self.assertTrue(summary.current_bug_is_only_model_target)
+        self.assertEqual("parent_rerun_required", report.decision)
+        self.assertIn("missing_bug_class_responsibility", codes)
+        self.assertIn("point_fix_only_model_target", codes)
+
+    def test_boundary_diff_routes_large_child_to_split_review(self):
+        previous = child("audit", evidence_id="audit:v1", observed_state_count=900)
+        current = child("audit", evidence_id="audit:v2", observed_state_count=10_001)
+        summary = summarize_child_boundary_change(previous, current)
+        partition = HierarchyPartitionMap(
+            parent_model_id="release",
+            coverage_items=(HierarchyCoverageItem("audit", owner_model_id="audit"),),
+            child_models=(current,),
+            target_split_derivation=target("release", ("audit",), ("audit",)),
+            reattachment_contracts=(reattachment_empty("audit", consumed_evidence_id="audit:v2"),),
+            boundary_changes=(summary,),
+        )
+
+        report = review_hierarchical_mesh(partition)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("split_review_required", summary.propagation)
+        self.assertEqual("split_review_required", report.decision)
+        self.assertIn("boundary_change_split_review_required", [finding.code for finding in report.findings])
 
 
 if __name__ == "__main__":

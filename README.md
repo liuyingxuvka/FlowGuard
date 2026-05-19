@@ -12,7 +12,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.17.0` | `1.0` | Python standard library only | MIT |
+| `v0.17.1` | `1.0` | Python standard library only | MIT |
 
 English lead content comes first; a Chinese mirror follows below.
 
@@ -66,8 +66,8 @@ FlowGuard gives those weak spots a small executable shape before the action beco
 | Conformance replay | Compares representative abstract traces with implementation behavior when code exists |
 | Loop and progress review | Finds non-progressing cycles, stuck states, and weak completion evidence |
 | Model-test alignment | Compares model obligations, external code contracts, and ordinary test evidence |
-| ModelMesh | Splits oversized models into parent/child evidence and checks parent confidence against current child outputs |
-| Child model reattachment | In `v0.17.0`, requires a parent mesh to consume the repaired child evidence id and verify input, output, state, side-effect, and exported-contract handoffs |
+| ModelMesh | Splits oversized models into parent/child evidence, propagates child boundary changes upward, and reviews affected sibling models before parent confidence |
+| Child model reattachment | Requires a parent mesh to consume the repaired child evidence id and verify input, output, state, side-effect, and exported-contract handoffs |
 | TestMesh | Reviews parent/child validation layers, stale evidence, hidden skips, timeouts, and routine-vs-release gates |
 | StructureMesh | Reviews large refactor splits, facade compatibility, dependency cycles, config drift, and parity evidence |
 | Code Structure Recommendation | Derives module, facade, state-owner, side-effect, config, and validation boundaries before code is written |

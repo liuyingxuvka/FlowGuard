@@ -967,7 +967,9 @@ runtime, replay, or manual-validation failure.
 
 Guards against:
 - finalizing after a runtime issue without classifying the model miss;
-- validating a fix before representing the issue in the model;
+- validating a fix before representing the observed issue in the model;
+- validating a point fix before representing a same-class generalized bad case;
+- using the known bug as the whole model target instead of holdout evidence;
 - treating a later green runtime check as enough to close a known miss.
 
 Use before editing:
@@ -996,6 +998,9 @@ class State:
     runtime_issue_observed: bool = False
     model_miss_classified: bool = False
     issue_represented_in_model: bool = False
+    generalized_bad_case_in_scope: bool = True
+    generalized_bad_case_represented_in_model: bool = False
+    known_bug_used_as_holdout: bool = False
     fix_validated_after_refinement: bool = False
     completed: bool = False
 
@@ -1009,6 +1014,8 @@ FLOWGUARD_PASS = Event("flowguard_pass")
 RUNTIME_FAIL = Event("runtime_fail")
 CLASSIFY_MISS = Event("classify_miss")
 REPRESENT_ISSUE = Event("represent_issue")
+REPRESENT_GENERALIZED_BAD_CASE = Event("represent_generalized_bad_case")
+RECORD_KNOWN_BUG_HOLDOUT = Event("record_known_bug_holdout")
 VALIDATE_FIX = Event("validate_fix")
 FINALIZE = Event("finalize")
 
@@ -1020,6 +1027,9 @@ class ApplyReviewStep:
         "runtime_issue_observed",
         "model_miss_classified",
         "issue_represented_in_model",
+        "generalized_bad_case_in_scope",
+        "generalized_bad_case_represented_in_model",
+        "known_bug_used_as_holdout",
         "fix_validated_after_refinement",
     )
     writes = (
@@ -1027,6 +1037,8 @@ class ApplyReviewStep:
         "runtime_issue_observed",
         "model_miss_classified",
         "issue_represented_in_model",
+        "generalized_bad_case_represented_in_model",
+        "known_bug_used_as_holdout",
         "fix_validated_after_refinement",
         "completed",
     )
@@ -1069,9 +1081,35 @@ class ApplyReviewStep:
                 label="issue_represented_in_model",
             )
             return
+        if input_obj.name == "represent_generalized_bad_case":
+            if not state.issue_represented_in_model:
+                yield FunctionResult("generalized_bad_case_blocked", state, label="blocked")
+                return
+            yield FunctionResult(
+                "generalized_bad_case_represented_in_model",
+                replace(state, generalized_bad_case_represented_in_model=True),
+                label="generalized_bad_case_represented_in_model",
+            )
+            return
+        if input_obj.name == "record_known_bug_holdout":
+            if not state.generalized_bad_case_represented_in_model:
+                yield FunctionResult("holdout_role_blocked", state, label="blocked")
+                return
+            yield FunctionResult(
+                "known_bug_used_as_holdout",
+                replace(state, known_bug_used_as_holdout=True),
+                label="known_bug_used_as_holdout",
+            )
+            return
         if input_obj.name == "validate_fix":
             if not state.issue_represented_in_model:
                 yield FunctionResult("fix_validation_blocked", state, label="blocked")
+                return
+            if state.generalized_bad_case_in_scope and not state.generalized_bad_case_represented_in_model:
+                yield FunctionResult("point_fix_only_validation_blocked", state, label="blocked")
+                return
+            if state.generalized_bad_case_in_scope and not state.known_bug_used_as_holdout:
+                yield FunctionResult("holdout_role_validation_blocked", state, label="blocked")
                 return
             yield FunctionResult(
                 "fix_validated_after_refinement",
@@ -1112,16 +1150,49 @@ class BrokenValidateFixWithoutRepresentation(ApplyReviewStep):
         yield from super().apply(input_obj, state)
 
 
+class BrokenPointFixOnlyValidation(ApplyReviewStep):
+    def apply(self, input_obj: Event, state: State) -> Iterable[FunctionResult]:
+        if input_obj.name == "validate_fix" and state.issue_represented_in_model:
+            yield FunctionResult(
+                "point_fix_validated_without_generalized_bad_case",
+                replace(state, fix_validated_after_refinement=True),
+                label="broken_point_fix_only_validation",
+            )
+            return
+        yield from super().apply(input_obj, state)
+
+
+class BrokenValidateWithoutHoldoutRole(ApplyReviewStep):
+    def apply(self, input_obj: Event, state: State) -> Iterable[FunctionResult]:
+        if (
+            input_obj.name == "validate_fix"
+            and state.issue_represented_in_model
+            and state.generalized_bad_case_represented_in_model
+        ):
+            yield FunctionResult(
+                "validated_without_known_bug_holdout_role",
+                replace(state, fix_validated_after_refinement=True),
+                label="broken_validate_without_holdout_role",
+            )
+            return
+        yield from super().apply(input_obj, state)
+
+
 def invariants() -> tuple[Invariant, ...]:
     def completion_requires_review(state: State, _trace) -> InvariantResult:
         if state.completed and state.runtime_issue_observed:
             if not (
                 state.model_miss_classified
                 and state.issue_represented_in_model
+                and (
+                    not state.generalized_bad_case_in_scope
+                    or state.generalized_bad_case_represented_in_model
+                )
+                and (not state.generalized_bad_case_in_scope or state.known_bug_used_as_holdout)
                 and state.fix_validated_after_refinement
             ):
                 return InvariantResult.fail(
-                    "completed runtime issue without classification, model representation, and refined validation"
+                    "completed runtime issue without classification, observed issue model representation, same-class generalized bad case representation, known-bug holdout role, and refined validation"
                 )
         return InvariantResult.pass_()
 
@@ -1130,12 +1201,40 @@ def invariants() -> tuple[Invariant, ...]:
             return InvariantResult.fail("fix validated before the issue was represented in the model")
         return InvariantResult.pass_()
 
+    def fix_validation_requires_generalized_bad_case(state: State, _trace) -> InvariantResult:
+        if (
+            state.fix_validated_after_refinement
+            and state.generalized_bad_case_in_scope
+            and not state.generalized_bad_case_represented_in_model
+        ):
+            return InvariantResult.fail("fix validated as point-fix-only without a same-class generalized bad case")
+        return InvariantResult.pass_()
+
+    def fix_validation_requires_known_bug_holdout_role(state: State, _trace) -> InvariantResult:
+        if (
+            state.fix_validated_after_refinement
+            and state.generalized_bad_case_in_scope
+            and not state.known_bug_used_as_holdout
+        ):
+            return InvariantResult.fail("fix validated before recording the known bug as holdout validation evidence")
+        return InvariantResult.pass_()
+
     return (
         Invariant("completion_requires_review", "Runtime issues must be reviewed before completion.", completion_requires_review),
         Invariant(
             "fix_validation_requires_model_representation",
             "Fix validation requires executable model representation or an explicit boundary.",
             fix_validation_requires_model_representation,
+        ),
+        Invariant(
+            "fix_validation_requires_generalized_bad_case",
+            "Fix validation requires a same-class generalized bad case when that class is in scope.",
+            fix_validation_requires_generalized_bad_case,
+        ),
+        Invariant(
+            "fix_validation_requires_known_bug_holdout_role",
+            "Fix validation records the known bug as holdout validation evidence, not the whole model target.",
+            fix_validation_requires_known_bug_holdout_role,
         ),
     )
 
@@ -1160,8 +1259,17 @@ def run_checks():
     correct = review_scenario(
         scenario(
             "correct_model_miss_review",
-            "Runtime issue is classified, represented, validated, then finalized.",
-            (FLOWGUARD_PASS, RUNTIME_FAIL, CLASSIFY_MISS, REPRESENT_ISSUE, VALIDATE_FIX, FINALIZE),
+            "Runtime issue is classified, observed issue and generalized bad case are represented, then the fix is validated and finalized.",
+            (
+                FLOWGUARD_PASS,
+                RUNTIME_FAIL,
+                CLASSIFY_MISS,
+                REPRESENT_ISSUE,
+                REPRESENT_GENERALIZED_BAD_CASE,
+                RECORD_KNOWN_BUG_HOLDOUT,
+                VALIDATE_FIX,
+                FINALIZE,
+            ),
             ScenarioExpectation(
                 expected_status="ok",
                 required_trace_labels=("completed",),
@@ -1190,6 +1298,34 @@ def run_checks():
                     expected_violation_names=("fix_validation_requires_model_representation",),
                 ),
                 block=BrokenValidateFixWithoutRepresentation(),
+            ),
+            scenario(
+                "point_fix_only_without_generalized_bad_case",
+                "Broken workflow validates only the observed issue and misses a same-class generalized bad case.",
+                (FLOWGUARD_PASS, RUNTIME_FAIL, CLASSIFY_MISS, REPRESENT_ISSUE, VALIDATE_FIX, FINALIZE),
+                ScenarioExpectation(
+                    expected_status="violation",
+                    expected_violation_names=("fix_validation_requires_generalized_bad_case",),
+                ),
+                block=BrokenPointFixOnlyValidation(),
+            ),
+            scenario(
+                "validate_without_known_bug_holdout_role",
+                "Broken workflow models the class but forgets to record the known bug as holdout validation evidence.",
+                (
+                    FLOWGUARD_PASS,
+                    RUNTIME_FAIL,
+                    CLASSIFY_MISS,
+                    REPRESENT_ISSUE,
+                    REPRESENT_GENERALIZED_BAD_CASE,
+                    VALIDATE_FIX,
+                    FINALIZE,
+                ),
+                ScenarioExpectation(
+                    expected_status="violation",
+                    expected_violation_names=("fix_validation_requires_known_bug_holdout_role",),
+                ),
+                block=BrokenValidateWithoutHoldoutRole(),
             ),
         )
     )
@@ -1228,6 +1364,10 @@ Use this scaffold when real validation finds an issue after a FlowGuard pass.
   invariant weak, a replay skipped, or the issue outside the modeled scope?
 - How is the issue now represented: scenario, invariant, replay adapter,
   representative trace, or explicit out-of-scope boundary?
+- What same-class generalized bad case prevents a point-fix-only repair, and is
+  that class represented or explicitly out of scope?
+- How is the known bug used as validation or holdout evidence instead of the
+  whole model target?
 - Which refined model checks and runtime checks must pass before completion?
 - If the repair changed a child model under a parent ModelMesh, which parent
   reattachment gate consumed the new child evidence id?

@@ -30,6 +30,14 @@ not parent confidence by itself. The parent mesh must reattach the child through
 the input, output, state, side-effect, outgoing-contract, and evidence-id
 handoff that the parent flow consumes.
 
+Keep the current bug instance separate from bug-class responsibility.
+Model-Miss Review owns classification of the observed instance and the
+same-class generalized case. ModelMesh owns whether the repaired child boundary
+still fits the parent and any affected siblings. A patched instance plus a
+green child run is not mesh confidence until that class responsibility is
+represented or explicitly out of scope and the parent/affected sibling handoffs
+have been reviewed.
+
 For hierarchical projects, treat each parent/child boundary as a partition map:
 the parent is the total map, child models are region maps, and the mesh checks
 whether those regions cover the parent space without unsafe overlap. A child can
@@ -102,6 +110,19 @@ explicit out-of-scope note. Unsafe overlap also blocks confidence: sibling child
 models must not both own the same state write, side effect, or core functional
 area. Shared reads are fine; shared ownership needs an explicit shared kernel.
 
+Child boundary changes propagate upward. If a child changes its risk boundary,
+accepted inputs, emitted outputs, state ownership, side-effect ownership, or
+outgoing guarantees, the parent partition map, target split derivation, and
+reattachment contract are stale until reviewed. If the child is also a parent,
+the same stale-boundary rule applies to every ancestor that consumes its
+evidence id.
+
+Review affected siblings when a child boundary changes. A sibling is affected
+when it owns, reads, depends on, or shares the same parent partition item, state
+write, side effect, invariant, failure mode, or outgoing contract. Unaffected
+siblings do not need ceremony, but the mesh should make the no-overlap reason
+visible instead of silently assuming all siblings remain current.
+
 ## Child Reattachment Gate
 
 Use this gate whenever a local child model is changed to repair a bug or model
@@ -138,6 +159,11 @@ Suggested evidence tiers:
 
 Never use `abstract_green` alone as permission to continue a live workflow when
 live evidence or conformance is required.
+
+Background long-running checks are not pass evidence while they are still
+running. Progress output is liveness only. A mesh may consume a long-check
+result only after the final output, error, combined log, exit, and metadata
+artifacts exist and the freshness rule says they still match this decision.
 
 ## Mesh Model Shape
 
@@ -207,6 +233,14 @@ At minimum, the mesh must make these broken variants fail:
     still depends on.
 21. A repaired child drops an outgoing guarantee or contract that the parent
     mesh consumes.
+22. The current bug instance passes after a patch, but the bug class is neither
+    represented in executable evidence nor explicitly marked out of scope.
+23. A child boundary change is accepted without propagating stale-boundary
+    review to the parent target split and reattachment contract.
+24. An affected sibling model keeps stale ownership, read-only, shared-kernel,
+    or outgoing-contract assumptions after a child boundary changes.
+25. A background long-running check is accepted as pass evidence from progress
+    output, an in-progress log, or a missing exit/result artifact.
 
 ## Prompt Template
 
@@ -245,16 +279,22 @@ Tasks:
 7. For each repaired child model, record the parent reattachment contract:
    expected inputs, expected outputs, expected state and side-effect ownership,
    expected outgoing guarantees, and the consumed child evidence id.
-8. Encode the required hazards from `model_mesh_protocol.md` as broken variants.
-9. Run Explorer plus progress/stuck review, hazard review, and conformance or
+8. Separate the current bug instance from the bug class: confirm Model-Miss
+   Review represented the same-class responsibility or marked it out of scope.
+9. When a child boundary changed, propagate that change to the parent
+   partition/split/reattachment review and review affected siblings.
+10. Treat background progress as liveness only; require final long-check
+   artifacts before using the result as evidence.
+11. Encode the required hazards from `model_mesh_protocol.md` as broken variants.
+12. Run Explorer plus progress/stuck review, hazard review, and conformance or
    live projection when applicable.
-10. Return a decision: `mesh_green_can_continue`, `add_evidence`,
+13. Return a decision: `mesh_green_can_continue`, `add_evidence`,
    `update_child_model`, `split_model_boundary`, `coverage_gap_blocked`,
    `overlap_too_high_refactor_needed`, `ownership_conflict`,
    `target_split_derivation_required`, `large_model_split_review_required`,
    `child_reattachment_required`, `blocked_by_stale_evidence`,
    `blocked_by_cross_model_contradiction`, or `model_coverage_insufficient`.
-11. Report what the mesh proves, what it does not prove, and which checks were
+14. Report what the mesh proves, what it does not prove, and which checks were
    skipped. Skipped is not pass.
 ```
 
@@ -272,6 +312,16 @@ The mesh is sufficient for the current decision only when:
   the parent partition items used by the decision;
 - repaired child models reattach through current parent-consumed evidence ids
   and stable input, output, state, side-effect, and outgoing-contract handoffs;
+- the current bug instance is not confused with bug-class closure; Model-Miss
+  Review either represented the same-class responsibility or marked it out of
+  scope before mesh confidence is claimed;
+- child boundary changes have propagated to every parent that consumes the
+  child evidence id;
+- affected siblings with overlapping ownership, read-only dependency,
+  shared-kernel use, or outgoing-contract dependency have been reviewed or
+  shown unaffected;
+- background long-running checks are used only after final completion artifacts
+  and exit status exist;
 - sibling overlap is either read-only, shared-kernel-owned, or converted into a
   split/merge/refactor decision;
 - oversized new or legacy models have a split-review decision;

@@ -7,6 +7,13 @@ FlowGuard passing is provisional until the modeled change or process is checked
 against production-facing evidence. A later green runtime check by itself does
 not close a known model miss unless the miss has been reviewed.
 
+Keep responsibility split cleanly. Model-Miss Review owns the current bug
+instance, its practical miss type, and the same-class bug responsibility and
+generalized bad case. ModelMesh owns parent/child reattachment, upward boundary
+propagation, and affected sibling review when the repair changes a child model
+boundary. A fix that only proves the current instance no longer reproduces is
+not bug-class closure.
+
 ## Required Steps
 
 1. Reopen the model-first work instead of treating the prior pass as final.
@@ -25,7 +32,13 @@ not close a known model miss unless the miss has been reviewed.
    affected parent child-reattachment gate. The parent must consume the current
    child evidence id and confirm the child's inputs, outputs, state ownership,
    side-effect ownership, and outgoing guarantees still fit the parent flow.
-8. Record `Miss type`, `Generalized case`, and any parent reattachment decision
+8. If the child boundary changed, keep the miss open until the affected parent
+   ModelMesh has reviewed upward propagation and any affected sibling model
+   assumptions.
+9. Treat background long-running checks as liveness until final output, error,
+   combined log, exit, and metadata artifacts exist. Progress is not
+   production-facing pass evidence.
+10. Record `Miss type`, `Generalized case`, and any parent reattachment decision
    in adoption evidence, or explain
    why no generalized case was added.
 
@@ -42,5 +55,7 @@ miss repair changed a child model that an existing parent ModelMesh depends on.
 The model miss is closed only when it is classified, represented in executable
 evidence or explicitly out of scope, rerun, and validated with production-facing
 evidence. When the miss was repaired in a child model under a parent mesh, the
-affected parent reattachment gate must also pass or remain an explicit blocker.
-A patch plus a later green runtime check is not enough by itself.
+affected parent reattachment gate, upward boundary propagation review, and
+affected sibling review must also pass or remain explicit blockers. A patch
+plus a later green runtime check or in-progress background run is not enough by
+itself.

@@ -24,6 +24,10 @@ or when it is unclear whether a mesh is needed.
 - A repaired child model is not parent-green until the parent consumes its
   current evidence id and its input/output/state/side-effect contract still
   reattaches to the parent flow.
+- Model-Miss Review owns the current bug instance and same-class bug
+  responsibility; ModelMesh owns child-boundary propagation and affected
+  sibling review.
+- Background progress is liveness only, not pass evidence.
 - Stale child evidence is not a pass.
 
 ## Workflow
@@ -37,9 +41,14 @@ or when it is unclear whether a mesh is needed.
 4. For repaired child models, record the parent reattachment contract: expected
    inputs, outputs, state ownership, side-effect ownership, outgoing guarantees,
    and consumed child evidence id.
-5. Run child checks first, then parent review through hierarchical mesh
+5. If a child boundary changed, propagate the stale-boundary review upward and
+   review affected siblings that share or depend on the same parent partition
+   items, state writes, side effects, invariants, or contracts.
+6. Confirm background long-running checks have final artifacts and exit status
+   before consuming them as evidence.
+7. Run child checks first, then parent review through hierarchical mesh
    helpers.
-6. Record which child evidence ids the parent consumed and which are stale,
+8. Record which child evidence ids the parent consumed and which are stale,
    skipped, or release-only.
 
 ## Owned Helpers

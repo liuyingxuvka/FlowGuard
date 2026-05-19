@@ -22,6 +22,11 @@ current child evidence id and checking that the child still accepts the expected
 inputs, emits the expected outputs, owns the expected state and side effects,
 and provides the outgoing guarantees the parent flow depends on.
 
+Keep the bug instance and the bug class separate. Model-Miss Review owns the
+observed defect and the same-class generalized case. The hierarchy owns whether
+the child boundary changed in a way that makes parent or sibling assumptions
+stale. A patched instance does not make the parent mesh green by itself.
+
 Before the parent mesh trusts a child-model layout, it should record the target
 split derivation from a FlowGuard source model or model-of-models. The
 derivation names the source model, target child models, covered partition items,
@@ -73,6 +78,16 @@ was just repaired or rerun. It records the parent-side expectation:
 If those fields drift, `review_hierarchical_mesh(...)` returns
 `child_reattachment_required` instead of green parent confidence.
 
+Child boundary changes propagate upward. If a child changes its risk boundary,
+input/output classes, state ownership, side-effect ownership, or outgoing
+guarantees, every parent that consumes that child evidence id must review its
+target split and reattachment expectations. When a child is also a parent,
+continue the same check up the ancestor chain.
+
+If the child evidence comes from a background long-running check, progress logs
+are only liveness. Parent confidence requires the final output, error, combined
+log, exit, and metadata artifacts before the evidence id can be consumed.
+
 Each parent boundary should declare a partition map. A partition map names the
 parent-space items and who owns them:
 
@@ -93,6 +108,11 @@ Ownership is explicit:
 A missing owner is a coverage gap. Two sibling owners for the same state write,
 side effect, or functional area are overlap or ownership conflicts unless the
 shared kernel is explicit.
+
+When one child boundary changes, review only siblings that own, read, depend
+on, or share the same parent partition item, state write, side effect,
+invariant, failure mode, or outgoing contract. If no sibling is affected, record
+the no-overlap reason rather than silently reusing stale sibling assumptions.
 
 ## Large Model Review
 
@@ -132,7 +152,18 @@ from flowguard import (
     HierarchyPartitionMap,
     ModelTargetSplitDerivation,
     review_hierarchical_mesh,
+    summarize_child_boundary_change,
 )
+
+old_payment = ChildModelEvidence("payment", evidence_id="payment:model-check:v0")
+new_payment = ChildModelEvidence(
+    "payment",
+    evidence_id="payment:model-check:v1",
+    evidence_tier="abstract_green",
+    inputs_accepted=("payment_request",),
+    outputs_emitted=("payment_result",),
+)
+payment_change = summarize_child_boundary_change(old_payment, new_payment)
 
 partition = HierarchyPartitionMap(
     parent_model_id="checkout_root",
@@ -142,13 +173,7 @@ partition = HierarchyPartitionMap(
         HierarchyCoverageItem("order_status", ownership="parent"),
     ),
     child_models=(
-        ChildModelEvidence(
-            "payment",
-            evidence_id="payment:model-check:v1",
-            evidence_tier="abstract_green",
-            inputs_accepted=("payment_request",),
-            outputs_emitted=("payment_result",),
-        ),
+        new_payment,
         ChildModelEvidence("inventory", evidence_tier="abstract_green"),
     ),
     target_split_derivation=ModelTargetSplitDerivation(
@@ -165,6 +190,7 @@ partition = HierarchyPartitionMap(
             expected_outputs=("payment_result",),
         ),
     ),
+    boundary_changes=(payment_change,),
 )
 
 report = review_hierarchical_mesh(partition)

@@ -25,11 +25,68 @@ EVIDENCE_MESH_GREEN = "mesh_green"
 
 DEFAULT_LARGE_MODEL_STATE_THRESHOLD = 10_000
 
+BOUNDARY_PROPAGATION_UNAFFECTED = "unaffected"
+BOUNDARY_PROPAGATION_REATTACH_ONLY = "reattach_only"
+BOUNDARY_PROPAGATION_PARENT_RERUN_REQUIRED = "parent_rerun_required"
+BOUNDARY_PROPAGATION_SIBLING_RERUN_REQUIRED = "sibling_rerun_required"
+BOUNDARY_PROPAGATION_SPLIT_REVIEW_REQUIRED = "split_review_required"
+ALLOWED_BOUNDARY_PROPAGATION = {
+    BOUNDARY_PROPAGATION_UNAFFECTED,
+    BOUNDARY_PROPAGATION_REATTACH_ONLY,
+    BOUNDARY_PROPAGATION_PARENT_RERUN_REQUIRED,
+    BOUNDARY_PROPAGATION_SIBLING_RERUN_REQUIRED,
+    BOUNDARY_PROPAGATION_SPLIT_REVIEW_REQUIRED,
+}
+
+_BOUNDARY_SEQUENCE_FIELDS = (
+    "functions_owned",
+    "inputs_accepted",
+    "outputs_emitted",
+    "state_owned",
+    "side_effects_owned",
+    "functional_areas",
+    "invariants_owned",
+    "contracts_in",
+    "contracts_out",
+    "depends_on",
+    "risk_classes",
+    "validation_evidence",
+)
+_PARENT_RERUN_FIELDS = {
+    "functions_owned",
+    "inputs_accepted",
+    "outputs_emitted",
+    "contracts_in",
+    "contracts_out",
+    "depends_on",
+    "risk_boundary",
+    "risk_classes",
+    "validation_evidence",
+}
+_SIBLING_RERUN_FIELDS = {
+    "functions_owned",
+    "state_owned",
+    "side_effects_owned",
+    "functional_areas",
+    "invariants_owned",
+    "contracts_out",
+    "risk_classes",
+}
+
 
 def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
     if values is None:
         return ()
     return tuple(str(value) for value in values)
+
+
+def _as_tuple_mapping(values: Mapping[str, Sequence[str]] | None) -> dict[str, tuple[str, ...]]:
+    if values is None:
+        return {}
+    return {
+        str(key): _as_tuple(value)
+        for key, value in sorted(values.items(), key=lambda item: str(item[0]))
+    }
 
 
 @dataclass(frozen=True)
@@ -89,19 +146,27 @@ class ChildModelEvidence:
     is_legacy: bool = False
     has_compatibility_contract: bool = True
     overlaps_existing_model: str = ""
+    functions_owned: tuple[str, ...] = ()
+    invariants_owned: tuple[str, ...] = ()
+    risk_classes: tuple[str, ...] = ()
+    validation_evidence: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "model_id", str(self.model_id))
         object.__setattr__(self, "evidence_id", str(self.evidence_id))
         object.__setattr__(self, "risk_boundary", str(self.risk_boundary))
+        object.__setattr__(self, "functions_owned", _as_tuple(self.functions_owned))
         object.__setattr__(self, "inputs_accepted", _as_tuple(self.inputs_accepted))
         object.__setattr__(self, "outputs_emitted", _as_tuple(self.outputs_emitted))
         object.__setattr__(self, "state_owned", _as_tuple(self.state_owned))
         object.__setattr__(self, "side_effects_owned", _as_tuple(self.side_effects_owned))
         object.__setattr__(self, "functional_areas", _as_tuple(self.functional_areas))
+        object.__setattr__(self, "invariants_owned", _as_tuple(self.invariants_owned))
         object.__setattr__(self, "contracts_in", _as_tuple(self.contracts_in))
         object.__setattr__(self, "contracts_out", _as_tuple(self.contracts_out))
         object.__setattr__(self, "depends_on", _as_tuple(self.depends_on))
+        object.__setattr__(self, "risk_classes", _as_tuple(self.risk_classes))
+        object.__setattr__(self, "validation_evidence", _as_tuple(self.validation_evidence))
         object.__setattr__(self, "evidence_tier", str(self.evidence_tier))
         object.__setattr__(self, "skipped_checks", _as_tuple(self.skipped_checks))
         object.__setattr__(self, "not_run_checks", _as_tuple(self.not_run_checks))
@@ -127,14 +192,18 @@ class ChildModelEvidence:
             "model_id": self.model_id,
             "evidence_id": self.evidence_id,
             "risk_boundary": self.risk_boundary,
+            "functions_owned": list(self.functions_owned),
             "inputs_accepted": list(self.inputs_accepted),
             "outputs_emitted": list(self.outputs_emitted),
             "state_owned": list(self.state_owned),
             "side_effects_owned": list(self.side_effects_owned),
             "functional_areas": list(self.functional_areas),
+            "invariants_owned": list(self.invariants_owned),
             "contracts_in": list(self.contracts_in),
             "contracts_out": list(self.contracts_out),
             "depends_on": list(self.depends_on),
+            "risk_classes": list(self.risk_classes),
+            "validation_evidence": list(self.validation_evidence),
             "evidence_tier": self.evidence_tier,
             "evidence_current": self.evidence_current,
             "skipped_checks": list(self.skipped_checks),
@@ -147,6 +216,68 @@ class ChildModelEvidence:
             "is_legacy": self.is_legacy,
             "has_compatibility_contract": self.has_compatibility_contract,
             "overlaps_existing_model": self.overlaps_existing_model,
+        }
+
+
+@dataclass(frozen=True)
+class ChildBoundaryChangeSummary:
+    """Boundary diff summary a parent mesh can consume without inlining child state."""
+
+    child_model_id: str
+    propagation: str = BOUNDARY_PROPAGATION_UNAFFECTED
+    previous_evidence_id: str = ""
+    current_evidence_id: str = ""
+    changed_fields: tuple[str, ...] = ()
+    added_by_field: Mapping[str, Sequence[str]] = field(default_factory=dict)
+    removed_by_field: Mapping[str, Sequence[str]] = field(default_factory=dict)
+    previous_risk_boundary: str = ""
+    current_risk_boundary: str = ""
+    current_bug_id: str = ""
+    known_bug_ids: tuple[str, ...] = ()
+    generalized_target: str = ""
+    current_bug_is_only_model_target: bool = False
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "child_model_id", str(self.child_model_id))
+        object.__setattr__(self, "propagation", str(self.propagation))
+        object.__setattr__(self, "previous_evidence_id", str(self.previous_evidence_id))
+        object.__setattr__(self, "current_evidence_id", str(self.current_evidence_id))
+        object.__setattr__(self, "changed_fields", _as_tuple(self.changed_fields))
+        object.__setattr__(self, "added_by_field", _as_tuple_mapping(self.added_by_field))
+        object.__setattr__(self, "removed_by_field", _as_tuple_mapping(self.removed_by_field))
+        object.__setattr__(self, "previous_risk_boundary", str(self.previous_risk_boundary))
+        object.__setattr__(self, "current_risk_boundary", str(self.current_risk_boundary))
+        object.__setattr__(self, "current_bug_id", str(self.current_bug_id))
+        object.__setattr__(self, "known_bug_ids", _as_tuple(self.known_bug_ids))
+        object.__setattr__(self, "generalized_target", str(self.generalized_target))
+        object.__setattr__(
+            self,
+            "current_bug_is_only_model_target",
+            bool(self.current_bug_is_only_model_target),
+        )
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "child_model_id": self.child_model_id,
+            "propagation": self.propagation,
+            "previous_evidence_id": self.previous_evidence_id,
+            "current_evidence_id": self.current_evidence_id,
+            "changed_fields": list(self.changed_fields),
+            "added_by_field": {
+                key: list(values) for key, values in self.added_by_field.items()
+            },
+            "removed_by_field": {
+                key: list(values) for key, values in self.removed_by_field.items()
+            },
+            "previous_risk_boundary": self.previous_risk_boundary,
+            "current_risk_boundary": self.current_risk_boundary,
+            "current_bug_id": self.current_bug_id,
+            "known_bug_ids": list(self.known_bug_ids),
+            "generalized_target": self.generalized_target,
+            "current_bug_is_only_model_target": self.current_bug_is_only_model_target,
+            "rationale": self.rationale,
         }
 
 
@@ -236,6 +367,7 @@ class HierarchyPartitionMap:
     reattachment_contracts: tuple[ChildReattachmentContract, ...] = ()
     required_evidence_tier: str = EVIDENCE_ABSTRACT_GREEN
     allowed_shared_areas: tuple[str, ...] = ()
+    boundary_changes: tuple[ChildBoundaryChangeSummary, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "parent_model_id", str(self.parent_model_id))
@@ -244,6 +376,7 @@ class HierarchyPartitionMap:
         object.__setattr__(self, "reattachment_contracts", tuple(self.reattachment_contracts))
         object.__setattr__(self, "required_evidence_tier", str(self.required_evidence_tier))
         object.__setattr__(self, "allowed_shared_areas", _as_tuple(self.allowed_shared_areas))
+        object.__setattr__(self, "boundary_changes", tuple(self.boundary_changes))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -260,6 +393,7 @@ class HierarchyPartitionMap:
             ],
             "required_evidence_tier": self.required_evidence_tier,
             "allowed_shared_areas": list(self.allowed_shared_areas),
+            "boundary_changes": [summary.to_dict() for summary in self.boundary_changes],
         }
 
 
@@ -304,6 +438,7 @@ class HierarchyMeshReport:
     findings: tuple[HierarchyMeshFinding, ...] = ()
     split_decisions: Mapping[str, str] = field(default_factory=dict)
     summary: str = ""
+    boundary_change_decisions: Mapping[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "parent_model_id", str(self.parent_model_id))
@@ -311,6 +446,7 @@ class HierarchyMeshReport:
         object.__setattr__(self, "activation_reasons", _as_tuple(self.activation_reasons))
         object.__setattr__(self, "findings", tuple(self.findings))
         object.__setattr__(self, "split_decisions", dict(self.split_decisions))
+        object.__setattr__(self, "boundary_change_decisions", dict(self.boundary_change_decisions))
         if not self.summary:
             status = "OK" if self.ok else "BLOCKED"
             object.__setattr__(
@@ -331,6 +467,10 @@ class HierarchyMeshReport:
         if self.split_decisions:
             lines.append("split_decisions:")
             for model_id, decision in sorted(self.split_decisions.items()):
+                lines.append(f"  - {model_id}: {decision}")
+        if self.boundary_change_decisions:
+            lines.append("boundary_change_decisions:")
+            for model_id, decision in sorted(self.boundary_change_decisions.items()):
                 lines.append(f"  - {model_id}: {decision}")
         for finding in self.findings[:max_findings]:
             lines.extend(
@@ -354,6 +494,7 @@ class HierarchyMeshReport:
             "findings": [finding.to_dict() for finding in self.findings],
             "split_decisions": to_jsonable(dict(self.split_decisions)),
             "summary": self.summary,
+            "boundary_change_decisions": to_jsonable(dict(self.boundary_change_decisions)),
         }
 
     def to_json_text(self, indent: int = 2) -> str:
@@ -430,6 +571,169 @@ def _split_decision(child: ChildModelEvidence, threshold: int) -> str:
     if child.budgeted_incomplete:
         return "continue_with_budgeted_execution_only"
     return "keep_as_single_model"
+
+
+def _boundary_propagation_rank(status: str) -> int:
+    order = {
+        BOUNDARY_PROPAGATION_UNAFFECTED: 0,
+        BOUNDARY_PROPAGATION_REATTACH_ONLY: 1,
+        BOUNDARY_PROPAGATION_SIBLING_RERUN_REQUIRED: 2,
+        BOUNDARY_PROPAGATION_PARENT_RERUN_REQUIRED: 3,
+        BOUNDARY_PROPAGATION_SPLIT_REVIEW_REQUIRED: 4,
+    }
+    return order.get(str(status), -1)
+
+
+def _strongest_boundary_propagation(statuses: Sequence[str]) -> str:
+    valid = [str(status) for status in statuses if str(status) in ALLOWED_BOUNDARY_PROPAGATION]
+    if not valid:
+        return ""
+    return max(valid, key=_boundary_propagation_rank)
+
+
+def _diff_sequence_field(
+    previous_child: ChildModelEvidence,
+    current_child: ChildModelEvidence,
+    field_name: str,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    previous_values = set(getattr(previous_child, field_name))
+    current_values = set(getattr(current_child, field_name))
+    return (
+        tuple(sorted(current_values - previous_values)),
+        tuple(sorted(previous_values - current_values)),
+    )
+
+
+def _has_parent_contract_drift(
+    child: ChildModelEvidence,
+    contract: ChildReattachmentContract | None,
+) -> bool:
+    if contract is None:
+        return False
+    if _missing_items(contract.expected_inputs, child.inputs_accepted):
+        return True
+    if not contract.allow_extra_inputs and _extra_items(contract.expected_inputs, child.inputs_accepted):
+        return True
+    if _missing_items(contract.expected_outputs, child.outputs_emitted):
+        return True
+    if not contract.allow_extra_outputs and _extra_items(contract.expected_outputs, child.outputs_emitted):
+        return True
+    return bool(
+        _missing_items(contract.expected_state_owned, child.state_owned)
+        or _missing_items(contract.expected_side_effects_owned, child.side_effects_owned)
+        or _missing_items(contract.expected_contracts_out, child.contracts_out)
+    )
+
+
+def _has_sibling_boundary_overlap(
+    child: ChildModelEvidence,
+    sibling_models: Sequence[ChildModelEvidence],
+) -> bool:
+    overlap_fields = (
+        "functions_owned",
+        "state_owned",
+        "side_effects_owned",
+        "functional_areas",
+        "invariants_owned",
+        "contracts_out",
+        "risk_classes",
+    )
+    for sibling in sibling_models:
+        if sibling.model_id == child.model_id:
+            continue
+        for field_name in overlap_fields:
+            if set(getattr(child, field_name)) & set(getattr(sibling, field_name)):
+                return True
+        if set(child.state_owned) & set(sibling.depends_on):
+            return True
+        if set(child.side_effects_owned) & set(sibling.depends_on):
+            return True
+        if set(child.contracts_out) & set(sibling.depends_on):
+            return True
+    return False
+
+
+def summarize_child_boundary_change(
+    previous_child: ChildModelEvidence,
+    current_child: ChildModelEvidence,
+    *,
+    parent_contract: ChildReattachmentContract | None = None,
+    sibling_models: Sequence[ChildModelEvidence] = (),
+    current_bug_id: str = "",
+    known_bug_ids: Sequence[str] = (),
+    generalized_target: str = "",
+    large_model_threshold: int = DEFAULT_LARGE_MODEL_STATE_THRESHOLD,
+    rationale: str = "",
+) -> ChildBoundaryChangeSummary:
+    """Summarize child boundary drift for parent ModelMesh propagation."""
+
+    if previous_child.model_id != current_child.model_id:
+        raise ValueError("previous_child and current_child must describe the same model_id")
+
+    added_by_field: dict[str, tuple[str, ...]] = {}
+    removed_by_field: dict[str, tuple[str, ...]] = {}
+    changed_fields: list[str] = []
+    for field_name in _BOUNDARY_SEQUENCE_FIELDS:
+        added, removed = _diff_sequence_field(previous_child, current_child, field_name)
+        if added:
+            added_by_field[field_name] = added
+        if removed:
+            removed_by_field[field_name] = removed
+        if added or removed:
+            changed_fields.append(field_name)
+
+    if previous_child.risk_boundary != current_child.risk_boundary:
+        changed_fields.append("risk_boundary")
+    if previous_child.evidence_id != current_child.evidence_id:
+        changed_fields.append("evidence_id")
+
+    current_bug_text = str(current_bug_id)
+    generalized_target_text = str(generalized_target)
+    current_bug_is_only_target = bool(
+        current_bug_text
+        and current_child.risk_boundary == current_bug_text
+        and not generalized_target_text
+    )
+
+    changed_field_set = set(changed_fields)
+    parent_handoff_changed = bool(changed_field_set & _PARENT_RERUN_FIELDS)
+    parent_handoff_changed = parent_handoff_changed or _has_parent_contract_drift(
+        current_child,
+        parent_contract,
+    )
+    sibling_boundary_changed = bool(changed_field_set & _SIBLING_RERUN_FIELDS)
+    sibling_boundary_changed = sibling_boundary_changed or _has_sibling_boundary_overlap(
+        current_child,
+        sibling_models,
+    )
+
+    if _is_large_child(current_child, large_model_threshold):
+        propagation = BOUNDARY_PROPAGATION_SPLIT_REVIEW_REQUIRED
+    elif current_bug_is_only_target or parent_handoff_changed:
+        propagation = BOUNDARY_PROPAGATION_PARENT_RERUN_REQUIRED
+    elif sibling_boundary_changed:
+        propagation = BOUNDARY_PROPAGATION_SIBLING_RERUN_REQUIRED
+    elif previous_child.evidence_id != current_child.evidence_id:
+        propagation = BOUNDARY_PROPAGATION_REATTACH_ONLY
+    else:
+        propagation = BOUNDARY_PROPAGATION_UNAFFECTED
+
+    return ChildBoundaryChangeSummary(
+        child_model_id=current_child.model_id,
+        propagation=propagation,
+        previous_evidence_id=previous_child.evidence_id,
+        current_evidence_id=current_child.evidence_id,
+        changed_fields=tuple(sorted(set(changed_fields))),
+        added_by_field=added_by_field,
+        removed_by_field=removed_by_field,
+        previous_risk_boundary=previous_child.risk_boundary,
+        current_risk_boundary=current_child.risk_boundary,
+        current_bug_id=current_bug_text,
+        known_bug_ids=_as_tuple(known_bug_ids),
+        generalized_target=generalized_target_text,
+        current_bug_is_only_model_target=current_bug_is_only_target,
+        rationale=rationale,
+    )
 
 
 def classify_legacy_model(
@@ -713,6 +1017,107 @@ def _child_reattachment_findings(partition_map: HierarchyPartitionMap) -> list[H
     return findings
 
 
+def _boundary_change_findings(
+    partition_map: HierarchyPartitionMap,
+) -> tuple[list[HierarchyMeshFinding], dict[str, str]]:
+    findings: list[HierarchyMeshFinding] = []
+    decisions: dict[str, str] = {}
+    children = {child.model_id: child for child in partition_map.child_models}
+    contracts = {
+        contract.child_model_id: contract
+        for contract in partition_map.reattachment_contracts
+    }
+
+    for change in partition_map.boundary_changes:
+        propagation = str(change.propagation)
+        decisions[change.child_model_id] = propagation
+        child = children.get(change.child_model_id)
+        if child is None:
+            findings.append(
+                HierarchyMeshFinding(
+                    "boundary_change_unknown_child",
+                    "boundary change summary names an unregistered child model",
+                    model_id=change.child_model_id,
+                    metadata=change.to_dict(),
+                )
+            )
+            continue
+        if propagation not in ALLOWED_BOUNDARY_PROPAGATION:
+            findings.append(
+                HierarchyMeshFinding(
+                    "invalid_boundary_propagation",
+                    "boundary change summary uses an unknown propagation decision",
+                    model_id=change.child_model_id,
+                    metadata=change.to_dict(),
+                )
+            )
+            continue
+
+        if change.current_bug_id and not change.generalized_target:
+            findings.append(
+                HierarchyMeshFinding(
+                    "missing_bug_class_responsibility",
+                    "observed bug instance is present without a generalized bug-class responsibility boundary",
+                    model_id=change.child_model_id,
+                    metadata=change.to_dict(),
+                )
+            )
+        if change.current_bug_is_only_model_target:
+            findings.append(
+                HierarchyMeshFinding(
+                    "point_fix_only_model_target",
+                    "observed bug instance is being used as the model target instead of holdout evidence",
+                    model_id=change.child_model_id,
+                    metadata=change.to_dict(),
+                )
+            )
+
+        if propagation == BOUNDARY_PROPAGATION_REATTACH_ONLY:
+            contract = contracts.get(change.child_model_id)
+            if contract is None or contract.consumed_evidence_id != change.current_evidence_id:
+                findings.append(
+                    HierarchyMeshFinding(
+                        "boundary_change_reattachment_required",
+                        "child boundary change only needs reattachment, but the parent has not consumed the current evidence id",
+                        model_id=change.child_model_id,
+                        metadata={
+                            "boundary_change": change.to_dict(),
+                            "reattachment_contract": contract.to_dict() if contract is not None else None,
+                        },
+                    )
+                )
+        elif propagation == BOUNDARY_PROPAGATION_PARENT_RERUN_REQUIRED:
+            findings.append(
+                HierarchyMeshFinding(
+                    "boundary_change_parent_rerun_required",
+                    "child boundary change affects parent handoff or responsibility and requires parent rerun",
+                    model_id=change.child_model_id,
+                    metadata=change.to_dict(),
+                )
+            )
+        elif propagation == BOUNDARY_PROPAGATION_SIBLING_RERUN_REQUIRED:
+            findings.append(
+                HierarchyMeshFinding(
+                    "boundary_change_sibling_rerun_required",
+                    "child boundary change intersects sibling ownership, dependency, or handoff assumptions",
+                    model_id=change.child_model_id,
+                    metadata=change.to_dict(),
+                )
+            )
+        elif propagation == BOUNDARY_PROPAGATION_SPLIT_REVIEW_REQUIRED:
+            findings.append(
+                HierarchyMeshFinding(
+                    "boundary_change_split_review_required",
+                    "child boundary change is large or mixed enough to require split review",
+                    severity="refactor",
+                    model_id=change.child_model_id,
+                    metadata=change.to_dict(),
+                )
+            )
+
+    return findings, decisions
+
+
 def review_hierarchical_mesh(
     partition_map: HierarchyPartitionMap,
     *,
@@ -734,6 +1139,10 @@ def review_hierarchical_mesh(
 
     findings.extend(_target_split_derivation_findings(partition_map))
     findings.extend(_child_reattachment_findings(partition_map))
+    boundary_change_findings, boundary_change_decisions = _boundary_change_findings(partition_map)
+    if boundary_change_decisions:
+        activation_reasons.append("boundary_change")
+    findings.extend(boundary_change_findings)
 
     owner_by_item: dict[str, list[HierarchyCoverageItem]] = {}
     for item in partition_map.coverage_items:
@@ -789,6 +1198,13 @@ def review_hierarchical_mesh(
     _add_duplicate_owner_findings(
         findings,
         partition_map.child_models,
+        field_name="functions_owned",
+        code="duplicate_function_owner",
+        noun="function",
+    )
+    _add_duplicate_owner_findings(
+        findings,
+        partition_map.child_models,
         field_name="state_owned",
         code="duplicate_state_owner",
         noun="state field",
@@ -799,6 +1215,20 @@ def review_hierarchical_mesh(
         field_name="side_effects_owned",
         code="duplicate_side_effect_owner",
         noun="side effect",
+    )
+    _add_duplicate_owner_findings(
+        findings,
+        partition_map.child_models,
+        field_name="invariants_owned",
+        code="duplicate_invariant_owner",
+        noun="invariant",
+    )
+    _add_duplicate_owner_findings(
+        findings,
+        partition_map.child_models,
+        field_name="risk_classes",
+        code="duplicate_risk_class_owner",
+        noun="risk class",
     )
 
     allowed_shared = set(partition_map.allowed_shared_areas)
@@ -890,11 +1320,29 @@ def review_hierarchical_mesh(
         decision = "target_split_derivation_required"
     elif any(finding.code.startswith("child_reattachment_") for finding in blocking):
         decision = "child_reattachment_required"
+    elif any(finding.code == "boundary_change_split_review_required" for finding in blocking):
+        decision = BOUNDARY_PROPAGATION_SPLIT_REVIEW_REQUIRED
+    elif any(finding.code in {
+        "boundary_change_parent_rerun_required",
+        "missing_bug_class_responsibility",
+        "point_fix_only_model_target",
+    } for finding in blocking):
+        decision = BOUNDARY_PROPAGATION_PARENT_RERUN_REQUIRED
+    elif any(finding.code == "boundary_change_sibling_rerun_required" for finding in blocking):
+        decision = BOUNDARY_PROPAGATION_SIBLING_RERUN_REQUIRED
+    elif any(finding.code == "boundary_change_reattachment_required" for finding in blocking):
+        decision = BOUNDARY_PROPAGATION_REATTACH_ONLY
     elif any(finding.code == "coverage_gap" for finding in blocking):
         decision = "coverage_gap_blocked"
     elif any(finding.code == "excessive_functional_overlap" for finding in blocking):
         decision = "overlap_too_high_refactor_needed"
     elif any(finding.code in {"duplicate_state_owner", "duplicate_side_effect_owner"} for finding in blocking):
+        decision = "ownership_conflict"
+    elif any(finding.code in {
+        "duplicate_function_owner",
+        "duplicate_invariant_owner",
+        "duplicate_risk_class_owner",
+    } for finding in blocking):
         decision = "ownership_conflict"
     elif any(finding.code == "large_model_split_review" for finding in blocking):
         decision = "large_model_split_review_required"
@@ -913,6 +1361,7 @@ def review_hierarchical_mesh(
         activation_reasons=unique_activation,
         findings=tuple(findings),
         split_decisions=split_decisions,
+        boundary_change_decisions=boundary_change_decisions,
     )
 
 
@@ -942,7 +1391,13 @@ def _add_duplicate_owner_findings(
 
 
 __all__ = [
+    "ALLOWED_BOUNDARY_PROPAGATION",
     "ALLOWED_OWNERSHIP",
+    "BOUNDARY_PROPAGATION_PARENT_RERUN_REQUIRED",
+    "BOUNDARY_PROPAGATION_REATTACH_ONLY",
+    "BOUNDARY_PROPAGATION_SIBLING_RERUN_REQUIRED",
+    "BOUNDARY_PROPAGATION_SPLIT_REVIEW_REQUIRED",
+    "BOUNDARY_PROPAGATION_UNAFFECTED",
     "DEFAULT_LARGE_MODEL_STATE_THRESHOLD",
     "EVIDENCE_ABSTRACT_GREEN",
     "EVIDENCE_CANDIDATE_ONLY",
@@ -950,6 +1405,7 @@ __all__ = [
     "EVIDENCE_HAZARD_GREEN",
     "EVIDENCE_LIVE_CURRENT_GREEN",
     "EVIDENCE_MESH_GREEN",
+    "ChildBoundaryChangeSummary",
     "HierarchyCoverageItem",
     "HierarchyMeshFinding",
     "HierarchyMeshReport",
@@ -965,4 +1421,5 @@ __all__ = [
     "OWNERSHIP_SHARED_KERNEL",
     "classify_legacy_model",
     "review_hierarchical_mesh",
+    "summarize_child_boundary_change",
 ]

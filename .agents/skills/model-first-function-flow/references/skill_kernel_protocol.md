@@ -48,9 +48,9 @@ to the kernel instead of taking ownership of unclear work.
 | `test_mesh_maintenance` | parent/child test hierarchy plus validation evidence |
 | `structure_mesh_maintenance` | parent/child script/module structure split evidence |
 | `development_process_flow` | development lifecycle ordering, artifact overwrite, evidence freshness, and minimum revalidation |
-| `model_miss_review` | post-runtime model miss classification and closure |
+| `model_miss_review` | post-runtime model miss classification, current bug instance handling, and same-class bug responsibility closure |
 | `conformance_adoption` | replay, install sync, shadow workspace sync, release sync, adoption evidence |
-| `long_check_observability` | background log artifacts and completion proof |
+| `long_check_observability` | background log artifacts, liveness-only progress, and completion proof |
 | `framework_upgrade` | FlowGuard self-upgrades and broad capability claims |
 
 ## Helper APIs Are Not Sub-Skills
@@ -80,7 +80,14 @@ sub-skills.
   parent/child partition routes for models, tests, and code structure.
 - When a model miss repair changes a child model under a parent ModelMesh, keep
   Model-Miss Review responsible for the miss and ModelMesh responsible for the
-  parent reattachment gate.
+  parent reattachment gate, upward child-boundary propagation, and affected
+  sibling model review.
+- Keep the current bug instance separate from bug-class responsibility:
+  patching the observed instance is not closure until the miss is classified
+  and the same-class case is represented or explicitly out of scope.
+- Keep LongCheck evidence boundaries explicit: background progress is liveness,
+  not pass evidence, until final output, error, combined log, exit, and
+  metadata artifacts exist.
 - Keep Model-Test Alignment independent from mesh routes; it compares plain
   obligation rows with plain evidence rows and does not split tests or code.
 - Keep DevelopmentProcessFlow as a sibling lifecycle route. It may reference

@@ -31,6 +31,11 @@ report:
 A path-only report, an in-progress log, or a missing exit artifact is not
 completion evidence.
 
+Do not treat a background long-running check as pass evidence just because it
+has started, is still writing progress, or has a recent timestamp. Until the
+final artifacts above exist and match the current risk boundary, other routes
+may cite the run only as in-progress liveness.
+
 ## Progress Is Not Pass/Fail
 
 Direct `Explorer(...)` runs emit bounded progress on `stderr`. Treat progress

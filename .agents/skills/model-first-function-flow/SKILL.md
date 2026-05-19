@@ -49,7 +49,7 @@ unclear, narrow the task or mark `needs_human_review`.
   changed after earlier evidence, treat that evidence as stale unless the
   unchanged boundary is explicit.
 - Long-running checks may run in the background, but completion evidence needs
-  final artifacts and exit status, not progress lines alone.
+  final artifacts and exit status. Progress lines are liveness, not pass evidence.
 - Finish real project usage with adoption evidence: why FlowGuard was used or
   skipped, what risk was modeled, what commands ran, what was found, and what
   remains.
@@ -65,7 +65,7 @@ satellite skills. The routes are agent behavior protocols, not package APIs.
 | Direct architecture recommendation, model-derived implementation structure, pre-code module split planning | `code_structure_recommendation` | `flowguard-code-structure-recommendation` |
 | UI interaction flow model, screen/region topology, parent/child UI structure, navigation/state/event/display/text ownership, text hierarchy blueprint, duplicate information, or overlapping same-level controls derived from modeled UI behavior | `ui_flow_structure` | `flowguard-ui-flow-structure` |
 | FlowGuard model obligations, optional code external contracts, and ordinary test evidence need direct comparison | `model_test_alignment` | `flowguard-model-test-alignment` |
-| Three or more local FlowGuard models, oversized model, stale child evidence, parent/child model partition | `model_mesh_maintenance` | `flowguard-model-mesh` |
+| Three or more local FlowGuard models, oversized model, stale child evidence, parent/child model partition, affected sibling review | `model_mesh_maintenance` | `flowguard-model-mesh` |
 | Large test script/suite split, parent/child test hierarchy, slow/background/stale/skipped/release-only validation evidence | `test_mesh_maintenance` | `flowguard-test-mesh` |
 | Large script/module/package/command/API split, facade-first refactor, public entrypoint compatibility, ownership split | `structure_mesh_maintenance` | `flowguard-structure-mesh` |
 | Development lifecycle ordering, artifact overwrite, validation freshness, minimum revalidation, V-style process confidence | `development_process_flow` | `flowguard-development-process-flow` |
@@ -83,7 +83,10 @@ LongCheck observability.
 
 When a post-runtime model miss is repaired in a local child model that belongs
 to a parent ModelMesh, route through both `model_miss_review` and
-`model_mesh_maintenance`. The child-local pass is not complete until the parent reattachment gate consumes the current child evidence and confirms the input, output, state, side-effect, and outgoing-contract handoff still matches.
+`model_mesh_maintenance`. Model-Miss Review owns the current bug instance and
+same-class bug responsibility; ModelMesh owns the parent reattachment gate,
+upward boundary propagation, and affected sibling review before the child-local
+pass can support parent confidence.
 
 ### Flow Lenses
 

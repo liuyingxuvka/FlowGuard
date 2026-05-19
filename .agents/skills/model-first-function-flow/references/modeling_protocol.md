@@ -152,6 +152,14 @@ complete until the parent reattachment gate consumes the current child evidence
 id and confirms the input, output, state, side-effect, and outgoing-contract
 handoff still matches the parent flow.
 
+Keep the current bug instance separate from the bug class. Model-Miss Review
+owns classification and same-class representation or out-of-scope recording;
+ModelMesh owns child-boundary propagation upward and affected sibling review
+when the repair changes inputs, outputs, state ownership, side-effect
+ownership, risk boundary, or outgoing guarantees. Background long-running
+checks may support either route only after final artifacts and exit status
+exist; progress is liveness, not pass evidence.
+
 Read `docs/model_mesh_protocol.md` for the inventory fields, evidence tiers,
 required hazards, prompt template, and completion standard. At minimum, the
 mesh must catch abstract-only permission, hidden skipped live/replay checks,
@@ -568,7 +576,12 @@ When this happens:
 7. If the repair changed a child model under a parent ModelMesh, rerun the
    affected parent reattachment gate and keep the miss open until the parent
    consumes current child evidence.
-8. Record `Miss type`, `Generalized case`, and any parent reattachment decision
+8. If the child boundary changed, keep the miss open until ModelMesh has
+   propagated the boundary review upward and reviewed affected sibling models
+   or recorded why none are affected.
+9. Do not use a background long-running check as closure until final artifacts
+   and exit status exist; progress output is only liveness.
+10. Record `Miss type`, `Generalized case`, and any parent reattachment decision
    in the adoption log, or the reason no generalized case was added, along with
    rerun commands, skipped checks, and residual blindspots.
 

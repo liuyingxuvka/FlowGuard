@@ -1,5 +1,28 @@
 # Changelog
 
+## v0.17.1 - 2026-05-19
+
+- Added ModelMesh boundary-diff propagation so repaired child models can report
+  `unaffected`, `reattach_only`, `parent_rerun_required`,
+  `sibling_rerun_required`, or `split_review_required` before parent
+  confidence is claimed.
+- Added public helper API `ChildBoundaryChangeSummary` and
+  `summarize_child_boundary_change(...)`, and extended `ChildModelEvidence`
+  with function, invariant, risk-class, and validation-evidence ownership
+  fields.
+- Updated ModelMesh review to expose boundary change decisions, reject
+  point-fix-only bug-instance targets, and mark affected parent or sibling
+  evidence stale when a child boundary changes.
+- Hardened the public `model-miss-template` so generated review models now
+  distinguish the observed issue, a same-class generalized bad case, and the
+  known bug's holdout validation role before a repair can be finalized.
+- Added generated negative scenarios that reject point-fix-only validation and
+  validation that forgets to record the known bug as holdout evidence.
+- Updated focused ModelMesh, public-template, Skill-doc, and OpenSpec artifacts
+  for the boundary propagation and template hardening release.
+- Schema remains `1.0`; runtime dependencies remain Python standard library
+  only.
+
 ## v0.17.0 - 2026-05-18
 
 - Added the ModelMesh child reattachment gate for local child model repairs:
