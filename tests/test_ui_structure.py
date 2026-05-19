@@ -4,7 +4,12 @@ from dataclasses import replace
 from flowguard import (
     UIControl,
     UIDisplayElement,
+    UIFeatureContract,
     UIFeatureJourney,
+    UIImplementationBlindspot,
+    UIImplementationJourneyRun,
+    UIImplementationStepEvidence,
+    UIImplementationValidation,
     UIInteractionModel,
     UIJourneyCoverage,
     UIJourneyEntryPoint,
@@ -17,6 +22,7 @@ from flowguard import (
     UITypographyToken,
     UITerminalActionAllowance,
     UITransition,
+    review_ui_implementation_validation,
     review_ui_interaction_model,
     review_ui_journey_coverage,
     review_ui_structure_derivation,
@@ -292,6 +298,135 @@ def journey_coverage(**kwargs) -> UIJourneyCoverage:
     }
     defaults.update(kwargs)
     return UIJourneyCoverage("project-app-journeys", **defaults)
+
+
+def feature_contract(feature_id: str, **kwargs) -> UIFeatureContract:
+    journey_ids = kwargs.pop("journey_ids", (feature_id,))
+    required_control_ids = kwargs.pop("required_control_ids", ())
+    required_event_ids = kwargs.pop("required_event_ids", ())
+    defaults = {
+        "label": feature_id.replace("_", " ").title(),
+        "journey_ids": journey_ids,
+        "required_control_ids": required_control_ids,
+        "required_event_ids": required_event_ids,
+        "validation_boundaries": ("functional model review",),
+        "rationale": f"{feature_id} is a user-visible functional feature.",
+    }
+    defaults.update(kwargs)
+    return UIFeatureContract(feature_id, **defaults)
+
+
+def implementation_step(event_id: str, control_id: str, source: str, target: str, **kwargs) -> UIImplementationStepEvidence:
+    defaults = {
+        "control_id": control_id,
+        "source_state_id": source,
+        "target_state_id": target,
+        "method": "browser",
+        "result": "passed",
+        "evidence_ref": f"evidence://{event_id}",
+        "observed_state_id": target,
+        "rationale": f"{event_id} was observed in the running UI.",
+    }
+    defaults.update(kwargs)
+    return UIImplementationStepEvidence(f"{event_id}_step", event_id, **defaults)
+
+
+def implementation_run(feature_id: str, *steps: UIImplementationStepEvidence, **kwargs) -> UIImplementationJourneyRun:
+    defaults = {
+        "journey_id": feature_id,
+        "steps": steps,
+        "method": "browser",
+        "result": "passed",
+        "evidence_ref": f"evidence://{feature_id}",
+        "model_revision": "ui-rev-1",
+        "validation_boundaries": ("browser click-through",),
+        "rationale": f"{feature_id} was clicked through from the running UI.",
+    }
+    defaults.update(kwargs)
+    return UIImplementationJourneyRun(f"{feature_id}_run", feature_id, **defaults)
+
+
+def implementation_validation(**kwargs) -> UIImplementationValidation:
+    defaults = {
+        "source_feature_model_id": "project-feature-model",
+        "source_interaction_model_id": "project-app-ui-flow",
+        "source_journey_coverage_id": "project-app-journeys",
+        "implementation_target": "local browser build",
+        "current_model_revision": "ui-rev-1",
+        "feature_contracts": (
+            feature_contract(
+                "new_project",
+                required_control_ids=("new_project", "create_project", "retry_create"),
+                required_event_ids=(
+                    "click_new_project",
+                    "create_project_success",
+                    "create_project_failure",
+                    "click_retry_create",
+                    "click_cancel_new",
+                    "click_cancel_create_failed",
+                ),
+            ),
+            feature_contract(
+                "load_project",
+                required_control_ids=("load_project", "choose_file", "retry_load"),
+                required_event_ids=(
+                    "click_load_project",
+                    "load_project_success",
+                    "load_project_failure",
+                    "click_retry_load",
+                    "click_cancel_load",
+                    "click_cancel_load_failed",
+                ),
+            ),
+            feature_contract(
+                "exit_app",
+                required_control_ids=("exit",),
+                required_event_ids=("click_exit",),
+            ),
+        ),
+        "journey_runs": (
+            implementation_run(
+                "new_project",
+                implementation_step("click_new_project", "new_project", "launch", "new_project_setup"),
+                implementation_step("create_project_success", "create_project", "new_project_setup", "workbench_ready"),
+                implementation_step("create_project_failure", "create_project", "new_project_setup", "create_failed"),
+                implementation_step("click_retry_create", "retry_create", "create_failed", "new_project_setup"),
+                implementation_step("click_cancel_new", "cancel", "new_project_setup", "cancelled"),
+                implementation_step("click_cancel_create_failed", "cancel", "create_failed", "cancelled"),
+            ),
+            implementation_run(
+                "load_project",
+                implementation_step("click_load_project", "load_project", "launch", "load_picker"),
+                implementation_step("load_project_success", "choose_file", "load_picker", "workbench_ready"),
+                implementation_step("load_project_failure", "choose_file", "load_picker", "load_failed"),
+                implementation_step("click_retry_load", "retry_load", "load_failed", "load_picker"),
+                implementation_step("click_cancel_load", "cancel", "load_picker", "cancelled"),
+                implementation_step("click_cancel_load_failed", "cancel", "load_failed", "cancelled"),
+            ),
+            implementation_run(
+                "exit_app",
+                implementation_step("click_exit", "exit", "launch", "exited"),
+                journey_id="exit_app",
+            ),
+        ),
+        "pure_ui_control_ids": ("cancel", "export"),
+        "pure_ui_event_ids": ("click_exit_cancelled", "click_export"),
+        "implementation_blindspots": (
+            UIImplementationBlindspot(
+                "open_recent_project_impl",
+                feature_id="open_recent_project",
+                reason="Recent-project history requires shell state not present in the template.",
+                owner="browser or desktop validation",
+                validation_boundaries=("desktop shell validation",),
+                rationale="The branch is deferred instead of claimed as clicked through.",
+            ),
+        ),
+        "journey_coverage_reviewed": True,
+        "validation_boundaries": ("browser click-through", "manual fallback"),
+        "rationale": "Implemented UI claims require functional features, modeled UI journeys, and real UI evidence.",
+    }
+    defaults.update(kwargs)
+    return UIImplementationValidation("project-app-implementation-validation", **defaults)
 
 
 def region(region_id: str, **kwargs) -> UIRegionRecommendation:
@@ -866,6 +1001,197 @@ class UIJourneyCoverageTests(unittest.TestCase):
 
         self.assertFalse(report.ok)
         self.assertIn("missing_blindspot_validation", [finding.code for finding in report.findings])
+
+
+class UIImplementationValidationTests(unittest.TestCase):
+    def test_complete_implementation_validation_can_continue(self):
+        model = app_ui_model()
+        coverage = journey_coverage()
+
+        report = review_ui_implementation_validation(
+            implementation_validation(),
+            interaction_model=model,
+            journey_coverage=coverage,
+        )
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertIn("new_project", report.covered_feature_ids)
+        self.assertIn("click_load_project", report.covered_event_ids)
+
+    def test_user_visible_feature_without_ui_path_blocks(self):
+        validation = implementation_validation(
+            feature_contracts=implementation_validation().feature_contracts
+            + (
+                feature_contract(
+                    "publish_project",
+                    required_control_ids=("publish",),
+                    required_event_ids=("click_publish",),
+                ),
+            )
+        )
+
+        report = review_ui_implementation_validation(
+            validation,
+            interaction_model=app_ui_model(),
+            journey_coverage=journey_coverage(),
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("feature_not_exposed_by_ui_model", [finding.code for finding in report.findings])
+
+    def test_reachable_control_without_functional_owner_blocks(self):
+        base = app_ui_model()
+        launch = replace(
+            base.states[0],
+            visible_controls=base.states[0].visible_controls + ("help",),
+            enabled_controls=base.states[0].enabled_controls + ("help",),
+        )
+        model = UIInteractionModel(
+            base.model_id,
+            initial_state_id=base.initial_state_id,
+            states=(launch,) + base.states[1:],
+            controls=base.controls + (control("help", level="secondary"),),
+            displays=base.displays,
+            transitions=base.transitions + (transition("click_help", "help", "launch", "launch"),),
+            validation_boundaries=base.validation_boundaries,
+            rationale=base.rationale,
+        )
+        coverage = journey_coverage(
+            residual_blindspots=journey_coverage().residual_blindspots
+            + (
+                UIResidualBlindspot(
+                    "help_center",
+                    feature_id="help_center",
+                    control_ids=("help",),
+                    event_ids=("click_help",),
+                    reason="Help center is modeled but owned by support.",
+                    owner="support UI journey review",
+                    validation_boundaries=("support UI browser test",),
+                    rationale="Journey coverage scopes the branch.",
+                ),
+            )
+        )
+
+        report = review_ui_implementation_validation(
+            implementation_validation(),
+            interaction_model=model,
+            journey_coverage=coverage,
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("implementation_control_without_feature_owner", [finding.code for finding in report.findings])
+
+    def test_missing_run_for_feature_journey_blocks(self):
+        validation = implementation_validation(
+            journey_runs=tuple(
+                run for run in implementation_validation().journey_runs if run.feature_id != "load_project"
+            )
+        )
+
+        report = review_ui_implementation_validation(
+            validation,
+            interaction_model=app_ui_model(),
+            journey_coverage=journey_coverage(),
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("missing_implementation_run_for_journey", [finding.code for finding in report.findings])
+
+    def test_success_only_evidence_missing_failure_recovery_blocks(self):
+        validation = implementation_validation(
+            journey_runs=(
+                implementation_run(
+                    "new_project",
+                    implementation_step("click_new_project", "new_project", "launch", "new_project_setup"),
+                    implementation_step(
+                        "create_project_success",
+                        "create_project",
+                        "new_project_setup",
+                        "workbench_ready",
+                    ),
+                ),
+            )
+            + tuple(run for run in implementation_validation().journey_runs if run.feature_id != "new_project")
+        )
+
+        report = review_ui_implementation_validation(
+            validation,
+            interaction_model=app_ui_model(),
+            journey_coverage=journey_coverage(),
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("missing_implementation_event_evidence", [finding.code for finding in report.findings])
+
+    def test_stale_implementation_evidence_blocks(self):
+        stale_runs = tuple(replace(run, model_revision="old-rev") for run in implementation_validation().journey_runs)
+        validation = implementation_validation(journey_runs=stale_runs)
+
+        report = review_ui_implementation_validation(
+            validation,
+            interaction_model=app_ui_model(),
+            journey_coverage=journey_coverage(),
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("stale_implementation_evidence", [finding.code for finding in report.findings])
+
+    def test_failed_or_skipped_step_evidence_blocks(self):
+        runs = list(implementation_validation().journey_runs)
+        broken_steps = (
+            replace(runs[0].steps[0], result="skipped"),
+        ) + runs[0].steps[1:]
+        runs[0] = replace(runs[0], steps=broken_steps)
+        validation = implementation_validation(journey_runs=tuple(runs))
+
+        report = review_ui_implementation_validation(
+            validation,
+            interaction_model=app_ui_model(),
+            journey_coverage=journey_coverage(),
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("step_evidence_not_passed", [finding.code for finding in report.findings])
+
+    def test_implementation_blindspot_can_bound_unverified_branch(self):
+        validation = implementation_validation(
+            journey_runs=tuple(
+                run for run in implementation_validation().journey_runs if run.feature_id != "load_project"
+            ),
+            implementation_blindspots=implementation_validation().implementation_blindspots
+            + (
+                UIImplementationBlindspot(
+                    "load_project_manual_followup",
+                    feature_id="load_project",
+                    reason="Native file picker cannot run in this browser check.",
+                    owner="manual QA",
+                    validation_boundaries=("manual desktop click-through",),
+                    rationale="The branch is explicitly deferred to manual validation.",
+                ),
+            ),
+        )
+
+        report = review_ui_implementation_validation(
+            validation,
+            interaction_model=app_ui_model(),
+            journey_coverage=journey_coverage(),
+        )
+
+        self.assertTrue(report.ok, report.format_text())
+
+    def test_unscoped_implementation_blindspot_blocks(self):
+        validation = implementation_validation(
+            implementation_blindspots=(UIImplementationBlindspot("mystery"),)
+        )
+
+        report = review_ui_implementation_validation(
+            validation,
+            interaction_model=app_ui_model(),
+            journey_coverage=journey_coverage(),
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("missing_implementation_blindspot_scope", [finding.code for finding in report.findings])
 
 
 class UIStructureDerivationTests(unittest.TestCase):

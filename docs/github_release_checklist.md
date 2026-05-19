@@ -85,6 +85,12 @@ python -m flowguard ui-flow-structure-template
 python $env:USERPROFILE\.codex\skills\.system\skill-creator\scripts\quick_validate.py .agents\skills\flowguard-ui-flow-structure
 ```
 
+If a release claims implemented or runnable UI completeness, also require UI
+implementation validation evidence: feature contracts, reviewed journey
+coverage, browser/desktop/manual click-through runs, step evidence, current
+model revision, pure UI actions, and residual implementation blindspots. Do not
+publish "UI complete" release notes from model/journey evidence alone.
+
 ## Blockers
 
 Block publication if:
@@ -96,3 +102,5 @@ Block publication if:
 - tests fail;
 - examples fail;
 - README does not match the actual public surface.
+- implemented/runnable UI claims lack current UI implementation validation
+  evidence.

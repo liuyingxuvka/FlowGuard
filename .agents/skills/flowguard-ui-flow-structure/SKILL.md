@@ -25,6 +25,10 @@ need coordination.
   journey coverage has been reviewed: launch state, entry points, feature
   journeys, every reachable visible/enabled control branch,
   terminal/recovery/cancel/exit behavior, and residual blindspots.
+- Do not claim an implemented, runnable, or complete real UI until
+  implementation validation has aligned the user-visible feature contracts, the
+  reviewed UI journey coverage, and browser, desktop, or manual click-through
+  evidence. Model-complete UI and running-UI-complete are different claims.
 - Do not skip the structure derivation and jump straight to microcopy or
   screen text.
 - Represent UI behavior as `UI event x UI state -> Set(UI output x UI state)`.
@@ -43,6 +47,9 @@ need coordination.
 - Keep visual design, Figma execution, frontend implementation, browser QA, and
   design review as downstream work, not proof that the UI flow model, structure
   derivation, or text hierarchy blueprint is sound.
+- When downstream browser QA, desktop automation, or human click-through
+  evidence exists, record it through implementation validation instead of
+  treating prose like "manually tested" as sufficient completion proof.
 - Keep skipped, deferred, stale, or not-run checks visible.
 
 ## Workflow
@@ -67,9 +74,15 @@ need coordination.
 7. Derive the UI text hierarchy blueprint from the reviewed structure: page and
    region headings, labels, action text, state/status messages, helper text,
    validation text, recovery/error copy slots, and text priority/ownership.
-8. Hand the resulting UI structure and text hierarchy contract to frontend,
+8. When claiming the running UI is implemented or complete, build or review UI
+   implementation validation: feature contracts, mapped journeys, browser,
+   desktop, or manual journey runs, step evidence, current model revision, pure
+   UI actions, and residual implementation blindspots. Run
+   `review_ui_implementation_validation(...)` when available.
+9. Hand the resulting UI structure and text hierarchy contract to frontend,
    Figma, browser, copy/design, or design-review workflows only after the model,
-   required journey coverage, derivation, and blueprint are explicit.
+   required journey coverage, derivation, blueprint, and any implementation
+   completion evidence are explicit.
 
 ## Owned Helpers
 
@@ -77,10 +90,14 @@ need coordination.
   `UITransition`
 - `UIJourneyCoverage`, `UIJourneyEntryPoint`, `UIFeatureJourney`,
   `UITerminalActionAllowance`, `UIResidualBlindspot`
+- `UIFeatureContract`, `UIImplementationValidation`,
+  `UIImplementationJourneyRun`, `UIImplementationStepEvidence`,
+  `UIImplementationBlindspot`
 - `UIStructureDerivation`, `UIRegionRecommendation`
 - `UITextHierarchyBlueprint`, `UITextElement`, `UITypographyToken`
 - `review_ui_interaction_model(...)`
 - `review_ui_journey_coverage(...)`
+- `review_ui_implementation_validation(...)`
 - `review_ui_structure_derivation(...)`
 - `review_ui_text_hierarchy(...)`
 - `ui-flow-structure-template`

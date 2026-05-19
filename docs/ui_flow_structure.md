@@ -4,7 +4,10 @@ UI Flow Structure is FlowGuard's helper layer for model-first interface
 planning. It first models the UI's interaction behavior, then reviews
 launch-to-terminal journey coverage when complete app-level UI coverage is
 claimed, then derives the UI structure from that model, then derives a UI text
-hierarchy blueprint from the reviewed structure.
+hierarchy blueprint from the reviewed structure. When someone claims the
+running UI has been implemented or is complete, a final implementation
+validation layer aligns user-visible feature contracts, the reviewed UI journey
+coverage, and browser, desktop, or manual click-through evidence.
 
 This route is for workflow-heavy interfaces where button placement, menu
 levels, panels, overlays, persistent controls, and state-dependent actions need
@@ -42,6 +45,8 @@ Use it when:
 - an agent or design artifact claims the whole app UI is covered from the first
   launch screen through entry branches such as new project, load existing
   project, cancel, recover, export, and exit.
+- an agent claims the implemented or runnable UI has actually been opened and
+  verified through browser, desktop, or manual click-through evidence.
 
 Skip it for tiny visual-only edits with no behavior, state, navigation, or
 control-availability impact.
@@ -85,6 +90,25 @@ The app-level journey coverage objects are:
   app-level entry points and feature journeys are reachable from launch and
   terminate or recover within the declared boundary.
 
+The implementation validation objects are:
+
+- `UIFeatureContract`: one user-visible feature from the functional model that
+  should map to UI journeys, controls, and events.
+- `UIImplementationStepEvidence`: one browser, desktop, or manual observation
+  of a modeled control/event/state transition.
+- `UIImplementationJourneyRun`: one real UI run of a modeled feature journey,
+  with method, result, evidence reference, and model revision.
+- `UIImplementationBlindspot`: one intentionally unverified implementation
+  branch with feature/control/event scope, reason, owner, validation boundary,
+  and rationale.
+- `UIImplementationValidation`: the complete implementation evidence boundary
+  connecting feature contracts, journey coverage, real UI runs, pure UI
+  actions, model revision, and blindspots.
+- `UIImplementationValidationReport`: structured review output.
+- `review_ui_implementation_validation(validation, interaction_model=..., journey_coverage=...)`:
+  checks whether real UI evidence covers the feature and journey obligations
+  before an implemented/runnable UI completion claim is accepted.
+
 The structure derivation objects are:
 
 - `UIRegionRecommendation`: one menu level, screen region, panel, overlay, or
@@ -113,7 +137,7 @@ The text hierarchy blueprint objects are:
   checks whether text roles and tokens follow the reviewed UI model and
   structure.
 
-## Four-Stage Workflow
+## Five-Stage Workflow
 
 ```text
 product/workflow intent
@@ -125,6 +149,8 @@ product/workflow intent
 -> review regions, menu levels, displays, overlays, stable placement, hierarchy
 -> UI text hierarchy blueprint
 -> review headings, labels, action text, status/helper/error/recovery slots
+-> UI implementation validation when claiming the running UI is complete
+-> review feature contracts, real journey runs, step evidence, model freshness, blindspots
 -> handoff to Figma, frontend implementation, browser checks, copy/design, or design review
 ```
 
@@ -193,13 +219,32 @@ frontend, Figma, copy, or design-review workflow which text slots exist, what
 each slot must communicate, which state or region owns it, and which labels
 must remain stable across states.
 
+The fifth stage is only for implemented/runnable UI claims. It checks:
+
+- every user-visible feature contract has a UI journey, entry point, event, or
+  implementation blindspot;
+- every reachable actionable control/event has a feature owner, pure UI
+  classification, real run evidence, or blindspot;
+- every modeled feature journey has passed browser, desktop, or manual
+  click-through evidence;
+- success evidence also covers modeled failure, recovery, cancel, and exit
+  branches;
+- each run records the model or implementation revision it validates;
+- skipped or hard-to-automate branches are recorded as implementation
+  blindspots with scope, owner, and validation boundary.
+
 ## Example
 
 ```python
 from flowguard import (
     UIControl,
     UIDisplayElement,
+    UIFeatureContract,
     UIFeatureJourney,
+    UIImplementationBlindspot,
+    UIImplementationJourneyRun,
+    UIImplementationStepEvidence,
+    UIImplementationValidation,
     UIInteractionModel,
     UIJourneyCoverage,
     UIJourneyEntryPoint,
@@ -212,6 +257,7 @@ from flowguard import (
     UITypographyToken,
     UITerminalActionAllowance,
     UITransition,
+    review_ui_implementation_validation,
     review_ui_interaction_model,
     review_ui_journey_coverage,
     review_ui_structure_derivation,
@@ -319,6 +365,82 @@ coverage = UIJourneyCoverage(
 
 journey_report = review_ui_journey_coverage(coverage, interaction_model=model)
 
+implementation_validation = UIImplementationValidation(
+    "import-run-implementation-validation",
+    source_feature_model_id="import-run-product-flow",
+    source_interaction_model_id="import-run-ui-flow",
+    source_journey_coverage_id="import-run-journey-coverage",
+    implementation_target="local browser build",
+    current_model_revision="example-ui-rev-1",
+    feature_contracts=(
+        UIFeatureContract(
+            "import_run_export",
+            journey_ids=("import_run_export",),
+            required_control_ids=("import", "export"),
+            required_event_ids=("click_import", "click_export"),
+            validation_boundaries=("functional model review",),
+            rationale="The user-visible import/export feature must be reachable in UI.",
+        ),
+    ),
+    journey_runs=(
+        UIImplementationJourneyRun(
+            "import_run_export_browser",
+            "import_run_export",
+            journey_id="import_run_export",
+            method="browser",
+            result="passed",
+            evidence_ref="evidence://browser/import-run-export",
+            model_revision="example-ui-rev-1",
+            validation_boundaries=("browser click-through",),
+            rationale="The feature was clicked through in the running UI.",
+            steps=(
+                UIImplementationStepEvidence(
+                    "click_import_step",
+                    "click_import",
+                    control_id="import",
+                    source_state_id="empty",
+                    target_state_id="result_ready",
+                    method="browser",
+                    result="passed",
+                    evidence_ref="evidence://browser/click-import",
+                    observed_state_id="result_ready",
+                ),
+                UIImplementationStepEvidence(
+                    "click_export_step",
+                    "click_export",
+                    control_id="export",
+                    source_state_id="result_ready",
+                    target_state_id="result_ready",
+                    method="browser",
+                    result="passed",
+                    evidence_ref="evidence://browser/click-export",
+                    observed_state_id="result_ready",
+                ),
+            ),
+        ),
+    ),
+    implementation_blindspots=(
+        UIImplementationBlindspot(
+            "settings_implementation",
+            feature_id="settings_panel",
+            control_ids=("settings",),
+            reason="Settings are outside the short local example.",
+            owner="settings browser validation",
+            validation_boundaries=("settings browser check",),
+            rationale="The persistent settings control is bounded for a separate implementation check.",
+        ),
+    ),
+    journey_coverage_reviewed=journey_report.ok,
+    validation_boundaries=("browser click-through",),
+    rationale="Implemented UI claims need real click-through evidence tied to the same model.",
+)
+
+implementation_report = review_ui_implementation_validation(
+    implementation_validation,
+    interaction_model=model,
+    journey_coverage=coverage,
+)
+
 derivation = UIStructureDerivation(
     "import-run-ui-structure",
     source_interaction_model_id="import-run-ui-flow",
@@ -420,6 +542,7 @@ text_report = review_ui_text_hierarchy(
 )
 print(model_report.format_text())
 print(journey_report.format_text())
+print(implementation_report.format_text())
 print(structure_report.format_text())
 print(text_report.format_text())
 ```
@@ -434,9 +557,13 @@ python -m flowguard ui-flow-structure-template --output .
 
 UI Flow Structure does not choose the visual style and does not implement
 frontend code. Journey coverage is model evidence for the declared UI boundary,
-not browser, frontend, accessibility, or production conformance. It produces a
-structure and text hierarchy contract that
-frontend, Figma, browser, copy, and design-review workflows can use.
+not browser, frontend, accessibility, or production conformance. Implementation
+validation records browser, desktop, or manual click-through evidence after a
+running UI exists; it still does not replace accessibility testing, visual
+review, production telemetry, or release conformance. Together, the route
+produces structure/text contracts and an optional implementation evidence
+boundary that frontend, Figma, browser, copy, and design-review workflows can
+use.
 
 Use Code Structure Recommendation when the question is how to split
 implementation modules or files. Use StructureMesh when an existing codebase

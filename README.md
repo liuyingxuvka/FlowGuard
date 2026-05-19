@@ -12,7 +12,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.18.1` | `1.0` | Python standard library only | MIT |
+| `v0.18.2` | `1.0` | Python standard library only | MIT |
 
 English lead content comes first; a Chinese mirror follows below.
 
@@ -72,7 +72,7 @@ FlowGuard gives those weak spots a small executable shape before the action beco
 | TestMesh | Reviews parent/child validation layers, stale evidence, hidden skips, timeouts, and routine-vs-release gates |
 | StructureMesh | Reviews large refactor splits, facade compatibility, dependency cycles, config drift, and parity evidence |
 | Code Structure Recommendation | Derives module, facade, state-owner, side-effect, config, and validation boundaries before code is written |
-| UI Flow Structure | Models UI states, controls, visible buttons, events, failures, recovery paths, launch-to-terminal app journeys, overlays, duplicate controls, and display ownership before deriving interface topology |
+| UI Flow Structure | Models UI states, controls, visible buttons, events, failures, recovery paths, launch-to-terminal app journeys, implementation click-through evidence, overlays, duplicate controls, and display ownership before deriving interface topology |
 | UI Text Hierarchy Blueprint | Reviews visible and assistive UI text by state, region, role, semantic key, owner, priority, duplication rationale, and warning/error escalation |
 | DevelopmentProcessFlow | Checks staged development flow, lifecycle ordering, artifact overwrite, validation freshness, minimum revalidation, archive readiness, and release confidence |
 | Model-Miss Review | After a runtime failure, classifies what the model missed and adds a generalized same-class bad case before closure |
@@ -199,7 +199,7 @@ FlowGuard has one kernel idea and several focused satellites. The kernel asks wh
 | `flowguard-test-mesh` | Test evidence is layered, slow, stale, skipped, release-only, or split across child suites |
 | `flowguard-structure-mesh` | A script, package, command, public API, or refactor split needs compatibility governance |
 | `flowguard-code-structure-recommendation` | A function-flow model should derive module and ownership boundaries before code |
-| `flowguard-ui-flow-structure` | UI controls, visible buttons, states, events, launch-to-terminal journeys, overlays, recovery actions, and information ownership need modeling before visual design |
+| `flowguard-ui-flow-structure` | UI controls, visible buttons, states, events, launch-to-terminal journeys, implementation click-through evidence, overlays, recovery actions, and information ownership need modeling before visual design |
 | `flowguard-development-process-flow` | Non-trivial staged development or modification needs validation, or done/archive/publish/release confidence depends on validation freshness |
 | `flowguard-model-miss-review` | Real runtime evidence failed after a FlowGuard model passed |
 
@@ -311,7 +311,7 @@ FlowGuard 给这些薄弱点一个小而可执行的结构。
 | TestMesh | 检查父子验证层、旧证据、隐藏 skip、timeout，以及 routine/release gate |
 | StructureMesh | 检查大 refactor 拆分、facade 兼容、依赖环、配置漂移和 parity 证据 |
 | Code Structure Recommendation | 在写代码前，从模型推导 module、facade、state owner、side effect、config 和验证边界 |
-| UI Flow Structure | 在视觉设计前，建模 UI 状态、可见按钮、控件、事件、从启动到终态的 app journey、失败、恢复、overlay、重复控件和信息显示 ownership |
+| UI Flow Structure | 在视觉设计前，建模 UI 状态、可见按钮、控件、事件、从启动到终态的 app journey、真实界面点击验收证据、失败、恢复、overlay、重复控件和信息显示 ownership |
 | UI Text Hierarchy Blueprint | 按 state、region、role、semantic key、owner、priority、重复理由和 warning/error escalation 审查 UI 文案层级 |
 | DevelopmentProcessFlow | 检查分阶段开发流程、生命周期顺序、artifact 覆盖、验证新鲜度、最小重验证、archive readiness 和 release confidence |
 | Model-Miss Review | 当运行时失败发生在 FlowGuard 通过之后，分类模型漏了什么，并补一个同类坏 case |
@@ -368,7 +368,7 @@ FlowGuard 有一个 kernel 思路和多个 satellite route。Kernel 先判断是
 | `flowguard-test-mesh` | 测试证据分层、很慢、过期、被 skip、只在 release 跑，或分布在子套件 |
 | `flowguard-structure-mesh` | 脚本、包、命令、公开 API 或 refactor 拆分需要兼容性治理 |
 | `flowguard-code-structure-recommendation` | 写代码前，需要让 function-flow 模型推导 module 和 ownership boundary |
-| `flowguard-ui-flow-structure` | UI control、可见按钮、state、event、启动到终态 journey、overlay、恢复动作和信息 ownership 需要先建模 |
+| `flowguard-ui-flow-structure` | UI control、可见按钮、state、event、启动到终态 journey、真实界面点击验收证据、overlay、恢复动作和信息 ownership 需要先建模 |
 | `flowguard-development-process-flow` | 非平凡的分阶段开发或修改需要验证，或 done、archive、publish、release 信心取决于验证证据是否新鲜 |
 | `flowguard-model-miss-review` | FlowGuard 模型通过后，真实运行证据仍然失败 |
 

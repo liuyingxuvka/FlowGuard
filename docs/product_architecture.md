@@ -116,7 +116,9 @@ It does not start by arranging buttons on a screen. It first builds or reviews
 a UI interaction model: initial UI state, controls, information displays,
 events, state transitions, failure/recovery paths, terminal states, state
 availability, and intentional redundancy. For complete app-level UI claims, it
-also reviews launch-to-terminal journey coverage. It then derives parent/child
+also reviews launch-to-terminal journey coverage. For implemented or runnable
+UI completion claims, it aligns user-visible feature contracts, reviewed UI
+journeys, and browser/desktop/manual click-through evidence. It then derives parent/child
 UI topology, first-level persistent menus, second-level contextual regions,
 third-level local controls, information-display ownership, overlay hierarchy,
 and stable placement rules from that model.

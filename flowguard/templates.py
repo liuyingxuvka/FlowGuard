@@ -2189,7 +2189,12 @@ from __future__ import annotations
 from flowguard import (
     UIControl,
     UIDisplayElement,
+    UIFeatureContract,
     UIFeatureJourney,
+    UIImplementationBlindspot,
+    UIImplementationJourneyRun,
+    UIImplementationStepEvidence,
+    UIImplementationValidation,
     UIInteractionModel,
     UIJourneyCoverage,
     UIJourneyEntryPoint,
@@ -2202,6 +2207,7 @@ from flowguard import (
     UITypographyToken,
     UITerminalActionAllowance,
     UITransition,
+    review_ui_implementation_validation,
     review_ui_interaction_model,
     review_ui_journey_coverage,
     review_ui_structure_derivation,
@@ -2460,6 +2466,146 @@ def journey_coverage() -> UIJourneyCoverage:
         ),
         validation_boundaries=("journey scenario review", "browser state transition test"),
         rationale="Complete app-level UI coverage is declared from launch through feature terminals.",
+    )
+
+
+def feature_contract(feature_id: str, controls: tuple[str, ...], events: tuple[str, ...]) -> UIFeatureContract:
+    return UIFeatureContract(
+        feature_id,
+        label=feature_id.replace("_", " ").title(),
+        journey_ids=(feature_id,),
+        required_control_ids=controls,
+        required_event_ids=events,
+        validation_boundaries=("functional model review",),
+        rationale=f"{feature_id} is user-visible functionality that must align with a UI journey and implementation evidence.",
+    )
+
+
+def step(event_id: str, control_id: str, source_state_id: str, target_state_id: str) -> UIImplementationStepEvidence:
+    return UIImplementationStepEvidence(
+        f"{event_id}_step",
+        event_id,
+        control_id=control_id,
+        source_state_id=source_state_id,
+        target_state_id=target_state_id,
+        method="browser",
+        result="passed",
+        evidence_ref=f"evidence://browser/{event_id}",
+        observed_state_id=target_state_id,
+        rationale=f"{event_id} was clicked or observed in the running UI.",
+    )
+
+
+def journey_run(feature_id: str, *steps: UIImplementationStepEvidence) -> UIImplementationJourneyRun:
+    return UIImplementationJourneyRun(
+        f"{feature_id}_implementation_run",
+        feature_id,
+        journey_id=feature_id,
+        steps=steps,
+        method="browser",
+        result="passed",
+        evidence_ref=f"evidence://browser/{feature_id}",
+        model_revision="template-ui-rev-1",
+        validation_boundaries=("browser click-through",),
+        rationale=f"{feature_id} was validated from the running UI against the model-derived journey.",
+    )
+
+
+def implementation_validation() -> UIImplementationValidation:
+    return UIImplementationValidation(
+        "project-workbench-implementation-validation",
+        source_feature_model_id="project-workbench-product-flow",
+        source_interaction_model_id="project-workbench-ui-flow",
+        source_journey_coverage_id="project-workbench-journey-coverage",
+        implementation_target="local browser build",
+        current_model_revision="template-ui-rev-1",
+        feature_contracts=(
+            feature_contract(
+                "new_project",
+                ("new_project", "create_project", "run", "retry"),
+                (
+                    "click_new_project",
+                    "create_project_success",
+                    "create_project_failure",
+                    "click_run",
+                    "run_success",
+                    "run_failure",
+                    "click_retry",
+                    "click_cancel_new",
+                    "click_cancel",
+                ),
+            ),
+            feature_contract(
+                "load_project",
+                ("load_project", "choose_file", "run", "retry"),
+                (
+                    "click_load_project",
+                    "load_project_success",
+                    "load_project_failure",
+                    "click_run",
+                    "run_success",
+                    "run_failure",
+                    "click_retry",
+                    "click_cancel_load",
+                    "click_cancel",
+                ),
+            ),
+            feature_contract("exit_app", ("exit",), ("click_exit",)),
+        ),
+        journey_runs=(
+            journey_run(
+                "new_project",
+                step("click_new_project", "new_project", "launch", "new_project_setup"),
+                step("create_project_success", "create_project", "new_project_setup", "loaded"),
+                step("create_project_failure", "create_project", "new_project_setup", "failed"),
+                step("click_run", "run", "loaded", "running"),
+                step("run_success", "run", "running", "result_ready"),
+                step("run_failure", "run", "running", "failed"),
+                step("click_retry", "retry", "failed", "running"),
+                step("click_cancel_new", "cancel", "new_project_setup", "cancelled"),
+                step("click_cancel", "cancel", "running", "loaded"),
+            ),
+            journey_run(
+                "load_project",
+                step("click_load_project", "load_project", "launch", "load_picker"),
+                step("load_project_success", "choose_file", "load_picker", "loaded"),
+                step("load_project_failure", "choose_file", "load_picker", "failed"),
+                step("click_run", "run", "loaded", "running"),
+                step("run_success", "run", "running", "result_ready"),
+                step("run_failure", "run", "running", "failed"),
+                step("click_retry", "retry", "failed", "running"),
+                step("click_cancel_load", "cancel", "load_picker", "cancelled"),
+                step("click_cancel", "cancel", "running", "loaded"),
+            ),
+            journey_run(
+                "exit_app",
+                step("click_exit", "exit", "launch", "exited"),
+            ),
+        ),
+        pure_ui_control_ids=("cancel", "export"),
+        pure_ui_event_ids=("click_export", "click_exit_cancelled"),
+        implementation_blindspots=(
+            UIImplementationBlindspot(
+                "settings_panel_implementation",
+                feature_id="settings_panel",
+                control_ids=("settings",),
+                reason="Settings panel contents are app-specific and not part of this starter implementation.",
+                owner="target app settings validation",
+                validation_boundaries=("settings browser check",),
+                rationale="The persistent settings control is bounded instead of silently claimed.",
+            ),
+            UIImplementationBlindspot(
+                "open_recent_project_implementation",
+                feature_id="open_recent_project",
+                reason="Recent-project shell history is outside this starter template.",
+                owner="target app integration tests",
+                validation_boundaries=("browser or desktop shell test",),
+                rationale="The omitted branch remains visible for downstream validation.",
+            ),
+        ),
+        journey_coverage_reviewed=True,
+        validation_boundaries=("browser click-through", "manual fallback for native dialogs"),
+        rationale="Implemented UI evidence is generated from feature contracts and the reviewed journey coverage.",
     )
 
 
@@ -2752,6 +2898,40 @@ def broken_journey_coverage() -> UIJourneyCoverage:
     )
 
 
+def broken_implementation_validation() -> UIImplementationValidation:
+    return UIImplementationValidation(
+        "broken-project-workbench-implementation",
+        source_feature_model_id="project-workbench-product-flow",
+        source_interaction_model_id="project-workbench-ui-flow",
+        source_journey_coverage_id="project-workbench-journey-coverage",
+        implementation_target="local browser build",
+        current_model_revision="template-ui-rev-1",
+        feature_contracts=(
+            feature_contract(
+                "new_project",
+                ("new_project", "create_project"),
+                ("click_new_project", "create_project_success", "create_project_failure", "click_retry"),
+            ),
+            feature_contract(
+                "load_project",
+                ("load_project", "choose_file"),
+                ("click_load_project", "load_project_success", "load_project_failure", "click_retry"),
+            ),
+        ),
+        journey_runs=(
+            journey_run(
+                "new_project",
+                step("click_new_project", "new_project", "launch", "new_project_setup"),
+                step("create_project_success", "create_project", "new_project_setup", "loaded"),
+            ),
+        ),
+        pure_ui_control_ids=("cancel",),
+        journey_coverage_reviewed=True,
+        validation_boundaries=("browser click-through",),
+        rationale="Broken implementation validation omits load-project and failure/recovery evidence.",
+    )
+
+
 def broken_text_hierarchy() -> UITextHierarchyBlueprint:
     return UITextHierarchyBlueprint(
         "broken-text-hierarchy",
@@ -2804,6 +2984,11 @@ def run_checks():
     structure = structure_derivation()
     model_report = review_ui_interaction_model(model)
     journey_report = review_ui_journey_coverage(journey_coverage(), interaction_model=model)
+    implementation_report = review_ui_implementation_validation(
+        implementation_validation(),
+        interaction_model=model,
+        journey_coverage=journey_coverage(),
+    )
     structure_report = review_ui_structure_derivation(structure, interaction_model=model)
     text_report = review_ui_text_hierarchy(
         text_hierarchy(),
@@ -2812,6 +2997,11 @@ def run_checks():
     )
     broken_model_report = review_ui_interaction_model(broken_interaction_model())
     broken_journey_report = review_ui_journey_coverage(broken_journey_coverage(), interaction_model=model)
+    broken_implementation_report = review_ui_implementation_validation(
+        broken_implementation_validation(),
+        interaction_model=model,
+        journey_coverage=journey_coverage(),
+    )
     broken_structure_report = review_ui_structure_derivation(
         broken_structure_derivation(),
         interaction_model=model,
@@ -2821,7 +3011,18 @@ def run_checks():
         interaction_model=model,
         structure_derivation=structure,
     )
-    return model_report, journey_report, structure_report, text_report, broken_model_report, broken_journey_report, broken_structure_report, broken_text_report
+    return (
+        model_report,
+        journey_report,
+        implementation_report,
+        structure_report,
+        text_report,
+        broken_model_report,
+        broken_journey_report,
+        broken_implementation_report,
+        broken_structure_report,
+        broken_text_report,
+    )
 '''
 
 
@@ -2833,10 +3034,23 @@ from model import run_checks
 
 
 def main() -> int:
-    model_report, journey_report, structure_report, text_report, broken_model, broken_journey, broken_structure, broken_text = run_checks()
+    (
+        model_report,
+        journey_report,
+        implementation_report,
+        structure_report,
+        text_report,
+        broken_model,
+        broken_journey,
+        broken_implementation,
+        broken_structure,
+        broken_text,
+    ) = run_checks()
     print(model_report.format_text())
     print()
     print(journey_report.format_text())
+    print()
+    print(implementation_report.format_text())
     print()
     print(structure_report.format_text())
     print()
@@ -2846,10 +3060,23 @@ def main() -> int:
     print()
     print(broken_journey.format_text(max_findings=5))
     print()
+    print(broken_implementation.format_text(max_findings=25))
+    print()
     print(broken_structure.format_text(max_findings=5))
     print()
     print(broken_text.format_text(max_findings=5))
-    return 0 if model_report.ok and journey_report.ok and structure_report.ok and text_report.ok and not broken_model.ok and not broken_journey.ok and not broken_structure.ok and not broken_text.ok else 1
+    return 0 if (
+        model_report.ok
+        and journey_report.ok
+        and implementation_report.ok
+        and structure_report.ok
+        and text_report.ok
+        and not broken_model.ok
+        and not broken_journey.ok
+        and not broken_implementation.ok
+        and not broken_structure.ok
+        and not broken_text.ok
+    ) else 1
 
 
 if __name__ == "__main__":
@@ -2877,6 +3104,10 @@ itself needs a model-first interaction flow.
   section titles, panel titles, labels, button text, status text, captions,
   semantic text keys, typography tokens, parent/child text priority, and
   redundancy rationale;
+- implementation validation when the route claims a running UI is implemented
+  or complete: user-visible feature contracts, mapped journeys,
+  browser/desktop/manual journey runs, step evidence, model revision, pure UI
+  actions, and residual implementation blindspots;
 - review findings when a control has no modeled event, a failure state has no
   recovery path, a destructive control is too prominent, or a persistent
   control is not assigned to a stable global region;
@@ -2884,6 +3115,9 @@ itself needs a model-first interaction flow.
   button/control has no modeled event, a modeled event is outside all journeys,
   a required feature path is unreachable, a terminal state has unclassified
   outgoing actions, or a residual blindspot lacks validation;
+- implementation validation findings when a feature has no UI path, a visible
+  control has no functional owner, a journey lacks click-through evidence,
+  branch evidence is missing, or the recorded evidence is stale;
 - redundancy findings when the same page/state shows the same semantic
   information twice or exposes multiple same-level controls for one function
   without an explicit rationale;
@@ -2893,7 +3127,9 @@ itself needs a model-first interaction flow.
 
 UI Flow Structure does not choose final brand styling or implement frontend
 code. Use the derived structure and text hierarchy contract as input to Figma,
-frontend implementation, browser checks, and design implementation review.
+frontend implementation, browser checks, and design implementation review; feed
+real click-through results back as implementation validation before claiming
+the running UI is complete.
 """
 
 

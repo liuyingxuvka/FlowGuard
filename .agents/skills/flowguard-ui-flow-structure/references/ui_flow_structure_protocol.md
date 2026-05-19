@@ -1,10 +1,12 @@
 # UI Flow Structure Protocol
 
 Use this route when UI design needs a model-first interaction structure before
-visual design or frontend implementation. The route has four stages for
-complete app-level UI claims: build or review a UI interaction model, review
-launch-to-terminal journey coverage, derive UI structure from that model, then
-derive a UI text hierarchy blueprint from the reviewed structure. Local
+visual design or frontend implementation. The route has four model/design
+stages for complete app-level UI claims: build or review a UI interaction
+model, review launch-to-terminal journey coverage, derive UI structure from
+that model, then derive a UI text hierarchy blueprint from the reviewed
+structure. It has a fifth implementation-evidence stage only when the agent
+claims the running UI is implemented, runnable, or complete. Local
 component-only UI work may skip journey coverage with an explicit scope reason.
 
 ## Trigger
@@ -31,6 +33,8 @@ Use UI Flow Structure when:
 - the agent wants to claim the whole app UI is covered from launch through
   entry branches such as new project, load existing project, cancel, recover,
   export, and exit.
+- the agent wants to claim the implemented/runnable UI has been opened and
+  verified through browser, desktop, or manual click-through evidence.
 
 Skip with a reason when the request is a tiny visual-only edit with no
 behavior, state, navigation, or control-availability impact.
@@ -56,6 +60,11 @@ Collect the lightest fit-for-risk UI evidence:
 - state availability: visible, enabled, disabled, hidden controls per state;
 - existing or proposed heading, label, button, status, helper, empty-state,
   error, recovery, validation, and success text when available;
+- user-visible feature contracts from the product or functional model when an
+  implemented/runnable UI claim is made;
+- browser, desktop automation, or manual click-through evidence, including
+  model revision/fingerprint and step-level event/state observations, when
+  implementation completion is claimed;
 - downstream validation boundaries such as scenario review, browser checks,
   implementation tests, Figma review, or design implementation review.
 
@@ -237,6 +246,47 @@ Known-bad hazards:
 - downstream copy/design work receives only prose, not state/control/display
   maps for the text slots.
 
+## Stage 5: UI Implementation Validation
+
+Use this stage only when the route claims a running UI has been implemented,
+is runnable, or is complete. Model, journey coverage, structure derivation, and
+text hierarchy evidence are still design/model evidence; they do not prove that
+the real UI was opened and clicked through.
+
+Use `UIFeatureContract`, `UIImplementationValidation`,
+`UIImplementationJourneyRun`, `UIImplementationStepEvidence`,
+`UIImplementationBlindspot`, and
+`review_ui_implementation_validation(...)` when the package API is available.
+
+The validation should include:
+
+- source feature/product model id, source UI interaction model id, source
+  journey coverage id, implementation target, current model or implementation
+  revision, validation boundaries, and rationale;
+- feature contracts for every user-visible feature that should have a UI path;
+- mappings from feature contracts to UI journeys, entry points, controls, and
+  events;
+- browser, desktop automation, or manual journey runs with step-level event,
+  control, source-state, target-state, result, evidence reference, and observed
+  state data;
+- pure UI control/event classifications for actions such as close, cancel,
+  expand, collapse, or export side effects when they are not product features;
+- implementation blindspots with feature/control/event scope, reason, owner,
+  validation boundary, and rationale.
+
+Known-bad hazards:
+
+- an implemented/runnable UI claim has no implementation validation;
+- a user-visible feature has no UI journey, entry point, event, or blindspot;
+- a reachable actionable control or modeled event has no feature owner, pure UI
+  classification, run evidence, or blindspot;
+- a modeled feature journey has no passed browser, desktop, or manual run;
+- success evidence omits modeled failure, recovery, cancel, or exit events;
+- evidence is failed, skipped, not run, stale, or lacks a model revision;
+- a step references unknown controls, events, source states, or target states;
+- an implementation blindspot lacks scope, reason, owner, validation boundary,
+  or rationale.
+
 ## Recommendation Shape
 
 Produce a UI structure contract with:
@@ -244,6 +294,8 @@ Produce a UI structure contract with:
 - UI interaction model id and evidence status;
 - app-level journey coverage id and evidence status when complete app coverage
   is claimed;
+- implementation validation id and evidence status when implemented/runnable UI
+  completion is claimed;
 - launch state, entry points, feature journeys, terminal actions, failure
   handling, and residual blindspots when journey coverage is in scope;
 - parent UI surface id;
@@ -262,6 +314,9 @@ Produce a UI structure contract with:
   action text slots, state/status messages, helper/validation text, recovery
   and error copy slots, semantic display labels, text ownership maps, priority
   levels, and rationale for repeated text.
+- implementation evidence boundary: feature contracts, journey runs, step
+  evidence, model revision, pure UI actions, residual implementation
+  blindspots, and remaining manual/browser validation boundaries.
 
 ## Relationship To Other Routes
 
@@ -274,6 +329,9 @@ evidence.
 
 Use frontend, Figma, Browser, and design review workflows after the UI flow,
 required journey coverage, structure, and UI text hierarchy contracts exist.
+When those workflows produce browser, desktop, or human click-through evidence,
+feed that evidence back into UI implementation validation before claiming the
+running UI is complete.
 
 ## Completion Standard
 
@@ -293,9 +351,15 @@ The route is complete when:
   control labels, action text slots, status/state messages, helper/validation
   text, error/recovery copy slots, semantic display labels, state/control/text
   ownership, priority levels, and rationale for repeated text;
+- implemented/runnable UI claims have implementation validation that aligns
+  user-visible feature contracts, reviewed UI journeys, real click-through
+  evidence, model revision/freshness, pure UI actions, and residual
+  implementation blindspots;
 - known-bad layout-only, missing-journey-coverage, missing-entry,
   unreachable-feature-path, missing-success-terminal, unhandled-failure,
   terminal-forward-action, visible-control-without-event,
   uncovered-reachable-event, unmodeled-control, missing-recovery,
-  unstable-global, repeated-information, duplicate-control, wrong-level, and
-  unowned-text hazards are rejected or explicitly out of scope.
+  unstable-global, repeated-information, duplicate-control, wrong-level,
+  unowned-text, missing-implementation-run, stale-implementation-evidence, and
+  implementation-control-without-feature-owner hazards are rejected or
+  explicitly out of scope.

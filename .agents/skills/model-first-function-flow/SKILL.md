@@ -16,7 +16,7 @@ decision/planning work, first make a lightweight applicability decision:
 Use FlowGuard when the work may affect behavior, workflow state, retries,
 deduplication, idempotency, caching, side effects, module boundaries, data
 flow, production conformance, repeated-bug handling, large model layout,
-UI information display ownership, duplicate UI information or overlapping
+UI implementation click-through evidence alignment, UI information display ownership, duplicate UI information or overlapping
 same-level controls, model-test obligation and optional external code contract coverage, large
 test/script validation layout, large script/module decomposition, slow
 validation evidence, irreversible process actions, development lifecycle
@@ -64,7 +64,7 @@ satellite skills. The routes are agent behavior protocols, not package APIs.
 | --- | --- | --- |
 | Ordinary model-first workflow, flow types, Risk Intent, state write inventory | `core_modeling` | `references/modeling_protocol.md` |
 | Direct architecture recommendation, model-derived implementation structure, pre-code module split planning | `code_structure_recommendation` | `flowguard-code-structure-recommendation` |
-| UI interaction flow model, complete app launch-to-terminal journey coverage, reachable visible-control branches, screen/region topology, parent/child UI structure, navigation/state/event/display/text ownership, text hierarchy blueprint, duplicate information, or overlapping same-level controls derived from modeled UI behavior | `ui_flow_structure` | `flowguard-ui-flow-structure` |
+| UI interaction flow model, complete app launch-to-terminal journey coverage, implemented/runnable UI validation against feature contracts and browser/manual click-through evidence, reachable visible-control branches, screen/region topology, parent/child UI structure, navigation/state/event/display/text ownership, text hierarchy blueprint, duplicate information, or overlapping same-level controls derived from modeled UI behavior | `ui_flow_structure` | `flowguard-ui-flow-structure` |
 | FlowGuard model obligations, optional code external contracts, and ordinary test evidence need direct comparison | `model_test_alignment` | `flowguard-model-test-alignment` |
 | Three or more local FlowGuard models, oversized model, stale child evidence, parent/child model partition, affected sibling review, whole-flow mesh closure | `model_mesh_maintenance` | `flowguard-model-mesh` |
 | Large test script/suite split, parent/child test hierarchy, slow/background/stale/skipped/release-only validation evidence | `test_mesh_maintenance` | `flowguard-test-mesh` |
@@ -147,10 +147,11 @@ Codex skill:
   rows consumed by the model-test alignment plan.
 - Development lifecycle helpers such as `review_development_process_flow()`
   and `derive_revalidation_plan()`.
-- UI flow structure helpers such as `UIDisplayElement`,
-  `UIJourneyCoverage`, `UITextHierarchyBlueprint`,
+- UI flow structure helpers such as `UIDisplayElement`, `UIJourneyCoverage`,
+  `UIImplementationValidation`, `UITextHierarchyBlueprint`,
   `review_ui_interaction_model()`, `review_ui_journey_coverage()`,
-  `review_ui_structure_derivation()`, and `review_ui_text_hierarchy()`.
+  `review_ui_implementation_validation()`, `review_ui_structure_derivation()`,
+  and `review_ui_text_hierarchy()`.
 - Template CLIs such as `project-template`, `risk-intent-template`,
   `model-miss-template`, `model-test-alignment-template`,
   `ui-flow-structure-template`, `development-process-flow-template`,
@@ -158,13 +159,11 @@ Codex skill:
   `maintenance-template`.
 
 ## Standalone Satellite Skills
-
 The directly invokable satellite skills are:
 `flowguard-model-test-alignment`, `flowguard-development-process-flow`,
 `flowguard-model-miss-review`, `flowguard-code-structure-recommendation`,
-`flowguard-ui-flow-structure`, `flowguard-model-mesh`,
-`flowguard-test-mesh`, and `flowguard-structure-mesh`. Use them directly only
-when the user's request
+`flowguard-ui-flow-structure`, `flowguard-model-mesh`, `flowguard-test-mesh`,
+and `flowguard-structure-mesh`. Use them directly only when the user's request
 clearly matches that route; otherwise start here in the kernel.
 
 ## Resource Map
@@ -180,7 +179,8 @@ clearly matches that route; otherwise start here in the kernel.
   interaction model first, deriving parent/child UI topology, menu levels,
   overlays, stable control placement, and interface hierarchy, then deriving a
   UI text hierarchy blueprint for headings, labels, action text, state/status
-  messages, helper text, and error/recovery copy slots.
+  messages, helper text, and error/recovery copy slots; implemented/runnable UI
+  claims add feature-contract and browser/desktop/manual click-through evidence.
 - `references/model_test_alignment_protocol.md`: direct model-obligation,
   optional code external contract, and ordinary test-evidence alignment without
   TestMesh, StructureMesh, or ModelMesh.

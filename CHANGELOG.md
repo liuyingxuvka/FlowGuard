@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.18.2 - 2026-05-19
+
+- Added UI implementation validation for implemented/runnable UI completion
+  claims, aligning user-visible feature contracts, reviewed UI journey
+  coverage, and browser, desktop, or manual click-through evidence.
+- Added public helper APIs `UIFeatureContract`, `UIImplementationValidation`,
+  `UIImplementationJourneyRun`, `UIImplementationStepEvidence`,
+  `UIImplementationBlindspot`, `UIImplementationValidationReport`, and
+  `review_ui_implementation_validation(...)`.
+- Updated the UI Flow Structure template so generated scaffolds now demonstrate
+  feature contracts, implementation journey runs, model revision/freshness, pure
+  UI actions, residual implementation blindspots, and known-bad missing
+  implementation evidence.
+- Updated the UI Flow Structure skill, Skill Kernel route guidance, AGENTS
+  snippet, API docs, UI docs, README, OpenSpec artifacts, and focused tests so
+  "model-complete UI" is not confused with "running UI clicked through."
+- Schema remains `1.0`; runtime dependencies remain Python standard library
+  only.
+
 ## v0.18.1 - 2026-05-19
 
 - Added ModelMesh mesh-closure meta-models so parent/child model handoffs can be

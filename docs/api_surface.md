@@ -98,14 +98,19 @@ Modeling helpers reduce boilerplate around common bug classes:
   `UIControl`, `UIDisplayElement`, `UIStateNode`, `UITransition`,
   `UIJourneyCoverage`, `UIJourneyEntryPoint`, `UIFeatureJourney`,
   `UITerminalActionAllowance`, `UIResidualBlindspot`,
-  `UIJourneyCoverageReport`,
+  `UIJourneyCoverageReport`, `UIFeatureContract`,
+  `UIImplementationJourneyRun`, `UIImplementationStepEvidence`,
+  `UIImplementationBlindspot`, `UIImplementationValidation`,
+  `UIImplementationValidationReport`,
   `UIStructureDerivation`, `UIRegionRecommendation`,
   `UITextHierarchyBlueprint`, `UITextElement`, `UITypographyToken`,
   `review_ui_interaction_model()`, `review_ui_journey_coverage()`,
+  `review_ui_implementation_validation()`,
   `review_ui_structure_derivation()`, and `review_ui_text_hierarchy()` for
   modeling UI interactions first, proving launch-to-terminal journey coverage
   and reachable visible-control/event coverage when complete app UI is claimed,
-  deriving parent/child UI topology, menu
+  validating implemented/runnable UI claims against feature contracts and real
+  browser/manual click-through evidence, deriving parent/child UI topology, menu
   levels, stable placement, overlays, control hierarchy, information-display
   ownership, and then deriving semantic text hierarchy tokens before visual
   design or frontend implementation.
@@ -204,7 +209,10 @@ duplicate/redundant content, overlapping controls, or parent/child hierarchy
 need a reviewed UI interaction model before layout and visual implementation;
 when the claim is complete app-level UI coverage, require UI journey coverage
 from launch entry points through declared success, recovery, cancel, exit, and
-residual blindspot boundaries before structure or visual handoff. Use
+residual blindspot boundaries before structure or visual handoff. When the
+claim is implemented/runnable UI completion, require implementation validation
+that aligns feature contracts, reviewed journeys, real click-through evidence,
+model revision, and residual implementation blindspots. Use
 DevelopmentProcessFlow when staged development or modification work has
 validation, or when lifecycle ordering, artifact overwrite, verifier changes,
 peer writes, or evidence freshness determine whether the agent can safely

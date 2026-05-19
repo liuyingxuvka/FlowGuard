@@ -42,7 +42,7 @@ to the kernel instead of taking ownership of unclear work.
 | Sub-protocol | Owns |
 | --- | --- |
 | `core_modeling` | Risk Intent, state write inventory, function blocks, invariants, Explorer, CheckPlan |
-| `ui_flow_structure` | UI interaction model, app-level journey coverage, reachable visible-control branches, state/control/event/display transitions, parent/child UI topology, menu levels, overlays, stable placements, UI text hierarchy blueprint, and intentional redundancy |
+| `ui_flow_structure` | UI interaction model, app-level journey coverage, implemented/runnable UI click-through evidence alignment, reachable visible-control branches, state/control/event/display transitions, parent/child UI topology, menu levels, overlays, stable placements, UI text hierarchy blueprint, and intentional redundancy |
 | `model_test_alignment` | direct comparison of model obligations with ordinary test evidence |
 | `model_mesh_maintenance` | parent/child model hierarchy, child reattachment, whole-flow mesh closure, and oversized-model governance |
 | `test_mesh_maintenance` | parent/child test hierarchy plus validation evidence |
@@ -63,8 +63,10 @@ These are package helpers:
 - `review_hierarchical_mesh()`, `review_mesh_closure_model()`,
   `review_test_mesh()`, `review_structure_mesh()`;
 - `review_development_process_flow()` and `derive_revalidation_plan()`;
-- `UIDisplayElement`, `UIJourneyCoverage`, `UITextHierarchyBlueprint`,
+- `UIDisplayElement`, `UIJourneyCoverage`, `UIImplementationValidation`,
+  `UITextHierarchyBlueprint`,
   `review_ui_interaction_model()`, `review_ui_journey_coverage()`,
+  `review_ui_implementation_validation()`,
   `review_ui_structure_derivation()`, and `review_ui_text_hierarchy()`;
 - public starter templates.
 
@@ -100,6 +102,8 @@ sub-skills.
   stable placements, display ownership, intentional redundancy, parent/child UI
   topology, and the UI text hierarchy blueprint for headings, labels, action
   text, state/status messages, helper text, and error/recovery copy slots; it
+  aligns feature contracts with browser/desktop/manual click-through evidence
+  when implemented/runnable UI completion is claimed; it
   does not replace visual design, final copywriting, or code-structure routes.
 - Keep oversize guidance as a short consideration hint, not a threshold policy
   or forced split rule.
