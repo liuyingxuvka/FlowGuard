@@ -205,9 +205,10 @@ need a reviewed UI interaction model before layout and visual implementation;
 when the claim is complete app-level UI coverage, require UI journey coverage
 from launch entry points through declared success, recovery, cancel, exit, and
 residual blindspot boundaries before structure or visual handoff. Use
-DevelopmentProcessFlow when development lifecycle
-ordering, artifact overwrite, verifier changes, peer writes, or evidence
-freshness determine whether a done, release, archive, or publish claim is
-supported; do not use it as a universal gate or a supervisor for sibling
-routes. Do not claim production confidence from a model-only pass unless
+DevelopmentProcessFlow when staged development or modification work has
+validation, or when lifecycle ordering, artifact overwrite, verifier changes,
+peer writes, or evidence freshness determine whether the agent can safely
+continue or whether a done, release, archive, or publish claim is supported; do
+not use it as a universal gate or a supervisor for sibling routes. Do not claim
+production confidence from a model-only pass unless
 conformance replay or equivalent real-code evidence exists.

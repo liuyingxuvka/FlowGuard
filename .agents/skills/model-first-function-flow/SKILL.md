@@ -1,6 +1,6 @@
 ---
 name: model-first-function-flow
-description: For coding, repository, process-design work, structured writing/argument, and decision/planning work, first decide whether FlowGuard applies. Use before implementing or changing non-trivial behavior, stateful workflows, repeated bug fixes, module-boundary changes, idempotency-sensitive logic, deduplication logic, caching, retry handling, data-flow changes, UI interaction topology, model-test alignment, multi-model FlowGuard projects that need ModelMesh, slow or layered tests that need TestMesh, large script or module refactors that need StructureMesh, post-runtime model misses, framework upgrades, or any meaningful multi-step process, argument chain, or decision path that needs validation, adjustment, observation, or loss-prevention preflight.
+description: For coding, repository, process-design work, structured writing/argument, and decision/planning work, first decide whether FlowGuard applies. Use before implementing or changing non-trivial behavior, stateful workflows, non-trivial staged development or modification with validation, repeated bug fixes, module-boundary changes, idempotency-sensitive logic, deduplication logic, caching, retry handling, data-flow changes, UI interaction topology, model-test alignment, multi-model FlowGuard projects that need ModelMesh, slow or layered tests that need TestMesh, large script or module refactors that need StructureMesh, post-runtime model misses, framework upgrades, or any meaningful multi-step process, argument chain, or decision path that needs validation, adjustment, observation, or loss-prevention preflight.
 ---
 
 # Model-First Function Flow
@@ -20,7 +20,8 @@ UI information display ownership, duplicate UI information or overlapping
 same-level controls, model-test obligation and optional external code contract coverage, large
 test/script validation layout, large script/module decomposition, slow
 validation evidence, irreversible process actions, development lifecycle
-ordering, artifact overwrite, evidence freshness, publication/release side
+ordering, non-trivial staged development or modification with validation,
+artifact overwrite, evidence freshness, publication/release side
 effects, UI interaction topology, screen or region ownership, navigation state,
 component event flow, visible UI state transitions, validation/error states,
 parent/child UI structure derived from modeled user interactions, UI text
@@ -68,7 +69,7 @@ satellite skills. The routes are agent behavior protocols, not package APIs.
 | Three or more local FlowGuard models, oversized model, stale child evidence, parent/child model partition, affected sibling review, whole-flow mesh closure | `model_mesh_maintenance` | `flowguard-model-mesh` |
 | Large test script/suite split, parent/child test hierarchy, slow/background/stale/skipped/release-only validation evidence | `test_mesh_maintenance` | `flowguard-test-mesh` |
 | Large script/module/package/command/API split, facade-first refactor, public entrypoint compatibility, ownership split | `structure_mesh_maintenance` | `flowguard-structure-mesh` |
-| Development lifecycle ordering, artifact overwrite, validation freshness, minimum revalidation, V-style process confidence | `development_process_flow` | `flowguard-development-process-flow` |
+| Non-trivial staged development/modification, step ordering, touched artifacts, validation evidence, evidence freshness, peer writes, minimum revalidation, V-style process confidence | `development_process_flow` | `flowguard-development-process-flow` |
 | Runtime, test, replay, log, or manual validation fails after a FlowGuard pass | `model_miss_review` | `flowguard-model-miss-review` |
 | Production confidence, multiple production writers, install sync, shadow workspace sync, adoption evidence | `conformance_adoption` | `references/conformance_adoption_protocol.md` |
 | Long model/test/check command that should not block the agent thread | `long_check_observability` | `references/long_check_protocol.md` |
@@ -190,7 +191,7 @@ clearly matches that route; otherwise start here in the kernel.
   routine/release standard.
 - `references/structure_mesh_protocol.md`: StructureMesh trigger, ownership,
   facade, public entrypoint, dependency, config, parity, and release standard.
-- `references/development_process_flow_protocol.md`: development lifecycle
+- `references/development_process_flow_protocol.md`: staged development lifecycle
   ordering, artifact overwrite, validation freshness, and revalidation standard.
 - `references/model_miss_protocol.md`: post-runtime model-miss handling.
 - `references/conformance_adoption_protocol.md`: conformance replay, install

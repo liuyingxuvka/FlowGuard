@@ -158,6 +158,34 @@ class SkillDocsTests(unittest.TestCase):
                 for phrase in phrases:
                     self.assertIn(phrase, combined)
 
+    def test_development_process_flow_triggers_for_staged_validation_work(self):
+        skills_root = ROOT / ".agents" / "skills"
+        satellite_root = skills_root / "flowguard-development-process-flow"
+        kernel_root = skills_root / "model-first-function-flow"
+        texts = "\n".join(
+            (
+                (satellite_root / "SKILL.md").read_text(encoding="utf-8"),
+                (satellite_root / "agents" / "openai.yaml").read_text(encoding="utf-8"),
+                (satellite_root / "references" / "development_process_flow_protocol.md").read_text(encoding="utf-8"),
+                (kernel_root / "SKILL.md").read_text(encoding="utf-8"),
+                (kernel_root / "references" / "modeling_protocol.md").read_text(encoding="utf-8"),
+                (kernel_root / "references" / "development_process_flow_protocol.md").read_text(encoding="utf-8"),
+                (ROOT / "docs" / "agents_snippet.md").read_text(encoding="utf-8"),
+                (ROOT / "docs" / "development_process_flow.md").read_text(encoding="utf-8"),
+                (ROOT / "README.md").read_text(encoding="utf-8"),
+            )
+        )
+
+        self.assertIn("non-trivial staged development or modification", texts)
+        self.assertIn("plan, edit, test, fix, and verify", texts)
+        self.assertIn("touched artifacts", texts)
+        self.assertIn("minimum revalidation", texts)
+        self.assertIn("tiny typo fix", texts)
+        self.assertIn("done/release/archive/publish", texts)
+        self.assertIn("does not inspect", texts)
+        self.assertNotIn("light_lifecycle_preflight", texts)
+        self.assertNotIn("full_evidence_freshness_review", texts)
+
     def test_skill_kernel_has_soft_generic_oversize_hint(self):
         text = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
         snippet = (ROOT / "docs" / "agents_snippet.md").read_text(encoding="utf-8")

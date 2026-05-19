@@ -230,9 +230,10 @@ used when runtime, tests, replay, or manual validation finds a problem after a
 FlowGuard pass. The model-test alignment template compares explicit
 `ModelObligation` rows with plain `TestEvidence` rows so a project can see
 whether model scenarios, invariants, hazards, transitions, or contracts have
-matching current tests. The development process flow template models lifecycle
+matching current tests. The development process flow template models
+non-trivial staged development or modification with validation, lifecycle
 ordering, artifact overwrite, validation freshness, V-style validation pairs,
-and minimum revalidation before done or release claims.
+and minimum revalidation before safe continuation, done, or release claims.
 
 These are scaffolds, not reusable business logic. Rename every state field,
 input, output, invariant, and blindspot to match the target project before

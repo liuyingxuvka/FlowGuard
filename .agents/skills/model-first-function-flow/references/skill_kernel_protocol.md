@@ -47,7 +47,7 @@ to the kernel instead of taking ownership of unclear work.
 | `model_mesh_maintenance` | parent/child model hierarchy, child reattachment, whole-flow mesh closure, and oversized-model governance |
 | `test_mesh_maintenance` | parent/child test hierarchy plus validation evidence |
 | `structure_mesh_maintenance` | parent/child script/module structure split evidence |
-| `development_process_flow` | development lifecycle ordering, artifact overwrite, evidence freshness, and minimum revalidation |
+| `development_process_flow` | non-trivial staged development or modification, lifecycle ordering, artifact overwrite, evidence freshness, and minimum revalidation |
 | `model_miss_review` | post-runtime model miss classification, current bug instance handling, and same-class bug responsibility closure |
 | `conformance_adoption` | replay, install sync, shadow workspace sync, release sync, adoption evidence |
 | `long_check_observability` | background log artifacts, liveness-only progress, and completion proof |

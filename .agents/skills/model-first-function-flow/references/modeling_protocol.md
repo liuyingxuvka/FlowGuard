@@ -45,11 +45,12 @@ Before changing files, separate three situations:
   overlays, navigation ownership, state/control/event ownership, and the UI
   text hierarchy blueprint for headings, labels, action text, state/status
   messages, helper text, and error/recovery copy slots.
-- `development_process_flow`: development lifecycle ordering, artifact
-  overwrite, validation evidence freshness, peer writes, V-style validation
-  pairs, or minimum revalidation is the risky boundary. Use this sibling route
-  to review lifecycle rows without supervising ModelMesh, TestMesh,
-  StructureMesh, or Model-Test Alignment internals.
+- `development_process_flow`: non-trivial staged development or modification
+  with validation, development lifecycle ordering, artifact overwrite,
+  validation evidence freshness, peer writes, V-style validation pairs, or
+  minimum revalidation is the risky boundary. Use this sibling route to review
+  lifecycle rows without supervising ModelMesh, TestMesh, StructureMesh, or
+  Model-Test Alignment internals.
 
 If real FlowGuard is importable but a current `.flowguard` Python model still
 claims `flowguard_package_available = False`, uses a fallback explorer, or
@@ -258,12 +259,14 @@ for the route shape.
 
 ## 0.49 Check The DevelopmentProcessFlow Route
 
-Use the parallel development process route when the question is whether a done,
-release, archive, or publish claim still has current evidence after lifecycle
-steps changed requirements, designs, models, code, tests, docs, adapters, or
-release artifacts. This route models the development lifecycle itself as a
-stateful process. It may reference sibling route evidence ids and covered
-artifact versions, but it does not inspect or replace sibling routes.
+Use the parallel development process route for non-trivial staged development
+or modification work that has validation, such as plan, edit, test, fix, and
+verify. Also use it when the question is whether a done, release, archive, or
+publish claim still has current evidence after lifecycle steps changed
+requirements, designs, models, code, tests, docs, adapters, or release
+artifacts. This route models the development lifecycle itself as a stateful
+process. It may reference sibling route evidence ids and covered artifact
+versions, but it does not inspect or replace sibling routes.
 
 Read `docs/development_process_flow.md` and
 `.agents/skills/model-first-function-flow/references/development_process_flow_protocol.md`

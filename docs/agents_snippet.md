@@ -14,8 +14,9 @@ module boundaries, retries, deduplication, idempotency, caching, side effects,
 production conformance, repeated bugs, model-test coverage alignment, optional
 external code contract coverage, multiple local FlowGuard models, large test
 scripts/suites, slow or layered validation evidence, large script/module
-splits, public entrypoint compatibility, development lifecycle evidence
-freshness, UI interaction topology, app-level launch-to-terminal UI journey
+splits, public entrypoint compatibility, non-trivial staged development or
+modification with validation, development lifecycle evidence freshness, UI
+interaction topology, app-level launch-to-terminal UI journey
 coverage, screen or region ownership, navigation state, component event flow,
 visible UI state transitions, UI information display ownership, duplicate UI
 information, overlapping same-level controls, validation/error states,
@@ -54,7 +55,7 @@ Route map:
 | Three or more local models, oversized model, parent/child model evidence | `model_mesh_maintenance` |
 | Large test script/suite split, parent/child test hierarchy, slow/stale/release-only tests | `test_mesh_maintenance` |
 | Large script/module/API split, public entrypoint compatibility, facade, ownership | `structure_mesh_maintenance` |
-| Development lifecycle ordering, artifact overwrite, validation freshness, minimum revalidation | `development_process_flow` |
+| Non-trivial staged development/modification, step ordering, touched artifacts, validation evidence, evidence freshness, peer writes, minimum revalidation | `development_process_flow` |
 | Runtime/test/replay/manual validation fails after FlowGuard passed | `model_miss_review` |
 | Production conformance, install sync, shadow workspace sync, adoption evidence | `conformance_adoption` |
 | Long-running model/test/regression checks | `long_check_observability` |
@@ -117,10 +118,12 @@ child contracts and evidence; they should not expand every child internal route
 into one large parent graph.
 
 Treat DevelopmentProcessFlow as another sibling route, not a parent route. Use
-it when development lifecycle ordering, artifact overwrite, verifier changes,
-peer writes, or evidence freshness determine whether a done, release, archive,
-or publish claim is supported. It may reference sibling route evidence ids, but
-it does not inspect, supervise, or replace ModelMesh, TestMesh, StructureMesh,
+it for non-trivial staged development or modification work with validation,
+including plan, edit, test, fix, and verify sequences. Also use it when
+development lifecycle ordering, artifact overwrite, verifier changes, peer
+writes, or evidence freshness determine whether a done, release, archive, or
+publish claim is supported. It may reference sibling route evidence ids, but it
+does not inspect, supervise, or replace ModelMesh, TestMesh, StructureMesh,
 Model-Test Alignment, LongCheck, or Conformance Adoption internals.
 
 Use UI Flow Structure when the missing artifact is the UI interaction model

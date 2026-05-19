@@ -1,17 +1,23 @@
 ---
 name: flowguard-development-process-flow
-description: Use when development lifecycle ordering, artifact overwrite, peer writes, validation freshness, minimum revalidation, V-style development/verification pairing, release readiness, archive readiness, or publish confidence depends on whether later work invalidated earlier evidence.
+description: Use for any non-trivial staged development or modification task where step ordering, touched artifacts, validation evidence, evidence freshness, peer writes, or minimum revalidation affects whether the agent can safely continue or claim done; also use for release, archive, or publish confidence that depends on current evidence.
 ---
 
 # FlowGuard Development Process Flow
 
-This is a standalone FlowGuard satellite skill for lifecycle and validation
-freshness questions. Use it directly when the risk is "does the process order
-still support the done/release/archive/publish claim?"
+This is a standalone FlowGuard satellite skill for staged development
+lifecycle and validation freshness questions. Use it directly when non-trivial
+work has multiple meaningful development or modification stages and validation,
+or when the risk is "does the process order still support the
+done/release/archive/publish claim?"
 
 Return to `model-first-function-flow` when the basic FlowGuard route is
 unclear or when the task needs broader modeling before lifecycle evidence can
 be judged.
+
+Skip only for truly single-step work with no meaningful validation or artifact
+freshness risk, such as a tiny typo fix, pure explanation, or formatting-only
+change.
 
 ## Hard Gates
 
@@ -26,8 +32,9 @@ be judged.
 
 ## Workflow
 
-1. List lifecycle artifacts: requirements, models, code, tests, prompts,
-   docs, install surfaces, tags, release records, and generated assets.
+1. List planned lifecycle stages and artifacts: requirements, models, code,
+   tests, prompts, docs, install surfaces, tags, release records, and generated
+   assets.
 2. Record which validations cover which artifact versions.
 3. Identify later actions that can overwrite, stale, or narrow earlier
    evidence.

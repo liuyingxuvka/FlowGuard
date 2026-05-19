@@ -1,8 +1,10 @@
 # DevelopmentProcessFlow
 
-DevelopmentProcessFlow reviews a development lifecycle as a stateful process:
-which artifacts changed, which validation evidence covered which versions, and
-whether a done, release, archive, or publish claim still has current evidence.
+DevelopmentProcessFlow reviews a staged development lifecycle as a stateful
+process: which steps run, which artifacts changed, which validation evidence
+covered which versions, and whether the agent can safely continue or claim
+done. It also checks whether a release, archive, or publish claim still has
+current evidence.
 
 It is a sibling helper route. It can reference evidence ids produced by
 ModelMesh, TestMesh, StructureMesh, Model-Test Alignment, LongCheck, or
@@ -65,6 +67,8 @@ while the current artifact is `code.checkout@4`.
 
 ## What It Checks
 
+- non-trivial staged development or modification sequences such as plan, edit,
+  test, fix, and verify;
 - unknown artifact, evidence, validation, and action references;
 - out-of-order process dependencies;
 - stale evidence after code, test, model, requirement, or direct invalidation;
@@ -98,9 +102,12 @@ changes.
 
 ## Boundary
 
-Use DevelopmentProcessFlow when development ordering and evidence freshness are
-the risk. Use TestMesh when the validation hierarchy itself needs a parent/child
-split. Use StructureMesh when code structure is being split. Use Model-Test
-Alignment when model obligations and test or code-contract evidence need direct
-comparison. Use Conformance Adoption when production traces or install/runtime
-sync determine confidence.
+Use DevelopmentProcessFlow when non-trivial staged development or modification
+work has validation, or when development ordering and evidence freshness are the
+risk. Skip only for truly single-step work with no meaningful validation or
+artifact freshness risk, such as a tiny typo fix, pure explanation, or
+formatting-only change. Use TestMesh when the validation hierarchy itself needs
+a parent/child split. Use StructureMesh when code structure is being split. Use
+Model-Test Alignment when model obligations and test or code-contract evidence
+need direct comparison. Use Conformance Adoption when production traces or
+install/runtime sync determine confidence.

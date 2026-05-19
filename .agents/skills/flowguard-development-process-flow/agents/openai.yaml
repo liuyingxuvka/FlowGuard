@@ -1,4 +1,4 @@
 interface:
   display_name: "FlowGuard Development Process Flow"
-  short_description: "Check validation freshness across workflow steps"
-  default_prompt: "Use $flowguard-development-process-flow to decide whether later development changes make earlier validation stale."
+  short_description: "Plan and verify staged development workflows"
+  default_prompt: "Use $flowguard-development-process-flow for non-trivial staged development or modification tasks to track steps, touched artifacts, validation evidence, freshness risks, and minimum revalidation before claiming done."

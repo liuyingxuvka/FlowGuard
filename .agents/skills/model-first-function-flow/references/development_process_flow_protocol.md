@@ -2,7 +2,8 @@
 
 Use `development_process_flow` when the risky question is not whether a product
 workflow, test hierarchy, model mesh, or code structure is correct, but whether
-the development lifecycle can still trust its evidence after later work.
+a staged development lifecycle can still trust its process order and validation
+evidence after later work.
 
 This is a sibling sub-protocol. It supports planning and execution evidence
 without supervising other routes. It can reference evidence produced by
@@ -14,6 +15,11 @@ replace, or repair those route internals.
 
 Create or update a DevelopmentProcessFlow review when:
 
+- non-trivial development, modification, refactor, prompt, skill, documentation,
+  repository, install, or release work has multiple meaningful stages and
+  requires validation;
+- the work naturally follows staged actions such as plan, edit, test, fix, and
+  verify before the agent can claim done;
 - development step ordering matters, such as requirements, design, model, code,
   test, docs, release package, and archive actions;
 - a later step might overwrite or invalidate an earlier step's evidence;
@@ -30,6 +36,10 @@ Do not trigger this route merely because tests are large or source structure is
 being split. Use TestMesh for validation hierarchy and StructureMesh for code
 structure decomposition. Use Model-Test Alignment for direct model/code/test
 obligation coverage. Use core modeling for the product workflow itself.
+
+Skip only for truly single-step work with no meaningful validation or artifact
+freshness risk, such as a tiny typo fix, pure explanation, or formatting-only
+change.
 
 ## Input Checklist
 
