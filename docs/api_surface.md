@@ -142,11 +142,15 @@ Reporting helpers help an AI agent explain what was checked and what was not:
 - adoption logging and `audit_flowguard_adoption`
 - thin adoption logging commands such as `adoption-start` and
   `adoption-finish`
-- schema, JSON artifact helpers, and explicit Mermaid source exporters
+- schema, JSON artifact helpers, and explicit Mermaid source exporters for
+  user-facing model explanations when a compact diagram helps clarify major
+  states, branches, gates, evidence, and claim boundaries
 
 Warnings, gaps, skipped sections, and `not_run` sections are confidence
 boundaries. They should not be hidden, but they also should not be treated as
 hard failures unless the underlying section actually failed.
+Mermaid diagrams are explanation aids; they do not change pass/fail semantics
+or replace executable validation evidence.
 
 ## Evidence And Internal Validation
 

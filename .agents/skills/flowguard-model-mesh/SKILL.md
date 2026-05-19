@@ -56,6 +56,10 @@ or when it is unclear whether a mesh is needed.
    helpers.
 9. Record which child evidence ids the parent consumed and which are stale,
    skipped, or release-only.
+10. For non-trivial meshes, optionally include a user-facing Mermaid diagram
+    showing root entries, child model boundaries, handoffs, evidence
+    tiers/freshness, blockers, and what the mesh does or does not prove. Do not
+    inline every child model's internals.
 
 ## Owned Helpers
 

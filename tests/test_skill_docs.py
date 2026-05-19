@@ -213,6 +213,23 @@ class SkillDocsTests(unittest.TestCase):
         for phrase in forbidden:
             self.assertNotIn(phrase, combined)
 
+    def test_user_facing_diagram_guidance_is_lightweight(self):
+        skills_root = ROOT / ".agents" / "skills"
+        kernel = (skills_root / "model-first-function-flow" / "SKILL.md").read_text(encoding="utf-8")
+        ui = (skills_root / "flowguard-ui-flow-structure" / "SKILL.md").read_text(encoding="utf-8")
+        mesh = (skills_root / "flowguard-model-mesh" / "SKILL.md").read_text(encoding="utf-8")
+        process = (skills_root / "flowguard-development-process-flow" / "SKILL.md").read_text(encoding="utf-8")
+        combined = "\n".join((kernel, ui, mesh, process))
+
+        self.assertIn("optional user-facing Mermaid diagram", combined)
+        self.assertIn("explain, not validate", kernel)
+        self.assertIn("does not replace the executable reviews", ui)
+        self.assertIn("what the mesh does or does not prove", mesh)
+        self.assertIn("does not count as validation", process)
+        self.assertIn("major states, branches, gates, evidence, claim boundaries", kernel)
+        self.assertNotIn("must include a diagram", combined.lower())
+        self.assertNotIn("diagram is validation", combined.lower())
+
     def test_core_modeling_protocol_keeps_state_inventory_and_mesh_links(self):
         text = (ROOT / "docs" / "modeling_protocol.md").read_text(encoding="utf-8")
 

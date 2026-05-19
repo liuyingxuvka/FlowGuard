@@ -79,7 +79,12 @@ need coordination.
    desktop, or manual journey runs, step evidence, current model revision, pure
    UI actions, and residual implementation blindspots. Run
    `review_ui_implementation_validation(...)` when available.
-9. Hand the resulting UI structure and text hierarchy contract to frontend,
+9. When the UI model or implementation evidence is hard to understand from
+   prose alone, include an optional user-facing Mermaid diagram showing launch
+   entries, key UI states, visible-control branches, failure/recovery/terminal
+   paths, evidence status, and claim boundaries. The diagram explains the model
+   and does not replace the executable reviews.
+10. Hand the resulting UI structure and text hierarchy contract to frontend,
    Figma, browser, copy/design, or design-review workflows only after the model,
    required journey coverage, derivation, blueprint, and any implementation
    completion evidence are explicit.

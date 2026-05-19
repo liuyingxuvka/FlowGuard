@@ -12,7 +12,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.18.2` | `1.0` | Python standard library only | MIT |
+| `v0.18.3` | `1.0` | Python standard library only | MIT |
 
 English lead content comes first; a Chinese mirror follows below.
 
@@ -76,6 +76,12 @@ FlowGuard gives those weak spots a small executable shape before the action beco
 | UI Text Hierarchy Blueprint | Reviews visible and assistive UI text by state, region, role, semantic key, owner, priority, duplication rationale, and warning/error escalation |
 | DevelopmentProcessFlow | Checks staged development flow, lifecycle ordering, artifact overwrite, validation freshness, minimum revalidation, archive readiness, and release confidence |
 | Model-Miss Review | After a runtime failure, classifies what the model missed and adds a generalized same-class bad case before closure |
+
+When a non-trivial model would be hard to understand from prose alone,
+FlowGuard skill guidance now encourages an optional user-facing Mermaid diagram
+or compact flow sketch. The diagram can show major states, branches, gates,
+evidence, and claim boundaries, but it is explanation only; executable checks
+remain the source of validation.
 
 ## Typical Workflow
 
@@ -315,6 +321,10 @@ FlowGuard 给这些薄弱点一个小而可执行的结构。
 | UI Text Hierarchy Blueprint | 按 state、region、role、semantic key、owner、priority、重复理由和 warning/error escalation 审查 UI 文案层级 |
 | DevelopmentProcessFlow | 检查分阶段开发流程、生命周期顺序、artifact 覆盖、验证新鲜度、最小重验证、archive readiness 和 release confidence |
 | Model-Miss Review | 当运行时失败发生在 FlowGuard 通过之后，分类模型漏了什么，并补一个同类坏 case |
+
+当非平凡模型只靠文字不容易讲清楚时，FlowGuard skill guidance 现在会鼓励
+可选地使用面向用户的 Mermaid 图或简短流程图。图可以展示主要状态、分支、
+gate、证据和结论边界，但它只是解释层；真正的验证仍然来自可执行检查。
 
 ## 典型流程
 

@@ -83,6 +83,7 @@ python -m flowguard risk-intent-template
 python -m flowguard model-miss-template
 python -m flowguard ui-flow-structure-template
 python $env:USERPROFILE\.codex\skills\.system\skill-creator\scripts\quick_validate.py .agents\skills\flowguard-ui-flow-structure
+python $env:USERPROFILE\.codex\skills\.system\skill-creator\scripts\quick_validate.py .agents\skills\model-first-function-flow
 ```
 
 If a release claims implemented or runnable UI completeness, also require UI
@@ -90,6 +91,10 @@ implementation validation evidence: feature contracts, reviewed journey
 coverage, browser/desktop/manual click-through runs, step evidence, current
 model revision, pure UI actions, and residual implementation blindspots. Do not
 publish "UI complete" release notes from model/journey evidence alone.
+
+If a release changes FlowGuard skill explanation guidance, verify that
+user-facing Mermaid diagrams remain optional explanation aids and are not
+described as validation evidence.
 
 ## Blockers
 

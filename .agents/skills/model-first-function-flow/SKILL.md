@@ -124,8 +124,8 @@ Classify the main lens when using FlowGuard:
     confidence.
 11. Run the strongest practical model, replay, test, or manual validation for
     the touched boundary.
-12. Update adoption evidence with commands, findings, skipped checks, residual
-    risk, and next actions.
+12. Update adoption evidence with commands, findings, skipped checks, residual risk, next actions, and, when prose alone would hide model value, an optional user-facing Mermaid diagram or flow sketch showing major states, branches, gates, evidence, claim boundaries, and skipped/not-run gaps; diagrams
+    explain, not validate.
 
 ## Helper APIs Are Not Sub-Skills
 

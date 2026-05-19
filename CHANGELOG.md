@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.18.3 - 2026-05-19
+
+- Added lightweight user-facing Mermaid diagram guidance to the FlowGuard skill
+  kernel so non-trivial model value can be explained when prose alone would hide
+  the states, branches, gates, evidence, or claim boundary.
+- Added route-specific optional diagram guidance for UI Flow Structure,
+  ModelMesh, and DevelopmentProcessFlow while keeping diagrams as explanation
+  aids, not validation evidence.
+- Added OpenSpec artifacts and used a local FlowGuard self-model for the prompt
+  behavior so the rollout rejects overbroad mandatory diagrams, shallow diagram
+  guidance, and missing selected-route coverage.
+- Schema remains `1.0`; runtime dependencies and public Python APIs are
+  unchanged.
+
 ## v0.18.2 - 2026-05-19
 
 - Added UI implementation validation for implemented/runnable UI completion

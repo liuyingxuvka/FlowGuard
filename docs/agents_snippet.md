@@ -38,6 +38,10 @@ Hard gates:
 - Do not replace executable modeling with prose.
 - Do not weaken hard invariants merely to pass checks.
 - Skipped, deferred, stale, or not-run checks are not passes.
+- When prose alone would hide why a non-trivial FlowGuard model matters, an
+  optional user-facing Mermaid diagram or compact flow sketch can explain major
+  states, branches, gates, evidence, claim boundaries, and skipped/not-run gaps;
+  the diagram explains the model and does not count as validation evidence.
 - Preserve user and peer-agent changes; stale evidence must be rerun or clearly
   bounded.
 - For long background checks, progress is liveness only. Completion requires
