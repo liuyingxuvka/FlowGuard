@@ -1,5 +1,47 @@
 # Changelog
 
+## v0.18.1 - 2026-05-19
+
+- Added ModelMesh mesh-closure meta-models so parent/child model handoffs can be
+  checked as executable FlowGuard-style obligations before whole-flow parent
+  confidence is claimed.
+- Added public helper APIs `MeshClosureModel`, `MeshClosureTransition`,
+  `MeshClosureJoin`, `MeshClosureTerminal`, `MeshClosureReport`,
+  `MeshClosureFinding`, and `review_mesh_closure_model(...)`.
+- Updated `review_hierarchical_mesh(...)` so a declared closure model must pass
+  before `mesh_green_can_continue`; closure blockers include missing root
+  entries, unknown output references, unconsumed child outputs, incomplete joins,
+  terminal leaks, missing out-of-scope rationale, and loop-like handoffs without
+  progress evidence.
+- Updated OpenSpec artifacts, ModelMesh docs, API docs, README, hierarchical
+  examples, skill guidance, and focused tests for the new whole-flow closure
+  gate.
+- Schema remains `1.0`; runtime dependencies remain Python standard library
+  only.
+
+## v0.18.0 - 2026-05-19
+
+- Added app-level UI journey coverage for complete UI claims, including launch
+  state, top-level entry points, feature journeys, success terminals,
+  failure/recovery/cancel/exit handling, terminal action allowances, and
+  residual blindspots.
+- Added public helper APIs `UIJourneyCoverage`, `UIJourneyEntryPoint`,
+  `UIFeatureJourney`, `UITerminalActionAllowance`, `UIResidualBlindspot`,
+  `UIJourneyCoverageReport`, and `review_ui_journey_coverage(...)`.
+- Updated the UI Flow Structure template so generated scaffolds now model
+  launch, new-project, load-existing, failure, cancel, export, exit, terminal,
+  and residual-blindspot coverage before structure and text hierarchy handoff.
+- Updated the UI Flow Structure skill, Skill Kernel route guidance, AGENTS
+  snippet, API docs, UI protocol docs, README, OpenSpec artifacts, and focused
+  tests so "complete app UI" is not claimed from layout/text evidence alone.
+- Added known-bad coverage cases for missing launch entries, unreachable path
+  states, unknown path events, missing success terminals, unhandled failures,
+  visible controls without modeled events, reachable events outside all
+  journeys, terminal forward actions, misclassified terminal exports, and
+  blindspots without validation boundaries.
+- Schema remains `1.0`; runtime dependencies remain Python standard library
+  only.
+
 ## v0.17.1 - 2026-05-19
 
 - Added ModelMesh boundary-diff propagation so repaired child models can report

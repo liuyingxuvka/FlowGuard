@@ -15,12 +15,13 @@ production conformance, repeated bugs, model-test coverage alignment, optional
 external code contract coverage, multiple local FlowGuard models, large test
 scripts/suites, slow or layered validation evidence, large script/module
 splits, public entrypoint compatibility, development lifecycle evidence
-freshness, UI interaction topology, screen or region ownership, navigation
-state, component event flow, visible UI state transitions, UI information
-display ownership, duplicate UI information, overlapping same-level controls,
-validation/error states, parent/child UI structure derived from modeled user interactions,
-UI text hierarchy blueprint ownership for headings, labels, action text,
-status/helper messages, and error/recovery copy slots,
+freshness, UI interaction topology, app-level launch-to-terminal UI journey
+coverage, screen or region ownership, navigation state, component event flow,
+visible UI state transitions, UI information display ownership, duplicate UI
+information, overlapping same-level controls, validation/error states,
+parent/child UI structure derived from modeled user interactions, UI text
+hierarchy blueprint ownership for headings, labels, action text, status/helper
+messages, and error/recovery copy slots,
 meaningful process side effects, argument prerequisites, or decision
 commitments.
 
@@ -48,7 +49,7 @@ Route map:
 | --- | --- |
 | Ordinary modeling, Risk Intent, state write inventory, invariants, Explorer | `core_modeling` |
 | Direct architecture recommendation or model-derived implementation structure | `code_structure_recommendation` |
-| UI interaction model, screen/region topology, parent/child UI hierarchy, menu levels, overlays, stable placement, display/text ownership, text hierarchy blueprint, duplicate information, or overlapping controls | `ui_flow_structure` |
+| UI interaction model, app-level launch-to-terminal journey coverage, reachable visible-control branches, screen/region topology, parent/child UI hierarchy, menu levels, overlays, stable placement, display/text ownership, text hierarchy blueprint, duplicate information, or overlapping controls | `ui_flow_structure` |
 | Direct comparison between FlowGuard model obligations, optional code external contracts, and ordinary test evidence | `model_test_alignment` |
 | Three or more local models, oversized model, parent/child model evidence | `model_mesh_maintenance` |
 | Large test script/suite split, parent/child test hierarchy, slow/stale/release-only tests | `test_mesh_maintenance` |
@@ -79,9 +80,9 @@ start with `model-first-function-flow`.
 Use the matching Skill reference protocol for support routes. Helper APIs such as
 `RiskIntent`, property factories, packs, `FlowGuardCheckPlan`,
 `review_code_structure_recommendation()`, `review_model_test_alignment()`,
-`UIDisplayElement`, `UITextHierarchyBlueprint`,
-`review_ui_interaction_model()`, `review_ui_structure_derivation()`,
-`review_ui_text_hierarchy()`,
+`UIDisplayElement`, `UIJourneyCoverage`, `UITextHierarchyBlueprint`,
+`review_ui_interaction_model()`, `review_ui_journey_coverage()`,
+`review_ui_structure_derivation()`, `review_ui_text_hierarchy()`,
 `review_development_process_flow()`, `review_test_mesh()`,
 `review_structure_mesh()`, templates, and starter CLIs are package helpers, not
 Codex skills by themselves.
@@ -127,8 +128,12 @@ itself: initial UI state, controls, events, state nodes, transitions, recovery
 paths, and state availability. After that model is reviewed, derive first-level
 persistent menus, second-level contextual regions, third-level local controls,
 overlays, stable layout positions, navigation ownership, and parent/child UI
-topology. Then derive the UI text hierarchy blueprint from the reviewed
-structure: page and region headings, labels, primary/secondary/contextual
+topology. If the work claims complete app-level UI coverage, first review
+launch-to-terminal journey coverage: launch state, entry points, feature
+journeys, success terminals, recovery/cancel/exit handling, terminal action
+allowances, and residual blindspots. Then derive the UI text hierarchy
+blueprint from the reviewed structure: page and region headings, labels,
+primary/secondary/contextual
 action text, status/helper messages, validation text, empty/error/recovery copy
 slots, semantic display labels, and text ownership by state, control, display,
 region, and hierarchy level. Do not route this as ordinary Code Structure
@@ -140,6 +145,12 @@ For ModelMesh and TestMesh, the parent split needs a FlowGuard-derived target
 structure before green parent confidence: source model, target children,
 covered partition items, ownership fields, and rationale. A supplied partition
 map or flat child list alone is not enough.
+
+For whole-flow ModelMesh confidence, add a mesh closure model. It should model
+root entries, child outputs, parent or sibling consumers, required joins,
+normal/failure exits, out-of-scope dispositions, and loop-progress rules as
+FlowGuard-style handoff obligations. Without a green closure model, the mesh may
+support partition or reattachment confidence, but not entry-to-exit closure.
 
 When a bug repair changes a local child FlowGuard model, child-local green is
 not enough. The affected parent ModelMesh must consume the current child

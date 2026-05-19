@@ -165,9 +165,11 @@ class PublicTemplateTests(unittest.TestCase):
             (".flowguard", "ui_flow_structure"),
         )
         self.assertIn("flowguard UI interaction model", output)
+        self.assertIn("flowguard UI journey coverage", output)
         self.assertIn("flowguard UI structure derivation", output)
         self.assertIn("flowguard UI text hierarchy", output)
         self.assertIn("missing_state_availability_matrix", output)
+        self.assertIn("feature_entry_point_not_declared", output)
         self.assertIn("source_interaction_model_not_reviewed", output)
         self.assertIn("text_role_too_prominent", output)
 

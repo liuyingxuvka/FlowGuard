@@ -21,6 +21,10 @@ need coordination.
   `python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"`.
 - Do not create a fake mini-framework or prose-only substitute.
 - Do not skip the UI interaction model and jump straight to layout prose.
+- Do not claim complete app-level UI coverage until launch-to-terminal UI
+  journey coverage has been reviewed: launch state, entry points, feature
+  journeys, every reachable visible/enabled control branch,
+  terminal/recovery/cancel/exit behavior, and residual blindspots.
 - Do not skip the structure derivation and jump straight to microcopy or
   screen text.
 - Represent UI behavior as `UI event x UI state -> Set(UI output x UI state)`.
@@ -48,26 +52,35 @@ need coordination.
    displayed information, events, state nodes, transitions, failure/recovery
    states, terminal states, and state availability.
 3. Run `review_ui_interaction_model(...)` when available.
-4. Derive the UI structure from the reviewed UI model: parent/child nodes,
+4. For complete app-level UI claims, build or review UI journey coverage from
+   launch state through declared entry points, feature journeys, terminal
+   states, recovery/cancel/exit behavior, every reachable visible/enabled
+   control branch, and residual blindspots. Run
+   `review_ui_journey_coverage(...)` when available.
+5. Derive the UI structure from the reviewed UI model and app-level journey
+   coverage when required: parent/child nodes,
    first-level persistent menus, second-level contextual regions, third-level
    local controls, overlay hierarchy, stable toolbar/region placement,
    navigation ownership, display ownership, duplicate/redundancy rationale, and
    validation boundaries.
-5. Run `review_ui_structure_derivation(...)` when available.
-6. Derive the UI text hierarchy blueprint from the reviewed structure: page and
+6. Run `review_ui_structure_derivation(...)` when available.
+7. Derive the UI text hierarchy blueprint from the reviewed structure: page and
    region headings, labels, action text, state/status messages, helper text,
    validation text, recovery/error copy slots, and text priority/ownership.
-7. Hand the resulting UI structure and text hierarchy contract to frontend,
+8. Hand the resulting UI structure and text hierarchy contract to frontend,
    Figma, browser, copy/design, or design-review workflows only after the model,
-   derivation, and blueprint are explicit.
+   required journey coverage, derivation, and blueprint are explicit.
 
 ## Owned Helpers
 
 - `UIInteractionModel`, `UIControl`, `UIDisplayElement`, `UIStateNode`,
   `UITransition`
+- `UIJourneyCoverage`, `UIJourneyEntryPoint`, `UIFeatureJourney`,
+  `UITerminalActionAllowance`, `UIResidualBlindspot`
 - `UIStructureDerivation`, `UIRegionRecommendation`
 - `UITextHierarchyBlueprint`, `UITextElement`, `UITypographyToken`
 - `review_ui_interaction_model(...)`
+- `review_ui_journey_coverage(...)`
 - `review_ui_structure_derivation(...)`
 - `review_ui_text_hierarchy(...)`
 - `ui-flow-structure-template`

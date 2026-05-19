@@ -46,13 +46,13 @@ Do not publish local maintenance artifacts:
 Run local path and private evidence scan:
 
 ```powershell
-rg --hidden --glob "!docs/github_release_checklist.md" -n "<WindowsUserHome>|<UnixUserHome>|<your-user-name>|private-pilot|internal-KB|kb-history" .
+rg --hidden --glob "!docs/github_release_checklist.md" --glob "!docs/flowguard_adoption_log.md" -n "<WindowsUserHome>|<UnixUserHome>|<your-user-name>|private-pilot|internal-KB|kb-history" .
 ```
 
 Run secret-like pattern scan:
 
 ```powershell
-rg --hidden --glob "!docs/github_release_checklist.md" -n "api[_-]?key|secret|password|access[_-]?token|auth[_-]?token|bearer\\s+[A-Za-z0-9]|OPENAI_API_KEY|OPENAI_ORG|OPENAI_PROJECT|\\bsk-[A-Za-z0-9]|ghp_|BEGIN (RSA|OPENSSH|PRIVATE) KEY|credential\\s*[:=]|cookie\\s*[:=]" . -i
+rg --hidden --glob "!docs/github_release_checklist.md" --glob "!docs/flowguard_adoption_log.md" -n "api[_-]?key|secret|password|access[_-]?token|auth[_-]?token|bearer\\s+[A-Za-z0-9]|OPENAI_API_KEY|OPENAI_ORG|OPENAI_PROJECT|\\bsk-[A-Za-z0-9]|ghp_|BEGIN (RSA|OPENSSH|PRIVATE) KEY|credential\\s*[:=]|cookie\\s*[:=]" . -i
 ```
 
 Run generated artifact scan:
@@ -71,6 +71,7 @@ Run:
 
 ```powershell
 python -m unittest discover -s tests
+openspec validate --all --strict
 python examples/job_matching/run_checks.py
 python examples/job_matching/run_conformance.py
 python examples/job_matching/run_scenario_review.py
@@ -81,6 +82,7 @@ python -m flowguard project-template
 python -m flowguard risk-intent-template
 python -m flowguard model-miss-template
 python -m flowguard ui-flow-structure-template
+python $env:USERPROFILE\.codex\skills\.system\skill-creator\scripts\quick_validate.py .agents\skills\flowguard-ui-flow-structure
 ```
 
 ## Blockers

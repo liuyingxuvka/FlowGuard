@@ -1,9 +1,10 @@
 # UI Flow Structure
 
 UI Flow Structure is FlowGuard's helper layer for model-first interface
-planning. It first models the UI's interaction behavior, then derives the UI
-structure from that model, then derives a UI text hierarchy blueprint from the
-reviewed structure.
+planning. It first models the UI's interaction behavior, then reviews
+launch-to-terminal journey coverage when complete app-level UI coverage is
+claimed, then derives the UI structure from that model, then derives a UI text
+hierarchy blueprint from the reviewed structure.
 
 This route is for workflow-heavy interfaces where button placement, menu
 levels, panels, overlays, persistent controls, and state-dependent actions need
@@ -38,6 +39,9 @@ Use it when:
   states, validation text, or recovery copy slots need to follow the modeled
   interaction and region hierarchy instead of being invented as late visual
   copy.
+- an agent or design artifact claims the whole app UI is covered from the first
+  launch screen through entry branches such as new project, load existing
+  project, cancel, recover, export, and exit.
 
 Skip it for tiny visual-only edits with no behavior, state, navigation, or
 control-availability impact.
@@ -61,6 +65,25 @@ The UI interaction model objects are:
 - `UIInteractionModelReport`: structured review output.
 - `review_ui_interaction_model(model)`: checks whether the UI flow model is
   complete enough to derive structure.
+
+The app-level journey coverage objects are:
+
+- `UIJourneyEntryPoint`: one launch-available app entry point with its control,
+  event, source states, and rationale.
+- `UIFeatureJourney`: one declared feature path with entry points, required
+  states/events, success terminals, failure states, recovery/cancel/exit
+  handling, validation, and rationale.
+- `UITerminalActionAllowance`: one allowed outgoing action from a terminal
+  state, such as export, restart, close, recovery, cancel, or exit.
+- `UIResidualBlindspot`: one deliberately out-of-scope UI branch with feature,
+  control, or event scope plus a reason, owner, validation boundary, and
+  rationale.
+- `UIJourneyCoverage`: the complete app-level launch-to-terminal coverage
+  inventory for a source interaction model.
+- `UIJourneyCoverageReport`: structured review output.
+- `review_ui_journey_coverage(coverage, interaction_model=...)`: checks whether
+  app-level entry points and feature journeys are reachable from launch and
+  terminate or recover within the declared boundary.
 
 The structure derivation objects are:
 
@@ -90,12 +113,14 @@ The text hierarchy blueprint objects are:
   checks whether text roles and tokens follow the reviewed UI model and
   structure.
 
-## Three-Stage Workflow
+## Four-Stage Workflow
 
 ```text
 product/workflow intent
 -> UI interaction model
 -> review UI controls, states, transitions, availability, failures
+-> UI journey coverage when claiming complete app-level UI coverage
+-> review launch entry points, feature paths, terminal/recovery behavior, blindspots
 -> UI structure derivation
 -> review regions, menu levels, displays, overlays, stable placement, hierarchy
 -> UI text hierarchy blueprint
@@ -109,7 +134,23 @@ The first stage models the UI as:
 UI event x UI state -> Set(UI output x UI state)
 ```
 
-The second stage derives placement and hierarchy from that flow:
+The second stage is optional for local/component-only UI work, but required for
+complete app-level UI claims. It checks:
+
+- the launch state exists and is registered;
+- top-level entry points such as new project, load existing project, settings,
+  cancel, export, and exit are declared when they are in scope;
+- each declared feature journey names required states/events and at least one
+  reachable success terminal;
+- each reachable visible/enabled actionable control has a modeled event or an
+  explicit residual blindspot;
+- each reachable modeled event is consumed by a feature journey, terminal
+  allowance, entry point, or residual blindspot;
+- recoverable failures have named recovery, cancel, exit, or terminal handling;
+- terminal states do not expose unclassified forward-only actions;
+- residual blindspots name their reason, owner, and validation boundary.
+
+The third stage derives placement and hierarchy from that reviewed flow:
 
 - first-level persistent controls stay in stable global areas such as top
   toolbars, app shells, menu bars, or primary navigation;
@@ -122,7 +163,7 @@ The second stage derives placement and hierarchy from that flow:
 - destructive controls are structurally separated from ordinary primary
   progression.
 
-The third stage derives text ownership and priority from the reviewed
+The fourth stage derives text ownership and priority from the reviewed
 structure:
 
 - page or surface titles name the parent workflow or surface;
@@ -158,15 +199,21 @@ must remain stable across states.
 from flowguard import (
     UIControl,
     UIDisplayElement,
+    UIFeatureJourney,
     UIInteractionModel,
+    UIJourneyCoverage,
+    UIJourneyEntryPoint,
     UIRegionRecommendation,
+    UIResidualBlindspot,
     UIStateNode,
     UIStructureDerivation,
     UITextElement,
     UITextHierarchyBlueprint,
     UITypographyToken,
+    UITerminalActionAllowance,
     UITransition,
     review_ui_interaction_model,
+    review_ui_journey_coverage,
     review_ui_structure_derivation,
     review_ui_text_hierarchy,
 )
@@ -213,6 +260,64 @@ model = UIInteractionModel(
 )
 
 model_report = review_ui_interaction_model(model)
+
+coverage = UIJourneyCoverage(
+    "import-run-journey-coverage",
+    source_interaction_model_id="import-run-ui-flow",
+    launch_state_id="empty",
+    interaction_model_reviewed=model_report.ok,
+    entry_points=(
+        UIJourneyEntryPoint(
+            "import",
+            "import",
+            "click_import",
+            source_state_ids=("empty",),
+            rationale="Import is the launch entry in this local example.",
+        ),
+    ),
+    feature_journeys=(
+        UIFeatureJourney(
+            "import_run_export",
+            entry_point_ids=("import",),
+            required_state_ids=("result_ready",),
+            required_event_ids=("click_import", "click_export"),
+            success_terminal_state_ids=("result_ready",),
+            validation_boundaries=("UI scenario review",),
+            rationale="The local example reaches a result terminal and supports export.",
+        ),
+    ),
+    terminal_action_allowances=(
+        UITerminalActionAllowance(
+            "result_ready",
+            "click_export",
+            "export",
+            rationale="Export is a terminal-state output action.",
+        ),
+    ),
+    residual_blindspots=(
+        UIResidualBlindspot(
+            "load_existing_project",
+            feature_id="load_existing_project",
+            reason="The short example only demonstrates import.",
+            owner="target app journey coverage",
+            validation_boundaries=("full app journey review",),
+            rationale="The omitted branch is visible instead of silently claimed.",
+        ),
+        UIResidualBlindspot(
+            "settings_panel",
+            feature_id="settings_panel",
+            control_ids=("settings",),
+            reason="Settings are outside the short local example.",
+            owner="settings journey review",
+            validation_boundaries=("settings UI scenario review",),
+            rationale="The visible settings control is explicitly bounded instead of becoming a silent no-op.",
+        ),
+    ),
+    validation_boundaries=("UI scenario review",),
+    rationale="App-level claims need declared journey coverage; this example records its boundary.",
+)
+
+journey_report = review_ui_journey_coverage(coverage, interaction_model=model)
 
 derivation = UIStructureDerivation(
     "import-run-ui-structure",
@@ -314,6 +419,7 @@ text_report = review_ui_text_hierarchy(
     structure_derivation=derivation,
 )
 print(model_report.format_text())
+print(journey_report.format_text())
 print(structure_report.format_text())
 print(text_report.format_text())
 ```
@@ -327,7 +433,9 @@ python -m flowguard ui-flow-structure-template --output .
 ## Relationship To Other Routes
 
 UI Flow Structure does not choose the visual style and does not implement
-frontend code. It produces a structure and text hierarchy contract that
+frontend code. Journey coverage is model evidence for the declared UI boundary,
+not browser, frontend, accessibility, or production conformance. It produces a
+structure and text hierarchy contract that
 frontend, Figma, browser, copy, and design-review workflows can use.
 
 Use Code Structure Recommendation when the question is how to split

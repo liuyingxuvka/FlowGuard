@@ -1,12 +1,13 @@
 """UI interaction flow and model-derived structure helpers.
 
 UI flow structure keeps UI design model-first. It first reviews a UI-level
-interaction model, then reviews a structure derivation that maps that model to
-regions, menu levels, parent/child nodes, overlays, stable placements, and
-intentional display/control redundancy. A third review surface derives text
-roles and typography tokens from the reviewed UI structure so headings, labels,
-buttons, status text, and repeated semantic content follow the modeled UI
-topology instead of ad hoc styling.
+interaction model, then optionally reviews app-level launch-to-terminal journey
+coverage when the UI claims complete app coverage, then reviews a structure
+derivation that maps that model to regions, menu levels, parent/child nodes,
+overlays, stable placements, and intentional display/control redundancy. A
+final review surface derives text roles and typography tokens from the reviewed
+UI structure so headings, labels, buttons, status text, and repeated semantic
+content follow the modeled UI topology instead of ad hoc styling.
 """
 
 from __future__ import annotations
@@ -274,6 +275,206 @@ class UIInteractionModel:
             "transitions": [transition.to_dict() for transition in self.transitions],
             "source_product_model_id": self.source_product_model_id,
             "source_product_model_path": self.source_product_model_path,
+            "validation_boundaries": list(self.validation_boundaries),
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class UIJourneyEntryPoint:
+    """One app-level entry point that should be available from launch."""
+
+    entry_id: str
+    control_id: str
+    event_id: str
+    label: str = ""
+    source_state_ids: tuple[str, ...] = ()
+    required: bool = True
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "entry_id", str(self.entry_id))
+        object.__setattr__(self, "control_id", str(self.control_id))
+        object.__setattr__(self, "event_id", str(self.event_id))
+        object.__setattr__(self, "label", str(self.label))
+        object.__setattr__(self, "source_state_ids", _as_tuple(self.source_state_ids))
+        object.__setattr__(self, "required", bool(self.required))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "entry_id": self.entry_id,
+            "control_id": self.control_id,
+            "event_id": self.event_id,
+            "label": self.label,
+            "source_state_ids": list(self.source_state_ids),
+            "required": self.required,
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class UIFeatureJourney:
+    """One declared feature path from app entry toward success or recovery."""
+
+    feature_id: str
+    label: str = ""
+    entry_point_ids: tuple[str, ...] = ()
+    required_state_ids: tuple[str, ...] = ()
+    required_event_ids: tuple[str, ...] = ()
+    success_terminal_state_ids: tuple[str, ...] = ()
+    failure_state_ids: tuple[str, ...] = ()
+    recovery_event_ids: tuple[str, ...] = ()
+    cancel_event_ids: tuple[str, ...] = ()
+    exit_event_ids: tuple[str, ...] = ()
+    validation_boundaries: tuple[str, ...] = ()
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "feature_id", str(self.feature_id))
+        object.__setattr__(self, "label", str(self.label))
+        object.__setattr__(self, "entry_point_ids", _as_tuple(self.entry_point_ids))
+        object.__setattr__(self, "required_state_ids", _as_tuple(self.required_state_ids))
+        object.__setattr__(self, "required_event_ids", _as_tuple(self.required_event_ids))
+        object.__setattr__(self, "success_terminal_state_ids", _as_tuple(self.success_terminal_state_ids))
+        object.__setattr__(self, "failure_state_ids", _as_tuple(self.failure_state_ids))
+        object.__setattr__(self, "recovery_event_ids", _as_tuple(self.recovery_event_ids))
+        object.__setattr__(self, "cancel_event_ids", _as_tuple(self.cancel_event_ids))
+        object.__setattr__(self, "exit_event_ids", _as_tuple(self.exit_event_ids))
+        object.__setattr__(self, "validation_boundaries", _as_tuple(self.validation_boundaries))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def handling_event_ids(self) -> tuple[str, ...]:
+        return self.recovery_event_ids + self.cancel_event_ids + self.exit_event_ids
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "feature_id": self.feature_id,
+            "label": self.label,
+            "entry_point_ids": list(self.entry_point_ids),
+            "required_state_ids": list(self.required_state_ids),
+            "required_event_ids": list(self.required_event_ids),
+            "success_terminal_state_ids": list(self.success_terminal_state_ids),
+            "failure_state_ids": list(self.failure_state_ids),
+            "recovery_event_ids": list(self.recovery_event_ids),
+            "cancel_event_ids": list(self.cancel_event_ids),
+            "exit_event_ids": list(self.exit_event_ids),
+            "validation_boundaries": list(self.validation_boundaries),
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class UITerminalActionAllowance:
+    """One allowed outgoing action from a terminal UI state."""
+
+    state_id: str
+    event_id: str
+    purpose: str
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "state_id", str(self.state_id))
+        object.__setattr__(self, "event_id", str(self.event_id))
+        object.__setattr__(self, "purpose", str(self.purpose))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "state_id": self.state_id,
+            "event_id": self.event_id,
+            "purpose": self.purpose,
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class UIResidualBlindspot:
+    """One intentionally out-of-scope UI branch with its validation boundary."""
+
+    blindspot_id: str
+    feature_id: str = ""
+    control_ids: tuple[str, ...] = ()
+    event_ids: tuple[str, ...] = ()
+    reason: str = ""
+    owner: str = ""
+    validation_boundaries: tuple[str, ...] = ()
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "blindspot_id", str(self.blindspot_id))
+        object.__setattr__(self, "feature_id", str(self.feature_id))
+        object.__setattr__(self, "control_ids", _as_tuple(self.control_ids))
+        object.__setattr__(self, "event_ids", _as_tuple(self.event_ids))
+        object.__setattr__(self, "reason", str(self.reason))
+        object.__setattr__(self, "owner", str(self.owner))
+        object.__setattr__(self, "validation_boundaries", _as_tuple(self.validation_boundaries))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "blindspot_id": self.blindspot_id,
+            "feature_id": self.feature_id,
+            "control_ids": list(self.control_ids),
+            "event_ids": list(self.event_ids),
+            "reason": self.reason,
+            "owner": self.owner,
+            "validation_boundaries": list(self.validation_boundaries),
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class UIJourneyCoverage:
+    """App-level launch-to-terminal journey coverage for a UI interaction model."""
+
+    coverage_id: str
+    source_interaction_model_id: str
+    launch_state_id: str
+    entry_points: tuple[UIJourneyEntryPoint, ...] = ()
+    feature_journeys: tuple[UIFeatureJourney, ...] = ()
+    terminal_action_allowances: tuple[UITerminalActionAllowance, ...] = ()
+    residual_blindspots: tuple[UIResidualBlindspot, ...] = ()
+    interaction_model_reviewed: bool = False
+    validation_boundaries: tuple[str, ...] = ()
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "coverage_id", str(self.coverage_id))
+        object.__setattr__(self, "source_interaction_model_id", str(self.source_interaction_model_id))
+        object.__setattr__(self, "launch_state_id", str(self.launch_state_id))
+        object.__setattr__(self, "entry_points", tuple(self.entry_points))
+        object.__setattr__(self, "feature_journeys", tuple(self.feature_journeys))
+        object.__setattr__(self, "terminal_action_allowances", tuple(self.terminal_action_allowances))
+        object.__setattr__(self, "residual_blindspots", tuple(self.residual_blindspots))
+        object.__setattr__(self, "interaction_model_reviewed", bool(self.interaction_model_reviewed))
+        object.__setattr__(self, "validation_boundaries", _as_tuple(self.validation_boundaries))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def entry_point_ids(self) -> tuple[str, ...]:
+        return tuple(entry.entry_id for entry in self.entry_points)
+
+    def feature_ids(self) -> tuple[str, ...]:
+        return tuple(feature.feature_id for feature in self.feature_journeys)
+
+    def blindspot_ids(self) -> tuple[str, ...]:
+        return tuple(blindspot.blindspot_id for blindspot in self.residual_blindspots)
+
+    def terminal_allowance_keys(self) -> tuple[str, ...]:
+        return tuple(f"{allowance.state_id}:{allowance.event_id}" for allowance in self.terminal_action_allowances)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "coverage_id": self.coverage_id,
+            "source_interaction_model_id": self.source_interaction_model_id,
+            "launch_state_id": self.launch_state_id,
+            "entry_points": [entry.to_dict() for entry in self.entry_points],
+            "feature_journeys": [feature.to_dict() for feature in self.feature_journeys],
+            "terminal_action_allowances": [
+                allowance.to_dict() for allowance in self.terminal_action_allowances
+            ],
+            "residual_blindspots": [blindspot.to_dict() for blindspot in self.residual_blindspots],
+            "interaction_model_reviewed": self.interaction_model_reviewed,
             "validation_boundaries": list(self.validation_boundaries),
             "rationale": self.rationale,
         }
@@ -619,6 +820,61 @@ class UIInteractionModelReport:
 
 
 @dataclass(frozen=True)
+class UIJourneyCoverageReport:
+    """Structured review result for app-level UI journey coverage."""
+
+    ok: bool
+    coverage_id: str
+    findings: tuple[UIFlowStructureFinding, ...] = ()
+    reachable_state_ids: tuple[str, ...] = ()
+    summary: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "coverage_id", str(self.coverage_id))
+        object.__setattr__(self, "findings", tuple(self.findings))
+        object.__setattr__(self, "reachable_state_ids", _as_tuple(self.reachable_state_ids))
+        if not self.summary:
+            status = "OK" if self.ok else "BLOCKED"
+            object.__setattr__(
+                self,
+                "summary",
+                f"{status}: ui_journey_coverage={self.coverage_id} findings={len(self.findings)}",
+            )
+
+    def blocker_count(self) -> int:
+        return sum(1 for finding in self.findings if finding.severity == "blocker")
+
+    def format_text(self, max_findings: int = 10) -> str:
+        lines = [
+            "=== flowguard UI journey coverage review ===",
+            f"status: {'OK' if self.ok else 'BLOCKED'}",
+            f"coverage: {self.coverage_id}",
+            f"reachable_states: {len(self.reachable_state_ids)}",
+            f"findings: {len(self.findings)}",
+        ]
+        for finding in self.findings[:max_findings]:
+            lines.extend(
+                [
+                    "",
+                    f"finding: {finding.code}",
+                    f"severity: {finding.severity}",
+                    f"item: {finding.item_id or '(none)'}",
+                    f"message: {finding.message}",
+                ]
+            )
+        return "\n".join(lines)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "ok": self.ok,
+            "coverage_id": self.coverage_id,
+            "reachable_state_ids": list(self.reachable_state_ids),
+            "findings": [finding.to_dict() for finding in self.findings],
+            "summary": self.summary,
+        }
+
+
+@dataclass(frozen=True)
 class UIStructureDerivationReport:
     """Structured review result for a UI structure derivation."""
 
@@ -775,6 +1031,52 @@ def _redundancy_justified(items: Sequence[Any]) -> bool:
         if getattr(item, "duplicate_group", "")
     }
     return len(duplicate_groups) == 1
+
+
+_ALLOWED_TERMINAL_ACTION_PURPOSES = {"restart", "export", "close", "recovery", "cancel", "exit"}
+
+
+def _transitions_by_event(model: UIInteractionModel) -> dict[str, UITransition]:
+    return {transition.event_id: transition for transition in model.transitions}
+
+
+def _outgoing_transitions(model: UIInteractionModel) -> dict[str, list[UITransition]]:
+    outgoing: dict[str, list[UITransition]] = {}
+    for transition in model.transitions:
+        outgoing.setdefault(transition.source_state_id, []).append(transition)
+    return outgoing
+
+
+def _transitions_by_state_control(model: UIInteractionModel) -> dict[tuple[str, str], list[UITransition]]:
+    transitions: dict[tuple[str, str], list[UITransition]] = {}
+    for transition in model.transitions:
+        transitions.setdefault((transition.source_state_id, transition.control_id), []).append(transition)
+    return transitions
+
+
+def _reachable_state_ids(model: UIInteractionModel, launch_state_id: str) -> set[str]:
+    state_ids = set(model.state_ids())
+    if launch_state_id not in state_ids:
+        return set()
+    outgoing = _outgoing_transitions(model)
+    reachable: set[str] = {launch_state_id}
+    pending: list[str] = [launch_state_id]
+    while pending:
+        state_id = pending.pop(0)
+        for transition in outgoing.get(state_id, ()):
+            target = transition.target_state_id
+            if target in state_ids and target not in reachable:
+                reachable.add(target)
+                pending.append(target)
+    return reachable
+
+
+def _event_source_ids(event: UITransition | None, fallback_source_ids: Sequence[str]) -> tuple[str, ...]:
+    if fallback_source_ids:
+        return _as_tuple(fallback_source_ids)
+    if event is None:
+        return ()
+    return (event.source_state_id,)
 
 
 _CONTROL_TEXT_ROLES = {"button_label", "menu_label", "tab_label", "control_label"}
@@ -1080,6 +1382,522 @@ def review_ui_interaction_model(model: UIInteractionModel) -> UIInteractionModel
         ok=not blockers,
         model_id=model.model_id,
         findings=tuple(findings),
+    )
+
+
+def review_ui_journey_coverage(
+    coverage: UIJourneyCoverage,
+    *,
+    interaction_model: UIInteractionModel,
+) -> UIJourneyCoverageReport:
+    """Review whether declared app UI journeys are covered from launch to terminal states."""
+
+    findings: list[UIFlowStructureFinding] = []
+    state_ids = set(interaction_model.state_ids())
+    control_ids = set(interaction_model.control_ids())
+    event_ids = set(interaction_model.transition_event_ids())
+    states_by_id = {state.state_id: state for state in interaction_model.states}
+    controls_by_id = interaction_model.controls_by_id()
+    events_by_id = _transitions_by_event(interaction_model)
+    outgoing_by_state = _outgoing_transitions(interaction_model)
+    transitions_by_state_control = _transitions_by_state_control(interaction_model)
+    reachable_states = _reachable_state_ids(interaction_model, coverage.launch_state_id)
+    entry_points_by_id = {entry.entry_id: entry for entry in coverage.entry_points}
+    blindspot_control_id_values = tuple(
+        control_id
+        for blindspot in coverage.residual_blindspots
+        for control_id in blindspot.control_ids
+    )
+    blindspot_event_id_values = tuple(
+        event_id
+        for blindspot in coverage.residual_blindspots
+        for event_id in blindspot.event_ids
+    )
+    blindspot_control_ids = set(blindspot_control_id_values)
+    blindspot_event_ids = set(blindspot_event_id_values)
+
+    if not coverage.coverage_id:
+        findings.append(UIFlowStructureFinding("missing_coverage_id", "UI journey coverage has no coverage id"))
+    if not coverage.source_interaction_model_id:
+        findings.append(
+            UIFlowStructureFinding(
+                "missing_source_interaction_model",
+                "UI journey coverage has no source UI interaction model id",
+            )
+        )
+    elif coverage.source_interaction_model_id != interaction_model.model_id:
+        findings.append(
+            UIFlowStructureFinding(
+                "source_interaction_model_mismatch",
+                "UI journey coverage does not reference the supplied interaction model",
+                metadata={
+                    "coverage_source": coverage.source_interaction_model_id,
+                    "interaction_model": interaction_model.model_id,
+                },
+            )
+        )
+    if not coverage.interaction_model_reviewed:
+        findings.append(
+            UIFlowStructureFinding(
+                "source_interaction_model_not_reviewed",
+                "UI journey coverage was reviewed before the UI interaction model was marked reviewed",
+            )
+        )
+    if not coverage.launch_state_id:
+        findings.append(UIFlowStructureFinding("missing_launch_state", "UI journey coverage has no launch state"))
+    elif coverage.launch_state_id not in state_ids:
+        findings.append(
+            UIFlowStructureFinding(
+                "launch_state_not_registered",
+                f"launch state {coverage.launch_state_id} is not in the source interaction model",
+                item_id=coverage.launch_state_id,
+            )
+        )
+    if not coverage.entry_points:
+        findings.append(UIFlowStructureFinding("missing_entry_points", "UI journey coverage has no entry points"))
+    if not coverage.feature_journeys:
+        findings.append(
+            UIFlowStructureFinding("missing_feature_journeys", "UI journey coverage has no feature journeys")
+        )
+    if not coverage.validation_boundaries:
+        findings.append(
+            UIFlowStructureFinding("missing_validation_plan", "UI journey coverage has no validation boundaries")
+        )
+    if not coverage.rationale:
+        findings.append(
+            UIFlowStructureFinding(
+                "missing_coverage_rationale",
+                "UI journey coverage has no rationale for the declared app boundary",
+            )
+        )
+
+    findings.extend(_duplicate_values(coverage.entry_point_ids(), code="duplicate_entry_point_id", noun="entry point"))
+    findings.extend(_duplicate_values(coverage.feature_ids(), code="duplicate_feature_id", noun="feature journey"))
+    findings.extend(
+        _duplicate_values(blindspot_control_id_values, code="duplicate_blindspot_control", noun="blindspot control")
+    )
+    findings.extend(_duplicate_values(blindspot_event_id_values, code="duplicate_blindspot_event", noun="blindspot event"))
+    findings.extend(
+        _duplicate_values(
+            coverage.terminal_allowance_keys(),
+            code="duplicate_terminal_action_allowance",
+            noun="terminal action allowance",
+        )
+    )
+    findings.extend(_duplicate_values(coverage.blindspot_ids(), code="duplicate_blindspot_id", noun="blindspot"))
+
+    for entry in coverage.entry_points:
+        event = events_by_id.get(entry.event_id)
+        if not entry.control_id:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_entry_control",
+                    f"entry point {entry.entry_id} has no control id",
+                    item_id=entry.entry_id,
+                )
+            )
+        elif entry.control_id not in control_ids:
+            findings.append(
+                UIFlowStructureFinding(
+                    "entry_control_not_registered",
+                    f"entry point {entry.entry_id} references unknown control {entry.control_id}",
+                    item_id=entry.entry_id,
+                )
+            )
+        if not entry.event_id:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_entry_event",
+                    f"entry point {entry.entry_id} has no event id",
+                    item_id=entry.entry_id,
+                )
+            )
+        elif entry.event_id not in event_ids:
+            findings.append(
+                UIFlowStructureFinding(
+                    "entry_event_not_registered",
+                    f"entry point {entry.entry_id} references unknown event {entry.event_id}",
+                    item_id=entry.entry_id,
+                )
+            )
+        if event is not None and entry.control_id and event.control_id != entry.control_id:
+            findings.append(
+                UIFlowStructureFinding(
+                    "entry_event_control_mismatch",
+                    f"entry point {entry.entry_id} maps control {entry.control_id} to event {entry.event_id} owned by {event.control_id}",
+                    item_id=entry.entry_id,
+                )
+            )
+        source_state_ids = _event_source_ids(event, entry.source_state_ids)
+        if not source_state_ids:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_entry_source_state",
+                    f"entry point {entry.entry_id} has no source state",
+                    item_id=entry.entry_id,
+                )
+            )
+        if coverage.launch_state_id and coverage.launch_state_id not in source_state_ids:
+            findings.append(
+                UIFlowStructureFinding(
+                    "entry_point_not_launch_available",
+                    f"entry point {entry.entry_id} is not available from launch state {coverage.launch_state_id}",
+                    item_id=entry.entry_id,
+                    metadata={"source_state_ids": list(source_state_ids)},
+                )
+            )
+        for source_state_id in source_state_ids:
+            if source_state_id not in state_ids:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "entry_source_state_not_registered",
+                        f"entry point {entry.entry_id} references unknown source state {source_state_id}",
+                        item_id=entry.entry_id,
+                    )
+                )
+                continue
+            if source_state_id not in reachable_states:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "entry_source_state_unreachable",
+                        f"entry point {entry.entry_id} source state {source_state_id} is not reachable from launch",
+                        item_id=entry.entry_id,
+                    )
+                )
+            state = states_by_id[source_state_id]
+            available_controls = set(state.visible_controls + state.enabled_controls)
+            if entry.control_id and available_controls and entry.control_id not in available_controls:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "entry_control_not_available_in_source",
+                        f"entry point {entry.entry_id} control {entry.control_id} is not visible or enabled in {source_state_id}",
+                        item_id=entry.entry_id,
+                    )
+                )
+        if not entry.rationale:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_entry_rationale",
+                    f"entry point {entry.entry_id} has no app-entry rationale",
+                    item_id=entry.entry_id,
+                )
+            )
+
+    for feature in coverage.feature_journeys:
+        if not feature.entry_point_ids:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_feature_entry_points",
+                    f"feature journey {feature.feature_id} has no entry points",
+                    item_id=feature.feature_id,
+                )
+            )
+        for entry_point_id in feature.entry_point_ids:
+            if entry_point_id not in entry_points_by_id:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "feature_entry_point_not_declared",
+                        f"feature journey {feature.feature_id} references undeclared entry point {entry_point_id}",
+                        item_id=feature.feature_id,
+                    )
+                )
+        if not feature.success_terminal_state_ids:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_feature_success_terminal",
+                    f"feature journey {feature.feature_id} has no success terminal state",
+                    item_id=feature.feature_id,
+                )
+            )
+        for state_id in feature.required_state_ids + feature.success_terminal_state_ids + feature.failure_state_ids:
+            if state_id not in state_ids:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "feature_state_not_registered",
+                        f"feature journey {feature.feature_id} references unknown state {state_id}",
+                        item_id=feature.feature_id,
+                        metadata={"state_id": state_id},
+                    )
+                )
+                continue
+            if state_id not in reachable_states:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "feature_state_unreachable_from_launch",
+                        f"feature journey {feature.feature_id} state {state_id} is not reachable from launch",
+                        item_id=feature.feature_id,
+                        metadata={"state_id": state_id},
+                    )
+                )
+        for terminal_state_id in feature.success_terminal_state_ids:
+            state = states_by_id.get(terminal_state_id)
+            if state is not None and not state.terminal:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "feature_success_state_not_terminal",
+                        f"feature journey {feature.feature_id} success state {terminal_state_id} is not marked terminal",
+                        item_id=feature.feature_id,
+                    )
+                )
+        for event_id in feature.required_event_ids + feature.handling_event_ids():
+            if event_id not in event_ids:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "feature_event_not_registered",
+                        f"feature journey {feature.feature_id} references unknown event {event_id}",
+                        item_id=feature.feature_id,
+                        metadata={"event_id": event_id},
+                    )
+                )
+        for event_id in feature.required_event_ids:
+            event = events_by_id.get(event_id)
+            if event is not None and event.source_state_id not in reachable_states:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "feature_event_source_unreachable",
+                        f"feature journey {feature.feature_id} event {event_id} source state is not reachable from launch",
+                        item_id=feature.feature_id,
+                        metadata={"event_id": event_id, "source_state_id": event.source_state_id},
+                    )
+                )
+        handling_event_ids = set(feature.handling_event_ids())
+        for failure_state_id in feature.failure_state_ids:
+            failure_state = states_by_id.get(failure_state_id)
+            if failure_state is None:
+                continue
+            if not failure_state.failure:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "feature_failure_state_not_marked_failure",
+                        f"feature journey {feature.feature_id} failure state {failure_state_id} is not marked failure",
+                        item_id=feature.feature_id,
+                    )
+                )
+            if failure_state.terminal:
+                continue
+            failure_outgoing = outgoing_by_state.get(failure_state_id, ())
+            handled = any(event.event_id in handling_event_ids for event in failure_outgoing)
+            if not handled:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "missing_feature_failure_handling",
+                        f"feature journey {feature.feature_id} failure state {failure_state_id} has no named recovery, cancel, or exit event",
+                        item_id=feature.feature_id,
+                    )
+                )
+        if not feature.validation_boundaries:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_feature_validation",
+                    f"feature journey {feature.feature_id} has no validation boundaries",
+                    item_id=feature.feature_id,
+                )
+            )
+        if not feature.rationale:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_feature_rationale",
+                    f"feature journey {feature.feature_id} has no coverage rationale",
+                    item_id=feature.feature_id,
+                )
+            )
+
+    allowed_terminal_events = {
+        (allowance.state_id, allowance.event_id): allowance
+        for allowance in coverage.terminal_action_allowances
+    }
+    covered_event_ids = {
+        entry.event_id
+        for entry in coverage.entry_points
+        if entry.event_id
+    }
+    for feature in coverage.feature_journeys:
+        covered_event_ids.update(feature.required_event_ids)
+        covered_event_ids.update(feature.handling_event_ids())
+    covered_event_ids.update(allowance.event_id for allowance in coverage.terminal_action_allowances)
+    covered_event_ids.update(blindspot_event_ids)
+
+    uncovered_event_checks: set[str] = set()
+    for state_id in sorted(reachable_states):
+        state = states_by_id.get(state_id)
+        if state is None:
+            continue
+        active_control_ids = state.enabled_controls if state.enabled_controls else state.visible_controls
+        for control_id in active_control_ids:
+            control = controls_by_id.get(control_id)
+            if control is None or control.control_type in {"display", "label", "status"}:
+                continue
+            transitions = transitions_by_state_control.get((state_id, control_id), ())
+            if not transitions and control_id not in blindspot_control_ids:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "visible_control_without_modeled_event",
+                        f"reachable state {state_id} exposes actionable control {control_id} without a modeled event or residual blindspot",
+                        item_id=control_id,
+                        metadata={"state_id": state_id},
+                    )
+                )
+            for transition in transitions:
+                uncovered_event_checks.add(transition.event_id)
+        for transition in outgoing_by_state.get(state_id, ()):
+            uncovered_event_checks.add(transition.event_id)
+    for event_id in sorted(uncovered_event_checks):
+        transition = events_by_id.get(event_id)
+        if transition is None:
+            continue
+        if event_id in covered_event_ids or transition.control_id in blindspot_control_ids:
+            continue
+        findings.append(
+            UIFlowStructureFinding(
+                "journey_event_not_covered",
+                f"reachable UI event {event_id} from state {transition.source_state_id} is not covered by any feature journey, terminal allowance, or residual blindspot",
+                item_id=event_id,
+                metadata={
+                    "control_id": transition.control_id,
+                    "source_state_id": transition.source_state_id,
+                    "target_state_id": transition.target_state_id,
+                },
+            )
+        )
+
+    for allowance in coverage.terminal_action_allowances:
+        if allowance.state_id not in state_ids:
+            findings.append(
+                UIFlowStructureFinding(
+                    "terminal_allowance_state_not_registered",
+                    f"terminal action allowance references unknown state {allowance.state_id}",
+                    item_id=allowance.event_id,
+                )
+            )
+        if allowance.event_id not in event_ids:
+            findings.append(
+                UIFlowStructureFinding(
+                    "terminal_allowance_event_not_registered",
+                    f"terminal action allowance references unknown event {allowance.event_id}",
+                    item_id=allowance.event_id,
+                )
+            )
+        event = events_by_id.get(allowance.event_id)
+        if event is not None and event.source_state_id != allowance.state_id:
+            findings.append(
+                UIFlowStructureFinding(
+                    "terminal_allowance_source_mismatch",
+                    f"terminal action allowance {allowance.event_id} is declared for {allowance.state_id} but event starts at {event.source_state_id}",
+                    item_id=allowance.event_id,
+                )
+            )
+        if allowance.purpose not in _ALLOWED_TERMINAL_ACTION_PURPOSES:
+            findings.append(
+                UIFlowStructureFinding(
+                    "terminal_action_purpose_not_allowed",
+                    f"terminal action allowance {allowance.event_id} has unsupported purpose {allowance.purpose}",
+                    item_id=allowance.event_id,
+                )
+            )
+        if not allowance.rationale:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_terminal_action_rationale",
+                    f"terminal action allowance {allowance.event_id} has no rationale",
+                    item_id=allowance.event_id,
+                )
+            )
+
+    for state in interaction_model.states:
+        if not state.terminal:
+            continue
+        for transition in outgoing_by_state.get(state.state_id, ()):
+            allowance = allowed_terminal_events.get((state.state_id, transition.event_id))
+            if allowance is None:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "terminal_action_without_allowance",
+                        f"terminal state {state.state_id} has outgoing event {transition.event_id} without an allowed terminal action purpose",
+                        item_id=transition.event_id,
+                    )
+                )
+                continue
+            if transition.target_state_id != transition.source_state_id and allowance.purpose not in {
+                "restart",
+                "close",
+                "recovery",
+                "cancel",
+                "exit",
+            }:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "terminal_forward_action",
+                        f"terminal state {state.state_id} event {transition.event_id} moves to {transition.target_state_id} without a restart, close, recovery, cancel, or exit purpose",
+                        item_id=transition.event_id,
+                    )
+                )
+
+    for blindspot in coverage.residual_blindspots:
+        for control_id in blindspot.control_ids:
+            if control_id not in control_ids:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "blindspot_control_not_registered",
+                        f"residual blindspot {blindspot.blindspot_id} references unknown control {control_id}",
+                        item_id=blindspot.blindspot_id,
+                    )
+                )
+        for event_id in blindspot.event_ids:
+            if event_id not in event_ids:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "blindspot_event_not_registered",
+                        f"residual blindspot {blindspot.blindspot_id} references unknown event {event_id}",
+                        item_id=blindspot.blindspot_id,
+                    )
+                )
+        if not blindspot.control_ids and not blindspot.event_ids and not blindspot.feature_id:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_blindspot_scope",
+                    f"residual blindspot {blindspot.blindspot_id} has no feature, control, or event scope",
+                    item_id=blindspot.blindspot_id,
+                )
+            )
+        if not blindspot.reason:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_blindspot_reason",
+                    f"residual blindspot {blindspot.blindspot_id} has no reason",
+                    item_id=blindspot.blindspot_id,
+                )
+            )
+        if not blindspot.owner:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_blindspot_owner",
+                    f"residual blindspot {blindspot.blindspot_id} has no owner or downstream check",
+                    item_id=blindspot.blindspot_id,
+                )
+            )
+        if not blindspot.validation_boundaries:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_blindspot_validation",
+                    f"residual blindspot {blindspot.blindspot_id} has no validation boundary",
+                    item_id=blindspot.blindspot_id,
+                )
+            )
+        if not blindspot.rationale:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_blindspot_rationale",
+                    f"residual blindspot {blindspot.blindspot_id} has no rationale",
+                    item_id=blindspot.blindspot_id,
+                )
+            )
+
+    blockers = _blocker_findings(findings)
+    return UIJourneyCoverageReport(
+        ok=not blockers,
+        coverage_id=coverage.coverage_id,
+        findings=tuple(findings),
+        reachable_state_ids=tuple(sorted(reachable_states)),
     )
 
 
@@ -1772,10 +2590,15 @@ def review_ui_text_hierarchy(
 __all__ = [
     "UIControl",
     "UIDisplayElement",
+    "UIFeatureJourney",
     "UIFlowStructureFinding",
     "UIInteractionModel",
     "UIInteractionModelReport",
+    "UIJourneyCoverage",
+    "UIJourneyCoverageReport",
+    "UIJourneyEntryPoint",
     "UIRegionRecommendation",
+    "UIResidualBlindspot",
     "UIStateNode",
     "UIStructureDerivation",
     "UIStructureDerivationReport",
@@ -1783,8 +2606,10 @@ __all__ = [
     "UITextHierarchyBlueprint",
     "UITextHierarchyReport",
     "UITypographyToken",
+    "UITerminalActionAllowance",
     "UITransition",
     "review_ui_interaction_model",
+    "review_ui_journey_coverage",
     "review_ui_structure_derivation",
     "review_ui_text_hierarchy",
 ]

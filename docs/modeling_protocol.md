@@ -156,6 +156,14 @@ side-effect ownership, stale evidence, and split-review decisions for oversized
 models. A child can become a parent and have its own local partition map and
 mesh review when that child grows large enough to split again.
 
+When the parent claims whole-flow confidence, also model the model-to-model
+handoffs themselves. A `MeshClosureModel` records root entries, child outputs,
+parent or sibling consumers, required joins, terminal dispositions, and
+out-of-scope branches as finite FlowGuard-style obligations. Parent mesh green
+confidence for whole-flow claims requires that closure model to pass; otherwise
+the mesh is only evidence for partition, target split, reattachment, and
+freshness.
+
 Before a ModelMesh parent can trust the child-model layout, record a target
 split derivation from the FlowGuard source model or model-of-models. The
 derivation must name the source model, target child model ids, covered partition
@@ -256,13 +264,17 @@ for the recommendation shape.
 
 Use the parallel UI flow structure route when a UI's buttons, menus, controls,
 screens, panels, overlays, navigation, information displays, state
-availability, or duplicate/overlapping controls need a model-first interaction
-flow before visual design or frontend implementation. This route models the UI
-as `UI event x UI state -> Set(UI output x UI state)`, reviews that
-interaction model, and then derives parent/child UI topology, first-level
-persistent menus, second-level contextual regions, third-level local controls,
-information-display ownership, stable layout positions, overlay hierarchy, and
-explicit rationale for intentional redundancy.
+availability, duplicate/overlapping controls, headings, labels, action text,
+status/helper messages, error/recovery copy slots, or complete app
+launch-to-terminal journey coverage need a model-first interaction flow before
+visual design or frontend implementation. This route models the UI as
+`UI event x UI state -> Set(UI output x UI state)`, reviews that interaction
+model, reviews journey coverage and reachable visible-control/event ownership
+when a complete app-level UI claim is made, derives parent/child UI topology,
+first-level persistent menus, second-level contextual regions, third-level
+local controls, information-display ownership, stable layout positions, overlay
+hierarchy, and explicit rationale for intentional redundancy, then derives the
+UI text hierarchy blueprint from the reviewed structure.
 
 Read `docs/ui_flow_structure.md` and
 `.agents/skills/flowguard-ui-flow-structure/references/ui_flow_structure_protocol.md`
@@ -801,6 +813,9 @@ Recommended low-friction agent flow:
 - The model mesh, when required, inventories child models, evidence tiers,
   freshness, dependencies, skipped checks, live/conformance adapters, and
   cross-model contradictions before broad continue/release/completion claims.
+- Whole-flow parent confidence uses a mesh closure model to prove root entries,
+  child outputs, joins, terminals, and out-of-scope branches close without
+  expanding child internals.
 - Child model repairs under a parent mesh pass the parent reattachment gate, or
   the stale/missing/drifted handoff remains a visible blocker.
 - Large script or module splits have a StructureMesh, or an explicit reason why

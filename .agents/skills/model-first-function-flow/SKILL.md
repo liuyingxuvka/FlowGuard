@@ -63,9 +63,9 @@ satellite skills. The routes are agent behavior protocols, not package APIs.
 | --- | --- | --- |
 | Ordinary model-first workflow, flow types, Risk Intent, state write inventory | `core_modeling` | `references/modeling_protocol.md` |
 | Direct architecture recommendation, model-derived implementation structure, pre-code module split planning | `code_structure_recommendation` | `flowguard-code-structure-recommendation` |
-| UI interaction flow model, screen/region topology, parent/child UI structure, navigation/state/event/display/text ownership, text hierarchy blueprint, duplicate information, or overlapping same-level controls derived from modeled UI behavior | `ui_flow_structure` | `flowguard-ui-flow-structure` |
+| UI interaction flow model, complete app launch-to-terminal journey coverage, reachable visible-control branches, screen/region topology, parent/child UI structure, navigation/state/event/display/text ownership, text hierarchy blueprint, duplicate information, or overlapping same-level controls derived from modeled UI behavior | `ui_flow_structure` | `flowguard-ui-flow-structure` |
 | FlowGuard model obligations, optional code external contracts, and ordinary test evidence need direct comparison | `model_test_alignment` | `flowguard-model-test-alignment` |
-| Three or more local FlowGuard models, oversized model, stale child evidence, parent/child model partition, affected sibling review | `model_mesh_maintenance` | `flowguard-model-mesh` |
+| Three or more local FlowGuard models, oversized model, stale child evidence, parent/child model partition, affected sibling review, whole-flow mesh closure | `model_mesh_maintenance` | `flowguard-model-mesh` |
 | Large test script/suite split, parent/child test hierarchy, slow/background/stale/skipped/release-only validation evidence | `test_mesh_maintenance` | `flowguard-test-mesh` |
 | Large script/module/package/command/API split, facade-first refactor, public entrypoint compatibility, ownership split | `structure_mesh_maintenance` | `flowguard-structure-mesh` |
 | Development lifecycle ordering, artifact overwrite, validation freshness, minimum revalidation, V-style process confidence | `development_process_flow` | `flowguard-development-process-flow` |
@@ -138,7 +138,8 @@ Codex skill:
   `cache_matches_source`, `DeduplicationPack`, `CachePack`, `RetryPack`, and
   `SideEffectPack`.
 - Mesh review APIs such as `review_hierarchical_mesh()`,
-  `review_test_mesh()`, and `review_structure_mesh()`.
+  `review_mesh_closure_model()`, `review_test_mesh()`, and
+  `review_structure_mesh()`.
 - Alignment APIs such as `review_model_test_alignment()`,
   `audit_python_code_contracts()`, `audit_python_test_assertions()`,
   `review_python_contract_source_audit()`, and optional code external contract
@@ -146,7 +147,8 @@ Codex skill:
 - Development lifecycle helpers such as `review_development_process_flow()`
   and `derive_revalidation_plan()`.
 - UI flow structure helpers such as `UIDisplayElement`,
-  `UITextHierarchyBlueprint`, `review_ui_interaction_model()`,
+  `UIJourneyCoverage`, `UITextHierarchyBlueprint`,
+  `review_ui_interaction_model()`, `review_ui_journey_coverage()`,
   `review_ui_structure_derivation()`, and `review_ui_text_hierarchy()`.
 - Template CLIs such as `project-template`, `risk-intent-template`,
   `model-miss-template`, `model-test-alignment-template`,

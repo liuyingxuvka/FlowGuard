@@ -7,9 +7,14 @@ from flowguard import (
     HierarchyCoverageItem,
     HierarchyPartitionMap,
     LegacyModelRecord,
+    MeshClosureJoin,
+    MeshClosureModel,
+    MeshClosureTerminal,
+    MeshClosureTransition,
     ModelTargetSplitDerivation,
     classify_legacy_model,
     review_hierarchical_mesh,
+    review_mesh_closure_model,
     summarize_child_boundary_change,
 )
 
@@ -62,6 +67,43 @@ def reattachment_empty(child_model_id, **kwargs):
     return ChildReattachmentContract(child_model_id, **defaults)
 
 
+def closure_model(**kwargs):
+    defaults = {
+        "parent_model_id": "checkout",
+        "root_entries": ("root_start",),
+        "transitions": (
+            MeshClosureTransition(
+                "start_payment",
+                consumes=("root_start",),
+                emits=("payment_result",),
+                consumer_model_id="payment",
+            ),
+            MeshClosureTransition(
+                "start_inventory",
+                consumes=("root_start",),
+                emits=("inventory_result",),
+                consumer_model_id="inventory",
+            ),
+        ),
+        "joins": (
+            MeshClosureJoin(
+                "checkout_ready",
+                required_inputs=("payment_result", "inventory_result"),
+                emits=("order_ready",),
+            ),
+        ),
+        "terminals": (
+            MeshClosureTerminal(
+                "order_complete",
+                consumes=("order_ready",),
+                terminal_kind="normal_exit",
+            ),
+        ),
+    }
+    defaults.update(kwargs)
+    return MeshClosureModel(**defaults)
+
+
 class HierarchicalMeshTests(unittest.TestCase):
     def test_complete_partition_map_can_continue(self):
         partition = HierarchyPartitionMap(
@@ -85,6 +127,238 @@ class HierarchicalMeshTests(unittest.TestCase):
         self.assertEqual("mesh_green_can_continue", report.decision)
         self.assertEqual([], report.to_dict()["findings"])
         self.assertIn("flowguard hierarchical mesh", report.format_text())
+
+    def test_mesh_closure_complete_model_can_continue(self):
+        report = review_mesh_closure_model(
+            closure_model(),
+            (
+                child("payment", outputs_emitted=("payment_result",)),
+                child("inventory", outputs_emitted=("inventory_result",)),
+            ),
+        )
+
+        self.assertTrue(report.ok)
+        self.assertEqual("mesh_closure_green", report.decision)
+        self.assertIn("order_ready", report.reachable_tokens)
+
+    def test_mesh_closure_requires_root_entry(self):
+        report = review_mesh_closure_model(
+            closure_model(root_entries=()),
+            (child("payment", outputs_emitted=("payment_result",)),),
+        )
+
+        self.assertFalse(report.ok)
+        self.assertEqual("missing_root_entry", report.decision)
+        self.assertIn("missing_root_entry", [finding.code for finding in report.findings])
+
+    def test_mesh_closure_rejects_unconsumed_child_output(self):
+        report = review_mesh_closure_model(
+            closure_model(
+                transitions=(
+                    MeshClosureTransition(
+                        "start_payment",
+                        consumes=("root_start",),
+                        emits=("payment_result",),
+                        consumer_model_id="payment",
+                    ),
+                ),
+                joins=(),
+                terminals=(
+                    MeshClosureTerminal("payment_done", consumes=("payment_result",)),
+                ),
+            ),
+            (
+                child("payment", outputs_emitted=("payment_result",)),
+                child("fraud", outputs_emitted=("manual_review_needed",)),
+            ),
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("unconsumed_child_output", [finding.code for finding in report.findings])
+
+    def test_mesh_closure_rejects_unknown_output_reference(self):
+        report = review_mesh_closure_model(
+            closure_model(
+                transitions=(
+                    MeshClosureTransition(
+                        "foreign_consume",
+                        consumes=("foreign_output",),
+                        emits=("payment_result",),
+                    ),
+                ),
+                joins=(),
+                terminals=(MeshClosureTerminal("payment_done", consumes=("payment_result",)),),
+            ),
+            (child("payment", outputs_emitted=("payment_result",)),),
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("unknown_closure_reference", [finding.code for finding in report.findings])
+
+    def test_mesh_closure_rejects_incomplete_join(self):
+        report = review_mesh_closure_model(
+            closure_model(
+                joins=(
+                    MeshClosureJoin(
+                        "checkout_ready",
+                        required_inputs=("payment_result", "inventory_result", "tax_result"),
+                        emits=("order_ready",),
+                    ),
+                ),
+            ),
+            (
+                child("payment", outputs_emitted=("payment_result",)),
+                child("inventory", outputs_emitted=("inventory_result",)),
+            ),
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("missing_join_point", [finding.code for finding in report.findings])
+
+    def test_mesh_closure_requires_out_of_scope_rationale(self):
+        report = review_mesh_closure_model(
+            closure_model(
+                transitions=(
+                    MeshClosureTransition("start_payment", consumes=("root_start",), emits=("payment_result",)),
+                ),
+                joins=(),
+                terminals=(
+                    MeshClosureTerminal(
+                        "ignore_payment",
+                        consumes=("payment_result",),
+                        terminal_kind="out_of_scope",
+                    ),
+                ),
+            ),
+            (child("payment", outputs_emitted=("payment_result",)),),
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("out_of_scope_rationale_required", [finding.code for finding in report.findings])
+
+    def test_mesh_closure_rejects_terminal_leak(self):
+        report = review_mesh_closure_model(
+            closure_model(
+                transitions=(
+                    MeshClosureTransition("start_payment", consumes=("root_start",), emits=("payment_result",)),
+                    MeshClosureTransition("start_inventory", consumes=("root_start",), emits=("inventory_result",)),
+                ),
+                joins=(),
+                terminals=(
+                    MeshClosureTerminal("premature_done", consumes=("payment_result",)),
+                ),
+            ),
+            (
+                child("payment", outputs_emitted=("payment_result",)),
+                child("inventory", outputs_emitted=("inventory_result",)),
+            ),
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("terminal_leak", [finding.code for finding in report.findings])
+
+    def test_mesh_closure_rejects_loop_without_progress(self):
+        report = review_mesh_closure_model(
+            closure_model(
+                transitions=(
+                    MeshClosureTransition(
+                        "retry_payment",
+                        consumes=("payment_result",),
+                        emits=("payment_result",),
+                        consumer_model_id="payment",
+                        loop=True,
+                    ),
+                ),
+                joins=(),
+                terminals=(MeshClosureTerminal("payment_done", consumes=("payment_result",)),),
+            ),
+            (child("payment", outputs_emitted=("payment_result",)),),
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("loop_progress_required", [finding.code for finding in report.findings])
+
+    def test_mesh_closure_allows_bounded_loop(self):
+        report = review_mesh_closure_model(
+            closure_model(
+                transitions=(
+                    MeshClosureTransition(
+                        "retry_payment",
+                        consumes=("root_start",),
+                        emits=("payment_result",),
+                        consumer_model_id="payment",
+                        loop=True,
+                        max_iterations=3,
+                    ),
+                ),
+                joins=(),
+                terminals=(MeshClosureTerminal("payment_done", consumes=("payment_result",)),),
+            ),
+            (child("payment", outputs_emitted=("payment_result",)),),
+        )
+
+        self.assertTrue(report.ok)
+
+    def test_parent_mesh_consumes_closure_model_before_green(self):
+        partition = HierarchyPartitionMap(
+            parent_model_id="checkout",
+            coverage_items=(
+                HierarchyCoverageItem("payment", owner_model_id="payment"),
+                HierarchyCoverageItem("inventory", owner_model_id="inventory"),
+            ),
+            child_models=(
+                child("payment", outputs_emitted=("payment_result",)),
+                child("inventory", outputs_emitted=("inventory_result",)),
+            ),
+            target_split_derivation=target(
+                "checkout",
+                ("payment", "inventory"),
+                ("payment", "inventory"),
+            ),
+            closure_model=closure_model(
+                transitions=(
+                    MeshClosureTransition(
+                        "start_payment",
+                        consumes=("root_start",),
+                        emits=("payment_result",),
+                    ),
+                ),
+                joins=(),
+                terminals=(MeshClosureTerminal("payment_done", consumes=("payment_result",)),),
+            ),
+        )
+
+        report = review_hierarchical_mesh(partition)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("unconsumed_child_output", report.decision)
+        self.assertIsNotNone(report.closure_report)
+        self.assertIn("closure_report", report.to_dict())
+
+    def test_parent_mesh_green_when_closure_model_passes(self):
+        partition = HierarchyPartitionMap(
+            parent_model_id="checkout",
+            coverage_items=(
+                HierarchyCoverageItem("payment", owner_model_id="payment"),
+                HierarchyCoverageItem("inventory", owner_model_id="inventory"),
+            ),
+            child_models=(
+                child("payment", outputs_emitted=("payment_result",)),
+                child("inventory", outputs_emitted=("inventory_result",)),
+            ),
+            target_split_derivation=target(
+                "checkout",
+                ("payment", "inventory"),
+                ("payment", "inventory"),
+            ),
+            closure_model=closure_model(),
+        )
+
+        report = review_hierarchical_mesh(partition)
+
+        self.assertTrue(report.ok)
+        self.assertEqual("mesh_green_can_continue", report.decision)
+        self.assertEqual("mesh_closure_green", report.closure_report.decision)
 
     def test_missing_owner_is_coverage_gap(self):
         partition = HierarchyPartitionMap(

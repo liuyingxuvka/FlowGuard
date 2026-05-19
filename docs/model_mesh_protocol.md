@@ -77,6 +77,7 @@ Before trusting existing models, write a compact inventory:
 | `large_model_signal` | Estimated/observed state count, incomplete budgeted run, or unrelated functional areas that trigger split review. |
 | `target_split_derivation` | Source FlowGuard model and target child model layout that derived this parent split. |
 | `reattachment_contracts` | Parent expectations for repaired child inputs, outputs, ownership, outgoing guarantees, and consumed evidence ids. |
+| `closure_model` | FlowGuard-style parent/child handoff model for root entries, child outputs, consumers, joins, terminals, and out-of-scope dispositions. |
 
 ## Partition And Overlap Review
 
@@ -144,6 +145,36 @@ outgoing guarantees drift from the parent expectation. This gate does not inline
 the child state graph; it checks whether the child can still plug into the
 parent's modeled handoff.
 
+## Mesh Closure Model
+
+Use a mesh closure model when a parent mesh claims whole-flow confidence across
+the parent/child model network. This is a FlowGuard-style meta-model of the
+model connections, not a child-graph expansion. It treats root entries, child
+outputs, parent or sibling consumers, joins, normal/failure exits, and explicit
+out-of-scope dispositions as finite tokens and obligations.
+
+The closure model should record:
+
+- parent root entry tokens;
+- model-to-model closure transitions and the model that consumes each handoff;
+- child output tokens that must be consumed;
+- required join points and the outputs each join needs;
+- normal exits, failure exits, terminal side-effect closures, and
+  out-of-scope dispositions with rationale;
+- loop-like retry or wait handoffs and their bound or progress rule.
+
+`review_mesh_closure_model(...)` blocks green closure when a root entry is
+missing, a consumed token is unknown, a child output has no consumer, a required
+output is unreachable from the root entries, a join cannot complete, an
+out-of-scope disposition lacks rationale, a terminal is reached with pending
+required outputs, or a loop-like handoff lacks a bound or progress rule.
+
+When `HierarchyPartitionMap.closure_model` is present,
+`review_hierarchical_mesh(...)` must consume the closure report before returning
+`mesh_green_can_continue`. If no closure model is declared, the mesh may still
+support partition, target-split, evidence, or reattachment claims, but it should
+not be described as proving whole-flow entry-to-exit closure.
+
 Suggested evidence tiers:
 
 - `candidate_only`: model exists but has not produced trustworthy current
@@ -175,6 +206,8 @@ Keep the mesh finite and inspectable. A useful mesh state usually contains:
 - cross-model dependencies and contract obligations;
 - child reattachment contracts and consumed child evidence ids when a repaired
   child supports parent confidence;
+- mesh closure root entries, child output obligations, consumers, joins, and
+  terminal dispositions when whole-flow parent confidence is claimed;
 - skipped, not-run, or parse-error sections;
 - current decision: continue, block, add evidence, update child model, or split.
 - parent partition coverage, sibling overlap, state ownership, and side-effect
@@ -191,6 +224,7 @@ CheckCrossModelContracts x State -> Set(ContradictionReport x State)
 CheckChildReattachment x State -> Set(ReattachmentReport x State)
 CheckPartitionCoverage x State -> Set(CoverageReport x State)
 CheckSiblingOverlap x State -> Set(OverlapReport x State)
+ReviewMeshClosure x State -> Set(ClosureReport x State)
 ReviewLargeModelSplit x State -> Set(SplitDecision x State)
 DecideMeshAuthority x State -> Set(ContinueOrBlock x State)
 ```
@@ -241,6 +275,15 @@ At minimum, the mesh must make these broken variants fail:
     or outgoing-contract assumptions after a child boundary changes.
 25. A background long-running check is accepted as pass evidence from progress
     output, an in-progress log, or a missing exit/result artifact.
+26. A parent mesh claims whole-flow closure while a child output has no parent,
+    sibling, terminal, or explicit out-of-scope consumer.
+27. A parent mesh reaches a terminal disposition while required child outputs or
+    join obligations remain pending.
+28. A closure model marks a branch out of scope without rationale.
+29. A loop-like parent/child handoff is accepted as closed without a bound,
+    ranking, or progress rule.
+30. A closure model consumes an unknown or foreign output token that is not
+    produced by a root entry, child output, transition, or join.
 
 ## Prompt Template
 
@@ -279,22 +322,27 @@ Tasks:
 7. For each repaired child model, record the parent reattachment contract:
    expected inputs, expected outputs, expected state and side-effect ownership,
    expected outgoing guarantees, and the consumed child evidence id.
-8. Separate the current bug instance from the bug class: confirm Model-Miss
+8. When whole-flow parent confidence is claimed, create a mesh closure model
+   that records root entries, child outputs, consumers, joins, terminals,
+   out-of-scope branches, and loop progress rules.
+9. Separate the current bug instance from the bug class: confirm Model-Miss
    Review represented the same-class responsibility or marked it out of scope.
-9. When a child boundary changed, propagate that change to the parent
+10. When a child boundary changed, propagate that change to the parent
    partition/split/reattachment review and review affected siblings.
-10. Treat background progress as liveness only; require final long-check
+11. Treat background progress as liveness only; require final long-check
    artifacts before using the result as evidence.
-11. Encode the required hazards from `model_mesh_protocol.md` as broken variants.
-12. Run Explorer plus progress/stuck review, hazard review, and conformance or
+12. Encode the required hazards from `model_mesh_protocol.md` as broken variants.
+13. Run Explorer plus progress/stuck review, hazard review, and conformance or
    live projection when applicable.
-13. Return a decision: `mesh_green_can_continue`, `add_evidence`,
+14. Return a decision: `mesh_green_can_continue`, `add_evidence`,
    `update_child_model`, `split_model_boundary`, `coverage_gap_blocked`,
    `overlap_too_high_refactor_needed`, `ownership_conflict`,
    `target_split_derivation_required`, `large_model_split_review_required`,
    `child_reattachment_required`, `blocked_by_stale_evidence`,
-   `blocked_by_cross_model_contradiction`, or `model_coverage_insufficient`.
-14. Report what the mesh proves, what it does not prove, and which checks were
+   `unconsumed_child_output`, `missing_join_point`, `terminal_leak`,
+   `loop_progress_required`, `blocked_by_cross_model_contradiction`, or
+   `model_coverage_insufficient`.
+15. Report what the mesh proves, what it does not prove, and which checks were
    skipped. Skipped is not pass.
 ```
 
@@ -312,6 +360,10 @@ The mesh is sufficient for the current decision only when:
   the parent partition items used by the decision;
 - repaired child models reattach through current parent-consumed evidence ids
   and stable input, output, state, side-effect, and outgoing-contract handoffs;
+- whole-flow parent confidence, when claimed, is backed by a green mesh closure
+  model that consumes every required child output, completes joins, reaches a
+  valid terminal disposition, and keeps out-of-scope or loop-progress gaps
+  explicit;
 - the current bug instance is not confused with bug-class closure; Model-Miss
   Review either represented the same-class responsibility or marked it out of
   scope before mesh confidence is claimed;

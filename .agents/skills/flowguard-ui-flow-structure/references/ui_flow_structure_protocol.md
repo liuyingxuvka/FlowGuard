@@ -1,9 +1,11 @@
 # UI Flow Structure Protocol
 
 Use this route when UI design needs a model-first interaction structure before
-visual design or frontend implementation. The route has three stages: build or
-review a UI interaction model, derive UI structure from that model, then derive
-a UI text hierarchy blueprint from the reviewed structure.
+visual design or frontend implementation. The route has four stages for
+complete app-level UI claims: build or review a UI interaction model, review
+launch-to-terminal journey coverage, derive UI structure from that model, then
+derive a UI text hierarchy blueprint from the reviewed structure. Local
+component-only UI work may skip journey coverage with an explicit scope reason.
 
 ## Trigger
 
@@ -26,6 +28,9 @@ Use UI Flow Structure when:
   helper text, empty/error/recovery copy slots, or text priority derived from
   the modeled interaction and structure instead of invented late in visual
   design.
+- the agent wants to claim the whole app UI is covered from launch through
+  entry branches such as new project, load existing project, cancel, recover,
+  export, and exit.
 
 Skip with a reason when the request is a tiny visual-only edit with no
 behavior, state, navigation, or control-availability impact.
@@ -45,6 +50,9 @@ Collect the lightest fit-for-risk UI evidence:
   other semantic content shown per state;
 - UI states and parent/child state groups;
 - failure, recovery, cancel, retry, rollback, terminal, and export paths;
+- app-level launch state, top-level entry points, feature journeys, success
+  terminals, terminal action purposes, and residual blindspots when complete UI
+  coverage is claimed;
 - state availability: visible, enabled, disabled, hidden controls per state;
 - existing or proposed heading, label, button, status, helper, empty-state,
   error, recovery, validation, and success text when available;
@@ -87,9 +95,51 @@ Known-bad hazards:
 - two same-level buttons trigger the same modeled function without explaining
   why both must exist.
 
-## Stage 2: Structure Derivation
+## Stage 2: UI Journey Coverage
 
-After the UI interaction model is reviewed, derive the interface structure:
+For complete app-level UI claims, review launch-to-terminal coverage after the
+interaction model passes and before structure derivation. Use
+`UIJourneyCoverage`, `UIJourneyEntryPoint`, `UIFeatureJourney`,
+`UITerminalActionAllowance`, `UIResidualBlindspot`, and
+`review_ui_journey_coverage(...)` when the package API is available.
+
+The coverage should include:
+
+- source UI interaction model id and reviewed status;
+- launch state id;
+- launch-available entry points such as new project, load existing project,
+  settings, cancel, export, and exit when in scope;
+- feature journeys with required states, required events, success terminal
+  states, failure states, recovery/cancel/exit events, validation, and
+  rationale;
+- every reachable visible or enabled actionable control and every reachable
+  event, either owned by a journey/terminal allowance or explicitly scoped to a
+  residual blindspot;
+- allowed terminal actions and purposes such as restart, export, close,
+  recovery, cancel, or exit;
+- residual blindspots with feature/control/event scope, reason, owner,
+  validation boundary, and rationale.
+
+Known-bad hazards:
+
+- complete app UI claim has no journey coverage;
+- an entry point references an unknown control, unknown event, or non-launch
+  source state;
+- a visible or enabled button/control in a reachable state has no modeled event
+  and no scoped residual blindspot;
+- a reachable modeled event is not consumed by any feature journey, terminal
+  allowance, entry point, or residual blindspot;
+- a declared feature path references an unknown or unreachable state/event;
+- a feature journey has no reachable success terminal;
+- a recoverable failure has no named recovery, cancel, exit, or terminal
+  handling;
+- a terminal state exposes an outgoing action with no allowed terminal purpose;
+- a residual blindspot lacks reason, owner, rationale, or validation boundary.
+
+## Stage 3: Structure Derivation
+
+After the UI interaction model is reviewed, and after journey coverage passes
+when required, derive the interface structure:
 
 - parent surface boundary;
 - target regions, screens, menus, panels, overlays, and child components;
@@ -133,7 +183,7 @@ Known-bad hazards:
 - overlay controls are not represented as blocking or scoped child regions;
 - validation boundaries are missing.
 
-## Stage 3: UI Text Hierarchy Blueprint
+## Stage 4: UI Text Hierarchy Blueprint
 
 After the UI structure derivation is reviewed, derive the text hierarchy
 blueprint with `UITextHierarchyBlueprint`, `UITextElement`,
@@ -192,6 +242,10 @@ Known-bad hazards:
 Produce a UI structure contract with:
 
 - UI interaction model id and evidence status;
+- app-level journey coverage id and evidence status when complete app coverage
+  is claimed;
+- launch state, entry points, feature journeys, terminal actions, failure
+  handling, and residual blindspots when journey coverage is in scope;
 - parent UI surface id;
 - UI states, controls, transitions, and availability matrix;
 - visible information elements and semantic keys for each state;
@@ -218,8 +272,8 @@ Use `flowguard-structure-mesh` when an existing large code surface is being
 refactored and needs facade, dependency, parity, public-entrypoint, or release
 evidence.
 
-Use frontend, Figma, Browser, and design review workflows after the UI flow
-structure and UI text hierarchy contracts exist.
+Use frontend, Figma, Browser, and design review workflows after the UI flow,
+required journey coverage, structure, and UI text hierarchy contracts exist.
 
 ## Completion Standard
 
@@ -228,6 +282,10 @@ The route is complete when:
 - the UI interaction model has initial state, states, controls, transitions,
   displayed information, failure/recovery behavior, terminal behavior,
   availability, duplicate/redundancy review, validation, and rationale;
+- complete app-level UI claims have journey coverage with launch state, entry
+  points, feature journeys, reachable success terminals, failure recovery/cancel
+  handling, terminal action allowances, residual blindspots, validation, and
+  rationale;
 - the UI structure derivation names parent/child UI regions, menu levels,
   persistent/global controls, contextual controls, overlay hierarchy, stable
   layout positions, display ownership, validation boundaries, and rationale;
@@ -235,6 +293,9 @@ The route is complete when:
   control labels, action text slots, status/state messages, helper/validation
   text, error/recovery copy slots, semantic display labels, state/control/text
   ownership, priority levels, and rationale for repeated text;
-- known-bad layout-only, unmodeled-control, missing-recovery, unstable-global,
-  repeated-information, duplicate-control, wrong-level, and unowned-text
-  hazards are rejected or explicitly out of scope.
+- known-bad layout-only, missing-journey-coverage, missing-entry,
+  unreachable-feature-path, missing-success-terminal, unhandled-failure,
+  terminal-forward-action, visible-control-without-event,
+  uncovered-reachable-event, unmodeled-control, missing-recovery,
+  unstable-global, repeated-information, duplicate-control, wrong-level, and
+  unowned-text hazards are rejected or explicitly out of scope.

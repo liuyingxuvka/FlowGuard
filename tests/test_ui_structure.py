@@ -1,17 +1,24 @@
 import unittest
+from dataclasses import replace
 
 from flowguard import (
     UIControl,
     UIDisplayElement,
+    UIFeatureJourney,
     UIInteractionModel,
+    UIJourneyCoverage,
+    UIJourneyEntryPoint,
     UIRegionRecommendation,
+    UIResidualBlindspot,
     UIStateNode,
     UIStructureDerivation,
     UITextElement,
     UITextHierarchyBlueprint,
     UITypographyToken,
+    UITerminalActionAllowance,
     UITransition,
     review_ui_interaction_model,
+    review_ui_journey_coverage,
     review_ui_structure_derivation,
     review_ui_text_hierarchy,
 )
@@ -115,6 +122,176 @@ def ui_model() -> UIInteractionModel:
         validation_boundaries=("UI flow scenario review",),
         rationale="The UI model separates initial, loaded, running, result, and failure phases.",
     )
+
+
+def app_ui_model(*, include_forward_terminal_run: bool = False, include_orphan_state: bool = False) -> UIInteractionModel:
+    states = (
+        state(
+            "launch",
+            visible_controls=("new_project", "load_project", "exit"),
+            enabled_controls=("new_project", "load_project", "exit"),
+        ),
+        state(
+            "new_project_setup",
+            visible_controls=("create_project", "cancel"),
+            enabled_controls=("create_project", "cancel"),
+        ),
+        state(
+            "create_failed",
+            visible_controls=("retry_create", "cancel"),
+            failure=True,
+            enabled_controls=("retry_create", "cancel"),
+            recovery_controls=("retry_create",),
+        ),
+        state("load_picker", visible_controls=("choose_file", "cancel"), enabled_controls=("choose_file", "cancel")),
+        state(
+            "load_failed",
+            visible_controls=("retry_load", "cancel"),
+            failure=True,
+            enabled_controls=("retry_load", "cancel"),
+            recovery_controls=("retry_load",),
+        ),
+        state(
+            "workbench_ready",
+            visible_controls=("export",) if not include_forward_terminal_run else ("export", "run"),
+            enabled_controls=("export",) if not include_forward_terminal_run else ("export", "run"),
+            visible_displays=("project_summary",),
+            terminal=True,
+        ),
+        state("running", visible_controls=("cancel",), enabled_controls=("cancel",)),
+        state("cancelled", visible_controls=("exit",), terminal=True, enabled_controls=("exit",)),
+        state("exited", visible_controls=(), terminal=True, enabled_controls=()),
+    )
+    if include_orphan_state:
+        states = states + (state("orphan_review", visible_controls=("exit",), enabled_controls=("exit",)),)
+    transitions = (
+        transition("click_new_project", "new_project", "launch", "new_project_setup"),
+        transition("create_project_success", "create_project", "new_project_setup", "workbench_ready"),
+        transition("create_project_failure", "create_project", "new_project_setup", "create_failed"),
+        transition("click_retry_create", "retry_create", "create_failed", "new_project_setup"),
+        transition("click_cancel_create_failed", "cancel", "create_failed", "cancelled"),
+        transition("click_load_project", "load_project", "launch", "load_picker"),
+        transition("load_project_success", "choose_file", "load_picker", "workbench_ready"),
+        transition("load_project_failure", "choose_file", "load_picker", "load_failed"),
+        transition("click_retry_load", "retry_load", "load_failed", "load_picker"),
+        transition("click_cancel_load_failed", "cancel", "load_failed", "cancelled"),
+        transition("click_cancel_new", "cancel", "new_project_setup", "cancelled"),
+        transition("click_cancel_load", "cancel", "load_picker", "cancelled"),
+        transition("click_exit", "exit", "launch", "exited"),
+        transition("click_exit_cancelled", "exit", "cancelled", "exited"),
+        transition("click_export", "export", "workbench_ready", "workbench_ready"),
+    )
+    if include_forward_terminal_run:
+        transitions = transitions + (transition("click_run_again", "run", "workbench_ready", "running"),)
+    controls = (
+        control("new_project", level="primary"),
+        control("create_project", level="primary", depends_on_states=("new_project_setup",)),
+        control("load_project", level="primary"),
+        control("choose_file", level="primary", depends_on_states=("load_picker",)),
+        control("retry_create", level="contextual", depends_on_states=("create_failed",)),
+        control("retry_load", level="contextual", depends_on_states=("load_failed",)),
+        control("cancel", level="contextual"),
+        control("exit", level="secondary"),
+        control("export", level="secondary", depends_on_states=("workbench_ready",)),
+    )
+    if include_forward_terminal_run:
+        controls = controls + (control("run", level="primary", depends_on_states=("workbench_ready",)),)
+    return UIInteractionModel(
+        "project-app-ui-flow",
+        initial_state_id="launch",
+        states=states,
+        controls=controls,
+        displays=(display("project_summary", "project_summary", depends_on_states=("workbench_ready",)),),
+        transitions=transitions,
+        validation_boundaries=("UI journey scenario review",),
+        rationale="The app model starts at launch and branches into new, load, cancel, exit, and workbench states.",
+    )
+
+
+def journey_entry(entry_id: str, control_id: str, event_id: str, **kwargs) -> UIJourneyEntryPoint:
+    defaults = {
+        "label": entry_id.replace("_", " ").title(),
+        "source_state_ids": ("launch",),
+        "rationale": f"{entry_id} is a launch entry point",
+    }
+    defaults.update(kwargs)
+    return UIJourneyEntryPoint(entry_id, control_id, event_id, **defaults)
+
+
+def feature_journey(feature_id: str, **kwargs) -> UIFeatureJourney:
+    defaults = {
+        "label": feature_id.replace("_", " ").title(),
+        "entry_point_ids": (feature_id,),
+        "success_terminal_state_ids": ("workbench_ready",),
+        "validation_boundaries": ("journey scenario review",),
+        "rationale": f"{feature_id} is covered from launch to terminal state",
+    }
+    defaults.update(kwargs)
+    return UIFeatureJourney(feature_id, **defaults)
+
+
+def journey_coverage(**kwargs) -> UIJourneyCoverage:
+    defaults = {
+        "source_interaction_model_id": "project-app-ui-flow",
+        "launch_state_id": "launch",
+        "entry_points": (
+            journey_entry("new_project", "new_project", "click_new_project"),
+            journey_entry("load_project", "load_project", "click_load_project"),
+            journey_entry("exit_app", "exit", "click_exit"),
+        ),
+        "feature_journeys": (
+            feature_journey(
+                "new_project",
+                required_state_ids=("new_project_setup",),
+                required_event_ids=("click_new_project", "create_project_success", "create_project_failure"),
+                failure_state_ids=("create_failed",),
+                recovery_event_ids=("click_retry_create",),
+                cancel_event_ids=("click_cancel_new", "click_cancel_create_failed"),
+            ),
+            feature_journey(
+                "load_project",
+                required_state_ids=("load_picker",),
+                required_event_ids=("click_load_project", "load_project_success", "load_project_failure"),
+                failure_state_ids=("load_failed",),
+                recovery_event_ids=("click_retry_load",),
+                cancel_event_ids=("click_cancel_load", "click_cancel_load_failed"),
+            ),
+            feature_journey(
+                "exit_app",
+                required_event_ids=("click_exit",),
+                success_terminal_state_ids=("exited",),
+            ),
+        ),
+        "terminal_action_allowances": (
+            UITerminalActionAllowance(
+                "workbench_ready",
+                "click_export",
+                "export",
+                rationale="Export is a terminal-state side effect, not forward progress.",
+            ),
+            UITerminalActionAllowance(
+                "cancelled",
+                "click_exit_cancelled",
+                "exit",
+                rationale="Exit closes the app after a cancelled setup or load branch.",
+            ),
+        ),
+        "residual_blindspots": (
+            UIResidualBlindspot(
+                "open_recent_project",
+                feature_id="open_recent_project",
+                reason="Recent-project history is a downstream shell integration in this template.",
+                owner="browser or desktop shell validation",
+                validation_boundaries=("shell integration test",),
+                rationale="The template records the omitted branch instead of claiming it is covered.",
+            ),
+        ),
+        "interaction_model_reviewed": True,
+        "validation_boundaries": ("journey scenario review", "browser state transition test"),
+        "rationale": "Complete app-level UI claims require launch-to-terminal journey coverage.",
+    }
+    defaults.update(kwargs)
+    return UIJourneyCoverage("project-app-journeys", **defaults)
 
 
 def region(region_id: str, **kwargs) -> UIRegionRecommendation:
@@ -463,6 +640,232 @@ class UIInteractionModelTests(unittest.TestCase):
         report = review_ui_interaction_model(model)
 
         self.assertTrue(report.ok)
+
+
+class UIJourneyCoverageTests(unittest.TestCase):
+    def test_complete_app_journey_coverage_can_continue(self):
+        model = app_ui_model()
+        self.assertTrue(review_ui_interaction_model(model).ok)
+
+        report = review_ui_journey_coverage(journey_coverage(), interaction_model=model)
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual(0, report.blocker_count())
+        self.assertIn("launch", report.reachable_state_ids)
+        self.assertIn("workbench_ready", report.reachable_state_ids)
+
+    def test_missing_launch_state_and_entry_blocks(self):
+        broken = journey_coverage(
+            launch_state_id="missing_launch",
+            entry_points=(),
+            feature_journeys=(feature_journey("load_project", entry_point_ids=("load_project",)),),
+        )
+
+        report = review_ui_journey_coverage(broken, interaction_model=app_ui_model())
+        codes = {finding.code for finding in report.findings}
+
+        self.assertFalse(report.ok)
+        self.assertIn("launch_state_not_registered", codes)
+        self.assertIn("missing_entry_points", codes)
+        self.assertIn("feature_entry_point_not_declared", codes)
+
+    def test_unreachable_required_state_blocks(self):
+        broken = journey_coverage(
+            feature_journeys=(
+                feature_journey(
+                    "new_project",
+                    required_state_ids=("orphan_review",),
+                    required_event_ids=("click_new_project",),
+                ),
+            )
+        )
+
+        report = review_ui_journey_coverage(broken, interaction_model=app_ui_model(include_orphan_state=True))
+        codes = {finding.code for finding in report.findings}
+
+        self.assertFalse(report.ok)
+        self.assertIn("feature_state_unreachable_from_launch", codes)
+
+    def test_unknown_required_event_blocks(self):
+        broken = journey_coverage(
+            feature_journeys=(feature_journey("new_project", required_event_ids=("ghost_event",)),)
+        )
+
+        report = review_ui_journey_coverage(broken, interaction_model=app_ui_model())
+
+        self.assertFalse(report.ok)
+        self.assertIn("feature_event_not_registered", [finding.code for finding in report.findings])
+
+    def test_visible_control_without_modeled_event_blocks(self):
+        base = app_ui_model()
+        launch = replace(
+            base.states[0],
+            visible_controls=base.states[0].visible_controls + ("help",),
+            enabled_controls=base.states[0].enabled_controls + ("help",),
+        )
+        model = UIInteractionModel(
+            base.model_id,
+            initial_state_id=base.initial_state_id,
+            states=(launch,) + base.states[1:],
+            controls=base.controls + (control("help", level="secondary"),),
+            displays=base.displays,
+            transitions=base.transitions,
+            validation_boundaries=base.validation_boundaries,
+            rationale=base.rationale,
+        )
+
+        report = review_ui_journey_coverage(journey_coverage(), interaction_model=model)
+
+        self.assertFalse(report.ok)
+        self.assertIn("visible_control_without_modeled_event", [finding.code for finding in report.findings])
+
+    def test_reachable_event_missing_from_journey_coverage_blocks(self):
+        base = app_ui_model()
+        launch = replace(
+            base.states[0],
+            visible_controls=base.states[0].visible_controls + ("help",),
+            enabled_controls=base.states[0].enabled_controls + ("help",),
+        )
+        model = UIInteractionModel(
+            base.model_id,
+            initial_state_id=base.initial_state_id,
+            states=(launch,) + base.states[1:],
+            controls=base.controls + (control("help", level="secondary"),),
+            displays=base.displays,
+            transitions=base.transitions + (transition("click_help", "help", "launch", "launch"),),
+            validation_boundaries=base.validation_boundaries,
+            rationale=base.rationale,
+        )
+
+        report = review_ui_journey_coverage(journey_coverage(), interaction_model=model)
+
+        self.assertFalse(report.ok)
+        self.assertIn("journey_event_not_covered", [finding.code for finding in report.findings])
+
+    def test_residual_blindspot_can_bound_uncovered_visible_branch(self):
+        base = app_ui_model()
+        launch = replace(
+            base.states[0],
+            visible_controls=base.states[0].visible_controls + ("help",),
+            enabled_controls=base.states[0].enabled_controls + ("help",),
+        )
+        model = UIInteractionModel(
+            base.model_id,
+            initial_state_id=base.initial_state_id,
+            states=(launch,) + base.states[1:],
+            controls=base.controls + (control("help", level="secondary"),),
+            displays=base.displays,
+            transitions=base.transitions + (transition("click_help", "help", "launch", "launch"),),
+            validation_boundaries=base.validation_boundaries,
+            rationale=base.rationale,
+        )
+        coverage = journey_coverage(
+            residual_blindspots=journey_coverage().residual_blindspots
+            + (
+                UIResidualBlindspot(
+                    "help_center",
+                    feature_id="help_center",
+                    control_ids=("help",),
+                    event_ids=("click_help",),
+                    reason="Help center content is owned by the support surface.",
+                    owner="support UI journey review",
+                    validation_boundaries=("support UI browser test",),
+                    rationale="The visible branch is bounded instead of silently omitted.",
+                ),
+            )
+        )
+
+        report = review_ui_journey_coverage(coverage, interaction_model=model)
+
+        self.assertTrue(report.ok, report.format_text())
+
+    def test_missing_success_terminal_blocks(self):
+        broken = journey_coverage(
+            feature_journeys=(feature_journey("new_project", success_terminal_state_ids=()),)
+        )
+
+        report = review_ui_journey_coverage(broken, interaction_model=app_ui_model())
+
+        self.assertFalse(report.ok)
+        self.assertIn("missing_feature_success_terminal", [finding.code for finding in report.findings])
+
+    def test_failure_without_named_recovery_blocks(self):
+        broken = journey_coverage(
+            feature_journeys=(
+                feature_journey(
+                    "load_project",
+                    required_state_ids=("load_picker",),
+                    required_event_ids=("click_load_project", "load_project_success"),
+                    failure_state_ids=("load_failed",),
+                    recovery_event_ids=(),
+                    cancel_event_ids=(),
+                    exit_event_ids=(),
+                ),
+            )
+        )
+
+        report = review_ui_journey_coverage(broken, interaction_model=app_ui_model())
+
+        self.assertFalse(report.ok)
+        self.assertIn("missing_feature_failure_handling", [finding.code for finding in report.findings])
+
+    def test_terminal_forward_action_without_allowed_purpose_blocks(self):
+        broken = journey_coverage(
+            terminal_action_allowances=(
+                UITerminalActionAllowance(
+                    "workbench_ready",
+                    "click_export",
+                    "export",
+                    rationale="Export is allowed.",
+                ),
+            )
+        )
+
+        report = review_ui_journey_coverage(
+            broken,
+            interaction_model=app_ui_model(include_forward_terminal_run=True),
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("terminal_action_without_allowance", [finding.code for finding in report.findings])
+
+    def test_terminal_forward_action_with_export_purpose_still_blocks(self):
+        broken = journey_coverage(
+            terminal_action_allowances=(
+                UITerminalActionAllowance(
+                    "workbench_ready",
+                    "click_export",
+                    "export",
+                    rationale="Export is allowed.",
+                ),
+                UITerminalActionAllowance(
+                    "workbench_ready",
+                    "click_run_again",
+                    "export",
+                    rationale="Wrongly classifies forward run as export.",
+                ),
+            )
+        )
+
+        report = review_ui_journey_coverage(
+            broken,
+            interaction_model=app_ui_model(include_forward_terminal_run=True),
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("terminal_forward_action", [finding.code for finding in report.findings])
+
+    def test_blindspot_without_validation_blocks(self):
+        broken = journey_coverage(
+            residual_blindspots=(
+                UIResidualBlindspot("open_recent_project", reason="deferred", rationale="deferred branch"),
+            )
+        )
+
+        report = review_ui_journey_coverage(broken, interaction_model=app_ui_model())
+
+        self.assertFalse(report.ok)
+        self.assertIn("missing_blindspot_validation", [finding.code for finding in report.findings])
 
 
 class UIStructureDerivationTests(unittest.TestCase):

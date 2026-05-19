@@ -21,6 +21,9 @@ or when it is unclear whether a mesh is needed.
   child route.
 - Parent green confidence requires a FlowGuard-derived target split, not only
   a supplied partition map.
+- Whole-flow parent confidence requires a green mesh closure model over root
+  entries, child outputs, consumers, joins, terminals, and out-of-scope
+  dispositions; partition coverage alone is not entry-to-exit closure.
 - A repaired child model is not parent-green until the parent consumes its
   current evidence id and its input/output/state/side-effect contract still
   reattaches to the parent flow.
@@ -41,19 +44,23 @@ or when it is unclear whether a mesh is needed.
 4. For repaired child models, record the parent reattachment contract: expected
    inputs, outputs, state ownership, side-effect ownership, outgoing guarantees,
    and consumed child evidence id.
-5. If a child boundary changed, propagate the stale-boundary review upward and
+5. When whole-flow parent confidence is claimed, build or update the mesh
+   closure model and make unconsumed child outputs, incomplete joins, terminal
+   leaks, out-of-scope gaps, and loop-progress gaps fail.
+6. If a child boundary changed, propagate the stale-boundary review upward and
    review affected siblings that share or depend on the same parent partition
    items, state writes, side effects, invariants, or contracts.
-6. Confirm background long-running checks have final artifacts and exit status
+7. Confirm background long-running checks have final artifacts and exit status
    before consuming them as evidence.
-7. Run child checks first, then parent review through hierarchical mesh
+8. Run child checks first, then parent review through hierarchical mesh
    helpers.
-8. Record which child evidence ids the parent consumed and which are stale,
+9. Record which child evidence ids the parent consumed and which are stale,
    skipped, or release-only.
 
 ## Owned Helpers
 
 - `review_hierarchical_mesh(...)`
+- `review_mesh_closure_model(...)`
 - hierarchical model-mesh examples and docs.
 - `references/model_mesh_protocol.md`
 

@@ -23,6 +23,17 @@ EVIDENCE_LIVE_CURRENT_GREEN = "live_current_green"
 EVIDENCE_CONFORMANCE_GREEN = "conformance_green"
 EVIDENCE_MESH_GREEN = "mesh_green"
 
+MESH_CLOSURE_NORMAL_EXIT = "normal_exit"
+MESH_CLOSURE_FAILURE_EXIT = "failure_exit"
+MESH_CLOSURE_OUT_OF_SCOPE = "out_of_scope"
+MESH_CLOSURE_TERMINAL_SIDE_EFFECT = "terminal_side_effect"
+ALLOWED_MESH_CLOSURE_TERMINALS = {
+    MESH_CLOSURE_NORMAL_EXIT,
+    MESH_CLOSURE_FAILURE_EXIT,
+    MESH_CLOSURE_OUT_OF_SCOPE,
+    MESH_CLOSURE_TERMINAL_SIDE_EFFECT,
+}
+
 DEFAULT_LARGE_MODEL_STATE_THRESHOLD = 10_000
 
 BOUNDARY_PROPAGATION_UNAFFECTED = "unaffected"
@@ -357,6 +368,219 @@ class ChildReattachmentContract:
 
 
 @dataclass(frozen=True)
+class MeshClosureTransition:
+    """One model-to-model closure transition over abstract handoff tokens."""
+
+    transition_id: str
+    consumes: tuple[str, ...] = ()
+    emits: tuple[str, ...] = ()
+    consumer_model_id: str = ""
+    loop: bool = False
+    progress_rule: str = ""
+    max_iterations: int | None = None
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "transition_id", str(self.transition_id))
+        object.__setattr__(self, "consumes", _as_tuple(self.consumes))
+        object.__setattr__(self, "emits", _as_tuple(self.emits))
+        object.__setattr__(self, "consumer_model_id", str(self.consumer_model_id))
+        object.__setattr__(self, "loop", bool(self.loop))
+        if self.max_iterations is not None:
+            object.__setattr__(self, "max_iterations", int(self.max_iterations))
+        object.__setattr__(self, "progress_rule", str(self.progress_rule))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def has_progress_rule(self) -> bool:
+        return bool(self.progress_rule) or self.max_iterations is not None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "transition_id": self.transition_id,
+            "consumes": list(self.consumes),
+            "emits": list(self.emits),
+            "consumer_model_id": self.consumer_model_id,
+            "loop": self.loop,
+            "progress_rule": self.progress_rule,
+            "max_iterations": self.max_iterations,
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class MeshClosureJoin:
+    """A parent-level join point that must consume all required handoff tokens."""
+
+    join_id: str
+    required_inputs: tuple[str, ...] = ()
+    emits: tuple[str, ...] = ()
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "join_id", str(self.join_id))
+        object.__setattr__(self, "required_inputs", _as_tuple(self.required_inputs))
+        object.__setattr__(self, "emits", _as_tuple(self.emits))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "join_id": self.join_id,
+            "required_inputs": list(self.required_inputs),
+            "emits": list(self.emits),
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class MeshClosureTerminal:
+    """A terminal or explicit disposition for closure tokens."""
+
+    terminal_id: str
+    consumes: tuple[str, ...] = ()
+    terminal_kind: str = MESH_CLOSURE_NORMAL_EXIT
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "terminal_id", str(self.terminal_id))
+        object.__setattr__(self, "consumes", _as_tuple(self.consumes))
+        object.__setattr__(self, "terminal_kind", str(self.terminal_kind))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "terminal_id": self.terminal_id,
+            "consumes": list(self.consumes),
+            "terminal_kind": self.terminal_kind,
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class MeshClosureModel:
+    """FlowGuard-style meta-model for parent/child model handoff closure."""
+
+    parent_model_id: str
+    root_entries: tuple[str, ...] = ()
+    transitions: tuple[MeshClosureTransition, ...] = ()
+    joins: tuple[MeshClosureJoin, ...] = ()
+    terminals: tuple[MeshClosureTerminal, ...] = ()
+    required_outputs: tuple[str, ...] = ()
+    require_normal_exit: bool = True
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "parent_model_id", str(self.parent_model_id))
+        object.__setattr__(self, "root_entries", _as_tuple(self.root_entries))
+        object.__setattr__(self, "transitions", tuple(self.transitions))
+        object.__setattr__(self, "joins", tuple(self.joins))
+        object.__setattr__(self, "terminals", tuple(self.terminals))
+        object.__setattr__(self, "required_outputs", _as_tuple(self.required_outputs))
+        object.__setattr__(self, "require_normal_exit", bool(self.require_normal_exit))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "parent_model_id": self.parent_model_id,
+            "root_entries": list(self.root_entries),
+            "transitions": [transition.to_dict() for transition in self.transitions],
+            "joins": [join.to_dict() for join in self.joins],
+            "terminals": [terminal.to_dict() for terminal in self.terminals],
+            "required_outputs": list(self.required_outputs),
+            "require_normal_exit": self.require_normal_exit,
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class MeshClosureFinding:
+    """One closure-model finding from the executable handoff meta-model."""
+
+    code: str
+    message: str
+    severity: str = "blocker"
+    model_id: str = ""
+    item_id: str = ""
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "code", str(self.code))
+        object.__setattr__(self, "message", str(self.message))
+        object.__setattr__(self, "severity", str(self.severity))
+        object.__setattr__(self, "model_id", str(self.model_id))
+        object.__setattr__(self, "item_id", str(self.item_id))
+        object.__setattr__(self, "metadata", dict(self.metadata))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "code": self.code,
+            "message": self.message,
+            "severity": self.severity,
+            "model_id": self.model_id,
+            "item_id": self.item_id,
+            "metadata": to_jsonable(dict(self.metadata)),
+        }
+
+
+@dataclass(frozen=True)
+class MeshClosureReport:
+    """Structured outcome of a mesh closure meta-model review."""
+
+    ok: bool
+    parent_model_id: str
+    decision: str
+    findings: tuple[MeshClosureFinding, ...] = ()
+    reachable_tokens: tuple[str, ...] = ()
+    summary: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "parent_model_id", str(self.parent_model_id))
+        object.__setattr__(self, "decision", str(self.decision))
+        object.__setattr__(self, "findings", tuple(self.findings))
+        object.__setattr__(self, "reachable_tokens", _as_tuple(self.reachable_tokens))
+        if not self.summary:
+            status = "OK" if self.ok else "BLOCKED"
+            object.__setattr__(
+                self,
+                "summary",
+                f"{status}: parent={self.parent_model_id} closure_decision={self.decision} findings={len(self.findings)}",
+            )
+
+    def format_text(self, max_findings: int = 10) -> str:
+        lines = [
+            "=== flowguard mesh closure review ===",
+            f"status: {'OK' if self.ok else 'BLOCKED'}",
+            f"parent: {self.parent_model_id}",
+            f"decision: {self.decision}",
+            f"findings: {len(self.findings)}",
+        ]
+        for finding in self.findings[:max_findings]:
+            lines.extend(
+                [
+                    "",
+                    f"finding: {finding.code}",
+                    f"severity: {finding.severity}",
+                    f"model: {finding.model_id or '(none)'}",
+                    f"item: {finding.item_id or '(none)'}",
+                    f"message: {finding.message}",
+                ]
+            )
+        return "\n".join(lines)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "ok": self.ok,
+            "parent_model_id": self.parent_model_id,
+            "decision": self.decision,
+            "findings": [finding.to_dict() for finding in self.findings],
+            "reachable_tokens": list(self.reachable_tokens),
+            "summary": self.summary,
+        }
+
+    def to_json_text(self, indent: int = 2) -> str:
+        return json.dumps(to_jsonable(self.to_dict()), indent=indent, sort_keys=True)
+
+
+@dataclass(frozen=True)
 class HierarchyPartitionMap:
     """Partition map for one parent model boundary."""
 
@@ -368,6 +592,7 @@ class HierarchyPartitionMap:
     required_evidence_tier: str = EVIDENCE_ABSTRACT_GREEN
     allowed_shared_areas: tuple[str, ...] = ()
     boundary_changes: tuple[ChildBoundaryChangeSummary, ...] = ()
+    closure_model: MeshClosureModel | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "parent_model_id", str(self.parent_model_id))
@@ -394,6 +619,9 @@ class HierarchyPartitionMap:
             "required_evidence_tier": self.required_evidence_tier,
             "allowed_shared_areas": list(self.allowed_shared_areas),
             "boundary_changes": [summary.to_dict() for summary in self.boundary_changes],
+            "closure_model": (
+                self.closure_model.to_dict() if self.closure_model is not None else None
+            ),
         }
 
 
@@ -439,6 +667,7 @@ class HierarchyMeshReport:
     split_decisions: Mapping[str, str] = field(default_factory=dict)
     summary: str = ""
     boundary_change_decisions: Mapping[str, str] = field(default_factory=dict)
+    closure_report: MeshClosureReport | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "parent_model_id", str(self.parent_model_id))
@@ -472,6 +701,8 @@ class HierarchyMeshReport:
             lines.append("boundary_change_decisions:")
             for model_id, decision in sorted(self.boundary_change_decisions.items()):
                 lines.append(f"  - {model_id}: {decision}")
+        if self.closure_report is not None:
+            lines.append(f"closure_decision: {self.closure_report.decision}")
         for finding in self.findings[:max_findings]:
             lines.extend(
                 [
@@ -495,6 +726,9 @@ class HierarchyMeshReport:
             "split_decisions": to_jsonable(dict(self.split_decisions)),
             "summary": self.summary,
             "boundary_change_decisions": to_jsonable(dict(self.boundary_change_decisions)),
+            "closure_report": (
+                self.closure_report.to_dict() if self.closure_report is not None else None
+            ),
         }
 
     def to_json_text(self, indent: int = 2) -> str:
@@ -559,6 +793,271 @@ def _evidence_rank(tier: str) -> int:
 
 def _is_large_child(child: ChildModelEvidence, threshold: int) -> bool:
     return child.requires_large_model_review(threshold)
+
+
+@dataclass(frozen=True)
+class _ClosureState:
+    available: frozenset[str]
+    consumed: frozenset[str] = frozenset()
+    completed_joins: frozenset[str] = frozenset()
+    terminal_kind: str = ""
+
+
+def _child_output_tokens(child_models: Sequence[ChildModelEvidence]) -> tuple[str, ...]:
+    return tuple(
+        sorted(
+            {
+                output
+                for child in child_models
+                for output in child.outputs_emitted
+            }
+        )
+    )
+
+
+def _closure_consumed_tokens(model: MeshClosureModel) -> set[str]:
+    tokens: set[str] = set()
+    for transition in model.transitions:
+        tokens.update(transition.consumes)
+    for join in model.joins:
+        tokens.update(join.required_inputs)
+    for terminal in model.terminals:
+        tokens.update(terminal.consumes)
+    return tokens
+
+
+def _closure_known_tokens(model: MeshClosureModel, child_models: Sequence[ChildModelEvidence]) -> set[str]:
+    tokens = set(model.root_entries)
+    tokens.update(model.required_outputs)
+    tokens.update(_child_output_tokens(child_models))
+    for transition in model.transitions:
+        tokens.update(transition.emits)
+    for join in model.joins:
+        tokens.update(join.emits)
+    return tokens
+
+
+def _mesh_closure_decision(findings: Sequence[MeshClosureFinding]) -> str:
+    blocking = [finding for finding in findings if finding.severity in {"blocker", "refactor"}]
+    if not blocking:
+        return "mesh_closure_green"
+    priority = (
+        "missing_root_entry",
+        "unknown_closure_reference",
+        "unknown_closure_consumer",
+        "out_of_scope_rationale_required",
+        "loop_progress_required",
+        "unconsumed_child_output",
+        "unreachable_required_output",
+        "missing_join_point",
+        "terminal_leak",
+        "unreachable_normal_exit",
+    )
+    codes = {finding.code for finding in blocking}
+    for code in priority:
+        if code in codes:
+            return code
+    return "mesh_closure_blocked"
+
+
+def review_mesh_closure_model(
+    closure_model: MeshClosureModel,
+    child_models: Sequence[ChildModelEvidence] = (),
+) -> MeshClosureReport:
+    """Review model-to-model handoff closure without expanding child internals."""
+
+    findings: list[MeshClosureFinding] = []
+    children = {child.model_id: child for child in child_models}
+    known_models = set(children) | {closure_model.parent_model_id}
+    child_outputs = set(_child_output_tokens(child_models))
+    required_outputs = set(closure_model.required_outputs) | child_outputs
+    consumed_tokens = _closure_consumed_tokens(closure_model)
+
+    if not closure_model.root_entries:
+        findings.append(
+            MeshClosureFinding(
+                "missing_root_entry",
+                "mesh closure model has no parent entry token",
+                model_id=closure_model.parent_model_id,
+            )
+        )
+
+    known_tokens = _closure_known_tokens(closure_model, child_models)
+    for token in sorted(consumed_tokens - known_tokens):
+        findings.append(
+            MeshClosureFinding(
+                "unknown_closure_reference",
+                "closure item consumes a token that is never produced or declared",
+                model_id=closure_model.parent_model_id,
+                item_id=token,
+            )
+        )
+
+    for transition in closure_model.transitions:
+        if transition.consumer_model_id and transition.consumer_model_id not in known_models:
+            findings.append(
+                MeshClosureFinding(
+                    "unknown_closure_consumer",
+                    "closure transition names an unregistered consumer model",
+                    model_id=transition.consumer_model_id,
+                    item_id=transition.transition_id,
+                    metadata=transition.to_dict(),
+                )
+            )
+        if transition.loop and not transition.has_progress_rule():
+            findings.append(
+                MeshClosureFinding(
+                    "loop_progress_required",
+                    "loop-like closure transition lacks a bound or progress rule",
+                    model_id=transition.consumer_model_id or closure_model.parent_model_id,
+                    item_id=transition.transition_id,
+                    metadata=transition.to_dict(),
+                )
+            )
+
+    for terminal in closure_model.terminals:
+        if terminal.terminal_kind not in ALLOWED_MESH_CLOSURE_TERMINALS:
+            findings.append(
+                MeshClosureFinding(
+                    "unknown_terminal_disposition",
+                    "closure terminal uses an unknown disposition",
+                    model_id=closure_model.parent_model_id,
+                    item_id=terminal.terminal_id,
+                    metadata=terminal.to_dict(),
+                )
+            )
+        if terminal.terminal_kind == MESH_CLOSURE_OUT_OF_SCOPE and not terminal.rationale:
+            findings.append(
+                MeshClosureFinding(
+                    "out_of_scope_rationale_required",
+                    "out-of-scope closure disposition needs an explicit rationale",
+                    model_id=closure_model.parent_model_id,
+                    item_id=terminal.terminal_id,
+                    metadata=terminal.to_dict(),
+                )
+            )
+
+    for output in sorted(required_outputs - consumed_tokens):
+        findings.append(
+            MeshClosureFinding(
+                "unconsumed_child_output",
+                "required child or closure output has no declared consumer",
+                model_id=closure_model.parent_model_id,
+                item_id=output,
+                metadata={"required_outputs": sorted(required_outputs)},
+            )
+        )
+
+    states: set[_ClosureState] = {
+        _ClosureState(available=frozenset(closure_model.root_entries))
+    }
+    changed = True
+    while changed:
+        changed = False
+        next_states = set(states)
+        for state in states:
+            if state.terminal_kind:
+                continue
+            for transition in closure_model.transitions:
+                consumes = frozenset(transition.consumes)
+                if consumes.issubset(state.available):
+                    candidate = _ClosureState(
+                        available=state.available | frozenset(transition.emits),
+                        consumed=state.consumed | consumes,
+                        completed_joins=state.completed_joins,
+                    )
+                    if candidate not in next_states:
+                        next_states.add(candidate)
+                        changed = True
+            for join in closure_model.joins:
+                required = frozenset(join.required_inputs)
+                if required.issubset(state.available):
+                    candidate = _ClosureState(
+                        available=state.available | frozenset(join.emits),
+                        consumed=state.consumed | required,
+                        completed_joins=state.completed_joins | frozenset({join.join_id}),
+                    )
+                    if candidate not in next_states:
+                        next_states.add(candidate)
+                        changed = True
+            for terminal in closure_model.terminals:
+                consumes = frozenset(terminal.consumes)
+                if consumes.issubset(state.available):
+                    candidate = _ClosureState(
+                        available=state.available,
+                        consumed=state.consumed | consumes,
+                        completed_joins=state.completed_joins,
+                        terminal_kind=terminal.terminal_kind,
+                    )
+                    if candidate not in next_states:
+                        next_states.add(candidate)
+                        changed = True
+        states = next_states
+
+    reachable_tokens = tuple(sorted({token for state in states for token in state.available}))
+    reachable_required = set(reachable_tokens) & required_outputs
+    for output in sorted(required_outputs - reachable_required):
+        findings.append(
+            MeshClosureFinding(
+                "unreachable_required_output",
+                "required child or closure output is not reachable from a root entry",
+                model_id=closure_model.parent_model_id,
+                item_id=output,
+                metadata={"reachable_tokens": reachable_tokens},
+            )
+        )
+
+    for join in closure_model.joins:
+        if not any(join.join_id in state.completed_joins for state in states):
+            missing = tuple(sorted(set(join.required_inputs) - set(reachable_tokens)))
+            findings.append(
+                MeshClosureFinding(
+                    "missing_join_point",
+                    "required join point is not completed by reachable closure tokens",
+                    model_id=closure_model.parent_model_id,
+                    item_id=join.join_id,
+                    metadata={"join": join.to_dict(), "missing_inputs": missing},
+                )
+            )
+
+    terminal_states = [state for state in states if state.terminal_kind]
+    for state in terminal_states:
+        pending = tuple(sorted(required_outputs - set(state.consumed)))
+        if pending:
+            findings.append(
+                MeshClosureFinding(
+                    "terminal_leak",
+                    "closure reaches a terminal disposition with pending required outputs",
+                    model_id=closure_model.parent_model_id,
+                    metadata={
+                        "terminal_kind": state.terminal_kind,
+                        "pending_outputs": pending,
+                    },
+                )
+            )
+
+    if closure_model.require_normal_exit and not any(
+        state.terminal_kind == MESH_CLOSURE_NORMAL_EXIT and not (required_outputs - set(state.consumed))
+        for state in terminal_states
+    ):
+        findings.append(
+            MeshClosureFinding(
+                "unreachable_normal_exit",
+                "closure model does not reach a normal exit with all required outputs consumed",
+                model_id=closure_model.parent_model_id,
+                metadata={"reachable_tokens": reachable_tokens},
+            )
+        )
+
+    decision = _mesh_closure_decision(findings)
+    blocking = [finding for finding in findings if finding.severity in {"blocker", "refactor"}]
+    return MeshClosureReport(
+        ok=not blocking,
+        parent_model_id=closure_model.parent_model_id,
+        decision=decision,
+        findings=tuple(findings),
+        reachable_tokens=reachable_tokens,
+    )
 
 
 def _split_decision(child: ChildModelEvidence, threshold: int) -> str:
@@ -1143,6 +1642,27 @@ def review_hierarchical_mesh(
     if boundary_change_decisions:
         activation_reasons.append("boundary_change")
     findings.extend(boundary_change_findings)
+    closure_report = None
+    if partition_map.closure_model is not None:
+        activation_reasons.append("closure_model")
+        closure_report = review_mesh_closure_model(
+            partition_map.closure_model,
+            partition_map.child_models,
+        )
+        for closure_finding in closure_report.findings:
+            findings.append(
+                HierarchyMeshFinding(
+                    closure_finding.code,
+                    closure_finding.message,
+                    severity=closure_finding.severity,
+                    model_id=closure_finding.model_id,
+                    item_id=closure_finding.item_id,
+                    metadata={
+                        "mesh_closure": closure_finding.to_dict(),
+                        "closure_decision": closure_report.decision,
+                    },
+                )
+            )
 
     owner_by_item: dict[str, list[HierarchyCoverageItem]] = {}
     for item in partition_map.coverage_items:
@@ -1350,6 +1870,8 @@ def review_hierarchical_mesh(
         decision = "legacy_compatibility_required"
     elif any(finding.code == "stale_child_evidence" for finding in blocking):
         decision = "blocked_by_stale_evidence"
+    elif closure_report is not None and not closure_report.ok:
+        decision = closure_report.decision
     else:
         decision = "mesh_review_blocked"
 
@@ -1362,6 +1884,7 @@ def review_hierarchical_mesh(
         findings=tuple(findings),
         split_decisions=split_decisions,
         boundary_change_decisions=boundary_change_decisions,
+        closure_report=closure_report,
     )
 
 
@@ -1405,6 +1928,10 @@ __all__ = [
     "EVIDENCE_HAZARD_GREEN",
     "EVIDENCE_LIVE_CURRENT_GREEN",
     "EVIDENCE_MESH_GREEN",
+    "MESH_CLOSURE_FAILURE_EXIT",
+    "MESH_CLOSURE_NORMAL_EXIT",
+    "MESH_CLOSURE_OUT_OF_SCOPE",
+    "MESH_CLOSURE_TERMINAL_SIDE_EFFECT",
     "ChildBoundaryChangeSummary",
     "HierarchyCoverageItem",
     "HierarchyMeshFinding",
@@ -1414,6 +1941,12 @@ __all__ = [
     "ChildModelEvidence",
     "LegacyModelClassification",
     "LegacyModelRecord",
+    "MeshClosureFinding",
+    "MeshClosureJoin",
+    "MeshClosureModel",
+    "MeshClosureReport",
+    "MeshClosureTerminal",
+    "MeshClosureTransition",
     "ModelTargetSplitDerivation",
     "OWNERSHIP_CHILD",
     "OWNERSHIP_PARENT",
@@ -1421,5 +1954,6 @@ __all__ = [
     "OWNERSHIP_SHARED_KERNEL",
     "classify_legacy_model",
     "review_hierarchical_mesh",
+    "review_mesh_closure_model",
     "summarize_child_boundary_change",
 ]

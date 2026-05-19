@@ -241,14 +241,16 @@ for the recommendation shape.
 Use the parallel UI flow structure route when a UI's buttons, menus, controls,
 screens, panels, overlays, navigation, information displays, state
 availability, duplicate/overlapping controls, headings, labels, action text,
-status/helper messages, or error/recovery copy slots need a model-first
-interaction flow before visual design or frontend implementation. This route
-models the UI as `UI event x UI state -> Set(UI output x UI state)`, reviews
-that interaction model, derives parent/child UI topology, first-level
-persistent menus, second-level contextual regions, third-level local controls,
-information-display ownership, stable layout positions, overlay hierarchy, and
-explicit rationale for intentional redundancy, then derives the UI text
-hierarchy blueprint from the reviewed structure.
+status/helper messages, error/recovery copy slots, or complete app
+launch-to-terminal journey coverage need a model-first interaction flow before
+visual design or frontend implementation. This route models the UI as
+`UI event x UI state -> Set(UI output x UI state)`, reviews that interaction
+model, reviews journey coverage and reachable visible-control/event ownership
+when a complete app-level UI claim is made, derives parent/child UI topology,
+first-level persistent menus, second-level contextual regions, third-level
+local controls, information-display ownership, stable layout positions, overlay
+hierarchy, and explicit rationale for intentional redundancy, then derives the
+UI text hierarchy blueprint from the reviewed structure.
 
 Read `docs/ui_flow_structure.md` and
 `.agents/skills/flowguard-ui-flow-structure/references/ui_flow_structure_protocol.md`

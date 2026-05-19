@@ -59,12 +59,14 @@ Modeling helpers reduce boilerplate around common bug classes:
 - optional hierarchical mesh helpers such as `HierarchyPartitionMap`,
   `ModelTargetSplitDerivation`, `ChildModelEvidence`,
   `ChildReattachmentContract`, `ChildBoundaryChangeSummary`,
+  `MeshClosureModel`, `MeshClosureTransition`, `MeshClosureJoin`,
+  `MeshClosureTerminal`, `review_mesh_closure_model()`,
   `summarize_child_boundary_change()`, `review_hierarchical_mesh()`,
   `LegacyModelRecord`, and `classify_legacy_model()` for reviewing
   model-derived target child layouts, parent/child partition coverage, repaired
   child reattachment, child boundary propagation, affected sibling review,
-  bug-class responsibility separation, large-model split triggers, and legacy
-  compatibility.
+  whole-flow closure across model handoffs, bug-class responsibility
+  separation, large-model split triggers, and legacy compatibility.
 - optional model-test alignment helpers such as `ModelObligation`,
   `CodeContract`, `TestEvidence`, `ModelTestAlignmentPlan`, and
   `review_model_test_alignment()` for directly comparing model obligations
@@ -94,11 +96,16 @@ Modeling helpers reduce boilerplate around common bug classes:
   structure from a FlowGuard functional model before code is written.
 - optional UI Flow Structure helpers such as `UIInteractionModel`,
   `UIControl`, `UIDisplayElement`, `UIStateNode`, `UITransition`,
+  `UIJourneyCoverage`, `UIJourneyEntryPoint`, `UIFeatureJourney`,
+  `UITerminalActionAllowance`, `UIResidualBlindspot`,
+  `UIJourneyCoverageReport`,
   `UIStructureDerivation`, `UIRegionRecommendation`,
   `UITextHierarchyBlueprint`, `UITextElement`, `UITypographyToken`,
-  `review_ui_interaction_model()`, and
+  `review_ui_interaction_model()`, `review_ui_journey_coverage()`,
   `review_ui_structure_derivation()`, and `review_ui_text_hierarchy()` for
-  modeling UI interactions first, deriving parent/child UI topology, menu
+  modeling UI interactions first, proving launch-to-terminal journey coverage
+  and reachable visible-control/event coverage when complete app UI is claimed,
+  deriving parent/child UI topology, menu
   levels, stable placement, overlays, control hierarchy, information-display
   ownership, and then deriving semantic text hierarchy tokens before visual
   design or frontend implementation.
@@ -182,7 +189,10 @@ before trusting the three-way claim; send ambiguous or complex behavior to
 manual review and keep conformance replay for production-facing confidence. For large model or
 validation meshes, record the target split
 derivation from the FlowGuard source model before trusting parent/child
-ownership and evidence. For large, slow, or layered validation, use TestMesh to
+ownership and evidence. When parent confidence claims whole-flow closure, add a
+mesh closure model so root entries, child outputs, joins, terminal
+dispositions, and out-of-scope branches are checked as executable handoff
+obligations before `mesh_green_can_continue`. For large, slow, or layered validation, use TestMesh to
 split the parent test gate into child suites/scripts and make their ownership
 and evidence visible before trusting the parent. For large structure refactors,
 use StructureMesh to make model-derived target structure, child-module
@@ -191,7 +201,10 @@ Use Code Structure Recommendation for direct pre-code architecture
 recommendations. Use UI Flow Structure when a UI's controls, state transitions,
 navigation, regions, overlays, menu levels, information displays,
 duplicate/redundant content, overlapping controls, or parent/child hierarchy
-need a reviewed UI interaction model before layout and visual implementation. Use
+need a reviewed UI interaction model before layout and visual implementation;
+when the claim is complete app-level UI coverage, require UI journey coverage
+from launch entry points through declared success, recovery, cancel, exit, and
+residual blindspot boundaries before structure or visual handoff. Use
 DevelopmentProcessFlow when development lifecycle
 ordering, artifact overwrite, verifier changes, peer writes, or evidence
 freshness determine whether a done, release, archive, or publish claim is

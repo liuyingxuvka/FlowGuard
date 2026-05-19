@@ -16,6 +16,12 @@ The mesh does not expand every child state graph. Each child remains responsible
 for its own internal states and invariants. The parent boundary only reads the
 child's contract and evidence summary.
 
+For whole-flow parent confidence, the parent boundary also needs a closure
+model. The closure model is a small FlowGuard-style model of the model network:
+root entries, child-output tokens, parent or sibling consumers, required joins,
+normal/failure exits, and explicit out-of-scope dispositions. It proves the
+handoffs close without expanding child internals.
+
 If a child model was changed to repair a bug, its own green result is not enough
 for parent confidence. The parent must reattach that child by consuming the
 current child evidence id and checking that the child still accepts the expected
@@ -88,6 +94,30 @@ If the child evidence comes from a background long-running check, progress logs
 are only liveness. Parent confidence requires the final output, error, combined
 log, exit, and metadata artifacts before the evidence id can be consumed.
 
+## Mesh Closure Model
+
+Use `MeshClosureModel` when a parent mesh claims the whole parent workflow is
+closed, not merely partitioned. The model records:
+
+- `root_entries`: parent entry tokens that start the modeled flow;
+- `MeshClosureTransition`: model-to-model handoffs that consume and emit
+  abstract output tokens;
+- `MeshClosureJoin`: parent join points that require several child or parent
+  outputs before emitting the next token;
+- `MeshClosureTerminal`: normal exits, failure exits, terminal side-effect
+  closures, or out-of-scope dispositions.
+
+`review_mesh_closure_model(...)` blocks when a child output has no consumer, a
+required output is unreachable from root entries, a join is incomplete, an
+out-of-scope disposition lacks rationale, a terminal is reached while required
+outputs remain pending, or a loop-like handoff has no bound or progress rule.
+
+When `HierarchyPartitionMap.closure_model` is present,
+`review_hierarchical_mesh(...)` consumes the closure report before returning
+`mesh_green_can_continue`. A parent mesh without a closure model may still make
+partition, reattachment, or evidence claims, but it should not claim whole-flow
+entry-to-exit closure.
+
 Each parent boundary should declare a partition map. A partition map names the
 parent-space items and who owns them:
 
@@ -150,6 +180,10 @@ from flowguard import (
     ChildReattachmentContract,
     HierarchyCoverageItem,
     HierarchyPartitionMap,
+    MeshClosureJoin,
+    MeshClosureModel,
+    MeshClosureTerminal,
+    MeshClosureTransition,
     ModelTargetSplitDerivation,
     review_hierarchical_mesh,
     summarize_child_boundary_change,
@@ -174,7 +208,11 @@ partition = HierarchyPartitionMap(
     ),
     child_models=(
         new_payment,
-        ChildModelEvidence("inventory", evidence_tier="abstract_green"),
+        ChildModelEvidence(
+            "inventory",
+            evidence_tier="abstract_green",
+            outputs_emitted=("inventory_result",),
+        ),
     ),
     target_split_derivation=ModelTargetSplitDerivation(
         "checkout_root",
@@ -189,6 +227,32 @@ partition = HierarchyPartitionMap(
             expected_inputs=("payment_request",),
             expected_outputs=("payment_result",),
         ),
+    ),
+    closure_model=MeshClosureModel(
+        "checkout_root",
+        root_entries=("checkout_start",),
+        transitions=(
+            MeshClosureTransition(
+                "payment_handoff",
+                consumes=("checkout_start",),
+                emits=("payment_result",),
+                consumer_model_id="payment",
+            ),
+            MeshClosureTransition(
+                "inventory_handoff",
+                consumes=("checkout_start",),
+                emits=("inventory_result",),
+                consumer_model_id="inventory",
+            ),
+        ),
+        joins=(
+            MeshClosureJoin(
+                "checkout_ready",
+                required_inputs=("payment_result", "inventory_result"),
+                emits=("order_ready",),
+            ),
+        ),
+        terminals=(MeshClosureTerminal("checkout_complete", consumes=("order_ready",)),),
     ),
     boundary_changes=(payment_change,),
 )

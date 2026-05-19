@@ -8,6 +8,10 @@ from flowguard import (
     HierarchyCoverageItem,
     HierarchyPartitionMap,
     LegacyModelRecord,
+    MeshClosureJoin,
+    MeshClosureModel,
+    MeshClosureTerminal,
+    MeshClosureTransition,
     ModelTargetSplitDerivation,
     classify_legacy_model,
     review_hierarchical_mesh,
@@ -53,8 +57,8 @@ def build_root_partition() -> HierarchyPartitionMap:
                 side_effects_owned=("charge_card",),
                 contracts_out=("payment.result",),
             ),
-            _child("inventory", side_effects_owned=("reserve_stock",)),
-            _child("fulfillment", side_effects_owned=("ship_order",)),
+            _child("inventory", outputs_emitted=("inventory_result",), side_effects_owned=("reserve_stock",)),
+            _child("fulfillment", outputs_emitted=("fulfillment_result",), side_effects_owned=("ship_order",)),
         ),
         target_split_derivation=_target(
             "checkout_root",
@@ -72,6 +76,42 @@ def build_root_partition() -> HierarchyPartitionMap:
                 expected_contracts_out=("payment.result",),
                 rationale="checkout parent consumes the repaired payment child handoff",
             ),
+        ),
+        closure_model=MeshClosureModel(
+            "checkout_root",
+            root_entries=("checkout_start",),
+            transitions=(
+                MeshClosureTransition(
+                    "payment_handoff",
+                    consumes=("checkout_start",),
+                    emits=("payment_result",),
+                    consumer_model_id="payment",
+                ),
+                MeshClosureTransition(
+                    "inventory_handoff",
+                    consumes=("checkout_start",),
+                    emits=("inventory_result",),
+                    consumer_model_id="inventory",
+                ),
+                MeshClosureTransition(
+                    "fulfillment_handoff",
+                    consumes=("checkout_start",),
+                    emits=("fulfillment_result",),
+                    consumer_model_id="fulfillment",
+                ),
+            ),
+            joins=(
+                MeshClosureJoin(
+                    "checkout_ready",
+                    required_inputs=("payment_result", "inventory_result", "fulfillment_result"),
+                    emits=("order_complete_ready",),
+                    rationale="all child regions must finish before the checkout parent can close",
+                ),
+            ),
+            terminals=(
+                MeshClosureTerminal("checkout_complete", consumes=("order_complete_ready",)),
+            ),
+            rationale="parent-level closure over child model outputs without expanding child internals",
         ),
     )
 

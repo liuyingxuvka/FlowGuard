@@ -2189,15 +2189,21 @@ from __future__ import annotations
 from flowguard import (
     UIControl,
     UIDisplayElement,
+    UIFeatureJourney,
     UIInteractionModel,
+    UIJourneyCoverage,
+    UIJourneyEntryPoint,
     UIRegionRecommendation,
+    UIResidualBlindspot,
     UIStateNode,
     UIStructureDerivation,
     UITextElement,
     UITextHierarchyBlueprint,
     UITypographyToken,
+    UITerminalActionAllowance,
     UITransition,
     review_ui_interaction_model,
+    review_ui_journey_coverage,
     review_ui_structure_derivation,
     review_ui_text_hierarchy,
 )
@@ -2205,16 +2211,30 @@ from flowguard import (
 
 def interaction_model() -> UIInteractionModel:
     return UIInteractionModel(
-        "import-run-ui-flow",
-        initial_state_id="empty",
-        source_product_model_id="import-run-product-flow",
+        "project-workbench-ui-flow",
+        initial_state_id="launch",
+        source_product_model_id="project-workbench-product-flow",
         states=(
             UIStateNode(
-                "empty",
-                visible_controls=("import", "settings", "run", "export"),
-                enabled_controls=("import", "settings"),
+                "launch",
+                visible_controls=("new_project", "load_project", "settings", "run", "export", "exit"),
+                enabled_controls=("new_project", "load_project", "settings", "exit"),
                 disabled_controls=("run", "export"),
-                rationale="The first screen lets the user import data or adjust global settings.",
+                rationale="The first screen lets the user create a new project, load an existing project, adjust settings, or exit.",
+            ),
+            UIStateNode(
+                "new_project_setup",
+                visible_controls=("create_project", "cancel", "settings"),
+                enabled_controls=("create_project", "cancel", "settings"),
+                disabled_controls=("run", "export"),
+                rationale="A new project flow collects setup before workbench actions become available.",
+            ),
+            UIStateNode(
+                "load_picker",
+                visible_controls=("choose_file", "cancel", "settings"),
+                enabled_controls=("choose_file", "cancel", "settings"),
+                disabled_controls=("run", "export"),
+                rationale="Loading an existing project scopes the UI to file choice or cancellation.",
             ),
             UIStateNode(
                 "loaded",
@@ -2232,11 +2252,11 @@ def interaction_model() -> UIInteractionModel:
             ),
             UIStateNode(
                 "result_ready",
-                visible_controls=("run", "export", "settings"),
-                enabled_controls=("run", "export", "settings"),
+                visible_controls=("export", "settings"),
+                enabled_controls=("export", "settings"),
                 visible_displays=("summary_card", "result_table"),
                 terminal=True,
-                rationale="The result state enables export and rerun actions.",
+                rationale="The result state is a success terminal that enables export.",
             ),
             UIStateNode(
                 "failed",
@@ -2245,6 +2265,20 @@ def interaction_model() -> UIInteractionModel:
                 recovery_controls=("retry",),
                 failure=True,
                 rationale="A recoverable failure offers retry and global settings.",
+            ),
+            UIStateNode(
+                "cancelled",
+                visible_controls=("exit", "settings"),
+                enabled_controls=("exit", "settings"),
+                terminal=True,
+                rationale="Cancelled setup or load work reaches a terminal cancellation state.",
+            ),
+            UIStateNode(
+                "exited",
+                visible_controls=(),
+                enabled_controls=(),
+                terminal=True,
+                rationale="Exit closes the app-level flow.",
             ),
         ),
         controls=(
@@ -2256,12 +2290,27 @@ def interaction_model() -> UIInteractionModel:
                 persistent=True,
                 rationale="Settings are always available and should not drift between screens.",
             ),
-            UIControl("import", label="Import", level="primary", rationale="Import starts the main workflow."),
+            UIControl("new_project", label="New", level="primary", rationale="New project starts a launch-level feature journey."),
+            UIControl("load_project", label="Load", level="primary", rationale="Load project starts a launch-level feature journey."),
+            UIControl(
+                "create_project",
+                label="Create",
+                level="primary",
+                depends_on_states=("new_project_setup",),
+                rationale="Create completes new project setup.",
+            ),
+            UIControl(
+                "choose_file",
+                label="Choose",
+                level="primary",
+                depends_on_states=("load_picker",),
+                rationale="Choose loads an existing project file.",
+            ),
             UIControl(
                 "run",
                 label="Run",
                 level="primary",
-                depends_on_states=("loaded", "result_ready"),
+                depends_on_states=("loaded",),
                 rationale="Run advances the main workflow after input exists.",
             ),
             UIControl(
@@ -2285,6 +2334,7 @@ def interaction_model() -> UIInteractionModel:
                 depends_on_states=("result_ready",),
                 rationale="Export depends on completed results.",
             ),
+            UIControl("exit", label="Exit", level="secondary", rationale="Exit closes the app-level flow."),
         ),
         displays=(
             UIDisplayElement(
@@ -2305,24 +2355,119 @@ def interaction_model() -> UIInteractionModel:
             ),
         ),
         transitions=(
-            UITransition("click_import", "import", "empty", "loaded", function_block="ImportFile", output="file_loaded", rationale="Import creates the loaded state."),
+            UITransition("click_new_project", "new_project", "launch", "new_project_setup", function_block="StartNewProject", output="new_project_setup", rationale="New project opens the setup state."),
+            UITransition("create_project_success", "create_project", "new_project_setup", "loaded", function_block="CreateProject", output="project_created", rationale="Successful creation loads the workbench."),
+            UITransition("create_project_failure", "create_project", "new_project_setup", "failed", function_block="CreateProject", output="recoverable_error", rationale="Creation can fail into recoverable state."),
+            UITransition("click_load_project", "load_project", "launch", "load_picker", function_block="StartLoadProject", output="load_picker_opened", rationale="Load project opens the file picker state."),
+            UITransition("load_project_success", "choose_file", "load_picker", "loaded", function_block="LoadProject", output="project_loaded", rationale="Successful load reaches the workbench."),
+            UITransition("load_project_failure", "choose_file", "load_picker", "failed", function_block="LoadProject", output="recoverable_error", rationale="Loading can fail into recoverable state."),
             UITransition("click_run", "run", "loaded", "running", function_block="StartRun", output="run_started", rationale="Run starts the primary processing state."),
             UITransition("click_cancel", "cancel", "running", "loaded", function_block="CancelRun", output="run_cancelled", rationale="Cancel returns to the loaded state."),
+            UITransition("click_cancel_new", "cancel", "new_project_setup", "cancelled", function_block="CancelNewProject", output="cancelled", rationale="Cancel leaves new project setup."),
+            UITransition("click_cancel_load", "cancel", "load_picker", "cancelled", function_block="CancelLoadProject", output="cancelled", rationale="Cancel leaves load project setup."),
             UITransition("run_success", "run", "running", "result_ready", function_block="FinishRun", output="result_ready", rationale="A successful run exposes results."),
             UITransition("run_failure", "run", "running", "failed", function_block="FailRun", output="recoverable_error", rationale="A failed run enters a recoverable failure state."),
             UITransition("click_retry", "retry", "failed", "running", function_block="RetryRun", output="retry_started", rationale="Retry returns to the running state."),
             UITransition("click_export", "export", "result_ready", "result_ready", function_block="ExportResult", output="exported", rationale="Export is terminal-state output, not a new workflow phase."),
+            UITransition("click_exit", "exit", "launch", "exited", function_block="ExitApp", output="exited", rationale="Exit closes the launch flow."),
+            UITransition("click_exit_cancelled", "exit", "cancelled", "exited", function_block="ExitApp", output="exited", rationale="Exit closes the app after cancellation."),
         ),
         validation_boundaries=("UI scenario review", "browser state transition test"),
-        rationale="The model separates initial, loaded, running, result, and failure UI states before any layout is derived.",
+        rationale="The model separates launch, new-project, load-existing, loaded, running, result, failure, cancel, and exit UI states before any layout is derived.",
+    )
+
+
+def journey_coverage() -> UIJourneyCoverage:
+    return UIJourneyCoverage(
+        "project-workbench-journey-coverage",
+        source_interaction_model_id="project-workbench-ui-flow",
+        launch_state_id="launch",
+        interaction_model_reviewed=True,
+        entry_points=(
+            UIJourneyEntryPoint("new_project", "new_project", "click_new_project", label="New", source_state_ids=("launch",), rationale="New project is a launch entry."),
+            UIJourneyEntryPoint("load_project", "load_project", "click_load_project", label="Load", source_state_ids=("launch",), rationale="Load project is a launch entry."),
+            UIJourneyEntryPoint("exit_app", "exit", "click_exit", label="Exit", source_state_ids=("launch",), rationale="Exit is available from launch."),
+        ),
+        feature_journeys=(
+            UIFeatureJourney(
+                "new_project",
+                label="New project",
+                entry_point_ids=("new_project",),
+                required_state_ids=("new_project_setup", "loaded", "running"),
+                required_event_ids=("click_new_project", "create_project_success", "create_project_failure", "click_run", "run_success", "run_failure"),
+                success_terminal_state_ids=("result_ready",),
+                failure_state_ids=("failed",),
+                recovery_event_ids=("click_retry",),
+                cancel_event_ids=("click_cancel_new", "click_cancel"),
+                validation_boundaries=("journey scenario review",),
+                rationale="A user can create a project, run it, recover from failure, or cancel setup.",
+            ),
+            UIFeatureJourney(
+                "load_project",
+                label="Load project",
+                entry_point_ids=("load_project",),
+                required_state_ids=("load_picker", "loaded", "running"),
+                required_event_ids=("click_load_project", "load_project_success", "load_project_failure", "click_run", "run_success", "run_failure"),
+                success_terminal_state_ids=("result_ready",),
+                failure_state_ids=("failed",),
+                recovery_event_ids=("click_retry",),
+                cancel_event_ids=("click_cancel_load", "click_cancel"),
+                validation_boundaries=("journey scenario review",),
+                rationale="A user can load an existing project, run it, recover from failure, or cancel loading.",
+            ),
+            UIFeatureJourney(
+                "exit_app",
+                label="Exit app",
+                entry_point_ids=("exit_app",),
+                required_event_ids=("click_exit",),
+                success_terminal_state_ids=("exited",),
+                validation_boundaries=("journey scenario review",),
+                rationale="A user can leave the app from launch.",
+            ),
+        ),
+        terminal_action_allowances=(
+            UITerminalActionAllowance(
+                "result_ready",
+                "click_export",
+                "export",
+                rationale="Export is a terminal-state output action.",
+            ),
+            UITerminalActionAllowance(
+                "cancelled",
+                "click_exit_cancelled",
+                "exit",
+                rationale="Exit closes the app after a cancelled setup or load branch.",
+            ),
+        ),
+        residual_blindspots=(
+            UIResidualBlindspot(
+                "open_recent_project",
+                feature_id="open_recent_project",
+                reason="Recent-project shell history is outside this starter template.",
+                owner="target app integration tests",
+                validation_boundaries=("browser or desktop shell test",),
+                rationale="The template records the omitted branch instead of claiming full coverage for it.",
+            ),
+            UIResidualBlindspot(
+                "settings_panel",
+                feature_id="settings_panel",
+                control_ids=("settings",),
+                reason="Settings are app-specific configuration details outside this starter template.",
+                owner="target app settings journey review",
+                validation_boundaries=("settings panel browser test",),
+                rationale="The persistent settings button is explicitly bounded instead of becoming a silent no-op.",
+            ),
+        ),
+        validation_boundaries=("journey scenario review", "browser state transition test"),
+        rationale="Complete app-level UI coverage is declared from launch through feature terminals.",
     )
 
 
 def structure_derivation() -> UIStructureDerivation:
     return UIStructureDerivation(
-        "import-run-ui-structure",
-        source_interaction_model_id="import-run-ui-flow",
-        parent_surface_id="import-run-workbench",
+        "project-workbench-ui-structure",
+        source_interaction_model_id="project-workbench-ui-flow",
+        parent_surface_id="project-workbench",
         interaction_model_reviewed=True,
         target_regions=(
             UIRegionRecommendation(
@@ -2337,10 +2482,10 @@ def structure_derivation() -> UIStructureDerivation:
                 "primary-workspace",
                 level="primary",
                 placement="main",
-                owns_states=("empty", "loaded", "running", "result_ready"),
-                owns_controls=("import", "run", "export"),
+                owns_states=("launch", "new_project_setup", "load_picker", "loaded", "running", "result_ready", "cancelled", "exited"),
+                owns_controls=("new_project", "load_project", "create_project", "choose_file", "run", "export", "exit"),
                 owns_displays=("summary_card", "result_table"),
-                owns_events=("click_import", "click_run", "run_success", "click_export"),
+                owns_events=("click_new_project", "create_project_success", "click_load_project", "load_project_success", "click_run", "run_success", "click_export", "click_exit", "click_exit_cancelled"),
                 stable_across_states=True,
                 rationale="Main workflow actions live in the primary workspace.",
             ),
@@ -2360,22 +2505,30 @@ def structure_derivation() -> UIStructureDerivation:
                 placement="modal",
                 parent_region_id="primary-workspace",
                 owns_controls=("cancel",),
-                owns_events=("click_cancel",),
+                owns_events=("click_cancel", "click_cancel_new", "click_cancel_load"),
                 rationale="Cancel temporarily scopes the running parent flow.",
             ),
         ),
         state_region_map=(
-            ("empty", "primary-workspace"),
+            ("launch", "primary-workspace"),
+            ("new_project_setup", "primary-workspace"),
+            ("load_picker", "primary-workspace"),
             ("loaded", "primary-workspace"),
             ("running", "primary-workspace"),
             ("result_ready", "primary-workspace"),
             ("failed", "failure-inspector"),
+            ("cancelled", "primary-workspace"),
+            ("exited", "primary-workspace"),
         ),
         control_region_map=(
             ("settings", "top-toolbar"),
-            ("import", "primary-workspace"),
+            ("new_project", "primary-workspace"),
+            ("load_project", "primary-workspace"),
+            ("create_project", "primary-workspace"),
+            ("choose_file", "primary-workspace"),
             ("run", "primary-workspace"),
             ("export", "primary-workspace"),
+            ("exit", "primary-workspace"),
             ("retry", "failure-inspector"),
             ("cancel", "cancel-overlay"),
         ),
@@ -2384,13 +2537,22 @@ def structure_derivation() -> UIStructureDerivation:
             ("result_table", "primary-workspace"),
         ),
         event_region_map=(
-            ("click_import", "primary-workspace"),
+            ("click_new_project", "primary-workspace"),
+            ("create_project_success", "primary-workspace"),
+            ("create_project_failure", "failure-inspector"),
+            ("click_load_project", "primary-workspace"),
+            ("load_project_success", "primary-workspace"),
+            ("load_project_failure", "failure-inspector"),
             ("click_run", "primary-workspace"),
             ("run_success", "primary-workspace"),
             ("run_failure", "failure-inspector"),
             ("click_retry", "failure-inspector"),
             ("click_cancel", "cancel-overlay"),
+            ("click_cancel_new", "cancel-overlay"),
+            ("click_cancel_load", "cancel-overlay"),
             ("click_export", "primary-workspace"),
+            ("click_exit", "primary-workspace"),
+            ("click_exit_cancelled", "primary-workspace"),
         ),
         hierarchy_edges=(("primary-workspace", "failure-inspector"), ("primary-workspace", "cancel-overlay")),
         persistent_control_ids=("settings",),
@@ -2416,10 +2578,10 @@ def typography_token(token_id: str, level: int, roles: tuple[str, ...]) -> UITyp
 
 def text_hierarchy() -> UITextHierarchyBlueprint:
     return UITextHierarchyBlueprint(
-        "import-run-text-hierarchy",
-        source_interaction_model_id="import-run-ui-flow",
-        source_structure_derivation_id="import-run-ui-structure",
-        parent_surface_id="import-run-workbench",
+        "project-workbench-text-hierarchy",
+        source_interaction_model_id="project-workbench-ui-flow",
+        source_structure_derivation_id="project-workbench-ui-structure",
+        parent_surface_id="project-workbench",
         structure_derivation_reviewed=True,
         typography_tokens=(
             typography_token("page-title", 1, ("page_title",)),
@@ -2436,7 +2598,7 @@ def text_hierarchy() -> UITextHierarchyBlueprint:
                 "page_title",
                 "page-title",
                 "surface_title",
-                label="Import Run",
+                label="Project Workbench",
                 region_id="primary-workspace",
                 rationale="The parent surface title names the full workflow.",
             ),
@@ -2460,7 +2622,8 @@ def text_hierarchy() -> UITextHierarchyBlueprint:
                 source_control_id="settings",
                 rationale="The global settings control uses the shared control-label token.",
             ),
-            UITextElement("import_label", "button_label", "control-label", "import_action", label="Import", region_id="primary-workspace", source_control_id="import", rationale="Import is an action label, not a heading."),
+            UITextElement("new_project_label", "button_label", "control-label", "new_project_action", label="New", region_id="primary-workspace", source_control_id="new_project", rationale="New is an app-entry action label, not a heading."),
+            UITextElement("load_project_label", "button_label", "control-label", "load_project_action", label="Load", region_id="primary-workspace", source_control_id="load_project", rationale="Load is an app-entry action label, not a heading."),
             UITextElement("run_label", "button_label", "control-label", "run_action", label="Run", region_id="primary-workspace", source_control_id="run", rationale="Run is an action label, not a heading."),
             UITextElement("export_label", "button_label", "control-label", "export_action", label="Export", region_id="primary-workspace", source_control_id="export", rationale="Export is an action label, not a heading."),
             UITextElement(
@@ -2552,21 +2715,49 @@ def broken_interaction_model() -> UIInteractionModel:
 def broken_structure_derivation() -> UIStructureDerivation:
     return UIStructureDerivation(
         "broken-ui-structure",
-        source_interaction_model_id="import-run-ui-flow",
-        parent_surface_id="import-run-workbench",
+        source_interaction_model_id="project-workbench-ui-flow",
+        parent_surface_id="project-workbench",
         target_regions=(UIRegionRecommendation("main"),),
-        state_region_map=(("empty", "main"),),
+        state_region_map=(("launch", "main"),),
         control_region_map=(("settings", "main"),),
         display_region_map=(("chart", "main"), ("text", "main")),
+    )
+
+
+def broken_journey_coverage() -> UIJourneyCoverage:
+    return UIJourneyCoverage(
+        "broken-project-workbench-journey",
+        source_interaction_model_id="project-workbench-ui-flow",
+        launch_state_id="launch",
+        interaction_model_reviewed=True,
+        entry_points=(
+            UIJourneyEntryPoint("new_project", "new_project", "click_new_project", source_state_ids=("launch",), rationale="New project is modeled."),
+        ),
+        feature_journeys=(
+            UIFeatureJourney(
+                "load_project",
+                entry_point_ids=("load_project",),
+                required_state_ids=("load_picker",),
+                required_event_ids=("missing_load_event",),
+                success_terminal_state_ids=(),
+                validation_boundaries=("journey review",),
+                rationale="Broken because the load entry and terminal are missing.",
+            ),
+        ),
+        residual_blindspots=(
+            UIResidualBlindspot("open_recent_project", reason="deferred", rationale="Broken because no validation boundary is named."),
+        ),
+        validation_boundaries=("journey review",),
+        rationale="Broken journey coverage demonstrates missing app-level branches.",
     )
 
 
 def broken_text_hierarchy() -> UITextHierarchyBlueprint:
     return UITextHierarchyBlueprint(
         "broken-text-hierarchy",
-        source_interaction_model_id="import-run-ui-flow",
-        source_structure_derivation_id="import-run-ui-structure",
-        parent_surface_id="import-run-workbench",
+        source_interaction_model_id="project-workbench-ui-flow",
+        source_structure_derivation_id="project-workbench-ui-structure",
+        parent_surface_id="project-workbench",
         typography_tokens=(
             typography_token("section-title", 2, ("section_title",)),
             typography_token("hero-button", 1, ("button_label",)),
@@ -2596,10 +2787,10 @@ def broken_text_hierarchy() -> UITextHierarchyBlueprint:
                 "import_label",
                 "button_label",
                 "hero-button",
-                "import_action",
-                label="Import",
+                "new_project_action",
+                label="New",
                 region_id="primary-workspace",
-                source_control_id="import",
+                source_control_id="new_project",
                 rationale="Broken because a button label uses a top-level token.",
             ),
         ),
@@ -2609,24 +2800,28 @@ def broken_text_hierarchy() -> UITextHierarchyBlueprint:
 
 
 def run_checks():
-    model_report = review_ui_interaction_model(interaction_model())
-    structure_report = review_ui_structure_derivation(structure_derivation(), interaction_model=interaction_model())
+    model = interaction_model()
+    structure = structure_derivation()
+    model_report = review_ui_interaction_model(model)
+    journey_report = review_ui_journey_coverage(journey_coverage(), interaction_model=model)
+    structure_report = review_ui_structure_derivation(structure, interaction_model=model)
     text_report = review_ui_text_hierarchy(
         text_hierarchy(),
-        interaction_model=interaction_model(),
-        structure_derivation=structure_derivation(),
+        interaction_model=model,
+        structure_derivation=structure,
     )
     broken_model_report = review_ui_interaction_model(broken_interaction_model())
+    broken_journey_report = review_ui_journey_coverage(broken_journey_coverage(), interaction_model=model)
     broken_structure_report = review_ui_structure_derivation(
         broken_structure_derivation(),
-        interaction_model=interaction_model(),
+        interaction_model=model,
     )
     broken_text_report = review_ui_text_hierarchy(
         broken_text_hierarchy(),
-        interaction_model=interaction_model(),
-        structure_derivation=structure_derivation(),
+        interaction_model=model,
+        structure_derivation=structure,
     )
-    return model_report, structure_report, text_report, broken_model_report, broken_structure_report, broken_text_report
+    return model_report, journey_report, structure_report, text_report, broken_model_report, broken_journey_report, broken_structure_report, broken_text_report
 '''
 
 
@@ -2638,8 +2833,10 @@ from model import run_checks
 
 
 def main() -> int:
-    model_report, structure_report, text_report, broken_model, broken_structure, broken_text = run_checks()
+    model_report, journey_report, structure_report, text_report, broken_model, broken_journey, broken_structure, broken_text = run_checks()
     print(model_report.format_text())
+    print()
+    print(journey_report.format_text())
     print()
     print(structure_report.format_text())
     print()
@@ -2647,10 +2844,12 @@ def main() -> int:
     print()
     print(broken_model.format_text(max_findings=5))
     print()
+    print(broken_journey.format_text(max_findings=5))
+    print()
     print(broken_structure.format_text(max_findings=5))
     print()
     print(broken_text.format_text(max_findings=5))
-    return 0 if model_report.ok and structure_report.ok and text_report.ok and not broken_model.ok and not broken_structure.ok and not broken_text.ok else 1
+    return 0 if model_report.ok and journey_report.ok and structure_report.ok and text_report.ok and not broken_model.ok and not broken_journey.ok and not broken_structure.ok and not broken_text.ok else 1
 
 
 if __name__ == "__main__":
@@ -2667,6 +2866,10 @@ itself needs a model-first interaction flow.
 
 - a UI interaction model: initial state, controls, events, state nodes,
   transitions, failure and recovery states, terminal states, and availability;
+- app-level journey coverage when the route claims complete UI coverage:
+  launch state, entry points, feature journeys, terminal actions,
+  failure/recovery handling, reachable visible/enabled control branches, and
+  residual blindspots;
 - a structure derivation from that model: parent/child UI nodes, first-level
   persistent menus, second-level contextual regions, third-level local actions,
   overlays, stable layout positions, and validation boundaries;
@@ -2677,6 +2880,10 @@ itself needs a model-first interaction flow.
 - review findings when a control has no modeled event, a failure state has no
   recovery path, a destructive control is too prominent, or a persistent
   control is not assigned to a stable global region;
+- journey coverage findings when a launch entry is missing, a reachable
+  button/control has no modeled event, a modeled event is outside all journeys,
+  a required feature path is unreachable, a terminal state has unclassified
+  outgoing actions, or a residual blindspot lacks validation;
 - redundancy findings when the same page/state shows the same semantic
   information twice or exposes multiple same-level controls for one function
   without an explicit rationale;
