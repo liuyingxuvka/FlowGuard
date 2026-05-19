@@ -16,6 +16,9 @@
 - Updated the UI Flow Structure skill, Skill Kernel route guidance, AGENTS
   snippet, API docs, UI docs, README, OpenSpec artifacts, and focused tests so
   "model-complete UI" is not confused with "running UI clicked through."
+- Broadened DevelopmentProcessFlow routing guidance so staged implementation,
+  validation freshness, archive readiness, and release confidence checks are
+  selected earlier for non-trivial development work.
 - Schema remains `1.0`; runtime dependencies remain Python standard library
   only.
 
