@@ -6,6 +6,10 @@
 </p>
 
 <p align="center">
+  <img src="./assets/readme-hero/flowguard-icon.png" alt="FlowGuard icon" width="120" />
+</p>
+
+<p align="center">
   <strong>Executable finite-state preflight models for risky AI-agent transitions before they become code or release claims.</strong>
 </p>
 <!-- README HERO END -->
