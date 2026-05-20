@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <strong>Executable finite-state preflight models for risky AI-agent transitions before they become code or release claims.</strong>
+  <strong>Executable finite-state models for designing and checking AI-agent workflows, UI flows, and development processes.</strong>
 </p>
 <!-- README HERO END -->
 
@@ -22,7 +22,7 @@ English lead content comes first; a Chinese mirror follows below.
 
 ## What FlowGuard Is
 
-FlowGuard is a small Python library and Codex-ready workflow method for turning risky stateful behavior into an executable finite-state model before action. It is the workflow/state guard in the Guard family: use it when order, state, ownership, side effects, or evidence freshness can change whether a plan is actually safe.
+FlowGuard is a small Python library and Codex-ready workflow method for turning risky stateful behavior into an executable finite-state model before action. It is the workflow/state guard in the Guard family: use it when order, state, ownership, side effects, UI availability, role handoff, or evidence freshness can change whether a plan is actually safe.
 
 It models a function block as:
 
@@ -34,9 +34,22 @@ That model is then checked for reachable traces, invariant failures, loops, stuc
 
 FlowGuard is not an LLM wrapper, a probability engine, a Monte Carlo simulator, or a replacement for tests. It is a structural preflight layer: make the risky transition explicit, run the small model, inspect the counterexample, then change the plan or code with less hidden state.
 
+## What You Can Design And Verify
+
+FlowGuard is useful at the design stage. You name the states, inputs, outputs, ownership boundaries, side effects, and gates; the model then gives you both a design shape and the checks that decide whether that shape is currently safe.
+
+| Work type | Model-first design output | Verification output |
+| --- | --- | --- |
+| Development process | Staged route, next-action rules, minimum validation gates, stale-evidence reset, peer-write invalidation, release/archive readiness, and done criteria | Scenario failures, freshness gaps, skipped gates, invalid completion claims, and counterexample traces |
+| UI interface | Persistent regions, contextual panels, local actions, overlays, recovery paths, button availability, display ownership, duplicate-control rules, and text hierarchy | Unreachable journeys, missing recovery, duplicate/conflicting controls, invalid button states, and implementation click-through gaps |
+| Code structure | Module split, facade boundary, state owner, side-effect owner, config owner, validation owner, and public-entrypoint compatibility plan | Ownership leaks, dependency cycles, facade drift, missing parity evidence, and conformance replay failures |
+| Test strategy | Routine/release test layers, parent/child suites, timeout boundaries, stale/hidden evidence rules, and revalidation triggers | Untested model obligations, stale passing evidence, hidden skips, weak release gates, and model-test mismatch |
+| Model mesh or bug repair | Parent/child split, evidence contract, reattachment gate, sibling impact review, model-miss class, and same-class bad case | Child evidence drift, unconsumed handoff tokens, affected sibling gaps, repaired-invariant gaps, and parent-confidence boundaries |
+
 ## Why It Is Worth Trying
 
-- It finds concrete counterexample traces before an agent turns a risky transition into code, UI behavior, tests, or release claims.
+- It turns fuzzy workflow or UI/process design into a small executable model before the agent writes code, tests, or release claims.
+- It derives development routes, interface topology, module ownership, test hierarchy, and release gates from the model, then checks those decisions with traces.
 - It is intentionally small: many useful models are just a few states, inputs, invariants, and transition functions.
 - It keeps evidence honest across parent and child models, so a repaired child or later file edit does not leave stale green status behind.
 - It runs on the Python standard library and fits into ordinary repository workflows without becoming a heavy platform.
@@ -90,7 +103,9 @@ FlowGuard gives those weak spots a small executable shape before the action beco
 
 For non-trivial FlowGuard work, skill guidance now defaults to a user-facing
 Mermaid model snapshot during the work once the route or model shape is stable
-enough to explain. The diagram can show major states, branches, gates,
+enough to explain. The agent first chooses the FlowGuard diagram semantics:
+behavior/state, development process, UI state, model-test coverage, code
+structure, or mesh. The diagram can show major states, branches, gates,
 evidence, skipped/not-run gaps, and claim boundaries, and it should be updated
 when the model boundary materially changes. Tiny or user-suppressed tasks may
 stay concise. Diagrams are explanation only; executable checks remain the
@@ -272,11 +287,11 @@ MIT. See `LICENSE`.
 
 ## 中文说明
 
-FlowGuard 是一个在危险转移变成代码或发布结论之前先建模检查的有限状态预检系统。
+FlowGuard 是一个在危险转移变成代码、UI、测试或发布结论之前，先用有限状态模型设计并验证流程的预检系统。
 
 ## FlowGuard 是什么
 
-FlowGuard 是一个小型 Python 库，也是一套可以配合 Codex 使用的工作方法。它把有风险的有状态行为先写成可执行的有限状态模型，再让 agent 或工程师动手。它是 Guard family 里的 workflow/state guard：当顺序、状态、ownership、副作用或证据新鲜度会改变计划是否安全时，就应该先用它。
+FlowGuard 是一个小型 Python 库，也是一套可以配合 Codex 使用的工作方法。它把有风险的有状态行为先写成可执行的有限状态模型，再从模型推导开发流程、UI 交互结构、代码 ownership、测试层级或发布 gate。它是 Guard family 里的 workflow/state guard：当顺序、状态、ownership、副作用或证据新鲜度会改变计划是否安全时，就应该先用它。
 
 它把一个函数块表示成：
 
@@ -288,9 +303,22 @@ Input x State -> Set(Output x State)
 
 FlowGuard 不是 LLM wrapper，不调用模型 API，不做概率估计，也不是测试替代品。它是结构化预检层：先把危险的状态转移说清楚，跑小模型，看 counterexample，再决定计划或代码怎么改。
 
+## 它能设计并验证什么
+
+FlowGuard 的价值在动手之前就开始。你先命名 state、input、output、ownership boundary、side effect 和 gate；模型同时给出设计形状，以及判断这个形状当前是否安全的检查。
+
+| 工作类型 | 模型先行的设计输出 | 验证输出 |
+| --- | --- | --- |
+| 开发流程 | staged route、next-action rules、最小验证 gate、stale-evidence reset、peer-write invalidation、release/archive readiness、done criteria | scenario failure、freshness gap、skipped gate、无效完成声明、counterexample trace |
+| UI 界面 | 持久区域、上下文 panel、本地动作、overlay、恢复路径、按钮 availability、display ownership、重复控件规则、文本层级 | 不可达 journey、缺失 recovery、重复/冲突控件、错误按钮状态、实现点击证据缺口 |
+| 代码结构 | module split、facade boundary、state owner、side-effect owner、config owner、validation owner、公开入口兼容计划 | ownership leak、dependency cycle、facade drift、缺失 parity evidence、conformance replay failure |
+| 测试策略 | routine/release test layers、父子测试套件、timeout 边界、旧/隐藏证据规则、revalidation trigger | 未覆盖模型义务、旧 passing evidence、hidden skip、弱 release gate、model-test mismatch |
+| Model mesh 或 bug 修复 | 父子拆分、evidence contract、reattachment gate、sibling impact review、model-miss 类型、同类坏 case | child evidence drift、未消费 handoff token、sibling gap、repaired invariant gap、父级 confidence boundary |
+
 ## 为什么值得一试
 
-- 它能在 agent 把危险转移写成代码、UI 行为、测试或发布结论之前，先找出具体 counterexample trace。
+- 它把模糊的 workflow、UI 或开发流程设计先变成小型可执行模型，再让 agent 写代码、测试或发布结论。
+- 它能从模型推导开发路线、界面拓扑、模块 ownership、测试层级和 release gate，然后用 trace 检查这些决策。
 - 它刻意保持小：很多有用模型只需要少量 state、input、invariant 和 transition function。
 - 它会维护父子模型之间的证据新鲜度，避免 child 修过或文件后来又改过之后，父级还拿旧 green status 当证据。
 - 它只依赖 Python 标准库，可以嵌入普通仓库工作流，而不是变成重平台。
@@ -446,6 +474,6 @@ assets/        README hero image 和生成说明
 
 它不包含私有项目日志、个人 predictive knowledge、credential、客户数据，也不声称模型覆盖了所有真实系统。FlowGuard 通过只表示声明的模型义务通过，不表示整个项目已经正确。
 
-## License
+## 许可证
 
 MIT. See `LICENSE`.
