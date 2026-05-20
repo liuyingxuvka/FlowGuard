@@ -2,7 +2,7 @@
 
 ## Project summary
 
-FlowGuard is a finite-state preflight system for risky AI-agent workflows, code changes, and process decisions. It turns the risky part of a workflow into a small executable model before action, then checks traces, invariants, progress, conformance, evidence freshness, and parent/child model handoffs.
+FlowGuard is an executable finite-state preflight system for risky AI-agent transitions before they become code or release claims. It turns the risky part of a workflow into a small executable model before action, then checks traces, invariants, progress, conformance, evidence freshness, and parent/child model handoffs.
 
 ## Target users
 
@@ -18,7 +18,7 @@ Choose the smallest risky boundary worth modeling, define a finite-state functio
 
 ## Hero tagline
 
-A finite-state preflight system for risky AI-agent workflows, code changes, and process decisions.
+Executable finite-state preflight models for risky AI-agent transitions before they become code or release claims.
 
 ## Visual concept
 
