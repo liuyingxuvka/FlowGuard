@@ -1,31 +1,31 @@
-# AGENTS.md Snippet: Model-First Function Flow
+# AGENTS.md Snippet: Global FlowGuard Skill Routing
 
 Copy this compact section into another repository's `AGENTS.md`.
 
 ```markdown
-## Model-first function flow
+## Global FlowGuard skill routing
 
-For coding, repository, process-design work, structured writing/argument, and
-decision/planning work, first make a lightweight FlowGuard applicability
-decision: `use_flowguard`, `skip_with_reason`, or `needs_human_review`.
+For coding, repository, process-design, structured writing/argument,
+decision/planning, documentation, prompt, skill, release, archive, publish, and
+software-maintenance work, first make a lightweight FlowGuard routing decision:
+`use_direct_flowguard_skill`, `use_model_first_kernel`, `skip_with_reason`, or
+`needs_human_review`.
 
-Use FlowGuard before non-trivial work involving behavior, workflows, state,
-module boundaries, retries, deduplication, idempotency, caching, side effects,
-production conformance, repeated bugs, model-test coverage alignment, optional
-external code contract coverage, multiple local FlowGuard models, large test
-scripts/suites, slow or layered validation evidence, large script/module
-splits, public entrypoint compatibility, non-trivial staged development or
-modification with validation, development lifecycle evidence freshness, UI
-interaction topology, app-level launch-to-terminal UI journey
-coverage, implemented/runnable UI click-through evidence alignment, screen or
-region ownership, navigation state, component event flow,
-visible UI state transitions, UI information display ownership, duplicate UI
-information, overlapping same-level controls, validation/error states,
-parent/child UI structure derived from modeled user interactions, UI text
-hierarchy blueprint ownership for headings, labels, action text, status/helper
-messages, and error/recovery copy slots,
-meaningful process side effects, argument prerequisites, or decision
-commitments.
+Use `use_direct_flowguard_skill` when the task clearly matches a directly
+installed FlowGuard satellite skill. Treat installed FlowGuard skills as peer
+routes: route clear staged-development, UI, structure, test, mesh, alignment,
+or model-miss work directly to the matching satellite skill.
+
+Use `use_model_first_kernel` when the task needs ordinary behavior/state
+modeling, the correct FlowGuard route is unclear, multiple FlowGuard routes
+must be coordinated, or a small core model is needed before narrowing to a
+satellite route.
+
+Use `skip_with_reason` only for clearly trivial copy edits, formatting-only
+changes, direct command answers, read-only explanation, or work with no
+behavior/state/process/release impact. If the behavior or process boundary is
+unclear, use `needs_human_review` or narrow the task before deciding whether to
+model.
 
 Hard gates:
 
@@ -38,10 +38,13 @@ Hard gates:
 - Do not replace executable modeling with prose.
 - Do not weaken hard invariants merely to pass checks.
 - Skipped, deferred, stale, or not-run checks are not passes.
-- When prose alone would hide why a non-trivial FlowGuard model matters, an
-  optional user-facing Mermaid diagram or compact flow sketch can explain major
-  states, branches, gates, evidence, claim boundaries, and skipped/not-run gaps;
-  the diagram explains the model and does not count as validation evidence.
+- For non-trivial FlowGuard work, default to a user-facing Mermaid model
+  snapshot during the work once the route or model shape is stable enough to
+  explain. Show major states, branches, gates, evidence, claim boundaries, and
+  skipped/not-run gaps; update the snapshot when the route, model, evidence, or
+  claim boundary materially changes. Tiny, obvious, direct-command,
+  formatting-only, or user-suppressed tasks may stay concise. The diagram
+  explains the model and does not count as validation evidence.
 - Preserve user and peer-agent changes; stale evidence must be rerun or clearly
   bounded.
 - For long background checks, progress is liveness only. Completion requires
@@ -66,7 +69,7 @@ Route map:
 | Long-running model/test/regression checks | `long_check_observability` |
 | FlowGuard framework upgrade or broad benchmark/capability claim | `framework_upgrade` |
 
-Directly invokable FlowGuard satellite skills:
+Directly invokable FlowGuard satellite skills are peer routes:
 
 | Skill | Route |
 | --- | --- |
@@ -79,9 +82,9 @@ Directly invokable FlowGuard satellite skills:
 | `flowguard-test-mesh` | `test_mesh_maintenance` |
 | `flowguard-structure-mesh` | `structure_mesh_maintenance` |
 
-Use a satellite skill directly only when the request clearly matches that
-route. For ambiguous, cross-route, or general FlowGuard applicability work,
-start with `model-first-function-flow`.
+Use the direct FlowGuard satellite skill when the request clearly matches that
+route. For ambiguous, cross-route, or general FlowGuard applicability work, use
+`model-first-function-flow` as the kernel route.
 
 Use the matching Skill reference protocol for support routes. Helper APIs such as
 `RiskIntent`, property factories, packs, `FlowGuardCheckPlan`,

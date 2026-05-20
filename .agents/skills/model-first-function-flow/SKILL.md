@@ -1,6 +1,6 @@
 ---
 name: model-first-function-flow
-description: For coding, repository, process-design work, structured writing/argument, and decision/planning work, first decide whether FlowGuard applies. Use before implementing or changing non-trivial behavior, stateful workflows, non-trivial staged development or modification with validation, repeated bug fixes, module-boundary changes, idempotency-sensitive logic, deduplication logic, caching, retry handling, data-flow changes, UI interaction topology, model-test alignment, multi-model FlowGuard projects that need ModelMesh, slow or layered tests that need TestMesh, large script or module refactors that need StructureMesh, post-runtime model misses, framework upgrades, or any meaningful multi-step process, argument chain, or decision path that needs validation, adjustment, observation, or loss-prevention preflight.
+description: FlowGuard kernel for ordinary behavior/state modeling, unclear FlowGuard route selection, cross-route coordination, and core model-first preflight. Use when no direct FlowGuard satellite skill clearly matches or when multiple FlowGuard routes must be coordinated; route clear staged development, UI, structure, test, mesh, alignment, and model-miss work to the matching FlowGuard satellite skill directly.
 ---
 
 # Model-First Function Flow
@@ -8,6 +8,12 @@ description: For coding, repository, process-design work, structured writing/arg
 This Skill is the **FlowGuard Skill Kernel**. Keep this file as the compact
 router and hard-gate layer. Put detailed procedures in `references/*.md` or in
 the route-specific standalone satellite skills.
+
+Installed FlowGuard satellite skills are peer routes. When one direct
+satellite route clearly matches the task, use that satellite skill directly.
+Use this kernel for ordinary behavior/state modeling, unclear route selection,
+cross-route coordination, or core model work before a more specific route is
+known.
 
 For repository, coding, process-design, structured writing/argument, and
 decision/planning work, first make a lightweight applicability decision:
@@ -43,6 +49,11 @@ unclear, narrow the task or mark `needs_human_review`.
   workflow. Planner handoffs are optional context, not prerequisites.
 - Represent each modeled block as `Input x State -> Set(Output x State)`.
 - Do not replace executable modeling with prose.
+- For non-trivial FlowGuard work, default to a user-facing Mermaid model
+  snapshot once the route or model shape is stable enough to explain; tiny,
+  obvious, direct-command, formatting-only, or user-suppressed tasks may stay
+  concise. Diagrams explain, not validate; they do not count as validation
+  evidence.
 - Do not weaken hard invariants merely to pass checks.
 - Skipped, deferred, stale, or not-run checks must stay visible. Skipped is not
   pass.
@@ -124,8 +135,10 @@ Classify the main lens when using FlowGuard:
     confidence.
 11. Run the strongest practical model, replay, test, or manual validation for
     the touched boundary.
-12. Update adoption evidence with commands, findings, skipped checks, residual risk, next actions, and, when prose alone would hide model value, an optional user-facing Mermaid diagram or flow sketch showing major states, branches, gates, evidence, claim boundaries, and skipped/not-run gaps; diagrams
-    explain, not validate.
+12. Update the user-facing model snapshot when route choice, branch coverage,
+    evidence status, or claim boundaries materially change.
+13. Update adoption evidence with commands, findings, skipped checks, residual
+    risk, next actions, and the visible model boundary; diagrams explain, not validate.
 
 ## Helper APIs Are Not Sub-Skills
 
@@ -163,50 +176,27 @@ The directly invokable satellite skills are:
 `flowguard-model-test-alignment`, `flowguard-development-process-flow`,
 `flowguard-model-miss-review`, `flowguard-code-structure-recommendation`,
 `flowguard-ui-flow-structure`, `flowguard-model-mesh`, `flowguard-test-mesh`,
-and `flowguard-structure-mesh`. Use them directly only when the user's request
-clearly matches that route; otherwise start here in the kernel.
+and `flowguard-structure-mesh`. Use the matching satellite directly when the
+user's request clearly matches that route; otherwise use this kernel.
 
 ## Resource Map
 
-- `references/skill_kernel_protocol.md`: ownership map for this kernel and its
-  sub-protocols.
-- `references/modeling_protocol.md`: core modeling protocol, flow lenses,
-  Risk Intent, state write inventory, invariants, Explorer, and CheckPlan.
-- `references/code_structure_recommendation_protocol.md`: model-derived
-  implementation structure recommendation, ownership maps, facades, and
-  validation boundaries.
-- `flowguard-ui-flow-structure`: directly invokable route for building a UI
-  interaction model first, deriving parent/child UI topology, menu levels,
-  overlays, stable control placement, and interface hierarchy, then deriving a
-  UI text hierarchy blueprint for headings, labels, action text, state/status
-  messages, helper text, and error/recovery copy slots; implemented/runnable UI
-  claims add feature-contract and browser/desktop/manual click-through evidence.
-- `references/model_test_alignment_protocol.md`: direct model-obligation,
-  optional code external contract, and ordinary test-evidence alignment without
-  TestMesh, StructureMesh, or ModelMesh.
-- `references/model_mesh_protocol.md`: ModelMesh trigger, evidence tiers,
-  required hazards, prompt template, and completion standard.
-- `references/test_mesh_protocol.md`: TestMesh test-hierarchy trigger,
-  parent/child partition, evidence checklist, prompt template, and
-  routine/release standard.
-- `references/structure_mesh_protocol.md`: StructureMesh trigger, ownership,
-  facade, public entrypoint, dependency, config, parity, and release standard.
-- `references/development_process_flow_protocol.md`: staged development lifecycle
-  ordering, artifact overwrite, validation freshness, and revalidation standard.
-- `references/model_miss_protocol.md`: post-runtime model-miss handling.
-- `references/conformance_adoption_protocol.md`: conformance replay, install
-  sync, shadow workspace sync, release sync, and adoption evidence.
-- `references/long_check_protocol.md`: background log artifact contract.
-- `references/framework_upgrade_protocol.md`: FlowGuard self-upgrade and broad
-  capability-claim validation.
-- `references/project_integration.md`: connecting the real package in another
-  repository.
-- `references/invariant_examples.md`: invariant patterns.
-- `references/adoption_protocol.md`: legacy adoption logging reference.
-- `assets/model_template/model.py` and `assets/model_template/run_checks.py`:
-  minimal model starter.
-- `assets/toolchain_preflight.py`: standard-library helper for locating or
-  connecting the local FlowGuard toolchain.
+- Kernel and core modeling: `references/skill_kernel_protocol.md`,
+  `references/modeling_protocol.md`, `references/invariant_examples.md`, and
+  `references/adoption_protocol.md`.
+- Direct route references: `references/code_structure_recommendation_protocol.md`,
+  `flowguard-ui-flow-structure`, `references/model_test_alignment_protocol.md`,
+  `references/model_mesh_protocol.md`, `references/test_mesh_protocol.md`,
+  `references/structure_mesh_protocol.md`,
+  `references/development_process_flow_protocol.md`, and
+  `references/model_miss_protocol.md`.
+- Validation and integration references:
+  `references/conformance_adoption_protocol.md`,
+  `references/long_check_protocol.md`,
+  `references/framework_upgrade_protocol.md`, and
+  `references/project_integration.md`.
+- Starter assets: `assets/model_template/model.py`,
+  `assets/model_template/run_checks.py`, and `assets/toolchain_preflight.py`.
 
 ## Constraints
 

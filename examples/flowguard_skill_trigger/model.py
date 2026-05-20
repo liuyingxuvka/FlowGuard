@@ -44,7 +44,31 @@ RISK_FLAGS = {
     "many_flowguard_models",
     "cross_model_evidence",
     "stale_model_result",
+    "staged_validation",
+    "validation_freshness",
+    "release_confidence",
+    "model_test_alignment",
+    "test_mesh",
+    "stale_validation",
+    "structure_mesh",
+    "public_api_split",
+    "code_structure",
+    "model_miss",
+    "runtime_after_pass",
 }
+
+DIRECT_SKILL_BY_ROUTE = {
+    "code_structure_recommendation": "flowguard-code-structure-recommendation",
+    "ui_flow_structure": "flowguard-ui-flow-structure",
+    "model_test_alignment": "flowguard-model-test-alignment",
+    "model_mesh_maintenance": "flowguard-model-mesh",
+    "test_mesh_maintenance": "flowguard-test-mesh",
+    "structure_mesh_maintenance": "flowguard-structure-mesh",
+    "development_process_flow": "flowguard-development-process-flow",
+    "model_miss_review": "flowguard-model-miss-review",
+}
+
+FLOWGUARD_ROUTE_ACTIONS = {"use_direct_flowguard_skill", "use_model_first_kernel"}
 
 
 @dataclass(frozen=True)
@@ -69,6 +93,7 @@ class SkillTriggerDecision:
     action: str
     required_checks: tuple[str, ...]
     reason: str
+    selected_skill: str = ""
 
 
 @dataclass(frozen=True)
@@ -164,6 +189,11 @@ def requires_flowguard(task: TaskDescription | TaskFact) -> bool:
         "structured_argument",
         "decision_plan",
         "model_maintenance",
+        "process_change",
+        "test_alignment",
+        "validation_maintenance",
+        "structure_refactor",
+        "model_miss",
     }:
         return True
     return bool(set(task.risk_flags) & RISK_FLAGS)
@@ -190,7 +220,46 @@ def required_checks_for(task: TaskDescription | TaskFact) -> tuple[str, ...]:
         checks.append("ui_flow_structure")
     if flags & {"many_flowguard_models", "cross_model_evidence", "stale_model_result"}:
         checks.append("model_mesh")
+    if flags & {"staged_validation", "validation_freshness", "release_confidence"}:
+        checks.append("development_process_flow")
+    if flags & {"model_test_alignment"}:
+        checks.append("model_test_alignment")
+    if flags & {"test_mesh", "stale_validation"}:
+        checks.append("test_mesh")
+    if flags & {"structure_mesh", "public_api_split"}:
+        checks.append("structure_mesh")
+    if flags & {"code_structure"}:
+        checks.append("code_structure_recommendation")
+    if flags & {"model_miss", "runtime_after_pass"}:
+        checks.append("model_miss_review")
     return tuple(dict.fromkeys(checks))
+
+
+def direct_route_for(task: TaskDescription | TaskFact | None) -> str:
+    if task is None:
+        return ""
+    flags = set(task.risk_flags)
+    if task.kind == "major_architecture" or flags & {"code_structure", "module_boundary", "migration"}:
+        return "code_structure_recommendation"
+    if flags & {"ui_state_flow", "ui_display_redundancy", "ui_control_overlap"}:
+        return "ui_flow_structure"
+    if flags & {"model_test_alignment"}:
+        return "model_test_alignment"
+    if flags & {"many_flowguard_models", "cross_model_evidence", "stale_model_result"}:
+        return "model_mesh_maintenance"
+    if flags & {"test_mesh", "stale_validation"}:
+        return "test_mesh_maintenance"
+    if flags & {"structure_mesh", "public_api_split"}:
+        return "structure_mesh_maintenance"
+    if flags & {"staged_validation", "validation_freshness", "release_confidence"}:
+        return "development_process_flow"
+    if flags & {"model_miss", "runtime_after_pass"}:
+        return "model_miss_review"
+    return ""
+
+
+def direct_skill_for(task: TaskDescription | TaskFact | None) -> str:
+    return DIRECT_SKILL_BY_ROUTE.get(direct_route_for(task), "")
 
 
 class ClassifyTaskRisk:
@@ -248,13 +317,26 @@ class DecideSkillTrigger:
 
     def apply(self, input_obj: RiskAssessment, state: State) -> Iterable[FunctionResult]:
         if input_obj.decision == "flowguard_required":
-            decision = SkillTriggerDecision(
-                input_obj.task_id,
-                "trigger_skill",
-                input_obj.required_checks,
-                "model-first-function-flow must run before production edits",
-            )
-            label = "skill_triggered"
+            fact = state.fact_for(input_obj.task_id)
+            selected_skill = direct_skill_for(fact)
+            if selected_skill:
+                decision = SkillTriggerDecision(
+                    input_obj.task_id,
+                    "use_direct_flowguard_skill",
+                    input_obj.required_checks,
+                    f"{selected_skill} selected as the clear FlowGuard satellite route",
+                    selected_skill,
+                )
+                label = "direct_satellite_selected"
+            else:
+                decision = SkillTriggerDecision(
+                    input_obj.task_id,
+                    "use_model_first_kernel",
+                    input_obj.required_checks,
+                    "model-first-function-flow selected for ordinary behavior/state modeling or route coordination",
+                    "model-first-function-flow",
+                )
+                label = "kernel_route_selected"
         elif input_obj.decision == "needs_human_review":
             decision = SkillTriggerDecision(
                 input_obj.task_id,
@@ -289,7 +371,7 @@ class RunModelFirstAction:
     accepted_input_type = SkillTriggerDecision
 
     def apply(self, input_obj: SkillTriggerDecision, state: State) -> Iterable[FunctionResult]:
-        if input_obj.action == "trigger_skill":
+        if input_obj.action in FLOWGUARD_ROUTE_ACTIONS:
             action = ModelFirstAction(
                 input_obj.task_id,
                 True,
@@ -297,7 +379,7 @@ class RunModelFirstAction:
                 "completed",
                 "",
             )
-            label = "model_first_completed"
+            label = "flowguard_route_completed"
             reason = "required FlowGuard checks ran"
         elif input_obj.action == "needs_human_review":
             action = ModelFirstAction(
@@ -307,7 +389,7 @@ class RunModelFirstAction:
                 "blocked",
                 input_obj.reason,
             )
-            label = "model_first_needs_human_review"
+            label = "flowguard_route_needs_human_review"
             reason = "scope must be clarified before validation can count"
         else:
             action = ModelFirstAction(
@@ -317,7 +399,7 @@ class RunModelFirstAction:
                 "skipped_with_reason",
                 input_obj.reason,
             )
-            label = "model_first_skipped_with_reason"
+            label = "flowguard_skipped_with_reason"
             reason = "valid skip recorded"
         yield FunctionResult(action, state.with_action(action), label=label, reason=reason)
 
@@ -375,7 +457,7 @@ class BrokenRunMissingConformance(RunModelFirstAction):
     name = "RunModelFirstAction"
 
     def apply(self, input_obj: SkillTriggerDecision, state: State) -> Iterable[FunctionResult]:
-        if input_obj.action == "trigger_skill":
+        if input_obj.action in FLOWGUARD_ROUTE_ACTIONS:
             checks = tuple(check for check in input_obj.required_checks if check != "conformance")
             action = ModelFirstAction(input_obj.task_id, True, checks, "completed", "")
             yield FunctionResult(
@@ -392,7 +474,7 @@ class BrokenRunMissingModelMesh(RunModelFirstAction):
     name = "RunModelFirstAction"
 
     def apply(self, input_obj: SkillTriggerDecision, state: State) -> Iterable[FunctionResult]:
-        if input_obj.action == "trigger_skill":
+        if input_obj.action in FLOWGUARD_ROUTE_ACTIONS:
             checks = tuple(check for check in input_obj.required_checks if check != "model_mesh")
             action = ModelFirstAction(input_obj.task_id, True, checks, "completed", "")
             yield FunctionResult(
@@ -459,7 +541,7 @@ def risky_tasks_must_trigger_skill() -> Invariant:
                 continue
             if requires_flowguard(fact):
                 decision = state.decision_for(fact.task_id)
-                if decision is None or decision.action != "trigger_skill":
+                if decision is None or decision.action not in FLOWGUARD_ROUTE_ACTIONS:
                     bad.append(fact.task_id)
         if bad:
             return InvariantResult.fail(f"risky tasks did not trigger Skill: {tuple(bad)!r}")
@@ -467,7 +549,7 @@ def risky_tasks_must_trigger_skill() -> Invariant:
 
     return Invariant(
         "risky_tasks_must_trigger_skill",
-        "Risky behavior/state/workflow/argument/decision tasks must trigger model-first-function-flow.",
+        "Risky behavior/state/workflow/argument/decision tasks must select a FlowGuard route.",
         predicate,
     )
 
@@ -478,7 +560,7 @@ def trivial_tasks_should_not_overtrigger() -> Invariant:
         for fact in state.task_facts:
             if not requires_flowguard(fact) and not needs_human_review(fact):
                 decision = state.decision_for(fact.task_id)
-                if decision is not None and decision.action == "trigger_skill":
+                if decision is not None and decision.action in FLOWGUARD_ROUTE_ACTIONS | {"trigger_skill"}:
                     bad.append(fact.task_id)
         if bad:
             return InvariantResult.fail(f"trivial tasks over-triggered FlowGuard: {tuple(bad)!r}")
@@ -514,7 +596,7 @@ def required_checks_must_run() -> Invariant:
     def predicate(state: State, _trace: object) -> InvariantResult:
         bad = []
         for decision in state.decisions:
-            if decision.action != "trigger_skill":
+            if decision.action not in FLOWGUARD_ROUTE_ACTIONS:
                 continue
             action = state.action_for(decision.task_id)
             observed = set(action.checks_run if action else ())
@@ -528,6 +610,33 @@ def required_checks_must_run() -> Invariant:
     return Invariant(
         "required_checks_must_run",
         "Triggered tasks must run the checks implied by their risk flags.",
+        predicate,
+    )
+
+
+def direct_routes_select_matching_skill() -> Invariant:
+    def predicate(state: State, _trace: object) -> InvariantResult:
+        bad = []
+        for fact in state.task_facts:
+            if needs_human_review(fact) or not requires_flowguard(fact):
+                continue
+            expected = direct_skill_for(fact)
+            if not expected:
+                continue
+            decision = state.decision_for(fact.task_id)
+            if (
+                decision is None
+                or decision.action != "use_direct_flowguard_skill"
+                or decision.selected_skill != expected
+            ):
+                bad.append((fact.task_id, expected, decision.selected_skill if decision else ""))
+        if bad:
+            return InvariantResult.fail(f"direct routes did not select matching skills: {tuple(bad)!r}")
+        return InvariantResult.pass_()
+
+    return Invariant(
+        "direct_routes_select_matching_skill",
+        "Clear satellite-route tasks must select the matching FlowGuard skill directly.",
         predicate,
     )
 
@@ -569,6 +678,7 @@ INVARIANTS = (
     trivial_tasks_should_not_overtrigger(),
     ambiguous_tasks_need_human_review(),
     required_checks_must_run(),
+    direct_routes_select_matching_skill(),
     skip_requires_reason(),
     final_evidence_must_not_be_in_progress(),
 )
@@ -615,6 +725,31 @@ TASK_MULTI_MODEL = TaskDescription(
     "model_maintenance",
     ("many_flowguard_models", "cross_model_evidence", "stale_model_result"),
     production_code_exists=True,
+)
+TASK_PROCESS = TaskDescription(
+    "release-process-flow",
+    "process_change",
+    ("staged_validation", "validation_freshness", "release_confidence"),
+)
+TASK_ALIGNMENT = TaskDescription(
+    "model-test-alignment",
+    "test_alignment",
+    ("model_test_alignment",),
+)
+TASK_TEST_MESH = TaskDescription(
+    "slow-test-mesh",
+    "validation_maintenance",
+    ("test_mesh", "stale_validation"),
+)
+TASK_STRUCTURE_MESH = TaskDescription(
+    "large-structure-refactor",
+    "structure_refactor",
+    ("structure_mesh", "public_api_split"),
+)
+TASK_MODEL_MISS = TaskDescription(
+    "post-runtime-model-miss",
+    "model_miss",
+    ("model_miss", "runtime_after_pass"),
 )
 
 
@@ -675,7 +810,7 @@ def skill_trigger_scenarios() -> tuple[Scenario, ...]:
             TASK_ARCHITECTURE,
             _expect_ok(
                 "OK; architecture task triggers Skill and runs scenario/conformance/contract",
-                labels=("risk_requires_flowguard", "skill_triggered", "model_first_completed"),
+                labels=("risk_requires_flowguard", "direct_satellite_selected", "flowguard_route_completed"),
             ),
         ),
         scenario(
@@ -684,7 +819,7 @@ def skill_trigger_scenarios() -> tuple[Scenario, ...]:
             TASK_UI_STATE,
             _expect_ok(
                 "OK; UI state workflow triggers Skill and includes UI flow structure",
-                labels=("risk_requires_flowguard", "skill_triggered", "model_first_completed"),
+                labels=("risk_requires_flowguard", "direct_satellite_selected", "flowguard_route_completed"),
             ),
         ),
         scenario(
@@ -693,7 +828,7 @@ def skill_trigger_scenarios() -> tuple[Scenario, ...]:
             TASK_DOCS,
             _expect_ok(
                 "OK; trivial docs skip with reason",
-                labels=("risk_skip_allowed", "skill_skipped_with_reason", "model_first_skipped_with_reason"),
+                labels=("risk_skip_allowed", "skill_skipped_with_reason", "flowguard_skipped_with_reason"),
             ),
         ),
         scenario(
@@ -721,7 +856,7 @@ def skill_trigger_scenarios() -> tuple[Scenario, ...]:
             TASK_ARGUMENT,
             _expect_ok(
                 "OK; argument flow triggers Skill and runs scenario review",
-                labels=("risk_requires_flowguard", "skill_triggered", "model_first_completed"),
+                labels=("risk_requires_flowguard", "kernel_route_selected", "flowguard_route_completed"),
             ),
         ),
         scenario(
@@ -730,7 +865,7 @@ def skill_trigger_scenarios() -> tuple[Scenario, ...]:
             TASK_DECISION,
             _expect_ok(
                 "OK; decision flow triggers Skill and runs scenario review",
-                labels=("risk_requires_flowguard", "skill_triggered", "model_first_completed"),
+                labels=("risk_requires_flowguard", "kernel_route_selected", "flowguard_route_completed"),
             ),
         ),
         scenario(
@@ -739,7 +874,52 @@ def skill_trigger_scenarios() -> tuple[Scenario, ...]:
             TASK_MULTI_MODEL,
             _expect_ok(
                 "OK; multi-model project triggers Skill and runs model mesh",
-                labels=("risk_requires_flowguard", "skill_triggered", "model_first_completed"),
+                labels=("risk_requires_flowguard", "direct_satellite_selected", "flowguard_route_completed"),
+            ),
+        ),
+        scenario(
+            "STS09_process_flow_routes_directly",
+            "Staged validation and release-confidence work should use DevelopmentProcessFlow.",
+            TASK_PROCESS,
+            _expect_ok(
+                "OK; staged process work selects DevelopmentProcessFlow",
+                labels=("risk_requires_flowguard", "direct_satellite_selected", "flowguard_route_completed"),
+            ),
+        ),
+        scenario(
+            "STS10_model_test_alignment_routes_directly",
+            "Model obligations and test evidence should use Model-Test Alignment.",
+            TASK_ALIGNMENT,
+            _expect_ok(
+                "OK; model-test alignment selects the alignment satellite",
+                labels=("risk_requires_flowguard", "direct_satellite_selected", "flowguard_route_completed"),
+            ),
+        ),
+        scenario(
+            "STS11_test_mesh_routes_directly",
+            "Large or stale validation evidence should use TestMesh.",
+            TASK_TEST_MESH,
+            _expect_ok(
+                "OK; test hierarchy work selects TestMesh",
+                labels=("risk_requires_flowguard", "direct_satellite_selected", "flowguard_route_completed"),
+            ),
+        ),
+        scenario(
+            "STS12_structure_mesh_routes_directly",
+            "Large public API refactors should use StructureMesh.",
+            TASK_STRUCTURE_MESH,
+            _expect_ok(
+                "OK; structure refactor work selects StructureMesh",
+                labels=("risk_requires_flowguard", "direct_satellite_selected", "flowguard_route_completed"),
+            ),
+        ),
+        scenario(
+            "STS13_model_miss_routes_directly",
+            "Runtime failures after a model pass should use Model-Miss Review.",
+            TASK_MODEL_MISS,
+            _expect_ok(
+                "OK; model miss work selects Model-Miss Review",
+                labels=("risk_requires_flowguard", "direct_satellite_selected", "flowguard_route_completed"),
             ),
         ),
         scenario(

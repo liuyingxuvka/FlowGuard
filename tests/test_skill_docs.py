@@ -215,20 +215,52 @@ class SkillDocsTests(unittest.TestCase):
 
     def test_user_facing_diagram_guidance_is_lightweight(self):
         skills_root = ROOT / ".agents" / "skills"
-        kernel = (skills_root / "model-first-function-flow" / "SKILL.md").read_text(encoding="utf-8")
-        ui = (skills_root / "flowguard-ui-flow-structure" / "SKILL.md").read_text(encoding="utf-8")
-        mesh = (skills_root / "flowguard-model-mesh" / "SKILL.md").read_text(encoding="utf-8")
-        process = (skills_root / "flowguard-development-process-flow" / "SKILL.md").read_text(encoding="utf-8")
-        combined = "\n".join((kernel, ui, mesh, process))
+        skill_texts = {
+            skill_root.name: (skill_root / "SKILL.md").read_text(encoding="utf-8")
+            for skill_root in sorted(skills_root.iterdir())
+            if skill_root.is_dir()
+        }
+        kernel = skill_texts["model-first-function-flow"]
+        combined = "\n".join(skill_texts.values())
 
-        self.assertIn("optional user-facing Mermaid diagram", combined)
+        self.assertIn("default to a user-facing Mermaid", combined)
+        self.assertIn("during the work", (ROOT / "docs" / "agents_snippet.md").read_text(encoding="utf-8"))
+        self.assertIn("tiny", combined)
         self.assertIn("explain, not validate", kernel)
-        self.assertIn("does not replace the executable reviews", ui)
-        self.assertIn("what the mesh does or does not prove", mesh)
-        self.assertIn("does not count as validation", process)
-        self.assertIn("major states, branches, gates, evidence, claim boundaries", kernel)
+        self.assertIn("does not count as validation", combined)
+        self.assertIn("validation evidence", combined)
+        self.assertIn("major states, branches, gates, evidence, claim boundaries", (ROOT / "docs" / "agents_snippet.md").read_text(encoding="utf-8"))
+        route_expectations = {
+            "flowguard-code-structure-recommendation": ("FunctionBlock-to-module", "validation boundaries"),
+            "flowguard-development-process-flow": ("artifact versions", "minimum revalidation"),
+            "flowguard-model-mesh": ("what the mesh does or does not prove", "evidence tiers/freshness"),
+            "flowguard-model-miss-review": ("observed failure", "same-class generalized bad case"),
+            "flowguard-model-test-alignment": ("model obligations", "test evidence"),
+            "flowguard-structure-mesh": ("public entrypoints", "facades"),
+            "flowguard-test-mesh": ("parent gates", "evidence status"),
+            "flowguard-ui-flow-structure": ("visible-control branches", "residual blindspots"),
+        }
+        for skill_name, phrases in route_expectations.items():
+            with self.subTest(skill=skill_name):
+                for phrase in phrases:
+                    self.assertIn(phrase, skill_texts[skill_name])
         self.assertNotIn("must include a diagram", combined.lower())
         self.assertNotIn("diagram is validation", combined.lower())
+        self.assertNotIn("tiny tasks must", combined.lower())
+
+    def test_global_flowguard_routing_prefers_direct_satellites(self):
+        kernel = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
+        snippet = (ROOT / "docs" / "agents_snippet.md").read_text(encoding="utf-8")
+        combined = "\n".join((kernel, snippet))
+
+        self.assertIn("use_direct_flowguard_skill", snippet)
+        self.assertIn("use_model_first_kernel", snippet)
+        self.assertIn("peer routes", combined)
+        self.assertIn("matching satellite directly", combined)
+        self.assertIn("model-first-function-flow", combined)
+        self.assertIn("ordinary behavior/state modeling", combined)
+        self.assertIn("unclear route selection", combined)
+        self.assertIn("cross-route coordination", combined)
 
     def test_core_modeling_protocol_keeps_state_inventory_and_mesh_links(self):
         text = (ROOT / "docs" / "modeling_protocol.md").read_text(encoding="utf-8")

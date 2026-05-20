@@ -12,7 +12,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.18.3` | `1.0` | Python standard library only | MIT |
+| `v0.18.4` | `1.0` | Python standard library only | MIT |
 
 English lead content comes first; a Chinese mirror follows below.
 
@@ -77,11 +77,13 @@ FlowGuard gives those weak spots a small executable shape before the action beco
 | DevelopmentProcessFlow | Checks staged development flow, lifecycle ordering, artifact overwrite, validation freshness, minimum revalidation, archive readiness, and release confidence |
 | Model-Miss Review | After a runtime failure, classifies what the model missed and adds a generalized same-class bad case before closure |
 
-When a non-trivial model would be hard to understand from prose alone,
-FlowGuard skill guidance now encourages an optional user-facing Mermaid diagram
-or compact flow sketch. The diagram can show major states, branches, gates,
-evidence, and claim boundaries, but it is explanation only; executable checks
-remain the source of validation.
+For non-trivial FlowGuard work, skill guidance now defaults to a user-facing
+Mermaid model snapshot during the work once the route or model shape is stable
+enough to explain. The diagram can show major states, branches, gates,
+evidence, skipped/not-run gaps, and claim boundaries, and it should be updated
+when the model boundary materially changes. Tiny or user-suppressed tasks may
+stay concise. Diagrams are explanation only; executable checks remain the
+source of validation.
 
 ## Typical Workflow
 
@@ -195,11 +197,11 @@ print(report.format_text())
 
 ## Skill Architecture
 
-FlowGuard has one kernel idea and several focused satellites. The kernel asks whether model-first reasoning applies, then routes the work to a narrower model when needed:
+FlowGuard has one kernel and several peer satellite skills. Clear staged-development, UI, structure, test, mesh, alignment, or model-miss work should route directly to the matching satellite; `model-first-function-flow` remains the kernel for ordinary behavior/state modeling, unclear route selection, and cross-route coordination:
 
 | Skill route | Use it when |
 | --- | --- |
-| `model-first-function-flow` | A task touches behavior, state, retries, idempotency, caching, queues, side effects, or module boundaries |
+| `model-first-function-flow` | Ordinary behavior/state modeling, unclear FlowGuard route selection, cross-route coordination, or core model work before a narrower route is known |
 | `flowguard-model-test-alignment` | Model obligations and test evidence need a direct comparison |
 | `flowguard-model-mesh` | A project has multiple local models, child evidence, or oversized model surfaces |
 | `flowguard-test-mesh` | Test evidence is layered, slow, stale, skipped, release-only, or split across child suites |
@@ -322,9 +324,11 @@ FlowGuard 给这些薄弱点一个小而可执行的结构。
 | DevelopmentProcessFlow | 检查分阶段开发流程、生命周期顺序、artifact 覆盖、验证新鲜度、最小重验证、archive readiness 和 release confidence |
 | Model-Miss Review | 当运行时失败发生在 FlowGuard 通过之后，分类模型漏了什么，并补一个同类坏 case |
 
-当非平凡模型只靠文字不容易讲清楚时，FlowGuard skill guidance 现在会鼓励
-可选地使用面向用户的 Mermaid 图或简短流程图。图可以展示主要状态、分支、
-gate、证据和结论边界，但它只是解释层；真正的验证仍然来自可执行检查。
+对于非平凡的 FlowGuard 工作，skill guidance 现在默认在工作过程中给用户
+展示 Mermaid 模型快照，只要路线或模型形状已经稳定到足以解释。图可以展示
+主要状态、分支、gate、证据、skipped/not-run 缺口和结论边界；当模型边界发生
+实质变化时应该更新。很小的任务或用户明确不想看图时可以保持简洁。图只是
+解释层；真正的验证仍然来自可执行检查。
 
 ## 典型流程
 
@@ -368,11 +372,11 @@ python examples/job_matching/run_checks.py
 
 ## Skill 架构
 
-FlowGuard 有一个 kernel 思路和多个 satellite route。Kernel 先判断是否需要 model-first，再把任务路由到更窄的模型：
+FlowGuard 有一个 kernel 和多个同级 satellite skill。明确属于分阶段开发、UI、结构、测试、mesh、alignment 或 model-miss 的工作，应直接进入对应 satellite；`model-first-function-flow` 保留为普通行为/状态建模、路线不清楚、跨路线协调或先做核心模型时的 kernel：
 
 | Skill route | 适用场景 |
 | --- | --- |
-| `model-first-function-flow` | 任务涉及行为、状态、retry、idempotency、cache、queue、side effect 或 module boundary |
+| `model-first-function-flow` | 普通行为/状态建模、FlowGuard 路线不清楚、跨路线协调，或在更窄路线明确前先做核心模型 |
 | `flowguard-model-test-alignment` | 需要对照模型义务和测试证据 |
 | `flowguard-model-mesh` | 项目有多个本地模型、子证据或过大的模型表面 |
 | `flowguard-test-mesh` | 测试证据分层、很慢、过期、被 skip、只在 release 跑，或分布在子套件 |

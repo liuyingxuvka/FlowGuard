@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.18.4 - 2026-05-20
+
+- Strengthened user-facing FlowGuard model visibility: non-trivial FlowGuard
+  work now defaults to a Mermaid model snapshot during the work once the route
+  or model shape is stable enough to explain.
+- Extended route-specific diagram guidance across all installed FlowGuard
+  satellite skills, while preserving concise output for tiny, obvious,
+  direct-command, formatting-only, or user-suppressed tasks.
+- Standardized global FlowGuard routing so clear staged-development, UI,
+  structure, test, mesh, alignment, and model-miss work can select direct
+  satellite skills instead of treating the model-first kernel as a universal
+  first stop.
+- Added OpenSpec artifacts and a local FlowGuard prompt-behavior model for the
+  visibility rollout; diagrams remain explanation aids and do not count as
+  validation evidence.
+- Schema remains `1.0`; runtime dependencies and public Python APIs are
+  unchanged.
+
 ## v0.18.3 - 2026-05-19
 
 - Added lightweight user-facing Mermaid diagram guidance to the FlowGuard skill

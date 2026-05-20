@@ -35,6 +35,10 @@ mostly core modeling rather than alignment.
    `review_model_test_alignment(...)`.
 6. Inspect missing, stale, unknown, or overclaimed coverage. Fix the model,
    code contracts, tests, or evidence rows before claiming alignment.
+7. For non-trivial alignment reviews, default to a user-facing Mermaid diagram
+   showing model obligations, optional code contracts, test evidence, and
+   missing/stale/overclaimed gaps. Tiny evidence checks may stay concise. The
+   diagram explains alignment and does not count as test or validation evidence.
 
 ## Owned Helpers
 
