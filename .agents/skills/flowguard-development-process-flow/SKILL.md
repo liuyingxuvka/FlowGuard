@@ -44,11 +44,12 @@ change.
    supervise sibling route internals.
 6. Before done/release/archive/publish, verify the final evidence is current
    for the final artifact set.
-7. For non-trivial lifecycle reviews, default to a user-facing Mermaid process
-   diagram showing artifact versions, action writes/invalidations, evidence
-   ids, freshness gates, minimum revalidation, and unsupported claims. Tiny
-   single-step work may stay concise. The diagram explains the process model
-   and does not count as validation.
+7. For non-trivial lifecycle reviews, default to a user-facing Mermaid
+   development process diagram showing artifact versions, action writes/invalidations,
+   evidence ids, freshness gates, minimum revalidation, and unsupported claims.
+   This diagram's edges mean order, invalidation, or required revalidation, not
+   product behavior. Tiny single-step work may stay concise. The diagram
+   explains the process model and does not count as validation.
 
 ## Owned Helpers
 

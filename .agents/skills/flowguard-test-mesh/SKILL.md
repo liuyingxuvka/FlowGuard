@@ -33,11 +33,12 @@ when route selection is unclear.
 4. Use `review_test_mesh(...)` or the template to review parent confidence.
 5. Rerun the minimum affected child checks after code, model, prompt, or
    verifier changes.
-6. For non-trivial TestMesh reviews, default to a user-facing Mermaid diagram
-   showing parent gates, child suites/scripts, evidence status,
-   routine/release boundaries, and stale/skipped/progress-only gaps. Tiny
-   validation checks may stay concise. The diagram explains the test mesh and
-   does not replace child evidence or exit artifacts.
+6. For non-trivial TestMesh reviews, default to a user-facing Mermaid
+   validation mesh diagram showing parent gates, child suites/scripts, evidence status,
+   routine/release boundaries, and stale/skipped/progress-only gaps. Its edges
+   mean covers, gates, requires rerun, or stales; they are not product flow.
+   Tiny validation checks may stay concise. The diagram explains the test mesh
+   and does not replace child evidence or exit artifacts.
 
 ## Owned Helpers
 

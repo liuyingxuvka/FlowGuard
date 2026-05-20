@@ -40,11 +40,15 @@ Hard gates:
 - Skipped, deferred, stale, or not-run checks are not passes.
 - For non-trivial FlowGuard work, default to a user-facing Mermaid model
   snapshot during the work once the route or model shape is stable enough to
-  explain. Show major states, branches, gates, evidence, claim boundaries, and
-  skipped/not-run gaps; update the snapshot when the route, model, evidence, or
-  claim boundary materially changes. Tiny, obvious, direct-command,
-  formatting-only, or user-suppressed tasks may stay concise. The diagram
-  explains the model and does not count as validation evidence.
+  explain. Run a FlowGuard diagram intent gate first: choose behavior/state,
+  development process, UI state, model-test coverage, code structure, or mesh
+  semantics from the active route. Show major states, branches, gates, evidence, claim boundaries,
+  and skipped/not-run gaps; update the snapshot when
+  the route, model, evidence, or claim boundary materially changes. Tiny,
+  obvious, direct-command, formatting-only, or user-suppressed tasks may stay
+  concise. The diagram explains the model and does not count as validation
+  evidence. FlowGuard diagram guidance is standalone and must not require
+  LogicGuard or a shared cross-family diagram protocol.
 - Preserve user and peer-agent changes; stale evidence must be rerun or clearly
   bounded.
 - For long background checks, progress is liveness only. Completion requires

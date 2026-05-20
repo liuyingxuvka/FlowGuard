@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.18.5 - 2026-05-20
+
+- Refined FlowGuard diagram guidance so agents choose route-specific diagram
+  semantics before drawing: behavior/state, development process, UI state,
+  model-test coverage, code structure, or mesh.
+- Clarified that FlowGuard diagrams are standalone FlowGuard guidance and do
+  not require LogicGuard or a shared cross-family protocol.
+- Kept diagrams explanatory only; executable checks, evidence freshness, and
+  route-specific validation remain the confidence source.
+
 ## v0.18.4 - 2026-05-20
 
 - Strengthened user-facing FlowGuard model visibility: non-trivial FlowGuard

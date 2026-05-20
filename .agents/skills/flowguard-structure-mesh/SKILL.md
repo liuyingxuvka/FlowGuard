@@ -34,10 +34,12 @@ structure recommendation or when route selection is ambiguous.
 5. Use `review_structure_mesh(...)` or the template before claiming refactor
    confidence.
 6. For non-trivial StructureMesh reviews, default to a user-facing Mermaid
-   diagram showing current public entrypoints, target child modules, facades,
-   dependency direction, config/parity evidence, and release blockers. Tiny
-   structure checks may stay concise. The diagram explains the split and does
-   not replace parity evidence or release sync.
+   structure mesh diagram showing current public entrypoints, target child
+   modules, facades, dependency direction, config/parity evidence, and release
+   blockers. Its edges mean exposes, preserves, adapts, depends, or validates
+   parity; they are not task order. Tiny structure checks may stay concise. The
+   diagram explains the split and does not replace parity evidence or release
+   sync.
 
 ## Owned Helpers
 

@@ -34,10 +34,11 @@ coordination.
 5. Use `review_code_structure_recommendation(...)` where available, then use
    StructureMesh only if the actual refactor is large enough to need it.
 6. For non-trivial structure recommendations, default to a user-facing Mermaid
-   diagram showing FunctionBlock-to-module mapping, facade/adapter boundaries,
-   state and side-effect ownership, and validation boundaries. Tiny advice may
-   stay concise. The diagram explains the recommendation and does not replace
-   review or implementation tests.
+   code structure diagram showing FunctionBlock-to-module mapping,
+   facade/adapter boundaries, state and side-effect ownership, and validation boundaries.
+   Its edges mean owns, calls, adapts, exposes, or validates; they
+   are not lifecycle order. Tiny advice may stay concise. The diagram explains
+   the recommendation and does not replace review or implementation tests.
 
 ## Owned Helpers
 

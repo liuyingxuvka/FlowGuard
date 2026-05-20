@@ -50,10 +50,14 @@ unclear, narrow the task or mark `needs_human_review`.
 - Represent each modeled block as `Input x State -> Set(Output x State)`.
 - Do not replace executable modeling with prose.
 - For non-trivial FlowGuard work, default to a user-facing Mermaid model
-  snapshot once the route or model shape is stable enough to explain; tiny,
+  snapshot once the route or model shape is stable enough to explain. Run a
+  FlowGuard diagram intent gate first: choose behavior/state, development
+  process, UI state, model-test coverage, code structure, or mesh semantics
+  from the active route. Do not flatten these into a generic flowchart. Tiny,
   obvious, direct-command, formatting-only, or user-suppressed tasks may stay
   concise. Diagrams explain, not validate; they do not count as validation
-  evidence.
+  evidence. FlowGuard diagram guidance must remain complete without LogicGuard
+  or a shared cross-family diagram protocol.
 - Do not weaken hard invariants merely to pass checks.
 - Skipped, deferred, stale, or not-run checks must stay visible. Skipped is not
   pass.

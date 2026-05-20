@@ -80,11 +80,12 @@ need coordination.
    UI actions, and residual implementation blindspots. Run
    `review_ui_implementation_validation(...)` when available.
 9. For non-trivial UI models or implementation-evidence reviews, default to a
-   user-facing Mermaid diagram showing launch entries, key UI states,
+   user-facing Mermaid UI state diagram showing launch entries, key UI states,
    visible-control branches, failure/recovery/terminal paths, evidence status,
-   residual blindspots, and claim boundaries. Tiny visual-only checks may stay
-   concise. The diagram explains the model and does not replace the executable
-   reviews.
+   residual blindspots, and claim boundaries. Its edges mean reachable
+   interaction transitions or recovery/cancel/exit branches, not layout
+   containment or code ownership. Tiny visual-only checks may stay concise. The
+   diagram explains the model and does not replace the executable reviews.
 10. Hand the resulting UI structure and text hierarchy contract to frontend,
    Figma, browser, copy/design, or design-review workflows only after the model,
    required journey coverage, derivation, blueprint, and any implementation

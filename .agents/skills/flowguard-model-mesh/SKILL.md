@@ -56,9 +56,11 @@ or when it is unclear whether a mesh is needed.
    helpers.
 9. Record which child evidence ids the parent consumed and which are stale,
    skipped, or release-only.
-10. For non-trivial meshes, default to a user-facing Mermaid diagram showing
-    root entries, child model boundaries, handoffs, evidence tiers/freshness,
-    blockers, and what the mesh does or does not prove. Tiny reviews may stay
+10. For non-trivial meshes, default to a user-facing Mermaid mesh diagram
+    showing root entries, child model boundaries, handoffs, evidence tiers/freshness,
+    blockers, and what the mesh does or does not prove. Its
+    edges mean delegates, reattaches, consumes output, affects sibling, or
+    invalidates evidence; they are not a linear workflow. Tiny reviews may stay
     concise. Do not inline every child model's internals, and do not treat the
     diagram as validation evidence.
 

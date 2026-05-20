@@ -248,6 +248,33 @@ class SkillDocsTests(unittest.TestCase):
         self.assertNotIn("diagram is validation", combined.lower())
         self.assertNotIn("tiny tasks must", combined.lower())
 
+    def test_flowguard_diagrams_use_route_specific_semantics(self):
+        skills_root = ROOT / ".agents" / "skills"
+        skill_texts = {
+            skill_root.name: (skill_root / "SKILL.md").read_text(encoding="utf-8")
+            for skill_root in sorted(skills_root.iterdir())
+            if skill_root.is_dir()
+        }
+        combined = "\n".join(skill_texts.values())
+        snippet = (ROOT / "docs" / "agents_snippet.md").read_text(encoding="utf-8")
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+
+        self.assertIn("FlowGuard diagram intent gate", skill_texts["model-first-function-flow"])
+        self.assertIn("behavior/state", skill_texts["model-first-function-flow"])
+        self.assertIn("development process", combined)
+        self.assertIn("UI state diagram", skill_texts["flowguard-ui-flow-structure"])
+        self.assertIn("coverage", skill_texts["flowguard-model-test-alignment"])
+        self.assertIn("code structure diagram", skill_texts["flowguard-code-structure-recommendation"])
+        self.assertIn("mesh diagram", skill_texts["flowguard-model-mesh"])
+        self.assertIn("validation mesh diagram", skill_texts["flowguard-test-mesh"])
+        self.assertIn("structure mesh diagram", skill_texts["flowguard-structure-mesh"])
+        self.assertIn("miss-repair diagram", skill_texts["flowguard-model-miss-review"])
+        self.assertIn("Do not flatten these into a generic flowchart", skill_texts["model-first-function-flow"])
+        self.assertIn("must remain complete without LogicGuard", skill_texts["model-first-function-flow"])
+        self.assertIn("standalone", snippet)
+        self.assertIn("FlowGuard diagram semantics", readme)
+        self.assertNotIn("shared cross-family diagram protocol", combined.replace("or a shared cross-family diagram protocol", ""))
+
     def test_global_flowguard_routing_prefers_direct_satellites(self):
         kernel = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
         snippet = (ROOT / "docs" / "agents_snippet.md").read_text(encoding="utf-8")

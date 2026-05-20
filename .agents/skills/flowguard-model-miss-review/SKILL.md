@@ -40,10 +40,12 @@ multiple FlowGuard routes.
    parent ModelMesh reattachment gate.
 7. Close only when the corrected model catches the bad case and the relevant
    runtime/test/replay evidence is current.
-8. For non-trivial misses, default to a user-facing Mermaid diagram showing the
-   prior green claim, observed failure, miss classification, model repair,
-   same-class generalized bad case, rerun evidence, and remaining validation
-   boundary. The diagram explains the repair path and does not close the miss.
+8. For non-trivial misses, default to a user-facing Mermaid miss-repair diagram
+   showing the prior green claim, observed failure, miss classification, model
+   repair, same-class generalized bad case, rerun evidence, and remaining
+   validation boundary. Its edges mean missed, repaired, generalized,
+   validated, or still out of scope; they are not a normal success workflow.
+   The diagram explains the repair path and does not close the miss.
 
 ## Owned Helpers
 
