@@ -94,6 +94,11 @@ Modeling helpers reduce boilerplate around common bug classes:
   `CodeStructureRecommendation`, `TargetModuleRecommendation`, and
   `review_code_structure_recommendation()` for recommending implementation
   structure from a FlowGuard functional model before code is written.
+- optional Existing Model Preflight helpers such as `ExistingModelPreflight`,
+  `ModelContextHit`, `ExistingOwnershipSnapshot`, `DuplicateBoundaryRisk`, and
+  `review_existing_model_preflight()` for grounding discussion, proposal, or
+  implementation work in current FlowGuard model ownership before creating a
+  new boundary.
 - optional UI Flow Structure helpers such as `UIInteractionModel`,
   `UIControl`, `UIDisplayElement`, `UIStateNode`, `UITransition`,
   `UIJourneyCoverage`, `UIJourneyEntryPoint`, `UIFeatureJourney`,
@@ -162,6 +167,7 @@ Evidence APIs are used to keep FlowGuard itself honest:
 - pytest/template helpers used by examples and framework validation;
 - public template writers, including `model_test_alignment_template_files()`,
   `code_structure_recommendation_template_files()`,
+  `existing_model_preflight_template_files()`,
   `development_process_flow_template_files()`, `test_mesh_template_files()`,
   and `structure_mesh_template_files()`.
 
@@ -186,7 +192,10 @@ runtime policy and they do not make helper layers mandatory.
 
 Start with the core path when it is enough. Add helpers only when they clarify a
 real risk, reduce repetitive code, or improve reporting honesty. Keep skipped
-checks visible. When model obligations and tests both exist, use Model-Test
+checks visible. In an existing modeled system, use Existing Model Preflight to
+look up current model responsibilities, FunctionBlocks, state owners,
+side-effect owners, and public entrypoints before proposing new ownership or a
+parallel workflow. When model obligations and tests both exist, use Model-Test
 Alignment to compare them directly before claiming coverage agreement; when
 code contracts are supplied, also bind each model obligation to the external
 code surface and require tests to prove that external contract rather than only

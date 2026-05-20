@@ -205,6 +205,16 @@ def _run_development_process_flow_template(args: argparse.Namespace) -> int:
     )
 
 
+def _run_existing_model_preflight_template(args: argparse.Namespace) -> int:
+    from .templates import existing_model_preflight_template_files
+
+    return _run_file_template(
+        args,
+        template_name="existing_model_preflight",
+        files=existing_model_preflight_template_files(),
+    )
+
+
 def _run_test_mesh_template(args: argparse.Namespace) -> int:
     from .templates import test_mesh_template_files
 
@@ -392,6 +402,12 @@ def main(argv: list[str] | None = None) -> int:
         "development-process-flow-template",
         "Print or write the DevelopmentProcessFlow lifecycle freshness template.",
         _run_development_process_flow_template,
+    )
+    _add_file_template_parser(
+        subparsers,
+        "existing-model-preflight-template",
+        "Print or write the existing FlowGuard model preflight template.",
+        _run_existing_model_preflight_template,
     )
     _add_file_template_parser(
         subparsers,

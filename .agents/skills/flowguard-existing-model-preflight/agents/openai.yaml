@@ -1,0 +1,4 @@
+interface:
+  display_name: "FlowGuard Existing Model Preflight"
+  short_description: "Ground changes in existing FlowGuard models"
+  default_prompt: "Use $flowguard-existing-model-preflight to inspect current FlowGuard model ownership before proposing or changing an existing modeled system."

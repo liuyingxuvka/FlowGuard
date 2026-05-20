@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.18.6 - 2026-05-20
+
+- Added validation-failure triage to DevelopmentProcessFlow so failed, stale,
+  oversized, progress-only, or parent/child-sensitive validation is classified
+  before agents keep patching or claim done.
+- Added handoff guidance from DevelopmentProcessFlow to ModelMesh, TestMesh,
+  and Model-Test Alignment for model-too-thick, test-too-thick, model-test
+  mismatch, stale-evidence, and parent/child reattachment cases.
+- Added Existing Model Preflight as a FlowGuard companion route for grounding
+  discussion, proposals, bug fixes, feature work, refactors, prompts, skills,
+  UI, test, and process changes in current FlowGuard model ownership before a
+  new boundary is proposed.
+- Added public helper APIs `ExistingModelPreflight`, `ModelContextHit`,
+  `ExistingOwnershipSnapshot`, `DuplicateBoundaryRisk`, and
+  `review_existing_model_preflight(...)`.
+- Added `python -m flowguard existing-model-preflight-template`, a Codex skill,
+  OpenSpec artifacts, local FlowGuard model checks, README/API docs, and route
+  trigger coverage for the new preflight path.
+- Schema remains `1.0`; runtime dependencies remain Python standard library
+  only.
+
 ## v0.18.5 - 2026-05-20
 
 - Refined FlowGuard diagram guidance so agents choose route-specific diagram

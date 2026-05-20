@@ -42,6 +42,7 @@ The exact file format can stay flexible; these fields are the contract:
 | `state_fields` | Durable state or project facts the plan changes or relies on. | Prevents hidden source-of-truth drift. |
 | `side_effects` | File writes, network calls, publishing, commits, tags, releases, installs, or external actions. | Prevents unchecked irreversible or duplicate effects. |
 | `parallel_ownership` | Which agent or skill owns which path, module, or artifact. | Prevents overlapping edits and lost peer-agent work. |
+| `existing_model_context` | Relevant FlowGuard models, ownership boundaries, and reuse/extend/new-boundary decision when the task touches an existing modeled system. | Prevents a planner or agent from inventing a parallel subsystem before checking the current model map. |
 | `repeat_or_retry_points` | Steps that may run more than once. | Lets FlowGuard check idempotency. |
 | `skipped_checks` | Checks the planner proposes to skip, with reasons. | Keeps skipped work visible; skipped is not pass. |
 | `completion_evidence` | What evidence proves the plan is done. | Prevents "completed" status without proof. |
@@ -59,6 +60,7 @@ The exact file format can stay flexible; these fields are the contract:
 | H07 | Trivial read-only work over-triggers FlowGuard and slows normal use. | Trivial scenarios must skip with a reason and no model run. |
 | H08 | Completion is recorded without evidence. | Completion scenarios must fail without evidence for risky work. |
 | H09 | Collaboration docs imply a hard dependency on a specific external tool. | Documentation tests must require optional/non-dependency wording. |
+| H10 | A planner proposes a new subsystem even though an existing FlowGuard model owns the responsibility. | Existing model preflight must record the consulted model boundary, reuse decision, duplicate-boundary risk, and downstream route. |
 
 ## Validation Order
 

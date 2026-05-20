@@ -13,8 +13,9 @@ software-maintenance work, first make a lightweight FlowGuard routing decision:
 
 Use `use_direct_flowguard_skill` when the task clearly matches a directly
 installed FlowGuard satellite skill. Treat installed FlowGuard skills as peer
-routes: route clear staged-development, UI, structure, test, mesh, alignment,
-or model-miss work directly to the matching satellite skill.
+routes: route clear existing-model preflight, staged-development, UI,
+structure, test, mesh, alignment, or model-miss work directly to the matching
+satellite skill.
 
 Use `use_model_first_kernel` when the task needs ordinary behavior/state
 modeling, the correct FlowGuard route is unclear, multiple FlowGuard routes
@@ -36,6 +37,13 @@ Hard gates:
   Planner handoffs are optional context, not prerequisites.
 - Represent each block as `Input x State -> Set(Output x State)`.
 - Do not replace executable modeling with prose.
+- For non-trivial discussion, analysis, proposal, feature, bug fix, refactor,
+  UI flow change, test change, prompt change, skill change, agent-workflow
+  change, or process change in an existing modeled system, ground reasoning in
+  existing FlowGuard models before choosing the technical route. Use
+  `flowguard-existing-model-preflight` as a companion skill when model
+  ownership may matter. This is not a universal parent route; pair it with the
+  downstream FlowGuard skill that owns the concrete work.
 - Do not weaken hard invariants merely to pass checks.
 - Skipped, deferred, stale, or not-run checks are not passes.
 - For non-trivial FlowGuard work, default to a user-facing Mermaid model
@@ -60,6 +68,7 @@ Route map:
 
 | Trigger | Route |
 | --- | --- |
+| Existing modeled system discussion/change, model ownership lookup, reuse-first route grounding, duplicate-boundary risk before proposal or implementation | `existing_model_preflight` |
 | Ordinary modeling, Risk Intent, state write inventory, invariants, Explorer | `core_modeling` |
 | Direct architecture recommendation or model-derived implementation structure | `code_structure_recommendation` |
 | UI interaction model, app-level launch-to-terminal journey coverage, implemented/runnable UI validation against feature contracts and browser/manual click-through evidence, reachable visible-control branches, screen/region topology, parent/child UI hierarchy, menu levels, overlays, stable placement, display/text ownership, text hierarchy blueprint, duplicate information, or overlapping controls | `ui_flow_structure` |
@@ -77,6 +86,7 @@ Directly invokable FlowGuard satellite skills are peer routes:
 
 | Skill | Route |
 | --- | --- |
+| `flowguard-existing-model-preflight` | `existing_model_preflight` |
 | `flowguard-model-test-alignment` | `model_test_alignment` |
 | `flowguard-development-process-flow` | `development_process_flow` |
 | `flowguard-model-miss-review` | `model_miss_review` |
@@ -93,6 +103,7 @@ route. For ambiguous, cross-route, or general FlowGuard applicability work, use
 Use the matching Skill reference protocol for support routes. Helper APIs such as
 `RiskIntent`, property factories, packs, `FlowGuardCheckPlan`,
 `review_code_structure_recommendation()`, `review_model_test_alignment()`,
+`ExistingModelPreflight`, `review_existing_model_preflight()`,
 `UIDisplayElement`, `UIJourneyCoverage`, `UIImplementationValidation`,
 `UITextHierarchyBlueprint`,
 `review_ui_interaction_model()`, `review_ui_journey_coverage()`,

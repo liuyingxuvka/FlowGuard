@@ -1,6 +1,6 @@
 ---
 name: model-first-function-flow
-description: FlowGuard kernel for ordinary behavior/state modeling, unclear FlowGuard route selection, cross-route coordination, and core model-first preflight. Use when no direct FlowGuard satellite skill clearly matches or when multiple FlowGuard routes must be coordinated; route clear staged development, UI, structure, test, mesh, alignment, and model-miss work to the matching FlowGuard satellite skill directly.
+description: FlowGuard kernel for ordinary behavior/state modeling, unclear FlowGuard route selection, cross-route coordination, and core model-first preflight. Use when no direct FlowGuard satellite skill clearly matches or when multiple FlowGuard routes must be coordinated; route clear existing-model preflight, staged development, UI, structure, test, mesh, alignment, and model-miss work to the matching FlowGuard satellite skill directly.
 ---
 
 # Model-First Function Flow
@@ -14,6 +14,11 @@ satellite route clearly matches the task, use that satellite skill directly.
 Use this kernel for ordinary behavior/state modeling, unclear route selection,
 cross-route coordination, or core model work before a more specific route is
 known.
+
+For non-trivial discussion, proposal, bug-fix, feature, refactor, UI, test,
+prompt, skill, agent-workflow, or process changes inside an existing modeled
+system, use `flowguard-existing-model-preflight` when model ownership may
+matter. It is not a universal parent route; pair it with the downstream route.
 
 For repository, coding, process-design, structured writing/argument, and
 decision/planning work, first make a lightweight applicability decision:
@@ -52,12 +57,10 @@ unclear, narrow the task or mark `needs_human_review`.
 - For non-trivial FlowGuard work, default to a user-facing Mermaid model
   snapshot once the route or model shape is stable enough to explain. Run a
   FlowGuard diagram intent gate first: choose behavior/state, development
-  process, UI state, model-test coverage, code structure, or mesh semantics
-  from the active route. Do not flatten these into a generic flowchart. Tiny,
-  obvious, direct-command, formatting-only, or user-suppressed tasks may stay
-  concise. Diagrams explain, not validate; they do not count as validation
-  evidence. FlowGuard diagram guidance must remain complete without LogicGuard
-  or a shared cross-family diagram protocol.
+  process, UI state, model-test coverage, code structure, or mesh semantics.
+  Do not flatten these into a generic flowchart. Tiny or user-suppressed tasks
+  may stay concise. Diagrams explain, not validate; they do not count as
+  validation evidence; guidance must remain complete without LogicGuard.
 - Do not weaken hard invariants merely to pass checks.
 - Skipped, deferred, stale, or not-run checks must stay visible. Skipped is not
   pass.
@@ -77,6 +80,7 @@ satellite skills. The routes are agent behavior protocols, not package APIs.
 
 | Trigger | Route | Direct skill or reference |
 | --- | --- | --- |
+| Existing modeled system discussion/change, model ownership lookup, reuse-first route grounding, duplicate-boundary risk before proposal or implementation | `existing_model_preflight` | `flowguard-existing-model-preflight` |
 | Ordinary model-first workflow, flow types, Risk Intent, state write inventory | `core_modeling` | `references/modeling_protocol.md` |
 | Direct architecture recommendation, model-derived implementation structure, pre-code module split planning | `code_structure_recommendation` | `flowguard-code-structure-recommendation` |
 | UI interaction flow model, complete app launch-to-terminal journey coverage, implemented/runnable UI validation against feature contracts and browser/manual click-through evidence, reachable visible-control branches, screen/region topology, parent/child UI structure, navigation/state/event/display/text ownership, text hierarchy blueprint, duplicate information, or overlapping same-level controls derived from modeled UI behavior | `ui_flow_structure` | `flowguard-ui-flow-structure` |
@@ -97,12 +101,10 @@ maintain or verify. For models consider ModelMesh; for tests consider TestMesh;
 for scripts, modules, or APIs consider StructureMesh; for long checks consider
 LongCheck observability.
 
-When a post-runtime model miss is repaired in a local child model that belongs
-to a parent ModelMesh, route through both `model_miss_review` and
-`model_mesh_maintenance`. Model-Miss Review owns the current bug instance and
-same-class bug responsibility; ModelMesh owns the parent reattachment gate,
-upward boundary propagation, and affected sibling review before the child-local
-pass can support parent confidence.
+When a post-runtime model miss is repaired in a child under a parent ModelMesh,
+route through `model_miss_review` and `model_mesh_maintenance`: Model-Miss owns
+the current bug instance and same-class bug responsibility; ModelMesh owns the
+parent reattachment gate, upward propagation, and affected sibling review.
 
 ### Flow Lenses
 
@@ -164,6 +166,9 @@ Codex skill:
   rows consumed by the model-test alignment plan.
 - Development lifecycle helpers such as `review_development_process_flow()`
   and `derive_revalidation_plan()`.
+- Existing-model grounding helpers such as `ExistingModelPreflight`,
+  `ModelContextHit`, `ExistingOwnershipSnapshot`, `DuplicateBoundaryRisk`, and
+  `review_existing_model_preflight()`.
 - UI flow structure helpers such as `UIDisplayElement`, `UIJourneyCoverage`,
   `UIImplementationValidation`, `UITextHierarchyBlueprint`,
   `review_ui_interaction_model()`, `review_ui_journey_coverage()`,
@@ -172,16 +177,17 @@ Codex skill:
 - Template CLIs such as `project-template`, `risk-intent-template`,
   `model-miss-template`, `model-test-alignment-template`,
   `ui-flow-structure-template`, `development-process-flow-template`,
-  `test-mesh-template`, `structure-mesh-template`, and
-  `maintenance-template`.
+  `existing-model-preflight-template`, `test-mesh-template`,
+  `structure-mesh-template`, and `maintenance-template`.
 
 ## Standalone Satellite Skills
 The directly invokable satellite skills are:
 `flowguard-model-test-alignment`, `flowguard-development-process-flow`,
 `flowguard-model-miss-review`, `flowguard-code-structure-recommendation`,
-`flowguard-ui-flow-structure`, `flowguard-model-mesh`, `flowguard-test-mesh`,
-and `flowguard-structure-mesh`. Use the matching satellite directly when the
-user's request clearly matches that route; otherwise use this kernel.
+`flowguard-existing-model-preflight`, `flowguard-ui-flow-structure`,
+`flowguard-model-mesh`, `flowguard-test-mesh`, and
+`flowguard-structure-mesh`. Use the matching satellite directly when the user's
+request clearly matches that route; otherwise use this kernel.
 
 ## Resource Map
 
@@ -189,7 +195,8 @@ user's request clearly matches that route; otherwise use this kernel.
   `references/modeling_protocol.md`, `references/invariant_examples.md`, and
   `references/adoption_protocol.md`.
 - Direct route references: `references/code_structure_recommendation_protocol.md`,
-  `flowguard-ui-flow-structure`, `references/model_test_alignment_protocol.md`,
+  `flowguard-existing-model-preflight`, `flowguard-ui-flow-structure`,
+  `references/model_test_alignment_protocol.md`,
   `references/model_mesh_protocol.md`, `references/test_mesh_protocol.md`,
   `references/structure_mesh_protocol.md`,
   `references/development_process_flow_protocol.md`, and
@@ -199,8 +206,7 @@ user's request clearly matches that route; otherwise use this kernel.
   `references/long_check_protocol.md`,
   `references/framework_upgrade_protocol.md`, and
   `references/project_integration.md`.
-- Starter assets: `assets/model_template/model.py`,
-  `assets/model_template/run_checks.py`, and `assets/toolchain_preflight.py`.
+- Starter assets: `assets/model_template/model.py`, `assets/model_template/run_checks.py`, and `assets/toolchain_preflight.py`.
 
 ## Constraints
 

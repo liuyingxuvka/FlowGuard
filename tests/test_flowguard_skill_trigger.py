@@ -13,8 +13,8 @@ class FlowguardSkillTriggerTests(unittest.TestCase):
 
     def test_skill_trigger_catalog_matches_expectations(self):
         self.assertTrue(self.report.ok, self.report.format_text(max_counterexamples=1))
-        self.assertEqual(20, self.report.total_scenarios)
-        self.assertEqual(12, self.report.passed)
+        self.assertEqual(21, self.report.total_scenarios)
+        self.assertEqual(13, self.report.passed)
         self.assertEqual(7, self.report.expected_violations_observed)
         self.assertEqual(1, self.report.needs_human_review)
 
@@ -32,6 +32,7 @@ class FlowguardSkillTriggerTests(unittest.TestCase):
             "STS11_test_mesh_routes_directly",
             "STS12_structure_mesh_routes_directly",
             "STS13_model_miss_routes_directly",
+            "STS14_existing_model_preflight_routes_directly",
         ):
             self.assertEqual("pass", self.statuses[name])
         self.assertEqual(

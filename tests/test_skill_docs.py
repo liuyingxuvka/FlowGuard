@@ -9,6 +9,7 @@ SATELLITE_SKILLS = {
     "flowguard-development-process-flow": "development_process_flow_protocol.md",
     "flowguard-model-miss-review": "model_miss_protocol.md",
     "flowguard-code-structure-recommendation": "code_structure_recommendation_protocol.md",
+    "flowguard-existing-model-preflight": "existing_model_preflight_protocol.md",
     "flowguard-ui-flow-structure": "ui_flow_structure_protocol.md",
     "flowguard-model-mesh": "model_mesh_protocol.md",
     "flowguard-test-mesh": "test_mesh_protocol.md",
@@ -45,6 +46,7 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("Standalone Satellite Skills", text)
         self.assertIn("flowguard-model-test-alignment", text)
         self.assertIn("flowguard-development-process-flow", text)
+        self.assertIn("flowguard-existing-model-preflight", text)
         self.assertIn("flowguard-ui-flow-structure", text)
         self.assertNotIn("Phase 11", text)
         self.assertNotIn("2100-case", text)
@@ -60,6 +62,7 @@ class SkillDocsTests(unittest.TestCase):
             "model_mesh_maintenance",
             "test_mesh_maintenance",
             "structure_mesh_maintenance",
+            "existing_model_preflight",
             "development_process_flow",
             "model_miss_review",
             "conformance_adoption",
@@ -127,6 +130,11 @@ class SkillDocsTests(unittest.TestCase):
             "flowguard-code-structure-recommendation": (
                 "review_code_structure_recommendation",
                 "FunctionBlock-to-module ownership",
+            ),
+            "flowguard-existing-model-preflight": (
+                "review_existing_model_preflight",
+                "existing model boundaries",
+                "duplicate-boundary",
             ),
             "flowguard-ui-flow-structure": (
                 "review_ui_interaction_model",
@@ -241,6 +249,7 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("model-test mismatch", alignment)
         self.assertIn("DevelopmentProcessFlow `model_test_mismatch` handoff", alignment)
         self.assertNotIn("FlowGuard kernel route map", development)
+
     def test_skill_kernel_has_soft_generic_oversize_hint(self):
         text = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
         snippet = (ROOT / "docs" / "agents_snippet.md").read_text(encoding="utf-8")
@@ -291,6 +300,7 @@ class SkillDocsTests(unittest.TestCase):
             "flowguard-model-mesh": ("what the mesh does or does not prove", "evidence tiers/freshness"),
             "flowguard-model-miss-review": ("observed failure", "same-class generalized bad case"),
             "flowguard-model-test-alignment": ("model obligations", "test evidence"),
+            "flowguard-existing-model-preflight": ("existing model boundaries", "downstream route"),
             "flowguard-structure-mesh": ("public entrypoints", "facades"),
             "flowguard-test-mesh": ("parent gates", "evidence status"),
             "flowguard-ui-flow-structure": ("visible-control branches", "residual blindspots"),
@@ -383,6 +393,7 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("does not invoke", text)
         self.assertIn("tests split into child suites/scripts", text)
         self.assertIn("structure_mesh_maintenance", text)
+        self.assertIn("existing_model_preflight", text)
         self.assertIn("development_process_flow", text)
         self.assertIn("model_miss_review", text)
         self.assertIn("long_check_observability", text)
@@ -397,6 +408,7 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("flowguard-development-process-flow", text)
         self.assertIn("flowguard-model-miss-review", text)
         self.assertIn("flowguard-code-structure-recommendation", text)
+        self.assertIn("flowguard-existing-model-preflight", text)
         self.assertIn("flowguard-ui-flow-structure", text)
         self.assertIn("flowguard-model-mesh", text)
         self.assertIn("flowguard-test-mesh", text)
@@ -437,6 +449,14 @@ class SkillDocsTests(unittest.TestCase):
             / "ui_flow_structure_protocol.md"
         ).read_text(encoding="utf-8")
         development_process = (SKILL_ROOT / "references" / "development_process_flow_protocol.md").read_text(encoding="utf-8")
+        existing_preflight = (
+            ROOT
+            / ".agents"
+            / "skills"
+            / "flowguard-existing-model-preflight"
+            / "references"
+            / "existing_model_preflight_protocol.md"
+        ).read_text(encoding="utf-8")
 
         self.assertIn("Code Structure Recommendation Protocol", code_structure)
         self.assertIn("FunctionBlock-to-module ownership", code_structure)
@@ -467,6 +487,10 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("sibling sub-protocol", development_process)
         self.assertIn("does not inspect", development_process)
         self.assertIn("minimum revalidation", development_process)
+        self.assertIn("Existing Model Preflight Protocol", existing_preflight)
+        self.assertIn("Light mode", existing_preflight)
+        self.assertIn("Full mode", existing_preflight)
+        self.assertIn("DuplicateBoundaryRisk", existing_preflight)
 
     def test_new_skill_kernel_protocol_references_exist(self):
         kernel = (SKILL_ROOT / "references" / "skill_kernel_protocol.md").read_text(encoding="utf-8")

@@ -9,6 +9,7 @@ from pathlib import Path
 from flowguard.templates import (
     code_structure_recommendation_template_files,
     development_process_flow_template_files,
+    existing_model_preflight_template_files,
     model_miss_review_template_files,
     model_test_alignment_template_files,
     project_template_files,
@@ -203,6 +204,14 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("producer_route=\"test_mesh_maintenance\"", combined)
         self.assertIn("FlowGuard Risk Purpose Header", combined)
 
+    def test_existing_model_preflight_template_executes(self):
+        output = self.run_written_template(
+            existing_model_preflight_template_files(),
+            (".flowguard", "existing_model_preflight"),
+        )
+        self.assertIn("flowguard existing model preflight", output)
+        self.assertIn("duplicate_boundary_risk_unresolved", output)
+
     def test_public_model_templates_include_risk_purpose_headers(self):
         for files in (
             project_template_files(),
@@ -210,6 +219,7 @@ class PublicTemplateTests(unittest.TestCase):
             model_miss_review_template_files(),
             model_test_alignment_template_files(),
             code_structure_recommendation_template_files(),
+            existing_model_preflight_template_files(),
             ui_flow_structure_template_files(),
             development_process_flow_template_files(),
             test_mesh_template_files(),
@@ -225,6 +235,7 @@ class PublicTemplateTests(unittest.TestCase):
             "model-miss-template": "model_miss_review",
             "model-test-alignment-template": "model_test_alignment",
             "code-structure-recommendation-template": "code_structure_recommendation",
+            "existing-model-preflight-template": "existing_model_preflight",
             "ui-flow-structure-template": "ui_flow_structure",
             "development-process-flow-template": "development_process_flow",
             "test-mesh-template": "test_mesh",
@@ -271,6 +282,7 @@ class PublicTemplateTests(unittest.TestCase):
             model_miss_review_template_files(),
             model_test_alignment_template_files(),
             code_structure_recommendation_template_files(),
+            existing_model_preflight_template_files(),
             ui_flow_structure_template_files(),
             development_process_flow_template_files(),
             test_mesh_template_files(),

@@ -55,9 +55,11 @@ RISK_FLAGS = {
     "code_structure",
     "model_miss",
     "runtime_after_pass",
+    "existing_model_context",
 }
 
 DIRECT_SKILL_BY_ROUTE = {
+    "existing_model_preflight": "flowguard-existing-model-preflight",
     "code_structure_recommendation": "flowguard-code-structure-recommendation",
     "ui_flow_structure": "flowguard-ui-flow-structure",
     "model_test_alignment": "flowguard-model-test-alignment",
@@ -194,6 +196,7 @@ def requires_flowguard(task: TaskDescription | TaskFact) -> bool:
         "validation_maintenance",
         "structure_refactor",
         "model_miss",
+        "model_preflight",
     }:
         return True
     return bool(set(task.risk_flags) & RISK_FLAGS)
@@ -232,6 +235,8 @@ def required_checks_for(task: TaskDescription | TaskFact) -> tuple[str, ...]:
         checks.append("code_structure_recommendation")
     if flags & {"model_miss", "runtime_after_pass"}:
         checks.append("model_miss_review")
+    if flags & {"existing_model_context"}:
+        checks.append("existing_model_preflight")
     return tuple(dict.fromkeys(checks))
 
 
@@ -239,6 +244,8 @@ def direct_route_for(task: TaskDescription | TaskFact | None) -> str:
     if task is None:
         return ""
     flags = set(task.risk_flags)
+    if task.kind == "model_preflight" or flags & {"existing_model_context"}:
+        return "existing_model_preflight"
     if task.kind == "major_architecture" or flags & {"code_structure", "module_boundary", "migration"}:
         return "code_structure_recommendation"
     if flags & {"ui_state_flow", "ui_display_redundancy", "ui_control_overlap"}:
@@ -751,6 +758,12 @@ TASK_MODEL_MISS = TaskDescription(
     "model_miss",
     ("model_miss", "runtime_after_pass"),
 )
+TASK_EXISTING_MODEL_PREFLIGHT = TaskDescription(
+    "existing-model-preflight",
+    "model_preflight",
+    ("existing_model_context",),
+    production_code_exists=True,
+)
 
 
 def build_workflow(
@@ -919,6 +932,15 @@ def skill_trigger_scenarios() -> tuple[Scenario, ...]:
             TASK_MODEL_MISS,
             _expect_ok(
                 "OK; model miss work selects Model-Miss Review",
+                labels=("risk_requires_flowguard", "direct_satellite_selected", "flowguard_route_completed"),
+            ),
+        ),
+        scenario(
+            "STS14_existing_model_preflight_routes_directly",
+            "Existing modeled system changes should be able to select Existing Model Preflight directly.",
+            TASK_EXISTING_MODEL_PREFLIGHT,
+            _expect_ok(
+                "OK; existing-model context work selects Existing Model Preflight",
                 labels=("risk_requires_flowguard", "direct_satellite_selected", "flowguard_route_completed"),
             ),
         ),
