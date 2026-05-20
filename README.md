@@ -16,7 +16,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.18.4` | `1.0` | Python standard library only | MIT |
+| `v0.18.5` | `1.0` | Python standard library only | MIT |
 
 English lead content comes first; a Chinese mirror follows below.
 
@@ -38,18 +38,21 @@ FlowGuard is not an LLM wrapper, a probability engine, a Monte Carlo simulator, 
 
 FlowGuard is useful at the design stage. You name the states, inputs, outputs, ownership boundaries, side effects, and gates; the model then gives you both a design shape and the checks that decide whether that shape is currently safe.
 
-| Work type | Model-first design output | Verification output |
-| --- | --- | --- |
-| Development process | Staged route, next-action rules, minimum validation gates, stale-evidence reset, peer-write invalidation, release/archive readiness, and done criteria | Scenario failures, freshness gaps, skipped gates, invalid completion claims, and counterexample traces |
-| UI interface | Persistent regions, contextual panels, local actions, overlays, recovery paths, button availability, display ownership, duplicate-control rules, and text hierarchy | Unreachable journeys, missing recovery, duplicate/conflicting controls, invalid button states, and implementation click-through gaps |
-| Code structure | Module split, facade boundary, state owner, side-effect owner, config owner, validation owner, and public-entrypoint compatibility plan | Ownership leaks, dependency cycles, facade drift, missing parity evidence, and conformance replay failures |
-| Test strategy | Routine/release test layers, parent/child suites, timeout boundaries, stale/hidden evidence rules, and revalidation triggers | Untested model obligations, stale passing evidence, hidden skips, weak release gates, and model-test mismatch |
-| Model mesh or bug repair | Parent/child split, evidence contract, reattachment gate, sibling impact review, model-miss class, and same-class bad case | Child evidence drift, unconsumed handoff tokens, affected sibling gaps, repaired-invariant gaps, and parent-confidence boundaries |
+| Work type | Model-first design output | What keeps it trustworthy | Boundary |
+| --- | --- | --- | --- |
+| Development process | Staged route, legal next actions, validation gates, stale-evidence reset, peer-write invalidation, archive/release readiness, and done criteria | DevelopmentProcessFlow reviews scenario failures, skipped gates, freshness gaps, and invalid completion claims before the process is treated as usable | A green local step is not global green after later edits, peer writes, or route mutation |
+| UI interface | Persistent regions, contextual panels, local actions, overlays, recovery paths, button availability, display ownership, duplicate-control rules, and text hierarchy | UI Flow Structure checks launch-to-terminal journeys, visible control availability, recovery paths, duplicate functions, warning/error escalation, and implementation click-through evidence | It models interaction structure; visual polish, accessibility details, and browser/device behavior still need ordinary UI review |
+| Code structure | Module split, facade boundary, state owner, side-effect owner, config owner, validation owner, and public-entrypoint compatibility plan | Code Structure Recommendation and StructureMesh look for ownership leaks, dependency cycles, facade drift, config drift, and missing parity evidence | It recommends a safer split; it does not replace implementation tests or code review |
+| Test strategy | Routine/release test layers, parent/child suites, timeout boundaries, stale/hidden evidence rules, and revalidation triggers | TestMesh and model-test alignment compare model obligations with actual tests, hidden skips, stale passes, timeout boundaries, and release-only checks | Tests only support the modeled obligations they actually cover |
+| Model mesh or bug repair | Parent/child split, evidence contract, reattachment gate, sibling impact review, model-miss class, and same-class bad case | ModelMesh requires parents to consume fresh child evidence; model-miss review adds same-class bad cases before closure | Child evidence does not improve parent confidence until the parent contract consumes it |
+
+This is the core product: FlowGuard turns a vague workflow, UI journey, refactor, test strategy, or release process into a small state machine with explicit failure traces. The counterexample is not just a bug report; it is design feedback that says which state, gate, owner, or evidence rule must change before work continues.
 
 ## Why It Is Worth Trying
 
-- It turns fuzzy workflow or UI/process design into a small executable model before the agent writes code, tests, or release claims.
-- It derives development routes, interface topology, module ownership, test hierarchy, and release gates from the model, then checks those decisions with traces.
+- It turns fuzzy workflow, UI, code-structure, test, or release decisions into small executable models before the agent writes code, tests, or public claims.
+- It derives development routes, interface topology, module ownership, validation hierarchy, and release gates from the model, then checks those decisions with traces.
+- It shows the exact failure path: skipped review, stale child evidence, invalid button state, facade drift, missing revalidation, or a parent that trusted a child too early.
 - It is intentionally small: many useful models are just a few states, inputs, invariants, and transition functions.
 - It keeps evidence honest across parent and child models, so a repaired child or later file edit does not leave stale green status behind.
 - It runs on the Python standard library and fits into ordinary repository workflows without becoming a heavy platform.
@@ -307,18 +310,21 @@ FlowGuard 不是 LLM wrapper，不调用模型 API，不做概率估计，也不
 
 FlowGuard 的价值在动手之前就开始。你先命名 state、input、output、ownership boundary、side effect 和 gate；模型同时给出设计形状，以及判断这个形状当前是否安全的检查。
 
-| 工作类型 | 模型先行的设计输出 | 验证输出 |
-| --- | --- | --- |
-| 开发流程 | staged route、next-action rules、最小验证 gate、stale-evidence reset、peer-write invalidation、release/archive readiness、done criteria | scenario failure、freshness gap、skipped gate、无效完成声明、counterexample trace |
-| UI 界面 | 持久区域、上下文 panel、本地动作、overlay、恢复路径、按钮 availability、display ownership、重复控件规则、文本层级 | 不可达 journey、缺失 recovery、重复/冲突控件、错误按钮状态、实现点击证据缺口 |
-| 代码结构 | module split、facade boundary、state owner、side-effect owner、config owner、validation owner、公开入口兼容计划 | ownership leak、dependency cycle、facade drift、缺失 parity evidence、conformance replay failure |
-| 测试策略 | routine/release test layers、父子测试套件、timeout 边界、旧/隐藏证据规则、revalidation trigger | 未覆盖模型义务、旧 passing evidence、hidden skip、弱 release gate、model-test mismatch |
-| Model mesh 或 bug 修复 | 父子拆分、evidence contract、reattachment gate、sibling impact review、model-miss 类型、同类坏 case | child evidence drift、未消费 handoff token、sibling gap、repaired invariant gap、父级 confidence boundary |
+| 工作类型 | 模型先行的设计输出 | 什么让它可信 | 边界 |
+| --- | --- | --- | --- |
+| 开发流程 | staged route、合法 next action、验证 gate、stale-evidence reset、peer-write invalidation、release/archive readiness、done criteria | DevelopmentProcessFlow 在流程被当作可用前检查 scenario failure、skipped gate、freshness gap 和无效完成声明 | 后续编辑、peer write 或 route mutation 之后，局部 green 不等于整体 green |
+| UI 界面 | 持久区域、上下文 panel、本地动作、overlay、恢复路径、按钮 availability、display ownership、重复控件规则、文本层级 | UI Flow Structure 检查 launch-to-terminal journey、可见控件 availability、恢复路径、重复功能、warning/error escalation 和真实点击证据 | 它建模 interaction structure；视觉打磨、无障碍细节和浏览器/设备行为仍要普通 UI review |
+| 代码结构 | module split、facade boundary、state owner、side-effect owner、config owner、validation owner、公开入口兼容计划 | Code Structure Recommendation 和 StructureMesh 检查 ownership leak、dependency cycle、facade drift、config drift 和缺失 parity evidence | 它建议更安全的拆分，不替代实现测试和 code review |
+| 测试策略 | routine/release test layers、父子测试套件、timeout 边界、旧/隐藏证据规则、revalidation trigger | TestMesh 和 model-test alignment 对照模型义务、真实测试、hidden skip、stale pass、timeout 边界和 release-only check | 测试只支持它实际覆盖到的模型义务 |
+| Model mesh 或 bug 修复 | 父子拆分、evidence contract、reattachment gate、sibling impact review、model-miss 类型、同类坏 case | ModelMesh 要求父级消费新鲜 child evidence；model-miss review 在关闭前补同类坏 case | child evidence 不会自动提高父级信心，必须被父级 contract 消费 |
+
+这才是 FlowGuard 的核心产品：把模糊的 workflow、UI journey、refactor、test strategy 或 release process 变成小型状态机，并给出明确失败路径。counterexample 是设计反馈：它告诉你哪个 state、gate、owner 或 evidence rule 必须先改，工作才能继续。
 
 ## 为什么值得一试
 
-- 它把模糊的 workflow、UI 或开发流程设计先变成小型可执行模型，再让 agent 写代码、测试或发布结论。
-- 它能从模型推导开发路线、界面拓扑、模块 ownership、测试层级和 release gate，然后用 trace 检查这些决策。
+- 它把模糊的 workflow、UI、代码结构、测试或发布决策先变成小型可执行模型，再让 agent 写代码、测试或公开声明。
+- 它能从模型推导开发路线、界面拓扑、模块 ownership、验证层级和 release gate，然后用 trace 检查这些决策。
+- 它会给出具体失败路径：跳过 review、旧 child evidence、错误按钮状态、facade drift、缺失 revalidation，或者父级过早信任子级。
 - 它刻意保持小：很多有用模型只需要少量 state、input、invariant 和 transition function。
 - 它会维护父子模型之间的证据新鲜度，避免 child 修过或文件后来又改过之后，父级还拿旧 green status 当证据。
 - 它只依赖 Python 标准库，可以嵌入普通仓库工作流，而不是变成重平台。
