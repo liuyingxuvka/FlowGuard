@@ -20,6 +20,14 @@ Create or update a local model mesh when any of these are true:
   pass and the old model did not make the bug class visible;
 - live state, result files, adoption logs, or conformance evidence disagree.
 
+When DevelopmentProcessFlow classifies a failed validation as
+`model_too_thick`, `oversized model evidence`, or parent model evidence that
+cannot be trusted as one direct child, this protocol owns the handoff. Treat the
+thick model as compatibility or source evidence until a target child split is
+derived and the parent consumes current child evidence ids. Do not let a later
+green run of the original thick model by itself close the parent confidence
+gap.
+
 Do not merge every child model into one giant state graph. The mesh is a
 model-of-models: it treats child models as contract-bearing evidence sources
 with inputs, outputs, state ownership, evidence tier, freshness, and known
@@ -253,36 +261,39 @@ At minimum, the mesh must make these broken variants fail:
 12. The project has three or more FlowGuard models but no mesh decision is
    created before a broad continue/release/completion claim.
 13. A single oversized model does not trigger large-model split review.
-14. Parent partition items have no child, parent, or shared-kernel owner.
-15. Two sibling child models both own the same state write, side effect, or
+14. A DevelopmentProcessFlow `model_too_thick` handoff is treated as an
+    ordinary implementation failure and the thick model remains direct parent
+    evidence.
+15. Parent partition items have no child, parent, or shared-kernel owner.
+16. Two sibling child models both own the same state write, side effect, or
     core functional area without an explicit shared-kernel boundary.
-16. A legacy model is used as strong child evidence before compatibility
+17. A legacy model is used as strong child evidence before compatibility
     classification and contract wrapping.
-17. A repaired child model is green locally, but the parent did not consume its
+18. A repaired child model is green locally, but the parent did not consume its
     updated evidence id.
-18. A parent consumes a stale child evidence id after the child model changed.
-19. A repaired child changes accepted inputs or emitted outputs without a parent
+19. A parent consumes a stale child evidence id after the child model changed.
+20. A repaired child changes accepted inputs or emitted outputs without a parent
     reattachment blocker.
-20. A repaired child loses state or side-effect ownership that the parent flow
+21. A repaired child loses state or side-effect ownership that the parent flow
     still depends on.
-21. A repaired child drops an outgoing guarantee or contract that the parent
+22. A repaired child drops an outgoing guarantee or contract that the parent
     mesh consumes.
-22. The current bug instance passes after a patch, but the bug class is neither
+23. The current bug instance passes after a patch, but the bug class is neither
     represented in executable evidence nor explicitly marked out of scope.
-23. A child boundary change is accepted without propagating stale-boundary
+24. A child boundary change is accepted without propagating stale-boundary
     review to the parent target split and reattachment contract.
-24. An affected sibling model keeps stale ownership, read-only, shared-kernel,
+25. An affected sibling model keeps stale ownership, read-only, shared-kernel,
     or outgoing-contract assumptions after a child boundary changes.
-25. A background long-running check is accepted as pass evidence from progress
+26. A background long-running check is accepted as pass evidence from progress
     output, an in-progress log, or a missing exit/result artifact.
-26. A parent mesh claims whole-flow closure while a child output has no parent,
+27. A parent mesh claims whole-flow closure while a child output has no parent,
     sibling, terminal, or explicit out-of-scope consumer.
-27. A parent mesh reaches a terminal disposition while required child outputs or
+28. A parent mesh reaches a terminal disposition while required child outputs or
     join obligations remain pending.
-28. A closure model marks a branch out of scope without rationale.
-29. A loop-like parent/child handoff is accepted as closed without a bound,
+29. A closure model marks a branch out of scope without rationale.
+30. A loop-like parent/child handoff is accepted as closed without a bound,
     ranking, or progress rule.
-30. A closure model consumes an unknown or foreign output token that is not
+31. A closure model consumes an unknown or foreign output token that is not
     produced by a root entry, child output, transition, or join.
 
 ## Prompt Template

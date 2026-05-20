@@ -27,6 +27,9 @@ or when it is unclear whether a mesh is needed.
 - A repaired child model is not parent-green until the parent consumes its
   current evidence id and its input/output/state/side-effect contract still
   reattaches to the parent flow.
+- If DevelopmentProcessFlow classifies a validation failure as model too thick
+  or oversized model evidence, ModelMesh owns the split and parent
+  reattachment. Do not keep pushing the thick model as direct parent evidence.
 - Model-Miss Review owns the current bug instance and same-class bug
   responsibility; ModelMesh owns child-boundary propagation and affected
   sibling review.
@@ -39,24 +42,28 @@ or when it is unclear whether a mesh is needed.
    evidence freshness.
 2. Derive the target split from model structure: source model, child models,
    covered partition items, ownership, and rationale.
-3. Review parent and child responsibilities, shared state, cross-child edges,
+3. For DevelopmentProcessFlow `model_too_thick` handoffs, classify the thick
+   source model as compatibility evidence unless it is still small enough for
+   direct parent consumption, then derive focused child models before parent
+   confidence.
+4. Review parent and child responsibilities, shared state, cross-child edges,
    and required hazards.
-4. For repaired child models, record the parent reattachment contract: expected
+5. For repaired child models, record the parent reattachment contract: expected
    inputs, outputs, state ownership, side-effect ownership, outgoing guarantees,
    and consumed child evidence id.
-5. When whole-flow parent confidence is claimed, build or update the mesh
+6. When whole-flow parent confidence is claimed, build or update the mesh
    closure model and make unconsumed child outputs, incomplete joins, terminal
    leaks, out-of-scope gaps, and loop-progress gaps fail.
-6. If a child boundary changed, propagate the stale-boundary review upward and
+7. If a child boundary changed, propagate the stale-boundary review upward and
    review affected siblings that share or depend on the same parent partition
    items, state writes, side effects, invariants, or contracts.
-7. Confirm background long-running checks have final artifacts and exit status
+8. Confirm background long-running checks have final artifacts and exit status
    before consuming them as evidence.
-8. Run child checks first, then parent review through hierarchical mesh
+9. Run child checks first, then parent review through hierarchical mesh
    helpers.
-9. Record which child evidence ids the parent consumed and which are stale,
+10. Record which child evidence ids the parent consumed and which are stale,
    skipped, or release-only.
-10. For non-trivial meshes, default to a user-facing Mermaid mesh diagram
+11. For non-trivial meshes, default to a user-facing Mermaid mesh diagram
     showing root entries, child model boundaries, handoffs, evidence tiers/freshness,
     blockers, and what the mesh does or does not prove. Its
     edges mean delegates, reattaches, consumes output, affects sibling, or

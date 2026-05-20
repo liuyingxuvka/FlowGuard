@@ -186,6 +186,61 @@ class SkillDocsTests(unittest.TestCase):
         self.assertNotIn("light_lifecycle_preflight", texts)
         self.assertNotIn("full_evidence_freshness_review", texts)
 
+    def test_validation_failure_triage_routes_to_owning_satellites(self):
+        skills_root = ROOT / ".agents" / "skills"
+        development = "\n".join(
+            (
+                (skills_root / "flowguard-development-process-flow" / "SKILL.md").read_text(encoding="utf-8"),
+                (
+                    skills_root
+                    / "flowguard-development-process-flow"
+                    / "references"
+                    / "development_process_flow_protocol.md"
+                ).read_text(encoding="utf-8"),
+            )
+        )
+        model_mesh = "\n".join(
+            (
+                (skills_root / "flowguard-model-mesh" / "SKILL.md").read_text(encoding="utf-8"),
+                (skills_root / "flowguard-model-mesh" / "references" / "model_mesh_protocol.md").read_text(
+                    encoding="utf-8"
+                ),
+            )
+        )
+        test_mesh = "\n".join(
+            (
+                (skills_root / "flowguard-test-mesh" / "SKILL.md").read_text(encoding="utf-8"),
+                (skills_root / "flowguard-test-mesh" / "references" / "test_mesh_protocol.md").read_text(
+                    encoding="utf-8"
+                ),
+            )
+        )
+        alignment = "\n".join(
+            (
+                (skills_root / "flowguard-model-test-alignment" / "SKILL.md").read_text(encoding="utf-8"),
+                (
+                    skills_root
+                    / "flowguard-model-test-alignment"
+                    / "references"
+                    / "model_test_alignment_protocol.md"
+                ).read_text(encoding="utf-8"),
+            )
+        )
+
+        self.assertIn("Failed validation must be triaged", development)
+        self.assertIn("ordinary_implementation_defect", development)
+        self.assertIn("model_too_thick", development)
+        self.assertIn("test_too_thick", development)
+        self.assertIn("model_test_mismatch", development)
+        self.assertIn("parent_child_evidence_not_reattached", development)
+        self.assertIn("model too thick", model_mesh)
+        self.assertIn("Do not keep pushing the thick model", model_mesh)
+        self.assertIn("DevelopmentProcessFlow `model_too_thick` handoff", model_mesh)
+        self.assertIn("test too thick", test_mesh)
+        self.assertIn("DevelopmentProcessFlow `test_too_thick` handoffs", test_mesh)
+        self.assertIn("model-test mismatch", alignment)
+        self.assertIn("DevelopmentProcessFlow `model_test_mismatch` handoff", alignment)
+        self.assertNotIn("FlowGuard kernel route map", development)
     def test_skill_kernel_has_soft_generic_oversize_hint(self):
         text = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
         snippet = (ROOT / "docs" / "agents_snippet.md").read_text(encoding="utf-8")

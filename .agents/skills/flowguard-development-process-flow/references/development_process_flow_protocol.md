@@ -66,6 +66,38 @@ List process evidence:
   flags;
 - validation requirement ids the evidence is intended to satisfy.
 
+## Validation Failure Triage
+
+After any failed, stale, skipped, timeout, running, progress-only, oversized, or
+ambiguous validation result, DevelopmentProcessFlow must classify the failure
+before the agent continues implementation, reruns toward green, or claims done.
+The classification is part of the development evidence.
+
+Use these triage classes:
+
+- `ordinary_implementation_defect`: the failure points to a normal code,
+  prompt, doc, or adapter defect. Continue through the ordinary fix path, then
+  rerun the affected validation.
+- `model_too_thick`: a FlowGuard model is oversized, mixes unrelated
+  responsibilities, or is being used as direct parent evidence when a
+  parent/child split is needed. Hand off to ModelMesh.
+- `test_too_thick`: a test/check command is slow, broad, layered, skipped,
+  stale, release-only, or hides child evidence status. Hand off to TestMesh.
+- `model_test_mismatch`: model obligations, optional code contracts, and
+  ordinary test evidence do not line up. Hand off to Model-Test Alignment.
+- `stale_evidence`: the artifact or verifier version changed after evidence
+  was produced. Rerun or replace the owning evidence before it can support the
+  lifecycle claim.
+- `parent_child_evidence_not_reattached`: a child model, child validation
+  suite, or sibling route is locally green, but the parent has not consumed the
+  current evidence id and contract. Return to the owning parent evidence gate.
+
+Do not treat a later green command as closing a triage finding by itself. If
+the classification was `model_too_thick`, `test_too_thick`, or
+`model_test_mismatch`, the owning satellite route must produce current
+evidence and the parent lifecycle review must consume that evidence id before a
+done, release, archive, or publish claim is supported.
+
 List validation requirements:
 
 - requirement id;
@@ -148,6 +180,15 @@ Freshness rules:
 Known hazards that must fail:
 - stale evidence after code, test, model, or requirement changes;
 - done/release/archive/publish claim using stale evidence;
+- failed validation pushed through without failure triage;
+- oversized model evidence treated as an ordinary failure instead of ModelMesh
+  handoff;
+- oversized, skipped, stale, or release-only validation treated as an ordinary
+  failure instead of TestMesh handoff;
+- model/test obligation mismatch treated as an ordinary failure instead of
+  Model-Test Alignment handoff;
+- child-local green evidence counted as parent confidence before parent
+  reattachment;
 - progress-only background evidence counted as complete;
 - hidden skipped validation counted as passed;
 - failed, timeout, skipped, not-run, or running evidence counted as current;
@@ -171,5 +212,8 @@ A DevelopmentProcessFlow review can support a lifecycle claim only when:
   the requested scope;
 - release-required evidence is current for release scope, or visibly deferred
   only for routine scope;
+- any validation failure has a visible triage class, and non-ordinary triage
+  classes have current evidence from the owning satellite or parent evidence
+  gate;
 - the report includes minimum revalidation recommendations for unsupported
   requirements.

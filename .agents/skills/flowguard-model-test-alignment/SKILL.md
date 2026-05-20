@@ -18,6 +18,9 @@ mostly core modeling rather than alignment.
   `python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"`.
 - Do not create a fake mini-framework or prose-only substitute.
 - Skipped, stale, or not-run evidence is not a pass.
+- If DevelopmentProcessFlow classifies a validation failure as model-test
+  mismatch, this skill owns the obligation, optional code-contract, and test
+  evidence comparison before alignment is claimed.
 - Preserve user and peer-agent changes; rerun or bound stale evidence.
 - Keep helper APIs and templates as helpers, not skills.
 
@@ -33,9 +36,12 @@ mostly core modeling rather than alignment.
    audit helpers before the alignment review.
 5. Run or update the relevant tests, then call or template
    `review_model_test_alignment(...)`.
-6. Inspect missing, stale, unknown, or overclaimed coverage. Fix the model,
+6. For DevelopmentProcessFlow `model_test_mismatch` handoffs, keep the failed
+   validation visible until required obligations, optional code contracts, and
+   current test evidence have been compared.
+7. Inspect missing, stale, unknown, or overclaimed coverage. Fix the model,
    code contracts, tests, or evidence rows before claiming alignment.
-7. For non-trivial alignment reviews, default to a user-facing Mermaid coverage
+8. For non-trivial alignment reviews, default to a user-facing Mermaid coverage
    diagram showing model obligations, optional code contracts, test evidence,
    and missing/stale/overclaimed gaps. Its edges mean covers, partially covers,
    misses, or stales; they are not execution order. Tiny evidence checks may

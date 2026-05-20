@@ -22,18 +22,25 @@ when route selection is unclear.
 - Parent test confidence consumes child evidence; it does not hide skipped,
   stale, failed, or release-only children.
 - A target split is needed before green parent confidence.
+- If DevelopmentProcessFlow classifies a validation failure as test too thick,
+  slow/layered, stale, skipped, progress-only, or release-only evidence that
+  affects parent confidence, TestMesh owns the child validation split and
+  evidence-status review.
 
 ## Workflow
 
 1. Inventory test scripts, suites, shards, slow commands, release-only checks,
    and background logs.
 2. Derive target parent/child validation structure and ownership.
-3. Record child evidence status: passed, failed, skipped, stale, progress-only,
+3. For DevelopmentProcessFlow `test_too_thick` handoffs, keep the broad command
+   as a parent gate or compatibility check until child suites/scripts are
+   derived and their evidence status is visible.
+4. Record child evidence status: passed, failed, skipped, stale, progress-only,
    release-only, or not run.
-4. Use `review_test_mesh(...)` or the template to review parent confidence.
-5. Rerun the minimum affected child checks after code, model, prompt, or
+5. Use `review_test_mesh(...)` or the template to review parent confidence.
+6. Rerun the minimum affected child checks after code, model, prompt, or
    verifier changes.
-6. For non-trivial TestMesh reviews, default to a user-facing Mermaid
+7. For non-trivial TestMesh reviews, default to a user-facing Mermaid
    validation mesh diagram showing parent gates, child suites/scripts, evidence status,
    routine/release boundaries, and stale/skipped/progress-only gaps. Its edges
    mean covers, gates, requires rerun, or stales; they are not product flow.

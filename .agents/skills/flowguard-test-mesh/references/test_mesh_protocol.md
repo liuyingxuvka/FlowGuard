@@ -40,6 +40,15 @@ Create or update a TestMesh when:
 - release-only suites should stay visible without blocking routine local
   confidence.
 
+When DevelopmentProcessFlow classifies a failed or blocked validation as
+`test_too_thick`, slow/layered validation, stale/skipped/progress-only
+evidence, or release-only evidence that is being hidden inside a parent
+confidence claim, this protocol owns the handoff. Keep the broad command as a
+parent gate or compatibility check, derive child suites/scripts, record child
+evidence status, and require parent validation confidence to consume current
+child evidence. A later green broad command by itself does not close a
+TestMesh handoff if child evidence remains hidden.
+
 ## Partition Checklist
 
 ## Target Split Derivation
@@ -155,6 +164,8 @@ Known hazards that must fail:
 - timeout or failed suite;
 - background progress without final exit/result artifacts;
 - release-required suite missing under release scope.
+- DevelopmentProcessFlow `test_too_thick` handoff treated as an ordinary
+  implementation failure without child validation structure.
 ```
 
 ## Completion Standard
@@ -171,5 +182,7 @@ A TestMesh review can support the parent only when:
 - all required suites have current pass evidence for the requested scope;
 - skipped, not-run, timeout, and stale evidence remain visible;
 - background jobs have final completion artifacts;
+- DevelopmentProcessFlow `test_too_thick` handoffs have explicit child
+  evidence status and parent consumption;
 - release-only obligations are either current or explicitly deferred only under
   routine scope.

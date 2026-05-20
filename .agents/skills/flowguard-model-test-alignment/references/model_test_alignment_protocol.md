@@ -40,6 +40,14 @@ Create or update a model-test alignment review when:
 - declared `CodeContract` or `TestEvidence` rows need to be checked against
   real Python source/test files before a coverage claim is trusted.
 
+When DevelopmentProcessFlow classifies a validation failure as
+`model_test_mismatch`, model obligations not matching ordinary tests, or code
+contracts not matching test evidence, this protocol owns the handoff. Keep the
+failed validation visible until the review compares required model obligations,
+optional externally visible code contracts, and current test evidence. A later
+green test run by itself does not close the handoff if obligation bindings,
+code-contract bindings, or stale evidence remain unresolved.
+
 Do not trigger this protocol merely because tests are large or slow. Use
 TestMesh for parent/child test hierarchy problems. Do not trigger it merely
 because source structure is being split. Use StructureMesh for code or API
@@ -174,6 +182,10 @@ The review must keep these findings visible:
   error evidence is not coverage;
 - `test_overclaims_model_confidence`: a test report claims broader model
   confidence than its bindings prove.
+- `development_process_handoff_unresolved`: DevelopmentProcessFlow classified
+  a validation failure as model-test mismatch but the alignment review has not
+  reconciled the current obligations, optional code contracts, and test
+  evidence.
 - `source_audit_partial_contract`: AST-visible code supports only part of a
   declared code contract;
 - `source_audit_dynamic_or_ambiguous`: source or test behavior depends on
@@ -258,6 +270,8 @@ A model-test alignment review can support a coverage claim only when:
 - exact external contracts do not expose extra behavior without being reported;
 - every required owner code contract has current passing test evidence with an
   `external_contract` or `mixed` assertion scope;
+- any DevelopmentProcessFlow `model_test_mismatch` handoff is resolved by
+  current comparison evidence rather than only a later green test run;
 - orphan and unknown-obligation tests are absent or explicitly accepted as
   warnings for the current scope;
 - orphan code contracts and unknown code-contract references are absent or

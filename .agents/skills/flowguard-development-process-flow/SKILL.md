@@ -27,6 +27,10 @@ change.
 - Model process blocks as `Input x State -> Set(Output x State)` when the
   lifecycle risk needs executable checking.
 - Skipped, stale, progress-only, or not-run validation is not a pass.
+- Failed validation must be triaged before further implementation or done
+  claims. Do not push through a failure until it is classified as ordinary
+  implementation defect, model too thick, test/check too thick, model-test
+  mismatch, stale evidence, or parent/child evidence not reattached.
 - Preserve user and peer-agent changes; later writes can stale earlier
   evidence.
 
@@ -40,11 +44,19 @@ change.
    evidence.
 4. Use `review_development_process_flow(...)` or the template to derive the
    minimum revalidation plan.
-5. Treat sibling route evidence ids as inputs only; do not inspect or
+5. After any failed, stale, skipped, oversized, or ambiguous validation result,
+   record a failure triage before continuing:
+   ordinary implementation defects may continue through the normal fix path;
+   model-too-thick or oversized model evidence routes to ModelMesh;
+   test-too-thick, slow/layered, skipped, stale, or release-only validation
+   evidence routes to TestMesh; model/test obligation mismatch routes to
+   Model-Test Alignment; disconnected parent/child evidence routes back to the
+   owning parent evidence gate.
+6. Treat sibling route evidence ids as inputs only; do not inspect or
    supervise sibling route internals.
-6. Before done/release/archive/publish, verify the final evidence is current
+7. Before done/release/archive/publish, verify the final evidence is current
    for the final artifact set.
-7. For non-trivial lifecycle reviews, default to a user-facing Mermaid
+8. For non-trivial lifecycle reviews, default to a user-facing Mermaid
    development process diagram showing artifact versions, action writes/invalidations,
    evidence ids, freshness gates, minimum revalidation, and unsupported claims.
    This diagram's edges mean order, invalidation, or required revalidation, not
