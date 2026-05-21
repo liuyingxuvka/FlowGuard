@@ -31,6 +31,10 @@ change.
   claims. Do not push through a failure until it is classified as ordinary
   implementation defect, model too thick, test/check too thick, model-test
   mismatch, stale evidence, or parent/child evidence not reattached.
+- If staged work accumulates repeated handlers, adapters, phases, branches, or
+  validation layers around the same behavior, route to
+  `flowguard-architecture-reduction` before adding more structure or claiming
+  done/release.
 - Preserve user and peer-agent changes; later writes can stale earlier
   evidence.
 
@@ -54,9 +58,13 @@ change.
    owning parent evidence gate.
 6. Treat sibling route evidence ids as inputs only; do not inspect or
    supervise sibling route internals.
-7. Before done/release/archive/publish, verify the final evidence is current
+7. Before implementation and again before done/release/archive/publish, check
+   whether complexity-growth signals require Architecture Reduction: repeated
+   adapters, duplicated branch handling, duplicate validation paths, or a
+   smaller target architecture than the current code graph.
+8. Before done/release/archive/publish, verify the final evidence is current
    for the final artifact set.
-8. For non-trivial lifecycle reviews, default to a user-facing Mermaid
+9. For non-trivial lifecycle reviews, default to a user-facing Mermaid
    development process diagram showing artifact versions, action writes/invalidations,
    evidence ids, freshness gates, minimum revalidation, and unsupported claims.
    This diagram's edges mean order, invalidation, or required revalidation, not
@@ -71,8 +79,8 @@ change.
 
 ## Non-Goals
 
-- Do not replace ModelMesh, TestMesh, StructureMesh, Model-Test Alignment,
-  LongCheck, or Conformance Adoption.
+- Do not replace ModelMesh, TestMesh, StructureMesh, Architecture Reduction,
+  Model-Test Alignment, LongCheck, or Conformance Adoption.
 - Do not mark background progress as completion.
 - Do not convert helper APIs or templates into Codex skills.
 

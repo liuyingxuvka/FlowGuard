@@ -10,6 +10,7 @@ SATELLITE_SKILLS = {
     "flowguard-model-miss-review": "model_miss_protocol.md",
     "flowguard-code-structure-recommendation": "code_structure_recommendation_protocol.md",
     "flowguard-existing-model-preflight": "existing_model_preflight_protocol.md",
+    "flowguard-architecture-reduction": "architecture_reduction_protocol.md",
     "flowguard-ui-flow-structure": "ui_flow_structure_protocol.md",
     "flowguard-model-mesh": "model_mesh_protocol.md",
     "flowguard-test-mesh": "test_mesh_protocol.md",
@@ -62,6 +63,7 @@ class SkillDocsTests(unittest.TestCase):
             "model_mesh_maintenance",
             "test_mesh_maintenance",
             "structure_mesh_maintenance",
+            "architecture_reduction",
             "existing_model_preflight",
             "development_process_flow",
             "model_miss_review",
@@ -73,6 +75,7 @@ class SkillDocsTests(unittest.TestCase):
             "references/skill_kernel_protocol.md",
             "references/modeling_protocol.md",
             "references/code_structure_recommendation_protocol.md",
+            "flowguard-architecture-reduction",
             "references/model_test_alignment_protocol.md",
             "references/model_mesh_protocol.md",
             "references/test_mesh_protocol.md",
@@ -135,6 +138,11 @@ class SkillDocsTests(unittest.TestCase):
                 "review_existing_model_preflight",
                 "existing model boundaries",
                 "duplicate-boundary",
+            ),
+            "flowguard-architecture-reduction": (
+                "review_architecture_reduction",
+                "ObservableArchitectureContract",
+                "safe_by_equivalence",
             ),
             "flowguard-ui-flow-structure": (
                 "review_ui_interaction_model",
@@ -301,6 +309,7 @@ class SkillDocsTests(unittest.TestCase):
             "flowguard-model-miss-review": ("observed failure", "same-class generalized bad case"),
             "flowguard-model-test-alignment": ("model obligations", "test evidence"),
             "flowguard-existing-model-preflight": ("existing model boundaries", "downstream route"),
+            "flowguard-architecture-reduction": ("contraction candidates", "required next route"),
             "flowguard-structure-mesh": ("public entrypoints", "facades"),
             "flowguard-test-mesh": ("parent gates", "evidence status"),
             "flowguard-ui-flow-structure": ("visible-control branches", "residual blindspots"),
@@ -408,6 +417,7 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("flowguard-development-process-flow", text)
         self.assertIn("flowguard-model-miss-review", text)
         self.assertIn("flowguard-code-structure-recommendation", text)
+        self.assertIn("flowguard-architecture-reduction", text)
         self.assertIn("flowguard-existing-model-preflight", text)
         self.assertIn("flowguard-ui-flow-structure", text)
         self.assertIn("flowguard-model-mesh", text)
@@ -505,6 +515,7 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("development_process_flow", kernel)
         self.assertIn("Standalone Satellite Skills", kernel)
         self.assertIn("flowguard-model-mesh", kernel)
+        self.assertIn("flowguard-architecture-reduction", kernel)
         self.assertIn("flowguard-ui-flow-structure", kernel)
         model_test_alignment = (SKILL_ROOT / "references" / "model_test_alignment_protocol.md").read_text(encoding="utf-8")
         self.assertIn("Model-Test Alignment Protocol", model_test_alignment)

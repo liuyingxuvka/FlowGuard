@@ -1,0 +1,4 @@
+interface:
+  display_name: "FlowGuard Architecture Reduction"
+  short_description: "Find model-backed opportunities to shrink code architecture"
+  default_prompt: "Use $flowguard-architecture-reduction when existing code may be safely contracted from FlowGuard model evidence before StructureMesh refactoring."

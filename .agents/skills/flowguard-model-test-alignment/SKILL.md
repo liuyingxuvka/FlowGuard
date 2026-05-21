@@ -21,6 +21,9 @@ mostly core modeling rather than alignment.
 - If DevelopmentProcessFlow classifies a validation failure as model-test
   mismatch, this skill owns the obligation, optional code-contract, and test
   evidence comparison before alignment is claimed.
+- If several tests or code contracts prove the same obligation because the
+  implementation has duplicate paths, route to `flowguard-architecture-reduction`
+  before expanding test evidence further.
 - Preserve user and peer-agent changes; rerun or bound stale evidence.
 - Keep helper APIs and templates as helpers, not skills.
 
@@ -39,9 +42,12 @@ mostly core modeling rather than alignment.
 6. For DevelopmentProcessFlow `model_test_mismatch` handoffs, keep the failed
    validation visible until required obligations, optional code contracts, and
    current test evidence have been compared.
-7. Inspect missing, stale, unknown, or overclaimed coverage. Fix the model,
+7. If duplicate evidence maps to duplicate implementation paths, hand the
+   obligation/code-contract snapshot to Architecture Reduction before deciding
+   whether to keep all paths.
+8. Inspect missing, stale, unknown, or overclaimed coverage. Fix the model,
    code contracts, tests, or evidence rows before claiming alignment.
-8. For non-trivial alignment reviews, default to a user-facing Mermaid coverage
+9. For non-trivial alignment reviews, default to a user-facing Mermaid coverage
    diagram showing model obligations, optional code contracts, test evidence,
    and missing/stale/overclaimed gaps. Its edges mean covers, partially covers,
    misses, or stales; they are not execution order. Tiny evidence checks may
@@ -61,6 +67,8 @@ mostly core modeling rather than alignment.
 - Do not split models; use `flowguard-model-mesh`.
 - Do not split test suites; use `flowguard-test-mesh`.
 - Do not split code structure; use `flowguard-structure-mesh`.
+- Do not decide code contraction from duplicate test coverage alone; use
+  `flowguard-architecture-reduction` for model-to-code shrink decisions.
 - Do not use this to close runtime failures after a model pass; use
   `flowguard-model-miss-review`.
 

@@ -27,6 +27,7 @@ request clearly matches their trigger:
 | `flowguard-model-test-alignment` | `model_test_alignment` |
 | `flowguard-development-process-flow` | `development_process_flow` |
 | `flowguard-model-miss-review` | `model_miss_review` |
+| `flowguard-architecture-reduction` | `architecture_reduction` |
 | `flowguard-code-structure-recommendation` | `code_structure_recommendation` |
 | `flowguard-ui-flow-structure` | `ui_flow_structure` |
 | `flowguard-model-mesh` | `model_mesh_maintenance` |
@@ -42,6 +43,7 @@ to the kernel instead of taking ownership of unclear work.
 | Sub-protocol | Owns |
 | --- | --- |
 | `core_modeling` | Risk Intent, state write inventory, function blocks, invariants, Explorer, CheckPlan |
+| `architecture_reduction` | behavior-preserving code contraction candidates, observable architecture contracts, and target StructureMesh handoff |
 | `ui_flow_structure` | UI interaction model, app-level journey coverage, implemented/runnable UI click-through evidence alignment, reachable visible-control branches, state/control/event/display transitions, parent/child UI topology, menu levels, overlays, stable placements, UI text hierarchy blueprint, and intentional redundancy |
 | `model_test_alignment` | direct comparison of model obligations with ordinary test evidence |
 | `model_mesh_maintenance` | parent/child model hierarchy, child reattachment, whole-flow mesh closure, and oversized-model governance |
@@ -63,6 +65,7 @@ These are package helpers:
 - `review_hierarchical_mesh()`, `review_mesh_closure_model()`,
   `review_test_mesh()`, `review_structure_mesh()`;
 - `review_development_process_flow()` and `derive_revalidation_plan()`;
+- `review_architecture_reduction()` and architecture reduction candidate rows;
 - `UIDisplayElement`, `UIJourneyCoverage`, `UIImplementationValidation`,
   `UITextHierarchyBlueprint`,
   `review_ui_interaction_model()`, `review_ui_journey_coverage()`,
@@ -92,6 +95,10 @@ sub-skills.
   metadata artifacts exist.
 - Keep Model-Test Alignment independent from mesh routes; it compares plain
   obligation rows with plain evidence rows and does not split tests or code.
+- Keep Architecture Reduction as the model-to-code contraction route. It may
+  recommend merge/collapse/remove/keep-facade candidates, but it must hand
+  production refactors to StructureMesh and lifecycle evidence to
+  DevelopmentProcessFlow.
 - Keep DevelopmentProcessFlow as a sibling lifecycle route. It may reference
   evidence ids from ModelMesh, TestMesh, StructureMesh, Model-Test Alignment,
   LongCheck, or Conformance Adoption, but it must not supervise, inspect, or

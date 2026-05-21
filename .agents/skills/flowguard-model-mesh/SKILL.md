@@ -35,6 +35,10 @@ or when it is unclear whether a mesh is needed.
   sibling review.
 - Background progress is liveness only, not pass evidence.
 - Stale child evidence is not a pass.
+- If sibling models or child boundaries appear to express the same
+  implementation responsibility and the desired result is a smaller code
+  architecture, route to `flowguard-architecture-reduction` before expanding
+  the mesh.
 
 ## Workflow
 
@@ -57,13 +61,16 @@ or when it is unclear whether a mesh is needed.
 7. If a child boundary changed, propagate the stale-boundary review upward and
    review affected siblings that share or depend on the same parent partition
    items, state writes, side effects, invariants, or contracts.
-8. Confirm background long-running checks have final artifacts and exit status
+8. When sibling overlap suggests redundant implementation structure, hand the
+   ownership and contract snapshot to Architecture Reduction before creating
+   more child models.
+9. Confirm background long-running checks have final artifacts and exit status
    before consuming them as evidence.
-9. Run child checks first, then parent review through hierarchical mesh
+10. Run child checks first, then parent review through hierarchical mesh
    helpers.
-10. Record which child evidence ids the parent consumed and which are stale,
+11. Record which child evidence ids the parent consumed and which are stale,
    skipped, or release-only.
-11. For non-trivial meshes, default to a user-facing Mermaid mesh diagram
+12. For non-trivial meshes, default to a user-facing Mermaid mesh diagram
     showing root entries, child model boundaries, handoffs, evidence tiers/freshness,
     blockers, and what the mesh does or does not prove. Its
     edges mean delegates, reattaches, consumes output, affects sibling, or
@@ -82,6 +89,8 @@ or when it is unclear whether a mesh is needed.
 
 - Do not split tests; use `flowguard-test-mesh`.
 - Do not split implementation modules; use `flowguard-structure-mesh`.
+- Do not decide whether overlapping model boundaries imply code contraction;
+  use `flowguard-architecture-reduction` for that bridge.
 - Do not use Model-Test Alignment as a model mesh substitute.
 
 For detailed route rules, read `references/model_mesh_protocol.md`.

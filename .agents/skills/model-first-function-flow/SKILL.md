@@ -24,21 +24,13 @@ For repository, coding, process-design, structured writing/argument, and
 decision/planning work, first make a lightweight applicability decision:
 `use_flowguard`, `skip_with_reason`, or `needs_human_review`.
 
-Use FlowGuard when the work may affect behavior, workflow state, retries,
-deduplication, idempotency, caching, side effects, module boundaries, data
-flow, production conformance, repeated-bug handling, large model layout,
-UI implementation click-through evidence alignment, UI information display ownership, duplicate UI information or overlapping
-same-level controls, model-test obligation and optional external code contract coverage, large
-test/script validation layout, large script/module decomposition, slow
-validation evidence, irreversible process actions, development lifecycle
-ordering, non-trivial staged development or modification with validation,
-artifact overwrite, evidence freshness, publication/release side
-effects, UI interaction topology, screen or region ownership, navigation state,
-component event flow, visible UI state transitions, validation/error states,
-parent/child UI structure derived from modeled user interactions, UI text
-hierarchy blueprint ownership for headings, labels, action text, status/helper
-messages, and error/recovery copy slots, argument prerequisites, or decision
-commitments.
+Use FlowGuard when work may affect behavior, workflow state, retries,
+deduplication, caching, side effects, module boundaries, data flow, production
+conformance, repeated-bug handling, large model layout, model-backed code
+contraction, architecture reduction, model-test obligations, slow validation,
+irreversible process actions, evidence freshness, release side effects, UI
+interaction topology, visible UI state transitions, display/text ownership, UI
+structure, argument prerequisites, or decision commitments.
 
 Skip only for clearly trivial copy edits, formatting-only changes, read-only
 explanation, or work with no behavior/state/process impact. If the boundary is
@@ -82,6 +74,7 @@ satellite skills. The routes are agent behavior protocols, not package APIs.
 | --- | --- | --- |
 | Existing modeled system discussion/change, model ownership lookup, reuse-first route grounding, duplicate-boundary risk before proposal or implementation | `existing_model_preflight` | `flowguard-existing-model-preflight` |
 | Ordinary model-first workflow, flow types, Risk Intent, state write inventory | `core_modeling` | `references/modeling_protocol.md` |
+| Existing code can likely be smaller without behavior change, repeated handlers/adapters/modules/branches, model-to-code contraction, or simplification before StructureMesh | `architecture_reduction` | `flowguard-architecture-reduction` |
 | Direct architecture recommendation, model-derived implementation structure, pre-code module split planning | `code_structure_recommendation` | `flowguard-code-structure-recommendation` |
 | UI interaction flow model, complete app launch-to-terminal journey coverage, implemented/runnable UI validation against feature contracts and browser/manual click-through evidence, reachable visible-control branches, screen/region topology, parent/child UI structure, navigation/state/event/display/text ownership, text hierarchy blueprint, duplicate information, or overlapping same-level controls derived from modeled UI behavior | `ui_flow_structure` | `flowguard-ui-flow-structure` |
 | FlowGuard model obligations, optional code external contracts, and ordinary test evidence need direct comparison | `model_test_alignment` | `flowguard-model-test-alignment` |
@@ -96,10 +89,10 @@ satellite skills. The routes are agent behavior protocols, not package APIs.
 | Compatible planning or specification artifact already decomposed the work | `optional_planner_handoff` | `docs/skill_orchestrator_collaboration.md` |
 
 If a model, test, script, module, or command is becoming large, slow, or hard
-to follow, consider whether a parent/child split would make it easier to
-maintain or verify. For models consider ModelMesh; for tests consider TestMesh;
-for scripts, modules, or APIs consider StructureMesh; for long checks consider
-LongCheck observability.
+to follow, consider whether a parent/child split, Architecture Reduction,
+LongCheck observability, or the mesh routes would make it easier to maintain or
+verify. For models consider ModelMesh; for tests consider TestMesh; for
+structure consider StructureMesh; for long checks consider LongCheck.
 
 When a post-runtime model miss is repaired in a child under a parent ModelMesh,
 route through `model_miss_review` and `model_mesh_maintenance`: Model-Miss owns
@@ -169,6 +162,9 @@ Codex skill:
 - Existing-model grounding helpers such as `ExistingModelPreflight`,
   `ModelContextHit`, `ExistingOwnershipSnapshot`, `DuplicateBoundaryRisk`, and
   `review_existing_model_preflight()`.
+- Architecture reduction helpers such as `ObservableArchitectureContract`,
+  `ArchitectureReductionCandidate`, `ArchitectureReductionPlan`, and
+  `review_architecture_reduction()`.
 - UI flow structure helpers such as `UIDisplayElement`, `UIJourneyCoverage`,
   `UIImplementationValidation`, `UITextHierarchyBlueprint`,
   `review_ui_interaction_model()`, `review_ui_journey_coverage()`,
@@ -184,7 +180,8 @@ Codex skill:
 The directly invokable satellite skills are:
 `flowguard-model-test-alignment`, `flowguard-development-process-flow`,
 `flowguard-model-miss-review`, `flowguard-code-structure-recommendation`,
-`flowguard-existing-model-preflight`, `flowguard-ui-flow-structure`,
+`flowguard-existing-model-preflight`, `flowguard-architecture-reduction`,
+`flowguard-ui-flow-structure`,
 `flowguard-model-mesh`, `flowguard-test-mesh`, and
 `flowguard-structure-mesh`. Use the matching satellite directly when the user's
 request clearly matches that route; otherwise use this kernel.
@@ -195,7 +192,7 @@ request clearly matches that route; otherwise use this kernel.
   `references/modeling_protocol.md`, `references/invariant_examples.md`, and
   `references/adoption_protocol.md`.
 - Direct route references: `references/code_structure_recommendation_protocol.md`,
-  `flowguard-existing-model-preflight`, `flowguard-ui-flow-structure`,
+  `flowguard-architecture-reduction`, `flowguard-existing-model-preflight`, `flowguard-ui-flow-structure`,
   `references/model_test_alignment_protocol.md`,
   `references/model_mesh_protocol.md`, `references/test_mesh_protocol.md`,
   `references/structure_mesh_protocol.md`,

@@ -38,7 +38,7 @@ None.
 
 ## Impact
 
-- Global prompt: `C:\Users\liu_y\.codex\AGENTS.md`.
+- Global prompt: `<codex-home>\AGENTS.md`.
 - Repository prompt material: `docs/agents_snippet.md`, README, and
   `.agents/skills/model-first-function-flow`.
 - Tests: focused skill-doc route-priority assertions.

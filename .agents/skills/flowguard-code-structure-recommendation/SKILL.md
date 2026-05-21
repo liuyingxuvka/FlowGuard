@@ -20,6 +20,8 @@ coordination.
 - Do not create a fake mini-framework or prose-only substitute.
 - Derive structure from modeled FunctionBlocks, state ownership, side effects,
   and contracts.
+- If the question is whether existing code can be smaller, run
+  `flowguard-architecture-reduction` before recommending target modules.
 - Do not turn structure advice into a broad refactor without validation.
 - Keep proposed ownership boundaries reviewable and scoped.
 
@@ -28,12 +30,16 @@ coordination.
 1. Read or build the smallest fit-for-risk FlowGuard model.
 2. Extract FunctionBlock ownership, state reads/writes, side effects,
    external contracts, and public entrypoints.
-3. Recommend modules, facades, adapters, and test seams from that evidence.
-4. Identify risky dependency directions, shared state, and compatibility
+3. If the existing implementation has repeated handlers, pass-through
+   adapters, duplicate state phases, or duplicate validation paths, use
+   Architecture Reduction to decide whether the target structure should shrink
+   before proposing modules.
+4. Recommend modules, facades, adapters, and test seams from that evidence.
+5. Identify risky dependency directions, shared state, and compatibility
    boundaries.
-5. Use `review_code_structure_recommendation(...)` where available, then use
+6. Use `review_code_structure_recommendation(...)` where available, then use
    StructureMesh only if the actual refactor is large enough to need it.
-6. For non-trivial structure recommendations, default to a user-facing Mermaid
+7. For non-trivial structure recommendations, default to a user-facing Mermaid
    code structure diagram showing FunctionBlock-to-module mapping,
    facade/adapter boundaries, state and side-effect ownership, and validation boundaries.
    Its edges mean owns, calls, adapts, exposes, or validates; they
@@ -50,6 +56,8 @@ coordination.
 
 - Do not govern a large existing-module refactor end to end; use
   `flowguard-structure-mesh`.
+- Do not prove that existing code can be contracted; use
+  `flowguard-architecture-reduction` first for model-backed shrink decisions.
 - Do not split tests or models.
 - Do not replace implementation tests or conformance replay.
 

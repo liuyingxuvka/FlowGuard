@@ -12,6 +12,7 @@ Include:
 - `.agents/skills/flowguard-model-test-alignment/`
 - `.agents/skills/flowguard-development-process-flow/`
 - `.agents/skills/flowguard-model-miss-review/`
+- `.agents/skills/flowguard-architecture-reduction/`
 - `.agents/skills/flowguard-code-structure-recommendation/`
 - `.agents/skills/flowguard-ui-flow-structure/`
 - `.agents/skills/flowguard-model-mesh/`
@@ -84,6 +85,7 @@ python -m flowguard model-miss-template
 python -m flowguard ui-flow-structure-template
 python $env:USERPROFILE\.codex\skills\.system\skill-creator\scripts\quick_validate.py .agents\skills\flowguard-ui-flow-structure
 python $env:USERPROFILE\.codex\skills\.system\skill-creator\scripts\quick_validate.py .agents\skills\model-first-function-flow
+python $env:USERPROFILE\.codex\skills\.system\skill-creator\scripts\quick_validate.py .agents\skills\flowguard-architecture-reduction
 ```
 
 If a release claims implemented or runnable UI completeness, also require UI

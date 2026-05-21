@@ -30,7 +30,7 @@
 - [x] 4.1 Sync the updated repository skill files into the global Codex skill
   install directory and verify matching hashes.
 - [x] 4.2 Sync the git repository updates back to
-  `C:\Users\liu_y\Documents\FlowGuard_20260427`.
+  `<shadow-workspace>`.
 - [x] 4.3 Keep package release version, README release table, git tag, and
   GitHub Release unchanged for this local-only pass.
 - [x] 4.4 Commit or leave staged local git changes for review, but do not push,

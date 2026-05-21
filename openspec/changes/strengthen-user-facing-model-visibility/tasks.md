@@ -27,7 +27,7 @@
 ## 4. Sync, Validation, And Release
 
 - [x] 4.1 Sync installed global skills and global AGENTS.
-- [x] 4.2 Sync `C:\Users\liu_y\Documents\FlowGuard_20260427`.
+- [x] 4.2 Sync `<shadow-workspace>`.
 - [x] 4.3 Refresh the local editable install and verify imports from both local
   workspaces.
 - [x] 4.4 Run OpenSpec validation, FlowGuard checks, skill validation, focused

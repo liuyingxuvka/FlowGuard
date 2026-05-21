@@ -44,6 +44,9 @@ need coordination.
   obligations: allow intentional duplication only when the model records why it
   is necessary, such as accessibility, persistent navigation, summary plus
   detail, or two user vocabularies for the same action.
+- If repeated UI states, controls, screens, panels, or information displays
+  imply that the implemented UI code can shrink, route to
+  `flowguard-architecture-reduction` before frontend refactoring.
 - Keep visual design, Figma execution, frontend implementation, browser QA, and
   design review as downstream work, not proof that the UI flow model, structure
   derivation, or text hierarchy blueprint is sound.
@@ -79,7 +82,11 @@ need coordination.
    desktop, or manual journey runs, step evidence, current model revision, pure
    UI actions, and residual implementation blindspots. Run
    `review_ui_implementation_validation(...)` when available.
-9. For non-trivial UI models or implementation-evidence reviews, default to a
+9. If the UI model or implementation evidence shows duplicate screens,
+   controls, display ownership, or repeated journey paths that should become
+   less code, hand the UI structure and feature-contract map to Architecture
+   Reduction before frontend restructuring.
+10. For non-trivial UI models or implementation-evidence reviews, default to a
    user-facing Mermaid UI state diagram showing launch entries, key UI states,
    visible-control branches, failure/recovery/terminal paths, evidence status,
    residual blindspots, and claim boundaries. Its edges mean reachable
@@ -125,5 +132,8 @@ need coordination.
   `flowguard-code-structure-recommendation`.
 - Do not use this route for existing large-code refactors; use
   `flowguard-structure-mesh`.
+- Do not directly shrink frontend code from a UI flow finding; use
+  `flowguard-architecture-reduction` and then StructureMesh or the relevant
+  frontend validation route.
 
 For detailed route rules, read `references/ui_flow_structure_protocol.md`.

@@ -26,6 +26,10 @@ to reuse, extend, add a child model, or create a new boundary.
 - Prefer existing modeled responsibilities over parallel new ownership. If a
   new model, module, rule, workflow, or ownership boundary is proposed, explain
   why the existing boundary cannot carry it.
+- If the existing boundary overlaps a proposed new boundary and the desired
+  outcome is a smaller implementation, route to
+  `flowguard-architecture-reduction` before adding another model, module, or
+  adapter.
 - Skipped, stale, missing, or no-model-found evidence must stay visible.
 
 ## When To Use
@@ -79,9 +83,11 @@ architecture decisions, or risky behavior changes:
 5. Decide one of: `reuse_existing`, `extend_existing`, `add_child_model`,
    `new_boundary`, `no_model_found`, or `skip_with_reason`.
 6. Identify duplicate ownership risks before allowing a new boundary.
-7. Use `review_existing_model_preflight(...)` for full preflight reports when
+7. If duplicate ownership suggests code contraction rather than extension,
+   hand off to Architecture Reduction with the model ownership snapshot.
+8. Use `review_existing_model_preflight(...)` for full preflight reports when
    available.
-8. Route to the downstream FlowGuard skill that owns the actual work.
+9. Route to the downstream FlowGuard skill that owns the actual work.
 
 ## User-Facing Snapshot
 
@@ -110,6 +116,8 @@ The snapshot explains the preflight. It is not validation evidence.
 - Do not implement production changes.
 - Do not split code; use StructureMesh for existing code refactors.
 - Do not derive final module structure; use Code Structure Recommendation.
+- Do not decide behavior-preserving code contraction; use Architecture
+  Reduction before StructureMesh when the goal is to shrink existing code.
 - Do not govern parent/child model confidence; use ModelMesh.
 - Do not repair runtime misses; use Model-Miss Review.
 - Do not replace implementation tests, conformance replay, or validation

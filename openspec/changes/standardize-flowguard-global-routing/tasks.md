@@ -1,6 +1,6 @@
 ## 1. Routing Contract
 
-- [x] 1.1 Update global `C:\Users\liu_y\.codex\AGENTS.md` to route FlowGuard
+- [x] 1.1 Update global `<codex-home>\AGENTS.md` to route FlowGuard
   tasks through a peer satellite skill table before using the model-first
   kernel.
 - [x] 1.2 Update repository `docs/agents_snippet.md` with the same peer route
@@ -29,7 +29,7 @@
 ## 4. Sync And Release
 
 - [x] 4.1 Sync global installed skills and global AGENTS prompt.
-- [x] 4.2 Sync `C:\Users\liu_y\Documents\FlowGuard_20260427`.
+- [x] 4.2 Sync `<shadow-workspace>`.
 - [x] 4.3 Refresh local editable install and verify imports from both local
   workspaces.
 - [x] 4.4 Bump patch version, update changelog and README release table.

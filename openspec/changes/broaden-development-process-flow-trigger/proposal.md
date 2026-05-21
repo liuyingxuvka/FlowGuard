@@ -37,7 +37,7 @@ None.
 ## Impact
 
 - Codex skills: update `.agents/skills/flowguard-development-process-flow` and
-  the installed global copy under `C:\Users\liu_y\.codex\skills`.
+  the installed global copy under `<codex-home>\skills`.
 - Skill Kernel/docs: update route descriptions in
   `.agents/skills/model-first-function-flow`, `docs/modeling_protocol.md`,
   `docs/agents_snippet.md`, `docs/development_process_flow.md`, and README.

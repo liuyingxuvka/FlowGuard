@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.19.0 - 2026-05-21
+
+- Added Architecture Reduction as a FlowGuard route for using existing models to
+  find behavior-preserving code contraction opportunities before implementation.
+- Added public helper APIs `ObservableArchitectureContract`,
+  `ArchitectureReductionCandidate`, `ArchitectureReductionPlan`, and
+  `review_architecture_reduction(...)`.
+- Added candidate types, proof statuses, target actions, public-entrypoint
+  StructureMesh gates, and target-structure handoff checks so risky shrinkage
+  stays visible instead of becoming a silent rewrite.
+- Added the `flowguard-architecture-reduction` Codex skill and updated
+  companion FlowGuard skills so development, existing-model preflight,
+  structure, mesh, model-test, and UI routes know when to invoke it.
+- Added OpenSpec artifacts, local FlowGuard route-safety model checks, API
+  docs, README coverage, and focused regression tests for the new route.
+- Schema remains `1.0`; runtime dependencies remain Python standard library
+  only.
+
 ## v0.18.6 - 2026-05-20
 
 - Added validation-failure triage to DevelopmentProcessFlow so failed, stale,

@@ -70,6 +70,7 @@ Route map:
 | --- | --- |
 | Existing modeled system discussion/change, model ownership lookup, reuse-first route grounding, duplicate-boundary risk before proposal or implementation | `existing_model_preflight` |
 | Ordinary modeling, Risk Intent, state write inventory, invariants, Explorer | `core_modeling` |
+| Existing code can likely be smaller without behavior change, repeated handlers/adapters/modules/branches, model-to-code contraction, or simplification before StructureMesh | `architecture_reduction` |
 | Direct architecture recommendation or model-derived implementation structure | `code_structure_recommendation` |
 | UI interaction model, app-level launch-to-terminal journey coverage, implemented/runnable UI validation against feature contracts and browser/manual click-through evidence, reachable visible-control branches, screen/region topology, parent/child UI hierarchy, menu levels, overlays, stable placement, display/text ownership, text hierarchy blueprint, duplicate information, or overlapping controls | `ui_flow_structure` |
 | Direct comparison between FlowGuard model obligations, optional code external contracts, and ordinary test evidence | `model_test_alignment` |
@@ -90,6 +91,7 @@ Directly invokable FlowGuard satellite skills are peer routes:
 | `flowguard-model-test-alignment` | `model_test_alignment` |
 | `flowguard-development-process-flow` | `development_process_flow` |
 | `flowguard-model-miss-review` | `model_miss_review` |
+| `flowguard-architecture-reduction` | `architecture_reduction` |
 | `flowguard-code-structure-recommendation` | `code_structure_recommendation` |
 | `flowguard-ui-flow-structure` | `ui_flow_structure` |
 | `flowguard-model-mesh` | `model_mesh_maintenance` |
@@ -104,6 +106,8 @@ Use the matching Skill reference protocol for support routes. Helper APIs such a
 `RiskIntent`, property factories, packs, `FlowGuardCheckPlan`,
 `review_code_structure_recommendation()`, `review_model_test_alignment()`,
 `ExistingModelPreflight`, `review_existing_model_preflight()`,
+`ObservableArchitectureContract`, `ArchitectureReductionCandidate`,
+`review_architecture_reduction()`,
 `UIDisplayElement`, `UIJourneyCoverage`, `UIImplementationValidation`,
 `UITextHierarchyBlueprint`,
 `review_ui_interaction_model()`, `review_ui_journey_coverage()`,
@@ -132,7 +136,9 @@ conformance replay or other production-facing validation.
 If a model, test, script, module, or command is becoming large, slow, or hard
 to follow, consider whether a parent/child split would make it easier to
 maintain or verify. For models consider ModelMesh; for tests consider TestMesh;
-for scripts, modules, or APIs consider StructureMesh; for long checks consider
+for scripts, modules, or APIs consider StructureMesh; when the goal is to make
+existing code smaller without behavior change, consider Architecture Reduction
+before Code Structure Recommendation or StructureMesh; for long checks consider
 LongCheck observability.
 
 Treat ModelMesh, TestMesh, and StructureMesh as sibling parent/child partition

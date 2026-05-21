@@ -67,6 +67,15 @@ Modeling helpers reduce boilerplate around common bug classes:
   child reattachment, child boundary propagation, affected sibling review,
   whole-flow closure across model handoffs, bug-class responsibility
   separation, large-model split triggers, and legacy compatibility.
+- optional architecture reduction helpers such as
+  `ObservableArchitectureContract`, `ArchitectureReductionCandidate`,
+  `ArchitectureReductionTrigger`, `TargetArchitectureAction`,
+  `ArchitectureReductionPlan`, `ArchitectureReductionReport`, and
+  `review_architecture_reduction()` for reviewing whether an existing modeled
+  implementation can be contracted without changing declared observable
+  behavior, classifying merge/collapse/remove/keep-facade candidates, and
+  handing target structure actions to Code Structure Recommendation or
+  StructureMesh before production code is edited.
 - optional model-test alignment helpers such as `ModelObligation`,
   `CodeContract`, `TestEvidence`, `ModelTestAlignmentPlan`, and
   `review_model_test_alignment()` for directly comparing model obligations
@@ -216,7 +225,10 @@ and evidence visible before trusting the parent. For large structure refactors,
 use StructureMesh to make model-derived target structure, child-module
 ownership, and compatibility evidence visible before trusting a parent split.
 Use Code Structure Recommendation for direct pre-code architecture
-recommendations. Use UI Flow Structure when a UI's controls, state transitions,
+recommendations. Use Architecture Reduction when an existing implementation has
+repeated handlers, adapters, modules, branches, or validation layers and the
+goal is behavior-preserving code contraction; it should produce a review and
+handoff, not rewrite production code. Use UI Flow Structure when a UI's controls, state transitions,
 navigation, regions, overlays, menu levels, information displays,
 duplicate/redundant content, overlapping controls, or parent/child hierarchy
 need a reviewed UI interaction model before layout and visual implementation;

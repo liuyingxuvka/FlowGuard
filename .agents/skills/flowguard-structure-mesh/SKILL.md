@@ -20,20 +20,25 @@ structure recommendation or when route selection is ambiguous.
 - Existing public entrypoints need compatibility evidence before green
   confidence.
 - Target structure must be model-derived for existing large refactors.
+- If the proposed refactor is meant to shrink an overgrown flow, consume an
+  Architecture Reduction report before treating the target structure as ready.
 - Dependency cycles, config drift, missing facades, and parity gaps are release
   blockers until addressed or explicitly bounded.
 
 ## Workflow
 
 1. Inventory current modules/scripts/commands/public entrypoints and ownership.
-2. Derive target structure from FunctionBlocks, state ownership, side effects,
+2. For shrink-oriented refactors, run or consume Architecture Reduction to
+   identify merge/collapse/remove/keep-facade candidates and their proof
+   status.
+3. Derive target structure from FunctionBlocks, state ownership, side effects,
    contracts, and compatibility requirements.
-3. Define parent facade and child module responsibilities.
-4. Check dependency direction, config ownership, public entrypoint parity, and
+4. Define parent facade and child module responsibilities.
+5. Check dependency direction, config ownership, public entrypoint parity, and
    routine/release evidence.
-5. Use `review_structure_mesh(...)` or the template before claiming refactor
+6. Use `review_structure_mesh(...)` or the template before claiming refactor
    confidence.
-6. For non-trivial StructureMesh reviews, default to a user-facing Mermaid
+7. For non-trivial StructureMesh reviews, default to a user-facing Mermaid
    structure mesh diagram showing current public entrypoints, target child
    modules, facades, dependency direction, config/parity evidence, and release
    blockers. Its edges mean exposes, preserves, adapts, depends, or validates
@@ -51,6 +56,8 @@ structure recommendation or when route selection is ambiguous.
 
 - Do not use this for early architecture advice only; use
   `flowguard-code-structure-recommendation`.
+- Do not discover code contraction candidates from scratch; use
+  `flowguard-architecture-reduction` when the refactor goal is simplification.
 - Do not split tests or models.
 - Do not bypass conformance/release sync when public behavior changes.
 
