@@ -20,6 +20,9 @@ coordination.
 - Do not create a fake mini-framework or prose-only substitute.
 - Derive structure from modeled FunctionBlocks, state ownership, side effects,
   and contracts.
+- For model-backed code surfaces with finite inputs or outputs, recommend where
+  the input gate, output mapper, error mapper, state writer, and side-effect
+  observation boundary should live so tests can prove the code boundary later.
 - If the question is whether existing code can be smaller, run
   `flowguard-architecture-reduction` before recommending target modules.
 - Do not turn structure advice into a broad refactor without validation.
@@ -35,13 +38,15 @@ coordination.
    Architecture Reduction to decide whether the target structure should shrink
    before proposing modules.
 4. Recommend modules, facades, adapters, and test seams from that evidence.
-5. Identify risky dependency directions, shared state, and compatibility
+5. Recommend code-boundary observation points for model-declared external
+   inputs, outputs, state writes, side effects, and error paths.
+6. Identify risky dependency directions, shared state, and compatibility
    boundaries.
-6. Use `review_code_structure_recommendation(...)` where available, then use
+7. Use `review_code_structure_recommendation(...)` where available, then use
    StructureMesh only if the actual refactor is large enough to need it.
-7. Record proposed validation boundaries as future Risk Evidence Ledger proof
+8. Record proposed validation boundaries as future Risk Evidence Ledger proof
    ids; this route recommends ownership but does not prove runtime behavior.
-8. For non-trivial structure recommendations, default to a user-facing Mermaid
+9. For non-trivial structure recommendations, default to a user-facing Mermaid
    code structure diagram showing FunctionBlock-to-module mapping,
    facade/adapter boundaries, state and side-effect ownership, and validation boundaries.
    Its edges mean owns, calls, adapts, exposes, or validates; they

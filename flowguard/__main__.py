@@ -399,7 +399,7 @@ def main(argv: list[str] | None = None) -> int:
     _add_file_template_parser(
         subparsers,
         "model-test-alignment-template",
-        "Print or write the model/test/code contract and source-audit alignment template.",
+        "Print or write the model/test/code contract, code-boundary, and source-audit alignment template.",
         _run_model_test_alignment_template,
     )
     _add_file_template_parser(

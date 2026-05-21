@@ -8,6 +8,34 @@ read TestMesh, StructureMesh, or ModelMesh reports.
 Use it before claiming that model coverage, code behavior, and test coverage
 describe the same behavioral surface.
 
+## Code Boundary Conformance
+
+When a model-backed code surface claims a finite input/output boundary, add
+code-boundary conformance evidence before trusting the claim. The model and
+`CodeContract` rows declare the boundary; `CodeBoundaryContract` narrows that
+boundary into runtime cases, and `CodeBoundaryObservation` records what the real
+code actually did for those cases.
+
+This checks the code, not the model. A passing boundary review means current
+observations show that:
+
+- allowed input cases are accepted by the real code;
+- rejected input cases hit the input gate and do not enter the modeled core;
+- accepted code paths only produce declared outputs;
+- observed error paths, state writes, and side effects stay inside the declared
+  boundary;
+- stale, skipped, failed, timeout, not-run, running, error, or internal-path
+  observations do not count as current boundary evidence.
+
+Use `review_code_boundary_conformance(...)` directly for a focused boundary
+review, or include `boundary_contracts` and `boundary_observations` in
+`ModelTestAlignmentPlan` so `review_model_test_alignment(...)` blocks green
+alignment when real code crosses the model-declared boundary.
+
+This is runtime boundary evidence, not exhaustive semantic proof. It should not
+replace conformance replay when ordered production traces, durable state,
+external systems, or adapter projection are part of the confidence claim.
+
 ## Conservative Source Audit
 
 When real Python source and tests are available, add a conservative source
@@ -67,6 +95,14 @@ audit, or hand-authored and then checked against source audit evidence:
 - state reads and writes;
 - side effects and error paths.
 
+List runtime boundary rows when the code surface must be closed:
+
+- boundary id, code contract id, and model obligation id;
+- allowed input cases and rejected input cases;
+- allowed outputs, state writes, side effects, and error paths;
+- whether the boundary is exact;
+- current observations from real code tests, replay adapters, or harnesses.
+
 List test evidence with `TestEvidence`:
 
 - evidence id, test name, path, and command;
@@ -91,6 +127,9 @@ The review keeps these gaps visible:
 - model obligations with no code external contract owner;
 - code contracts that miss model-declared external behavior;
 - exact code contracts that add model-forbidden external behavior;
+- code-boundary observations that accept forbidden inputs, accept unknown
+  inputs, reject allowed inputs, miss required input-gate evidence, or emit
+  undeclared output, state writes, side effects, or error paths;
 - tests that cover a model obligation without binding the code contract they
   are meant to prove;
 - tests that bind a code contract but only inspect internal implementation

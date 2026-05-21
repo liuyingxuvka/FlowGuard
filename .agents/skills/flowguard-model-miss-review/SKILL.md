@@ -31,19 +31,23 @@ multiple FlowGuard routes.
    evidence that appeared green.
 2. Capture the real failure: exact input, state, log, replay, test, or user
    action.
-3. Classify the miss as `boundary_missing`, `state_too_coarse`,
-   `input_branch_missing`, `invariant_too_weak`, or `evidence_overclaimed`.
+3. Classify the miss as `boundary_missing`, `code_boundary_mismatch`,
+   `state_too_coarse`, `input_branch_missing`, `invariant_too_weak`, or
+   `evidence_overclaimed`.
 4. Add the observed failure and a generalized same-class bad case to the model
    or replay evidence.
-5. Rerun the model and production-facing validation.
-6. If a repaired child model is part of a parent mesh, rerun the affected
+5. If the failure shows real code accepted an unexpected input or emitted an
+   undeclared output, state write, side effect, or error path, add
+   code-boundary observations through Model-Test Alignment.
+6. Rerun the model and production-facing validation.
+7. If a repaired child model is part of a parent mesh, rerun the affected
    parent ModelMesh reattachment gate.
-7. Close only when the corrected model catches the bad case and the relevant
+8. Close only when the corrected model catches the bad case and the relevant
    runtime/test/replay evidence is current.
-8. Update the Risk Evidence Ledger row that the old green claim overcovered:
+9. Update the Risk Evidence Ledger row that the old green claim overcovered:
    record the prior evidence as overclaimed or stale, then attach the new
    same-class bad-case evidence before restoring full confidence.
-9. For non-trivial misses, default to a user-facing Mermaid miss-repair diagram
+10. For non-trivial misses, default to a user-facing Mermaid miss-repair diagram
    showing the prior green claim, observed failure, miss classification, model
    repair, same-class generalized bad case, rerun evidence, and remaining
    validation boundary. Its edges mean missed, repaired, generalized,

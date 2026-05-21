@@ -88,6 +88,12 @@ Modeling helpers reduce boilerplate around common bug classes:
   `review_python_contract_source_audit()` for feeding AST-visible code and test
   assertion evidence into Model-Test Alignment without presenting it as perfect
   semantic proof or a replacement for conformance replay.
+- optional code-boundary conformance helpers such as
+  `CodeBoundaryContract`, `CodeBoundaryObservation`,
+  `CodeBoundaryConformanceReport`, and
+  `review_code_boundary_conformance()` for checking whether real code
+  observations stay inside a model-declared finite input/output boundary before
+  alignment confidence is claimed.
 - optional TestMesh helpers such as `TestMeshPlan`, `TestPartitionItem`,
   `TestTargetSplitDerivation`, `TestSuiteEvidence`, and `review_test_mesh()`
   for reviewing model-derived target suite/script layouts, parent/child test
@@ -217,8 +223,12 @@ an internal path. When real Python source and tests are available, use
 `audit_python_code_contracts()`, `audit_python_test_assertions()`, and
 `review_python_contract_source_audit()` to check whether the declared code
 contracts and test evidence are supported by AST-visible code and assertions
-before trusting the three-way claim; send ambiguous or complex behavior to
-manual review and keep conformance replay for production-facing confidence. For large model or
+before trusting the three-way claim. When a code contract is supposed to be a
+closed boundary, add `CodeBoundaryContract` and `CodeBoundaryObservation` rows
+and run `review_code_boundary_conformance()` so forbidden inputs, unknown
+accepted inputs, extra outputs, extra errors, extra state writes, and extra
+side effects stay visible. Send ambiguous or complex behavior to manual review
+and keep conformance replay for production-facing confidence. For large model or
 validation meshes, record the target split
 derivation from the FlowGuard source model before trusting parent/child
 ownership and evidence. When parent confidence claims whole-flow closure, add a

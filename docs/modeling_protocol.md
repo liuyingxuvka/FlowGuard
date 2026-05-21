@@ -111,15 +111,21 @@ tests are expected to prove those obligations. If the reviewed behavior also
 depends on a public function, API, CLI, facade, adapter, persisted output, or
 other externally visible code surface, include optional code external contract
 rows in the same direct review.
+When that code surface claims finite inputs or outputs, include
+code-boundary conformance rows so real-code observations prove allowed inputs,
+rejected inputs, outputs, error paths, state writes, and side effects stay
+inside the declared boundary.
 
 Model-Test Alignment is not a mesh route. It does not split tests, split code,
 split models, or read TestMesh, StructureMesh, or ModelMesh reports. It
-compares `ModelObligation` rows, optional `CodeContract` rows, and
-`TestEvidence` rows and reports missing evidence, missing or mismatched code
-contracts, orphan tests, orphan code contracts, duplicate same-kind test
-claims, duplicate code contract owners, internal-path-only tests,
-model-code-test binding mismatches, stale/non-passing evidence, missing
-required test kinds, and overclaimed model confidence.
+compares `ModelObligation` rows, optional `CodeContract` rows, optional
+`CodeBoundaryContract` / `CodeBoundaryObservation` rows, and `TestEvidence`
+rows and reports missing evidence, missing or mismatched code contracts,
+boundary-crossing code observations, orphan tests, orphan code contracts,
+duplicate same-kind test claims, duplicate code contract owners,
+internal-path-only tests, model-code-test binding mismatches,
+stale/non-passing evidence, missing required test kinds, and overclaimed model
+confidence.
 
 When real Python code and tests are available, add conservative source audit
 evidence before trusting the rows. The audit should parse AST-visible source
@@ -129,7 +135,9 @@ It is deliberately limited: it is not a perfect semantic proof for Python, does
 not replace conformance replay, and must send dynamic, ambiguous, or complex
 behavior to manual review.
 
-Use `review_model_test_alignment(...)` for this direct comparison.
+Use `review_model_test_alignment(...)` for this direct comparison. Use
+`review_code_boundary_conformance(...)` when only the real-code boundary needs
+a focused review.
 
 Use TestMesh only when the validation flow itself is large, slow, layered, or
 needs parent/child suite ownership. Use StructureMesh only when a large script,
@@ -618,9 +626,10 @@ When this happens:
    model-quality audit, scenario or live-audit evidence, progress, contracts,
    conformance, skipped/not-run sections, and adoption evidence. The ledger is
    the coverage-first view used to avoid patching only the visible failure.
-3. Classify why the prior model missed the issue with one of five practical
-   categories: `boundary_missing`, `state_too_coarse`,
-   `input_branch_missing`, `invariant_too_weak`, or `evidence_overclaimed`.
+3. Classify why the prior model missed the issue with one of the practical
+   categories: `boundary_missing`, `code_boundary_mismatch`,
+   `state_too_coarse`, `input_branch_missing`, `invariant_too_weak`, or
+   `evidence_overclaimed`.
    Record unusual details in plain language instead of expanding the formal
    daily category list.
 4. If the issue belongs in scope, represent it as executable evidence: scenario,

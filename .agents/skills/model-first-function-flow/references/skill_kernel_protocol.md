@@ -45,7 +45,7 @@ to the kernel instead of taking ownership of unclear work.
 | `core_modeling` | Risk Intent, state write inventory, function blocks, invariants, Explorer, CheckPlan |
 | `architecture_reduction` | behavior-preserving code contraction candidates, observable architecture contracts, and target StructureMesh handoff |
 | `ui_flow_structure` | UI interaction model, app-level journey coverage, implemented/runnable UI click-through evidence alignment, reachable visible-control branches, state/control/event/display transitions, parent/child UI topology, menu levels, overlays, stable placements, UI text hierarchy blueprint, and intentional redundancy |
-| `model_test_alignment` | direct comparison of model obligations with ordinary test evidence |
+| `model_test_alignment` | direct comparison of model obligations, optional code contracts, code-boundary observations, and ordinary test evidence |
 | `risk_evidence_ledger` | final risk-to-model-to-code-to-evidence confidence boundary for done/release/publish/full-confidence claims |
 | `model_mesh_maintenance` | parent/child model hierarchy, child reattachment, whole-flow mesh closure, and oversized-model governance |
 | `test_mesh_maintenance` | parent/child test hierarchy plus validation evidence |
@@ -62,7 +62,7 @@ These are package helpers:
 
 - `RiskIntent`, `RiskProfile`, `FlowGuardCheckPlan`;
 - property factories and packs;
-- `review_model_test_alignment()`;
+- `review_model_test_alignment()` and `review_code_boundary_conformance()`;
 - `review_risk_evidence_ledger()` and risk evidence ledger rows;
 - `review_hierarchical_mesh()`, `review_mesh_closure_model()`,
   `review_test_mesh()`, `review_structure_mesh()`;
@@ -96,7 +96,8 @@ sub-skills.
   not pass evidence, until final output, error, combined log, exit, and
   metadata artifacts exist.
 - Keep Model-Test Alignment independent from mesh routes; it compares plain
-  obligation rows with plain evidence rows and does not split tests or code.
+  obligation, code-contract, code-boundary observation, and evidence rows and
+  does not split tests or code.
 - Keep Risk Evidence Ledger as a final claim boundary. It consumes evidence ids
   from sibling routes, but it does not replace their checks or rerun tests.
 - Keep Architecture Reduction as the model-to-code contraction route. It may

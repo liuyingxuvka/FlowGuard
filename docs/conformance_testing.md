@@ -20,6 +20,24 @@ A passing model does not prove production code is correct. The production implem
 
 If replay or real-world evidence diverges from the abstract trace, first decide whether the production code is wrong, the replay adapter is hiding behavior, or the model is too coarse. Refine the model or adapter and rerun the checks before treating the model result as production confidence.
 
+## Boundary Conformance vs Trace Replay
+
+Code-boundary conformance is the smaller check: for one model-backed code
+surface, current observations must show that the code accepts only declared
+input cases and emits only declared outputs, errors, state writes, and side
+effects. Use `review_code_boundary_conformance(...)` through Model-Test
+Alignment when the risk is a code block becoming wider than its model-declared
+boundary.
+
+Conformance replay is the sequence check: it replays ordered abstract traces
+against production code and compares projected state/output across steps. Use
+replay when the risk depends on ordering, repeated inputs, durable state,
+cross-step side effects, external systems, or adapter projection.
+
+The two checks can support each other. Boundary conformance keeps one code
+surface closed; replay checks that a whole modeled trace still matches real
+runtime behavior.
+
 ## Default Replay Triggers
 
 "When feasible" should not mean "usually skipped." After a model passes,

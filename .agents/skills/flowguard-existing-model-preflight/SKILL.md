@@ -66,6 +66,8 @@ architecture decisions, or risky behavior changes:
 - relevant model hits;
 - FunctionBlock, state, side-effect, responsibility, and public-entrypoint
   ownership;
+- existing code-boundary conformance evidence for model-backed code surfaces
+  with finite inputs or outputs;
 - reuse decision;
 - duplicate-boundary risks and their resolution;
 - downstream FlowGuard route(s);
@@ -80,17 +82,20 @@ architecture decisions, or risky behavior changes:
 4. Extract existing FunctionBlocks, state owners, side-effect owners,
    public-entrypoint owners, responsibilities, parent/child boundaries, and
    validation evidence.
-5. Decide one of: `reuse_existing`, `extend_existing`, `add_child_model`,
+5. Note whether any existing code contract already has current
+   code-boundary observations for allowed inputs, rejected inputs, outputs,
+   state writes, side effects, and errors.
+6. Decide one of: `reuse_existing`, `extend_existing`, `add_child_model`,
    `new_boundary`, `no_model_found`, or `skip_with_reason`.
-6. Identify duplicate ownership risks before allowing a new boundary.
-7. If duplicate ownership suggests code contraction rather than extension,
+7. Identify duplicate ownership risks before allowing a new boundary.
+8. If duplicate ownership suggests code contraction rather than extension,
    hand off to Architecture Reduction with the model ownership snapshot.
-8. Use `review_existing_model_preflight(...)` for full preflight reports when
+9. Use `review_existing_model_preflight(...)` for full preflight reports when
    available.
-9. Preserve relevant model ids, evidence ids, scoped gaps, and reuse decisions
+10. Preserve relevant model ids, evidence ids, scoped gaps, and reuse decisions
    for the Risk Evidence Ledger when the downstream work will make a final
    confidence claim.
-10. Route to the downstream FlowGuard skill that owns the actual work.
+11. Route to the downstream FlowGuard skill that owns the actual work.
 
 ## User-Facing Snapshot
 

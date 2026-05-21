@@ -19,6 +19,9 @@ structure recommendation or when route selection is ambiguous.
 - Do not create a fake mini-framework or prose-only substitute.
 - Existing public entrypoints need compatibility evidence before green
   confidence.
+- Existing public entrypoints that implement finite model-backed inputs or
+  outputs need code-boundary conformance evidence before the refactor can claim
+  the runtime boundary stayed closed.
 - Target structure must be model-derived for existing large refactors.
 - If the proposed refactor is meant to shrink an overgrown flow, consume an
   Architecture Reduction report before treating the target structure as ready.
@@ -36,12 +39,14 @@ structure recommendation or when route selection is ambiguous.
 4. Define parent facade and child module responsibilities.
 5. Check dependency direction, config ownership, public entrypoint parity, and
    routine/release evidence.
-6. Use `review_structure_mesh(...)` or the template before claiming refactor
+6. For facade, adapter, CLI, or API entrypoints with finite boundaries, feed
+   allowed/rejected input and output observations to Model-Test Alignment.
+7. Use `review_structure_mesh(...)` or the template before claiming refactor
    confidence.
-7. Feed public-entrypoint parity ids, facade evidence, and deferred release
+8. Feed public-entrypoint parity ids, facade evidence, and deferred release
    obligations to the Risk Evidence Ledger before a broader final confidence
    claim.
-8. For non-trivial StructureMesh reviews, default to a user-facing Mermaid
+9. For non-trivial StructureMesh reviews, default to a user-facing Mermaid
    structure mesh diagram showing current public entrypoints, target child
    modules, facades, dependency direction, config/parity evidence, and release
    blockers. Its edges mean exposes, preserves, adapts, depends, or validates

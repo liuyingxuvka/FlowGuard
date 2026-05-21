@@ -16,6 +16,15 @@ freshness, and assertion scopes into a Risk Evidence Ledger. Alignment proves
 rows agree; the ledger decides whether the broader user-risk claim is full,
 scoped, or blocked.
 
+When real code observations are available for a finite code boundary, add the
+code-boundary conformance layer before trusting a hand-authored code contract.
+This layer checks whether real code accepted only allowed input cases, rejected
+forbidden input cases, and emitted only declared outputs, state writes, side
+effects, and error paths. Use `CodeBoundaryContract`,
+`CodeBoundaryObservation`, and `review_code_boundary_conformance()`. It checks
+the code boundary; it is not a new skill and not a replacement for full trace
+replay.
+
 When real Python source and tests are available, add the conservative source audit
 layer before trusting hand-authored rows. This layer reads Python ASTs to
 generate or check `PythonCodeContractEvidence` and
@@ -45,14 +54,9 @@ Create or update a model-test alignment review when:
   tests, or happy-path-only coverage of risky model obligations.
 - declared `CodeContract` or `TestEvidence` rows need to be checked against
   real Python source/test files before a coverage claim is trusted.
-
-When DevelopmentProcessFlow classifies a validation failure as
-`model_test_mismatch`, model obligations not matching ordinary tests, or code
-contracts not matching test evidence, this protocol owns the handoff. Keep the
-failed validation visible until the review compares required model obligations,
-optional externally visible code contracts, and current test evidence. A later
-green test run by itself does not close the handoff if obligation bindings,
-code-contract bindings, or stale evidence remain unresolved.
+- declared code boundaries need runtime observation evidence showing allowed
+  inputs, rejected inputs, outputs, errors, state writes, and side effects
+  stayed inside the model-declared boundary.
 
 Do not trigger this protocol merely because tests are large or slow. Use
 TestMesh for parent/child test hierarchy problems. Do not trigger it merely
@@ -93,6 +97,17 @@ AST-supported, partial, missing, ambiguous, dynamic, or manual-review-required.
 - whether the contract is required.
 - source-audit notes: inspected path, discovered symbol, supported fields,
   missing fields, dynamic features, and manual-review reason.
+
+List optional `CodeBoundaryContract` and `CodeBoundaryObservation` rows when a
+code surface claims a closed boundary:
+
+- boundary id;
+- bound code contract id and model obligation id;
+- allowed input cases and rejected input cases;
+- allowed outputs, state writes, side effects, and error paths;
+- whether the boundary is exact;
+- observation id, input case, accepted/rejected result, observed output, error
+  path, state writes, side effects, status, freshness, and assertion scope.
 
 List `TestEvidence` rows:
 
@@ -161,6 +176,19 @@ The review must keep these findings visible:
   required by the model obligation;
 - `code_contract_extra_behavior`: an exact model obligation is implemented by a
   code contract that exposes extra behavior;
+- `boundary_missing_runtime_evidence`: a code boundary has no current
+  external-boundary observation;
+- `boundary_missing_allowed_input_evidence`: an allowed input case has no
+  current accepted observation;
+- `boundary_missing_rejected_input_evidence`: a rejected input case has no
+  current input-gate rejection observation;
+- `boundary_forbidden_input_accepted`: a forbidden input was accepted by real
+  code;
+- `boundary_unknown_input_accepted`: an unknown input was accepted by an exact
+  boundary;
+- `boundary_extra_output`, `boundary_extra_error_path`,
+  `boundary_extra_state_write`, and `boundary_extra_side_effect`: real code
+  emitted behavior outside the declared boundary;
 - `missing_code_contract_test_evidence`: a required owner code contract has no
   current passing external-contract test evidence;
 - `missing_required_test_kind`: a required path kind is absent;
@@ -188,10 +216,6 @@ The review must keep these findings visible:
   error evidence is not coverage;
 - `test_overclaims_model_confidence`: a test report claims broader model
   confidence than its bindings prove.
-- `development_process_handoff_unresolved`: DevelopmentProcessFlow classified
-  a validation failure as model-test mismatch but the alignment review has not
-  reconciled the current obligations, optional code contracts, and test
-  evidence.
 - `source_audit_partial_contract`: AST-visible code supports only part of a
   declared code contract;
 - `source_audit_dynamic_or_ambiguous`: source or test behavior depends on
@@ -236,6 +260,16 @@ Code external contracts (optional; include only when in scope):
 - side effects:
 - error paths:
 
+Code boundary conformance (optional; include when a code surface must be closed):
+- boundary id:
+- code contract id:
+- model obligation id:
+- allowed input cases:
+- rejected input cases:
+- allowed outputs/state writes/side effects/error paths:
+- exact boundary:
+- observations:
+
 Test evidence:
 - id:
 - test name/path/command:
@@ -254,12 +288,14 @@ CodeContract and TestEvidence rows, but do not treat it as a perfect semantic
 proof or a conformance replay substitute.
 
 Flag missing model-obligation coverage, missing or mismatched code external
-contracts, missing external-contract test evidence, orphan tests, orphan code
-contracts, unknown references, duplicate same-kind test claims, duplicate code
-contract owners, internal-path-only tests, model-code-test binding mismatches,
-happy-path-only coverage for risky obligations, stale or non-passing evidence,
-partial source-audit support, dynamic or ambiguous source-audit findings,
-manual-review-required findings, and overclaimed model confidence.
+contracts, boundary observations that accept forbidden inputs or emit
+undeclared behavior, missing external-contract test evidence, orphan tests,
+orphan code contracts, unknown references, duplicate same-kind test claims,
+duplicate code contract owners, internal-path-only tests, model-code-test
+binding mismatches, happy-path-only coverage for risky obligations, stale or
+non-passing evidence, partial source-audit support, dynamic or ambiguous
+source-audit findings, manual-review-required findings, and overclaimed model
+confidence.
 ```
 
 ## Completion Standard
@@ -274,10 +310,11 @@ A model-test alignment review can support a coverage claim only when:
 - owner code contracts preserve required external inputs, outputs, state reads,
   state writes, side effects, and error paths;
 - exact external contracts do not expose extra behavior without being reported;
+- exact code boundaries have current observations for allowed and rejected
+  input cases, and observed outputs, errors, state writes, and side effects do
+  not exceed the boundary;
 - every required owner code contract has current passing test evidence with an
   `external_contract` or `mixed` assertion scope;
-- any DevelopmentProcessFlow `model_test_mismatch` handoff is resolved by
-  current comparison evidence rather than only a later green test run;
 - orphan and unknown-obligation tests are absent or explicitly accepted as
   warnings for the current scope;
 - orphan code contracts and unknown code-contract references are absent or

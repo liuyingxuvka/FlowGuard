@@ -29,6 +29,10 @@ need coordination.
   implementation validation has aligned the user-visible feature contracts, the
   reviewed UI journey coverage, and browser, desktop, or manual click-through
   evidence. Model-complete UI and running-UI-complete are different claims.
+- If a UI feature contract maps to a real code/API boundary with finite UI
+  events or outputs, route those runtime boundary observations through
+  Model-Test Alignment before claiming the implemented UI cannot trigger
+  undeclared behavior.
 - Do not skip the structure derivation and jump straight to microcopy or
   screen text.
 - Represent UI behavior as `UI event x UI state -> Set(UI output x UI state)`.
@@ -82,18 +86,21 @@ need coordination.
    desktop, or manual journey runs, step evidence, current model revision, pure
    UI actions, and residual implementation blindspots. Run
    `review_ui_implementation_validation(...)` when available.
-9. If the UI model or implementation evidence shows duplicate screens,
+9. For UI actions backed by finite code/API boundaries, include allowed events,
+   rejected events, visible outputs, state writes, side effects, and error
+   paths as code-boundary observations in Model-Test Alignment.
+10. If the UI model or implementation evidence shows duplicate screens,
    controls, display ownership, or repeated journey paths that should become
    less code, hand the UI structure and feature-contract map to Architecture
    Reduction before frontend restructuring.
-10. For non-trivial UI models or implementation-evidence reviews, default to a
+11. For non-trivial UI models or implementation-evidence reviews, default to a
    user-facing Mermaid UI state diagram showing launch entries, key UI states,
    visible-control branches, failure/recovery/terminal paths, evidence status,
    residual blindspots, and claim boundaries. Its edges mean reachable
    interaction transitions or recovery/cancel/exit branches, not layout
    containment or code ownership. Tiny visual-only checks may stay concise. The
    diagram explains the model and does not replace the executable reviews.
-10. Hand the resulting UI structure and text hierarchy contract to frontend,
+12. Hand the resulting UI structure and text hierarchy contract to frontend,
    Figma, browser, copy/design, or design-review workflows only after the model,
    required journey coverage, derivation, blueprint, and any implementation
    completion evidence are explicit.

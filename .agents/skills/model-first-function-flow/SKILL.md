@@ -74,7 +74,7 @@ satellite skills. The routes are agent behavior protocols, not package APIs.
 | Existing code can likely be smaller without behavior change, repeated handlers/adapters/modules/branches, model-to-code contraction, or simplification before StructureMesh | `architecture_reduction` | `flowguard-architecture-reduction` |
 | Direct architecture recommendation, model-derived implementation structure, pre-code module split planning | `code_structure_recommendation` | `flowguard-code-structure-recommendation` |
 | UI interaction flow model, complete app launch-to-terminal journey coverage, implemented/runnable UI validation against feature contracts and browser/manual click-through evidence, reachable visible-control branches, screen/region topology, parent/child UI structure, navigation/state/event/display/text ownership, text hierarchy blueprint, duplicate information, or overlapping same-level controls derived from modeled UI behavior | `ui_flow_structure` | `flowguard-ui-flow-structure` |
-| FlowGuard model obligations, optional code external contracts, and ordinary test evidence need direct comparison | `model_test_alignment` | `flowguard-model-test-alignment` |
+| FlowGuard model obligations, optional code external contracts, code-boundary runtime observations, and ordinary test evidence need direct comparison | `model_test_alignment` | `flowguard-model-test-alignment` |
 | Final done/release/publish/full-confidence claim needs risk-to-model-to-code-to-evidence proof boundary | `risk_evidence_ledger` | `docs/risk_evidence_ledger.md` |
 | Three or more local FlowGuard models, oversized model, stale child evidence, parent/child model partition, affected sibling review, whole-flow mesh closure | `model_mesh_maintenance` | `flowguard-model-mesh` |
 | Large test script/suite split, parent/child test hierarchy, slow/background/stale/skipped/release-only validation evidence | `test_mesh_maintenance` | `flowguard-test-mesh` |
@@ -130,11 +130,13 @@ Classify the main lens when using FlowGuard:
 10. Inspect counterexamples. If a trace is impossible or misses known behavior,
     revise the model, oracle, replay adapter, or architecture before claiming
     confidence.
-11. Run the strongest practical model, replay, test, or manual validation for
+11. If a model-backed code block claims finite inputs or outputs, route its
+    boundary observations through Model-Test Alignment before claiming code conformance.
+12. Run the strongest practical model, replay, test, or manual validation for
     the touched boundary.
-12. Update the user-facing model snapshot when route choice, branch coverage,
+13. Update the user-facing model snapshot when route choice, branch coverage,
     evidence status, or claim boundaries materially change.
-13. Update adoption evidence with commands, findings, skipped checks, residual
+14. Update adoption evidence with commands, findings, skipped checks, residual
     risk, next actions, and the visible model boundary; diagrams explain, not validate.
 
 ## Helper APIs Are Not Sub-Skills
@@ -151,10 +153,7 @@ Codex skill:
 - Mesh review APIs such as `review_hierarchical_mesh()`,
   `review_mesh_closure_model()`, `review_test_mesh()`, and
   `review_structure_mesh()`.
-- Alignment APIs such as `review_model_test_alignment()`,
-  `audit_python_code_contracts()`, `audit_python_test_assertions()`,
-  `review_python_contract_source_audit()`, and optional code external contract
-  rows consumed by the model-test alignment plan.
+- Alignment APIs such as `review_model_test_alignment()`, `review_code_boundary_conformance()`, `audit_python_code_contracts()`, `audit_python_test_assertions()`, `review_python_contract_source_audit()`, and optional code/boundary rows.
 - Risk evidence APIs such as `RiskEvidenceLedgerPlan`,
   `RiskEvidenceProof`, `RiskEvidenceRow`, and
   `review_risk_evidence_ledger()`.

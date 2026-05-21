@@ -383,6 +383,209 @@ class TestEvidence:
 
 
 @dataclass(frozen=True)
+class CodeBoundaryContract:
+    """Runtime boundary contract for one model-backed code surface."""
+
+    boundary_id: str
+    code_contract_id: str = ""
+    model_obligation_id: str = ""
+    allowed_inputs: tuple[str, ...] = ()
+    rejected_inputs: tuple[str, ...] = ()
+    allowed_outputs: tuple[str, ...] = ()
+    allowed_state_writes: tuple[str, ...] = ()
+    allowed_side_effects: tuple[str, ...] = ()
+    allowed_error_paths: tuple[str, ...] = ()
+    exact: bool = True
+    input_gate_required: bool = True
+    required: bool = True
+    required_observation_ids: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "boundary_id", str(self.boundary_id))
+        object.__setattr__(self, "code_contract_id", str(self.code_contract_id))
+        object.__setattr__(self, "model_obligation_id", str(self.model_obligation_id))
+        object.__setattr__(self, "allowed_inputs", _as_tuple(self.allowed_inputs))
+        object.__setattr__(self, "rejected_inputs", _as_tuple(self.rejected_inputs))
+        object.__setattr__(self, "allowed_outputs", _as_tuple(self.allowed_outputs))
+        object.__setattr__(self, "allowed_state_writes", _as_tuple(self.allowed_state_writes))
+        object.__setattr__(self, "allowed_side_effects", _as_tuple(self.allowed_side_effects))
+        object.__setattr__(self, "allowed_error_paths", _as_tuple(self.allowed_error_paths))
+        object.__setattr__(self, "required_observation_ids", _as_tuple(self.required_observation_ids))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "boundary_id": self.boundary_id,
+            "code_contract_id": self.code_contract_id,
+            "model_obligation_id": self.model_obligation_id,
+            "allowed_inputs": list(self.allowed_inputs),
+            "rejected_inputs": list(self.rejected_inputs),
+            "allowed_outputs": list(self.allowed_outputs),
+            "allowed_state_writes": list(self.allowed_state_writes),
+            "allowed_side_effects": list(self.allowed_side_effects),
+            "allowed_error_paths": list(self.allowed_error_paths),
+            "exact": self.exact,
+            "input_gate_required": self.input_gate_required,
+            "required": self.required,
+            "required_observation_ids": list(self.required_observation_ids),
+        }
+
+
+@dataclass(frozen=True)
+class CodeBoundaryObservation:
+    """Real-code observation collected by a boundary test, replay, or harness."""
+
+    observation_id: str
+    boundary_id: str
+    input_case: str = ""
+    accepted: bool = True
+    observed_output: str = ""
+    observed_state_writes: tuple[str, ...] = ()
+    observed_side_effects: tuple[str, ...] = ()
+    observed_error_path: str = ""
+    result_status: str = TEST_STATUS_PASSED
+    evidence_current: bool = True
+    evidence_id: str = ""
+    assertion_scope: str = TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "observation_id", str(self.observation_id))
+        object.__setattr__(self, "boundary_id", str(self.boundary_id))
+        object.__setattr__(self, "input_case", str(self.input_case))
+        object.__setattr__(self, "observed_output", str(self.observed_output))
+        object.__setattr__(self, "observed_state_writes", _as_tuple(self.observed_state_writes))
+        object.__setattr__(self, "observed_side_effects", _as_tuple(self.observed_side_effects))
+        object.__setattr__(self, "observed_error_path", str(self.observed_error_path))
+        object.__setattr__(self, "result_status", str(self.result_status))
+        object.__setattr__(self, "evidence_id", str(self.evidence_id))
+        object.__setattr__(self, "assertion_scope", str(self.assertion_scope))
+        object.__setattr__(self, "metadata", dict(self.metadata))
+
+    def has_current_pass(self) -> bool:
+        return self.result_status in PASSING_STATUSES and self.evidence_current
+
+    def has_external_boundary_assertion(self) -> bool:
+        return self.assertion_scope in {
+            TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
+            TEST_ASSERTION_SCOPE_MIXED,
+        }
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "observation_id": self.observation_id,
+            "boundary_id": self.boundary_id,
+            "input_case": self.input_case,
+            "accepted": self.accepted,
+            "observed_output": self.observed_output,
+            "observed_state_writes": list(self.observed_state_writes),
+            "observed_side_effects": list(self.observed_side_effects),
+            "observed_error_path": self.observed_error_path,
+            "result_status": self.result_status,
+            "evidence_current": self.evidence_current,
+            "evidence_id": self.evidence_id,
+            "assertion_scope": self.assertion_scope,
+            "metadata": to_jsonable(dict(self.metadata)),
+        }
+
+
+@dataclass(frozen=True)
+class CodeBoundaryFinding:
+    """One runtime code-boundary conformance gap."""
+
+    code: str
+    message: str
+    severity: str = "blocker"
+    boundary_id: str = ""
+    observation_id: str = ""
+    code_contract_id: str = ""
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "code", str(self.code))
+        object.__setattr__(self, "message", str(self.message))
+        object.__setattr__(self, "severity", str(self.severity))
+        object.__setattr__(self, "boundary_id", str(self.boundary_id))
+        object.__setattr__(self, "observation_id", str(self.observation_id))
+        object.__setattr__(self, "code_contract_id", str(self.code_contract_id))
+        object.__setattr__(self, "metadata", dict(self.metadata))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "code": self.code,
+            "message": self.message,
+            "severity": self.severity,
+            "boundary_id": self.boundary_id,
+            "observation_id": self.observation_id,
+            "code_contract_id": self.code_contract_id,
+            "metadata": to_jsonable(dict(self.metadata)),
+        }
+
+
+@dataclass(frozen=True)
+class CodeBoundaryConformanceReport:
+    """Structured result of checking real-code observations against a boundary."""
+
+    ok: bool
+    decision: str
+    findings: tuple[CodeBoundaryFinding, ...] = ()
+    checked_boundaries: int = 0
+    checked_observations: int = 0
+    summary: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "decision", str(self.decision))
+        object.__setattr__(self, "findings", tuple(self.findings))
+        if not self.summary:
+            status = "OK" if self.ok else "BLOCKED"
+            object.__setattr__(
+                self,
+                "summary",
+                (
+                    f"{status}: code_boundary_conformance "
+                    f"boundaries={self.checked_boundaries} "
+                    f"observations={self.checked_observations} "
+                    f"findings={len(self.findings)}"
+                ),
+            )
+
+    def blocker_count(self) -> int:
+        return sum(1 for finding in self.findings if finding.severity == "blocker")
+
+    def format_text(self, max_findings: int = 10) -> str:
+        lines = [
+            "=== flowguard code boundary conformance ===",
+            f"status: {'OK' if self.ok else 'BLOCKED'}",
+            f"decision: {self.decision}",
+            f"boundaries: {self.checked_boundaries}",
+            f"observations: {self.checked_observations}",
+            f"findings: {len(self.findings)}",
+        ]
+        for finding in self.findings[:max_findings]:
+            lines.extend(
+                [
+                    "",
+                    f"finding: {finding.code}",
+                    f"severity: {finding.severity}",
+                    f"boundary: {finding.boundary_id or '(none)'}",
+                    f"code_contract: {finding.code_contract_id or '(none)'}",
+                    f"observation: {finding.observation_id or '(none)'}",
+                    f"message: {finding.message}",
+                ]
+            )
+        return "\n".join(lines)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "ok": self.ok,
+            "decision": self.decision,
+            "findings": [finding.to_dict() for finding in self.findings],
+            "checked_boundaries": self.checked_boundaries,
+            "checked_observations": self.checked_observations,
+            "summary": self.summary,
+        }
+
+
+@dataclass(frozen=True)
 class ModelTestAlignmentPlan:
     """A direct model-obligation, code-contract, and test-evidence review plan."""
 
@@ -390,6 +593,8 @@ class ModelTestAlignmentPlan:
     obligations: tuple[ModelObligation, ...] = ()
     code_contracts: tuple[CodeContract, ...] = ()
     test_evidence: tuple[TestEvidence, ...] = ()
+    boundary_contracts: tuple[CodeBoundaryContract, ...] = ()
+    boundary_observations: tuple[CodeBoundaryObservation, ...] = ()
     require_code_contracts: bool = False
     allow_orphan_tests: bool = False
     allow_orphan_code_contracts: bool = False
@@ -399,6 +604,8 @@ class ModelTestAlignmentPlan:
         object.__setattr__(self, "obligations", tuple(self.obligations))
         object.__setattr__(self, "code_contracts", tuple(self.code_contracts))
         object.__setattr__(self, "test_evidence", tuple(self.test_evidence))
+        object.__setattr__(self, "boundary_contracts", tuple(self.boundary_contracts))
+        object.__setattr__(self, "boundary_observations", tuple(self.boundary_observations))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -406,6 +613,8 @@ class ModelTestAlignmentPlan:
             "obligations": [obligation.to_dict() for obligation in self.obligations],
             "code_contracts": [contract.to_dict() for contract in self.code_contracts],
             "test_evidence": [evidence.to_dict() for evidence in self.test_evidence],
+            "boundary_contracts": [contract.to_dict() for contract in self.boundary_contracts],
+            "boundary_observations": [observation.to_dict() for observation in self.boundary_observations],
             "require_code_contracts": self.require_code_contracts,
             "allow_orphan_tests": self.allow_orphan_tests,
             "allow_orphan_code_contracts": self.allow_orphan_code_contracts,
@@ -612,6 +821,22 @@ def _decision_for_findings(findings: Sequence[ModelTestAlignmentFinding]) -> str
         ("missing_code_contract", "missing_code_contract"),
         ("code_contract_missing_behavior", "code_contract_missing_behavior"),
         ("code_contract_extra_behavior", "code_contract_extra_behavior"),
+        ("duplicate_code_boundary", "code_boundary_conformance_failed"),
+        ("unknown_code_boundary_contract_reference", "code_boundary_conformance_failed"),
+        ("unknown_code_boundary_observation_reference", "code_boundary_conformance_failed"),
+        ("boundary_missing_runtime_evidence", "code_boundary_conformance_failed"),
+        ("boundary_missing_allowed_input_evidence", "code_boundary_conformance_failed"),
+        ("boundary_missing_rejected_input_evidence", "code_boundary_conformance_failed"),
+        ("boundary_forbidden_input_accepted", "code_boundary_conformance_failed"),
+        ("boundary_unknown_input_accepted", "code_boundary_conformance_failed"),
+        ("boundary_allowed_input_rejected", "code_boundary_conformance_failed"),
+        ("boundary_extra_output", "code_boundary_conformance_failed"),
+        ("boundary_extra_error_path", "code_boundary_conformance_failed"),
+        ("boundary_extra_state_write", "code_boundary_conformance_failed"),
+        ("boundary_extra_side_effect", "code_boundary_conformance_failed"),
+        ("boundary_observation_not_passing", "code_boundary_conformance_failed"),
+        ("boundary_observation_stale", "code_boundary_conformance_failed"),
+        ("boundary_observation_internal_path_only", "code_boundary_conformance_failed"),
         ("missing_test_evidence", "missing_test_evidence"),
         ("missing_code_contract_test_evidence", "missing_code_contract_test_evidence"),
         ("missing_required_test_kind", "missing_required_test_kind"),
@@ -634,6 +859,385 @@ def _decision_for_findings(findings: Sequence[ModelTestAlignmentFinding]) -> str
         if code in codes:
             return decision
     return "model_test_alignment_blocked"
+
+
+def _boundary_decision_for_findings(findings: Sequence[CodeBoundaryFinding]) -> str:
+    blockers = tuple(finding for finding in findings if finding.severity == "blocker")
+    if not blockers:
+        return "code_boundary_conformance_green"
+    priority = (
+        "duplicate_code_boundary",
+        "unknown_code_boundary_contract_reference",
+        "unknown_code_boundary_observation_reference",
+        "boundary_missing_runtime_evidence",
+        "boundary_missing_allowed_input_evidence",
+        "boundary_missing_rejected_input_evidence",
+        "boundary_forbidden_input_accepted",
+        "boundary_unknown_input_accepted",
+        "boundary_allowed_input_rejected",
+        "boundary_extra_output",
+        "boundary_extra_error_path",
+        "boundary_extra_state_write",
+        "boundary_extra_side_effect",
+        "boundary_observation_not_passing",
+        "boundary_observation_stale",
+        "boundary_observation_internal_path_only",
+    )
+    codes = {finding.code for finding in blockers}
+    for code in priority:
+        if code in codes:
+            return code
+    return "code_boundary_conformance_blocked"
+
+
+def _boundary_contract_index(
+    boundary_contracts: Sequence[CodeBoundaryContract],
+) -> tuple[dict[str, CodeBoundaryContract], list[CodeBoundaryFinding]]:
+    contracts_by_id: dict[str, CodeBoundaryContract] = {}
+    findings: list[CodeBoundaryFinding] = []
+    for contract in boundary_contracts:
+        if contract.boundary_id in contracts_by_id:
+            findings.append(
+                CodeBoundaryFinding(
+                    "duplicate_code_boundary",
+                    f"code boundary {contract.boundary_id} is declared more than once",
+                    boundary_id=contract.boundary_id,
+                    code_contract_id=contract.code_contract_id,
+                    metadata=contract.to_dict(),
+                )
+            )
+            continue
+        contracts_by_id[contract.boundary_id] = contract
+    return contracts_by_id, findings
+
+
+def _observations_by_boundary(
+    observations: Sequence[CodeBoundaryObservation],
+) -> dict[str, list[CodeBoundaryObservation]]:
+    result: dict[str, list[CodeBoundaryObservation]] = {}
+    for observation in observations:
+        result.setdefault(observation.boundary_id, []).append(observation)
+    return result
+
+
+def _current_boundary_observations(
+    observations: Sequence[CodeBoundaryObservation],
+) -> tuple[CodeBoundaryObservation, ...]:
+    return tuple(
+        observation
+        for observation in observations
+        if observation.has_current_pass()
+        and observation.has_external_boundary_assertion()
+    )
+
+
+def _boundary_observation_status_findings(
+    observation: CodeBoundaryObservation,
+    contract: CodeBoundaryContract | None,
+) -> list[CodeBoundaryFinding]:
+    findings: list[CodeBoundaryFinding] = []
+    code_contract_id = contract.code_contract_id if contract is not None else ""
+    if observation.result_status in NON_PASSING_STATUSES:
+        findings.append(
+            CodeBoundaryFinding(
+                "boundary_observation_not_passing",
+                f"boundary observation {observation.observation_id} status is {observation.result_status}",
+                boundary_id=observation.boundary_id,
+                observation_id=observation.observation_id,
+                code_contract_id=code_contract_id,
+                metadata=observation.to_dict(),
+            )
+        )
+    if observation.result_status not in PASSING_STATUSES | NON_PASSING_STATUSES:
+        findings.append(
+            CodeBoundaryFinding(
+                "boundary_observation_not_passing",
+                f"boundary observation {observation.observation_id} has unknown status {observation.result_status}",
+                boundary_id=observation.boundary_id,
+                observation_id=observation.observation_id,
+                code_contract_id=code_contract_id,
+                metadata=observation.to_dict(),
+            )
+        )
+    if not observation.evidence_current:
+        findings.append(
+            CodeBoundaryFinding(
+                "boundary_observation_stale",
+                f"boundary observation {observation.observation_id} is stale",
+                boundary_id=observation.boundary_id,
+                observation_id=observation.observation_id,
+                code_contract_id=code_contract_id,
+                metadata=observation.to_dict(),
+            )
+        )
+    if not observation.has_external_boundary_assertion():
+        findings.append(
+            CodeBoundaryFinding(
+                "boundary_observation_internal_path_only",
+                f"boundary observation {observation.observation_id} does not prove the external code boundary",
+                boundary_id=observation.boundary_id,
+                observation_id=observation.observation_id,
+                code_contract_id=code_contract_id,
+                metadata=observation.to_dict(),
+            )
+        )
+    return findings
+
+
+def _boundary_extra_field_finding(
+    *,
+    code: str,
+    field_name: str,
+    extra: Sequence[str],
+    contract: CodeBoundaryContract,
+    observation: CodeBoundaryObservation,
+) -> CodeBoundaryFinding:
+    return CodeBoundaryFinding(
+        code,
+        f"boundary observation {observation.observation_id} has undeclared {field_name}",
+        boundary_id=contract.boundary_id,
+        observation_id=observation.observation_id,
+        code_contract_id=contract.code_contract_id,
+        metadata={
+            "field": field_name,
+            "extra": sorted(str(item) for item in extra),
+            "boundary": contract.to_dict(),
+            "observation": observation.to_dict(),
+        },
+    )
+
+
+def _boundary_behavior_findings(
+    contract: CodeBoundaryContract,
+    observation: CodeBoundaryObservation,
+) -> list[CodeBoundaryFinding]:
+    findings: list[CodeBoundaryFinding] = []
+    allowed_inputs = _tuple_set(contract.allowed_inputs)
+    rejected_inputs = _tuple_set(contract.rejected_inputs)
+
+    if observation.input_case in rejected_inputs and observation.accepted:
+        findings.append(
+            CodeBoundaryFinding(
+                "boundary_forbidden_input_accepted",
+                f"forbidden input {observation.input_case!r} was accepted by boundary {contract.boundary_id}",
+                boundary_id=contract.boundary_id,
+                observation_id=observation.observation_id,
+                code_contract_id=contract.code_contract_id,
+                metadata={"boundary": contract.to_dict(), "observation": observation.to_dict()},
+            )
+        )
+    elif observation.input_case in allowed_inputs and not observation.accepted:
+        findings.append(
+            CodeBoundaryFinding(
+                "boundary_allowed_input_rejected",
+                f"allowed input {observation.input_case!r} was rejected by boundary {contract.boundary_id}",
+                boundary_id=contract.boundary_id,
+                observation_id=observation.observation_id,
+                code_contract_id=contract.code_contract_id,
+                metadata={"boundary": contract.to_dict(), "observation": observation.to_dict()},
+            )
+        )
+    elif contract.exact and allowed_inputs and observation.input_case not in allowed_inputs | rejected_inputs:
+        if observation.accepted:
+            findings.append(
+                CodeBoundaryFinding(
+                    "boundary_unknown_input_accepted",
+                    f"unknown input {observation.input_case!r} was accepted by exact boundary {contract.boundary_id}",
+                    boundary_id=contract.boundary_id,
+                    observation_id=observation.observation_id,
+                    code_contract_id=contract.code_contract_id,
+                    metadata={"boundary": contract.to_dict(), "observation": observation.to_dict()},
+                )
+            )
+
+    if not contract.exact:
+        return findings
+
+    if observation.observed_output:
+        allowed_outputs = _tuple_set(contract.allowed_outputs)
+        if observation.observed_output not in allowed_outputs:
+            findings.append(
+                _boundary_extra_field_finding(
+                    code="boundary_extra_output",
+                    field_name="output",
+                    extra=(observation.observed_output,),
+                    contract=contract,
+                    observation=observation,
+                )
+            )
+    if observation.observed_error_path:
+        allowed_errors = _tuple_set(contract.allowed_error_paths)
+        if observation.observed_error_path not in allowed_errors:
+            findings.append(
+                _boundary_extra_field_finding(
+                    code="boundary_extra_error_path",
+                    field_name="error path",
+                    extra=(observation.observed_error_path,),
+                    contract=contract,
+                    observation=observation,
+                )
+            )
+    extra_writes = _tuple_set(observation.observed_state_writes) - _tuple_set(contract.allowed_state_writes)
+    if extra_writes:
+        findings.append(
+            _boundary_extra_field_finding(
+                code="boundary_extra_state_write",
+                field_name="state writes",
+                extra=sorted(extra_writes),
+                contract=contract,
+                observation=observation,
+            )
+        )
+    extra_side_effects = _tuple_set(observation.observed_side_effects) - _tuple_set(contract.allowed_side_effects)
+    if extra_side_effects:
+        findings.append(
+            _boundary_extra_field_finding(
+                code="boundary_extra_side_effect",
+                field_name="side effects",
+                extra=sorted(extra_side_effects),
+                contract=contract,
+                observation=observation,
+            )
+        )
+    return findings
+
+
+def _boundary_required_evidence_findings(
+    contract: CodeBoundaryContract,
+    observations: Sequence[CodeBoundaryObservation],
+) -> list[CodeBoundaryFinding]:
+    findings: list[CodeBoundaryFinding] = []
+    current_observations = _current_boundary_observations(observations)
+    if contract.required and not current_observations:
+        findings.append(
+            CodeBoundaryFinding(
+                "boundary_missing_runtime_evidence",
+                f"code boundary {contract.boundary_id} has no current external-boundary observation",
+                boundary_id=contract.boundary_id,
+                code_contract_id=contract.code_contract_id,
+                metadata=contract.to_dict(),
+            )
+        )
+        return findings
+
+    current_ids = {observation.observation_id for observation in current_observations}
+    for observation_id in contract.required_observation_ids:
+        if observation_id not in current_ids:
+            findings.append(
+                CodeBoundaryFinding(
+                    "boundary_missing_runtime_evidence",
+                    f"code boundary {contract.boundary_id} is missing required observation {observation_id}",
+                    boundary_id=contract.boundary_id,
+                    code_contract_id=contract.code_contract_id,
+                    metadata={"required_observation_id": observation_id, "boundary": contract.to_dict()},
+                )
+            )
+
+    for input_case in contract.allowed_inputs:
+        accepted = any(
+            observation.input_case == input_case and observation.accepted
+            for observation in current_observations
+        )
+        if not accepted:
+            findings.append(
+                CodeBoundaryFinding(
+                    "boundary_missing_allowed_input_evidence",
+                    f"code boundary {contract.boundary_id} has no current accepted observation for allowed input {input_case!r}",
+                    boundary_id=contract.boundary_id,
+                    code_contract_id=contract.code_contract_id,
+                    metadata={"input_case": input_case, "boundary": contract.to_dict()},
+                )
+            )
+
+    if contract.input_gate_required:
+        for input_case in contract.rejected_inputs:
+            rejected = any(
+                observation.input_case == input_case and not observation.accepted
+                for observation in current_observations
+            )
+            if not rejected:
+                findings.append(
+                    CodeBoundaryFinding(
+                        "boundary_missing_rejected_input_evidence",
+                        f"code boundary {contract.boundary_id} has no current rejection observation for forbidden input {input_case!r}",
+                        boundary_id=contract.boundary_id,
+                        code_contract_id=contract.code_contract_id,
+                        metadata={"input_case": input_case, "boundary": contract.to_dict()},
+                    )
+                )
+    return findings
+
+
+def review_code_boundary_conformance(
+    boundary_contracts: Sequence[CodeBoundaryContract],
+    boundary_observations: Sequence[CodeBoundaryObservation],
+    code_contracts: Sequence[CodeContract] = (),
+) -> CodeBoundaryConformanceReport:
+    """Review runtime observations against declared model-backed code boundaries."""
+
+    boundary_contracts_by_id, findings = _boundary_contract_index(boundary_contracts)
+    observations_by_boundary = _observations_by_boundary(boundary_observations)
+    code_contracts_by_id = {contract.code_contract_id: contract for contract in code_contracts}
+
+    for contract in boundary_contracts_by_id.values():
+        if code_contracts_by_id and contract.code_contract_id and contract.code_contract_id not in code_contracts_by_id:
+            findings.append(
+                CodeBoundaryFinding(
+                    "unknown_code_boundary_contract_reference",
+                    f"code boundary {contract.boundary_id} references unknown code contract {contract.code_contract_id}",
+                    boundary_id=contract.boundary_id,
+                    code_contract_id=contract.code_contract_id,
+                    metadata=contract.to_dict(),
+                )
+            )
+        observations = tuple(observations_by_boundary.get(contract.boundary_id, ()))
+        findings.extend(_boundary_required_evidence_findings(contract, observations))
+
+    for observation in boundary_observations:
+        contract = boundary_contracts_by_id.get(observation.boundary_id)
+        if contract is None:
+            findings.append(
+                CodeBoundaryFinding(
+                    "unknown_code_boundary_observation_reference",
+                    f"boundary observation {observation.observation_id} references unknown boundary {observation.boundary_id}",
+                    boundary_id=observation.boundary_id,
+                    observation_id=observation.observation_id,
+                    metadata=observation.to_dict(),
+                )
+            )
+            continue
+        findings.extend(_boundary_observation_status_findings(observation, contract))
+        if observation.has_current_pass() and observation.has_external_boundary_assertion():
+            findings.extend(_boundary_behavior_findings(contract, observation))
+
+    blockers = tuple(finding for finding in findings if finding.severity == "blocker")
+    return CodeBoundaryConformanceReport(
+        ok=not blockers,
+        decision=_boundary_decision_for_findings(findings),
+        findings=tuple(findings),
+        checked_boundaries=len(tuple(boundary_contracts)),
+        checked_observations=len(tuple(boundary_observations)),
+    )
+
+
+def _boundary_findings_as_alignment_findings(
+    report: CodeBoundaryConformanceReport,
+) -> list[ModelTestAlignmentFinding]:
+    return [
+        ModelTestAlignmentFinding(
+            finding.code,
+            finding.message,
+            severity=finding.severity,
+            evidence_id=finding.observation_id,
+            code_contract_id=finding.code_contract_id,
+            metadata={
+                "boundary_id": finding.boundary_id,
+                "boundary_report_decision": report.decision,
+                "boundary_finding": finding.to_dict(),
+            },
+        )
+        for finding in report.findings
+    ]
 
 
 def _obligation_index(plan: ModelTestAlignmentPlan) -> tuple[dict[str, ModelObligation], list[ModelTestAlignmentFinding]]:
@@ -1035,6 +1639,13 @@ def review_model_test_alignment(plan: ModelTestAlignmentPlan) -> ModelTestAlignm
     findings.extend(code_contract_findings)
     findings.extend(_code_contract_findings(plan, obligations_by_id, code_contracts_by_id))
     findings.extend(_evidence_findings(plan, obligations_by_id, code_contracts_by_id))
+    if plan.boundary_contracts or plan.boundary_observations:
+        boundary_report = review_code_boundary_conformance(
+            plan.boundary_contracts,
+            plan.boundary_observations,
+            plan.code_contracts,
+        )
+        findings.extend(_boundary_findings_as_alignment_findings(boundary_report))
     passing_by_obligation = _passing_evidence_by_obligation(plan, obligations_by_id)
     passing_by_code_contract = _passing_external_evidence_by_code_contract(plan, code_contracts_by_id)
     findings.extend(
@@ -1524,6 +2135,10 @@ __all__ = [
     "CODE_CONTRACT_ROLE_HELPER",
     "CODE_CONTRACT_ROLE_OWNER",
     "CODE_CONTRACT_ROLE_READ_ONLY",
+    "CodeBoundaryConformanceReport",
+    "CodeBoundaryContract",
+    "CodeBoundaryFinding",
+    "CodeBoundaryObservation",
     "CodeContract",
     "ContractSourceAuditFinding",
     "ContractSourceAuditReport",
@@ -1552,6 +2167,7 @@ __all__ = [
     "TEST_STATUS_TIMEOUT",
     "audit_python_code_contracts",
     "audit_python_test_assertions",
+    "review_code_boundary_conformance",
     "review_python_contract_source_audit",
     "review_model_test_alignment",
 ]

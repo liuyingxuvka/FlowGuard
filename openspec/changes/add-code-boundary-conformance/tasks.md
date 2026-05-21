@@ -1,0 +1,11 @@
+- [x] 1.1 Create OpenSpec proposal, design, spec, and task artifacts.
+- [x] 1.2 Validate the change with `openspec validate add-code-boundary-conformance --strict`.
+- [x] 2.1 Add `CodeBoundaryContract`, `CodeBoundaryObservation`, boundary findings, report, and review helper.
+- [x] 2.2 Integrate boundary contracts and observations into `ModelTestAlignmentPlan`.
+- [x] 2.3 Export the public helper API and update API surface grouping.
+- [x] 2.4 Update templates, CLI-facing docs, README, and Skill guidance.
+- [x] 2.5 Add a FlowGuard rollout model for code-boundary hazards.
+- [x] 3.1 Add focused tests for accepted inputs, rejected inputs, extra output, extra side effect, missing boundary evidence, and alignment integration.
+- [x] 3.2 Run focused tests, OpenSpec validation, rollout checks, and full regression.
+- [x] 4.1 Bump release version to v0.20.0 and update changelog/README.
+- [x] 4.2 Sync editable install, shadow workspace, installed Skills, Git tag, GitHub push, and GitHub Release.

@@ -1415,6 +1415,8 @@ evidence.
 from __future__ import annotations
 
 from flowguard import (
+    CodeBoundaryContract,
+    CodeBoundaryObservation,
     CodeContract,
     ModelObligation,
     ModelTestAlignmentPlan,
@@ -1425,6 +1427,7 @@ from flowguard import (
     TestEvidence,
     audit_python_code_contracts,
     audit_python_test_assertions,
+    review_code_boundary_conformance,
     review_python_contract_source_audit,
     review_model_test_alignment,
 )
@@ -1509,6 +1512,36 @@ def aligned_plan() -> ModelTestAlignmentPlan:
                 assertion_scope=TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
             ),
         ),
+        boundary_contracts=(
+            CodeBoundaryContract(
+                "checkout_reject_duplicate_boundary",
+                code_contract_id="checkout_reject_duplicate",
+                model_obligation_id="reject_duplicate_order",
+                allowed_inputs=("duplicate_order",),
+                rejected_inputs=("unknown_event",),
+                allowed_outputs=("Rejected", "RejectedInvalidInput"),
+                allowed_error_paths=("duplicate_order", "invalid_input"),
+                exact=True,
+            ),
+        ),
+        boundary_observations=(
+            CodeBoundaryObservation(
+                "boundary_reject_duplicate_order",
+                "checkout_reject_duplicate_boundary",
+                input_case="duplicate_order",
+                accepted=True,
+                observed_output="Rejected",
+                observed_error_path="duplicate_order",
+            ),
+            CodeBoundaryObservation(
+                "boundary_reject_unknown_event",
+                "checkout_reject_duplicate_boundary",
+                input_case="unknown_event",
+                accepted=False,
+                observed_output="RejectedInvalidInput",
+                observed_error_path="invalid_input",
+            ),
+        ),
     )
 
 
@@ -1553,6 +1586,36 @@ def broken_plan() -> ModelTestAlignmentPlan:
                 test_name="test_unbound_helper",
                 path="tests/test_checkout.py",
                 result_status="passed",
+            ),
+        ),
+        boundary_contracts=(
+            CodeBoundaryContract(
+                "checkout_reject_duplicate_boundary",
+                code_contract_id="checkout_reject_duplicate",
+                model_obligation_id="reject_duplicate_order",
+                allowed_inputs=("duplicate_order",),
+                rejected_inputs=("unknown_event",),
+                allowed_outputs=("Rejected",),
+                allowed_side_effects=(),
+                allowed_error_paths=("duplicate_order",),
+                exact=True,
+            ),
+        ),
+        boundary_observations=(
+            CodeBoundaryObservation(
+                "boundary_duplicate_extra_metric",
+                "checkout_reject_duplicate_boundary",
+                input_case="duplicate_order",
+                accepted=True,
+                observed_output="Rejected",
+                observed_side_effects=("publish_duplicate_metric",),
+            ),
+            CodeBoundaryObservation(
+                "boundary_unknown_event_accepted",
+                "checkout_reject_duplicate_boundary",
+                input_case="unknown_event",
+                accepted=True,
+                observed_output="Rejected",
             ),
         ),
     )
@@ -1617,9 +1680,13 @@ def source_audit(plan: ModelTestAlignmentPlan, source_by_path: dict[str, str]):
 def run_checks():
     aligned = aligned_plan()
     broken = broken_plan()
+    aligned_boundary = review_code_boundary_conformance(aligned.boundary_contracts, aligned.boundary_observations, aligned.code_contracts)
+    broken_boundary = review_code_boundary_conformance(broken.boundary_contracts, broken.boundary_observations, broken.code_contracts)
     return (
         review_model_test_alignment(aligned),
         review_model_test_alignment(broken),
+        aligned_boundary,
+        broken_boundary,
         source_audit(aligned, ALIGNED_SOURCE),
         source_audit(broken, BROKEN_SOURCE),
     )
@@ -1634,15 +1701,19 @@ from model import run_checks
 
 
 def main() -> int:
-    aligned, broken, aligned_source, broken_source = run_checks()
+    aligned, broken, aligned_boundary, broken_boundary, aligned_source, broken_source = run_checks()
     print(aligned.format_text())
     print()
-    print(broken.format_text(max_findings=5))
+    print(broken.format_text(max_findings=10))
+    print()
+    print(aligned_boundary.format_text())
+    print()
+    print(broken_boundary.format_text(max_findings=5))
     print()
     print(aligned_source.format_text())
     print()
     print(broken_source.format_text(max_findings=5))
-    return 0 if aligned.ok and not broken.ok and aligned_source.ok and not broken_source.ok else 1
+    return 0 if aligned.ok and not broken.ok and aligned_boundary.ok and not broken_boundary.ok and aligned_source.ok and not broken_source.ok else 1
 
 
 if __name__ == "__main__":
@@ -1654,7 +1725,9 @@ MODEL_TEST_ALIGNMENT_NOTES_TEMPLATE = """# FlowGuard Model-Test Alignment Notes
 
 Use this scaffold to compare a FlowGuard model's explicit obligations with
 optional code external contracts, ordinary test evidence, and conservative
-Python source audits for those contracts.
+Python source audits for those contracts. When the model says the real code
+surface has a finite input/output boundary, also add code-boundary conformance
+observations from runtime tests, replay, or a harness.
 
 ## Inputs
 
@@ -1694,6 +1767,20 @@ List test evidence:
 - covered code contract ids;
 - assertion scope, especially whether the test proves the external contract or
   only an internal path.
+
+List code-boundary conformance evidence when a code surface must be closed:
+
+- `CodeBoundaryContract` rows declare allowed input cases, rejected input cases,
+  allowed outputs, state writes, side effects, and error paths.
+- `CodeBoundaryObservation` rows record what real code did for one input case:
+  accepted or rejected, returned output, error path, state writes, and side
+  effects.
+- `review_code_boundary_conformance(...)` blocks when forbidden inputs are
+  accepted, allowed inputs are rejected, missing input-gate evidence is reused,
+  or real code produces undeclared output, state write, side effect, or error.
+- Boundary observations are runtime evidence. They do not replace conformance
+  replay when ordered production traces, durable state, or adapter projection
+  are part of the claim.
 
 Optionally run the conservative source audit:
 

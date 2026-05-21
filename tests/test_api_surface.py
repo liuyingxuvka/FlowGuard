@@ -83,6 +83,10 @@ class ApiSurfaceTests(unittest.TestCase):
 
     def test_model_test_alignment_code_contract_api_is_public_helper(self):
         expected = (
+            "CodeBoundaryConformanceReport",
+            "CodeBoundaryContract",
+            "CodeBoundaryFinding",
+            "CodeBoundaryObservation",
             "CodeContract",
             "TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT",
             "TEST_ASSERTION_SCOPE_INTERNAL_PATH",
@@ -99,6 +103,7 @@ class ApiSurfaceTests(unittest.TestCase):
             "ContractSourceAuditReport",
             "audit_python_code_contracts",
             "audit_python_test_assertions",
+            "review_code_boundary_conformance",
             "review_python_contract_source_audit",
         )
 

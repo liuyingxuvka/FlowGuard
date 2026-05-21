@@ -1,6 +1,6 @@
 ---
 name: flowguard-model-test-alignment
-description: Use when a FlowGuard model's obligations, optional externally visible code contracts, and ordinary test evidence need direct comparison. Triggers include model-test alignment, missing test coverage for model scenarios or invariants, code contract evidence, Python source/test assertion audit, or checking whether tests actually cover FlowGuard obligations without invoking ModelMesh, TestMesh, or StructureMesh.
+description: Use when a FlowGuard model's obligations, optional externally visible code contracts, code-boundary runtime observations, and ordinary test evidence need direct comparison. Triggers include model-test alignment, missing test coverage for model scenarios or invariants, code contract evidence, code-boundary conformance evidence, Python source/test assertion audit, or checking whether tests actually cover FlowGuard obligations without invoking ModelMesh, TestMesh, or StructureMesh.
 ---
 
 # FlowGuard Model-Test Alignment
@@ -18,9 +18,13 @@ mostly core modeling rather than alignment.
   `python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"`.
 - Do not create a fake mini-framework or prose-only substitute.
 - Skipped, stale, or not-run evidence is not a pass.
-- If DevelopmentProcessFlow classifies a validation failure as model-test
-  mismatch, this skill owns the obligation, optional code-contract, and test
+- If DevelopmentProcessFlow classifies a validation failure as model-test mismatch,
+  this skill owns the obligation, optional code-contract, and test
   evidence comparison before alignment is claimed.
+- If a model-backed code surface claims finite inputs/outputs, require
+  code-boundary observations for allowed input cases, rejected input cases, and
+  observed outputs/state writes/side effects/error paths before claiming the
+  real code conforms to that boundary.
 - If several tests or code contracts prove the same obligation because the
   implementation has duplicate paths, route to `flowguard-architecture-reduction`
   before expanding test evidence further.
@@ -37,30 +41,35 @@ mostly core modeling rather than alignment.
    state writes, side effects, and allowed terminal states.
 2. Add optional code contract rows only for externally visible code surfaces in
    scope.
-3. Collect ordinary test evidence rows; include exact test ids and covered
+3. Add code-boundary contracts and runtime observations when a code surface
+   must be closed around finite inputs and outputs.
+4. Collect ordinary test evidence rows; include exact test ids and covered
    obligation ids.
-4. When Python source and tests are available, use the conservative source/test
+5. When Python source and tests are available, use the conservative source/test
    audit helpers before the alignment review.
-5. Run or update the relevant tests, then call or template
+6. Run or update the relevant tests, then call or template
    `review_model_test_alignment(...)`.
-6. For DevelopmentProcessFlow `model_test_mismatch` handoffs, keep the failed
+7. For DevelopmentProcessFlow `model_test_mismatch` handoffs, keep the failed
    validation visible until required obligations, optional code contracts, and
    current test evidence have been compared.
-7. If duplicate evidence maps to duplicate implementation paths, hand the
+8. If duplicate evidence maps to duplicate implementation paths, hand the
    obligation/code-contract snapshot to Architecture Reduction before deciding
    whether to keep all paths.
-8. Inspect missing, stale, unknown, or overclaimed coverage. Fix the model,
-   code contracts, tests, or evidence rows before claiming alignment.
-9. For non-trivial alignment reviews, default to a user-facing Mermaid coverage
+9. Inspect missing, stale, unknown, overclaimed, or boundary-crossing coverage.
+   Fix the model, code contracts, boundary observations, tests, or evidence
+   rows before claiming alignment.
+10. For non-trivial alignment reviews, default to a user-facing Mermaid coverage
    diagram showing model obligations, optional code contracts, test evidence,
-   and missing/stale/overclaimed gaps. Its edges mean covers, partially covers,
-   misses, or stales; they are not execution order. Tiny evidence checks may
-   stay concise. The diagram explains alignment and does not count as test or
-   validation evidence.
+   code-boundary observations, and missing/stale/overclaimed/boundary-crossing
+   gaps. Its edges mean covers, partially covers, observes boundary, misses, or
+   stales; they are not execution order. Tiny evidence checks may stay concise.
+   The diagram explains alignment and does not count as test or validation
+   evidence.
 
 ## Owned Helpers
 
 - `review_model_test_alignment(...)`
+- `review_code_boundary_conformance(...)`
 - `audit_python_code_contracts(...)`
 - `audit_python_test_assertions(...)`
 - `review_python_contract_source_audit(...)`

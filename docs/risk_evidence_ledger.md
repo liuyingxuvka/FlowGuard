@@ -79,8 +79,8 @@ passed, but it proved a helper path, not the public submit behavior.
 
 ## Route Responsibilities
 
-- Model-Test Alignment produces model obligations, optional code contracts, and
-  ordinary test evidence.
+- Model-Test Alignment produces model obligations, optional code contracts,
+  optional code-boundary observations, and ordinary test evidence.
 - TestMesh produces child-suite evidence status, freshness, skipped/timeout
   visibility, and release/routine boundaries.
 - ModelMesh produces parent/child model evidence and reattachment status.

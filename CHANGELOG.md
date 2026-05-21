@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.20.0 - 2026-05-21
+
+- Added code-boundary conformance helpers: `CodeBoundaryContract`,
+  `CodeBoundaryObservation`, `CodeBoundaryConformanceReport`, and
+  `review_code_boundary_conformance(...)`.
+- Extended Model-Test Alignment so a plan can include runtime boundary
+  observations and block green alignment when real code accepts forbidden
+  inputs or emits undeclared outputs, error paths, state writes, or side
+  effects.
+- Updated the model-test-alignment template, public docs, AGENTS snippet, and
+  FlowGuard satellite skills so finite model-backed code boundaries require
+  current boundary evidence before code conformance is claimed.
+- Added an executable FlowGuard rollout model and focused tests for accepted
+  inputs, rejected input gates, extra outputs, extra side effects, stale or
+  internal-path-only observations, and alignment integration.
+- Schema remains `1.0`; runtime dependencies remain Python standard library
+  only.
+
 ## v0.19.1 - 2026-05-21
 
 - Added Risk Evidence Ledger public APIs: `RiskEvidenceRow`,

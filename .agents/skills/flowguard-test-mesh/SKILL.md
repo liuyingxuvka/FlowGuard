@@ -21,6 +21,9 @@ when route selection is unclear.
   completion.
 - Parent test confidence consumes child evidence; it does not hide skipped,
   stale, failed, or release-only children.
+- Boundary-conformance tests are distinct evidence: they must observe allowed
+  inputs, rejected inputs, outputs, state writes, side effects, and error paths
+  for the real code surface, not only a happy-path result.
 - A target split is needed before green parent confidence.
 - If DevelopmentProcessFlow classifies a validation failure as test too thick,
   slow/layered, stale, skipped, progress-only, or release-only evidence that
@@ -35,14 +38,16 @@ when route selection is unclear.
 3. For DevelopmentProcessFlow `test_too_thick` handoffs, keep the broad command
    as a parent gate or compatibility check until child suites/scripts are
    derived and their evidence status is visible.
-4. Record child evidence status: passed, failed, skipped, stale, progress-only,
+4. Mark which child suites are ordinary behavior tests, conformance replay,
+   source audit, or code-boundary conformance tests.
+5. Record child evidence status: passed, failed, skipped, stale, progress-only,
    release-only, or not run.
-5. Use `review_test_mesh(...)` or the template to review parent confidence.
-6. Rerun the minimum affected child checks after code, model, prompt, or
+6. Use `review_test_mesh(...)` or the template to review parent confidence.
+7. Rerun the minimum affected child checks after code, model, prompt, or
    verifier changes.
-7. Feed child evidence ids, status, freshness, and release scope to the Risk
+8. Feed child evidence ids, status, freshness, and release scope to the Risk
    Evidence Ledger before a broader final confidence claim.
-8. For non-trivial TestMesh reviews, default to a user-facing Mermaid
+9. For non-trivial TestMesh reviews, default to a user-facing Mermaid
    validation mesh diagram showing parent gates, child suites/scripts, evidence status,
    routine/release boundaries, and stale/skipped/progress-only gaps. Its edges
    mean covers, gates, requires rerun, or stales; they are not product flow.

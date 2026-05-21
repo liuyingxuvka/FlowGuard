@@ -37,6 +37,9 @@ change.
   done/release.
 - Preserve user and peer-agent changes; later writes can stale earlier
   evidence.
+- Edits to model boundaries, code contracts, input gates, output mappers, error
+  mappers, state writers, or side-effect wrappers stale code-boundary
+  conformance evidence for the affected surface.
 
 ## Workflow
 
@@ -62,13 +65,15 @@ change.
    whether complexity-growth signals require Architecture Reduction: repeated
    adapters, duplicated branch handling, duplicate validation paths, or a
    smaller target architecture than the current code graph.
-8. Before done/release/archive/publish, verify the final evidence is current
+8. Include code-boundary conformance in the minimum revalidation plan when the
+   touched artifact affects finite model-backed inputs or outputs.
+9. Before done/release/archive/publish, verify the final evidence is current
    for the final artifact set.
-9. Before final done/release/archive/publish, consume the Risk Evidence Ledger
+10. Before final done/release/archive/publish, consume the Risk Evidence Ledger
    decision as an evidence boundary: full confidence may continue, scoped
    confidence must be reported as scoped, and blocked findings must route back
    to the owning evidence route.
-10. For non-trivial lifecycle reviews, default to a user-facing Mermaid
+11. For non-trivial lifecycle reviews, default to a user-facing Mermaid
    development process diagram showing artifact versions, action writes/invalidations,
    evidence ids, freshness gates, minimum revalidation, and unsupported claims.
    This diagram's edges mean order, invalidation, or required revalidation, not

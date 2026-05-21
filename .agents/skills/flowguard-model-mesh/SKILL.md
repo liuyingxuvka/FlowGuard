@@ -27,6 +27,9 @@ or when it is unclear whether a mesh is needed.
 - A repaired child model is not parent-green until the parent consumes its
   current evidence id and its input/output/state/side-effect contract still
   reattaches to the parent flow.
+- If a child model owns a real code surface with finite inputs or outputs,
+  parent confidence must consume current code-boundary conformance evidence or
+  explicitly mark that runtime boundary as out of scope.
 - If DevelopmentProcessFlow classifies a validation failure as model too thick
   or oversized model evidence, ModelMesh owns the split and parent
   reattachment. Do not keep pushing the thick model as direct parent evidence.
@@ -61,18 +64,21 @@ or when it is unclear whether a mesh is needed.
 7. If a child boundary changed, propagate the stale-boundary review upward and
    review affected siblings that share or depend on the same parent partition
    items, state writes, side effects, invariants, or contracts.
-8. When sibling overlap suggests redundant implementation structure, hand the
+8. If the changed child boundary maps to real code, require Model-Test
+   Alignment code-boundary observations before treating the child handoff as
+   runtime-safe.
+9. When sibling overlap suggests redundant implementation structure, hand the
    ownership and contract snapshot to Architecture Reduction before creating
    more child models.
-9. Confirm background long-running checks have final artifacts and exit status
+10. Confirm background long-running checks have final artifacts and exit status
    before consuming them as evidence.
-10. Run child checks first, then parent review through hierarchical mesh
+11. Run child checks first, then parent review through hierarchical mesh
    helpers.
-11. Record which child evidence ids the parent consumed and which are stale,
+12. Record which child evidence ids the parent consumed and which are stale,
    skipped, or release-only.
-12. Feed consumed child evidence ids and stale/skipped/release-only gaps to the
+13. Feed consumed child evidence ids and stale/skipped/release-only gaps to the
     Risk Evidence Ledger before a broad final confidence claim.
-13. For non-trivial meshes, default to a user-facing Mermaid mesh diagram
+14. For non-trivial meshes, default to a user-facing Mermaid mesh diagram
     showing root entries, child model boundaries, handoffs, evidence tiers/freshness,
     blockers, and what the mesh does or does not prove. Its
     edges mean delegates, reattaches, consumes output, affects sibling, or

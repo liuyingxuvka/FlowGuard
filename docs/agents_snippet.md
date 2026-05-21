@@ -76,7 +76,7 @@ Route map:
 | Existing code can likely be smaller without behavior change, repeated handlers/adapters/modules/branches, model-to-code contraction, or simplification before StructureMesh | `architecture_reduction` |
 | Direct architecture recommendation or model-derived implementation structure | `code_structure_recommendation` |
 | UI interaction model, app-level launch-to-terminal journey coverage, implemented/runnable UI validation against feature contracts and browser/manual click-through evidence, reachable visible-control branches, screen/region topology, parent/child UI hierarchy, menu levels, overlays, stable placement, display/text ownership, text hierarchy blueprint, duplicate information, or overlapping controls | `ui_flow_structure` |
-| Direct comparison between FlowGuard model obligations, optional code external contracts, and ordinary test evidence | `model_test_alignment` |
+| Direct comparison between FlowGuard model obligations, optional code external contracts, code-boundary runtime observations, and ordinary test evidence | `model_test_alignment` |
 | Final done/release/publish/full-confidence claim needs risk-to-model-to-code-to-evidence proof boundary | `risk_evidence_ledger` |
 | Three or more local models, oversized model, parent/child model evidence | `model_mesh_maintenance` |
 | Large test script/suite split, parent/child test hierarchy, slow/stale/release-only tests | `test_mesh_maintenance` |
@@ -123,12 +123,14 @@ Use the matching Skill reference protocol for support routes. Helper APIs such a
 Codex skills by themselves.
 
 Use Model-Test Alignment when a model's scenarios, invariants, hazards,
-transitions, contracts, or optional code external contracts need direct test
-evidence. It compares plain `ModelObligation` rows, optional `CodeContract`
-rows, and plain `TestEvidence` rows. Include code contracts only when an
-externally visible code surface is in scope. It does not invoke TestMesh,
-StructureMesh, or ModelMesh, and it does not split tests, split code, or split
-models.
+transitions, contracts, optional code external contracts, or finite code
+boundaries need direct test evidence. It compares plain `ModelObligation` rows,
+optional `CodeContract` rows, optional `CodeBoundaryContract` /
+`CodeBoundaryObservation` rows, and plain `TestEvidence` rows. Include code
+contracts only when an externally visible code surface is in scope. Include
+boundary observations when real code must prove it accepts only declared inputs
+and emits only declared outputs, errors, state writes, and side effects. It does not invoke TestMesh, StructureMesh, or ModelMesh, and it does not split tests,
+split code, or split models.
 
 When real Python source and tests are available for those rows, add a
 conservative source audit first: inspect AST-visible code surfaces and
@@ -213,8 +215,8 @@ models that share or depend on the same parent partition items, state writes,
 side effects, invariants, failure modes, or contracts.
 
 For post-runtime model misses, classify the miss as `boundary_missing`,
-`state_too_coarse`, `input_branch_missing`, `invariant_too_weak`, or
-`evidence_overclaimed`; represent the observed issue and one same-class
+`code_boundary_mismatch`, `state_too_coarse`, `input_branch_missing`,
+`invariant_too_weak`, or `evidence_overclaimed`; represent the observed issue and one same-class
 generalized bad case when practical; rerun; then validate with production-facing
 evidence. The current bug instance and bug-class responsibility are separate:
 patching the observed instance is not closure until the class is represented or

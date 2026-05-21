@@ -36,6 +36,9 @@ code refactoring is already underway and parity evidence is the main risk.
   `blocked_by_missing_evidence` as safe code deletion.
 - Any candidate touching public entrypoints must route through StructureMesh or
   equivalent public-entrypoint parity evidence.
+- Any contraction candidate that merges, removes, or bypasses an input gate,
+  output mapper, error mapper, state writer, or side-effect wrapper must keep
+  code-boundary conformance evidence current before being treated as safe.
 - This skill must not edit production code directly. Actual refactors need
   StructureMesh, DevelopmentProcessFlow, tests, and conformance evidence as
   appropriate.
@@ -93,9 +96,12 @@ formatting-only work, and model-only cleanup that will not affect code.
    - `risky_keep`: looks duplicate but should remain;
    - `blocked_by_missing_evidence`: do not contract yet.
 6. Use `review_architecture_reduction(...)` when available.
-7. Produce a target architecture summary for Code Structure Recommendation or
+7. For candidates with exact code boundaries, require Model-Test Alignment
+   boundary observations or classify the proof as `needs_conformance_replay` or
+   `blocked_by_missing_evidence`.
+8. Produce a target architecture summary for Code Structure Recommendation or
    StructureMesh: merge, collapse, remove, keep facade, or manual review.
-8. Before code edits, hand off:
+9. Before code edits, hand off:
    - to Code Structure Recommendation for target module ownership;
    - to StructureMesh for existing code refactors and public entrypoint parity;
    - to DevelopmentProcessFlow for staged edit/revalidation ordering;
