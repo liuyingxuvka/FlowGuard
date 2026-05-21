@@ -26,9 +26,9 @@
 
 - [x] 4.1 Bump the package to the next patch version and verify README,
   changelog, package metadata, and schema/version wording.
-- [ ] 4.2 Sync editable install, installed Codex skills, and the
+- [x] 4.2 Sync editable install, installed Codex skills, and the
   `FlowGuard_20260427` shadow workspace.
-- [ ] 4.3 Commit the scoped changes, tag the release, push to GitHub, create the
+- [x] 4.3 Commit the scoped changes, tag the release, push to GitHub, create the
   GitHub Release, and verify branch protection plus version/tag/release
   alignment.
-- [ ] 4.4 Record FlowGuard adoption evidence and KB postflight observations.
+- [x] 4.4 Record FlowGuard adoption evidence and KB postflight observations.
