@@ -148,6 +148,10 @@ Reporting helpers help an AI agent explain what was checked and what was not:
   with explicit preconditions, a `why_not_modeled` explanation, invalidation
   conditions, rationale, and checks
 - `RiskIntent`, `RiskProfile`, and `FlowGuardCheckPlan`
+- `RiskEvidenceRow`, `RiskEvidenceProof`, `RiskEvidenceLedgerPlan`,
+  `RiskEvidenceLedgerReport`, and `review_risk_evidence_ledger()` for the final
+  confidence ledger that connects user risks to FlowGuard model obligations,
+  optional public code contracts, and current proof evidence
 - `run_model_first_checks`
 - `audit_model`
 - `FlowGuardSummaryReport`
@@ -177,6 +181,7 @@ Evidence APIs are used to keep FlowGuard itself honest:
 - public template writers, including `model_test_alignment_template_files()`,
   `code_structure_recommendation_template_files()`,
   `existing_model_preflight_template_files()`,
+  `risk_evidence_ledger_template_files()`,
   `development_process_flow_template_files()`, `test_mesh_template_files()`,
   and `structure_mesh_template_files()`.
 
@@ -242,6 +247,10 @@ DevelopmentProcessFlow when staged development or modification work has
 validation, or when lifecycle ordering, artifact overwrite, verifier changes,
 peer writes, or evidence freshness determine whether the agent can safely
 continue or whether a done, release, archive, or publish claim is supported; do
-not use it as a universal gate or a supervisor for sibling routes. Do not claim
-production confidence from a model-only pass unless
-conformance replay or equivalent real-code evidence exists.
+not use it as a universal gate or a supervisor for sibling routes. Before a
+final confidence claim, use the Risk Evidence Ledger to check whether each
+important user risk has a model obligation, code contract when required, and
+current external proof evidence; stale, skipped, progress-only, or
+internal-path-only proof can support only a scoped or blocked claim. Do not
+claim production confidence from a model-only pass unless conformance replay or
+equivalent real-code evidence exists.

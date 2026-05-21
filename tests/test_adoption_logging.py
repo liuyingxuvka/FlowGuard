@@ -37,6 +37,7 @@ class AdoptionLoggingTests(unittest.TestCase):
             counterexamples=("none",),
             friction_points=("adapter projection needed a raw-state check",),
             skipped_steps=("conformance replay skipped: production code not present",),
+            risk_evidence_summary=("ledger=retry-confidence decision=risk_evidence_full_confidence",),
             next_actions=("implement production code",),
         )
 
@@ -49,6 +50,10 @@ class AdoptionLoggingTests(unittest.TestCase):
         self.assertTrue(data["has_commands"])
         self.assertEqual(1, data["command_count"])
         self.assertEqual("python -m flowguard scenario-review", data["commands"][0]["command"])
+        self.assertEqual(
+            ["ledger=retry-confidence decision=risk_evidence_full_confidence"],
+            data["risk_evidence_summary"],
+        )
         self.assertEqual(data, json.loads(entry.to_json_text()))
 
         markdown = entry.format_markdown()
@@ -56,6 +61,8 @@ class AdoptionLoggingTests(unittest.TestCase):
         self.assertIn("Status: completed", markdown)
         self.assertIn("Duration seconds: 3.200", markdown)
         self.assertIn("adapter projection", markdown)
+        self.assertIn("Risk Evidence Summary", markdown)
+        self.assertIn("retry-confidence", markdown)
 
     def test_jsonl_and_markdown_append_create_parent_directories(self):
         entry = make_adoption_log_entry(

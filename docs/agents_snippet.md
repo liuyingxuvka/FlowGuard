@@ -61,8 +61,11 @@ Hard gates:
   bounded.
 - For long background checks, progress is liveness only. Completion requires
   final output, error, combined, exit, and metadata artifacts.
+- Before full done, release, publish, or production-confidence claims, use a
+  Risk Evidence Ledger boundary to connect user risks, model obligations,
+  optional code contracts, and current proof evidence.
 - Finish real project use with adoption evidence: trigger, model/risk, commands,
-  findings, skipped steps, and next actions.
+  findings, skipped steps, risk evidence summary, and next actions.
 
 Route map:
 
@@ -74,6 +77,7 @@ Route map:
 | Direct architecture recommendation or model-derived implementation structure | `code_structure_recommendation` |
 | UI interaction model, app-level launch-to-terminal journey coverage, implemented/runnable UI validation against feature contracts and browser/manual click-through evidence, reachable visible-control branches, screen/region topology, parent/child UI hierarchy, menu levels, overlays, stable placement, display/text ownership, text hierarchy blueprint, duplicate information, or overlapping controls | `ui_flow_structure` |
 | Direct comparison between FlowGuard model obligations, optional code external contracts, and ordinary test evidence | `model_test_alignment` |
+| Final done/release/publish/full-confidence claim needs risk-to-model-to-code-to-evidence proof boundary | `risk_evidence_ledger` |
 | Three or more local models, oversized model, parent/child model evidence | `model_mesh_maintenance` |
 | Large test script/suite split, parent/child test hierarchy, slow/stale/release-only tests | `test_mesh_maintenance` |
 | Large script/module/API split, public entrypoint compatibility, facade, ownership | `structure_mesh_maintenance` |
@@ -104,6 +108,7 @@ route. For ambiguous, cross-route, or general FlowGuard applicability work, use
 
 Use the matching Skill reference protocol for support routes. Helper APIs such as
 `RiskIntent`, property factories, packs, `FlowGuardCheckPlan`,
+`RiskEvidenceLedgerPlan`, `review_risk_evidence_ledger()`,
 `review_code_structure_recommendation()`, `review_model_test_alignment()`,
 `ExistingModelPreflight`, `review_existing_model_preflight()`,
 `ObservableArchitectureContract`, `ArchitectureReductionCandidate`,
@@ -132,6 +137,12 @@ test-assertion evidence, then feed those rows into Model-Test Alignment. Treat
 the audit as conservative support, not a perfect semantic proof. Dynamic or
 complex behavior requires manual review, and source audit does not replace
 conformance replay or other production-facing validation.
+
+Use Risk Evidence Ledger as the final claim boundary. It consumes evidence ids
+from Model-Test Alignment, TestMesh, ModelMesh, StructureMesh, UI Flow
+Structure, DevelopmentProcessFlow, conformance replay, manual validation, or
+ordinary tests, then reports whether each user-facing risk is fully supported,
+scoped, or blocked. It does not run those routes for you.
 
 If a model, test, script, module, or command is becoming large, slow, or hard
 to follow, consider whether a parent/child split would make it easier to

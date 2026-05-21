@@ -87,6 +87,8 @@ For each child suite or child test script, record:
 - not-run reason.
 
 Progress output is liveness evidence only. It is not completion evidence.
+When a final confidence claim depends on the parent gate, export child evidence
+ids, status, freshness, and release-scope gaps to the Risk Evidence Ledger.
 Background runs need final exit/result artifacts before a parent gate can treat
 them as complete.
 

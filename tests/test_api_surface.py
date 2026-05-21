@@ -30,6 +30,10 @@ class ApiSurfaceTests(unittest.TestCase):
 
     def test_runner_and_internal_evidence_are_not_core(self):
         self.assertIn("RiskIntent", flowguard.REPORTING_HELPER_API)
+        self.assertIn("RiskEvidenceLedgerPlan", flowguard.REPORTING_HELPER_API)
+        self.assertIn("RiskEvidenceProof", flowguard.REPORTING_HELPER_API)
+        self.assertIn("RiskEvidenceRow", flowguard.REPORTING_HELPER_API)
+        self.assertIn("review_risk_evidence_ledger", flowguard.REPORTING_HELPER_API)
         self.assertIn("run_model_first_checks", flowguard.REPORTING_HELPER_API)
         self.assertIn("audit_model", flowguard.REPORTING_HELPER_API)
         self.assertIn("CodeStructureRecommendation", flowguard.MODELING_HELPER_API)

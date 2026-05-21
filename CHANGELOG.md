@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.19.1 - 2026-05-21
+
+- Added Risk Evidence Ledger public APIs: `RiskEvidenceRow`,
+  `RiskEvidenceProof`, `RiskEvidenceLedgerPlan`,
+  `RiskEvidenceLedgerReport`, and `review_risk_evidence_ledger(...)`.
+- Added `risk-evidence-ledger-template`, public docs, and an executable rollout
+  model that catches internal-path-only and progress-only final confidence
+  claims.
+- Updated FlowGuard kernel and satellite skill guidance so final done, release,
+  publish, and full-confidence claims must connect user risks to model
+  obligations, optional public code contracts, and current proof evidence.
+- Extended adoption logging with `risk_evidence_summary` so scoped or blocked
+  confidence boundaries are recorded alongside commands, skipped steps, and
+  findings.
+- Schema remains `1.0`; runtime dependencies remain Python standard library
+  only.
+
 ## v0.19.0 - 2026-05-21
 
 - Added Architecture Reduction as a FlowGuard route for using existing models to

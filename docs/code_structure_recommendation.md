@@ -88,3 +88,12 @@ For a ready scaffold, run:
 ```powershell
 python -m flowguard code-structure-recommendation-template --output .
 ```
+
+## Risk Evidence Ledger Handoff
+
+Code Structure Recommendation decides where implementation responsibility
+should live before code changes. It should identify the validation boundaries
+that later become Risk Evidence Ledger proof ids, but it does not count as test
+or replay evidence. After implementation, Model-Test Alignment, StructureMesh,
+or conformance replay should produce current evidence for those boundaries, and
+the ledger should decide whether the final claim is full, scoped, or blocked.

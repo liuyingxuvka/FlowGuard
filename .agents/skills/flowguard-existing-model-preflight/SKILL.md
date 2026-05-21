@@ -87,7 +87,10 @@ architecture decisions, or risky behavior changes:
    hand off to Architecture Reduction with the model ownership snapshot.
 8. Use `review_existing_model_preflight(...)` for full preflight reports when
    available.
-9. Route to the downstream FlowGuard skill that owns the actual work.
+9. Preserve relevant model ids, evidence ids, scoped gaps, and reuse decisions
+   for the Risk Evidence Ledger when the downstream work will make a final
+   confidence claim.
+10. Route to the downstream FlowGuard skill that owns the actual work.
 
 ## User-Facing Snapshot
 

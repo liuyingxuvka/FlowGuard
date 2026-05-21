@@ -3,9 +3,10 @@
 This document is the `core_modeling` sub-protocol for the FlowGuard Skill
 Kernel. The main Skill routes here for ordinary model-first work. Specialized
 routes such as UI flow structure, code structure recommendation, model-test
-alignment, ModelMesh, TestMesh, StructureMesh, DevelopmentProcessFlow,
-model-miss review, conformance/adoption, long-check observability, and
-framework upgrades live in their dedicated reference protocols.
+alignment, Risk Evidence Ledger, ModelMesh, TestMesh, StructureMesh,
+DevelopmentProcessFlow, model-miss review, conformance/adoption, long-check
+observability, and framework upgrades live in their dedicated reference
+protocols.
 
 Use this protocol before implementing non-trivial behavior involving workflows, state, retries, deduplication, idempotency, caching, or module boundaries.
 
@@ -51,6 +52,12 @@ Before changing files, separate three situations:
   minimum revalidation is the risky boundary. Use this sibling route to review
   lifecycle rows without supervising ModelMesh, TestMesh, StructureMesh, or
   Model-Test Alignment internals.
+- `risk_evidence_ledger`: a final done, release, publish, or full-confidence
+  claim depends on whether user risks are linked to model obligations, optional
+  code contracts, and current proof evidence. Use this boundary after the
+  producing routes have generated evidence; do not treat it as a replacement
+  for Model-Test Alignment, TestMesh, ModelMesh, StructureMesh, UI Flow
+  Structure, conformance replay, or ordinary tests.
 
 If real FlowGuard is importable but a current `.flowguard` Python model still
 claims `flowguard_package_available = False`, uses a fallback explorer, or
@@ -132,6 +139,26 @@ risk is parent/child model evidence or model partitioning.
 Read
 `.agents/skills/model-first-function-flow/references/model_test_alignment_protocol.md`
 for the checklist and prompt template.
+
+## 0.34 Check The Risk Evidence Ledger
+
+Before saying a task is fully validated, release-ready, done, or safe to
+publish, build or update a risk evidence ledger for the important user-facing
+risks. Each row should name the risk, the owning FlowGuard model obligation, the
+public code contract when that matters, and the proof evidence IDs that are
+current.
+
+Use `review_risk_evidence_ledger(...)` to make these gaps explicit:
+
+- a risk was modeled but has no proof evidence;
+- a test passed only through an internal helper path instead of the external
+  contract;
+- evidence is stale, skipped, failed, progress-only, or still running in the
+  background;
+- child or sibling route evidence has not been reattached to the parent claim;
+- a scoped-out risk has no reason, or a report overclaims full confidence.
+
+Read `docs/risk_evidence_ledger.md` for the API sketch and template.
 
 ## 0.35 Check The Local Model Mesh Trigger
 
@@ -870,7 +897,7 @@ Recommended low-friction agent flow:
   sections are reported as confidence boundaries rather than hidden or
   mislabeled as passes.
 - Real project adoptions record status, trigger reason, elapsed time, commands run,
-  findings, counterexamples, skipped steps, friction points, and next actions
+  findings, counterexamples, skipped steps, risk evidence summaries, friction points, and next actions
   in an adoption log.
 
 ## Real Adoption Logging
@@ -883,7 +910,8 @@ When using flowguard in another project, keep a project-local adoption record:
 Use `flowguard.adoption.AdoptionTimer` to time the session and
 `AdoptionCommandResult` to record checks. The log should explain why the skill
 was triggered, which model files changed, which checks ran, what was found,
-what was skipped, and what should happen next.
+what was skipped, what the risk evidence ledger allowed or blocked, and what
+should happen next.
 
 Use status values honestly:
 

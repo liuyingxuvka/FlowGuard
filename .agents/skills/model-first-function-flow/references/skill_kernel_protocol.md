@@ -46,6 +46,7 @@ to the kernel instead of taking ownership of unclear work.
 | `architecture_reduction` | behavior-preserving code contraction candidates, observable architecture contracts, and target StructureMesh handoff |
 | `ui_flow_structure` | UI interaction model, app-level journey coverage, implemented/runnable UI click-through evidence alignment, reachable visible-control branches, state/control/event/display transitions, parent/child UI topology, menu levels, overlays, stable placements, UI text hierarchy blueprint, and intentional redundancy |
 | `model_test_alignment` | direct comparison of model obligations with ordinary test evidence |
+| `risk_evidence_ledger` | final risk-to-model-to-code-to-evidence confidence boundary for done/release/publish/full-confidence claims |
 | `model_mesh_maintenance` | parent/child model hierarchy, child reattachment, whole-flow mesh closure, and oversized-model governance |
 | `test_mesh_maintenance` | parent/child test hierarchy plus validation evidence |
 | `structure_mesh_maintenance` | parent/child script/module structure split evidence |
@@ -62,6 +63,7 @@ These are package helpers:
 - `RiskIntent`, `RiskProfile`, `FlowGuardCheckPlan`;
 - property factories and packs;
 - `review_model_test_alignment()`;
+- `review_risk_evidence_ledger()` and risk evidence ledger rows;
 - `review_hierarchical_mesh()`, `review_mesh_closure_model()`,
   `review_test_mesh()`, `review_structure_mesh()`;
 - `review_development_process_flow()` and `derive_revalidation_plan()`;
@@ -95,6 +97,8 @@ sub-skills.
   metadata artifacts exist.
 - Keep Model-Test Alignment independent from mesh routes; it compares plain
   obligation rows with plain evidence rows and does not split tests or code.
+- Keep Risk Evidence Ledger as a final claim boundary. It consumes evidence ids
+  from sibling routes, but it does not replace their checks or rerun tests.
 - Keep Architecture Reduction as the model-to-code contraction route. It may
   recommend merge/collapse/remove/keep-facade candidates, but it must hand
   production refactors to StructureMesh and lifecycle evidence to

@@ -33,6 +33,10 @@ Collect or create the lightest fit-for-risk functional model:
 - public entrypoints, facades, commands, routes, or data shapes;
 - validation boundaries that should prove the implementation follows the model.
 
+These validation boundaries are future Risk Evidence Ledger proof ids. This
+route names where proof must exist later; it does not turn structure advice into
+runtime or test evidence.
+
 If the functional model is itself large, use the existing model mesh guidance to
 keep parent and child model boundaries clear. Do not create a second modeling
 language for code structure.
@@ -77,6 +81,8 @@ A recommendation is complete when:
 - modeled state and side effects have clear owners when present;
 - public entrypoints or facades are mapped when present;
 - validation boundaries are visible;
+- future Risk Evidence Ledger proof boundaries are named when the
+  recommendation will support a final confidence claim;
 - grouping rationale is explicit;
 - known-bad alternatives such as a monolithic target, duplicate owners, hidden
   side effects, missing facade, or unexplained mechanical over-splitting are

@@ -38,7 +38,10 @@ structure recommendation or when route selection is ambiguous.
    routine/release evidence.
 6. Use `review_structure_mesh(...)` or the template before claiming refactor
    confidence.
-7. For non-trivial StructureMesh reviews, default to a user-facing Mermaid
+7. Feed public-entrypoint parity ids, facade evidence, and deferred release
+   obligations to the Risk Evidence Ledger before a broader final confidence
+   claim.
+8. For non-trivial StructureMesh reviews, default to a user-facing Mermaid
    structure mesh diagram showing current public entrypoints, target child
    modules, facades, dependency direction, config/parity evidence, and release
    blockers. Its edges mean exposes, preserves, adapts, depends, or validates

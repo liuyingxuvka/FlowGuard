@@ -16,7 +16,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.19.0` | `1.0` | Python standard library only | MIT |
+| `v0.19.1` | `1.0` | Python standard library only | MIT |
 
 English lead content comes first; a Chinese mirror follows below.
 
@@ -94,6 +94,7 @@ FlowGuard gives those weak spots a small executable shape before the action beco
 | Conformance replay | Compares representative abstract traces with implementation behavior when code exists |
 | Loop and progress review | Finds non-progressing cycles, stuck states, and weak completion evidence |
 | Model-test alignment | Compares model obligations, external code contracts, and ordinary test evidence |
+| Risk Evidence Ledger | Connects user-facing risks to model obligations, public code contracts, and current proof evidence before any full-confidence claim |
 | ModelMesh | Splits oversized models into parent/child evidence, propagates child boundary changes upward, reviews affected sibling models, and uses mesh closure models for whole-flow parent confidence |
 | Child model reattachment | Requires a parent mesh to consume the repaired child evidence id and verify input, output, state, side-effect, and exported-contract handoffs |
 | Mesh closure model | Models parent/child handoff tokens so child outputs, joins, exits, and out-of-scope branches must be consumed before `mesh_green_can_continue` |
@@ -143,6 +144,7 @@ Useful template entry points:
 python -m flowguard project-template
 python -m flowguard model-test-alignment-template
 python -m flowguard existing-model-preflight-template
+python -m flowguard risk-evidence-ledger-template
 python -m flowguard code-structure-recommendation-template
 python -m flowguard ui-flow-structure-template
 python -m flowguard development-process-flow-template
@@ -155,6 +157,7 @@ Run focused examples:
 ```powershell
 python examples/flowguard_product_boundary/run_review.py
 python examples/hierarchical_model_mesh/run_review.py
+python examples/risk_evidence_ledger/run_checks.py
 python examples/job_matching/run_checks.py
 ```
 
@@ -263,6 +266,7 @@ FlowGuard is the state and workflow guard.
 | --- | --- |
 | `docs/modeling_protocol.md` | Core model-first protocol |
 | `docs/model_test_alignment.md` | Model obligation and test evidence alignment |
+| `docs/risk_evidence_ledger.md` | Final risk-to-model-to-code-to-evidence confidence boundary |
 | `docs/model_mesh_protocol.md` | Parent/child model mesh governance |
 | `docs/hierarchical_model_mesh.md` | Hierarchical model examples and child evidence |
 | `docs/test_evidence_mesh.md` | Layered validation and evidence freshness |
@@ -373,6 +377,7 @@ FlowGuard 给这些薄弱点一个小而可执行的结构。
 | Conformance replay | 当代码已存在时，把抽象路径和真实实现行为对齐 |
 | Loop 和 progress review | 找不前进的循环、卡住状态和弱完成证据 |
 | Model-test alignment | 对照模型义务、外部代码 contract 和普通测试证据 |
+| Risk Evidence Ledger | 在声明完整信心前，把用户风险、模型义务、公开代码 contract 和当前证据连起来检查 |
 | ModelMesh | 把过大的模型拆成父子证据，向上同步 child boundary 变化，检查 sibling，并用 closure model 支撑父级全流程信心 |
 | Child model reattachment | `v0.17.0` 要求父级 mesh 消费修复后的 child evidence id，并验证 input、output、state、side-effect 和导出 contract handoff |
 | Mesh closure model | 把父子模型之间的 handoff token 建成小模型，确保 child output、join、exit 和 out-of-scope 分支都被消费后才允许 `mesh_green_can_continue` |
@@ -418,6 +423,7 @@ python -m flowguard self-review
 python -m flowguard project-template
 python -m flowguard model-test-alignment-template
 python -m flowguard existing-model-preflight-template
+python -m flowguard risk-evidence-ledger-template
 python -m flowguard code-structure-recommendation-template
 python -m flowguard ui-flow-structure-template
 python -m flowguard development-process-flow-template
@@ -430,6 +436,7 @@ python -m flowguard structure-mesh-template
 ```powershell
 python examples/flowguard_product_boundary/run_review.py
 python examples/hierarchical_model_mesh/run_review.py
+python examples/risk_evidence_ledger/run_checks.py
 python examples/job_matching/run_checks.py
 ```
 
@@ -468,6 +475,7 @@ FlowGuard 是状态和工作流 guard。
 | --- | --- |
 | `docs/modeling_protocol.md` | 核心 model-first 协议 |
 | `docs/model_test_alignment.md` | 模型义务和测试证据对齐 |
+| `docs/risk_evidence_ledger.md` | 最终风险、模型、代码和证据之间的信心边界 |
 | `docs/model_mesh_protocol.md` | 父子模型 mesh 治理 |
 | `docs/hierarchical_model_mesh.md` | 层级模型示例和子证据 |
 | `docs/test_evidence_mesh.md` | 分层验证和证据新鲜度 |

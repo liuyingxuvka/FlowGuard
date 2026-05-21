@@ -104,6 +104,11 @@ Each child suite or child test script reports a `TestSuiteEvidence` summary:
 Progress output is not completion evidence. A background suite is complete only
 when final exit/result artifacts exist and the run is not progress-only.
 
+When a final FlowGuard confidence claim depends on these suites, feed each
+child suite's evidence id, status, freshness, and scope into the Risk Evidence
+Ledger. TestMesh owns the validation hierarchy; the ledger owns the final
+"does this evidence support this user risk?" claim boundary.
+
 ## Routine Versus Release
 
 `TEST_SCOPE_ROUTINE` lets teams keep a fast local gate green while reporting

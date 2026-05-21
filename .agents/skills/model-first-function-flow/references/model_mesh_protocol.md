@@ -30,6 +30,11 @@ not parent confidence by itself. The parent mesh must reattach the child through
 the input, output, state, side-effect, outgoing-contract, and evidence-id
 handoff that the parent flow consumes.
 
+For final confidence claims, provide the consumed child evidence ids and stale,
+skipped, or release-only gaps to the Risk Evidence Ledger. ModelMesh proves the
+parent/child relationship; the ledger proves whether that evidence supports a
+specific user-facing risk row.
+
 Keep the current bug instance separate from bug-class responsibility.
 Model-Miss Review owns classification of the observed instance and the
 same-class generalized case. ModelMesh owns whether the repaired child boundary

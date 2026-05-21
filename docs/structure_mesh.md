@@ -159,3 +159,12 @@ trusted:
 - missing or stale behavior parity;
 - insufficient evidence tier;
 - missing release-required parity under release scope.
+
+## Risk Evidence Ledger Handoff
+
+StructureMesh can prove that a split kept a public entrypoint, facade, or child
+module parity boundary current. It does not by itself prove every user-facing
+risk in the broader task. For final confidence, pass the relevant public
+entrypoint evidence ids, parity evidence status, and deferred release
+obligations into the Risk Evidence Ledger. A routine StructureMesh warning must
+stay a scoped ledger row, not disappear behind a green local refactor check.

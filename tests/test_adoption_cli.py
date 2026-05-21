@@ -61,6 +61,8 @@ class AdoptionCliTests(unittest.TestCase):
                     "state write inventory recorded",
                     "--skipped-step",
                     "production replay skipped with reason",
+                    "--risk-evidence",
+                    "ledger=model-output-cleanup decision=risk_evidence_full_confidence",
                 ],
                 cwd=ROOT,
                 text=True,
@@ -78,7 +80,12 @@ class AdoptionCliTests(unittest.TestCase):
             ]
             self.assertEqual(["in_progress", "completed"], [entry["status"] for entry in entries])
             self.assertTrue(entries[-1]["has_commands"])
+            self.assertEqual(
+                ["ledger=model-output-cleanup decision=risk_evidence_full_confidence"],
+                entries[-1]["risk_evidence_summary"],
+            )
             self.assertIn("state write inventory recorded", markdown_path.read_text(encoding="utf-8"))
+            self.assertIn("model-output-cleanup", markdown_path.read_text(encoding="utf-8"))
 
     def test_failed_command_defaults_final_entry_to_failed(self):
         with tempfile.TemporaryDirectory() as directory:

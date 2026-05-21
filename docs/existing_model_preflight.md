@@ -110,6 +110,10 @@ map to the route that owns the concrete work:
 - UI Flow Structure governs UI behavior and implemented UI evidence.
 - Model-Miss Review repairs models after runtime/test failures.
 - DevelopmentProcessFlow governs staged work and evidence freshness.
+- Risk Evidence Ledger consumes the relevant model ids, evidence ids, scoped
+  gaps, and reuse decisions before a final full-confidence claim.
 
 The preflight catches a different failure: proposing a new system before
-checking the one already modeled.
+checking the one already modeled. Its output tells the ledger which existing
+model boundary owns the risk; it does not prove the tests or runtime evidence
+by itself.

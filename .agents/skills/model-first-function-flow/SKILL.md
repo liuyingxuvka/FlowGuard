@@ -42,8 +42,7 @@ unclear, narrow the task or mark `needs_human_review`.
   `python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"`.
 - If the import fails, connect the real toolchain or record the task as
   blocked/partial. do not write a temporary mini-framework or fake mini-framework and claim FlowGuard use.
-- FlowGuard must remain useful without any external planner or specification
-  workflow. Planner handoffs are optional context, not prerequisites.
+- FlowGuard must remain useful without external planner prerequisites.
 - Represent each modeled block as `Input x State -> Set(Output x State)`.
 - Do not replace executable modeling with prose.
 - For non-trivial FlowGuard work, default to a user-facing Mermaid model
@@ -54,16 +53,14 @@ unclear, narrow the task or mark `needs_human_review`.
   may stay concise. Diagrams explain, not validate; they do not count as
   validation evidence; guidance must remain complete without LogicGuard.
 - Do not weaken hard invariants merely to pass checks.
-- Skipped, deferred, stale, or not-run checks must stay visible. Skipped is not
-  pass.
+- Skipped, deferred, stale, or not-run checks must stay visible. Skipped is not pass.
 - Preserve user and peer-agent changes. If model, test, or workspace inputs
   changed after earlier evidence, treat that evidence as stale unless the
   unchanged boundary is explicit.
 - Long-running checks may run in the background, but completion evidence needs
   final artifacts and exit status. Progress lines are liveness, not pass evidence.
-- Finish real project usage with adoption evidence: why FlowGuard was used or
-  skipped, what risk was modeled, what commands ran, what was found, and what
-  remains.
+- Before full done/release/publish/production-confidence claims, use a Risk Evidence Ledger boundary.
+- Finish real project usage with adoption evidence: trigger, risk, commands, findings, skipped checks, and risk evidence boundary.
 
 ## Route Map
 
@@ -78,6 +75,7 @@ satellite skills. The routes are agent behavior protocols, not package APIs.
 | Direct architecture recommendation, model-derived implementation structure, pre-code module split planning | `code_structure_recommendation` | `flowguard-code-structure-recommendation` |
 | UI interaction flow model, complete app launch-to-terminal journey coverage, implemented/runnable UI validation against feature contracts and browser/manual click-through evidence, reachable visible-control branches, screen/region topology, parent/child UI structure, navigation/state/event/display/text ownership, text hierarchy blueprint, duplicate information, or overlapping same-level controls derived from modeled UI behavior | `ui_flow_structure` | `flowguard-ui-flow-structure` |
 | FlowGuard model obligations, optional code external contracts, and ordinary test evidence need direct comparison | `model_test_alignment` | `flowguard-model-test-alignment` |
+| Final done/release/publish/full-confidence claim needs risk-to-model-to-code-to-evidence proof boundary | `risk_evidence_ledger` | `docs/risk_evidence_ledger.md` |
 | Three or more local FlowGuard models, oversized model, stale child evidence, parent/child model partition, affected sibling review, whole-flow mesh closure | `model_mesh_maintenance` | `flowguard-model-mesh` |
 | Large test script/suite split, parent/child test hierarchy, slow/background/stale/skipped/release-only validation evidence | `test_mesh_maintenance` | `flowguard-test-mesh` |
 | Large script/module/package/command/API split, facade-first refactor, public entrypoint compatibility, ownership split | `structure_mesh_maintenance` | `flowguard-structure-mesh` |
@@ -157,6 +155,9 @@ Codex skill:
   `audit_python_code_contracts()`, `audit_python_test_assertions()`,
   `review_python_contract_source_audit()`, and optional code external contract
   rows consumed by the model-test alignment plan.
+- Risk evidence APIs such as `RiskEvidenceLedgerPlan`,
+  `RiskEvidenceProof`, `RiskEvidenceRow`, and
+  `review_risk_evidence_ledger()`.
 - Development lifecycle helpers such as `review_development_process_flow()`
   and `derive_revalidation_plan()`.
 - Existing-model grounding helpers such as `ExistingModelPreflight`,
@@ -172,7 +173,7 @@ Codex skill:
   and `review_ui_text_hierarchy()`.
 - Template CLIs such as `project-template`, `risk-intent-template`,
   `model-miss-template`, `model-test-alignment-template`,
-  `ui-flow-structure-template`, `development-process-flow-template`,
+  `risk-evidence-ledger-template`, `ui-flow-structure-template`, `development-process-flow-template`,
   `existing-model-preflight-template`, `test-mesh-template`,
   `structure-mesh-template`, and `maintenance-template`.
 

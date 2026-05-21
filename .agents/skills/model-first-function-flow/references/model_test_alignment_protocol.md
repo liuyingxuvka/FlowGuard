@@ -10,6 +10,12 @@ It does not split tests, split code, split models, or read mesh reports. It
 compares explicit model obligations, optional code external contracts, and
 plain test evidence.
 
+When the result supports a final done, release, publish, or full-confidence
+claim, pass the obligation ids, code contract ids, test evidence ids, statuses,
+freshness, and assertion scopes into a Risk Evidence Ledger. Alignment proves
+rows agree; the ledger decides whether the broader user-risk claim is full,
+scoped, or blocked.
+
 When real Python source and tests are available, add the conservative source audit
 layer before trusting hand-authored rows. This layer reads Python ASTs to
 generate or check `PythonCodeContractEvidence` and
@@ -275,3 +281,6 @@ A model-test alignment review can support a coverage claim only when:
   visible as confidence boundaries;
 - the report does not claim production conformance unless a separate
   conformance replay or equivalent production-facing check supports that claim.
+- the report supplies enough evidence ids and assertion scopes for
+  `review_risk_evidence_ledger(...)` when a final confidence claim is being
+  made.

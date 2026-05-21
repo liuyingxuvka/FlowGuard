@@ -26,7 +26,8 @@ not close a known model miss unless the miss has been reviewed.
    child evidence id and confirm the child's inputs, outputs, state ownership,
    side-effect ownership, and outgoing guarantees still fit the parent flow.
 8. Record `Miss type`, `Generalized case`, and any parent reattachment decision
-   in adoption evidence, or explain
+   in adoption evidence and the Risk Evidence Ledger when a prior final claim
+   had one, or explain
    why no generalized case was added.
 
 ## What Not To Add By Default
@@ -44,3 +45,6 @@ evidence or explicitly out of scope, rerun, and validated with production-facing
 evidence. When the miss was repaired in a child model under a parent mesh, the
 affected parent reattachment gate must also pass or remain an explicit blocker.
 A patch plus a later green runtime check is not enough by itself.
+If the prior green claim had a Risk Evidence Ledger row, mark the old proof as
+stale or overclaimed and attach the new same-class evidence before restoring
+full confidence.

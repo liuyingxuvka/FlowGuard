@@ -78,6 +78,8 @@ while the current artifact is `code.checkout@4`.
 - ambiguous freshness policy for declared upstream/downstream artifacts;
 - progress-only background evidence, hidden skipped validation, failed
   evidence, and not-run evidence;
+- final done, archive, publish, or release claims that have no current Risk
+  Evidence Ledger decision;
 - missing V-style validation pairs;
 - release-required evidence under routine and release scopes;
 - minimum revalidation recommendations.
@@ -111,3 +113,11 @@ a parent/child split. Use StructureMesh when code structure is being split. Use
 Model-Test Alignment when model obligations and test or code-contract evidence
 need direct comparison. Use Conformance Adoption when production traces or
 install/runtime sync determine confidence.
+
+For final completion claims, DevelopmentProcessFlow should reference the Risk
+Evidence Ledger decision as one evidence boundary. If the ledger reports
+`risk_evidence_full_confidence`, the process may consume that evidence subject
+to freshness rules. If it reports scoped confidence, stale proof,
+internal-path-only evidence, progress-only evidence, or a missing route handoff,
+the process claim remains scoped or blocked until the owning route supplies
+current proof.

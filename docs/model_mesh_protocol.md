@@ -30,6 +30,11 @@ not parent confidence by itself. The parent mesh must reattach the child through
 the input, output, state, side-effect, outgoing-contract, and evidence-id
 handoff that the parent flow consumes.
 
+When a broad final claim depends on mesh evidence, the mesh should provide the
+consumed child evidence ids and freshness status to the Risk Evidence Ledger.
+ModelMesh owns parent/child reattachment; the ledger owns whether that current
+mesh evidence is enough for a specific user-facing risk row.
+
 Keep the current bug instance separate from bug-class responsibility.
 Model-Miss Review owns classification of the observed instance and the
 same-class generalized case. ModelMesh owns whether the repaired child boundary
@@ -284,6 +289,8 @@ At minimum, the mesh must make these broken variants fail:
     ranking, or progress rule.
 30. A closure model consumes an unknown or foreign output token that is not
     produced by a root entry, child output, transition, or join.
+31. A final full-confidence claim cites child model evidence that was never
+    attached to a Risk Evidence Ledger row.
 
 ## Prompt Template
 

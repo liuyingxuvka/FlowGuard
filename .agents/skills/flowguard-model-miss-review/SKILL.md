@@ -40,7 +40,10 @@ multiple FlowGuard routes.
    parent ModelMesh reattachment gate.
 7. Close only when the corrected model catches the bad case and the relevant
    runtime/test/replay evidence is current.
-8. For non-trivial misses, default to a user-facing Mermaid miss-repair diagram
+8. Update the Risk Evidence Ledger row that the old green claim overcovered:
+   record the prior evidence as overclaimed or stale, then attach the new
+   same-class bad-case evidence before restoring full confidence.
+9. For non-trivial misses, default to a user-facing Mermaid miss-repair diagram
    showing the prior green claim, observed failure, miss classification, model
    repair, same-class generalized bad case, rerun evidence, and remaining
    validation boundary. Its edges mean missed, repaired, generalized,

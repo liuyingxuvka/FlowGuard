@@ -39,7 +39,8 @@ not bug-class closure.
    combined log, exit, and metadata artifacts exist. Progress is not
    production-facing pass evidence.
 10. Record `Miss type`, `Generalized case`, and any parent reattachment decision
-   in adoption evidence, or explain
+   in adoption evidence and the Risk Evidence Ledger when a prior final claim
+   had one, or explain
    why no generalized case was added.
 
 ## What Not To Add By Default
@@ -59,3 +60,6 @@ affected parent reattachment gate, upward boundary propagation review, and
 affected sibling review must also pass or remain explicit blockers. A patch
 plus a later green runtime check or in-progress background run is not enough by
 itself.
+If the prior green claim had a Risk Evidence Ledger row, mark the old proof as
+stale or overclaimed and attach the new same-class evidence before restoring
+full confidence.

@@ -39,7 +39,9 @@ coordination.
    boundaries.
 6. Use `review_code_structure_recommendation(...)` where available, then use
    StructureMesh only if the actual refactor is large enough to need it.
-7. For non-trivial structure recommendations, default to a user-facing Mermaid
+7. Record proposed validation boundaries as future Risk Evidence Ledger proof
+   ids; this route recommends ownership but does not prove runtime behavior.
+8. For non-trivial structure recommendations, default to a user-facing Mermaid
    code structure diagram showing FunctionBlock-to-module mapping,
    facade/adapter boundaries, state and side-effect ownership, and validation boundaries.
    Its edges mean owns, calls, adapts, exposes, or validates; they

@@ -152,4 +152,6 @@ A StructureMesh is complete when:
 - dependency cycles are absent or explicitly allowed with evidence;
 - config/default changes are either absent or treated as behavior changes;
 - routine/release obligations are visible;
+- public-entrypoint parity ids and deferred release obligations are available
+  to the Risk Evidence Ledger before broader final confidence claims;
 - known-bad hazards fail in executable evidence.

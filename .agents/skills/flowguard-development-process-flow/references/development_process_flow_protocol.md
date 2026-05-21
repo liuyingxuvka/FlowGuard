@@ -8,8 +8,9 @@ evidence after later work.
 This is a sibling sub-protocol. It supports planning and execution evidence
 without supervising other routes. It can reference evidence produced by
 ModelMesh, TestMesh, StructureMesh, Model-Test Alignment, LongCheck, or
-Conformance Adoption through ids and freshness metadata, but it does not inspect,
-replace, or repair those route internals.
+Conformance Adoption through ids and freshness metadata, and it should consume
+a Risk Evidence Ledger decision before final done/release/archive/publish
+claims. It does not inspect, replace, or repair those route internals.
 
 ## Trigger
 
@@ -132,7 +133,9 @@ Keep these findings visible:
 - `missing_v_model_validation_pair`;
 - `missing_required_revalidation`;
 - `release_claim_with_stale_evidence`;
-- `release_evidence_not_current`.
+- `release_evidence_not_current`;
+- `final_claim_missing_risk_evidence_ledger`;
+- `final_claim_uses_blocked_risk_evidence`.
 
 ## Prompt Template
 

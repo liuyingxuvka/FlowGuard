@@ -41,6 +41,7 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("review_test_mesh()", text)
         self.assertIn("review_structure_mesh()", text)
         self.assertIn("review_model_test_alignment()", text)
+        self.assertIn("review_risk_evidence_ledger()", text)
         self.assertIn("audit_python_code_contracts()", text)
         self.assertIn("audit_python_test_assertions()", text)
         self.assertIn("review_python_contract_source_audit()", text)
@@ -60,6 +61,7 @@ class SkillDocsTests(unittest.TestCase):
             "code_structure_recommendation",
             "ui_flow_structure",
             "model_test_alignment",
+            "risk_evidence_ledger",
             "model_mesh_maintenance",
             "test_mesh_maintenance",
             "structure_mesh_maintenance",
@@ -77,6 +79,7 @@ class SkillDocsTests(unittest.TestCase):
             "references/code_structure_recommendation_protocol.md",
             "flowguard-architecture-reduction",
             "references/model_test_alignment_protocol.md",
+            "docs/risk_evidence_ledger.md",
             "references/model_mesh_protocol.md",
             "references/test_mesh_protocol.md",
             "references/structure_mesh_protocol.md",
@@ -92,6 +95,7 @@ class SkillDocsTests(unittest.TestCase):
             self.assertIn(reference, text)
         self.assertIn("parent/child test hierarchy", text)
         self.assertIn("ordinary test evidence", text)
+        self.assertIn("Risk Evidence Ledger", text)
         self.assertIn("parent reattachment gate", text)
         self.assertIn("affected sibling review", text)
 
@@ -120,24 +124,29 @@ class SkillDocsTests(unittest.TestCase):
             "flowguard-model-test-alignment": (
                 "review_model_test_alignment",
                 "Do not invoke TestMesh",
+                "Risk Evidence Ledger",
             ),
             "flowguard-development-process-flow": (
                 "review_development_process_flow",
                 "does not inspect",
+                "Risk Evidence Ledger",
             ),
             "flowguard-model-miss-review": (
                 "boundary_missing",
                 "same-class generalized bad case",
                 "parent reattachment gate",
+                "Risk Evidence Ledger",
             ),
             "flowguard-code-structure-recommendation": (
                 "review_code_structure_recommendation",
                 "FunctionBlock-to-module ownership",
+                "Risk Evidence Ledger",
             ),
             "flowguard-existing-model-preflight": (
                 "review_existing_model_preflight",
                 "existing model boundaries",
                 "duplicate-boundary",
+                "Risk Evidence Ledger",
             ),
             "flowguard-architecture-reduction": (
                 "review_architecture_reduction",
@@ -153,14 +162,17 @@ class SkillDocsTests(unittest.TestCase):
                 "review_hierarchical_mesh",
                 "Required Hazards",
                 "Child Reattachment Gate",
+                "Risk Evidence Ledger",
             ),
             "flowguard-test-mesh": (
                 "review_test_mesh",
                 "child test scripts",
+                "Risk Evidence Ledger",
             ),
             "flowguard-structure-mesh": (
                 "review_structure_mesh",
                 "dependency cycle",
+                "Risk Evidence Ledger",
             ),
         }
 
@@ -375,6 +387,8 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("Check The Model-Test Alignment Trigger", text)
         self.assertIn("Model-Test Alignment is not a mesh route", text)
         self.assertIn("review_model_test_alignment", text)
+        self.assertIn("Check The Risk Evidence Ledger", text)
+        self.assertIn("review_risk_evidence_ledger", text)
         self.assertIn("three or more local FlowGuard models", text)
         self.assertIn("Check The TestMesh Trigger", text)
         self.assertIn("parent/child hierarchy mesh", text)
@@ -399,6 +413,7 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("ui_flow_structure", text)
         self.assertIn("test_mesh_maintenance", text)
         self.assertIn("model_test_alignment", text)
+        self.assertIn("risk_evidence_ledger", text)
         self.assertIn("does not invoke", text)
         self.assertIn("tests split into child suites/scripts", text)
         self.assertIn("structure_mesh_maintenance", text)
@@ -424,6 +439,8 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("flowguard-test-mesh", text)
         self.assertIn("flowguard-structure-mesh", text)
         self.assertIn("package helpers, not", text)
+        self.assertIn("RiskEvidenceLedgerPlan", text)
+        self.assertIn("review_risk_evidence_ledger", text)
 
     def test_skill_orchestrator_collaboration_doc_defends_standalone_mode(self):
         text = (ROOT / "docs" / "skill_orchestrator_collaboration.md").read_text(encoding="utf-8")

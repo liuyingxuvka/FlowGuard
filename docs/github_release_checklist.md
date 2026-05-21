@@ -21,6 +21,7 @@ Include:
 - `docs/`
 - `examples/job_matching/`
 - `examples/looping_workflow/`
+- `examples/risk_evidence_ledger/`
 - `tests/`
 - `README.md`
 - `CHANGELOG.md`
@@ -82,7 +83,9 @@ python -m flowguard adoption-template
 python -m flowguard project-template
 python -m flowguard risk-intent-template
 python -m flowguard model-miss-template
+python -m flowguard risk-evidence-ledger-template
 python -m flowguard ui-flow-structure-template
+python examples/risk_evidence_ledger/run_checks.py
 python $env:USERPROFILE\.codex\skills\.system\skill-creator\scripts\quick_validate.py .agents\skills\flowguard-ui-flow-structure
 python $env:USERPROFILE\.codex\skills\.system\skill-creator\scripts\quick_validate.py .agents\skills\model-first-function-flow
 python $env:USERPROFILE\.codex\skills\.system\skill-creator\scripts\quick_validate.py .agents\skills\flowguard-architecture-reduction

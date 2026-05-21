@@ -24,6 +24,10 @@ mostly core modeling rather than alignment.
 - If several tests or code contracts prove the same obligation because the
   implementation has duplicate paths, route to `flowguard-architecture-reduction`
   before expanding test evidence further.
+- For final done/release/publish/full-confidence claims, hand the obligation,
+  code-contract, evidence-status, freshness, and assertion-scope rows to the
+  Risk Evidence Ledger; this skill produces coverage evidence, not the whole
+  final confidence claim.
 - Preserve user and peer-agent changes; rerun or bound stale evidence.
 - Keep helper APIs and templates as helpers, not skills.
 

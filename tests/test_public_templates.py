@@ -13,6 +13,7 @@ from flowguard.templates import (
     model_miss_review_template_files,
     model_test_alignment_template_files,
     project_template_files,
+    risk_evidence_ledger_template_files,
     risk_intent_template_files,
     structure_mesh_template_files,
     test_mesh_template_files,
@@ -212,6 +213,15 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("flowguard existing model preflight", output)
         self.assertIn("duplicate_boundary_risk_unresolved", output)
 
+    def test_risk_evidence_ledger_template_executes(self):
+        output = self.run_written_template(
+            risk_evidence_ledger_template_files(),
+            (".flowguard", "risk_evidence_ledger"),
+        )
+        self.assertIn("flowguard risk evidence ledger", output)
+        self.assertIn("internal_path_only_evidence", output)
+        self.assertIn("proof_evidence_not_passing", output)
+
     def test_public_model_templates_include_risk_purpose_headers(self):
         for files in (
             project_template_files(),
@@ -220,6 +230,7 @@ class PublicTemplateTests(unittest.TestCase):
             model_test_alignment_template_files(),
             code_structure_recommendation_template_files(),
             existing_model_preflight_template_files(),
+            risk_evidence_ledger_template_files(),
             ui_flow_structure_template_files(),
             development_process_flow_template_files(),
             test_mesh_template_files(),
@@ -236,6 +247,7 @@ class PublicTemplateTests(unittest.TestCase):
             "model-test-alignment-template": "model_test_alignment",
             "code-structure-recommendation-template": "code_structure_recommendation",
             "existing-model-preflight-template": "existing_model_preflight",
+            "risk-evidence-ledger-template": "risk_evidence_ledger",
             "ui-flow-structure-template": "ui_flow_structure",
             "development-process-flow-template": "development_process_flow",
             "test-mesh-template": "test_mesh",
@@ -283,6 +295,7 @@ class PublicTemplateTests(unittest.TestCase):
             model_test_alignment_template_files(),
             code_structure_recommendation_template_files(),
             existing_model_preflight_template_files(),
+            risk_evidence_ledger_template_files(),
             ui_flow_structure_template_files(),
             development_process_flow_template_files(),
             test_mesh_template_files(),

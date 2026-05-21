@@ -741,6 +741,7 @@ Each entry should record:
 - elapsed time;
 - findings and counterexamples;
 - skipped steps and reasons;
+- risk evidence ledger summary for final confidence claims;
 - friction points;
 - next actions.
 
@@ -3484,6 +3485,173 @@ architecture changes, or risky behavior changes.
 """
 
 
+RISK_EVIDENCE_LEDGER_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header
+
+Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
+Purpose: Review whether a final FlowGuard confidence claim is backed by model obligations, public code contracts, and current evidence.
+Guards against: coarse models hiding untested internal branches, tests covering only helper paths, skipped or stale evidence being treated as pass, and background progress being counted as final proof.
+Use before editing: Run this before claiming done, release-ready, or fully validated after model/test/code changes.
+Run: python .flowguard/risk_evidence_ledger/run_checks.py
+"""
+
+from __future__ import annotations
+
+from flowguard import (
+    RISK_PROOF_SCOPE_INTERNAL_PATH,
+    RISK_PROOF_STATUS_PASSED,
+    RISK_PROOF_STATUS_PROGRESS_ONLY,
+    RiskEvidenceLedgerPlan,
+    RiskEvidenceProof,
+    RiskEvidenceRow,
+    review_risk_evidence_ledger,
+)
+
+
+def correct_ledger() -> RiskEvidenceLedgerPlan:
+    return RiskEvidenceLedgerPlan(
+        "checkout-final-confidence",
+        require_code_contracts=True,
+        rows=(
+            RiskEvidenceRow(
+                "duplicate_submit",
+                description="Repeated submit must not create duplicate orders.",
+                model_obligation_id="model:dedupe-submit",
+                code_contract_id="api:submit_order",
+                proof_evidence_ids=("test:duplicate-submit",),
+            ),
+            RiskEvidenceRow(
+                "invalid_payment",
+                description="Invalid payment must stop before storage.",
+                model_obligation_id="model:reject-invalid-payment",
+                code_contract_id="api:submit_order",
+                proof_evidence_ids=("replay:invalid-payment",),
+            ),
+        ),
+        proof_evidence=(
+            RiskEvidenceProof(
+                "test:duplicate-submit",
+                result_status=RISK_PROOF_STATUS_PASSED,
+                producer_route="model_test_alignment",
+                command="python -m unittest tests.test_checkout",
+                summary="external API duplicate-submit test passed",
+            ),
+            RiskEvidenceProof(
+                "replay:invalid-payment",
+                proof_kind="replay",
+                result_status=RISK_PROOF_STATUS_PASSED,
+                producer_route="conformance_replay",
+                command="python .flowguard/checkout/run_checks.py",
+                summary="representative replay covered invalid payment",
+            ),
+        ),
+    )
+
+
+def broken_internal_only_ledger() -> RiskEvidenceLedgerPlan:
+    return RiskEvidenceLedgerPlan(
+        "internal-only-confidence",
+        require_code_contracts=True,
+        rows=(
+            RiskEvidenceRow(
+                "duplicate_submit",
+                description="Repeated submit must not create duplicate orders.",
+                model_obligation_id="model:dedupe-submit",
+                code_contract_id="api:submit_order",
+                proof_evidence_ids=("test:helper-dedupe",),
+            ),
+        ),
+        proof_evidence=(
+            RiskEvidenceProof(
+                "test:helper-dedupe",
+                result_status=RISK_PROOF_STATUS_PASSED,
+                assertion_scope=RISK_PROOF_SCOPE_INTERNAL_PATH,
+                producer_route="model_test_alignment",
+                command="python -m unittest tests.test_helpers",
+                summary="helper path passed but external submit_order was not exercised",
+            ),
+        ),
+    )
+
+
+def broken_progress_only_ledger() -> RiskEvidenceLedgerPlan:
+    return RiskEvidenceLedgerPlan(
+        "progress-only-confidence",
+        rows=(
+            RiskEvidenceRow(
+                "release_regression",
+                description="Release regression must finish before publication.",
+                model_obligation_id="model:release-regression",
+                proof_evidence_ids=("suite:release-regression",),
+            ),
+        ),
+        proof_evidence=(
+            RiskEvidenceProof(
+                "suite:release-regression",
+                result_status=RISK_PROOF_STATUS_PROGRESS_ONLY,
+                producer_route="test_mesh_maintenance",
+                command="python -m pytest -q",
+                summary="suite is still running, so it is liveness only",
+            ),
+        ),
+    )
+
+
+def run_checks():
+    return (
+        review_risk_evidence_ledger(correct_ledger()),
+        review_risk_evidence_ledger(broken_internal_only_ledger()),
+        review_risk_evidence_ledger(broken_progress_only_ledger()),
+    )
+'''
+
+
+RISK_EVIDENCE_LEDGER_RUN_CHECKS_TEMPLATE = '''"""Run the Risk Evidence Ledger template checks."""
+
+from __future__ import annotations
+
+from model import run_checks
+
+
+def main() -> int:
+    correct, internal_only, progress_only = run_checks()
+    print(correct.format_text())
+    print()
+    print(internal_only.format_text(max_findings=5))
+    print()
+    print(progress_only.format_text(max_findings=5))
+    expected_blockers = (
+        not internal_only.ok
+        and internal_only.decision == "internal_path_only_evidence"
+        and not progress_only.ok
+        and progress_only.decision == "proof_evidence_not_passing"
+    )
+    return 0 if correct.ok and expected_blockers else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+'''
+
+
+RISK_EVIDENCE_LEDGER_NOTES_TEMPLATE = """# FlowGuard Risk Evidence Ledger Notes
+
+Use this scaffold before final confidence claims.
+
+## What The Ledger Reviews
+
+- each user-facing risk has a FlowGuard model obligation owner;
+- each required public behavior has a code contract when the project requires it;
+- each risk has current proof evidence from tests, replay, route reports, or manual validation;
+- internal-path-only tests, stale evidence, skipped checks, and progress-only background runs are visible;
+- scoped-out risks have explicit reasons and cannot be silently counted as fully proven.
+
+The ledger is a final claim boundary. It summarizes evidence produced by
+Model-Test Alignment, TestMesh, ModelMesh, StructureMesh, UI Flow Structure,
+DevelopmentProcessFlow, conformance replay, and ordinary tests. It does not run
+those routes for you.
+"""
+
+
 def project_template_files() -> tuple[TemplateFile, ...]:
     return (
         TemplateFile("model.py", MODEL_TEMPLATE),
@@ -3563,6 +3731,14 @@ def existing_model_preflight_template_files() -> tuple[TemplateFile, ...]:
     )
 
 
+def risk_evidence_ledger_template_files() -> tuple[TemplateFile, ...]:
+    return (
+        TemplateFile(".flowguard/risk_evidence_ledger/model.py", RISK_EVIDENCE_LEDGER_MODEL_TEMPLATE),
+        TemplateFile(".flowguard/risk_evidence_ledger/run_checks.py", RISK_EVIDENCE_LEDGER_RUN_CHECKS_TEMPLATE),
+        TemplateFile("docs/flowguard_risk_evidence_ledger.md", RISK_EVIDENCE_LEDGER_NOTES_TEMPLATE),
+    )
+
+
 def ui_flow_structure_template_files() -> tuple[TemplateFile, ...]:
     return (
         TemplateFile(".flowguard/ui_flow_structure/model.py", UI_FLOW_STRUCTURE_MODEL_TEMPLATE),
@@ -3629,6 +3805,9 @@ __all__ = [
     "RISK_INTENT_CHECK_PLAN_MODEL_TEMPLATE",
     "RISK_INTENT_CHECK_PLAN_NOTES_TEMPLATE",
     "RISK_INTENT_CHECK_PLAN_RUN_CHECKS_TEMPLATE",
+    "RISK_EVIDENCE_LEDGER_MODEL_TEMPLATE",
+    "RISK_EVIDENCE_LEDGER_NOTES_TEMPLATE",
+    "RISK_EVIDENCE_LEDGER_RUN_CHECKS_TEMPLATE",
     "STRUCTURE_MESH_MODEL_TEMPLATE",
     "STRUCTURE_MESH_NOTES_TEMPLATE",
     "STRUCTURE_MESH_RUN_CHECKS_TEMPLATE",
@@ -3644,6 +3823,7 @@ __all__ = [
     "model_miss_review_template_files",
     "model_test_alignment_template_files",
     "project_template_files",
+    "risk_evidence_ledger_template_files",
     "risk_intent_template_files",
     "structure_mesh_template_files",
     "test_mesh_template_files",

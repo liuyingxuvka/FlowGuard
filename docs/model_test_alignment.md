@@ -111,3 +111,11 @@ Conservative source audit is also not conformance replay. Use replay when the
 claim depends on real production state, side effects, external systems,
 trace-level behavior, or adapter projection between model traces and runtime
 observations.
+
+Model-Test Alignment produces the rows that a Risk Evidence Ledger can consume:
+model obligation IDs, code contract IDs, test evidence IDs, result status,
+freshness, and assertion scope. It should not claim final done or release
+confidence by itself when other risk rows, mesh evidence, UI journeys, or
+process freshness can still invalidate the broader claim. Feed those rows into
+`review_risk_evidence_ledger(...)` before saying the modeled risk is fully
+covered.

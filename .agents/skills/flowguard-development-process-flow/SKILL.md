@@ -64,7 +64,11 @@ change.
    smaller target architecture than the current code graph.
 8. Before done/release/archive/publish, verify the final evidence is current
    for the final artifact set.
-9. For non-trivial lifecycle reviews, default to a user-facing Mermaid
+9. Before final done/release/archive/publish, consume the Risk Evidence Ledger
+   decision as an evidence boundary: full confidence may continue, scoped
+   confidence must be reported as scoped, and blocked findings must route back
+   to the owning evidence route.
+10. For non-trivial lifecycle reviews, default to a user-facing Mermaid
    development process diagram showing artifact versions, action writes/invalidations,
    evidence ids, freshness gates, minimum revalidation, and unsupported claims.
    This diagram's edges mean order, invalidation, or required revalidation, not

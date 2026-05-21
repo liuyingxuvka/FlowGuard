@@ -50,6 +50,8 @@ An adoption entry should record:
 - findings;
 - counterexamples;
 - skipped steps;
+- risk evidence summary, including full/scoped/blocked ledger decisions when
+  final confidence is claimed;
 - friction points;
 - next actions;
 - status.
@@ -94,6 +96,7 @@ entry = make_adoption_log_entry(
     counterexamples=(),
     friction_points=(),
     skipped_steps=(),
+    risk_evidence_summary=("ledger=retry-dedup confidence=full",),
     next_actions=("implement production change after model passes",),
 )
 
@@ -110,5 +113,5 @@ correct. It means:
 - relevant deterministic checks were run;
 - counterexamples were inspected;
 - skipped steps were explicit;
+- any final confidence claim has a visible risk evidence boundary;
 - the result is reviewable by a future agent or maintainer.
-

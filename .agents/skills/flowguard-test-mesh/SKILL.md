@@ -40,7 +40,9 @@ when route selection is unclear.
 5. Use `review_test_mesh(...)` or the template to review parent confidence.
 6. Rerun the minimum affected child checks after code, model, prompt, or
    verifier changes.
-7. For non-trivial TestMesh reviews, default to a user-facing Mermaid
+7. Feed child evidence ids, status, freshness, and release scope to the Risk
+   Evidence Ledger before a broader final confidence claim.
+8. For non-trivial TestMesh reviews, default to a user-facing Mermaid
    validation mesh diagram showing parent gates, child suites/scripts, evidence status,
    routine/release boundaries, and stale/skipped/progress-only gaps. Its edges
    mean covers, gates, requires rerun, or stales; they are not product flow.

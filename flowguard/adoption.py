@@ -106,6 +106,7 @@ class AdoptionLogEntry:
     counterexamples: tuple[str, ...] = ()
     friction_points: tuple[str, ...] = ()
     skipped_steps: tuple[str, ...] = ()
+    risk_evidence_summary: tuple[str, ...] = ()
     next_actions: tuple[str, ...] = ()
     metadata: FrozenMetadata = field(default_factory=tuple, compare=False)
 
@@ -148,6 +149,11 @@ class AdoptionLogEntry:
             self,
             "skipped_steps",
             tuple(str(item) for item in self.skipped_steps),
+        )
+        object.__setattr__(
+            self,
+            "risk_evidence_summary",
+            tuple(str(item) for item in self.risk_evidence_summary),
         )
         object.__setattr__(
             self,
@@ -196,6 +202,7 @@ class AdoptionLogEntry:
             "counterexamples": list(self.counterexamples),
             "friction_points": list(self.friction_points),
             "skipped_steps": list(self.skipped_steps),
+            "risk_evidence_summary": list(self.risk_evidence_summary),
             "next_actions": list(self.next_actions),
             "metadata": to_jsonable(self.metadata),
         }
@@ -238,6 +245,7 @@ class AdoptionLogEntry:
         _append_section(lines, "Counterexamples", self.counterexamples)
         _append_section(lines, "Friction Points", self.friction_points)
         _append_section(lines, "Skipped Steps", self.skipped_steps)
+        _append_section(lines, "Risk Evidence Summary", self.risk_evidence_summary)
         _append_section(lines, "Next Actions", self.next_actions)
         return "\n".join(lines)
 
@@ -282,6 +290,7 @@ class AdoptionTimer:
         counterexamples: Iterable[str] | None = None,
         friction_points: Iterable[str] | None = None,
         skipped_steps: Iterable[str] | None = None,
+        risk_evidence_summary: Iterable[str] | None = None,
         next_actions: Iterable[str] | None = None,
         metadata: Mapping[str, Any] | Iterable[tuple[str, Any]] | None = None,
     ) -> AdoptionLogEntry:
@@ -301,6 +310,7 @@ class AdoptionTimer:
             counterexamples=counterexamples,
             friction_points=friction_points,
             skipped_steps=skipped_steps,
+            risk_evidence_summary=risk_evidence_summary,
             next_actions=next_actions,
             metadata=metadata,
         )
@@ -323,6 +333,7 @@ def make_adoption_log_entry(
     counterexamples: Iterable[str] | None = None,
     friction_points: Iterable[str] | None = None,
     skipped_steps: Iterable[str] | None = None,
+    risk_evidence_summary: Iterable[str] | None = None,
     next_actions: Iterable[str] | None = None,
     metadata: Mapping[str, Any] | Iterable[tuple[str, Any]] | None = None,
 ) -> AdoptionLogEntry:
@@ -342,6 +353,7 @@ def make_adoption_log_entry(
         counterexamples=tuple(str(item) for item in _as_tuple(counterexamples)),
         friction_points=tuple(str(item) for item in _as_tuple(friction_points)),
         skipped_steps=tuple(str(item) for item in _as_tuple(skipped_steps)),
+        risk_evidence_summary=tuple(str(item) for item in _as_tuple(risk_evidence_summary)),
         next_actions=tuple(str(item) for item in _as_tuple(next_actions)),
         metadata=metadata,
     )

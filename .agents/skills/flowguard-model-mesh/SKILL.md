@@ -70,7 +70,9 @@ or when it is unclear whether a mesh is needed.
    helpers.
 11. Record which child evidence ids the parent consumed and which are stale,
    skipped, or release-only.
-12. For non-trivial meshes, default to a user-facing Mermaid mesh diagram
+12. Feed consumed child evidence ids and stale/skipped/release-only gaps to the
+    Risk Evidence Ledger before a broad final confidence claim.
+13. For non-trivial meshes, default to a user-facing Mermaid mesh diagram
     showing root entries, child model boundaries, handoffs, evidence tiers/freshness,
     blockers, and what the mesh does or does not prove. Its
     edges mean delegates, reattaches, consumes output, affects sibling, or

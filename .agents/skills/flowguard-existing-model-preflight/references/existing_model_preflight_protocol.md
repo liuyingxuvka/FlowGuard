@@ -15,6 +15,11 @@ work:
 - staged development or release confidence: DevelopmentProcessFlow;
 - unclear or ordinary behavior/state modeling: model-first kernel.
 
+When the downstream work will make a final confidence claim, preserve model ids,
+evidence ids, scoped gaps, and reuse decisions for the Risk Evidence Ledger.
+Preflight identifies the existing owner; it does not prove test or runtime
+evidence by itself.
+
 ## Trigger
 
 Use this protocol for non-trivial discussion, analysis, proposal, feature,

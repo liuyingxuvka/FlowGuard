@@ -215,6 +215,16 @@ def _run_existing_model_preflight_template(args: argparse.Namespace) -> int:
     )
 
 
+def _run_risk_evidence_ledger_template(args: argparse.Namespace) -> int:
+    from .templates import risk_evidence_ledger_template_files
+
+    return _run_file_template(
+        args,
+        template_name="risk_evidence_ledger",
+        files=risk_evidence_ledger_template_files(),
+    )
+
+
 def _run_test_mesh_template(args: argparse.Namespace) -> int:
     from .templates import test_mesh_template_files
 
@@ -262,6 +272,7 @@ def _run_adoption_entry(args: argparse.Namespace) -> int:
         counterexamples=tuple(args.counterexample or ()),
         friction_points=tuple(args.friction_point or ()),
         skipped_steps=tuple(args.skipped_step or ()),
+        risk_evidence_summary=tuple(args.risk_evidence or ()),
         next_actions=tuple(args.next_action or ()),
     )
     append_jsonl(root / ".flowguard" / "adoption_log.jsonl", entry)
@@ -322,6 +333,12 @@ def _add_adoption_entry_args(
     parser.add_argument("--counterexample", action="append", default=[])
     parser.add_argument("--friction-point", action="append", default=[])
     parser.add_argument("--skipped-step", action="append", default=[])
+    parser.add_argument(
+        "--risk-evidence",
+        action="append",
+        default=[],
+        help="Final risk evidence ledger note, scoped boundary, or proof gap.",
+    )
     parser.add_argument("--next-action", action="append", default=[])
     parser.set_defaults(handler=_run_adoption_entry, default_status=default_status)
 
@@ -408,6 +425,12 @@ def main(argv: list[str] | None = None) -> int:
         "existing-model-preflight-template",
         "Print or write the existing FlowGuard model preflight template.",
         _run_existing_model_preflight_template,
+    )
+    _add_file_template_parser(
+        subparsers,
+        "risk-evidence-ledger-template",
+        "Print or write the risk evidence ledger final confidence template.",
+        _run_risk_evidence_ledger_template,
     )
     _add_file_template_parser(
         subparsers,
