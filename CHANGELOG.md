@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.22.1 - 2026-05-22
+
+- Clarified the public README positioning: FlowGuard is a universal AI-agent
+  skill layer and lightweight Python toolkit, while Codex support is an
+  integration path rather than the boundary of the project.
+- Updated the English and Chinese README intro so the first screen presents
+  FlowGuard as a general AI-agent skill.
+- Schema remains `1.0`; runtime dependencies remain Python standard library
+  only.
+
 ## v0.22.0 - 2026-05-22
 
 - Added explicit model-test evidence roles for primary evidence, primary
