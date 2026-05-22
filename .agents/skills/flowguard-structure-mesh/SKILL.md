@@ -23,6 +23,10 @@ structure recommendation or when route selection is ambiguous.
   outputs need code-boundary conformance evidence before the refactor can claim
   the runtime boundary stayed closed.
 - Target structure must be model-derived for existing large refactors.
+- If the split exists because a leaf model cannot be fully boundary tested,
+  preserve the parent/child model contract while deriving smaller code owners;
+  facade compatibility alone does not prove the leaf boundary matrix stayed
+  closed.
 - If the proposed refactor is meant to shrink an overgrown flow, consume an
   Architecture Reduction report before treating the target structure as ready.
 - Dependency cycles, config drift, missing facades, and parity gaps are release
@@ -41,12 +45,15 @@ structure recommendation or when route selection is ambiguous.
    routine/release evidence.
 6. For facade, adapter, CLI, or API entrypoints with finite boundaries, feed
    allowed/rejected input and output observations to Model-Test Alignment.
-7. Use `review_structure_mesh(...)` or the template before claiming refactor
+7. After moving input gates, output mappers, state writers, side-effect writers,
+   or error mappers, rerun or refresh the affected leaf boundary-matrix
+   evidence before claiming layered proof.
+8. Use `review_structure_mesh(...)` or the template before claiming refactor
    confidence.
-8. Feed public-entrypoint parity ids, facade evidence, and deferred release
+9. Feed public-entrypoint parity ids, facade evidence, and deferred release
    obligations to the Risk Evidence Ledger before a broader final confidence
    claim.
-9. For non-trivial StructureMesh reviews, default to a user-facing Mermaid
+10. For non-trivial StructureMesh reviews, default to a user-facing Mermaid
    structure mesh diagram showing current public entrypoints, target child
    modules, facades, dependency direction, config/parity evidence, and release
    blockers. Its edges mean exposes, preserves, adapts, depends, or validates

@@ -24,6 +24,10 @@ or when it is unclear whether a mesh is needed.
 - Whole-flow parent confidence requires a green mesh closure model over root
   entries, child outputs, consumers, joins, terminals, and out-of-scope
   dispositions; partition coverage alone is not entry-to-exit closure.
+- Parent confidence also requires layered boundary proof when child contracts
+  are being consumed: child models must cover the parent responsibilities, avoid
+  illegal overlap, reattach with current evidence ids, and delegate finite leaf
+  code surfaces to boundary-matrix evidence.
 - A repaired child model is not parent-green until the parent consumes its
   current evidence id and its input/output/state/side-effect contract still
   reattaches to the parent flow.
@@ -58,27 +62,30 @@ or when it is unclear whether a mesh is needed.
 5. For repaired child models, record the parent reattachment contract: expected
    inputs, outputs, state ownership, side-effect ownership, outgoing guarantees,
    and consumed child evidence id.
-6. When whole-flow parent confidence is claimed, build or update the mesh
+6. When parent confidence depends on child contracts, run or prepare
+   `review_layered_boundary_proof(...)` with parent coverage, child
+   disjointness, reattachment, and leaf boundary matrix rows.
+7. When whole-flow parent confidence is claimed, build or update the mesh
    closure model and make unconsumed child outputs, incomplete joins, terminal
    leaks, out-of-scope gaps, and loop-progress gaps fail.
-7. If a child boundary changed, propagate the stale-boundary review upward and
+8. If a child boundary changed, propagate the stale-boundary review upward and
    review affected siblings that share or depend on the same parent partition
    items, state writes, side effects, invariants, or contracts.
-8. If the changed child boundary maps to real code, require Model-Test
+9. If the changed child boundary maps to real code, require Model-Test
    Alignment code-boundary observations before treating the child handoff as
    runtime-safe.
-9. When sibling overlap suggests redundant implementation structure, hand the
+10. When sibling overlap suggests redundant implementation structure, hand the
    ownership and contract snapshot to Architecture Reduction before creating
    more child models.
-10. Confirm background long-running checks have final artifacts and exit status
+11. Confirm background long-running checks have final artifacts and exit status
    before consuming them as evidence.
-11. Run child checks first, then parent review through hierarchical mesh
+12. Run child checks first, then parent review through hierarchical mesh
    helpers.
-12. Record which child evidence ids the parent consumed and which are stale,
+13. Record which child evidence ids the parent consumed and which are stale,
    skipped, or release-only.
-13. Feed consumed child evidence ids and stale/skipped/release-only gaps to the
+14. Feed consumed child evidence ids and stale/skipped/release-only gaps to the
     Risk Evidence Ledger before a broad final confidence claim.
-14. For non-trivial meshes, default to a user-facing Mermaid mesh diagram
+15. For non-trivial meshes, default to a user-facing Mermaid mesh diagram
     showing root entries, child model boundaries, handoffs, evidence tiers/freshness,
     blockers, and what the mesh does or does not prove. Its
     edges mean delegates, reattaches, consumes output, affects sibling, or

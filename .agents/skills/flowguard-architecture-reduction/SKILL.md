@@ -39,6 +39,10 @@ code refactoring is already underway and parity evidence is the main risk.
 - Any contraction candidate that merges, removes, or bypasses an input gate,
   output mapper, error mapper, state writer, or side-effect wrapper must keep
   code-boundary conformance evidence current before being treated as safe.
+- If child models overlap because the implementation has duplicate handlers,
+  adapters, state phases, or validation paths, classify the contraction before
+  adding more leaf boundary tests. More tests must not hide duplicate model
+  ownership.
 - This skill must not edit production code directly. Actual refactors need
   StructureMesh, DevelopmentProcessFlow, tests, and conformance evidence as
   appropriate.

@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.21.0 - 2026-05-22
+
+- Added layered boundary proof helpers:
+  `ParentCoverageItem`, `ChildProofContract`, `ChildReattachmentProof`,
+  `LeafBoundaryMatrix`, `LeafBoundaryMatrixCell`,
+  `LayeredBoundaryProofPlan`, and `review_layered_boundary_proof(...)`.
+- Added a four-table parent confidence gate for parent coverage, child
+  disjointness, child reattachment, and leaf
+  `Input x State -> Set(Output x State)` boundary-matrix evidence.
+- Added `python -m flowguard layered-boundary-proof-template`, public docs, and
+  focused tests for green proof, coverage gaps, illegal overlap, stale
+  reattachment, missing leaf cells, output overflow, progress-only evidence,
+  and too-large leaf split-required cases.
+- Updated the FlowGuard kernel, ModelMesh, Model-Test Alignment, TestMesh,
+  Existing Model Preflight, DevelopmentProcessFlow, Code Structure
+  Recommendation, StructureMesh, Architecture Reduction, and Model-Miss Review
+  guidance so parent/child model confidence now has an explicit leaf-boundary
+  proof chain.
+- Schema remains `1.0`; runtime dependencies remain Python standard library
+  only.
+
 ## v0.20.0 - 2026-05-21
 
 - Added code-boundary conformance helpers: `CodeBoundaryContract`,

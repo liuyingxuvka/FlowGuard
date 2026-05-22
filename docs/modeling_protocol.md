@@ -24,6 +24,10 @@ Before changing files, separate three situations:
 - `model_maintenance`: existing `.flowguard` models, replay adapters, or
   adoption evidence appear stale. Update those artifacts before making claims
   from them.
+- `layered_boundary_proof`: parent model confidence depends on child models and
+  leaf real-code boundary evidence. Join parent coverage, child disjointness,
+  child reattachment, and leaf boundary-matrix rows before claiming the parent
+  stayed inside its model.
 - `model_test_alignment`: model obligations and ordinary tests both exist, and
   the risk is whether scenarios, invariants, hazards, transitions, contracts,
   or optional code external contracts have matching current test evidence. When
@@ -211,6 +215,15 @@ Model-Miss Review and the affected ModelMesh. The child-local pass is not
 complete until the parent reattachment gate consumes the current child evidence
 id and confirms the input, output, state, side-effect, and outgoing-contract
 handoff still matches the parent flow.
+
+When the model hierarchy is meant to prove code boundaries, add layered
+boundary proof after the mesh inventory. The parent model must have every
+responsibility owned or explicitly scoped out, child models must be disjoint
+except for declared bridge/shared-kernel cases, the parent must consume each
+current child evidence id, and every leaf model must have a complete finite
+`Input x State -> Set(Output x State)` matrix backed by real-code tests or
+observations. If a leaf cannot be fully covered, split it into a lower model
+instead of treating a coarse internal test as enough.
 
 Keep the current bug instance separate from the bug class. Model-Miss Review
 owns classification and same-class representation or out-of-scope recording;

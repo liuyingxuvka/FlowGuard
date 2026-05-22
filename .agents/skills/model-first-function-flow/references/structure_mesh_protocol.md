@@ -155,3 +155,12 @@ A StructureMesh is complete when:
 - public-entrypoint parity ids and deferred release obligations are available
   to the Risk Evidence Ledger before broader final confidence claims;
 - known-bad hazards fail in executable evidence.
+
+## Layered Boundary Handoff
+
+When a structure split is motivated by a leaf model being too large for full
+boundary-matrix coverage, StructureMesh owns the existing-code split evidence,
+but the layered proof stays blocked until the new child modules expose complete
+leaf inputs, outputs, state writes, side effects, and error paths. Facade
+compatibility proves public shape; it does not prove the leaf
+`Input x State -> Set(Output x State)` matrix by itself.

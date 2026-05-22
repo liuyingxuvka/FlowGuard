@@ -44,6 +44,9 @@ unclear, narrow the task or mark `needs_human_review`.
   blocked/partial. do not write a temporary mini-framework or fake mini-framework and claim FlowGuard use.
 - FlowGuard must remain useful without external planner prerequisites.
 - Represent each modeled block as `Input x State -> Set(Output x State)`.
+- For hierarchical confidence, require layered boundary proof: parent coverage,
+  legal child disjointness, current child reattachment, and leaf finite
+  boundary-matrix evidence; too-large leaves stay scoped or split again.
 - Do not replace executable modeling with prose.
 - For non-trivial FlowGuard work, default to a user-facing Mermaid model
   snapshot once the route or model shape is stable enough to explain. Run a
@@ -153,6 +156,8 @@ Codex skill:
 - Mesh review APIs such as `review_hierarchical_mesh()`,
   `review_mesh_closure_model()`, `review_test_mesh()`, and
   `review_structure_mesh()`.
+- Layered proof APIs such as `review_layered_boundary_proof()` for parent coverage,
+  child disjointness, child reattachment, and leaf boundary matrix closure.
 - Alignment APIs such as `review_model_test_alignment()`, `review_code_boundary_conformance()`, `audit_python_code_contracts()`, `audit_python_test_assertions()`, `review_python_contract_source_audit()`, and optional code/boundary rows.
 - Risk evidence APIs such as `RiskEvidenceLedgerPlan`,
   `RiskEvidenceProof`, `RiskEvidenceRow`, and
@@ -170,10 +175,9 @@ Codex skill:
   `review_ui_interaction_model()`, `review_ui_journey_coverage()`,
   `review_ui_implementation_validation()`, `review_ui_structure_derivation()`,
   and `review_ui_text_hierarchy()`.
-- Template CLIs such as `project-template`, `risk-intent-template`,
-  `model-miss-template`, `model-test-alignment-template`,
-  `risk-evidence-ledger-template`, `ui-flow-structure-template`, `development-process-flow-template`,
-  `existing-model-preflight-template`, `test-mesh-template`,
+- Template CLIs such as `project-template`, `risk-intent-template`, `model-miss-template`,
+  `model-test-alignment-template`, `risk-evidence-ledger-template`,
+  `layered-boundary-proof-template`, `ui-flow-structure-template`, `development-process-flow-template`, `existing-model-preflight-template`, `test-mesh-template`,
   `structure-mesh-template`, and `maintenance-template`.
 
 ## Standalone Satellite Skills
@@ -181,9 +185,8 @@ The directly invokable satellite skills are:
 `flowguard-model-test-alignment`, `flowguard-development-process-flow`,
 `flowguard-model-miss-review`, `flowguard-code-structure-recommendation`,
 `flowguard-existing-model-preflight`, `flowguard-architecture-reduction`,
-`flowguard-ui-flow-structure`,
-`flowguard-model-mesh`, `flowguard-test-mesh`, and
-`flowguard-structure-mesh`. Use the matching satellite directly when the user's
+`flowguard-ui-flow-structure`, `flowguard-model-mesh`, `flowguard-test-mesh`,
+and `flowguard-structure-mesh`. Use the matching satellite directly when the user's
 request clearly matches that route; otherwise use this kernel.
 
 ## Resource Map

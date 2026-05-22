@@ -8,6 +8,8 @@ work:
 
 - bug after runtime/test evidence: Model-Miss Review;
 - parent/child model or stale child evidence: ModelMesh;
+- parent/child/leaf proof chain or finite code boundary matrix: ModelMesh,
+  Model-Test Alignment, TestMesh, then layered boundary proof;
 - code refactor or public entrypoint split: StructureMesh;
 - implementation structure recommendation: Code Structure Recommendation;
 - UI state, control, journey, or implemented UI claim: UI Flow Structure;
@@ -71,6 +73,9 @@ Known-bad variants should fail or be reported:
   owner without resolution;
 - no model found but search path and reason omitted;
 - stale model evidence treated as green.
+- parent model found but parent coverage, child disjointness, child
+  reattachment, or leaf boundary-matrix status is unknown when the downstream
+  work needs a full confidence claim.
 
 ## Output Shape
 
@@ -108,3 +113,9 @@ Recommended downstream route:
 This protocol decides whether the agent has understood the current model map.
 It does not prove the planned change is correct. Downstream FlowGuard routes and
 ordinary tests still provide the behavioral, structural, and release evidence.
+
+If the downstream claim depends on layered proof, preflight should identify the
+existing parent model, child models, leaf models, current evidence ids, and any
+duplicate-boundary risks before a new model or test boundary is added. A model
+reference plus ordinary test mention is not the same as complete finite leaf
+boundary proof.

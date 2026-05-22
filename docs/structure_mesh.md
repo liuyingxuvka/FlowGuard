@@ -168,3 +168,8 @@ risk in the broader task. For final confidence, pass the relevant public
 entrypoint evidence ids, parity evidence status, and deferred release
 obligations into the Risk Evidence Ledger. A routine StructureMesh warning must
 stay a scoped ledger row, not disappear behind a green local refactor check.
+
+If the split is needed because a FlowGuard leaf was too large for full
+boundary-matrix coverage, StructureMesh only proves the code split and parity
+side. The layered proof remains blocked until the new leaf modules expose
+complete `Input x State -> Set(Output x State)` real-code observations.

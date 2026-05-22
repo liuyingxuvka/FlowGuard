@@ -109,6 +109,12 @@ child suite's evidence id, status, freshness, and scope into the Risk Evidence
 Ledger. TestMesh owns the validation hierarchy; the ledger owns the final
 "does this evidence support this user risk?" claim boundary.
 
+For layered boundary proof, TestMesh can own the suite/script hierarchy that
+produces leaf boundary evidence, but it does not by itself prove the leaf
+matrix. The layered proof still needs every finite
+`Input x State -> Set(Output x State)` cell, the evidence id for that cell, and
+a current pass status.
+
 ## Routine Versus Release
 
 `TEST_SCOPE_ROUTINE` lets teams keep a fast local gate green while reporting

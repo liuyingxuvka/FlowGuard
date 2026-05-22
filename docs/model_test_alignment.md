@@ -103,6 +103,11 @@ List runtime boundary rows when the code surface must be closed:
 - whether the boundary is exact;
 - current observations from real code tests, replay adapters, or harnesses.
 
+For a lowest-level FlowGuard leaf, these boundary rows should be complete
+enough to populate the layered proof leaf matrix: every finite input/state
+cell has declared outputs, next states, state writes, side effects, error
+paths, evidence ids, and freshness status.
+
 List test evidence with `TestEvidence`:
 
 - evidence id, test name, path, and command;
@@ -144,7 +149,9 @@ This helper is not TestMesh and not StructureMesh. Use TestMesh when the
 validation flow itself needs parent/child suite ownership. Use StructureMesh
 when a large script, module, command, or API surface is being split. Model-Test
 Alignment stays focused on declared obligations, optional code external
-contracts, and the tests that prove them.
+contracts, and the tests that prove them. Layered boundary proof may consume
+the aligned boundary evidence for leaf matrices, but it owns the parent
+coverage, child disjointness, and child reattachment decision.
 
 Conservative source audit is also not conformance replay. Use replay when the
 claim depends on real production state, side effects, external systems,

@@ -23,6 +23,11 @@ coordination.
 - For model-backed code surfaces with finite inputs or outputs, recommend where
   the input gate, output mapper, error mapper, state writer, and side-effect
   observation boundary should live so tests can prove the code boundary later.
+- If a target leaf model cannot get complete finite boundary-matrix tests from
+  the current code shape, recommend a smaller model/code boundary before adding
+  more representative tests. Structure should make the leaf matrix observable:
+  input gate, output mapper, error mapper, state writer, and side-effect writer
+  should each have a clear owner.
 - If the question is whether existing code can be smaller, run
   `flowguard-architecture-reduction` before recommending target modules.
 - Do not turn structure advice into a broad refactor without validation.
@@ -40,13 +45,16 @@ coordination.
 4. Recommend modules, facades, adapters, and test seams from that evidence.
 5. Recommend code-boundary observation points for model-declared external
    inputs, outputs, state writes, side effects, and error paths.
-6. Identify risky dependency directions, shared state, and compatibility
+6. Recommend which leaf boundary matrix each proposed module or facade will
+   make testable, and route too-large leaves back to ModelMesh or
+   StructureMesh.
+7. Identify risky dependency directions, shared state, and compatibility
    boundaries.
-7. Use `review_code_structure_recommendation(...)` where available, then use
+8. Use `review_code_structure_recommendation(...)` where available, then use
    StructureMesh only if the actual refactor is large enough to need it.
-8. Record proposed validation boundaries as future Risk Evidence Ledger proof
+9. Record proposed validation boundaries as future Risk Evidence Ledger proof
    ids; this route recommends ownership but does not prove runtime behavior.
-9. For non-trivial structure recommendations, default to a user-facing Mermaid
+10. For non-trivial structure recommendations, default to a user-facing Mermaid
    code structure diagram showing FunctionBlock-to-module mapping,
    facade/adapter boundaries, state and side-effect ownership, and validation boundaries.
    Its edges mean owns, calls, adapts, exposes, or validates; they

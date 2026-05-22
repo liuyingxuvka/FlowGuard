@@ -25,6 +25,13 @@ effects, and error paths. Use `CodeBoundaryContract`,
 the code boundary; it is not a new skill and not a replacement for full trace
 replay.
 
+When the finite code boundary belongs to a leaf model in a parent/child mesh,
+upgrade the boundary observations into a leaf boundary matrix. A matrix row is
+one `Input x State` cell and records allowed outputs, next states, state
+writes, side effects, error paths, evidence ids, status, and freshness. A leaf
+model can support parent confidence only when every finite cell is current and
+passing, or when the leaf is split further or explicitly scoped.
+
 When real Python source and tests are available, add the conservative source audit
 layer before trusting hand-authored rows. This layer reads Python ASTs to
 generate or check `PythonCodeContractEvidence` and
@@ -108,6 +115,16 @@ code surface claims a closed boundary:
 - whether the boundary is exact;
 - observation id, input case, accepted/rejected result, observed output, error
   path, state writes, side effects, status, freshness, and assertion scope.
+
+List leaf boundary matrix rows when this review is proving a leaf model:
+
+- leaf model id and matrix id;
+- expected `Input x State` cell ids;
+- input case and state case for each cell;
+- expected and observed outputs, next states, state writes, side effects, and
+  error paths;
+- evidence ids, result status, freshness, and assertion scope;
+- split-required or scoped-exemption status if the leaf is too large.
 
 List `TestEvidence` rows:
 

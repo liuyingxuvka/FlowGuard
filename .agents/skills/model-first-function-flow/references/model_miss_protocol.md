@@ -35,10 +35,14 @@ not bug-class closure.
 8. If the child boundary changed, keep the miss open until the affected parent
    ModelMesh has reviewed upward propagation and any affected sibling model
    assumptions.
-9. Treat background long-running checks as liveness until final output, error,
+9. If the miss shows that real code accepted an unmodeled input, emitted an
+   extra output/error/state write/side effect, or failed a declared leaf cell,
+   update the leaf boundary matrix and rerun layered proof. Do not close the
+   miss with only a new ordinary test when the model boundary itself overflowed.
+10. Treat background long-running checks as liveness until final output, error,
    combined log, exit, and metadata artifacts exist. Progress is not
    production-facing pass evidence.
-10. Record `Miss type`, `Generalized case`, and any parent reattachment decision
+11. Record `Miss type`, `Generalized case`, and any parent reattachment decision
    in adoption evidence and the Risk Evidence Ledger when a prior final claim
    had one, or explain
    why no generalized case was added.
@@ -63,3 +67,7 @@ itself.
 If the prior green claim had a Risk Evidence Ledger row, mark the old proof as
 stale or overclaimed and attach the new same-class evidence before restoring
 full confidence.
+
+Layered proof misses should be mapped to the broken table before closure:
+parent coverage gap, illegal child overlap, stale child reattachment, missing
+leaf boundary cell, or real-code boundary overflow.

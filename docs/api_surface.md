@@ -67,6 +67,13 @@ Modeling helpers reduce boilerplate around common bug classes:
   child reattachment, child boundary propagation, affected sibling review,
   whole-flow closure across model handoffs, bug-class responsibility
   separation, large-model split triggers, and legacy compatibility.
+- optional layered boundary proof helpers such as `ParentCoverageItem`,
+  `ChildProofContract`, `ChildReattachmentProof`, `LeafBoundaryMatrix`,
+  `LeafBoundaryMatrixCell`, `LayeredBoundaryProofPlan`, and
+  `review_layered_boundary_proof()` for joining parent coverage, child
+  disjointness, child reattachment, and leaf
+  `Input x State -> Set(Output x State)` boundary-matrix evidence into one
+  parent confidence gate.
 - optional architecture reduction helpers such as
   `ObservableArchitectureContract`, `ArchitectureReductionCandidate`,
   `ArchitectureReductionTrigger`, `TargetArchitectureAction`,
@@ -189,7 +196,8 @@ Evidence APIs are used to keep FlowGuard itself honest:
   `existing_model_preflight_template_files()`,
   `risk_evidence_ledger_template_files()`,
   `development_process_flow_template_files()`, `test_mesh_template_files()`,
-  and `structure_mesh_template_files()`.
+  `structure_mesh_template_files()`, and
+  `layered_boundary_proof_template_files()`.
 
 These tools are valuable for FlowGuard maintenance. Ordinary project models do
 not have to run the full evidence baseline, problem corpus, or benchmark suite
@@ -234,7 +242,11 @@ derivation from the FlowGuard source model before trusting parent/child
 ownership and evidence. When parent confidence claims whole-flow closure, add a
 mesh closure model so root entries, child outputs, joins, terminal
 dispositions, and out-of-scope branches are checked as executable handoff
-obligations before `mesh_green_can_continue`. For large, slow, or layered validation, use TestMesh to
+obligations before `mesh_green_can_continue`. When a parent model relies on
+child models for confidence, add layered boundary proof so each parent item has
+an owner, child ownership is disjoint except for explicit bridge/shared-kernel
+cases, current child evidence is reattached to the parent, and each leaf proves
+its finite real-code boundary matrix. For large, slow, or layered validation, use TestMesh to
 split the parent test gate into child suites/scripts and make their ownership
 and evidence visible before trusting the parent. For large structure refactors,
 use StructureMesh to make model-derived target structure, child-module

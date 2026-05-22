@@ -30,6 +30,10 @@ to reuse, extend, add a child model, or create a new boundary.
   outcome is a smaller implementation, route to
   `flowguard-architecture-reduction` before adding another model, module, or
   adapter.
+- For hierarchical model claims, check whether the existing proof chain already
+  records parent coverage, child disjointness, child reattachment, and leaf
+  boundary-matrix evidence. A model that merely has a test reference is not the
+  same as a leaf model with full finite boundary proof.
 - Skipped, stale, missing, or no-model-found evidence must stay visible.
 
 ## When To Use
@@ -85,17 +89,20 @@ architecture decisions, or risky behavior changes:
 5. Note whether any existing code contract already has current
    code-boundary observations for allowed inputs, rejected inputs, outputs,
    state writes, side effects, and errors.
-6. Decide one of: `reuse_existing`, `extend_existing`, `add_child_model`,
+6. Note whether any leaf model in scope has complete finite boundary-matrix
+   evidence, whether any child overlap is illegal, and whether parent
+   reattachment consumes current child evidence ids.
+7. Decide one of: `reuse_existing`, `extend_existing`, `add_child_model`,
    `new_boundary`, `no_model_found`, or `skip_with_reason`.
-7. Identify duplicate ownership risks before allowing a new boundary.
-8. If duplicate ownership suggests code contraction rather than extension,
+8. Identify duplicate ownership risks before allowing a new boundary.
+9. If duplicate ownership suggests code contraction rather than extension,
    hand off to Architecture Reduction with the model ownership snapshot.
-9. Use `review_existing_model_preflight(...)` for full preflight reports when
+10. Use `review_existing_model_preflight(...)` for full preflight reports when
    available.
-10. Preserve relevant model ids, evidence ids, scoped gaps, and reuse decisions
+11. Preserve relevant model ids, evidence ids, scoped gaps, and reuse decisions
    for the Risk Evidence Ledger when the downstream work will make a final
    confidence claim.
-11. Route to the downstream FlowGuard skill that owns the actual work.
+12. Route to the downstream FlowGuard skill that owns the actual work.
 
 ## User-Facing Snapshot
 

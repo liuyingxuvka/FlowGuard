@@ -16,6 +16,13 @@ The mesh does not expand every child state graph. Each child remains responsible
 for its own internal states and invariants. The parent boundary only reads the
 child's contract and evidence summary.
 
+When parent confidence also claims that the underlying code stays inside model
+boundaries, add layered boundary proof. The parent checks coverage and child
+disjointness, consumes current child reattachment evidence, and requires every
+lowest leaf model to prove a complete finite
+`Input x State -> Set(Output x State)` matrix against real-code evidence. A
+child-local green model result alone does not prove that leaf code boundary.
+
 For whole-flow parent confidence, the parent boundary also needs a closure
 model. The closure model is a small FlowGuard-style model of the model network:
 root entries, child-output tokens, parent or sibling consumers, required joins,

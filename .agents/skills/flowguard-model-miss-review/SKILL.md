@@ -24,6 +24,10 @@ multiple FlowGuard routes.
 - If the repair changes a local child model that belongs to a parent ModelMesh,
   do not close the miss until the parent reattachment gate consumes current
   child evidence and confirms the child still fits the parent flow.
+- For layered proof failures, map the bug to the broken table: parent coverage
+  gap, illegal child overlap, stale child reattachment, missing leaf
+  boundary-matrix cell, or real-code boundary overflow. Do not close the miss
+  by only adding a happy-path test.
 
 ## Workflow
 
@@ -42,12 +46,14 @@ multiple FlowGuard routes.
 6. Rerun the model and production-facing validation.
 7. If a repaired child model is part of a parent mesh, rerun the affected
    parent ModelMesh reattachment gate.
-8. Close only when the corrected model catches the bad case and the relevant
+8. If the miss exposes a missing or overflowing leaf boundary cell, update the
+   leaf boundary matrix and rerun layered proof before parent confidence.
+9. Close only when the corrected model catches the bad case and the relevant
    runtime/test/replay evidence is current.
-9. Update the Risk Evidence Ledger row that the old green claim overcovered:
+10. Update the Risk Evidence Ledger row that the old green claim overcovered:
    record the prior evidence as overclaimed or stale, then attach the new
    same-class bad-case evidence before restoring full confidence.
-10. For non-trivial misses, default to a user-facing Mermaid miss-repair diagram
+11. For non-trivial misses, default to a user-facing Mermaid miss-repair diagram
    showing the prior green claim, observed failure, miss classification, model
    repair, same-class generalized bad case, rerun evidence, and remaining
    validation boundary. Its edges mean missed, repaired, generalized,

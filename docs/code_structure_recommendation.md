@@ -97,3 +97,9 @@ that later become Risk Evidence Ledger proof ids, but it does not count as test
 or replay evidence. After implementation, Model-Test Alignment, StructureMesh,
 or conformance replay should produce current evidence for those boundaries, and
 the ledger should decide whether the final claim is full, scoped, or blocked.
+
+When a target module will be the lowest FlowGuard leaf, name the observation
+points needed for a complete leaf boundary matrix: accepted/rejected inputs,
+outputs, error paths, state writes, and side effects. If those points cannot be
+observed cleanly, recommend a smaller child model or code boundary before the
+implementation is treated as ready for layered proof.

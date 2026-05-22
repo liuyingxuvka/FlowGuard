@@ -49,6 +49,15 @@ whether those regions cover the parent space without unsafe overlap. A child can
 become a parent when it grows large enough to split again, so mesh review can
 apply at several levels.
 
+Layered boundary proof is the parent-confidence bridge across ModelMesh,
+Model-Test Alignment, and TestMesh. A parent model is not fully green merely
+because each child has some evidence. The proof chain must show four tables:
+parent coverage, child disjointness, child reattachment through current
+evidence ids, and leaf boundary matrices. If a child is a leaf and owns a real
+finite code boundary, the leaf must be small enough to prove every declared
+`Input x State -> Set(Output x State)` cell, or it must split again or remain
+scoped/blocked.
+
 Before a parent/child model layout supports mesh confidence, derive the target
 child model structure from a FlowGuard source model or model-of-models. The
 target split derivation should name the source model, target child model ids,
@@ -110,11 +119,20 @@ side effect, invariant, or failure mode. Each item must be one of:
 - `parent`: the parent owns the item;
 - `read_only`: a child reads the item but does not own it;
 - `shared_kernel`: a deliberate shared kernel owns the item.
+- `bridge`: a deliberate handoff boundary consumes one child output and exposes
+  a parent-known token without taking over the child's internals.
+- `out_of_scope`: the item is outside the present claim and must include a
+  rationale.
 
 Coverage gaps block confidence: every parent-space item needs an owner or an
 explicit out-of-scope note. Unsafe overlap also blocks confidence: sibling child
 models must not both own the same state write, side effect, or core functional
 area. Shared reads are fine; shared ownership needs an explicit shared kernel.
+
+Use `review_layered_boundary_proof(...)` when the claim joins these tables into
+one parent proof. ModelMesh still owns target split derivation and child
+reattachment shape; layered proof checks whether the combined evidence chain is
+closed enough for the parent claim.
 
 Child boundary changes propagate upward. If a child changes its risk boundary,
 accepted inputs, emitted outputs, state ownership, side-effect ownership, or

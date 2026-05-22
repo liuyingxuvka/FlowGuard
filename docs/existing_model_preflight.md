@@ -106,6 +106,9 @@ map to the route that owns the concrete work:
 
 - Code Structure Recommendation derives implementation structure.
 - ModelMesh governs parent/child model confidence.
+- Layered boundary proof joins parent coverage, child disjointness, child
+  reattachment, and leaf boundary-matrix status when parent confidence depends
+  on child models.
 - StructureMesh governs existing code splits.
 - UI Flow Structure governs UI behavior and implemented UI evidence.
 - Model-Miss Review repairs models after runtime/test failures.
@@ -117,3 +120,7 @@ The preflight catches a different failure: proposing a new system before
 checking the one already modeled. Its output tells the ledger which existing
 model boundary owns the risk; it does not prove the tests or runtime evidence
 by itself.
+
+When layered proof is in scope, preflight should surface the existing parent,
+child, and leaf model ids plus any duplicate-boundary risks before a new model
+or test boundary is added.

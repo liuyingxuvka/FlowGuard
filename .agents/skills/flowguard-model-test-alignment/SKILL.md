@@ -25,6 +25,10 @@ mostly core modeling rather than alignment.
   code-boundary observations for allowed input cases, rejected input cases, and
   observed outputs/state writes/side effects/error paths before claiming the
   real code conforms to that boundary.
+- If the code surface belongs to a leaf model, require boundary-matrix evidence
+  for every finite `Input x State` cell before claiming the leaf can support a
+  parent model. If the matrix is too large, route to ModelMesh for a lower-level
+  split instead of treating representative tests as full leaf proof.
 - If several tests or code contracts prove the same obligation because the
   implementation has duplicate paths, route to `flowguard-architecture-reduction`
   before expanding test evidence further.
@@ -43,22 +47,25 @@ mostly core modeling rather than alignment.
    scope.
 3. Add code-boundary contracts and runtime observations when a code surface
    must be closed around finite inputs and outputs.
-4. Collect ordinary test evidence rows; include exact test ids and covered
+4. For leaf models, build a boundary matrix that maps each allowed input/state
+   cell to observed outputs, next states, state writes, side effects, error
+   paths, and exact evidence ids.
+5. Collect ordinary test evidence rows; include exact test ids and covered
    obligation ids.
-5. When Python source and tests are available, use the conservative source/test
+6. When Python source and tests are available, use the conservative source/test
    audit helpers before the alignment review.
-6. Run or update the relevant tests, then call or template
+7. Run or update the relevant tests, then call or template
    `review_model_test_alignment(...)`.
-7. For DevelopmentProcessFlow `model_test_mismatch` handoffs, keep the failed
+8. For DevelopmentProcessFlow `model_test_mismatch` handoffs, keep the failed
    validation visible until required obligations, optional code contracts, and
    current test evidence have been compared.
-8. If duplicate evidence maps to duplicate implementation paths, hand the
+9. If duplicate evidence maps to duplicate implementation paths, hand the
    obligation/code-contract snapshot to Architecture Reduction before deciding
    whether to keep all paths.
-9. Inspect missing, stale, unknown, overclaimed, or boundary-crossing coverage.
+10. Inspect missing, stale, unknown, overclaimed, incomplete leaf-matrix, or boundary-crossing coverage.
    Fix the model, code contracts, boundary observations, tests, or evidence
    rows before claiming alignment.
-10. For non-trivial alignment reviews, default to a user-facing Mermaid coverage
+11. For non-trivial alignment reviews, default to a user-facing Mermaid coverage
    diagram showing model obligations, optional code contracts, test evidence,
    code-boundary observations, and missing/stale/overclaimed/boundary-crossing
    gaps. Its edges mean covers, partially covers, observes boundary, misses, or

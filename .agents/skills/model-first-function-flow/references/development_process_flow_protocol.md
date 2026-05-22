@@ -176,3 +176,21 @@ A DevelopmentProcessFlow review can support a lifecycle claim only when:
   only for routine scope;
 - the report includes minimum revalidation recommendations for unsupported
   requirements.
+
+## Layered Boundary Proof Freshness
+
+When a done, release, archive, or publish claim depends on layered model
+confidence, treat `review_layered_boundary_proof(...)` output as a sibling
+evidence id. DevelopmentProcessFlow does not inspect the four proof tables, but
+it must keep their freshness rules visible:
+
+- parent coverage edits stale the parent proof decision;
+- child ownership, state, side-effect, invariant, or contract edits stale
+  disjointness and reattachment;
+- child evidence id changes stale parent reattachment until the parent consumes
+  the new id;
+- code, test, adapter, or observation edits under a leaf stale the affected
+  leaf boundary-matrix cells.
+
+Progress-only background regressions can show liveness, but they do not satisfy
+layered proof freshness until final artifacts and exit status exist.

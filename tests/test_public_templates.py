@@ -10,6 +10,7 @@ from flowguard.templates import (
     code_structure_recommendation_template_files,
     development_process_flow_template_files,
     existing_model_preflight_template_files,
+    layered_boundary_proof_template_files,
     model_miss_review_template_files,
     model_test_alignment_template_files,
     project_template_files,
@@ -225,6 +226,25 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("internal_path_only_evidence", output)
         self.assertIn("proof_evidence_not_passing", output)
 
+    def test_layered_boundary_proof_template_executes(self):
+        output = self.run_written_template(
+            layered_boundary_proof_template_files(),
+            (".flowguard", "layered_boundary_proof"),
+        )
+        self.assertIn("flowguard layered boundary proof", output)
+        self.assertIn("parent_coverage_gap", output)
+        self.assertIn("leaf_cell_extra_output", output)
+
+    def test_layered_boundary_proof_template_teaches_four_tables(self):
+        files = layered_boundary_proof_template_files()
+        combined = "\n".join(file.content for file in files)
+
+        self.assertIn("Parent coverage", combined)
+        self.assertIn("Child disjointness", combined)
+        self.assertIn("Child reattachment", combined)
+        self.assertIn("Leaf boundary matrix", combined)
+        self.assertIn("Input x State", combined)
+
     def test_public_model_templates_include_risk_purpose_headers(self):
         for files in (
             project_template_files(),
@@ -234,6 +254,7 @@ class PublicTemplateTests(unittest.TestCase):
             code_structure_recommendation_template_files(),
             existing_model_preflight_template_files(),
             risk_evidence_ledger_template_files(),
+            layered_boundary_proof_template_files(),
             ui_flow_structure_template_files(),
             development_process_flow_template_files(),
             test_mesh_template_files(),
@@ -251,6 +272,7 @@ class PublicTemplateTests(unittest.TestCase):
             "code-structure-recommendation-template": "code_structure_recommendation",
             "existing-model-preflight-template": "existing_model_preflight",
             "risk-evidence-ledger-template": "risk_evidence_ledger",
+            "layered-boundary-proof-template": "layered_boundary_proof",
             "ui-flow-structure-template": "ui_flow_structure",
             "development-process-flow-template": "development_process_flow",
             "test-mesh-template": "test_mesh",
@@ -299,6 +321,7 @@ class PublicTemplateTests(unittest.TestCase):
             code_structure_recommendation_template_files(),
             existing_model_preflight_template_files(),
             risk_evidence_ledger_template_files(),
+            layered_boundary_proof_template_files(),
             ui_flow_structure_template_files(),
             development_process_flow_template_files(),
             test_mesh_template_files(),

@@ -225,6 +225,16 @@ def _run_risk_evidence_ledger_template(args: argparse.Namespace) -> int:
     )
 
 
+def _run_layered_boundary_proof_template(args: argparse.Namespace) -> int:
+    from .templates import layered_boundary_proof_template_files
+
+    return _run_file_template(
+        args,
+        template_name="layered_boundary_proof",
+        files=layered_boundary_proof_template_files(),
+    )
+
+
 def _run_test_mesh_template(args: argparse.Namespace) -> int:
     from .templates import test_mesh_template_files
 
@@ -431,6 +441,12 @@ def main(argv: list[str] | None = None) -> int:
         "risk-evidence-ledger-template",
         "Print or write the risk evidence ledger final confidence template.",
         _run_risk_evidence_ledger_template,
+    )
+    _add_file_template_parser(
+        subparsers,
+        "layered-boundary-proof-template",
+        "Print or write the layered parent/child/leaf boundary proof template.",
+        _run_layered_boundary_proof_template,
     )
     _add_file_template_parser(
         subparsers,

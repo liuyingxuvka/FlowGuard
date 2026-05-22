@@ -329,19 +329,22 @@ Tasks:
 7. For each repaired child model, record the parent reattachment contract:
    expected inputs, expected outputs, expected state and side-effect ownership,
    expected outgoing guarantees, and the consumed child evidence id.
-8. When whole-flow parent confidence is claimed, create a mesh closure model
+8. When parent confidence depends on code boundary proof, build layered
+   boundary proof from parent coverage, child disjointness, child
+   reattachment, and leaf boundary-matrix rows.
+9. When whole-flow parent confidence is claimed, create a mesh closure model
    that records root entries, child outputs, consumers, joins, terminals,
    out-of-scope branches, and loop progress rules.
-9. Separate the current bug instance from the bug class: confirm Model-Miss
+10. Separate the current bug instance from the bug class: confirm Model-Miss
    Review represented the same-class responsibility or marked it out of scope.
-10. When a child boundary changed, propagate that change to the parent
+11. When a child boundary changed, propagate that change to the parent
    partition/split/reattachment review and review affected siblings.
-11. Treat background progress as liveness only; require final long-check
+12. Treat background progress as liveness only; require final long-check
    artifacts before using the result as evidence.
-12. Encode the required hazards from `model_mesh_protocol.md` as broken variants.
-13. Run Explorer plus progress/stuck review, hazard review, and conformance or
+13. Encode the required hazards from `model_mesh_protocol.md` as broken variants.
+14. Run Explorer plus progress/stuck review, hazard review, and conformance or
    live projection when applicable.
-14. Return a decision: `mesh_green_can_continue`, `add_evidence`,
+15. Return a decision: `mesh_green_can_continue`, `add_evidence`,
    `update_child_model`, `split_model_boundary`, `coverage_gap_blocked`,
    `overlap_too_high_refactor_needed`, `ownership_conflict`,
    `target_split_derivation_required`, `large_model_split_review_required`,
@@ -349,7 +352,7 @@ Tasks:
    `unconsumed_child_output`, `missing_join_point`, `terminal_leak`,
    `loop_progress_required`, `blocked_by_cross_model_contradiction`, or
    `model_coverage_insufficient`.
-15. Report what the mesh proves, what it does not prove, and which checks were
+16. Report what the mesh proves, what it does not prove, and which checks were
    skipped. Skipped is not pass.
 ```
 
@@ -367,6 +370,10 @@ The mesh is sufficient for the current decision only when:
   the parent partition items used by the decision;
 - repaired child models reattach through current parent-consumed evidence ids
   and stable input, output, state, side-effect, and outgoing-contract handoffs;
+- layered proof is green before parent model confidence claims a closed
+  real-code boundary: parent coverage is complete, child overlap is legal,
+  child evidence is current and reattached, and leaf matrices cover every
+  finite `Input x State -> Set(Output x State)` cell or are explicitly blocked;
 - whole-flow parent confidence, when claimed, is backed by a green mesh closure
   model that consumes every required child output, completes joins, reaches a
   valid terminal disposition, and keeps out-of-scope or loop-progress gaps

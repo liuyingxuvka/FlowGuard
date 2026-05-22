@@ -25,7 +25,11 @@ not close a known model miss unless the miss has been reviewed.
    affected parent child-reattachment gate. The parent must consume the current
    child evidence id and confirm the child's inputs, outputs, state ownership,
    side-effect ownership, and outgoing guarantees still fit the parent flow.
-8. Record `Miss type`, `Generalized case`, and any parent reattachment decision
+8. If the miss shows that real code accepted an unmodeled input, emitted an
+   extra output/error/state write/side effect, or failed a declared leaf cell,
+   update the leaf boundary matrix and rerun layered proof. Do not close the
+   miss with only a new ordinary test when the model boundary itself overflowed.
+9. Record `Miss type`, `Generalized case`, and any parent reattachment decision
    in adoption evidence and the Risk Evidence Ledger when a prior final claim
    had one, or explain
    why no generalized case was added.
@@ -48,3 +52,7 @@ A patch plus a later green runtime check is not enough by itself.
 If the prior green claim had a Risk Evidence Ledger row, mark the old proof as
 stale or overclaimed and attach the new same-class evidence before restoring
 full confidence.
+
+Layered proof misses should be mapped to the broken table before closure:
+parent coverage gap, illegal child overlap, stale child reattachment, missing
+leaf boundary cell, or real-code boundary overflow.

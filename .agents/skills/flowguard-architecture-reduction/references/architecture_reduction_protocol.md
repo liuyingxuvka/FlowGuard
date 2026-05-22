@@ -120,6 +120,9 @@ Architecture Reduction is usually called by or hands off to another route:
 - ModelMesh supplies sibling model overlap and parent/child boundary evidence.
 - Model-Test Alignment supplies obligation and test duplication evidence.
 - UI Flow Structure supplies UI state/control/display duplication evidence.
+- Layered boundary proof may expose duplicate child ownership; reduce the
+  duplicated implementation or route the ownership conflict back to ModelMesh
+  before adding more leaf tests.
 
 ## Required Hazards
 
@@ -136,6 +139,8 @@ Before trusting the route, make these known-bad variants fail:
 - missing companion route triggers;
 - direct production-code rewrite by the review route;
 - hidden validation or parity gates.
+- illegal child overlap treated as a testing problem instead of a duplicate
+  ownership or architecture-reduction candidate.
 
 ## Reporting
 

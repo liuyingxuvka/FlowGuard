@@ -121,3 +121,9 @@ to freshness rules. If it reports scoped confidence, stale proof,
 internal-path-only evidence, progress-only evidence, or a missing route handoff,
 the process claim remains scoped or blocked until the owning route supplies
 current proof.
+
+When the final claim depends on layered parent/child model confidence,
+DevelopmentProcessFlow should reference the layered proof report as a sibling
+evidence id. Parent coverage edits, child ownership or contract edits, child
+evidence-id changes, and leaf code/test/observation edits stale the related
+layered proof rows until they are rerun and reattached.

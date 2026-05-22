@@ -32,6 +32,8 @@ Collect or create the lightest fit-for-risk functional model:
   database writes, or UI commits;
 - public entrypoints, facades, commands, routes, or data shapes;
 - validation boundaries that should prove the implementation follows the model.
+- leaf boundary-matrix observation points when a child model is expected to
+  prove a finite `Input x State -> Set(Output x State)` code boundary.
 
 These validation boundaries are future Risk Evidence Ledger proof ids. This
 route names where proof must exist later; it does not turn structure advice into
@@ -60,6 +62,11 @@ The recommendation may group several related FunctionBlocks into one cohesive
 module. It should keep orchestration separate from durable state ownership and
 external side effects when those boundaries are present in the model.
 
+If a proposed leaf module cannot expose stable inputs, outputs, state writes,
+side effects, and error paths for complete boundary-matrix tests, recommend a
+smaller model/code boundary before implementation. The answer should not hide a
+too-large leaf behind a facade that cannot be observed.
+
 ## Relationship To StructureMesh
 
 Code structure recommendation handles direct no-code or pre-code architecture
@@ -81,6 +88,8 @@ A recommendation is complete when:
 - modeled state and side effects have clear owners when present;
 - public entrypoints or facades are mapped when present;
 - validation boundaries are visible;
+- leaf boundary-matrix observation points are named when layered proof is a
+  future confidence requirement;
 - future Risk Evidence Ledger proof boundaries are named when the
   recommendation will support a final confidence claim;
 - grouping rationale is explicit;

@@ -23,6 +23,12 @@ target split derivation should name the source model, target suite ids, covered
 partition items, state ownership fields, side-effect ownership fields, and the
 rationale for the validation split. A flat list of suites is not enough.
 
+Layered proof adds four evidence kinds that TestMesh must keep distinct:
+parent coverage tests, child disjointness tests, child reattachment tests, and
+leaf boundary-matrix tests. A broad parent test command cannot replace missing
+leaf matrix evidence, and release-only/background progress cannot support a
+routine parent proof until it has final current pass artifacts.
+
 ## Trigger
 
 Create or update a TestMesh when:
@@ -66,6 +72,8 @@ For the parent test gate, list each partition item:
 - side effect;
 - invariant or replay adapter;
 - release-only obligation.
+- layered proof obligation: parent coverage, child disjointness, child
+  reattachment, or leaf boundary matrix.
 
 Assign every item one owner: `child`, `parent`, `read_only`, or
 `shared_kernel`. A child-owned item must name the owning suite. Duplicate state

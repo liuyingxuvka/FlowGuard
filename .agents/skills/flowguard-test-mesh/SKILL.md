@@ -24,6 +24,11 @@ when route selection is unclear.
 - Boundary-conformance tests are distinct evidence: they must observe allowed
   inputs, rejected inputs, outputs, state writes, side effects, and error paths
   for the real code surface, not only a happy-path result.
+- Leaf boundary-matrix tests are distinct evidence: they must prove every
+  finite `Input x State` cell for a leaf model or mark the leaf as split-needed
+  or explicitly scoped. Parent test confidence cannot consume missing, stale,
+  skipped, progress-only, or release-only leaf matrix evidence as routine pass
+  evidence.
 - A target split is needed before green parent confidence.
 - If DevelopmentProcessFlow classifies a validation failure as test too thick,
   slow/layered, stale, skipped, progress-only, or release-only evidence that
@@ -39,7 +44,8 @@ when route selection is unclear.
    as a parent gate or compatibility check until child suites/scripts are
    derived and their evidence status is visible.
 4. Mark which child suites are ordinary behavior tests, conformance replay,
-   source audit, or code-boundary conformance tests.
+   source audit, parent coverage, child disjointness, child reattachment,
+   code-boundary conformance, or leaf boundary-matrix tests.
 5. Record child evidence status: passed, failed, skipped, stale, progress-only,
    release-only, or not run.
 6. Use `review_test_mesh(...)` or the template to review parent confidence.

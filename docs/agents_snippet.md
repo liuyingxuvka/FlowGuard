@@ -119,8 +119,8 @@ Use the matching Skill reference protocol for support routes. Helper APIs such a
 `review_ui_implementation_validation()`,
 `review_ui_structure_derivation()`, `review_ui_text_hierarchy()`,
 `review_development_process_flow()`, `review_test_mesh()`,
-`review_structure_mesh()`, templates, and starter CLIs are package helpers, not
-Codex skills by themselves.
+`review_structure_mesh()`, `review_layered_boundary_proof()`, templates, and
+starter CLIs are package helpers, not Codex skills by themselves.
 
 Use Model-Test Alignment when a model's scenarios, invariants, hazards,
 transitions, contracts, optional code external contracts, or finite code
@@ -198,6 +198,14 @@ For ModelMesh and TestMesh, the parent split needs a FlowGuard-derived target
 structure before green parent confidence: source model, target children,
 covered partition items, ownership fields, and rationale. A supplied partition
 map or flat child list alone is not enough.
+
+For layered parent/child model confidence, keep four proof tables visible:
+parent coverage, child disjointness, child reattachment, and leaf boundary
+matrix. Parent and intermediate models may consume child contracts and evidence;
+the lowest leaf models need complete finite
+`Input x State -> Set(Output x State)` real-code boundary evidence. If a leaf
+cannot be covered that way, split it again or scope the gap explicitly before
+claiming parent confidence.
 
 For whole-flow ModelMesh confidence, add a mesh closure model. It should model
 root entries, child outputs, parent or sibling consumers, required joins,
