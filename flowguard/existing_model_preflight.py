@@ -71,6 +71,11 @@ class ModelContextHit:
     public_entrypoints: tuple[str, ...] = ()
     parent_model_id: str = ""
     child_model_ids: tuple[str, ...] = ()
+    layered_proof_evidence_id: str = ""
+    parent_coverage_status: str = ""
+    child_disjointness_status: str = ""
+    child_reattachment_status: str = ""
+    leaf_boundary_matrix_status: str = ""
     validation_evidence: tuple[str, ...] = ()
     rationale: str = ""
 
@@ -86,6 +91,11 @@ class ModelContextHit:
         object.__setattr__(self, "public_entrypoints", _as_tuple(self.public_entrypoints))
         object.__setattr__(self, "parent_model_id", str(self.parent_model_id))
         object.__setattr__(self, "child_model_ids", _as_tuple(self.child_model_ids))
+        object.__setattr__(self, "layered_proof_evidence_id", str(self.layered_proof_evidence_id))
+        object.__setattr__(self, "parent_coverage_status", str(self.parent_coverage_status))
+        object.__setattr__(self, "child_disjointness_status", str(self.child_disjointness_status))
+        object.__setattr__(self, "child_reattachment_status", str(self.child_reattachment_status))
+        object.__setattr__(self, "leaf_boundary_matrix_status", str(self.leaf_boundary_matrix_status))
         object.__setattr__(self, "validation_evidence", _as_tuple(self.validation_evidence))
         object.__setattr__(self, "rationale", str(self.rationale))
 
@@ -112,6 +122,11 @@ class ModelContextHit:
             "public_entrypoints": list(self.public_entrypoints),
             "parent_model_id": self.parent_model_id,
             "child_model_ids": list(self.child_model_ids),
+            "layered_proof_evidence_id": self.layered_proof_evidence_id,
+            "parent_coverage_status": self.parent_coverage_status,
+            "child_disjointness_status": self.child_disjointness_status,
+            "child_reattachment_status": self.child_reattachment_status,
+            "leaf_boundary_matrix_status": self.leaf_boundary_matrix_status,
             "validation_evidence": list(self.validation_evidence),
             "rationale": self.rationale,
         }
@@ -344,6 +359,22 @@ def _has_ownership_evidence(preflight: ExistingModelPreflight) -> bool:
     return any(model.has_ownership_evidence() for model in preflight.relevant_models)
 
 
+def _missing_layered_status_fields(model: ModelContextHit) -> tuple[str, ...]:
+    if not model.child_model_ids:
+        return ()
+    missing: list[str] = []
+    for field_name in (
+        "layered_proof_evidence_id",
+        "parent_coverage_status",
+        "child_disjointness_status",
+        "child_reattachment_status",
+        "leaf_boundary_matrix_status",
+    ):
+        if not getattr(model, field_name):
+            missing.append(field_name)
+    return tuple(missing)
+
+
 def _decision_for_findings(
     preflight: ExistingModelPreflight,
     findings: Sequence[ExistingModelPreflightFinding],
@@ -357,6 +388,8 @@ def _decision_for_findings(
             return "model_search_required"
         if "missing_ownership_evidence" in codes:
             return "ownership_snapshot_required"
+        if "layered_proof_status_unknown" in codes:
+            return "layered_proof_status_required"
         if "duplicate_boundary_risk_unresolved" in codes:
             return "duplicate_boundary_risk_blocked"
         if "new_boundary_without_rationale" in codes:
@@ -479,6 +512,20 @@ def review_existing_model_preflight(
                         metadata=model.to_dict(),
                     )
                 )
+            if preflight.mode == PREFLIGHT_MODE_FULL:
+                missing_layered_fields = _missing_layered_status_fields(model)
+                if missing_layered_fields:
+                    findings.append(
+                        ExistingModelPreflightFinding(
+                            "layered_proof_status_unknown",
+                            "full preflight found a parent model but does not record parent coverage, child disjointness, child reattachment, leaf matrix status, and layered proof evidence id",
+                            model_id=model.model_id,
+                            metadata={
+                                "missing_fields": missing_layered_fields,
+                                "model": model.to_dict(),
+                            },
+                        )
+                    )
     else:
         if preflight.reuse_decision != REUSE_DECISION_NO_MODEL_FOUND:
             findings.append(

@@ -115,6 +115,11 @@ matrix. The layered proof still needs every finite
 `Input x State -> Set(Output x State)` cell, the evidence id for that cell, and
 a current pass status.
 
+When a parent gate declares `required_leaf_cell_ids`, each id must be owned by
+a child `TestSuiteEvidence` row through `owned_leaf_cell_ids`. Missing, stale,
+skipped, progress-only, background-incomplete, or non-passing owners do not
+support the parent gate.
+
 ## Routine Versus Release
 
 `TEST_SCOPE_ROUTINE` lets teams keep a fast local gate green while reporting

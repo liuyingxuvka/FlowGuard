@@ -1,5 +1,40 @@
 # Changelog
 
+## v0.22.0 - 2026-05-22
+
+- Added explicit model-test evidence roles for primary evidence, primary
+  `edge_path` evidence, leaf matrix-cell evidence, supporting contract
+  evidence, and integration smoke evidence.
+- Model-Test Alignment now treats multiple current primary `edge_path` proofs
+  for the same obligation as a `child_model_split_required` blocker instead of
+  allowing a label-only downgrade.
+- Strengthened leaf boundary matrices with optional input/state axes,
+  Cartesian completeness checks, unexpected-cell checks, missing observed
+  behavior checks, and external-contract assertion-scope checks.
+- Extended TestMesh so parent gates can require current passing evidence for
+  exact leaf matrix-cell ids.
+- Extended Existing Model Preflight so full parent/child preflight records
+  layered proof evidence, parent coverage, child disjointness, child
+  reattachment, and leaf boundary-matrix status before claiming the existing
+  boundary is understood.
+- Updated FlowGuard skills, docs, templates, and focused tests for the stronger
+  leaf-boundary evidence path.
+- Added a thin default AI entry path across the FlowGuard kernel, AGENTS
+  snippet, README, API surface docs, and product architecture docs:
+  model the risky boundary as `Input x State -> Set(Output x State)`, add one
+  invariant or scenario, run checks, inspect counterexamples, and escalate only
+  when a named risk requires it.
+- Reframed advanced satellites, helper APIs, meshes, ledgers, and framework
+  suites as escalation paths rather than default reading for every FlowGuard
+  task.
+- Updated the skill-kernel FlowGuard model and skill-doc tests to catch a
+  buried default path, advanced-route over-triggering, public/internal surface
+  mixing, and stale satellite-count topology.
+- Corrected the local satellite topology rollout model from the obsolete
+  seven-satellite wording to the current ten-satellite topology.
+- Schema remains `1.0`; runtime dependencies remain Python standard library
+  only.
+
 ## v0.21.0 - 2026-05-22
 
 - Added layered boundary proof helpers:

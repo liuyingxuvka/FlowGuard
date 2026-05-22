@@ -133,6 +133,10 @@ List `TestEvidence` rows:
 - result status: passed, failed, timeout, skipped, not-run, running, or error;
 - freshness and stale reasons;
 - test kind;
+- evidence role: `primary`, `primary_edge_path`, `leaf_matrix_cell`,
+  `supporting_contract`, or `integration_smoke`;
+- evidence target id when the role is supporting evidence or a leaf matrix
+  cell;
 - covered model obligation ids;
 - covered code contract ids when code contracts are in scope;
 - assertion scope: `external_contract`, `internal_path`, `mixed`, or
@@ -228,6 +232,13 @@ The review must keep these findings visible:
   obligation without explicit shared implementation intent;
 - `duplicate_test_evidence_owner`: multiple tests claim the same obligation and
   kind without explicit shared intent;
+- `obligation_too_coarse_for_primary_evidence`: multiple current primary
+  `edge_path` rows claim the same obligation, so the obligation needs child
+  split or leaf matrix-cell reattachment;
+- `leaf_matrix_cell_target_missing`: a leaf matrix-cell evidence row does not
+  name the cell it proves;
+- `supporting_evidence_target_missing`: supporting evidence is not attached to
+  a child obligation, code contract, boundary, or leaf cell;
 - `stale_test_evidence`: stale evidence is being reused;
 - `test_evidence_not_passing`: skipped, failed, timeout, not-run, running, or
   error evidence is not coverage;
@@ -338,6 +349,10 @@ A model-test alignment review can support a coverage claim only when:
   explicitly accepted as warnings for the current scope;
 - duplicate same-kind claims are absent or explicitly allowed by the model
   obligation;
+- duplicate primary `edge_path` claims are absent; if several real code
+  boundaries need primary proof, the model obligation is split or the evidence
+  is reattached to leaf matrix cells;
+- supporting and leaf matrix-cell evidence rows name their target ids;
 - duplicate code contract owners are absent or explicitly allowed by the model
   obligation;
 - tests that bind model obligations and code contracts refer to overlapping

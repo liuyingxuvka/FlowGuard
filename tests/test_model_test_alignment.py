@@ -5,6 +5,7 @@ from flowguard import (
     ModelObligation,
     ModelTestAlignmentPlan,
     TestEvidence,
+    TEST_KIND_EDGE_PATH,
     TEST_KIND_FAILURE_PATH,
     TEST_KIND_HAPPY_PATH,
     review_model_test_alignment,
@@ -399,6 +400,73 @@ class ModelTestAlignmentTests(unittest.TestCase):
         self.assertFalse(blocked_report.ok)
         self.assertEqual("duplicate_test_evidence_owner", blocked_report.decision)
         self.assertTrue(allowed_report.ok)
+
+    def test_duplicate_primary_edge_path_requires_child_split(self):
+        plan = ModelTestAlignmentPlan(
+            model_id="checkout",
+            obligations=(obligation("terminal_ledger", required_test_kinds=(TEST_KIND_EDGE_PATH,)),),
+            test_evidence=(
+                evidence("test_source_entries", "terminal_ledger", test_kind=TEST_KIND_EDGE_PATH),
+                evidence("test_replay_closure", "terminal_ledger", test_kind=TEST_KIND_EDGE_PATH),
+            ),
+        )
+
+        report = review_model_test_alignment(plan)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("child_model_split_required", report.decision)
+        self.assertIn("obligation_too_coarse_for_primary_evidence", finding_codes(report))
+
+    def test_leaf_matrix_cell_evidence_does_not_duplicate_primary_edge(self):
+        plan = ModelTestAlignmentPlan(
+            model_id="checkout",
+            obligations=(obligation("validate_submit", required_test_kinds=(TEST_KIND_EDGE_PATH,)),),
+            test_evidence=(
+                evidence(
+                    "test_empty_idle_cell",
+                    "validate_submit",
+                    test_kind=TEST_KIND_EDGE_PATH,
+                    evidence_role=api_name("TEST_EVIDENCE_ROLE_LEAF_MATRIX_CELL"),
+                    evidence_target_id="submit.empty:idle",
+                ),
+                evidence(
+                    "test_valid_idle_cell",
+                    "validate_submit",
+                    test_kind=TEST_KIND_EDGE_PATH,
+                    evidence_role=api_name("TEST_EVIDENCE_ROLE_LEAF_MATRIX_CELL"),
+                    evidence_target_id="submit.valid:idle",
+                ),
+            ),
+        )
+
+        report = review_model_test_alignment(plan)
+
+        self.assertTrue(report.ok, report.format_text())
+
+    def test_supporting_and_leaf_evidence_need_targets(self):
+        plan = ModelTestAlignmentPlan(
+            model_id="checkout",
+            obligations=(obligation("validate_submit"),),
+            test_evidence=(
+                evidence(
+                    "test_leaf_without_cell",
+                    "validate_submit",
+                    evidence_role=api_name("TEST_EVIDENCE_ROLE_LEAF_MATRIX_CELL"),
+                ),
+                evidence(
+                    "test_support_without_target",
+                    "validate_submit",
+                    evidence_role=api_name("TEST_EVIDENCE_ROLE_SUPPORTING_CONTRACT"),
+                ),
+            ),
+        )
+
+        report = review_model_test_alignment(plan)
+        codes = finding_codes(report)
+
+        self.assertFalse(report.ok)
+        self.assertIn("leaf_matrix_cell_target_missing", codes)
+        self.assertIn("supporting_evidence_target_missing", codes)
 
     def test_stale_or_non_passing_evidence_is_not_current_coverage(self):
         cases = (

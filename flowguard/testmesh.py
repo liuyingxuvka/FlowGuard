@@ -35,6 +35,20 @@ TEST_STATUS_NOT_RUN = "not_run"
 TEST_STATUS_RUNNING = "running"
 TEST_STATUS_ERROR = "error"
 
+TEST_LAYER_CHILD = "child"
+TEST_LAYER_PARENT = "parent"
+TEST_LAYER_RELEASE = "release"
+TEST_LAYER_PARENT_COVERAGE = "parent_coverage"
+TEST_LAYER_CHILD_DISJOINTNESS = "child_disjointness"
+TEST_LAYER_CHILD_REATTACHMENT = "child_reattachment"
+TEST_LAYER_CODE_BOUNDARY_CONFORMANCE = "code_boundary_conformance"
+TEST_LAYER_LEAF_BOUNDARY_MATRIX = "leaf_boundary_matrix"
+TEST_LAYER_LEAF_MATRIX_CELL = "leaf_matrix_cell"
+LEAF_MATRIX_LAYERS = {
+    TEST_LAYER_LEAF_BOUNDARY_MATRIX,
+    TEST_LAYER_LEAF_MATRIX_CELL,
+}
+
 TEST_EVIDENCE_ORDER = {
     EVIDENCE_CANDIDATE_ONLY: 0,
     EVIDENCE_ABSTRACT_GREEN: 1,
@@ -90,7 +104,7 @@ class TestSuiteEvidence:
 
     suite_id: str
     command: str = ""
-    layer: str = "child"
+    layer: str = TEST_LAYER_CHILD
     result_status: str = TEST_STATUS_NOT_RUN
     evidence_tier: str = EVIDENCE_CANDIDATE_ONLY
     evidence_current: bool = True
@@ -110,6 +124,7 @@ class TestSuiteEvidence:
     release_required: bool = False
     owns_state: tuple[str, ...] = ()
     owns_side_effects: tuple[str, ...] = ()
+    owned_leaf_cell_ids: tuple[str, ...] = ()
     not_run_reason: str = ""
     stale_reasons: tuple[str, ...] = ()
 
@@ -126,11 +141,12 @@ class TestSuiteEvidence:
         object.__setattr__(self, "log_root", str(self.log_root))
         object.__setattr__(self, "owns_state", _as_tuple(self.owns_state))
         object.__setattr__(self, "owns_side_effects", _as_tuple(self.owns_side_effects))
+        object.__setattr__(self, "owned_leaf_cell_ids", _as_tuple(self.owned_leaf_cell_ids))
         object.__setattr__(self, "not_run_reason", str(self.not_run_reason))
         object.__setattr__(self, "stale_reasons", _as_tuple(self.stale_reasons))
 
     def is_release_only(self) -> bool:
-        return self.release_required or self.layer == "release"
+        return self.release_required or self.layer == TEST_LAYER_RELEASE
 
     def has_current_pass(self) -> bool:
         return self.result_status == TEST_STATUS_PASSED and self.evidence_current
@@ -164,6 +180,7 @@ class TestSuiteEvidence:
             "release_required": self.release_required,
             "owns_state": list(self.owns_state),
             "owns_side_effects": list(self.owns_side_effects),
+            "owned_leaf_cell_ids": list(self.owned_leaf_cell_ids),
             "not_run_reason": self.not_run_reason,
             "stale_reasons": list(self.stale_reasons),
         }
@@ -212,6 +229,7 @@ class TestMeshPlan:
     partition_items: tuple[TestPartitionItem, ...] = ()
     child_suites: tuple[TestSuiteEvidence, ...] = ()
     target_split_derivation: TestTargetSplitDerivation | None = None
+    required_leaf_cell_ids: tuple[str, ...] = ()
     required_evidence_tier: str = EVIDENCE_ABSTRACT_GREEN
     decision_scope: str = TEST_SCOPE_ROUTINE
     release_deferred_allowed: bool = True
@@ -222,6 +240,7 @@ class TestMeshPlan:
         object.__setattr__(self, "parent_suite_id", str(self.parent_suite_id))
         object.__setattr__(self, "partition_items", tuple(self.partition_items))
         object.__setattr__(self, "child_suites", tuple(self.child_suites))
+        object.__setattr__(self, "required_leaf_cell_ids", _as_tuple(self.required_leaf_cell_ids))
         object.__setattr__(self, "required_evidence_tier", str(self.required_evidence_tier))
         object.__setattr__(self, "decision_scope", str(self.decision_scope))
         object.__setattr__(self, "allowed_shared_state", _as_tuple(self.allowed_shared_state))
@@ -237,6 +256,7 @@ class TestMeshPlan:
                 if self.target_split_derivation is not None
                 else None
             ),
+            "required_leaf_cell_ids": list(self.required_leaf_cell_ids),
             "required_evidence_tier": self.required_evidence_tier,
             "decision_scope": self.decision_scope,
             "release_deferred_allowed": self.release_deferred_allowed,
@@ -364,6 +384,8 @@ def _decision_for_findings(findings: Sequence[TestMeshFinding]) -> str:
         ("missing_target_state_owner_map", "target_split_derivation_required"),
         ("missing_target_side_effect_owner_map", "target_split_derivation_required"),
         ("missing_target_split_rationale", "target_split_derivation_required"),
+        ("leaf_matrix_cell_owner_missing", "leaf_matrix_cell_evidence_required"),
+        ("leaf_matrix_cell_evidence_missing", "leaf_matrix_cell_evidence_required"),
         ("coverage_gap", "coverage_gap_blocked"),
         ("duplicate_partition_owner", "ownership_conflict"),
         ("duplicate_state_owner", "ownership_conflict"),
@@ -660,6 +682,44 @@ def _suite_evidence_findings(plan: TestMeshPlan) -> tuple[list[TestMeshFinding],
     return findings, release_obligations
 
 
+def _leaf_matrix_evidence_findings(plan: TestMeshPlan) -> list[TestMeshFinding]:
+    findings: list[TestMeshFinding] = []
+    cell_owners: dict[str, list[TestSuiteEvidence]] = {}
+    for suite in plan.child_suites:
+        if suite.layer in LEAF_MATRIX_LAYERS and not suite.owned_leaf_cell_ids:
+            findings.append(
+                TestMeshFinding(
+                    "leaf_matrix_cell_owner_missing",
+                    f"leaf matrix evidence suite {suite.suite_id} does not name the cells it proves",
+                    suite_id=suite.suite_id,
+                    metadata=suite.to_dict(),
+                )
+            )
+        for cell_id in suite.owned_leaf_cell_ids:
+            cell_owners.setdefault(cell_id, []).append(suite)
+
+    for cell_id in plan.required_leaf_cell_ids:
+        owners = tuple(cell_owners.get(cell_id, ()))
+        current_owners = tuple(
+            suite
+            for suite in owners
+            if suite.has_current_pass() and suite.background_complete()
+        )
+        if not current_owners:
+            findings.append(
+                TestMeshFinding(
+                    "leaf_matrix_cell_evidence_missing",
+                    "parent test gate lacks current passing evidence for a required leaf matrix cell",
+                    item_id=cell_id,
+                    metadata={
+                        "required_leaf_cell_id": cell_id,
+                        "owners": [suite.to_dict() for suite in owners],
+                    },
+                )
+            )
+    return findings
+
+
 def review_test_mesh(plan: TestMeshPlan) -> TestMeshReport:
     """Review a test hierarchy without running the tests."""
 
@@ -685,6 +745,7 @@ def review_test_mesh(plan: TestMeshPlan) -> TestMeshReport:
     )
     suite_findings, release_obligations = _suite_evidence_findings(plan)
     findings.extend(suite_findings)
+    findings.extend(_leaf_matrix_evidence_findings(plan))
     decision = _decision_for_findings(findings)
     blockers = _blocker_findings(findings)
     return TestMeshReport(
@@ -699,6 +760,15 @@ def review_test_mesh(plan: TestMeshPlan) -> TestMeshReport:
 
 __all__ = [
     "TEST_EVIDENCE_ORDER",
+    "TEST_LAYER_CHILD",
+    "TEST_LAYER_CHILD_DISJOINTNESS",
+    "TEST_LAYER_CHILD_REATTACHMENT",
+    "TEST_LAYER_CODE_BOUNDARY_CONFORMANCE",
+    "TEST_LAYER_LEAF_BOUNDARY_MATRIX",
+    "TEST_LAYER_LEAF_MATRIX_CELL",
+    "TEST_LAYER_PARENT",
+    "TEST_LAYER_PARENT_COVERAGE",
+    "TEST_LAYER_RELEASE",
     "TEST_SCOPE_RELEASE",
     "TEST_SCOPE_ROUTINE",
     "TEST_STATUS_ERROR",

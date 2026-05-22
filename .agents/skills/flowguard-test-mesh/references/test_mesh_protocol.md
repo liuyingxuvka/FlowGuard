@@ -93,6 +93,8 @@ or side-effect owners are blockers unless the overlap is explicitly allowed.
 For each child suite or child test script, record:
 
 - command and layer;
+- owned leaf matrix cell ids when the layer is `leaf_matrix_cell` or
+  `leaf_boundary_matrix`;
 - result status;
 - evidence tier;
 - freshness and stale reasons;
@@ -108,6 +110,11 @@ When a final confidence claim depends on the parent gate, export child evidence
 ids, status, freshness, and release-scope gaps to the Risk Evidence Ledger.
 Background runs need final exit/result artifacts before a parent gate can treat
 them as complete.
+
+When `required_leaf_cell_ids` are declared on the parent gate, every required
+cell must be owned by a registered child suite/script with current passing
+evidence. A leaf matrix-cell suite that does not name its cells is a blocker,
+because the parent cannot tell which finite boundary cell was proved.
 
 ## Routine And Release Scope
 

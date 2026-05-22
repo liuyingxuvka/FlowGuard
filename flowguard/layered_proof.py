@@ -34,6 +34,15 @@ NON_PASSING_PROOF_STATUSES = {
     PROOF_STATUS_ERROR,
 }
 
+ASSERTION_SCOPE_EXTERNAL_CONTRACT = "external_contract"
+ASSERTION_SCOPE_MIXED = "mixed"
+ASSERTION_SCOPE_INTERNAL_PATH = "internal_path"
+ASSERTION_SCOPE_UNKNOWN = "unknown"
+EXTERNAL_ASSERTION_SCOPES = {
+    ASSERTION_SCOPE_EXTERNAL_CONTRACT,
+    ASSERTION_SCOPE_MIXED,
+}
+
 PROOF_OWNER_CHILD = "child"
 PROOF_OWNER_PARENT = "parent"
 PROOF_OWNER_READ_ONLY = "read_only"
@@ -282,6 +291,8 @@ class LeafBoundaryMatrix:
 
     leaf_model_id: str
     matrix_id: str = ""
+    input_cases: tuple[str, ...] = ()
+    state_cases: tuple[str, ...] = ()
     expected_cell_ids: tuple[str, ...] = ()
     cells: tuple[LeafBoundaryMatrixCell, ...] = ()
     finite: bool = True
@@ -295,6 +306,8 @@ class LeafBoundaryMatrix:
     def __post_init__(self) -> None:
         object.__setattr__(self, "leaf_model_id", str(self.leaf_model_id))
         object.__setattr__(self, "matrix_id", str(self.matrix_id))
+        object.__setattr__(self, "input_cases", _as_tuple(self.input_cases))
+        object.__setattr__(self, "state_cases", _as_tuple(self.state_cases))
         object.__setattr__(self, "expected_cell_ids", _as_tuple(self.expected_cell_ids))
         object.__setattr__(self, "cells", tuple(self.cells))
         object.__setattr__(self, "scoped_exemption", str(self.scoped_exemption))
@@ -304,6 +317,8 @@ class LeafBoundaryMatrix:
         return {
             "leaf_model_id": self.leaf_model_id,
             "matrix_id": self.matrix_id,
+            "input_cases": list(self.input_cases),
+            "state_cases": list(self.state_cases),
             "expected_cell_ids": list(self.expected_cell_ids),
             "cells": [cell.to_dict() for cell in self.cells],
             "finite": self.finite,
@@ -826,8 +841,25 @@ def _review_one_leaf_matrix(
             )
         )
 
-    cell_ids = {cell.cell_id for cell in matrix.cells}
-    missing_cells = tuple(sorted(set(matrix.expected_cell_ids) - cell_ids))
+    expected_cell_ids = _effective_expected_cell_ids(matrix)
+    cell_id_counts: dict[str, int] = {}
+    for cell in matrix.cells:
+        cell_id_counts[cell.cell_id] = cell_id_counts.get(cell.cell_id, 0) + 1
+    duplicate_cells = tuple(sorted(cell_id for cell_id, count in cell_id_counts.items() if count > 1))
+    if duplicate_cells:
+        findings.append(
+            LayeredBoundaryFinding(
+                "leaf_matrix_duplicate_cell",
+                "leaf boundary matrix declares the same Input x State cell more than once",
+                parent_model_id=plan.parent_model_id,
+                child_model_id=child.child_model_id,
+                metadata={"duplicate_cells": duplicate_cells, "matrix": matrix.to_dict()},
+            )
+        )
+
+    findings.extend(_cartesian_matrix_findings(plan, child, matrix, expected_cell_ids))
+    cell_ids = set(cell_id_counts)
+    missing_cells = tuple(sorted(set(expected_cell_ids) - cell_ids))
     if missing_cells:
         findings.append(
             LayeredBoundaryFinding(
@@ -838,12 +870,34 @@ def _review_one_leaf_matrix(
                 metadata={"missing_cells": missing_cells, "matrix": matrix.to_dict()},
             )
         )
+    unexpected_cells = tuple(sorted(cell_ids - set(expected_cell_ids)))
+    if unexpected_cells:
+        findings.append(
+            LayeredBoundaryFinding(
+                "leaf_matrix_unexpected_cell",
+                "leaf boundary matrix contains Input x State cells outside the declared finite boundary",
+                parent_model_id=plan.parent_model_id,
+                child_model_id=child.child_model_id,
+                metadata={"unexpected_cells": unexpected_cells, "matrix": matrix.to_dict()},
+            )
+        )
     for cell in matrix.cells:
         if not cell.has_current_pass():
             findings.append(
                 LayeredBoundaryFinding(
                     "leaf_cell_evidence_not_current_pass",
                     "leaf boundary cell evidence is stale, skipped, not run, running, progress-only, or failed",
+                    parent_model_id=plan.parent_model_id,
+                    child_model_id=child.child_model_id,
+                    cell_id=cell.cell_id,
+                    metadata=cell.to_dict(),
+                )
+            )
+        if cell.assertion_scope not in EXTERNAL_ASSERTION_SCOPES:
+            findings.append(
+                LayeredBoundaryFinding(
+                    "leaf_cell_internal_path_only",
+                    "leaf boundary cell evidence does not prove the external contract boundary",
                     parent_model_id=plan.parent_model_id,
                     child_model_id=child.child_model_id,
                     cell_id=cell.cell_id,
@@ -865,6 +919,60 @@ def _review_one_leaf_matrix(
     return findings
 
 
+def _cartesian_cell_ids(input_cases: Sequence[str], state_cases: Sequence[str]) -> tuple[str, ...]:
+    return tuple(f"{input_case}:{state_case}" for input_case in input_cases for state_case in state_cases)
+
+
+def _effective_expected_cell_ids(matrix: LeafBoundaryMatrix) -> tuple[str, ...]:
+    if matrix.expected_cell_ids:
+        return matrix.expected_cell_ids
+    if matrix.input_cases and matrix.state_cases:
+        return _cartesian_cell_ids(matrix.input_cases, matrix.state_cases)
+    return ()
+
+
+def _cartesian_matrix_findings(
+    plan: LayeredBoundaryProofPlan,
+    child: ChildProofContract,
+    matrix: LeafBoundaryMatrix,
+    expected_cell_ids: Sequence[str],
+) -> list[LayeredBoundaryFinding]:
+    findings: list[LayeredBoundaryFinding] = []
+    if bool(matrix.input_cases) != bool(matrix.state_cases):
+        findings.append(
+            LayeredBoundaryFinding(
+                "leaf_matrix_missing_cartesian_axis",
+                "leaf boundary matrix must declare both input cases and state cases for Cartesian proof",
+                parent_model_id=plan.parent_model_id,
+                child_model_id=child.child_model_id,
+                metadata=matrix.to_dict(),
+            )
+        )
+        return findings
+    if not matrix.input_cases and not matrix.state_cases:
+        return findings
+
+    cartesian_ids = _cartesian_cell_ids(matrix.input_cases, matrix.state_cases)
+    missing_from_declared = tuple(sorted(set(cartesian_ids) - set(expected_cell_ids)))
+    extra_declared = tuple(sorted(set(expected_cell_ids) - set(cartesian_ids)))
+    if missing_from_declared or extra_declared:
+        findings.append(
+            LayeredBoundaryFinding(
+                "leaf_matrix_not_cartesian",
+                "leaf boundary matrix expected cells do not match the declared Input x State Cartesian product",
+                parent_model_id=plan.parent_model_id,
+                child_model_id=child.child_model_id,
+                metadata={
+                    "missing_from_declared": missing_from_declared,
+                    "extra_declared": extra_declared,
+                    "cartesian_cell_ids": cartesian_ids,
+                    "matrix": matrix.to_dict(),
+                },
+            )
+        )
+    return findings
+
+
 def _add_cell_overflow_findings(
     findings: list[LayeredBoundaryFinding],
     plan: LayeredBoundaryProofPlan,
@@ -872,18 +980,30 @@ def _add_cell_overflow_findings(
     cell: LeafBoundaryMatrixCell,
 ) -> None:
     checks = (
-        ("leaf_cell_extra_output", "output", cell.expected_outputs, cell.observed_outputs),
-        ("leaf_cell_extra_next_state", "next state", cell.expected_next_states, cell.observed_next_states),
-        ("leaf_cell_extra_state_write", "state write", cell.expected_state_writes, cell.observed_state_writes),
-        ("leaf_cell_extra_side_effect", "side effect", cell.expected_side_effects, cell.observed_side_effects),
-        ("leaf_cell_extra_error_path", "error path", cell.expected_error_paths, cell.observed_error_paths),
+        ("leaf_cell_missing_output", "leaf_cell_extra_output", "output", cell.expected_outputs, cell.observed_outputs),
+        ("leaf_cell_missing_next_state", "leaf_cell_extra_next_state", "next state", cell.expected_next_states, cell.observed_next_states),
+        ("leaf_cell_missing_state_write", "leaf_cell_extra_state_write", "state write", cell.expected_state_writes, cell.observed_state_writes),
+        ("leaf_cell_missing_side_effect", "leaf_cell_extra_side_effect", "side effect", cell.expected_side_effects, cell.observed_side_effects),
+        ("leaf_cell_missing_error_path", "leaf_cell_extra_error_path", "error path", cell.expected_error_paths, cell.observed_error_paths),
     )
-    for code, noun, expected, actual in checks:
+    for missing_code, extra_code, noun, expected, actual in checks:
+        missing_values = _missing(expected, actual)
+        if missing_values:
+            findings.append(
+                LayeredBoundaryFinding(
+                    missing_code,
+                    f"leaf boundary cell did not observe declared {noun}",
+                    parent_model_id=plan.parent_model_id,
+                    child_model_id=child.child_model_id,
+                    cell_id=cell.cell_id,
+                    metadata={"missing": missing_values, "cell": cell.to_dict()},
+                )
+            )
         extra_values = _extra(expected, actual)
         if extra_values:
             findings.append(
                 LayeredBoundaryFinding(
-                    code,
+                    extra_code,
                     f"leaf boundary cell observed {noun} outside the declared allowance",
                     parent_model_id=plan.parent_model_id,
                     child_model_id=child.child_model_id,
@@ -908,9 +1028,15 @@ def _decision_for_findings(findings: Sequence[LayeredBoundaryFinding]) -> str:
         ("leaf_split_required", "leaf_split_required"),
         ("child_split_required", "child_split_required"),
         ("leaf_matrix_missing", "leaf_boundary_matrix_required"),
+        ("leaf_matrix_missing_cartesian_axis", "leaf_boundary_matrix_required"),
+        ("leaf_matrix_not_cartesian", "leaf_boundary_matrix_required"),
+        ("leaf_matrix_duplicate_cell", "leaf_boundary_matrix_required"),
         ("leaf_matrix_missing_cell", "leaf_boundary_matrix_required"),
+        ("leaf_matrix_unexpected_cell", "leaf_boundary_matrix_required"),
         ("leaf_matrix_incomplete", "leaf_boundary_matrix_required"),
+        ("leaf_cell_missing_", "leaf_boundary_underflow"),
         ("leaf_cell_extra_", "leaf_boundary_overflow"),
+        ("leaf_cell_internal_path_only", "leaf_evidence_not_current"),
         ("leaf_cell_evidence_not_current_pass", "leaf_evidence_not_current"),
         ("leaf_cell_missing_evidence_id", "leaf_evidence_not_current"),
         ("leaf_matrix_stale", "leaf_evidence_not_current"),

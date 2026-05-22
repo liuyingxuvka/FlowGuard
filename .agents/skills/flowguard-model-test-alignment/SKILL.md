@@ -29,6 +29,10 @@ mostly core modeling rather than alignment.
   for every finite `Input x State` cell before claiming the leaf can support a
   parent model. If the matrix is too large, route to ModelMesh for a lower-level
   split instead of treating representative tests as full leaf proof.
+- If one model obligation has multiple current primary `edge_path` evidence
+  rows, do not fix it by downgrading one row to supporting evidence. Treat the
+  obligation as too coarse: split child obligations or attach those tests to
+  distinct leaf matrix cells.
 - If several tests or code contracts prove the same obligation because the
   implementation has duplicate paths, route to `flowguard-architecture-reduction`
   before expanding test evidence further.
@@ -51,7 +55,8 @@ mostly core modeling rather than alignment.
    cell to observed outputs, next states, state writes, side effects, error
    paths, and exact evidence ids.
 5. Collect ordinary test evidence rows; include exact test ids and covered
-   obligation ids.
+   obligation ids. Mark each row as primary boundary evidence, leaf matrix-cell
+   evidence, supporting contract evidence, or integration smoke evidence.
 6. When Python source and tests are available, use the conservative source/test
    audit helpers before the alignment review.
 7. Run or update the relevant tests, then call or template

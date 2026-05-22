@@ -18,6 +18,18 @@ The minimum useful path remains:
 State + FunctionBlock + Invariant + Explorer
 ```
 
+For AI agents, keep that as the default entry:
+
+```text
+risky boundary -> Input x State -> Set(Output x State)
+-> one invariant or scenario -> run checks
+-> inspect counterexample -> escalate only if a named risk requires it
+```
+
+The sections below are escalation layers. They help when the task has a named
+UI, structure, testing, hierarchy, process, release, or evidence risk, but they
+are not prerequisites for valid FlowGuard use.
+
 ## Core API
 
 Core APIs are the stable objects needed to build and run a direct finite model:
@@ -87,7 +99,9 @@ Modeling helpers reduce boilerplate around common bug classes:
   `CodeContract`, `TestEvidence`, `ModelTestAlignmentPlan`, and
   `review_model_test_alignment()` for directly comparing model obligations
   with ordinary test evidence and optional code external contracts without
-  invoking TestMesh or StructureMesh.
+  invoking TestMesh or StructureMesh. `TestEvidence` can distinguish primary
+  proof, primary `edge_path` proof, supporting contract evidence, integration
+  smoke evidence, and exact leaf matrix-cell evidence.
 - optional conservative Python source-audit helpers such as
   `PythonCodeContractEvidence`, `PythonTestAssertionEvidence`,
   `ContractSourceAuditReport`, `audit_python_code_contracts()`,
@@ -105,7 +119,8 @@ Modeling helpers reduce boilerplate around common bug classes:
   `TestTargetSplitDerivation`, `TestSuiteEvidence`, and `review_test_mesh()`
   for reviewing model-derived target suite/script layouts, parent/child test
   hierarchy coverage, child suite/script ownership, evidence freshness,
-  background completion, and routine-vs-release validation confidence.
+  background completion, exact leaf matrix-cell evidence ownership, and
+  routine-vs-release validation confidence.
 - optional StructureMesh helpers such as `StructureMeshPlan`,
   `StructurePartitionItem`, `ModuleStructureEvidence`,
   `PublicEntrypointEvidence`, and `review_structure_mesh()` for reviewing large
@@ -120,7 +135,9 @@ Modeling helpers reduce boilerplate around common bug classes:
   `ModelContextHit`, `ExistingOwnershipSnapshot`, `DuplicateBoundaryRisk`, and
   `review_existing_model_preflight()` for grounding discussion, proposal, or
   implementation work in current FlowGuard model ownership before creating a
-  new boundary.
+  new boundary. Full preflight records layered proof evidence id, parent
+  coverage, child disjointness, child reattachment, and leaf boundary-matrix
+  status for parent models with child models.
 - optional UI Flow Structure helpers such as `UIInteractionModel`,
   `UIControl`, `UIDisplayElement`, `UIStateNode`, `UITransition`,
   `UIJourneyCoverage`, `UIJourneyEntryPoint`, `UIFeatureJourney`,

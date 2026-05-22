@@ -41,6 +41,9 @@ downstream routes, and stale or no-model-found gaps.
 The main objects are:
 
 - `ModelContextHit`: one existing model that may own the requested behavior.
+  Parent hits with child models can also record the current layered proof
+  evidence id plus parent coverage, child disjointness, child reattachment, and
+  leaf boundary-matrix status.
 - `ExistingOwnershipSnapshot`: FunctionBlock, state, side-effect,
   public-entrypoint, and responsibility ownership extracted from model hits.
 - `DuplicateBoundaryRisk`: an overlap between a proposed boundary and an
@@ -76,6 +79,12 @@ preflight = ExistingModelPreflight(
             state_owned=("pending_tasks",),
             side_effects_owned=("dispatch_task",),
             public_entrypoints=("router.dispatch",),
+            child_model_ids=("router-dispatch-leaf",),
+            layered_proof_evidence_id="router-layered:2026-05-22",
+            parent_coverage_status="passed",
+            child_disjointness_status="passed",
+            child_reattachment_status="passed",
+            leaf_boundary_matrix_status="passed",
         ),
     ),
     ownership_snapshot=ExistingOwnershipSnapshot(

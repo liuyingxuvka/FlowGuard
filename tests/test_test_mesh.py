@@ -3,6 +3,7 @@ import unittest
 from flowguard import (
     EVIDENCE_ABSTRACT_GREEN,
     EVIDENCE_CONFORMANCE_GREEN,
+    TEST_LAYER_LEAF_MATRIX_CELL,
     TestMeshPlan,
     TestPartitionItem,
     TestSuiteEvidence,
@@ -55,6 +56,87 @@ class TestMeshTests(unittest.TestCase):
         self.assertEqual("test_mesh_green_can_continue", report.decision)
         self.assertEqual([], report.to_dict()["findings"])
         self.assertIn("flowguard test mesh", report.format_text())
+
+    def test_leaf_matrix_cell_evidence_can_support_parent_gate(self):
+        plan = TestMeshPlan(
+            parent_suite_id="leaf-validation",
+            partition_items=(
+                TestPartitionItem("submit.empty:idle", item_type="leaf_boundary_matrix", owner_suite_id="leaf-cells"),
+            ),
+            child_suites=(
+                suite(
+                    "leaf-cells",
+                    layer=TEST_LAYER_LEAF_MATRIX_CELL,
+                    owned_leaf_cell_ids=("submit.empty:idle",),
+                ),
+            ),
+            target_split_derivation=target(
+                "leaf-validation-model",
+                ("leaf-cells",),
+                ("submit.empty:idle",),
+            ),
+            required_leaf_cell_ids=("submit.empty:idle",),
+        )
+
+        report = review_test_mesh(plan)
+
+        self.assertTrue(report.ok, report.format_text())
+
+    def test_missing_leaf_matrix_cell_evidence_blocks_parent_gate(self):
+        plan = TestMeshPlan(
+            parent_suite_id="leaf-validation",
+            partition_items=(
+                TestPartitionItem("submit.empty:idle", item_type="leaf_boundary_matrix", owner_suite_id="leaf-cells"),
+            ),
+            child_suites=(
+                suite("leaf-cells", layer=TEST_LAYER_LEAF_MATRIX_CELL),
+            ),
+            target_split_derivation=target(
+                "leaf-validation-model",
+                ("leaf-cells",),
+                ("submit.empty:idle",),
+            ),
+            required_leaf_cell_ids=("submit.empty:idle",),
+        )
+
+        report = review_test_mesh(plan)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("leaf_matrix_cell_evidence_required", report.decision)
+        self.assertIn("leaf_matrix_cell_owner_missing", [finding.code for finding in report.findings])
+        self.assertIn("leaf_matrix_cell_evidence_missing", [finding.code for finding in report.findings])
+
+    def test_background_leaf_matrix_cell_progress_is_not_parent_evidence(self):
+        plan = TestMeshPlan(
+            parent_suite_id="leaf-validation",
+            partition_items=(
+                TestPartitionItem("submit.empty:idle", item_type="leaf_boundary_matrix", owner_suite_id="leaf-cells"),
+            ),
+            child_suites=(
+                suite(
+                    "leaf-cells",
+                    layer=TEST_LAYER_LEAF_MATRIX_CELL,
+                    owned_leaf_cell_ids=("submit.empty:idle",),
+                    background=True,
+                    has_exit_artifact=False,
+                    has_result_artifact=False,
+                    progress_only=True,
+                ),
+            ),
+            target_split_derivation=target(
+                "leaf-validation-model",
+                ("leaf-cells",),
+                ("submit.empty:idle",),
+            ),
+            required_leaf_cell_ids=("submit.empty:idle",),
+        )
+
+        report = review_test_mesh(plan)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("leaf_matrix_cell_evidence_required", report.decision)
+        self.assertIn("background_incomplete", [finding.code for finding in report.findings])
+        self.assertIn("leaf_matrix_cell_evidence_missing", [finding.code for finding in report.findings])
 
     def test_missing_partition_owner_blocks_parent_green(self):
         plan = TestMeshPlan(

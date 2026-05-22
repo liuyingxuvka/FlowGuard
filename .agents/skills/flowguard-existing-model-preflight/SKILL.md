@@ -34,6 +34,10 @@ to reuse, extend, add a child model, or create a new boundary.
   records parent coverage, child disjointness, child reattachment, and leaf
   boundary-matrix evidence. A model that merely has a test reference is not the
   same as a leaf model with full finite boundary proof.
+- In full preflight, when a relevant model has child models, record the layered
+  proof evidence id plus parent coverage, child disjointness, child
+  reattachment, and leaf boundary-matrix status before saying the existing
+  boundary is understood.
 - Skipped, stale, missing, or no-model-found evidence must stay visible.
 
 ## When To Use

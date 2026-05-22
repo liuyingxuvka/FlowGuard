@@ -113,6 +113,11 @@ List test evidence with `TestEvidence`:
 - evidence id, test name, path, and command;
 - result status and freshness;
 - test kind;
+- evidence role: primary boundary evidence, primary edge-path evidence,
+  supporting contract evidence, integration smoke evidence, or leaf matrix-cell
+  evidence;
+- evidence target id when a row supports a child obligation, code contract, or
+  leaf matrix cell;
 - covered model obligation ids;
 - covered code contract ids;
 - assertion scope, especially whether the test proves the external contract or
@@ -129,6 +134,10 @@ The review keeps these gaps visible:
 - stale, skipped, failed, timeout, not-run, running, or error evidence;
 - orphan tests, unknown obligation references, and duplicate same-kind test
   evidence owners;
+- duplicate current primary `edge_path` evidence for the same obligation, which
+  means the obligation is too coarse and should split or reattach evidence to
+  leaf matrix cells;
+- supporting or leaf matrix-cell evidence without a target id;
 - model obligations with no code external contract owner;
 - code contracts that miss model-declared external behavior;
 - exact code contracts that add model-forbidden external behavior;

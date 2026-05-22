@@ -110,6 +110,62 @@ class ExistingModelPreflightTests(unittest.TestCase):
         self.assertFalse(report.ok)
         self.assertIn("missing_ownership_evidence", {finding.code for finding in report.findings})
 
+    def test_parent_model_requires_layered_proof_status_in_full_preflight(self):
+        preflight = ExistingModelPreflight(
+            "missing-layered-proof-status",
+            "Extend parent model coverage",
+            mode="full",
+            model_search_performed=True,
+            search_paths=(".flowguard/router",),
+            relevant_models=(model_hit(child_model_ids=("validate-submit",)),),
+            ownership_snapshot=ExistingOwnershipSnapshot(
+                function_block_owners=(("dispatch", "router-flow"),),
+                state_owners=(("queue", "router-flow"),),
+            ),
+            reuse_decision=REUSE_DECISION_ADD_CHILD_MODEL,
+            downstream_routes=("model_mesh_maintenance",),
+            rationale="The router parent has child model evidence that must be reattached.",
+            proposed_new_boundaries=("validate-submit",),
+        )
+
+        report = review_existing_model_preflight(preflight)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("layered_proof_status_required", report.decision)
+        self.assertIn("layered_proof_status_unknown", {finding.code for finding in report.findings})
+
+    def test_parent_model_with_layered_status_can_continue(self):
+        preflight = ExistingModelPreflight(
+            "layered-proof-status",
+            "Extend parent model coverage",
+            mode="full",
+            model_search_performed=True,
+            search_paths=(".flowguard/router",),
+            relevant_models=(
+                model_hit(
+                    child_model_ids=("validate-submit",),
+                    layered_proof_evidence_id="router-layered:v1",
+                    parent_coverage_status="passed",
+                    child_disjointness_status="passed",
+                    child_reattachment_status="passed",
+                    leaf_boundary_matrix_status="passed",
+                ),
+            ),
+            ownership_snapshot=ExistingOwnershipSnapshot(
+                function_block_owners=(("dispatch", "router-flow"),),
+                state_owners=(("queue", "router-flow"),),
+            ),
+            reuse_decision=REUSE_DECISION_ADD_CHILD_MODEL,
+            downstream_routes=("model_mesh_maintenance",),
+            rationale="The router parent has current layered proof status.",
+            proposed_new_boundaries=("validate-submit",),
+        )
+
+        report = review_existing_model_preflight(preflight)
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual("full_existing_model_preflight_can_continue", report.decision)
+
     def test_duplicate_boundary_risk_must_be_resolved(self):
         preflight = ExistingModelPreflight(
             "duplicate-preflight",

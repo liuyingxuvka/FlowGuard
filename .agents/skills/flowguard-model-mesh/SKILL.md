@@ -28,6 +28,10 @@ or when it is unclear whether a mesh is needed.
   are being consumed: child models must cover the parent responsibilities, avoid
   illegal overlap, reattach with current evidence ids, and delegate finite leaf
   code surfaces to boundary-matrix evidence.
+- If Model-Test Alignment finds multiple primary `edge_path` proofs for one
+  parent obligation, treat that as a model split signal. Do not accept a label
+  downgrade as parent confidence unless the evidence reappears under child
+  obligations or leaf matrix cells.
 - A repaired child model is not parent-green until the parent consumes its
   current evidence id and its input/output/state/side-effect contract still
   reattaches to the parent flow.

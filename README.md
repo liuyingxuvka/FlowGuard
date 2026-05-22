@@ -16,7 +16,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.21.0` | `1.0` | Python standard library only | MIT |
+| `v0.22.0` | `1.0` | Python standard library only | MIT |
 
 English lead content comes first; a Chinese mirror follows below.
 
@@ -33,6 +33,23 @@ Input x State -> Set(Output x State)
 That model is then checked for reachable traces, invariant failures, loops, stuck states, stale evidence, missing handoffs, conformance gaps, parent/child evidence drift, and counterexample paths that should change the next engineering step.
 
 FlowGuard is not an LLM wrapper, a probability engine, a Monte Carlo simulator, or a replacement for tests. It is a structural preflight layer: make the risky transition explicit, run the small model, inspect the counterexample, then change the plan or code with less hidden state.
+
+## Start Small
+
+The default AI path is intentionally thin:
+
+```text
+risky boundary -> Input x State -> Set(Output x State)
+-> one invariant or scenario -> run checks
+-> inspect counterexample -> escalate only if a named risk requires it
+```
+
+Use the advanced routes only when the task asks for that risk boundary: UI
+topology, code structure, test hierarchy, model/test alignment, model mesh,
+staged release evidence, architecture reduction, existing-model ownership, or
+post-failure model repair. Ordinary users do not need the benchmark corpus,
+deep maintenance models, or release-hardening ledger before this small path is
+useful.
 
 ## What You Can Design And Verify
 
@@ -323,6 +340,22 @@ Input x State -> Set(Output x State)
 然后检查可达路径、invariant 失败、循环、卡住状态、旧证据、缺失 handoff、实现不一致、父子模型证据漂移，以及应该改变下一步工程动作的 counterexample。
 
 FlowGuard 不是 LLM wrapper，不调用模型 API，不做概率估计，也不是测试替代品。它是结构化预检层：先把危险的状态转移说清楚，跑小模型，看 counterexample，再决定计划或代码怎么改。
+
+## 从小开始
+
+默认 AI 路径应该很薄：
+
+```text
+风险边界 -> Input x State -> Set(Output x State)
+-> 一个 invariant 或 scenario -> 运行检查
+-> 查看 counterexample -> 只有出现明确风险时才升级到高级路线
+```
+
+只有任务真的触发对应风险时，才进入高级路线：UI 拓扑、代码结构、测试层级、
+model-test alignment、model mesh、分阶段发布证据、architecture reduction、
+existing-model ownership 或失败后的 model repair。普通用户不需要先理解
+benchmark corpus、内部维护模型或 release-hardening ledger，才能从这条小路径
+获得价值。
 
 ## 它能设计并验证什么
 

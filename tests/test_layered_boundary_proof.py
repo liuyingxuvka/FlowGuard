@@ -166,6 +166,48 @@ class LayeredBoundaryProofTests(unittest.TestCase):
         self.assertEqual("leaf_boundary_matrix_required", report.decision)
         self.assertIn("leaf_matrix_missing_cell", codes(report))
 
+    def test_leaf_matrix_must_match_cartesian_axes(self):
+        report = review_layered_boundary_proof(
+            plan(
+                leaf_matrices=(
+                    matrix(
+                        input_cases=("submit.empty", "submit.valid"),
+                        state_cases=("idle",),
+                        expected_cell_ids=("submit.empty:idle",),
+                    ),
+                )
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertEqual("leaf_boundary_matrix_required", report.decision)
+        self.assertIn("leaf_matrix_not_cartesian", codes(report))
+
+    def test_unexpected_leaf_cell_blocks_matrix_confidence(self):
+        report = review_layered_boundary_proof(
+            plan(
+                leaf_matrices=(
+                    matrix(
+                        expected_cell_ids=("submit.empty:idle",),
+                        cells=(cell(), cell(cell_id="submit.valid:idle", input_case="submit.valid")),
+                    ),
+                )
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertEqual("leaf_boundary_matrix_required", report.decision)
+        self.assertIn("leaf_matrix_unexpected_cell", codes(report))
+
+    def test_leaf_underflow_blocks_when_declared_behavior_is_missing(self):
+        report = review_layered_boundary_proof(
+            plan(leaf_matrices=(matrix(cells=(cell(observed_outputs=()),)),))
+        )
+
+        self.assertFalse(report.ok)
+        self.assertEqual("leaf_boundary_underflow", report.decision)
+        self.assertIn("leaf_cell_missing_output", codes(report))
+
     def test_leaf_output_overflow_blocks(self):
         report = review_layered_boundary_proof(
             plan(leaf_matrices=(matrix(cells=(cell(observed_outputs=("Rejected", "Accepted")),)),))
@@ -192,6 +234,15 @@ class LayeredBoundaryProofTests(unittest.TestCase):
         self.assertFalse(report.ok)
         self.assertEqual("leaf_evidence_not_current", report.decision)
         self.assertIn("leaf_cell_evidence_not_current_pass", codes(report))
+
+    def test_internal_path_cell_evidence_is_not_leaf_boundary_proof(self):
+        report = review_layered_boundary_proof(
+            plan(leaf_matrices=(matrix(cells=(cell(assertion_scope="internal_path"),)),))
+        )
+
+        self.assertFalse(report.ok)
+        self.assertEqual("leaf_evidence_not_current", report.decision)
+        self.assertIn("leaf_cell_internal_path_only", codes(report))
 
 
 if __name__ == "__main__":

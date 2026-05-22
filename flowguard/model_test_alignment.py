@@ -39,6 +39,21 @@ TEST_KIND_EDGE_PATH = "edge_path"
 TEST_KIND_NEGATIVE_PATH = "negative_path"
 TEST_KIND_REPLAY = "replay"
 
+TEST_EVIDENCE_ROLE_PRIMARY = "primary"
+TEST_EVIDENCE_ROLE_PRIMARY_EDGE_PATH = "primary_edge_path"
+TEST_EVIDENCE_ROLE_LEAF_MATRIX_CELL = "leaf_matrix_cell"
+TEST_EVIDENCE_ROLE_SUPPORTING_CONTRACT = "supporting_contract"
+TEST_EVIDENCE_ROLE_INTEGRATION_SMOKE = "integration_smoke"
+PRIMARY_TEST_EVIDENCE_ROLES = {
+    TEST_EVIDENCE_ROLE_PRIMARY,
+    TEST_EVIDENCE_ROLE_PRIMARY_EDGE_PATH,
+}
+ALLOWED_TEST_EVIDENCE_ROLES = PRIMARY_TEST_EVIDENCE_ROLES | {
+    TEST_EVIDENCE_ROLE_LEAF_MATRIX_CELL,
+    TEST_EVIDENCE_ROLE_SUPPORTING_CONTRACT,
+    TEST_EVIDENCE_ROLE_INTEGRATION_SMOKE,
+}
+
 TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT = "external_contract"
 TEST_ASSERTION_SCOPE_INTERNAL_PATH = "internal_path"
 TEST_ASSERTION_SCOPE_MIXED = "mixed"
@@ -341,6 +356,8 @@ class TestEvidence:
     covered_obligations: tuple[str, ...] = ()
     covered_code_contracts: tuple[str, ...] = ()
     assertion_scope: str = TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT
+    evidence_role: str = TEST_EVIDENCE_ROLE_PRIMARY
+    evidence_target_id: str = ""
     stale_reasons: tuple[str, ...] = ()
     overclaims_model_confidence: bool = False
 
@@ -354,6 +371,8 @@ class TestEvidence:
         object.__setattr__(self, "covered_obligations", _as_tuple(self.covered_obligations))
         object.__setattr__(self, "covered_code_contracts", _as_tuple(self.covered_code_contracts))
         object.__setattr__(self, "assertion_scope", str(self.assertion_scope))
+        object.__setattr__(self, "evidence_role", str(self.evidence_role))
+        object.__setattr__(self, "evidence_target_id", str(self.evidence_target_id))
         object.__setattr__(self, "stale_reasons", _as_tuple(self.stale_reasons))
 
     def has_current_pass(self) -> bool:
@@ -377,6 +396,8 @@ class TestEvidence:
             "covered_obligations": list(self.covered_obligations),
             "covered_code_contracts": list(self.covered_code_contracts),
             "assertion_scope": self.assertion_scope,
+            "evidence_role": self.evidence_role,
+            "evidence_target_id": self.evidence_target_id,
             "stale_reasons": list(self.stale_reasons),
             "overclaims_model_confidence": self.overclaims_model_confidence,
         }
@@ -837,6 +858,11 @@ def _decision_for_findings(findings: Sequence[ModelTestAlignmentFinding]) -> str
         ("boundary_observation_not_passing", "code_boundary_conformance_failed"),
         ("boundary_observation_stale", "code_boundary_conformance_failed"),
         ("boundary_observation_internal_path_only", "code_boundary_conformance_failed"),
+        ("obligation_too_coarse_for_primary_evidence", "child_model_split_required"),
+        ("leaf_matrix_cell_target_missing", "leaf_matrix_cell_target_required"),
+        ("supporting_evidence_target_missing", "supporting_evidence_target_required"),
+        ("primary_edge_role_kind_mismatch", "invalid_alignment_plan"),
+        ("invalid_test_evidence_role", "invalid_alignment_plan"),
         ("missing_test_evidence", "missing_test_evidence"),
         ("missing_code_contract_test_evidence", "missing_code_contract_test_evidence"),
         ("missing_required_test_kind", "missing_required_test_kind"),
@@ -1415,6 +1441,52 @@ def _evidence_findings(
 ) -> list[ModelTestAlignmentFinding]:
     findings: list[ModelTestAlignmentFinding] = []
     for evidence in plan.test_evidence:
+        if evidence.evidence_role not in ALLOWED_TEST_EVIDENCE_ROLES:
+            findings.append(
+                ModelTestAlignmentFinding(
+                    "invalid_test_evidence_role",
+                    f"test evidence {evidence.evidence_id} has unknown evidence role {evidence.evidence_role}",
+                    evidence_id=evidence.evidence_id,
+                    metadata=evidence.to_dict(),
+                )
+            )
+        if (
+            evidence.evidence_role == TEST_EVIDENCE_ROLE_PRIMARY_EDGE_PATH
+            and evidence.test_kind != TEST_KIND_EDGE_PATH
+        ):
+            findings.append(
+                ModelTestAlignmentFinding(
+                    "primary_edge_role_kind_mismatch",
+                    f"test evidence {evidence.evidence_id} is marked primary_edge_path but its test kind is {evidence.test_kind}",
+                    evidence_id=evidence.evidence_id,
+                    metadata=evidence.to_dict(),
+                )
+            )
+        if (
+            evidence.evidence_role == TEST_EVIDENCE_ROLE_LEAF_MATRIX_CELL
+            and not evidence.evidence_target_id
+        ):
+            findings.append(
+                ModelTestAlignmentFinding(
+                    "leaf_matrix_cell_target_missing",
+                    f"leaf matrix-cell evidence {evidence.evidence_id} must name the cell it proves",
+                    evidence_id=evidence.evidence_id,
+                    metadata=evidence.to_dict(),
+                )
+            )
+        if (
+            evidence.evidence_role == TEST_EVIDENCE_ROLE_SUPPORTING_CONTRACT
+            and not evidence.evidence_target_id
+            and not evidence.covered_code_contracts
+        ):
+            findings.append(
+                ModelTestAlignmentFinding(
+                    "supporting_evidence_target_missing",
+                    f"supporting evidence {evidence.evidence_id} must name the child obligation, code contract, or boundary it supports",
+                    evidence_id=evidence.evidence_id,
+                    metadata=evidence.to_dict(),
+                )
+            )
         if not evidence.covered_obligations:
             severity = "warning" if plan.allow_orphan_tests else "blocker"
             findings.append(
@@ -1561,6 +1633,26 @@ def _passing_external_evidence_by_code_contract(
     return result
 
 
+def _is_primary_coverage_evidence(evidence: TestEvidence) -> bool:
+    return evidence.evidence_role in PRIMARY_TEST_EVIDENCE_ROLES
+
+
+def _is_primary_edge_evidence(evidence: TestEvidence) -> bool:
+    return (
+        evidence.evidence_role == TEST_EVIDENCE_ROLE_PRIMARY_EDGE_PATH
+        or (
+            evidence.evidence_role == TEST_EVIDENCE_ROLE_PRIMARY
+            and evidence.test_kind == TEST_KIND_EDGE_PATH
+        )
+    )
+
+
+def _counts_as_obligation_coverage(evidence: TestEvidence) -> bool:
+    return evidence.evidence_role in PRIMARY_TEST_EVIDENCE_ROLES | {
+        TEST_EVIDENCE_ROLE_LEAF_MATRIX_CELL,
+    }
+
+
 def _coverage_findings(
     obligations_by_id: Mapping[str, ModelObligation],
     passing_by_obligation: Mapping[str, Sequence[TestEvidence]],
@@ -1570,7 +1662,27 @@ def _coverage_findings(
     findings: list[ModelTestAlignmentFinding] = []
     for obligation_id, obligation in obligations_by_id.items():
         passing = tuple(passing_by_obligation.get(obligation_id, ()))
-        if obligation.required and not passing:
+        coverage_evidence = tuple(
+            evidence for evidence in passing if _counts_as_obligation_coverage(evidence)
+        )
+        primary_edge = tuple(
+            evidence for evidence in passing if _is_primary_edge_evidence(evidence)
+        )
+        if len(primary_edge) > 1:
+            findings.append(
+                ModelTestAlignmentFinding(
+                    "obligation_too_coarse_for_primary_evidence",
+                    f"model obligation {obligation_id} has multiple primary edge-path evidence owners; split child obligations or attach tests to leaf matrix cells",
+                    obligation_id=obligation_id,
+                    metadata={
+                        "obligation": obligation.to_dict(),
+                        "test_kind": TEST_KIND_EDGE_PATH,
+                        "evidence_ids": [evidence.evidence_id for evidence in primary_edge],
+                    },
+                )
+            )
+
+        if obligation.required and not coverage_evidence:
             findings.append(
                 ModelTestAlignmentFinding(
                     "missing_test_evidence",
@@ -1581,7 +1693,7 @@ def _coverage_findings(
             )
             continue
 
-        kinds_present = {evidence.test_kind for evidence in passing}
+        kinds_present = {evidence.test_kind for evidence in coverage_evidence}
         for required_kind in obligation.required_test_kinds:
             if required_kind not in kinds_present:
                 findings.append(
@@ -1600,6 +1712,8 @@ def _coverage_findings(
         if not obligation.allow_shared_evidence:
             evidence_by_kind: dict[str, list[TestEvidence]] = {}
             for evidence in passing:
+                if not _is_primary_coverage_evidence(evidence):
+                    continue
                 evidence_by_kind.setdefault(evidence.test_kind, []).append(evidence)
             for test_kind, same_kind in sorted(evidence_by_kind.items()):
                 if len(same_kind) > 1:
@@ -2153,6 +2267,11 @@ __all__ = [
     "TEST_ASSERTION_SCOPE_INTERNAL_PATH",
     "TEST_ASSERTION_SCOPE_MIXED",
     "TEST_ASSERTION_SCOPE_UNKNOWN",
+    "TEST_EVIDENCE_ROLE_INTEGRATION_SMOKE",
+    "TEST_EVIDENCE_ROLE_LEAF_MATRIX_CELL",
+    "TEST_EVIDENCE_ROLE_PRIMARY",
+    "TEST_EVIDENCE_ROLE_PRIMARY_EDGE_PATH",
+    "TEST_EVIDENCE_ROLE_SUPPORTING_CONTRACT",
     "TEST_KIND_EDGE_PATH",
     "TEST_KIND_FAILURE_PATH",
     "TEST_KIND_HAPPY_PATH",

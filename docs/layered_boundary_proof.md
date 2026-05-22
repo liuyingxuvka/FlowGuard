@@ -14,6 +14,12 @@ It checks four tables:
 4. Leaf boundary matrix: leaf models prove every finite
    `Input x State -> Set(Output x State)` cell against real-code evidence.
 
+When a leaf matrix declares `input_cases` and `state_cases`, FlowGuard treats
+their Cartesian product as the expected finite boundary. Missing cells,
+unexpected cells, missing observed outputs/states/writes/effects/errors, extra
+observed behavior, stale evidence, and internal-path-only evidence all block
+parent confidence.
+
 Use `review_layered_boundary_proof(...)` after project-specific adapters have
 collected the rows. The helper does not run tests or inspect source. It reviews
 the structured evidence and blocks parent confidence for gaps, illegal overlap,
@@ -56,6 +62,8 @@ plan = LayeredBoundaryProofPlan(
     leaf_matrices=(
         LeafBoundaryMatrix(
             "validate",
+            input_cases=("empty-submit",),
+            state_cases=("idle",),
             expected_cell_ids=("empty-submit:idle",),
             cells=(
                 LeafBoundaryMatrixCell(

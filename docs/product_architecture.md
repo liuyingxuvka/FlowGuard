@@ -38,6 +38,14 @@ define a small function-flow model
 -> replay representative traces when production code exists
 ```
 
+For AI agents, the first screen of the method should be even thinner:
+
+```text
+risky boundary -> Input x State -> Set(Output x State)
+-> one invariant or scenario -> run checks
+-> inspect counterexample -> escalate only if a named risk requires it
+```
+
 Users should not need to understand FlowGuard's internal KB, private pilots,
 daily review process, or full benchmark-maintenance machinery before they can
 use the tool.

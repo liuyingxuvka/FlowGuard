@@ -28,6 +28,19 @@ behavior/state/process/release impact. If the behavior or process boundary is
 unclear, use `needs_human_review` or narrow the task before deciding whether to
 model.
 
+Thin default path:
+
+```text
+risky boundary -> Input x State -> Set(Output x State)
+-> one invariant or scenario -> run checks
+-> inspect counterexample -> escalate only if a named risk requires it
+```
+
+Use this smallest useful path first when it can expose the important state,
+ordering, retry, side-effect, or evidence-freshness failure. Treat satellite
+skills, helper APIs, ledgers, meshes, and framework suites as escalation paths,
+not default reading for every FlowGuard task.
+
 Hard gates:
 
 - Verify the real package before modeling:
@@ -67,7 +80,11 @@ Hard gates:
 - Finish real project use with adoption evidence: trigger, model/risk, commands,
   findings, skipped steps, risk evidence summary, and next actions.
 
-Route map:
+Route map (escalation only):
+
+Think in buckets first: core modeling, implementation structure, UI,
+tests/evidence, model hierarchy, process/release, and model-miss repair. Pick a
+named route only when that bucket matches the actual risk.
 
 | Trigger | Route |
 | --- | --- |
@@ -206,6 +223,10 @@ the lowest leaf models need complete finite
 `Input x State -> Set(Output x State)` real-code boundary evidence. If a leaf
 cannot be covered that way, split it again or scope the gap explicitly before
 claiming parent confidence.
+If Model-Test Alignment shows multiple primary `edge_path` proofs under one
+obligation, treat that as a too-coarse model boundary and split child
+obligations or reattach the tests to leaf matrix cells; do not merely downgrade
+one proof label.
 
 For whole-flow ModelMesh confidence, add a mesh closure model. It should model
 root entries, child outputs, parent or sibling consumers, required joins,

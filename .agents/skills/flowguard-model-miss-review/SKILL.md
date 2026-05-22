@@ -28,6 +28,9 @@ multiple FlowGuard routes.
   gap, illegal child overlap, stale child reattachment, missing leaf
   boundary-matrix cell, or real-code boundary overflow. Do not close the miss
   by only adding a happy-path test.
+- If the miss appears as duplicate primary `edge_path` proof under one
+  obligation, do not close it by relabeling one proof as auxiliary. Split the
+  obligation or reattach the proof to a leaf matrix cell, then rerun alignment.
 
 ## Workflow
 

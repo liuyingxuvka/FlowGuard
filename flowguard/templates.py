@@ -1409,7 +1409,9 @@ python .flowguard/model_test_alignment/run_checks.py
 
 This template does not use TestMesh, StructureMesh, or ModelMesh. It compares
 plain model obligations, optional code external contracts, and plain test
-evidence.
+evidence. If one obligation has several primary edge-path tests, split child
+obligations or attach those tests to leaf matrix cells instead of relabeling one
+as generic support.
 """
 
 from __future__ import annotations
@@ -3795,6 +3797,8 @@ def correct_layered_proof() -> LayeredBoundaryProofPlan:
             LeafBoundaryMatrix(
                 "validate-submit",
                 matrix_id="validate-submit:matrix:v1",
+                input_cases=("empty-submit",),
+                state_cases=("idle",),
                 expected_cell_ids=("empty-submit:idle",),
                 cells=(
                     LeafBoundaryMatrixCell(
@@ -3849,6 +3853,8 @@ def broken_layered_proof() -> LayeredBoundaryProofPlan:
             LeafBoundaryMatrix(
                 "validate-submit",
                 matrix_id="validate-submit:matrix:v2",
+                input_cases=("empty-submit", "valid-submit"),
+                state_cases=("idle",),
                 expected_cell_ids=("empty-submit:idle", "valid-submit:idle"),
                 cells=(
                     LeafBoundaryMatrixCell(
@@ -3913,6 +3919,8 @@ chain.
 - Leaf boundary matrix: each leaf model has complete finite
   `Input x State -> Set(Output x State)` evidence, including next states, state
   writes, side effects, and error paths.
+- When input and state axes are declared, the expected cells must equal their
+  Cartesian product; unexpected cells or missing observed behavior are blockers.
 
 If a leaf matrix is too large, split the model further or record an explicit
 scoped exemption. Progress-only, skipped, stale, or release-only evidence is

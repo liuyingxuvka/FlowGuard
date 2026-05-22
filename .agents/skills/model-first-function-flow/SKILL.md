@@ -24,6 +24,21 @@ For repository, coding, process-design, structured writing/argument, and
 decision/planning work, first make a lightweight applicability decision:
 `use_flowguard`, `skip_with_reason`, or `needs_human_review`.
 
+## Thin Default Path
+
+For ordinary FlowGuard use, start small before loading advanced route detail:
+
+```text
+risky boundary -> Input x State -> Set(Output x State)
+-> one invariant or scenario -> run checks
+-> inspect counterexample -> escalate only if a named risk requires it
+```
+
+Use this path when a compact fit-for-risk model can expose the important state,
+ordering, retry, side-effect, or evidence-freshness failure. Treat satellite
+skills, helper APIs, ledgers, meshes, and framework suites as escalation paths,
+not default reading for every task.
+
 Use FlowGuard when work may affect behavior, workflow state, retries,
 deduplication, caching, side effects, module boundaries, data flow, production
 conformance, repeated-bug handling, large model layout, model-backed code
@@ -47,6 +62,9 @@ unclear, narrow the task or mark `needs_human_review`.
 - For hierarchical confidence, require layered boundary proof: parent coverage,
   legal child disjointness, current child reattachment, and leaf finite
   boundary-matrix evidence; too-large leaves stay scoped or split again.
+- Multiple primary `edge_path` proofs under one obligation are a split signal,
+  not a cue to relabel one proof as auxiliary. Split the obligation or attach
+  the tests to leaf matrix cells.
 - Do not replace executable modeling with prose.
 - For non-trivial FlowGuard work, default to a user-facing Mermaid model
   snapshot once the route or model shape is stable enough to explain. Run a
@@ -67,8 +85,11 @@ unclear, narrow the task or mark `needs_human_review`.
 
 ## Route Map
 
-Choose one or more routes. Some routes also have directly invokable Codex
+Choose one or more escalation routes only after the thin path or the user's
+request shows the named risk. Some routes also have directly invokable Codex
 satellite skills. The routes are agent behavior protocols, not package APIs.
+Think in buckets first: core modeling, implementation structure, UI,
+tests/evidence, model hierarchy, process/release, and model-miss repair.
 
 | Trigger | Route | Direct skill or reference |
 | --- | --- | --- |
@@ -102,45 +123,23 @@ parent reattachment gate, upward propagation, and affected sibling review.
 
 ### Flow Lenses
 
-Classify the main lens when using FlowGuard:
-
-- `behavior_flow`: software, automation, operations, releases, UI state, or
-  human workflow actions. Model phases, persisted records, side effects,
-  retries, terminal status, rollback state, and stuck states.
-- `argument_flow`: papers, reports, design docs, README claims, proposals,
-  proofs, or explanations. Model introduced context, defined terms, evidence,
-  supported claims, referenced figures, and allowed conclusions.
-- `decision_flow`: planning, technical choices, releases, roadmap tradeoffs, or
-  architecture decisions. Model goals, constraints, assumptions, evidence,
-  options, commitments, irreversible steps, and changed-condition triggers.
+Classify the main lens: `behavior_flow` for software, UI, release, and human
+workflow state; `argument_flow` for papers, reports, proposals, proofs, and
+claim support; `decision_flow` for plans, tradeoffs, commitments, and changed
+conditions.
 
 ## Workflow Skeleton
 
-1. Decide applicability: `use_flowguard`, `skip_with_reason`, or
-   `needs_human_review`.
-2. Classify the main lens: `behavior_flow`, `argument_flow`, or
-   `decision_flow`.
-3. Choose the needed route(s) from the Route Map.
-4. If a compatible upstream planning or specification artifact exists, inspect
-   it as optional context. Continue standalone if no handoff exists.
-5. Verify the real FlowGuard package is importable.
-6. Start or plan adoption evidence for real project work.
-7. Follow the chosen sub-protocol reference(s).
-8. Build or update the smallest fit-for-risk executable model or mesh that
-   exposes the customer-relevant risk.
-9. Make representative known-bad hazards fail before trusting a route-specific
-   pass. A happy-path pass is not enough for complex work.
-10. Inspect counterexamples. If a trace is impossible or misses known behavior,
-    revise the model, oracle, replay adapter, or architecture before claiming
-    confidence.
-11. If a model-backed code block claims finite inputs or outputs, route its
-    boundary observations through Model-Test Alignment before claiming code conformance.
-12. Run the strongest practical model, replay, test, or manual validation for
-    the touched boundary.
-13. Update the user-facing model snapshot when route choice, branch coverage,
-    evidence status, or claim boundaries materially change.
-14. Update adoption evidence with commands, findings, skipped checks, residual
-    risk, next actions, and the visible model boundary; diagrams explain, not validate.
+1. Decide applicability and lens.
+2. Choose a route only when the thin path or user request shows the named risk.
+3. Inspect optional planner/spec context, but continue standalone if absent.
+4. Verify the real package and start adoption evidence when this is real project work.
+5. Build the smallest fit-for-risk executable model or mesh.
+6. Make representative bad hazards fail before trusting a route-specific pass.
+7. Inspect counterexamples and revise model, oracle, replay adapter, or architecture.
+8. Add Model-Test Alignment for finite code-boundary claims.
+9. Run practical validation, update model snapshots after material changes, and
+   record adoption evidence; diagrams explain, not validate.
 
 ## Helper APIs Are Not Sub-Skills
 

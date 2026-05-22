@@ -99,6 +99,42 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("parent reattachment gate", text)
         self.assertIn("affected sibling review", text)
 
+    def test_thin_default_entry_precedes_advanced_route_inventory(self):
+        kernel = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
+        snippet = (ROOT / "docs" / "agents_snippet.md").read_text(encoding="utf-8")
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        api_surface = (ROOT / "docs" / "api_surface.md").read_text(encoding="utf-8")
+        product_architecture = (ROOT / "docs" / "product_architecture.md").read_text(encoding="utf-8")
+
+        self.assertIn("Thin Default Path", kernel)
+        self.assertIn("Thin default path", snippet)
+        self.assertIn("Start Small", readme)
+        self.assertIn("For AI agents, keep that as the default entry", api_surface)
+        self.assertIn("the first screen of the method should be even thinner", product_architecture)
+        for text in (kernel, snippet, readme, api_surface, product_architecture):
+            self.assertIn("risky boundary -> Input x State -> Set(Output x State)", text)
+            self.assertIn("escalate only if a named risk requires it", text)
+        self.assertLess(kernel.index("## Thin Default Path"), kernel.index("## Route Map"))
+        self.assertLess(snippet.index("Thin default path"), snippet.index("Route map (escalation only)"))
+        self.assertLess(readme.index("## Start Small"), readme.index("## What You Can Design And Verify"))
+        self.assertIn("escalation paths", kernel)
+        self.assertIn("escalation paths", snippet)
+        self.assertIn("Think in buckets first", kernel)
+        self.assertIn("Think in buckets first", snippet)
+
+    def test_current_satellite_topology_has_no_stale_fixed_count_model(self):
+        skills_root = ROOT / ".agents" / "skills"
+        satellite_names = sorted(path.name for path in skills_root.iterdir() if path.name.startswith("flowguard-"))
+        topology_model = (ROOT / ".flowguard" / "codex_skill_satellites" / "model.py").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertEqual(sorted(SATELLITE_SKILLS), satellite_names)
+        self.assertIn(f"SATELLITE_COUNT = {len(SATELLITE_SKILLS)}", topology_model)
+        self.assertNotIn("seven directly", topology_model)
+        self.assertNotIn("seven satellites", topology_model)
+        self.assertIn("current directly invokable", topology_model)
+
     def test_standalone_satellite_skills_exist_with_references(self):
         skills_root = ROOT / ".agents" / "skills"
 

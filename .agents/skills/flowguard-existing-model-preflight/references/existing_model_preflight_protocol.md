@@ -56,6 +56,9 @@ possible. A full report should include:
 - relevant `ModelContextHit` rows, or `no_model_found` with a reason;
 - `ExistingOwnershipSnapshot` for FunctionBlocks, state, side effects,
   public entrypoints, and responsibilities when models are found;
+- layered proof status for parent models with children: evidence id, parent
+  coverage, child disjointness, child reattachment, and leaf boundary-matrix
+  status;
 - a reuse decision;
 - `DuplicateBoundaryRisk` rows for any overlapping ownership;
 - downstream FlowGuard routes;
@@ -72,10 +75,10 @@ Known-bad variants should fail or be reported:
 - duplicate state, side-effect, FunctionBlock, entrypoint, or responsibility
   owner without resolution;
 - no model found but search path and reason omitted;
-- stale model evidence treated as green.
+- stale model evidence treated as green;
 - parent model found but parent coverage, child disjointness, child
   reattachment, or leaf boundary-matrix status is unknown when the downstream
-  work needs a full confidence claim.
+  work needs parent/child confidence.
 
 ## Output Shape
 
