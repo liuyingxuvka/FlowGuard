@@ -130,6 +130,11 @@ class RiskEvidenceRow:
     require_external_proof: bool = True
     parent_model_evidence_required: bool = False
     parent_model_evidence_current: bool = True
+    defect_family_id: str = ""
+    defect_family_gate_required: bool = False
+    defect_family_gate_current: bool = True
+    defect_family_gate_confidence: str = RISK_CONFIDENCE_FULL
+    defect_family_scoped_reasons: tuple[str, ...] = ()
     overclaims_full_confidence: bool = False
     next_actions: tuple[str, ...] = ()
 
@@ -140,6 +145,9 @@ class RiskEvidenceRow:
         object.__setattr__(self, "model_obligation_id", str(self.model_obligation_id))
         object.__setattr__(self, "code_contract_id", str(self.code_contract_id))
         object.__setattr__(self, "proof_evidence_ids", _as_tuple(self.proof_evidence_ids))
+        object.__setattr__(self, "defect_family_id", str(self.defect_family_id))
+        object.__setattr__(self, "defect_family_gate_confidence", str(self.defect_family_gate_confidence))
+        object.__setattr__(self, "defect_family_scoped_reasons", _as_tuple(self.defect_family_scoped_reasons))
         object.__setattr__(self, "next_actions", _as_tuple(self.next_actions))
 
     def to_dict(self) -> dict[str, Any]:
@@ -156,6 +164,11 @@ class RiskEvidenceRow:
             "require_external_proof": self.require_external_proof,
             "parent_model_evidence_required": self.parent_model_evidence_required,
             "parent_model_evidence_current": self.parent_model_evidence_current,
+            "defect_family_id": self.defect_family_id,
+            "defect_family_gate_required": self.defect_family_gate_required,
+            "defect_family_gate_current": self.defect_family_gate_current,
+            "defect_family_gate_confidence": self.defect_family_gate_confidence,
+            "defect_family_scoped_reasons": list(self.defect_family_scoped_reasons),
             "overclaims_full_confidence": self.overclaims_full_confidence,
             "next_actions": list(self.next_actions),
         }
@@ -307,6 +320,9 @@ def _decision_for(findings: Sequence[RiskEvidenceFinding]) -> tuple[str, str, bo
         "unknown_evidence_reference",
         "missing_model_obligation",
         "missing_code_contract",
+        "missing_defect_family_gate",
+        "defect_family_gate_not_current",
+        "defect_family_gate_blocked",
         "missing_proof_evidence",
         "parent_model_evidence_gap",
         "route_gap_visible",
@@ -314,6 +330,7 @@ def _decision_for(findings: Sequence[RiskEvidenceFinding]) -> tuple[str, str, bo
         "proof_evidence_not_passing",
         "missing_current_passing_proof",
         "internal_path_only_evidence",
+        "defect_family_gate_scoped_confidence",
         "proof_overclaims_full_confidence",
         "scoped_out_required_risk",
     )
@@ -383,6 +400,65 @@ def review_risk_evidence_ledger(plan: RiskEvidenceLedgerPlan) -> RiskEvidenceLed
                     "missing_code_contract",
                     "required risk has no public code contract owner",
                     risk_id=row.risk_id,
+                )
+            )
+
+        if row.defect_family_gate_required and not row.defect_family_id:
+            findings.append(
+                _finding(
+                    "missing_defect_family_gate",
+                    "required risk has no recurring defect-family gate owner",
+                    risk_id=row.risk_id,
+                )
+            )
+
+        if row.defect_family_gate_required and row.defect_family_id and not row.defect_family_gate_current:
+            findings.append(
+                _finding(
+                    "defect_family_gate_not_current",
+                    "required defect-family gate evidence is stale or has not been rerun",
+                    risk_id=row.risk_id,
+                    metadata={"defect_family_id": row.defect_family_id},
+                )
+            )
+
+        if row.defect_family_gate_required and row.defect_family_id:
+            if row.defect_family_gate_confidence == RISK_CONFIDENCE_BLOCKED:
+                findings.append(
+                    _finding(
+                        "defect_family_gate_blocked",
+                        "required defect-family gate is blocked",
+                        risk_id=row.risk_id,
+                        metadata={"defect_family_id": row.defect_family_id},
+                    )
+                )
+            elif row.defect_family_gate_confidence in {RISK_CONFIDENCE_SCOPED, RISK_CONFIDENCE_PARTIAL}:
+                severity = "warning" if plan.allow_scoped_confidence else "blocker"
+                findings.append(
+                    _finding(
+                        "defect_family_gate_scoped_confidence",
+                        "defect-family gate remains explicitly scoped",
+                        risk_id=row.risk_id,
+                        severity=severity,
+                        metadata={
+                            "defect_family_id": row.defect_family_id,
+                            "defect_family_gate_confidence": row.defect_family_gate_confidence,
+                        },
+                    )
+                )
+
+        if row.defect_family_scoped_reasons:
+            severity = "warning" if plan.allow_scoped_confidence else "blocker"
+            findings.append(
+                _finding(
+                    "defect_family_gate_scoped_confidence",
+                    "defect-family gate remains explicitly scoped",
+                    risk_id=row.risk_id,
+                    severity=severity,
+                    metadata={
+                        "defect_family_id": row.defect_family_id,
+                        "defect_family_scoped_reasons": list(row.defect_family_scoped_reasons),
+                    },
                 )
             )
 

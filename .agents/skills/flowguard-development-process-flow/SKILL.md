@@ -41,9 +41,9 @@ change.
   mappers, state writers, or side-effect wrappers stale code-boundary
   conformance evidence for the affected surface.
 - Edits to model-miss classifications, same-class generalized cases, required
-  closure evidence roles, or tests used as closure proof stale prior
-  Model-Test Alignment and release/done confidence for that repaired
-  obligation.
+  closure evidence roles, recurring defect-family gates, or tests used as
+  closure proof stale prior Model-Test Alignment, Risk Evidence Ledger, and
+  release/done confidence for that repaired obligation.
 - Edits to parent/child partitioning stale parent coverage and child
   disjointness evidence. Edits to child inputs, outputs, state ownership, side
   effects, contracts, or evidence ids stale child reattachment evidence. Edits
@@ -82,16 +82,18 @@ change.
    overclaimed when it only proved the observed bug.
 10. Include TestMesh in the minimum revalidation plan when same-class
    validation is large, slow, layered, background, or release-only.
-11. Include layered boundary proof in the minimum revalidation plan when the
+11. Include the recurring defect-family gate and Risk Evidence Ledger in the
+   minimum revalidation plan when the same-class miss recurs or is high risk.
+12. Include layered boundary proof in the minimum revalidation plan when the
    touched artifact affects parent coverage, child disjointness, child
    reattachment, or leaf boundary matrices.
-12. Before done/release/archive/publish, verify the final evidence is current
+13. Before done/release/archive/publish, verify the final evidence is current
    for the final artifact set.
-13. Before final done/release/archive/publish, consume the Risk Evidence Ledger
+14. Before final done/release/archive/publish, consume the Risk Evidence Ledger
    decision as an evidence boundary: full confidence may continue, scoped
    confidence must be reported as scoped, and blocked findings must route back
    to the owning evidence route.
-14. For non-trivial lifecycle reviews, default to a user-facing Mermaid
+15. For non-trivial lifecycle reviews, default to a user-facing Mermaid
    development process diagram showing artifact versions, action writes/invalidations,
    evidence ids, freshness gates, minimum revalidation, and unsupported claims.
    This diagram's edges mean order, invalidation, or required revalidation, not

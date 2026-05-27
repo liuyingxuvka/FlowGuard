@@ -22,6 +22,9 @@ mostly core modeling rather than alignment.
   full closure. A repaired in-scope model-miss obligation must have current
   observed-regression and same-class generalized test evidence, or the report
   must block full confidence.
+- Recurring or high-risk same-class families are not closed by this route
+  alone. Feed the aligned evidence to `review_defect_family_gates(...)` and the
+  Risk Evidence Ledger when family-level confidence is required.
 - If DevelopmentProcessFlow classifies a validation failure as model-test mismatch,
   this skill owns the obligation, optional code-contract, and test
   evidence comparison before alignment is claimed.

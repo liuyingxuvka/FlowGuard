@@ -15,6 +15,10 @@ one current observed-regression test and one current same-class generalized
 test. A green exact regression test is necessary, but it is not enough for full
 closure.
 
+If the same-class miss recurs or is high risk, Model-Test Alignment still only
+proves the obligation/test rows. The recurring family itself is handled by
+`review_defect_family_gates(...)` and then consumed by the Risk Evidence Ledger.
+
 ## Code Boundary Conformance
 
 When a model-backed code surface claims a finite input/output boundary, add

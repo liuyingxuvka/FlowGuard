@@ -23,6 +23,11 @@ multiple FlowGuard routes.
 - Do not close an in-scope miss with only an observed-bug regression test. The
   repaired model obligation needs current same-class test evidence verified by
   Model-Test Alignment, or the confidence claim stays scoped.
+- If the same-class miss recurs, or if a high-risk first miss would make a local
+  point fix overclaim full confidence, promote it to a recurring defect-family
+  gate before closure. This is FlowGuard evidence inside the existing
+  Model-Miss/Risk Evidence Ledger chain, not a new downstream-app-owned skill
+  or product-specific closure route.
 - Do not weaken hard invariants merely to make the miss disappear.
 - If the repair changes a local child model that belongs to a parent ModelMesh,
   do not close the miss until the parent reattachment gate consumes current
@@ -52,21 +57,26 @@ multiple FlowGuard routes.
 6. If the same-class test space is large, slow, layered, background, or
    release-only, route the validation hierarchy to TestMesh and report scoped
    confidence until current TestMesh evidence exists.
-7. If the failure shows real code accepted an unexpected input or emitted an
+7. If the same-class miss is recurring or high risk, create or update a
+   defect-family gate with a model obligation, authority boundary, observed
+   failure, same-class generalized case, historical holdout, and current proof
+   evidence.
+8. If the failure shows real code accepted an unexpected input or emitted an
    undeclared output, state write, side effect, or error path, add
    code-boundary observations through Model-Test Alignment.
-8. Rerun the model, same-class tests, and production-facing validation.
-9. If a repaired child model is part of a parent mesh, rerun the affected
+9. Rerun the model, same-class tests, and production-facing validation.
+10. If a repaired child model is part of a parent mesh, rerun the affected
    parent ModelMesh reattachment gate.
-10. If the miss exposes a missing or overflowing leaf boundary cell, update the
+11. If the miss exposes a missing or overflowing leaf boundary cell, update the
    leaf boundary matrix and rerun layered proof before parent confidence.
-11. Close only when the corrected model catches the bad case and the relevant
+12. Close only when the corrected model catches the bad case and the relevant
    runtime/test/replay evidence is current, including same-class test evidence
-   for in-scope repairs.
-12. Update the Risk Evidence Ledger row that the old green claim overcovered:
+   for in-scope repairs and current defect-family gate evidence when required.
+13. Update the Risk Evidence Ledger row that the old green claim overcovered:
    record the prior evidence as overclaimed or stale, then attach the new
-   same-class bad-case evidence before restoring full confidence.
-13. For non-trivial misses, default to a user-facing Mermaid miss-repair diagram
+   same-class bad-case evidence and defect-family gate status before restoring
+   full confidence.
+14. For non-trivial misses, default to a user-facing Mermaid miss-repair diagram
    showing the prior green claim, observed failure, miss classification, model
    repair, same-class generalized bad case, observed-regression test,
    same-class test evidence, alignment rerun, and remaining validation

@@ -76,7 +76,8 @@ Hard gates:
   final output, error, combined, exit, and metadata artifacts.
 - Before full done, release, publish, or production-confidence claims, use a
   Risk Evidence Ledger boundary to connect user risks, model obligations,
-  optional code contracts, and current proof evidence.
+  optional code contracts, recurring defect-family gates, and current proof
+  evidence.
 - Finish real project use with adoption evidence: trigger, model/risk, commands,
   findings, skipped steps, risk evidence summary, and next actions.
 
@@ -126,6 +127,7 @@ route. For ambiguous, cross-route, or general FlowGuard applicability work, use
 Use the matching Skill reference protocol for support routes. Helper APIs such as
 `RiskIntent`, property factories, packs, `FlowGuardCheckPlan`,
 `RiskEvidenceLedgerPlan`, `review_risk_evidence_ledger()`,
+`DefectFamilyGatePlan`, `review_defect_family_gates()`,
 `review_code_structure_recommendation()`, `review_model_test_alignment()`,
 `ExistingModelPreflight`, `review_existing_model_preflight()`,
 `ObservableArchitectureContract`, `ArchitectureReductionCandidate`,
@@ -160,8 +162,9 @@ conformance replay or other production-facing validation.
 Use Risk Evidence Ledger as the final claim boundary. It consumes evidence ids
 from Model-Test Alignment, TestMesh, ModelMesh, StructureMesh, UI Flow
 Structure, DevelopmentProcessFlow, conformance replay, manual validation, or
-ordinary tests, then reports whether each user-facing risk is fully supported,
-scoped, or blocked. It does not run those routes for you.
+ordinary tests, and it can also consume recurring defect-family gate status. It
+then reports whether each user-facing risk is fully supported, scoped, or
+blocked. It does not run those routes for you.
 
 If a model, test, script, module, or command is becoming large, slow, or hard
 to follow, consider whether a parent/child split would make it easier to
@@ -259,7 +262,9 @@ is still blocked evidence, not a pass. If the repair changed a child model
 under a parent mesh, rerun the parent reattachment gate and affected sibling review
 before closing the miss. A later green runtime check by itself does not close a
 known model miss; it must be attached to the same-class test evidence and
-alignment record that now owns the bug family.
+alignment record that now owns the bug family. If the same-class miss recurs or
+is high risk, promote it to a defect-family gate and feed that gate into the
+Risk Evidence Ledger before claiming full confidence.
 
 Do not require ordinary project work to run FlowGuard's internal framework
 evidence suites. Use those only for FlowGuard/LiveFlowGuard upgrades, benchmark

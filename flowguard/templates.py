@@ -971,6 +971,7 @@ Guards against:
 - validating a fix before representing the observed issue in the model;
 - validating a point fix before representing a same-class generalized bad case;
 - validating only the observed bug without same-class test evidence;
+- treating a recurring same-class miss as another ordinary point fix;
 - using the known bug as the whole model target instead of holdout evidence;
 - treating a later green runtime check as enough to close a known miss.
 
@@ -1006,6 +1007,9 @@ class State:
     observed_regression_test_added: bool = False
     same_class_test_evidence_added: bool = False
     model_test_alignment_rerun: bool = False
+    recurring_family_detected: bool = False
+    defect_family_gate_promoted: bool = False
+    defect_family_gate_reviewed: bool = False
     fix_validated_after_refinement: bool = False
     completed: bool = False
 
@@ -1024,6 +1028,9 @@ RECORD_KNOWN_BUG_HOLDOUT = Event("record_known_bug_holdout")
 ADD_OBSERVED_REGRESSION_TEST = Event("add_observed_regression_test")
 ADD_SAME_CLASS_TEST_EVIDENCE = Event("add_same_class_test_evidence")
 RERUN_MODEL_TEST_ALIGNMENT = Event("rerun_model_test_alignment")
+MARK_RECURRING_FAMILY = Event("mark_recurring_family")
+PROMOTE_DEFECT_FAMILY_GATE = Event("promote_defect_family_gate")
+REVIEW_DEFECT_FAMILY_GATE = Event("review_defect_family_gate")
 VALIDATE_FIX = Event("validate_fix")
 FINALIZE = Event("finalize")
 
@@ -1041,6 +1048,9 @@ class ApplyReviewStep:
         "observed_regression_test_added",
         "same_class_test_evidence_added",
         "model_test_alignment_rerun",
+        "recurring_family_detected",
+        "defect_family_gate_promoted",
+        "defect_family_gate_reviewed",
         "fix_validated_after_refinement",
     )
     writes = (
@@ -1053,6 +1063,9 @@ class ApplyReviewStep:
         "observed_regression_test_added",
         "same_class_test_evidence_added",
         "model_test_alignment_rerun",
+        "recurring_family_detected",
+        "defect_family_gate_promoted",
+        "defect_family_gate_reviewed",
         "fix_validated_after_refinement",
         "completed",
     )
@@ -1145,6 +1158,39 @@ class ApplyReviewStep:
                 label="model_test_alignment_rerun",
             )
             return
+        if input_obj.name == "mark_recurring_family":
+            if not state.model_miss_classified:
+                yield FunctionResult("recurring_family_mark_blocked", state, label="blocked")
+                return
+            yield FunctionResult(
+                "recurring_family_detected",
+                replace(state, recurring_family_detected=True),
+                label="recurring_family_detected",
+            )
+            return
+        if input_obj.name == "promote_defect_family_gate":
+            if not state.recurring_family_detected:
+                yield FunctionResult("defect_family_gate_not_required", state, label="blocked")
+                return
+            if state.generalized_bad_case_in_scope and not state.model_test_alignment_rerun:
+                yield FunctionResult("defect_family_gate_promotion_blocked", state, label="blocked")
+                return
+            yield FunctionResult(
+                "defect_family_gate_promoted",
+                replace(state, defect_family_gate_promoted=True),
+                label="defect_family_gate_promoted",
+            )
+            return
+        if input_obj.name == "review_defect_family_gate":
+            if not state.defect_family_gate_promoted:
+                yield FunctionResult("defect_family_gate_review_blocked", state, label="blocked")
+                return
+            yield FunctionResult(
+                "defect_family_gate_reviewed",
+                replace(state, defect_family_gate_reviewed=True),
+                label="defect_family_gate_reviewed",
+            )
+            return
         if input_obj.name == "validate_fix":
             if not state.issue_represented_in_model:
                 yield FunctionResult("fix_validation_blocked", state, label="blocked")
@@ -1164,6 +1210,11 @@ class ApplyReviewStep:
             if state.generalized_bad_case_in_scope and not state.model_test_alignment_rerun:
                 yield FunctionResult("model_test_alignment_validation_blocked", state, label="blocked")
                 return
+            if state.recurring_family_detected and not (
+                state.defect_family_gate_promoted and state.defect_family_gate_reviewed
+            ):
+                yield FunctionResult("defect_family_gate_validation_blocked", state, label="blocked")
+                return
             yield FunctionResult(
                 "fix_validated_after_refinement",
                 replace(state, fix_validated_after_refinement=True),
@@ -1173,6 +1224,9 @@ class ApplyReviewStep:
         if input_obj.name == "finalize":
             if state.runtime_issue_observed and not state.fix_validated_after_refinement:
                 yield FunctionResult("finalize_blocked_open_model_miss", state, label="finalize_blocked")
+                return
+            if state.recurring_family_detected and not state.defect_family_gate_reviewed:
+                yield FunctionResult("finalize_blocked_open_defect_family_gate", state, label="finalize_blocked")
                 return
             yield FunctionResult("completed", replace(state, completed=True), label="completed")
             return
@@ -1248,6 +1302,18 @@ class BrokenValidateWithoutSameClassTestEvidence(ApplyReviewStep):
         yield from super().apply(input_obj, state)
 
 
+class BrokenValidateRecurringWithoutDefectFamilyGate(ApplyReviewStep):
+    def apply(self, input_obj: Event, state: State) -> Iterable[FunctionResult]:
+        if input_obj.name == "validate_fix" and state.recurring_family_detected:
+            yield FunctionResult(
+                "recurring_family_validated_without_defect_family_gate",
+                replace(state, fix_validated_after_refinement=True),
+                label="broken_validate_recurring_without_defect_family_gate",
+            )
+            return
+        yield from super().apply(input_obj, state)
+
+
 def invariants() -> tuple[Invariant, ...]:
     def completion_requires_review(state: State, _trace) -> InvariantResult:
         if state.completed and state.runtime_issue_observed:
@@ -1267,10 +1333,17 @@ def invariants() -> tuple[Invariant, ...]:
                         and state.model_test_alignment_rerun
                     )
                 )
+                and (
+                    not state.recurring_family_detected
+                    or (
+                        state.defect_family_gate_promoted
+                        and state.defect_family_gate_reviewed
+                    )
+                )
                 and state.fix_validated_after_refinement
             ):
                 return InvariantResult.fail(
-                    "completed runtime issue without classification, observed issue model representation, same-class generalized bad case representation, known-bug holdout role, same-class test evidence, Model-Test Alignment rerun, and refined validation"
+                    "completed runtime issue without classification, observed issue model representation, same-class generalized bad case representation, known-bug holdout role, same-class test evidence, Model-Test Alignment rerun, recurring defect-family gate when needed, and refined validation"
                 )
         return InvariantResult.pass_()
 
@@ -1308,6 +1381,15 @@ def invariants() -> tuple[Invariant, ...]:
             return InvariantResult.fail("fix validated before rerunning Model-Test Alignment")
         return InvariantResult.pass_()
 
+    def recurring_family_requires_defect_family_gate(state: State, _trace) -> InvariantResult:
+        if not (state.fix_validated_after_refinement and state.recurring_family_detected):
+            return InvariantResult.pass_()
+        if not state.defect_family_gate_promoted:
+            return InvariantResult.fail("recurring same-class miss validated before promoting a defect-family gate")
+        if not state.defect_family_gate_reviewed:
+            return InvariantResult.fail("recurring same-class miss validated before reviewing defect-family gate evidence")
+        return InvariantResult.pass_()
+
     return (
         Invariant("completion_requires_review", "Runtime issues must be reviewed before completion.", completion_requires_review),
         Invariant(
@@ -1329,6 +1411,11 @@ def invariants() -> tuple[Invariant, ...]:
             "fix_validation_requires_same_class_test_evidence",
             "Fix validation requires observed regression and same-class test evidence aligned to the repaired model.",
             fix_validation_requires_same_class_test_evidence,
+        ),
+        Invariant(
+            "recurring_family_requires_defect_family_gate",
+            "Recurring same-class misses require a reviewed defect-family gate before validation.",
+            recurring_family_requires_defect_family_gate,
         ),
     )
 
@@ -1364,6 +1451,9 @@ def run_checks():
                 ADD_OBSERVED_REGRESSION_TEST,
                 ADD_SAME_CLASS_TEST_EVIDENCE,
                 RERUN_MODEL_TEST_ALIGNMENT,
+                MARK_RECURRING_FAMILY,
+                PROMOTE_DEFECT_FAMILY_GATE,
+                REVIEW_DEFECT_FAMILY_GATE,
                 VALIDATE_FIX,
                 FINALIZE,
             ),
@@ -1444,6 +1534,29 @@ def run_checks():
                 ),
                 block=BrokenValidateWithoutSameClassTestEvidence(),
             ),
+            scenario(
+                "validate_recurring_without_defect_family_gate",
+                "Broken workflow treats a recurring same-class miss as another ordinary point fix.",
+                (
+                    FLOWGUARD_PASS,
+                    RUNTIME_FAIL,
+                    CLASSIFY_MISS,
+                    REPRESENT_ISSUE,
+                    REPRESENT_GENERALIZED_BAD_CASE,
+                    RECORD_KNOWN_BUG_HOLDOUT,
+                    ADD_OBSERVED_REGRESSION_TEST,
+                    ADD_SAME_CLASS_TEST_EVIDENCE,
+                    RERUN_MODEL_TEST_ALIGNMENT,
+                    MARK_RECURRING_FAMILY,
+                    VALIDATE_FIX,
+                    FINALIZE,
+                ),
+                ScenarioExpectation(
+                    expected_status="violation",
+                    expected_violation_names=("recurring_family_requires_defect_family_gate",),
+                ),
+                block=BrokenValidateRecurringWithoutDefectFamilyGate(),
+            ),
         )
     )
     return correct, broken
@@ -1489,6 +1602,10 @@ Use this scaffold when real validation finds an issue after a FlowGuard pass.
   prove the repaired obligation?
 - Which Model-Test Alignment rows prove the new model obligations, optional
   code contracts, and same-class tests cover the same behavior?
+- Has this same-class family appeared before, or is it high risk enough to
+  require a defect-family gate rather than another ordinary bug fix?
+- Which defect-family gate records the family id, authority boundary, observed
+  failure, same-class generalized case, historical holdout, and current proof?
 - Which refined model checks, runtime checks, and same-class tests must pass
   before completion?
 - If the repair changed a child model under a parent ModelMesh, which parent
@@ -1496,9 +1613,10 @@ Use this scaffold when real validation finds an issue after a FlowGuard pass.
 - If same-class validation is large, slow, layered, background, or release-only,
   which TestMesh parent/child suite owns it and where is final result evidence?
 
-Do not let a later green runtime check or one observed-bug regression test close
-a known model miss by itself. Full closure needs same-class test evidence or an
-explicit scoped-confidence boundary.
+Do not let a later green runtime check, one observed-bug regression test, or a
+second local point fix close a known model miss by itself. Full closure needs
+same-class test evidence, and recurring families need a defect-family gate or
+an explicit scoped-confidence boundary.
 Child-local green is not enough when parent mesh confidence depends on the
 child's input/output/state/side-effect handoff.
 """
@@ -3773,8 +3891,8 @@ architecture changes, or risky behavior changes.
 RISK_EVIDENCE_LEDGER_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header
 
 Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
-Purpose: Review whether a final FlowGuard confidence claim is backed by model obligations, public code contracts, and current evidence.
-Guards against: coarse models hiding untested internal branches, tests covering only helper paths, skipped or stale evidence being treated as pass, and background progress being counted as final proof.
+Purpose: Review whether a final FlowGuard confidence claim is backed by model obligations, public code contracts, recurring defect-family gates, and current evidence.
+Guards against: coarse models hiding untested internal branches, recurring same-class misses hiding behind local point fixes, tests covering only helper paths, skipped or stale evidence being treated as pass, and background progress being counted as final proof.
 Use before editing: Run this before claiming done, release-ready, or fully validated after model/test/code changes.
 Run: python .flowguard/risk_evidence_ledger/run_checks.py
 """
@@ -3803,6 +3921,8 @@ def correct_ledger() -> RiskEvidenceLedgerPlan:
                 model_obligation_id="model:dedupe-submit",
                 code_contract_id="api:submit_order",
                 proof_evidence_ids=("test:duplicate-submit",),
+                defect_family_id="defect-family:duplicate-submit",
+                defect_family_gate_required=True,
             ),
             RiskEvidenceRow(
                 "invalid_payment",
@@ -3881,11 +4001,36 @@ def broken_progress_only_ledger() -> RiskEvidenceLedgerPlan:
     )
 
 
+def broken_missing_defect_family_gate_ledger() -> RiskEvidenceLedgerPlan:
+    return RiskEvidenceLedgerPlan(
+        "missing-defect-family-gate",
+        rows=(
+            RiskEvidenceRow(
+                "duplicate_submit",
+                description="Repeated same-class submit miss must be promoted before full confidence.",
+                model_obligation_id="model:dedupe-submit",
+                proof_evidence_ids=("test:duplicate-submit",),
+                defect_family_gate_required=True,
+            ),
+        ),
+        proof_evidence=(
+            RiskEvidenceProof(
+                "test:duplicate-submit",
+                result_status=RISK_PROOF_STATUS_PASSED,
+                producer_route="model_test_alignment",
+                command="python -m unittest tests.test_checkout",
+                summary="observed and same-class test evidence passed, but no defect-family gate was consumed",
+            ),
+        ),
+    )
+
+
 def run_checks():
     return (
         review_risk_evidence_ledger(correct_ledger()),
         review_risk_evidence_ledger(broken_internal_only_ledger()),
         review_risk_evidence_ledger(broken_progress_only_ledger()),
+        review_risk_evidence_ledger(broken_missing_defect_family_gate_ledger()),
     )
 '''
 
@@ -3898,17 +4043,21 @@ from model import run_checks
 
 
 def main() -> int:
-    correct, internal_only, progress_only = run_checks()
+    correct, internal_only, progress_only, missing_defect_family = run_checks()
     print(correct.format_text())
     print()
     print(internal_only.format_text(max_findings=5))
     print()
     print(progress_only.format_text(max_findings=5))
+    print()
+    print(missing_defect_family.format_text(max_findings=5))
     expected_blockers = (
         not internal_only.ok
         and internal_only.decision == "internal_path_only_evidence"
         and not progress_only.ok
         and progress_only.decision == "proof_evidence_not_passing"
+        and not missing_defect_family.ok
+        and missing_defect_family.decision == "missing_defect_family_gate"
     )
     return 0 if correct.ok and expected_blockers else 1
 
@@ -3926,6 +4075,7 @@ Use this scaffold before final confidence claims.
 
 - each user-facing risk has a FlowGuard model obligation owner;
 - each required public behavior has a code contract when the project requires it;
+- each recurring or high-risk same-class model miss has a current defect-family gate;
 - each risk has current proof evidence from tests, replay, route reports, or manual validation;
 - internal-path-only tests, stale evidence, skipped checks, and progress-only background runs are visible;
 - scoped-out risks have explicit reasons and cannot be silently counted as fully proven.

@@ -77,7 +77,7 @@ class PublicTemplateTests(unittest.TestCase):
             (".flowguard", "model_miss_review"),
         )
         self.assertIn("correct_model_miss_review: PASS", output)
-        self.assertIn("expected violations observed: 5", output)
+        self.assertIn("expected violations observed: 6", output)
 
     def test_model_miss_review_template_requires_generalized_bad_case(self):
         files = model_miss_review_template_files()
@@ -96,6 +96,11 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("validate_without_same_class_test_evidence", combined)
         self.assertIn("same_class_test_evidence_added", combined)
         self.assertIn("model_test_alignment_rerun", combined)
+        self.assertIn("recurring_family_detected", combined)
+        self.assertIn("defect_family_gate_promoted", combined)
+        self.assertIn("defect_family_gate_reviewed", combined)
+        self.assertIn("recurring_family_requires_defect_family_gate", combined)
+        self.assertIn("validate_recurring_without_defect_family_gate", combined)
         self.assertIn("broken_point_fix_only_validation", combined)
         self.assertIn("same-class generalized bad case", combined)
 
@@ -233,6 +238,8 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("flowguard risk evidence ledger", output)
         self.assertIn("internal_path_only_evidence", output)
         self.assertIn("proof_evidence_not_passing", output)
+        self.assertIn("missing_defect_family_gate", output)
+        self.assertIn("defect-family", output)
 
     def test_layered_boundary_proof_template_executes(self):
         output = self.run_written_template(

@@ -25,22 +25,28 @@ not close a known model miss unless the miss has been reviewed.
    same-class validation is too large, slow, layered, stale-prone,
    background, or release-only, route that hierarchy to TestMesh and report
    scoped confidence until current child evidence exists.
-7. Rerun the relevant model checks and confirm the old weakness is now visible,
+7. If the same-class miss recurs, or if a high-risk first miss would make a
+   local point fix overclaim full confidence, promote it to a defect-family gate
+   with a model obligation, authority boundary, observed failure, same-class
+   generalized case, historical holdout, and current proof evidence. The gate
+   is FlowGuard evidence for the existing Model-Miss/Risk Evidence Ledger
+   chain, not a new downstream app skill.
+8. Rerun the relevant model checks and confirm the old weakness is now visible,
    or deliberately mark the generalized case out of scope.
-8. Validate the repair with the refined model plus the strongest practical
+9. Validate the repair with the refined model plus the strongest practical
    production-facing evidence.
-9. If the repair changed a child model under a parent ModelMesh, rerun the
+10. If the repair changed a child model under a parent ModelMesh, rerun the
    affected parent child-reattachment gate. The parent must consume the current
    child evidence id and confirm the child's inputs, outputs, state ownership,
    side-effect ownership, and outgoing guarantees still fit the parent flow.
-10. If the miss shows that real code accepted an unmodeled input, emitted an
+11. If the miss shows that real code accepted an unmodeled input, emitted an
    extra output/error/state write/side effect, or failed a declared leaf cell,
    update the leaf boundary matrix and rerun layered proof. Do not close the
    miss with only a new ordinary test when the model boundary itself overflowed.
-11. Record `Miss type`, `Generalized case`, observed-regression test evidence,
+12. Record `Miss type`, `Generalized case`, observed-regression test evidence,
    same-class test evidence, Model-Test Alignment result, and any parent
-   reattachment decision in adoption evidence and the Risk Evidence Ledger when
-   a prior final claim had one, or explain
+   reattachment or defect-family gate decision in adoption evidence and the Risk
+   Evidence Ledger when a prior final claim had one, or explain
    why no generalized case was added.
 
 ## What Not To Add By Default
@@ -60,10 +66,11 @@ same-class test evidence in Model-Test Alignment. When the miss was repaired in
 a child model under a parent mesh, the affected parent reattachment gate must
 also pass or remain an explicit blocker. A patch plus a later green runtime
 check, or a patch plus one observed-bug regression test, is not enough by
-itself.
+itself. A recurring or high-risk same-class miss also requires a current
+defect-family gate or an explicit scoped-confidence boundary.
 If the prior green claim had a Risk Evidence Ledger row, mark the old proof as
-stale or overclaimed and attach the new same-class evidence before restoring
-full confidence.
+stale or overclaimed and attach the new same-class evidence plus defect-family
+gate status before restoring full confidence.
 
 Layered proof misses should be mapped to the broken table before closure:
 parent coverage gap, illegal child overlap, stale child reattachment, missing

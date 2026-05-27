@@ -3,7 +3,8 @@
 Risk Purpose Header:
 This FlowGuard model reviews the `model-first-function-flow` Skill update for
 post-runtime model-miss review. It guards against point-fix-only model repairs,
-point-fix-only test upgrades, over-detailed formal miss categories, and turning
+point-fix-only test upgrades, recurring same-class misses being treated as
+another local point fix, over-detailed formal miss categories, and turning
 ordinary model misses into a new registry/reviewer/mesh-heavy process. Future
 agents should run or update this model before changing the lightweight
 model-miss workflow.
@@ -41,6 +42,10 @@ class ReviewCase:
     observed_regression_test_added: bool = True
     same_class_test_evidence_added: bool = True
     model_test_alignment_rerun: bool = True
+    recurrence_count: int = 1
+    high_risk: bool = False
+    defect_family_gate_promoted: bool = False
+    defect_family_gate_reviewed: bool = False
     requires_hazard_registry: bool = False
     requires_upgrade_reviewer: bool = False
     requires_default_model_mesh: bool = False
@@ -59,6 +64,10 @@ class ReviewState:
     observed_regression_test_added: bool = False
     same_class_test_evidence_added: bool = False
     model_test_alignment_rerun: bool = False
+    recurrence_count: int = 1
+    high_risk: bool = False
+    defect_family_gate_promoted: bool = False
+    defect_family_gate_reviewed: bool = False
     requires_hazard_registry: bool = False
     requires_upgrade_reviewer: bool = False
     requires_default_model_mesh: bool = False
@@ -79,6 +88,18 @@ GOOD_OUT_OF_SCOPE = ReviewCase(
     observed_issue_represented=False,
     generalized_case_added=False,
     generalized_case_omitted_reason="outside modeled boundary",
+)
+GOOD_RECURRING_FAMILY = ReviewCase(
+    "good_recurring_defect_family_gate",
+    "evidence_overclaimed",
+    observed_issue_represented=True,
+    generalized_case_added=True,
+    observed_regression_test_added=True,
+    same_class_test_evidence_added=True,
+    model_test_alignment_rerun=True,
+    recurrence_count=2,
+    defect_family_gate_promoted=True,
+    defect_family_gate_reviewed=True,
 )
 BROKEN_POINT_FIX_ONLY = ReviewCase(
     "broken_point_fix_only",
@@ -103,6 +124,18 @@ BROKEN_ALIGNMENT_NOT_RERUN = ReviewCase(
     observed_regression_test_added=True,
     same_class_test_evidence_added=True,
     model_test_alignment_rerun=False,
+)
+BROKEN_RECURRING_WITHOUT_GATE = ReviewCase(
+    "broken_recurring_without_defect_family_gate",
+    "evidence_overclaimed",
+    observed_issue_represented=True,
+    generalized_case_added=True,
+    observed_regression_test_added=True,
+    same_class_test_evidence_added=True,
+    model_test_alignment_rerun=True,
+    recurrence_count=2,
+    defect_family_gate_promoted=False,
+    defect_family_gate_reviewed=False,
 )
 BROKEN_DETAILED_CATEGORY = ReviewCase(
     "broken_old_detailed_category",
@@ -142,6 +175,10 @@ class EvaluateModelMissReview:
         "observed_regression_test_added",
         "same_class_test_evidence_added",
         "model_test_alignment_rerun",
+        "recurrence_count",
+        "high_risk",
+        "defect_family_gate_promoted",
+        "defect_family_gate_reviewed",
         "requires_hazard_registry",
         "requires_upgrade_reviewer",
         "requires_default_model_mesh",
@@ -164,6 +201,10 @@ class EvaluateModelMissReview:
             observed_regression_test_added=input_obj.observed_regression_test_added,
             same_class_test_evidence_added=input_obj.same_class_test_evidence_added,
             model_test_alignment_rerun=input_obj.model_test_alignment_rerun,
+            recurrence_count=input_obj.recurrence_count,
+            high_risk=input_obj.high_risk,
+            defect_family_gate_promoted=input_obj.defect_family_gate_promoted,
+            defect_family_gate_reviewed=input_obj.defect_family_gate_reviewed,
             requires_hazard_registry=input_obj.requires_hazard_registry,
             requires_upgrade_reviewer=input_obj.requires_upgrade_reviewer,
             requires_default_model_mesh=input_obj.requires_default_model_mesh,
@@ -264,6 +305,26 @@ def ordinary_miss_avoids_heavy_defaults(state: ReviewState, _trace: object) -> I
     return InvariantResult.pass_()
 
 
+def recurring_or_high_risk_miss_gets_defect_family_gate(state: ReviewState, _trace: object) -> InvariantResult:
+    if not state.case_name:
+        return InvariantResult.pass_()
+    if not state.in_modeled_scope:
+        return InvariantResult.pass_()
+    if state.recurrence_count < 2 and not state.high_risk:
+        return InvariantResult.pass_()
+    if not state.defect_family_gate_promoted:
+        return _fail(
+            "recurring_or_high_risk_miss_gets_defect_family_gate",
+            "recurring or high-risk same-class miss did not promote a defect-family gate",
+        )
+    if not state.defect_family_gate_reviewed:
+        return _fail(
+            "recurring_or_high_risk_miss_gets_defect_family_gate",
+            "defect-family gate was promoted but not reviewed before closure",
+        )
+    return InvariantResult.pass_()
+
+
 INVARIANTS = (
     Invariant(
         "miss_type_is_one_of_five",
@@ -289,6 +350,11 @@ INVARIANTS = (
         "in_scope_miss_gets_same_class_test_evidence",
         "In-scope model-miss closure needs observed and same-class test evidence aligned to the repaired model.",
         in_scope_miss_gets_same_class_test_evidence,
+    ),
+    Invariant(
+        "recurring_or_high_risk_miss_gets_defect_family_gate",
+        "Recurring or high-risk same-class misses are promoted to a defect-family gate.",
+        recurring_or_high_risk_miss_gets_defect_family_gate,
     ),
 )
 
@@ -341,6 +407,12 @@ def scenarios() -> tuple[Scenario, ...]:
             _expect_ok("OK; out-of-scope miss recorded reason", (GOOD_OUT_OF_SCOPE.name,)),
         ),
         scenario(
+            "LMR03_recurring_family_uses_defect_gate",
+            "Recurring same-class misses promote to a defect-family gate.",
+            GOOD_RECURRING_FAMILY,
+            _expect_ok("OK; recurring miss has defect-family gate", (GOOD_RECURRING_FAMILY.name,)),
+        ),
+        scenario(
             "LMB01_point_fix_only_fails",
             "Broken repair only patches the observed case.",
             BROKEN_POINT_FIX_ONLY,
@@ -374,7 +446,16 @@ def scenarios() -> tuple[Scenario, ...]:
             ),
         ),
         scenario(
-            "LMB05_heavy_defaults_fail",
+            "LMB05_recurring_without_gate_fails",
+            "Broken repair treats a recurring same-class miss as another local point fix.",
+            BROKEN_RECURRING_WITHOUT_GATE,
+            _expect_violation(
+                "VIOLATION recurring_or_high_risk_miss_gets_defect_family_gate",
+                ("recurring_or_high_risk_miss_gets_defect_family_gate",),
+            ),
+        ),
+        scenario(
+            "LMB06_heavy_defaults_fail",
             "Broken repair turns ordinary model misses into heavyweight default process.",
             BROKEN_HEAVY_DEFAULTS,
             _expect_violation(
@@ -383,7 +464,7 @@ def scenarios() -> tuple[Scenario, ...]:
             ),
         ),
         scenario(
-            "LMB06_missing_observed_issue_fails",
+            "LMB07_missing_observed_issue_fails",
             "Broken repair adds a generalized case but loses the observed in-scope issue.",
             BROKEN_NO_OBSERVED_REPRESENTATION,
             _expect_violation(

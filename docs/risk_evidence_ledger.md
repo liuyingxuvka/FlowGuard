@@ -10,21 +10,34 @@ The ledger does not make FlowGuard models deeper. It connects the coarse model
 to ordinary evidence:
 
 ```text
-user risk -> model obligation -> public code contract -> current proof evidence
+user risk -> model obligation -> public code contract -> defect-family gate -> current proof evidence
 ```
 
 If any link is missing, stale, skipped, progress-only, or internal-path-only, the
 report downgrades the final claim instead of letting the agent say "fully
 validated."
 
+The defect-family link is only used when a same-class model miss recurs or is
+high risk enough that another local point fix would overclaim the final
+confidence boundary. It is a FlowGuard helper/evidence object consumed by the
+existing Model-Miss Review, Model-Test Alignment, DevelopmentProcessFlow, and
+Risk Evidence Ledger chain. It is not a new skill route and it is not owned by a
+downstream app.
+
 ## Public API
 
 - `RiskEvidenceRow`: one user-meaningful risk and the model/code/evidence IDs
-  that should prove it.
+  that should prove it. Rows can require a current `defect_family_id` when a
+  recurring or high-risk same-class model miss family must be closed before
+  full confidence.
 - `RiskEvidenceProof`: one test, replay, route report, or manual validation item.
 - `RiskEvidenceLedgerPlan`: the rows and evidence being reviewed.
 - `RiskEvidenceLedgerReport`: final decision, confidence, and findings.
 - `review_risk_evidence_ledger(plan)`: the executable checker.
+- `DefectFamilyGate`, `DefectFamilyEvidence`,
+  `DefectFamilyGatePlan`, and `review_defect_family_gates(plan)`: helper
+  objects for proving recurring model-miss families before the ledger consumes
+  the gate status.
 
 ## Minimal Example
 
@@ -47,6 +60,8 @@ plan = RiskEvidenceLedgerPlan(
             model_obligation_id="model:dedupe-submit",
             code_contract_id="api:submit_order",
             proof_evidence_ids=("test:helper-dedupe",),
+            defect_family_id="defect-family:duplicate-submit",
+            defect_family_gate_required=True,
         ),
     ),
     proof_evidence=(
@@ -72,10 +87,15 @@ passed, but it proved a helper path, not the public submit behavior.
 - `risk_evidence_scoped_confidence`: required in-scope risks pass, but an
   explicitly scoped-out row remains visible.
 - blocker findings such as `missing_model_obligation`,
-  `missing_code_contract`, `missing_proof_evidence`,
-  `missing_current_passing_proof`, `internal_path_only_evidence`,
-  `stale_proof_evidence`, `route_gap_visible`, or
-  `proof_evidence_not_passing`: do not claim full confidence.
+  `missing_code_contract`, `missing_defect_family_gate`,
+  `defect_family_gate_not_current`, `defect_family_gate_blocked`,
+  `missing_proof_evidence`, `missing_current_passing_proof`,
+  `internal_path_only_evidence`, `stale_proof_evidence`,
+  `route_gap_visible`, or `proof_evidence_not_passing`: do not claim full
+  confidence.
+- `defect_family_gate_scoped_confidence`: the recurring family gate is current
+  but explicitly scoped; report scoped confidence instead of a full closure
+  claim.
 
 ## Route Responsibilities
 
@@ -89,7 +109,9 @@ passed, but it proved a helper path, not the public submit behavior.
 - DevelopmentProcessFlow checks the ledger before done, archive, publish, or
   release claims.
 - Model-Miss Review updates the ledger when runtime evidence proves that earlier
-  model/test evidence was too narrow.
+  model/test evidence was too narrow. When the same family recurs, it promotes
+  or references a defect-family gate instead of treating the case as another
+  ordinary point fix.
 
 Use the template with:
 

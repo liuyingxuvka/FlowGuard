@@ -182,7 +182,12 @@ Reporting helpers help an AI agent explain what was checked and what was not:
 - `RiskEvidenceRow`, `RiskEvidenceProof`, `RiskEvidenceLedgerPlan`,
   `RiskEvidenceLedgerReport`, and `review_risk_evidence_ledger()` for the final
   confidence ledger that connects user risks to FlowGuard model obligations,
-  optional public code contracts, and current proof evidence
+  optional public code contracts, recurring defect-family gates, and current
+  proof evidence
+- `DefectFamilyGate`, `DefectFamilyEvidence`, `DefectFamilyGatePlan`,
+  `DefectFamilyGateReport`, and `review_defect_family_gates()` for promoting
+  recurring or high-risk same-class model misses into a reusable FlowGuard gate
+  before a broad final-confidence claim
 - `run_model_first_checks`
 - `audit_model`
 - `FlowGuardSummaryReport`

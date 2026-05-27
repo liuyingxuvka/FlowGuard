@@ -16,6 +16,11 @@ freshness, and assertion scopes into a Risk Evidence Ledger. Alignment proves
 rows agree; the ledger decides whether the broader user-risk claim is full,
 scoped, or blocked.
 
+For recurring or high-risk same-class model misses, alignment evidence is an
+input to the defect-family gate. Use `review_defect_family_gates(...)` before
+the Risk Evidence Ledger claim; do not make Model-Test Alignment the family
+promotion route.
+
 When real code observations are available for a finite code boundary, add the
 code-boundary conformance layer before trusting a hand-authored code contract.
 This layer checks whether real code accepted only allowed input cases, rejected

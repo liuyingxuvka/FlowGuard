@@ -158,7 +158,9 @@ Before saying a task is fully validated, release-ready, done, or safe to
 publish, build or update a risk evidence ledger for the important user-facing
 risks. Each row should name the risk, the owning FlowGuard model obligation, the
 public code contract when that matters, and the proof evidence IDs that are
-current.
+current. If a same-class model miss is recurring or high risk, the row should
+also name the current defect-family gate and whether that gate is full, scoped,
+partial, or blocked.
 
 Use `review_risk_evidence_ledger(...)` to make these gaps explicit:
 
@@ -656,29 +658,35 @@ When this happens:
 6. If same-class coverage is large, slow, layered, background, or release-only,
    route the validation hierarchy to TestMesh and report scoped confidence
    until current child evidence exists.
-7. Rerun the relevant model checks and confirm the old weakness plus the
+7. If the same-class miss has recurred, or if the first miss is high risk enough
+   that a local point fix would overclaim full confidence, promote it to a
+   defect-family gate with a model obligation, authority boundary, observed
+   failure case, same-class generalized case, historical holdout case, and
+   current proof evidence.
+8. Rerun the relevant model checks and confirm the old weakness plus the
    same-class case are now visible, or deliberately out of scope.
-8. Validate the repair with the refined model plus the strongest practical
+9. Validate the repair with the refined model plus the strongest practical
    production-facing evidence.
-9. If the repair changed a child model under a parent ModelMesh, rerun the
+10. If the repair changed a child model under a parent ModelMesh, rerun the
    affected parent reattachment gate and keep the miss open until the parent
    consumes current child evidence.
-10. If the child boundary changed, keep the miss open until ModelMesh has
+11. If the child boundary changed, keep the miss open until ModelMesh has
    propagated the boundary review upward and reviewed affected sibling models
    or recorded why none are affected.
-11. Do not use a background long-running check as closure until final artifacts
+12. Do not use a background long-running check as closure until final artifacts
    and exit status exist; progress output is only liveness.
-12. Record `Miss type`, `Generalized case`, observed-regression test evidence,
+13. Record `Miss type`, `Generalized case`, observed-regression test evidence,
    same-class test evidence, Model-Test Alignment result, and any parent
-   reattachment decision in the adoption log, or the reason no generalized case
-   was added, along with rerun commands, skipped checks, and residual
-   blindspots.
+   reattachment or defect-family gate decision in the adoption log, or the
+   reason no generalized case was added, along with rerun commands, skipped
+   checks, and residual blindspots.
 
 A later green runtime check or one observed-bug regression test does not close
 a known model miss by itself. The miss is closed only when it has been
 classified, represented in the model or explicitly recorded as outside the
 modeled risk, and backed by current same-class test evidence when the miss is
-in scope.
+in scope. A recurring or high-risk miss additionally stays open until the
+defect-family gate is current or the remaining gap is explicitly scoped.
 
 ## 14. Run Scenario Sandbox Review
 
