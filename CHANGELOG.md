@@ -5,6 +5,13 @@
 - Added model-miss closure roles to Model-Test Alignment so repaired misses can
   require both observed-regression evidence and same-class generalized test
   evidence before closure.
+- Added recurring defect-family gate helpers so repeated or high-risk
+  same-class model misses must name a promoted family, model obligation,
+  authority boundary, observed failure, generalized case, historical holdout,
+  and current external proof before full closure.
+- Connected required defect-family gate status to the Risk Evidence Ledger so
+  final confidence is blocked, scoped, or full at the FlowGuard layer instead
+  of depending on a downstream product reminder.
 - Blocked observed-bug-only, wrong-target, internal-path-only, and overclaimed
   evidence from satisfying same-class model-miss closure.
 - Updated model-miss examples, public templates, FlowGuard skill protocols,

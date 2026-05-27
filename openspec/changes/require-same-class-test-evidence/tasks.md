@@ -22,13 +22,13 @@
 
 - [x] 4.1 Update version metadata and changelog for the local release candidate.
 - [x] 4.2 Sync local editable install and the `FlowGuard_20260427` shadow workspace.
-- [ ] 4.3 Commit and tag the local git release candidate after the recurring-defect gate follow-up is complete. GitHub push/publish remains out of scope unless explicitly requested.
+- [x] 4.3 Commit and tag the local git release candidate after the recurring-defect gate follow-up is complete. GitHub push/publish remains out of scope unless explicitly requested.
 
 ## 5. Recurring Defect-Family Gate
 
-- [ ] 5.1 Add a recurring model-miss defect-family gate helper with promotion, proof, and scoped-confidence decisions.
-- [ ] 5.2 Feed required/current/scoped defect-family gate status into Risk Evidence Ledger rows.
-- [ ] 5.3 Update lightweight model-miss example and generated templates so recurring families cannot be closed as ordinary point fixes.
-- [ ] 5.4 Update docs, README, API notes, and FlowGuard skills so agents know the gate belongs in FlowGuard, not downstream apps.
-- [ ] 5.5 Add focused recurring-gate and ledger tests, then rerun OpenSpec strict validation, model examples, and focused route tests.
-- [ ] 5.6 Sync editable install, installed skills, shadow workspace, and local git state.
+- [x] 5.1 Add a recurring model-miss defect-family gate helper with promotion, proof, and scoped-confidence decisions.
+- [x] 5.2 Feed required/current/scoped defect-family gate status into Risk Evidence Ledger rows.
+- [x] 5.3 Update lightweight model-miss example and generated templates so recurring families cannot be closed as ordinary point fixes.
+- [x] 5.4 Update docs, README, API notes, and FlowGuard skills so agents know the gate belongs in FlowGuard, not downstream apps.
+- [x] 5.5 Add focused recurring-gate and ledger tests, then rerun OpenSpec strict validation, model examples, and focused route tests.
+- [x] 5.6 Sync editable install, installed skills, shadow workspace, and local git state.
