@@ -192,8 +192,9 @@ to follow, consider whether a parent/child split would make it easier to
 maintain or verify. For models consider ModelMesh; for tests consider TestMesh;
 for scripts, modules, or APIs consider StructureMesh; when the goal is to make
 existing code smaller without behavior change, consider Architecture Reduction
-before Code Structure Recommendation or StructureMesh; for long checks consider
-LongCheck observability.
+before Code Structure Recommendation or StructureMesh. Keep already-completed
+or historical reduction candidates visible as evidence, but do not leave them
+in the active ready queue; for long checks consider LongCheck observability.
 
 When direct model/test evidence includes state counts, pending budgeted states,
 duration, selected test counts, broad obligation counts, background

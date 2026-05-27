@@ -1,5 +1,31 @@
 # Changelog
 
+## v0.28.1 - 2026-05-27
+
+- Added lifecycle disposition support to Architecture Reduction candidates so
+  completed or historical reductions remain visible as evidence without being
+  re-reported as active ready work.
+- Refreshed the structure simplification and public facade maintenance boundary
+  so completed CLI/template and export-surface reductions close cleanly while
+  shadow-only `.flowguard` duplicate cleanup stays a local sync concern.
+- Updated OpenSpec, API-surface docs, agent guidance, and focused tests for the
+  completed-candidate queue semantics.
+- Schema remains `1.0`; runtime dependencies remain Python standard library
+  only.
+
+## v0.28.0 - 2026-05-27
+
+- Added workflow step contracts so staged process plans can declare required,
+  produced, and invalidated receipts and map them into DevelopmentProcessFlow
+  validation gates.
+- Connected workflow step contracts to claim readiness so done/release
+  confidence can reject missing or stale step receipts instead of relying on
+  prose-only process order.
+- Updated public docs, examples, OpenSpec artifacts, and tests for the new
+  workflow-step contract helper path.
+- Schema remains `1.0`; runtime dependencies remain Python standard library
+  only.
+
 ## v0.27.0 - 2026-05-27
 
 - Added the FlowGuard model maturation loop with `ModelMaturationSignal`,

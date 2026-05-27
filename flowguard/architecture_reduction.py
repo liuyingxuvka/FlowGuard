@@ -60,6 +60,16 @@ READY_PROOF_STATUSES = {
     PROOF_SAFE_BY_PUBLIC_FACADE,
 }
 
+CANDIDATE_DISPOSITION_ACTIVE = "active"
+CANDIDATE_DISPOSITION_COMPLETED = "completed"
+CANDIDATE_DISPOSITION_HISTORICAL = "historical"
+
+ARCHITECTURE_REDUCTION_CANDIDATE_DISPOSITIONS = {
+    CANDIDATE_DISPOSITION_ACTIVE,
+    CANDIDATE_DISPOSITION_COMPLETED,
+    CANDIDATE_DISPOSITION_HISTORICAL,
+}
+
 TARGET_ACTION_MERGE = "merge"
 TARGET_ACTION_COLLAPSE = "collapse"
 TARGET_ACTION_REMOVE = "remove"
@@ -171,6 +181,8 @@ class ArchitectureReductionCandidate:
     affected_state: tuple[str, ...] = ()
     affected_side_effects: tuple[str, ...] = ()
     evidence_refs: tuple[str, ...] = ()
+    lifecycle_disposition: str = CANDIDATE_DISPOSITION_ACTIVE
+    completion_evidence_refs: tuple[str, ...] = ()
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -186,11 +198,20 @@ class ArchitectureReductionCandidate:
         object.__setattr__(self, "affected_state", _as_tuple(self.affected_state))
         object.__setattr__(self, "affected_side_effects", _as_tuple(self.affected_side_effects))
         object.__setattr__(self, "evidence_refs", _as_tuple(self.evidence_refs))
+        object.__setattr__(self, "lifecycle_disposition", str(self.lifecycle_disposition))
+        object.__setattr__(self, "completion_evidence_refs", _as_tuple(self.completion_evidence_refs))
         object.__setattr__(self, "metadata", dict(self.metadata))
 
     @property
     def is_ready(self) -> bool:
-        return self.proof_status in READY_PROOF_STATUSES
+        return self.lifecycle_disposition == CANDIDATE_DISPOSITION_ACTIVE and self.proof_status in READY_PROOF_STATUSES
+
+    @property
+    def is_closed(self) -> bool:
+        return self.lifecycle_disposition in {
+            CANDIDATE_DISPOSITION_COMPLETED,
+            CANDIDATE_DISPOSITION_HISTORICAL,
+        }
 
     def touches_public_entrypoint(self) -> bool:
         return bool(self.affected_public_entrypoints)
@@ -209,6 +230,8 @@ class ArchitectureReductionCandidate:
             "affected_state": list(self.affected_state),
             "affected_side_effects": list(self.affected_side_effects),
             "evidence_refs": list(self.evidence_refs),
+            "lifecycle_disposition": self.lifecycle_disposition,
+            "completion_evidence_refs": list(self.completion_evidence_refs),
             "metadata": to_jsonable(dict(self.metadata)),
         }
 
@@ -334,6 +357,7 @@ class ArchitectureReductionReport:
     decision: str
     findings: tuple[ArchitectureReductionFinding, ...] = ()
     ready_candidate_ids: tuple[str, ...] = ()
+    completed_candidate_ids: tuple[str, ...] = ()
     target_actions: tuple[TargetArchitectureAction, ...] = ()
     required_next_routes: tuple[str, ...] = ()
     summary: str = ""
@@ -343,6 +367,7 @@ class ArchitectureReductionReport:
         object.__setattr__(self, "decision", str(self.decision))
         object.__setattr__(self, "findings", tuple(self.findings))
         object.__setattr__(self, "ready_candidate_ids", _as_tuple(self.ready_candidate_ids))
+        object.__setattr__(self, "completed_candidate_ids", _as_tuple(self.completed_candidate_ids))
         object.__setattr__(self, "target_actions", tuple(self.target_actions))
         object.__setattr__(self, "required_next_routes", _as_tuple(self.required_next_routes))
         if not self.summary:
@@ -366,6 +391,8 @@ class ArchitectureReductionReport:
         ]
         if self.ready_candidate_ids:
             lines.append(f"ready_candidates: {', '.join(self.ready_candidate_ids)}")
+        if self.completed_candidate_ids:
+            lines.append(f"completed_candidates: {', '.join(self.completed_candidate_ids)}")
         if self.required_next_routes:
             lines.append(f"required_next_routes: {', '.join(self.required_next_routes)}")
         if self.target_actions:
@@ -392,6 +419,7 @@ class ArchitectureReductionReport:
             "decision": self.decision,
             "findings": [finding.to_dict() for finding in self.findings],
             "ready_candidate_ids": list(self.ready_candidate_ids),
+            "completed_candidate_ids": list(self.completed_candidate_ids),
             "target_actions": [action.to_dict() for action in self.target_actions],
             "required_next_routes": list(self.required_next_routes),
             "summary": self.summary,
@@ -409,6 +437,8 @@ def _decision_for_findings(
     findings: Sequence[ArchitectureReductionFinding],
     *,
     candidate_count: int,
+    active_count: int,
+    completed_count: int,
     ready_count: int,
 ) -> str:
     blockers = _blockers(findings)
@@ -419,6 +449,8 @@ def _decision_for_findings(
             ("invalid_candidate_type", "candidate_blocked"),
             ("invalid_target_action", "candidate_blocked"),
             ("invalid_proof_status", "candidate_blocked"),
+            ("invalid_lifecycle_disposition", "candidate_blocked"),
+            ("completed_candidate_missing_evidence", "completed_candidate_blocked"),
             ("missing_required_next_route", "candidate_blocked"),
             ("public_entrypoint_requires_structure_mesh", "structure_mesh_required"),
             ("removes_observable_state", "observable_contract_blocked"),
@@ -436,6 +468,8 @@ def _decision_for_findings(
         return "property_only_review"
     if candidate_count == 0:
         return "no_reduction_candidates"
+    if active_count == 0 and completed_count:
+        return "completed_reduction_candidates"
     if ready_count == 0:
         return "no_ready_reduction_candidates"
     return "architecture_reduction_ready"
@@ -473,6 +507,7 @@ def review_architecture_reduction(plan: ArchitectureReductionPlan) -> Architectu
 
     findings: list[ArchitectureReductionFinding] = []
     ready_candidates: list[str] = []
+    completed_candidates: list[str] = []
     target_actions: list[TargetArchitectureAction] = []
     required_routes: set[str] = set()
 
@@ -571,6 +606,23 @@ def review_architecture_reduction(plan: ArchitectureReductionPlan) -> Architectu
                     item_id=candidate.proof_status,
                 )
             )
+        if candidate.lifecycle_disposition not in ARCHITECTURE_REDUCTION_CANDIDATE_DISPOSITIONS:
+            findings.append(
+                ArchitectureReductionFinding(
+                    "invalid_lifecycle_disposition",
+                    f"candidate lifecycle disposition {candidate.lifecycle_disposition!r} is not supported",
+                    candidate_id=candidate.candidate_id,
+                    item_id=candidate.lifecycle_disposition,
+                )
+            )
+        if candidate.is_closed and not candidate.completion_evidence_refs:
+            findings.append(
+                ArchitectureReductionFinding(
+                    "completed_candidate_missing_evidence",
+                    "completed or historical candidates must cite completion evidence before leaving the active queue",
+                    candidate_id=candidate.candidate_id,
+                )
+            )
         if candidate.required_next_route not in ARCHITECTURE_REDUCTION_COMPANION_ROUTES:
             findings.append(
                 ArchitectureReductionFinding(
@@ -580,10 +632,14 @@ def review_architecture_reduction(plan: ArchitectureReductionPlan) -> Architectu
                     item_id=candidate.required_next_route,
                 )
             )
-        else:
+        elif candidate.lifecycle_disposition == CANDIDATE_DISPOSITION_ACTIVE:
             required_routes.add(candidate.required_next_route)
 
-        if candidate.touches_public_entrypoint() and candidate.required_next_route != ROUTE_STRUCTURE_MESH:
+        if (
+            candidate.lifecycle_disposition == CANDIDATE_DISPOSITION_ACTIVE
+            and candidate.touches_public_entrypoint()
+            and candidate.required_next_route != ROUTE_STRUCTURE_MESH
+        ):
             findings.append(
                 ArchitectureReductionFinding(
                     "public_entrypoint_requires_structure_mesh",
@@ -594,7 +650,7 @@ def review_architecture_reduction(plan: ArchitectureReductionPlan) -> Architectu
             )
 
         removed_observable_state = tuple(sorted(observable_state.intersection(candidate.affected_state)))
-        if candidate.target_action == TARGET_ACTION_REMOVE and removed_observable_state:
+        if candidate.lifecycle_disposition == CANDIDATE_DISPOSITION_ACTIVE and candidate.target_action == TARGET_ACTION_REMOVE and removed_observable_state:
             findings.append(
                 ArchitectureReductionFinding(
                     "removes_observable_state",
@@ -606,6 +662,8 @@ def review_architecture_reduction(plan: ArchitectureReductionPlan) -> Architectu
 
         touched_observable_side_effects = tuple(sorted(observable_side_effects.intersection(candidate.affected_side_effects)))
         if (
+            candidate.lifecycle_disposition == CANDIDATE_DISPOSITION_ACTIVE
+            and
             candidate.target_action in {TARGET_ACTION_REMOVE, TARGET_ACTION_COLLAPSE}
             and touched_observable_side_effects
             and candidate.proof_status != PROOF_SAFE_BY_EQUIVALENCE
@@ -618,6 +676,11 @@ def review_architecture_reduction(plan: ArchitectureReductionPlan) -> Architectu
                     metadata={"observable_side_effects": touched_observable_side_effects},
                 )
             )
+
+        if candidate.lifecycle_disposition != CANDIDATE_DISPOSITION_ACTIVE:
+            if candidate.is_closed:
+                completed_candidates.append(candidate.candidate_id)
+            continue
 
         if candidate.proof_status == PROOF_PROPERTY_ONLY_SAFE:
             findings.append(
@@ -674,6 +737,10 @@ def review_architecture_reduction(plan: ArchitectureReductionPlan) -> Architectu
     decision = _decision_for_findings(
         findings,
         candidate_count=len(plan.candidates),
+        active_count=sum(
+            1 for candidate in plan.candidates if candidate.lifecycle_disposition == CANDIDATE_DISPOSITION_ACTIVE
+        ),
+        completed_count=len(completed_candidates),
         ready_count=len(ready_candidates),
     )
     blockers = _blockers(findings)
@@ -683,6 +750,7 @@ def review_architecture_reduction(plan: ArchitectureReductionPlan) -> Architectu
         decision=decision,
         findings=tuple(findings),
         ready_candidate_ids=tuple(ready_candidates),
+        completed_candidate_ids=tuple(completed_candidates),
         target_actions=tuple(target_actions),
         required_next_routes=tuple(sorted(required_routes)),
     )
@@ -690,11 +758,15 @@ def review_architecture_reduction(plan: ArchitectureReductionPlan) -> Architectu
 
 __all__ = [
     "ARCHITECTURE_REDUCTION_CANDIDATE_TYPES",
+    "ARCHITECTURE_REDUCTION_CANDIDATE_DISPOSITIONS",
     "ARCHITECTURE_REDUCTION_COMPANION_ROUTES",
     "ARCHITECTURE_REDUCTION_PROOF_STATUSES",
     "ARCHITECTURE_REDUCTION_ROUTE",
     "ARCHITECTURE_REDUCTION_TARGET_ACTIONS",
     "CANDIDATE_COLLAPSE_ADAPTER",
+    "CANDIDATE_DISPOSITION_ACTIVE",
+    "CANDIDATE_DISPOSITION_COMPLETED",
+    "CANDIDATE_DISPOSITION_HISTORICAL",
     "CANDIDATE_KEEP_PUBLIC_FACADE",
     "CANDIDATE_MANUAL_REVIEW",
     "CANDIDATE_MERGE_HANDLERS",

@@ -1,6 +1,7 @@
 import unittest
 
 from flowguard import (
+    CANDIDATE_DISPOSITION_COMPLETED,
     CANDIDATE_COLLAPSE_ADAPTER,
     CANDIDATE_KEEP_PUBLIC_FACADE,
     CANDIDATE_MERGE_HANDLERS,
@@ -115,6 +116,45 @@ class ArchitectureReductionTests(unittest.TestCase):
         self.assertEqual(1, len(report.target_actions))
         self.assertEqual(TARGET_ACTION_COLLAPSE, report.target_actions[0].action)
         self.assertIn(ROUTE_CODE_STRUCTURE_RECOMMENDATION, report.required_next_routes)
+
+    def test_completed_candidate_leaves_active_ready_queue(self):
+        plan = ArchitectureReductionPlan(
+            "router-reduction",
+            observable_contract=contract(),
+            candidates=(
+                candidate(
+                    lifecycle_disposition=CANDIDATE_DISPOSITION_COMPLETED,
+                    completion_evidence_refs=("tests/test_architecture_reduction.py",),
+                ),
+            ),
+            companion_route_triggers=(trigger(),),
+            target_structure=target_structure(),
+            rationale="completed contraction should remain visible without being re-queued",
+        )
+
+        report = review_architecture_reduction(plan)
+
+        self.assertTrue(report.ok)
+        self.assertEqual("completed_reduction_candidates", report.decision)
+        self.assertEqual((), report.ready_candidate_ids)
+        self.assertEqual(("collapse-normalizer-adapter",), report.completed_candidate_ids)
+        self.assertEqual(0, len(report.target_actions))
+        self.assertIn("completed_candidates: collapse-normalizer-adapter", report.format_text())
+
+    def test_completed_candidate_requires_completion_evidence(self):
+        plan = ArchitectureReductionPlan(
+            "router-reduction",
+            observable_contract=contract(),
+            candidates=(candidate(lifecycle_disposition=CANDIDATE_DISPOSITION_COMPLETED),),
+            companion_route_triggers=(trigger(),),
+            rationale="closed candidates need proof before leaving active work",
+        )
+
+        report = review_architecture_reduction(plan)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("completed_candidate_blocked", report.decision)
+        self.assertIn("completed_candidate_missing_evidence", [finding.code for finding in report.findings])
 
     def test_missing_observable_contract_blocks(self):
         plan = ArchitectureReductionPlan(

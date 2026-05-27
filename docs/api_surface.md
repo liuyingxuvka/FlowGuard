@@ -97,9 +97,10 @@ Modeling helpers reduce boilerplate around common bug classes:
   `ArchitectureReductionPlan`, `ArchitectureReductionReport`, and
   `review_architecture_reduction()` for reviewing whether an existing modeled
   implementation can be contracted without changing declared observable
-  behavior, classifying merge/collapse/remove/keep-facade candidates, and
-  handing target structure actions to Code Structure Recommendation or
-  StructureMesh before production code is edited.
+  behavior, classifying merge/collapse/remove/keep-facade candidates, keeping
+  completed or historical candidates out of the active ready queue, and handing
+  target structure actions to Code Structure Recommendation or StructureMesh
+  before production code is edited.
 - optional model-test alignment helpers such as `ModelObligation`,
   `CodeContract`, `TestEvidence`, `ModelTestAlignmentPlan`, and
   `review_model_test_alignment()` for directly comparing model obligations
