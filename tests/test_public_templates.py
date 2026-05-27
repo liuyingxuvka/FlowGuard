@@ -19,6 +19,7 @@ from flowguard.templates import (
     structure_mesh_template_files,
     test_mesh_template_files,
     ui_flow_structure_template_files,
+    workflow_step_contracts_template_files,
     write_template_files,
 )
 
@@ -224,6 +225,29 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("producer_route=\"test_mesh_maintenance\"", combined)
         self.assertIn("FlowGuard Risk Purpose Header", combined)
 
+    def test_workflow_step_contracts_template_executes(self):
+        output = self.run_written_template(
+            workflow_step_contracts_template_files(),
+            (".flowguard", "workflow_step_contracts"),
+        )
+        self.assertIn("flowguard workflow step contracts", output)
+        self.assertIn("missing_claim_receipt", output)
+        self.assertIn("process_requirements", output)
+        self.assertIn("model_obligations", output)
+
+    def test_workflow_step_contracts_template_teaches_receipts(self):
+        files = workflow_step_contracts_template_files()
+        combined = "\n".join(file.content for file in files)
+
+        self.assertIn("WorkflowStepContract", combined)
+        self.assertIn("requires_receipts", combined)
+        self.assertIn("produces_receipts", combined)
+        self.assertIn("invalidates_receipts", combined)
+        self.assertIn("required_for_claims", combined)
+        self.assertIn("step_contracts_to_validation_requirements", combined)
+        self.assertIn("step_contracts_to_model_obligations", combined)
+        self.assertIn("FlowGuard Risk Purpose Header", combined)
+
     def test_existing_model_preflight_template_executes(self):
         output = self.run_written_template(
             existing_model_preflight_template_files(),
@@ -275,6 +299,7 @@ class PublicTemplateTests(unittest.TestCase):
             layered_boundary_proof_template_files(),
             ui_flow_structure_template_files(),
             development_process_flow_template_files(),
+            workflow_step_contracts_template_files(),
             test_mesh_template_files(),
             structure_mesh_template_files(),
         ):
@@ -293,6 +318,7 @@ class PublicTemplateTests(unittest.TestCase):
             "layered-boundary-proof-template": "layered_boundary_proof",
             "ui-flow-structure-template": "ui_flow_structure",
             "development-process-flow-template": "development_process_flow",
+            "workflow-step-contracts-template": "workflow_step_contracts",
             "test-mesh-template": "test_mesh",
             "structure-mesh-template": "structure_mesh",
         }
@@ -353,6 +379,7 @@ class PublicTemplateTests(unittest.TestCase):
             layered_boundary_proof_template_files(),
             ui_flow_structure_template_files(),
             development_process_flow_template_files(),
+            workflow_step_contracts_template_files(),
             test_mesh_template_files(),
             structure_mesh_template_files(),
         ):

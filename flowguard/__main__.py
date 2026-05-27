@@ -204,6 +204,12 @@ FILE_TEMPLATE_COMMANDS: tuple[FileTemplateCommand, ...] = (
         "development_process_flow_template_files",
     ),
     FileTemplateCommand(
+        "workflow-step-contracts-template",
+        "Print or write the workflow step contracts receipt-gate template.",
+        "workflow_step_contracts",
+        "workflow_step_contracts_template_files",
+    ),
+    FileTemplateCommand(
         "existing-model-preflight-template",
         "Print or write the existing FlowGuard model preflight template.",
         "existing_model_preflight",

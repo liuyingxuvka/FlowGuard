@@ -14,6 +14,7 @@ from .review import review_scenarios
 from .scenario import run_exact_sequence
 from .scenario_matrix import ScenarioMatrixBuilder
 from .scenario_matrix import synthesize_challenge_scenarios_from_report
+from .step_contracts import compile_step_contract_invariants, review_step_contract_trace
 from .summary_report import (
     FlowGuardSection,
     FlowGuardSummaryReport,
@@ -48,6 +49,11 @@ def run_model_first_checks(plan: FlowGuardCheckPlan) -> FlowGuardSummaryReport:
 
     risk_profile = plan.risk_profile
     risk_classes = risk_profile.risk_classes if risk_profile is not None else ()
+    step_contract_invariants = compile_step_contract_invariants(plan.step_contracts)
+    active_invariants = plan.invariants + step_contract_invariants
+    if plan.step_contracts:
+        artifacts["step_contracts"] = plan.step_contracts
+        artifacts["step_contract_invariants"] = step_contract_invariants
     if plan.assumption_card is not None:
         artifacts["assumption_card"] = plan.assumption_card
         _append_assumption_card_section(sections, plan.assumption_card)
@@ -58,7 +64,7 @@ def run_model_first_checks(plan: FlowGuardCheckPlan) -> FlowGuardSummaryReport:
 
     audit_report = audit_model(
         workflow=plan.workflow,
-        invariants=plan.invariants,
+        invariants=active_invariants,
         external_inputs=plan.external_inputs,
         max_sequence_length=plan.max_sequence_length,
         scenarios=plan.scenarios,
@@ -97,7 +103,7 @@ def run_model_first_checks(plan: FlowGuardCheckPlan) -> FlowGuardSummaryReport:
             workflow=plan.workflow,
             initial_states=plan.initial_states,
             external_inputs=plan.external_inputs,
-            invariants=plan.invariants,
+            invariants=active_invariants,
             max_sequence_length=plan.max_sequence_length,
             assumption_card=plan.assumption_card,
         ).explore()
@@ -114,7 +120,7 @@ def run_model_first_checks(plan: FlowGuardCheckPlan) -> FlowGuardSummaryReport:
             )
         )
 
-    model_derived_scenarios = _model_derived_challenge_scenarios(plan, model_report)
+    model_derived_scenarios = _model_derived_challenge_scenarios(plan, model_report, active_invariants)
     if model_derived_scenarios:
         scenarios = scenarios + model_derived_scenarios
         generated_scenarios = generated_scenarios + model_derived_scenarios
@@ -138,7 +144,7 @@ def run_model_first_checks(plan: FlowGuardCheckPlan) -> FlowGuardSummaryReport:
             )
         )
 
-    minimization = _minimize_first_invariant_violation(plan, model_report)
+    minimization = _minimize_first_invariant_violation(plan, model_report, active_invariants)
     if minimization is not None:
         artifacts["counterexample_minimization"] = minimization
         status = "pass" if minimization.status in {"reduced", "no_reduction_found"} else "pass_with_gaps"
@@ -205,6 +211,7 @@ def run_model_first_checks(plan: FlowGuardCheckPlan) -> FlowGuardSummaryReport:
         )
 
     _append_progress_section(sections, artifacts, plan)
+    _append_step_contract_section(sections, artifacts, plan, model_report)
     _append_contract_section(sections, artifacts, plan, model_report)
     _append_conformance_section(sections, artifacts, plan)
 
@@ -282,7 +289,11 @@ def _plan_or_generated_scenarios(plan: FlowGuardCheckPlan) -> tuple[tuple[Any, .
     return generated, generated
 
 
-def _model_derived_challenge_scenarios(plan: FlowGuardCheckPlan, model_report: Any) -> tuple[Any, ...]:
+def _model_derived_challenge_scenarios(
+    plan: FlowGuardCheckPlan,
+    model_report: Any,
+    invariants: tuple[Any, ...],
+) -> tuple[Any, ...]:
     if model_report is None or plan.scenarios:
         return ()
     risk_profile = plan.risk_profile
@@ -301,7 +312,7 @@ def _model_derived_challenge_scenarios(plan: FlowGuardCheckPlan, model_report: A
         name_prefix=f"{name_prefix}_model",
         report=model_report,
         workflow=plan.workflow,
-        invariants=plan.invariants,
+        invariants=invariants,
         max_scenarios=config.max_scenarios,
         tags=tuple(sorted(risks.intersection(AUTO_SCENARIO_RISKS))) + (
             "auto_generated",
@@ -314,6 +325,7 @@ def _model_derived_challenge_scenarios(plan: FlowGuardCheckPlan, model_report: A
 def _minimize_first_invariant_violation(
     plan: FlowGuardCheckPlan,
     model_report: Any,
+    invariants: tuple[Any, ...],
 ) -> Any:
     if model_report is None or not getattr(model_report, "violations", ()):
         return None
@@ -329,13 +341,71 @@ def _minimize_first_invariant_violation(
             workflow=plan.workflow,
             initial_state=initial_state,
             external_input_sequence=sequence,
-            invariants=plan.invariants,
+            invariants=invariants,
         ).model_report
 
     return minimize_report_counterexample(
         run_sequence,
         failing_sequence,
         violation_name=violation_name,
+    )
+
+
+def _append_step_contract_section(
+    sections: list[FlowGuardSection],
+    artifacts: dict[str, Any],
+    plan: FlowGuardCheckPlan,
+    model_report: Any,
+) -> None:
+    if not plan.step_contracts:
+        return
+    if model_report is None:
+        sections.append(
+            FlowGuardSection(
+                name="workflow_step_contracts",
+                status="blocked",
+                summary="step contracts provided but model check did not produce a report",
+                findings=("run model exploration before trusting step-contract evidence",),
+            )
+        )
+        return
+
+    traces = list(getattr(model_report, "traces", ()) or ())
+    traces.extend(
+        violation.trace
+        for violation in getattr(model_report, "violations", ()) or ()
+        if getattr(violation, "trace", None) is not None
+    )
+    if not traces:
+        sections.append(
+            FlowGuardSection(
+                name="workflow_step_contracts",
+                status="blocked",
+                summary="step contracts provided but no traces were available",
+                findings=("run model exploration successfully before checking step contracts",),
+            )
+        )
+        return
+
+    reports = tuple(review_step_contract_trace(trace, plan.step_contracts) for trace in traces)
+    artifacts["step_contract_reports"] = reports
+    failed = tuple(report for report in reports if not report.ok)
+    findings = tuple(
+        f"trace_report_{index}: {finding.code}: {finding.message}"
+        for index, report in enumerate(reports, start=1)
+        for finding in report.findings
+    )
+    sections.append(
+        FlowGuardSection(
+            name="workflow_step_contracts",
+            status="failed" if failed else "pass",
+            summary=(
+                f"contracts={len(plan.step_contracts)} "
+                f"checked_traces={len(reports)} failed_reports={len(failed)}"
+            ),
+            findings=findings,
+            metadata={"reports": reports},
+        )
     )
 
 

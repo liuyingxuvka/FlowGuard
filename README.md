@@ -16,7 +16,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.27.0` | `1.0` | Python standard library only | MIT |
+| `v0.28.0` | `1.0` | Python standard library only | MIT |
 
 English lead content comes first; a Chinese mirror follows below.
 
@@ -183,6 +183,7 @@ python -m flowguard risk-evidence-ledger-template
 python -m flowguard code-structure-recommendation-template
 python -m flowguard ui-flow-structure-template
 python -m flowguard development-process-flow-template
+python -m flowguard workflow-step-contracts-template
 python -m flowguard test-mesh-template
 python -m flowguard structure-mesh-template
 ```
@@ -192,6 +193,12 @@ model-backed boundary: `CodeBoundaryContract` declares the allowed and rejected
 input cases plus allowed outputs, state writes, side effects, and error paths;
 `CodeBoundaryObservation` records what runtime tests, replay, or a harness
 actually observed.
+
+Workflow step contracts cover the ordered-process case: `WorkflowStepContract`
+declares which receipts a step requires, produces, invalidates, and which
+done/release claim labels require those receipts. Use
+`docs/workflow_step_contracts.md` when a known workflow is correct on paper but
+code might skip a required step or reuse stale evidence.
 
 Run focused examples:
 
@@ -503,6 +510,7 @@ python -m flowguard risk-evidence-ledger-template
 python -m flowguard code-structure-recommendation-template
 python -m flowguard ui-flow-structure-template
 python -m flowguard development-process-flow-template
+python -m flowguard workflow-step-contracts-template
 python -m flowguard test-mesh-template
 python -m flowguard structure-mesh-template
 ```

@@ -71,6 +71,7 @@ class FlowGuardCheckPlan:
     risk_profile: RiskProfile | None = None
     scenarios: tuple[Any, ...] = ()
     contracts: tuple[Any, ...] = ()
+    step_contracts: tuple[Any, ...] = ()
     progress_config: Any = None
     conformance_status: str | None = None
     conformance_report: Any = None
@@ -89,6 +90,7 @@ class FlowGuardCheckPlan:
         risk_profile: RiskProfile | Mapping[str, Any] | None = None,
         scenarios: Sequence[Any] = (),
         contracts: Sequence[Any] = (),
+        step_contracts: Sequence[Any] = (),
         progress_config: Any = None,
         conformance_status: str | None = None,
         conformance_report: Any = None,
@@ -104,6 +106,7 @@ class FlowGuardCheckPlan:
         object.__setattr__(self, "risk_profile", _coerce_risk_profile(risk_profile))
         object.__setattr__(self, "scenarios", tuple(scenarios))
         object.__setattr__(self, "contracts", tuple(contracts))
+        object.__setattr__(self, "step_contracts", tuple(step_contracts))
         object.__setattr__(self, "progress_config", progress_config)
         object.__setattr__(self, "conformance_status", conformance_status)
         object.__setattr__(self, "conformance_report", conformance_report)
@@ -125,6 +128,7 @@ class FlowGuardCheckPlan:
             f"max_sequence_length: {self.max_sequence_length}",
             f"scenarios: {len(self.scenarios)}",
             f"contracts: {len(self.contracts)}",
+            f"step_contracts: {len(self.step_contracts)}",
             f"progress_config: {'provided' if self.progress_config is not None else 'not_provided'}",
             f"conformance_status: {self.conformance_status or 'not_provided'}",
             f"assumption_card: {'provided' if self.assumption_card is not None else 'not_provided'}",
@@ -154,6 +158,9 @@ class FlowGuardCheckPlan:
             "risk_profile": self.risk_profile.to_dict() if self.risk_profile else None,
             "scenarios": [str(getattr(scenario, "name", repr(scenario))) for scenario in self.scenarios],
             "contracts": [str(getattr(contract, "function_name", repr(contract))) for contract in self.contracts],
+            "step_contracts": [
+                str(getattr(contract, "step_id", repr(contract))) for contract in self.step_contracts
+            ],
             "progress_config": "provided" if self.progress_config is not None else None,
             "conformance_status": self.conformance_status,
             "conformance_report": to_jsonable(self.conformance_report),
