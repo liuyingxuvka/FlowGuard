@@ -81,6 +81,7 @@ unclear, narrow the task or mark `needs_human_review`.
 - Long-running checks may run in the background, but completion evidence needs
   final artifacts and exit status. Progress lines are liveness, not pass evidence.
 - Before full done/release/publish/production-confidence claims, use a Risk Evidence Ledger boundary.
+- When broad confidence depends on an AI-built plan or adapter, run plan-intake, adapter, false-negative, mutation, and typed claim-chain helpers before promotion.
 - Finish real project usage with adoption evidence: trigger, risk, commands, findings, skipped checks, and risk evidence boundary.
 
 ## Route Map
@@ -158,14 +159,10 @@ Codex skill:
 - Layered proof APIs such as `review_layered_boundary_proof()` for parent coverage,
   child disjointness, child reattachment, and leaf boundary matrix closure.
 - Alignment APIs such as `review_model_test_alignment()`, `review_code_boundary_conformance()`, `audit_python_code_contracts()`, `audit_python_test_assertions()`, `review_python_contract_source_audit()`, and optional code/boundary rows.
-- Risk evidence APIs such as `RiskEvidenceLedgerPlan`,
-  `RiskEvidenceProof`, `RiskEvidenceRow`, and
-  `review_risk_evidence_ledger()`.
-- Development lifecycle helpers such as `review_development_process_flow()`
-  and `derive_revalidation_plan()`.
-- Existing-model grounding helpers such as `ExistingModelPreflight`,
-  `ModelContextHit`, `ExistingOwnershipSnapshot`, `DuplicateBoundaryRisk`, and
-  `review_existing_model_preflight()`.
+- Risk evidence APIs such as `RiskEvidenceLedgerPlan`, `RiskEvidenceProof`, `RiskEvidenceRow`, and `review_risk_evidence_ledger()`.
+- Plan-intake/claim helpers such as `review_plan_intake_completeness()`, `review_evidence_adapter_conformance()`, `review_false_negative_backpropagation()`, `review_plan_mutations()`, and `review_flowguard_claim_chain()`.
+- Development lifecycle helpers such as `review_development_process_flow()` and `derive_revalidation_plan()`.
+- Existing-model grounding helpers such as `ExistingModelPreflight`, `ModelContextHit`, `ExistingOwnershipSnapshot`, `DuplicateBoundaryRisk`, and `review_existing_model_preflight()`.
 - Architecture reduction helpers such as `ObservableArchitectureContract`,
   `ArchitectureReductionCandidate`, `ArchitectureReductionPlan`, and
   `review_architecture_reduction()`.
@@ -187,7 +184,6 @@ The directly invokable satellite skills are:
 `flowguard-ui-flow-structure`, `flowguard-model-mesh`, `flowguard-test-mesh`,
 and `flowguard-structure-mesh`. Use the matching satellite directly when the user's
 request clearly matches that route; otherwise use this kernel.
-
 ## Resource Map
 
 - Kernel and core modeling: `references/skill_kernel_protocol.md`,

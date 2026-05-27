@@ -53,6 +53,9 @@ change.
   diagnostics for direct model/test evidence that is oversized, incomplete,
   slow, broad, progress-only, or release-only. Required splits route to the
   existing ModelMesh or TestMesh gate; they are not a new skill route.
+- Before broad confidence that depends on AI-built plans or project evidence
+  adapters, consume plan-intake, adapter-conformance, false-negative,
+  mutation-review, and typed claim-chain reports as current evidence.
 
 ## Workflow
 
@@ -101,7 +104,11 @@ change.
    decision as an evidence boundary: full confidence may continue, scoped
    confidence must be reported as scoped, and blocked findings must route back
    to the owning evidence route.
-16. For non-trivial lifecycle reviews, default to a user-facing Mermaid
+16. Before final done/release/archive/publish, consume
+   `review_flowguard_claim_chain(...)` when broad confidence depends on plan
+   intake, adapter mapping, false-negative closure, or known-bad mutation
+   probes.
+17. For non-trivial lifecycle reviews, default to a user-facing Mermaid
    development process diagram showing artifact versions, action writes/invalidations,
    evidence ids, freshness gates, minimum revalidation, and unsupported claims.
    This diagram's edges mean order, invalidation, or required revalidation, not

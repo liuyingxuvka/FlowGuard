@@ -144,3 +144,12 @@ DevelopmentProcessFlow should review direct model/test evidence with
 obligation coverage, background progress-only logs, or release-only scope could
 hide the need for ModelMesh or TestMesh. A required split keeps the lifecycle
 claim blocked or scoped until the owning mesh route supplies current evidence.
+
+When a lifecycle claim depends on an AI-built plan, a project-specific evidence
+adapter, a post-green false-negative repair, or known-bad mutation probes,
+DevelopmentProcessFlow should also consume the plan-intake and typed claim-chain
+reports as current evidence. `review_plan_intake_completeness(...)`,
+`review_evidence_adapter_conformance(...)`,
+`review_false_negative_backpropagation(...)`, `review_plan_mutations(...)`, and
+`review_flowguard_claim_chain(...)` keep plan-only, model-only, or alignment-only
+results from being reported as production confidence.

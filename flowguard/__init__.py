@@ -313,6 +313,8 @@ from .model_test_alignment import (
     review_python_contract_source_audit,
     review_model_test_alignment,
 )
+from . import plan_intake as _plan_intake
+from .plan_intake import *  # noqa: F403
 from .development_process_flow import (
     PROCESS_ARTIFACT_ADAPTER,
     PROCESS_ARTIFACT_CODE,
@@ -526,6 +528,8 @@ from .templates import (
 )
 from .trace import Trace, TraceStep
 from .workflow import Workflow, WorkflowPath, WorkflowRun
+
+PLAN_INTAKE_CLAIM_API = tuple(_plan_intake.__all__)
 
 CORE_API = (
     "FunctionBlock",
@@ -913,6 +917,7 @@ REPORTING_HELPER_API = (
     "AutoSplitPolicy",
     "AutoSplitReport",
     "review_auto_mesh_splits",
+    *PLAN_INTAKE_CLAIM_API,
     "AUTO_SPLIT_TARGET_MODEL",
     "AUTO_SPLIT_TARGET_TEST",
     "AUTO_SPLIT_ROUTE_MODEL_MESH",
@@ -1542,3 +1547,5 @@ __all__ = [
     "LAYERED_PASSING_PROOF_STATUSES",
     "LAYERED_NON_PASSING_PROOF_STATUSES",
 ]
+
+__all__.extend(name for name in PLAN_INTAKE_CLAIM_API if name not in __all__)

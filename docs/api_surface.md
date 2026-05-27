@@ -193,6 +193,15 @@ Reporting helpers help an AI agent explain what was checked and what was not:
   `DefectFamilyGateReport`, and `review_defect_family_gates()` for promoting
   recurring or high-risk same-class model misses into a reusable FlowGuard gate
   before a broad final-confidence claim
+- plan-intake and typed claim helpers such as `PlanIntakeRiskSurface`,
+  `PlanIntakeCompletenessPlan`, `review_plan_intake_completeness()`,
+  `EvidenceAdapterMapping`, `review_evidence_adapter_conformance()`,
+  `FalseNegativeCase`, `review_false_negative_backpropagation()`,
+  `PlanMutationCase`, `review_plan_mutations()`,
+  `FlowGuardClaimDependency`, and `review_flowguard_claim_chain()` for blocking
+  under-declared plan inputs, lossy adapters, known false negatives,
+  known-bad mutations, and unsupported promotion from narrow reports to broad
+  confidence claims
 - `run_model_first_checks`
 - `audit_model`
 - `FlowGuardSummaryReport`
@@ -307,3 +316,7 @@ current external proof evidence; stale, skipped, progress-only, or
 internal-path-only proof can support only a scoped or blocked claim. Do not
 claim production confidence from a model-only pass unless conformance replay or
 equivalent real-code evidence exists.
+When repeated issues or broad completion claims depend on upstream plan
+construction, first run the plan-intake, adapter-conformance,
+false-negative-backpropagation, mutation, and typed claim-chain helpers so
+omitted surfaces or narrow reports cannot be silently upgraded.

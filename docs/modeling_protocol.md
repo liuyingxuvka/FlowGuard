@@ -172,6 +172,14 @@ Use `review_risk_evidence_ledger(...)` to make these gaps explicit:
 - child or sibling route evidence has not been reattached to the parent claim;
 - a scoped-out risk has no reason, or a report overclaims full confidence.
 
+When the final claim depends on an AI-built plan or a project evidence adapter,
+run the plan-intake and typed claim helpers first:
+`review_plan_intake_completeness(...)`,
+`review_evidence_adapter_conformance(...)`,
+`review_false_negative_backpropagation(...)`, `review_plan_mutations(...)`, and
+`review_flowguard_claim_chain(...)`. They check whether the ledger rows and
+claim promotion were too narrow before the ledger is used as final evidence.
+
 Read `docs/risk_evidence_ledger.md` for the API sketch and template.
 
 ## 0.35 Check The Local Model Mesh Trigger

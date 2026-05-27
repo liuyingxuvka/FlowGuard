@@ -47,6 +47,9 @@ mostly core modeling rather than alignment.
   code-contract, evidence-status, freshness, and assertion-scope rows to the
   Risk Evidence Ledger; this skill produces coverage evidence, not the whole
   final confidence claim.
+- Alignment can only prove declared obligations. If the plan or adapter may
+  have omitted an in-scope surface, require plan-intake and adapter-conformance
+  helper evidence before the result is promoted through the typed claim chain.
 - Preserve user and peer-agent changes; rerun or bound stale evidence.
 - Keep helper APIs and templates as helpers, not skills.
 
@@ -85,7 +88,11 @@ mostly core modeling rather than alignment.
 12. Inspect missing, stale, unknown, overclaimed, incomplete leaf-matrix, or boundary-crossing coverage.
    Fix the model, code contracts, boundary observations, tests, or evidence
    rows before claiming alignment.
-13. For non-trivial alignment reviews, default to a user-facing Mermaid coverage
+13. For broad confidence claims, pass the alignment report through Risk
+   Evidence Ledger and `review_flowguard_claim_chain(...)`; do not let
+   alignment evidence stand in for plan completeness, runtime replay, or
+   production confidence.
+14. For non-trivial alignment reviews, default to a user-facing Mermaid coverage
    diagram showing model obligations, optional code contracts, test evidence,
    code-boundary observations, and missing/stale/overclaimed/boundary-crossing
    gaps. Its edges mean covers, partially covers, observes boundary, misses, or

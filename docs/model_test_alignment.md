@@ -201,3 +201,9 @@ seeded fuzz, background shards, release-only runs, or parent/child ownership,
 route that validation structure to TestMesh. Model-Test Alignment should
 consume the resulting current evidence ids; it should not become the test
 hierarchy.
+
+Alignment only checks declared obligations and declared test evidence. If a
+plan may have omitted a repeated failure class, a project adapter may have lost
+raw status or freshness, or a narrow report is being promoted to broad
+completion confidence, run the plan-intake and typed claim-chain helpers before
+the alignment result is used as final evidence.

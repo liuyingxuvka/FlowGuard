@@ -24,6 +24,14 @@ existing Model-Miss Review, Model-Test Alignment, DevelopmentProcessFlow, and
 Risk Evidence Ledger chain. It is not a new skill route and it is not owned by a
 downstream app.
 
+When the risk ledger depends on project-specific plan construction or evidence
+adapter rows, run `review_plan_intake_completeness(...)`,
+`review_evidence_adapter_conformance(...)`,
+`review_false_negative_backpropagation(...)`, `review_plan_mutations(...)`, and
+`review_flowguard_claim_chain(...)` before treating a ledger result as a broad
+completion claim. The ledger checks declared risk rows; these helpers check
+whether the rows and later claim promotion were too narrow.
+
 ## Public API
 
 - `RiskEvidenceRow`: one user-meaningful risk and the model/code/evidence IDs

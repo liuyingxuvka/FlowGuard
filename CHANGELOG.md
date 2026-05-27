@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.23.1 - 2026-05-27
+
+- Added plan-intake and typed claim-chain helper APIs so broad FlowGuard
+  confidence cannot be promoted from under-declared plan inputs, lossy evidence
+  adapter mappings, unbackpropagated false negatives, or known-bad mutations
+  that still pass.
+- Added `PlanIntakeRiskSurface`, `EvidenceAdapterMapping`,
+  `FalseNegativeCase`, `PlanMutationCase`, `FlowGuardClaimDependency`, their
+  review plans/reports, and the corresponding public review helpers.
+- Updated public docs, model-first skill guidance, API surface exports, and
+  focused tests for the new plan/adapter/miss/mutation/claim boundary.
+- Schema remains `1.0`; runtime dependencies remain Python standard library
+  only.
+
 ## v0.23.0 - 2026-05-27
 
 - Added automatic model/test split diagnostics with `AutoSplitCandidate`,

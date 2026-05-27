@@ -78,6 +78,10 @@ Hard gates:
   Risk Evidence Ledger boundary to connect user risks, model obligations,
   optional code contracts, recurring defect-family gates, model/test split
   gates, and current proof evidence.
+- When an AI-built plan or evidence adapter feeds that claim, run the
+  plan-intake and typed claim-chain helpers first: plan completeness,
+  evidence-adapter conformance, false-negative backpropagation, known-bad
+  mutation rejection, and `production_confidence` dependency typing.
 - Finish real project use with adoption evidence: trigger, model/risk, commands,
   findings, skipped steps, risk evidence summary, and next actions.
 
@@ -128,6 +132,11 @@ Use the matching Skill reference protocol for support routes. Helper APIs such a
 `RiskIntent`, property factories, packs, `FlowGuardCheckPlan`,
 `RiskEvidenceLedgerPlan`, `review_risk_evidence_ledger()`,
 `DefectFamilyGatePlan`, `review_defect_family_gates()`,
+`PlanIntakeCompletenessPlan`, `review_plan_intake_completeness()`,
+`EvidenceAdapterConformancePlan`, `review_evidence_adapter_conformance()`,
+`FalseNegativeBackpropagationPlan`, `review_false_negative_backpropagation()`,
+`PlanMutationReviewPlan`, `review_plan_mutations()`,
+`FlowGuardClaimChainPlan`, `review_flowguard_claim_chain()`,
 `review_code_structure_recommendation()`, `review_model_test_alignment()`,
 `ExistingModelPreflight`, `review_existing_model_preflight()`,
 `ObservableArchitectureContract`, `ArchitectureReductionCandidate`,

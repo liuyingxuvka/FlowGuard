@@ -23,6 +23,10 @@ multiple FlowGuard routes.
 - Do not close an in-scope miss with only an observed-bug regression test. The
   repaired model obligation needs current same-class test evidence verified by
   Model-Test Alignment, or the confidence claim stays scoped.
+- If the prior green result failed because the plan omitted a surface, an
+  adapter lost raw evidence status, evidence went stale, or a narrow report was
+  overpromoted, run `review_false_negative_backpropagation(...)` and feed the
+  result to the typed claim chain before broad closure.
 - If the same-class miss recurs, or if a high-risk first miss would make a local
   point fix overclaim full confidence, promote it to a recurring defect-family
   gate before closure. This is FlowGuard evidence inside the existing
@@ -76,7 +80,10 @@ multiple FlowGuard routes.
    record the prior evidence as overclaimed or stale, then attach the new
    same-class bad-case evidence and defect-family gate status before restoring
    full confidence.
-14. For non-trivial misses, default to a user-facing Mermaid miss-repair diagram
+14. When the miss exposes plan-intake, adapter-conformance, stale-evidence, or
+   claim-scope causes, record the false-negative backpropagation case and make
+   the final claim consume that case through `review_flowguard_claim_chain(...)`.
+15. For non-trivial misses, default to a user-facing Mermaid miss-repair diagram
    showing the prior green claim, observed failure, miss classification, model
    repair, same-class generalized bad case, observed-regression test,
    same-class test evidence, alignment rerun, and remaining validation
