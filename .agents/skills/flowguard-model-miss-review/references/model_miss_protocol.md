@@ -17,21 +17,30 @@ not close a known model miss unless the miss has been reviewed.
    evidence: scenario, invariant, replay adapter, representative trace, or
    model boundary note.
 4. Add one same-class generalized bad case when practical.
-5. Rerun the relevant model checks and confirm the old weakness is now visible,
+5. Add current test evidence for the observed regression and for the
+   same-class generalized case. A point regression is necessary but does not
+   close an in-scope miss by itself.
+6. Run Model-Test Alignment on the repaired model obligation, optional code
+   contracts when in scope, and the observed/same-class test evidence. If the
+   same-class validation is too large, slow, layered, stale-prone,
+   background, or release-only, route that hierarchy to TestMesh and report
+   scoped confidence until current child evidence exists.
+7. Rerun the relevant model checks and confirm the old weakness is now visible,
    or deliberately mark the generalized case out of scope.
-6. Validate the repair with the refined model plus the strongest practical
+8. Validate the repair with the refined model plus the strongest practical
    production-facing evidence.
-7. If the repair changed a child model under a parent ModelMesh, rerun the
+9. If the repair changed a child model under a parent ModelMesh, rerun the
    affected parent child-reattachment gate. The parent must consume the current
    child evidence id and confirm the child's inputs, outputs, state ownership,
    side-effect ownership, and outgoing guarantees still fit the parent flow.
-8. If the miss shows that real code accepted an unmodeled input, emitted an
+10. If the miss shows that real code accepted an unmodeled input, emitted an
    extra output/error/state write/side effect, or failed a declared leaf cell,
    update the leaf boundary matrix and rerun layered proof. Do not close the
    miss with only a new ordinary test when the model boundary itself overflowed.
-9. Record `Miss type`, `Generalized case`, and any parent reattachment decision
-   in adoption evidence and the Risk Evidence Ledger when a prior final claim
-   had one, or explain
+11. Record `Miss type`, `Generalized case`, observed-regression test evidence,
+   same-class test evidence, Model-Test Alignment result, and any parent
+   reattachment decision in adoption evidence and the Risk Evidence Ledger when
+   a prior final claim had one, or explain
    why no generalized case was added.
 
 ## What Not To Add By Default
@@ -45,10 +54,13 @@ miss repair changed a child model that an existing parent ModelMesh depends on.
 ## Completion Standard
 
 The model miss is closed only when it is classified, represented in executable
-evidence or explicitly out of scope, rerun, and validated with production-facing
-evidence. When the miss was repaired in a child model under a parent mesh, the
-affected parent reattachment gate must also pass or remain an explicit blocker.
-A patch plus a later green runtime check is not enough by itself.
+evidence or explicitly out of scope, rerun, validated with production-facing
+evidence, and, for in-scope misses, backed by current observed-regression and
+same-class test evidence in Model-Test Alignment. When the miss was repaired in
+a child model under a parent mesh, the affected parent reattachment gate must
+also pass or remain an explicit blocker. A patch plus a later green runtime
+check, or a patch plus one observed-bug regression test, is not enough by
+itself.
 If the prior green claim had a Risk Evidence Ledger row, mark the old proof as
 stale or overclaimed and attach the new same-class evidence before restoring
 full confidence.

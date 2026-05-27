@@ -464,6 +464,8 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("affected sibling review", text)
         self.assertIn("in-progress background run", text)
         self.assertIn("A later green runtime check by itself does not close", text)
+        self.assertIn("same-class test evidence", text)
+        self.assertIn("testing only the observed instance is not closure", text)
         self.assertIn("flowguard-model-test-alignment", text)
         self.assertIn("flowguard-development-process-flow", text)
         self.assertIn("flowguard-model-miss-review", text)

@@ -51,6 +51,9 @@ layered plan:
   green summary;
 - a release-only suite should stay visible without blocking routine local
   confidence.
+- a model-miss repair needs broad same-class coverage, such as parameterized
+  variants, property tests, seeded fuzz, background shards, or release-only
+  regressions that are too large for a direct Model-Test Alignment row set.
 
 This is different from hierarchical model mesh only in what is being split.
 Hierarchical model mesh governs FlowGuard model boundaries. TestMesh governs
@@ -108,6 +111,12 @@ When a final FlowGuard confidence claim depends on these suites, feed each
 child suite's evidence id, status, freshness, and scope into the Risk Evidence
 Ledger. TestMesh owns the validation hierarchy; the ledger owns the final
 "does this evidence support this user risk?" claim boundary.
+
+For model-miss repair, the parent gate should keep the observed regression and
+same-class generalized coverage distinct. A child suite can own the observed
+case, while another owns the same-class family through parameterized tests,
+property checks, seeded fuzz, or release-only runs. Routine confidence remains
+scoped until release-only same-class evidence is current.
 
 For layered boundary proof, TestMesh can own the suite/script hierarchy that
 produces leaf boundary evidence, but it does not by itself prove the leaf

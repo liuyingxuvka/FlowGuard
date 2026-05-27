@@ -54,6 +54,14 @@ ALLOWED_TEST_EVIDENCE_ROLES = PRIMARY_TEST_EVIDENCE_ROLES | {
     TEST_EVIDENCE_ROLE_INTEGRATION_SMOKE,
 }
 
+TEST_CLOSURE_ROLE_UNSPECIFIED = ""
+TEST_CLOSURE_ROLE_OBSERVED_REGRESSION = "observed_regression"
+TEST_CLOSURE_ROLE_SAME_CLASS_GENERALIZED = "same_class_generalized"
+MODEL_MISS_DEFAULT_CLOSURE_ROLES = (
+    TEST_CLOSURE_ROLE_OBSERVED_REGRESSION,
+    TEST_CLOSURE_ROLE_SAME_CLASS_GENERALIZED,
+)
+
 TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT = "external_contract"
 TEST_ASSERTION_SCOPE_INTERNAL_PATH = "internal_path"
 TEST_ASSERTION_SCOPE_MIXED = "mixed"
@@ -169,6 +177,9 @@ class ModelObligation:
     side_effects: tuple[str, ...] = ()
     error_paths: tuple[str, ...] = ()
     exact_external_contract: bool = False
+    model_miss_origin: bool = False
+    requires_same_class_test_evidence: bool = False
+    required_closure_evidence_roles: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "obligation_id", str(self.obligation_id))
@@ -182,6 +193,10 @@ class ModelObligation:
         object.__setattr__(self, "state_writes", _as_tuple(self.state_writes))
         object.__setattr__(self, "side_effects", _as_tuple(self.side_effects))
         object.__setattr__(self, "error_paths", _as_tuple(self.error_paths))
+        closure_roles = _as_tuple(self.required_closure_evidence_roles)
+        if self.requires_same_class_test_evidence and not closure_roles:
+            closure_roles = MODEL_MISS_DEFAULT_CLOSURE_ROLES
+        object.__setattr__(self, "required_closure_evidence_roles", closure_roles)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -200,6 +215,9 @@ class ModelObligation:
             "side_effects": list(self.side_effects),
             "error_paths": list(self.error_paths),
             "exact_external_contract": self.exact_external_contract,
+            "model_miss_origin": self.model_miss_origin,
+            "requires_same_class_test_evidence": self.requires_same_class_test_evidence,
+            "required_closure_evidence_roles": list(self.required_closure_evidence_roles),
         }
 
 
@@ -360,6 +378,7 @@ class TestEvidence:
     evidence_target_id: str = ""
     stale_reasons: tuple[str, ...] = ()
     overclaims_model_confidence: bool = False
+    closure_evidence_role: str = TEST_CLOSURE_ROLE_UNSPECIFIED
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "evidence_id", str(self.evidence_id))
@@ -374,6 +393,7 @@ class TestEvidence:
         object.__setattr__(self, "evidence_role", str(self.evidence_role))
         object.__setattr__(self, "evidence_target_id", str(self.evidence_target_id))
         object.__setattr__(self, "stale_reasons", _as_tuple(self.stale_reasons))
+        object.__setattr__(self, "closure_evidence_role", str(self.closure_evidence_role))
 
     def has_current_pass(self) -> bool:
         return self.result_status in PASSING_STATUSES and self.evidence_current
@@ -400,6 +420,7 @@ class TestEvidence:
             "evidence_target_id": self.evidence_target_id,
             "stale_reasons": list(self.stale_reasons),
             "overclaims_model_confidence": self.overclaims_model_confidence,
+            "closure_evidence_role": self.closure_evidence_role,
         }
 
 
@@ -863,6 +884,9 @@ def _decision_for_findings(findings: Sequence[ModelTestAlignmentFinding]) -> str
         ("supporting_evidence_target_missing", "supporting_evidence_target_required"),
         ("primary_edge_role_kind_mismatch", "invalid_alignment_plan"),
         ("invalid_test_evidence_role", "invalid_alignment_plan"),
+        ("model_miss_closure_evidence_internal_path_only", "test_checks_internal_path_only"),
+        ("missing_same_class_test_evidence", "missing_same_class_test_evidence"),
+        ("missing_observed_regression_test_evidence", "missing_observed_regression_test_evidence"),
         ("missing_test_evidence", "missing_test_evidence"),
         ("missing_code_contract_test_evidence", "missing_code_contract_test_evidence"),
         ("missing_required_test_kind", "missing_required_test_kind"),
@@ -1653,6 +1677,22 @@ def _counts_as_obligation_coverage(evidence: TestEvidence) -> bool:
     }
 
 
+def _closure_role_finding_code(role: str) -> str:
+    if role == TEST_CLOSURE_ROLE_SAME_CLASS_GENERALIZED:
+        return "missing_same_class_test_evidence"
+    if role == TEST_CLOSURE_ROLE_OBSERVED_REGRESSION:
+        return "missing_observed_regression_test_evidence"
+    return "missing_model_miss_closure_test_evidence"
+
+
+def _closure_role_label(role: str) -> str:
+    if role == TEST_CLOSURE_ROLE_SAME_CLASS_GENERALIZED:
+        return "same-class generalized"
+    if role == TEST_CLOSURE_ROLE_OBSERVED_REGRESSION:
+        return "observed regression"
+    return role or "unspecified closure"
+
+
 def _coverage_findings(
     obligations_by_id: Mapping[str, ModelObligation],
     passing_by_obligation: Mapping[str, Sequence[TestEvidence]],
@@ -1693,6 +1733,40 @@ def _coverage_findings(
             )
             continue
 
+        if obligation.model_miss_origin or obligation.required_closure_evidence_roles:
+            for evidence in coverage_evidence:
+                if evidence.closure_evidence_role and not evidence.has_external_contract_assertion():
+                    findings.append(
+                        ModelTestAlignmentFinding(
+                            "model_miss_closure_evidence_internal_path_only",
+                            f"model-miss closure evidence {evidence.evidence_id} does not prove the external behavior boundary",
+                            obligation_id=obligation_id,
+                            evidence_id=evidence.evidence_id,
+                            metadata=evidence.to_dict(),
+                        )
+                    )
+            externally_scoped_roles = {
+                evidence.closure_evidence_role
+                for evidence in coverage_evidence
+                if evidence.closure_evidence_role
+                and evidence.has_external_contract_assertion()
+                and not evidence.overclaims_model_confidence
+            }
+            for role in obligation.required_closure_evidence_roles:
+                if role not in externally_scoped_roles:
+                    findings.append(
+                        ModelTestAlignmentFinding(
+                            _closure_role_finding_code(role),
+                            f"model-miss obligation {obligation_id} lacks current passing {_closure_role_label(role)} test evidence",
+                            obligation_id=obligation_id,
+                            metadata={
+                                "obligation": obligation.to_dict(),
+                                "required_closure_role": role,
+                                "roles_present": sorted(externally_scoped_roles),
+                            },
+                        )
+                    )
+
         kinds_present = {evidence.test_kind for evidence in coverage_evidence}
         for required_kind in obligation.required_test_kinds:
             if required_kind not in kinds_present:
@@ -1714,7 +1788,10 @@ def _coverage_findings(
             for evidence in passing:
                 if not _is_primary_coverage_evidence(evidence):
                     continue
-                evidence_by_kind.setdefault(evidence.test_kind, []).append(evidence)
+                duplicate_key = evidence.test_kind
+                if obligation.required_closure_evidence_roles and evidence.closure_evidence_role:
+                    duplicate_key = f"{evidence.test_kind}:{evidence.closure_evidence_role}"
+                evidence_by_kind.setdefault(duplicate_key, []).append(evidence)
             for test_kind, same_kind in sorted(evidence_by_kind.items()):
                 if len(same_kind) > 1:
                     findings.append(
@@ -2267,6 +2344,9 @@ __all__ = [
     "TEST_ASSERTION_SCOPE_INTERNAL_PATH",
     "TEST_ASSERTION_SCOPE_MIXED",
     "TEST_ASSERTION_SCOPE_UNKNOWN",
+    "TEST_CLOSURE_ROLE_OBSERVED_REGRESSION",
+    "TEST_CLOSURE_ROLE_SAME_CLASS_GENERALIZED",
+    "TEST_CLOSURE_ROLE_UNSPECIFIED",
     "TEST_EVIDENCE_ROLE_INTEGRATION_SMOKE",
     "TEST_EVIDENCE_ROLE_LEAF_MATRIX_CELL",
     "TEST_EVIDENCE_ROLE_PRIMARY",

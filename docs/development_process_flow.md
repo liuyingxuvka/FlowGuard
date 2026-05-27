@@ -75,6 +75,9 @@ while the current artifact is `code.checkout@4`.
 - verifier changes after validation, such as tests or model files changing;
 - explicit upstream freshness rules, such as requirement changes invalidating
   downstream code and validation evidence;
+- model-miss repair changes that invalidate earlier alignment evidence, such
+  as a new miss classification, same-class generalized case, closure evidence
+  role, or test row used to prove closure;
 - ambiguous freshness policy for declared upstream/downstream artifacts;
 - progress-only background evidence, hidden skipped validation, failed
   evidence, and not-run evidence;
@@ -127,3 +130,10 @@ DevelopmentProcessFlow should reference the layered proof report as a sibling
 evidence id. Parent coverage edits, child ownership or contract edits, child
 evidence-id changes, and leaf code/test/observation edits stale the related
 layered proof rows until they are rerun and reattached.
+
+When the final claim closes a model miss, DevelopmentProcessFlow should include
+Model-Test Alignment as a required validation pair for the repaired model
+obligation and the observed/same-class test rows. If the same-class evidence is
+large, slow, background, layered, or release-only, it should also include
+TestMesh evidence and keep routine confidence scoped until current release
+evidence exists.

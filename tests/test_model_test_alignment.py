@@ -5,6 +5,8 @@ from flowguard import (
     ModelObligation,
     ModelTestAlignmentPlan,
     TestEvidence,
+    TEST_CLOSURE_ROLE_OBSERVED_REGRESSION,
+    TEST_CLOSURE_ROLE_SAME_CLASS_GENERALIZED,
     TEST_KIND_EDGE_PATH,
     TEST_KIND_FAILURE_PATH,
     TEST_KIND_HAPPY_PATH,
@@ -530,6 +532,129 @@ class ModelTestAlignmentTests(unittest.TestCase):
         report = review_model_test_alignment(plan)
 
         self.assertTrue(report.ok)
+
+    def test_model_miss_closure_requires_observed_and_same_class_evidence(self):
+        plan = ModelTestAlignmentPlan(
+            model_id="checkout",
+            obligations=(
+                obligation(
+                    "reject_duplicate_submit_family",
+                    model_miss_origin=True,
+                    requires_same_class_test_evidence=True,
+                ),
+            ),
+            test_evidence=(
+                evidence(
+                    "test_observed_duplicate_submit",
+                    "reject_duplicate_submit_family",
+                    closure_evidence_role=TEST_CLOSURE_ROLE_OBSERVED_REGRESSION,
+                ),
+                evidence(
+                    "test_same_class_duplicate_submit_variants",
+                    "reject_duplicate_submit_family",
+                    closure_evidence_role=TEST_CLOSURE_ROLE_SAME_CLASS_GENERALIZED,
+                ),
+            ),
+        )
+
+        report = review_model_test_alignment(plan)
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual("model_test_alignment_green", report.decision)
+        self.assertEqual(
+            [
+                TEST_CLOSURE_ROLE_OBSERVED_REGRESSION,
+                TEST_CLOSURE_ROLE_SAME_CLASS_GENERALIZED,
+            ],
+            list(plan.obligations[0].required_closure_evidence_roles),
+        )
+
+    def test_model_miss_observed_regression_only_blocks_same_class_closure(self):
+        plan = ModelTestAlignmentPlan(
+            model_id="checkout",
+            obligations=(
+                obligation(
+                    "reject_duplicate_submit_family",
+                    model_miss_origin=True,
+                    requires_same_class_test_evidence=True,
+                ),
+            ),
+            test_evidence=(
+                evidence(
+                    "test_observed_duplicate_submit",
+                    "reject_duplicate_submit_family",
+                    closure_evidence_role=TEST_CLOSURE_ROLE_OBSERVED_REGRESSION,
+                ),
+            ),
+        )
+
+        report = review_model_test_alignment(plan)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("missing_same_class_test_evidence", report.decision)
+        self.assertIn("missing_same_class_test_evidence", finding_codes(report))
+
+    def test_model_miss_same_class_evidence_must_target_repaired_obligation(self):
+        plan = ModelTestAlignmentPlan(
+            model_id="checkout",
+            obligations=(
+                obligation(
+                    "reject_duplicate_submit_family",
+                    model_miss_origin=True,
+                    requires_same_class_test_evidence=True,
+                ),
+                obligation("other_repair_family"),
+            ),
+            test_evidence=(
+                evidence(
+                    "test_observed_duplicate_submit",
+                    "reject_duplicate_submit_family",
+                    closure_evidence_role=TEST_CLOSURE_ROLE_OBSERVED_REGRESSION,
+                ),
+                evidence(
+                    "test_same_class_wrong_family",
+                    "other_repair_family",
+                    closure_evidence_role=TEST_CLOSURE_ROLE_SAME_CLASS_GENERALIZED,
+                ),
+            ),
+        )
+
+        report = review_model_test_alignment(plan)
+
+        self.assertFalse(report.ok)
+        self.assertIn("missing_same_class_test_evidence", finding_codes(report))
+
+    def test_model_miss_overclaimed_same_class_evidence_stays_blocking(self):
+        plan = ModelTestAlignmentPlan(
+            model_id="checkout",
+            obligations=(
+                obligation(
+                    "reject_duplicate_submit_family",
+                    model_miss_origin=True,
+                    requires_same_class_test_evidence=True,
+                ),
+            ),
+            test_evidence=(
+                evidence(
+                    "test_observed_duplicate_submit",
+                    "reject_duplicate_submit_family",
+                    closure_evidence_role=TEST_CLOSURE_ROLE_OBSERVED_REGRESSION,
+                ),
+                evidence(
+                    "test_same_class_overclaim",
+                    "reject_duplicate_submit_family",
+                    closure_evidence_role=TEST_CLOSURE_ROLE_SAME_CLASS_GENERALIZED,
+                    overclaims_model_confidence=True,
+                ),
+            ),
+        )
+
+        report = review_model_test_alignment(plan)
+        codes = finding_codes(report)
+
+        self.assertFalse(report.ok)
+        self.assertIn("missing_same_class_test_evidence", codes)
+        self.assertIn("test_overclaims_model_confidence", codes)
 
     def test_python_source_audit_accepts_external_contract_test(self):
         contract = code_contract(

@@ -970,6 +970,7 @@ Guards against:
 - finalizing after a runtime issue without classifying the model miss;
 - validating a fix before representing the observed issue in the model;
 - validating a point fix before representing a same-class generalized bad case;
+- validating only the observed bug without same-class test evidence;
 - using the known bug as the whole model target instead of holdout evidence;
 - treating a later green runtime check as enough to close a known miss.
 
@@ -1002,6 +1003,9 @@ class State:
     generalized_bad_case_in_scope: bool = True
     generalized_bad_case_represented_in_model: bool = False
     known_bug_used_as_holdout: bool = False
+    observed_regression_test_added: bool = False
+    same_class_test_evidence_added: bool = False
+    model_test_alignment_rerun: bool = False
     fix_validated_after_refinement: bool = False
     completed: bool = False
 
@@ -1017,6 +1021,9 @@ CLASSIFY_MISS = Event("classify_miss")
 REPRESENT_ISSUE = Event("represent_issue")
 REPRESENT_GENERALIZED_BAD_CASE = Event("represent_generalized_bad_case")
 RECORD_KNOWN_BUG_HOLDOUT = Event("record_known_bug_holdout")
+ADD_OBSERVED_REGRESSION_TEST = Event("add_observed_regression_test")
+ADD_SAME_CLASS_TEST_EVIDENCE = Event("add_same_class_test_evidence")
+RERUN_MODEL_TEST_ALIGNMENT = Event("rerun_model_test_alignment")
 VALIDATE_FIX = Event("validate_fix")
 FINALIZE = Event("finalize")
 
@@ -1031,6 +1038,9 @@ class ApplyReviewStep:
         "generalized_bad_case_in_scope",
         "generalized_bad_case_represented_in_model",
         "known_bug_used_as_holdout",
+        "observed_regression_test_added",
+        "same_class_test_evidence_added",
+        "model_test_alignment_rerun",
         "fix_validated_after_refinement",
     )
     writes = (
@@ -1040,6 +1050,9 @@ class ApplyReviewStep:
         "issue_represented_in_model",
         "generalized_bad_case_represented_in_model",
         "known_bug_used_as_holdout",
+        "observed_regression_test_added",
+        "same_class_test_evidence_added",
+        "model_test_alignment_rerun",
         "fix_validated_after_refinement",
         "completed",
     )
@@ -1102,6 +1115,36 @@ class ApplyReviewStep:
                 label="known_bug_used_as_holdout",
             )
             return
+        if input_obj.name == "add_observed_regression_test":
+            if not state.known_bug_used_as_holdout:
+                yield FunctionResult("observed_regression_test_blocked", state, label="blocked")
+                return
+            yield FunctionResult(
+                "observed_regression_test_added",
+                replace(state, observed_regression_test_added=True),
+                label="observed_regression_test_added",
+            )
+            return
+        if input_obj.name == "add_same_class_test_evidence":
+            if not state.observed_regression_test_added:
+                yield FunctionResult("same_class_test_evidence_blocked", state, label="blocked")
+                return
+            yield FunctionResult(
+                "same_class_test_evidence_added",
+                replace(state, same_class_test_evidence_added=True),
+                label="same_class_test_evidence_added",
+            )
+            return
+        if input_obj.name == "rerun_model_test_alignment":
+            if not state.same_class_test_evidence_added:
+                yield FunctionResult("model_test_alignment_blocked", state, label="blocked")
+                return
+            yield FunctionResult(
+                "model_test_alignment_rerun",
+                replace(state, model_test_alignment_rerun=True),
+                label="model_test_alignment_rerun",
+            )
+            return
         if input_obj.name == "validate_fix":
             if not state.issue_represented_in_model:
                 yield FunctionResult("fix_validation_blocked", state, label="blocked")
@@ -1111,6 +1154,15 @@ class ApplyReviewStep:
                 return
             if state.generalized_bad_case_in_scope and not state.known_bug_used_as_holdout:
                 yield FunctionResult("holdout_role_validation_blocked", state, label="blocked")
+                return
+            if state.generalized_bad_case_in_scope and not state.observed_regression_test_added:
+                yield FunctionResult("observed_regression_test_validation_blocked", state, label="blocked")
+                return
+            if state.generalized_bad_case_in_scope and not state.same_class_test_evidence_added:
+                yield FunctionResult("same_class_test_evidence_validation_blocked", state, label="blocked")
+                return
+            if state.generalized_bad_case_in_scope and not state.model_test_alignment_rerun:
+                yield FunctionResult("model_test_alignment_validation_blocked", state, label="blocked")
                 return
             yield FunctionResult(
                 "fix_validated_after_refinement",
@@ -1179,6 +1231,23 @@ class BrokenValidateWithoutHoldoutRole(ApplyReviewStep):
         yield from super().apply(input_obj, state)
 
 
+class BrokenValidateWithoutSameClassTestEvidence(ApplyReviewStep):
+    def apply(self, input_obj: Event, state: State) -> Iterable[FunctionResult]:
+        if (
+            input_obj.name == "validate_fix"
+            and state.issue_represented_in_model
+            and state.generalized_bad_case_represented_in_model
+            and state.known_bug_used_as_holdout
+        ):
+            yield FunctionResult(
+                "validated_without_same_class_test_evidence",
+                replace(state, fix_validated_after_refinement=True),
+                label="broken_validate_without_same_class_test_evidence",
+            )
+            return
+        yield from super().apply(input_obj, state)
+
+
 def invariants() -> tuple[Invariant, ...]:
     def completion_requires_review(state: State, _trace) -> InvariantResult:
         if state.completed and state.runtime_issue_observed:
@@ -1190,10 +1259,18 @@ def invariants() -> tuple[Invariant, ...]:
                     or state.generalized_bad_case_represented_in_model
                 )
                 and (not state.generalized_bad_case_in_scope or state.known_bug_used_as_holdout)
+                and (
+                    not state.generalized_bad_case_in_scope
+                    or (
+                        state.observed_regression_test_added
+                        and state.same_class_test_evidence_added
+                        and state.model_test_alignment_rerun
+                    )
+                )
                 and state.fix_validated_after_refinement
             ):
                 return InvariantResult.fail(
-                    "completed runtime issue without classification, observed issue model representation, same-class generalized bad case representation, known-bug holdout role, and refined validation"
+                    "completed runtime issue without classification, observed issue model representation, same-class generalized bad case representation, known-bug holdout role, same-class test evidence, Model-Test Alignment rerun, and refined validation"
                 )
         return InvariantResult.pass_()
 
@@ -1220,6 +1297,17 @@ def invariants() -> tuple[Invariant, ...]:
             return InvariantResult.fail("fix validated before recording the known bug as holdout validation evidence")
         return InvariantResult.pass_()
 
+    def fix_validation_requires_same_class_test_evidence(state: State, _trace) -> InvariantResult:
+        if not (state.fix_validated_after_refinement and state.generalized_bad_case_in_scope):
+            return InvariantResult.pass_()
+        if not state.observed_regression_test_added:
+            return InvariantResult.fail("fix validated before adding observed-regression test evidence")
+        if not state.same_class_test_evidence_added:
+            return InvariantResult.fail("fix validated before adding same-class generalized test evidence")
+        if not state.model_test_alignment_rerun:
+            return InvariantResult.fail("fix validated before rerunning Model-Test Alignment")
+        return InvariantResult.pass_()
+
     return (
         Invariant("completion_requires_review", "Runtime issues must be reviewed before completion.", completion_requires_review),
         Invariant(
@@ -1236,6 +1324,11 @@ def invariants() -> tuple[Invariant, ...]:
             "fix_validation_requires_known_bug_holdout_role",
             "Fix validation records the known bug as holdout validation evidence, not the whole model target.",
             fix_validation_requires_known_bug_holdout_role,
+        ),
+        Invariant(
+            "fix_validation_requires_same_class_test_evidence",
+            "Fix validation requires observed regression and same-class test evidence aligned to the repaired model.",
+            fix_validation_requires_same_class_test_evidence,
         ),
     )
 
@@ -1268,6 +1361,9 @@ def run_checks():
                 REPRESENT_ISSUE,
                 REPRESENT_GENERALIZED_BAD_CASE,
                 RECORD_KNOWN_BUG_HOLDOUT,
+                ADD_OBSERVED_REGRESSION_TEST,
+                ADD_SAME_CLASS_TEST_EVIDENCE,
+                RERUN_MODEL_TEST_ALIGNMENT,
                 VALIDATE_FIX,
                 FINALIZE,
             ),
@@ -1328,6 +1424,26 @@ def run_checks():
                 ),
                 block=BrokenValidateWithoutHoldoutRole(),
             ),
+            scenario(
+                "validate_without_same_class_test_evidence",
+                "Broken workflow models the class but only validates the observed bug.",
+                (
+                    FLOWGUARD_PASS,
+                    RUNTIME_FAIL,
+                    CLASSIFY_MISS,
+                    REPRESENT_ISSUE,
+                    REPRESENT_GENERALIZED_BAD_CASE,
+                    RECORD_KNOWN_BUG_HOLDOUT,
+                    ADD_OBSERVED_REGRESSION_TEST,
+                    VALIDATE_FIX,
+                    FINALIZE,
+                ),
+                ScenarioExpectation(
+                    expected_status="violation",
+                    expected_violation_names=("fix_validation_requires_same_class_test_evidence",),
+                ),
+                block=BrokenValidateWithoutSameClassTestEvidence(),
+            ),
         )
     )
     return correct, broken
@@ -1369,11 +1485,20 @@ Use this scaffold when real validation finds an issue after a FlowGuard pass.
   that class represented or explicitly out of scope?
 - How is the known bug used as validation or holdout evidence instead of the
   whole model target?
-- Which refined model checks and runtime checks must pass before completion?
+- Which observed-regression test and same-class generalized test evidence now
+  prove the repaired obligation?
+- Which Model-Test Alignment rows prove the new model obligations, optional
+  code contracts, and same-class tests cover the same behavior?
+- Which refined model checks, runtime checks, and same-class tests must pass
+  before completion?
 - If the repair changed a child model under a parent ModelMesh, which parent
   reattachment gate consumed the new child evidence id?
+- If same-class validation is large, slow, layered, background, or release-only,
+  which TestMesh parent/child suite owns it and where is final result evidence?
 
-Do not let a later green runtime check close a known model miss by itself.
+Do not let a later green runtime check or one observed-bug regression test close
+a known model miss by itself. Full closure needs same-class test evidence or an
+explicit scoped-confidence boundary.
 Child-local green is not enough when parent mesh confidence depends on the
 child's input/output/state/side-effect handoff.
 """
@@ -1398,6 +1523,7 @@ Guards against:
 - tests that inspect only internal paths while claiming external contract proof;
 - duplicate tests claiming the same model obligation without clear intent;
 - risky model paths covered only by happy-path tests;
+- model-miss repairs that only test the observed bug without same-class evidence;
 - stale, skipped, failed, timeout, not-run, or overclaiming test evidence.
 
 Use before editing:
@@ -1424,6 +1550,8 @@ from flowguard import (
     ModelTestAlignmentPlan,
     TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
     TEST_ASSERTION_SCOPE_INTERNAL_PATH,
+    TEST_CLOSURE_ROLE_OBSERVED_REGRESSION,
+    TEST_CLOSURE_ROLE_SAME_CLASS_GENERALIZED,
     TEST_KIND_FAILURE_PATH,
     TEST_KIND_HAPPY_PATH,
     TestEvidence,
@@ -1460,6 +1588,14 @@ def aligned_plan() -> ModelTestAlignmentPlan:
                 exact_external_contract=True,
                 required_test_kinds=(TEST_KIND_HAPPY_PATH, TEST_KIND_FAILURE_PATH),
             ),
+            ModelObligation(
+                "model_miss_duplicate_submit_family",
+                obligation_type="model_miss",
+                description="post-runtime duplicate-submit miss is closed by observed and same-class tests",
+                model_miss_origin=True,
+                requires_same_class_test_evidence=True,
+                required_test_kinds=(TEST_KIND_HAPPY_PATH,),
+            ),
         ),
         code_contracts=(
             CodeContract(
@@ -1479,6 +1615,15 @@ def aligned_plan() -> ModelTestAlignmentPlan:
                 external_inputs=("order_id",),
                 external_outputs=("Rejected",),
                 state_reads=("order_status",),
+                error_paths=("duplicate_order",),
+            ),
+            CodeContract(
+                "checkout_duplicate_submit_family",
+                path="checkout/service.py",
+                symbol="reject_duplicate_order",
+                implements_obligations=("model_miss_duplicate_submit_family",),
+                external_inputs=("order_id",),
+                external_outputs=("Rejected",),
                 error_paths=("duplicate_order",),
             ),
         ),
@@ -1512,6 +1657,28 @@ def aligned_plan() -> ModelTestAlignmentPlan:
                 covered_obligations=("reject_duplicate_order",),
                 covered_code_contracts=("checkout_reject_duplicate",),
                 assertion_scope=TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
+            ),
+            TestEvidence(
+                "test_observed_duplicate_submit_regression",
+                test_name="test_observed_duplicate_submit_regression",
+                path="tests/test_checkout.py",
+                result_status="passed",
+                test_kind=TEST_KIND_HAPPY_PATH,
+                covered_obligations=("model_miss_duplicate_submit_family",),
+                covered_code_contracts=("checkout_duplicate_submit_family",),
+                assertion_scope=TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
+                closure_evidence_role=TEST_CLOSURE_ROLE_OBSERVED_REGRESSION,
+            ),
+            TestEvidence(
+                "test_same_class_duplicate_submit_variants",
+                test_name="test_same_class_duplicate_submit_variants",
+                path="tests/test_checkout.py",
+                result_status="passed",
+                test_kind=TEST_KIND_HAPPY_PATH,
+                covered_obligations=("model_miss_duplicate_submit_family",),
+                covered_code_contracts=("checkout_duplicate_submit_family",),
+                assertion_scope=TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
+                closure_evidence_role=TEST_CLOSURE_ROLE_SAME_CLASS_GENERALIZED,
             ),
         ),
         boundary_contracts=(
@@ -1560,6 +1727,12 @@ def broken_plan() -> ModelTestAlignmentPlan:
                 exact_external_contract=True,
                 required_test_kinds=(TEST_KIND_HAPPY_PATH, TEST_KIND_FAILURE_PATH),
             ),
+            ModelObligation(
+                "model_miss_duplicate_submit_family",
+                obligation_type="model_miss",
+                model_miss_origin=True,
+                requires_same_class_test_evidence=True,
+            ),
         ),
         code_contracts=(
             CodeContract(
@@ -1570,6 +1743,13 @@ def broken_plan() -> ModelTestAlignmentPlan:
                 external_outputs=("Rejected",),
                 side_effects=("publish_duplicate_metric",),
                 error_paths=("duplicate_order",),
+            ),
+            CodeContract(
+                "checkout_duplicate_submit_family",
+                path="checkout/service.py",
+                symbol="reject_duplicate_order",
+                implements_obligations=("model_miss_duplicate_submit_family",),
+                external_outputs=("Rejected",),
             ),
         ),
         test_evidence=(
@@ -1588,6 +1768,16 @@ def broken_plan() -> ModelTestAlignmentPlan:
                 test_name="test_unbound_helper",
                 path="tests/test_checkout.py",
                 result_status="passed",
+            ),
+            TestEvidence(
+                "test_observed_duplicate_submit_only",
+                test_name="test_observed_duplicate_submit_only",
+                path="tests/test_checkout.py",
+                result_status="passed",
+                covered_obligations=("model_miss_duplicate_submit_family",),
+                covered_code_contracts=("checkout_duplicate_submit_family",),
+                assertion_scope=TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
+                closure_evidence_role=TEST_CLOSURE_ROLE_OBSERVED_REGRESSION,
             ),
         ),
         boundary_contracts=(
@@ -1647,6 +1837,12 @@ def test_reject_duplicate_order_happy():
 def test_reject_duplicate_order_failure():
     result = reject_duplicate_order("order-1")
     assert result == "Rejected"
+
+def test_observed_duplicate_submit_regression():
+    assert reject_duplicate_order("observed-duplicate") == "Rejected"
+
+def test_same_class_duplicate_submit_variants():
+    assert reject_duplicate_order("duplicate-via-alt-entry") == "Rejected"
 """,
 }
 

@@ -3,9 +3,10 @@
 Risk Purpose Header:
 This FlowGuard model reviews the `model-first-function-flow` Skill update for
 post-runtime model-miss review. It guards against point-fix-only model repairs,
-over-detailed formal miss categories, and turning ordinary model misses into a
-new registry/reviewer/mesh-heavy process. Future agents should run or update
-this model before changing the lightweight model-miss workflow.
+point-fix-only test upgrades, over-detailed formal miss categories, and turning
+ordinary model misses into a new registry/reviewer/mesh-heavy process. Future
+agents should run or update this model before changing the lightweight
+model-miss workflow.
 
 Run:
 python examples/lightweight_model_miss_review/run_checks.py
@@ -37,6 +38,9 @@ class ReviewCase:
     observed_issue_represented: bool = True
     generalized_case_added: bool = True
     generalized_case_omitted_reason: str = ""
+    observed_regression_test_added: bool = True
+    same_class_test_evidence_added: bool = True
+    model_test_alignment_rerun: bool = True
     requires_hazard_registry: bool = False
     requires_upgrade_reviewer: bool = False
     requires_default_model_mesh: bool = False
@@ -52,6 +56,9 @@ class ReviewState:
     observed_issue_represented: bool = False
     generalized_case_added: bool = False
     generalized_case_omitted_reason: str = ""
+    observed_regression_test_added: bool = False
+    same_class_test_evidence_added: bool = False
+    model_test_alignment_rerun: bool = False
     requires_hazard_registry: bool = False
     requires_upgrade_reviewer: bool = False
     requires_default_model_mesh: bool = False
@@ -78,6 +85,24 @@ BROKEN_POINT_FIX_ONLY = ReviewCase(
     "invariant_too_weak",
     observed_issue_represented=True,
     generalized_case_added=False,
+)
+BROKEN_OBSERVED_TEST_ONLY = ReviewCase(
+    "broken_observed_test_only",
+    "evidence_overclaimed",
+    observed_issue_represented=True,
+    generalized_case_added=True,
+    observed_regression_test_added=True,
+    same_class_test_evidence_added=False,
+    model_test_alignment_rerun=True,
+)
+BROKEN_ALIGNMENT_NOT_RERUN = ReviewCase(
+    "broken_alignment_not_rerun",
+    "state_too_coarse",
+    observed_issue_represented=True,
+    generalized_case_added=True,
+    observed_regression_test_added=True,
+    same_class_test_evidence_added=True,
+    model_test_alignment_rerun=False,
 )
 BROKEN_DETAILED_CATEGORY = ReviewCase(
     "broken_old_detailed_category",
@@ -114,6 +139,9 @@ class EvaluateModelMissReview:
         "observed_issue_represented",
         "generalized_case_added",
         "generalized_case_omitted_reason",
+        "observed_regression_test_added",
+        "same_class_test_evidence_added",
+        "model_test_alignment_rerun",
         "requires_hazard_registry",
         "requires_upgrade_reviewer",
         "requires_default_model_mesh",
@@ -133,6 +161,9 @@ class EvaluateModelMissReview:
             observed_issue_represented=input_obj.observed_issue_represented,
             generalized_case_added=input_obj.generalized_case_added,
             generalized_case_omitted_reason=input_obj.generalized_case_omitted_reason,
+            observed_regression_test_added=input_obj.observed_regression_test_added,
+            same_class_test_evidence_added=input_obj.same_class_test_evidence_added,
+            model_test_alignment_rerun=input_obj.model_test_alignment_rerun,
             requires_hazard_registry=input_obj.requires_hazard_registry,
             requires_upgrade_reviewer=input_obj.requires_upgrade_reviewer,
             requires_default_model_mesh=input_obj.requires_default_model_mesh,
@@ -192,6 +223,29 @@ def in_scope_miss_gets_same_class_case(state: ReviewState, _trace: object) -> In
     return InvariantResult.pass_()
 
 
+def in_scope_miss_gets_same_class_test_evidence(state: ReviewState, _trace: object) -> InvariantResult:
+    if not state.case_name:
+        return InvariantResult.pass_()
+    if not state.in_modeled_scope:
+        return InvariantResult.pass_()
+    if not state.observed_regression_test_added:
+        return _fail(
+            "in_scope_miss_gets_same_class_test_evidence",
+            "in-scope model miss omitted the observed-regression test evidence",
+        )
+    if not state.same_class_test_evidence_added:
+        return _fail(
+            "in_scope_miss_gets_same_class_test_evidence",
+            "in-scope model miss only added observed-bug test evidence",
+        )
+    if not state.model_test_alignment_rerun:
+        return _fail(
+            "in_scope_miss_gets_same_class_test_evidence",
+            "in-scope model miss did not rerun Model-Test Alignment after test upgrade",
+        )
+    return InvariantResult.pass_()
+
+
 def ordinary_miss_avoids_heavy_defaults(state: ReviewState, _trace: object) -> InvariantResult:
     if not state.case_name:
         return InvariantResult.pass_()
@@ -230,6 +284,11 @@ INVARIANTS = (
         "ordinary_miss_avoids_heavy_defaults",
         "Ordinary model-miss review stays lightweight.",
         ordinary_miss_avoids_heavy_defaults,
+    ),
+    Invariant(
+        "in_scope_miss_gets_same_class_test_evidence",
+        "In-scope model-miss closure needs observed and same-class test evidence aligned to the repaired model.",
+        in_scope_miss_gets_same_class_test_evidence,
     ),
 )
 
@@ -297,7 +356,25 @@ def scenarios() -> tuple[Scenario, ...]:
             _expect_violation("VIOLATION miss_type_is_one_of_five", ("miss_type_is_one_of_five",)),
         ),
         scenario(
-            "LMB03_heavy_defaults_fail",
+            "LMB03_observed_test_only_fails",
+            "Broken repair adds the generalized model case but only tests the observed bug.",
+            BROKEN_OBSERVED_TEST_ONLY,
+            _expect_violation(
+                "VIOLATION in_scope_miss_gets_same_class_test_evidence",
+                ("in_scope_miss_gets_same_class_test_evidence",),
+            ),
+        ),
+        scenario(
+            "LMB04_alignment_not_rerun_fails",
+            "Broken repair upgrades tests but does not rerun model-test alignment.",
+            BROKEN_ALIGNMENT_NOT_RERUN,
+            _expect_violation(
+                "VIOLATION in_scope_miss_gets_same_class_test_evidence",
+                ("in_scope_miss_gets_same_class_test_evidence",),
+            ),
+        ),
+        scenario(
+            "LMB05_heavy_defaults_fail",
             "Broken repair turns ordinary model misses into heavyweight default process.",
             BROKEN_HEAVY_DEFAULTS,
             _expect_violation(
@@ -306,7 +383,7 @@ def scenarios() -> tuple[Scenario, ...]:
             ),
         ),
         scenario(
-            "LMB04_missing_observed_issue_fails",
+            "LMB06_missing_observed_issue_fails",
             "Broken repair adds a generalized case but loses the observed in-scope issue.",
             BROKEN_NO_OBSERVED_REPRESENTATION,
             _expect_violation(

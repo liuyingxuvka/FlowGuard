@@ -1,0 +1,104 @@
+## ADDED Requirements
+
+### Requirement: Model miss closure requires same-class test evidence
+FlowGuard SHALL block full closure for an in-scope post-runtime model miss
+unless the repaired model obligation has current passing test evidence for the
+observed failure and same-class generalized coverage.
+
+#### Scenario: Observed and same-class evidence close the miss
+- **WHEN** a repaired in-scope model-miss obligation names both an observed
+  failure regression and same-class generalized test evidence
+- **THEN** Model-Test Alignment SHALL allow green alignment for that obligation
+  when both evidence rows are current, passing, and externally scoped
+
+#### Scenario: Exact regression only is insufficient
+- **WHEN** a repaired in-scope model-miss obligation has only a current passing
+  test for the observed failure
+- **THEN** Model-Test Alignment SHALL report missing same-class test evidence
+  and SHALL NOT return full green alignment
+
+### Requirement: Model-Test Alignment represents model-miss closure roles
+FlowGuard SHALL let model obligations and test evidence declare model-miss
+closure roles so reports can distinguish observed regression tests from
+same-class generalized tests.
+
+#### Scenario: Model-miss obligation declares required closure roles
+- **WHEN** a model obligation is marked as originating from a model miss and
+  requires same-class closure
+- **THEN** the alignment plan SHALL require both observed regression evidence
+  and same-class generalized evidence for that obligation
+
+#### Scenario: Same-class evidence has the wrong target
+- **WHEN** same-class evidence is current and passing but does not cover the
+  model-miss obligation that requires it
+- **THEN** Model-Test Alignment SHALL keep the obligation blocked
+
+### Requirement: Development process keeps stale and overclaimed miss evidence visible
+FlowGuard SHALL treat model, test, and requirement changes made during
+model-miss repair as invalidating earlier closure evidence until the minimum
+revalidation plan has current evidence.
+
+#### Scenario: Repaired model stales old alignment evidence
+- **WHEN** the model obligation changes after earlier model-test alignment
+  evidence was produced
+- **THEN** DevelopmentProcessFlow SHALL mark the old alignment evidence stale
+  and recommend rerunning the required alignment command
+
+#### Scenario: Old test overclaimed model confidence
+- **WHEN** pre-repair test evidence is marked as overclaiming model confidence
+- **THEN** Model-Test Alignment SHALL report the overclaim instead of counting
+  that row as same-class closure evidence
+
+### Requirement: Large same-class validation routes to TestMesh
+FlowGuard SHALL route large, slow, layered, stale-prone, background, or
+release-only same-class validation requirements to TestMesh instead of
+expanding Model-Test Alignment into a hierarchy.
+
+#### Scenario: Large same-class coverage needs a child suite
+- **WHEN** same-class coverage requires parent/child test ownership, release
+  suites, background completion artifacts, or leaf matrix cells
+- **THEN** the workflow SHALL use TestMesh for the validation hierarchy and
+  SHALL feed current TestMesh evidence back into the final confidence claim
+
+#### Scenario: Routine closure reports scoped confidence
+- **WHEN** same-class release coverage is deferred during routine validation
+- **THEN** the workflow SHALL report scoped routine confidence and SHALL NOT
+  claim full release confidence
+
+### Requirement: Recurring model misses promote to a defect-family gate
+FlowGuard SHALL require a defect-family gate when the same same-class
+model-miss family recurs or when the miss is high risk enough that a local
+point fix would overclaim final confidence.
+
+#### Scenario: Recurring family without promotion is blocked
+- **WHEN** a same-class model miss has occurred more than once and no
+  defect-family gate has been promoted
+- **THEN** FlowGuard SHALL report the recurring miss as blocked and SHALL NOT
+  allow full confidence for the affected family
+
+#### Scenario: Promoted family has current proof
+- **WHEN** a promoted defect family names a model obligation, authority
+  boundary, observed failure case, same-class generalized case, historical
+  holdout case, and current external passing proof evidence
+- **THEN** FlowGuard SHALL allow the defect-family gate to pass
+
+#### Scenario: Progress-only or internal-only evidence is insufficient
+- **WHEN** a promoted defect family only has progress, skipped, stale,
+  non-passing, or internal-path-only proof evidence
+- **THEN** FlowGuard SHALL keep the defect-family gate blocked
+
+### Requirement: Risk Evidence Ledger consumes defect-family gates
+FlowGuard SHALL let final risk rows require a current defect-family gate before
+the row can support full confidence.
+
+#### Scenario: Required defect-family gate is missing
+- **WHEN** a final confidence row requires a defect-family gate but does not
+  name one
+- **THEN** the Risk Evidence Ledger SHALL block full confidence with a visible
+  defect-family finding
+
+#### Scenario: Defect-family gate is scoped
+- **WHEN** the defect-family gate is current but has explicit scoped-confidence
+  reasons
+- **THEN** the Risk Evidence Ledger SHALL downgrade the final claim to scoped
+  confidence rather than silently allowing a full claim

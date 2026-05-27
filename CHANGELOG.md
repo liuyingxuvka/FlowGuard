@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.22.2 - 2026-05-27
+
+- Added model-miss closure roles to Model-Test Alignment so repaired misses can
+  require both observed-regression evidence and same-class generalized test
+  evidence before closure.
+- Blocked observed-bug-only, wrong-target, internal-path-only, and overclaimed
+  evidence from satisfying same-class model-miss closure.
+- Updated model-miss examples, public templates, FlowGuard skill protocols,
+  README, API notes, check-plan guidance, and TestMesh handoff rules so tests
+  must generalize with the upgraded model.
+- OpenSpec validation, FlowGuard model-miss example checks, focused route tests,
+  full pytest, and unittest discovery passed locally.
+- Schema remains `1.0`; runtime dependencies remain Python standard library
+  only.
+
 ## v0.22.1 - 2026-05-22
 
 - Clarified the public README positioning: FlowGuard is a universal AI-agent

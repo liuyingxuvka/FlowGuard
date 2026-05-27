@@ -118,7 +118,9 @@ contract findings, conformance findings, and skipped/not-run sections into one
 coverage-first list. Use it before FlowGuard or LiveFlowGuard framework
 upgrades and post-runtime model-miss repairs so the next action is chosen
 deliberately: fix the real system, adjust the check flow, extend the model, or
-record a boundary as out of scope.
+record a boundary as out of scope. For in-scope model-miss repairs, the next
+action also includes upgrading tests from an observed-bug regression to
+same-class evidence and rerunning Model-Test Alignment before full closure.
 
 ## Domain Packs
 

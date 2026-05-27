@@ -245,14 +245,21 @@ side effects, invariants, failure modes, or contracts.
 
 For post-runtime model misses, classify the miss as `boundary_missing`,
 `code_boundary_mismatch`, `state_too_coarse`, `input_branch_missing`,
-`invariant_too_weak`, or `evidence_overclaimed`; represent the observed issue and one same-class
-generalized bad case when practical; rerun; then validate with production-facing
-evidence. The current bug instance and bug-class responsibility are separate:
-patching the observed instance is not closure until the class is represented or
-explicitly out of scope. If the repair changed a child model under a parent
-mesh, rerun the parent reattachment gate and affected sibling review before
-closing the miss. A later green runtime check by itself does not close a known
-model miss. An in-progress background run also does not close it.
+`invariant_too_weak`, or `evidence_overclaimed`; represent the observed issue
+and one same-class generalized bad case when practical; add
+observed-regression and same-class test evidence; rerun Model-Test Alignment;
+then validate with production-facing evidence. The current bug instance and
+bug-class responsibility are separate: patching the observed instance or
+testing only the observed instance is not closure until the class is represented
+and tested, or explicitly out of scope. If the same-class test space is large,
+slow, layered,
+background, or release-only, route it through TestMesh and report scoped
+confidence until current child evidence exists; an in-progress background run
+is still blocked evidence, not a pass. If the repair changed a child model
+under a parent mesh, rerun the parent reattachment gate and affected sibling review
+before closing the miss. A later green runtime check by itself does not close a
+known model miss; it must be attached to the same-class test evidence and
+alignment record that now owns the bug family.
 
 Do not require ordinary project work to run FlowGuard's internal framework
 evidence suites. Use those only for FlowGuard/LiveFlowGuard upgrades, benchmark

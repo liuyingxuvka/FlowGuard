@@ -18,6 +18,10 @@ mostly core modeling rather than alignment.
   `python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"`.
 - Do not create a fake mini-framework or prose-only substitute.
 - Skipped, stale, or not-run evidence is not a pass.
+- For model-miss repairs, an observed-bug regression test is not enough for
+  full closure. A repaired in-scope model-miss obligation must have current
+  observed-regression and same-class generalized test evidence, or the report
+  must block full confidence.
 - If DevelopmentProcessFlow classifies a validation failure as model-test mismatch,
   this skill owns the obligation, optional code-contract, and test
   evidence comparison before alignment is claimed.
@@ -57,20 +61,28 @@ mostly core modeling rather than alignment.
 5. Collect ordinary test evidence rows; include exact test ids and covered
    obligation ids. Mark each row as primary boundary evidence, leaf matrix-cell
    evidence, supporting contract evidence, or integration smoke evidence.
-6. When Python source and tests are available, use the conservative source/test
+6. For repaired model-miss obligations, mark which test row is the observed
+   regression and which row is the same-class generalized evidence. Treat
+   overclaimed, stale, skipped, or internal-path-only rows as blockers rather
+   than closure evidence.
+7. When Python source and tests are available, use the conservative source/test
    audit helpers before the alignment review.
-7. Run or update the relevant tests, then call or template
+8. Run or update the relevant tests, then call or template
    `review_model_test_alignment(...)`.
-8. For DevelopmentProcessFlow `model_test_mismatch` handoffs, keep the failed
+9. For DevelopmentProcessFlow `model_test_mismatch` handoffs, keep the failed
    validation visible until required obligations, optional code contracts, and
    current test evidence have been compared.
-9. If duplicate evidence maps to duplicate implementation paths, hand the
+10. If same-class coverage is too large, slow, layered, stale-prone,
+   background, or release-only, hand the validation hierarchy to TestMesh and
+   consume its current evidence ids rather than expanding this route into a
+   parent/child suite graph.
+11. If duplicate evidence maps to duplicate implementation paths, hand the
    obligation/code-contract snapshot to Architecture Reduction before deciding
    whether to keep all paths.
-10. Inspect missing, stale, unknown, overclaimed, incomplete leaf-matrix, or boundary-crossing coverage.
+12. Inspect missing, stale, unknown, overclaimed, incomplete leaf-matrix, or boundary-crossing coverage.
    Fix the model, code contracts, boundary observations, tests, or evidence
    rows before claiming alignment.
-11. For non-trivial alignment reviews, default to a user-facing Mermaid coverage
+13. For non-trivial alignment reviews, default to a user-facing Mermaid coverage
    diagram showing model obligations, optional code contracts, test evidence,
    code-boundary observations, and missing/stale/overclaimed/boundary-crossing
    gaps. Its edges mean covers, partially covers, observes boundary, misses, or

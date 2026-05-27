@@ -20,6 +20,9 @@ multiple FlowGuard routes.
 - Do not treat a later green runtime check by itself as closure.
 - Preserve the observed failure and at least one same-class generalized bad
   case when practical.
+- Do not close an in-scope miss with only an observed-bug regression test. The
+  repaired model obligation needs current same-class test evidence verified by
+  Model-Test Alignment, or the confidence claim stays scoped.
 - Do not weaken hard invariants merely to make the miss disappear.
 - If the repair changes a local child model that belongs to a parent ModelMesh,
   do not close the miss until the parent reattachment gate consumes current
@@ -43,23 +46,31 @@ multiple FlowGuard routes.
    `evidence_overclaimed`.
 4. Add the observed failure and a generalized same-class bad case to the model
    or replay evidence.
-5. If the failure shows real code accepted an unexpected input or emitted an
+5. Add or identify test evidence for both the observed regression and the
+   same-class generalized bad case. Use Model-Test Alignment to prove those
+   rows cover the repaired model obligation before full closure.
+6. If the same-class test space is large, slow, layered, background, or
+   release-only, route the validation hierarchy to TestMesh and report scoped
+   confidence until current TestMesh evidence exists.
+7. If the failure shows real code accepted an unexpected input or emitted an
    undeclared output, state write, side effect, or error path, add
    code-boundary observations through Model-Test Alignment.
-6. Rerun the model and production-facing validation.
-7. If a repaired child model is part of a parent mesh, rerun the affected
+8. Rerun the model, same-class tests, and production-facing validation.
+9. If a repaired child model is part of a parent mesh, rerun the affected
    parent ModelMesh reattachment gate.
-8. If the miss exposes a missing or overflowing leaf boundary cell, update the
+10. If the miss exposes a missing or overflowing leaf boundary cell, update the
    leaf boundary matrix and rerun layered proof before parent confidence.
-9. Close only when the corrected model catches the bad case and the relevant
-   runtime/test/replay evidence is current.
-10. Update the Risk Evidence Ledger row that the old green claim overcovered:
+11. Close only when the corrected model catches the bad case and the relevant
+   runtime/test/replay evidence is current, including same-class test evidence
+   for in-scope repairs.
+12. Update the Risk Evidence Ledger row that the old green claim overcovered:
    record the prior evidence as overclaimed or stale, then attach the new
    same-class bad-case evidence before restoring full confidence.
-11. For non-trivial misses, default to a user-facing Mermaid miss-repair diagram
+13. For non-trivial misses, default to a user-facing Mermaid miss-repair diagram
    showing the prior green claim, observed failure, miss classification, model
-   repair, same-class generalized bad case, rerun evidence, and remaining
-   validation boundary. Its edges mean missed, repaired, generalized,
+   repair, same-class generalized bad case, observed-regression test,
+   same-class test evidence, alignment rerun, and remaining validation
+   boundary. Its edges mean missed, repaired, generalized, tested, aligned,
    validated, or still out of scope; they are not a normal success workflow.
    The diagram explains the repair path and does not close the miss.
 

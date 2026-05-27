@@ -56,6 +56,8 @@ Create or update a model-test alignment review when:
   model-backed behavior;
 - a model pass and test pass need to be reconciled before release or broad
   completion;
+- a post-runtime model-miss repair needs proof that tests cover both the
+  observed regression and the same-class generalized bug family;
 - reviewers suspect orphan tests, orphan code contracts, duplicated test
   claims, duplicated code contract owners, stale evidence, internal-path-only
   tests, or happy-path-only coverage of risky model obligations.
@@ -82,6 +84,10 @@ List `ModelObligation` rows:
   `negative_path`, or `replay`;
 - whether shared evidence is explicitly allowed.
 - whether shared implementation is explicitly allowed;
+- whether the obligation originated from a model miss;
+- whether same-class model-miss closure evidence is required;
+- required closure evidence roles, normally `observed_regression` and
+  `same_class_generalized` for in-scope model-miss repairs;
 - externally visible inputs and outputs when the obligation owns an external
   behavior contract;
 - state reads, state writes, side effects, and error paths that the external
@@ -141,7 +147,9 @@ List `TestEvidence` rows:
 - covered code contract ids when code contracts are in scope;
 - assertion scope: `external_contract`, `internal_path`, `mixed`, or
   `unknown`;
-- whether the test overclaims full model confidence.
+- whether the test overclaims full model confidence;
+- model-miss closure role when relevant: `observed_regression` or
+  `same_class_generalized`.
 - source-audit notes: asserted symbol, assertion forms, expected exceptions,
   output/state/call/persisted-output checks, monkeypatch/fixture usage, and
   manual-review reason.
@@ -213,6 +221,12 @@ The review must keep these findings visible:
 - `missing_code_contract_test_evidence`: a required owner code contract has no
   current passing external-contract test evidence;
 - `missing_required_test_kind`: a required path kind is absent;
+- `missing_observed_regression_test_evidence`: an in-scope model-miss
+  obligation lacks current observed-regression evidence;
+- `missing_same_class_test_evidence`: an in-scope model-miss obligation lacks
+  current same-class generalized test evidence;
+- `model_miss_closure_evidence_internal_path_only`: model-miss closure evidence
+  does not prove the external behavior boundary;
 - `orphan_test_evidence`: a test is not bound to a model obligation;
 - `orphan_code_contract`: an owner code contract is not bound to any model
   obligation;
@@ -308,12 +322,17 @@ Test evidence:
 - covered code contract ids:
 - assertion scope:
 - overclaiming:
+- model-miss closure role:
 - source-audit notes:
 
 If real Python source or tests are available, first perform a conservative AST
 audit of code contracts and test assertions. Use it to generate or check the
 CodeContract and TestEvidence rows, but do not treat it as a perfect semantic
 proof or a conformance replay substitute.
+
+For post-runtime model-miss repairs, mark observed-regression and same-class
+generalized evidence separately. Do not let the observed regression substitute
+for same-class closure evidence.
 
 Flag missing model-obligation coverage, missing or mismatched code external
 contracts, boundary observations that accept forbidden inputs or emit
@@ -331,6 +350,8 @@ confidence.
 A model-test alignment review can support a coverage claim only when:
 
 - every required model obligation has current passing test evidence;
+- every in-scope repaired model-miss obligation has current observed-regression
+  and same-class generalized test evidence;
 - every required test kind is covered;
 - when code contracts are in scope, every required model obligation has an
   owner code contract unless the obligation explicitly allows the omission for

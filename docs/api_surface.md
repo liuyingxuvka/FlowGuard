@@ -101,7 +101,8 @@ Modeling helpers reduce boilerplate around common bug classes:
   with ordinary test evidence and optional code external contracts without
   invoking TestMesh or StructureMesh. `TestEvidence` can distinguish primary
   proof, primary `edge_path` proof, supporting contract evidence, integration
-  smoke evidence, and exact leaf matrix-cell evidence.
+  smoke evidence, exact leaf matrix-cell evidence, and model-miss closure roles
+  such as observed regression versus same-class generalized evidence.
 - optional conservative Python source-audit helpers such as
   `PythonCodeContractEvidence`, `PythonTestAssertionEvidence`,
   `ContractSourceAuditReport`, `audit_python_code_contracts()`,

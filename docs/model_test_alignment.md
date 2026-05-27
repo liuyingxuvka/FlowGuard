@@ -8,6 +8,13 @@ read TestMesh, StructureMesh, or ModelMesh reports.
 Use it before claiming that model coverage, code behavior, and test coverage
 describe the same behavioral surface.
 
+For post-runtime model-miss repairs, use Model-Test Alignment after
+Model-Miss Review updates the model. The repaired in-scope obligation should
+mark that it originated from a model miss and require closure evidence roles:
+one current observed-regression test and one current same-class generalized
+test. A green exact regression test is necessary, but it is not enough for full
+closure.
+
 ## Code Boundary Conformance
 
 When a model-backed code surface claims a finite input/output boundary, add
@@ -83,6 +90,10 @@ List model obligations with `ModelObligation`:
 - side effects and error paths;
 - `exact_external_contract=True` when code-visible extras should block
   confidence.
+- `model_miss_origin=True` and `requires_same_class_test_evidence=True` when
+  the obligation is repairing a post-runtime miss;
+- required closure evidence roles, normally `observed_regression` and
+  `same_class_generalized` for in-scope model-miss repairs.
 
 List code external contracts with `CodeContract` when model-to-code alignment
 is in scope. These rows may be hand-authored, generated from conservative source
@@ -122,6 +133,8 @@ List test evidence with `TestEvidence`:
 - covered code contract ids;
 - assertion scope, especially whether the test proves the external contract or
   only an internal path.
+- closure evidence role for model-miss repairs:
+  `observed_regression` or `same_class_generalized`;
 - optional source-audit notes when real tests were inspected: asserted symbols,
   assertion forms, status/freshness source, and manual-review reasons.
 
@@ -137,6 +150,10 @@ The review keeps these gaps visible:
 - duplicate current primary `edge_path` evidence for the same obligation, which
   means the obligation is too coarse and should split or reattach evidence to
   leaf matrix cells;
+- repaired model-miss obligations that only have observed-regression evidence
+  and lack same-class generalized test evidence;
+- same-class closure evidence that is stale, overclaimed, internal-path-only,
+  or attached to the wrong model obligation;
 - supporting or leaf matrix-cell evidence without a target id;
 - model obligations with no code external contract owner;
 - code contracts that miss model-declared external behavior;
@@ -174,3 +191,9 @@ confidence by itself when other risk rows, mesh evidence, UI journeys, or
 process freshness can still invalidate the broader claim. Feed those rows into
 `review_risk_evidence_ledger(...)` before saying the modeled risk is fully
 covered.
+
+If same-class model-miss coverage needs broad parameterization, property tests,
+seeded fuzz, background shards, release-only runs, or parent/child ownership,
+route that validation structure to TestMesh. Model-Test Alignment should
+consume the resulting current evidence ids; it should not become the test
+hierarchy.

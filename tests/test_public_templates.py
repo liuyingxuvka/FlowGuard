@@ -77,7 +77,7 @@ class PublicTemplateTests(unittest.TestCase):
             (".flowguard", "model_miss_review"),
         )
         self.assertIn("correct_model_miss_review: PASS", output)
-        self.assertIn("expected violations observed: 4", output)
+        self.assertIn("expected violations observed: 5", output)
 
     def test_model_miss_review_template_requires_generalized_bad_case(self):
         files = model_miss_review_template_files()
@@ -90,8 +90,12 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("record_known_bug_holdout", combined)
         self.assertIn("fix_validation_requires_generalized_bad_case", combined)
         self.assertIn("fix_validation_requires_known_bug_holdout_role", combined)
+        self.assertIn("fix_validation_requires_same_class_test_evidence", combined)
         self.assertIn("point_fix_only_without_generalized_bad_case", combined)
         self.assertIn("validate_without_known_bug_holdout_role", combined)
+        self.assertIn("validate_without_same_class_test_evidence", combined)
+        self.assertIn("same_class_test_evidence_added", combined)
+        self.assertIn("model_test_alignment_rerun", combined)
         self.assertIn("broken_point_fix_only_validation", combined)
         self.assertIn("same-class generalized bad case", combined)
 
@@ -102,6 +106,7 @@ class PublicTemplateTests(unittest.TestCase):
         )
         self.assertIn("flowguard model-test alignment", output)
         self.assertIn("missing_required_test_kind", output)
+        self.assertIn("missing_same_class_test_evidence", output)
 
     def test_model_test_alignment_template_covers_code_contracts_without_mesh_helpers(self):
         files = model_test_alignment_template_files()
@@ -120,6 +125,9 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("audit_python_code_contracts", combined)
         self.assertIn("audit_python_test_assertions", combined)
         self.assertIn("review_python_contract_source_audit", combined)
+        self.assertIn("TEST_CLOSURE_ROLE_OBSERVED_REGRESSION", combined)
+        self.assertIn("TEST_CLOSURE_ROLE_SAME_CLASS_GENERALIZED", combined)
+        self.assertIn("same-class evidence", combined)
         self.assertNotIn("review_hierarchical_mesh", combined)
         self.assertNotIn("review_test_mesh", combined)
         self.assertNotIn("review_structure_mesh", combined)

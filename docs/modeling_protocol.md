@@ -649,25 +649,36 @@ When this happens:
    invariant, replay adapter, representative trace, or a model boundary update
    for the observed issue, plus one same-class generalized bad case when
    practical.
-5. Rerun the relevant model checks and confirm the old weakness plus the
+5. Add current test evidence for the observed regression and same-class
+   generalized bad case, then run Model-Test Alignment to verify the repaired
+   obligation, optional code contracts, and tests cover the same behavior. A
+   single observed-bug regression test is not full closure.
+6. If same-class coverage is large, slow, layered, background, or release-only,
+   route the validation hierarchy to TestMesh and report scoped confidence
+   until current child evidence exists.
+7. Rerun the relevant model checks and confirm the old weakness plus the
    same-class case are now visible, or deliberately out of scope.
-6. Validate the repair with the refined model plus the strongest practical
+8. Validate the repair with the refined model plus the strongest practical
    production-facing evidence.
-7. If the repair changed a child model under a parent ModelMesh, rerun the
+9. If the repair changed a child model under a parent ModelMesh, rerun the
    affected parent reattachment gate and keep the miss open until the parent
    consumes current child evidence.
-8. If the child boundary changed, keep the miss open until ModelMesh has
+10. If the child boundary changed, keep the miss open until ModelMesh has
    propagated the boundary review upward and reviewed affected sibling models
    or recorded why none are affected.
-9. Do not use a background long-running check as closure until final artifacts
+11. Do not use a background long-running check as closure until final artifacts
    and exit status exist; progress output is only liveness.
-10. Record `Miss type`, `Generalized case`, and any parent reattachment decision
-   in the adoption log, or the reason no generalized case was added, along with
-   rerun commands, skipped checks, and residual blindspots.
+12. Record `Miss type`, `Generalized case`, observed-regression test evidence,
+   same-class test evidence, Model-Test Alignment result, and any parent
+   reattachment decision in the adoption log, or the reason no generalized case
+   was added, along with rerun commands, skipped checks, and residual
+   blindspots.
 
-A later green runtime check does not close a known model miss by itself. The
-miss is closed only when it has been classified and represented in the model or
-explicitly recorded as outside the modeled risk.
+A later green runtime check or one observed-bug regression test does not close
+a known model miss by itself. The miss is closed only when it has been
+classified, represented in the model or explicitly recorded as outside the
+modeled risk, and backed by current same-class test evidence when the miss is
+in scope.
 
 ## 14. Run Scenario Sandbox Review
 
