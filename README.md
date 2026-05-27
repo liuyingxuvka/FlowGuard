@@ -16,7 +16,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.22.2` | `1.0` | Python standard library only | MIT |
+| `v0.23.0` | `1.0` | Python standard library only | MIT |
 
 English lead content comes first; a Chinese mirror follows below.
 
@@ -61,8 +61,8 @@ FlowGuard is useful at the design stage. You name the states, inputs, outputs, o
 | UI interface | Persistent regions, contextual panels, local actions, overlays, recovery paths, button availability, display ownership, duplicate-control rules, and text hierarchy | UI Flow Structure checks launch-to-terminal journeys, visible control availability, recovery paths, duplicate functions, warning/error escalation, and implementation click-through evidence | It models interaction structure; visual polish, accessibility details, and browser/device behavior still need ordinary UI review |
 | Code structure | Module split, facade boundary, state owner, side-effect owner, config owner, validation owner, and public-entrypoint compatibility plan | Code Structure Recommendation and StructureMesh look for ownership leaks, dependency cycles, facade drift, config drift, and missing parity evidence | It recommends a safer split; it does not replace implementation tests or code review |
 | Architecture reduction | Observable contract, duplicate implementation candidates, proof status, required next route, and safe target action | Architecture Reduction checks whether model-equivalent branches, handlers, adapters, modules, or validation layers can shrink code before StructureMesh or implementation | It proposes behavior-preserving contraction; public entrypoints and risky candidates still need compatibility and test evidence |
-| Test strategy | Routine/release test layers, parent/child suites, timeout boundaries, stale/hidden evidence rules, and revalidation triggers | TestMesh and model-test alignment compare model obligations with actual tests, hidden skips, stale passes, timeout boundaries, and release-only checks | Tests only support the modeled obligations they actually cover |
-| Model mesh or bug repair | Parent/child split, evidence contract, reattachment gate, sibling impact review, leaf boundary matrix, model-miss class, same-class bad case, same-class test evidence, and recurring defect-family gate | ModelMesh requires parents to consume fresh child evidence; layered boundary proof requires leaf models to prove finite `Input x State -> Set(Output x State)` real-code boundaries; model-miss review adds same-class bad cases, Model-Test Alignment requires observed-regression plus same-class test evidence, and recurring/high-risk miss families require a defect-family gate before closure | Child evidence does not improve parent confidence until the parent contract consumes it, and a coarse leaf or repaired miss stays scoped until real-code, same-class test evidence, and required defect-family gate evidence are complete |
+| Test strategy | Routine/release test layers, parent/child suites, timeout boundaries, stale/hidden evidence rules, automatic split triggers, and revalidation triggers | TestMesh and model-test alignment compare model obligations with actual tests, hidden skips, stale passes, timeout boundaries, broad/slow/release-only direct evidence, and release-only checks | Tests only support the modeled obligations they actually cover |
+| Model mesh or bug repair | Parent/child split, automatic large-model split trigger, evidence contract, reattachment gate, sibling impact review, leaf boundary matrix, model-miss class, same-class bad case, same-class test evidence, and recurring defect-family gate | ModelMesh requires parents to consume fresh child evidence; automatic split diagnostics route oversized or incomplete direct model evidence into ModelMesh; layered boundary proof requires leaf models to prove finite `Input x State -> Set(Output x State)` real-code boundaries; model-miss review adds same-class bad cases, Model-Test Alignment requires observed-regression plus same-class test evidence, and recurring/high-risk miss families require a defect-family gate before closure | Child evidence does not improve parent confidence until the parent contract consumes it, and a coarse leaf or repaired miss stays scoped until real-code, same-class test evidence, and required defect-family gate evidence are complete |
 
 This is the core product: FlowGuard turns a vague workflow, UI journey, refactor, test strategy, or release process into a small state machine with explicit failure traces. The counterexample is not just a bug report; it is design feedback that says which state, gate, owner, or evidence rule must change before work continues.
 
@@ -111,13 +111,13 @@ FlowGuard gives those weak spots a small executable shape before the action beco
 | Conformance replay | Compares representative abstract traces with implementation behavior when code exists |
 | Loop and progress review | Finds non-progressing cycles, stuck states, and weak completion evidence |
 | Model-test alignment | Compares model obligations, external code contracts, ordinary test evidence, and model-miss observed/same-class closure evidence |
-| Risk Evidence Ledger | Connects user-facing risks to model obligations, public code contracts, recurring defect-family gates, and current proof evidence before any full-confidence claim |
-| ModelMesh | Splits oversized models into parent/child evidence, propagates child boundary changes upward, reviews affected sibling models, and uses mesh closure models for whole-flow parent confidence |
+| Risk Evidence Ledger | Connects user-facing risks to model obligations, public code contracts, recurring defect-family gates, model/test split gates, and current proof evidence before any full-confidence claim |
+| ModelMesh | Splits oversized or incomplete direct model evidence into parent/child evidence, propagates child boundary changes upward, reviews affected sibling models, and uses mesh closure models for whole-flow parent confidence |
 | Layered Boundary Proof | Joins parent coverage, child disjointness, child reattachment, and leaf boundary-matrix evidence before parent model confidence can claim the code stayed inside model boundaries |
 | Child model reattachment | Requires a parent mesh to consume the repaired child evidence id and verify input, output, state, side-effect, and exported-contract handoffs |
 | Mesh closure model | Models parent/child handoff tokens so child outputs, joins, exits, and out-of-scope branches must be consumed before `mesh_green_can_continue` |
 | Existing Model Preflight | Looks up current FlowGuard model ownership before discussion, proposal, bug fix, feature work, refactor, prompt, skill, UI, test, or process changes in an existing modeled system |
-| TestMesh | Reviews parent/child validation layers, stale evidence, hidden skips, timeouts, and routine-vs-release gates |
+| TestMesh | Reviews parent/child validation layers, broad or slow direct validation evidence, stale evidence, hidden skips, timeouts, and routine-vs-release gates |
 | StructureMesh | Reviews large refactor splits, facade compatibility, dependency cycles, config drift, and parity evidence |
 | Code Structure Recommendation | Derives module, facade, state-owner, side-effect, config, and validation boundaries before code is written |
 | Architecture Reduction | Reviews model-to-code contraction candidates, observable contracts, proof status, required next routes, and behavior-preserving target actions before code is simplified |
@@ -367,8 +367,8 @@ FlowGuard 的价值在动手之前就开始。你先命名 state、input、outpu
 | UI 界面 | 持久区域、上下文 panel、本地动作、overlay、恢复路径、按钮 availability、display ownership、重复控件规则、文本层级 | UI Flow Structure 检查 launch-to-terminal journey、可见控件 availability、恢复路径、重复功能、warning/error escalation 和真实点击证据 | 它建模 interaction structure；视觉打磨、无障碍细节和浏览器/设备行为仍要普通 UI review |
 | 代码结构 | module split、facade boundary、state owner、side-effect owner、config owner、validation owner、公开入口兼容计划 | Code Structure Recommendation 和 StructureMesh 检查 ownership leak、dependency cycle、facade drift、config drift 和缺失 parity evidence | 它建议更安全的拆分，不替代实现测试和 code review |
 | 架构缩减 | observable contract、重复实现 candidate、proof status、required next route 和安全 target action | Architecture Reduction 在进入 StructureMesh 或实现前，检查模型等价的 branch、handler、adapter、module 或验证层能否缩小代码 | 它提出保持行为不变的收缩方案；公开入口和风险 candidate 仍需要兼容性与测试证据 |
-| 测试策略 | routine/release test layers、父子测试套件、timeout 边界、旧/隐藏证据规则、revalidation trigger | TestMesh 和 model-test alignment 对照模型义务、真实测试、hidden skip、stale pass、timeout 边界和 release-only check | 测试只支持它实际覆盖到的模型义务 |
-| Model mesh 或 bug 修复 | 父子拆分、evidence contract、reattachment gate、sibling impact review、leaf boundary matrix、model-miss 类型、同类坏 case、同类测试证据、复发缺陷族门槛 | ModelMesh 要求父级消费新鲜 child evidence；layered boundary proof 要求最低叶子模型证明有限 `Input x State -> Set(Output x State)` 真实代码边界；model-miss review 补同类坏 case，Model-Test Alignment 要求 observed regression 和同类测试证据，复发/高风险同类 miss 还要 defect-family gate 后才能关闭 | child evidence 不会自动提高父级信心，必须被父级 contract 消费；粗叶子模型或修过的 miss 在真实代码、同类测试证据和必要缺陷族门槛不完整前只能 scoped |
+| 测试策略 | routine/release test layers、父子测试套件、timeout 边界、旧/隐藏证据规则、自动拆分触发、revalidation trigger | TestMesh 和 model-test alignment 对照模型义务、真实测试、hidden skip、stale pass、timeout 边界、过宽/过慢/只在 release 跑的直接证据和 release-only check | 测试只支持它实际覆盖到的模型义务 |
+| Model mesh 或 bug 修复 | 父子拆分、自动大模型拆分触发、evidence contract、reattachment gate、sibling impact review、leaf boundary matrix、model-miss 类型、同类坏 case、同类测试证据、复发缺陷族门槛 | ModelMesh 要求父级消费新鲜 child evidence；自动拆分诊断会把过大或未完成的直接模型证据路由到 ModelMesh；layered boundary proof 要求最低叶子模型证明有限 `Input x State -> Set(Output x State)` 真实代码边界；model-miss review 补同类坏 case，Model-Test Alignment 要求 observed regression 和同类测试证据，复发/高风险同类 miss 还要 defect-family gate 后才能关闭 | child evidence 不会自动提高父级信心，必须被父级 contract 消费；粗叶子模型或修过的 miss 在真实代码、同类测试证据和必要缺陷族门槛不完整前只能 scoped |
 
 这才是 FlowGuard 的核心产品：把模糊的 workflow、UI journey、refactor、test strategy 或 release process 变成小型状态机，并给出明确失败路径。counterexample 是设计反馈：它告诉你哪个 state、gate、owner 或 evidence rule 必须先改，工作才能继续。
 
@@ -417,13 +417,13 @@ FlowGuard 给这些薄弱点一个小而可执行的结构。
 | Conformance replay | 当代码已存在时，把抽象路径和真实实现行为对齐 |
 | Loop 和 progress review | 找不前进的循环、卡住状态和弱完成证据 |
 | Model-test alignment | 对照模型义务、外部代码 contract、代码边界观测、普通测试证据，以及 model-miss 的 observed/same-class 关闭证据 |
-| Risk Evidence Ledger | 在声明完整信心前，把用户风险、模型义务、公开代码 contract、复发缺陷族门槛和当前证据连起来检查 |
-| ModelMesh | 把过大的模型拆成父子证据，向上同步 child boundary 变化，检查 sibling，并用 closure model 支撑父级全流程信心 |
+| Risk Evidence Ledger | 在声明完整信心前，把用户风险、模型义务、公开代码 contract、复发缺陷族门槛、模型/测试拆分门槛和当前证据连起来检查 |
+| ModelMesh | 把过大或未完成的直接模型证据拆成父子证据，向上同步 child boundary 变化，检查 sibling，并用 closure model 支撑父级全流程信心 |
 | Layered Boundary Proof | 把 parent coverage、child disjointness、child reattachment 和 leaf boundary-matrix evidence 接成一个父级信心门，防止“子模型绿了但真实代码边界没证明” |
 | Child model reattachment | `v0.17.0` 要求父级 mesh 消费修复后的 child evidence id，并验证 input、output、state、side-effect 和导出 contract handoff |
 | Mesh closure model | 把父子模型之间的 handoff token 建成小模型，确保 child output、join、exit 和 out-of-scope 分支都被消费后才允许 `mesh_green_can_continue` |
 | Existing Model Preflight | 在已有模型系统里讨论、提 proposal、修 bug、加功能、改 refactor、prompt、skill、UI、test 或 process 前，先查清当前 FlowGuard 模型 ownership |
-| TestMesh | 检查父子验证层、旧证据、隐藏 skip、timeout，以及 routine/release gate |
+| TestMesh | 检查父子验证层、过宽或过慢的直接验证证据、旧证据、隐藏 skip、timeout，以及 routine/release gate |
 | StructureMesh | 检查大 refactor 拆分、facade 兼容、依赖环、配置漂移和 parity 证据 |
 | Code Structure Recommendation | 在写代码前，从模型推导 module、facade、state owner、side effect、config 和验证边界 |
 | Architecture Reduction | 在简化代码前，审查 model-to-code 收缩 candidate、observable contract、proof status、required next route 和保持行为不变的 target action |

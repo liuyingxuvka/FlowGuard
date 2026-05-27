@@ -37,6 +37,11 @@ when route selection is unclear.
   slow/layered, stale, skipped, progress-only, or release-only evidence that
   affects parent confidence, TestMesh owns the child validation split and
   evidence-status review.
+- If `review_auto_mesh_splits(...)` reports a required test split for slow
+  duration, large test counts, broad obligation coverage, background
+  progress-only status, or release-only direct evidence, TestMesh owns the
+  target validation split and child evidence. Do not treat the original broad
+  evidence as full parent confidence.
 - If a model-miss repair needs broad same-class validation that cannot be
   represented as a small direct Model-Test Alignment row set, TestMesh owns the
   validation hierarchy and final child evidence ids before full confidence.
@@ -46,7 +51,8 @@ when route selection is unclear.
 1. Inventory test scripts, suites, shards, slow commands, release-only checks,
    and background logs.
 2. Derive target parent/child validation structure and ownership.
-3. For DevelopmentProcessFlow `test_too_thick` handoffs, keep the broad command
+3. For automatic split or DevelopmentProcessFlow `test_too_thick` handoffs,
+   keep the broad command
    as a parent gate or compatibility check until child suites/scripts are
    derived and their evidence status is visible.
 4. Mark which child suites are ordinary behavior tests, conformance replay,

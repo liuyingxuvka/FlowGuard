@@ -41,6 +41,11 @@ or when it is unclear whether a mesh is needed.
 - If DevelopmentProcessFlow classifies a validation failure as model too thick
   or oversized model evidence, ModelMesh owns the split and parent
   reattachment. Do not keep pushing the thick model as direct parent evidence.
+- If `review_auto_mesh_splits(...)` reports a required model split for
+  oversized state count, pending budgeted states, separable areas, broad
+  parent evidence, or background progress-only status, ModelMesh owns the
+  target split and child evidence. Do not treat the original direct evidence as
+  full parent confidence.
 - Model-Miss Review owns the current bug instance and same-class bug
   responsibility; ModelMesh owns child-boundary propagation and affected
   sibling review.
@@ -57,7 +62,8 @@ or when it is unclear whether a mesh is needed.
    evidence freshness.
 2. Derive the target split from model structure: source model, child models,
    covered partition items, ownership, and rationale.
-3. For DevelopmentProcessFlow `model_too_thick` handoffs, classify the thick
+3. For automatic split or DevelopmentProcessFlow `model_too_thick` handoffs,
+   classify the thick
    source model as compatibility evidence unless it is still small enough for
    direct parent consumption, then derive focused child models before parent
    confidence.

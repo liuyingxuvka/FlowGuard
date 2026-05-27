@@ -1,5 +1,28 @@
 # Changelog
 
+## v0.23.0 - 2026-05-27
+
+- Added automatic model/test split diagnostics with `AutoSplitCandidate`,
+  `AutoSplitPolicy`, `AutoSplitPlan`, `AutoSplitReport`, and
+  `review_auto_mesh_splits()` so oversized, incomplete, slow, broad,
+  progress-only, or release-only direct evidence routes to ModelMesh or
+  TestMesh before broad parent confidence.
+- Connected automatic split evidence to DevelopmentProcessFlow so done,
+  release, archive, and publish claims stay blocked or scoped until current
+  ModelMesh/TestMesh split gates exist.
+- Added model/test split gate fields to Risk Evidence Ledger rows so final
+  confidence can consume or reject required split evidence at the FlowGuard
+  layer.
+- Updated public templates, README, API docs, ModelMesh/TestMesh docs,
+  DevelopmentProcessFlow guidance, installed skill protocols, and OpenSpec
+  artifacts so automatic split is an existing-route evidence gate rather than
+  a new first-class skill.
+- OpenSpec validation, focused auto-split route tests, ModelMesh/TestMesh
+  tests, public template tests, skill-doc tests, model examples, and full
+  unittest discovery passed locally.
+- Schema remains `1.0`; runtime dependencies remain Python standard library
+  only.
+
 ## v0.22.2 - 2026-05-27
 
 - Added model-miss closure roles to Model-Test Alignment so repaired misses can

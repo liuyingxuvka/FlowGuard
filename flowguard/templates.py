@@ -2128,9 +2128,9 @@ command, or API surface is being split.
 DEVELOPMENT_PROCESS_FLOW_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header
 
 Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
-Purpose: Review a development lifecycle as a sibling process route, tracking artifact versions and validation evidence freshness before done or release claims.
-Guards against: stale validation after code/test/model/requirement changes, progress-only evidence, hidden skips, missing V-style validation pairs, peer writes, and release overclaims.
-Use before editing: Update this development process flow when changing development ordering, validation gates, release readiness, or evidence freshness policy.
+Purpose: Review a development lifecycle as a sibling process route, tracking artifact versions, automatic model/test split gates, and validation evidence freshness before done or release claims.
+Guards against: stale validation after code/test/model/requirement changes, oversized direct model evidence, slow or broad direct validation evidence, progress-only evidence, hidden skips, missing V-style validation pairs, peer writes, and release overclaims.
+Use before editing: Update this development process flow when changing development ordering, validation gates, automatic split triggers, release readiness, or evidence freshness policy.
 Run: python .flowguard/development_process_flow/run_checks.py
 """
 
@@ -2295,6 +2295,8 @@ Use this scaffold to model a development lifecycle as a stateful process.
 - verifier changes, such as tests or model files changing after evidence was
   produced;
 - freshness rules that propagate upstream changes to downstream artifacts;
+- automatic ModelMesh/TestMesh split triggers for direct evidence that is
+  oversized, incomplete, slow, broad, progress-only, or release-only;
 - whether done, release, archive, or publish claims have current evidence;
 - the minimum revalidation needed when evidence is stale or missing.
 
@@ -2306,6 +2308,11 @@ Adoption through evidence ids and freshness metadata. It does not inspect,
 supervise, replace, or repair those routes. If sibling evidence is failed,
 stale, skipped, missing, or progress-only, this route keeps that lifecycle gap
 visible for the current process claim.
+
+When direct model/test evidence reports state counts, pending budgeted states,
+long durations, broad obligation coverage, background progress-only status, or
+release-only scope, call `review_auto_mesh_splits()` and consume the resulting
+ModelMesh or TestMesh gate before claiming broad parent confidence.
 
 Use this route when development ordering, artifact overwrite, verification
 freshness, or release readiness is the risk. It is not mandatory for every
@@ -3891,8 +3898,8 @@ architecture changes, or risky behavior changes.
 RISK_EVIDENCE_LEDGER_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header
 
 Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
-Purpose: Review whether a final FlowGuard confidence claim is backed by model obligations, public code contracts, recurring defect-family gates, and current evidence.
-Guards against: coarse models hiding untested internal branches, recurring same-class misses hiding behind local point fixes, tests covering only helper paths, skipped or stale evidence being treated as pass, and background progress being counted as final proof.
+Purpose: Review whether a final FlowGuard confidence claim is backed by model obligations, public code contracts, recurring defect-family gates, model/test split gates, and current evidence.
+Guards against: coarse models hiding untested internal branches, oversized direct model evidence bypassing ModelMesh, slow or broad validation bypassing TestMesh, recurring same-class misses hiding behind local point fixes, tests covering only helper paths, skipped or stale evidence being treated as pass, and background progress being counted as final proof.
 Use before editing: Run this before claiming done, release-ready, or fully validated after model/test/code changes.
 Run: python .flowguard/risk_evidence_ledger/run_checks.py
 """
@@ -4025,12 +4032,37 @@ def broken_missing_defect_family_gate_ledger() -> RiskEvidenceLedgerPlan:
     )
 
 
+def broken_missing_model_split_gate_ledger() -> RiskEvidenceLedgerPlan:
+    return RiskEvidenceLedgerPlan(
+        "missing-model-split-gate",
+        rows=(
+            RiskEvidenceRow(
+                "oversized_checkout_model",
+                description="Oversized checkout model must consume a current ModelMesh split before full confidence.",
+                model_obligation_id="model:checkout-parent",
+                proof_evidence_ids=("model:checkout-direct",),
+                model_split_gate_required=True,
+            ),
+        ),
+        proof_evidence=(
+            RiskEvidenceProof(
+                "model:checkout-direct",
+                result_status=RISK_PROOF_STATUS_PASSED,
+                producer_route="model_mesh_maintenance",
+                command="python .flowguard/checkout/run_checks.py",
+                summary="direct model evidence passed, but no current parent/child split gate was consumed",
+            ),
+        ),
+    )
+
+
 def run_checks():
     return (
         review_risk_evidence_ledger(correct_ledger()),
         review_risk_evidence_ledger(broken_internal_only_ledger()),
         review_risk_evidence_ledger(broken_progress_only_ledger()),
         review_risk_evidence_ledger(broken_missing_defect_family_gate_ledger()),
+        review_risk_evidence_ledger(broken_missing_model_split_gate_ledger()),
     )
 '''
 
@@ -4043,7 +4075,7 @@ from model import run_checks
 
 
 def main() -> int:
-    correct, internal_only, progress_only, missing_defect_family = run_checks()
+    correct, internal_only, progress_only, missing_defect_family, missing_model_split = run_checks()
     print(correct.format_text())
     print()
     print(internal_only.format_text(max_findings=5))
@@ -4051,6 +4083,8 @@ def main() -> int:
     print(progress_only.format_text(max_findings=5))
     print()
     print(missing_defect_family.format_text(max_findings=5))
+    print()
+    print(missing_model_split.format_text(max_findings=5))
     expected_blockers = (
         not internal_only.ok
         and internal_only.decision == "internal_path_only_evidence"
@@ -4058,6 +4092,8 @@ def main() -> int:
         and progress_only.decision == "proof_evidence_not_passing"
         and not missing_defect_family.ok
         and missing_defect_family.decision == "missing_defect_family_gate"
+        and not missing_model_split.ok
+        and missing_model_split.decision == "missing_model_split_gate"
     )
     return 0 if correct.ok and expected_blockers else 1
 
@@ -4076,6 +4112,8 @@ Use this scaffold before final confidence claims.
 - each user-facing risk has a FlowGuard model obligation owner;
 - each required public behavior has a code contract when the project requires it;
 - each recurring or high-risk same-class model miss has a current defect-family gate;
+- each required ModelMesh or TestMesh split gate is current before broad parent
+  confidence is claimed;
 - each risk has current proof evidence from tests, replay, route reports, or manual validation;
 - internal-path-only tests, stale evidence, skipped checks, and progress-only background runs are visible;
 - scoped-out risks have explicit reasons and cannot be silently counted as fully proven.

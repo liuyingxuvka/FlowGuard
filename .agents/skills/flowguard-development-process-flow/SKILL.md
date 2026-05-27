@@ -49,6 +49,10 @@ change.
   effects, contracts, or evidence ids stale child reattachment evidence. Edits
   to leaf input gates, output mappers, state writers, side effects, or errors
   stale the affected leaf boundary-matrix cells.
+- Before broad done/release/archive/publish confidence, run automatic split
+  diagnostics for direct model/test evidence that is oversized, incomplete,
+  slow, broad, progress-only, or release-only. Required splits route to the
+  existing ModelMesh or TestMesh gate; they are not a new skill route.
 
 ## Workflow
 
@@ -68,32 +72,36 @@ change.
    evidence routes to TestMesh; model/test obligation mismatch routes to
    Model-Test Alignment; disconnected parent/child evidence routes back to the
    owning parent evidence gate.
-6. Treat sibling route evidence ids as inputs only; do not inspect or
+6. For direct model/test evidence with state counts, pending states, long
+   durations, broad obligation coverage, background progress-only logs, or
+   release-only scope, run `review_auto_mesh_splits(...)` and include the
+   ModelMesh/TestMesh split gate in the minimum revalidation plan.
+7. Treat sibling route evidence ids as inputs only; do not inspect or
    supervise sibling route internals.
-7. Before implementation and again before done/release/archive/publish, check
+8. Before implementation and again before done/release/archive/publish, check
    whether complexity-growth signals require Architecture Reduction: repeated
    adapters, duplicated branch handling, duplicate validation paths, or a
    smaller target architecture than the current code graph.
-8. Include code-boundary conformance in the minimum revalidation plan when the
+9. Include code-boundary conformance in the minimum revalidation plan when the
    touched artifact affects finite model-backed inputs or outputs.
-9. Include Model-Test Alignment in the minimum revalidation plan when a
+10. Include Model-Test Alignment in the minimum revalidation plan when a
    model-miss repair changes the model obligation or the observed/same-class
    test evidence used for closure. Mark pre-repair evidence as stale or
    overclaimed when it only proved the observed bug.
-10. Include TestMesh in the minimum revalidation plan when same-class
+11. Include TestMesh in the minimum revalidation plan when same-class
    validation is large, slow, layered, background, or release-only.
-11. Include the recurring defect-family gate and Risk Evidence Ledger in the
+12. Include the recurring defect-family gate and Risk Evidence Ledger in the
    minimum revalidation plan when the same-class miss recurs or is high risk.
-12. Include layered boundary proof in the minimum revalidation plan when the
+13. Include layered boundary proof in the minimum revalidation plan when the
    touched artifact affects parent coverage, child disjointness, child
    reattachment, or leaf boundary matrices.
-13. Before done/release/archive/publish, verify the final evidence is current
+14. Before done/release/archive/publish, verify the final evidence is current
    for the final artifact set.
-14. Before final done/release/archive/publish, consume the Risk Evidence Ledger
+15. Before final done/release/archive/publish, consume the Risk Evidence Ledger
    decision as an evidence boundary: full confidence may continue, scoped
    confidence must be reported as scoped, and blocked findings must route back
    to the owning evidence route.
-15. For non-trivial lifecycle reviews, default to a user-facing Mermaid
+16. For non-trivial lifecycle reviews, default to a user-facing Mermaid
    development process diagram showing artifact versions, action writes/invalidations,
    evidence ids, freshness gates, minimum revalidation, and unsupported claims.
    This diagram's edges mean order, invalidation, or required revalidation, not

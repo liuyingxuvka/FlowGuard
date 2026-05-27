@@ -43,16 +43,19 @@ Create or update a TestMesh when:
   adapters, or manual checks;
 - skipped, stale, timeout, not-run, or progress-only evidence could be hidden
   inside a green summary;
+- `review_auto_mesh_splits(...)` reports a required test split for slow,
+  large, broad, progress-only, or release-only direct validation evidence;
 - release-only suites should stay visible without blocking routine local
   confidence.
 
 When DevelopmentProcessFlow classifies a failed or blocked validation as
 `test_too_thick`, slow/layered validation, stale/skipped/progress-only
-evidence, or release-only evidence that is being hidden inside a parent
-confidence claim, this protocol owns the handoff. Keep the broad command as a
-parent gate or compatibility check, derive child suites/scripts, record child
-evidence status, and require parent validation confidence to consume current
-child evidence. A later green broad command by itself does not close a
+evidence, release-only evidence, or automatic split evidence that is being
+hidden inside a parent confidence claim, this protocol owns the handoff. Keep
+the broad command as a parent gate or compatibility check, derive child
+suites/scripts, record child evidence status, and require parent validation
+confidence to consume current child evidence. A later green broad command by
+itself does not close a
 TestMesh handoff if child evidence remains hidden.
 
 ## Partition Checklist

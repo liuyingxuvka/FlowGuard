@@ -219,6 +219,8 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("sibling sub-protocol", combined)
         self.assertIn("does not inspect", combined)
         self.assertIn("does not make FlowGuard a task orchestrator", combined)
+        self.assertIn("review_auto_mesh_splits()", combined)
+        self.assertIn("automatic ModelMesh/TestMesh split triggers", combined)
         self.assertIn("producer_route=\"test_mesh_maintenance\"", combined)
         self.assertIn("FlowGuard Risk Purpose Header", combined)
 
@@ -239,6 +241,7 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("internal_path_only_evidence", output)
         self.assertIn("proof_evidence_not_passing", output)
         self.assertIn("missing_defect_family_gate", output)
+        self.assertIn("missing_model_split_gate", output)
         self.assertIn("defect-family", output)
 
     def test_layered_boundary_proof_template_executes(self):

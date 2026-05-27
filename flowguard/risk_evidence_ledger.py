@@ -135,6 +135,16 @@ class RiskEvidenceRow:
     defect_family_gate_current: bool = True
     defect_family_gate_confidence: str = RISK_CONFIDENCE_FULL
     defect_family_scoped_reasons: tuple[str, ...] = ()
+    model_split_gate_id: str = ""
+    model_split_gate_required: bool = False
+    model_split_gate_current: bool = True
+    model_split_gate_confidence: str = RISK_CONFIDENCE_FULL
+    model_split_scoped_reasons: tuple[str, ...] = ()
+    test_split_gate_id: str = ""
+    test_split_gate_required: bool = False
+    test_split_gate_current: bool = True
+    test_split_gate_confidence: str = RISK_CONFIDENCE_FULL
+    test_split_scoped_reasons: tuple[str, ...] = ()
     overclaims_full_confidence: bool = False
     next_actions: tuple[str, ...] = ()
 
@@ -148,6 +158,12 @@ class RiskEvidenceRow:
         object.__setattr__(self, "defect_family_id", str(self.defect_family_id))
         object.__setattr__(self, "defect_family_gate_confidence", str(self.defect_family_gate_confidence))
         object.__setattr__(self, "defect_family_scoped_reasons", _as_tuple(self.defect_family_scoped_reasons))
+        object.__setattr__(self, "model_split_gate_id", str(self.model_split_gate_id))
+        object.__setattr__(self, "model_split_gate_confidence", str(self.model_split_gate_confidence))
+        object.__setattr__(self, "model_split_scoped_reasons", _as_tuple(self.model_split_scoped_reasons))
+        object.__setattr__(self, "test_split_gate_id", str(self.test_split_gate_id))
+        object.__setattr__(self, "test_split_gate_confidence", str(self.test_split_gate_confidence))
+        object.__setattr__(self, "test_split_scoped_reasons", _as_tuple(self.test_split_scoped_reasons))
         object.__setattr__(self, "next_actions", _as_tuple(self.next_actions))
 
     def to_dict(self) -> dict[str, Any]:
@@ -169,6 +185,16 @@ class RiskEvidenceRow:
             "defect_family_gate_current": self.defect_family_gate_current,
             "defect_family_gate_confidence": self.defect_family_gate_confidence,
             "defect_family_scoped_reasons": list(self.defect_family_scoped_reasons),
+            "model_split_gate_id": self.model_split_gate_id,
+            "model_split_gate_required": self.model_split_gate_required,
+            "model_split_gate_current": self.model_split_gate_current,
+            "model_split_gate_confidence": self.model_split_gate_confidence,
+            "model_split_scoped_reasons": list(self.model_split_scoped_reasons),
+            "test_split_gate_id": self.test_split_gate_id,
+            "test_split_gate_required": self.test_split_gate_required,
+            "test_split_gate_current": self.test_split_gate_current,
+            "test_split_gate_confidence": self.test_split_gate_confidence,
+            "test_split_scoped_reasons": list(self.test_split_scoped_reasons),
             "overclaims_full_confidence": self.overclaims_full_confidence,
             "next_actions": list(self.next_actions),
         }
@@ -323,6 +349,12 @@ def _decision_for(findings: Sequence[RiskEvidenceFinding]) -> tuple[str, str, bo
         "missing_defect_family_gate",
         "defect_family_gate_not_current",
         "defect_family_gate_blocked",
+        "missing_model_split_gate",
+        "model_split_gate_not_current",
+        "model_split_gate_blocked",
+        "missing_test_split_gate",
+        "test_split_gate_not_current",
+        "test_split_gate_blocked",
         "missing_proof_evidence",
         "parent_model_evidence_gap",
         "route_gap_visible",
@@ -331,6 +363,8 @@ def _decision_for(findings: Sequence[RiskEvidenceFinding]) -> tuple[str, str, bo
         "missing_current_passing_proof",
         "internal_path_only_evidence",
         "defect_family_gate_scoped_confidence",
+        "model_split_gate_scoped_confidence",
+        "test_split_gate_scoped_confidence",
         "proof_overclaims_full_confidence",
         "scoped_out_required_risk",
     )
@@ -461,6 +495,81 @@ def review_risk_evidence_ledger(plan: RiskEvidenceLedgerPlan) -> RiskEvidenceLed
                     },
                 )
             )
+
+        split_gate_specs = (
+            (
+                "model",
+                row.model_split_gate_required,
+                row.model_split_gate_id,
+                row.model_split_gate_current,
+                row.model_split_gate_confidence,
+                row.model_split_scoped_reasons,
+            ),
+            (
+                "test",
+                row.test_split_gate_required,
+                row.test_split_gate_id,
+                row.test_split_gate_current,
+                row.test_split_gate_confidence,
+                row.test_split_scoped_reasons,
+            ),
+        )
+        for split_kind, required, gate_id, current, confidence, scoped_reasons in split_gate_specs:
+            if required and not gate_id:
+                findings.append(
+                    _finding(
+                        f"missing_{split_kind}_split_gate",
+                        f"required risk has no current {split_kind} split gate owner",
+                        risk_id=row.risk_id,
+                    )
+                )
+            if required and gate_id and not current:
+                findings.append(
+                    _finding(
+                        f"{split_kind}_split_gate_not_current",
+                        f"required {split_kind} split gate evidence is stale or missing",
+                        risk_id=row.risk_id,
+                        metadata={f"{split_kind}_split_gate_id": gate_id},
+                    )
+                )
+            if required and gate_id:
+                if confidence == RISK_CONFIDENCE_BLOCKED:
+                    findings.append(
+                        _finding(
+                            f"{split_kind}_split_gate_blocked",
+                            f"required {split_kind} split gate is blocked",
+                            risk_id=row.risk_id,
+                            metadata={f"{split_kind}_split_gate_id": gate_id},
+                        )
+                    )
+                elif confidence in {RISK_CONFIDENCE_SCOPED, RISK_CONFIDENCE_PARTIAL}:
+                    severity = "warning" if plan.allow_scoped_confidence else "blocker"
+                    findings.append(
+                        _finding(
+                            f"{split_kind}_split_gate_scoped_confidence",
+                            f"required {split_kind} split gate remains explicitly scoped",
+                            risk_id=row.risk_id,
+                            severity=severity,
+                            metadata={
+                                f"{split_kind}_split_gate_id": gate_id,
+                                f"{split_kind}_split_gate_confidence": confidence,
+                            },
+                        )
+                    )
+            if scoped_reasons:
+                severity = "warning" if plan.allow_scoped_confidence else "blocker"
+                findings.append(
+                    _finding(
+                        f"{split_kind}_split_gate_scoped_confidence",
+                        f"required {split_kind} split gate remains explicitly scoped",
+                        risk_id=row.risk_id,
+                        severity=severity,
+                        metadata={
+                            f"{split_kind}_split_gate_id": gate_id,
+                            f"{split_kind}_split_scoped_reasons": list(scoped_reasons),
+                        },
+                    )
+                )
 
         if row.parent_model_evidence_required and not row.parent_model_evidence_current:
             findings.append(

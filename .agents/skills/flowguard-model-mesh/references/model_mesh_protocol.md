@@ -11,6 +11,8 @@ Create or update a local model mesh when any of these are true:
 - a single model is too large to review comfortably, such as an estimated or
   observed state count above the configured threshold, defaulting to `10_000`;
 - a budgeted model group remains incomplete with pending states;
+- `review_auto_mesh_splits(...)` reports a required model split for oversized,
+  incomplete, broad, separable, or progress-only direct model evidence;
 - a model contains several unrelated functional areas that could be child
   model boundaries;
 - a change can affect more than one existing model boundary;
@@ -96,7 +98,7 @@ Before trusting existing models, write a compact inventory:
 | `blindspots` | Known not-modeled areas and skipped checks. |
 | `coverage_owned` | Parent partition items owned by this child. |
 | `side_effects_owned` | Side effects this child can emit. |
-| `large_model_signal` | Estimated/observed state count, incomplete budgeted run, or unrelated functional areas that trigger split review. |
+| `large_model_signal` | Estimated/observed state count, incomplete budgeted run, unrelated functional areas, broad parent evidence, or progress-only status that trigger split review. |
 | `target_split_derivation` | Source FlowGuard model and target child model layout that derived this parent split. |
 | `reattachment_contracts` | Parent expectations for repaired child inputs, outputs, ownership, outgoing guarantees, and consumed evidence ids. |
 | `closure_model` | FlowGuard-style parent/child handoff model for root entries, child outputs, consumers, joins, terminals, and out-of-scope dispositions. |
@@ -283,7 +285,8 @@ At minimum, the mesh must make these broken variants fail:
 11. The mesh expands every child state graph and becomes too large to inspect.
 12. The project has three or more FlowGuard models but no mesh decision is
    created before a broad continue/release/completion claim.
-13. A single oversized model does not trigger large-model split review.
+13. A single oversized model or automatic split diagnostic does not trigger
+    large-model split review.
 14. A DevelopmentProcessFlow `model_too_thick` handoff is treated as an
     ordinary implementation failure and the thick model remains direct parent
     evidence.

@@ -55,6 +55,13 @@ layered plan:
   variants, property tests, seeded fuzz, background shards, or release-only
   regressions that are too large for a direct Model-Test Alignment row set.
 
+Automatic split diagnostics provide the trigger before a broad test result is
+accepted as enough. When direct validation evidence reports slow duration,
+large test counts, broad obligation coverage, background progress-only logs, or
+release-only scope, `review_auto_mesh_splits()` routes the candidate to
+TestMesh and keeps parent validation confidence blocked or scoped until current
+child-suite evidence is consumed.
+
 This is different from hierarchical model mesh only in what is being split.
 Hierarchical model mesh governs FlowGuard model boundaries. TestMesh governs
 test and validation boundaries.

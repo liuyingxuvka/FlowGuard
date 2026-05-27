@@ -76,8 +76,8 @@ Hard gates:
   final output, error, combined, exit, and metadata artifacts.
 - Before full done, release, publish, or production-confidence claims, use a
   Risk Evidence Ledger boundary to connect user risks, model obligations,
-  optional code contracts, recurring defect-family gates, and current proof
-  evidence.
+  optional code contracts, recurring defect-family gates, model/test split
+  gates, and current proof evidence.
 - Finish real project use with adoption evidence: trigger, model/risk, commands,
   findings, skipped steps, risk evidence summary, and next actions.
 
@@ -137,7 +137,8 @@ Use the matching Skill reference protocol for support routes. Helper APIs such a
 `review_ui_interaction_model()`, `review_ui_journey_coverage()`,
 `review_ui_implementation_validation()`,
 `review_ui_structure_derivation()`, `review_ui_text_hierarchy()`,
-`review_development_process_flow()`, `review_test_mesh()`,
+`review_development_process_flow()`, `review_auto_mesh_splits()`,
+`review_test_mesh()`,
 `review_structure_mesh()`, `review_layered_boundary_proof()`, templates, and
 starter CLIs are package helpers, not Codex skills by themselves.
 
@@ -173,6 +174,13 @@ for scripts, modules, or APIs consider StructureMesh; when the goal is to make
 existing code smaller without behavior change, consider Architecture Reduction
 before Code Structure Recommendation or StructureMesh; for long checks consider
 LongCheck observability.
+
+When direct model/test evidence includes state counts, pending budgeted states,
+duration, selected test counts, broad obligation counts, background
+progress-only status, or release-only status, run `review_auto_mesh_splits()`.
+It does not create a new route; it turns those signals into the existing
+ModelMesh or TestMesh split gate and keeps parent confidence scoped or blocked
+until current mesh evidence is consumed.
 
 Treat ModelMesh, TestMesh, and StructureMesh as sibling parent/child partition
 routes: models split into child models, tests split into child suites/scripts,

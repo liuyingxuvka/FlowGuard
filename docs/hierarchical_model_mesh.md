@@ -153,14 +153,20 @@ the no-overlap reason rather than silently reusing stale sibling assumptions.
 
 ## Large Model Review
 
-Large model review is not automatic splitting. It asks what the next action
-should be:
+Large model review asks what the next action should be:
 
 - `keep_as_single_model`: the large model is cohesive and evidence is complete;
 - `split_into_children`: the model contains separable child areas;
 - `merge_with_existing_model`: a candidate child overlaps an existing model;
 - `continue_with_budgeted_execution_only`: keep the model for now, but do not
   report incomplete budgeted work as OK.
+
+Automatic split diagnostics provide the trigger before this review is skipped.
+When direct model evidence reports state counts above the large-model
+threshold, pending budgeted states, separable areas, broad parent obligations,
+or background progress-only status, `review_auto_mesh_splits()` routes the
+candidate to ModelMesh and keeps broad parent confidence blocked or scoped
+until a current target split and child evidence are consumed.
 
 ## Legacy Compatibility
 

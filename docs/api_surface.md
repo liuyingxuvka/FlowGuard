@@ -79,6 +79,11 @@ Modeling helpers reduce boilerplate around common bug classes:
   child reattachment, child boundary propagation, affected sibling review,
   whole-flow closure across model handoffs, bug-class responsibility
   separation, large-model split triggers, and legacy compatibility.
+- optional automatic model/test split helpers such as `AutoSplitCandidate`,
+  `AutoSplitPolicy`, `AutoSplitPlan`, `AutoSplitReport`, and
+  `review_auto_mesh_splits()` for turning oversized, incomplete, slow, broad,
+  progress-only, or release-only direct evidence into a required ModelMesh or
+  TestMesh split gate before parent confidence is claimed.
 - optional layered boundary proof helpers such as `ParentCoverageItem`,
   `ChildProofContract`, `ChildReattachmentProof`, `LeafBoundaryMatrix`,
   `LeafBoundaryMatrixCell`, `LayeredBoundaryProofPlan`, and
@@ -182,8 +187,8 @@ Reporting helpers help an AI agent explain what was checked and what was not:
 - `RiskEvidenceRow`, `RiskEvidenceProof`, `RiskEvidenceLedgerPlan`,
   `RiskEvidenceLedgerReport`, and `review_risk_evidence_ledger()` for the final
   confidence ledger that connects user risks to FlowGuard model obligations,
-  optional public code contracts, recurring defect-family gates, and current
-  proof evidence
+  optional public code contracts, recurring defect-family gates, model/test
+  split gates, and current proof evidence
 - `DefectFamilyGate`, `DefectFamilyEvidence`, `DefectFamilyGatePlan`,
   `DefectFamilyGateReport`, and `review_defect_family_gates()` for promoting
   recurring or high-risk same-class model misses into a reusable FlowGuard gate
@@ -259,10 +264,13 @@ closed boundary, add `CodeBoundaryContract` and `CodeBoundaryObservation` rows
 and run `review_code_boundary_conformance()` so forbidden inputs, unknown
 accepted inputs, extra outputs, extra errors, extra state writes, and extra
 side effects stay visible. Send ambiguous or complex behavior to manual review
-and keep conformance replay for production-facing confidence. For large model or
-validation meshes, record the target split
-derivation from the FlowGuard source model before trusting parent/child
-ownership and evidence. When parent confidence claims whole-flow closure, add a
+and keep conformance replay for production-facing confidence. When direct
+model or validation evidence is oversized, incomplete, slow, broad,
+progress-only, or release-only, run `review_auto_mesh_splits()` and route the
+result to ModelMesh or TestMesh before claiming broad parent confidence. For
+large model or validation meshes, record the target split derivation from the
+FlowGuard source model before trusting parent/child ownership and evidence.
+When parent confidence claims whole-flow closure, add a
 mesh closure model so root entries, child outputs, joins, terminal
 dispositions, and out-of-scope branches are checked as executable handoff
 obligations before `mesh_green_can_continue`. When a parent model relies on

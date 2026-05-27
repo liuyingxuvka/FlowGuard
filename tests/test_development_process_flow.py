@@ -355,6 +355,74 @@ class DevelopmentProcessFlowTests(unittest.TestCase):
         self.assertFalse(report.ok)
         self.assertIn("unknown_writer_invalidates_evidence", {finding.code for finding in report.findings})
 
+    def test_oversized_model_evidence_routes_to_model_mesh(self):
+        plan = DevelopmentProcessPlan(
+            "auto-model-split",
+            artifacts=base_artifacts(),
+            evidence=(
+                ProcessEvidence(
+                    "model-pass",
+                    evidence_kind="model",
+                    status=PROCESS_EVIDENCE_PASSED,
+                    covers_artifacts=("model.search",),
+                    covered_versions={"model.search": "1"},
+                    observed_state_count=20_000,
+                    auto_split_suggested_child_ids=("query", "ranking"),
+                    auto_split_partition_item_ids=("query", "ranking"),
+                ),
+            ),
+            validation_requirements=(
+                ValidationRequirement(
+                    "model-current",
+                    required_artifact_ids=("model.search",),
+                    required_evidence_kinds=("model",),
+                    evidence_ids=("model-pass",),
+                ),
+            ),
+        )
+
+        report = review_development_process_flow(plan)
+        codes = {finding.code for finding in report.findings}
+
+        self.assertFalse(report.ok)
+        self.assertEqual("model_mesh_split_required", report.decision)
+        self.assertIn("auto_model_split_not_current", codes)
+
+    def test_slow_test_evidence_routes_to_test_mesh(self):
+        plan = DevelopmentProcessPlan(
+            "auto-test-split",
+            artifacts=base_artifacts(),
+            evidence=(
+                ProcessEvidence(
+                    "pytest-full",
+                    evidence_kind="test",
+                    status=PROCESS_EVIDENCE_PASSED,
+                    covers_artifacts=("code.search",),
+                    verifier_artifacts=("tests.search",),
+                    covered_versions={"code.search": "2", "tests.search": "1"},
+                    duration_seconds=301,
+                    covered_obligation_count=8,
+                    auto_split_suggested_child_ids=("unit", "integration"),
+                    auto_split_partition_item_ids=("fast", "slow"),
+                ),
+            ),
+            validation_requirements=(
+                ValidationRequirement(
+                    "pytest-current",
+                    required_artifact_ids=("code.search",),
+                    required_evidence_kinds=("test",),
+                    evidence_ids=("pytest-full",),
+                ),
+            ),
+        )
+
+        report = review_development_process_flow(plan)
+        codes = {finding.code for finding in report.findings}
+
+        self.assertFalse(report.ok)
+        self.assertEqual("test_mesh_split_required", report.decision)
+        self.assertIn("auto_test_split_not_current", codes)
+
     def test_missing_v_model_validation_pair_is_distinct(self):
         plan = DevelopmentProcessPlan(
             "missing-v-pair",

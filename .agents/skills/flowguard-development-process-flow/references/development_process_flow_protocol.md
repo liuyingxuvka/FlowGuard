@@ -84,6 +84,11 @@ Use these triage classes:
   parent/child split is needed. Hand off to ModelMesh.
 - `test_too_thick`: a test/check command is slow, broad, layered, skipped,
   stale, release-only, or hides child evidence status. Hand off to TestMesh.
+- `auto_split_required`: `review_auto_mesh_splits(...)` found direct model or
+  validation evidence that is oversized, incomplete, slow, broad,
+  progress-only, or release-only. Hand off to the reported ModelMesh or
+  TestMesh split gate and keep lifecycle confidence blocked or scoped until
+  current mesh evidence is consumed.
 - `model_test_mismatch`: model obligations, optional code contracts, and
   ordinary test evidence do not line up. Hand off to Model-Test Alignment.
 - `stale_evidence`: the artifact or verifier version changed after evidence

@@ -199,6 +199,45 @@ class RiskEvidenceLedgerTests(unittest.TestCase):
         self.assertEqual(RISK_CONFIDENCE_SCOPED, report.confidence)
         self.assertIn("defect_family_gate_scoped_confidence", finding_codes(report))
 
+    def test_required_model_and_test_split_gates_are_final_confidence_inputs(self):
+        missing = review_risk_evidence_ledger(
+            plan(rows=(row(model_split_gate_required=True, test_split_gate_required=True),))
+        )
+        self.assertFalse(missing.ok)
+        self.assertEqual("missing_model_split_gate", missing.decision)
+
+        stale = review_risk_evidence_ledger(
+            plan(
+                rows=(
+                    row(
+                        model_split_gate_required=True,
+                        model_split_gate_id="modelmesh:search",
+                        model_split_gate_current=False,
+                    ),
+                )
+            )
+        )
+        self.assertFalse(stale.ok)
+        self.assertEqual("model_split_gate_not_current", stale.decision)
+
+    def test_scoped_test_split_gate_downgrades_final_confidence(self):
+        report = review_risk_evidence_ledger(
+            plan(
+                rows=(
+                    row(
+                        test_split_gate_required=True,
+                        test_split_gate_id="testmesh:full",
+                        test_split_gate_confidence=RISK_CONFIDENCE_SCOPED,
+                    ),
+                )
+            )
+        )
+
+        self.assertTrue(report.ok)
+        self.assertEqual(RISK_LEDGER_DECISION_SCOPED, report.decision)
+        self.assertEqual(RISK_CONFIDENCE_SCOPED, report.confidence)
+        self.assertIn("test_split_gate_scoped_confidence", finding_codes(report))
+
 
 if __name__ == "__main__":
     unittest.main()
