@@ -28,5 +28,5 @@
 - [x] 5.1 Sync the local editable installation.
 - [x] 5.2 Verify installed import path/version and schema version.
 - [x] 5.3 Sync the shadow workspace without reverting parallel work.
-- [ ] 5.4 Commit/tag local git version if validation passes.
-- [ ] 5.5 Run KB postflight and record reusable lessons if any.
+- [x] 5.4 Commit/tag local git version if validation passes.
+- [x] 5.5 Run KB postflight and record reusable lessons if any.
