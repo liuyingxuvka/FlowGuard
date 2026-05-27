@@ -146,6 +146,49 @@ class ApiSurfaceTests(unittest.TestCase):
             self.assertTrue(hasattr(flowguard, name), name)
             self.assertNotIn(name, flowguard.CORE_API)
 
+    def test_public_all_is_derived_from_api_groups_and_supplement(self):
+        expected_supplement = (
+            "API_SURFACE",
+            "CORE_API",
+            "EVIDENCE_API",
+            "MODEL_IMPACT_FRESHNESS_API",
+            "MODEL_MATURATION_API",
+            "MODELING_HELPER_API",
+            "REPORTING_HELPER_API",
+            "RISK_INTENT_FIELDS",
+            "PROOF_ARTIFACT_STATUS_PASSED",
+            "PROOF_ARTIFACT_STATUS_FAILED",
+            "PROOF_ARTIFACT_STATUS_SKIPPED",
+            "PROOF_ARTIFACT_STATUS_STALE",
+            "PROOF_ARTIFACT_STATUS_NOT_RUN",
+            "PROOF_ARTIFACT_STATUS_RUNNING",
+            "PROOF_ARTIFACT_STATUS_PROGRESS_ONLY",
+            "PROOF_ARTIFACT_STATUS_ERROR",
+            "PROOF_ARTIFACT_SCOPE_EXTERNAL_CONTRACT",
+            "PROOF_ARTIFACT_SCOPE_INTERNAL_PATH",
+            "PROOF_ARTIFACT_SCOPE_MIXED",
+            "PROOF_ARTIFACT_SCOPE_UNKNOWN",
+            "PASSING_PROOF_ARTIFACT_STATUSES",
+            "NON_PASSING_PROOF_ARTIFACT_STATUSES",
+            "LEGACY_PATH_DELETED",
+            "LEGACY_PATH_BLOCKED",
+            "LEGACY_PATH_DELEGATED",
+            "LEGACY_PATH_SAME_CONTRACT_REPAIRED",
+            "LEGACY_PATH_OUT_OF_SCOPE",
+            "LEGACY_PATH_UNKNOWN",
+        )
+        self.assertEqual(flowguard._PUBLIC_API_SUPPLEMENT, expected_supplement)
+
+        expected = []
+        for names in flowguard.API_SURFACE.values():
+            expected.extend(names)
+        expected.extend(expected_supplement)
+
+        self.assertEqual(set(flowguard.__all__), set(expected))
+        self.assertEqual(len(flowguard.__all__), len(set(flowguard.__all__)))
+        for name in expected_supplement:
+            self.assertTrue(hasattr(flowguard, name), name)
+
 
 if __name__ == "__main__":
     unittest.main()
