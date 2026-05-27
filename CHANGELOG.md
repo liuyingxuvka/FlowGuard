@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.25.0 - 2026-05-27
+
+- Added adversarial scenario synthesis on the existing Scenario Sandbox and
+  model-first runner path so Explorer counterexamples, dead branches, exception
+  branches, repeated state visits, and risk semantics can become candidate
+  challenge routes without creating a parallel testing workflow.
+- Updated retry, deduplication, cache, and side-effect packs to reuse the
+  bounded input-shape fallback builder while preserving generated scenarios as
+  `needs_human_review` candidate evidence until a domain oracle is supplied.
+- Updated Scenario Sandbox, helper docs, README, OpenSpec artifacts, and focused
+  tests for model-derived challenge-route evidence.
+- Schema remains `1.0`; runtime dependencies remain Python standard library
+  only.
+
 ## v0.24.0 - 2026-05-27
 
 - Added model-impact freshness helper APIs so FlowGuard framework upgrades
@@ -10,13 +24,6 @@
 - Added an executable `.flowguard/model_impact_freshness_gate` model that
   rejects missing classification, blind reuse of old evidence, and affected
   models accepted without current rerun evidence.
-- Added adversarial scenario synthesis on the existing Scenario Sandbox and
-  model-first runner path so Explorer counterexamples, dead branches, exception
-  branches, repeated state visits, and risk semantics can become candidate
-  challenge routes without creating a parallel testing workflow.
-- Updated retry, deduplication, cache, and side-effect packs to reuse the
-  bounded input-shape fallback builder while preserving generated scenarios as
-  `needs_human_review` candidate evidence until a domain oracle is supplied.
 - Updated framework-upgrade, DevelopmentProcessFlow, modeling protocol, helper
   layer, README, API surface docs, OpenSpec artifacts, and focused tests.
 - Schema remains `1.0`; runtime dependencies remain Python standard library
