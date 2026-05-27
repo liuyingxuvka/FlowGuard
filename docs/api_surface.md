@@ -108,6 +108,11 @@ Modeling helpers reduce boilerplate around common bug classes:
   proof, primary `edge_path` proof, supporting contract evidence, integration
   smoke evidence, exact leaf matrix-cell evidence, and model-miss closure roles
   such as observed regression versus same-class generalized evidence.
+- optional model maturation helpers such as `ModelMaturationSignal`,
+  `ModelMaturationPlan`, `ModelMaturationReport`, and
+  `review_model_maturation_loop()` for turning model-miss, model-test,
+  ModelMesh, code-boundary, and freshness signals into explicit model-upgrade
+  actions or scoped-claim decisions before a broad FlowGuard claim is made.
 - optional conservative Python source-audit helpers such as
   `PythonCodeContractEvidence`, `PythonTestAssertionEvidence`,
   `ContractSourceAuditReport`, `audit_python_code_contracts()`,
@@ -189,10 +194,17 @@ Reporting helpers help an AI agent explain what was checked and what was not:
   confidence ledger that connects user risks to FlowGuard model obligations,
   optional public code contracts, recurring defect-family gates, model/test
   split gates, and current proof evidence
+- `ProofArtifactRef`, `proof_artifact_gap_codes()`, and proof-artifact status
+  constants for binding declared evidence rows to concrete result paths,
+  fingerprints, exit status, current route evidence, obligation coverage, and
+  external-contract scope in strict confidence reviews
 - `DefectFamilyGate`, `DefectFamilyEvidence`, `DefectFamilyGatePlan`,
   `DefectFamilyGateReport`, and `review_defect_family_gates()` for promoting
   recurring or high-risk same-class model misses into a reusable FlowGuard gate
   before a broad final-confidence claim
+- `LegacyPathDisposition` and `review_legacy_path_dispositions()` for blocking
+  closure when an old route remains executable with an unknown, unproved, or
+  out-of-scope-without-reason disposition
 - plan-intake and typed claim helpers such as `PlanIntakeRiskSurface`,
   `PlanIntakeCompletenessPlan`, `review_plan_intake_completeness()`,
   `EvidenceAdapterMapping`, `review_evidence_adapter_conformance()`,

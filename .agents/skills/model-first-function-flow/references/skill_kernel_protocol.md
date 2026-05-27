@@ -16,6 +16,11 @@ standalone satellite skills.
   over prose, skipped is not pass, and adoption evidence for real use;
 - route map to specialized protocols and directly invokable satellite skills;
 - distinction between agent sub-protocols and package helper APIs.
+- the FlowGuard closure contract: complete FlowGuard use is not a mode, and a
+  full done/release/publish/production-confidence claim requires current
+  intake, model ownership, same-class miss evidence when relevant, alignment,
+  mesh/boundary proof when relevant, model maturation, freshness, ledger, and
+  claim-chain support.
 
 ## Standalone Satellite Skills
 
@@ -46,6 +51,7 @@ to the kernel instead of taking ownership of unclear work.
 | `architecture_reduction` | behavior-preserving code contraction candidates, observable architecture contracts, and target StructureMesh handoff |
 | `ui_flow_structure` | UI interaction model, app-level journey coverage, implemented/runnable UI click-through evidence alignment, reachable visible-control branches, state/control/event/display transitions, parent/child UI topology, menu levels, overlays, stable placements, UI text hierarchy blueprint, and intentional redundancy |
 | `model_test_alignment` | direct comparison of model obligations, optional code contracts, code-boundary observations, and ordinary test evidence |
+| `model_maturation_loop` | converts post-code, post-miss, alignment, mesh, boundary, and freshness signals into model-upgrade or scoped-claim decisions |
 | `risk_evidence_ledger` | final risk-to-model-to-code-to-evidence confidence boundary for done/release/publish/full-confidence claims |
 | `model_mesh_maintenance` | parent/child model hierarchy, child reattachment, whole-flow mesh closure, and oversized-model governance |
 | `test_mesh_maintenance` | parent/child test hierarchy plus validation evidence |
@@ -63,6 +69,7 @@ These are package helpers:
 - `RiskIntent`, `RiskProfile`, `FlowGuardCheckPlan`;
 - property factories and packs;
 - `review_model_test_alignment()` and `review_code_boundary_conformance()`;
+- `review_model_maturation_loop()` for post-evidence model upgrade decisions;
 - `review_risk_evidence_ledger()` and risk evidence ledger rows;
 - `review_hierarchical_mesh()`, `review_mesh_closure_model()`,
   `review_test_mesh()`, `review_structure_mesh()`;
@@ -81,6 +88,9 @@ sub-skills.
 ## Maintenance Rules
 
 - Keep `SKILL.md` short enough to scan as a router.
+- Do not describe closure as an optional or default mode. If the closure gates
+  required by a claim are missing, stale, skipped, progress-only, or scoped,
+  report partial/scoped FlowGuard evidence instead of complete FlowGuard use.
 - Add detailed procedures to references, not the kernel.
 - Keep satellite skills concise and self-contained enough for direct Codex use.
 - Keep ModelMesh, TestMesh, and StructureMesh aligned as sibling

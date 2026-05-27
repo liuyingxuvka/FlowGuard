@@ -41,6 +41,7 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("review_test_mesh()", text)
         self.assertIn("review_structure_mesh()", text)
         self.assertIn("review_model_test_alignment()", text)
+        self.assertIn("review_model_maturation_loop()", text)
         self.assertIn("review_risk_evidence_ledger()", text)
         self.assertIn("audit_python_code_contracts()", text)
         self.assertIn("audit_python_test_assertions()", text)
@@ -69,6 +70,7 @@ class SkillDocsTests(unittest.TestCase):
             "existing_model_preflight",
             "development_process_flow",
             "model_miss_review",
+            "model_maturation_loop",
             "conformance_adoption",
             "long_check_observability",
             "framework_upgrade",
@@ -121,6 +123,24 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("escalation paths", snippet)
         self.assertIn("Think in buckets first", kernel)
         self.assertIn("Think in buckets first", snippet)
+
+    def test_flowguard_closure_contract_is_intrinsic_not_optional_mode(self):
+        kernel = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
+        snippet = (ROOT / "docs" / "agents_snippet.md").read_text(encoding="utf-8")
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        modeling = (ROOT / "docs" / "modeling_protocol.md").read_text(encoding="utf-8")
+        closure_doc = (ROOT / "docs" / "flowguard_closure_contract.md").read_text(encoding="utf-8")
+        combined = "\n".join((kernel, snippet, readme, modeling, closure_doc))
+
+        self.assertIn("FlowGuard closure contract", combined)
+        self.assertIn("Complete FlowGuard use", combined)
+        self.assertIn("partial/scoped FlowGuard evidence", combined)
+        self.assertIn("not a mode", closure_doc)
+        self.assertIn("This thin path is an entry path, not a completion shortcut", readme)
+        self.assertIn("same-class miss evidence", combined)
+        self.assertIn("Risk Evidence Ledger", combined)
+        self.assertIn("claim-chain", combined)
+        self.assertNotIn("optional/default mode", closure_doc)
 
     def test_current_satellite_topology_has_no_stale_fixed_count_model(self):
         skills_root = ROOT / ".agents" / "skills"
@@ -472,6 +492,7 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("in-progress background run", text)
         self.assertIn("A later green runtime check by itself does not close", text)
         self.assertIn("same-class test evidence", text)
+        self.assertIn("review_model_maturation_loop", text)
         self.assertIn("testing only the observed instance is not closure", text)
         self.assertIn("flowguard-model-test-alignment", text)
         self.assertIn("flowguard-development-process-flow", text)

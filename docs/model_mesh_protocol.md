@@ -383,6 +383,8 @@ The mesh is sufficient for the current decision only when:
   scope before mesh confidence is claimed;
 - child boundary changes have propagated to every parent that consumes the
   child evidence id;
+- boundary-change, reattachment, oversized-model, and duplicate-edge-path
+  findings have been resolved or scoped through `review_model_maturation_loop(...)`;
 - affected siblings with overlapping ownership, read-only dependency,
   shared-kernel use, or outgoing-contract dependency have been reviewed or
   shown unaffected;

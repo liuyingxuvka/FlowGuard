@@ -39,6 +39,9 @@ ordering, retry, side-effect, or evidence-freshness failure. Treat satellite
 skills, helper APIs, ledgers, meshes, and framework suites as escalation paths,
 not default reading for every task.
 
+This is only the entry path. Complete FlowGuard use requires the FlowGuard
+closure contract for the claim: current intake, model ownership, same-class miss evidence, alignment, mesh/boundary proof, model maturation, freshness, Risk Evidence Ledger, and claim-chain support, or the result is partial/scoped.
+
 Use FlowGuard when work may affect behavior, workflow state, retries,
 deduplication, caching, side effects, module boundaries, data flow, production
 conformance, repeated-bug handling, large model layout, model-backed code
@@ -100,6 +103,7 @@ tests/evidence, model hierarchy, process/release, and model-miss repair.
 | Direct architecture recommendation, model-derived implementation structure, pre-code module split planning | `code_structure_recommendation` | `flowguard-code-structure-recommendation` |
 | UI interaction flow model, complete app launch-to-terminal journey coverage, implemented/runnable UI validation against feature contracts and browser/manual click-through evidence, reachable visible-control branches, screen/region topology, parent/child UI structure, navigation/state/event/display/text ownership, text hierarchy blueprint, duplicate information, or overlapping same-level controls derived from modeled UI behavior | `ui_flow_structure` | `flowguard-ui-flow-structure` |
 | FlowGuard model obligations, optional code external contracts, code-boundary runtime observations, and ordinary test evidence need direct comparison | `model_test_alignment` | `flowguard-model-test-alignment` |
+| Post-code/post-miss/model-test/mesh/code-boundary/freshness signals say the model itself needs refinement before broad confidence | `model_maturation_loop` | `review_model_maturation_loop()` |
 | Final done/release/publish/full-confidence claim needs risk-to-model-to-code-to-evidence proof boundary | `risk_evidence_ledger` | `docs/risk_evidence_ledger.md` |
 | Three or more local FlowGuard models, oversized model, stale child evidence, parent/child model partition, affected sibling review, whole-flow mesh closure | `model_mesh_maintenance` | `flowguard-model-mesh` |
 | Large test script/suite split, parent/child test hierarchy, slow/background/stale/skipped/release-only validation evidence | `test_mesh_maintenance` | `flowguard-test-mesh` |
@@ -118,9 +122,8 @@ verify. For models consider ModelMesh; for tests consider TestMesh; for
 structure consider StructureMesh; for long checks consider LongCheck.
 
 When a post-runtime model miss is repaired in a child under a parent ModelMesh,
-route through `model_miss_review` and `model_mesh_maintenance`: Model-Miss owns
-the current bug instance and same-class bug responsibility; ModelMesh owns the
-parent reattachment gate, upward propagation, and affected sibling review.
+route through `model_miss_review` and `model_mesh_maintenance` for the parent reattachment gate, then feed miss,
+alignment, mesh, code-boundary, and freshness signals to `review_model_maturation_loop()` before broad closure.
 
 ### Flow Lenses
 
@@ -158,8 +161,10 @@ Codex skill:
   `review_structure_mesh()`.
 - Layered proof APIs such as `review_layered_boundary_proof()` for parent coverage,
   child disjointness, child reattachment, and leaf boundary matrix closure.
-- Alignment APIs such as `review_model_test_alignment()`, `review_code_boundary_conformance()`, `audit_python_code_contracts()`, `audit_python_test_assertions()`, `review_python_contract_source_audit()`, and optional code/boundary rows.
+- Alignment APIs such as `review_model_test_alignment()`, `review_code_boundary_conformance()`, `audit_python_code_contracts()`, `audit_python_test_assertions()`, `review_python_contract_source_audit()`, and optional code/boundary rows; model maturation uses `review_model_maturation_loop()`.
 - Risk evidence APIs such as `RiskEvidenceLedgerPlan`, `RiskEvidenceProof`, `RiskEvidenceRow`, and `review_risk_evidence_ledger()`.
+- Proof-bound evidence APIs such as `ProofArtifactRef`,
+  `proof_artifact_gap_codes()`, `LegacyPathDisposition`, and `review_legacy_path_dispositions()`; broad confidence needs result path, fingerprint, current route evidence, covered obligation, and external-contract scope where claimed.
 - Plan-intake/claim helpers such as `review_plan_intake_completeness()`, `review_evidence_adapter_conformance()`, `review_false_negative_backpropagation()`, `review_plan_mutations()`, and `review_flowguard_claim_chain()`.
 - Development lifecycle helpers such as `review_development_process_flow()` and `derive_revalidation_plan()`.
 - Existing-model grounding helpers such as `ExistingModelPreflight`, `ModelContextHit`, `ExistingOwnershipSnapshot`, `DuplicateBoundaryRisk`, and `review_existing_model_preflight()`.
@@ -179,10 +184,9 @@ Codex skill:
 ## Standalone Satellite Skills
 The directly invokable satellite skills are:
 `flowguard-model-test-alignment`, `flowguard-development-process-flow`,
-`flowguard-model-miss-review`, `flowguard-code-structure-recommendation`,
-`flowguard-existing-model-preflight`, `flowguard-architecture-reduction`,
-`flowguard-ui-flow-structure`, `flowguard-model-mesh`, `flowguard-test-mesh`,
-and `flowguard-structure-mesh`. Use the matching satellite directly when the user's
+`flowguard-model-miss-review`, `flowguard-code-structure-recommendation`, `flowguard-existing-model-preflight`,
+`flowguard-architecture-reduction`, `flowguard-ui-flow-structure`, `flowguard-model-mesh`,
+`flowguard-test-mesh`, and `flowguard-structure-mesh`. Use the matching satellite directly when the user's
 request clearly matches that route; otherwise use this kernel.
 ## Resource Map
 

@@ -55,6 +55,10 @@ Before changing files, separate three situations:
   minimum revalidation is the risky boundary. Use this sibling route to review
   lifecycle rows without supervising ModelMesh, TestMesh, StructureMesh, or
   Model-Test Alignment internals.
+- `model_maturation_loop`: later model-miss, model-test, ModelMesh,
+  code-boundary, or freshness evidence says the model itself is too coarse,
+  stale, disconnected, or only supports a scoped claim. Translate that signal
+  into a model-upgrade action before broad confidence is claimed.
 
 If real FlowGuard is importable but a current `.flowguard` Python model still
 claims `flowguard_package_available = False`, uses a fallback explorer, or
@@ -173,6 +177,21 @@ when the repair changes inputs, outputs, state ownership, side-effect
 ownership, risk boundary, or outgoing guarantees. Background long-running
 checks may support either route only after final artifacts and exit status
 exist; progress is liveness, not pass evidence.
+
+## 0.33 Check The Model Maturation Loop
+
+After implementation, validation, model-miss review, Model-Test Alignment,
+ModelMesh, TestMesh, code-boundary review, or evidence-freshness review has
+produced new signals, use `review_model_maturation_loop(...)` to ask whether
+the model needs to mature before the claim can stay broad. The review should
+translate route signals into concrete actions such as adding a state field,
+transition case, invariant, same-class scenario, code-boundary observation,
+model obligation, child split, parent reattachment, or evidence refresh.
+
+This helper does not replace the owning route that found the signal. It answers
+whether that evidence means the model is still too coarse for the claim. If yes,
+upgrade the model and rerun the relevant checks, or downgrade the final claim to
+the scope that the current model actually proves.
 
 Read `docs/model_mesh_protocol.md` for the inventory fields, evidence tiers,
 required hazards, prompt template, and completion standard. At minimum, the
@@ -580,9 +599,10 @@ When this happens:
    model-quality audit, scenario or live-audit evidence, progress, contracts,
    conformance, skipped/not-run sections, and adoption evidence. The ledger is
    the coverage-first view used to avoid patching only the visible failure.
-3. Classify why the prior model missed the issue with one of five practical
-   categories: `boundary_missing`, `state_too_coarse`,
-   `input_branch_missing`, `invariant_too_weak`, or `evidence_overclaimed`.
+3. Classify why the prior model missed the issue with one of the practical
+   categories: `boundary_missing`, `code_boundary_mismatch`,
+   `state_too_coarse`, `input_branch_missing`, `invariant_too_weak`, or
+   `evidence_overclaimed`.
    Record unusual details in plain language instead of expanding the formal
    daily category list.
 4. If the issue belongs in scope, represent it as executable evidence: scenario,
@@ -599,9 +619,13 @@ When this happens:
 8. If the child boundary changed, keep the miss open until ModelMesh has
    propagated the boundary review upward and reviewed affected sibling models
    or recorded why none are affected.
-9. Do not use a background long-running check as closure until final artifacts
+9. Run the model maturation loop over the miss classification, alignment rows,
+   mesh rows, and freshness rows. If it reports state, branch, invariant,
+   same-class, child reattachment, or obligation gaps, upgrade the model or keep
+   the final claim scoped.
+10. Do not use a background long-running check as closure until final artifacts
    and exit status exist; progress output is only liveness.
-10. Record `Miss type`, `Generalized case`, and any parent reattachment decision
+11. Record `Miss type`, `Generalized case`, and any parent reattachment decision
    in the adoption log, or the reason no generalized case was added, along with
    rerun commands, skipped checks, and residual blindspots.
 

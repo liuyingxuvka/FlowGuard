@@ -47,6 +47,17 @@ class MaintenanceWorkflowTemplateTests(unittest.TestCase):
             self.assertIn("broken_publish_without_install_sync: VIOLATION", result.stdout)
 
     def test_cli_prints_and_writes_template(self):
+        help_result = subprocess.run(
+            [sys.executable, "-m", "flowguard", "maintenance-template", "--help"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(0, help_result.returncode, help_result.stderr)
+        self.assertIn("--output", help_result.stdout)
+        self.assertIn("--force", help_result.stdout)
+
         printed = subprocess.run(
             [sys.executable, "-m", "flowguard", "maintenance-template"],
             cwd=ROOT,

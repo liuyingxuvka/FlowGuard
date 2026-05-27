@@ -41,6 +41,16 @@ ordering, retry, side-effect, or evidence-freshness failure. Treat satellite
 skills, helper APIs, ledgers, meshes, and framework suites as escalation paths,
 not default reading for every FlowGuard task.
 
+This path is only the entry shape. Complete FlowGuard use requires the
+FlowGuard closure contract for the claim: required plan/risk intake, model
+ownership or new boundary, same-class miss evidence when relevant,
+model-test/code alignment, mesh or boundary proof when relevant, model
+maturation when later evidence says the model is too coarse, evidence freshness,
+Risk Evidence Ledger, and typed claim-chain support must be current.
+If a required gate is missing, stale, skipped, progress-only, internal-path-only,
+release-only, or scoped out, report partial/scoped FlowGuard evidence rather
+than full FlowGuard completion.
+
 Hard gates:
 
 - Verify the real package before modeling:
@@ -99,6 +109,7 @@ named route only when that bucket matches the actual risk.
 | Direct architecture recommendation or model-derived implementation structure | `code_structure_recommendation` |
 | UI interaction model, app-level launch-to-terminal journey coverage, implemented/runnable UI validation against feature contracts and browser/manual click-through evidence, reachable visible-control branches, screen/region topology, parent/child UI hierarchy, menu levels, overlays, stable placement, display/text ownership, text hierarchy blueprint, duplicate information, or overlapping controls | `ui_flow_structure` |
 | Direct comparison between FlowGuard model obligations, optional code external contracts, code-boundary runtime observations, and ordinary test evidence | `model_test_alignment` |
+| Post-code, post-miss, model-test, mesh, code-boundary, or freshness signals say the model itself must be refined before broad confidence | `model_maturation_loop` |
 | Final done/release/publish/full-confidence claim needs risk-to-model-to-code-to-evidence proof boundary | `risk_evidence_ledger` |
 | Three or more local models, oversized model, parent/child model evidence | `model_mesh_maintenance` |
 | Large test script/suite split, parent/child test hierarchy, slow/stale/release-only tests | `test_mesh_maintenance` |
@@ -268,7 +279,7 @@ For post-runtime model misses, classify the miss as `boundary_missing`,
 `invariant_too_weak`, or `evidence_overclaimed`; represent the observed issue
 and one same-class generalized bad case when practical; add
 observed-regression and same-class test evidence; rerun Model-Test Alignment;
-then validate with production-facing evidence. The current bug instance and
+run `review_model_maturation_loop(...)`; then validate with production-facing evidence. The current bug instance and
 bug-class responsibility are separate: patching the observed instance or
 testing only the observed instance is not closure until the class is represented
 and tested, or explicitly out of scope. If the same-class test space is large,

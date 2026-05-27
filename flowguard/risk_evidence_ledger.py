@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
 from .export import to_jsonable
+from .proof_artifact import ProofArtifactRef, coerce_proof_artifact_ref, proof_artifact_gap_codes
 
 
 RISK_PROOF_KIND_TEST = "test"
@@ -71,6 +72,7 @@ class RiskEvidenceProof:
     producer_route: str = ""
     command: str = ""
     summary: str = ""
+    proof_artifact: ProofArtifactRef | Mapping[str, Any] | None = None
     stale_reasons: tuple[str, ...] = ()
     route_gap_codes: tuple[str, ...] = ()
     route_evidence_current: bool = True
@@ -84,6 +86,7 @@ class RiskEvidenceProof:
         object.__setattr__(self, "producer_route", str(self.producer_route))
         object.__setattr__(self, "command", str(self.command))
         object.__setattr__(self, "summary", str(self.summary))
+        object.__setattr__(self, "proof_artifact", coerce_proof_artifact_ref(self.proof_artifact))
         object.__setattr__(self, "stale_reasons", _as_tuple(self.stale_reasons))
         object.__setattr__(self, "route_gap_codes", _as_tuple(self.route_gap_codes))
         object.__setattr__(self, "metadata", dict(self.metadata))
@@ -107,6 +110,7 @@ class RiskEvidenceProof:
             "producer_route": self.producer_route,
             "command": self.command,
             "summary": self.summary,
+            "proof_artifact": self.proof_artifact.to_dict() if self.proof_artifact else None,
             "stale_reasons": list(self.stale_reasons),
             "route_gap_codes": list(self.route_gap_codes),
             "route_evidence_current": self.route_evidence_current,
@@ -208,6 +212,7 @@ class RiskEvidenceLedgerPlan:
     rows: tuple[RiskEvidenceRow, ...] = ()
     proof_evidence: tuple[RiskEvidenceProof, ...] = ()
     require_code_contracts: bool = False
+    require_proof_artifacts: bool = False
     allow_scoped_confidence: bool = True
 
     def __post_init__(self) -> None:
@@ -221,6 +226,7 @@ class RiskEvidenceLedgerPlan:
             "rows": [row.to_dict() for row in self.rows],
             "proof_evidence": [evidence.to_dict() for evidence in self.proof_evidence],
             "require_code_contracts": self.require_code_contracts,
+            "require_proof_artifacts": self.require_proof_artifacts,
             "allow_scoped_confidence": self.allow_scoped_confidence,
         }
 
@@ -634,6 +640,24 @@ def review_risk_evidence_ledger(plan: RiskEvidenceLedgerPlan) -> RiskEvidenceLed
                         evidence_id=evidence_id,
                     )
                 )
+            if plan.require_proof_artifacts:
+                for code, message in proof_artifact_gap_codes(
+                    proof.proof_artifact,
+                    declared_status=proof.result_status,
+                    required_obligation_ids=(row.model_obligation_id,),
+                    require_result_path=True,
+                    require_fingerprints=True,
+                    require_external_scope=row.require_external_proof,
+                ):
+                    findings.append(
+                        _finding(
+                            code.replace("proof_artifact", "proof_evidence_artifact"),
+                            message,
+                            risk_id=row.risk_id,
+                            evidence_id=evidence_id,
+                            metadata={"proof": proof.to_dict()},
+                        )
+                    )
             if proof.has_current_pass():
                 current_any_pass = True
                 if proof.has_external_scope():

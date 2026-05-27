@@ -11,12 +11,19 @@ ModelMesh, TestMesh, StructureMesh, Model-Test Alignment, LongCheck, or
 Conformance Adoption, but it does not inspect or supervise those route
 internals.
 
+When a lifecycle claim is broad enough to say done, release, archive, publish,
+or framework-sync confidence, use `require_proof_artifacts=True`. In that mode,
+each consumed `ProcessEvidence` row must attach a proof artifact with a result
+path and fingerprint; a green status string without a concrete artifact remains
+only a declaration.
+
 ## Public API
 
 ```python
 from flowguard import (
     DevelopmentProcessPlan,
     FreshnessRule,
+    ProofArtifactRef,
     ProcessAction,
     ProcessArtifact,
     ProcessEvidence,
@@ -26,6 +33,7 @@ from flowguard import (
 
 plan = DevelopmentProcessPlan(
     "checkout-lifecycle",
+    require_proof_artifacts=True,
     artifacts=(
         ProcessArtifact("requirements.checkout", "requirement", "2"),
         ProcessArtifact("code.checkout", "code", "4"),
@@ -46,6 +54,14 @@ plan = DevelopmentProcessPlan(
             verifier_artifacts=("tests.checkout",),
             covered_versions={"code.checkout": "3", "tests.checkout": "1"},
             produced_by_action_id="run-unit",
+            proof_artifact=ProofArtifactRef(
+                "artifact:unit-pass",
+                result_status="passed",
+                exit_code=0,
+                result_path="tmp/unit-pass.json",
+                artifact_fingerprints={"tmp/unit-pass.json": "sha256:..."},
+                covered_obligation_ids=("unit-current",),
+            ),
         ),
     ),
     validation_requirements=(
@@ -139,6 +155,12 @@ obligation and the observed/same-class test rows. If the same-class evidence is
 large, slow, background, layered, or release-only, it should also include
 TestMesh evidence and keep routine confidence scoped until current release
 evidence exists.
+
+When later implementation, validation, alignment, mesh, code-boundary, or
+freshness evidence says the model itself is too coarse, stale, disconnected, or
+missing an obligation, DevelopmentProcessFlow should also consume
+`review_model_maturation_loop(...)`. The lifecycle claim stays scoped or blocked
+until the required model upgrade is resolved or explicitly out of scope.
 
 Before done, release, archive, publish, or production-confidence claims,
 DevelopmentProcessFlow should review direct model/test evidence with

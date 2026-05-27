@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
 from .export import to_jsonable
+from .proof_artifact import ProofArtifactRef, coerce_proof_artifact_ref, proof_artifact_gap_codes
 
 
 TEST_STATUS_PASSED = "passed"
@@ -376,6 +377,7 @@ class TestEvidence:
     assertion_scope: str = TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT
     evidence_role: str = TEST_EVIDENCE_ROLE_PRIMARY
     evidence_target_id: str = ""
+    proof_artifact: ProofArtifactRef | Mapping[str, Any] | None = None
     stale_reasons: tuple[str, ...] = ()
     overclaims_model_confidence: bool = False
     closure_evidence_role: str = TEST_CLOSURE_ROLE_UNSPECIFIED
@@ -392,6 +394,7 @@ class TestEvidence:
         object.__setattr__(self, "assertion_scope", str(self.assertion_scope))
         object.__setattr__(self, "evidence_role", str(self.evidence_role))
         object.__setattr__(self, "evidence_target_id", str(self.evidence_target_id))
+        object.__setattr__(self, "proof_artifact", coerce_proof_artifact_ref(self.proof_artifact))
         object.__setattr__(self, "stale_reasons", _as_tuple(self.stale_reasons))
         object.__setattr__(self, "closure_evidence_role", str(self.closure_evidence_role))
 
@@ -418,6 +421,7 @@ class TestEvidence:
             "assertion_scope": self.assertion_scope,
             "evidence_role": self.evidence_role,
             "evidence_target_id": self.evidence_target_id,
+            "proof_artifact": self.proof_artifact.to_dict() if self.proof_artifact else None,
             "stale_reasons": list(self.stale_reasons),
             "overclaims_model_confidence": self.overclaims_model_confidence,
             "closure_evidence_role": self.closure_evidence_role,
@@ -638,6 +642,7 @@ class ModelTestAlignmentPlan:
     boundary_contracts: tuple[CodeBoundaryContract, ...] = ()
     boundary_observations: tuple[CodeBoundaryObservation, ...] = ()
     require_code_contracts: bool = False
+    require_proof_artifacts: bool = False
     allow_orphan_tests: bool = False
     allow_orphan_code_contracts: bool = False
 
@@ -658,6 +663,7 @@ class ModelTestAlignmentPlan:
             "boundary_contracts": [contract.to_dict() for contract in self.boundary_contracts],
             "boundary_observations": [observation.to_dict() for observation in self.boundary_observations],
             "require_code_contracts": self.require_code_contracts,
+            "require_proof_artifacts": self.require_proof_artifacts,
             "allow_orphan_tests": self.allow_orphan_tests,
             "allow_orphan_code_contracts": self.allow_orphan_code_contracts,
         }
@@ -1617,6 +1623,23 @@ def _evidence_findings(
                     metadata=evidence.to_dict(),
                 )
             )
+        if plan.require_proof_artifacts:
+            for code, message in proof_artifact_gap_codes(
+                evidence.proof_artifact,
+                declared_status=evidence.result_status,
+                required_obligation_ids=evidence.covered_obligations,
+                require_result_path=True,
+                require_fingerprints=True,
+                require_external_scope=bool(evidence.covered_code_contracts),
+            ):
+                findings.append(
+                    ModelTestAlignmentFinding(
+                        code.replace("proof_artifact", "test_proof_artifact"),
+                        message,
+                        evidence_id=evidence.evidence_id,
+                        metadata=evidence.to_dict(),
+                    )
+                )
         if evidence.overclaims_model_confidence:
             findings.append(
                 ModelTestAlignmentFinding(

@@ -26,6 +26,12 @@ the structured evidence and blocks parent confidence for gaps, illegal overlap,
 stale reattachment, missing leaf cells, overflowed outputs, progress-only
 evidence, or leaves that are too large and need another split.
 
+For parent confidence, prefer `require_proof_artifacts=True`. In that mode,
+child contracts and leaf cells cannot be supported by declaration-only
+`passed/current` rows. Each row needs a `ProofArtifactRef` with a result path,
+artifact fingerprint, passing status, current route evidence, matching covered
+obligations, and external-contract scope.
+
 ```python
 from flowguard import (
     ChildProofContract,
@@ -34,12 +40,14 @@ from flowguard import (
     LeafBoundaryMatrixCell,
     LayeredBoundaryProofPlan,
     ParentCoverageItem,
+    ProofArtifactRef,
     review_layered_boundary_proof,
 )
 
 plan = LayeredBoundaryProofPlan(
     "checkout-layered-proof",
     "checkout-parent",
+    require_proof_artifacts=True,
     parent_items=(ParentCoverageItem("validate-submit", owner_model_id="validate"),),
     child_contracts=(
         ChildProofContract(
@@ -49,6 +57,14 @@ plan = LayeredBoundaryProofPlan(
             inputs_accepted=("empty-submit",),
             outputs_emitted=("Rejected",),
             is_leaf=True,
+            proof_artifact=ProofArtifactRef(
+                "artifact:validate-child",
+                result_status="passed",
+                exit_code=0,
+                result_path="tmp/validate-child.json",
+                artifact_fingerprints={"tmp/validate-child.json": "sha256:..."},
+                covered_obligation_ids=("validate-submit",),
+            ),
         ),
     ),
     reattachment_proofs=(
@@ -73,6 +89,14 @@ plan = LayeredBoundaryProofPlan(
                     expected_outputs=("Rejected",),
                     observed_outputs=("Rejected",),
                     evidence_ids=("test:reject-empty",),
+                    proof_artifact=ProofArtifactRef(
+                        "artifact:reject-empty-cell",
+                        result_status="passed",
+                        exit_code=0,
+                        result_path="tmp/reject-empty-cell.json",
+                        artifact_fingerprints={"tmp/reject-empty-cell.json": "sha256:..."},
+                        covered_obligation_ids=("test:reject-empty",),
+                    ),
                 ),
             ),
         ),

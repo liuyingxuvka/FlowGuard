@@ -12,6 +12,9 @@ from flowguard import (
     DefectFamilyEvidence,
     DefectFamilyGate,
     DefectFamilyGatePlan,
+    LEGACY_PATH_DELEGATED,
+    LegacyPathDisposition,
+    ProofArtifactRef,
     review_defect_family_gates,
 )
 
@@ -21,6 +24,17 @@ def proof(evidence_id="proof:family", **kwargs):
         evidence_id,
         result_status=kwargs.pop("result_status", RISK_PROOF_STATUS_PASSED),
         **kwargs,
+    )
+
+
+def proof_artifact(artifact_id="artifact:family", *covered):
+    return ProofArtifactRef(
+        artifact_id,
+        result_status=RISK_PROOF_STATUS_PASSED,
+        exit_code=0,
+        result_path=f"tmp/{artifact_id.replace(':', '_')}.json",
+        artifact_fingerprints={f"tmp/{artifact_id.replace(':', '_')}.json": "sha256:test"},
+        covered_obligation_ids=covered or ("model:duplicate-submit-family",),
     )
 
 
@@ -129,6 +143,35 @@ class RecurringModelMissTests(unittest.TestCase):
         self.assertEqual(DEFECT_FAMILY_DECISION_SCOPED, report.decision)
         self.assertEqual(RISK_CONFIDENCE_SCOPED, report.confidence)
         self.assertIn("defect_family_scoped_confidence", finding_codes(report))
+
+    def test_strict_defect_family_rejects_declaration_only_proof(self):
+        report = review_defect_family_gates(plan(require_proof_artifacts=True))
+
+        self.assertFalse(report.ok)
+        self.assertIn("missing_defect_family_proof_artifact", finding_codes(report))
+
+    def test_strict_defect_family_requires_legacy_path_disposition(self):
+        report = review_defect_family_gates(
+            plan(
+                require_proof_artifacts=True,
+                require_legacy_path_dispositions=True,
+                gates=(
+                    promoted_gate(
+                        legacy_path_dispositions=(
+                            LegacyPathDisposition(
+                                "old-route",
+                                disposition=LEGACY_PATH_DELEGATED,
+                                repaired_contract_id="model:duplicate-submit-family",
+                                proof_artifact=proof_artifact("artifact:legacy"),
+                            ),
+                        ),
+                    ),
+                ),
+                proof_evidence=(proof(proof_artifact=proof_artifact()),),
+            )
+        )
+
+        self.assertTrue(report.ok, report.format_text())
 
 
 if __name__ == "__main__":

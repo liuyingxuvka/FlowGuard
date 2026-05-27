@@ -12,6 +12,7 @@ from flowguard import (
     PROCESS_SCOPE_ROUTINE,
     DevelopmentProcessPlan,
     FreshnessRule,
+    ProofArtifactRef,
     ProcessAction,
     ProcessArtifact,
     ProcessEvidence,
@@ -32,6 +33,17 @@ def base_artifacts(*, code_version="2", test_version="1", requirement_version="1
         ),
         ProcessArtifact("tests.search", PROCESS_ARTIFACT_TEST, test_version),
         ProcessArtifact("model.search", PROCESS_ARTIFACT_MODEL, "1"),
+    )
+
+
+def proof_artifact(artifact_id="artifact:unit", *covered):
+    return ProofArtifactRef(
+        artifact_id,
+        result_status=PROCESS_EVIDENCE_PASSED,
+        exit_code=0,
+        result_path=f"tmp/{artifact_id.replace(':', '_')}.json",
+        artifact_fingerprints={f"tmp/{artifact_id.replace(':', '_')}.json": "sha256:test"},
+        covered_obligation_ids=covered,
     )
 
 
@@ -441,6 +453,49 @@ class DevelopmentProcessFlowTests(unittest.TestCase):
 
         self.assertFalse(report.ok)
         self.assertIn("missing_v_model_validation_pair", {finding.code for finding in report.findings})
+
+    def test_strict_process_evidence_rejects_declaration_only_pass(self):
+        plan = DevelopmentProcessPlan(
+            "strict-process",
+            require_proof_artifacts=True,
+            artifacts=base_artifacts(code_version="1"),
+            evidence=(
+                ProcessEvidence(
+                    "unit-pass",
+                    evidence_kind="unit",
+                    status=PROCESS_EVIDENCE_PASSED,
+                    covers_artifacts=("code.search",),
+                    covered_versions={"code.search": "1"},
+                ),
+            ),
+        )
+
+        report = review_development_process_flow(plan)
+
+        self.assertFalse(report.ok)
+        self.assertIn("missing_process_proof_artifact", {finding.code for finding in report.findings})
+
+    def test_strict_process_evidence_accepts_artifact_backed_pass(self):
+        plan = DevelopmentProcessPlan(
+            "strict-process-green",
+            require_proof_artifacts=True,
+            artifacts=base_artifacts(code_version="1"),
+            evidence=(
+                ProcessEvidence(
+                    "unit-pass",
+                    evidence_kind="unit",
+                    status=PROCESS_EVIDENCE_PASSED,
+                    covers_artifacts=("code.search",),
+                    covered_versions={"code.search": "1"},
+                    result_path="tmp/unit.json",
+                    proof_artifact=proof_artifact("artifact:unit"),
+                ),
+            ),
+        )
+
+        report = review_development_process_flow(plan)
+
+        self.assertTrue(report.ok, report.format_text())
 
 
 if __name__ == "__main__":

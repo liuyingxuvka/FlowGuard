@@ -12,6 +12,8 @@ from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
 from .export import to_jsonable
+from .legacy_path_disposition import LegacyPathDisposition, review_legacy_path_dispositions
+from .proof_artifact import ProofArtifactRef, coerce_proof_artifact_ref, proof_artifact_gap_codes
 from .risk_evidence_ledger import (
     RISK_CONFIDENCE_BLOCKED,
     RISK_CONFIDENCE_FULL,
@@ -65,6 +67,7 @@ class DefectFamilyEvidence:
     producer_route: str = ""
     command: str = ""
     summary: str = ""
+    proof_artifact: ProofArtifactRef | Mapping[str, Any] | None = None
     stale_reasons: tuple[str, ...] = ()
     route_gap_codes: tuple[str, ...] = ()
     route_evidence_current: bool = True
@@ -77,6 +80,7 @@ class DefectFamilyEvidence:
         object.__setattr__(self, "producer_route", str(self.producer_route))
         object.__setattr__(self, "command", str(self.command))
         object.__setattr__(self, "summary", str(self.summary))
+        object.__setattr__(self, "proof_artifact", coerce_proof_artifact_ref(self.proof_artifact))
         object.__setattr__(self, "stale_reasons", _as_tuple(self.stale_reasons))
         object.__setattr__(self, "route_gap_codes", _as_tuple(self.route_gap_codes))
         object.__setattr__(self, "metadata", dict(self.metadata))
@@ -103,6 +107,7 @@ class DefectFamilyEvidence:
             "producer_route": self.producer_route,
             "command": self.command,
             "summary": self.summary,
+            "proof_artifact": self.proof_artifact.to_dict() if self.proof_artifact else None,
             "stale_reasons": list(self.stale_reasons),
             "route_gap_codes": list(self.route_gap_codes),
             "route_evidence_current": self.route_evidence_current,
@@ -155,6 +160,7 @@ class DefectFamilyGate:
     same_class_generalized_case_id: str = ""
     historical_holdout_case_id: str = ""
     proof_evidence_ids: tuple[str, ...] = ()
+    legacy_path_dispositions: tuple[LegacyPathDisposition, ...] = ()
     scoped_confidence_reasons: tuple[str, ...] = ()
     next_actions: tuple[str, ...] = ()
     metadata: Mapping[str, Any] = field(default_factory=dict)
@@ -175,6 +181,7 @@ class DefectFamilyGate:
         )
         object.__setattr__(self, "historical_holdout_case_id", str(self.historical_holdout_case_id))
         object.__setattr__(self, "proof_evidence_ids", _as_tuple(self.proof_evidence_ids))
+        object.__setattr__(self, "legacy_path_dispositions", tuple(self.legacy_path_dispositions))
         object.__setattr__(
             self,
             "scoped_confidence_reasons",
@@ -202,6 +209,7 @@ class DefectFamilyGate:
             "same_class_generalized_case_id": self.same_class_generalized_case_id,
             "historical_holdout_case_id": self.historical_holdout_case_id,
             "proof_evidence_ids": list(self.proof_evidence_ids),
+            "legacy_path_dispositions": [disposition.to_dict() for disposition in self.legacy_path_dispositions],
             "scoped_confidence_reasons": list(self.scoped_confidence_reasons),
             "next_actions": list(self.next_actions),
             "metadata": to_jsonable(dict(self.metadata)),
@@ -215,6 +223,8 @@ class DefectFamilyGatePlan:
     plan_id: str
     gates: tuple[DefectFamilyGate, ...] = ()
     proof_evidence: tuple[DefectFamilyEvidence, ...] = ()
+    require_proof_artifacts: bool = False
+    require_legacy_path_dispositions: bool = False
     allow_scoped_confidence: bool = True
 
     def __post_init__(self) -> None:
@@ -227,6 +237,8 @@ class DefectFamilyGatePlan:
             "plan_id": self.plan_id,
             "gates": [gate.to_dict() for gate in self.gates],
             "proof_evidence": [evidence.to_dict() for evidence in self.proof_evidence],
+            "require_proof_artifacts": self.require_proof_artifacts,
+            "require_legacy_path_dispositions": self.require_legacy_path_dispositions,
             "allow_scoped_confidence": self.allow_scoped_confidence,
         }
 
@@ -544,6 +556,25 @@ def review_defect_family_gates(plan: DefectFamilyGatePlan) -> DefectFamilyGateRe
                         evidence_id=evidence_id,
                     ),
                 )
+            if plan.require_proof_artifacts:
+                for code, message in proof_artifact_gap_codes(
+                    evidence.proof_artifact,
+                    declared_status=evidence.result_status,
+                    required_obligation_ids=(gate.model_obligation_id,),
+                    require_result_path=True,
+                    require_fingerprints=True,
+                    require_external_scope=True,
+                ):
+                    add_gap(
+                        gate.gate_id,
+                        _finding(
+                            code.replace("proof_artifact", "defect_family_proof_artifact"),
+                            message,
+                            gate_id=gate.gate_id,
+                            evidence_id=evidence_id,
+                            metadata={"evidence": evidence.to_dict()},
+                        ),
+                    )
             if evidence.has_current_pass():
                 current_any_pass = True
                 if evidence.has_external_scope():
@@ -567,6 +598,31 @@ def review_defect_family_gates(plan: DefectFamilyGatePlan) -> DefectFamilyGateRe
                     gate_id=gate.gate_id,
                 ),
             )
+
+        if plan.require_legacy_path_dispositions:
+            if not gate.legacy_path_dispositions:
+                add_gap(
+                    gate.gate_id,
+                    _finding(
+                        "missing_legacy_path_disposition",
+                        "promoted defect-family gate does not dispose old or alternate paths",
+                        gate_id=gate.gate_id,
+                    ),
+                )
+            legacy_report = review_legacy_path_dispositions(
+                gate.legacy_path_dispositions,
+                require_proof_artifacts=plan.require_proof_artifacts,
+            )
+            for finding in legacy_report.findings:
+                add_gap(
+                    gate.gate_id,
+                    _finding(
+                        finding.code,
+                        finding.message,
+                        gate_id=gate.gate_id,
+                        metadata={"legacy_path": finding.to_dict()},
+                    ),
+                )
 
         if gate.scoped_confidence_reasons:
             severity = "warning" if plan.allow_scoped_confidence else "blocker"

@@ -4,7 +4,11 @@ Risk Evidence Ledger is the final confidence boundary for FlowGuard work. It is
 for the exact gap that ordinary testing often leaves behind: the model says a
 risk was represented, tests are green, but no one checked whether the green
 evidence actually covers the user-facing risk, the public code contract, and the
-current route evidence.
+current route evidence. In strict mode, current evidence means more than a
+`passed/current` declaration: each consumed row must carry a `ProofArtifactRef`
+with a result path, artifact fingerprint, passing exit status, current route
+evidence, matching obligation coverage, and an external-contract assertion
+scope when the risk requires public behavior proof.
 
 The ledger does not make FlowGuard models deeper. It connects the coarse model
 to ordinary evidence:
@@ -39,6 +43,12 @@ whether the rows and later claim promotion were too narrow.
   recurring or high-risk same-class model miss family must be closed before
   full confidence.
 - `RiskEvidenceProof`: one test, replay, route report, or manual validation item.
+  For full-confidence strict reviews, attach a `proof_artifact` instead of
+  relying on the row's declared status alone.
+- `ProofArtifactRef`: the concrete validation artifact produced by a command,
+  replay, or evidence collector. Strict consumers reject missing artifacts,
+  missing result paths, missing fingerprints, non-passing statuses, stale route
+  evidence, progress-only artifacts, and internal-only assertion scope.
 - `RiskEvidenceLedgerPlan`: the rows and evidence being reviewed.
 - `RiskEvidenceLedgerReport`: final decision, confidence, and findings.
 - `review_risk_evidence_ledger(plan)`: the executable checker.
@@ -53,6 +63,7 @@ whether the rows and later claim promotion were too narrow.
 from flowguard import (
     RISK_PROOF_SCOPE_INTERNAL_PATH,
     RISK_PROOF_STATUS_PASSED,
+    ProofArtifactRef,
     RiskEvidenceLedgerPlan,
     RiskEvidenceProof,
     RiskEvidenceRow,
@@ -62,6 +73,7 @@ from flowguard import (
 plan = RiskEvidenceLedgerPlan(
     "submit-final-confidence",
     require_code_contracts=True,
+    require_proof_artifacts=True,
     rows=(
         RiskEvidenceRow(
             "duplicate_submit",
@@ -77,6 +89,15 @@ plan = RiskEvidenceLedgerPlan(
             "test:helper-dedupe",
             result_status=RISK_PROOF_STATUS_PASSED,
             assertion_scope=RISK_PROOF_SCOPE_INTERNAL_PATH,
+            proof_artifact=ProofArtifactRef(
+                "artifact:test-helper-dedupe",
+                result_status=RISK_PROOF_STATUS_PASSED,
+                exit_code=0,
+                result_path="tmp/test-helper-dedupe.json",
+                artifact_fingerprints={"tmp/test-helper-dedupe.json": "sha256:..."},
+                covered_obligation_ids=("model:dedupe-submit",),
+                assertion_scope=RISK_PROOF_SCOPE_INTERNAL_PATH,
+            ),
         ),
     ),
 )
@@ -86,7 +107,8 @@ print(report.format_text())
 ```
 
 This report blocks full confidence with `internal_path_only_evidence`: the test
-passed, but it proved a helper path, not the public submit behavior.
+passed, and the proof artifact is current, but it proved a helper path, not the
+public submit behavior.
 
 ## Decisions
 
@@ -112,6 +134,8 @@ passed, but it proved a helper path, not the public submit behavior.
 - TestMesh produces child-suite evidence status, freshness, skipped/timeout
   visibility, and release/routine boundaries.
 - ModelMesh produces parent/child model evidence and reattachment status.
+- Model Maturation produces model-upgrade or scoped-claim decisions when later
+  route evidence says the model is too coarse, stale, or disconnected.
 - StructureMesh and UI Flow Structure produce public-entrypoint or journey
   evidence when structure or UI claims are involved.
 - DevelopmentProcessFlow checks the ledger before done, archive, publish, or
@@ -120,6 +144,15 @@ passed, but it proved a helper path, not the public submit behavior.
   model/test evidence was too narrow. When the same family recurs, it promotes
   or references a defect-family gate instead of treating the case as another
   ordinary point fix.
+
+## Legacy Path Disposition
+
+When a repair introduces a new route while the old route can still execute,
+strict closure also requires a legacy path disposition. Valid outcomes are:
+deleted, blocked, delegated to a repaired contract, same-contract repaired, or
+explicitly out of scope with a reason. `unknown` blocks closure. Delegated and
+same-contract-repaired paths should carry a proof artifact for the repaired
+contract before the risk ledger restores full confidence.
 
 Use the template with:
 

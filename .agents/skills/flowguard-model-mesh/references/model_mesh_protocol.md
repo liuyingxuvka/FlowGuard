@@ -293,6 +293,9 @@ At minimum, the mesh must make these broken variants fail:
 15. Parent partition items have no child, parent, or shared-kernel owner.
 16. Two sibling child models both own the same state write, side effect, or
     core functional area without an explicit shared-kernel boundary.
+17. Child boundary changes, reattachment gaps, oversized direct evidence, or
+    duplicate edge-path signals are not fed to `review_model_maturation_loop(...)`
+    before a broad parent confidence claim.
 17. A legacy model is used as strong child evidence before compatibility
     classification and contract wrapping.
 18. A repaired child model is green locally, but the parent did not consume its
@@ -406,6 +409,8 @@ The mesh is sufficient for the current decision only when:
   scope before mesh confidence is claimed;
 - child boundary changes have propagated to every parent that consumes the
   child evidence id;
+- boundary-change, reattachment, oversized-model, and duplicate-edge-path
+  findings have been resolved or scoped through `review_model_maturation_loop(...)`;
 - affected siblings with overlapping ownership, read-only dependency,
   shared-kernel use, or outgoing-contract dependency have been reviewed or
   shown unaffected;

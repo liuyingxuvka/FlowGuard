@@ -1,0 +1,63 @@
+# FlowGuard Closure Contract
+
+Complete FlowGuard use is not a mode. It is the contract that must be current
+before a task can claim full done, release, publish, or production confidence
+from FlowGuard evidence.
+
+The thin model-first path remains the entry shape:
+
+```text
+risky boundary -> Input x State -> Set(Output x State)
+-> one invariant or scenario -> run checks
+-> inspect counterexample -> escalate only if a named risk requires it
+```
+
+That path can support a bounded local claim. It does not by itself support a
+broad completion claim. A broad claim needs the closure contract for every
+in-scope risk boundary that the result depends on.
+
+## Required Gates
+
+Use the gates that match the claim:
+
+- Plan/risk intake: current source evidence, user-facing risk surfaces,
+  omitted/out-of-scope reasons, and historical miss context are declared.
+- Existing model ownership: current model boundaries have been consulted, or a
+  new boundary is justified.
+- Model obligation: the relevant `Input x State -> Set(Output x State)` model,
+  invariant, scenario, replay, or parent/child obligation is current.
+- Model-miss repair: every post-green in-scope miss has the observed failure
+  plus a same-class generalized bad case when practical.
+- Model-test/code alignment: model obligations, code contracts, code-boundary
+  observations, and test evidence line up at the external boundary being
+  claimed.
+- Mesh or layered boundary proof: parent/child model or test confidence
+  consumes current child evidence and finite leaf boundary-matrix evidence when
+  required.
+- Model maturation: post-code, post-miss, model-test, mesh, code-boundary, or
+  freshness signals that say the model is too coarse, stale, or disconnected
+  have been resolved, or the claim is explicitly scoped down.
+- Evidence freshness: later edits, peer writes, adapter changes, generated
+  artifacts, and long-running checks have not made earlier evidence stale.
+- Risk Evidence Ledger: user risks connect to model obligations, optional code
+  contracts, defect-family gates, split gates, and current proof evidence.
+- Typed claim chain: broad claims consume the right support type instead of
+  promoting plan-only, model-only, or test-only evidence into production
+  confidence.
+
+## Reporting Rule
+
+If a required gate is missing, stale, skipped, progress-only, release-only,
+internal-path-only, or explicitly scoped out, report the result as partial or
+scoped FlowGuard evidence. Do not say FlowGuard is complete for that claim.
+
+If a later runtime, test, replay, log, or manual validation failure appears
+after a green FlowGuard result, treat it as a closure-contract miss until
+Model-Miss Review, same-class evidence, alignment, model maturation, freshness,
+ledger, and claim-chain evidence have been repaired.
+
+## What This Does Not Mean
+
+The closure contract does not claim that arbitrary unmodeled behavior is bug
+free. It means FlowGuard cannot honestly report green completion while a
+declared in-scope risk is unsupported by the current evidence chain.

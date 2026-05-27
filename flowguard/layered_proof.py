@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
 from .export import to_jsonable
+from .proof_artifact import ProofArtifactRef, coerce_proof_artifact_ref, proof_artifact_gap_codes
 
 
 PROOF_STATUS_PASSED = "passed"
@@ -116,6 +117,7 @@ class ChildProofContract:
     evidence_id: str = ""
     evidence_status: str = PROOF_STATUS_PASSED
     evidence_current: bool = True
+    proof_artifact: ProofArtifactRef | Mapping[str, Any] | None = None
     responsibilities: tuple[str, ...] = ()
     functions_owned: tuple[str, ...] = ()
     inputs_accepted: tuple[str, ...] = ()
@@ -134,6 +136,7 @@ class ChildProofContract:
         object.__setattr__(self, "child_model_id", str(self.child_model_id))
         object.__setattr__(self, "evidence_id", str(self.evidence_id))
         object.__setattr__(self, "evidence_status", str(self.evidence_status))
+        object.__setattr__(self, "proof_artifact", coerce_proof_artifact_ref(self.proof_artifact))
         object.__setattr__(self, "responsibilities", _as_tuple(self.responsibilities))
         object.__setattr__(self, "functions_owned", _as_tuple(self.functions_owned))
         object.__setattr__(self, "inputs_accepted", _as_tuple(self.inputs_accepted))
@@ -155,6 +158,7 @@ class ChildProofContract:
             "evidence_id": self.evidence_id,
             "evidence_status": self.evidence_status,
             "evidence_current": self.evidence_current,
+            "proof_artifact": self.proof_artifact.to_dict() if self.proof_artifact else None,
             "responsibilities": list(self.responsibilities),
             "functions_owned": list(self.functions_owned),
             "inputs_accepted": list(self.inputs_accepted),
@@ -237,6 +241,7 @@ class LeafBoundaryMatrixCell:
     evidence_ids: tuple[str, ...] = ()
     evidence_status: str = PROOF_STATUS_PASSED
     evidence_current: bool = True
+    proof_artifact: ProofArtifactRef | Mapping[str, Any] | None = None
     assertion_scope: str = "external_contract"
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
@@ -256,6 +261,7 @@ class LeafBoundaryMatrixCell:
         object.__setattr__(self, "observed_error_paths", _as_tuple(self.observed_error_paths))
         object.__setattr__(self, "evidence_ids", _as_tuple(self.evidence_ids))
         object.__setattr__(self, "evidence_status", str(self.evidence_status))
+        object.__setattr__(self, "proof_artifact", coerce_proof_artifact_ref(self.proof_artifact))
         object.__setattr__(self, "assertion_scope", str(self.assertion_scope))
         object.__setattr__(self, "metadata", dict(self.metadata))
 
@@ -280,6 +286,7 @@ class LeafBoundaryMatrixCell:
             "evidence_ids": list(self.evidence_ids),
             "evidence_status": self.evidence_status,
             "evidence_current": self.evidence_current,
+            "proof_artifact": self.proof_artifact.to_dict() if self.proof_artifact else None,
             "assertion_scope": self.assertion_scope,
             "metadata": to_jsonable(dict(self.metadata)),
         }
@@ -348,6 +355,7 @@ class LayeredBoundaryProofPlan:
     allowed_shared_invariants: tuple[str, ...] = ()
     allowed_shared_risk_classes: tuple[str, ...] = ()
     require_leaf_matrix_for_leaf_children: bool = True
+    require_proof_artifacts: bool = False
     allow_scoped_leaf_exemptions: bool = False
     claim_scope: str = "full"
     rationale: str = ""
@@ -383,6 +391,7 @@ class LayeredBoundaryProofPlan:
             "allowed_shared_invariants": list(self.allowed_shared_invariants),
             "allowed_shared_risk_classes": list(self.allowed_shared_risk_classes),
             "require_leaf_matrix_for_leaf_children": self.require_leaf_matrix_for_leaf_children,
+            "require_proof_artifacts": self.require_proof_artifacts,
             "allow_scoped_leaf_exemptions": self.allow_scoped_leaf_exemptions,
             "claim_scope": self.claim_scope,
             "rationale": self.rationale,
@@ -612,6 +621,24 @@ def _child_evidence_findings(plan: LayeredBoundaryProofPlan) -> list[LayeredBoun
                     metadata=child.to_dict(),
                 )
             )
+        if plan.require_proof_artifacts:
+            for code, message in proof_artifact_gap_codes(
+                child.proof_artifact,
+                declared_status=child.evidence_status,
+                required_obligation_ids=child.responsibilities or child.functions_owned,
+                require_result_path=True,
+                require_fingerprints=True,
+                require_external_scope=True,
+            ):
+                findings.append(
+                    LayeredBoundaryFinding(
+                        f"child_{code}",
+                        message,
+                        parent_model_id=plan.parent_model_id,
+                        child_model_id=child.child_model_id,
+                        metadata=child.to_dict(),
+                    )
+                )
         if child.split_required:
             findings.append(
                 LayeredBoundaryFinding(
@@ -893,6 +920,25 @@ def _review_one_leaf_matrix(
                     metadata=cell.to_dict(),
                 )
             )
+        if plan.require_proof_artifacts:
+            for code, message in proof_artifact_gap_codes(
+                cell.proof_artifact,
+                declared_status=cell.evidence_status,
+                required_obligation_ids=cell.evidence_ids,
+                require_result_path=True,
+                require_fingerprints=True,
+                require_external_scope=True,
+            ):
+                findings.append(
+                    LayeredBoundaryFinding(
+                        f"leaf_cell_{code}",
+                        message,
+                        parent_model_id=plan.parent_model_id,
+                        child_model_id=child.child_model_id,
+                        cell_id=cell.cell_id,
+                        metadata=cell.to_dict(),
+                    )
+                )
         if cell.assertion_scope not in EXTERNAL_ASSERTION_SCOPES:
             findings.append(
                 LayeredBoundaryFinding(

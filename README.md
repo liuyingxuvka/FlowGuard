@@ -16,7 +16,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.25.0` | `1.0` | Python standard library only | MIT |
+| `v0.27.0` | `1.0` | Python standard library only | MIT |
 
 English lead content comes first; a Chinese mirror follows below.
 
@@ -50,6 +50,16 @@ staged release evidence, architecture reduction, existing-model ownership, or
 post-failure model repair. Ordinary users do not need the benchmark corpus,
 deep maintenance models, or release-hardening ledger before this small path is
 useful.
+
+This thin path is an entry path, not a completion shortcut. Complete FlowGuard
+use means the closure contract is current for the claim being made: plan/risk
+intake, existing-model ownership or new model boundary, same-class model-miss
+evidence when a miss was repaired, model-test/code alignment when code or tests
+are in scope, mesh or boundary proof when parent/child evidence is in scope,
+model maturation when later evidence shows the model is too coarse, evidence
+freshness, Risk Evidence Ledger, and typed claim-chain review. If a required
+gate is missing, stale, skipped, progress-only, or scoped out, the result is
+partial FlowGuard evidence rather than a full FlowGuard completion claim.
 
 ## What You Can Design And Verify
 
@@ -94,6 +104,7 @@ The postconditions FlowGuard aims to create:
 | Counterexample trace | A concrete path showing how the plan can fail |
 | Passing evidence | A bounded claim that the modeled scenarios, invariants, and evidence rules currently pass |
 | Scoped confidence | A decision boundary that says what is green, what is still unknown, and what must be revalidated after later edits |
+| Complete FlowGuard use | The closure contract for the claim has consumed current model, test, code-boundary, mesh, evidence-freshness, ledger, and claim-chain support |
 
 The core rule is simple: local green is not global green unless the parent contract has consumed fresh child evidence.
 
@@ -114,7 +125,9 @@ FlowGuard gives those weak spots a small executable shape before the action beco
 | Model-test alignment | Compares model obligations, external code contracts, ordinary test evidence, and model-miss observed/same-class closure evidence |
 | Plan Intake And Claim Chain | Checks that plan inputs, evidence adapters, false-negative repairs, known-bad mutations, and typed claim dependencies are declared before broad confidence is claimed |
 | Model Impact Freshness | Classifies existing `.flowguard` models after a FlowGuard upgrade so affected models rerun and unchanged models reuse old evidence only with explicit proof |
+| Model Maturation Loop | Converts model-miss, model-test, mesh, code-boundary, and evidence-freshness signals into explicit model-upgrade actions before broad claims are made |
 | Risk Evidence Ledger | Connects user-facing risks to model obligations, public code contracts, recurring defect-family gates, model/test split gates, and current proof evidence before any full-confidence claim |
+| FlowGuard closure contract | Requires the relevant intake, model, same-class bug, alignment, mesh/boundary, model maturation, freshness, ledger, and claim-chain gates before complete FlowGuard use or full-confidence claims |
 | ModelMesh | Splits oversized or incomplete direct model evidence into parent/child evidence, propagates child boundary changes upward, reviews affected sibling models, and uses mesh closure models for whole-flow parent confidence |
 | Layered Boundary Proof | Joins parent coverage, child disjointness, child reattachment, and leaf boundary-matrix evidence before parent model confidence can claim the code stayed inside model boundaries |
 | Child model reattachment | Requires a parent mesh to consume the repaired child evidence id and verify input, output, state, side-effect, and exported-contract handoffs |
@@ -147,7 +160,8 @@ source of validation.
 4. Add invariants, scenario expectations, or parent/child contracts.
 5. Run the review and inspect counterexamples.
 6. Revise the model, plan, tests, or implementation.
-7. Record what was checked, what remains out of scope, and when the evidence becomes stale.
+7. Consume the closure contract for any full done/release/publish/production-confidence claim.
+8. Record what was checked, what remains out of scope, and when the evidence becomes stale.
 
 ## Quick Start
 
@@ -292,6 +306,7 @@ FlowGuard is the state and workflow guard.
 | File | Purpose |
 | --- | --- |
 | `docs/modeling_protocol.md` | Core model-first protocol |
+| `docs/flowguard_closure_contract.md` | Mandatory closure contract for complete FlowGuard use |
 | `docs/model_test_alignment.md` | Model obligation and test evidence alignment |
 | `docs/risk_evidence_ledger.md` | Final risk-to-model-to-code-to-evidence confidence boundary |
 | `docs/plan_intake_claims.md` | Plan input, adapter, miss-backpropagation, mutation, and typed claim-chain boundary |
@@ -362,6 +377,14 @@ existing-model ownership 或失败后的 model repair。普通用户不需要先
 benchmark corpus、内部维护模型或 release-hardening ledger，才能从这条小路径
 获得价值。
 
+这条小路径只是入口，不是完成捷径。完整使用 FlowGuard，意味着当前声明所需的
+闭环契约已经成立：plan/risk intake、已有模型 ownership 或新模型边界、修复
+model miss 时的同类坏 case、代码或测试在范围内时的 model-test/code alignment、
+父子证据在范围内时的 mesh 或 boundary proof、后续证据显示模型太粗时的
+model maturation、证据新鲜度、Risk Evidence Ledger，以及 typed claim-chain
+review。任何必要 gate 缺失、过期、跳过、还在进度中或只是 scoped，都只能报告
+为部分 FlowGuard 证据，不能报告为完整 FlowGuard 完成。
+
 ## 它能设计并验证什么
 
 FlowGuard 的价值在动手之前就开始。你先命名 state、input、output、ownership boundary、side effect 和 gate；模型同时给出设计形状，以及判断这个形状当前是否安全的检查。
@@ -405,6 +428,7 @@ FlowGuard 适合在这些前置条件成立时使用：
 | 反例路径 | 一条具体路径，说明计划如何失败 |
 | 通过证据 | 一个有边界的结论：当前声明的场景、invariant 和证据规则通过 |
 | 范围化信心 | 明确哪些是 green，哪些仍未知，以及后续编辑后需要重新验证什么 |
+| 完整 FlowGuard 使用 | 当前声明的闭环契约已经消费了新鲜的模型、测试、代码边界、mesh、证据新鲜度、ledger 和 claim-chain 支撑 |
 
 核心规则是：局部变绿不等于整体变绿，除非父级 contract 已经消费了新鲜的子级证据。
 
@@ -425,7 +449,9 @@ FlowGuard 给这些薄弱点一个小而可执行的结构。
 | Model-test alignment | 对照模型义务、外部代码 contract、代码边界观测、普通测试证据，以及 model-miss 的 observed/same-class 关闭证据 |
 | Plan Intake And Claim Chain | 在声明广泛信心前，检查计划输入、证据适配器、漏报修复、已知坏变异和 typed claim dependency 是否已经声明 |
 | Model Impact Freshness | FlowGuard 升级后先分类现有 `.flowguard` 模型：受影响的重跑，未受影响的只有带明确复用证明才沿用旧证据 |
+| Model Maturation Loop | 把 model miss、model-test、mesh、代码边界和证据新鲜度信号翻译成明确的模型升级动作，再允许广泛声明 |
 | Risk Evidence Ledger | 在声明完整信心前，把用户风险、模型义务、公开代码 contract、复发缺陷族门槛、模型/测试拆分门槛和当前证据连起来检查 |
+| FlowGuard closure contract | 在报告完整 FlowGuard 使用或完整信心前，要求相关 intake、模型、同类 bug、alignment、mesh/boundary、model maturation、新鲜度、ledger 和 claim-chain gate 成立 |
 | ModelMesh | 把过大或未完成的直接模型证据拆成父子证据，向上同步 child boundary 变化，检查 sibling，并用 closure model 支撑父级全流程信心 |
 | Layered Boundary Proof | 把 parent coverage、child disjointness、child reattachment 和 leaf boundary-matrix evidence 接成一个父级信心门，防止“子模型绿了但真实代码边界没证明” |
 | Child model reattachment | `v0.17.0` 要求父级 mesh 消费修复后的 child evidence id，并验证 input、output、state、side-effect 和导出 contract handoff |
@@ -454,7 +480,8 @@ FlowGuard 给这些薄弱点一个小而可执行的结构。
 4. 加 invariant、scenario expectation 或父子 contract。
 5. 跑 review，看 counterexample。
 6. 修改模型、计划、测试或实现。
-7. 记录检查过什么、哪些不在范围内，以及证据什么时候会变旧。
+7. 如果要声明 done/release/publish/production confidence，先消费闭环契约。
+8. 记录检查过什么、哪些不在范围内，以及证据什么时候会变旧。
 
 ## 快速开始
 
@@ -523,6 +550,7 @@ FlowGuard 是状态和工作流 guard。
 | 文件 | 作用 |
 | --- | --- |
 | `docs/modeling_protocol.md` | 核心 model-first 协议 |
+| `docs/flowguard_closure_contract.md` | 完整使用 FlowGuard 前必须满足的闭环契约 |
 | `docs/model_test_alignment.md` | 模型义务和测试证据对齐 |
 | `docs/risk_evidence_ledger.md` | 最终风险、模型、代码和证据之间的信心边界 |
 | `docs/plan_intake_claims.md` | 计划输入、适配器、漏报回传、变异和声明链边界 |

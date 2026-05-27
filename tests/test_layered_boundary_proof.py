@@ -8,6 +8,7 @@ from flowguard import (
     LayeredBoundaryProofPlan,
     LAYERED_PROOF_STATUS_PROGRESS_ONLY,
     ParentCoverageItem,
+    ProofArtifactRef,
     review_layered_boundary_proof,
 )
 
@@ -31,6 +32,17 @@ def cell(**overrides):
     }
     data.update(overrides)
     return LeafBoundaryMatrixCell(**data)
+
+
+def proof_artifact(artifact_id="proof:validate-submit", *covered):
+    return ProofArtifactRef(
+        artifact_id,
+        result_status="passed",
+        exit_code=0,
+        result_path=f"tmp/{artifact_id.replace(':', '_')}.json",
+        artifact_fingerprints={f"tmp/{artifact_id.replace(':', '_')}.json": "sha256:test"},
+        covered_obligation_ids=covered or ("validate-submit",),
+    )
 
 
 def child(**overrides):
@@ -243,6 +255,26 @@ class LayeredBoundaryProofTests(unittest.TestCase):
         self.assertFalse(report.ok)
         self.assertEqual("leaf_evidence_not_current", report.decision)
         self.assertIn("leaf_cell_internal_path_only", codes(report))
+
+    def test_strict_layered_proof_rejects_declaration_only_evidence(self):
+        report = review_layered_boundary_proof(plan(require_proof_artifacts=True))
+
+        self.assertFalse(report.ok)
+        self.assertIn("child_missing_proof_artifact", codes(report))
+        self.assertIn("leaf_cell_missing_proof_artifact", codes(report))
+
+    def test_strict_layered_proof_accepts_artifact_backed_evidence(self):
+        backed_child = child(proof_artifact=proof_artifact("proof:child", "validate-submit"))
+        backed_cell = cell(proof_artifact=proof_artifact("proof:cell", "test:reject-empty"))
+        report = review_layered_boundary_proof(
+            plan(
+                require_proof_artifacts=True,
+                child_contracts=(backed_child,),
+                leaf_matrices=(matrix(cells=(backed_cell,)),),
+            )
+        )
+
+        self.assertTrue(report.ok, report.format_text())
 
 
 if __name__ == "__main__":

@@ -36,6 +36,7 @@ define a small function-flow model
 -> revise the design
 -> implement production code
 -> replay representative traces when production code exists
+-> consume the closure contract before broad completion claims
 ```
 
 For AI agents, the first screen of the method should be even thinner:
@@ -46,9 +47,13 @@ risky boundary -> Input x State -> Set(Output x State)
 -> inspect counterexample -> escalate only if a named risk requires it
 ```
 
-Users should not need to understand FlowGuard's internal KB, private pilots,
-daily review process, or full benchmark-maintenance machinery before they can
-use the tool.
+That thin path is the entry shape, not a completion shortcut. Complete
+FlowGuard use requires the closure contract for the claim being made. Users
+should not need to understand FlowGuard's internal KB, private pilots, daily
+review process, or full benchmark-maintenance machinery before they can use the
+tool, but broad done/release/publish/production-confidence claims still need the
+current intake, model, alignment, model maturation, freshness, ledger, and
+claim-chain support that their boundary requires.
 
 ## Internal Maintenance System
 

@@ -25,6 +25,7 @@ from .auto_split import (
     review_auto_mesh_splits,
 )
 from .export import to_jsonable
+from .proof_artifact import ProofArtifactRef, coerce_proof_artifact_ref, proof_artifact_gap_codes
 
 
 PROCESS_SCOPE_ROUTINE = "routine"
@@ -213,6 +214,7 @@ class ProcessEvidence:
     produced_by_action_id: str = ""
     command: str = ""
     result_path: str = ""
+    proof_artifact: ProofArtifactRef | Mapping[str, Any] | None = None
     background: bool = False
     has_exit_artifact: bool = True
     has_result_artifact: bool = True
@@ -249,6 +251,7 @@ class ProcessEvidence:
         object.__setattr__(self, "produced_by_action_id", str(self.produced_by_action_id))
         object.__setattr__(self, "command", str(self.command))
         object.__setattr__(self, "result_path", str(self.result_path))
+        object.__setattr__(self, "proof_artifact", coerce_proof_artifact_ref(self.proof_artifact))
         object.__setattr__(self, "skipped_count", int(self.skipped_count))
         object.__setattr__(self, "stale_reasons", _as_tuple(self.stale_reasons))
         object.__setattr__(self, "pending_state_count", int(self.pending_state_count))
@@ -282,6 +285,7 @@ class ProcessEvidence:
             "produced_by_action_id": self.produced_by_action_id,
             "command": self.command,
             "result_path": self.result_path,
+            "proof_artifact": self.proof_artifact.to_dict() if self.proof_artifact else None,
             "background": self.background,
             "has_exit_artifact": self.has_exit_artifact,
             "has_result_artifact": self.has_result_artifact,
@@ -386,6 +390,7 @@ class DevelopmentProcessPlan:
     validation_requirements: tuple[ValidationRequirement, ...] = ()
     freshness_rules: tuple[FreshnessRule, ...] = ()
     decision_scope: str = PROCESS_SCOPE_ROUTINE
+    require_proof_artifacts: bool = False
     release_deferred_allowed: bool = True
 
     def __post_init__(self) -> None:
@@ -408,6 +413,7 @@ class DevelopmentProcessPlan:
             ],
             "freshness_rules": [rule.to_dict() for rule in self.freshness_rules],
             "decision_scope": self.decision_scope,
+            "require_proof_artifacts": self.require_proof_artifacts,
             "release_deferred_allowed": self.release_deferred_allowed,
         }
 
@@ -814,7 +820,7 @@ def _evidence_stale_reasons(
     return reasons
 
 
-def _evidence_quality_findings(evidence: ProcessEvidence) -> list[ProcessFlowFinding]:
+def _evidence_quality_findings(evidence: ProcessEvidence, *, require_proof_artifacts: bool = False) -> list[ProcessFlowFinding]:
     findings: list[ProcessFlowFinding] = []
     if evidence.progress_only or not evidence.background_complete():
         findings.append(
@@ -858,6 +864,22 @@ def _evidence_quality_findings(evidence: ProcessEvidence) -> list[ProcessFlowFin
                 metadata=evidence.to_dict(),
             )
         )
+    if require_proof_artifacts:
+        for code, message in proof_artifact_gap_codes(
+            evidence.proof_artifact,
+            declared_status=evidence.status,
+            required_obligation_ids=evidence.validation_requirement_ids,
+            require_result_path=True,
+            require_fingerprints=True,
+        ):
+            findings.append(
+                ProcessFlowFinding(
+                    code.replace("proof_artifact", "process_proof_artifact"),
+                    message,
+                    evidence_id=evidence.evidence_id,
+                    metadata=evidence.to_dict(),
+                )
+            )
     findings.extend(_auto_split_findings(evidence))
     return findings
 
@@ -1134,7 +1156,7 @@ def review_development_process_flow(plan: DevelopmentProcessPlan) -> Development
                     metadata={"evidence": evidence.to_dict(), "reason_key": reason_key},
                 )
             )
-        findings.extend(_evidence_quality_findings(evidence))
+        findings.extend(_evidence_quality_findings(evidence, require_proof_artifacts=plan.require_proof_artifacts))
 
     findings.extend(_ambiguous_policy_findings(plan, artifacts))
     requirement_findings, release_obligations, recommendations = _requirement_findings(plan, stale_by_evidence)

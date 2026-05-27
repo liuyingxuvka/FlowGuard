@@ -315,8 +315,10 @@ from .model_test_alignment import (
 )
 from . import plan_intake as _plan_intake
 from . import model_freshness as _model_freshness
+from . import model_maturation as _model_maturation
 from .plan_intake import *  # noqa: F403
 from .model_freshness import *  # noqa: F403
+from .model_maturation import *  # noqa: F403
 from .development_process_flow import (
     PROCESS_ARTIFACT_ADAPTER,
     PROCESS_ARTIFACT_CODE,
@@ -488,6 +490,37 @@ from .recurring_model_miss import (
     DefectFamilyGateReport,
     review_defect_family_gates,
 )
+from .proof_artifact import (
+    NON_PASSING_PROOF_ARTIFACT_STATUSES,
+    PASSING_PROOF_ARTIFACT_STATUSES,
+    PROOF_ARTIFACT_SCOPE_EXTERNAL_CONTRACT,
+    PROOF_ARTIFACT_SCOPE_INTERNAL_PATH,
+    PROOF_ARTIFACT_SCOPE_MIXED,
+    PROOF_ARTIFACT_SCOPE_UNKNOWN,
+    PROOF_ARTIFACT_STATUS_ERROR,
+    PROOF_ARTIFACT_STATUS_FAILED,
+    PROOF_ARTIFACT_STATUS_NOT_RUN,
+    PROOF_ARTIFACT_STATUS_PASSED,
+    PROOF_ARTIFACT_STATUS_PROGRESS_ONLY,
+    PROOF_ARTIFACT_STATUS_RUNNING,
+    PROOF_ARTIFACT_STATUS_SKIPPED,
+    PROOF_ARTIFACT_STATUS_STALE,
+    ProofArtifactRef,
+    coerce_proof_artifact_ref,
+    proof_artifact_gap_codes,
+)
+from .legacy_path_disposition import (
+    LEGACY_PATH_BLOCKED,
+    LEGACY_PATH_DELEGATED,
+    LEGACY_PATH_DELETED,
+    LEGACY_PATH_OUT_OF_SCOPE,
+    LEGACY_PATH_SAME_CONTRACT_REPAIRED,
+    LEGACY_PATH_UNKNOWN,
+    LegacyPathDisposition,
+    LegacyPathDispositionFinding,
+    LegacyPathDispositionReport,
+    review_legacy_path_dispositions,
+)
 from .runner import run_model_first_checks
 from .scenario import (
     OracleCheckResult,
@@ -533,6 +566,7 @@ from .workflow import Workflow, WorkflowPath, WorkflowRun
 
 PLAN_INTAKE_CLAIM_API = tuple(_plan_intake.__all__)
 MODEL_IMPACT_FRESHNESS_API = tuple(_model_freshness.__all__)
+MODEL_MATURATION_API = tuple(_model_maturation.__all__)
 
 CORE_API = (
     "FunctionBlock",
@@ -890,6 +924,7 @@ MODELING_HELPER_API = (
     "PROCESS_ARTIFACT_RELEASE",
     "PROCESS_ARTIFACT_REPORT",
     "PROCESS_ARTIFACT_ADAPTER",
+    *MODEL_MATURATION_API,
 )
 
 REPORTING_HELPER_API = (
@@ -914,6 +949,13 @@ REPORTING_HELPER_API = (
     "DefectFamilyGateFinding",
     "DefectFamilyGateReport",
     "review_defect_family_gates",
+    "ProofArtifactRef",
+    "coerce_proof_artifact_ref",
+    "proof_artifact_gap_codes",
+    "LegacyPathDisposition",
+    "LegacyPathDispositionFinding",
+    "LegacyPathDispositionReport",
+    "review_legacy_path_dispositions",
     "AutoSplitCandidate",
     "AutoSplitFinding",
     "AutoSplitPlan",
@@ -1244,6 +1286,9 @@ __all__ = [
     "RiskEvidenceLedgerReport",
     "RiskEvidenceProof",
     "RiskEvidenceRow",
+    "ProofArtifactRef",
+    "coerce_proof_artifact_ref",
+    "proof_artifact_gap_codes",
     "AutoSplitCandidate",
     "AutoSplitFinding",
     "AutoSplitPlan",
@@ -1256,6 +1301,9 @@ __all__ = [
     "DefectFamilyGateFinding",
     "DefectFamilyGatePlan",
     "DefectFamilyGateReport",
+    "LegacyPathDisposition",
+    "LegacyPathDispositionFinding",
+    "LegacyPathDispositionReport",
     "RiskProfile",
     "Scenario",
     "ScenarioExpectation",
@@ -1359,6 +1407,7 @@ __all__ = [
     "CORE_API",
     "EVIDENCE_API",
     "MODEL_IMPACT_FRESHNESS_API",
+    "MODEL_MATURATION_API",
     "MODELING_HELPER_API",
     "REPORTING_HELPER_API",
     "AUTO_SPLIT_TARGET_MODEL",
@@ -1407,6 +1456,27 @@ __all__ = [
     "DEFECT_FAMILY_DECISION_SCOPED",
     "PASSING_DEFECT_FAMILY_STATUSES",
     "NON_PASSING_DEFECT_FAMILY_STATUSES",
+    "PROOF_ARTIFACT_STATUS_PASSED",
+    "PROOF_ARTIFACT_STATUS_FAILED",
+    "PROOF_ARTIFACT_STATUS_SKIPPED",
+    "PROOF_ARTIFACT_STATUS_STALE",
+    "PROOF_ARTIFACT_STATUS_NOT_RUN",
+    "PROOF_ARTIFACT_STATUS_RUNNING",
+    "PROOF_ARTIFACT_STATUS_PROGRESS_ONLY",
+    "PROOF_ARTIFACT_STATUS_ERROR",
+    "PROOF_ARTIFACT_SCOPE_EXTERNAL_CONTRACT",
+    "PROOF_ARTIFACT_SCOPE_INTERNAL_PATH",
+    "PROOF_ARTIFACT_SCOPE_MIXED",
+    "PROOF_ARTIFACT_SCOPE_UNKNOWN",
+    "PASSING_PROOF_ARTIFACT_STATUSES",
+    "NON_PASSING_PROOF_ARTIFACT_STATUSES",
+    "review_legacy_path_dispositions",
+    "LEGACY_PATH_DELETED",
+    "LEGACY_PATH_BLOCKED",
+    "LEGACY_PATH_DELEGATED",
+    "LEGACY_PATH_SAME_CONTRACT_REPAIRED",
+    "LEGACY_PATH_OUT_OF_SCOPE",
+    "LEGACY_PATH_UNKNOWN",
     "SCHEMA_VERSION",
     "TemplateFile",
     "TargetModuleRecommendation",
@@ -1555,3 +1625,4 @@ __all__ = [
 
 __all__.extend(name for name in PLAN_INTAKE_CLAIM_API if name not in __all__)
 __all__.extend(name for name in MODEL_IMPACT_FRESHNESS_API if name not in __all__)
+__all__.extend(name for name in MODEL_MATURATION_API if name not in __all__)

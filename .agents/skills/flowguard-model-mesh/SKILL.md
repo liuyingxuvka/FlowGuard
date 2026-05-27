@@ -28,6 +28,10 @@ or when it is unclear whether a mesh is needed.
   are being consumed: child models must cover the parent responsibilities, avoid
   illegal overlap, reattach with current evidence ids, and delegate finite leaf
   code surfaces to boundary-matrix evidence.
+- Layered proof used for parent confidence should run with
+  `require_proof_artifacts=True`: child contracts and leaf boundary cells need
+  proof artifacts with result paths, fingerprints, current route evidence, and
+  obligation coverage, not only declared `passed/current` rows.
 - If Model-Test Alignment finds multiple primary `edge_path` proofs for one
   parent obligation, treat that as a model split signal. Do not accept a label
   downgrade as parent confidence unless the evidence reappears under child
@@ -49,6 +53,9 @@ or when it is unclear whether a mesh is needed.
 - Model-Miss Review owns the current bug instance and same-class bug
   responsibility; ModelMesh owns child-boundary propagation and affected
   sibling review.
+- Child boundary changes, parent reattachment gaps, duplicate edge paths, and
+  oversized direct evidence should also become `review_model_maturation_loop(...)`
+  signals before broad parent confidence is claimed.
 - Background progress is liveness only, not pass evidence.
 - Stale child evidence is not a pass.
 - If sibling models or child boundaries appear to express the same
@@ -79,23 +86,25 @@ or when it is unclear whether a mesh is needed.
    closure model and make unconsumed child outputs, incomplete joins, terminal
    leaks, out-of-scope gaps, and loop-progress gaps fail.
 8. If a child boundary changed, propagate the stale-boundary review upward and
-   review affected siblings that share or depend on the same parent partition
-   items, state writes, side effects, invariants, or contracts.
+    review affected siblings that share or depend on the same parent partition
+    items, state writes, side effects, invariants, or contracts.
 9. If the changed child boundary maps to real code, require Model-Test
-   Alignment code-boundary observations before treating the child handoff as
-   runtime-safe.
-10. When sibling overlap suggests redundant implementation structure, hand the
-   ownership and contract snapshot to Architecture Reduction before creating
-   more child models.
-11. Confirm background long-running checks have final artifacts and exit status
-   before consuming them as evidence.
-12. Run child checks first, then parent review through hierarchical mesh
-   helpers.
-13. Record which child evidence ids the parent consumed and which are stale,
-   skipped, or release-only.
-14. Feed consumed child evidence ids and stale/skipped/release-only gaps to the
+    Alignment code-boundary observations before treating the child handoff as
+    runtime-safe.
+10. Feed boundary-change, reattachment, oversized-model, and duplicate-edge-path
+    findings to `review_model_maturation_loop(...)`.
+11. When sibling overlap suggests redundant implementation structure, hand the
+    ownership and contract snapshot to Architecture Reduction before creating
+    more child models.
+12. Confirm background long-running checks have final artifacts and exit status
+    before consuming them as evidence.
+13. Run child checks first, then parent review through hierarchical mesh
+    helpers.
+14. Record which child evidence ids the parent consumed and which are stale,
+    skipped, or release-only.
+15. Feed consumed child evidence ids and stale/skipped/release-only gaps to the
     Risk Evidence Ledger before a broad final confidence claim.
-15. For non-trivial meshes, default to a user-facing Mermaid mesh diagram
+16. For non-trivial meshes, default to a user-facing Mermaid mesh diagram
     showing root entries, child model boundaries, handoffs, evidence tiers/freshness,
     blockers, and what the mesh does or does not prove. Its
     edges mean delegates, reattaches, consumes output, affects sibling, or

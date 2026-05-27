@@ -66,6 +66,17 @@ Before changing files, separate three situations:
   sync must account for existing `.flowguard` models. Classify each model
   against the upgrade impact, rerun affected models, and allow unchanged models
   to reuse previous evidence only with a current reuse ticket.
+- `model_maturation_loop`: later model-miss, model-test, ModelMesh,
+  code-boundary, or freshness evidence says the model itself is too coarse,
+  stale, disconnected, or only supports a scoped claim. Translate that signal
+  into a model-upgrade action before broad confidence is claimed.
+- `flowguard_closure_contract`: a full done, release, publish, or
+  production-confidence claim is being made from FlowGuard evidence. Treat the
+  closure chain as intrinsic to FlowGuard use, not as a mode: required
+  plan/risk intake, model ownership, same-class miss evidence when relevant,
+  model-test/code alignment, mesh or boundary proof when relevant, evidence
+  freshness, Risk Evidence Ledger, and typed claim-chain support must be
+  current or the claim stays partial/scoped.
 
 If real FlowGuard is importable but a current `.flowguard` Python model still
 claims `flowguard_package_available = False`, uses a fallback explorer, or
@@ -191,7 +202,39 @@ green results silently. The allowed shortcut is a current not-impacted
 classification plus a reuse ticket that names the prior evidence and proves the
 model output or fingerprint stayed the same.
 
+## 0.33 Check The Model Maturation Loop
+
+After implementation, validation, model-miss review, Model-Test Alignment,
+ModelMesh, TestMesh, code-boundary review, or evidence-freshness review has
+produced new signals, ask whether the model needs to mature before the claim can
+stay broad. Use `review_model_maturation_loop(...)` to turn those signals into
+explicit actions such as adding a state field, transition case, invariant,
+same-class scenario, code-boundary observation, model obligation, child split,
+parent reattachment, or evidence refresh.
+
+This check is deliberately small. It does not replace the owning route that
+found the signal. It answers the follow-up question: "Does this evidence mean
+the model is still too coarse for the claim we are making?" If yes, either
+upgrade the model and rerun the relevant checks, or downgrade the final claim to
+the scope that the current model actually proves.
+
 Read `docs/risk_evidence_ledger.md` for the API sketch and template.
+
+## 0.345 Check The FlowGuard Closure Contract
+
+Before saying FlowGuard was fully used for a done, release, publish, or
+production-confidence claim, verify the closure contract for the claim. The
+thin model-first path starts the work; it does not replace final claim support.
+
+The closure contract consumes evidence from the sibling routes that actually
+own each boundary: plan intake and adapter conformance for source coverage,
+Existing Model Preflight for model ownership, Model-Miss Review for post-green
+bugs, Model-Test Alignment for model/code/test rows, ModelMesh/TestMesh or
+layered proof for parent/child confidence, the model maturation loop for
+post-evidence model-upgrade signals, DevelopmentProcessFlow for freshness, Risk
+Evidence Ledger for user-risk support, and the typed claim-chain helper for
+scope promotion. Missing or stale required support means partial/scoped
+FlowGuard evidence, not complete FlowGuard use.
 
 ## 0.35 Check The Local Model Mesh Trigger
 
@@ -690,13 +733,17 @@ When this happens:
    affected parent reattachment gate and keep the miss open until the parent
    consumes current child evidence.
 11. If the child boundary changed, keep the miss open until ModelMesh has
-   propagated the boundary review upward and reviewed affected sibling models
-   or recorded why none are affected.
-12. Do not use a background long-running check as closure until final artifacts
-   and exit status exist; progress output is only liveness.
-13. Record `Miss type`, `Generalized case`, observed-regression test evidence,
-   same-class test evidence, Model-Test Alignment result, and any parent
-   reattachment or defect-family gate decision in the adoption log, or the
+    propagated the boundary review upward and reviewed affected sibling models
+    or recorded why none are affected.
+12. Run the model maturation loop over the miss classification, alignment rows,
+    mesh rows, and freshness rows. If it reports state, branch, invariant,
+    same-class, child reattachment, or obligation gaps, upgrade the model or
+    keep the final claim scoped.
+13. Do not use a background long-running check as closure until final artifacts
+    and exit status exist; progress output is only liveness.
+14. Record `Miss type`, `Generalized case`, observed-regression test evidence,
+    same-class test evidence, Model-Test Alignment result, and any parent
+    reattachment or defect-family gate decision in the adoption log, or the
    reason no generalized case was added, along with rerun commands, skipped
    checks, and residual blindspots.
 

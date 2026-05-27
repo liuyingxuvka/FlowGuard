@@ -297,6 +297,17 @@ class PublicTemplateTests(unittest.TestCase):
             "structure-mesh-template": "structure_mesh",
         }
         for command, template_name in commands.items():
+            help_result = subprocess.run(
+                [sys.executable, "-m", "flowguard", command, "--help"],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(0, help_result.returncode, help_result.stderr)
+            self.assertIn("--output", help_result.stdout)
+            self.assertIn("--force", help_result.stdout)
+
             printed = subprocess.run(
                 [sys.executable, "-m", "flowguard", command],
                 cwd=ROOT,

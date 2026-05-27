@@ -1,0 +1,9 @@
+- [x] 1.1 Add OpenSpec proposal, design, spec, and task artifacts for the model maturation loop.
+- [x] 2.1 Add the public model maturation helper API and exports.
+- [x] 2.2 Add focused unit tests for green, upgrade-required, scoped, and blocked maturation decisions.
+- [x] 2.3 Update public API surface docs, README, changelog, and closure/modeling docs.
+- [x] 2.4 Update installed skill-source guidance so agents route post-code/post-miss evidence through maturation before closure claims.
+- [x] 2.5 Validate OpenSpec and focused tests.
+- [x] 3.1 Sync source checkout changes to the shadow workspace and installed Codex skill surfaces.
+- [x] 3.2 Reinstall or verify the editable local package and visible version metadata.
+- [x] 3.3 Run final focused and broad validation, preserving peer-agent changes and reporting any scoped gaps.

@@ -1666,6 +1666,7 @@ from flowguard import (
     CodeContract,
     ModelObligation,
     ModelTestAlignmentPlan,
+    ProofArtifactRef,
     TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
     TEST_ASSERTION_SCOPE_INTERNAL_PATH,
     TEST_CLOSURE_ROLE_OBSERVED_REGRESSION,
@@ -1681,9 +1682,22 @@ from flowguard import (
 )
 
 
+def proof_artifact(evidence_id: str, *covered: str) -> ProofArtifactRef:
+    result_path = f"tmp/{evidence_id}.json"
+    return ProofArtifactRef(
+        f"artifact:{evidence_id}",
+        result_status="passed",
+        exit_code=0,
+        result_path=result_path,
+        artifact_fingerprints={result_path: "sha256:template"},
+        covered_obligation_ids=covered,
+    )
+
+
 def aligned_plan() -> ModelTestAlignmentPlan:
     return ModelTestAlignmentPlan(
         model_id="sample_checkout_model",
+        require_proof_artifacts=True,
         obligations=(
             ModelObligation(
                 "accept_valid_order",
@@ -1755,6 +1769,7 @@ def aligned_plan() -> ModelTestAlignmentPlan:
                 covered_obligations=("accept_valid_order",),
                 covered_code_contracts=("checkout_accept_order",),
                 assertion_scope=TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
+                proof_artifact=proof_artifact("test_accept_valid_order", "accept_valid_order"),
             ),
             TestEvidence(
                 "test_reject_duplicate_order_happy",
@@ -1765,6 +1780,10 @@ def aligned_plan() -> ModelTestAlignmentPlan:
                 covered_obligations=("reject_duplicate_order",),
                 covered_code_contracts=("checkout_reject_duplicate",),
                 assertion_scope=TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
+                proof_artifact=proof_artifact(
+                    "test_reject_duplicate_order_happy",
+                    "reject_duplicate_order",
+                ),
             ),
             TestEvidence(
                 "test_reject_duplicate_order_failure",
@@ -1775,6 +1794,10 @@ def aligned_plan() -> ModelTestAlignmentPlan:
                 covered_obligations=("reject_duplicate_order",),
                 covered_code_contracts=("checkout_reject_duplicate",),
                 assertion_scope=TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
+                proof_artifact=proof_artifact(
+                    "test_reject_duplicate_order_failure",
+                    "reject_duplicate_order",
+                ),
             ),
             TestEvidence(
                 "test_observed_duplicate_submit_regression",
@@ -1786,6 +1809,10 @@ def aligned_plan() -> ModelTestAlignmentPlan:
                 covered_code_contracts=("checkout_duplicate_submit_family",),
                 assertion_scope=TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
                 closure_evidence_role=TEST_CLOSURE_ROLE_OBSERVED_REGRESSION,
+                proof_artifact=proof_artifact(
+                    "test_observed_duplicate_submit_regression",
+                    "model_miss_duplicate_submit_family",
+                ),
             ),
             TestEvidence(
                 "test_same_class_duplicate_submit_variants",
@@ -1797,6 +1824,10 @@ def aligned_plan() -> ModelTestAlignmentPlan:
                 covered_code_contracts=("checkout_duplicate_submit_family",),
                 assertion_scope=TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
                 closure_evidence_role=TEST_CLOSURE_ROLE_SAME_CLASS_GENERALIZED,
+                proof_artifact=proof_artifact(
+                    "test_same_class_duplicate_submit_variants",
+                    "model_miss_duplicate_submit_family",
+                ),
             ),
         ),
         boundary_contracts=(
@@ -2145,12 +2176,25 @@ from flowguard import (
     PROCESS_SCOPE_RELEASE,
     DevelopmentProcessPlan,
     FreshnessRule,
+    ProofArtifactRef,
     ProcessAction,
     ProcessArtifact,
     ProcessEvidence,
     ValidationRequirement,
     review_development_process_flow,
 )
+
+
+def proof_artifact(artifact_id: str, *covered: str) -> ProofArtifactRef:
+    result_path = f"tmp/{artifact_id.replace(':', '_')}.json"
+    return ProofArtifactRef(
+        artifact_id,
+        result_status=PROCESS_EVIDENCE_PASSED,
+        exit_code=0,
+        result_path=result_path,
+        artifact_fingerprints={result_path: "sha256:template"},
+        covered_obligation_ids=covered,
+    )
 
 
 def artifacts(code_version: str = "2", test_version: str = "1", requirement_version: str = "1"):
@@ -2175,6 +2219,7 @@ def artifacts(code_version: str = "2", test_version: str = "1", requirement_vers
 def routine_plan() -> DevelopmentProcessPlan:
     return DevelopmentProcessPlan(
         "checkout-development-lifecycle",
+        require_proof_artifacts=True,
         artifacts=artifacts(code_version="2"),
         actions=(
             ProcessAction("edit-code", writes_artifacts=("code.checkout",)),
@@ -2193,6 +2238,7 @@ def routine_plan() -> DevelopmentProcessPlan:
                 validation_requirement_ids=("unit-current",),
                 produced_by_action_id="run-unit",
                 command="python -m unittest tests.test_checkout",
+                proof_artifact=proof_artifact("artifact:unit-pass", "unit-current"),
             ),
         ),
         validation_requirements=(
@@ -3910,6 +3956,7 @@ from flowguard import (
     RISK_PROOF_SCOPE_INTERNAL_PATH,
     RISK_PROOF_STATUS_PASSED,
     RISK_PROOF_STATUS_PROGRESS_ONLY,
+    ProofArtifactRef,
     RiskEvidenceLedgerPlan,
     RiskEvidenceProof,
     RiskEvidenceRow,
@@ -3921,6 +3968,7 @@ def correct_ledger() -> RiskEvidenceLedgerPlan:
     return RiskEvidenceLedgerPlan(
         "checkout-final-confidence",
         require_code_contracts=True,
+        require_proof_artifacts=True,
         rows=(
             RiskEvidenceRow(
                 "duplicate_submit",
@@ -3946,6 +3994,14 @@ def correct_ledger() -> RiskEvidenceLedgerPlan:
                 producer_route="model_test_alignment",
                 command="python -m unittest tests.test_checkout",
                 summary="external API duplicate-submit test passed",
+                proof_artifact=ProofArtifactRef(
+                    "artifact:test-duplicate-submit",
+                    result_status=RISK_PROOF_STATUS_PASSED,
+                    exit_code=0,
+                    result_path="tmp/test-duplicate-submit.json",
+                    artifact_fingerprints={"tmp/test-duplicate-submit.json": "sha256:template"},
+                    covered_obligation_ids=("model:dedupe-submit",),
+                ),
             ),
             RiskEvidenceProof(
                 "replay:invalid-payment",
@@ -3954,6 +4010,14 @@ def correct_ledger() -> RiskEvidenceLedgerPlan:
                 producer_route="conformance_replay",
                 command="python .flowguard/checkout/run_checks.py",
                 summary="representative replay covered invalid payment",
+                proof_artifact=ProofArtifactRef(
+                    "artifact:replay-invalid-payment",
+                    result_status=RISK_PROOF_STATUS_PASSED,
+                    exit_code=0,
+                    result_path="tmp/replay-invalid-payment.json",
+                    artifact_fingerprints={"tmp/replay-invalid-payment.json": "sha256:template"},
+                    covered_obligation_ids=("model:reject-invalid-payment",),
+                ),
             ),
         ),
     )
@@ -4143,14 +4207,28 @@ from flowguard import (
     LeafBoundaryMatrixCell,
     LayeredBoundaryProofPlan,
     ParentCoverageItem,
+    ProofArtifactRef,
     review_layered_boundary_proof,
 )
+
+
+def proof_artifact(artifact_id: str, *covered: str) -> ProofArtifactRef:
+    result_path = f"tmp/{artifact_id.replace(':', '_')}.json"
+    return ProofArtifactRef(
+        artifact_id,
+        result_status="passed",
+        exit_code=0,
+        result_path=result_path,
+        artifact_fingerprints={result_path: "sha256:template"},
+        covered_obligation_ids=covered,
+    )
 
 
 def correct_layered_proof() -> LayeredBoundaryProofPlan:
     return LayeredBoundaryProofPlan(
         "checkout-layered-boundary-proof",
         "checkout-parent",
+        require_proof_artifacts=True,
         parent_items=(
             ParentCoverageItem("validate-submit", owner_model_id="validate-submit"),
         ),
@@ -4165,6 +4243,7 @@ def correct_layered_proof() -> LayeredBoundaryProofPlan:
                 state_owned=("seen_ids",),
                 contracts_out=("submit-validation",),
                 is_leaf=True,
+                proof_artifact=proof_artifact("artifact:validate-submit-child", "validate-submit"),
             ),
         ),
         reattachment_proofs=(
@@ -4196,6 +4275,10 @@ def correct_layered_proof() -> LayeredBoundaryProofPlan:
                         expected_error_paths=("ValueError",),
                         observed_error_paths=("ValueError",),
                         evidence_ids=("test:reject-empty-submit",),
+                        proof_artifact=proof_artifact(
+                            "artifact:reject-empty-submit-cell",
+                            "test:reject-empty-submit",
+                        ),
                     ),
                 ),
             ),

@@ -68,6 +68,9 @@ Create or update a model-test alignment review when:
   tests, or happy-path-only coverage of risky model obligations.
 - declared `CodeContract` or `TestEvidence` rows need to be checked against
   real Python source/test files before a coverage claim is trusted.
+- alignment evidence suggests the model is missing an obligation, code-boundary
+  observation, state branch, split child obligation, or current evidence refresh;
+  feed those rows to `review_model_maturation_loop(...)`.
 - declared code boundaries need runtime observation evidence showing allowed
   inputs, rejected inputs, outputs, errors, state writes, and side effects
   stayed inside the model-declared boundary.
@@ -378,6 +381,9 @@ A model-test alignment review can support a coverage claim only when:
 - duplicate primary `edge_path` claims are absent; if several real code
   boundaries need primary proof, the model obligation is split or the evidence
   is reattached to leaf matrix cells;
+- missing obligations, stale rows, boundary mismatches, or duplicate primary
+  edge paths have been fed to `review_model_maturation_loop(...)` before broad
+  confidence is claimed;
 - supporting and leaf matrix-cell evidence rows name their target ids;
 - duplicate code contract owners are absent or explicitly allowed by the model
   obligation;

@@ -39,7 +39,10 @@ mostly core modeling rather than alignment.
 - If one model obligation has multiple current primary `edge_path` evidence
   rows, do not fix it by downgrading one row to supporting evidence. Treat the
   obligation as too coarse: split child obligations or attach those tests to
-  distinct leaf matrix cells.
+  distinct leaf matrix cells, then record a model maturation signal.
+- If alignment finds a missing model obligation, missing code-boundary
+  observation, stale proof, or code-boundary mismatch, feed that row to
+  `review_model_maturation_loop(...)` before broad confidence.
 - If several tests or code contracts prove the same obligation because the
   implementation has duplicate paths, route to `flowguard-architecture-reduction`
   before expanding test evidence further.
@@ -47,6 +50,11 @@ mostly core modeling rather than alignment.
   code-contract, evidence-status, freshness, and assertion-scope rows to the
   Risk Evidence Ledger; this skill produces coverage evidence, not the whole
   final confidence claim.
+- For broad confidence, set `require_proof_artifacts=True` on the alignment
+  plan or downstream ledger and attach `ProofArtifactRef` rows. Declaration-only
+  `passed/current` test evidence is not enough without a result path,
+  fingerprint, covered obligation, and external-contract scope when code
+  contracts are being proved.
 - Alignment can only prove declared obligations. If the plan or adapter may
   have omitted an in-scope surface, require plan-intake and adapter-conformance
   helper evidence before the result is promoted through the typed claim chain.
@@ -67,6 +75,8 @@ mostly core modeling rather than alignment.
 5. Collect ordinary test evidence rows; include exact test ids and covered
    obligation ids. Mark each row as primary boundary evidence, leaf matrix-cell
    evidence, supporting contract evidence, or integration smoke evidence.
+   For strict confidence, attach the current proof artifact produced by the
+   command or replay that generated the row.
 6. For repaired model-miss obligations, mark which test row is the observed
    regression and which row is the same-class generalized evidence. Treat
    overclaimed, stale, skipped, or internal-path-only rows as blockers rather
@@ -86,13 +96,15 @@ mostly core modeling rather than alignment.
    obligation/code-contract snapshot to Architecture Reduction before deciding
    whether to keep all paths.
 12. Inspect missing, stale, unknown, overclaimed, incomplete leaf-matrix, or boundary-crossing coverage.
-   Fix the model, code contracts, boundary observations, tests, or evidence
-   rows before claiming alignment.
-13. For broad confidence claims, pass the alignment report through Risk
-   Evidence Ledger and `review_flowguard_claim_chain(...)`; do not let
-   alignment evidence stand in for plan completeness, runtime replay, or
-   production confidence.
-14. For non-trivial alignment reviews, default to a user-facing Mermaid coverage
+    Fix the model, code contracts, boundary observations, tests, or evidence
+    rows before claiming alignment.
+13. Feed model-too-coarse, missing-obligation, stale, boundary-mismatch, or
+    duplicate-primary-edge findings to `review_model_maturation_loop(...)`.
+14. For broad confidence claims, pass the alignment report through Risk
+    Evidence Ledger and `review_flowguard_claim_chain(...)`; do not let
+    alignment evidence stand in for plan completeness, runtime replay, or
+    production confidence.
+15. For non-trivial alignment reviews, default to a user-facing Mermaid coverage
    diagram showing model obligations, optional code contracts, test evidence,
    code-boundary observations, and missing/stale/overclaimed/boundary-crossing
    gaps. Its edges mean covers, partially covers, observes boundary, misses, or

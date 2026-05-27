@@ -1,5 +1,52 @@
 # Changelog
 
+## v0.27.0 - 2026-05-27
+
+- Added the FlowGuard model maturation loop with `ModelMaturationSignal`,
+  `ModelMaturationPlan`, `ModelMaturationReport`, and
+  `review_model_maturation_loop()` so post-code, post-miss, model-test, mesh,
+  code-boundary, and freshness signals become explicit model-upgrade or
+  scoped-claim decisions.
+- Updated README, API docs, modeling protocol, closure contract, Risk Evidence
+  Ledger guidance, DevelopmentProcessFlow, Model-Test Alignment, ModelMesh, and
+  installed skill-source guidance so later evidence can force model refinement
+  before broad confidence is claimed.
+- Added focused unit tests for current, upgrade-required, scoped, blocked,
+  mesh-driven, and caller-specified model maturation decisions.
+- Schema remains `1.0`; runtime dependencies remain Python standard library
+  only.
+
+## v0.26.0 - 2026-05-27
+
+- Defined the FlowGuard closure contract as intrinsic to complete FlowGuard
+  use: plan/risk intake, model ownership, same-class model-miss evidence,
+  model-test/code alignment, mesh or boundary proof when required, evidence
+  freshness, Risk Evidence Ledger, and typed claim-chain support must be
+  current before full done/release/publish/production-confidence claims.
+- Updated README, AGENTS snippet, model-first skill guidance, modeling
+  protocol, OpenSpec artifacts, and local self-review docs so partial model or
+  test evidence is reported as partial/scoped FlowGuard evidence rather than
+  complete FlowGuard use.
+- Added a local executable closure-contract model and focused skill-doc tests
+  that reject optional-mode framing and block completion without closure gates.
+- Schema remains `1.0`; runtime dependencies remain Python standard library
+  only.
+
+## v0.25.1 - 2026-05-27
+
+- Added `ProofArtifactRef` and legacy path disposition helpers so strict
+  FlowGuard confidence checks can reject declaration-only `passed/current`
+  evidence rows.
+- Updated layered boundary proof, Risk Evidence Ledger, recurring model-miss
+  defect-family gates, Model-Test Alignment, and DevelopmentProcessFlow with
+  `require_proof_artifacts` gates that require result paths, fingerprints,
+  current route evidence, and matching obligation coverage.
+- Updated docs, skills, and templates so full confidence routes consume
+  proof-artifact-bound evidence and explicit old-path disposition before
+  closure.
+- Schema remains `1.0`; runtime dependencies remain Python standard library
+  only.
+
 ## v0.25.0 - 2026-05-27
 
 - Added adversarial scenario synthesis on the existing Scenario Sandbox and

@@ -137,6 +137,24 @@ The helper is intentionally selective. It blocks blind reuse of old evidence,
 but it also avoids forced reruns when a model has a valid reuse ticket and
 same-output or fingerprint proof.
 
+## Model Maturation Loop
+
+Use `review_model_maturation_loop(...)` after code, tests, model-miss review,
+Model-Test Alignment, ModelMesh, code-boundary review, or evidence-freshness
+review produces a signal that the current model is too coarse, stale, or
+disconnected. The helper reviews:
+
+- `ModelMaturationSignal`: the route signal and the model/risk/evidence ids it
+  came from;
+- `ModelMaturationPlan`: the claim scope and whether a broad closure claim is
+  being made;
+- `ModelMaturationReport`: the decision, confidence, required model-upgrade
+  actions, and scoped signal ids.
+
+The helper keeps broad claims honest. It does not replace the owning route; it
+decides whether that route's evidence requires a model update, parent
+reattachment, child split, evidence refresh, or scoped claim.
+
 ## Scenario Matrix Builder
 
 `ScenarioMatrixBuilder` scaffolds a small deterministic scenario set:

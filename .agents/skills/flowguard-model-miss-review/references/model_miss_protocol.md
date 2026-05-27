@@ -10,9 +10,9 @@ not close a known model miss unless the miss has been reviewed.
 ## Required Steps
 
 1. Reopen the model-first work instead of treating the prior pass as final.
-2. Classify the miss with one of five practical types:
-   `boundary_missing`, `state_too_coarse`, `input_branch_missing`,
-   `invariant_too_weak`, or `evidence_overclaimed`.
+2. Classify the miss with one of the practical types:
+   `boundary_missing`, `code_boundary_mismatch`, `state_too_coarse`,
+   `input_branch_missing`, `invariant_too_weak`, or `evidence_overclaimed`.
 3. If the issue belongs in scope, represent the observed issue in executable
    evidence: scenario, invariant, replay adapter, representative trace, or
    model boundary note.
@@ -40,11 +40,15 @@ not close a known model miss unless the miss has been reviewed.
    child evidence id and confirm the child's inputs, outputs, state ownership,
    side-effect ownership, and outgoing guarantees still fit the parent flow.
 11. If the miss shows that real code accepted an unmodeled input, emitted an
-   extra output/error/state write/side effect, or failed a declared leaf cell,
-   update the leaf boundary matrix and rerun layered proof. Do not close the
-   miss with only a new ordinary test when the model boundary itself overflowed.
-12. Record `Miss type`, `Generalized case`, observed-regression test evidence,
-   same-class test evidence, Model-Test Alignment result, and any parent
+    extra output/error/state write/side effect, or failed a declared leaf cell,
+    update the leaf boundary matrix and rerun layered proof. Do not close the
+    miss with only a new ordinary test when the model boundary itself overflowed.
+12. Run `review_model_maturation_loop(...)` over the miss classification,
+    alignment result, mesh/layered proof result, code-boundary observations, and
+    freshness rows. Resolve or explicitly scope any state, branch, invariant,
+    same-class, obligation, child reattachment, or evidence-refresh action.
+13. Record `Miss type`, `Generalized case`, observed-regression test evidence,
+    same-class test evidence, Model-Test Alignment result, and any parent
    reattachment or defect-family gate decision in adoption evidence and the Risk
    Evidence Ledger when a prior final claim had one, or explain
    why no generalized case was added.
@@ -64,9 +68,10 @@ evidence or explicitly out of scope, rerun, validated with production-facing
 evidence, and, for in-scope misses, backed by current observed-regression and
 same-class test evidence in Model-Test Alignment. When the miss was repaired in
 a child model under a parent mesh, the affected parent reattachment gate must
-also pass or remain an explicit blocker. A patch plus a later green runtime
-check, or a patch plus one observed-bug regression test, is not enough by
-itself. A recurring or high-risk same-class miss also requires a current
+also pass or remain an explicit blocker. The model maturation loop must show no
+open in-scope upgrade action for a broad claim. A patch plus a later green
+runtime check, or a patch plus one observed-bug regression test, is not enough
+by itself. A recurring or high-risk same-class miss also requires a current
 defect-family gate or an explicit scoped-confidence boundary.
 If the prior green claim had a Risk Evidence Ledger row, mark the old proof as
 stale or overclaimed and attach the new same-class evidence plus defect-family

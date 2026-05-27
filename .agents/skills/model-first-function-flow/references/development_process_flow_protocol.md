@@ -172,6 +172,10 @@ A DevelopmentProcessFlow review can support a lifecycle claim only when:
   remain visible and do not satisfy current validation;
 - done, release, archive, and publish claims have current passing evidence for
   the requested scope;
+- broad done, release, archive, publish, framework-sync, or final-confidence
+  claims use proof-artifact-bound evidence: each consumed validation row has a
+  current `ProofArtifactRef` with result path, fingerprint, passing status,
+  covered validation obligation, and no route gaps;
 - release-required evidence is current for release scope, or visibly deferred
   only for routine scope;
 - the report includes minimum revalidation recommendations for unsupported

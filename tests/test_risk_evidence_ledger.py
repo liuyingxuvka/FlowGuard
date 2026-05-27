@@ -12,6 +12,7 @@ from flowguard import (
     RISK_PROOF_STATUS_PROGRESS_ONLY,
     RISK_PROOF_STATUS_SKIPPED,
     RISK_PROOF_STATUS_STALE,
+    ProofArtifactRef,
     RiskEvidenceLedgerPlan,
     RiskEvidenceProof,
     RiskEvidenceRow,
@@ -24,6 +25,17 @@ def proof(evidence_id="e1", **kwargs):
         evidence_id,
         result_status=kwargs.pop("result_status", RISK_PROOF_STATUS_PASSED),
         **kwargs,
+    )
+
+
+def proof_artifact(artifact_id="artifact:e1", *covered):
+    return ProofArtifactRef(
+        artifact_id,
+        result_status=RISK_PROOF_STATUS_PASSED,
+        exit_code=0,
+        result_path=f"tmp/{artifact_id.replace(':', '_')}.json",
+        artifact_fingerprints={f"tmp/{artifact_id.replace(':', '_')}.json": "sha256:test"},
+        covered_obligation_ids=covered or ("model:r1",),
     )
 
 
@@ -237,6 +249,22 @@ class RiskEvidenceLedgerTests(unittest.TestCase):
         self.assertEqual(RISK_LEDGER_DECISION_SCOPED, report.decision)
         self.assertEqual(RISK_CONFIDENCE_SCOPED, report.confidence)
         self.assertIn("test_split_gate_scoped_confidence", finding_codes(report))
+
+    def test_strict_ledger_rejects_declaration_only_proof(self):
+        report = review_risk_evidence_ledger(plan(require_proof_artifacts=True))
+
+        self.assertFalse(report.ok)
+        self.assertIn("missing_proof_evidence_artifact", finding_codes(report))
+
+    def test_strict_ledger_accepts_artifact_backed_proof(self):
+        report = review_risk_evidence_ledger(
+            plan(
+                require_proof_artifacts=True,
+                proof_evidence=(proof(proof_artifact=proof_artifact()),),
+            )
+        )
+
+        self.assertTrue(report.ok, report.format_text())
 
 
 if __name__ == "__main__":

@@ -141,6 +141,11 @@ List test evidence with `TestEvidence`:
   `observed_regression` or `same_class_generalized`;
 - optional source-audit notes when real tests were inspected: asserted symbols,
   assertion forms, status/freshness source, and manual-review reasons.
+- optional `proof_artifact` references. When the plan sets
+  `require_proof_artifacts=True`, a declared passing/current test row must also
+  carry a proof artifact with a result path, artifact fingerprint, matching
+  covered obligations, and external-contract scope when code contracts are
+  being proved.
 
 ## Findings
 
@@ -195,6 +200,12 @@ confidence by itself when other risk rows, mesh evidence, UI journeys, or
 process freshness can still invalidate the broader claim. Feed those rows into
 `review_risk_evidence_ledger(...)` before saying the modeled risk is fully
 covered.
+
+When alignment exposes a missing model obligation, stale proof, duplicate
+primary edge path, missing code-boundary observation, or code-boundary mismatch,
+also feed that signal to `review_model_maturation_loop(...)`. The fix may be a
+model upgrade, a child split, a new boundary observation, or a scoped claim;
+adding more tests alone is not always the right repair.
 
 If same-class model-miss coverage needs broad parameterization, property tests,
 seeded fuzz, background shards, release-only runs, or parent/child ownership,

@@ -104,6 +104,11 @@ the classification was `model_too_thick`, `test_too_thick`, or
 evidence and the parent lifecycle review must consume that evidence id before a
 done, release, archive, or publish claim is supported.
 
+When sibling evidence says the model is too coarse, stale, disconnected, or
+missing an obligation, include a `review_model_maturation_loop(...)` row in the
+minimum revalidation plan. A broad lifecycle claim must either consume the
+current model-upgrade evidence or explicitly report scoped confidence.
+
 List validation requirements:
 
 - requirement id;
@@ -139,6 +144,7 @@ Keep these findings visible:
 - `missing_required_revalidation`;
 - `release_claim_with_stale_evidence`;
 - `release_evidence_not_current`;
+- `model_maturation_required_before_final_claim`;
 - `final_claim_missing_risk_evidence_ledger`;
 - `final_claim_uses_blocked_risk_evidence`.
 
@@ -218,6 +224,10 @@ A DevelopmentProcessFlow review can support a lifecycle claim only when:
   remain visible and do not satisfy current validation;
 - done, release, archive, and publish claims have current passing evidence for
   the requested scope;
+- broad done, release, archive, publish, framework-sync, or final-confidence
+  claims use proof-artifact-bound evidence: each consumed validation row has a
+  current `ProofArtifactRef` with result path, fingerprint, passing status,
+  covered validation obligation, and no route gaps;
 - release-required evidence is current for release scope, or visibly deferred
   only for routine scope;
 - any validation failure has a visible triage class, and non-ordinary triage

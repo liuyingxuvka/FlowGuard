@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
@@ -151,100 +152,101 @@ def _run_file_template(
     return 0
 
 
-def _run_project_template(args: argparse.Namespace) -> int:
-    from .templates import project_template_files
-
-    return _run_file_template(args, template_name="project", files=project_template_files())
-
-
-def _run_risk_intent_template(args: argparse.Namespace) -> int:
-    from .templates import risk_intent_template_files
-
-    return _run_file_template(args, template_name="risk_intent_check_plan", files=risk_intent_template_files())
+@dataclass(frozen=True)
+class FileTemplateCommand:
+    name: str
+    help_text: str
+    template_name: str
+    factory_name: str
 
 
-def _run_model_miss_template(args: argparse.Namespace) -> int:
-    from .templates import model_miss_review_template_files
+FILE_TEMPLATE_COMMANDS: tuple[FileTemplateCommand, ...] = (
+    FileTemplateCommand(
+        "project-template",
+        "Print or write the basic FlowGuard project model template.",
+        "project",
+        "project_template_files",
+    ),
+    FileTemplateCommand(
+        "risk-intent-template",
+        "Print or write the Risk Intent + CheckPlan template.",
+        "risk_intent_check_plan",
+        "risk_intent_template_files",
+    ),
+    FileTemplateCommand(
+        "model-miss-template",
+        "Print or write the post-runtime model-miss review template.",
+        "model_miss_review",
+        "model_miss_review_template_files",
+    ),
+    FileTemplateCommand(
+        "model-test-alignment-template",
+        "Print or write the model/test/code contract, code-boundary, and source-audit alignment template.",
+        "model_test_alignment",
+        "model_test_alignment_template_files",
+    ),
+    FileTemplateCommand(
+        "code-structure-recommendation-template",
+        "Print or write the code structure recommendation template.",
+        "code_structure_recommendation",
+        "code_structure_recommendation_template_files",
+    ),
+    FileTemplateCommand(
+        "ui-flow-structure-template",
+        "Print or write the UI interaction flow and structure derivation template.",
+        "ui_flow_structure",
+        "ui_flow_structure_template_files",
+    ),
+    FileTemplateCommand(
+        "development-process-flow-template",
+        "Print or write the DevelopmentProcessFlow lifecycle freshness template.",
+        "development_process_flow",
+        "development_process_flow_template_files",
+    ),
+    FileTemplateCommand(
+        "existing-model-preflight-template",
+        "Print or write the existing FlowGuard model preflight template.",
+        "existing_model_preflight",
+        "existing_model_preflight_template_files",
+    ),
+    FileTemplateCommand(
+        "risk-evidence-ledger-template",
+        "Print or write the risk evidence ledger final confidence template.",
+        "risk_evidence_ledger",
+        "risk_evidence_ledger_template_files",
+    ),
+    FileTemplateCommand(
+        "layered-boundary-proof-template",
+        "Print or write the layered parent/child/leaf boundary proof template.",
+        "layered_boundary_proof",
+        "layered_boundary_proof_template_files",
+    ),
+    FileTemplateCommand(
+        "test-mesh-template",
+        "Print or write the TestMesh validation hierarchy template.",
+        "test_mesh",
+        "test_mesh_template_files",
+    ),
+    FileTemplateCommand(
+        "structure-mesh-template",
+        "Print or write the StructureMesh refactor hierarchy template.",
+        "structure_mesh",
+        "structure_mesh_template_files",
+    ),
+    FileTemplateCommand(
+        "maintenance-template",
+        "Print or write the optional multi-role maintenance workflow template.",
+        "maintenance_workflow",
+        "maintenance_workflow_template_files",
+    ),
+)
 
-    return _run_file_template(args, template_name="model_miss_review", files=model_miss_review_template_files())
 
+def _run_file_template_command(args: argparse.Namespace, command: FileTemplateCommand) -> int:
+    from . import templates
 
-def _run_model_test_alignment_template(args: argparse.Namespace) -> int:
-    from .templates import model_test_alignment_template_files
-
-    return _run_file_template(args, template_name="model_test_alignment", files=model_test_alignment_template_files())
-
-
-def _run_code_structure_recommendation_template(args: argparse.Namespace) -> int:
-    from .templates import code_structure_recommendation_template_files
-
-    return _run_file_template(
-        args,
-        template_name="code_structure_recommendation",
-        files=code_structure_recommendation_template_files(),
-    )
-
-
-def _run_ui_flow_structure_template(args: argparse.Namespace) -> int:
-    from .templates import ui_flow_structure_template_files
-
-    return _run_file_template(
-        args,
-        template_name="ui_flow_structure",
-        files=ui_flow_structure_template_files(),
-    )
-
-
-def _run_development_process_flow_template(args: argparse.Namespace) -> int:
-    from .templates import development_process_flow_template_files
-
-    return _run_file_template(
-        args,
-        template_name="development_process_flow",
-        files=development_process_flow_template_files(),
-    )
-
-
-def _run_existing_model_preflight_template(args: argparse.Namespace) -> int:
-    from .templates import existing_model_preflight_template_files
-
-    return _run_file_template(
-        args,
-        template_name="existing_model_preflight",
-        files=existing_model_preflight_template_files(),
-    )
-
-
-def _run_risk_evidence_ledger_template(args: argparse.Namespace) -> int:
-    from .templates import risk_evidence_ledger_template_files
-
-    return _run_file_template(
-        args,
-        template_name="risk_evidence_ledger",
-        files=risk_evidence_ledger_template_files(),
-    )
-
-
-def _run_layered_boundary_proof_template(args: argparse.Namespace) -> int:
-    from .templates import layered_boundary_proof_template_files
-
-    return _run_file_template(
-        args,
-        template_name="layered_boundary_proof",
-        files=layered_boundary_proof_template_files(),
-    )
-
-
-def _run_test_mesh_template(args: argparse.Namespace) -> int:
-    from .templates import test_mesh_template_files
-
-    return _run_file_template(args, template_name="test_mesh", files=test_mesh_template_files())
-
-
-def _run_structure_mesh_template(args: argparse.Namespace) -> int:
-    from .templates import structure_mesh_template_files
-
-    return _run_file_template(args, template_name="structure_mesh", files=structure_mesh_template_files())
+    factory = getattr(templates, command.factory_name)
+    return _run_file_template(args, template_name=command.template_name, files=factory())
 
 
 def _run_adoption_entry(args: argparse.Namespace) -> int:
@@ -289,13 +291,6 @@ def _run_adoption_entry(args: argparse.Namespace) -> int:
     append_markdown_log(root / "docs" / "flowguard_adoption_log.md", entry)
     print(entry.to_json_text())
     return 0
-
-
-def _run_maintenance_template(args: argparse.Namespace) -> int:
-    from .templates import maintenance_workflow_template_files
-
-    files = maintenance_workflow_template_files()
-    return _run_file_template(args, template_name="maintenance_workflow", files=files)
 
 
 COMMANDS: dict[str, Callable[[], int]] = {
@@ -353,32 +348,19 @@ def _add_adoption_entry_args(
     parser.set_defaults(handler=_run_adoption_entry, default_status=default_status)
 
 
-def _add_maintenance_template_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    parser = subparsers.add_parser(
-        "maintenance-template",
-        help="Print or write the optional multi-role maintenance workflow template.",
-    )
-    parser.add_argument(
-        "--output",
-        help="Project root where template files should be written. If omitted, prints JSON to stdout.",
-    )
-    parser.add_argument("--force", action="store_true", help="Overwrite existing template files.")
-    parser.set_defaults(handler=_run_maintenance_template)
-
-
 def _add_file_template_parser(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
-    name: str,
-    help_text: str,
-    handler: Callable[[argparse.Namespace], int],
+    command: FileTemplateCommand,
 ) -> None:
-    parser = subparsers.add_parser(name, help=help_text)
+    parser = subparsers.add_parser(command.name, help=command.help_text)
     parser.add_argument(
         "--output",
         help="Project root where template files should be written. If omitted, prints JSON to stdout.",
     )
     parser.add_argument("--force", action="store_true", help="Overwrite existing template files.")
-    parser.set_defaults(handler=handler)
+    parser.set_defaults(
+        handler=lambda args, template_command=command: _run_file_template_command(args, template_command)
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -388,78 +370,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
     _add_existing_command_subparsers(subparsers)
-    _add_file_template_parser(
-        subparsers,
-        "project-template",
-        "Print or write the basic FlowGuard project model template.",
-        _run_project_template,
-    )
-    _add_file_template_parser(
-        subparsers,
-        "risk-intent-template",
-        "Print or write the Risk Intent + CheckPlan template.",
-        _run_risk_intent_template,
-    )
-    _add_file_template_parser(
-        subparsers,
-        "model-miss-template",
-        "Print or write the post-runtime model-miss review template.",
-        _run_model_miss_template,
-    )
-    _add_file_template_parser(
-        subparsers,
-        "model-test-alignment-template",
-        "Print or write the model/test/code contract, code-boundary, and source-audit alignment template.",
-        _run_model_test_alignment_template,
-    )
-    _add_file_template_parser(
-        subparsers,
-        "code-structure-recommendation-template",
-        "Print or write the code structure recommendation template.",
-        _run_code_structure_recommendation_template,
-    )
-    _add_file_template_parser(
-        subparsers,
-        "ui-flow-structure-template",
-        "Print or write the UI interaction flow and structure derivation template.",
-        _run_ui_flow_structure_template,
-    )
-    _add_file_template_parser(
-        subparsers,
-        "development-process-flow-template",
-        "Print or write the DevelopmentProcessFlow lifecycle freshness template.",
-        _run_development_process_flow_template,
-    )
-    _add_file_template_parser(
-        subparsers,
-        "existing-model-preflight-template",
-        "Print or write the existing FlowGuard model preflight template.",
-        _run_existing_model_preflight_template,
-    )
-    _add_file_template_parser(
-        subparsers,
-        "risk-evidence-ledger-template",
-        "Print or write the risk evidence ledger final confidence template.",
-        _run_risk_evidence_ledger_template,
-    )
-    _add_file_template_parser(
-        subparsers,
-        "layered-boundary-proof-template",
-        "Print or write the layered parent/child/leaf boundary proof template.",
-        _run_layered_boundary_proof_template,
-    )
-    _add_file_template_parser(
-        subparsers,
-        "test-mesh-template",
-        "Print or write the TestMesh validation hierarchy template.",
-        _run_test_mesh_template,
-    )
-    _add_file_template_parser(
-        subparsers,
-        "structure-mesh-template",
-        "Print or write the StructureMesh refactor hierarchy template.",
-        _run_structure_mesh_template,
-    )
+    for command in FILE_TEMPLATE_COMMANDS:
+        _add_file_template_parser(subparsers, command)
     _add_adoption_entry_args(
         subparsers.add_parser("adoption-start", help="Append an in-progress adoption log entry."),
         default_status="in_progress",
@@ -468,7 +380,6 @@ def main(argv: list[str] | None = None) -> int:
         subparsers.add_parser("adoption-finish", help="Append a final adoption log entry."),
         default_status="auto",
     )
-    _add_maintenance_template_parser(subparsers)
     args = parser.parse_args(argv)
     return args.handler(args)
 
