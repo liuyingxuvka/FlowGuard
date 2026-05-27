@@ -23,4 +23,4 @@
 - [x] 4.2 Sync repository skill directories into the installed Codex skills directory.
 - [x] 4.3 Sync the real git checkout back to the shadow workspace and verify imports from both paths.
 - [x] 4.4 Run FlowGuard model checks, OpenSpec validation, targeted tests, and full regression.
-- [ ] 4.5 Run release boundary checks, commit, push, tag, and create a GitHub Release.
+- [x] 4.5 Run release boundary checks, commit, push, tag, and create a GitHub Release.

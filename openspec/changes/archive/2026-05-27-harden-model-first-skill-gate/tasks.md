@@ -19,4 +19,4 @@
 - [x] 4.1 Bump the package patch version and update the changelog.
 - [x] 4.2 Sync the installed local Skill and the `FlowGuard_20260427` shadow workspace from the release source.
 - [x] 4.3 Verify installed package metadata, installed Skill content, shadow workspace imports, and git repository status.
-- [ ] 4.4 Commit, tag, push to GitHub, create the GitHub Release, and verify version/tag/release alignment.
+- [x] 4.4 Commit, tag, push to GitHub, create the GitHub Release, and verify version/tag/release alignment.

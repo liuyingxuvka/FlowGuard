@@ -22,4 +22,4 @@
 - [x] 4.1 Update changelog and version for the new release
 - [x] 4.2 Run focused and full validation
 - [x] 4.3 Sync the editable install and the current shadow workspace
-- [ ] 4.4 Commit, tag, push, and create the GitHub release
+- [x] 4.4 Commit, tag, push, and create the GitHub release

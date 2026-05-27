@@ -21,5 +21,5 @@
 - [x] 4.1 Record FlowGuard adoption evidence for the upgrade.
 - [x] 4.2 Sync package version, changelog, README, installed editable package, and the `FlowGuard_20260427` shadow workspace.
 - [x] 4.3 Run install/shadow import checks.
-- [ ] 4.4 Commit, push, tag, and publish a GitHub release.
-- [ ] 4.5 Run KB postflight and report final evidence, release version, and any scoped gaps.
+- [x] 4.4 Commit, push, tag, and publish a GitHub release.
+- [x] 4.5 Run KB postflight and report final evidence, release version, and any scoped gaps.

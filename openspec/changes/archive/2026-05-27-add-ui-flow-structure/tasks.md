@@ -31,7 +31,7 @@
 
 ## 6. Release Sync And Validation
 
-- [ ] 6.1 Sync repository-managed skills into the installed Codex skill directory.
-- [ ] 6.2 Sync the real Git checkout back to the shadow workspace after validation.
-- [ ] 6.3 Run skill validation, OpenSpec validation, FlowGuard model checks, focused tests, full regression, and privacy scans.
-- [ ] 6.4 Commit, push, tag, create the GitHub Release, and verify release/version/readme alignment.
+- [x] 6.1 Sync repository-managed skills into the installed Codex skill directory.
+- [x] 6.2 Sync the real Git checkout back to the shadow workspace after validation.
+- [x] 6.3 Run skill validation, OpenSpec validation, FlowGuard model checks, focused tests, full regression, and privacy scans.
+- [x] 6.4 Commit, push, tag, create the GitHub Release, and verify release/version/readme alignment.
