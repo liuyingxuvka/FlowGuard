@@ -145,10 +145,30 @@ same-output or fingerprint proof.
 - repeated same input: `[A, A]`, `[B, B]`
 - pairwise order: `[A, B]`, `[B, A]`
 - ABA: `[A, B, A]`, `[B, A, B]`
+- challenge routes: partial-failure retry, duplicate delivery, stale-state
+  after change, delayed replay, and terminal replay shapes
 
 Generated scenarios default to `needs_human_review`. They cover useful input
 shapes, such as repeats and order swaps, but they are not business oracles. Add
 explicit domain expectations before treating them as pass/fail evidence.
+
+Use `.challenge_patterns()` when the goal is proactive bug discovery from an
+existing FlowGuard model. The generated routes are still ordinary Scenario
+Sandbox scenarios, carry `challenge` tags plus risk notes, and remain candidate
+evidence until a domain expectation, replay, or test gives them an oracle. The
+retry, deduplication, cache, and side-effect packs reuse this builder path so
+pack-generated challenge routes stay inside the existing replay, alignment, and
+ledger evidence chain.
+
+For model-derived discovery, use
+`synthesize_challenge_scenarios_from_report(...)` after an Explorer run or let
+`run_model_first_checks(...)` add the `model_derived_challenges` section when
+auto-generated scenarios are enabled for retry, deduplication, cache, or
+side-effect risks. Those scenarios are selected from actual FlowGuard evidence:
+counterexample traces, dead or exception branches, repeated labels or blocks,
+state revisits, interleaved replay, and risk-signaling trace text. This is
+different from a generic `[A, B, A]` matrix row because the model report
+explains why that route is worth testing.
 
 ## Unified Summary Report
 

@@ -60,6 +60,7 @@ class RetryPack:
             .repeat_same(max_repeats=2)
             .pairwise_orders()
             .aba()
+            .challenge_patterns()
             .build()
         )
 

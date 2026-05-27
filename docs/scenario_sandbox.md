@@ -111,6 +111,45 @@ Repeated input is essential for idempotency:
 
 These scenarios verify that scoring is cached, records are deduplicated, and repeated decisions do not contradict earlier decisions.
 
+## Generated Challenge Routes
+
+`ScenarioMatrixBuilder.challenge_patterns()` extends the same deterministic
+scenario path with proactive bug-discovery routes. It does not create a new
+test workflow; the generated routes are still ordinary `Scenario` records that
+go through Scenario Sandbox, and later through conformance replay, Model-Test
+Alignment, or Risk Evidence Ledger when those evidence layers exist.
+
+Challenge routes cover high-risk shapes such as:
+
+- partial-failure retry: `[A, A]`;
+- duplicate delivery: `[A, A, A]`;
+- stale state after a source-of-truth change: `[A, B]`;
+- delayed replay after a later transition: `[A, B, A]`;
+- terminal replay: `[A, B, B]`.
+
+These routes carry `challenge` tags and explanatory notes so a report can say
+why the route is dangerous. They still default to `needs_human_review` unless a
+caller supplies an explicit `ScenarioExpectation`. Generated challenge routes
+are candidate evidence, not proof that real code passed.
+
+Static challenge routes are only the input-shape layer. For model-derived
+proactive bug discovery, use
+`synthesize_challenge_scenarios_from_report(...)` with an Explorer
+`CheckReport`. That helper creates ordinary scenarios from actual model
+evidence:
+
+- invariant counterexample traces;
+- dead branches and exception branches;
+- repeated labels or repeated function blocks;
+- interleaved replay visible in explored traces;
+- abstract state revisits;
+- trace labels, reasons, or block names that mention cache, retry, replay,
+  duplicate, side-effect, terminal, or stale-state risk.
+
+This is the point where FlowGuard's model matters: the route is selected because
+the model produced a suspicious trace or failure surface, not because a generic
+matrix happened to include `[A, B, A]`.
+
 ## Broken Model Scenarios
 
 The job-matching catalog includes broken variants for:

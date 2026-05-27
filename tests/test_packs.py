@@ -34,6 +34,10 @@ class PackTests(unittest.TestCase):
         scenarios = pack.scenarios(initial_states=(State(),), inputs=("a", "b"), max_scenarios=4)
         self.assertEqual(4, len(scenarios))
         self.assertIn("deduplication", scenarios[0].tags)
+        challenge_scenarios = pack.scenarios(initial_states=(State(),), inputs=("a", "b"), max_scenarios=20)
+        self.assertTrue(any("challenge" in scenario.tags for scenario in challenge_scenarios))
+        self.assertTrue(any("duplicate_delivery" in scenario.tags for scenario in challenge_scenarios))
+        self.assertTrue(all(scenario.expected.expected_status == "needs_human_review" for scenario in challenge_scenarios))
 
     def test_cache_pack_builds_cache_consistency_invariant(self):
         pack = CachePack(
@@ -52,6 +56,9 @@ class PackTests(unittest.TestCase):
             Trace(),
         )
         self.assertFalse(result.ok)
+        scenarios = pack.scenarios(initial_states=(State(),), inputs=("a", "b"), max_scenarios=20)
+        self.assertTrue(any("stale_state" in scenario.tags for scenario in scenarios))
+        self.assertTrue(any("challenge" in scenario.tags for scenario in scenarios))
 
     def test_retry_pack_is_optional_without_selectors(self):
         pack = RetryPack()
@@ -61,6 +68,9 @@ class PackTests(unittest.TestCase):
         scenarios = pack.scenarios(initial_states=(State(),), inputs=("a", "b"), max_scenarios=3)
         self.assertEqual(3, len(scenarios))
         self.assertIn("retry", scenarios[0].tags)
+        challenge_scenarios = pack.scenarios(initial_states=(State(),), inputs=("a", "b"), max_scenarios=20)
+        self.assertTrue(any("partial_failure_retry" in scenario.tags for scenario in challenge_scenarios))
+        self.assertTrue(any("delayed_replay" in scenario.tags for scenario in challenge_scenarios))
 
     def test_side_effect_pack_builds_at_most_once_invariant(self):
         pack = SideEffectPack(lambda state: state.effects, lambda item: item.key)
@@ -72,6 +82,9 @@ class PackTests(unittest.TestCase):
             Trace(),
         )
         self.assertFalse(result.ok)
+        scenarios = pack.scenarios(initial_states=(State(),), inputs=("a", "b"), max_scenarios=20)
+        self.assertTrue(any("partial_failure_retry" in scenario.tags for scenario in scenarios))
+        self.assertTrue(any("terminal_replay" in scenario.tags for scenario in scenarios))
 
 
 if __name__ == "__main__":

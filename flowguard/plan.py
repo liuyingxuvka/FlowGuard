@@ -22,6 +22,8 @@ class ScenarioMatrixConfig:
     include_repeat_same: bool = True
     include_pairwise_orders: bool = True
     include_aba: bool = True
+    include_challenge_patterns: bool = True
+    include_model_derived_challenges: bool = True
     name_prefix: str = ""
     notes: str = ""
 
@@ -35,6 +37,8 @@ class ScenarioMatrixConfig:
             include_repeat_same=bool(data.get("include_repeat_same", True)),
             include_pairwise_orders=bool(data.get("include_pairwise_orders", True)),
             include_aba=bool(data.get("include_aba", True)),
+            include_challenge_patterns=bool(data.get("include_challenge_patterns", True)),
+            include_model_derived_challenges=bool(data.get("include_model_derived_challenges", True)),
             name_prefix=str(data.get("name_prefix", "")),
             notes=str(data.get("notes", "")),
         )
@@ -48,6 +52,8 @@ class ScenarioMatrixConfig:
             "include_repeat_same": self.include_repeat_same,
             "include_pairwise_orders": self.include_pairwise_orders,
             "include_aba": self.include_aba,
+            "include_challenge_patterns": self.include_challenge_patterns,
+            "include_model_derived_challenges": self.include_model_derived_challenges,
             "name_prefix": self.name_prefix,
             "notes": self.notes,
         }

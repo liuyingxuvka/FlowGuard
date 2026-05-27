@@ -108,6 +108,7 @@ FlowGuard gives those weak spots a small executable shape before the action beco
 | Route | Purpose |
 | --- | --- |
 | Scenario and invariant review | Checks expected traces, hard rules, repeated inputs, dead branches, and bad terminal states |
+| Adversarial scenario synthesis | Derives candidate challenge routes from Explorer counterexamples, dead branches, exception branches, repeated state visits, and risk semantics, with bounded input-shape fallbacks kept as candidate evidence |
 | Conformance replay | Compares representative abstract traces with implementation behavior when code exists |
 | Loop and progress review | Finds non-progressing cycles, stuck states, and weak completion evidence |
 | Model-test alignment | Compares model obligations, external code contracts, ordinary test evidence, and model-miss observed/same-class closure evidence |
@@ -418,6 +419,7 @@ FlowGuard 给这些薄弱点一个小而可执行的结构。
 | 路线 | 作用 |
 | --- | --- |
 | Scenario 和 invariant review | 检查预期路径、硬规则、重复输入、死分支和坏终态 |
+| Adversarial scenario synthesis | 从 Explorer 反例、死分支、异常分支、重复状态访问和风险语义里反推出候选挑战路线；固定输入形状只作为有边界的兜底候选证据 |
 | Conformance replay | 当代码已存在时，把抽象路径和真实实现行为对齐 |
 | Loop 和 progress review | 找不前进的循环、卡住状态和弱完成证据 |
 | Model-test alignment | 对照模型义务、外部代码 contract、代码边界观测、普通测试证据，以及 model-miss 的 observed/same-class 关闭证据 |

@@ -97,6 +97,8 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual("pass_with_gaps", sections["scenario_matrix"].status)
         self.assertIn("auto-generated", sections["scenario_matrix"].summary)
         self.assertIn("input-shape coverage only", sections["scenario_matrix"].summary)
+        self.assertEqual("pass_with_gaps", sections["model_derived_challenges"].status)
+        self.assertIn("model-derived challenge scenarios", sections["model_derived_challenges"].summary)
         self.assertTrue(
             any("needs_human_review" in finding for finding in sections["scenario_matrix"].findings)
         )
@@ -104,6 +106,7 @@ class RunnerTests(unittest.TestCase):
         self.assertIn("needs_domain_expectations=true", sections["scenario_review"].summary)
         self.assertEqual("not_run", sections["conformance_replay"].status)
         self.assertIn("model_check_report", dict(summary.metadata))
+        self.assertIn("model_derived_challenge_scenarios", dict(summary.metadata))
 
     def test_run_model_first_checks_fails_on_explorer_violation_and_minimizes(self):
         plan = FlowGuardCheckPlan(

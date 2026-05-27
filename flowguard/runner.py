@@ -13,6 +13,7 @@ from .progress import check_progress
 from .review import review_scenarios
 from .scenario import run_exact_sequence
 from .scenario_matrix import ScenarioMatrixBuilder
+from .scenario_matrix import synthesize_challenge_scenarios_from_report
 from .summary_report import (
     FlowGuardSection,
     FlowGuardSummaryReport,
@@ -110,6 +111,30 @@ def run_model_first_checks(plan: FlowGuardCheckPlan) -> FlowGuardSummaryReport:
                 summary="Explorer raised before producing a CheckReport",
                 findings=(f"{type(exc).__name__}: {exc}",),
                 metadata={"exception_type": type(exc).__name__, "exception_message": str(exc)},
+            )
+        )
+
+    model_derived_scenarios = _model_derived_challenge_scenarios(plan, model_report)
+    if model_derived_scenarios:
+        scenarios = scenarios + model_derived_scenarios
+        generated_scenarios = generated_scenarios + model_derived_scenarios
+        artifacts["model_derived_challenge_scenarios"] = model_derived_scenarios
+        sections.append(
+            FlowGuardSection(
+                name="model_derived_challenges",
+                status="pass_with_gaps",
+                summary=(
+                    f"model-derived challenge scenarios={len(model_derived_scenarios)}; "
+                    "derived from Explorer traces and still candidate evidence"
+                ),
+                findings=(
+                    "model-derived scenarios come from actual FlowGuard traces, violations, "
+                    "dead branches, exceptions, repeated labels, repeated blocks, state revisits, "
+                    "or risk-signaling trace text",
+                    "generated model-derived scenarios default to needs_human_review until a "
+                    "domain oracle, replay, or test supplies pass/fail evidence",
+                ),
+                metadata={"scenarios": model_derived_scenarios},
             )
         )
 
@@ -251,8 +276,39 @@ def _plan_or_generated_scenarios(plan: FlowGuardCheckPlan) -> tuple[tuple[Any, .
         builder.pairwise_orders()
     if config.include_aba:
         builder.aba()
+    if config.include_challenge_patterns:
+        builder.challenge_patterns()
     generated = builder.build()
     return generated, generated
+
+
+def _model_derived_challenge_scenarios(plan: FlowGuardCheckPlan, model_report: Any) -> tuple[Any, ...]:
+    if model_report is None or plan.scenarios:
+        return ()
+    risk_profile = plan.risk_profile
+    risks = set(risk_profile.risk_classes if risk_profile is not None else ())
+    if not risks.intersection(AUTO_SCENARIO_RISKS):
+        return ()
+    config = plan.scenario_matrix_config or ScenarioMatrixConfig()
+    if not config.enabled or not config.include_model_derived_challenges:
+        return ()
+    name_prefix = config.name_prefix or (
+        risk_profile.modeled_boundary.replace(" ", "_").lower()
+        if risk_profile is not None and risk_profile.modeled_boundary
+        else "model_first"
+    )
+    return synthesize_challenge_scenarios_from_report(
+        name_prefix=f"{name_prefix}_model",
+        report=model_report,
+        workflow=plan.workflow,
+        invariants=plan.invariants,
+        max_scenarios=config.max_scenarios,
+        tags=tuple(sorted(risks.intersection(AUTO_SCENARIO_RISKS))) + (
+            "auto_generated",
+            "model_derived",
+        ),
+        notes=config.notes or "auto-generated from Explorer trace evidence by run_model_first_checks",
+    )
 
 
 def _minimize_first_invariant_violation(

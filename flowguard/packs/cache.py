@@ -63,6 +63,7 @@ class CachePack:
             .single_inputs()
             .repeat_same(max_repeats=2)
             .pairwise_orders()
+            .challenge_patterns()
             .build()
         )
 
