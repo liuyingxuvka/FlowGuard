@@ -62,6 +62,10 @@ Before changing files, separate three situations:
   producing routes have generated evidence; do not treat it as a replacement
   for Model-Test Alignment, TestMesh, ModelMesh, StructureMesh, UI Flow
   Structure, conformance replay, or ordinary tests.
+- `model_impact_freshness`: a FlowGuard framework upgrade or installed-helper
+  sync must account for existing `.flowguard` models. Classify each model
+  against the upgrade impact, rerun affected models, and allow unchanged models
+  to reuse previous evidence only with a current reuse ticket.
 
 If real FlowGuard is importable but a current `.flowguard` Python model still
 claims `flowguard_package_available = False`, uses a fallback explorer, or
@@ -179,6 +183,13 @@ run the plan-intake and typed claim helpers first:
 `review_false_negative_backpropagation(...)`, `review_plan_mutations(...)`, and
 `review_flowguard_claim_chain(...)`. They check whether the ledger rows and
 claim promotion were too narrow before the ledger is used as final evidence.
+
+When the final claim is a FlowGuard framework upgrade, run
+`review_model_impact_freshness(...)` before broad freshness claims about old
+models. Do not rerun every historical model by default. Do not reuse prior
+green results silently. The allowed shortcut is a current not-impacted
+classification plus a reuse ticket that names the prior evidence and proves the
+model output or fingerprint stayed the same.
 
 Read `docs/risk_evidence_ledger.md` for the API sketch and template.
 

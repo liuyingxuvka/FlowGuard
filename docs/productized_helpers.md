@@ -118,6 +118,25 @@ The start command records `in_progress`; the finish command appends the final
 entry. This is a reporting helper only. It does not replace model checks,
 scenario review, conformance replay, or test execution.
 
+## Model Impact Freshness
+
+Use `review_model_impact_freshness(...)` during FlowGuard framework upgrades or
+installed-helper syncs that must account for existing `.flowguard` models. The
+helper reviews:
+
+- `ModelFreshnessRecord`: the model inventory row;
+- `UpgradeImpact`: changed artifacts and FlowGuard semantic ids;
+- `ModelImpactAssessment`: affected, not-impacted, deprecated, blocked, or
+  unknown classification;
+- `ModelReuseTicket`: evidence that a not-impacted model can reuse a previous
+  result;
+- `ModelRerunEvidence`: current rerun and update-review proof for affected
+  models.
+
+The helper is intentionally selective. It blocks blind reuse of old evidence,
+but it also avoids forced reruns when a model has a valid reuse ticket and
+same-output or fingerprint proof.
+
 ## Scenario Matrix Builder
 
 `ScenarioMatrixBuilder` scaffolds a small deterministic scenario set:

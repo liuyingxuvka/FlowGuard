@@ -83,6 +83,8 @@ while the current artifact is `code.checkout@4`.
   evidence, and not-run evidence;
 - final done, archive, publish, or release claims that have no current Risk
   Evidence Ledger decision;
+- FlowGuard framework upgrade claims that have no current model-impact
+  freshness decision for existing `.flowguard` models;
 - missing V-style validation pairs;
 - release-required evidence under routine and release scopes;
 - minimum revalidation recommendations.
@@ -153,3 +155,10 @@ reports as current evidence. `review_plan_intake_completeness(...)`,
 `review_false_negative_backpropagation(...)`, `review_plan_mutations(...)`, and
 `review_flowguard_claim_chain(...)` keep plan-only, model-only, or alignment-only
 results from being reported as production confidence.
+
+When a lifecycle claim is a FlowGuard framework upgrade or installed helper
+sync, DevelopmentProcessFlow should also consume
+`review_model_impact_freshness(...)`. Affected old models remain blocked until
+current rerun evidence exists. Unchanged old models can reuse previous evidence
+only when a reuse ticket proves the model, dependencies, FlowGuard semantics,
+previous evidence, and output fingerprint are still current.

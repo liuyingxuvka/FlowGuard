@@ -314,7 +314,9 @@ from .model_test_alignment import (
     review_model_test_alignment,
 )
 from . import plan_intake as _plan_intake
+from . import model_freshness as _model_freshness
 from .plan_intake import *  # noqa: F403
+from .model_freshness import *  # noqa: F403
 from .development_process_flow import (
     PROCESS_ARTIFACT_ADAPTER,
     PROCESS_ARTIFACT_CODE,
@@ -530,6 +532,7 @@ from .trace import Trace, TraceStep
 from .workflow import Workflow, WorkflowPath, WorkflowRun
 
 PLAN_INTAKE_CLAIM_API = tuple(_plan_intake.__all__)
+MODEL_IMPACT_FRESHNESS_API = tuple(_model_freshness.__all__)
 
 CORE_API = (
     "FunctionBlock",
@@ -918,6 +921,7 @@ REPORTING_HELPER_API = (
     "AutoSplitReport",
     "review_auto_mesh_splits",
     *PLAN_INTAKE_CLAIM_API,
+    *MODEL_IMPACT_FRESHNESS_API,
     "AUTO_SPLIT_TARGET_MODEL",
     "AUTO_SPLIT_TARGET_TEST",
     "AUTO_SPLIT_ROUTE_MODEL_MESH",
@@ -1354,6 +1358,7 @@ __all__ = [
     "API_SURFACE",
     "CORE_API",
     "EVIDENCE_API",
+    "MODEL_IMPACT_FRESHNESS_API",
     "MODELING_HELPER_API",
     "REPORTING_HELPER_API",
     "AUTO_SPLIT_TARGET_MODEL",
@@ -1549,3 +1554,4 @@ __all__ = [
 ]
 
 __all__.extend(name for name in PLAN_INTAKE_CLAIM_API if name not in __all__)
+__all__.extend(name for name in MODEL_IMPACT_FRESHNESS_API if name not in __all__)

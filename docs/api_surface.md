@@ -202,6 +202,13 @@ Reporting helpers help an AI agent explain what was checked and what was not:
   under-declared plan inputs, lossy adapters, known false negatives,
   known-bad mutations, and unsupported promotion from narrow reports to broad
   confidence claims
+- model-impact freshness helpers such as `ModelFreshnessRecord`,
+  `UpgradeImpact`, `ModelImpactAssessment`, `ModelReuseTicket`,
+  `ModelRerunEvidence`, `ModelImpactFreshnessPlan`,
+  `ModelImpactFreshnessReport`, and `review_model_impact_freshness()` for
+  classifying existing models after a FlowGuard upgrade, accepting current
+  reuse tickets for unchanged models, and requiring current rerun evidence for
+  affected models before broad upgrade freshness is claimed
 - `run_model_first_checks`
 - `audit_model`
 - `FlowGuardSummaryReport`

@@ -16,7 +16,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.23.0` | `1.0` | Python standard library only | MIT |
+| `v0.24.0` | `1.0` | Python standard library only | MIT |
 
 English lead content comes first; a Chinese mirror follows below.
 
@@ -112,6 +112,7 @@ FlowGuard gives those weak spots a small executable shape before the action beco
 | Loop and progress review | Finds non-progressing cycles, stuck states, and weak completion evidence |
 | Model-test alignment | Compares model obligations, external code contracts, ordinary test evidence, and model-miss observed/same-class closure evidence |
 | Plan Intake And Claim Chain | Checks that plan inputs, evidence adapters, false-negative repairs, known-bad mutations, and typed claim dependencies are declared before broad confidence is claimed |
+| Model Impact Freshness | Classifies existing `.flowguard` models after a FlowGuard upgrade so affected models rerun and unchanged models reuse old evidence only with explicit proof |
 | Risk Evidence Ledger | Connects user-facing risks to model obligations, public code contracts, recurring defect-family gates, model/test split gates, and current proof evidence before any full-confidence claim |
 | ModelMesh | Splits oversized or incomplete direct model evidence into parent/child evidence, propagates child boundary changes upward, reviews affected sibling models, and uses mesh closure models for whole-flow parent confidence |
 | Layered Boundary Proof | Joins parent coverage, child disjointness, child reattachment, and leaf boundary-matrix evidence before parent model confidence can claim the code stayed inside model boundaries |
@@ -293,6 +294,7 @@ FlowGuard is the state and workflow guard.
 | `docs/model_test_alignment.md` | Model obligation and test evidence alignment |
 | `docs/risk_evidence_ledger.md` | Final risk-to-model-to-code-to-evidence confidence boundary |
 | `docs/plan_intake_claims.md` | Plan input, adapter, miss-backpropagation, mutation, and typed claim-chain boundary |
+| `docs/framework_upgrade_checks.md` | FlowGuard framework upgrade evidence and existing-model freshness gates |
 | `docs/model_mesh_protocol.md` | Parent/child model mesh governance |
 | `docs/hierarchical_model_mesh.md` | Hierarchical model examples and child evidence |
 | `docs/test_evidence_mesh.md` | Layered validation and evidence freshness |
@@ -420,6 +422,7 @@ FlowGuard 给这些薄弱点一个小而可执行的结构。
 | Loop 和 progress review | 找不前进的循环、卡住状态和弱完成证据 |
 | Model-test alignment | 对照模型义务、外部代码 contract、代码边界观测、普通测试证据，以及 model-miss 的 observed/same-class 关闭证据 |
 | Plan Intake And Claim Chain | 在声明广泛信心前，检查计划输入、证据适配器、漏报修复、已知坏变异和 typed claim dependency 是否已经声明 |
+| Model Impact Freshness | FlowGuard 升级后先分类现有 `.flowguard` 模型：受影响的重跑，未受影响的只有带明确复用证明才沿用旧证据 |
 | Risk Evidence Ledger | 在声明完整信心前，把用户风险、模型义务、公开代码 contract、复发缺陷族门槛、模型/测试拆分门槛和当前证据连起来检查 |
 | ModelMesh | 把过大或未完成的直接模型证据拆成父子证据，向上同步 child boundary 变化，检查 sibling，并用 closure model 支撑父级全流程信心 |
 | Layered Boundary Proof | 把 parent coverage、child disjointness、child reattachment 和 leaf boundary-matrix evidence 接成一个父级信心门，防止“子模型绿了但真实代码边界没证明” |
@@ -521,6 +524,7 @@ FlowGuard 是状态和工作流 guard。
 | `docs/model_test_alignment.md` | 模型义务和测试证据对齐 |
 | `docs/risk_evidence_ledger.md` | 最终风险、模型、代码和证据之间的信心边界 |
 | `docs/plan_intake_claims.md` | 计划输入、适配器、漏报回传、变异和声明链边界 |
+| `docs/framework_upgrade_checks.md` | FlowGuard 框架升级证据和旧模型 freshness gate |
 | `docs/model_mesh_protocol.md` | 父子模型 mesh 治理 |
 | `docs/hierarchical_model_mesh.md` | 层级模型示例和子证据 |
 | `docs/test_evidence_mesh.md` | 分层验证和证据新鲜度 |

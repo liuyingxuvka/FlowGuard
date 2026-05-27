@@ -62,6 +62,30 @@ Do not silently convert `needs_human_review`, `known_limitation`,
 `unexpected_violation`, `missing_expected_violation`, or `oracle_mismatch`
 statuses into ordinary passes.
 
+## Existing Model Impact Freshness
+
+Before saying a FlowGuard framework upgrade has covered existing `.flowguard`
+models, classify the model inventory with `review_model_impact_freshness(...)`.
+This is a selective gate, not a blanket rerun rule:
+
+- affected models need model/test update review plus current passing rerun
+  evidence;
+- not-impacted models may reuse old evidence only with a current reuse ticket,
+  previous evidence id, fingerprint or same-output proof, and a reason;
+- directly touched dependencies or FlowGuard semantic ids need a narrower
+  non-impact rationale before reuse is accepted;
+- deprecated models must stay visible with a replacement model and reason;
+- unknown or blocked classifications prevent broad upgrade freshness claims.
+
+Run the executable gate model when changing this protocol:
+
+```powershell
+python .flowguard/model_impact_freshness_gate/run_checks.py
+```
+
+This prevents both unsafe old-evidence reuse and wasteful full reruns when the
+model result is demonstrably unchanged.
+
 ## Problem Corpus Review
 
 For major framework upgrades, keep the broader problem corpus visible:

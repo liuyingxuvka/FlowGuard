@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.24.0 - 2026-05-27
+
+- Added model-impact freshness helper APIs so FlowGuard framework upgrades
+  classify existing `.flowguard` models before broad freshness claims.
+- Added `ModelFreshnessRecord`, `UpgradeImpact`, `ModelImpactAssessment`,
+  `ModelReuseTicket`, `ModelRerunEvidence`, `ModelImpactFreshnessPlan`,
+  `ModelImpactFreshnessReport`, and `review_model_impact_freshness()`.
+- Added an executable `.flowguard/model_impact_freshness_gate` model that
+  rejects missing classification, blind reuse of old evidence, and affected
+  models accepted without current rerun evidence.
+- Updated framework-upgrade, DevelopmentProcessFlow, modeling protocol, helper
+  layer, README, API surface docs, OpenSpec artifacts, and focused tests.
+- Schema remains `1.0`; runtime dependencies remain Python standard library
+  only.
+
 ## v0.23.1 - 2026-05-27
 
 - Added plan-intake and typed claim-chain helper APIs so broad FlowGuard
