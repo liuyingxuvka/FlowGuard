@@ -26,4 +26,4 @@
 
 - [x] 5.1 Run focused tests and full practical regression.
 - [x] 5.2 Sync editable local install and verify imported version.
-- [ ] 5.3 Commit, tag, push, and publish a GitHub release.
+- [x] 5.3 Commit, tag, push, and publish a GitHub release.

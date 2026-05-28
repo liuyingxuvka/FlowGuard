@@ -1,6 +1,6 @@
 # model-test-alignment Delta
 
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: Model-Test Alignment consumes family parity gates
 

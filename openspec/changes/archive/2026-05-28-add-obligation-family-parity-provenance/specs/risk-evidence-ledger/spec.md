@@ -1,6 +1,6 @@
 # risk-evidence-ledger Delta
 
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: Risk rows can require family parity gates
 
