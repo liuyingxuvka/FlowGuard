@@ -99,6 +99,7 @@ tests/evidence, model hierarchy, process/release, and model-miss repair.
 | Trigger | Route | Direct skill or reference |
 | --- | --- | --- |
 | Existing modeled system discussion/change, model ownership lookup, reuse-first route grounding, duplicate-boundary risk before proposal or implementation | `existing_model_preflight` | `flowguard-existing-model-preflight` |
+| Non-trivial task may need multiple installed skills/tools/plugins, unclear skill order, skipped skill consequences, continue/rework gates, side effects, or cross-skill evidence claims | `agent_workflow_rehearsal` | `flowguard-agent-workflow-rehearsal` |
 | Ordinary model-first workflow, flow types, Risk Intent, state write inventory | `core_modeling` | `references/modeling_protocol.md` |
 | Existing code can likely be smaller without behavior change, repeated handlers/adapters/modules/branches, model-to-code contraction, or simplification before StructureMesh | `architecture_reduction` | `flowguard-architecture-reduction` |
 | Direct architecture recommendation, model-derived implementation structure, pre-code module split planning | `code_structure_recommendation` | `flowguard-code-structure-recommendation` |
@@ -166,7 +167,7 @@ Codex skill:
 - Risk evidence APIs such as `RiskEvidenceLedgerPlan`, `RiskEvidenceProof`, `RiskEvidenceRow`, and `review_risk_evidence_ledger()`.
 - Proof-bound evidence APIs such as `ProofArtifactRef`,
   `proof_artifact_gap_codes()`, `LegacyPathDisposition`, and `review_legacy_path_dispositions()`; broad confidence needs result path, fingerprint, current route evidence, covered obligation, and external-contract scope where claimed.
-- Plan-intake/claim helpers such as `review_plan_intake_completeness()`, `review_evidence_adapter_conformance()`, `review_false_negative_backpropagation()`, `review_plan_mutations()`, and `review_flowguard_claim_chain()`.
+- Plan-intake/claim helpers such as `review_plan_intake_completeness()`, `review_evidence_adapter_conformance()`, `review_false_negative_backpropagation()`, `review_plan_mutations()`, `review_flowguard_claim_chain()`, `SkillInventorySnapshot`, and `review_agent_workflow_rehearsal()`.
 - Development lifecycle helpers such as `review_development_process_flow()` and `derive_revalidation_plan()`.
 - Existing-model grounding helpers such as `ExistingModelPreflight`, `ModelContextHit`, `ExistingOwnershipSnapshot`, `DuplicateBoundaryRisk`, and `review_existing_model_preflight()`.
 - Architecture reduction helpers such as `ObservableArchitectureContract`,
@@ -183,19 +184,17 @@ Codex skill:
   `structure-mesh-template`, and `maintenance-template`.
 
 ## Standalone Satellite Skills
-The directly invokable satellite skills are:
-`flowguard-model-test-alignment`, `flowguard-development-process-flow`,
+The directly invokable satellite skills are: `flowguard-model-test-alignment`, `flowguard-development-process-flow`,
 `flowguard-model-miss-review`, `flowguard-code-structure-recommendation`, `flowguard-existing-model-preflight`,
-`flowguard-architecture-reduction`, `flowguard-ui-flow-structure`, `flowguard-model-mesh`,
-`flowguard-test-mesh`, and `flowguard-structure-mesh`. Use the matching satellite directly when the user's
-request clearly matches that route; otherwise use this kernel.
+`flowguard-agent-workflow-rehearsal`, `flowguard-architecture-reduction`, `flowguard-ui-flow-structure`, `flowguard-model-mesh`,
+`flowguard-test-mesh`, and `flowguard-structure-mesh`. Use the matching satellite directly when the user's request clearly matches that route; otherwise use this kernel.
 ## Resource Map
 
 - Kernel and core modeling: `references/skill_kernel_protocol.md`,
   `references/modeling_protocol.md`, `references/invariant_examples.md`, and
   `references/adoption_protocol.md`.
 - Direct route references: `references/code_structure_recommendation_protocol.md`,
-  `flowguard-architecture-reduction`, `flowguard-existing-model-preflight`, `flowguard-ui-flow-structure`,
+  `flowguard-architecture-reduction`, `flowguard-existing-model-preflight`, `flowguard-agent-workflow-rehearsal`, `flowguard-ui-flow-structure`,
   `references/model_test_alignment_protocol.md`,
   `references/model_mesh_protocol.md`, `references/test_mesh_protocol.md`,
   `references/structure_mesh_protocol.md`,

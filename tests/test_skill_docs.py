@@ -10,6 +10,7 @@ SATELLITE_SKILLS = {
     "flowguard-model-miss-review": "model_miss_protocol.md",
     "flowguard-code-structure-recommendation": "code_structure_recommendation_protocol.md",
     "flowguard-existing-model-preflight": "existing_model_preflight_protocol.md",
+    "flowguard-agent-workflow-rehearsal": "agent_workflow_rehearsal_protocol.md",
     "flowguard-architecture-reduction": "architecture_reduction_protocol.md",
     "flowguard-ui-flow-structure": "ui_flow_structure_protocol.md",
     "flowguard-model-mesh": "model_mesh_protocol.md",
@@ -69,6 +70,7 @@ class SkillDocsTests(unittest.TestCase):
             "structure_mesh_maintenance",
             "architecture_reduction",
             "existing_model_preflight",
+            "agent_workflow_rehearsal",
             "development_process_flow",
             "model_miss_review",
             "model_maturation_loop",
@@ -81,6 +83,7 @@ class SkillDocsTests(unittest.TestCase):
             "references/modeling_protocol.md",
             "references/code_structure_recommendation_protocol.md",
             "flowguard-architecture-reduction",
+            "flowguard-agent-workflow-rehearsal",
             "references/model_test_alignment_protocol.md",
             "docs/risk_evidence_ledger.md",
             "references/model_mesh_protocol.md",
@@ -204,6 +207,12 @@ class SkillDocsTests(unittest.TestCase):
                 "review_existing_model_preflight",
                 "existing model boundaries",
                 "duplicate-boundary",
+                "Risk Evidence Ledger",
+            ),
+            "flowguard-agent-workflow-rehearsal": (
+                "review_agent_workflow_rehearsal",
+                "SkillInventorySnapshot",
+                "fresh current-machine",
                 "Risk Evidence Ledger",
             ),
             "flowguard-architecture-reduction": (
@@ -386,6 +395,7 @@ class SkillDocsTests(unittest.TestCase):
             "flowguard-model-miss-review": ("observed failure", "same-class generalized bad case"),
             "flowguard-model-test-alignment": ("model obligations", "test evidence"),
             "flowguard-existing-model-preflight": ("existing model boundaries", "downstream route"),
+            "flowguard-agent-workflow-rehearsal": ("candidate skills", "continue/rework gates"),
             "flowguard-architecture-reduction": ("contraction candidates", "required next route"),
             "flowguard-structure-mesh": ("public entrypoints", "facades"),
             "flowguard-test-mesh": ("parent gates", "evidence status"),
@@ -484,6 +494,7 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("structure_mesh_maintenance", text)
         self.assertIn("existing_model_preflight", text)
         self.assertIn("development_process_flow", text)
+        self.assertIn("agent_workflow_rehearsal", text)
         self.assertIn("model_miss_review", text)
         self.assertIn("long_check_observability", text)
         self.assertIn("framework_upgrade", text)
@@ -502,11 +513,14 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("flowguard-code-structure-recommendation", text)
         self.assertIn("flowguard-architecture-reduction", text)
         self.assertIn("flowguard-existing-model-preflight", text)
+        self.assertIn("flowguard-agent-workflow-rehearsal", text)
         self.assertIn("flowguard-ui-flow-structure", text)
         self.assertIn("flowguard-model-mesh", text)
         self.assertIn("flowguard-test-mesh", text)
         self.assertIn("flowguard-structure-mesh", text)
         self.assertIn("package helpers, not", text)
+        self.assertIn("SkillInventorySnapshot", text)
+        self.assertIn("review_agent_workflow_rehearsal", text)
         self.assertIn("RiskEvidenceLedgerPlan", text)
         self.assertIn("review_risk_evidence_ledger", text)
         self.assertIn("https://github.com/liuyingxuvka/FlowGuard", text)

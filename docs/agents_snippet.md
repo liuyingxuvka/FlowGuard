@@ -21,8 +21,8 @@ software-maintenance work, first make a lightweight FlowGuard routing decision:
 Use `use_direct_flowguard_skill` when the task clearly matches a directly
 installed FlowGuard satellite skill. Treat installed FlowGuard skills as peer
 routes: route clear existing-model preflight, staged-development, UI,
-structure, test, mesh, alignment, or model-miss work directly to the matching
-satellite skill.
+structure, test, mesh, alignment, model-miss, or agent-workflow rehearsal work
+directly to the matching satellite skill.
 
 Use `use_model_first_kernel` when the task needs ordinary behavior/state
 modeling, the correct FlowGuard route is unclear, multiple FlowGuard routes
@@ -85,6 +85,12 @@ Hard gates:
   `flowguard-existing-model-preflight` as a companion skill when model
   ownership may matter. This is not a universal parent route; pair it with the
   downstream FlowGuard skill that owns the concrete work.
+- Before non-trivial work that may require multiple installed Codex skills,
+  plugins, tools, external actions, staged validation, unclear skill order,
+  skipped-skill consequences, continue/rework gates, or cross-skill evidence
+  claims, use `flowguard-agent-workflow-rehearsal`. Each invocation must begin
+  with a fresh current-machine `SkillInventorySnapshot`; cached skill lists are
+  comparison/history only, not current evidence.
 - Do not weaken hard invariants merely to pass checks.
 - Skipped, deferred, stale, or not-run checks are not passes.
 - For non-trivial FlowGuard work, default to a user-facing Mermaid model
@@ -126,6 +132,7 @@ named route only when that bucket matches the actual risk.
 | Trigger | Route |
 | --- | --- |
 | Existing modeled system discussion/change, model ownership lookup, reuse-first route grounding, duplicate-boundary risk before proposal or implementation | `existing_model_preflight` |
+| Multi-skill workflow planning, installed skill/tool/plugin selection, unclear skill order, skipped skill consequences, continue/rework gates, side effects, or cross-skill evidence claims | `agent_workflow_rehearsal` |
 | Ordinary modeling, Risk Intent, state write inventory, invariants, Explorer | `core_modeling` |
 | Existing code can likely be smaller without behavior change, repeated handlers/adapters/modules/branches, model-to-code contraction, or simplification before StructureMesh | `architecture_reduction` |
 | Direct architecture recommendation or model-derived implementation structure | `code_structure_recommendation` |
@@ -147,6 +154,7 @@ Directly invokable FlowGuard satellite skills are peer routes:
 | Skill | Route |
 | --- | --- |
 | `flowguard-existing-model-preflight` | `existing_model_preflight` |
+| `flowguard-agent-workflow-rehearsal` | `agent_workflow_rehearsal` |
 | `flowguard-model-test-alignment` | `model_test_alignment` |
 | `flowguard-development-process-flow` | `development_process_flow` |
 | `flowguard-model-miss-review` | `model_miss_review` |
@@ -170,6 +178,7 @@ Use the matching Skill reference protocol for support routes. Helper APIs such a
 `FalseNegativeBackpropagationPlan`, `review_false_negative_backpropagation()`,
 `PlanMutationReviewPlan`, `review_plan_mutations()`,
 `FlowGuardClaimChainPlan`, `review_flowguard_claim_chain()`,
+`SkillInventorySnapshot`, `AgentWorkflowPlan`, `review_agent_workflow_rehearsal()`,
 `review_code_structure_recommendation()`, `review_model_test_alignment()`,
 `ExistingModelPreflight`, `review_existing_model_preflight()`,
 `ObservableArchitectureContract`, `ArchitectureReductionCandidate`,

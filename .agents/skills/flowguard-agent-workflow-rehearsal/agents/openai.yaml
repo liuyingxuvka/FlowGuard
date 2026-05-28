@@ -1,0 +1,4 @@
+interface:
+  display_name: "FlowGuard Agent Workflow Rehearsal"
+  short_description: "Rehearse multi-skill workflows before execution"
+  default_prompt: "Use $flowguard-agent-workflow-rehearsal before non-trivial work that may need multiple installed skills, tools, plugins, staged validation, external actions, or unclear skill ordering; start with a fresh current-machine SkillInventorySnapshot and review selected skills, skipped candidates, gates, validation gaps, side effects, and the final evidence claim."
