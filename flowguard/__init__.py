@@ -360,9 +360,11 @@ from .runtime_gateway import (
     RuntimeWriteObservation,
     review_runtime_gateway_adoption,
 )
+from . import closure_contract as _closure_contract
 from . import plan_intake as _plan_intake
 from . import model_freshness as _model_freshness
 from . import model_maturation as _model_maturation
+from .closure_contract import *  # noqa: F403
 from .plan_intake import *  # noqa: F403
 from .model_freshness import *  # noqa: F403
 from .model_maturation import *  # noqa: F403
@@ -593,6 +595,7 @@ from .summary_report import (
 from .templates import (
     TemplateFile,
     adoption_template_files,
+    closure_contract_template_files,
     code_structure_recommendation_template_files,
     development_process_flow_template_files,
     existing_model_preflight_template_files,
@@ -613,6 +616,7 @@ from .trace import Trace, TraceStep
 from .workflow import Workflow, WorkflowPath, WorkflowRun
 
 PLAN_INTAKE_CLAIM_API = tuple(_plan_intake.__all__)
+FLOWGUARD_CLOSURE_CONTRACT_API = tuple(_closure_contract.__all__)
 MODEL_IMPACT_FRESHNESS_API = tuple(_model_freshness.__all__)
 MODEL_MATURATION_API = tuple(_model_maturation.__all__)
 
@@ -1043,6 +1047,7 @@ REPORTING_HELPER_API = (
     "ProofArtifactRef",
     "coerce_proof_artifact_ref",
     "proof_artifact_gap_codes",
+    *FLOWGUARD_CLOSURE_CONTRACT_API,
     "LegacyPathDisposition",
     "LegacyPathDispositionFinding",
     "LegacyPathDispositionReport",
@@ -1159,6 +1164,7 @@ EVIDENCE_API = (
     "assert_report_ok",
     "TemplateFile",
     "adoption_template_files",
+    "closure_contract_template_files",
     "code_structure_recommendation_template_files",
     "development_process_flow_template_files",
     "existing_model_preflight_template_files",
@@ -1187,6 +1193,7 @@ _PUBLIC_API_SUPPLEMENT = (
     "API_SURFACE",
     "CORE_API",
     "EVIDENCE_API",
+    "FLOWGUARD_CLOSURE_CONTRACT_API",
     "MODEL_IMPACT_FRESHNESS_API",
     "MODEL_MATURATION_API",
     "MODELING_HELPER_API",

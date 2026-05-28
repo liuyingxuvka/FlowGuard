@@ -151,6 +151,7 @@ class ApiSurfaceTests(unittest.TestCase):
             "API_SURFACE",
             "CORE_API",
             "EVIDENCE_API",
+            "FLOWGUARD_CLOSURE_CONTRACT_API",
             "MODEL_IMPACT_FRESHNESS_API",
             "MODEL_MATURATION_API",
             "MODELING_HELPER_API",

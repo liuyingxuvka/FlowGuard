@@ -181,6 +181,7 @@ python -m flowguard project-template
 python -m flowguard model-test-alignment-template
 python -m flowguard existing-model-preflight-template
 python -m flowguard risk-evidence-ledger-template
+python -m flowguard closure-contract-template
 python -m flowguard code-structure-recommendation-template
 python -m flowguard ui-flow-structure-template
 python -m flowguard development-process-flow-template
@@ -510,6 +511,7 @@ python -m flowguard project-template
 python -m flowguard model-test-alignment-template
 python -m flowguard existing-model-preflight-template
 python -m flowguard risk-evidence-ledger-template
+python -m flowguard closure-contract-template
 python -m flowguard code-structure-recommendation-template
 python -m flowguard ui-flow-structure-template
 python -m flowguard development-process-flow-template

@@ -228,6 +228,12 @@ FILE_TEMPLATE_COMMANDS: tuple[FileTemplateCommand, ...] = (
         "layered_boundary_proof_template_files",
     ),
     FileTemplateCommand(
+        "closure-contract-template",
+        "Print or write the FlowGuard closure contract final confidence template.",
+        "closure_contract",
+        "closure_contract_template_files",
+    ),
+    FileTemplateCommand(
         "test-mesh-template",
         "Print or write the TestMesh validation hierarchy template.",
         "test_mesh",

@@ -59,7 +59,8 @@ Modeling helpers reduce boilerplate around common bug classes:
   `cache_matches_source`, `require_label_order`, and `forbid_label_after`;
 - state write inventory guidance for fields named by invariants;
 - public starter templates for basic models, Risk Intent check plans,
-  model-miss reviews, and recurring maintenance workflows;
+  model-miss reviews, closure-contract reviews, and recurring maintenance
+  workflows;
 - scenario review and `ScenarioMatrixBuilder`;
 - deterministic counterexample minimization;
 - optional domain packs such as `DeduplicationPack`, `CachePack`, `RetryPack`,
@@ -91,6 +92,12 @@ Modeling helpers reduce boilerplate around common bug classes:
   disjointness, child reattachment, and leaf
   `Input x State -> Set(Output x State)` boundary-matrix evidence into one
   parent confidence gate.
+- optional closure-contract helpers such as `FlowGuardClosureContractPlan`,
+  `ClosureEvidenceReport`, `RuntimeTraceMapping`, `ArtifactInvalidation`,
+  `ModelQualitySignal`, `SameClassMissClosure`,
+  `RuntimeGatewayInventoryClosure`, and
+  `review_flowguard_closure_contract()` for consuming current route evidence
+  before broad done, release, publish, or production-confidence claims.
 - optional architecture reduction helpers such as
   `ObservableArchitectureContract`, `ArchitectureReductionCandidate`,
   `ArchitectureReductionTrigger`, `TargetArchitectureAction`,
@@ -261,7 +268,7 @@ Evidence APIs are used to keep FlowGuard itself honest:
   `existing_model_preflight_template_files()`,
   `risk_evidence_ledger_template_files()`,
   `development_process_flow_template_files()`, `test_mesh_template_files()`,
-  `structure_mesh_template_files()`, and
+  `structure_mesh_template_files()`, `closure_contract_template_files()`, and
   `layered_boundary_proof_template_files()`.
 
 These tools are valuable for FlowGuard maintenance. Ordinary project models do
@@ -324,6 +331,11 @@ split the parent test gate into child suites/scripts and make their ownership
 and evidence visible before trusting the parent. For large structure refactors,
 use StructureMesh to make model-derived target structure, child-module
 ownership, and compatibility evidence visible before trusting a parent split.
+Before turning all of those route reports into a broad done, release, publish,
+or production-confidence claim, run `review_flowguard_closure_contract()` so
+runtime trace mapping, artifact freshness, model quality, same-class miss
+closure, runtime gateway inventory, and Risk Evidence Ledger support are all
+current at the claim boundary.
 Use Code Structure Recommendation for direct pre-code architecture
 recommendations. Use Architecture Reduction when an existing implementation has
 repeated handlers, adapters, modules, branches, or validation layers and the

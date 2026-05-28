@@ -7,6 +7,7 @@ import unittest
 from pathlib import Path
 
 from flowguard.templates import (
+    closure_contract_template_files,
     code_structure_recommendation_template_files,
     development_process_flow_template_files,
     existing_model_preflight_template_files,
@@ -287,6 +288,26 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("Leaf boundary matrix", combined)
         self.assertIn("Input x State", combined)
 
+    def test_closure_contract_template_executes(self):
+        output = self.run_written_template(
+            closure_contract_template_files(),
+            (".flowguard", "closure_contract"),
+        )
+        self.assertIn("flowguard closure contract", output)
+        self.assertIn("flowguard_closure_full_confidence", output)
+        self.assertIn("flowguard_closure_blocked", output)
+        self.assertIn("runtime_trace_unmapped_model_obligation", output)
+
+    def test_closure_contract_template_teaches_final_coordinator(self):
+        files = closure_contract_template_files()
+        combined = "\n".join(file.content for file in files)
+
+        self.assertIn("final coordinator", combined)
+        self.assertIn("runtime traces", combined)
+        self.assertIn("same-class", combined)
+        self.assertIn("runtime gateway inventory", combined)
+        self.assertIn("Risk Evidence Ledger", combined)
+
     def test_public_model_templates_include_risk_purpose_headers(self):
         for files in (
             project_template_files(),
@@ -297,6 +318,7 @@ class PublicTemplateTests(unittest.TestCase):
             existing_model_preflight_template_files(),
             risk_evidence_ledger_template_files(),
             layered_boundary_proof_template_files(),
+            closure_contract_template_files(),
             ui_flow_structure_template_files(),
             development_process_flow_template_files(),
             workflow_step_contracts_template_files(),
@@ -316,6 +338,7 @@ class PublicTemplateTests(unittest.TestCase):
             "existing-model-preflight-template": "existing_model_preflight",
             "risk-evidence-ledger-template": "risk_evidence_ledger",
             "layered-boundary-proof-template": "layered_boundary_proof",
+            "closure-contract-template": "closure_contract",
             "ui-flow-structure-template": "ui_flow_structure",
             "development-process-flow-template": "development_process_flow",
             "workflow-step-contracts-template": "workflow_step_contracts",
@@ -377,6 +400,7 @@ class PublicTemplateTests(unittest.TestCase):
             existing_model_preflight_template_files(),
             risk_evidence_ledger_template_files(),
             layered_boundary_proof_template_files(),
+            closure_contract_template_files(),
             ui_flow_structure_template_files(),
             development_process_flow_template_files(),
             workflow_step_contracts_template_files(),

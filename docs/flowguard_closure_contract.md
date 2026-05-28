@@ -16,6 +16,37 @@ That path can support a bounded local claim. It does not by itself support a
 broad completion claim. A broad claim needs the closure contract for every
 in-scope risk boundary that the result depends on.
 
+## Executable Review Helper
+
+Use `review_flowguard_closure_contract()` to turn the closure contract into a
+machine-checkable final gate. The helper consumes summaries from existing
+routes; it does not replace the route that owns each proof.
+
+Build a `FlowGuardClosureContractPlan` with:
+
+- `RuntimeTraceMapping` rows for runtime traces mapped to model obligations.
+- `ArtifactInvalidation` rows for changed files or generated artifacts that can
+  stale older evidence.
+- `ModelQualitySignal` rows for hidden state, missing side effects, owner
+  ambiguity, helper-only proof, missing public boundary, or parent/child
+  evidence gaps.
+- `SameClassMissClosure` rows for observed failures plus same-class proof.
+- `RuntimeGatewayInventoryClosure` rows for critical runtime state writer
+  inventory and gateway adoption evidence.
+- `ClosureEvidenceReport` rows for the Risk Evidence Ledger and route reports
+  that the final claim consumes.
+
+The report returns `flowguard_closure_full_confidence`,
+`flowguard_closure_scoped_confidence`, or `flowguard_closure_blocked`. A scoped
+report is still not a full-confidence claim.
+
+To create a project scaffold:
+
+```bash
+python -m flowguard closure-contract-template --output .
+python .flowguard/closure_contract/run_checks.py
+```
+
 ## Required Gates
 
 Use the gates that match the claim:
