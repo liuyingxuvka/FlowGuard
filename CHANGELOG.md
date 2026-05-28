@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.29.0 - 2026-05-28
+
+- Added Runtime Gateway Adoption helpers so projects can distinguish
+  design-only, test-aligned, and runtime-gateway FlowGuard adoption.
+- Added `RuntimeStateSurface`, `RuntimeGatewayContract`,
+  `RuntimeWriteObservation`, `RuntimeGatewayAdoptionPlan`,
+  `RuntimeGatewayAdoptionReport`, and `review_runtime_gateway_adoption()` to
+  block runtime protection claims when critical state writes can still bypass
+  declared gateways.
+- Updated OpenSpec, README, API docs, Model-Test Alignment guidance, and the
+  closure contract so code-boundary evidence does not get overclaimed as full
+  runtime state-write protection.
+- Schema remains `1.0`; runtime dependencies remain Python standard library
+  only.
+
 ## v0.28.1 - 2026-05-27
 
 - Added lifecycle disposition support to Architecture Reduction candidates so

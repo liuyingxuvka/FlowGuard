@@ -206,14 +206,25 @@ and observations so boundary failures block model/test/code alignment claims.
   unchanged
 
 ### Requirement: Boundary limits are explicit
-The system SHALL document that code-boundary conformance is runtime evidence
-for a declared boundary, not exhaustive semantic proof over arbitrary code.
+
+Code-boundary conformance SHALL remain evidence about a declared boundary's
+observed behavior. It SHALL NOT by itself prove that every critical runtime
+state write path is mediated by a FlowGuard-backed gateway.
 
 #### Scenario: Trace-level behavior is in scope
 - **WHEN** the confidence claim depends on ordered production state, durable
   side effects, external systems, or adapter projection across multiple steps
 - **THEN** code-boundary conformance may support the claim but MUST NOT replace
   conformance replay or equivalent production-facing validation
+
+#### Scenario: Boundary report without writer inventory is scoped
+- **WHEN** code-boundary conformance is green
+- **AND** the project claims FlowGuard protects all critical runtime state
+  writes
+- **THEN** Model-Test Alignment evidence SHALL be treated as supporting evidence
+  only
+- **AND** Runtime Gateway Adoption evidence SHALL still be required for the
+  runtime protection claim
 
 ### Requirement: Model-Test Alignment consumes workflow step contracts
 FlowGuard SHALL allow Model-Test Alignment planning to consume workflow step contracts by projecting each required workflow step into a required model obligation with obligation type `workflow_step`.
@@ -225,3 +236,4 @@ FlowGuard SHALL allow Model-Test Alignment planning to consume workflow step con
 #### Scenario: Required step lacks test evidence
 - **WHEN** a projected workflow-step obligation has no current passing test evidence
 - **THEN** Model-Test Alignment SHALL report missing test evidence for that workflow-step obligation
+

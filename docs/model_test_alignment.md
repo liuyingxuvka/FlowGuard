@@ -46,6 +46,9 @@ alignment when real code crosses the model-declared boundary.
 This is runtime boundary evidence, not exhaustive semantic proof. It should not
 replace conformance replay when ordered production traces, durable state,
 external systems, or adapter projection are part of the confidence claim.
+It also does not prove that every critical state writer in a target project is
+mediated by a FlowGuard-backed runtime gateway. Use Runtime Gateway Adoption
+for that claim.
 
 ## Conservative Source Audit
 

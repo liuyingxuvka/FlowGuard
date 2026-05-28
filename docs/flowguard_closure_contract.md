@@ -31,6 +31,10 @@ Use the gates that match the claim:
 - Model-test/code alignment: model obligations, code contracts, code-boundary
   observations, and test evidence line up at the external boundary being
   claimed.
+- Runtime gateway adoption: when the claim says FlowGuard protects production
+  state mutation, every critical state surface has complete writer inventory,
+  gateway ownership, mediated write observations, and current step, boundary,
+  replay, and proof evidence.
 - Mesh or layered boundary proof: parent/child model or test confidence
   consumes current child evidence and finite leaf boundary-matrix evidence when
   required.
@@ -48,8 +52,9 @@ Use the gates that match the claim:
 ## Reporting Rule
 
 If a required gate is missing, stale, skipped, progress-only, release-only,
-internal-path-only, or explicitly scoped out, report the result as partial or
-scoped FlowGuard evidence. Do not say FlowGuard is complete for that claim.
+internal-path-only, a direct runtime write can bypass the declared gateway, or
+the gate is explicitly scoped out, report the result as partial or scoped
+FlowGuard evidence. Do not say FlowGuard is complete for that claim.
 
 If a later runtime, test, replay, log, or manual validation failure appears
 after a green FlowGuard result, treat it as a closure-contract miss until

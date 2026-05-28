@@ -127,6 +127,14 @@ Modeling helpers reduce boilerplate around common bug classes:
   `review_code_boundary_conformance()` for checking whether real code
   observations stay inside a model-declared finite input/output boundary before
   alignment confidence is claimed.
+- optional runtime gateway adoption helpers such as
+  `RuntimeStateSurface`, `RuntimeGatewayContract`,
+  `RuntimeWriteObservation`, `RuntimeGatewayAdoptionPlan`,
+  `RuntimeGatewayAdoptionReport`, and
+  `review_runtime_gateway_adoption()` for distinguishing design-only,
+  test-aligned, and runtime-gateway FlowGuard adoption, and for blocking
+  runtime protection claims when critical state writes can still bypass the
+  declared gateway.
 - optional TestMesh helpers such as `TestMeshPlan`, `TestPartitionItem`,
   `TestTargetSplitDerivation`, `TestSuiteEvidence`, and `review_test_mesh()`
   for reviewing model-derived target suite/script layouts, parent/child test
@@ -292,8 +300,13 @@ before trusting the three-way claim. When a code contract is supposed to be a
 closed boundary, add `CodeBoundaryContract` and `CodeBoundaryObservation` rows
 and run `review_code_boundary_conformance()` so forbidden inputs, unknown
 accepted inputs, extra outputs, extra errors, extra state writes, and extra
-side effects stay visible. Send ambiguous or complex behavior to manual review
-and keep conformance replay for production-facing confidence. When direct
+side effects stay visible. When a project claims FlowGuard protects production
+state mutation, add `RuntimeStateSurface`, `RuntimeGatewayContract`, and
+`RuntimeWriteObservation` rows and run
+`review_runtime_gateway_adoption()` so complete writer inventory, gateway
+ownership, direct-write bypasses, stale observations, and proof-artifact gaps
+stay visible. Send ambiguous or complex behavior to manual review and keep
+conformance replay for production-facing confidence. When direct
 model or validation evidence is oversized, incomplete, slow, broad,
 progress-only, or release-only, run `review_auto_mesh_splits()` and route the
 result to ModelMesh or TestMesh before claiming broad parent confidence. For

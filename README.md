@@ -16,7 +16,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.28.1` | `1.0` | Python standard library only | MIT |
+| `v0.29.0` | `1.0` | Python standard library only | MIT |
 
 English lead content comes first; a Chinese mirror follows below.
 
@@ -121,6 +121,7 @@ FlowGuard gives those weak spots a small executable shape before the action beco
 | Scenario and invariant review | Checks expected traces, hard rules, repeated inputs, dead branches, and bad terminal states |
 | Adversarial scenario synthesis | Derives candidate challenge routes from Explorer counterexamples, dead branches, exception branches, repeated state visits, and risk semantics, with bounded input-shape fallbacks kept as candidate evidence |
 | Conformance replay | Compares representative abstract traces with implementation behavior when code exists |
+| Runtime Gateway Adoption | Checks whether a project claiming runtime FlowGuard protection has complete critical-state writer inventory and every critical write is mediated by declared gateway contracts with step, boundary, replay, and proof evidence |
 | Loop and progress review | Finds non-progressing cycles, stuck states, and weak completion evidence |
 | Model-test alignment | Compares model obligations, external code contracts, ordinary test evidence, and model-miss observed/same-class closure evidence |
 | Plan Intake And Claim Chain | Checks that plan inputs, evidence adapters, false-negative repairs, known-bad mutations, and typed claim dependencies are declared before broad confidence is claimed |
@@ -326,6 +327,7 @@ FlowGuard is the state and workflow guard.
 | `docs/code_structure_recommendation.md` | Model-derived code structure recommendations |
 | `docs/ui_flow_structure.md` | UI interaction and structure modeling |
 | `docs/development_process_flow.md` | Staged development lifecycle, validation freshness, archive, publish, and release gates |
+| `docs/runtime_gateway_adoption.md` | Runtime gateway adoption levels, critical-state writer inventory, and direct-write bypass blockers |
 | `docs/api_surface.md` | Public Python API overview |
 
 ## Repository Layout
@@ -452,6 +454,7 @@ FlowGuard 给这些薄弱点一个小而可执行的结构。
 | Scenario 和 invariant review | 检查预期路径、硬规则、重复输入、死分支和坏终态 |
 | Adversarial scenario synthesis | 从 Explorer 反例、死分支、异常分支、重复状态访问和风险语义里反推出候选挑战路线；固定输入形状只作为有边界的兜底候选证据 |
 | Conformance replay | 当代码已存在时，把抽象路径和真实实现行为对齐 |
+| Runtime Gateway Adoption | 当项目声称 FlowGuard 保护运行时状态写入时，检查关键状态写入口清单是否完整，且每个关键写入是否都经过带 step、boundary、replay 和 proof 证据的声明网关 |
 | Loop 和 progress review | 找不前进的循环、卡住状态和弱完成证据 |
 | Model-test alignment | 对照模型义务、外部代码 contract、代码边界观测、普通测试证据，以及 model-miss 的 observed/same-class 关闭证据 |
 | Plan Intake And Claim Chain | 在声明广泛信心前，检查计划输入、证据适配器、漏报修复、已知坏变异和 typed claim dependency 是否已经声明 |
@@ -571,6 +574,7 @@ FlowGuard 是状态和工作流 guard。
 | `docs/code_structure_recommendation.md` | 模型推导代码结构建议 |
 | `docs/ui_flow_structure.md` | UI interaction 和结构建模 |
 | `docs/development_process_flow.md` | 分阶段开发生命周期、验证新鲜度、archive、publish 和 release gate |
+| `docs/runtime_gateway_adoption.md` | 运行时网关采用等级、关键状态写入口清单和直接写入绕过 blocker |
 | `docs/api_surface.md` | 公开 Python API 概览 |
 
 ## 仓库结构
