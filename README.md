@@ -16,7 +16,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.31.0` | `1.0` | Python standard library only | MIT |
+| `v0.32.0` | `1.0` | Python standard library only | MIT |
 
 English lead content comes first; a Chinese mirror follows below.
 
@@ -178,9 +178,19 @@ python -m flowguard schema-version
 python -m flowguard self-review
 ```
 
+Adopt FlowGuard into another project so future agents can find the repository,
+version record, and project rules:
+
+```powershell
+python -m flowguard project-adopt --root <target-project>
+python -m flowguard project-audit --root <target-project>
+python -m flowguard project-upgrade --root <target-project>
+```
+
 Useful template entry points:
 
 ```powershell
+python -m flowguard project-adoption-template
 python -m flowguard project-template
 python -m flowguard model-test-alignment-template
 python -m flowguard existing-model-preflight-template
@@ -513,9 +523,18 @@ python -m flowguard schema-version
 python -m flowguard self-review
 ```
 
+把 FlowGuard 接入另一个项目，让后续 AI 能看到仓库地址、版本记录和项目规则：
+
+```powershell
+python -m flowguard project-adopt --root <target-project>
+python -m flowguard project-audit --root <target-project>
+python -m flowguard project-upgrade --root <target-project>
+```
+
 常用模板入口：
 
 ```powershell
+python -m flowguard project-adoption-template
 python -m flowguard project-template
 python -m flowguard model-test-alignment-template
 python -m flowguard existing-model-preflight-template

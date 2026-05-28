@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from .project_adoption import build_flowguard_agents_block, current_project_manifest_text
+
 
 @dataclass(frozen=True)
 class TemplateFile:
@@ -4746,6 +4748,15 @@ def adoption_template_files() -> tuple[TemplateFile, ...]:
     )
 
 
+def project_adoption_template_files() -> tuple[TemplateFile, ...]:
+    return (
+        TemplateFile("AGENTS.md", build_flowguard_agents_block() + "\n"),
+        TemplateFile(".flowguard/project.toml", current_project_manifest_text()),
+        TemplateFile("docs/flowguard_adoption_log.md", ADOPTION_LOG_TEMPLATE),
+        TemplateFile("docs/flowguard_model_notes.md", MODEL_NOTES_TEMPLATE),
+    )
+
+
 def risk_intent_template_files() -> tuple[TemplateFile, ...]:
     return (
         TemplateFile(".flowguard/risk_intent_check_plan/model.py", RISK_INTENT_CHECK_PLAN_MODEL_TEMPLATE),
@@ -4941,6 +4952,7 @@ __all__ = [
     "model_miss_review_template_files",
     "model_test_alignment_template_files",
     "project_template_files",
+    "project_adoption_template_files",
     "risk_evidence_ledger_template_files",
     "risk_intent_template_files",
     "structure_mesh_template_files",

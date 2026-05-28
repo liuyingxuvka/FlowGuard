@@ -14,6 +14,7 @@ from flowguard.templates import (
     layered_boundary_proof_template_files,
     model_miss_review_template_files,
     model_test_alignment_template_files,
+    project_adoption_template_files,
     project_template_files,
     risk_evidence_ledger_template_files,
     risk_intent_template_files,
@@ -328,9 +329,24 @@ class PublicTemplateTests(unittest.TestCase):
             model_file = next(file for file in files if file.path.endswith("model.py"))
             self.assert_risk_purpose_header(model_file.content)
 
+    def test_project_adoption_template_includes_version_gate_materials(self):
+        files = project_adoption_template_files()
+        paths = {file.path for file in files}
+        combined = "\n".join(file.content for file in files)
+
+        self.assertIn("AGENTS.md", paths)
+        self.assertIn(".flowguard/project.toml", paths)
+        self.assertIn("docs/flowguard_adoption_log.md", paths)
+        self.assertIn("https://github.com/liuyingxuvka/FlowGuard", combined)
+        self.assertIn("project-audit", combined)
+        self.assertIn("project-upgrade", combined)
+        self.assertIn("adopted_package_version", combined)
+        self.assertIn("schema_version", combined)
+
     def test_template_cli_prints_and_writes_new_templates(self):
         commands = {
             "project-template": "project",
+            "project-adoption-template": "project_adoption",
             "risk-intent-template": "risk_intent_check_plan",
             "model-miss-template": "model_miss_review",
             "model-test-alignment-template": "model_test_alignment",
@@ -406,6 +422,7 @@ class PublicTemplateTests(unittest.TestCase):
             workflow_step_contracts_template_files(),
             test_mesh_template_files(),
             structure_mesh_template_files(),
+            project_adoption_template_files(),
         ):
             for file in files:
                 for marker in private_markers:

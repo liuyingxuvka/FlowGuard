@@ -273,14 +273,18 @@ project:
 
 ```powershell
 python -m flowguard project-template --output .
+python -m flowguard project-adoption-template --output .
 python -m flowguard risk-intent-template --output .
 python -m flowguard model-miss-template --output .
 python -m flowguard model-test-alignment-template --output .
 python -m flowguard development-process-flow-template --output .
 ```
 
-The basic project template demonstrates validation, rejection, duplicate input,
-and source-trace invariants. The Risk Intent template shows how to bind a
+The project adoption template writes the target-project AGENTS block,
+`.flowguard/project.toml`, and starter adoption notes with the FlowGuard GitHub
+URL and version policy. The basic project template demonstrates validation,
+rejection, duplicate input, and source-trace invariants. The Risk Intent
+template shows how to bind a
 `RiskIntent`, `RiskProfile`, and `FlowGuardCheckPlan` before running
 `run_model_first_checks(...)`. The model-miss template models the feedback loop
 used when runtime, tests, replay, or manual validation finds a problem after a

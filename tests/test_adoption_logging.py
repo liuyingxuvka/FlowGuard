@@ -11,7 +11,7 @@ from flowguard.adoption import (
     append_markdown_log,
     make_adoption_log_entry,
 )
-from flowguard.templates import adoption_template_files
+from flowguard.templates import adoption_template_files, project_adoption_template_files
 
 
 class AdoptionLoggingTests(unittest.TestCase):
@@ -149,6 +149,18 @@ class AdoptionLoggingTests(unittest.TestCase):
         self.assertIn("docs/flowguard_model_notes.md", paths)
         for item in files:
             self.assertTrue(item.content.strip())
+
+    def test_project_adoption_templates_include_agents_manifest_and_repository(self):
+        files = project_adoption_template_files()
+        paths = {item.path for item in files}
+        combined = "\n".join(item.content for item in files)
+
+        self.assertIn("AGENTS.md", paths)
+        self.assertIn(".flowguard/project.toml", paths)
+        self.assertIn("docs/flowguard_adoption_log.md", paths)
+        self.assertIn("https://github.com/liuyingxuvka/FlowGuard", combined)
+        self.assertIn("adopted_package_version", combined)
+        self.assertIn("schema_version", combined)
 
 
 if __name__ == "__main__":

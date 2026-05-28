@@ -168,6 +168,12 @@ FILE_TEMPLATE_COMMANDS: tuple[FileTemplateCommand, ...] = (
         "project_template_files",
     ),
     FileTemplateCommand(
+        "project-adoption-template",
+        "Print or write the FlowGuard target-project AGENTS/manifest adoption template.",
+        "project_adoption",
+        "project_adoption_template_files",
+    ),
+    FileTemplateCommand(
         "risk-intent-template",
         "Print or write the Risk Intent + CheckPlan template.",
         "risk_intent_check_plan",
@@ -305,6 +311,21 @@ def _run_adoption_entry(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_project_adoption_command(args: argparse.Namespace) -> int:
+    from .project_adoption import adopt_project, audit_project_adoption, upgrade_project
+
+    if args.project_action == "audit":
+        report = audit_project_adoption(args.root)
+    elif args.project_action == "adopt":
+        report = adopt_project(args.root)
+    elif args.project_action == "upgrade":
+        report = upgrade_project(args.root)
+    else:  # pragma: no cover
+        raise ValueError(f"unknown project adoption action: {args.project_action}")
+    print(report.to_json_text() if args.json else report.format_text())
+    return 0 if report.ok else 1
+
+
 COMMANDS: dict[str, Callable[[], int]] = {
     "adoption-template": _run_adoption_template,
     "benchmark": _run_benchmark,
@@ -375,6 +396,19 @@ def _add_file_template_parser(
     )
 
 
+def _add_project_adoption_parser(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+    command_name: str,
+    *,
+    action: str,
+    help_text: str,
+) -> None:
+    parser = subparsers.add_parser(command_name, help=help_text)
+    parser.add_argument("--root", default=".", help="Target project root.")
+    parser.add_argument("--json", action="store_true", help="Print the report as JSON.")
+    parser.set_defaults(handler=_run_project_adoption_command, project_action=action)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m flowguard",
@@ -384,6 +418,24 @@ def main(argv: list[str] | None = None) -> int:
     _add_existing_command_subparsers(subparsers)
     for command in FILE_TEMPLATE_COMMANDS:
         _add_file_template_parser(subparsers, command)
+    _add_project_adoption_parser(
+        subparsers,
+        "project-audit",
+        action="audit",
+        help_text="Read-only audit of target-project FlowGuard AGENTS/manifest adoption state.",
+    )
+    _add_project_adoption_parser(
+        subparsers,
+        "project-adopt",
+        action="adopt",
+        help_text="Write or refresh target-project FlowGuard AGENTS/manifest adoption records.",
+    )
+    _add_project_adoption_parser(
+        subparsers,
+        "project-upgrade",
+        action="upgrade",
+        help_text="Explicitly update target-project FlowGuard records to the installed package version.",
+    )
     _add_adoption_entry_args(
         subparsers.add_parser("adoption-start", help="Append an in-progress adoption log entry."),
         default_status="in_progress",

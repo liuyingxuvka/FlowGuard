@@ -3,6 +3,12 @@
 This document explains how a target repository should connect to the real
 `flowguard` toolchain before using the `model-first-function-flow` skill.
 
+FlowGuard source repository:
+
+```text
+https://github.com/liuyingxuvka/FlowGuard
+```
+
 ## Preflight
 
 Before modeling in another repository, run:
@@ -43,6 +49,7 @@ Then verify:
 ```powershell
 python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"
 python -m flowguard schema-version
+python -c "import importlib.metadata as m; print(m.version('flowguard'))"
 ```
 
 ## Toolchain Preflight Helper
@@ -114,17 +121,45 @@ next_action: install flowguard editable or add an explicit integration path
 ## Project AGENTS.md
 
 After connecting the package, add the rule from `docs/agents_snippet.md` to the
-target project's `AGENTS.md`.
+target project's `AGENTS.md`. The low-friction command is:
+
+```powershell
+python -m flowguard project-adopt --root .
+```
+
+This creates or updates only the managed FlowGuard block in `AGENTS.md`, writes
+`.flowguard/project.toml`, and appends adoption records under `.flowguard/` and
+`docs/`. The managed block includes the FlowGuard GitHub URL so future agents
+know where the real toolchain comes from.
 
 That project rule should require:
 
+- FlowGuard repository URL: `https://github.com/liuyingxuvka/FlowGuard`;
 - `flowguard` import preflight;
+- installed package version comparison against `.flowguard/project.toml`;
 - AI-created model scripts when no model exists yet;
 - model-first checks before production edits;
 - post-runtime model-miss review when tests, replay, logs, or manual validation
   expose a new issue after FlowGuard already passed;
 - adoption log entries for real use;
 - explicit blocked status when the real toolchain is unavailable.
+
+Use a read-only audit when you only need to check adoption state:
+
+```powershell
+python -m flowguard project-audit --root .
+```
+
+If the installed FlowGuard package version is newer than the project record,
+run the explicit upgrade path before broad confidence claims:
+
+```powershell
+python -m flowguard project-upgrade --root .
+```
+
+Then check release notes or the changelog, rerun affected FlowGuard models and
+tests, and record the evidence. If the installed package version is older than
+the project record, upgrade the local FlowGuard toolchain first.
 
 If the target project also uses a spec/SPAC-style planning or orchestration
 skill, treat that tool's plan as optional FlowGuard handoff context. The handoff

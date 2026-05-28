@@ -255,6 +255,11 @@ Reporting helpers help an AI agent explain what was checked and what was not:
 - adoption logging and `audit_flowguard_adoption`
 - thin adoption logging commands such as `adoption-start` and
   `adoption-finish`
+- project adoption/version helpers such as `audit_project_adoption()`,
+  `adopt_project()`, and `upgrade_project()` for writing the managed
+  FlowGuard `AGENTS.md` block, `.flowguard/project.toml`, and adoption records
+  in target repositories. These helpers record FlowGuard's GitHub repository
+  and package/schema versions; they do not replace executable model checks.
 - schema, JSON artifact helpers, and explicit Mermaid source exporters for
   user-facing model explanations when a compact diagram helps clarify major
   states, branches, gates, evidence, and claim boundaries
@@ -277,7 +282,8 @@ Evidence APIs are used to keep FlowGuard itself honest:
   `code_structure_recommendation_template_files()`,
   `existing_model_preflight_template_files()`,
   `risk_evidence_ledger_template_files()`,
-  `development_process_flow_template_files()`, `test_mesh_template_files()`,
+  `development_process_flow_template_files()`,
+  `project_adoption_template_files()`, `test_mesh_template_files()`,
   `structure_mesh_template_files()`, `closure_contract_template_files()`, and
   `layered_boundary_proof_template_files()`.
 

@@ -16,6 +16,8 @@ or when it is unclear whether a mesh is needed.
 
 - Verify the real package before claiming FlowGuard use:
   `python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"`.
+- For real target-project use, ensure the FlowGuard AGENTS.md managed
+  block/version record exists, or record why it was not updated.
 - Do not create a fake mini-framework or prose-only substitute.
 - Parent models consume child contracts and evidence; they do not inline every
   child route.

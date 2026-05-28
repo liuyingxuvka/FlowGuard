@@ -52,6 +52,11 @@ class ApiSurfaceTests(unittest.TestCase):
         self.assertIn("ModelImpactFreshnessPlan", flowguard.REPORTING_HELPER_API)
         self.assertIn("ModelImpactFreshnessReport", flowguard.REPORTING_HELPER_API)
         self.assertIn("review_model_impact_freshness", flowguard.REPORTING_HELPER_API)
+        self.assertIn("ProjectAdoptionFinding", flowguard.REPORTING_HELPER_API)
+        self.assertIn("ProjectAdoptionReport", flowguard.REPORTING_HELPER_API)
+        self.assertIn("audit_project_adoption", flowguard.REPORTING_HELPER_API)
+        self.assertIn("adopt_project", flowguard.REPORTING_HELPER_API)
+        self.assertIn("upgrade_project", flowguard.REPORTING_HELPER_API)
         self.assertIn("run_model_first_checks", flowguard.REPORTING_HELPER_API)
         self.assertIn("audit_model", flowguard.REPORTING_HELPER_API)
         self.assertIn("CodeStructureRecommendation", flowguard.MODELING_HELPER_API)
@@ -104,6 +109,7 @@ class ApiSurfaceTests(unittest.TestCase):
         self.assertNotIn("summarize_child_boundary_change", flowguard.CORE_API)
         self.assertIn("build_executable_corpus_report", flowguard.EVIDENCE_API)
         self.assertIn("build_evidence_baseline_report", flowguard.EVIDENCE_API)
+        self.assertIn("project_adoption_template_files", flowguard.EVIDENCE_API)
         self.assertNotIn("build_executable_corpus_report", flowguard.CORE_API)
 
     def test_model_test_alignment_code_contract_api_is_public_helper(self):

@@ -27,6 +27,11 @@ class ProjectIntegrationTests(unittest.TestCase):
         self.assertIn("one-off mini framework", text)
         self.assertIn("blocked_or_partial", text)
         self.assertIn("post-runtime model-miss review", text)
+        self.assertIn("https://github.com/liuyingxuvka/FlowGuard", text)
+        self.assertIn("project-adopt", text)
+        self.assertIn("project-audit", text)
+        self.assertIn("project-upgrade", text)
+        self.assertIn(".flowguard/project.toml", text)
 
     def test_skill_requires_import_preflight_and_rejects_substitute(self):
         text = (
@@ -41,6 +46,7 @@ class ProjectIntegrationTests(unittest.TestCase):
         self.assertIn("do not write a temporary mini-framework", text)
         self.assertIn("assets/toolchain_preflight.py", text)
         self.assertIn("blocked/partial", text)
+        self.assertIn("FlowGuard AGENTS.md managed block/version record", text)
 
     def test_import_preflight_command_works_in_this_environment(self):
         completed = subprocess.run(

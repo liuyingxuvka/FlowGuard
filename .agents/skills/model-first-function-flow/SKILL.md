@@ -58,6 +58,7 @@ unclear, narrow the task or mark `needs_human_review`.
 
 - Verify the real package before modeling in another repository:
   `python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"`.
+- For real target-project use, ensure the FlowGuard AGENTS.md managed block/version record exists, or record why read-only scope prevented it.
 - If the import fails, connect the real toolchain or record the task as
   blocked/partial. do not write a temporary mini-framework or fake mini-framework and claim FlowGuard use.
 - FlowGuard must remain useful without external planner prerequisites.

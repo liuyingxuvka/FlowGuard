@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.32.0 - 2026-05-28
+
+- Added project adoption/version gate helpers so target repositories can carry
+  a managed FlowGuard `AGENTS.md` block, `.flowguard/project.toml`, and
+  adoption logs that name the FlowGuard GitHub repository and current
+  package/schema versions.
+- Added `project-audit`, `project-adopt`, `project-upgrade`, and
+  `project-adoption-template` CLI/template entry points.
+- Updated kernel and satellite Skill guidance so real target-project FlowGuard
+  use checks or records the project AGENTS/version adoption state instead of
+  relying on unstated machine-local knowledge.
+- Updated project integration docs, README, API docs, OpenSpec artifacts, and
+  focused tests. Schema remains `1.0`; runtime dependencies remain Python
+  standard library only.
+
 ## v0.31.0 - 2026-05-28
 
 - Added obligation-family parity helpers so related obligations must carry

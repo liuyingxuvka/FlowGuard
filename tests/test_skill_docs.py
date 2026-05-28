@@ -36,6 +36,7 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("Skipped is not", text)
         self.assertIn("peer-agent changes", text)
         self.assertIn("Input x State -> Set(Output x State)", text)
+        self.assertIn("AGENTS.md managed", text)
         self.assertIn("Helper APIs Are Not Sub-Skills", text)
         self.assertIn("RiskIntent", text)
         self.assertIn("review_test_mesh()", text)
@@ -170,6 +171,7 @@ class SkillDocsTests(unittest.TestCase):
                 self.assertIn("model-first-function-flow", skill_text)
                 self.assertIn("real package", skill_text)
                 self.assertIn("fake mini-framework", skill_text)
+                self.assertIn("AGENTS.md managed", skill_text)
                 self.assertIn("Non-Goals", skill_text)
                 self.assertIn(skill_name, openai_yaml)
                 self.assertGreater(len(reference_text), 200)
@@ -507,6 +509,11 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("package helpers, not", text)
         self.assertIn("RiskEvidenceLedgerPlan", text)
         self.assertIn("review_risk_evidence_ledger", text)
+        self.assertIn("https://github.com/liuyingxuvka/FlowGuard", text)
+        self.assertIn("project-adopt", text)
+        self.assertIn("project-upgrade", text)
+        self.assertIn(".flowguard/project.toml", text)
+        self.assertIn("AGENTS/manifest/log updates are adoption evidence only", text)
 
     def test_skill_orchestrator_collaboration_doc_defends_standalone_mode(self):
         text = (ROOT / "docs" / "skill_orchestrator_collaboration.md").read_text(encoding="utf-8")

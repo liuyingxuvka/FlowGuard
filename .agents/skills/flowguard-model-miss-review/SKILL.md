@@ -16,6 +16,8 @@ multiple FlowGuard routes.
 
 - Verify the real package before claiming FlowGuard use:
   `python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"`.
+- For real target-project use, ensure the FlowGuard AGENTS.md managed
+  block/version record exists, or record why it was not updated.
 - Do not create a fake mini-framework or prose-only substitute.
 - Do not treat a later green runtime check by itself as closure.
 - Preserve the observed failure and at least one same-class generalized bad

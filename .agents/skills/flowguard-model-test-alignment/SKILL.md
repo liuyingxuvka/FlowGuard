@@ -16,6 +16,8 @@ mostly core modeling rather than alignment.
 
 - Verify the real package before claiming FlowGuard use:
   `python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"`.
+- For real target-project use, ensure the FlowGuard AGENTS.md managed
+  block/version record exists, or record why it was not updated.
 - Do not create a fake mini-framework or prose-only substitute.
 - Skipped, stale, or not-run evidence is not a pass.
 - For model-miss repairs, an observed-bug regression test is not enough for

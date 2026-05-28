@@ -5,6 +5,13 @@ Copy this compact section into another repository's `AGENTS.md`.
 ```markdown
 ## Global FlowGuard skill routing
 
+FlowGuard repository: https://github.com/liuyingxuvka/FlowGuard
+
+When this project adopts FlowGuard, keep this section in the project
+`AGENTS.md` and keep `.flowguard/project.toml` current. Future agents should
+not have to guess where FlowGuard comes from or which version this project last
+verified.
+
 For coding, repository, process-design, structured writing/argument,
 decision/planning, documentation, prompt, skill, release, archive, publish, and
 software-maintenance work, first make a lightweight FlowGuard routing decision:
@@ -57,6 +64,15 @@ Hard gates:
 
 - Verify the real package before modeling:
   `python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"`.
+- Verify the installed package version when project adoption/version freshness
+  matters:
+  `python -c "import importlib.metadata as m; print(m.version('flowguard'))"`.
+- For real target-project use, ensure the project has the FlowGuard managed
+  `AGENTS.md` block and `.flowguard/project.toml` version record. Use
+  `python -m flowguard project-adopt --root .` when the block is missing, and
+  `python -m flowguard project-upgrade --root .` when the installed FlowGuard
+  version is newer than the project record. If the installed version is older,
+  upgrade the local FlowGuard toolchain before claiming FlowGuard confidence.
 - Do not create a fake mini-framework and claim FlowGuard adoption.
 - Keep FlowGuard usable without any external planner or specification workflow.
   Planner handoffs are optional context, not prerequisites.
@@ -97,6 +113,9 @@ Hard gates:
   mutation rejection, and `production_confidence` dependency typing.
 - Finish real project use with adoption evidence: trigger, model/risk, commands,
   findings, skipped steps, risk evidence summary, and next actions.
+- AGENTS/manifest/log updates are adoption evidence only; they do not replace
+  executable model checks, tests, replay, Risk Evidence Ledger, or closure
+  evidence required by the claim.
 
 Route map (escalation only):
 
