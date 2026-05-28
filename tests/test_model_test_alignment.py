@@ -4,6 +4,12 @@ import flowguard
 from flowguard import (
     ModelObligation,
     ModelTestAlignmentPlan,
+    ObligationFamily,
+    ObligationFamilyEvidence,
+    ObligationFamilyMember,
+    FAMILY_EVIDENCE_PROVENANCE_DURABLE_RECONCILIATION,
+    FAMILY_EVIDENCE_PROVENANCE_MANUAL_EVENT,
+    FAMILY_EVIDENCE_STATUS_PASSED,
     TestEvidence,
     TEST_CLOSURE_ROLE_OBSERVED_REGRESSION,
     TEST_CLOSURE_ROLE_SAME_CLASS_GENERALIZED,
@@ -157,6 +163,53 @@ class ModelTestAlignmentTests(unittest.TestCase):
             ["checkout.submit", "checkout.reject_duplicate"],
             [item["code_contract_id"] for item in plan.to_dict()["code_contracts"]],
         )
+
+    def test_obligation_family_parity_blocks_alignment_overclaim(self):
+        plan = ModelTestAlignmentPlan(
+            model_id="packet-result",
+            obligations=(
+                obligation("material_result_reconciles"),
+                obligation("research_result_reconciles"),
+            ),
+            test_evidence=(
+                evidence("test_material", "material_result_reconciles"),
+                evidence("test_research", "research_result_reconciles"),
+            ),
+            obligation_families=(
+                ObligationFamily(
+                    "packet-result-family",
+                    required_mechanisms=("result_envelope_to_return_event",),
+                    allowed_provenance=(FAMILY_EVIDENCE_PROVENANCE_DURABLE_RECONCILIATION,),
+                    members=(
+                        ObligationFamilyMember("material"),
+                        ObligationFamilyMember("research"),
+                    ),
+                ),
+            ),
+            family_evidence=(
+                ObligationFamilyEvidence(
+                    "material-family-proof",
+                    family_id="packet-result-family",
+                    member_id="material",
+                    mechanism_id="result_envelope_to_return_event",
+                    provenance=FAMILY_EVIDENCE_PROVENANCE_DURABLE_RECONCILIATION,
+                    result_status=FAMILY_EVIDENCE_STATUS_PASSED,
+                ),
+                ObligationFamilyEvidence(
+                    "research-post-event-only",
+                    family_id="packet-result-family",
+                    member_id="research",
+                    mechanism_id="result_envelope_to_return_event",
+                    provenance=FAMILY_EVIDENCE_PROVENANCE_MANUAL_EVENT,
+                    result_status=FAMILY_EVIDENCE_STATUS_PASSED,
+                ),
+            ),
+        )
+
+        report = review_model_test_alignment(plan)
+
+        self.assertFalse(report.ok)
+        self.assertIn("invalid_family_evidence_provenance", finding_codes(report))
 
     def test_missing_code_contract_blocks_required_external_contract(self):
         plan = ModelTestAlignmentPlan(

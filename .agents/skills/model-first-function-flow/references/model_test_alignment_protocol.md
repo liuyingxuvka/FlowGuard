@@ -16,6 +16,12 @@ freshness, and assertion scopes into a Risk Evidence Ledger. Alignment proves
 rows agree; the ledger decides whether the broader user-risk claim is full,
 scoped, or blocked.
 
+For related obligations that share a family-level confidence claim, add
+`ObligationFamily` and `ObligationFamilyEvidence` rows. The family parity check
+verifies that every sibling obligation has the same required mechanism coverage
+from allowed provenance sources before the family claim is treated as full
+confidence.
+
 When real code observations are available for a finite code boundary, add the
 code-boundary conformance layer before trusting a hand-authored code contract.
 This layer checks whether real code accepted only allowed input cases, rejected
@@ -56,6 +62,8 @@ Create or update a model-test alignment review when:
   model-backed behavior;
 - a model pass and test pass need to be reconciled before release or broad
   completion;
+- several sibling obligations are being promoted as one family-level claim and
+  need required mechanism coverage with allowed provenance;
 - reviewers suspect orphan tests, orphan code contracts, duplicated test
   claims, duplicated code contract owners, stale evidence, internal-path-only
   tests, or happy-path-only coverage of risky model obligations.
@@ -88,6 +96,18 @@ List `ModelObligation` rows:
   contract must preserve;
 - whether the external code contract must be exact, meaning extra externally
   visible behavior is also a gap.
+
+List optional `ObligationFamily` rows when sibling obligations share a
+family-level claim:
+
+- family id and member obligation ids;
+- required mechanisms each non-exempt member must prove;
+- allowed provenance sources, such as durable reconciliation, runtime
+  observation, or controller receipt;
+- whether external evidence is required;
+- exempt member ids and why the family claim is scoped;
+- evidence ids with member id, mechanism, status, freshness, provenance, scope,
+  and optional proof artifact.
 
 List optional `CodeContract` rows when an externally visible code surface is in
 scope. Do not invent or refactor code solely to fill this section. When Python

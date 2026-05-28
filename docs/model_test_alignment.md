@@ -19,6 +19,13 @@ If the same-class miss recurs or is high risk, Model-Test Alignment still only
 proves the obligation/test rows. The recurring family itself is handled by
 `review_defect_family_gates(...)` and then consumed by the Risk Evidence Ledger.
 
+When the claim spans a family of related obligations, add obligation-family
+parity evidence to the same plan. Alignment can prove that each declared
+obligation has tests, but family parity proves that sibling obligations all
+have the required mechanism evidence from an allowed provenance source. A
+manual event or controller receipt cannot prove a family requirement that says
+the evidence must come from durable reconciliation.
+
 ## Code Boundary Conformance
 
 When a model-backed code surface claims a finite input/output boundary, add
@@ -126,6 +133,16 @@ enough to populate the layered proof leaf matrix: every finite input/state
 cell has declared outputs, next states, state writes, side effects, error
 paths, evidence ids, and freshness status.
 
+List obligation-family rows when several obligations are being claimed as the
+same family:
+
+- family id, member ids, required mechanisms, and allowed provenance sources;
+- whether the family requires external evidence;
+- optional exempt members and the reason they are not part of the current
+  family claim;
+- family evidence id, member id, mechanism, result status, freshness,
+  provenance, evidence scope, and optional proof artifact.
+
 List test evidence with `TestEvidence`:
 
 - evidence id, test name, path, and command;
@@ -180,6 +197,10 @@ The review keeps these gaps visible:
 - audited source evidence that is partial, ambiguous, dynamic, or requires
   manual review;
 - model, code, and test bindings that do not refer to the same obligation.
+- family members or required mechanisms that have no current passing evidence;
+- family evidence whose provenance cannot prove the required mechanism;
+- family evidence that is stale, non-passing, internal-only when external
+  evidence is required, or attached to an unknown member/mechanism.
 
 ## Boundary
 
@@ -187,9 +208,10 @@ This helper is not TestMesh and not StructureMesh. Use TestMesh when the
 validation flow itself needs parent/child suite ownership. Use StructureMesh
 when a large script, module, command, or API surface is being split. Model-Test
 Alignment stays focused on declared obligations, optional code external
-contracts, and the tests that prove them. Layered boundary proof may consume
-the aligned boundary evidence for leaf matrices, but it owns the parent
-coverage, child disjointness, and child reattachment decision.
+contracts, family parity matrices, and the tests that prove them. Layered
+boundary proof may consume the aligned boundary evidence for leaf matrices, but
+it owns the parent coverage, child disjointness, and child reattachment
+decision.
 
 Conservative source audit is also not conformance replay. Use replay when the
 claim depends on real production state, side effects, external systems,

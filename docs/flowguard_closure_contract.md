@@ -62,6 +62,12 @@ Use the gates that match the claim:
 - Model-test/code alignment: model obligations, code contracts, code-boundary
   observations, and test evidence line up at the external boundary being
   claimed.
+- Obligation-family parity: when related obligations share one confidence
+  claim, each sibling has the required mechanism evidence from allowed
+  provenance sources, or the family gap stays visible.
+- Analogous defect scan: after a post-green miss, same-shape sibling risks have
+  been reviewed, covered, assigned to a separate change, or excluded with a
+  concrete reason before broad closure is restored.
 - Runtime gateway adoption: when the claim says FlowGuard protects production
   state mutation, every critical state surface has complete writer inventory,
   gateway ownership, mediated write observations, and current step, boundary,
@@ -75,7 +81,8 @@ Use the gates that match the claim:
 - Evidence freshness: later edits, peer writes, adapter changes, generated
   artifacts, and long-running checks have not made earlier evidence stale.
 - Risk Evidence Ledger: user risks connect to model obligations, optional code
-  contracts, defect-family gates, split gates, and current proof evidence.
+  contracts, obligation-family gates, analogous defect scans, defect-family
+  gates, split gates, and current proof evidence.
 - Typed claim chain: broad claims consume the right support type instead of
   promoting plan-only, model-only, or test-only evidence into production
   confidence.
@@ -89,8 +96,9 @@ FlowGuard evidence. Do not say FlowGuard is complete for that claim.
 
 If a later runtime, test, replay, log, or manual validation failure appears
 after a green FlowGuard result, treat it as a closure-contract miss until
-Model-Miss Review, same-class evidence, alignment, model maturation, freshness,
-ledger, and claim-chain evidence have been repaired.
+Model-Miss Review, same-class evidence, family parity, analogous defect scan,
+alignment, model maturation, freshness, ledger, and claim-chain evidence have
+been repaired.
 
 ## What This Does Not Mean
 

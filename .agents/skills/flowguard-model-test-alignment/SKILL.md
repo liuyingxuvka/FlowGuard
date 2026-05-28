@@ -25,6 +25,10 @@ mostly core modeling rather than alignment.
 - Recurring or high-risk same-class families are not closed by this route
   alone. Feed the aligned evidence to `review_defect_family_gates(...)` and the
   Risk Evidence Ledger when family-level confidence is required.
+- When related obligations are claimed as one family, require
+  `ObligationFamily` and `ObligationFamilyEvidence` rows. Missing sibling
+  mechanism coverage, wrong provenance, stale evidence, non-passing evidence,
+  or internal-only evidence must block or scope the family-level claim.
 - If DevelopmentProcessFlow classifies a validation failure as model-test mismatch,
   this skill owns the obligation, optional code-contract, and test
   evidence comparison before alignment is claimed.
@@ -81,30 +85,32 @@ mostly core modeling rather than alignment.
    regression and which row is the same-class generalized evidence. Treat
    overclaimed, stale, skipped, or internal-path-only rows as blockers rather
    than closure evidence.
-7. When Python source and tests are available, use the conservative source/test
+7. When sibling obligations share a confidence claim, add obligation-family
+   parity rows and evidence provenance before the alignment review.
+8. When Python source and tests are available, use the conservative source/test
    audit helpers before the alignment review.
-8. Run or update the relevant tests, then call or template
+9. Run or update the relevant tests, then call or template
    `review_model_test_alignment(...)`.
-9. For DevelopmentProcessFlow `model_test_mismatch` handoffs, keep the failed
+10. For DevelopmentProcessFlow `model_test_mismatch` handoffs, keep the failed
    validation visible until required obligations, optional code contracts, and
    current test evidence have been compared.
-10. If same-class coverage is too large, slow, layered, stale-prone,
+11. If same-class coverage is too large, slow, layered, stale-prone,
    background, or release-only, hand the validation hierarchy to TestMesh and
    consume its current evidence ids rather than expanding this route into a
    parent/child suite graph.
-11. If duplicate evidence maps to duplicate implementation paths, hand the
+12. If duplicate evidence maps to duplicate implementation paths, hand the
    obligation/code-contract snapshot to Architecture Reduction before deciding
    whether to keep all paths.
-12. Inspect missing, stale, unknown, overclaimed, incomplete leaf-matrix, or boundary-crossing coverage.
+13. Inspect missing, stale, unknown, overclaimed, incomplete leaf-matrix, wrong-provenance family, or boundary-crossing coverage.
     Fix the model, code contracts, boundary observations, tests, or evidence
     rows before claiming alignment.
-13. Feed model-too-coarse, missing-obligation, stale, boundary-mismatch, or
+14. Feed model-too-coarse, missing-obligation, stale, boundary-mismatch, or
     duplicate-primary-edge findings to `review_model_maturation_loop(...)`.
-14. For broad confidence claims, pass the alignment report through Risk
+15. For broad confidence claims, pass the alignment report through Risk
     Evidence Ledger and `review_flowguard_claim_chain(...)`; do not let
     alignment evidence stand in for plan completeness, runtime replay, or
     production confidence.
-15. For non-trivial alignment reviews, default to a user-facing Mermaid coverage
+16. For non-trivial alignment reviews, default to a user-facing Mermaid coverage
    diagram showing model obligations, optional code contracts, test evidence,
    code-boundary observations, and missing/stale/overclaimed/boundary-crossing
    gaps. Its edges mean covers, partially covers, observes boundary, misses, or
@@ -115,6 +121,8 @@ mostly core modeling rather than alignment.
 ## Owned Helpers
 
 - `review_model_test_alignment(...)`
+- `review_obligation_family_parity(...)`
+- `derive_same_class_bad_cases(...)`
 - `review_code_boundary_conformance(...)`
 - `audit_python_code_contracts(...)`
 - `audit_python_test_assertions(...)`

@@ -149,6 +149,16 @@ class RiskEvidenceRow:
     test_split_gate_current: bool = True
     test_split_gate_confidence: str = RISK_CONFIDENCE_FULL
     test_split_scoped_reasons: tuple[str, ...] = ()
+    family_gate_id: str = ""
+    family_gate_required: bool = False
+    family_gate_current: bool = True
+    family_gate_confidence: str = RISK_CONFIDENCE_FULL
+    family_gate_scoped_reasons: tuple[str, ...] = ()
+    analogous_scan_id: str = ""
+    analogous_scan_required: bool = False
+    analogous_scan_current: bool = True
+    analogous_scan_confidence: str = RISK_CONFIDENCE_FULL
+    analogous_scan_scoped_reasons: tuple[str, ...] = ()
     overclaims_full_confidence: bool = False
     next_actions: tuple[str, ...] = ()
 
@@ -168,6 +178,12 @@ class RiskEvidenceRow:
         object.__setattr__(self, "test_split_gate_id", str(self.test_split_gate_id))
         object.__setattr__(self, "test_split_gate_confidence", str(self.test_split_gate_confidence))
         object.__setattr__(self, "test_split_scoped_reasons", _as_tuple(self.test_split_scoped_reasons))
+        object.__setattr__(self, "family_gate_id", str(self.family_gate_id))
+        object.__setattr__(self, "family_gate_confidence", str(self.family_gate_confidence))
+        object.__setattr__(self, "family_gate_scoped_reasons", _as_tuple(self.family_gate_scoped_reasons))
+        object.__setattr__(self, "analogous_scan_id", str(self.analogous_scan_id))
+        object.__setattr__(self, "analogous_scan_confidence", str(self.analogous_scan_confidence))
+        object.__setattr__(self, "analogous_scan_scoped_reasons", _as_tuple(self.analogous_scan_scoped_reasons))
         object.__setattr__(self, "next_actions", _as_tuple(self.next_actions))
 
     def to_dict(self) -> dict[str, Any]:
@@ -199,6 +215,16 @@ class RiskEvidenceRow:
             "test_split_gate_current": self.test_split_gate_current,
             "test_split_gate_confidence": self.test_split_gate_confidence,
             "test_split_scoped_reasons": list(self.test_split_scoped_reasons),
+            "family_gate_id": self.family_gate_id,
+            "family_gate_required": self.family_gate_required,
+            "family_gate_current": self.family_gate_current,
+            "family_gate_confidence": self.family_gate_confidence,
+            "family_gate_scoped_reasons": list(self.family_gate_scoped_reasons),
+            "analogous_scan_id": self.analogous_scan_id,
+            "analogous_scan_required": self.analogous_scan_required,
+            "analogous_scan_current": self.analogous_scan_current,
+            "analogous_scan_confidence": self.analogous_scan_confidence,
+            "analogous_scan_scoped_reasons": list(self.analogous_scan_scoped_reasons),
             "overclaims_full_confidence": self.overclaims_full_confidence,
             "next_actions": list(self.next_actions),
         }
@@ -355,6 +381,12 @@ def _decision_for(findings: Sequence[RiskEvidenceFinding]) -> tuple[str, str, bo
         "missing_defect_family_gate",
         "defect_family_gate_not_current",
         "defect_family_gate_blocked",
+        "missing_family_gate",
+        "family_gate_not_current",
+        "family_gate_blocked",
+        "missing_analogous_scan",
+        "analogous_scan_not_current",
+        "analogous_scan_blocked",
         "missing_model_split_gate",
         "model_split_gate_not_current",
         "model_split_gate_blocked",
@@ -369,6 +401,8 @@ def _decision_for(findings: Sequence[RiskEvidenceFinding]) -> tuple[str, str, bo
         "missing_current_passing_proof",
         "internal_path_only_evidence",
         "defect_family_gate_scoped_confidence",
+        "family_gate_scoped_confidence",
+        "analogous_scan_scoped_confidence",
         "model_split_gate_scoped_confidence",
         "test_split_gate_scoped_confidence",
         "proof_overclaims_full_confidence",
@@ -498,6 +532,124 @@ def review_risk_evidence_ledger(plan: RiskEvidenceLedgerPlan) -> RiskEvidenceLed
                     metadata={
                         "defect_family_id": row.defect_family_id,
                         "defect_family_scoped_reasons": list(row.defect_family_scoped_reasons),
+                    },
+                )
+            )
+
+        if row.family_gate_required and not row.family_gate_id:
+            findings.append(
+                _finding(
+                    "missing_family_gate",
+                    "required risk has no obligation-family parity gate owner",
+                    risk_id=row.risk_id,
+                )
+            )
+
+        if row.family_gate_required and row.family_gate_id and not row.family_gate_current:
+            findings.append(
+                _finding(
+                    "family_gate_not_current",
+                    "required obligation-family parity gate evidence is stale or has not been rerun",
+                    risk_id=row.risk_id,
+                    metadata={"family_gate_id": row.family_gate_id},
+                )
+            )
+
+        if row.family_gate_required and row.family_gate_id:
+            if row.family_gate_confidence == RISK_CONFIDENCE_BLOCKED:
+                findings.append(
+                    _finding(
+                        "family_gate_blocked",
+                        "required obligation-family parity gate is blocked",
+                        risk_id=row.risk_id,
+                        metadata={"family_gate_id": row.family_gate_id},
+                    )
+                )
+            elif row.family_gate_confidence in {RISK_CONFIDENCE_SCOPED, RISK_CONFIDENCE_PARTIAL}:
+                severity = "warning" if plan.allow_scoped_confidence else "blocker"
+                findings.append(
+                    _finding(
+                        "family_gate_scoped_confidence",
+                        "obligation-family parity gate remains explicitly scoped",
+                        risk_id=row.risk_id,
+                        severity=severity,
+                        metadata={
+                            "family_gate_id": row.family_gate_id,
+                            "family_gate_confidence": row.family_gate_confidence,
+                        },
+                    )
+                )
+
+        if row.family_gate_scoped_reasons:
+            severity = "warning" if plan.allow_scoped_confidence else "blocker"
+            findings.append(
+                _finding(
+                    "family_gate_scoped_confidence",
+                    "obligation-family parity gate remains explicitly scoped",
+                    risk_id=row.risk_id,
+                    severity=severity,
+                    metadata={
+                        "family_gate_id": row.family_gate_id,
+                        "family_gate_scoped_reasons": list(row.family_gate_scoped_reasons),
+                    },
+                )
+            )
+
+        if row.analogous_scan_required and not row.analogous_scan_id:
+            findings.append(
+                _finding(
+                    "missing_analogous_scan",
+                    "required risk has no analogous defect scan owner",
+                    risk_id=row.risk_id,
+                )
+            )
+
+        if row.analogous_scan_required and row.analogous_scan_id and not row.analogous_scan_current:
+            findings.append(
+                _finding(
+                    "analogous_scan_not_current",
+                    "required analogous defect scan evidence is stale or has not been rerun",
+                    risk_id=row.risk_id,
+                    metadata={"analogous_scan_id": row.analogous_scan_id},
+                )
+            )
+
+        if row.analogous_scan_required and row.analogous_scan_id:
+            if row.analogous_scan_confidence == RISK_CONFIDENCE_BLOCKED:
+                findings.append(
+                    _finding(
+                        "analogous_scan_blocked",
+                        "required analogous defect scan is blocked",
+                        risk_id=row.risk_id,
+                        metadata={"analogous_scan_id": row.analogous_scan_id},
+                    )
+                )
+            elif row.analogous_scan_confidence in {RISK_CONFIDENCE_SCOPED, RISK_CONFIDENCE_PARTIAL}:
+                severity = "warning" if plan.allow_scoped_confidence else "blocker"
+                findings.append(
+                    _finding(
+                        "analogous_scan_scoped_confidence",
+                        "analogous defect scan remains explicitly scoped",
+                        risk_id=row.risk_id,
+                        severity=severity,
+                        metadata={
+                            "analogous_scan_id": row.analogous_scan_id,
+                            "analogous_scan_confidence": row.analogous_scan_confidence,
+                        },
+                    )
+                )
+
+        if row.analogous_scan_scoped_reasons:
+            severity = "warning" if plan.allow_scoped_confidence else "blocker"
+            findings.append(
+                _finding(
+                    "analogous_scan_scoped_confidence",
+                    "analogous defect scan remains explicitly scoped",
+                    risk_id=row.risk_id,
+                    severity=severity,
+                    metadata={
+                        "analogous_scan_id": row.analogous_scan_id,
+                        "analogous_scan_scoped_reasons": list(row.analogous_scan_scoped_reasons),
                     },
                 )
             )

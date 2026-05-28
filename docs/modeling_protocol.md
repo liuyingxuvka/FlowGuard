@@ -74,9 +74,11 @@ Before changing files, separate three situations:
   production-confidence claim is being made from FlowGuard evidence. Treat the
   closure chain as intrinsic to FlowGuard use, not as a mode: required
   plan/risk intake, model ownership, same-class miss evidence when relevant,
-  model-test/code alignment, mesh or boundary proof when relevant, evidence
-  freshness, Risk Evidence Ledger, and typed claim-chain support must be
-  current or the claim stays partial/scoped.
+  obligation-family parity when related obligations share a confidence claim,
+  analogous defect scan when a post-green miss exposes a reusable failure
+  shape, model-test/code alignment, mesh or boundary proof when relevant,
+  evidence freshness, Risk Evidence Ledger, and typed claim-chain support must
+  be current or the claim stays partial/scoped.
 
 If real FlowGuard is importable but a current `.flowguard` Python model still
 claims `flowguard_package_available = False`, uses a fallback explorer, or
@@ -146,6 +148,13 @@ internal-path-only tests, model-code-test binding mismatches,
 stale/non-passing evidence, missing required test kinds, and overclaimed model
 confidence.
 
+When several obligations are being treated as one family-level promise, add
+`ObligationFamily` and `ObligationFamilyEvidence` rows. The family review blocks
+green alignment when one sibling lacks a required mechanism, when evidence is
+manual/controller-level but the family requires durable reconciliation, or when
+the family evidence is stale, non-passing, or internal-only for an external
+claim.
+
 When real Python code and tests are available, add conservative source audit
 evidence before trusting the rows. The audit should parse AST-visible source
 and test structure, generate or check code-contract evidence and
@@ -176,6 +185,11 @@ public code contract when that matters, and the proof evidence IDs that are
 current. If a same-class model miss is recurring or high risk, the row should
 also name the current defect-family gate and whether that gate is full, scoped,
 partial, or blocked.
+If the risk depends on several related obligations being equivalently covered,
+the row should also name the current obligation-family gate and whether that
+gate is full, scoped, partial, or blocked.
+If the risk follows a model miss, the row should also name the analogous defect
+scan and whether same-shape candidates are covered, scoped, or blocked.
 
 Use `review_risk_evidence_ledger(...)` to make these gaps explicit:
 
@@ -717,14 +731,19 @@ When this happens:
    generalized bad case, then run Model-Test Alignment to verify the repaired
    obligation, optional code contracts, and tests cover the same behavior. A
    single observed-bug regression test is not full closure.
+   When sibling obligations make the same family-level claim, add family parity
+   rows so every sibling has the required mechanism and allowed provenance.
+   Also run an analogous defect scan when the miss shape may recur outside the
+   observed member.
 6. If same-class coverage is large, slow, layered, background, or release-only,
    route the validation hierarchy to TestMesh and report scoped confidence
    until current child evidence exists.
 7. If the same-class miss has recurred, or if the first miss is high risk enough
    that a local point fix would overclaim full confidence, promote it to a
    defect-family gate with a model obligation, authority boundary, observed
-   failure case, same-class generalized case, historical holdout case, and
-   current proof evidence.
+   failure case, same-class generalized case, historical holdout case, current
+   family parity status and analogous scan status when related obligations are
+   in scope, and current proof evidence.
 8. Rerun the relevant model checks and confirm the old weakness plus the
    same-class case are now visible, or deliberately out of scope.
 9. Validate the repair with the refined model plus the strongest practical
@@ -742,8 +761,9 @@ When this happens:
 13. Do not use a background long-running check as closure until final artifacts
     and exit status exist; progress output is only liveness.
 14. Record `Miss type`, `Generalized case`, observed-regression test evidence,
-    same-class test evidence, Model-Test Alignment result, and any parent
-    reattachment or defect-family gate decision in the adoption log, or the
+    same-class test evidence, family parity result, analogous scan result,
+    Model-Test Alignment result, and any parent reattachment or defect-family
+    gate decision in the adoption log, or the
    reason no generalized case was added, along with rerun commands, skipped
    checks, and residual blindspots.
 

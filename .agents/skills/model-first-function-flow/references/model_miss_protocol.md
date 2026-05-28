@@ -13,6 +13,9 @@ generalized bad case. ModelMesh owns parent/child reattachment, upward boundary
 propagation, and affected sibling review when the repair changes a child model
 boundary. A fix that only proves the current instance no longer reproduces is
 not bug-class closure.
+When sibling obligations share the same family-level claim, Model-Miss Review
+also consumes obligation-family parity and an analogous defect scan before
+broad closure can be restored.
 
 ## Required Steps
 
@@ -24,28 +27,31 @@ not bug-class closure.
    evidence: scenario, invariant, replay adapter, representative trace, or
    model boundary note.
 4. Add one same-class generalized bad case when practical.
-5. Rerun the relevant model checks and confirm the old weakness is now visible,
+5. Run obligation-family parity when related obligations share the same claim,
+   then run an analogous defect scan for same-shape sibling or related-surface
+   risks.
+6. Rerun the relevant model checks and confirm the old weakness is now visible,
    or deliberately mark the generalized case out of scope.
-6. Validate the repair with the refined model plus the strongest practical
+7. Validate the repair with the refined model plus the strongest practical
    production-facing evidence.
-7. If the repair changed a child model under a parent ModelMesh, rerun the
+8. If the repair changed a child model under a parent ModelMesh, rerun the
    affected parent child-reattachment gate. The parent must consume the current
    child evidence id and confirm the child's inputs, outputs, state ownership,
    side-effect ownership, and outgoing guarantees still fit the parent flow.
-8. If the child boundary changed, keep the miss open until the affected parent
+9. If the child boundary changed, keep the miss open until the affected parent
    ModelMesh has reviewed upward propagation and any affected sibling model
    assumptions.
-9. If the miss shows that real code accepted an unmodeled input, emitted an
+10. If the miss shows that real code accepted an unmodeled input, emitted an
    extra output/error/state write/side effect, or failed a declared leaf cell,
    update the leaf boundary matrix and rerun layered proof. Do not close the
    miss with only a new ordinary test when the model boundary itself overflowed.
-10. Treat background long-running checks as liveness until final output, error,
+11. Treat background long-running checks as liveness until final output, error,
    combined log, exit, and metadata artifacts exist. Progress is not
    production-facing pass evidence.
-11. Record `Miss type`, `Generalized case`, and any parent reattachment decision
-   in adoption evidence and the Risk Evidence Ledger when a prior final claim
-   had one, or explain
-   why no generalized case was added.
+12. Record `Miss type`, `Generalized case`, family parity result, analogous
+    scan result, and any parent reattachment decision in adoption evidence and
+    the Risk Evidence Ledger when a prior final claim had one, or explain why
+    no generalized case was added.
 
 ## What Not To Add By Default
 
@@ -63,10 +69,11 @@ evidence. When the miss was repaired in a child model under a parent mesh, the
 affected parent reattachment gate, upward boundary propagation review, and
 affected sibling review must also pass or remain explicit blockers. A patch
 plus a later green runtime check or in-progress background run is not enough by
-itself.
+itself. Open same-shape must-scan candidates from an analogous defect scan also
+block full closure.
 If the prior green claim had a Risk Evidence Ledger row, mark the old proof as
-stale or overclaimed and attach the new same-class evidence before restoring
-full confidence.
+stale or overclaimed and attach the new same-class evidence, family parity, and
+analogous scan status before restoring full confidence.
 
 Layered proof misses should be mapped to the broken table before closure:
 parent coverage gap, illegal child overlap, stale child reattachment, missing

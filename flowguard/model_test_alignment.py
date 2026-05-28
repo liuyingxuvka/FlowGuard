@@ -13,6 +13,12 @@ from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
 from .export import to_jsonable
+from .obligation_family import (
+    ObligationFamily,
+    ObligationFamilyEvidence,
+    ObligationFamilyParityFinding,
+    review_obligation_family_parity,
+)
 from .proof_artifact import ProofArtifactRef, coerce_proof_artifact_ref, proof_artifact_gap_codes
 
 
@@ -639,6 +645,8 @@ class ModelTestAlignmentPlan:
     obligations: tuple[ModelObligation, ...] = ()
     code_contracts: tuple[CodeContract, ...] = ()
     test_evidence: tuple[TestEvidence, ...] = ()
+    obligation_families: tuple[ObligationFamily, ...] = ()
+    family_evidence: tuple[ObligationFamilyEvidence, ...] = ()
     boundary_contracts: tuple[CodeBoundaryContract, ...] = ()
     boundary_observations: tuple[CodeBoundaryObservation, ...] = ()
     require_code_contracts: bool = False
@@ -651,6 +659,8 @@ class ModelTestAlignmentPlan:
         object.__setattr__(self, "obligations", tuple(self.obligations))
         object.__setattr__(self, "code_contracts", tuple(self.code_contracts))
         object.__setattr__(self, "test_evidence", tuple(self.test_evidence))
+        object.__setattr__(self, "obligation_families", tuple(self.obligation_families))
+        object.__setattr__(self, "family_evidence", tuple(self.family_evidence))
         object.__setattr__(self, "boundary_contracts", tuple(self.boundary_contracts))
         object.__setattr__(self, "boundary_observations", tuple(self.boundary_observations))
 
@@ -660,6 +670,8 @@ class ModelTestAlignmentPlan:
             "obligations": [obligation.to_dict() for obligation in self.obligations],
             "code_contracts": [contract.to_dict() for contract in self.code_contracts],
             "test_evidence": [evidence.to_dict() for evidence in self.test_evidence],
+            "obligation_families": [family.to_dict() for family in self.obligation_families],
+            "family_evidence": [evidence.to_dict() for evidence in self.family_evidence],
             "boundary_contracts": [contract.to_dict() for contract in self.boundary_contracts],
             "boundary_observations": [observation.to_dict() for observation in self.boundary_observations],
             "require_code_contracts": self.require_code_contracts,
@@ -1296,6 +1308,26 @@ def _boundary_findings_as_alignment_findings(
     ]
 
 
+def _family_findings_as_alignment_findings(
+    findings: Sequence[ObligationFamilyParityFinding],
+) -> list[ModelTestAlignmentFinding]:
+    return [
+        ModelTestAlignmentFinding(
+            finding.code,
+            finding.message,
+            severity=finding.severity,
+            evidence_id=finding.evidence_id,
+            metadata={
+                "family_id": finding.family_id,
+                "member_id": finding.member_id,
+                "mechanism_id": finding.mechanism_id,
+                "family_finding": finding.to_dict(),
+            },
+        )
+        for finding in findings
+    ]
+
+
 def _obligation_index(plan: ModelTestAlignmentPlan) -> tuple[dict[str, ModelObligation], list[ModelTestAlignmentFinding]]:
     obligations_by_id: dict[str, ModelObligation] = {}
     findings: list[ModelTestAlignmentFinding] = []
@@ -1860,6 +1892,12 @@ def review_model_test_alignment(plan: ModelTestAlignmentPlan) -> ModelTestAlignm
             plan.code_contracts,
         )
         findings.extend(_boundary_findings_as_alignment_findings(boundary_report))
+    if plan.obligation_families or plan.family_evidence:
+        family_report = review_obligation_family_parity(
+            plan.obligation_families,
+            plan.family_evidence,
+        )
+        findings.extend(_family_findings_as_alignment_findings(family_report.findings))
     passing_by_obligation = _passing_evidence_by_obligation(plan, obligations_by_id)
     passing_by_code_contract = _passing_external_evidence_by_code_contract(plan, code_contracts_by_id)
     findings.extend(

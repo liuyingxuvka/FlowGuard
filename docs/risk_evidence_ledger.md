@@ -14,7 +14,7 @@ The ledger does not make FlowGuard models deeper. It connects the coarse model
 to ordinary evidence:
 
 ```text
-user risk -> model obligation -> public code contract -> defect-family gate -> current proof evidence
+user risk -> model obligation -> public code contract -> obligation-family gate -> analogous scan -> defect-family gate -> current proof evidence
 ```
 
 If any link is missing, stale, skipped, progress-only, or internal-path-only, the
@@ -41,7 +41,10 @@ whether the rows and later claim promotion were too narrow.
 - `RiskEvidenceRow`: one user-meaningful risk and the model/code/evidence IDs
   that should prove it. Rows can require a current `defect_family_id` when a
   recurring or high-risk same-class model miss family must be closed before
-  full confidence.
+  full confidence. Rows can also require a current family parity gate when a
+  risk claims several sibling obligations are equivalently covered. After a
+  model miss, rows can require a current analogous defect scan so the final
+  claim cannot ignore same-shape sibling risks.
 - `RiskEvidenceProof`: one test, replay, route report, or manual validation item.
   For full-confidence strict reviews, attach a `proof_artifact` instead of
   relying on the row's declared status alone.
@@ -80,6 +83,10 @@ plan = RiskEvidenceLedgerPlan(
             model_obligation_id="model:dedupe-submit",
             code_contract_id="api:submit_order",
             proof_evidence_ids=("test:helper-dedupe",),
+            family_gate_id="family:submit-routing",
+            family_gate_required=True,
+            analogous_scan_id="analogous:submit-routing",
+            analogous_scan_required=True,
             defect_family_id="defect-family:duplicate-submit",
             defect_family_gate_required=True,
         ),
@@ -117,7 +124,11 @@ public submit behavior.
 - `risk_evidence_scoped_confidence`: required in-scope risks pass, but an
   explicitly scoped-out row remains visible.
 - blocker findings such as `missing_model_obligation`,
-  `missing_code_contract`, `missing_defect_family_gate`,
+  `missing_code_contract`, `missing_family_gate`,
+  `family_gate_not_current`, `family_gate_blocked`,
+  `missing_analogous_scan`, `analogous_scan_not_current`,
+  `analogous_scan_blocked`,
+  `missing_defect_family_gate`,
   `defect_family_gate_not_current`, `defect_family_gate_blocked`,
   `missing_proof_evidence`, `missing_current_passing_proof`,
   `internal_path_only_evidence`, `stale_proof_evidence`,
@@ -126,11 +137,18 @@ public submit behavior.
 - `defect_family_gate_scoped_confidence`: the recurring family gate is current
   but explicitly scoped; report scoped confidence instead of a full closure
   claim.
+- `family_gate_scoped_confidence`: the obligation-family parity gate is current
+  but only supports scoped confidence; do not upgrade the row to full
+  confidence.
+- `analogous_scan_scoped_confidence`: the same-shape defect radius scan is
+  current but explicitly scoped; do not claim the repair covered every related
+  surface.
 
 ## Route Responsibilities
 
 - Model-Test Alignment produces model obligations, optional code contracts,
-  optional code-boundary observations, and ordinary test evidence.
+  optional code-boundary observations, obligation-family parity findings, and
+  ordinary test evidence.
 - TestMesh produces child-suite evidence status, freshness, skipped/timeout
   visibility, and release/routine boundaries.
 - ModelMesh produces parent/child model evidence and reattachment status.

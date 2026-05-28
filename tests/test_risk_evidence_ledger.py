@@ -211,6 +211,108 @@ class RiskEvidenceLedgerTests(unittest.TestCase):
         self.assertEqual(RISK_CONFIDENCE_SCOPED, report.confidence)
         self.assertIn("defect_family_gate_scoped_confidence", finding_codes(report))
 
+    def test_required_family_gate_must_be_named_and_current(self):
+        missing = review_risk_evidence_ledger(plan(rows=(row(family_gate_required=True),)))
+        self.assertFalse(missing.ok)
+        self.assertEqual("missing_family_gate", missing.decision)
+
+        stale = review_risk_evidence_ledger(
+            plan(
+                rows=(
+                    row(
+                        family_gate_required=True,
+                        family_gate_id="family:packet-result",
+                        family_gate_current=False,
+                    ),
+                )
+            )
+        )
+        self.assertFalse(stale.ok)
+        self.assertEqual("family_gate_not_current", stale.decision)
+
+        blocked = review_risk_evidence_ledger(
+            plan(
+                rows=(
+                    row(
+                        family_gate_required=True,
+                        family_gate_id="family:packet-result",
+                        family_gate_confidence=RISK_CONFIDENCE_BLOCKED,
+                    ),
+                )
+            )
+        )
+        self.assertFalse(blocked.ok)
+        self.assertEqual("family_gate_blocked", blocked.decision)
+
+    def test_scoped_family_gate_downgrades_final_confidence(self):
+        report = review_risk_evidence_ledger(
+            plan(
+                rows=(
+                    row(
+                        family_gate_required=True,
+                        family_gate_id="family:packet-result",
+                        family_gate_scoped_reasons=("research sibling evidence deferred",),
+                    ),
+                )
+            )
+        )
+
+        self.assertTrue(report.ok)
+        self.assertEqual(RISK_LEDGER_DECISION_SCOPED, report.decision)
+        self.assertEqual(RISK_CONFIDENCE_SCOPED, report.confidence)
+        self.assertIn("family_gate_scoped_confidence", finding_codes(report))
+
+    def test_required_analogous_scan_must_be_named_current_and_unblocked(self):
+        missing = review_risk_evidence_ledger(plan(rows=(row(analogous_scan_required=True),)))
+        self.assertFalse(missing.ok)
+        self.assertEqual("missing_analogous_scan", missing.decision)
+
+        stale = review_risk_evidence_ledger(
+            plan(
+                rows=(
+                    row(
+                        analogous_scan_required=True,
+                        analogous_scan_id="analogous:packet-result",
+                        analogous_scan_current=False,
+                    ),
+                )
+            )
+        )
+        self.assertFalse(stale.ok)
+        self.assertEqual("analogous_scan_not_current", stale.decision)
+
+        blocked = review_risk_evidence_ledger(
+            plan(
+                rows=(
+                    row(
+                        analogous_scan_required=True,
+                        analogous_scan_id="analogous:packet-result",
+                        analogous_scan_confidence=RISK_CONFIDENCE_BLOCKED,
+                    ),
+                )
+            )
+        )
+        self.assertFalse(blocked.ok)
+        self.assertEqual("analogous_scan_blocked", blocked.decision)
+
+    def test_scoped_analogous_scan_downgrades_final_confidence(self):
+        report = review_risk_evidence_ledger(
+            plan(
+                rows=(
+                    row(
+                        analogous_scan_required=True,
+                        analogous_scan_id="analogous:packet-result",
+                        analogous_scan_scoped_reasons=("secondary radius tracked separately",),
+                    ),
+                )
+            )
+        )
+
+        self.assertTrue(report.ok)
+        self.assertEqual(RISK_LEDGER_DECISION_SCOPED, report.decision)
+        self.assertEqual(RISK_CONFIDENCE_SCOPED, report.confidence)
+        self.assertIn("analogous_scan_scoped_confidence", finding_codes(report))
+
     def test_required_model_and_test_split_gates_are_final_confidence_inputs(self):
         missing = review_risk_evidence_ledger(
             plan(rows=(row(model_split_gate_required=True, test_split_gate_required=True),))

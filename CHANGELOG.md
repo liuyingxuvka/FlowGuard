@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.31.0 - 2026-05-28
+
+- Added obligation-family parity helpers so related obligations must carry
+  member-by-member mechanism evidence before a family-level confidence claim.
+- Added `ObligationFamily`, `ObligationFamilyMember`,
+  `ObligationFamilyEvidence`, `FamilyBadCaseSeed`,
+  `derive_same_class_bad_cases()`, and
+  `review_obligation_family_parity()` with provenance-aware coverage matrices.
+- Added `AnalogousDefectCandidate`,
+  `review_analogous_defect_scan()`, scan-radius constants, and disposition
+  states so post-miss reviews ask where the same failure shape may recur before
+  broad closure.
+- Integrated family parity into Model-Test Alignment and the Risk Evidence
+  Ledger, and added analogous-scan gates to the Risk Evidence Ledger, so wrong
+  provenance, missing sibling coverage, stale/non-passing family evidence,
+  open analogous candidates, and scoped gates cannot be silently promoted to
+  full confidence.
+- Updated OpenSpec, README, docs, skill guidance, and focused tests for the
+  new generic FlowGuard gate. Schema remains `1.0`; runtime dependencies
+  remain Python standard library only.
+
 ## v0.30.0 - 2026-05-28
 
 - Added executable Closure Contract review helpers so broad done, release,

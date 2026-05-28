@@ -40,7 +40,7 @@ skills, helper APIs, ledgers, meshes, and framework suites as escalation paths,
 not default reading for every task.
 
 This is only the entry path. Complete FlowGuard use requires the FlowGuard
-closure contract for the claim: current intake, model ownership, same-class miss evidence, alignment, mesh/boundary proof, model maturation, freshness, Risk Evidence Ledger, and claim-chain support, or the result is partial/scoped.
+closure contract for the claim: current intake, model ownership, same-class miss evidence, obligation-family parity when related obligations share a claim, analogous defect scan when a post-green miss exposes a reusable failure shape, alignment, mesh/boundary proof, model maturation, freshness, Risk Evidence Ledger, and claim-chain support, or the result is partial/scoped.
 
 Use FlowGuard when work may affect behavior, workflow state, retries,
 deduplication, caching, side effects, module boundaries, data flow, production

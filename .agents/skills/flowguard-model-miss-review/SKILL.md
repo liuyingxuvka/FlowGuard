@@ -32,6 +32,11 @@ multiple FlowGuard routes.
   gate before closure. This is FlowGuard evidence inside the existing
   Model-Miss/Risk Evidence Ledger chain, not a new downstream-app-owned skill
   or product-specific closure route.
+- If sibling obligations make the same family-level claim, run obligation-family
+  parity so a sibling with only manual or controller-level evidence cannot be
+  treated like one with durable or external proof.
+- Run an analogous defect scan for same-shape sibling or related-surface risks
+  after a post-green miss; unreviewed must-scan candidates block full closure.
 - If a repair creates or prefers a new route while the old route can still
   execute, closure requires a legacy path disposition: deleted, blocked,
   delegated to a repaired contract, same-contract repaired, or explicitly out
@@ -70,36 +75,44 @@ multiple FlowGuard routes.
 5. Add or identify test evidence for both the observed regression and the
    same-class generalized bad case. Use Model-Test Alignment to prove those
    rows cover the repaired model obligation before full closure.
-6. If the same-class test space is large, slow, layered, background, or
+6. If the repaired obligation belongs to a family of sibling obligations, add
+   family parity evidence and provenance for every required mechanism.
+7. Run an analogous defect scan for same-family siblings and caller-supplied
+   related surfaces, then disposition each candidate as covered, repair-now,
+   model-upgrade-needed, separate-change, or excluded with a reason.
+8. If the same-class test space is large, slow, layered, background, or
    release-only, route the validation hierarchy to TestMesh and report scoped
    confidence until current TestMesh evidence exists.
-7. If the same-class miss is recurring or high risk, create or update a
+9. If the same-class miss is recurring or high risk, create or update a
    defect-family gate with a model obligation, authority boundary, observed
    failure, same-class generalized case, historical holdout, and current proof
    evidence.
-8. If an old route remains present, record its legacy path disposition and
+10. If an old route remains present, record its legacy path disposition and
    attach proof for delegated or same-contract repaired outcomes.
-9. If the failure shows real code accepted an unexpected input or emitted an
+11. If the failure shows real code accepted an unexpected input or emitted an
    undeclared output, state write, side effect, or error path, add
    code-boundary observations through Model-Test Alignment.
-10. Rerun the model, same-class tests, and production-facing validation.
-11. If a repaired child model is part of a parent mesh, rerun the affected
+12. Rerun the model, same-class tests, family parity gate, analogous scan, and
+    production-facing validation.
+13. If a repaired child model is part of a parent mesh, rerun the affected
    parent ModelMesh reattachment gate.
-12. If the miss exposes a missing or overflowing leaf boundary cell, update the
+14. If the miss exposes a missing or overflowing leaf boundary cell, update the
     leaf boundary matrix and rerun layered proof before parent confidence.
-13. Run `review_model_maturation_loop(...)` before closure and resolve or scope
+15. Run `review_model_maturation_loop(...)` before closure and resolve or scope
     any model-upgrade action it reports.
-14. Close only when the corrected model catches the bad case and the relevant
+16. Close only when the corrected model catches the bad case and the relevant
     runtime/test/replay evidence is current, including same-class test evidence
-    for in-scope repairs and current defect-family gate evidence when required.
-15. Update the Risk Evidence Ledger row that the old green claim overcovered:
+    for in-scope repairs, current family parity when sibling obligations are in
+    scope, current analogous scan when same-shape risks are in scope, and
+    current defect-family gate evidence when required.
+17. Update the Risk Evidence Ledger row that the old green claim overcovered:
     record the prior evidence as overclaimed or stale, then attach the new
-    same-class bad-case evidence and defect-family gate status before restoring
-    full confidence.
-16. When the miss exposes plan-intake, adapter-conformance, stale-evidence, or
+    same-class bad-case evidence, family parity status, analogous scan status,
+    and defect-family gate status before restoring full confidence.
+18. When the miss exposes plan-intake, adapter-conformance, stale-evidence, or
     claim-scope causes, record the false-negative backpropagation case and make
     the final claim consume that case through `review_flowguard_claim_chain(...)`.
-17. For non-trivial misses, default to a user-facing Mermaid miss-repair diagram
+19. For non-trivial misses, default to a user-facing Mermaid miss-repair diagram
    showing the prior green claim, observed failure, miss classification, model
    repair, same-class generalized bad case, observed-regression test,
    same-class test evidence, alignment rerun, and remaining validation

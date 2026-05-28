@@ -18,9 +18,11 @@ standalone satellite skills.
 - distinction between agent sub-protocols and package helper APIs.
 - the FlowGuard closure contract: complete FlowGuard use is not a mode, and a
   full done/release/publish/production-confidence claim requires current
-  intake, model ownership, same-class miss evidence when relevant, alignment,
-  mesh/boundary proof when relevant, model maturation, freshness, ledger, and
-  claim-chain support.
+  intake, model ownership, same-class miss evidence when relevant,
+  obligation-family parity when related obligations share a claim, analogous
+  defect scan when a post-green miss exposes a reusable failure shape,
+  alignment, mesh/boundary proof when relevant, model maturation, freshness,
+  ledger, and claim-chain support.
 
 ## Standalone Satellite Skills
 
@@ -50,14 +52,14 @@ to the kernel instead of taking ownership of unclear work.
 | `core_modeling` | Risk Intent, state write inventory, function blocks, invariants, Explorer, CheckPlan |
 | `architecture_reduction` | behavior-preserving code contraction candidates, observable architecture contracts, and target StructureMesh handoff |
 | `ui_flow_structure` | UI interaction model, app-level journey coverage, implemented/runnable UI click-through evidence alignment, reachable visible-control branches, state/control/event/display transitions, parent/child UI topology, menu levels, overlays, stable placements, UI text hierarchy blueprint, and intentional redundancy |
-| `model_test_alignment` | direct comparison of model obligations, optional code contracts, code-boundary observations, and ordinary test evidence |
+| `model_test_alignment` | direct comparison of model obligations, optional code contracts, code-boundary observations, obligation-family parity, and ordinary test evidence |
 | `model_maturation_loop` | converts post-code, post-miss, alignment, mesh, boundary, and freshness signals into model-upgrade or scoped-claim decisions |
-| `risk_evidence_ledger` | final risk-to-model-to-code-to-evidence confidence boundary for done/release/publish/full-confidence claims |
+| `risk_evidence_ledger` | final risk-to-model-to-code-to-family-gates-to-evidence confidence boundary for done/release/publish/full-confidence claims |
 | `model_mesh_maintenance` | parent/child model hierarchy, child reattachment, whole-flow mesh closure, and oversized-model governance |
 | `test_mesh_maintenance` | parent/child test hierarchy plus validation evidence |
 | `structure_mesh_maintenance` | parent/child script/module structure split evidence |
 | `development_process_flow` | non-trivial staged development or modification, lifecycle ordering, artifact overwrite, evidence freshness, and minimum revalidation |
-| `model_miss_review` | post-runtime model miss classification, current bug instance handling, and same-class bug responsibility closure |
+| `model_miss_review` | post-runtime model miss classification, current bug instance handling, same-class bug responsibility, and analogous defect scan closure |
 | `conformance_adoption` | replay, install sync, shadow workspace sync, release sync, adoption evidence |
 | `long_check_observability` | background log artifacts, liveness-only progress, and completion proof |
 | `framework_upgrade` | FlowGuard self-upgrades and broad capability claims |
@@ -69,6 +71,7 @@ These are package helpers:
 - `RiskIntent`, `RiskProfile`, `FlowGuardCheckPlan`;
 - property factories and packs;
 - `review_model_test_alignment()` and `review_code_boundary_conformance()`;
+- `review_obligation_family_parity()` and `review_analogous_defect_scan()`;
 - `review_model_maturation_loop()` for post-evidence model upgrade decisions;
 - `review_risk_evidence_ledger()` and risk evidence ledger rows;
 - `review_hierarchical_mesh()`, `review_mesh_closure_model()`,

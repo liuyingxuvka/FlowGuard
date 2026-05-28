@@ -116,6 +116,15 @@ Modeling helpers reduce boilerplate around common bug classes:
   proof, primary `edge_path` proof, supporting contract evidence, integration
   smoke evidence, exact leaf matrix-cell evidence, and model-miss closure roles
   such as observed regression versus same-class generalized evidence.
+- optional obligation-family parity helpers such as `ObligationFamily`,
+  `ObligationFamilyMember`, `ObligationFamilyEvidence`,
+  `FamilyBadCaseSeed`, `derive_same_class_bad_cases()`, and
+  `review_obligation_family_parity()` for checking that related obligations
+  have the same required mechanism coverage from allowed provenance sources
+  before a family-level claim is promoted to full confidence. For bug-repair
+  workflows, `AnalogousDefectCandidate` and
+  `review_analogous_defect_scan()` record where the same failure shape might
+  recur before broad closure is claimed.
 - optional model maturation helpers such as `ModelMaturationSignal`,
   `ModelMaturationPlan`, `ModelMaturationReport`, and
   `review_model_maturation_loop()` for turning model-miss, model-test,
@@ -208,8 +217,9 @@ Reporting helpers help an AI agent explain what was checked and what was not:
 - `RiskEvidenceRow`, `RiskEvidenceProof`, `RiskEvidenceLedgerPlan`,
   `RiskEvidenceLedgerReport`, and `review_risk_evidence_ledger()` for the final
   confidence ledger that connects user risks to FlowGuard model obligations,
-  optional public code contracts, recurring defect-family gates, model/test
-  split gates, and current proof evidence
+  optional public code contracts, obligation-family gates, analogous defect
+  scans, recurring defect-family gates, model/test split gates, and current
+  proof evidence
 - `ProofArtifactRef`, `proof_artifact_gap_codes()`, and proof-artifact status
   constants for binding declared evidence rows to concrete result paths,
   fingerprints, exit status, current route evidence, obligation coverage, and
@@ -303,7 +313,12 @@ an internal path. When real Python source and tests are available, use
 `audit_python_code_contracts()`, `audit_python_test_assertions()`, and
 `review_python_contract_source_audit()` to check whether the declared code
 contracts and test evidence are supported by AST-visible code and assertions
-before trusting the three-way claim. When a code contract is supposed to be a
+before trusting the three-way claim. When related obligations are being treated
+as one family-level promise, add `ObligationFamily` and
+`ObligationFamilyEvidence` rows so missing sibling mechanisms or wrong
+provenance keep the alignment report scoped or blocked. When a post-green bug
+shows a reusable failure shape, run `review_analogous_defect_scan()` and feed
+that scan status into the final ledger before claiming full closure. When a code contract is supposed to be a
 closed boundary, add `CodeBoundaryContract` and `CodeBoundaryObservation` rows
 and run `review_code_boundary_conformance()` so forbidden inputs, unknown
 accepted inputs, extra outputs, extra errors, extra state writes, and extra

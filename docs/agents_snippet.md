@@ -44,9 +44,11 @@ not default reading for every FlowGuard task.
 This path is only the entry shape. Complete FlowGuard use requires the
 FlowGuard closure contract for the claim: required plan/risk intake, model
 ownership or new boundary, same-class miss evidence when relevant,
+obligation-family parity when related obligations share a confidence claim,
+analogous defect scan when a post-green miss exposes a reusable failure shape,
 model-test/code alignment, mesh or boundary proof when relevant, model
-maturation when later evidence says the model is too coarse, evidence freshness,
-Risk Evidence Ledger, and typed claim-chain support must be current.
+maturation when later evidence says the model is too coarse, evidence
+freshness, Risk Evidence Ledger, and typed claim-chain support must be current.
 If a required gate is missing, stale, skipped, progress-only, internal-path-only,
 release-only, or scoped out, report partial/scoped FlowGuard evidence rather
 than full FlowGuard completion.
@@ -87,7 +89,8 @@ Hard gates:
 - Before full done, release, publish, or production-confidence claims, use a
   Risk Evidence Ledger boundary to connect user risks, model obligations,
   optional code contracts, recurring defect-family gates, model/test split
-  gates, and current proof evidence.
+  gates, obligation-family gates, analogous defect scans, and current proof
+  evidence.
 - When an AI-built plan or evidence adapter feeds that claim, run the
   plan-intake and typed claim-chain helpers first: plan completeness,
   evidence-adapter conformance, false-negative backpropagation, known-bad
@@ -166,10 +169,13 @@ Use Model-Test Alignment when a model's scenarios, invariants, hazards,
 transitions, contracts, optional code external contracts, or finite code
 boundaries need direct test evidence. It compares plain `ModelObligation` rows,
 optional `CodeContract` rows, optional `CodeBoundaryContract` /
-`CodeBoundaryObservation` rows, and plain `TestEvidence` rows. Include code
+`CodeBoundaryObservation` rows, optional `ObligationFamily` /
+`ObligationFamilyEvidence` rows, and plain `TestEvidence` rows. Include code
 contracts only when an externally visible code surface is in scope. Include
 boundary observations when real code must prove it accepts only declared inputs
-and emits only declared outputs, errors, state writes, and side effects. It does not invoke TestMesh, StructureMesh, or ModelMesh, and it does not split tests,
+and emits only declared outputs, errors, state writes, and side effects. Include
+family rows when sibling obligations must all show the same required mechanism
+from allowed provenance before a family-level claim is trusted. It does not invoke TestMesh, StructureMesh, or ModelMesh, and it does not split tests,
 split code, or split models.
 
 When real Python source and tests are available for those rows, add a
@@ -184,8 +190,11 @@ Use Risk Evidence Ledger as the final claim boundary. It consumes evidence ids
 from Model-Test Alignment, TestMesh, ModelMesh, StructureMesh, UI Flow
 Structure, DevelopmentProcessFlow, conformance replay, manual validation, or
 ordinary tests, and it can also consume recurring defect-family gate status. It
-then reports whether each user-facing risk is fully supported, scoped, or
-blocked. It does not run those routes for you.
+can also consume obligation-family gate status when a risk depends on related
+obligations being equivalently covered, and analogous defect scan status when a
+post-green miss may have same-shape sibling risks. It then reports whether each
+user-facing risk is fully supported, scoped, or blocked. It does not run those
+routes for you.
 
 If a model, test, script, module, or command is becoming large, slow, or hard
 to follow, consider whether a parent/child split would make it easier to
@@ -280,6 +289,10 @@ For post-runtime model misses, classify the miss as `boundary_missing`,
 `invariant_too_weak`, or `evidence_overclaimed`; represent the observed issue
 and one same-class generalized bad case when practical; add
 observed-regression and same-class test evidence; rerun Model-Test Alignment;
+add obligation-family parity rows when sibling obligations share the same
+family-level claim;
+run an analogous defect scan when the failure shape may recur across sibling or
+related surfaces;
 run `review_model_maturation_loop(...)`; then validate with production-facing evidence. The current bug instance and
 bug-class responsibility are separate: patching the observed instance or
 testing only the observed instance is not closure until the class is represented

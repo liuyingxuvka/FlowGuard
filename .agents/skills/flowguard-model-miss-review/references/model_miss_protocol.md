@@ -25,33 +25,40 @@ not close a known model miss unless the miss has been reviewed.
    same-class validation is too large, slow, layered, stale-prone,
    background, or release-only, route that hierarchy to TestMesh and report
    scoped confidence until current child evidence exists.
-7. If the same-class miss recurs, or if a high-risk first miss would make a
+7. If sibling obligations share the same family-level claim, run
+   obligation-family parity so every sibling has required mechanism evidence
+   from allowed provenance.
+8. Run an analogous defect scan for same-family siblings and caller-supplied
+   related surfaces. Open must-scan candidates block broad closure; should-scan
+   candidates must be covered, assigned to a separate change, or excluded with
+   a concrete reason.
+9. If the same-class miss recurs, or if a high-risk first miss would make a
    local point fix overclaim full confidence, promote it to a defect-family gate
    with a model obligation, authority boundary, observed failure, same-class
    generalized case, historical holdout, and current proof evidence. The gate
    is FlowGuard evidence for the existing Model-Miss/Risk Evidence Ledger
    chain, not a new downstream app skill.
-8. Rerun the relevant model checks and confirm the old weakness is now visible,
+10. Rerun the relevant model checks and confirm the old weakness is now visible,
    or deliberately mark the generalized case out of scope.
-9. Validate the repair with the refined model plus the strongest practical
+11. Validate the repair with the refined model plus the strongest practical
    production-facing evidence.
-10. If the repair changed a child model under a parent ModelMesh, rerun the
+12. If the repair changed a child model under a parent ModelMesh, rerun the
    affected parent child-reattachment gate. The parent must consume the current
    child evidence id and confirm the child's inputs, outputs, state ownership,
    side-effect ownership, and outgoing guarantees still fit the parent flow.
-11. If the miss shows that real code accepted an unmodeled input, emitted an
+13. If the miss shows that real code accepted an unmodeled input, emitted an
     extra output/error/state write/side effect, or failed a declared leaf cell,
     update the leaf boundary matrix and rerun layered proof. Do not close the
     miss with only a new ordinary test when the model boundary itself overflowed.
-12. Run `review_model_maturation_loop(...)` over the miss classification,
+14. Run `review_model_maturation_loop(...)` over the miss classification,
     alignment result, mesh/layered proof result, code-boundary observations, and
     freshness rows. Resolve or explicitly scope any state, branch, invariant,
     same-class, obligation, child reattachment, or evidence-refresh action.
-13. Record `Miss type`, `Generalized case`, observed-regression test evidence,
-    same-class test evidence, Model-Test Alignment result, and any parent
-   reattachment or defect-family gate decision in adoption evidence and the Risk
-   Evidence Ledger when a prior final claim had one, or explain
-   why no generalized case was added.
+15. Record `Miss type`, `Generalized case`, observed-regression test evidence,
+    same-class test evidence, family parity result, analogous scan result,
+    Model-Test Alignment result, and any parent reattachment or defect-family
+    gate decision in adoption evidence and the Risk Evidence Ledger when a
+    prior final claim had one, or explain why no generalized case was added.
 
 ## What Not To Add By Default
 
@@ -72,10 +79,12 @@ also pass or remain an explicit blocker. The model maturation loop must show no
 open in-scope upgrade action for a broad claim. A patch plus a later green
 runtime check, or a patch plus one observed-bug regression test, is not enough
 by itself. A recurring or high-risk same-class miss also requires a current
-defect-family gate or an explicit scoped-confidence boundary.
+defect-family gate or an explicit scoped-confidence boundary. A same-shape
+risk radius scan with open must-scan candidates also keeps closure blocked.
 If the prior green claim had a Risk Evidence Ledger row, mark the old proof as
-stale or overclaimed and attach the new same-class evidence plus defect-family
-gate status before restoring full confidence.
+stale or overclaimed and attach the new same-class evidence, family parity,
+analogous scan status, and defect-family gate status before restoring full
+confidence.
 
 Layered proof misses should be mapped to the broken table before closure:
 parent coverage gap, illegal child overlap, stale child reattachment, missing
