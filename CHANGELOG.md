@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.30.0 - 2026-05-28
+
+- Added executable Closure Contract review helpers so broad done, release,
+  publish, and production-confidence claims can be classified as full, scoped,
+  or blocked from current route evidence.
+- Added `FlowGuardClosureContractPlan`, `ClosureEvidenceReport`,
+  `RuntimeTraceMapping`, `ArtifactInvalidation`, `ModelQualitySignal`,
+  `SameClassMissClosure`, `RuntimeGatewayInventoryClosure`, and
+  `review_flowguard_closure_contract()`.
+- Added the public `closure-contract-template` CLI/template scaffold plus
+  README, API, closure-contract docs, and archived OpenSpec coverage for the
+  final claim boundary.
+- Schema remains `1.0`; runtime dependencies remain Python standard library
+  only.
+
 ## v0.29.0 - 2026-05-28
 
 - Added Runtime Gateway Adoption helpers so projects can distinguish
