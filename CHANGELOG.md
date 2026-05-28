@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.33.0 - 2026-05-28
+
+- Added AgentWorkflowRehearsal so AI agents can take a fresh current-machine
+  skill inventory before non-trivial multi-skill work, then rehearse selected
+  skills, skipped candidate skills, ordering, continue/rework gates,
+  validation gaps, side effects, and final evidence claims before execution.
+- Added `SkillInventorySnapshot`, `SkillCapability`, `AgentWorkflowPlan`,
+  `AgentWorkflowStep`, `SkippedSkill`, `AgentWorkflowRehearsalReport`, and
+  `review_agent_workflow_rehearsal()` with pass, needs-revision, scoped, and
+  blocked outcomes.
+- Added the `flowguard-agent-workflow-rehearsal` Codex satellite skill as a
+  peer route beside the existing FlowGuard satellites, plus executable example
+  scenarios for stale snapshots, skipped required skills, wrong order, weak
+  validation, missing rework gates, overbroad claims, and trivial over-trigger.
+- Archived the project-adoption and agent-workflow OpenSpec changes into the
+  main specs. Schema remains `1.0`; runtime dependencies remain Python
+  standard library only.
+
 ## v0.32.0 - 2026-05-28
 
 - Added project adoption/version gate helpers so target repositories can carry
