@@ -25,6 +25,10 @@ coordination.
 - For model-backed code surfaces with finite inputs or outputs, recommend where
   the input gate, output mapper, error mapper, state writer, and side-effect
   observation boundary should live so tests can prove the code boundary later.
+- Recommend where runtime path node output should be emitted. Each emitted
+  node should include the FlowGuard `model_id`, `model_path`, `node_id`, run
+  id, status, and obligation/code contract so progress output is model/code
+  comparison evidence instead of anonymous logs.
 - If a target leaf model cannot get complete finite boundary-matrix tests from
   the current code shape, recommend a smaller model/code boundary before adding
   more representative tests. Structure should make the leaf matrix observable:
@@ -47,16 +51,18 @@ coordination.
 4. Recommend modules, facades, adapters, and test seams from that evidence.
 5. Recommend code-boundary observation points for model-declared external
    inputs, outputs, state writes, side effects, and error paths.
-6. Recommend which leaf boundary matrix each proposed module or facade will
+6. Recommend runtime path instrumentation points for model-owned boundaries,
+   state writes, side effects, handoffs, and claim points.
+7. Recommend which leaf boundary matrix each proposed module or facade will
    make testable, and route too-large leaves back to ModelMesh or
    StructureMesh.
-7. Identify risky dependency directions, shared state, and compatibility
+8. Identify risky dependency directions, shared state, and compatibility
    boundaries.
-8. Use `review_code_structure_recommendation(...)` where available, then use
+9. Use `review_code_structure_recommendation(...)` where available, then use
    StructureMesh only if the actual refactor is large enough to need it.
-9. Record proposed validation boundaries as future Risk Evidence Ledger proof
+10. Record proposed validation boundaries as future Risk Evidence Ledger proof
    ids; this route recommends ownership but does not prove runtime behavior.
-10. For non-trivial structure recommendations, default to a user-facing Mermaid
+11. For non-trivial structure recommendations, default to a user-facing Mermaid
    code structure diagram showing FunctionBlock-to-module mapping,
    facade/adapter boundaries, state and side-effect ownership, and validation boundaries.
    Its edges mean owns, calls, adapts, exposes, or validates; they

@@ -17,6 +17,8 @@ from flowguard import (
     TEST_KIND_FAILURE_PATH,
     TEST_KIND_HAPPY_PATH,
     ProofArtifactRef,
+    RuntimeNodeContract,
+    RuntimeNodeObservation,
     review_model_test_alignment,
 )
 
@@ -163,6 +165,83 @@ class ModelTestAlignmentTests(unittest.TestCase):
             ["checkout.submit", "checkout.reject_duplicate"],
             [item["code_contract_id"] for item in plan.to_dict()["code_contracts"]],
         )
+
+    def test_runtime_path_evidence_aligns_model_obligation_to_code_node(self):
+        plan = ModelTestAlignmentPlan(
+            model_id="checkout",
+            obligations=(
+                obligation(
+                    "accept_valid_order",
+                    required_runtime_node_ids=("validate_order",),
+                ),
+            ),
+            test_evidence=(evidence("test_accept_valid_order", "accept_valid_order"),),
+            runtime_node_observations=(
+                RuntimeNodeObservation(
+                    "obs:validate_order",
+                    "validate_order",
+                    model_id="checkout",
+                    model_path=".flowguard/checkout/model.py",
+                    model_obligation_id="accept_valid_order",
+                    code_contract_id="checkout.submit",
+                    observed_output="accepted",
+                ),
+            ),
+            require_runtime_path_evidence=True,
+        )
+
+        report = review_model_test_alignment(plan)
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual(
+            ".flowguard/checkout/model.py",
+            plan.to_dict()["runtime_node_observations"][0]["model_path"],
+        )
+
+    def test_missing_runtime_path_evidence_blocks_model_test_alignment(self):
+        plan = ModelTestAlignmentPlan(
+            model_id="checkout",
+            obligations=(
+                obligation(
+                    "accept_valid_order",
+                    required_runtime_node_ids=("validate_order",),
+                ),
+            ),
+            test_evidence=(evidence("test_accept_valid_order", "accept_valid_order"),),
+            require_runtime_path_evidence=True,
+        )
+
+        report = review_model_test_alignment(plan)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("runtime_path_alignment_failed", report.decision)
+        self.assertIn("runtime_node_missing_observation", finding_codes(report))
+
+    def test_runtime_node_contract_rows_are_consumed_directly(self):
+        plan = ModelTestAlignmentPlan(
+            model_id="checkout",
+            obligations=(obligation("accept_valid_order"),),
+            test_evidence=(evidence("test_accept_valid_order", "accept_valid_order"),),
+            runtime_node_contracts=(
+                RuntimeNodeContract(
+                    "validate_order",
+                    model_id="checkout",
+                    model_obligation_id="accept_valid_order",
+                ),
+            ),
+            runtime_node_observations=(
+                RuntimeNodeObservation(
+                    "obs:validate_order",
+                    "validate_order",
+                    model_id="checkout",
+                    model_obligation_id="accept_valid_order",
+                ),
+            ),
+        )
+
+        report = review_model_test_alignment(plan)
+
+        self.assertTrue(report.ok, report.format_text())
 
     def test_obligation_family_parity_blocks_alignment_overclaim(self):
         plan = ModelTestAlignmentPlan(

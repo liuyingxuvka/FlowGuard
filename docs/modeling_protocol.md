@@ -303,6 +303,12 @@ current child evidence id, and every leaf model must have a complete finite
 observations. If a leaf cannot be fully covered, split it into a lower model
 instead of treating a coarse internal test as enough.
 
+When code progress output is used as model/code evidence, emit runtime path
+observations that name the FlowGuard `model_id`, `model_path`, `node_id`, run
+id, status, and obligation or code contract. Anonymous progress logs do not
+prove model alignment; use runtime path evidence rows so another AI can find
+the model being compared.
+
 Keep the current bug instance separate from the bug class. Model-Miss Review
 owns classification and same-class representation or out-of-scope recording;
 ModelMesh owns child-boundary propagation upward and affected sibling review

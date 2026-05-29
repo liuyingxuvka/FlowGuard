@@ -41,6 +41,10 @@ or when it is unclear whether a mesh is needed.
 - A repaired child model is not parent-green until the parent consumes its
   current evidence id and its input/output/state/side-effect contract still
   reattaches to the parent flow.
+- When a child has runtime path evidence, parent reattachment must consume the
+  child's current `runtime_path_evidence_ids`; otherwise parent confidence may
+  know the child model is green but not that the real-code path evidence is
+  current.
 - If a child model owns a real code surface with finite inputs or outputs,
   parent confidence must consume current code-boundary conformance evidence or
   explicitly mark that runtime boundary as out of scope.
@@ -80,7 +84,8 @@ or when it is unclear whether a mesh is needed.
    and required hazards.
 5. For repaired child models, record the parent reattachment contract: expected
    inputs, outputs, state ownership, side-effect ownership, outgoing guarantees,
-   and consumed child evidence id.
+   consumed child evidence id, and consumed runtime path evidence ids when the
+   child emits real-code path evidence.
 6. When parent confidence depends on child contracts, run or prepare
    `review_layered_boundary_proof(...)` with parent coverage, child
    disjointness, reattachment, and leaf boundary matrix rows.
@@ -102,8 +107,8 @@ or when it is unclear whether a mesh is needed.
     before consuming them as evidence.
 13. Run child checks first, then parent review through hierarchical mesh
     helpers.
-14. Record which child evidence ids the parent consumed and which are stale,
-    skipped, or release-only.
+14. Record which child evidence ids and runtime path evidence ids the parent
+    consumed and which are stale, skipped, or release-only.
 15. Feed consumed child evidence ids and stale/skipped/release-only gaps to the
     Risk Evidence Ledger before a broad final confidence claim.
 16. For non-trivial meshes, default to a user-facing Mermaid mesh diagram

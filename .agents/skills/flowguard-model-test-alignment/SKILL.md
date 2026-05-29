@@ -38,6 +38,10 @@ mostly core modeling rather than alignment.
   code-boundary observations for allowed input cases, rejected input cases, and
   observed outputs/state writes/side effects/error paths before claiming the
   real code conforms to that boundary.
+- If real-code progress is used as evidence, require runtime path rows that
+  name the compared FlowGuard `model_id`, `model_path`, `node_id`, run id,
+  status, and obligation/code contract. Anonymous progress logs are not
+  alignment evidence.
 - If the code surface belongs to a leaf model, require boundary-matrix evidence
   for every finite `Input x State` cell before claiming the leaf can support a
   parent model. If the matrix is too large, route to ModelMesh for a lower-level
@@ -75,10 +79,14 @@ mostly core modeling rather than alignment.
    scope.
 3. Add code-boundary contracts and runtime observations when a code surface
    must be closed around finite inputs and outputs.
-4. For leaf models, build a boundary matrix that maps each allowed input/state
+4. Add `RuntimeNodeContract`, `RuntimeNodeObservation`, or recorder-produced
+   `RuntimePathRun` rows when the real code path must be compared to modeled
+   nodes. Use `RuntimeNodeObservation.format_progress_line()` for progress
+   output so another AI can locate the corresponding FlowGuard model.
+5. For leaf models, build a boundary matrix that maps each allowed input/state
    cell to observed outputs, next states, state writes, side effects, error
    paths, and exact evidence ids.
-5. Collect ordinary test evidence rows; include exact test ids and covered
+6. Collect ordinary test evidence rows; include exact test ids and covered
    obligation ids. Mark each row as primary boundary evidence, leaf matrix-cell
    evidence, supporting contract evidence, or integration smoke evidence.
    For strict confidence, attach the current proof artifact produced by the
@@ -130,6 +138,7 @@ mostly core modeling rather than alignment.
 - `audit_python_test_assertions(...)`
 - `review_python_contract_source_audit(...)`
 - `python -m flowguard model-test-alignment-template --output .`
+- `python -m flowguard runtime-path-evidence-template --output .`
 
 ## Non-Goals
 

@@ -29,6 +29,7 @@ CLOSURE_REPORT_RISK_LEDGER = "risk_evidence_ledger"
 CLOSURE_REPORT_MODEL_FRESHNESS = "model_impact_freshness"
 CLOSURE_REPORT_MODEL_MATURATION = "model_maturation"
 CLOSURE_REPORT_MODEL_TEST_ALIGNMENT = "model_test_alignment"
+CLOSURE_REPORT_RUNTIME_PATH_ALIGNMENT = "runtime_path_alignment"
 CLOSURE_REPORT_DEFECT_FAMILY = "defect_family_gate"
 CLOSURE_REPORT_CONFORMANCE_REPLAY = "conformance_replay"
 
@@ -38,6 +39,7 @@ CLOSURE_REPORT_KINDS = (
     CLOSURE_REPORT_MODEL_FRESHNESS,
     CLOSURE_REPORT_MODEL_MATURATION,
     CLOSURE_REPORT_MODEL_TEST_ALIGNMENT,
+    CLOSURE_REPORT_RUNTIME_PATH_ALIGNMENT,
     CLOSURE_REPORT_DEFECT_FAMILY,
     CLOSURE_REPORT_CONFORMANCE_REPLAY,
 )
@@ -382,6 +384,7 @@ class FlowGuardClosureContractPlan:
     require_model_quality_review: bool = True
     require_same_class_miss_closure: bool = True
     require_runtime_gateway_closure: bool = True
+    require_runtime_path_alignment: bool = False
     require_risk_ledger: bool = True
     allow_scoped_confidence: bool = True
     metadata: FrozenMetadata = field(default_factory=tuple, compare=False)
@@ -403,6 +406,7 @@ class FlowGuardClosureContractPlan:
         object.__setattr__(self, "require_model_quality_review", bool(self.require_model_quality_review))
         object.__setattr__(self, "require_same_class_miss_closure", bool(self.require_same_class_miss_closure))
         object.__setattr__(self, "require_runtime_gateway_closure", bool(self.require_runtime_gateway_closure))
+        object.__setattr__(self, "require_runtime_path_alignment", bool(self.require_runtime_path_alignment))
         object.__setattr__(self, "require_risk_ledger", bool(self.require_risk_ledger))
         object.__setattr__(self, "allow_scoped_confidence", bool(self.allow_scoped_confidence))
         object.__setattr__(self, "metadata", _metadata(self.metadata))
@@ -422,6 +426,7 @@ class FlowGuardClosureContractPlan:
             "require_model_quality_review": self.require_model_quality_review,
             "require_same_class_miss_closure": self.require_same_class_miss_closure,
             "require_runtime_gateway_closure": self.require_runtime_gateway_closure,
+            "require_runtime_path_alignment": self.require_runtime_path_alignment,
             "require_risk_ledger": self.require_risk_ledger,
             "allow_scoped_confidence": self.allow_scoped_confidence,
             "metadata": to_jsonable(self.metadata),
@@ -577,6 +582,22 @@ def review_flowguard_closure_contract(
         findings.append(_finding("missing_runtime_gateway_closure", "no runtime gateway inventory closure evidence was supplied"))
     for gateway_closure in plan.runtime_gateway_closures:
         findings.extend(_review_gateway_closure(gateway_closure, reports_by_id, plan.allow_scoped_confidence))
+
+    if plan.require_runtime_path_alignment:
+        runtime_path_reports = reports_by_kind.get(CLOSURE_REPORT_RUNTIME_PATH_ALIGNMENT, [])
+        if not runtime_path_reports:
+            findings.append(_finding("missing_runtime_path_alignment", "no Runtime Path Alignment report was supplied"))
+        elif not any(report.supports_full_confidence() for report in runtime_path_reports):
+            severity = "warning" if plan.allow_scoped_confidence else "blocker"
+            findings.append(
+                _finding(
+                    "runtime_path_alignment_not_full_confidence",
+                    "Runtime Path Alignment does not support full confidence",
+                    runtime_path_reports[0].report_id,
+                    {"runtime_path_reports": [report.to_dict() for report in runtime_path_reports]},
+                    severity=severity,
+                )
+            )
 
     if plan.require_risk_ledger:
         risk_reports = reports_by_kind.get(CLOSURE_REPORT_RISK_LEDGER, [])
@@ -767,6 +788,7 @@ __all__ = [
     "CLOSURE_REPORT_MODEL_FRESHNESS",
     "CLOSURE_REPORT_MODEL_MATURATION",
     "CLOSURE_REPORT_MODEL_TEST_ALIGNMENT",
+    "CLOSURE_REPORT_RUNTIME_PATH_ALIGNMENT",
     "CLOSURE_REPORT_RISK_LEDGER",
     "CLOSURE_REPORT_RUNTIME_GATEWAY",
     "CLOSURE_RESULT_ERROR",

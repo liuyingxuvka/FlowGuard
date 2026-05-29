@@ -83,10 +83,15 @@ The review blocks runtime-gateway confidence when:
 - a critical writer observation bypasses the gateway;
 - a declared legacy bypass remains executable;
 - a write goes through a gateway that does not manage the target surface;
-- a gateway write lacks workflow step contract ids, code-boundary ids, or proof
-  artifact ids;
+- a gateway write lacks workflow step contract ids, code-boundary ids, runtime
+  node ids, or proof artifact ids;
 - a writer observation is stale, skipped, failed, timeout, not-run, running, or
   otherwise non-passing.
+
+Use `RuntimeGatewayContract.runtime_node_ids` and
+`RuntimeWriteObservation.runtime_node_ids` to bind critical state writes to the
+runtime path evidence emitted by the real code. This keeps gateway progress
+output tied to the FlowGuard model node it is supposed to prove.
 
 Declared bypasses are not silently accepted. They stay visible as blockers for
 `runtime_gateway` until the project removes or gates them.

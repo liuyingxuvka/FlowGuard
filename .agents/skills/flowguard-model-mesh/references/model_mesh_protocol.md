@@ -68,6 +68,12 @@ finite code boundary, the leaf must be small enough to prove every declared
 `Input x State -> Set(Output x State)` cell, or it must split again or remain
 scoped/blocked.
 
+If the child leaf emits runtime path evidence, the child record should list
+current runtime path evidence ids and the parent reattachment should list the
+ids it consumed. Parent confidence is stale when it only consumes the child
+model evidence id but not the current runtime path evidence for the real-code
+node path.
+
 Before a parent/child model layout supports mesh confidence, derive the target
 child model structure from a FlowGuard source model or model-of-models. The
 target split derivation should name the source model, target child model ids,

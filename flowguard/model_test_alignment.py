@@ -20,6 +20,13 @@ from .obligation_family import (
     review_obligation_family_parity,
 )
 from .proof_artifact import ProofArtifactRef, coerce_proof_artifact_ref, proof_artifact_gap_codes
+from .runtime_path import (
+    RuntimeNodeContract,
+    RuntimeNodeObservation,
+    RuntimePathAlignmentPlan,
+    RuntimePathRun,
+    review_runtime_path_alignment,
+)
 
 
 TEST_STATUS_PASSED = "passed"
@@ -187,6 +194,7 @@ class ModelObligation:
     model_miss_origin: bool = False
     requires_same_class_test_evidence: bool = False
     required_closure_evidence_roles: tuple[str, ...] = ()
+    required_runtime_node_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "obligation_id", str(self.obligation_id))
@@ -204,6 +212,7 @@ class ModelObligation:
         if self.requires_same_class_test_evidence and not closure_roles:
             closure_roles = MODEL_MISS_DEFAULT_CLOSURE_ROLES
         object.__setattr__(self, "required_closure_evidence_roles", closure_roles)
+        object.__setattr__(self, "required_runtime_node_ids", _as_tuple(self.required_runtime_node_ids))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -225,6 +234,7 @@ class ModelObligation:
             "model_miss_origin": self.model_miss_origin,
             "requires_same_class_test_evidence": self.requires_same_class_test_evidence,
             "required_closure_evidence_roles": list(self.required_closure_evidence_roles),
+            "required_runtime_node_ids": list(self.required_runtime_node_ids),
         }
 
 
@@ -649,8 +659,12 @@ class ModelTestAlignmentPlan:
     family_evidence: tuple[ObligationFamilyEvidence, ...] = ()
     boundary_contracts: tuple[CodeBoundaryContract, ...] = ()
     boundary_observations: tuple[CodeBoundaryObservation, ...] = ()
+    runtime_node_contracts: tuple[RuntimeNodeContract, ...] = ()
+    runtime_node_observations: tuple[RuntimeNodeObservation, ...] = ()
+    runtime_path_runs: tuple[RuntimePathRun, ...] = ()
     require_code_contracts: bool = False
     require_proof_artifacts: bool = False
+    require_runtime_path_evidence: bool = False
     allow_orphan_tests: bool = False
     allow_orphan_code_contracts: bool = False
 
@@ -663,6 +677,31 @@ class ModelTestAlignmentPlan:
         object.__setattr__(self, "family_evidence", tuple(self.family_evidence))
         object.__setattr__(self, "boundary_contracts", tuple(self.boundary_contracts))
         object.__setattr__(self, "boundary_observations", tuple(self.boundary_observations))
+        object.__setattr__(
+            self,
+            "runtime_node_contracts",
+            tuple(
+                item
+                if isinstance(item, RuntimeNodeContract)
+                else RuntimeNodeContract(**item)
+                for item in self.runtime_node_contracts
+            ),
+        )
+        object.__setattr__(
+            self,
+            "runtime_node_observations",
+            tuple(
+                item
+                if isinstance(item, RuntimeNodeObservation)
+                else RuntimeNodeObservation(**item)
+                for item in self.runtime_node_observations
+            ),
+        )
+        object.__setattr__(
+            self,
+            "runtime_path_runs",
+            tuple(item if isinstance(item, RuntimePathRun) else RuntimePathRun(**item) for item in self.runtime_path_runs),
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -674,8 +713,14 @@ class ModelTestAlignmentPlan:
             "family_evidence": [evidence.to_dict() for evidence in self.family_evidence],
             "boundary_contracts": [contract.to_dict() for contract in self.boundary_contracts],
             "boundary_observations": [observation.to_dict() for observation in self.boundary_observations],
+            "runtime_node_contracts": [contract.to_dict() for contract in self.runtime_node_contracts],
+            "runtime_node_observations": [
+                observation.to_dict() for observation in self.runtime_node_observations
+            ],
+            "runtime_path_runs": [run.to_dict() for run in self.runtime_path_runs],
             "require_code_contracts": self.require_code_contracts,
             "require_proof_artifacts": self.require_proof_artifacts,
+            "require_runtime_path_evidence": self.require_runtime_path_evidence,
             "allow_orphan_tests": self.allow_orphan_tests,
             "allow_orphan_code_contracts": self.allow_orphan_code_contracts,
         }
@@ -897,6 +942,14 @@ def _decision_for_findings(findings: Sequence[ModelTestAlignmentFinding]) -> str
         ("boundary_observation_not_passing", "code_boundary_conformance_failed"),
         ("boundary_observation_stale", "code_boundary_conformance_failed"),
         ("boundary_observation_internal_path_only", "code_boundary_conformance_failed"),
+        ("missing_runtime_path_contracts", "runtime_path_alignment_failed"),
+        ("runtime_node_missing_observation", "runtime_path_alignment_failed"),
+        ("runtime_node_observation_not_current_pass", "runtime_path_alignment_failed"),
+        ("runtime_node_internal_path_only", "runtime_path_alignment_failed"),
+        ("runtime_path_order_mismatch", "runtime_path_alignment_failed"),
+        ("runtime_path_missing_ordered_node", "runtime_path_alignment_failed"),
+        ("uncontracted_runtime_node_observed", "runtime_path_alignment_failed"),
+        ("missing_proof_artifact", "runtime_path_alignment_failed"),
         ("obligation_too_coarse_for_primary_evidence", "child_model_split_required"),
         ("leaf_matrix_cell_target_missing", "leaf_matrix_cell_target_required"),
         ("supporting_evidence_target_missing", "supporting_evidence_target_required"),
@@ -1305,6 +1358,61 @@ def _boundary_findings_as_alignment_findings(
             },
         )
         for finding in report.findings
+    ]
+
+
+def _runtime_path_contracts_for_plan(plan: ModelTestAlignmentPlan) -> tuple[RuntimeNodeContract, ...]:
+    contracts = list(plan.runtime_node_contracts)
+    declared = {
+        (contract.node_id, contract.model_obligation_id)
+        for contract in contracts
+    }
+    for obligation in plan.obligations:
+        for node_id in obligation.required_runtime_node_ids:
+            key = (node_id, obligation.obligation_id)
+            if key in declared:
+                continue
+            contracts.append(
+                RuntimeNodeContract(
+                    node_id=node_id,
+                    model_id=plan.model_id,
+                    model_obligation_id=obligation.obligation_id,
+                    required=True,
+                )
+            )
+            declared.add(key)
+    return tuple(contracts)
+
+
+def _runtime_path_metadata_value(
+    metadata: Mapping[str, Any],
+    key: str,
+) -> str:
+    if key in metadata:
+        return str(metadata[key])
+    contract = metadata.get("contract")
+    if isinstance(contract, Mapping) and key in contract:
+        return str(contract[key])
+    return ""
+
+
+def _runtime_path_findings_as_alignment_findings(
+    runtime_report,
+) -> list[ModelTestAlignmentFinding]:
+    return [
+        ModelTestAlignmentFinding(
+            finding.code,
+            finding.message,
+            severity=finding.severity,
+            obligation_id=_runtime_path_metadata_value(finding.metadata, "model_obligation_id"),
+            evidence_id=finding.evidence_id or finding.observation_id,
+            code_contract_id=_runtime_path_metadata_value(finding.metadata, "code_contract_id"),
+            metadata={
+                "runtime_path_report_decision": runtime_report.decision,
+                "runtime_path_finding": finding.to_dict(),
+            },
+        )
+        for finding in runtime_report.findings
     ]
 
 
@@ -1892,6 +2000,33 @@ def review_model_test_alignment(plan: ModelTestAlignmentPlan) -> ModelTestAlignm
             plan.code_contracts,
         )
         findings.extend(_boundary_findings_as_alignment_findings(boundary_report))
+    runtime_path_contracts = _runtime_path_contracts_for_plan(plan)
+    if (
+        plan.require_runtime_path_evidence
+        or runtime_path_contracts
+        or plan.runtime_node_observations
+        or plan.runtime_path_runs
+    ):
+        if plan.require_runtime_path_evidence and not runtime_path_contracts:
+            findings.append(
+                ModelTestAlignmentFinding(
+                    "missing_runtime_path_contracts",
+                    "model-test alignment requires runtime path evidence but declares no runtime node contracts",
+                    metadata={"model_id": plan.model_id},
+                )
+            )
+        runtime_report = review_runtime_path_alignment(
+            RuntimePathAlignmentPlan(
+                plan_id=f"{plan.model_id}:runtime-path",
+                model_id=plan.model_id,
+                node_contracts=runtime_path_contracts,
+                observations=plan.runtime_node_observations,
+                runs=plan.runtime_path_runs,
+                require_proof_artifacts=plan.require_proof_artifacts,
+                require_exact_path=True,
+            )
+        )
+        findings.extend(_runtime_path_findings_as_alignment_findings(runtime_report))
     if plan.obligation_families or plan.family_evidence:
         family_report = review_obligation_family_parity(
             plan.obligation_families,

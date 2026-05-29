@@ -31,6 +31,7 @@ def gateway(**overrides):
         "managed_surface_ids": ("router_state",),
         "step_contract_ids": ("consume_controller_receipt",),
         "code_boundary_ids": ("control_plane_gateway.boundary",),
+        "runtime_node_ids": ("runtime:control_plane_gateway",),
     }
     values.update(overrides)
     return RuntimeGatewayContract(**values)
@@ -44,6 +45,7 @@ def observation(observation_id="router_state_write", **overrides):
         "gateway_id": "control_plane_gateway",
         "step_contract_ids": ("consume_controller_receipt",),
         "code_boundary_ids": ("control_plane_gateway.boundary",),
+        "runtime_node_ids": ("runtime:control_plane_gateway",),
         "proof_artifact_ids": ("artifact:router-state-write",),
     }
     values.update(overrides)
@@ -138,6 +140,7 @@ class RuntimeGatewayAdoptionTests(unittest.TestCase):
                     observation(
                         step_contract_ids=(),
                         code_boundary_ids=(),
+                        runtime_node_ids=(),
                         proof_artifact_ids=(),
                     ),
                 )
@@ -148,7 +151,16 @@ class RuntimeGatewayAdoptionTests(unittest.TestCase):
         self.assertFalse(report.ok)
         self.assertIn("missing_step_contract_evidence", codes)
         self.assertIn("missing_code_boundary_evidence", codes)
+        self.assertIn("missing_runtime_path_evidence", codes)
         self.assertIn("missing_proof_artifact_evidence", codes)
+
+    def test_gateway_runtime_node_mismatch_blocks(self):
+        report = review_runtime_gateway_adoption(
+            runtime_plan(write_observations=(observation(runtime_node_ids=("wrong-node",)),))
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("runtime_path_gateway_node_mismatch", finding_codes(report))
 
     def test_stale_and_non_passing_writer_observations_block(self):
         report = review_runtime_gateway_adoption(

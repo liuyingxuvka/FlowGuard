@@ -20,6 +20,12 @@ unexpected cells, missing observed outputs/states/writes/effects/errors, extra
 observed behavior, stale evidence, and internal-path-only evidence all block
 parent confidence.
 
+Leaf cells can also declare `runtime_node_ids` and
+`runtime_path_evidence_ids`. Use these when a finite `Input x State` cell must
+prove that real code reached the matching FlowGuard node, not merely that a
+test asserted an output. A cell that names runtime nodes without runtime path
+evidence stays blocked.
+
 Use `review_layered_boundary_proof(...)` after project-specific adapters have
 collected the rows. The helper does not run tests or inspect source. It reviews
 the structured evidence and blocks parent confidence for gaps, illegal overlap,

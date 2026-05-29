@@ -43,6 +43,12 @@ writes, side effects, error paths, evidence ids, status, and freshness. A leaf
 model can support parent confidence only when every finite cell is current and
 passing, or when the leaf is split further or explicitly scoped.
 
+When real-code progress is being compared to the model, add runtime path
+evidence rows. Each runtime node observation must name `model_id`,
+`model_path`, `node_id`, run id, status, and the model obligation or code
+contract when known. Anonymous logs or helper-only progress messages are not
+model-test alignment evidence.
+
 When real Python source and tests are available, add the conservative source audit
 layer before trusting hand-authored rows. This layer reads Python ASTs to
 generate or check `PythonCodeContractEvidence` and

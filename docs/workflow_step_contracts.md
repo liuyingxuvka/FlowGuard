@@ -4,6 +4,12 @@ Workflow step contracts turn an important process step into a small explicit
 receipt rule. A step can require receipts, produce receipts, invalidate older
 receipts, and gate claim labels such as `done_claimed` or `release_claimed`.
 
+When a workflow step is also a real-code node in a FlowGuard comparison, add
+`runtime_node_ids` through `step_contract_metadata(...)` or
+`WorkflowStepContract.runtime_node_ids`. This lets later runtime path evidence
+and progress output point back to the same step contract instead of relying on
+free-form logs.
+
 Use this when the bug risk is not "the whole workflow is unknown" but "one
 required part of the known workflow might be skipped, run too early, or counted
 after its evidence is stale."

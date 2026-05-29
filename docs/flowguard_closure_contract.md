@@ -72,6 +72,9 @@ Use the gates that match the claim:
   state mutation, every critical state surface has complete writer inventory,
   gateway ownership, mediated write observations, and current step, boundary,
   replay, and proof evidence.
+- Runtime path alignment: when the claim depends on real code following the
+  model's node path, a current `runtime_path_alignment` report exists so full
+  confidence cannot rest on anonymous progress logs.
 - Mesh or layered boundary proof: parent/child model or test confidence
   consumes current child evidence and finite leaf boundary-matrix evidence when
   required.

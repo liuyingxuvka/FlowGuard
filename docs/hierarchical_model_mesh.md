@@ -23,6 +23,13 @@ lowest leaf model to prove a complete finite
 `Input x State -> Set(Output x State)` matrix against real-code evidence. A
 child-local green model result alone does not prove that leaf code boundary.
 
+When a child model has runtime path evidence, put the current evidence ids on
+`ChildModelEvidence.runtime_path_evidence_ids`. The parent reattachment
+contract should consume those ids through
+`ChildReattachmentContract.consumed_runtime_path_evidence_ids`; otherwise the
+parent may know the child model is green but not that it consumed the child's
+current real-code path evidence.
+
 For whole-flow parent confidence, the parent boundary also needs a closure
 model. The closure model is a small FlowGuard-style model of the model network:
 root entries, child-output tokens, parent or sibling consumers, required joins,

@@ -30,7 +30,9 @@ from flowguard.replay import ReplayObservation
 from flowguard.runner import run_model_first_checks
 from flowguard.step_contracts import (
     STEP_METADATA_PRODUCED_RECEIPTS,
+    STEP_METADATA_RUNTIME_NODE_IDS,
     compile_step_contract_invariants,
+    extract_step_contract_metadata,
     review_step_contract_trace,
     step_contracts_to_model_obligations,
     step_contracts_to_validation_requirements,
@@ -138,6 +140,20 @@ class WorkflowStepContractTests(unittest.TestCase):
 
         self.assertFalse(report.ok)
         self.assertEqual("forbidden_step_skipped", report.findings[0].code)
+
+    def test_step_contract_metadata_carries_runtime_node_ids(self):
+        metadata = step_contract_metadata(
+            "coverage",
+            runtime_node_ids=("runtime:coverage", "runtime:coverage"),
+        )
+        contract = WorkflowStepContract("coverage", runtime_node_ids=("runtime:coverage",))
+
+        self.assertEqual(("runtime:coverage",), metadata[STEP_METADATA_RUNTIME_NODE_IDS])
+        self.assertEqual(
+            ("runtime:coverage",),
+            extract_step_contract_metadata(metadata)[STEP_METADATA_RUNTIME_NODE_IDS],
+        )
+        self.assertEqual(["runtime:coverage"], contract.to_dict()["runtime_node_ids"])
 
     def test_compiled_invariant_fails_for_premature_claim(self):
         trace = Trace(steps=(_step("done_claimed"),))

@@ -18,6 +18,7 @@ from flowguard.templates import (
     project_template_files,
     risk_evidence_ledger_template_files,
     risk_intent_template_files,
+    runtime_path_evidence_template_files,
     structure_mesh_template_files,
     test_mesh_template_files,
     ui_flow_structure_template_files,
@@ -153,6 +154,18 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("tests must call the declared code contract symbol", combined)
         self.assertIn("assert or unittest assertion", combined)
         self.assertIn("conservative source audit", combined)
+
+    def test_runtime_path_evidence_template_executes_and_prints_model_target(self):
+        output = self.run_written_template(
+            runtime_path_evidence_template_files(),
+            (".flowguard", "runtime_path_evidence"),
+        )
+
+        self.assertIn("flowguard runtime path evidence", output)
+        self.assertIn("flowguard.runtime_path", output)
+        self.assertIn("model=checkout.leaf", output)
+        self.assertIn("model_path=.flowguard/checkout_leaf/model.py", output)
+        self.assertIn("runtime_node_missing_observation", output)
 
     def test_test_mesh_template_executes(self):
         output = self.run_written_template(
@@ -318,6 +331,7 @@ class PublicTemplateTests(unittest.TestCase):
             code_structure_recommendation_template_files(),
             existing_model_preflight_template_files(),
             risk_evidence_ledger_template_files(),
+            runtime_path_evidence_template_files(),
             layered_boundary_proof_template_files(),
             closure_contract_template_files(),
             ui_flow_structure_template_files(),
@@ -350,6 +364,7 @@ class PublicTemplateTests(unittest.TestCase):
             "risk-intent-template": "risk_intent_check_plan",
             "model-miss-template": "model_miss_review",
             "model-test-alignment-template": "model_test_alignment",
+            "runtime-path-evidence-template": "runtime_path_evidence",
             "code-structure-recommendation-template": "code_structure_recommendation",
             "existing-model-preflight-template": "existing_model_preflight",
             "risk-evidence-ledger-template": "risk_evidence_ledger",
@@ -415,6 +430,7 @@ class PublicTemplateTests(unittest.TestCase):
             code_structure_recommendation_template_files(),
             existing_model_preflight_template_files(),
             risk_evidence_ledger_template_files(),
+            runtime_path_evidence_template_files(),
             layered_boundary_proof_template_files(),
             closure_contract_template_files(),
             ui_flow_structure_template_files(),

@@ -161,6 +161,7 @@ class ChildModelEvidence:
     invariants_owned: tuple[str, ...] = ()
     risk_classes: tuple[str, ...] = ()
     validation_evidence: tuple[str, ...] = ()
+    runtime_path_evidence_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "model_id", str(self.model_id))
@@ -178,6 +179,7 @@ class ChildModelEvidence:
         object.__setattr__(self, "depends_on", _as_tuple(self.depends_on))
         object.__setattr__(self, "risk_classes", _as_tuple(self.risk_classes))
         object.__setattr__(self, "validation_evidence", _as_tuple(self.validation_evidence))
+        object.__setattr__(self, "runtime_path_evidence_ids", _as_tuple(self.runtime_path_evidence_ids))
         object.__setattr__(self, "evidence_tier", str(self.evidence_tier))
         object.__setattr__(self, "skipped_checks", _as_tuple(self.skipped_checks))
         object.__setattr__(self, "not_run_checks", _as_tuple(self.not_run_checks))
@@ -215,6 +217,7 @@ class ChildModelEvidence:
             "depends_on": list(self.depends_on),
             "risk_classes": list(self.risk_classes),
             "validation_evidence": list(self.validation_evidence),
+            "runtime_path_evidence_ids": list(self.runtime_path_evidence_ids),
             "evidence_tier": self.evidence_tier,
             "evidence_current": self.evidence_current,
             "skipped_checks": list(self.skipped_checks),
@@ -333,6 +336,7 @@ class ChildReattachmentContract:
 
     child_model_id: str
     consumed_evidence_id: str = ""
+    consumed_runtime_path_evidence_ids: tuple[str, ...] = ()
     expected_inputs: tuple[str, ...] = ()
     expected_outputs: tuple[str, ...] = ()
     expected_state_owned: tuple[str, ...] = ()
@@ -345,6 +349,11 @@ class ChildReattachmentContract:
     def __post_init__(self) -> None:
         object.__setattr__(self, "child_model_id", str(self.child_model_id))
         object.__setattr__(self, "consumed_evidence_id", str(self.consumed_evidence_id))
+        object.__setattr__(
+            self,
+            "consumed_runtime_path_evidence_ids",
+            _as_tuple(self.consumed_runtime_path_evidence_ids),
+        )
         object.__setattr__(self, "expected_inputs", _as_tuple(self.expected_inputs))
         object.__setattr__(self, "expected_outputs", _as_tuple(self.expected_outputs))
         object.__setattr__(self, "expected_state_owned", _as_tuple(self.expected_state_owned))
@@ -356,6 +365,7 @@ class ChildReattachmentContract:
         return {
             "child_model_id": self.child_model_id,
             "consumed_evidence_id": self.consumed_evidence_id,
+            "consumed_runtime_path_evidence_ids": list(self.consumed_runtime_path_evidence_ids),
             "expected_inputs": list(self.expected_inputs),
             "expected_outputs": list(self.expected_outputs),
             "expected_state_owned": list(self.expected_state_owned),
@@ -1458,6 +1468,31 @@ def _child_reattachment_findings(partition_map: HierarchyPartitionMap) -> list[H
                     },
                 )
             )
+
+        if child.runtime_path_evidence_ids:
+            consumed_runtime_ids = set(contract.consumed_runtime_path_evidence_ids)
+            child_runtime_ids = set(child.runtime_path_evidence_ids)
+            if not consumed_runtime_ids:
+                findings.append(
+                    HierarchyMeshFinding(
+                        "child_reattachment_missing_runtime_path_evidence_id",
+                        "parent mesh does not record the child runtime path evidence ids it consumed",
+                        model_id=child.model_id,
+                        metadata={"child": child.to_dict(), "reattachment_contract": contract.to_dict()},
+                    )
+                )
+            elif not consumed_runtime_ids.issubset(child_runtime_ids):
+                findings.append(
+                    HierarchyMeshFinding(
+                        "child_reattachment_stale_runtime_path_evidence",
+                        "parent mesh consumed stale child runtime path evidence ids",
+                        model_id=child.model_id,
+                        metadata={
+                            "child_runtime_path_evidence_ids": list(child.runtime_path_evidence_ids),
+                            "consumed_runtime_path_evidence_ids": list(contract.consumed_runtime_path_evidence_ids),
+                        },
+                    )
+                )
 
         _add_reattachment_set_finding(
             findings,

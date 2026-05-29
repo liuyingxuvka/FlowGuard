@@ -49,6 +49,9 @@ change.
   closure evidence roles, recurring defect-family gates, or tests used as
   closure proof stale prior Model-Test Alignment, Risk Evidence Ledger, and
   release/done confidence for that repaired obligation.
+- Edits to runtime path instrumentation, model ids, model paths, node ids,
+  runtime gateway bindings, or progress output stale runtime path alignment
+  evidence and any closure report that consumed it.
 - Edits to parent/child partitioning stale parent coverage and child
   disjointness evidence. Edits to child inputs, outputs, state ownership, side
   effects, contracts, or evidence ids stale child reattachment evidence. Edits
@@ -102,19 +105,22 @@ change.
    model-miss repair changes the model obligation or the observed/same-class
    test evidence used for closure. Mark pre-repair evidence as stale or
    overclaimed when it only proved the observed bug.
-11. Include TestMesh in the minimum revalidation plan when same-class
+11. Include Runtime Path Evidence revalidation when code progress output,
+   runtime node ids, model path bindings, gateway node bindings, or leaf
+   runtime path evidence ids change.
+12. Include TestMesh in the minimum revalidation plan when same-class
    validation is large, slow, layered, background, or release-only.
-12. Include the recurring defect-family gate and Risk Evidence Ledger in the
+13. Include the recurring defect-family gate and Risk Evidence Ledger in the
    minimum revalidation plan when the same-class miss recurs or is high risk.
-13. Include layered boundary proof in the minimum revalidation plan when the
+14. Include layered boundary proof in the minimum revalidation plan when the
     touched artifact affects parent coverage, child disjointness, child
     reattachment, or leaf boundary matrices.
-14. Include `review_model_maturation_loop(...)` in the minimum revalidation plan
+15. Include `review_model_maturation_loop(...)` in the minimum revalidation plan
     when later evidence implies a state, branch, invariant, obligation,
     same-class, child reattachment, or code-boundary model gap.
-15. Before done/release/archive/publish, verify the final evidence is current
+16. Before done/release/archive/publish, verify the final evidence is current
     for the final artifact set.
-16. Before final done/release/archive/publish, consume the Risk Evidence Ledger
+17. Before final done/release/archive/publish, consume the Risk Evidence Ledger
     decision as an evidence boundary: full confidence may continue, scoped
     confidence must be reported as scoped, and blocked findings must route back
     to the owning evidence route.

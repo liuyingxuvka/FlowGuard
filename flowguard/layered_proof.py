@@ -239,6 +239,8 @@ class LeafBoundaryMatrixCell:
     expected_error_paths: tuple[str, ...] = ()
     observed_error_paths: tuple[str, ...] = ()
     evidence_ids: tuple[str, ...] = ()
+    runtime_node_ids: tuple[str, ...] = ()
+    runtime_path_evidence_ids: tuple[str, ...] = ()
     evidence_status: str = PROOF_STATUS_PASSED
     evidence_current: bool = True
     proof_artifact: ProofArtifactRef | Mapping[str, Any] | None = None
@@ -260,6 +262,8 @@ class LeafBoundaryMatrixCell:
         object.__setattr__(self, "expected_error_paths", _as_tuple(self.expected_error_paths))
         object.__setattr__(self, "observed_error_paths", _as_tuple(self.observed_error_paths))
         object.__setattr__(self, "evidence_ids", _as_tuple(self.evidence_ids))
+        object.__setattr__(self, "runtime_node_ids", _as_tuple(self.runtime_node_ids))
+        object.__setattr__(self, "runtime_path_evidence_ids", _as_tuple(self.runtime_path_evidence_ids))
         object.__setattr__(self, "evidence_status", str(self.evidence_status))
         object.__setattr__(self, "proof_artifact", coerce_proof_artifact_ref(self.proof_artifact))
         object.__setattr__(self, "assertion_scope", str(self.assertion_scope))
@@ -284,6 +288,8 @@ class LeafBoundaryMatrixCell:
             "expected_error_paths": list(self.expected_error_paths),
             "observed_error_paths": list(self.observed_error_paths),
             "evidence_ids": list(self.evidence_ids),
+            "runtime_node_ids": list(self.runtime_node_ids),
+            "runtime_path_evidence_ids": list(self.runtime_path_evidence_ids),
             "evidence_status": self.evidence_status,
             "evidence_current": self.evidence_current,
             "proof_artifact": self.proof_artifact.to_dict() if self.proof_artifact else None,
@@ -961,6 +967,17 @@ def _review_one_leaf_matrix(
                     metadata=cell.to_dict(),
                 )
             )
+        if cell.runtime_node_ids and not cell.runtime_path_evidence_ids:
+            findings.append(
+                LayeredBoundaryFinding(
+                    "leaf_cell_missing_runtime_path_evidence",
+                    "leaf boundary cell declares runtime nodes but has no runtime path evidence id",
+                    parent_model_id=plan.parent_model_id,
+                    child_model_id=child.child_model_id,
+                    cell_id=cell.cell_id,
+                    metadata=cell.to_dict(),
+                )
+            )
         _add_cell_overflow_findings(findings, plan, child, cell)
     return findings
 
@@ -1080,6 +1097,7 @@ def _decision_for_findings(findings: Sequence[LayeredBoundaryFinding]) -> str:
         ("leaf_matrix_missing_cell", "leaf_boundary_matrix_required"),
         ("leaf_matrix_unexpected_cell", "leaf_boundary_matrix_required"),
         ("leaf_matrix_incomplete", "leaf_boundary_matrix_required"),
+        ("leaf_cell_missing_runtime_path_evidence", "leaf_evidence_not_current"),
         ("leaf_cell_missing_", "leaf_boundary_underflow"),
         ("leaf_cell_extra_", "leaf_boundary_overflow"),
         ("leaf_cell_internal_path_only", "leaf_evidence_not_current"),

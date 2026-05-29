@@ -292,6 +292,11 @@ the lowest leaf models need complete finite
 `Input x State -> Set(Output x State)` real-code boundary evidence. If a leaf
 cannot be covered that way, split it again or scope the gap explicitly before
 claiming parent confidence.
+For real-code path evidence, require runtime node observations that name the
+compared FlowGuard `model_id`, `model_path`, `node_id`, run id, status, and
+obligation/code contract when known. Anonymous progress logs are not runtime
+path evidence; use `RuntimePathRecorder` or `RuntimeNodeObservation` rows so a
+different AI can see which model file the code node is being compared against.
 If Model-Test Alignment shows multiple primary `edge_path` proofs under one
 obligation, treat that as a too-coarse model boundary and split child
 obligations or reattach the tests to leaf matrix cells; do not merely downgrade

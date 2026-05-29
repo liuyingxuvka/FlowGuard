@@ -654,6 +654,59 @@ class HierarchicalMeshTests(unittest.TestCase):
         self.assertEqual("child_reattachment_required", report.decision)
         self.assertIn("child_reattachment_stale_evidence", [finding.code for finding in report.findings])
 
+    def test_child_reattachment_requires_runtime_path_evidence_consumption(self):
+        partition = HierarchyPartitionMap(
+            parent_model_id="checkout",
+            coverage_items=(HierarchyCoverageItem("payment", owner_model_id="payment"),),
+            child_models=(
+                child(
+                    "payment",
+                    evidence_id="payment:v1",
+                    runtime_path_evidence_ids=("runtime-path:payment:v1",),
+                ),
+            ),
+            target_split_derivation=target("checkout", ("payment",), ("payment",)),
+            reattachment_contracts=(reattachment_empty("payment", consumed_evidence_id="payment:v1"),),
+        )
+
+        report = review_hierarchical_mesh(partition)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("child_reattachment_required", report.decision)
+        self.assertIn(
+            "child_reattachment_missing_runtime_path_evidence_id",
+            [finding.code for finding in report.findings],
+        )
+
+    def test_child_reattachment_rejects_stale_runtime_path_evidence_id(self):
+        partition = HierarchyPartitionMap(
+            parent_model_id="checkout",
+            coverage_items=(HierarchyCoverageItem("payment", owner_model_id="payment"),),
+            child_models=(
+                child(
+                    "payment",
+                    evidence_id="payment:v1",
+                    runtime_path_evidence_ids=("runtime-path:payment:v2",),
+                ),
+            ),
+            target_split_derivation=target("checkout", ("payment",), ("payment",)),
+            reattachment_contracts=(
+                reattachment_empty(
+                    "payment",
+                    consumed_evidence_id="payment:v1",
+                    consumed_runtime_path_evidence_ids=("runtime-path:payment:v1",),
+                ),
+            ),
+        )
+
+        report = review_hierarchical_mesh(partition)
+
+        self.assertFalse(report.ok)
+        self.assertIn(
+            "child_reattachment_stale_runtime_path_evidence",
+            [finding.code for finding in report.findings],
+        )
+
     def test_child_reattachment_rejects_input_and_output_drift(self):
         partition = HierarchyPartitionMap(
             parent_model_id="checkout",

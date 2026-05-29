@@ -26,6 +26,7 @@ STEP_METADATA_PRODUCED_RECEIPTS = "step_contract_produced_receipts"
 STEP_METADATA_INVALIDATED_RECEIPTS = "step_contract_invalidated_receipts"
 STEP_METADATA_SKIPPED_STEP_IDS = "step_contract_skipped_step_ids"
 STEP_METADATA_CLAIM_LABELS = "step_contract_claim_labels"
+STEP_METADATA_RUNTIME_NODE_IDS = "runtime_node_ids"
 
 STEP_CONTRACT_METADATA_KEYS = (
     STEP_METADATA_STEP_IDS,
@@ -33,6 +34,7 @@ STEP_CONTRACT_METADATA_KEYS = (
     STEP_METADATA_INVALIDATED_RECEIPTS,
     STEP_METADATA_SKIPPED_STEP_IDS,
     STEP_METADATA_CLAIM_LABELS,
+    STEP_METADATA_RUNTIME_NODE_IDS,
 )
 
 
@@ -85,6 +87,7 @@ class WorkflowStepContract:
     required_test_kinds: tuple[str, ...] = ()
     artifact_ids: tuple[str, ...] = ()
     code_contract_ids: tuple[str, ...] = ()
+    runtime_node_ids: tuple[str, ...] = ()
     release_required: bool = False
     metadata: FrozenMetadata = field(default_factory=tuple, compare=False)
 
@@ -108,6 +111,7 @@ class WorkflowStepContract:
         object.__setattr__(self, "required_test_kinds", _as_tuple(self.required_test_kinds))
         object.__setattr__(self, "artifact_ids", _as_tuple(self.artifact_ids))
         object.__setattr__(self, "code_contract_ids", _as_tuple(self.code_contract_ids))
+        object.__setattr__(self, "runtime_node_ids", _as_tuple(self.runtime_node_ids))
         object.__setattr__(self, "release_required", bool(self.release_required))
         object.__setattr__(self, "metadata", freeze_metadata(self.metadata))
 
@@ -139,6 +143,7 @@ class WorkflowStepContract:
             "required_test_kinds": list(self.required_test_kinds),
             "artifact_ids": list(self.artifact_ids),
             "code_contract_ids": list(self.code_contract_ids),
+            "runtime_node_ids": list(self.runtime_node_ids),
             "release_required": self.release_required,
             "metadata": to_jsonable(self.metadata),
         }
@@ -255,6 +260,7 @@ def step_contract_metadata(
     invalidated_receipts: Sequence[str] = (),
     skipped_step_ids: Sequence[str] = (),
     claim_labels: Sequence[str] = (),
+    runtime_node_ids: Sequence[str] = (),
 ) -> dict[str, tuple[str, ...]]:
     """Build trace or replay metadata for workflow step contract checks."""
 
@@ -274,6 +280,9 @@ def step_contract_metadata(
     claims = _unique(claim_labels)
     if claims:
         metadata[STEP_METADATA_CLAIM_LABELS] = claims
+    runtime_nodes = _unique(runtime_node_ids)
+    if runtime_nodes:
+        metadata[STEP_METADATA_RUNTIME_NODE_IDS] = runtime_nodes
     return metadata
 
 
@@ -534,6 +543,7 @@ __all__ = [
     "STEP_METADATA_CLAIM_LABELS",
     "STEP_METADATA_INVALIDATED_RECEIPTS",
     "STEP_METADATA_PRODUCED_RECEIPTS",
+    "STEP_METADATA_RUNTIME_NODE_IDS",
     "STEP_METADATA_SKIPPED_STEP_IDS",
     "STEP_METADATA_STEP_IDS",
     "STEP_SKIP_ALLOWED",

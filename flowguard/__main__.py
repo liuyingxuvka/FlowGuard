@@ -192,6 +192,12 @@ FILE_TEMPLATE_COMMANDS: tuple[FileTemplateCommand, ...] = (
         "model_test_alignment_template_files",
     ),
     FileTemplateCommand(
+        "runtime-path-evidence-template",
+        "Print or write the runtime path evidence model/code node alignment template.",
+        "runtime_path_evidence",
+        "runtime_path_evidence_template_files",
+    ),
+    FileTemplateCommand(
         "code-structure-recommendation-template",
         "Print or write the code structure recommendation template.",
         "code_structure_recommendation",

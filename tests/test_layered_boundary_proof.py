@@ -220,6 +220,34 @@ class LayeredBoundaryProofTests(unittest.TestCase):
         self.assertEqual("leaf_boundary_underflow", report.decision)
         self.assertIn("leaf_cell_missing_output", codes(report))
 
+    def test_leaf_cell_runtime_node_ids_require_path_evidence_ids(self):
+        report = review_layered_boundary_proof(
+            plan(
+                leaf_matrices=(
+                    matrix(cells=(cell(runtime_node_ids=("validate_order",), runtime_path_evidence_ids=()),)),
+                )
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertEqual("leaf_evidence_not_current", report.decision)
+        self.assertIn("leaf_cell_missing_runtime_path_evidence", codes(report))
+
+    def test_leaf_cell_serializes_runtime_path_evidence_ids(self):
+        row = cell(
+            runtime_node_ids=("validate_order",),
+            runtime_path_evidence_ids=("runtime-path:validate-order",),
+        )
+
+        self.assertEqual(
+            ["validate_order"],
+            row.to_dict()["runtime_node_ids"],
+        )
+        self.assertEqual(
+            ["runtime-path:validate-order"],
+            row.to_dict()["runtime_path_evidence_ids"],
+        )
+
     def test_leaf_output_overflow_blocks(self):
         report = review_layered_boundary_proof(
             plan(leaf_matrices=(matrix(cells=(cell(observed_outputs=("Rejected", "Accepted")),)),))

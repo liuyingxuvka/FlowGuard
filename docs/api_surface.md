@@ -154,6 +154,12 @@ Modeling helpers reduce boilerplate around common bug classes:
   test-aligned, and runtime-gateway FlowGuard adoption, and for blocking
   runtime protection claims when critical state writes can still bypass the
   declared gateway.
+- optional runtime path evidence helpers such as `RuntimeNodeContract`,
+  `RuntimeNodeObservation`, `RuntimePathRecorder`, and
+  `review_runtime_path_alignment()` for comparing real code progress output to
+  named FlowGuard model nodes. These helpers live in `MODELING_HELPER_API`, not
+  `CORE_API`, and progress lines should include `model_id`, `model_path`, and
+  `node_id`.
 - optional TestMesh helpers such as `TestMeshPlan`, `TestPartitionItem`,
   `TestTargetSplitDerivation`, `TestSuiteEvidence`, and `review_test_mesh()`
   for reviewing model-derived target suite/script layouts, parent/child test
@@ -288,7 +294,8 @@ Evidence APIs are used to keep FlowGuard itself honest:
   `development_process_flow_template_files()`,
   `project_adoption_template_files()`, `test_mesh_template_files()`,
   `structure_mesh_template_files()`, `closure_contract_template_files()`, and
-  `layered_boundary_proof_template_files()`.
+  `layered_boundary_proof_template_files()`, and
+  `runtime_path_evidence_template_files()`.
 
 These tools are valuable for FlowGuard maintenance. Ordinary project models do
 not have to run the full evidence baseline, problem corpus, or benchmark suite

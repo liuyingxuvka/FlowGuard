@@ -97,9 +97,11 @@ class RuntimeGatewayContract:
     requires_replay_observation: bool = True
     requires_step_contract_binding: bool = True
     requires_code_boundary_binding: bool = True
+    requires_runtime_path_binding: bool = True
     requires_proof_artifact: bool = True
     step_contract_ids: tuple[str, ...] = ()
     code_boundary_ids: tuple[str, ...] = ()
+    runtime_node_ids: tuple[str, ...] = ()
     metadata: FrozenMetadata = field(default_factory=tuple, compare=False)
 
     def __post_init__(self) -> None:
@@ -125,9 +127,15 @@ class RuntimeGatewayContract:
             "requires_code_boundary_binding",
             bool(self.requires_code_boundary_binding),
         )
+        object.__setattr__(
+            self,
+            "requires_runtime_path_binding",
+            bool(self.requires_runtime_path_binding),
+        )
         object.__setattr__(self, "requires_proof_artifact", bool(self.requires_proof_artifact))
         object.__setattr__(self, "step_contract_ids", _as_tuple(self.step_contract_ids))
         object.__setattr__(self, "code_boundary_ids", _as_tuple(self.code_boundary_ids))
+        object.__setattr__(self, "runtime_node_ids", _as_tuple(self.runtime_node_ids))
         object.__setattr__(self, "metadata", _metadata(self.metadata))
 
     def to_dict(self) -> dict[str, Any]:
@@ -139,9 +147,11 @@ class RuntimeGatewayContract:
             "requires_replay_observation": self.requires_replay_observation,
             "requires_step_contract_binding": self.requires_step_contract_binding,
             "requires_code_boundary_binding": self.requires_code_boundary_binding,
+            "requires_runtime_path_binding": self.requires_runtime_path_binding,
             "requires_proof_artifact": self.requires_proof_artifact,
             "step_contract_ids": list(self.step_contract_ids),
             "code_boundary_ids": list(self.code_boundary_ids),
+            "runtime_node_ids": list(self.runtime_node_ids),
             "metadata": to_jsonable(self.metadata),
         }
 
@@ -159,6 +169,7 @@ class RuntimeWriteObservation:
     action_id: str = ""
     step_contract_ids: tuple[str, ...] = ()
     code_boundary_ids: tuple[str, ...] = ()
+    runtime_node_ids: tuple[str, ...] = ()
     proof_artifact_ids: tuple[str, ...] = ()
     current: bool = True
     result_status: str = "passed"
@@ -184,6 +195,7 @@ class RuntimeWriteObservation:
         object.__setattr__(self, "action_id", str(self.action_id or ""))
         object.__setattr__(self, "step_contract_ids", _as_tuple(self.step_contract_ids))
         object.__setattr__(self, "code_boundary_ids", _as_tuple(self.code_boundary_ids))
+        object.__setattr__(self, "runtime_node_ids", _as_tuple(self.runtime_node_ids))
         object.__setattr__(self, "proof_artifact_ids", _as_tuple(self.proof_artifact_ids))
         object.__setattr__(self, "current", bool(self.current))
         object.__setattr__(self, "result_status", str(self.result_status or "").lower())
@@ -201,6 +213,7 @@ class RuntimeWriteObservation:
             "action_id": self.action_id,
             "step_contract_ids": list(self.step_contract_ids),
             "code_boundary_ids": list(self.code_boundary_ids),
+            "runtime_node_ids": list(self.runtime_node_ids),
             "proof_artifact_ids": list(self.proof_artifact_ids),
             "current": self.current,
             "result_status": self.result_status,
@@ -629,6 +642,33 @@ def _review_observation(
                 observation_id=observation.observation_id,
             )
         )
+    if gateway.requires_runtime_path_binding and not observation.runtime_node_ids:
+        findings.append(
+            RuntimeGatewayFinding(
+                "missing_runtime_path_evidence",
+                f"gateway write {observation.observation_id!r} has no runtime path node id",
+                "error",
+                surface_id=surface.surface_id,
+                gateway_id=gateway.gateway_id,
+                observation_id=observation.observation_id,
+            )
+        )
+    if gateway.runtime_node_ids:
+        missing_runtime_nodes = tuple(
+            node_id for node_id in gateway.runtime_node_ids if node_id not in observation.runtime_node_ids
+        )
+        if missing_runtime_nodes:
+            findings.append(
+                RuntimeGatewayFinding(
+                    "runtime_path_gateway_node_mismatch",
+                    f"gateway write {observation.observation_id!r} is missing required runtime node ids",
+                    "error",
+                    surface_id=surface.surface_id,
+                    gateway_id=gateway.gateway_id,
+                    observation_id=observation.observation_id,
+                    metadata={"missing_runtime_node_ids": list(missing_runtime_nodes)},
+                )
+            )
     if gateway.requires_proof_artifact and not observation.proof_artifact_ids:
         findings.append(
             RuntimeGatewayFinding(
