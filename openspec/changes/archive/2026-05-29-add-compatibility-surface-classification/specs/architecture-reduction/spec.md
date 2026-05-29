@@ -35,6 +35,8 @@ candidate as ready.
   classification is evidence-needed
 - **THEN** the review does not report that candidate as ready
 
+## ADDED Requirements
+
 ### Requirement: Compatibility surface classification
 FlowGuard SHALL let Architecture Reduction classify old aliases, alternate
 paths, migration branches, pass-through compatibility adapters, public facades,

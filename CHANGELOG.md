@@ -1,5 +1,29 @@
 # Changelog
 
+## v0.34.0 - 2026-05-29
+
+- Added Runtime Path Evidence so real code and tests can emit ordered runtime
+  node observations that name their matching FlowGuard model ids, node ids,
+  child model ids, proof artifacts, inputs, outputs, state, and behavior
+  boundaries.
+- Added `RuntimeNodeContract`, `RuntimePathObservation`,
+  `RuntimePathAlignmentPlan`, `RuntimePathAlignmentReport`,
+  `RuntimePathRecorder`, and `review_runtime_path_alignment()` with checks for
+  missing, extra, stale, non-passing, out-of-order, model-binding, proof
+  artifact, and boundary gaps.
+- Integrated runtime path evidence into Model-Test Alignment, layered boundary
+  proof, hierarchical ModelMesh child reattachment, Runtime Gateway Adoption,
+  Closure Contract, workflow step contracts, CLI templates, docs, and Codex
+  skill guidance so agents can compare code execution traces with parent and
+  child FlowGuard model structure.
+- Added Architecture Reduction compatibility-surface classification for old
+  aliases, public facades, boundary adapters, archive-only surfaces, negative
+  legacy tests, prune candidates, and evidence-needed compatibility surfaces
+  before contraction is reported as ready.
+- Archived the compatibility-surface and runtime-path OpenSpec changes into the
+  main specs. Schema remains `1.0`; runtime dependencies remain Python
+  standard library only.
+
 ## v0.33.0 - 2026-05-28
 
 - Added AgentWorkflowRehearsal so AI agents can take a fresh current-machine

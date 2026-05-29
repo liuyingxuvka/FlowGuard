@@ -7,17 +7,21 @@ TBD - created by archiving change require-proof-artifact-bound-evidence. Update 
 FlowGuard SHALL represent the disposition of old or alternate paths during
 model-miss closure as one of deleted, blocked, delegated to the repaired path,
 same-contract repaired, explicitly out of scope, or unknown.
+Architecture Reduction compatibility-surface classification MAY inform which
+old paths need disposition, but it SHALL NOT replace post-repair disposition or
+proof-artifact requirements.
 
 #### Scenario: Old path is still unknown
 - **WHEN** a model miss repair proves a new child path but an old in-scope path
   has missing or unknown disposition
 - **THEN** strict model-miss closure SHALL remain blocked
 
-#### Scenario: Old path delegates to repaired path
-- **WHEN** the old path is still reachable but its disposition delegates all
-  in-scope behavior to the repaired child contract
-- **THEN** strict closure MAY pass if the delegation has current proof artifact
-  evidence and the parent route coverage consumes it
+#### Scenario: Architecture Reduction classification does not close old path
+- **WHEN** Architecture Reduction classifies a surface as boundary adapter,
+  prune candidate, archive-only, or evidence-needed
+- **AND** that surface remains an executable old path in a repair closure claim
+- **THEN** strict closure still requires a LegacyPathDisposition result for the
+  old path
 
 ### Requirement: Parent route coverage includes old paths
 FlowGuard SHALL require parent route coverage to include fresh, resume, replay,
