@@ -5,84 +5,43 @@ description: Use when a FlowGuard model should drive pre-code architecture, modu
 
 # FlowGuard Code Structure Recommendation
 
-This is a standalone FlowGuard satellite skill for turning a model into an
-implementation structure plan. Use it directly when the user asks how code
-should be structured from the model before making or reviewing code changes.
+Standalone FlowGuard satellite skill for deriving target implementation
+structure from a model before code edits. Use it for FunctionBlock-to-module
+ownership, facade planning, adapter boundaries, and validation boundaries.
 
-Return to `model-first-function-flow` when the model itself is not established,
-when the route is ambiguous, or when multiple FlowGuard routes need
-coordination.
+Return to `model-first-function-flow` when the behavior model is missing. Use
+StructureMesh when refactoring existing large code or public APIs.
+
+## First Read
+
+- Route id: `code_structure_recommendation`.
+- Core helper: `review_code_structure_recommendation()`.
+- Required shape: FunctionBlock-to-module ownership, state owner map,
+  public-entrypoint map, and validation boundaries.
+- Reference: `references/code_structure_recommendation_protocol.md`.
 
 ## Hard Gates
 
-- Verify the real package before claiming FlowGuard use:
-  `python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"`.
-- For real target-project use, ensure the FlowGuard AGENTS.md managed
-  block/version record exists, or record why it was not updated.
-- Do not create a fake mini-framework or prose-only substitute.
-- Derive structure from modeled FunctionBlocks, state ownership, side effects,
-  and contracts.
-- For model-backed code surfaces with finite inputs or outputs, recommend where
-  the input gate, output mapper, error mapper, state writer, and side-effect
-  observation boundary should live so tests can prove the code boundary later.
-- Recommend where runtime path node output should be emitted. Each emitted
-  node should include the FlowGuard `model_id`, `model_path`, `node_id`, run
-  id, status, and obligation/code contract so progress output is model/code
-  comparison evidence instead of anonymous logs.
-- If a target leaf model cannot get complete finite boundary-matrix tests from
-  the current code shape, recommend a smaller model/code boundary before adding
-  more representative tests. Structure should make the leaf matrix observable:
-  input gate, output mapper, error mapper, state writer, and side-effect writer
-  should each have a clear owner.
-- If the question is whether existing code can be smaller, run
-  `flowguard-architecture-reduction` before recommending target modules.
-- Do not turn structure advice into a broad refactor without validation.
-- Keep proposed ownership boundaries reviewable and scoped.
+- Verify the real package before claiming FlowGuard use.
+- For real target-project work, keep the AGENTS.md managed block/version record
+  current or record why it was not updated.
+- Do not create a fake mini-framework.
+- Do not invent modules before model responsibilities are named.
+- Public facades and validation boundaries must stay explicit.
 
-## Workflow
+## Minimum Workflow
 
-1. Read or build the smallest fit-for-risk FlowGuard model.
-2. Extract FunctionBlock ownership, state reads/writes, side effects,
-   external contracts, and public entrypoints.
-3. If the existing implementation has repeated handlers, pass-through
-   adapters, duplicate state phases, or duplicate validation paths, use
-   Architecture Reduction to decide whether the target structure should shrink
-   before proposing modules.
-4. Recommend modules, facades, adapters, and test seams from that evidence.
-5. Recommend code-boundary observation points for model-declared external
-   inputs, outputs, state writes, side effects, and error paths.
-6. Recommend runtime path instrumentation points for model-owned boundaries,
-   state writes, side effects, handoffs, and claim points.
-7. Recommend which leaf boundary matrix each proposed module or facade will
-   make testable, and route too-large leaves back to ModelMesh or
-   StructureMesh.
-8. Identify risky dependency directions, shared state, and compatibility
-   boundaries.
-9. Use `review_code_structure_recommendation(...)` where available, then use
-   StructureMesh only if the actual refactor is large enough to need it.
-10. Record proposed validation boundaries as future Risk Evidence Ledger proof
-   ids; this route recommends ownership but does not prove runtime behavior.
-11. For non-trivial structure recommendations, default to a user-facing Mermaid
-   code structure diagram showing FunctionBlock-to-module mapping,
-   facade/adapter boundaries, state and side-effect ownership, and validation boundaries.
-   Its edges mean owns, calls, adapts, exposes, or validates; they
-   are not lifecycle order. Tiny advice may stay concise. The diagram explains
-   the recommendation and does not replace review or implementation tests.
+1. Name the source model and relevant FunctionBlocks.
+2. Map state, side effects, public entrypoints, and validation boundaries.
+3. Recommend target modules and facades.
+4. Mark refactor parity or StructureMesh needs before implementation.
 
-## Owned Helpers
+## Snapshot
 
-- `review_code_structure_recommendation(...)`
-- `docs/code_structure_recommendation.md`
-- `references/code_structure_recommendation_protocol.md`
+Show a code structure diagram with FunctionBlock-to-module ownership, state
+owners, facade boundary, and validation boundaries.
 
 ## Non-Goals
 
-- Do not govern a large existing-module refactor end to end; use
-  `flowguard-structure-mesh`.
-- Do not prove that existing code can be contracted; use
-  `flowguard-architecture-reduction` first for model-backed shrink decisions.
-- Do not split tests or models.
-- Do not replace implementation tests or conformance replay.
-
-For detailed route rules, read
-`references/code_structure_recommendation_protocol.md`.
+- Do not perform existing-code refactors; route those to StructureMesh.
+- Do not replace Model-Test Alignment or runtime conformance evidence.

@@ -3,79 +3,45 @@ name: flowguard-structure-mesh
 description: "Use when a large script, module, package, command, or public API split needs StructureMesh governance, including facade compatibility, dependency cycles, config boundaries, ownership, target structure derivation, parity evidence, and release refactor gates."
 ---
 
-# FlowGuard StructureMesh
+# FlowGuard Structure Mesh
 
-This is a standalone FlowGuard satellite skill for large code-structure
-refactors. Use it directly when production code is being split or reorganized
-and compatibility, dependencies, facades, or parity evidence are the main risk.
+Standalone FlowGuard satellite skill for existing code structure splits. Use it
+for large modules, scripts, commands, packages, dependency cycles, config
+boundaries, public entrypoints, facades, and parity evidence.
 
-Return to `model-first-function-flow` when the work is only a pre-code
-structure recommendation or when route selection is ambiguous.
+Return to `model-first-function-flow` when the behavior model is unclear. Use
+Code Structure Recommendation before StructureMesh when target ownership still
+needs derivation.
+
+## First Read
+
+- Route id: `structure_mesh_maintenance`.
+- Core helpers: `review_structure_mesh()`, `StructurePartitionItem`,
+  `ModuleStructureEvidence`, `PublicEntrypointEvidence`.
+- Reference: `references/structure_mesh_protocol.md`.
 
 ## Hard Gates
 
-- Verify the real package before claiming FlowGuard use:
-  `python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"`.
-- For real target-project use, ensure the FlowGuard AGENTS.md managed
-  block/version record exists, or record why it was not updated.
-- Do not create a fake mini-framework or prose-only substitute.
-- Existing public entrypoints need compatibility evidence before green
-  confidence.
-- Existing public entrypoints that implement finite model-backed inputs or
-  outputs need code-boundary conformance evidence before the refactor can claim
-  the runtime boundary stayed closed.
-- Target structure must be model-derived for existing large refactors.
-- If the split exists because a leaf model cannot be fully boundary tested,
-  preserve the parent/child model contract while deriving smaller code owners;
-  facade compatibility alone does not prove the leaf boundary matrix stayed
-  closed.
-- If the proposed refactor is meant to shrink an overgrown flow, consume an
-  Architecture Reduction report before treating the target structure as ready.
-- Dependency cycles, config drift, missing facades, and parity gaps are release
-  blockers until addressed or explicitly bounded.
+- Verify the real package before claiming FlowGuard use.
+- For real target-project work, keep the AGENTS.md managed block/version record
+  current or record why it was not updated.
+- Do not create a fake mini-framework.
+- Existing public entrypoints need facade/parity evidence.
+- Dependency cycles and config boundaries must stay visible.
 
-## Workflow
+## Minimum Workflow
 
-1. Inventory current modules/scripts/commands/public entrypoints and ownership.
-2. For shrink-oriented refactors, run or consume Architecture Reduction to
-   identify merge/collapse/remove/keep-facade candidates and their proof
-   status.
-3. Derive target structure from FunctionBlocks, state ownership, side effects,
-   contracts, and compatibility requirements.
-4. Define parent facade and child module responsibilities.
-5. Check dependency direction, config ownership, public entrypoint parity, and
-   routine/release evidence.
-6. For facade, adapter, CLI, or API entrypoints with finite boundaries, feed
-   allowed/rejected input and output observations to Model-Test Alignment.
-7. After moving input gates, output mappers, state writers, side-effect writers,
-   or error mappers, rerun or refresh the affected leaf boundary-matrix
-   evidence before claiming layered proof.
-8. Use `review_structure_mesh(...)` or the template before claiming refactor
-   confidence.
-9. Feed public-entrypoint parity ids, facade evidence, and deferred release
-   obligations to the Risk Evidence Ledger before a broader final confidence
-   claim.
-10. For non-trivial StructureMesh reviews, default to a user-facing Mermaid
-   structure mesh diagram showing current public entrypoints, target child
-   modules, facades, dependency direction, config/parity evidence, and release
-   blockers. Its edges mean exposes, preserves, adapts, depends, or validates
-   parity; they are not task order. Tiny structure checks may stay concise. The
-   diagram explains the split and does not replace parity evidence or release
-   sync.
+1. Name the parent module/script/API and target structure derivation.
+2. Partition child modules and ownership.
+3. Preserve public entrypoints, facades, side effects, and config boundaries.
+4. Attach parity evidence and route stale gaps back to validation.
 
-## Owned Helpers
+## Snapshot
 
-- `review_structure_mesh(...)`
-- `python -m flowguard structure-mesh-template --output .`
-- `references/structure_mesh_protocol.md`
+Show a structure mesh diagram with parent, child modules, public entrypoints,
+facades, dependency cycles, ownership, parity evidence, and gaps.
 
 ## Non-Goals
 
-- Do not use this for early architecture advice only; use
-  `flowguard-code-structure-recommendation`.
-- Do not discover code contraction candidates from scratch; use
-  `flowguard-architecture-reduction` when the refactor goal is simplification.
-- Do not split tests or models.
-- Do not bypass conformance/release sync when public behavior changes.
-
-For detailed route rules, read `references/structure_mesh_protocol.md`.
+- Do not derive behavior requirements from scratch.
+- Do not claim parity from formatting-only or internal-path checks.

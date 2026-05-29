@@ -3,669 +3,216 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SKILL_ROOT = ROOT / ".agents" / "skills" / "model-first-function-flow"
+SKILLS_ROOT = ROOT / ".agents" / "skills"
+KERNEL_ROOT = SKILLS_ROOT / "model-first-function-flow"
+
 SATELLITE_SKILLS = {
-    "flowguard-model-test-alignment": "model_test_alignment_protocol.md",
-    "flowguard-development-process-flow": "development_process_flow_protocol.md",
-    "flowguard-model-miss-review": "model_miss_protocol.md",
-    "flowguard-code-structure-recommendation": "code_structure_recommendation_protocol.md",
-    "flowguard-existing-model-preflight": "existing_model_preflight_protocol.md",
     "flowguard-agent-workflow-rehearsal": "agent_workflow_rehearsal_protocol.md",
     "flowguard-architecture-reduction": "architecture_reduction_protocol.md",
-    "flowguard-ui-flow-structure": "ui_flow_structure_protocol.md",
+    "flowguard-code-structure-recommendation": "code_structure_recommendation_protocol.md",
+    "flowguard-development-process-flow": "development_process_flow_protocol.md",
+    "flowguard-existing-model-preflight": "existing_model_preflight_protocol.md",
     "flowguard-model-mesh": "model_mesh_protocol.md",
-    "flowguard-test-mesh": "test_mesh_protocol.md",
+    "flowguard-model-miss-review": "model_miss_protocol.md",
+    "flowguard-model-test-alignment": "model_test_alignment_protocol.md",
     "flowguard-structure-mesh": "structure_mesh_protocol.md",
+    "flowguard-test-mesh": "test_mesh_protocol.md",
+    "flowguard-ui-flow-structure": "ui_flow_structure_protocol.md",
 }
 
 
 class SkillDocsTests(unittest.TestCase):
-    def test_skill_kernel_is_compact_router_with_hard_gates(self):
-        text = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
-        line_count = len(text.splitlines())
+    def read(self, path: Path) -> str:
+        return path.read_text(encoding="utf-8")
 
-        self.assertLess(line_count, 220)
-        self.assertIn("FlowGuard Skill Kernel", text)
-        self.assertIn("use_flowguard", text)
-        self.assertIn("skip_with_reason", text)
-        self.assertIn("needs_human_review", text)
-        self.assertIn("behavior_flow", text)
-        self.assertIn("argument_flow", text)
-        self.assertIn("decision_flow", text)
-        self.assertIn("real package", text)
-        self.assertIn("fake mini-framework", text)
-        self.assertIn("Skipped is not", text)
-        self.assertIn("peer-agent changes", text)
-        self.assertIn("Input x State -> Set(Output x State)", text)
-        self.assertIn("AGENTS.md managed", text)
-        self.assertIn("Helper APIs Are Not Sub-Skills", text)
-        self.assertIn("RiskIntent", text)
-        self.assertIn("review_test_mesh()", text)
-        self.assertIn("review_structure_mesh()", text)
-        self.assertIn("review_model_test_alignment()", text)
-        self.assertIn("review_model_maturation_loop()", text)
-        self.assertIn("review_risk_evidence_ledger()", text)
-        self.assertIn("audit_python_code_contracts()", text)
-        self.assertIn("audit_python_test_assertions()", text)
-        self.assertIn("review_python_contract_source_audit()", text)
-        self.assertIn("Standalone Satellite Skills", text)
-        self.assertIn("flowguard-model-test-alignment", text)
-        self.assertIn("flowguard-development-process-flow", text)
-        self.assertIn("flowguard-existing-model-preflight", text)
-        self.assertIn("flowguard-ui-flow-structure", text)
-        self.assertNotIn("Phase 11", text)
-        self.assertNotIn("2100-case", text)
+    def test_hot_path_prompt_budgets_are_enforced(self):
+        kernel = self.read(KERNEL_ROOT / "SKILL.md")
+        snippet = self.read(ROOT / "docs" / "agents_snippet.md")
 
-    def test_skill_kernel_routes_to_subprotocols(self):
-        text = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
+        self.assertLessEqual(len(kernel.splitlines()), 130)
+        self.assertLessEqual(len(snippet.splitlines()), 110)
 
-        expected_routes = (
-            "core_modeling",
-            "code_structure_recommendation",
-            "ui_flow_structure",
-            "model_test_alignment",
-            "risk_evidence_ledger",
-            "model_mesh_maintenance",
-            "test_mesh_maintenance",
-            "structure_mesh_maintenance",
-            "architecture_reduction",
-            "existing_model_preflight",
-            "agent_workflow_rehearsal",
-            "development_process_flow",
-            "model_miss_review",
-            "model_maturation_loop",
-            "conformance_adoption",
-            "long_check_observability",
-            "framework_upgrade",
+        for skill_name in SATELLITE_SKILLS:
+            with self.subTest(skill=skill_name):
+                text = self.read(SKILLS_ROOT / skill_name / "SKILL.md")
+                self.assertLessEqual(len(text.splitlines()), 65)
+                self.assertLess(len(text), 3000)
+
+    def test_kernel_is_compact_router_with_reference_handoffs(self):
+        text = self.read(KERNEL_ROOT / "SKILL.md")
+
+        expected = (
+            "FlowGuard Skill Kernel",
+            "use_flowguard",
+            "skip_with_reason",
+            "needs_human_review",
+            "Input x State -> Set(Output x State)",
+            "real package",
+            "AGENTS.md managed",
+            "fake mini-framework",
+            "Risk Evidence Ledger",
+            "Route Map",
+            "Reference Map",
+            "behavior_flow",
+            "argument_flow",
+            "decision_flow",
+            "package helpers, not independently triggerable Codex skills",
         )
-        expected_refs = (
+        for phrase in expected:
+            self.assertIn(phrase, text)
+
+        self.assertLess(text.index("## Thin Default Path"), text.index("## Route Map"))
+        for skill_name in SATELLITE_SKILLS:
+            self.assertIn(skill_name, text)
+
+        reference_paths = (
             "references/skill_kernel_protocol.md",
             "references/modeling_protocol.md",
-            "references/code_structure_recommendation_protocol.md",
-            "flowguard-architecture-reduction",
-            "flowguard-agent-workflow-rehearsal",
             "references/model_test_alignment_protocol.md",
-            "docs/risk_evidence_ledger.md",
-            "references/model_mesh_protocol.md",
-            "references/test_mesh_protocol.md",
-            "references/structure_mesh_protocol.md",
             "references/development_process_flow_protocol.md",
             "references/model_miss_protocol.md",
             "references/conformance_adoption_protocol.md",
             "references/long_check_protocol.md",
             "references/framework_upgrade_protocol.md",
         )
-        for route in expected_routes:
-            self.assertIn(route, text)
-        for reference in expected_refs:
-            self.assertIn(reference, text)
-        self.assertIn("parent/child test hierarchy", text)
-        self.assertIn("ordinary test evidence", text)
-        self.assertIn("Risk Evidence Ledger", text)
-        self.assertIn("parent reattachment gate", text)
-        self.assertIn("affected sibling review", text)
+        for reference_path in reference_paths:
+            self.assertIn(reference_path, text)
 
-    def test_thin_default_entry_precedes_advanced_route_inventory(self):
-        kernel = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
-        snippet = (ROOT / "docs" / "agents_snippet.md").read_text(encoding="utf-8")
-        readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        api_surface = (ROOT / "docs" / "api_surface.md").read_text(encoding="utf-8")
-        product_architecture = (ROOT / "docs" / "product_architecture.md").read_text(encoding="utf-8")
-
-        self.assertIn("Thin Default Path", kernel)
-        self.assertIn("Thin default path", snippet)
-        self.assertIn("Start Small", readme)
-        self.assertIn("For AI agents, keep that as the default entry", api_surface)
-        self.assertIn("the first screen of the method should be even thinner", product_architecture)
-        for text in (kernel, snippet, readme, api_surface, product_architecture):
-            self.assertIn("risky boundary -> Input x State -> Set(Output x State)", text)
-            self.assertIn("escalate only if a named risk requires it", text)
-        self.assertLess(kernel.index("## Thin Default Path"), kernel.index("## Route Map"))
-        self.assertLess(snippet.index("Thin default path"), snippet.index("Route map (escalation only)"))
-        self.assertLess(readme.index("## Start Small"), readme.index("## What You Can Design And Verify"))
-        self.assertIn("escalation paths", kernel)
-        self.assertIn("escalation paths", snippet)
-        self.assertIn("Think in buckets first", kernel)
-        self.assertIn("Think in buckets first", snippet)
-
-    def test_flowguard_closure_contract_is_intrinsic_not_optional_mode(self):
-        kernel = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
-        snippet = (ROOT / "docs" / "agents_snippet.md").read_text(encoding="utf-8")
-        readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        modeling = (ROOT / "docs" / "modeling_protocol.md").read_text(encoding="utf-8")
-        closure_doc = (ROOT / "docs" / "flowguard_closure_contract.md").read_text(encoding="utf-8")
-        combined = "\n".join((kernel, snippet, readme, modeling, closure_doc))
-
-        self.assertIn("FlowGuard closure contract", combined)
-        self.assertIn("Complete FlowGuard use", combined)
-        self.assertIn("partial/scoped FlowGuard evidence", combined)
-        self.assertIn("not a mode", closure_doc)
-        self.assertIn("This thin path is an entry path, not a completion shortcut", readme)
-        self.assertIn("same-class miss evidence", combined)
-        self.assertIn("Risk Evidence Ledger", combined)
-        self.assertIn("claim-chain", combined)
-        self.assertNotIn("optional/default mode", closure_doc)
-
-    def test_current_satellite_topology_has_no_stale_fixed_count_model(self):
-        skills_root = ROOT / ".agents" / "skills"
-        satellite_names = sorted(path.name for path in skills_root.iterdir() if path.name.startswith("flowguard-"))
-        topology_model = (ROOT / ".flowguard" / "codex_skill_satellites" / "model.py").read_text(
-            encoding="utf-8"
-        )
-
-        self.assertEqual(sorted(SATELLITE_SKILLS), satellite_names)
-        self.assertIn(f"SATELLITE_COUNT = {len(SATELLITE_SKILLS)}", topology_model)
-        self.assertNotIn("seven directly", topology_model)
-        self.assertNotIn("seven satellites", topology_model)
-        self.assertIn("current directly invokable", topology_model)
-
-    def test_standalone_satellite_skills_exist_with_references(self):
-        skills_root = ROOT / ".agents" / "skills"
+    def test_satellite_skills_are_concise_route_shells(self):
+        route_expectations = {
+            "flowguard-agent-workflow-rehearsal": (
+                "SkillInventorySnapshot",
+                "candidate skills",
+                "continue/rework gates",
+            ),
+            "flowguard-architecture-reduction": (
+                "ObservableArchitectureContract",
+                "contraction candidates",
+                "required next route",
+            ),
+            "flowguard-code-structure-recommendation": (
+                "FunctionBlock-to-module ownership",
+                "code structure diagram",
+                "validation boundaries",
+            ),
+            "flowguard-development-process-flow": (
+                "artifact versions",
+                "minimum revalidation",
+                "review_auto_mesh_splits",
+            ),
+            "flowguard-existing-model-preflight": (
+                "existing model boundaries",
+                "duplicate-boundary",
+                "downstream route",
+            ),
+            "flowguard-model-mesh": (
+                "Child Reattachment Gate",
+                "mesh diagram",
+                "evidence tiers/freshness",
+            ),
+            "flowguard-model-miss-review": (
+                "same-class generalized bad case",
+                "miss-repair diagram",
+                "boundary_missing",
+            ),
+            "flowguard-model-test-alignment": (
+                "CodeContract",
+                "coverage",
+                "Do not invoke TestMesh",
+            ),
+            "flowguard-structure-mesh": (
+                "public entrypoints",
+                "facades",
+                "dependency cycles",
+            ),
+            "flowguard-test-mesh": (
+                "child test scripts",
+                "validation mesh diagram",
+                "parent/child test hierarchy",
+            ),
+            "flowguard-ui-flow-structure": (
+                "UI event x UI state",
+                "UI state diagram",
+                "residual blindspots",
+            ),
+        }
 
         for skill_name, reference_name in SATELLITE_SKILLS.items():
             with self.subTest(skill=skill_name):
-                skill_root = skills_root / skill_name
-                skill_text = (skill_root / "SKILL.md").read_text(encoding="utf-8")
-                openai_yaml = (skill_root / "agents" / "openai.yaml").read_text(encoding="utf-8")
-                reference_text = (skill_root / "references" / reference_name).read_text(encoding="utf-8")
+                root = SKILLS_ROOT / skill_name
+                text = self.read(root / "SKILL.md")
+                openai_yaml = self.read(root / "agents" / "openai.yaml")
+                reference = self.read(root / "references" / reference_name)
 
-                self.assertIn(f"name: {skill_name}", skill_text)
-                self.assertIn("standalone FlowGuard satellite skill", skill_text)
-                self.assertIn("model-first-function-flow", skill_text)
-                self.assertIn("real package", skill_text)
-                self.assertIn("fake mini-framework", skill_text)
-                self.assertIn("AGENTS.md managed", skill_text)
-                self.assertIn("Non-Goals", skill_text)
+                self.assertIn(f"name: {skill_name}", text)
+                self.assertIn("Standalone FlowGuard satellite skill", text)
+                self.assertIn("model-first-function-flow", text)
+                self.assertIn("real package", text)
+                self.assertIn("AGENTS.md managed", text)
+                self.assertIn("fake mini-framework", text)
+                self.assertIn("Reference:", text)
+                self.assertIn("Non-Goals", text)
+                self.assertIn(reference_name, text)
                 self.assertIn(skill_name, openai_yaml)
-                self.assertGreater(len(reference_text), 200)
+                self.assertGreater(len(reference), 200)
+                for phrase in route_expectations[skill_name]:
+                    self.assertIn(phrase, text)
 
-    def test_satellite_skills_keep_distinct_ownership(self):
-        skills_root = ROOT / ".agents" / "skills"
-        expectations = {
-            "flowguard-model-test-alignment": (
-                "review_model_test_alignment",
-                "Do not invoke TestMesh",
-                "Risk Evidence Ledger",
-            ),
-            "flowguard-development-process-flow": (
-                "review_development_process_flow",
-                "does not inspect",
-                "Risk Evidence Ledger",
-            ),
-            "flowguard-model-miss-review": (
-                "boundary_missing",
-                "same-class generalized bad case",
-                "parent reattachment gate",
-                "Risk Evidence Ledger",
-            ),
-            "flowguard-code-structure-recommendation": (
-                "review_code_structure_recommendation",
-                "FunctionBlock-to-module ownership",
-                "Risk Evidence Ledger",
-            ),
-            "flowguard-existing-model-preflight": (
-                "review_existing_model_preflight",
-                "existing model boundaries",
-                "duplicate-boundary",
-                "Risk Evidence Ledger",
-            ),
-            "flowguard-agent-workflow-rehearsal": (
-                "review_agent_workflow_rehearsal",
-                "SkillInventorySnapshot",
-                "fresh current-machine",
-                "Risk Evidence Ledger",
-            ),
-            "flowguard-architecture-reduction": (
-                "review_architecture_reduction",
-                "ObservableArchitectureContract",
-                "safe_by_equivalence",
-            ),
-            "flowguard-ui-flow-structure": (
-                "review_ui_interaction_model",
-                "UI event x UI state",
-                "UIDisplayElement",
-            ),
-            "flowguard-model-mesh": (
-                "review_hierarchical_mesh",
-                "Required Hazards",
-                "Child Reattachment Gate",
-                "Risk Evidence Ledger",
-            ),
-            "flowguard-test-mesh": (
-                "review_test_mesh",
-                "child test scripts",
-                "Risk Evidence Ledger",
-            ),
-            "flowguard-structure-mesh": (
-                "review_structure_mesh",
-                "dependency cycle",
-                "Risk Evidence Ledger",
-            ),
-        }
+    def test_current_satellite_topology_has_no_stale_fixed_count_model(self):
+        satellite_names = sorted(path.name for path in SKILLS_ROOT.iterdir() if path.name.startswith("flowguard-"))
+        topology_model = self.read(ROOT / ".flowguard" / "codex_skill_satellites" / "model.py")
 
-        for skill_name, phrases in expectations.items():
-            with self.subTest(skill=skill_name):
-                skill_root = skills_root / skill_name
-                combined = "\n".join(
-                    path.read_text(encoding="utf-8")
-                    for path in (skill_root / "SKILL.md", *sorted((skill_root / "references").glob("*.md")))
-                )
-                for phrase in phrases:
-                    self.assertIn(phrase, combined)
+        self.assertEqual(sorted(SATELLITE_SKILLS), satellite_names)
+        self.assertIn(f"SATELLITE_COUNT = {len(SATELLITE_SKILLS)}", topology_model)
+        self.assertIn("current directly invokable", topology_model)
+        self.assertNotIn("seven satellites", topology_model)
 
-    def test_development_process_flow_triggers_for_staged_validation_work(self):
-        skills_root = ROOT / ".agents" / "skills"
-        satellite_root = skills_root / "flowguard-development-process-flow"
-        kernel_root = skills_root / "model-first-function-flow"
-        texts = "\n".join(
-            (
-                (satellite_root / "SKILL.md").read_text(encoding="utf-8"),
-                (satellite_root / "agents" / "openai.yaml").read_text(encoding="utf-8"),
-                (satellite_root / "references" / "development_process_flow_protocol.md").read_text(encoding="utf-8"),
-                (kernel_root / "SKILL.md").read_text(encoding="utf-8"),
-                (kernel_root / "references" / "modeling_protocol.md").read_text(encoding="utf-8"),
-                (kernel_root / "references" / "development_process_flow_protocol.md").read_text(encoding="utf-8"),
-                (ROOT / "docs" / "agents_snippet.md").read_text(encoding="utf-8"),
-                (ROOT / "docs" / "development_process_flow.md").read_text(encoding="utf-8"),
-                (ROOT / "README.md").read_text(encoding="utf-8"),
-            )
+    def test_agents_snippet_uses_compact_canonical_route_table(self):
+        text = self.read(ROOT / "docs" / "agents_snippet.md")
+
+        expected = (
+            "Thin Default Path",
+            "Hard Gates",
+            "Route Map",
+            "Reference Handoff",
+            "use_direct_flowguard_skill",
+            "use_model_first_kernel",
+            "skip_with_reason",
+            "needs_human_review",
+            "Input x State -> Set(Output x State)",
+            "real package",
+            "project-adopt",
+            "project-upgrade",
+            "Risk Evidence Ledger",
+            "Package helpers",
+            "not separate Codex skills",
         )
+        for phrase in expected:
+            self.assertIn(phrase, text)
 
-        self.assertIn("non-trivial staged development or modification", texts)
-        self.assertIn("plan, edit, test, fix, and verify", texts)
-        self.assertIn("touched artifacts", texts)
-        self.assertIn("minimum revalidation", texts)
-        self.assertIn("tiny typo fix", texts)
-        self.assertIn("done/release/archive/publish", texts)
-        self.assertIn("does not inspect", texts)
-        self.assertIn("review_auto_mesh_splits", texts)
-        self.assertIn("automatic split triggers", texts)
-        self.assertNotIn("light_lifecycle_preflight", texts)
-        self.assertNotIn("full_evidence_freshness_review", texts)
+        self.assertLess(text.index("### Thin Default Path"), text.index("### Route Map"))
+        for skill_name in SATELLITE_SKILLS:
+            self.assertIn(skill_name, text)
 
-    def test_validation_failure_triage_routes_to_owning_satellites(self):
-        skills_root = ROOT / ".agents" / "skills"
-        development = "\n".join(
-            (
-                (skills_root / "flowguard-development-process-flow" / "SKILL.md").read_text(encoding="utf-8"),
-                (
-                    skills_root
-                    / "flowguard-development-process-flow"
-                    / "references"
-                    / "development_process_flow_protocol.md"
-                ).read_text(encoding="utf-8"),
-            )
+        long_form_markers = (
+            "Use Model-Test Alignment when",
+            "For ModelMesh and TestMesh",
+            "For post-runtime model misses",
+            "Treat DevelopmentProcessFlow as another sibling route",
         )
-        model_mesh = "\n".join(
-            (
-                (skills_root / "flowguard-model-mesh" / "SKILL.md").read_text(encoding="utf-8"),
-                (skills_root / "flowguard-model-mesh" / "references" / "model_mesh_protocol.md").read_text(
-                    encoding="utf-8"
-                ),
-            )
-        )
-        test_mesh = "\n".join(
-            (
-                (skills_root / "flowguard-test-mesh" / "SKILL.md").read_text(encoding="utf-8"),
-                (skills_root / "flowguard-test-mesh" / "references" / "test_mesh_protocol.md").read_text(
-                    encoding="utf-8"
-                ),
-            )
-        )
-        alignment = "\n".join(
-            (
-                (skills_root / "flowguard-model-test-alignment" / "SKILL.md").read_text(encoding="utf-8"),
-                (
-                    skills_root
-                    / "flowguard-model-test-alignment"
-                    / "references"
-                    / "model_test_alignment_protocol.md"
-                ).read_text(encoding="utf-8"),
-            )
-        )
+        for marker in long_form_markers:
+            self.assertNotIn(marker, text)
 
-        self.assertIn("Failed validation must be triaged", development)
-        self.assertIn("ordinary_implementation_defect", development)
-        self.assertIn("model_too_thick", development)
-        self.assertIn("test_too_thick", development)
-        self.assertIn("auto_split_required", development)
-        self.assertIn("model_test_mismatch", development)
-        self.assertIn("parent_child_evidence_not_reattached", development)
-        self.assertIn("model too thick", model_mesh)
-        self.assertIn("Do not keep pushing the thick model", model_mesh)
-        self.assertIn("DevelopmentProcessFlow `model_too_thick` handoff", model_mesh)
-        self.assertIn("review_auto_mesh_splits", model_mesh)
-        self.assertIn("test too thick", test_mesh)
-        self.assertIn("DevelopmentProcessFlow `test_too_thick` handoffs", test_mesh)
-        self.assertIn("review_auto_mesh_splits", test_mesh)
-        self.assertIn("model-test mismatch", alignment)
-        self.assertIn("DevelopmentProcessFlow `model_test_mismatch` handoff", alignment)
-        self.assertNotIn("FlowGuard kernel route map", development)
+    def test_guidance_compression_model_exists(self):
+        model = self.read(ROOT / ".flowguard" / "guidance_compression" / "model.py")
+        run_checks = self.read(ROOT / ".flowguard" / "guidance_compression" / "run_checks.py")
 
-    def test_skill_kernel_has_soft_generic_oversize_hint(self):
-        text = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
-        snippet = (ROOT / "docs" / "agents_snippet.md").read_text(encoding="utf-8")
-        kernel = (SKILL_ROOT / "references" / "skill_kernel_protocol.md").read_text(encoding="utf-8")
-        combined = "\n".join((text, snippet, kernel))
-
-        self.assertIn("consider whether a parent/child split", text)
-        self.assertIn("For models consider ModelMesh", text)
-        self.assertIn("for tests consider TestMesh", text)
-        self.assertIn("for long checks consider", text)
-        self.assertIn("consider whether a parent/child split", snippet)
-        self.assertIn("review_auto_mesh_splits", snippet)
-        self.assertIn("ModelMesh or TestMesh split gate", snippet)
-        self.assertIn("short consideration hint", kernel)
-        self.assertIn("external planner handoffs remain optional", kernel)
-
-        forbidden = (
-            "OpenStack",
-            "OpenSpac",
-            "OpenSpec",
-            "SPAC",
-            "must split",
-            "required after",
-            "fixed runtime threshold",
-            "Hierarchy Split Gate",
-        )
-        for phrase in forbidden:
-            self.assertNotIn(phrase, combined)
-
-    def test_user_facing_diagram_guidance_is_lightweight(self):
-        skills_root = ROOT / ".agents" / "skills"
-        skill_texts = {
-            skill_root.name: (skill_root / "SKILL.md").read_text(encoding="utf-8")
-            for skill_root in sorted(skills_root.iterdir())
-            if skill_root.is_dir()
-        }
-        kernel = skill_texts["model-first-function-flow"]
-        combined = "\n".join(skill_texts.values())
-
-        self.assertIn("default to a user-facing Mermaid", combined)
-        self.assertIn("during the work", (ROOT / "docs" / "agents_snippet.md").read_text(encoding="utf-8"))
-        self.assertIn("tiny", combined)
-        self.assertIn("explain, not validate", kernel)
-        self.assertIn("does not count as validation", combined)
-        self.assertIn("validation evidence", combined)
-        self.assertIn("major states, branches, gates, evidence, claim boundaries", (ROOT / "docs" / "agents_snippet.md").read_text(encoding="utf-8"))
-        route_expectations = {
-            "flowguard-code-structure-recommendation": ("FunctionBlock-to-module", "validation boundaries"),
-            "flowguard-development-process-flow": ("artifact versions", "minimum revalidation"),
-            "flowguard-model-mesh": ("what the mesh does or does not prove", "evidence tiers/freshness"),
-            "flowguard-model-miss-review": ("observed failure", "same-class generalized bad case"),
-            "flowguard-model-test-alignment": ("model obligations", "test evidence"),
-            "flowguard-existing-model-preflight": ("existing model boundaries", "downstream route"),
-            "flowguard-agent-workflow-rehearsal": ("candidate skills", "continue/rework gates"),
-            "flowguard-architecture-reduction": ("contraction candidates", "required next route"),
-            "flowguard-structure-mesh": ("public entrypoints", "facades"),
-            "flowguard-test-mesh": ("parent gates", "evidence status"),
-            "flowguard-ui-flow-structure": ("visible-control branches", "residual blindspots"),
-        }
-        for skill_name, phrases in route_expectations.items():
-            with self.subTest(skill=skill_name):
-                for phrase in phrases:
-                    self.assertIn(phrase, skill_texts[skill_name])
-        self.assertNotIn("must include a diagram", combined.lower())
-        self.assertNotIn("diagram is validation", combined.lower())
-        self.assertNotIn("tiny tasks must", combined.lower())
-
-    def test_flowguard_diagrams_use_route_specific_semantics(self):
-        skills_root = ROOT / ".agents" / "skills"
-        skill_texts = {
-            skill_root.name: (skill_root / "SKILL.md").read_text(encoding="utf-8")
-            for skill_root in sorted(skills_root.iterdir())
-            if skill_root.is_dir()
-        }
-        combined = "\n".join(skill_texts.values())
-        snippet = (ROOT / "docs" / "agents_snippet.md").read_text(encoding="utf-8")
-        readme = (ROOT / "README.md").read_text(encoding="utf-8")
-
-        self.assertIn("FlowGuard diagram intent gate", skill_texts["model-first-function-flow"])
-        self.assertIn("behavior/state", skill_texts["model-first-function-flow"])
-        self.assertIn("development process", combined)
-        self.assertIn("UI state diagram", skill_texts["flowguard-ui-flow-structure"])
-        self.assertIn("coverage", skill_texts["flowguard-model-test-alignment"])
-        self.assertIn("code structure diagram", skill_texts["flowguard-code-structure-recommendation"])
-        self.assertIn("mesh diagram", skill_texts["flowguard-model-mesh"])
-        self.assertIn("validation mesh diagram", skill_texts["flowguard-test-mesh"])
-        self.assertIn("structure mesh diagram", skill_texts["flowguard-structure-mesh"])
-        self.assertIn("miss-repair diagram", skill_texts["flowguard-model-miss-review"])
-        self.assertIn("Do not flatten these into a generic flowchart", skill_texts["model-first-function-flow"])
-        self.assertIn("must remain complete without LogicGuard", skill_texts["model-first-function-flow"])
-        self.assertIn("standalone", snippet)
-        self.assertIn("FlowGuard diagram semantics", readme)
-        self.assertNotIn("shared cross-family diagram protocol", combined.replace("or a shared cross-family diagram protocol", ""))
-
-    def test_global_flowguard_routing_prefers_direct_satellites(self):
-        kernel = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
-        snippet = (ROOT / "docs" / "agents_snippet.md").read_text(encoding="utf-8")
-        combined = "\n".join((kernel, snippet))
-
-        self.assertIn("use_direct_flowguard_skill", snippet)
-        self.assertIn("use_model_first_kernel", snippet)
-        self.assertIn("peer routes", combined)
-        self.assertIn("matching satellite directly", combined)
-        self.assertIn("model-first-function-flow", combined)
-        self.assertIn("ordinary behavior/state modeling", combined)
-        self.assertIn("unclear route selection", combined)
-        self.assertIn("cross-route coordination", combined)
-
-    def test_core_modeling_protocol_keeps_state_inventory_and_mesh_links(self):
-        text = (ROOT / "docs" / "modeling_protocol.md").read_text(encoding="utf-8")
-
-        self.assertIn("state write inventory", text)
-        self.assertIn("multiple production write", text)
-        self.assertIn("model-level confidence only", text)
-        self.assertIn("Create Or Evolve The Model Script", text)
-        self.assertIn("fit for the customer's risk", text)
-        self.assertIn("Check The Local Model Mesh Trigger", text)
-        self.assertIn("Check The Model-Test Alignment Trigger", text)
-        self.assertIn("Model-Test Alignment is not a mesh route", text)
-        self.assertIn("review_model_test_alignment", text)
-        self.assertIn("Check The Risk Evidence Ledger", text)
-        self.assertIn("review_risk_evidence_ledger", text)
-        self.assertIn("three or more local FlowGuard models", text)
-        self.assertIn("Check The TestMesh Trigger", text)
-        self.assertIn("parent/child hierarchy mesh", text)
-        self.assertIn("child suites or child test scripts", text)
-        self.assertIn("docs/test_evidence_mesh.md", text)
-        self.assertIn("Check The StructureMesh Trigger", text)
-        self.assertIn("docs/structure_mesh.md", text)
-        self.assertIn("Check The Code Structure Recommendation Route", text)
-        self.assertIn("docs/code_structure_recommendation.md", text)
-        self.assertIn("Check The UI Flow Structure Route", text)
-        self.assertIn("docs/ui_flow_structure.md", text)
-        self.assertIn("Check The DevelopmentProcessFlow Route", text)
-        self.assertIn("docs/development_process_flow.md", text)
-
-    def test_agents_snippet_uses_kernel_route_map(self):
-        text = (ROOT / "docs" / "agents_snippet.md").read_text(encoding="utf-8")
-
-        self.assertIn("Hard gates", text)
-        self.assertIn("Route map", text)
-        self.assertIn("core_modeling", text)
-        self.assertIn("code_structure_recommendation", text)
-        self.assertIn("ui_flow_structure", text)
-        self.assertIn("test_mesh_maintenance", text)
-        self.assertIn("model_test_alignment", text)
-        self.assertIn("risk_evidence_ledger", text)
-        self.assertIn("does not invoke", text)
-        self.assertIn("tests split into child suites/scripts", text)
-        self.assertIn("structure_mesh_maintenance", text)
-        self.assertIn("existing_model_preflight", text)
-        self.assertIn("development_process_flow", text)
-        self.assertIn("agent_workflow_rehearsal", text)
-        self.assertIn("model_miss_review", text)
-        self.assertIn("long_check_observability", text)
-        self.assertIn("framework_upgrade", text)
-        self.assertIn("same-class", text)
-        self.assertIn("generalized bad case", text)
-        self.assertIn("bug-class responsibility", text)
-        self.assertIn("affected sibling review", text)
-        self.assertIn("in-progress background run", text)
-        self.assertIn("A later green runtime check by itself does not close", text)
-        self.assertIn("same-class test evidence", text)
-        self.assertIn("review_model_maturation_loop", text)
-        self.assertIn("testing only the observed instance is not closure", text)
-        self.assertIn("flowguard-model-test-alignment", text)
-        self.assertIn("flowguard-development-process-flow", text)
-        self.assertIn("flowguard-model-miss-review", text)
-        self.assertIn("flowguard-code-structure-recommendation", text)
-        self.assertIn("flowguard-architecture-reduction", text)
-        self.assertIn("flowguard-existing-model-preflight", text)
-        self.assertIn("flowguard-agent-workflow-rehearsal", text)
-        self.assertIn("flowguard-ui-flow-structure", text)
-        self.assertIn("flowguard-model-mesh", text)
-        self.assertIn("flowguard-test-mesh", text)
-        self.assertIn("flowguard-structure-mesh", text)
-        self.assertIn("package helpers, not", text)
-        self.assertIn("SkillInventorySnapshot", text)
-        self.assertIn("review_agent_workflow_rehearsal", text)
-        self.assertIn("RiskEvidenceLedgerPlan", text)
-        self.assertIn("review_risk_evidence_ledger", text)
-        self.assertIn("https://github.com/liuyingxuvka/FlowGuard", text)
-        self.assertIn("project-adopt", text)
-        self.assertIn("project-upgrade", text)
-        self.assertIn(".flowguard/project.toml", text)
-        self.assertIn("AGENTS/manifest/log updates are adoption evidence only", text)
-
-    def test_skill_orchestrator_collaboration_doc_defends_standalone_mode(self):
-        text = (ROOT / "docs" / "skill_orchestrator_collaboration.md").read_text(encoding="utf-8")
-
-        self.assertIn("Standalone mode", text)
-        self.assertIn("Collaboration mode", text)
-        self.assertIn("Fallback mode", text)
-        self.assertIn("must remain fully useful without any external spec, SPAC", text)
-        self.assertIn("H01", text)
-        self.assertIn("side effects", text)
-        self.assertIn("parallel ownership", text)
-        self.assertIn("completion evidence", text)
-
-    def test_framework_rules_remain_in_reference_doc(self):
-        text = (ROOT / "docs" / "framework_upgrade_checks.md").read_text(encoding="utf-8")
-
-        self.assertIn("real_model_cases: 2100", text)
-        self.assertIn("model_variant_total: 150", text)
-        self.assertIn("benchmark_conformance_family_count = 25", text)
-        self.assertIn("ordinary project", text)
-
-    def test_existing_mesh_protocol_references_exist(self):
-        model_mesh = (SKILL_ROOT / "references" / "model_mesh_protocol.md").read_text(encoding="utf-8")
-        test_mesh = (SKILL_ROOT / "references" / "test_mesh_protocol.md").read_text(encoding="utf-8")
-        structure_mesh = (SKILL_ROOT / "references" / "structure_mesh_protocol.md").read_text(encoding="utf-8")
-        code_structure = (SKILL_ROOT / "references" / "code_structure_recommendation_protocol.md").read_text(encoding="utf-8")
-        ui_structure = (
-            ROOT
-            / ".agents"
-            / "skills"
-            / "flowguard-ui-flow-structure"
-            / "references"
-            / "ui_flow_structure_protocol.md"
-        ).read_text(encoding="utf-8")
-        development_process = (SKILL_ROOT / "references" / "development_process_flow_protocol.md").read_text(encoding="utf-8")
-        existing_preflight = (
-            ROOT
-            / ".agents"
-            / "skills"
-            / "flowguard-existing-model-preflight"
-            / "references"
-            / "existing_model_preflight_protocol.md"
-        ).read_text(encoding="utf-8")
-
-        self.assertIn("Code Structure Recommendation Protocol", code_structure)
-        self.assertIn("FunctionBlock-to-module ownership", code_structure)
-        self.assertIn("not a mandatory step", code_structure)
-        self.assertIn("UI Flow Structure Protocol", ui_structure)
-        self.assertIn("UI event x UI state", ui_structure)
-        self.assertIn("first-level persistent controls", ui_structure)
-        self.assertIn("Local Model Mesh Protocol", model_mesh)
-        self.assertIn("Required Hazards", model_mesh)
-        self.assertIn("target split derivation", model_mesh)
-        self.assertIn("Child Reattachment Gate", model_mesh)
-        self.assertIn("child_reattachment_required", model_mesh)
-        self.assertIn("current bug instance", model_mesh)
-        self.assertIn("Child boundary changes propagate upward", model_mesh)
-        self.assertIn("Review affected siblings", model_mesh)
-        self.assertIn("Background long-running checks are not pass evidence", model_mesh)
-        self.assertIn("TestMesh Protocol", test_mesh)
-        self.assertIn("test-side sibling of ModelMesh and StructureMesh", test_mesh)
-        self.assertIn("target split derivation", test_mesh)
-        self.assertIn("child test scripts", test_mesh)
-        self.assertIn("become its own parent gate", test_mesh)
-        self.assertIn("Routine And Release Scope", test_mesh)
-        self.assertIn("StructureMesh Protocol", structure_mesh)
-        self.assertIn("dependency cycle", structure_mesh)
-        self.assertIn("Target Structure Derivation", structure_mesh)
-        self.assertIn("mandatory for existing", structure_mesh)
-        self.assertIn("DevelopmentProcessFlow Protocol", development_process)
-        self.assertIn("sibling sub-protocol", development_process)
-        self.assertIn("does not inspect", development_process)
-        self.assertIn("minimum revalidation", development_process)
-        self.assertIn("Existing Model Preflight Protocol", existing_preflight)
-        self.assertIn("Light mode", existing_preflight)
-        self.assertIn("Full mode", existing_preflight)
-        self.assertIn("DuplicateBoundaryRisk", existing_preflight)
-
-    def test_new_skill_kernel_protocol_references_exist(self):
-        kernel = (SKILL_ROOT / "references" / "skill_kernel_protocol.md").read_text(encoding="utf-8")
-        model_miss = (SKILL_ROOT / "references" / "model_miss_protocol.md").read_text(encoding="utf-8")
-        conformance = (SKILL_ROOT / "references" / "conformance_adoption_protocol.md").read_text(encoding="utf-8")
-        long_check = (SKILL_ROOT / "references" / "long_check_protocol.md").read_text(encoding="utf-8")
-        framework = (SKILL_ROOT / "references" / "framework_upgrade_protocol.md").read_text(encoding="utf-8")
-
-        self.assertIn("FlowGuard Skill Kernel Protocol", kernel)
-        self.assertIn("Helper APIs Are Not Sub-Skills", kernel)
-        self.assertIn("model_test_alignment", kernel)
-        self.assertIn("development_process_flow", kernel)
-        self.assertIn("Standalone Satellite Skills", kernel)
-        self.assertIn("flowguard-model-mesh", kernel)
-        self.assertIn("flowguard-architecture-reduction", kernel)
-        self.assertIn("flowguard-ui-flow-structure", kernel)
-        model_test_alignment = (SKILL_ROOT / "references" / "model_test_alignment_protocol.md").read_text(encoding="utf-8")
-        self.assertIn("Model-Test Alignment Protocol", model_test_alignment)
-        self.assertIn("CodeContract", model_test_alignment)
-        self.assertIn("PythonCodeContractEvidence", model_test_alignment)
-        self.assertIn("PythonTestAssertionEvidence", model_test_alignment)
-        self.assertIn("code external contract", model_test_alignment)
-        self.assertIn("covered code contract ids", model_test_alignment)
-        self.assertIn("external_contract", model_test_alignment)
-        self.assertIn("internal_path", model_test_alignment)
-        self.assertIn("conservative source audit", model_test_alignment)
-        self.assertIn("function signatures, return values, raises, assignments, and calls", model_test_alignment)
-        self.assertIn("missing Python symbol", model_test_alignment)
-        self.assertIn("missing input", model_test_alignment)
-        self.assertIn("missing output", model_test_alignment)
-        self.assertIn("missing state write", model_test_alignment)
-        self.assertIn("extra side effect", model_test_alignment)
-        self.assertIn("tests must call the declared code contract symbol", model_test_alignment)
-        self.assertIn("assert or unittest assertion", model_test_alignment)
-        self.assertIn("helper/internal path", model_test_alignment)
-        self.assertIn("no assert", model_test_alignment)
-        self.assertIn("missing_code_contract", model_test_alignment)
-        self.assertIn("code_contract_extra_behavior", model_test_alignment)
-        self.assertIn("code_contract_missing_behavior", model_test_alignment)
-        self.assertIn("unknown_code_contract_reference", model_test_alignment)
-        self.assertIn("does not split tests", model_test_alignment)
-        self.assertIn("Do not invoke TestMesh", model_test_alignment)
-        self.assertNotIn("review_hierarchical_mesh", model_test_alignment)
-        self.assertNotIn("review_test_mesh", model_test_alignment)
-        self.assertNotIn("review_structure_mesh", model_test_alignment)
-        self.assertIn("Post-Runtime Model-Miss Protocol", model_miss)
-        self.assertIn("boundary_missing", model_miss)
-        self.assertIn("Generalized case", model_miss)
-        self.assertIn("parent child-reattachment gate", model_miss)
-        self.assertIn("same-class bug responsibility", model_miss)
-        self.assertIn("affected sibling review", model_miss)
-        self.assertIn("Progress is not", model_miss)
-        self.assertIn("Conformance And Adoption Protocol", conformance)
-        self.assertIn("shadow workspace", conformance)
-        self.assertIn("Long Check Observability Protocol", long_check)
-        self.assertIn("<name>.exit.txt", long_check)
-        self.assertIn("final report sections as live progress", long_check)
-        self.assertIn("in-progress liveness", long_check)
-        self.assertIn("Framework Upgrade Protocol", framework)
-        self.assertIn("risk-to-model coverage matrix", framework)
-        self.assertIn("representative bad variants must fail", framework)
+        self.assertIn("Input x State -> Set(Output x State)", model)
+        self.assertIn("no_done_without_full_sync", model)
+        self.assertIn("installed skill", model)
+        self.assertIn("shadow workspace", model)
+        self.assertIn("local git", model)
+        self.assertIn("broken_prompt_only_completion", run_checks)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.35.0 - 2026-05-29
+
+- Compressed FlowGuard AI-facing guidance so the kernel, satellite skills, and
+  reusable AGENTS snippet now present a shorter first-read route: task triage,
+  hard gates, the thin default model/check loop, compact route selection, and
+  reference handoffs.
+- Converted directly invokable FlowGuard satellite `SKILL.md` files into
+  concise route shells while preserving standalone package verification,
+  AGENTS/version adoption checks, evidence honesty, Mermaid snapshot guidance,
+  and non-goals.
+- Added guidance-compression FlowGuard checks that reject prompt-only
+  completion claims until prompt budgets, validation, editable install,
+  installed skills, shadow workspace, and local git evidence are aligned.
+- Added prompt-budget tests for the kernel, satellite skills, and AGENTS
+  snippet to prevent the hot path from regrowing into long protocol text.
+
 ## v0.34.0 - 2026-05-29
 
 - Added Runtime Path Evidence so real code and tests can emit ordered runtime
