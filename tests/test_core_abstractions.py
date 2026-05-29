@@ -10,7 +10,7 @@ class State:
 
 
 class CoreAbstractionTests(unittest.TestCase):
-    def test_function_result_exposes_new_state_and_state_alias(self):
+    def test_function_result_exposes_new_state_without_state_alias(self):
         result = FunctionResult(
             output="done",
             new_state=State(1),
@@ -20,7 +20,7 @@ class CoreAbstractionTests(unittest.TestCase):
         )
 
         self.assertEqual(State(1), result.new_state)
-        self.assertEqual(State(1), result.state)
+        self.assertFalse(hasattr(result, "state"))
         self.assertEqual((("phase", "unit"),), result.metadata)
 
     def test_function_result_requires_hashable_output_and_state(self):

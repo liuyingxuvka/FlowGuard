@@ -42,8 +42,9 @@ Core APIs are the stable objects needed to build and run a direct finite model:
   `ReachabilityFailure`
 - `Trace`, `TraceStep`
 
-These APIs should stay small and backward compatible. New helpers should not
-change the meaning of `FunctionBlock`, `Workflow`, or `Explorer`.
+These APIs should stay small and semantically stable. New helpers should not
+change the meaning of `FunctionBlock`, `Workflow`, or `Explorer`, and obsolete
+compatibility-only aliases should not remain in the first-read surface.
 
 `Explorer.explore()` emits minimal progress visibility by default: a start line
 and bounded ten-step progress lines on `stderr`, counted by top-level

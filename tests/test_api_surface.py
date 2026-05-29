@@ -197,6 +197,20 @@ class ApiSurfaceTests(unittest.TestCase):
         for name in flowguard.EVIDENCE_FIELD_STRUCTURE_API:
             self.assertIn(name, flowguard.EVIDENCE_API)
 
+    def test_legacy_plan_intake_aliases_are_not_exported(self):
+        removed_aliases = {
+            "PlanIntakeSurface",
+            "PlanIntakeCompletenessFinding",
+            "FalseNegativeBackpropagationCase",
+            "FlowGuardClaimFinding",
+            "review_plan_mutation_results",
+        }
+
+        for name in removed_aliases:
+            self.assertNotIn(name, flowguard.__all__)
+            self.assertNotIn(name, flowguard.REPORTING_HELPER_API)
+            self.assertFalse(hasattr(flowguard, name), name)
+
     def test_similarity_handoff_replaces_repeated_downstream_fields(self):
         for cls, removed in (
             (

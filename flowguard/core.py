@@ -48,13 +48,6 @@ class FunctionResult:
         object.__setattr__(self, "reason", str(self.reason or ""))
         object.__setattr__(self, "metadata", freeze_metadata(self.metadata))
 
-    @property
-    def state(self) -> Any:
-        """Compatibility alias for older examples that used `state`."""
-
-        return self.new_state
-
-
 @runtime_checkable
 class FunctionBlock(Protocol):
     """Protocol for executable abstract behavior blocks.

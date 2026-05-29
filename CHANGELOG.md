@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.38.0 - 2026-05-29
+
+- Removed compatibility-only public aliases that no current FlowGuard route
+  should teach agents to use: `FunctionResult.state` and the old Plan Intake
+  alias exports `PlanIntakeSurface`, `PlanIntakeCompletenessFinding`,
+  `FalseNegativeBackpropagationCase`, `FlowGuardClaimFinding`, and
+  `review_plan_mutation_results`.
+- Added a legacy compatibility cleanup FlowGuard self-model that rejects done
+  claims when agents delete safety classifiers or skip installed Codex skill
+  content parity.
+- Updated API/check-plan docs to describe core API semantic stability and
+  route-first usage without preserving obsolete compatibility-only wording.
+- Added tests that keep the removed aliases out of the public API while
+  preserving `SimilarityHandoff`, route-scoped discovery, and
+  compatibility-surface safety classifiers.
+
 ## v0.37.0 - 2026-05-29
 
 - Streamlined the AI-facing model-similarity surface: ordinary A/B/C

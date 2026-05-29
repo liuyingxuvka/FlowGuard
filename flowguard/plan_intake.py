@@ -1892,15 +1892,6 @@ def review_flowguard_claim_chain(plan: FlowGuardClaimChainPlan) -> FlowGuardClai
     )
 
 
-# Compatibility aliases for the public API names reserved by earlier planning
-# work. Keep both naming sets importable; do not make these separate helpers.
-PlanIntakeSurface = PlanIntakeRiskSurface
-PlanIntakeCompletenessFinding = PlanIntakeFinding
-FalseNegativeBackpropagationCase = FalseNegativeCase
-FlowGuardClaimFinding = FlowGuardClaimChainFinding
-review_plan_mutation_results = review_plan_mutations
-
-
 __all__ = [
     "ADAPTER_CONFORMANCE_DECISION_BLOCKED",
     "ADAPTER_CONFORMANCE_DECISION_FULL",
@@ -1960,7 +1951,6 @@ __all__ = [
     "FALSE_NEGATIVE_DECISION_BLOCKED",
     "FALSE_NEGATIVE_DECISION_FULL",
     "FALSE_NEGATIVE_DECISION_SCOPED",
-    "FalseNegativeBackpropagationCase",
     "FalseNegativeBackpropagationPlan",
     "FalseNegativeBackpropagationReport",
     "FalseNegativeCase",
@@ -1970,7 +1960,6 @@ __all__ = [
     "FlowGuardClaimChainPlan",
     "FlowGuardClaimChainReport",
     "FlowGuardClaimDependency",
-    "FlowGuardClaimFinding",
     "INTAKE_SOURCE_KIND_CODE",
     "INTAKE_SOURCE_KIND_HISTORY",
     "INTAKE_SOURCE_KIND_LOG",
@@ -2005,10 +1994,8 @@ __all__ = [
     "PLAN_SURFACE_KIND_USER_RISK",
     "PlanIntakeCompletenessPlan",
     "PlanIntakeCompletenessReport",
-    "PlanIntakeCompletenessFinding",
     "PlanIntakeFinding",
     "PlanIntakeRiskSurface",
-    "PlanIntakeSurface",
     "PlanMutationCase",
     "PlanMutationFinding",
     "PlanMutationReviewPlan",
@@ -2018,6 +2005,5 @@ __all__ = [
     "review_false_negative_backpropagation",
     "review_flowguard_claim_chain",
     "review_plan_intake_completeness",
-    "review_plan_mutation_results",
     "review_plan_mutations",
 ]

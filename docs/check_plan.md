@@ -55,7 +55,7 @@ Known risk classes include:
 Unknown risk classes are allowed. They appear as warnings because the audit
 heuristics only know the standard classes.
 
-The `risk_intent` field is optional for backward compatibility, but agents
+The `risk_intent` field can be omitted for direct or minimal plans, but agents
 should treat a missing or thin Risk Intent Brief as a pre-modeling gap. It
 should explain the failure modes, protected harms, state and side effects that
 must be visible, adversarial inputs to simulate, hard invariants, and known
