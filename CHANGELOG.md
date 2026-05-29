@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.36.0 - 2026-05-29
+
+- Split public template bodies into route-scoped internal modules while
+  preserving the `flowguard.templates` facade and all template CLI commands.
+- Added route-scoped API registry groups so callers can discover helper families
+  without scanning only the flat `MODELING_HELPER_API` list.
+- Added lightweight evidence gate/detail structures for gradual contraction of
+  overloaded risk and development-process evidence fields while preserving
+  skipped, stale, not-run, and progress-only visibility.
+- Expanded Model Similarity Consolidation into a maintenance-oriented review:
+  signatures can carry code/test paths, public behaviors, shared-kernel ids,
+  adapters, maintenance tags, and changed refs; reports now derive maintenance
+  groups, changed-sibling impacts, shared/variant test obligations, and code
+  obligations without creating a separate audit route.
+- Refactored public template/API tests toward table-driven coverage and added a
+  FlowGuard structure-surface simplification model for template/API/evidence
+  contraction hazards.
+
 ## v0.35.0 - 2026-05-29
 
 - Compressed FlowGuard AI-facing guidance so the kernel, satellite skills, and

@@ -9,6 +9,10 @@ Standalone FlowGuard satellite skill for grounding work in current model
 ownership before adding or changing a boundary. Use it before non-trivial work
 in an existing modeled system, especially prompt, skill, UI, test, process,
 feature, bug, or refactor changes.
+If a requested change resembles another existing workflow, use Model
+Similarity Consolidation as part of this preflight and record the maintenance
+group, impacted siblings, and false-friend rationale before selecting reuse,
+extension, child model, or new boundary.
 
 Return to `model-first-function-flow` when the FlowGuard route is unclear. Pair
 this preflight with the downstream route that owns the actual work.
@@ -19,6 +23,8 @@ this preflight with the downstream route that owns the actual work.
 - Core helpers: `ExistingModelPreflight`, `ModelContextHit`,
   `ExistingOwnershipSnapshot`, `DuplicateBoundaryRisk`,
   `review_existing_model_preflight()`.
+- Similarity handoff: cite relation ids, maintenance group ids, change-impact
+  ids, and impacted sibling model ids when A/B/C workflows may drift.
 - Reference: `references/existing_model_preflight_protocol.md`.
 
 ## Hard Gates

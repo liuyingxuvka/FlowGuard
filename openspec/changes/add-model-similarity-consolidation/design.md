@@ -10,10 +10,11 @@ step across models. Without it, agents can create parallel models, tests, or
 code paths that are actually same-workflow variants, symmetric flows, shared
 kernels, or duplicate boundaries.
 
-The new capability introduces a reviewable model-to-model relation layer. It
-does not parse arbitrary source code or rewrite production code. It consumes
+The capability introduces a reviewable model-to-model relation layer. It does
+not parse arbitrary source code or rewrite production code. It consumes
 structured model signatures supplied by agents or templates and produces typed
-relations, consolidation recommendations, and downstream route handoffs.
+relations, maintenance groups, change-impact obligations, consolidation
+recommendations, and downstream route handoffs.
 
 ## Goals / Non-Goals
 
@@ -27,6 +28,9 @@ relations, consolidation recommendations, and downstream route handoffs.
   Model-Test Alignment, or manual review.
 - Keep unresolved evidence gaps, stale evidence, and false-friend warnings
   visible so the report cannot overclaim safe consolidation.
+- Form maintenance groups so a change to one similar workflow can name the
+  sibling models, code paths, test paths, shared tests, variant tests, and
+  shared-kernel or adapter obligations that must be checked.
 - Integrate with Existing Model Preflight before new boundaries are created.
 - Provide public API exports, CLI/template support, docs, tests, and an
   executable FlowGuard self-model.
@@ -46,9 +50,11 @@ relations, consolidation recommendations, and downstream route handoffs.
 
    Model comparison is based on model ids, workflow family, variant id,
    FunctionBlocks, inputs, outputs, state ownership, state reads, side effects,
-   invariants, failure modes, contracts, public entrypoints, child models, and
-   evidence freshness. This keeps the review auditable and avoids false
-   confidence from source-code or natural-language name similarity.
+   invariants, failure modes, contracts, public entrypoints, child models,
+   code paths, test paths, public behaviors, shared-kernel ids, adapter ids,
+   maintenance tags, change refs, and evidence freshness. This keeps the
+   review auditable and avoids false confidence from source-code or
+   natural-language name similarity.
 
    Alternative considered: automatic AST or embedding similarity. This is
    deferred because it can be useful as a discovery aid but is not reliable
@@ -75,24 +81,34 @@ relations, consolidation recommendations, and downstream route handoffs.
    downstream StructureMesh, conformance replay, Model-Test Alignment, and Risk
    Evidence Ledger rows still own the completion claim.
 
-4. **Integrate first with Existing Model Preflight.**
+4. **Make maintenance groups part of the same report.**
+
+   Pairwise relations are still the raw evidence, but agents need a practical
+   maintenance answer: if A changed, should B and C be reviewed too? The report
+   therefore derives connected maintenance groups from non-blocked similarity
+   relations and emits sibling review obligations, shared behavior tests,
+   variant-specific tests, and code-structure obligations. This remains inside
+   Model Similarity Consolidation rather than becoming a separate audit route.
+
+5. **Integrate first with Existing Model Preflight.**
 
    Preflight is where agents decide whether to reuse, extend, add a child
    model, or create a new boundary. Adding optional similarity evidence there
    catches duplicate model boundaries earlier than Architecture Reduction,
    which is more naturally used once a contraction candidate already exists.
 
-5. **Keep false friends first-class.**
+6. **Keep false friends first-class.**
 
    Models can have similar names or shared helper terms while owning different
    state, side effects, invariants, or contracts. False-friend relations should
    explicitly tell agents to keep boundaries separate and record the reason.
 
-6. **Ship a conservative template and self-model.**
+7. **Ship a conservative template and self-model.**
 
    The template demonstrates same workflow, family variant, shared kernel,
-   duplicate boundary, adapter-only difference, evidence gap, and false friend
-   cases. The `.flowguard/model_similarity_consolidation` model makes the new
+   duplicate boundary, adapter-only difference, evidence gap, false friend,
+   maintenance group, changed-sibling review, shared-test, and variant-test
+   cases. The `.flowguard/model_similarity_consolidation` model makes the
    route executable and guards against overclaiming.
 
 ## Risks / Trade-offs

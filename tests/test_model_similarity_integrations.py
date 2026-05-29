@@ -79,11 +79,34 @@ class ModelSimilarityIntegrationTests(unittest.TestCase):
             rationale="The retry variant extends the existing checkout model.",
             similarity_review_required=True,
             similarity_relation_ids=("checkout-simple:checkout-retry:same_family_variant",),
+            similarity_maintenance_group_ids=("maintenance:checkout-retry+checkout-simple",),
         )
 
         report = review_existing_model_preflight(preflight)
 
         self.assertTrue(report.ok, report.format_text())
+
+    def test_existing_preflight_requires_change_impact_for_impacted_sibling_models(self):
+        report = review_existing_model_preflight(
+            ExistingModelPreflight(
+                "similarity-change-impact",
+                "Change checkout validation",
+                mode="full",
+                model_search_performed=True,
+                search_paths=(".flowguard/checkout",),
+                relevant_models=(ModelContextHit("checkout-simple", function_blocks=("ValidateOrder",)),),
+                reuse_decision=REUSE_DECISION_EXTEND_EXISTING,
+                downstream_routes=("development_process_flow",),
+                rationale="Changing one checkout variant requires sibling review.",
+                similarity_review_required=True,
+                similarity_relation_ids=("checkout-simple:checkout-retry:same_family_variant",),
+                similarity_maintenance_group_ids=("maintenance:checkout-retry+checkout-simple",),
+                impacted_similarity_model_ids=("checkout-retry",),
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("missing_similarity_change_impact", {finding.code for finding in report.findings})
 
     def test_architecture_reduction_similarity_is_not_proof_by_itself(self):
         plan = ArchitectureReductionPlan(
@@ -133,6 +156,8 @@ class ModelSimilarityIntegrationTests(unittest.TestCase):
                 function_block_map=(("ValidateOrder", "core"),),
                 facade_module_id="core",
                 similarity_relation_ids=("checkout-simple:checkout-retry:shared_kernel_candidate",),
+                similarity_maintenance_group_ids=("maintenance:checkout-retry+checkout-simple",),
+                similarity_code_obligation_ids=("checkout-simple:checkout-retry:shared_kernel_candidate:shared-kernel",),
                 shared_kernel_module_id="core",
                 variant_adapter_module_ids=("retry_adapter",),
                 validation_boundaries=("model similarity review",),
@@ -141,6 +166,30 @@ class ModelSimilarityIntegrationTests(unittest.TestCase):
         )
 
         self.assertTrue(report.ok, report.format_text())
+
+    def test_code_structure_warns_when_maintenance_group_lacks_code_obligation(self):
+        report = review_code_structure_recommendation(
+            CodeStructureRecommendation(
+                "missing-code-obligation",
+                source_model_id="checkout-family",
+                parent_module_id="checkout",
+                target_modules=(
+                    TargetModuleRecommendation("core", owns_function_blocks=("ValidateOrder",), rationale="shared kernel"),
+                    TargetModuleRecommendation("retry_adapter", rationale="variant adapter"),
+                ),
+                function_block_map=(("ValidateOrder", "core"),),
+                facade_module_id="core",
+                similarity_relation_ids=("checkout-simple:checkout-retry:shared_kernel_candidate",),
+                similarity_maintenance_group_ids=("maintenance:checkout-retry+checkout-simple",),
+                shared_kernel_module_id="core",
+                variant_adapter_module_ids=("retry_adapter",),
+                validation_boundaries=("model similarity review",),
+                rationale="Shared kernel is derived from model similarity.",
+            )
+        )
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertIn("missing_similarity_code_obligation", {finding.code for finding in report.findings})
 
     def test_code_structure_blocks_false_friend_relation(self):
         report = review_code_structure_recommendation(
@@ -173,6 +222,31 @@ class ModelSimilarityIntegrationTests(unittest.TestCase):
 
         self.assertFalse(report.ok)
         self.assertIn("missing_similarity_family_evidence", {finding.code for finding in report.findings})
+
+    def test_model_test_alignment_requires_similarity_test_obligations_for_maintenance_group(self):
+        report = review_model_test_alignment(
+            ModelTestAlignmentPlan(
+                "checkout",
+                similarity_maintenance_group_ids=("maintenance:checkout-retry+checkout-simple",),
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("missing_similarity_test_obligations", {finding.code for finding in report.findings})
+
+    def test_model_test_alignment_accepts_similarity_test_obligations(self):
+        report = review_model_test_alignment(
+            ModelTestAlignmentPlan(
+                "checkout",
+                similarity_maintenance_group_ids=("maintenance:checkout-retry+checkout-simple",),
+                similarity_test_obligation_ids=(
+                    "maintenance:checkout-retry+checkout-simple:shared-tests",
+                    "maintenance:checkout-retry+checkout-simple:variant-tests",
+                ),
+            )
+        )
+
+        self.assertTrue(report.ok, report.format_text())
 
     def test_model_test_alignment_accepts_family_rows_for_similarity_family_claim(self):
         report = review_model_test_alignment(
@@ -228,6 +302,9 @@ class ModelSimilarityIntegrationTests(unittest.TestCase):
                         affected_public_entrypoints=("checkout.submit",),
                         evidence_refs=("replay:checkout-equivalence",),
                         similarity_relation_ids=("checkout-simple:checkout-retry:adapter_only_difference",),
+                        similarity_code_obligation_ids=(
+                            "checkout-simple:checkout-retry:adapter_only_difference:duplicate-boundary",
+                        ),
                     ),
                 ),
             )

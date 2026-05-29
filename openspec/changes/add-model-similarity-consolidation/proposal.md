@@ -21,6 +21,10 @@ friends.
   can feed Existing Model Preflight, ModelMesh, Architecture Reduction, Code
   Structure Recommendation, StructureMesh, Model-Test Alignment, and manual
   review without rewriting production code automatically.
+- Extend the same review into a maintenance surface: when A/B/C are similar,
+  report the maintenance group, impacted siblings, shared tests, variant tests,
+  code paths, and shared-kernel or adapter obligations that must be checked
+  before future edits claim coverage.
 - Add public API exports, CLI/template support, docs, OpenSpec specs, examples,
   tests, and FlowGuard adoption records for the new route.
 - Update Existing Model Preflight so new or changed boundaries can carry
@@ -59,7 +63,8 @@ friends.
   `flowguard/templates.py`.
 - Existing review helpers receive optional similarity handoff fields where
   needed for route integration.
-- New tests for model similarity review, template/CLI export, API surface, and
-  preflight integration.
+- New tests for model similarity review, maintenance groups, change-impact
+  obligations, shared/variant test obligations, template/CLI export, API
+  surface, and route integrations.
 - New `.flowguard/model_similarity_consolidation` executable model and adoption
   log entries.

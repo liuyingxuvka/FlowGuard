@@ -89,6 +89,8 @@ class CodeStructureRecommendation:
     public_entrypoint_map: tuple[tuple[str, str], ...] = ()
     facade_module_id: str = ""
     similarity_relation_ids: tuple[str, ...] = ()
+    similarity_maintenance_group_ids: tuple[str, ...] = ()
+    similarity_code_obligation_ids: tuple[str, ...] = ()
     shared_kernel_module_id: str = ""
     variant_adapter_module_ids: tuple[str, ...] = ()
     validation_boundaries: tuple[str, ...] = ()
@@ -109,6 +111,16 @@ class CodeStructureRecommendation:
         object.__setattr__(self, "public_entrypoint_map", _as_pairs(self.public_entrypoint_map))
         object.__setattr__(self, "facade_module_id", str(self.facade_module_id))
         object.__setattr__(self, "similarity_relation_ids", _as_tuple(self.similarity_relation_ids))
+        object.__setattr__(
+            self,
+            "similarity_maintenance_group_ids",
+            _as_tuple(self.similarity_maintenance_group_ids),
+        )
+        object.__setattr__(
+            self,
+            "similarity_code_obligation_ids",
+            _as_tuple(self.similarity_code_obligation_ids),
+        )
         object.__setattr__(self, "shared_kernel_module_id", str(self.shared_kernel_module_id))
         object.__setattr__(self, "variant_adapter_module_ids", _as_tuple(self.variant_adapter_module_ids))
         object.__setattr__(self, "validation_boundaries", _as_tuple(self.validation_boundaries))
@@ -147,6 +159,8 @@ class CodeStructureRecommendation:
             "public_entrypoint_map": [list(pair) for pair in self.public_entrypoint_map],
             "facade_module_id": self.facade_module_id,
             "similarity_relation_ids": list(self.similarity_relation_ids),
+            "similarity_maintenance_group_ids": list(self.similarity_maintenance_group_ids),
+            "similarity_code_obligation_ids": list(self.similarity_code_obligation_ids),
             "shared_kernel_module_id": self.shared_kernel_module_id,
             "variant_adapter_module_ids": list(self.variant_adapter_module_ids),
             "validation_boundaries": list(self.validation_boundaries),
@@ -366,6 +380,29 @@ def review_code_structure_recommendation(
                         metadata={"similarity_relation_ids": list(recommendation.similarity_relation_ids)},
                     )
                 )
+        if (
+            recommendation.shared_kernel_module_id
+            and recommendation.variant_adapter_module_ids
+            and not recommendation.similarity_code_obligation_ids
+        ):
+            findings.append(
+                CodeStructureFinding(
+                    "missing_similarity_code_obligation",
+                    "similarity-derived shared-kernel structure should cite the code maintenance obligation that named the kernel and adapters",
+                    severity="warning",
+                    module_id=recommendation.shared_kernel_module_id,
+                    metadata={"similarity_relation_ids": list(recommendation.similarity_relation_ids)},
+                )
+            )
+        if recommendation.similarity_maintenance_group_ids and not recommendation.similarity_code_obligation_ids:
+            findings.append(
+                CodeStructureFinding(
+                    "missing_similarity_group_code_obligation",
+                    "a similarity maintenance group used for code structure should cite the code obligation that drives shared-kernel or adapter ownership",
+                    severity="warning",
+                    metadata={"similarity_maintenance_group_ids": list(recommendation.similarity_maintenance_group_ids)},
+                )
+            )
 
     all_pairs = (
         ("function_block_owner_not_registered", "FunctionBlock", recommendation.function_block_map),

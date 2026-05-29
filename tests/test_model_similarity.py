@@ -162,6 +162,143 @@ class ModelSimilarityReviewTests(unittest.TestCase):
         self.assertFalse(report.ok)
         self.assertIn("incomplete_model_signature", {finding.code for finding in report.findings})
 
+    def test_family_variants_form_maintenance_group_and_change_impact(self):
+        plan = ModelSimilarityPlan(
+            "checkout-maintenance",
+            signatures=(
+                signature(
+                    "checkout-simple",
+                    variant_id="simple",
+                    code_paths=("flowguard/checkout/simple.py",),
+                    test_paths=("tests/test_checkout_simple.py",),
+                    owned_public_behaviors=("submit_order",),
+                    shared_kernel_id="checkout_core",
+                    adapter_ids=("simple_adapter",),
+                    maintenance_tags=("checkout", "order-write"),
+                ),
+                signature(
+                    "checkout-retry",
+                    variant_id="retry",
+                    code_paths=("flowguard/checkout/retry.py",),
+                    test_paths=("tests/test_checkout_retry.py",),
+                    owned_public_behaviors=("submit_order", "retry_order"),
+                    shared_kernel_id="checkout_core",
+                    adapter_ids=("retry_adapter",),
+                    maintenance_tags=("checkout", "order-write"),
+                ),
+                signature(
+                    "checkout-cancel",
+                    variant_id="cancel",
+                    code_paths=("flowguard/checkout/cancel.py",),
+                    test_paths=("tests/test_checkout_cancel.py",),
+                    owned_public_behaviors=("cancel_order",),
+                    shared_kernel_id="checkout_core",
+                    adapter_ids=("cancel_adapter",),
+                    maintenance_tags=("checkout", "order-write"),
+                ),
+            ),
+            changed_model_ids=("checkout-simple",),
+        )
+
+        report = review_model_similarity_consolidation(plan)
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual(1, len(report.maintenance_groups), report.format_text())
+        group = report.maintenance_groups[0]
+        self.assertEqual(
+            ("checkout-cancel", "checkout-retry", "checkout-simple"),
+            tuple(sorted(group.member_model_ids)),
+        )
+        self.assertIn("ValidateOrder", group.shared_elements)
+        self.assertIn("flowguard/checkout/retry.py", group.code_paths)
+        self.assertIn("tests/test_checkout_cancel.py", group.test_paths)
+        self.assertEqual(1, len(report.change_impacts), report.format_text())
+        impact = report.change_impacts[0]
+        self.assertEqual("checkout-simple", impact.changed_model_id)
+        self.assertEqual(("checkout-cancel", "checkout-retry"), tuple(sorted(impact.impacted_model_ids)))
+        self.assertIn("flowguard/checkout/cancel.py", impact.impacted_code_paths)
+        obligation_types = {obligation.obligation_type for obligation in report.test_obligations}
+        self.assertIn("shared_behavior_tests", obligation_types)
+        self.assertIn("variant_behavior_tests", obligation_types)
+        code_obligation_types = {obligation.obligation_type for obligation in report.code_obligations}
+        self.assertIn("shared_kernel_or_adapter", code_obligation_types)
+
+    def test_changed_code_path_maps_to_similarity_sibling_review(self):
+        report = review_model_similarity_consolidation(
+            ModelSimilarityPlan(
+                "changed-code-path",
+                signatures=(
+                    signature(
+                        "checkout-simple",
+                        variant_id="simple",
+                        code_paths=("flowguard/checkout/simple.py",),
+                        test_paths=("tests/test_checkout_simple.py",),
+                    ),
+                    signature(
+                        "checkout-retry",
+                        variant_id="retry",
+                        code_paths=("flowguard/checkout/retry.py",),
+                        test_paths=("tests/test_checkout_retry.py",),
+                    ),
+                ),
+                changed_code_paths=("flowguard/checkout/simple.py",),
+            )
+        )
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual("checkout-simple", report.change_impacts[0].changed_model_id)
+        self.assertEqual(("checkout-retry",), report.change_impacts[0].impacted_model_ids)
+
+    def test_false_friend_is_quarantined_from_maintenance_group(self):
+        report = review_model_similarity_consolidation(
+            ModelSimilarityPlan(
+                "false-friend-quarantine",
+                signatures=(
+                    ModelSignature(
+                        "checkout-submit",
+                        function_blocks=("SubmitOrder",),
+                        state_owned=("orders",),
+                        side_effects_owned=("write_order",),
+                        false_friend_model_ids=("checkout-report",),
+                        code_paths=("flowguard/checkout/submit.py",),
+                    ),
+                    ModelSignature(
+                        "checkout-report",
+                        function_blocks=("RenderCheckoutReport",),
+                        state_owned=("report_rows",),
+                        side_effects_owned=("write_report",),
+                        code_paths=("flowguard/checkout/report.py",),
+                    ),
+                ),
+            )
+        )
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual((), report.maintenance_groups)
+        self.assertIn(
+            "false_friend_quarantine",
+            {obligation.obligation_type for obligation in report.code_obligations},
+        )
+
+    def test_required_maintenance_test_paths_block_missing_sibling_tests(self):
+        report = review_model_similarity_consolidation(
+            ModelSimilarityPlan(
+                "missing-sibling-test-paths",
+                signatures=(
+                    signature(
+                        "checkout-simple",
+                        variant_id="simple",
+                        test_paths=("tests/test_checkout_simple.py",),
+                    ),
+                    signature("checkout-retry", variant_id="retry", test_paths=()),
+                ),
+                require_maintenance_test_paths=True,
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("missing_maintenance_test_path", {finding.code for finding in report.findings})
+
 
 if __name__ == "__main__":
     unittest.main()

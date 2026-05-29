@@ -663,6 +663,8 @@ class ModelTestAlignmentPlan:
     runtime_node_observations: tuple[RuntimeNodeObservation, ...] = ()
     runtime_path_runs: tuple[RuntimePathRun, ...] = ()
     similarity_relation_ids: tuple[str, ...] = ()
+    similarity_maintenance_group_ids: tuple[str, ...] = ()
+    similarity_test_obligation_ids: tuple[str, ...] = ()
     same_family_similarity_relation_ids: tuple[str, ...] = ()
     evidence_duplicate_relation_ids: tuple[str, ...] = ()
     require_code_contracts: bool = False
@@ -708,6 +710,16 @@ class ModelTestAlignmentPlan:
         object.__setattr__(self, "similarity_relation_ids", _as_tuple(self.similarity_relation_ids))
         object.__setattr__(
             self,
+            "similarity_maintenance_group_ids",
+            _as_tuple(self.similarity_maintenance_group_ids),
+        )
+        object.__setattr__(
+            self,
+            "similarity_test_obligation_ids",
+            _as_tuple(self.similarity_test_obligation_ids),
+        )
+        object.__setattr__(
+            self,
             "same_family_similarity_relation_ids",
             _as_tuple(self.same_family_similarity_relation_ids),
         )
@@ -733,6 +745,8 @@ class ModelTestAlignmentPlan:
             ],
             "runtime_path_runs": [run.to_dict() for run in self.runtime_path_runs],
             "similarity_relation_ids": list(self.similarity_relation_ids),
+            "similarity_maintenance_group_ids": list(self.similarity_maintenance_group_ids),
+            "similarity_test_obligation_ids": list(self.similarity_test_obligation_ids),
             "same_family_similarity_relation_ids": list(self.same_family_similarity_relation_ids),
             "evidence_duplicate_relation_ids": list(self.evidence_duplicate_relation_ids),
             "require_code_contracts": self.require_code_contracts,
@@ -2056,6 +2070,16 @@ def review_model_test_alignment(plan: ModelTestAlignmentPlan) -> ModelTestAlignm
                 "missing_similarity_family_evidence",
                 "same-family model-similarity relations require obligation-family evidence or an explicit scoped family plan",
                 metadata={"similarity_relation_ids": list(plan.same_family_similarity_relation_ids)},
+            )
+        )
+    if plan.similarity_maintenance_group_ids and not (
+        plan.similarity_test_obligation_ids or plan.obligation_families
+    ):
+        findings.append(
+            ModelTestAlignmentFinding(
+                "missing_similarity_test_obligations",
+                "similarity maintenance groups require shared and variant test obligations or obligation-family evidence before a broad maintenance claim",
+                metadata={"similarity_maintenance_group_ids": list(plan.similarity_maintenance_group_ids)},
             )
         )
     if plan.evidence_duplicate_relation_ids and not (plan.test_evidence or plan.family_evidence):

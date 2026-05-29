@@ -146,6 +146,24 @@ from .baseline import (
     EvidenceCaseResult,
     build_evidence_baseline_report,
 )
+from .evidence_fields import (
+    EVIDENCE_GATE_STATUS_ERROR,
+    EVIDENCE_GATE_STATUS_FAILED,
+    EVIDENCE_GATE_STATUS_NOT_RUN,
+    EVIDENCE_GATE_STATUS_PASSED,
+    EVIDENCE_GATE_STATUS_PROGRESS_ONLY,
+    EVIDENCE_GATE_STATUS_RUNNING,
+    EVIDENCE_GATE_STATUS_SKIPPED,
+    EVIDENCE_GATE_STATUS_STALE,
+    NON_PASSING_EVIDENCE_GATE_STATUSES,
+    PASSING_EVIDENCE_GATE_STATUSES,
+    BackgroundEvidenceDetail,
+    CommandEvidenceDetail,
+    EvidenceGate,
+    MeshSplitEvidenceDetail,
+    evidence_gates_from_process_like,
+    summarize_evidence_gates,
+)
 from .benchmark import BenchmarkScorecard, build_benchmark_scorecard
 from .budgeted import (
     BudgetedGraphConfig,
@@ -437,11 +455,15 @@ from .model_similarity import (
     RELATION_SYMMETRIC_FLOW,
     RELATION_UNRELATED,
     ModelSignature,
+    ModelSimilarityChangeImpact,
+    ModelSimilarityCodeObligation,
     ModelSimilarityEvidence,
     ModelSimilarityFinding,
+    ModelSimilarityMaintenanceGroup,
     ModelSimilarityPlan,
     ModelSimilarityRelation,
     ModelSimilarityReport,
+    ModelSimilarityTestObligation,
     review_model_similarity_consolidation,
 )
 from .runtime_path import (
@@ -1159,11 +1181,15 @@ MODELING_HELPER_API = (
     "review_python_contract_source_audit",
     "review_model_test_alignment",
     "ModelSignature",
+    "ModelSimilarityChangeImpact",
+    "ModelSimilarityCodeObligation",
     "ModelSimilarityEvidence",
     "ModelSimilarityFinding",
+    "ModelSimilarityMaintenanceGroup",
     "ModelSimilarityPlan",
     "ModelSimilarityRelation",
     "ModelSimilarityReport",
+    "ModelSimilarityTestObligation",
     "review_model_similarity_consolidation",
     "MODEL_SIMILARITY_ROUTE",
     "MODEL_SIMILARITY_RELATION_TYPES",
@@ -1538,6 +1564,22 @@ EVIDENCE_API = (
     "EvidenceBaselineReport",
     "EvidenceCaseResult",
     "build_evidence_baseline_report",
+    "EvidenceGate",
+    "CommandEvidenceDetail",
+    "BackgroundEvidenceDetail",
+    "MeshSplitEvidenceDetail",
+    "summarize_evidence_gates",
+    "evidence_gates_from_process_like",
+    "EVIDENCE_GATE_STATUS_PASSED",
+    "EVIDENCE_GATE_STATUS_FAILED",
+    "EVIDENCE_GATE_STATUS_SKIPPED",
+    "EVIDENCE_GATE_STATUS_STALE",
+    "EVIDENCE_GATE_STATUS_NOT_RUN",
+    "EVIDENCE_GATE_STATUS_RUNNING",
+    "EVIDENCE_GATE_STATUS_PROGRESS_ONLY",
+    "EVIDENCE_GATE_STATUS_ERROR",
+    "PASSING_EVIDENCE_GATE_STATUSES",
+    "NON_PASSING_EVIDENCE_GATE_STATUSES",
     "BenchmarkScorecard",
     "build_benchmark_scorecard",
     "BenchmarkCoverageAudit",
@@ -1574,6 +1616,80 @@ EVIDENCE_API = (
     "write_template_files",
 )
 
+TEMPLATE_STRUCTURE_API = (
+    "TemplateFile",
+    "write_template_files",
+    "project_template_files",
+    "project_adoption_template_files",
+    "risk_intent_template_files",
+    "model_miss_review_template_files",
+    "model_test_alignment_template_files",
+    "runtime_path_evidence_template_files",
+    "code_structure_recommendation_template_files",
+    "existing_model_preflight_template_files",
+    "model_similarity_consolidation_template_files",
+    "risk_evidence_ledger_template_files",
+    "layered_boundary_proof_template_files",
+    "closure_contract_template_files",
+    "ui_flow_structure_template_files",
+    "development_process_flow_template_files",
+    "workflow_step_contracts_template_files",
+    "test_mesh_template_files",
+    "structure_mesh_template_files",
+)
+
+EVIDENCE_FIELD_STRUCTURE_API = (
+    "EvidenceGate",
+    "CommandEvidenceDetail",
+    "BackgroundEvidenceDetail",
+    "MeshSplitEvidenceDetail",
+    "summarize_evidence_gates",
+    "evidence_gates_from_process_like",
+)
+
+MODEL_SIMILARITY_ROUTE_API = (
+    "ModelSignature",
+    "ModelSimilarityChangeImpact",
+    "ModelSimilarityCodeObligation",
+    "ModelSimilarityMaintenanceGroup",
+    "ModelSimilarityPlan",
+    "ModelSimilarityRelation",
+    "ModelSimilarityReport",
+    "ModelSimilarityTestObligation",
+    "review_model_similarity_consolidation",
+)
+
+ARCHITECTURE_REDUCTION_ROUTE_API = (
+    "ObservableArchitectureContract",
+    "CompatibilitySurfaceClassification",
+    "ArchitectureReductionCandidate",
+    "ArchitectureReductionPlan",
+    "review_architecture_reduction",
+)
+
+CODE_STRUCTURE_RECOMMENDATION_ROUTE_API = (
+    "CodeStructureRecommendation",
+    "TargetModuleRecommendation",
+    "review_code_structure_recommendation",
+)
+
+MODEL_TEST_ALIGNMENT_ROUTE_API = (
+    "ModelTestAlignmentPlan",
+    "ModelObligation",
+    "TestEvidence",
+    "CodeContract",
+    "review_model_test_alignment",
+)
+
+FLOWGUARD_ROUTE_API = {
+    "template_structure": TEMPLATE_STRUCTURE_API,
+    "evidence_field_structure": EVIDENCE_FIELD_STRUCTURE_API,
+    "model_similarity_consolidation": MODEL_SIMILARITY_ROUTE_API,
+    "architecture_reduction": ARCHITECTURE_REDUCTION_ROUTE_API,
+    "code_structure_recommendation": CODE_STRUCTURE_RECOMMENDATION_ROUTE_API,
+    "model_test_alignment": MODEL_TEST_ALIGNMENT_ROUTE_API,
+}
+
 API_SURFACE = {
     "core": CORE_API,
     "modeling_helpers": MODELING_HELPER_API,
@@ -1583,13 +1699,20 @@ API_SURFACE = {
 
 _PUBLIC_API_SUPPLEMENT = (
     "API_SURFACE",
+    "ARCHITECTURE_REDUCTION_ROUTE_API",
+    "CODE_STRUCTURE_RECOMMENDATION_ROUTE_API",
     "CORE_API",
+    "EVIDENCE_FIELD_STRUCTURE_API",
     "EVIDENCE_API",
+    "FLOWGUARD_ROUTE_API",
     "FLOWGUARD_CLOSURE_CONTRACT_API",
+    "MODEL_SIMILARITY_ROUTE_API",
+    "MODEL_TEST_ALIGNMENT_ROUTE_API",
     "MODEL_IMPACT_FRESHNESS_API",
     "MODEL_MATURATION_API",
     "MODELING_HELPER_API",
     "REPORTING_HELPER_API",
+    "TEMPLATE_STRUCTURE_API",
     "RISK_INTENT_FIELDS",
     "PROOF_ARTIFACT_STATUS_PASSED",
     "PROOF_ARTIFACT_STATUS_FAILED",

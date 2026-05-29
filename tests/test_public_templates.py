@@ -30,6 +30,45 @@ from flowguard.templates import (
 
 ROOT = Path(__file__).resolve().parents[1]
 
+PUBLIC_TEMPLATE_FACTORIES = (
+    project_template_files,
+    risk_intent_template_files,
+    model_miss_review_template_files,
+    model_test_alignment_template_files,
+    code_structure_recommendation_template_files,
+    existing_model_preflight_template_files,
+    model_similarity_consolidation_template_files,
+    risk_evidence_ledger_template_files,
+    runtime_path_evidence_template_files,
+    layered_boundary_proof_template_files,
+    closure_contract_template_files,
+    ui_flow_structure_template_files,
+    development_process_flow_template_files,
+    workflow_step_contracts_template_files,
+    test_mesh_template_files,
+    structure_mesh_template_files,
+)
+
+TEMPLATE_CLI_COMMANDS = {
+    "project-template": "project",
+    "project-adoption-template": "project_adoption",
+    "risk-intent-template": "risk_intent_check_plan",
+    "model-miss-template": "model_miss_review",
+    "model-test-alignment-template": "model_test_alignment",
+    "runtime-path-evidence-template": "runtime_path_evidence",
+    "code-structure-recommendation-template": "code_structure_recommendation",
+    "existing-model-preflight-template": "existing_model_preflight",
+    "model-similarity-template": "model_similarity_consolidation",
+    "risk-evidence-ledger-template": "risk_evidence_ledger",
+    "layered-boundary-proof-template": "layered_boundary_proof",
+    "closure-contract-template": "closure_contract",
+    "ui-flow-structure-template": "ui_flow_structure",
+    "development-process-flow-template": "development_process_flow",
+    "workflow-step-contracts-template": "workflow_step_contracts",
+    "test-mesh-template": "test_mesh",
+    "structure-mesh-template": "structure_mesh",
+}
+
 
 def _template_env():
     env = os.environ.copy()
@@ -67,6 +106,16 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("status: OK", output)
         self.assertIn("stored", output)
         self.assertIn("rejected_duplicate", output)
+
+    def test_template_text_is_route_scoped_behind_public_facade(self):
+        template_text_root = ROOT / "flowguard" / "template_text"
+        route_modules = {path.stem for path in template_text_root.glob("*.py") if path.name != "__init__.py"}
+
+        self.assertIn("ui_flow_structure", route_modules)
+        self.assertIn("model_similarity_consolidation", route_modules)
+        self.assertIn("risk_evidence_ledger", route_modules)
+        self.assertLess(len((ROOT / "flowguard" / "templates.py").read_text(encoding="utf-8").splitlines()), 1000)
+        self.assertIn("UIInteractionModel", (template_text_root / "ui_flow_structure.py").read_text(encoding="utf-8"))
 
     def test_risk_intent_template_executes(self):
         output = self.run_written_template(
@@ -279,6 +328,10 @@ class PublicTemplateTests(unittest.TestCase):
         )
         self.assertIn("flowguard model similarity consolidation", output)
         self.assertIn("same_family_variant", output)
+        self.assertIn("maintenance_group", output)
+        self.assertIn("change_impact", output)
+        self.assertIn("shared_behavior_tests", output)
+        self.assertIn("variant_behavior_tests", output)
         self.assertIn("missing_current_similarity_evidence", output)
         self.assertIn("false_friend", output)
 
@@ -334,26 +387,10 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("Risk Evidence Ledger", combined)
 
     def test_public_model_templates_include_risk_purpose_headers(self):
-        for files in (
-            project_template_files(),
-            risk_intent_template_files(),
-            model_miss_review_template_files(),
-            model_test_alignment_template_files(),
-            code_structure_recommendation_template_files(),
-            existing_model_preflight_template_files(),
-            model_similarity_consolidation_template_files(),
-            risk_evidence_ledger_template_files(),
-            runtime_path_evidence_template_files(),
-            layered_boundary_proof_template_files(),
-            closure_contract_template_files(),
-            ui_flow_structure_template_files(),
-            development_process_flow_template_files(),
-            workflow_step_contracts_template_files(),
-            test_mesh_template_files(),
-            structure_mesh_template_files(),
-        ):
-            model_file = next(file for file in files if file.path.endswith("model.py"))
-            self.assert_risk_purpose_header(model_file.content)
+        for factory in PUBLIC_TEMPLATE_FACTORIES:
+            with self.subTest(factory=factory.__name__):
+                model_file = next(file for file in factory() if file.path.endswith("model.py"))
+                self.assert_risk_purpose_header(model_file.content)
 
     def test_project_adoption_template_includes_version_gate_materials(self):
         files = project_adoption_template_files()
@@ -370,26 +407,7 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("schema_version", combined)
 
     def test_template_cli_prints_and_writes_new_templates(self):
-        commands = {
-            "project-template": "project",
-            "project-adoption-template": "project_adoption",
-            "risk-intent-template": "risk_intent_check_plan",
-            "model-miss-template": "model_miss_review",
-            "model-test-alignment-template": "model_test_alignment",
-            "runtime-path-evidence-template": "runtime_path_evidence",
-            "code-structure-recommendation-template": "code_structure_recommendation",
-            "existing-model-preflight-template": "existing_model_preflight",
-            "model-similarity-template": "model_similarity_consolidation",
-            "risk-evidence-ledger-template": "risk_evidence_ledger",
-            "layered-boundary-proof-template": "layered_boundary_proof",
-            "closure-contract-template": "closure_contract",
-            "ui-flow-structure-template": "ui_flow_structure",
-            "development-process-flow-template": "development_process_flow",
-            "workflow-step-contracts-template": "workflow_step_contracts",
-            "test-mesh-template": "test_mesh",
-            "structure-mesh-template": "structure_mesh",
-        }
-        for command, template_name in commands.items():
+        for command, template_name in TEMPLATE_CLI_COMMANDS.items():
             help_result = subprocess.run(
                 [sys.executable, "-m", "flowguard", command, "--help"],
                 cwd=ROOT,
@@ -435,28 +453,11 @@ class PublicTemplateTests(unittest.TestCase):
             "Cockpit",
             "heartbeat",
         )
-        for files in (
-            project_template_files(),
-            risk_intent_template_files(),
-            model_miss_review_template_files(),
-            model_test_alignment_template_files(),
-            code_structure_recommendation_template_files(),
-            existing_model_preflight_template_files(),
-            model_similarity_consolidation_template_files(),
-            risk_evidence_ledger_template_files(),
-            runtime_path_evidence_template_files(),
-            layered_boundary_proof_template_files(),
-            closure_contract_template_files(),
-            ui_flow_structure_template_files(),
-            development_process_flow_template_files(),
-            workflow_step_contracts_template_files(),
-            test_mesh_template_files(),
-            structure_mesh_template_files(),
-            project_adoption_template_files(),
-        ):
-            for file in files:
-                for marker in private_markers:
-                    self.assertNotIn(marker, file.content)
+        for factory in PUBLIC_TEMPLATE_FACTORIES + (project_adoption_template_files,):
+            with self.subTest(factory=factory.__name__):
+                for file in factory():
+                    for marker in private_markers:
+                        self.assertNotIn(marker, file.content)
 
 
 if __name__ == "__main__":

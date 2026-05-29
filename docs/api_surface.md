@@ -113,14 +113,19 @@ Modeling helpers reduce boilerplate around common bug classes:
   production code is edited.
 - optional model-similarity consolidation helpers such as `ModelSignature`,
   `ModelSimilarityEvidence`, `ModelSimilarityRelation`,
+  `ModelSimilarityMaintenanceGroup`, `ModelSimilarityChangeImpact`,
+  `ModelSimilarityTestObligation`, `ModelSimilarityCodeObligation`,
   `ModelSimilarityPlan`, `ModelSimilarityReport`, and
   `review_model_similarity_consolidation()` for comparing structured model
   signatures, classifying typed relations such as same workflow, family
   variant, shared kernel, duplicate boundary, adapter-only difference, evidence
-  duplicate, false friend, and unrelated, and handing reviewable next-route
-  advice to Existing Model Preflight, ModelMesh, Architecture Reduction, Code
-  Structure Recommendation, StructureMesh, Model-Test Alignment, or manual
-  review without merging models or rewriting code automatically.
+  duplicate, false friend, and unrelated, deriving maintenance groups,
+  changed-sibling review obligations, shared/variant test obligations, and
+  shared-kernel/adapter/duplicate-boundary code obligations, and handing
+  reviewable next-route advice to Existing Model Preflight, ModelMesh,
+  Architecture Reduction, Code Structure Recommendation, StructureMesh,
+  Model-Test Alignment, or manual review without merging models or rewriting
+  code automatically.
 - optional model-test alignment helpers such as `ModelObligation`,
   `CodeContract`, `TestEvidence`, `ModelTestAlignmentPlan`, and
   `review_model_test_alignment()` for directly comparing model obligations
@@ -296,6 +301,11 @@ or replace executable validation evidence.
 Evidence APIs are used to keep FlowGuard itself honest:
 
 - evidence baseline reports;
+- lightweight evidence gate/detail helpers such as `EvidenceGate`,
+  `CommandEvidenceDetail`, `BackgroundEvidenceDetail`,
+  `MeshSplitEvidenceDetail`, `summarize_evidence_gates()`, and
+  `evidence_gates_from_process_like()` for grouping broad evidence fields
+  without hiding skipped, stale, not-run, or progress-only states;
 - benchmark scorecards and benchmark coverage audits;
 - problem corpus and executable corpus reports;
 - pytest/template helpers used by examples and framework validation;
@@ -308,7 +318,9 @@ Evidence APIs are used to keep FlowGuard itself honest:
   `project_adoption_template_files()`, `test_mesh_template_files()`,
   `structure_mesh_template_files()`, `closure_contract_template_files()`, and
   `layered_boundary_proof_template_files()`, and
-  `runtime_path_evidence_template_files()`.
+  `runtime_path_evidence_template_files()`. The public facade remains
+  `flowguard.templates`; route template text is internally owned by
+  route-scoped modules.
 
 These tools are valuable for FlowGuard maintenance. Ordinary project models do
 not have to run the full evidence baseline, problem corpus, or benchmark suite
@@ -323,6 +335,11 @@ The package exports lightweight grouping constants:
 - `REPORTING_HELPER_API`
 - `EVIDENCE_API`
 - `API_SURFACE`
+- route-scoped discovery groups such as `FLOWGUARD_ROUTE_API`,
+  `TEMPLATE_STRUCTURE_API`, `EVIDENCE_FIELD_STRUCTURE_API`,
+  `MODEL_SIMILARITY_ROUTE_API`, `ARCHITECTURE_REDUCTION_ROUTE_API`,
+  `CODE_STRUCTURE_RECOMMENDATION_ROUTE_API`, and
+  `MODEL_TEST_ALIGNMENT_ROUTE_API`
 
 They are descriptive lists of exported public names. They do not enforce a
 runtime policy and they do not make helper layers mandatory.

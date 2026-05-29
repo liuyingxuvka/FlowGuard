@@ -6,6 +6,9 @@ public FlowGuard helper.
 
 Guards against:
 - similarity advice without current evidence;
+- changes to one model in a similar family failing to review siblings;
+- shared behavior missing shared tests and variant behavior missing variant tests;
+- shared-kernel metadata failing to produce code maintenance obligations;
 - false friends being treated as merge candidates;
 - family variants bypassing ModelMesh or Model-Test Alignment handoff;
 - duplicate boundaries bypassing Architecture Reduction;
@@ -39,6 +42,10 @@ class Case:
     expected_relation_type: str
     expected_routes: tuple[str, ...] = ()
     expected_findings: tuple[str, ...] = ()
+    expect_maintenance_group: bool = False
+    expect_change_impact: bool = False
+    expected_test_obligations: tuple[str, ...] = ()
+    expected_code_obligations: tuple[str, ...] = ()
 
 
 def family_variant_case() -> Case:
@@ -54,6 +61,12 @@ def family_variant_case() -> Case:
                     function_blocks=("ValidateOrder", "PersistOrder"),
                     state_owned=("orders",),
                     failure_modes=("duplicate_submit",),
+                    code_paths=("flowguard/checkout/simple.py",),
+                    test_paths=("tests/test_checkout_simple.py",),
+                    owned_public_behaviors=("submit_order",),
+                    shared_kernel_id="checkout_core",
+                    adapter_ids=("simple_adapter",),
+                    maintenance_tags=("checkout",),
                     evidence_ids=("sim:checkout-family",),
                 ),
                 ModelSignature(
@@ -63,16 +76,41 @@ def family_variant_case() -> Case:
                     function_blocks=("ValidateOrder", "PersistOrder"),
                     state_owned=("orders",),
                     failure_modes=("duplicate_submit",),
+                    code_paths=("flowguard/checkout/retry.py",),
+                    test_paths=("tests/test_checkout_retry.py",),
+                    owned_public_behaviors=("submit_order", "retry_order"),
+                    shared_kernel_id="checkout_core",
+                    adapter_ids=("retry_adapter",),
+                    maintenance_tags=("checkout",),
+                    evidence_ids=("sim:checkout-family",),
+                ),
+                ModelSignature(
+                    "checkout-cancel",
+                    workflow_family="checkout",
+                    variant_id="cancel",
+                    function_blocks=("ValidateOrder", "PersistOrder"),
+                    state_owned=("orders",),
+                    failure_modes=("duplicate_submit", "cancel_after_auth"),
+                    code_paths=("flowguard/checkout/cancel.py",),
+                    test_paths=("tests/test_checkout_cancel.py",),
+                    owned_public_behaviors=("cancel_order",),
+                    shared_kernel_id="checkout_core",
+                    adapter_ids=("cancel_adapter",),
+                    maintenance_tags=("checkout",),
                     evidence_ids=("sim:checkout-family",),
                 ),
             ),
-            comparison_pairs=(("checkout-simple", "checkout-retry"),),
+            changed_model_ids=("checkout-simple",),
             evidence=(ModelSimilarityEvidence("sim:checkout-family"),),
             require_current_evidence=True,
         ),
         True,
         "same_family_variant",
         ("model_mesh", "model_test_alignment"),
+        expect_maintenance_group=True,
+        expect_change_impact=True,
+        expected_test_obligations=("shared_behavior_tests", "variant_behavior_tests"),
+        expected_code_obligations=("shared_kernel_or_adapter",),
     )
 
 
@@ -133,6 +171,7 @@ def false_friend_case() -> Case:
         ),
         True,
         "false_friend",
+        expected_code_obligations=("false_friend_quarantine",),
     )
 
 
@@ -162,6 +201,40 @@ def duplicate_boundary_case() -> Case:
         True,
         "duplicate_boundary",
         ("architecture_reduction",),
+        expect_maintenance_group=True,
+        expected_code_obligations=("duplicate_boundary_contraction",),
+    )
+
+
+def missing_maintenance_tests_case() -> Case:
+    return Case(
+        "missing_maintenance_tests",
+        ModelSimilarityPlan(
+            "missing-maintenance-tests",
+            signatures=(
+                ModelSignature(
+                    "checkout-simple",
+                    workflow_family="checkout",
+                    variant_id="simple",
+                    function_blocks=("ValidateOrder",),
+                    test_paths=("tests/test_checkout_simple.py",),
+                ),
+                ModelSignature(
+                    "checkout-retry",
+                    workflow_family="checkout",
+                    variant_id="retry",
+                    function_blocks=("ValidateOrder",),
+                    test_paths=(),
+                ),
+            ),
+            require_maintenance_test_paths=True,
+        ),
+        False,
+        "same_family_variant",
+        ("model_mesh", "model_test_alignment"),
+        ("missing_maintenance_test_path",),
+        expect_maintenance_group=True,
+        expected_test_obligations=("shared_behavior_tests", "variant_behavior_tests"),
     )
 
 
@@ -186,6 +259,7 @@ CASES = (
     missing_evidence_case(),
     false_friend_case(),
     duplicate_boundary_case(),
+    missing_maintenance_tests_case(),
     unrelated_case(),
 )
 
@@ -205,6 +279,18 @@ def run_case(case: Case) -> tuple[bool, str]:
     for code in case.expected_findings:
         if code not in finding_codes:
             return False, f"{case.name}: missing finding {code}"
+    if case.expect_maintenance_group and not report.maintenance_groups:
+        return False, f"{case.name}: missing maintenance group"
+    if case.expect_change_impact and not report.change_impacts:
+        return False, f"{case.name}: missing change impact"
+    test_obligation_types = {obligation.obligation_type for obligation in report.test_obligations}
+    for obligation_type in case.expected_test_obligations:
+        if obligation_type not in test_obligation_types:
+            return False, f"{case.name}: missing test obligation {obligation_type}"
+    code_obligation_types = {obligation.obligation_type for obligation in report.code_obligations}
+    for obligation_type in case.expected_code_obligations:
+        if obligation_type not in code_obligation_types:
+            return False, f"{case.name}: missing code obligation {obligation_type}"
     return True, report.summary
 
 

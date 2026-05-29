@@ -12,6 +12,12 @@ validation boundaries.
 - **THEN** the recommendation identifies the shared kernel owner, variant or
   directional adapter owners, public facade owner, and validation boundaries
 
+#### Scenario: Similarity maintenance group cites code obligation
+- **WHEN** a code-structure recommendation uses a similarity maintenance group
+  to derive shared-kernel or adapter ownership
+- **THEN** the recommendation records the maintenance group ids and code
+  obligation ids that named the shared kernel, adapter owners, and code paths
+
 #### Scenario: False friend blocks shared module recommendation
 - **WHEN** a model-similarity relation is classified as false friend
 - **THEN** Code Structure Recommendation does not use that relation to derive a

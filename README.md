@@ -16,7 +16,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.35.0` | `1.0` | Python standard library only | MIT |
+| `v0.36.0` | `1.0` | Python standard library only | MIT |
 
 English lead content comes first; a Chinese mirror follows below.
 
@@ -138,7 +138,7 @@ FlowGuard gives those weak spots a small executable shape before the action beco
 | Child model reattachment | Requires a parent mesh to consume the repaired child evidence id and verify input, output, state, side-effect, and exported-contract handoffs |
 | Mesh closure model | Models parent/child handoff tokens so child outputs, joins, exits, and out-of-scope branches must be consumed before `mesh_green_can_continue` |
 | Existing Model Preflight | Looks up current FlowGuard model ownership before discussion, proposal, bug fix, feature work, refactor, prompt, skill, UI, test, or process changes in an existing modeled system |
-| Model Similarity Consolidation | Compares structured model signatures, classifies same-workflow, family-variant, shared-kernel, duplicate-boundary, adapter-only, evidence-duplicate, false-friend, and unrelated relations, then hands off to the right FlowGuard route |
+| Model Similarity Consolidation | Compares structured model signatures, classifies same-workflow, family-variant, shared-kernel, duplicate-boundary, adapter-only, evidence-duplicate, false-friend, and unrelated relations, derives maintenance groups, changed-sibling review, shared/variant test obligations, and code obligations, then hands off to the right FlowGuard route |
 | TestMesh | Reviews parent/child validation layers, broad or slow direct validation evidence, stale evidence, hidden skips, timeouts, and routine-vs-release gates |
 | StructureMesh | Reviews large refactor splits, facade compatibility, dependency cycles, config drift, and parity evidence |
 | Code Structure Recommendation | Derives module, facade, state-owner, side-effect, config, and validation boundaries before code is written |
@@ -490,7 +490,7 @@ FlowGuard 给这些薄弱点一个小而可执行的结构。
 | Child model reattachment | `v0.17.0` 要求父级 mesh 消费修复后的 child evidence id，并验证 input、output、state、side-effect 和导出 contract handoff |
 | Mesh closure model | 把父子模型之间的 handoff token 建成小模型，确保 child output、join、exit 和 out-of-scope 分支都被消费后才允许 `mesh_green_can_continue` |
 | Existing Model Preflight | 在已有模型系统里讨论、提 proposal、修 bug、加功能、改 refactor、prompt、skill、UI、test 或 process 前，先查清当前 FlowGuard 模型 ownership |
-| Model Similarity Consolidation | 对照结构化模型签名，分类 same-workflow、family-variant、shared-kernel、duplicate-boundary、adapter-only、evidence-duplicate、false-friend 和 unrelated 关系，并把建议交给正确的 FlowGuard 路线 |
+| Model Similarity Consolidation | 对照结构化模型签名，分类 same-workflow、family-variant、shared-kernel、duplicate-boundary、adapter-only、evidence-duplicate、false-friend 和 unrelated 关系，生成维护组、改 A 必查 B/C、共享/变体测试义务和代码维护义务，并把建议交给正确的 FlowGuard 路线 |
 | TestMesh | 检查父子验证层、过宽或过慢的直接验证证据、旧证据、隐藏 skip、timeout，以及 routine/release gate |
 | StructureMesh | 检查大 refactor 拆分、facade 兼容、依赖环、配置漂移和 parity 证据 |
 | Code Structure Recommendation | 在写代码前，从模型推导 module、facade、state owner、side effect、config、验证边界和相似模型 shared-kernel 提示 |

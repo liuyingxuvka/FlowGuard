@@ -22,3 +22,10 @@ new boundary separate.
 - **WHEN** a full preflight includes a false-friend model-similarity relation
 - **THEN** the preflight may keep the proposed boundary separate only if the
   false-friend rationale remains visible in the report
+
+#### Scenario: Similarity maintenance group preserves sibling review
+- **WHEN** a full preflight includes model-similarity relations for a changed
+  workflow that belongs to a maintenance group
+- **THEN** the preflight records the maintenance group ids, change-impact ids,
+  and impacted sibling model ids before claiming the existing boundary review
+  covered all similar workflows

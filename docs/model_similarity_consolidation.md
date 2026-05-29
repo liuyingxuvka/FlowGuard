@@ -1,12 +1,15 @@
 # Model Similarity Consolidation
 
 Model Similarity Consolidation compares structured FlowGuard model signatures
-before a project creates another model boundary or extracts shared code.
+before a project creates another model boundary, changes one member of a
+similar feature family, or extracts shared code.
 
 Use it when several features look like variants of the same workflow, when a
 new model may overlap an existing one, or when similar model-backed code might
-be consolidated. The review returns typed relations and downstream route
-handoffs. It does not merge models or rewrite production code.
+be consolidated. The review returns typed relations, maintenance groups,
+change-impact obligations, shared and variant test obligations, code
+maintenance obligations, and downstream route handoffs. It does not merge
+models or rewrite production code.
 
 ## What It Compares
 
@@ -15,6 +18,8 @@ Each `ModelSignature` can name:
 - model id, path, workflow family, and variant id;
 - FunctionBlocks, inputs, outputs, state owners, state reads, and side effects;
 - invariants, failure modes, input/output contracts, and public entrypoints;
+- code paths, test paths, public behaviors, shared-kernel id, adapters,
+  maintenance tags, and changed references;
 - parent/child model ids, evidence ids, freshness, blindspots, and known false
   friends.
 
@@ -42,6 +47,25 @@ The review can classify:
 Each relation records matched elements, different elements, risk if merged,
 risk if kept separate, recommendation, required next route, required evidence,
 and rationale.
+
+## Maintenance Output
+
+The same review also turns relation evidence into software-maintenance output:
+
+- `maintenance_groups`: A/B/C model ids that must be maintained together, plus
+  their code paths, test paths, shared elements, variant elements, relation ids,
+  shared-kernel ids, adapters, and downstream routes.
+- `change_impacts`: when `changed_model_ids` or `changed_code_paths` are
+  provided, the report names sibling models and their code/test paths that must
+  be checked before claiming the change covered the whole family.
+- `test_obligations`: shared behaviors need shared tests across the family;
+  variant behavior needs per-member tests.
+- `code_obligations`: shared-kernel, adapter, duplicate-boundary,
+  ownership-overlap, and false-friend quarantine obligations for downstream
+  Code Structure Recommendation, Architecture Reduction, or ModelMesh review.
+
+This is the intended answer to the maintenance problem where feature A is
+fixed while similar feature B or C is forgotten.
 
 ## Route Handoffs
 
@@ -79,6 +103,10 @@ plan = ModelSimilarityPlan(
             function_blocks=("ValidateOrder", "PersistOrder"),
             state_owned=("orders",),
             failure_modes=("duplicate_submit",),
+            code_paths=("flowguard/checkout/simple.py",),
+            test_paths=("tests/test_checkout_simple.py",),
+            shared_kernel_id="checkout_core",
+            adapter_ids=("simple_adapter",),
             evidence_ids=("sim:checkout-family",),
         ),
         ModelSignature(
@@ -88,10 +116,15 @@ plan = ModelSimilarityPlan(
             function_blocks=("ValidateOrder", "PersistOrder"),
             state_owned=("orders",),
             failure_modes=("duplicate_submit",),
+            code_paths=("flowguard/checkout/retry.py",),
+            test_paths=("tests/test_checkout_retry.py",),
+            shared_kernel_id="checkout_core",
+            adapter_ids=("retry_adapter",),
             evidence_ids=("sim:checkout-family",),
         ),
     ),
     comparison_pairs=(("checkout-simple", "checkout-retry"),),
+    changed_model_ids=("checkout-simple",),
     evidence=(ModelSimilarityEvidence("sim:checkout-family"),),
     require_current_evidence=True,
 )
@@ -111,6 +144,9 @@ python .flowguard/model_similarity_consolidation/run_checks.py
 
 - A relation can be scoped when evidence is missing or stale.
 - `false_friend` relations intentionally block consolidation advice.
+- False friends are quarantined out of maintenance groups.
 - Public entrypoint changes still need StructureMesh or conformance evidence.
 - Family claims still need Model-Test Alignment and obligation-family evidence
   when tests or code contracts are in scope.
+- Similarity can name sibling review obligations, but the downstream route
+  still owns proof that code or tests were changed safely.

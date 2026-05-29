@@ -8,6 +8,9 @@ description: Use when a FlowGuard model's obligations, optional externally visib
 Standalone FlowGuard satellite skill for comparing model obligations against
 ordinary tests, optional code contracts, source/test assertion audits, and
 finite code-boundary observations.
+When similar A/B/C workflows share behavior, consume Model Similarity
+Consolidation test obligations so shared tests prove the family and variant
+tests keep sibling differences visible.
 
 Return to `model-first-function-flow` when the model obligations are not yet
 defined. Do not invoke TestMesh, ModelMesh, or StructureMesh from this route.
@@ -17,6 +20,8 @@ defined. Do not invoke TestMesh, ModelMesh, or StructureMesh from this route.
 - Route id: `model_test_alignment`.
 - Core helpers: `review_model_test_alignment()`, `CodeContract`,
   `PythonCodeContractEvidence`, `PythonTestAssertionEvidence`.
+- Similarity handoff: cite maintenance group ids plus shared/variant test
+  obligation ids when claiming similar workflows are covered.
 - Reference: `references/model_test_alignment_protocol.md`.
 
 ## Hard Gates

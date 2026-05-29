@@ -37,3 +37,12 @@
 - [x] 6.2 Sync the updated git checkout back to `C:\Users\liu_y\Documents\FlowGuard_20260427` without overwriting unrelated work.
 - [x] 6.3 Verify the shadow workspace imports and focused tests against the synced code.
 - [x] 6.4 Update OpenSpec task status, adoption evidence, and KB postflight before final response.
+
+## 7. Maintenance-Oriented Expansion
+
+- [x] 7.1 Extend model signatures with code paths, test paths, public behaviors, shared-kernel ids, adapter ids, maintenance tags, and changed references.
+- [x] 7.2 Extend the existing review report with maintenance groups, change-impact obligations, shared/variant test obligations, and code-structure maintenance obligations.
+- [x] 7.3 Keep the existing Model Similarity Consolidation route and API as the entrypoint; do not add a separate similarity-audit capability.
+- [x] 7.4 Deepen Existing Model Preflight, Code Structure Recommendation, Model-Test Alignment, and Architecture Reduction handoffs where maintenance obligations change their evidence requirements.
+- [x] 7.5 Update templates, docs, AGENTS/skill routing prompts, and the executable self-model to show A/B/C maintenance, changed-sibling review, shared tests, variant tests, and false-friend quarantine.
+- [x] 7.6 Add focused tests and rerun OpenSpec, FlowGuard model checks, focused tests, full regression, editable install, shadow workspace validation, adoption logging, KB postflight, and local git synchronization.

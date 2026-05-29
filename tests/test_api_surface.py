@@ -92,6 +92,10 @@ class ApiSurfaceTests(unittest.TestCase):
         self.assertIn("ModelSimilarityPlan", flowguard.MODELING_HELPER_API)
         self.assertIn("ModelSimilarityRelation", flowguard.MODELING_HELPER_API)
         self.assertIn("ModelSimilarityReport", flowguard.MODELING_HELPER_API)
+        self.assertIn("ModelSimilarityMaintenanceGroup", flowguard.MODELING_HELPER_API)
+        self.assertIn("ModelSimilarityChangeImpact", flowguard.MODELING_HELPER_API)
+        self.assertIn("ModelSimilarityTestObligation", flowguard.MODELING_HELPER_API)
+        self.assertIn("ModelSimilarityCodeObligation", flowguard.MODELING_HELPER_API)
         self.assertIn("review_model_similarity_consolidation", flowguard.MODELING_HELPER_API)
         self.assertIn("RELATION_SAME_FAMILY_VARIANT", flowguard.MODELING_HELPER_API)
         self.assertIn("RECOMMEND_ROUTE_ARCHITECTURE_REDUCTION", flowguard.MODELING_HELPER_API)
@@ -162,16 +166,45 @@ class ApiSurfaceTests(unittest.TestCase):
             self.assertTrue(hasattr(flowguard, name), name)
             self.assertNotIn(name, flowguard.CORE_API)
 
+    def test_route_api_registry_groups_public_names(self):
+        expected_groups = {
+            "template_structure",
+            "evidence_field_structure",
+            "model_similarity_consolidation",
+            "architecture_reduction",
+            "code_structure_recommendation",
+            "model_test_alignment",
+        }
+        self.assertEqual(expected_groups, set(flowguard.FLOWGUARD_ROUTE_API))
+
+        for group_name, names in flowguard.FLOWGUARD_ROUTE_API.items():
+            with self.subTest(group=group_name):
+                self.assertIsInstance(names, tuple)
+                self.assertTrue(names)
+                for name in names:
+                    self.assertIn(name, flowguard.__all__, name)
+                    self.assertTrue(hasattr(flowguard, name), name)
+
+        for name in flowguard.EVIDENCE_FIELD_STRUCTURE_API:
+            self.assertIn(name, flowguard.EVIDENCE_API)
+
     def test_public_all_is_derived_from_api_groups_and_supplement(self):
         expected_supplement = (
             "API_SURFACE",
+            "ARCHITECTURE_REDUCTION_ROUTE_API",
+            "CODE_STRUCTURE_RECOMMENDATION_ROUTE_API",
             "CORE_API",
+            "EVIDENCE_FIELD_STRUCTURE_API",
             "EVIDENCE_API",
+            "FLOWGUARD_ROUTE_API",
             "FLOWGUARD_CLOSURE_CONTRACT_API",
+            "MODEL_SIMILARITY_ROUTE_API",
+            "MODEL_TEST_ALIGNMENT_ROUTE_API",
             "MODEL_IMPACT_FRESHNESS_API",
             "MODEL_MATURATION_API",
             "MODELING_HELPER_API",
             "REPORTING_HELPER_API",
+            "TEMPLATE_STRUCTURE_API",
             "RISK_INTENT_FIELDS",
             "PROOF_ARTIFACT_STATUS_PASSED",
             "PROOF_ARTIFACT_STATUS_FAILED",

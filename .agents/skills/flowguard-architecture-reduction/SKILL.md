@@ -8,6 +8,9 @@ description: Use when a FlowGuard model should drive behavior-preserving code ar
 Standalone FlowGuard satellite skill for model-backed contraction. Use it when
 existing code, prompt, or workflow structure appears reducible while observable
 behavior must stay unchanged.
+When reduction is motivated by similar A/B/C workflows, consume Model
+Similarity Consolidation code obligations and keep duplicate-boundary or
+adapter-only advice evidence-gated.
 
 Return to `model-first-function-flow` when the model is unclear. Hand exact
 production refactors to Code Structure Recommendation, StructureMesh, and
@@ -19,6 +22,8 @@ DevelopmentProcessFlow as needed.
 - Contract first: public entrypoints, outputs, observable state, side effects,
   validation boundaries, and rationale.
 - Classify contraction candidates with proof status and required next route.
+- Similarity handoff: cite relation ids and code obligation ids when a
+  duplicate boundary or adapter-only difference motivates contraction.
 - Core helpers: `ObservableArchitectureContract`,
   `ArchitectureReductionCandidate`, `review_architecture_reduction()`.
 - Reference: `references/architecture_reduction_protocol.md`.

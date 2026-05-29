@@ -66,6 +66,7 @@ progress-only, or not-run checks are not passes.
 | Trigger | Route | Entry |
 | --- | --- | --- |
 | Existing modeled system, ownership lookup, duplicate-boundary risk | `existing_model_preflight` | `flowguard-existing-model-preflight` |
+| Similar features, A/B workflow drift, sibling tests, shared-kernel/adapter suspicion | `model_similarity_consolidation` | `model-first-function-flow` reference |
 | Multi-skill/tool/plugin planning, skipped skill consequences, rework gates | `agent_workflow_rehearsal` | `flowguard-agent-workflow-rehearsal` |
 | Ordinary behavior/state modeling, Risk Intent, state inventory | `core_modeling` | `model-first-function-flow` |
 | Existing code/prompt flow should shrink without behavior loss | `architecture_reduction` | `flowguard-architecture-reduction` |
@@ -89,8 +90,16 @@ Use the matching satellite `references/*.md` file after selecting a route.
 Package helpers such as `review_model_test_alignment()`,
 `review_development_process_flow()`, `review_test_mesh()`,
 `review_structure_mesh()`, `review_architecture_reduction()`,
-`review_existing_model_preflight()`, `review_agent_workflow_rehearsal()`,
-templates, and starter CLIs are helpers, not separate Codex skills.
+`review_existing_model_preflight()`, `review_model_similarity_consolidation()`,
+`review_agent_workflow_rehearsal()`, templates, and starter CLIs are helpers,
+not separate Codex skills.
+
+When a change touches a feature that resembles another workflow, model,
+test family, or code path, use Model Similarity Consolidation before claiming
+maintenance coverage. Record whether the relation creates a maintenance group,
+which sibling models/code/tests must be checked, which tests are shared versus
+variant-specific, and whether shared-kernel/adapter work or false-friend
+separation applies.
 
 Do not require ordinary project work to run FlowGuard's internal framework
 evidence suites. Use those only for FlowGuard upgrades, benchmark claims, or

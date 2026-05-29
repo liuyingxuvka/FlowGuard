@@ -8,6 +8,9 @@ description: Use when a FlowGuard model should drive pre-code architecture, modu
 Standalone FlowGuard satellite skill for deriving target implementation
 structure from a model before code edits. Use it for FunctionBlock-to-module
 ownership, facade planning, adapter boundaries, and validation boundaries.
+When modules look like similar A/B/C workflows, consume Model Similarity
+Consolidation maintenance groups and code obligations instead of inventing a
+second shared-kernel rationale.
 
 Return to `model-first-function-flow` when the behavior model is missing. Use
 StructureMesh when refactoring existing large code or public APIs.
@@ -18,6 +21,8 @@ StructureMesh when refactoring existing large code or public APIs.
 - Core helper: `review_code_structure_recommendation()`.
 - Required shape: FunctionBlock-to-module ownership, state owner map,
   public-entrypoint map, and validation boundaries.
+- Similarity handoff: cite maintenance group ids, code obligation ids, shared
+  kernel owner, and adapter owners when model similarity drives the split.
 - Reference: `references/code_structure_recommendation_protocol.md`.
 
 ## Hard Gates
