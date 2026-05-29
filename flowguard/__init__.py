@@ -464,6 +464,11 @@ from .model_similarity import (
     ModelSimilarityRelation,
     ModelSimilarityReport,
     ModelSimilarityTestObligation,
+    SimilarityHandoff,
+    model_signature_maintenance,
+    model_signature_minimal,
+    model_similarity_plan_for_changed_member,
+    normalize_similarity_handoff,
     review_model_similarity_consolidation,
 )
 from .runtime_path import (
@@ -1190,6 +1195,11 @@ MODELING_HELPER_API = (
     "ModelSimilarityRelation",
     "ModelSimilarityReport",
     "ModelSimilarityTestObligation",
+    "SimilarityHandoff",
+    "model_signature_maintenance",
+    "model_signature_minimal",
+    "model_similarity_plan_for_changed_member",
+    "normalize_similarity_handoff",
     "review_model_similarity_consolidation",
     "MODEL_SIMILARITY_ROUTE",
     "MODEL_SIMILARITY_RELATION_TYPES",
@@ -1656,6 +1666,11 @@ MODEL_SIMILARITY_ROUTE_API = (
     "ModelSimilarityRelation",
     "ModelSimilarityReport",
     "ModelSimilarityTestObligation",
+    "SimilarityHandoff",
+    "model_signature_maintenance",
+    "model_signature_minimal",
+    "model_similarity_plan_for_changed_member",
+    "normalize_similarity_handoff",
     "review_model_similarity_consolidation",
 )
 

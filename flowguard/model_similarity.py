@@ -368,6 +368,113 @@ class ModelSimilarityPlan:
         }
 
 
+def model_signature_minimal(
+    model_id: str,
+    *,
+    workflow_family: str = "",
+    variant_id: str = "",
+    function_blocks: Sequence[str] = (),
+    inputs: Sequence[str] = (),
+    outputs: Sequence[str] = (),
+    state_owned: Sequence[str] = (),
+    side_effects_owned: Sequence[str] = (),
+    invariants: Sequence[str] = (),
+    failure_modes: Sequence[str] = (),
+    evidence_ids: Sequence[str] = (),
+    model_path: str = "",
+    metadata: Mapping[str, Any] | None = None,
+) -> ModelSignature:
+    """Build the common small model signature used in route-first examples."""
+
+    return ModelSignature(
+        model_id,
+        model_path=model_path,
+        workflow_family=workflow_family,
+        variant_id=variant_id,
+        function_blocks=tuple(function_blocks),
+        inputs=tuple(inputs),
+        outputs=tuple(outputs),
+        state_owned=tuple(state_owned),
+        side_effects_owned=tuple(side_effects_owned),
+        invariants=tuple(invariants),
+        failure_modes=tuple(failure_modes),
+        evidence_ids=tuple(evidence_ids),
+        metadata=dict(metadata or {}),
+    )
+
+
+def model_signature_maintenance(
+    model_id: str,
+    *,
+    workflow_family: str,
+    variant_id: str = "",
+    function_blocks: Sequence[str] = (),
+    state_owned: Sequence[str] = (),
+    side_effects_owned: Sequence[str] = (),
+    code_paths: Sequence[str] = (),
+    test_paths: Sequence[str] = (),
+    owned_public_behaviors: Sequence[str] = (),
+    shared_kernel_id: str = "",
+    adapter_ids: Sequence[str] = (),
+    maintenance_tags: Sequence[str] = (),
+    changed_refs: Sequence[str] = (),
+    evidence_ids: Sequence[str] = (),
+    false_friend_model_ids: Sequence[str] = (),
+    metadata: Mapping[str, Any] | None = None,
+) -> ModelSignature:
+    """Build a maintenance-oriented signature without exposing every field."""
+
+    return ModelSignature(
+        model_id,
+        workflow_family=workflow_family,
+        variant_id=variant_id,
+        function_blocks=tuple(function_blocks),
+        state_owned=tuple(state_owned),
+        side_effects_owned=tuple(side_effects_owned),
+        code_paths=tuple(code_paths),
+        test_paths=tuple(test_paths),
+        owned_public_behaviors=tuple(owned_public_behaviors),
+        shared_kernel_id=shared_kernel_id,
+        adapter_ids=tuple(adapter_ids),
+        maintenance_tags=tuple(maintenance_tags),
+        changed_refs=tuple(changed_refs),
+        evidence_ids=tuple(evidence_ids),
+        false_friend_model_ids=tuple(false_friend_model_ids),
+        metadata=dict(metadata or {}),
+    )
+
+
+def model_similarity_plan_for_changed_member(
+    plan_id: str,
+    signatures: Sequence[ModelSignature],
+    *,
+    changed_model_id: str = "",
+    changed_model_ids: Sequence[str] = (),
+    changed_code_paths: Sequence[str] = (),
+    evidence: Sequence[ModelSimilarityEvidence] = (),
+    comparison_pairs: Sequence[tuple[str, str]] = (),
+    required_relation_ids: Sequence[str] = (),
+    require_current_evidence: bool = False,
+    require_maintenance_test_paths: bool = True,
+    rationale: str = "",
+) -> ModelSimilarityPlan:
+    """Build the ordinary "changed one family member" maintenance plan."""
+
+    changed = (changed_model_id,) if changed_model_id else ()
+    return ModelSimilarityPlan(
+        plan_id,
+        signatures=tuple(signatures),
+        comparison_pairs=tuple(comparison_pairs),
+        evidence=tuple(evidence),
+        required_relation_ids=tuple(required_relation_ids),
+        changed_model_ids=_unique(changed + tuple(changed_model_ids)),
+        changed_code_paths=tuple(changed_code_paths),
+        require_current_evidence=require_current_evidence,
+        require_maintenance_test_paths=require_maintenance_test_paths,
+        rationale=rationale,
+    )
+
+
 @dataclass(frozen=True)
 class ModelSimilarityFinding:
     """One model similarity diagnostic."""
@@ -576,6 +683,84 @@ class ModelSimilarityCodeObligation:
 
 
 @dataclass(frozen=True)
+class SimilarityHandoff:
+    """Compact downstream handoff produced by Model Similarity Consolidation."""
+
+    relation_ids: tuple[str, ...] = ()
+    maintenance_group_ids: tuple[str, ...] = ()
+    change_impact_ids: tuple[str, ...] = ()
+    impacted_model_ids: tuple[str, ...] = ()
+    test_obligation_ids: tuple[str, ...] = ()
+    code_obligation_ids: tuple[str, ...] = ()
+    same_family_relation_ids: tuple[str, ...] = ()
+    evidence_duplicate_relation_ids: tuple[str, ...] = ()
+    false_friend_rationales: tuple[str, ...] = ()
+    unresolved_gaps: tuple[str, ...] = ()
+    recommended_next_routes: tuple[str, ...] = ()
+    evidence_current: bool = True
+    source_report_id: str = ""
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        relation_ids = _as_tuple(self.relation_ids)
+        same_family = _as_tuple(self.same_family_relation_ids) or tuple(
+            relation_id for relation_id in relation_ids if RELATION_SAME_FAMILY_VARIANT in relation_id
+        )
+        evidence_duplicate = _as_tuple(self.evidence_duplicate_relation_ids) or tuple(
+            relation_id for relation_id in relation_ids if RELATION_EVIDENCE_DUPLICATE in relation_id
+        )
+        false_friend = _as_tuple(self.false_friend_rationales) or tuple(
+            relation_id for relation_id in relation_ids if RELATION_FALSE_FRIEND in relation_id
+        )
+        object.__setattr__(self, "relation_ids", relation_ids)
+        object.__setattr__(self, "maintenance_group_ids", _as_tuple(self.maintenance_group_ids))
+        object.__setattr__(self, "change_impact_ids", _as_tuple(self.change_impact_ids))
+        object.__setattr__(self, "impacted_model_ids", _as_tuple(self.impacted_model_ids))
+        object.__setattr__(self, "test_obligation_ids", _as_tuple(self.test_obligation_ids))
+        object.__setattr__(self, "code_obligation_ids", _as_tuple(self.code_obligation_ids))
+        object.__setattr__(self, "same_family_relation_ids", _unique(same_family))
+        object.__setattr__(self, "evidence_duplicate_relation_ids", _unique(evidence_duplicate))
+        object.__setattr__(self, "false_friend_rationales", _unique(false_friend))
+        object.__setattr__(self, "unresolved_gaps", _as_tuple(self.unresolved_gaps))
+        object.__setattr__(self, "recommended_next_routes", _as_tuple(self.recommended_next_routes))
+        object.__setattr__(self, "source_report_id", str(self.source_report_id))
+        object.__setattr__(self, "metadata", dict(self.metadata))
+
+    def has_similarity_evidence(self) -> bool:
+        return bool(self.relation_ids)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "relation_ids": list(self.relation_ids),
+            "maintenance_group_ids": list(self.maintenance_group_ids),
+            "change_impact_ids": list(self.change_impact_ids),
+            "impacted_model_ids": list(self.impacted_model_ids),
+            "test_obligation_ids": list(self.test_obligation_ids),
+            "code_obligation_ids": list(self.code_obligation_ids),
+            "same_family_relation_ids": list(self.same_family_relation_ids),
+            "evidence_duplicate_relation_ids": list(self.evidence_duplicate_relation_ids),
+            "false_friend_rationales": list(self.false_friend_rationales),
+            "unresolved_gaps": list(self.unresolved_gaps),
+            "recommended_next_routes": list(self.recommended_next_routes),
+            "evidence_current": self.evidence_current,
+            "source_report_id": self.source_report_id,
+            "metadata": to_jsonable(dict(self.metadata)),
+        }
+
+
+def normalize_similarity_handoff(
+    value: SimilarityHandoff | Mapping[str, Any] | None,
+) -> SimilarityHandoff | None:
+    """Normalize mapping input to the single clean downstream handoff type."""
+
+    if value is None:
+        return None
+    if isinstance(value, SimilarityHandoff):
+        return value
+    return SimilarityHandoff(**dict(value))
+
+
+@dataclass(frozen=True)
 class ModelSimilarityReport:
     """Structured model-similarity consolidation review result."""
 
@@ -713,6 +898,50 @@ class ModelSimilarityReport:
             "recommended_next_routes": list(self.recommended_next_routes),
             "summary": self.summary,
         }
+
+    def to_handoff(self) -> SimilarityHandoff:
+        blocker_gaps = tuple(
+            f"{finding.code}:{finding.relation_id or finding.model_id or finding.item_id}"
+            for finding in self.findings
+            if finding.severity == "blocker"
+        )
+        stale_or_missing_evidence = any(
+            finding.code in {"missing_current_similarity_evidence", "stale_similarity_evidence"}
+            for finding in self.findings
+        )
+        return SimilarityHandoff(
+            relation_ids=tuple(relation.relation_id for relation in self.relations),
+            maintenance_group_ids=tuple(group.group_id for group in self.maintenance_groups),
+            change_impact_ids=tuple(impact.impact_id for impact in self.change_impacts),
+            impacted_model_ids=_unique(
+                tuple(
+                    model_id
+                    for impact in self.change_impacts
+                    for model_id in impact.impacted_model_ids
+                )
+            ),
+            test_obligation_ids=tuple(obligation.obligation_id for obligation in self.test_obligations),
+            code_obligation_ids=tuple(obligation.obligation_id for obligation in self.code_obligations),
+            same_family_relation_ids=tuple(
+                relation.relation_id
+                for relation in self.relations
+                if relation.relation_type == RELATION_SAME_FAMILY_VARIANT
+            ),
+            evidence_duplicate_relation_ids=tuple(
+                relation.relation_id
+                for relation in self.relations
+                if relation.relation_type == RELATION_EVIDENCE_DUPLICATE
+            ),
+            false_friend_rationales=tuple(
+                relation.rationale or relation.relation_id
+                for relation in self.relations
+                if relation.relation_type == RELATION_FALSE_FRIEND
+            ),
+            unresolved_gaps=blocker_gaps,
+            recommended_next_routes=self.recommended_next_routes,
+            evidence_current=not stale_or_missing_evidence,
+            source_report_id=self.plan_id,
+        )
 
 
 def _relation_id(left: ModelSignature, right: ModelSignature, relation_type: str) -> str:
@@ -1563,5 +1792,10 @@ __all__ = [
     "ModelSimilarityRelation",
     "ModelSimilarityReport",
     "ModelSimilarityTestObligation",
+    "SimilarityHandoff",
+    "model_signature_maintenance",
+    "model_signature_minimal",
+    "model_similarity_plan_for_changed_member",
+    "normalize_similarity_handoff",
     "review_model_similarity_consolidation",
 ]

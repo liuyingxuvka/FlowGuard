@@ -1,6 +1,11 @@
+from dataclasses import fields
+from pathlib import Path
 import unittest
 
 import flowguard
+
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 class ApiSurfaceTests(unittest.TestCase):
@@ -96,6 +101,10 @@ class ApiSurfaceTests(unittest.TestCase):
         self.assertIn("ModelSimilarityChangeImpact", flowguard.MODELING_HELPER_API)
         self.assertIn("ModelSimilarityTestObligation", flowguard.MODELING_HELPER_API)
         self.assertIn("ModelSimilarityCodeObligation", flowguard.MODELING_HELPER_API)
+        self.assertIn("SimilarityHandoff", flowguard.MODELING_HELPER_API)
+        self.assertIn("model_signature_minimal", flowguard.MODELING_HELPER_API)
+        self.assertIn("model_signature_maintenance", flowguard.MODELING_HELPER_API)
+        self.assertIn("model_similarity_plan_for_changed_member", flowguard.MODELING_HELPER_API)
         self.assertIn("review_model_similarity_consolidation", flowguard.MODELING_HELPER_API)
         self.assertIn("RELATION_SAME_FAMILY_VARIANT", flowguard.MODELING_HELPER_API)
         self.assertIn("RECOMMEND_ROUTE_ARCHITECTURE_REDUCTION", flowguard.MODELING_HELPER_API)
@@ -187,6 +196,51 @@ class ApiSurfaceTests(unittest.TestCase):
 
         for name in flowguard.EVIDENCE_FIELD_STRUCTURE_API:
             self.assertIn(name, flowguard.EVIDENCE_API)
+
+    def test_similarity_handoff_replaces_repeated_downstream_fields(self):
+        for cls, removed in (
+            (
+                flowguard.ExistingModelPreflight,
+                {
+                    "similarity_relation_ids",
+                    "similarity_maintenance_group_ids",
+                    "similarity_change_impact_ids",
+                    "impacted_similarity_model_ids",
+                    "false_friend_rationales",
+                },
+            ),
+            (
+                flowguard.CodeStructureRecommendation,
+                {
+                    "similarity_relation_ids",
+                    "similarity_maintenance_group_ids",
+                    "similarity_code_obligation_ids",
+                },
+            ),
+            (
+                flowguard.ModelTestAlignmentPlan,
+                {
+                    "similarity_relation_ids",
+                    "similarity_maintenance_group_ids",
+                    "similarity_test_obligation_ids",
+                    "same_family_similarity_relation_ids",
+                    "evidence_duplicate_relation_ids",
+                },
+            ),
+            (
+                flowguard.ArchitectureReductionCandidate,
+                {"similarity_relation_ids", "similarity_code_obligation_ids"},
+            ),
+        ):
+            field_names = {field.name for field in fields(cls)}
+            self.assertIn("similarity_handoff", field_names)
+            self.assertTrue(removed.isdisjoint(field_names), cls.__name__)
+
+    def test_api_docs_are_route_first_before_flat_helper_index(self):
+        text = (ROOT / "docs" / "api_surface.md").read_text(encoding="utf-8")
+        self.assertLess(text.index("## Route-Scoped Discovery First"), text.index("## Modeling Helpers"))
+        self.assertLess(text.index("FLOWGUARD_ROUTE_API"), text.index("MODELING_HELPER_API"))
+        self.assertIn("Use `MODELING_HELPER_API` only as the complete index", text)
 
     def test_public_all_is_derived_from_api_groups_and_supplement(self):
         expected_supplement = (

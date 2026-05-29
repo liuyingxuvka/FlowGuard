@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.37.0 - 2026-05-29
+
+- Streamlined the AI-facing model-similarity surface: ordinary A/B/C
+  maintenance reviews can now use `model_signature_minimal()`,
+  `model_signature_maintenance()`, and
+  `model_similarity_plan_for_changed_member()` before opening the full schema.
+- Added `SimilarityHandoff` and `ModelSimilarityReport.to_handoff()` so
+  downstream routes consume one typed handoff instead of repeated scalar
+  relation/group/test/code obligation fields.
+- Breaking cleanup: removed the old repeated similarity id fields from Existing
+  Model Preflight, Code Structure Recommendation, Model-Test Alignment, and
+  Architecture Reduction in favor of `similarity_handoff`.
+- Updated route-first API docs and model-similarity templates so
+  `MODELING_HELPER_API` is treated as the full index, not the first-read AI
+  workflow.
+
 ## v0.36.0 - 2026-05-29
 
 - Split public template bodies into route-scoped internal modules while

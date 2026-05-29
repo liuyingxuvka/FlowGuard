@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
 from .export import to_jsonable
+from .model_similarity import SimilarityHandoff, normalize_similarity_handoff
 
 
 PREFLIGHT_MODE_LIGHT = "light"
@@ -224,13 +225,7 @@ class ExistingModelPreflight:
     proposed_new_boundaries: tuple[str, ...] = ()
     duplicate_risks: tuple[DuplicateBoundaryRisk, ...] = ()
     similarity_review_required: bool = False
-    similarity_relation_ids: tuple[str, ...] = ()
-    similarity_maintenance_group_ids: tuple[str, ...] = ()
-    similarity_change_impact_ids: tuple[str, ...] = ()
-    impacted_similarity_model_ids: tuple[str, ...] = ()
-    similarity_evidence_current: bool = True
-    unresolved_similarity_gaps: tuple[str, ...] = ()
-    false_friend_rationales: tuple[str, ...] = ()
+    similarity_handoff: SimilarityHandoff | Mapping[str, Any] | None = None
     skip_reason: str = ""
 
     def __post_init__(self) -> None:
@@ -245,24 +240,7 @@ class ExistingModelPreflight:
         object.__setattr__(self, "no_model_found_reason", str(self.no_model_found_reason))
         object.__setattr__(self, "proposed_new_boundaries", _as_tuple(self.proposed_new_boundaries))
         object.__setattr__(self, "duplicate_risks", tuple(self.duplicate_risks))
-        object.__setattr__(self, "similarity_relation_ids", _as_tuple(self.similarity_relation_ids))
-        object.__setattr__(
-            self,
-            "similarity_maintenance_group_ids",
-            _as_tuple(self.similarity_maintenance_group_ids),
-        )
-        object.__setattr__(
-            self,
-            "similarity_change_impact_ids",
-            _as_tuple(self.similarity_change_impact_ids),
-        )
-        object.__setattr__(
-            self,
-            "impacted_similarity_model_ids",
-            _as_tuple(self.impacted_similarity_model_ids),
-        )
-        object.__setattr__(self, "unresolved_similarity_gaps", _as_tuple(self.unresolved_similarity_gaps))
-        object.__setattr__(self, "false_friend_rationales", _as_tuple(self.false_friend_rationales))
+        object.__setattr__(self, "similarity_handoff", normalize_similarity_handoff(self.similarity_handoff))
         object.__setattr__(self, "skip_reason", str(self.skip_reason))
 
     def to_dict(self) -> dict[str, Any]:
@@ -284,13 +262,9 @@ class ExistingModelPreflight:
             "proposed_new_boundaries": list(self.proposed_new_boundaries),
             "duplicate_risks": [risk.to_dict() for risk in self.duplicate_risks],
             "similarity_review_required": self.similarity_review_required,
-            "similarity_relation_ids": list(self.similarity_relation_ids),
-            "similarity_maintenance_group_ids": list(self.similarity_maintenance_group_ids),
-            "similarity_change_impact_ids": list(self.similarity_change_impact_ids),
-            "impacted_similarity_model_ids": list(self.impacted_similarity_model_ids),
-            "similarity_evidence_current": self.similarity_evidence_current,
-            "unresolved_similarity_gaps": list(self.unresolved_similarity_gaps),
-            "false_friend_rationales": list(self.false_friend_rationales),
+            "similarity_handoff": self.similarity_handoff.to_dict()
+            if self.similarity_handoff
+            else None,
             "skip_reason": self.skip_reason,
         }
 
@@ -600,48 +574,54 @@ def review_existing_model_preflight(
                 )
             )
 
+    similarity_handoff = preflight.similarity_handoff
+    similarity_relation_ids = similarity_handoff.relation_ids if similarity_handoff else ()
     if preflight.mode == PREFLIGHT_MODE_FULL and preflight.similarity_review_required:
-        if not preflight.similarity_relation_ids:
+        if not similarity_relation_ids:
             findings.append(
                 ExistingModelPreflightFinding(
                     "missing_similarity_evidence",
                     "full preflight requires model-similarity review but names no current relation ids",
                 )
             )
-        if not preflight.similarity_evidence_current:
+        if similarity_handoff and not similarity_handoff.evidence_current:
             findings.append(
                 ExistingModelPreflightFinding(
                     "stale_similarity_evidence",
                     "full preflight requires model-similarity review but the similarity evidence is stale",
-                    metadata={"similarity_relation_ids": list(preflight.similarity_relation_ids)},
+                    metadata={"similarity_relation_ids": list(similarity_relation_ids)},
                 )
             )
-        for gap in preflight.unresolved_similarity_gaps:
+        for gap in similarity_handoff.unresolved_gaps if similarity_handoff else ():
             findings.append(
                 ExistingModelPreflightFinding(
                     "unresolved_similarity_gap",
                     "model-similarity review reported an unresolved gap for this boundary decision",
                     item_id=gap,
-                    metadata={"similarity_relation_ids": list(preflight.similarity_relation_ids)},
+                    metadata={"similarity_relation_ids": list(similarity_relation_ids)},
                 )
             )
-        if preflight.similarity_relation_ids and not (
-            preflight.similarity_maintenance_group_ids or preflight.false_friend_rationales
+        if similarity_handoff and similarity_relation_ids and not (
+            similarity_handoff.maintenance_group_ids or similarity_handoff.false_friend_rationales
         ):
             findings.append(
                 ExistingModelPreflightFinding(
                     "missing_similarity_maintenance_group",
                     "current similarity relations should name the maintenance group or false-friend rationale that governs sibling review",
                     severity="warning",
-                    metadata={"similarity_relation_ids": list(preflight.similarity_relation_ids)},
+                    metadata={"similarity_relation_ids": list(similarity_relation_ids)},
                 )
             )
-        if preflight.impacted_similarity_model_ids and not preflight.similarity_change_impact_ids:
+        if (
+            similarity_handoff
+            and similarity_handoff.impacted_model_ids
+            and not similarity_handoff.change_impact_ids
+        ):
             findings.append(
                 ExistingModelPreflightFinding(
                     "missing_similarity_change_impact",
                     "impacted sibling models from model-similarity review require change-impact ids before claiming all related work was checked",
-                    metadata={"impacted_similarity_model_ids": list(preflight.impacted_similarity_model_ids)},
+                    metadata={"impacted_similarity_model_ids": list(similarity_handoff.impacted_model_ids)},
                 )
             )
 
@@ -657,15 +637,16 @@ def review_existing_model_preflight(
         )
     if (
         preflight.reuse_decision == REUSE_DECISION_NEW_BOUNDARY
-        and preflight.similarity_relation_ids
-        and preflight.false_friend_rationales
+        and similarity_handoff
+        and similarity_relation_ids
+        and similarity_handoff.false_friend_rationales
         and not preflight.rationale
     ):
         findings.append(
             ExistingModelPreflightFinding(
                 "false_friend_rationale_missing",
                 "new boundary based on false-friend similarity must keep the separation rationale visible",
-                metadata={"false_friend_rationales": list(preflight.false_friend_rationales)},
+                metadata={"false_friend_rationales": list(similarity_handoff.false_friend_rationales)},
             )
         )
 

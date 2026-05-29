@@ -26,6 +26,55 @@ Each `ModelSignature` can name:
 The review compares these fields structurally instead of relying on raw source
 text or name similarity.
 
+## Basic Path
+
+For ordinary maintenance work, start with the profile helpers and pass the
+single handoff to downstream routes:
+
+```python
+from flowguard import (
+    model_signature_maintenance,
+    model_similarity_plan_for_changed_member,
+    review_model_similarity_consolidation,
+)
+
+signatures = (
+    model_signature_maintenance(
+        "checkout-simple",
+        workflow_family="checkout",
+        variant_id="simple",
+        function_blocks=("ValidateOrder",),
+        code_paths=("flowguard/checkout/simple.py",),
+        test_paths=("tests/test_checkout_simple.py",),
+        shared_kernel_id="checkout_core",
+        adapter_ids=("simple_adapter",),
+    ),
+    model_signature_maintenance(
+        "checkout-retry",
+        workflow_family="checkout",
+        variant_id="retry",
+        function_blocks=("ValidateOrder",),
+        code_paths=("flowguard/checkout/retry.py",),
+        test_paths=("tests/test_checkout_retry.py",),
+        shared_kernel_id="checkout_core",
+        adapter_ids=("retry_adapter",),
+    ),
+)
+
+plan = model_similarity_plan_for_changed_member(
+    "checkout-similarity",
+    signatures,
+    changed_model_id="checkout-simple",
+)
+report = review_model_similarity_consolidation(plan)
+handoff = report.to_handoff()
+```
+
+Use `handoff` on Existing Model Preflight, Code Structure Recommendation,
+Model-Test Alignment, or Architecture Reduction. Do not copy relation ids,
+maintenance-group ids, test-obligation ids, and code-obligation ids into
+separate downstream fields.
+
 ## Relation Types
 
 The review can classify:
@@ -83,7 +132,10 @@ Similarity findings are handoffs:
 The downstream route owns implementation confidence. Similarity alone is not
 proof that code can be changed.
 
-## Example
+## Full Schema Path
+
+Use full dataclasses when a review needs explicit comparison pairs, current
+evidence rows, false-friend declarations, or detailed metadata:
 
 ```python
 from flowguard import (
@@ -130,6 +182,7 @@ plan = ModelSimilarityPlan(
 )
 
 report = review_model_similarity_consolidation(plan)
+handoff = report.to_handoff()
 print(report.format_text())
 ```
 

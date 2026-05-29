@@ -51,9 +51,26 @@ and bounded ten-step progress lines on `stderr`, counted by top-level
 does not change `CheckReport`, traces, pass/fail status, or stdout output. Use
 `Explorer(..., progress_steps=0)` or `FLOWGUARD_PROGRESS=0` for silent runs.
 
+## Route-Scoped Discovery First
+
+For AI agents, route groups are the normal discovery surface:
+
+- `FLOWGUARD_ROUTE_API` names the supported route groups.
+- `MODEL_SIMILARITY_ROUTE_API` is the first stop for similar A/B/C workflow
+  maintenance, shared kernels, adapter variants, sibling tests, and false
+  friends.
+- `CODE_STRUCTURE_RECOMMENDATION_ROUTE_API`,
+  `MODEL_TEST_ALIGNMENT_ROUTE_API`, and `ARCHITECTURE_REDUCTION_ROUTE_API`
+  consume `SimilarityHandoff` when model similarity drives their work.
+
+Use `MODELING_HELPER_API` only as the complete index after the route group is
+known. It is intentionally broad and is not first-read guidance.
+
 ## Modeling Helpers
 
-Modeling helpers reduce boilerplate around common bug classes:
+Modeling helpers reduce boilerplate around common bug classes. Prefer the
+route-scoped groups above when choosing an AI workflow; this section is the full
+inventory.
 
 - property factories such as `no_duplicate_by`, `at_most_once_by`,
   `cache_matches_source`, `require_label_order`, and `forbid_label_after`;
@@ -111,7 +128,10 @@ Modeling helpers reduce boilerplate around common bug classes:
   or historical candidates out of the active ready queue, and handing target
   structure actions to Code Structure Recommendation or StructureMesh before
   production code is edited.
-- optional model-similarity consolidation helpers such as `ModelSignature`,
+- optional model-similarity consolidation helpers such as
+  `model_signature_minimal()`, `model_signature_maintenance()`,
+  `model_similarity_plan_for_changed_member()`, `SimilarityHandoff`,
+  `ModelSignature`,
   `ModelSimilarityEvidence`, `ModelSimilarityRelation`,
   `ModelSimilarityMaintenanceGroup`, `ModelSimilarityChangeImpact`,
   `ModelSimilarityTestObligation`, `ModelSimilarityCodeObligation`,
@@ -122,7 +142,8 @@ Modeling helpers reduce boilerplate around common bug classes:
   duplicate, false friend, and unrelated, deriving maintenance groups,
   changed-sibling review obligations, shared/variant test obligations, and
   shared-kernel/adapter/duplicate-boundary code obligations, and handing
-  reviewable next-route advice to Existing Model Preflight, ModelMesh,
+  reviewable next-route advice through one typed handoff to Existing Model
+  Preflight, ModelMesh,
   Architecture Reduction, Code Structure Recommendation, StructureMesh,
   Model-Test Alignment, or manual review without merging models or rewriting
   code automatically.
@@ -330,16 +351,16 @@ before using `Explorer` or `run_model_first_checks`.
 
 The package exports lightweight grouping constants:
 
-- `CORE_API`
-- `MODELING_HELPER_API`
-- `REPORTING_HELPER_API`
-- `EVIDENCE_API`
-- `API_SURFACE`
 - route-scoped discovery groups such as `FLOWGUARD_ROUTE_API`,
   `TEMPLATE_STRUCTURE_API`, `EVIDENCE_FIELD_STRUCTURE_API`,
   `MODEL_SIMILARITY_ROUTE_API`, `ARCHITECTURE_REDUCTION_ROUTE_API`,
   `CODE_STRUCTURE_RECOMMENDATION_ROUTE_API`, and
   `MODEL_TEST_ALIGNMENT_ROUTE_API`
+- `CORE_API`
+- `REPORTING_HELPER_API`
+- `EVIDENCE_API`
+- `API_SURFACE`
+- `MODELING_HELPER_API`, the complete helper index and fallback inventory
 
 They are descriptive lists of exported public names. They do not enforce a
 runtime policy and they do not make helper layers mandatory.

@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
 from .export import to_jsonable
+from .model_similarity import SimilarityHandoff, normalize_similarity_handoff
 
 
 def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
@@ -88,9 +89,7 @@ class CodeStructureRecommendation:
     config_owner_map: tuple[tuple[str, str], ...] = ()
     public_entrypoint_map: tuple[tuple[str, str], ...] = ()
     facade_module_id: str = ""
-    similarity_relation_ids: tuple[str, ...] = ()
-    similarity_maintenance_group_ids: tuple[str, ...] = ()
-    similarity_code_obligation_ids: tuple[str, ...] = ()
+    similarity_handoff: SimilarityHandoff | Mapping[str, Any] | None = None
     shared_kernel_module_id: str = ""
     variant_adapter_module_ids: tuple[str, ...] = ()
     validation_boundaries: tuple[str, ...] = ()
@@ -110,17 +109,7 @@ class CodeStructureRecommendation:
         object.__setattr__(self, "config_owner_map", _as_pairs(self.config_owner_map))
         object.__setattr__(self, "public_entrypoint_map", _as_pairs(self.public_entrypoint_map))
         object.__setattr__(self, "facade_module_id", str(self.facade_module_id))
-        object.__setattr__(self, "similarity_relation_ids", _as_tuple(self.similarity_relation_ids))
-        object.__setattr__(
-            self,
-            "similarity_maintenance_group_ids",
-            _as_tuple(self.similarity_maintenance_group_ids),
-        )
-        object.__setattr__(
-            self,
-            "similarity_code_obligation_ids",
-            _as_tuple(self.similarity_code_obligation_ids),
-        )
+        object.__setattr__(self, "similarity_handoff", normalize_similarity_handoff(self.similarity_handoff))
         object.__setattr__(self, "shared_kernel_module_id", str(self.shared_kernel_module_id))
         object.__setattr__(self, "variant_adapter_module_ids", _as_tuple(self.variant_adapter_module_ids))
         object.__setattr__(self, "validation_boundaries", _as_tuple(self.validation_boundaries))
@@ -158,9 +147,9 @@ class CodeStructureRecommendation:
             "config_owner_map": [list(pair) for pair in self.config_owner_map],
             "public_entrypoint_map": [list(pair) for pair in self.public_entrypoint_map],
             "facade_module_id": self.facade_module_id,
-            "similarity_relation_ids": list(self.similarity_relation_ids),
-            "similarity_maintenance_group_ids": list(self.similarity_maintenance_group_ids),
-            "similarity_code_obligation_ids": list(self.similarity_code_obligation_ids),
+            "similarity_handoff": self.similarity_handoff.to_dict()
+            if self.similarity_handoff
+            else None,
             "shared_kernel_module_id": self.shared_kernel_module_id,
             "variant_adapter_module_ids": list(self.variant_adapter_module_ids),
             "validation_boundaries": list(self.validation_boundaries),
@@ -347,10 +336,15 @@ def review_code_structure_recommendation(
                 )
             )
 
-    if recommendation.similarity_relation_ids:
+    similarity_handoff = recommendation.similarity_handoff
+    similarity_relation_ids = similarity_handoff.relation_ids if similarity_handoff else ()
+    similarity_code_obligation_ids = similarity_handoff.code_obligation_ids if similarity_handoff else ()
+    similarity_maintenance_group_ids = similarity_handoff.maintenance_group_ids if similarity_handoff else ()
+
+    if similarity_relation_ids:
         false_friend_relations = tuple(
             relation_id
-            for relation_id in recommendation.similarity_relation_ids
+            for relation_id in similarity_relation_ids
             if "false_friend" in relation_id
         )
         if false_friend_relations:
@@ -367,7 +361,7 @@ def review_code_structure_recommendation(
                     "shared_kernel_module_not_registered",
                     "similarity-derived shared kernel owner is not a registered target module",
                     module_id=recommendation.shared_kernel_module_id,
-                    metadata={"similarity_relation_ids": list(recommendation.similarity_relation_ids)},
+                    metadata={"similarity_relation_ids": list(similarity_relation_ids)},
                 )
             )
         for module_id in recommendation.variant_adapter_module_ids:
@@ -377,13 +371,13 @@ def review_code_structure_recommendation(
                         "variant_adapter_module_not_registered",
                         "similarity-derived variant adapter owner is not a registered target module",
                         module_id=module_id,
-                        metadata={"similarity_relation_ids": list(recommendation.similarity_relation_ids)},
+                        metadata={"similarity_relation_ids": list(similarity_relation_ids)},
                     )
                 )
         if (
             recommendation.shared_kernel_module_id
             and recommendation.variant_adapter_module_ids
-            and not recommendation.similarity_code_obligation_ids
+            and not similarity_code_obligation_ids
         ):
             findings.append(
                 CodeStructureFinding(
@@ -391,16 +385,16 @@ def review_code_structure_recommendation(
                     "similarity-derived shared-kernel structure should cite the code maintenance obligation that named the kernel and adapters",
                     severity="warning",
                     module_id=recommendation.shared_kernel_module_id,
-                    metadata={"similarity_relation_ids": list(recommendation.similarity_relation_ids)},
+                    metadata={"similarity_relation_ids": list(similarity_relation_ids)},
                 )
             )
-        if recommendation.similarity_maintenance_group_ids and not recommendation.similarity_code_obligation_ids:
+        if similarity_maintenance_group_ids and not similarity_code_obligation_ids:
             findings.append(
                 CodeStructureFinding(
                     "missing_similarity_group_code_obligation",
                     "a similarity maintenance group used for code structure should cite the code obligation that drives shared-kernel or adapter ownership",
                     severity="warning",
-                    metadata={"similarity_maintenance_group_ids": list(recommendation.similarity_maintenance_group_ids)},
+                    metadata={"similarity_maintenance_group_ids": list(similarity_maintenance_group_ids)},
                 )
             )
 

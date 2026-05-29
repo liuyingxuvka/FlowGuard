@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
 from .export import to_jsonable
+from .model_similarity import SimilarityHandoff, normalize_similarity_handoff
 from .obligation_family import (
     ObligationFamily,
     ObligationFamilyEvidence,
@@ -662,11 +663,7 @@ class ModelTestAlignmentPlan:
     runtime_node_contracts: tuple[RuntimeNodeContract, ...] = ()
     runtime_node_observations: tuple[RuntimeNodeObservation, ...] = ()
     runtime_path_runs: tuple[RuntimePathRun, ...] = ()
-    similarity_relation_ids: tuple[str, ...] = ()
-    similarity_maintenance_group_ids: tuple[str, ...] = ()
-    similarity_test_obligation_ids: tuple[str, ...] = ()
-    same_family_similarity_relation_ids: tuple[str, ...] = ()
-    evidence_duplicate_relation_ids: tuple[str, ...] = ()
+    similarity_handoff: SimilarityHandoff | Mapping[str, Any] | None = None
     require_code_contracts: bool = False
     require_proof_artifacts: bool = False
     require_runtime_path_evidence: bool = False
@@ -707,27 +704,7 @@ class ModelTestAlignmentPlan:
             "runtime_path_runs",
             tuple(item if isinstance(item, RuntimePathRun) else RuntimePathRun(**item) for item in self.runtime_path_runs),
         )
-        object.__setattr__(self, "similarity_relation_ids", _as_tuple(self.similarity_relation_ids))
-        object.__setattr__(
-            self,
-            "similarity_maintenance_group_ids",
-            _as_tuple(self.similarity_maintenance_group_ids),
-        )
-        object.__setattr__(
-            self,
-            "similarity_test_obligation_ids",
-            _as_tuple(self.similarity_test_obligation_ids),
-        )
-        object.__setattr__(
-            self,
-            "same_family_similarity_relation_ids",
-            _as_tuple(self.same_family_similarity_relation_ids),
-        )
-        object.__setattr__(
-            self,
-            "evidence_duplicate_relation_ids",
-            _as_tuple(self.evidence_duplicate_relation_ids),
-        )
+        object.__setattr__(self, "similarity_handoff", normalize_similarity_handoff(self.similarity_handoff))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -744,11 +721,9 @@ class ModelTestAlignmentPlan:
                 observation.to_dict() for observation in self.runtime_node_observations
             ],
             "runtime_path_runs": [run.to_dict() for run in self.runtime_path_runs],
-            "similarity_relation_ids": list(self.similarity_relation_ids),
-            "similarity_maintenance_group_ids": list(self.similarity_maintenance_group_ids),
-            "similarity_test_obligation_ids": list(self.similarity_test_obligation_ids),
-            "same_family_similarity_relation_ids": list(self.same_family_similarity_relation_ids),
-            "evidence_duplicate_relation_ids": list(self.evidence_duplicate_relation_ids),
+            "similarity_handoff": self.similarity_handoff.to_dict()
+            if self.similarity_handoff
+            else None,
             "require_code_contracts": self.require_code_contracts,
             "require_proof_artifacts": self.require_proof_artifacts,
             "require_runtime_path_evidence": self.require_runtime_path_evidence,
@@ -2064,30 +2039,35 @@ def review_model_test_alignment(plan: ModelTestAlignmentPlan) -> ModelTestAlignm
             plan.family_evidence,
         )
         findings.extend(_family_findings_as_alignment_findings(family_report.findings))
-    if plan.same_family_similarity_relation_ids and not plan.obligation_families:
+    similarity_handoff = plan.similarity_handoff
+    same_family_relation_ids = similarity_handoff.same_family_relation_ids if similarity_handoff else ()
+    similarity_maintenance_group_ids = similarity_handoff.maintenance_group_ids if similarity_handoff else ()
+    similarity_test_obligation_ids = similarity_handoff.test_obligation_ids if similarity_handoff else ()
+    evidence_duplicate_relation_ids = similarity_handoff.evidence_duplicate_relation_ids if similarity_handoff else ()
+    if same_family_relation_ids and not plan.obligation_families:
         findings.append(
             ModelTestAlignmentFinding(
                 "missing_similarity_family_evidence",
                 "same-family model-similarity relations require obligation-family evidence or an explicit scoped family plan",
-                metadata={"similarity_relation_ids": list(plan.same_family_similarity_relation_ids)},
+                metadata={"similarity_relation_ids": list(same_family_relation_ids)},
             )
         )
-    if plan.similarity_maintenance_group_ids and not (
-        plan.similarity_test_obligation_ids or plan.obligation_families
+    if similarity_maintenance_group_ids and not (
+        similarity_test_obligation_ids or plan.obligation_families
     ):
         findings.append(
             ModelTestAlignmentFinding(
                 "missing_similarity_test_obligations",
                 "similarity maintenance groups require shared and variant test obligations or obligation-family evidence before a broad maintenance claim",
-                metadata={"similarity_maintenance_group_ids": list(plan.similarity_maintenance_group_ids)},
+                metadata={"similarity_maintenance_group_ids": list(similarity_maintenance_group_ids)},
             )
         )
-    if plan.evidence_duplicate_relation_ids and not (plan.test_evidence or plan.family_evidence):
+    if evidence_duplicate_relation_ids and not (plan.test_evidence or plan.family_evidence):
         findings.append(
             ModelTestAlignmentFinding(
                 "evidence_duplicate_without_alignment_evidence",
                 "evidence-duplicate similarity relations require test or family evidence to prove the shared scope",
-                metadata={"similarity_relation_ids": list(plan.evidence_duplicate_relation_ids)},
+                metadata={"similarity_relation_ids": list(evidence_duplicate_relation_ids)},
             )
         )
     passing_by_obligation = _passing_evidence_by_obligation(plan, obligations_by_id)

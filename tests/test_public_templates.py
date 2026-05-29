@@ -334,6 +334,10 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("variant_behavior_tests", output)
         self.assertIn("missing_current_similarity_evidence", output)
         self.assertIn("false_friend", output)
+        combined = "\n".join(file.content for file in model_similarity_consolidation_template_files())
+        self.assertIn("Basic Path", combined)
+        self.assertIn("Full Schema Path", combined)
+        self.assertIn("SimilarityHandoff", combined)
 
     def test_risk_evidence_ledger_template_executes(self):
         output = self.run_written_template(

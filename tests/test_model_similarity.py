@@ -9,6 +9,10 @@ from flowguard import (
     ModelSignature,
     ModelSimilarityEvidence,
     ModelSimilarityPlan,
+    SimilarityHandoff,
+    model_signature_maintenance,
+    model_signature_minimal,
+    model_similarity_plan_for_changed_member,
     review_model_similarity_consolidation,
 )
 
@@ -27,6 +31,58 @@ def signature(model_id: str, **kwargs) -> ModelSignature:
 
 
 class ModelSimilarityReviewTests(unittest.TestCase):
+    def test_minimal_signature_helper_builds_full_signature(self):
+        built = model_signature_minimal(
+            "checkout-simple",
+            workflow_family="checkout",
+            variant_id="simple",
+            function_blocks=("ValidateOrder",),
+            state_owned=("orders",),
+            evidence_ids=("sim:checkout",),
+        )
+
+        self.assertIsInstance(built, ModelSignature)
+        self.assertEqual("checkout-simple", built.model_id)
+        self.assertEqual(("ValidateOrder",), built.function_blocks)
+        self.assertEqual(("sim:checkout",), built.evidence_ids)
+
+    def test_maintenance_plan_helper_and_report_handoff(self):
+        left = model_signature_maintenance(
+            "checkout-simple",
+            workflow_family="checkout",
+            variant_id="simple",
+            function_blocks=("ValidateOrder",),
+            code_paths=("flowguard/checkout/simple.py",),
+            test_paths=("tests/test_checkout_simple.py",),
+            shared_kernel_id="checkout_core",
+            adapter_ids=("simple_adapter",),
+        )
+        right = model_signature_maintenance(
+            "checkout-retry",
+            workflow_family="checkout",
+            variant_id="retry",
+            function_blocks=("ValidateOrder",),
+            code_paths=("flowguard/checkout/retry.py",),
+            test_paths=("tests/test_checkout_retry.py",),
+            shared_kernel_id="checkout_core",
+            adapter_ids=("retry_adapter",),
+        )
+        plan = model_similarity_plan_for_changed_member(
+            "checkout-handoff",
+            (left, right),
+            changed_model_id="checkout-simple",
+        )
+
+        report = review_model_similarity_consolidation(plan)
+        handoff = report.to_handoff()
+
+        self.assertIsInstance(handoff, SimilarityHandoff)
+        self.assertTrue(handoff.relation_ids)
+        self.assertEqual(("checkout-retry",), handoff.impacted_model_ids)
+        self.assertTrue(handoff.maintenance_group_ids)
+        self.assertTrue(handoff.test_obligation_ids)
+        self.assertTrue(handoff.code_obligation_ids)
+
     def test_family_variant_with_current_evidence_is_ready(self):
         plan = ModelSimilarityPlan(
             "family-variant",

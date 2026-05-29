@@ -18,6 +18,7 @@ from flowguard import (
     ObligationFamily,
     ObligationFamilyEvidence,
     ObligationFamilyMember,
+    SimilarityHandoff,
     TargetModuleRecommendation,
     review_architecture_reduction,
     review_code_structure_recommendation,
@@ -78,8 +79,10 @@ class ModelSimilarityIntegrationTests(unittest.TestCase):
             downstream_routes=("development_process_flow",),
             rationale="The retry variant extends the existing checkout model.",
             similarity_review_required=True,
-            similarity_relation_ids=("checkout-simple:checkout-retry:same_family_variant",),
-            similarity_maintenance_group_ids=("maintenance:checkout-retry+checkout-simple",),
+            similarity_handoff=SimilarityHandoff(
+                relation_ids=("checkout-simple:checkout-retry:same_family_variant",),
+                maintenance_group_ids=("maintenance:checkout-retry+checkout-simple",),
+            ),
         )
 
         report = review_existing_model_preflight(preflight)
@@ -99,9 +102,11 @@ class ModelSimilarityIntegrationTests(unittest.TestCase):
                 downstream_routes=("development_process_flow",),
                 rationale="Changing one checkout variant requires sibling review.",
                 similarity_review_required=True,
-                similarity_relation_ids=("checkout-simple:checkout-retry:same_family_variant",),
-                similarity_maintenance_group_ids=("maintenance:checkout-retry+checkout-simple",),
-                impacted_similarity_model_ids=("checkout-retry",),
+                similarity_handoff=SimilarityHandoff(
+                    relation_ids=("checkout-simple:checkout-retry:same_family_variant",),
+                    maintenance_group_ids=("maintenance:checkout-retry+checkout-simple",),
+                    impacted_model_ids=("checkout-retry",),
+                ),
             )
         )
 
@@ -130,7 +135,9 @@ class ModelSimilarityIntegrationTests(unittest.TestCase):
                     proof_status=PROOF_SAFE_BY_EQUIVALENCE,
                     required_next_route=ROUTE_CODE_STRUCTURE_RECOMMENDATION,
                     rationale="The relation says adapter-only difference, but this row cites no contraction evidence.",
-                    similarity_relation_ids=("checkout-simple:checkout-retry:adapter_only_difference",),
+                    similarity_handoff=SimilarityHandoff(
+                        relation_ids=("checkout-simple:checkout-retry:adapter_only_difference",),
+                    ),
                 ),
             ),
         )
@@ -155,9 +162,11 @@ class ModelSimilarityIntegrationTests(unittest.TestCase):
                 ),
                 function_block_map=(("ValidateOrder", "core"),),
                 facade_module_id="core",
-                similarity_relation_ids=("checkout-simple:checkout-retry:shared_kernel_candidate",),
-                similarity_maintenance_group_ids=("maintenance:checkout-retry+checkout-simple",),
-                similarity_code_obligation_ids=("checkout-simple:checkout-retry:shared_kernel_candidate:shared-kernel",),
+                similarity_handoff=SimilarityHandoff(
+                    relation_ids=("checkout-simple:checkout-retry:shared_kernel_candidate",),
+                    maintenance_group_ids=("maintenance:checkout-retry+checkout-simple",),
+                    code_obligation_ids=("checkout-simple:checkout-retry:shared_kernel_candidate:shared-kernel",),
+                ),
                 shared_kernel_module_id="core",
                 variant_adapter_module_ids=("retry_adapter",),
                 validation_boundaries=("model similarity review",),
@@ -179,8 +188,10 @@ class ModelSimilarityIntegrationTests(unittest.TestCase):
                 ),
                 function_block_map=(("ValidateOrder", "core"),),
                 facade_module_id="core",
-                similarity_relation_ids=("checkout-simple:checkout-retry:shared_kernel_candidate",),
-                similarity_maintenance_group_ids=("maintenance:checkout-retry+checkout-simple",),
+                similarity_handoff=SimilarityHandoff(
+                    relation_ids=("checkout-simple:checkout-retry:shared_kernel_candidate",),
+                    maintenance_group_ids=("maintenance:checkout-retry+checkout-simple",),
+                ),
                 shared_kernel_module_id="core",
                 variant_adapter_module_ids=("retry_adapter",),
                 validation_boundaries=("model similarity review",),
@@ -199,7 +210,9 @@ class ModelSimilarityIntegrationTests(unittest.TestCase):
                 parent_module_id="cache",
                 target_modules=(TargetModuleRecommendation("shared", rationale="bad shared module"),),
                 function_block_map=(("RefreshCache", "shared"),),
-                similarity_relation_ids=("cache-refresh:cache-report:false_friend",),
+                similarity_handoff=SimilarityHandoff(
+                    relation_ids=("cache-refresh:cache-report:false_friend",),
+                ),
                 shared_kernel_module_id="shared",
                 validation_boundaries=("manual review",),
                 rationale="False friend should not drive shared module.",
@@ -216,7 +229,9 @@ class ModelSimilarityIntegrationTests(unittest.TestCase):
         report = review_model_test_alignment(
             ModelTestAlignmentPlan(
                 "checkout",
-                same_family_similarity_relation_ids=("checkout-simple:checkout-retry:same_family_variant",),
+                similarity_handoff=SimilarityHandoff(
+                    relation_ids=("checkout-simple:checkout-retry:same_family_variant",),
+                ),
             )
         )
 
@@ -227,7 +242,9 @@ class ModelSimilarityIntegrationTests(unittest.TestCase):
         report = review_model_test_alignment(
             ModelTestAlignmentPlan(
                 "checkout",
-                similarity_maintenance_group_ids=("maintenance:checkout-retry+checkout-simple",),
+                similarity_handoff=SimilarityHandoff(
+                    maintenance_group_ids=("maintenance:checkout-retry+checkout-simple",),
+                ),
             )
         )
 
@@ -238,10 +255,12 @@ class ModelSimilarityIntegrationTests(unittest.TestCase):
         report = review_model_test_alignment(
             ModelTestAlignmentPlan(
                 "checkout",
-                similarity_maintenance_group_ids=("maintenance:checkout-retry+checkout-simple",),
-                similarity_test_obligation_ids=(
-                    "maintenance:checkout-retry+checkout-simple:shared-tests",
-                    "maintenance:checkout-retry+checkout-simple:variant-tests",
+                similarity_handoff=SimilarityHandoff(
+                    maintenance_group_ids=("maintenance:checkout-retry+checkout-simple",),
+                    test_obligation_ids=(
+                        "maintenance:checkout-retry+checkout-simple:shared-tests",
+                        "maintenance:checkout-retry+checkout-simple:variant-tests",
+                    ),
                 ),
             )
         )
@@ -270,7 +289,9 @@ class ModelSimilarityIntegrationTests(unittest.TestCase):
                         result_status="passed",
                     ),
                 ),
-                same_family_similarity_relation_ids=("checkout-simple:checkout-retry:same_family_variant",),
+                similarity_handoff=SimilarityHandoff(
+                    relation_ids=("checkout-simple:checkout-retry:same_family_variant",),
+                ),
             )
         )
 
@@ -301,9 +322,11 @@ class ModelSimilarityIntegrationTests(unittest.TestCase):
                         rationale="Similarity is backed by equivalence replay.",
                         affected_public_entrypoints=("checkout.submit",),
                         evidence_refs=("replay:checkout-equivalence",),
-                        similarity_relation_ids=("checkout-simple:checkout-retry:adapter_only_difference",),
-                        similarity_code_obligation_ids=(
-                            "checkout-simple:checkout-retry:adapter_only_difference:duplicate-boundary",
+                        similarity_handoff=SimilarityHandoff(
+                            relation_ids=("checkout-simple:checkout-retry:adapter_only_difference",),
+                            code_obligation_ids=(
+                                "checkout-simple:checkout-retry:adapter_only_difference:duplicate-boundary",
+                            ),
                         ),
                     ),
                 ),

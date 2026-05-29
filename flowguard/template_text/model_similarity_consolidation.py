@@ -17,76 +17,64 @@ from flowguard import (
     ModelSignature,
     ModelSimilarityEvidence,
     ModelSimilarityPlan,
+    model_signature_maintenance,
+    model_similarity_plan_for_changed_member,
     review_model_similarity_consolidation,
 )
 
 
 def correct_plan() -> ModelSimilarityPlan:
-    return ModelSimilarityPlan(
-        "checkout-model-similarity",
-        signatures=(
-            ModelSignature(
-                "checkout-simple",
-                workflow_family="checkout",
-                variant_id="simple",
-                function_blocks=("ValidateOrder", "PersistOrder"),
-                inputs=("OrderInput",),
-                outputs=("OrderStored",),
-                state_owned=("orders",),
-                side_effects_owned=("write_order",),
-                invariants=("no_duplicate_order",),
-                failure_modes=("duplicate_submit",),
-                public_entrypoints=("checkout.submit",),
-                code_paths=("flowguard/checkout/simple.py",),
-                test_paths=("tests/test_checkout_simple.py",),
-                owned_public_behaviors=("submit_order",),
-                shared_kernel_id="checkout_core",
-                adapter_ids=("simple_adapter",),
-                maintenance_tags=("checkout", "order-write"),
-                evidence_ids=("sim:checkout-family",),
-            ),
-            ModelSignature(
-                "checkout-retry",
-                workflow_family="checkout",
-                variant_id="retry",
-                function_blocks=("ValidateOrder", "PersistOrder"),
-                inputs=("OrderInput",),
-                outputs=("OrderStored", "RetryScheduled"),
-                state_owned=("orders",),
-                side_effects_owned=("write_order",),
-                invariants=("no_duplicate_order",),
-                failure_modes=("duplicate_submit",),
-                public_entrypoints=("checkout.submit_with_retry",),
-                code_paths=("flowguard/checkout/retry.py",),
-                test_paths=("tests/test_checkout_retry.py",),
-                owned_public_behaviors=("submit_order", "retry_order"),
-                shared_kernel_id="checkout_core",
-                adapter_ids=("retry_adapter",),
-                maintenance_tags=("checkout", "order-write"),
-                evidence_ids=("sim:checkout-family",),
-            ),
-            ModelSignature(
-                "checkout-cancel",
-                workflow_family="checkout",
-                variant_id="cancel",
-                function_blocks=("ValidateOrder", "PersistOrder"),
-                inputs=("CancelInput",),
-                outputs=("OrderCanceled",),
-                state_owned=("orders",),
-                side_effects_owned=("write_order",),
-                invariants=("no_duplicate_order",),
-                failure_modes=("duplicate_submit", "cancel_after_auth"),
-                public_entrypoints=("checkout.cancel",),
-                code_paths=("flowguard/checkout/cancel.py",),
-                test_paths=("tests/test_checkout_cancel.py",),
-                owned_public_behaviors=("cancel_order",),
-                shared_kernel_id="checkout_core",
-                adapter_ids=("cancel_adapter",),
-                maintenance_tags=("checkout", "order-write"),
-                evidence_ids=("sim:checkout-family",),
-            ),
+    signatures = (
+        model_signature_maintenance(
+            "checkout-simple",
+            workflow_family="checkout",
+            variant_id="simple",
+            function_blocks=("ValidateOrder", "PersistOrder"),
+            state_owned=("orders",),
+            side_effects_owned=("write_order",),
+            code_paths=("flowguard/checkout/simple.py",),
+            test_paths=("tests/test_checkout_simple.py",),
+            owned_public_behaviors=("submit_order",),
+            shared_kernel_id="checkout_core",
+            adapter_ids=("simple_adapter",),
+            maintenance_tags=("checkout", "order-write"),
+            evidence_ids=("sim:checkout-family",),
         ),
-        changed_model_ids=("checkout-simple",),
+        model_signature_maintenance(
+            "checkout-retry",
+            workflow_family="checkout",
+            variant_id="retry",
+            function_blocks=("ValidateOrder", "PersistOrder"),
+            state_owned=("orders",),
+            side_effects_owned=("write_order",),
+            code_paths=("flowguard/checkout/retry.py",),
+            test_paths=("tests/test_checkout_retry.py",),
+            owned_public_behaviors=("submit_order", "retry_order"),
+            shared_kernel_id="checkout_core",
+            adapter_ids=("retry_adapter",),
+            maintenance_tags=("checkout", "order-write"),
+            evidence_ids=("sim:checkout-family",),
+        ),
+        model_signature_maintenance(
+            "checkout-cancel",
+            workflow_family="checkout",
+            variant_id="cancel",
+            function_blocks=("ValidateOrder", "PersistOrder"),
+            state_owned=("orders",),
+            side_effects_owned=("write_order",),
+            code_paths=("flowguard/checkout/cancel.py",),
+            test_paths=("tests/test_checkout_cancel.py",),
+            owned_public_behaviors=("cancel_order",),
+            shared_kernel_id="checkout_core",
+            adapter_ids=("cancel_adapter",),
+            maintenance_tags=("checkout", "order-write"),
+            evidence_ids=("sim:checkout-family",),
+        ),
+    )
+    return model_similarity_plan_for_changed_member(
+        "checkout-model-similarity",
+        signatures,
+        changed_model_id="checkout-simple",
         evidence=(
             ModelSimilarityEvidence(
                 "sim:checkout-family",
@@ -183,6 +171,20 @@ MODEL_SIMILARITY_CONSOLIDATION_NOTES_TEMPLATE = """# FlowGuard Model Similarity 
 
 Use this scaffold before adding a new model boundary, extracting shared code,
 or treating several model-backed features as one workflow family.
+
+## Basic Path
+
+Use `model_signature_maintenance()` and
+`model_similarity_plan_for_changed_member()` for ordinary A/B/C maintenance.
+Then pass the `SimilarityHandoff` from `report.to_handoff()` to downstream
+routes instead of copying relation ids, group ids, test obligation ids, and code
+obligation ids into separate fields.
+
+## Full Schema Path
+
+Use `ModelSignature` and `ModelSimilarityPlan` directly when you need explicit
+comparison pairs, false-friend declarations, current evidence rows, or custom
+metadata.
 
 ## What Model Similarity Reviews
 
