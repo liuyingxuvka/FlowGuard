@@ -662,6 +662,9 @@ class ModelTestAlignmentPlan:
     runtime_node_contracts: tuple[RuntimeNodeContract, ...] = ()
     runtime_node_observations: tuple[RuntimeNodeObservation, ...] = ()
     runtime_path_runs: tuple[RuntimePathRun, ...] = ()
+    similarity_relation_ids: tuple[str, ...] = ()
+    same_family_similarity_relation_ids: tuple[str, ...] = ()
+    evidence_duplicate_relation_ids: tuple[str, ...] = ()
     require_code_contracts: bool = False
     require_proof_artifacts: bool = False
     require_runtime_path_evidence: bool = False
@@ -702,6 +705,17 @@ class ModelTestAlignmentPlan:
             "runtime_path_runs",
             tuple(item if isinstance(item, RuntimePathRun) else RuntimePathRun(**item) for item in self.runtime_path_runs),
         )
+        object.__setattr__(self, "similarity_relation_ids", _as_tuple(self.similarity_relation_ids))
+        object.__setattr__(
+            self,
+            "same_family_similarity_relation_ids",
+            _as_tuple(self.same_family_similarity_relation_ids),
+        )
+        object.__setattr__(
+            self,
+            "evidence_duplicate_relation_ids",
+            _as_tuple(self.evidence_duplicate_relation_ids),
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -718,6 +732,9 @@ class ModelTestAlignmentPlan:
                 observation.to_dict() for observation in self.runtime_node_observations
             ],
             "runtime_path_runs": [run.to_dict() for run in self.runtime_path_runs],
+            "similarity_relation_ids": list(self.similarity_relation_ids),
+            "same_family_similarity_relation_ids": list(self.same_family_similarity_relation_ids),
+            "evidence_duplicate_relation_ids": list(self.evidence_duplicate_relation_ids),
             "require_code_contracts": self.require_code_contracts,
             "require_proof_artifacts": self.require_proof_artifacts,
             "require_runtime_path_evidence": self.require_runtime_path_evidence,
@@ -2033,6 +2050,22 @@ def review_model_test_alignment(plan: ModelTestAlignmentPlan) -> ModelTestAlignm
             plan.family_evidence,
         )
         findings.extend(_family_findings_as_alignment_findings(family_report.findings))
+    if plan.same_family_similarity_relation_ids and not plan.obligation_families:
+        findings.append(
+            ModelTestAlignmentFinding(
+                "missing_similarity_family_evidence",
+                "same-family model-similarity relations require obligation-family evidence or an explicit scoped family plan",
+                metadata={"similarity_relation_ids": list(plan.same_family_similarity_relation_ids)},
+            )
+        )
+    if plan.evidence_duplicate_relation_ids and not (plan.test_evidence or plan.family_evidence):
+        findings.append(
+            ModelTestAlignmentFinding(
+                "evidence_duplicate_without_alignment_evidence",
+                "evidence-duplicate similarity relations require test or family evidence to prove the shared scope",
+                metadata={"similarity_relation_ids": list(plan.evidence_duplicate_relation_ids)},
+            )
+        )
     passing_by_obligation = _passing_evidence_by_obligation(plan, obligations_by_id)
     passing_by_code_contract = _passing_external_evidence_by_code_contract(plan, code_contracts_by_id)
     findings.extend(

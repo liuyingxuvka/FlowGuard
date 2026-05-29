@@ -88,6 +88,9 @@ class CodeStructureRecommendation:
     config_owner_map: tuple[tuple[str, str], ...] = ()
     public_entrypoint_map: tuple[tuple[str, str], ...] = ()
     facade_module_id: str = ""
+    similarity_relation_ids: tuple[str, ...] = ()
+    shared_kernel_module_id: str = ""
+    variant_adapter_module_ids: tuple[str, ...] = ()
     validation_boundaries: tuple[str, ...] = ()
     rationale: str = ""
     hierarchical_model_used: bool = False
@@ -105,6 +108,9 @@ class CodeStructureRecommendation:
         object.__setattr__(self, "config_owner_map", _as_pairs(self.config_owner_map))
         object.__setattr__(self, "public_entrypoint_map", _as_pairs(self.public_entrypoint_map))
         object.__setattr__(self, "facade_module_id", str(self.facade_module_id))
+        object.__setattr__(self, "similarity_relation_ids", _as_tuple(self.similarity_relation_ids))
+        object.__setattr__(self, "shared_kernel_module_id", str(self.shared_kernel_module_id))
+        object.__setattr__(self, "variant_adapter_module_ids", _as_tuple(self.variant_adapter_module_ids))
         object.__setattr__(self, "validation_boundaries", _as_tuple(self.validation_boundaries))
         object.__setattr__(self, "rationale", str(self.rationale))
 
@@ -140,6 +146,9 @@ class CodeStructureRecommendation:
             "config_owner_map": [list(pair) for pair in self.config_owner_map],
             "public_entrypoint_map": [list(pair) for pair in self.public_entrypoint_map],
             "facade_module_id": self.facade_module_id,
+            "similarity_relation_ids": list(self.similarity_relation_ids),
+            "shared_kernel_module_id": self.shared_kernel_module_id,
+            "variant_adapter_module_ids": list(self.variant_adapter_module_ids),
             "validation_boundaries": list(self.validation_boundaries),
             "rationale": self.rationale,
             "hierarchical_model_used": self.hierarchical_model_used,
@@ -323,6 +332,40 @@ def review_code_structure_recommendation(
                     metadata=module.to_dict(),
                 )
             )
+
+    if recommendation.similarity_relation_ids:
+        false_friend_relations = tuple(
+            relation_id
+            for relation_id in recommendation.similarity_relation_ids
+            if "false_friend" in relation_id
+        )
+        if false_friend_relations:
+            findings.append(
+                CodeStructureFinding(
+                    "false_friend_similarity_blocks_shared_structure",
+                    "false-friend similarity relations cannot derive a shared module without manual review",
+                    metadata={"similarity_relation_ids": false_friend_relations},
+                )
+            )
+        if recommendation.shared_kernel_module_id and recommendation.shared_kernel_module_id not in module_ids:
+            findings.append(
+                CodeStructureFinding(
+                    "shared_kernel_module_not_registered",
+                    "similarity-derived shared kernel owner is not a registered target module",
+                    module_id=recommendation.shared_kernel_module_id,
+                    metadata={"similarity_relation_ids": list(recommendation.similarity_relation_ids)},
+                )
+            )
+        for module_id in recommendation.variant_adapter_module_ids:
+            if module_id not in module_ids:
+                findings.append(
+                    CodeStructureFinding(
+                        "variant_adapter_module_not_registered",
+                        "similarity-derived variant adapter owner is not a registered target module",
+                        module_id=module_id,
+                        metadata={"similarity_relation_ids": list(recommendation.similarity_relation_ids)},
+                    )
+                )
 
     all_pairs = (
         ("function_block_owner_not_registered", "FunctionBlock", recommendation.function_block_map),

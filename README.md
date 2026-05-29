@@ -71,7 +71,7 @@ FlowGuard is useful at the design stage. You name the states, inputs, outputs, o
 | --- | --- | --- | --- |
 | Development process | Staged route, legal next actions, validation gates, stale-evidence reset, peer-write invalidation, archive/release readiness, and done criteria | DevelopmentProcessFlow reviews scenario failures, skipped gates, freshness gaps, and invalid completion claims before the process is treated as usable | A green local step is not global green after later edits, peer writes, or route mutation |
 | UI interface | Persistent regions, contextual panels, local actions, overlays, recovery paths, button availability, display ownership, duplicate-control rules, and text hierarchy | UI Flow Structure checks launch-to-terminal journeys, visible control availability, recovery paths, duplicate functions, warning/error escalation, and implementation click-through evidence | It models interaction structure; visual polish, accessibility details, and browser/device behavior still need ordinary UI review |
-| Code structure | Module split, facade boundary, state owner, side-effect owner, config owner, validation owner, and public-entrypoint compatibility plan | Code Structure Recommendation and StructureMesh look for ownership leaks, dependency cycles, facade drift, config drift, and missing parity evidence | It recommends a safer split; it does not replace implementation tests or code review |
+| Code structure | Module split, facade boundary, state owner, side-effect owner, config owner, validation owner, public-entrypoint compatibility plan, and model-similarity shared-kernel hints | Code Structure Recommendation and StructureMesh look for ownership leaks, dependency cycles, facade drift, config drift, missing parity evidence, and false-friend model relations | It recommends a safer split; it does not replace implementation tests or code review |
 | Architecture reduction | Observable contract, duplicate implementation candidates, proof status, required next route, and safe target action | Architecture Reduction checks whether model-equivalent branches, handlers, adapters, modules, or validation layers can shrink code before StructureMesh or implementation | It proposes behavior-preserving contraction; public entrypoints and risky candidates still need compatibility and test evidence |
 | Test strategy | Routine/release test layers, parent/child suites, timeout boundaries, stale/hidden evidence rules, automatic split triggers, family parity, and revalidation triggers | TestMesh and model-test alignment compare model obligations with actual tests, hidden skips, stale passes, timeout boundaries, broad/slow/release-only direct evidence, wrong-provenance family evidence, and release-only checks | Tests only support the modeled obligations they actually cover |
 | Model mesh or bug repair | Parent/child split, automatic large-model split trigger, evidence contract, reattachment gate, sibling impact review, leaf boundary matrix, model-miss class, same-class bad case, analogous defect scan, same-class test evidence, obligation-family parity, and recurring defect-family gate | ModelMesh requires parents to consume fresh child evidence; automatic split diagnostics route oversized or incomplete direct model evidence into ModelMesh; layered boundary proof requires leaf models to prove finite `Input x State -> Set(Output x State)` real-code boundaries; model-miss review adds same-class bad cases and scans same-shape sibling risks, Model-Test Alignment requires observed-regression plus same-class test evidence and family parity for related obligations, and recurring/high-risk miss families require a defect-family gate before closure | Child evidence does not improve parent confidence until the parent contract consumes it, and a coarse leaf or repaired miss stays scoped until real-code, analogous scan disposition, same-class test evidence, required obligation-family evidence, and defect-family gate evidence are complete |
@@ -138,6 +138,7 @@ FlowGuard gives those weak spots a small executable shape before the action beco
 | Child model reattachment | Requires a parent mesh to consume the repaired child evidence id and verify input, output, state, side-effect, and exported-contract handoffs |
 | Mesh closure model | Models parent/child handoff tokens so child outputs, joins, exits, and out-of-scope branches must be consumed before `mesh_green_can_continue` |
 | Existing Model Preflight | Looks up current FlowGuard model ownership before discussion, proposal, bug fix, feature work, refactor, prompt, skill, UI, test, or process changes in an existing modeled system |
+| Model Similarity Consolidation | Compares structured model signatures, classifies same-workflow, family-variant, shared-kernel, duplicate-boundary, adapter-only, evidence-duplicate, false-friend, and unrelated relations, then hands off to the right FlowGuard route |
 | TestMesh | Reviews parent/child validation layers, broad or slow direct validation evidence, stale evidence, hidden skips, timeouts, and routine-vs-release gates |
 | StructureMesh | Reviews large refactor splits, facade compatibility, dependency cycles, config drift, and parity evidence |
 | Code Structure Recommendation | Derives module, facade, state-owner, side-effect, config, and validation boundaries before code is written |
@@ -194,6 +195,7 @@ python -m flowguard project-adoption-template
 python -m flowguard project-template
 python -m flowguard model-test-alignment-template
 python -m flowguard existing-model-preflight-template
+python -m flowguard model-similarity-template
 python -m flowguard risk-evidence-ledger-template
 python -m flowguard closure-contract-template
 python -m flowguard code-structure-recommendation-template
@@ -340,6 +342,7 @@ FlowGuard is the state and workflow guard.
 | `docs/test_evidence_mesh.md` | Layered validation and evidence freshness |
 | `docs/structure_mesh.md` | Refactor and module split governance |
 | `docs/existing_model_preflight.md` | Existing model lookup, reuse-first route grounding, and duplicate-boundary preflight |
+| `docs/model_similarity_consolidation.md` | Model-to-model relation review and consolidation route handoffs |
 | `docs/code_structure_recommendation.md` | Model-derived code structure recommendations |
 | `docs/ui_flow_structure.md` | UI interaction and structure modeling |
 | `docs/development_process_flow.md` | Staged development lifecycle, validation freshness, archive, publish, and release gates |
@@ -420,7 +423,7 @@ FlowGuard 的价值在动手之前就开始。你先命名 state、input、outpu
 | --- | --- | --- | --- |
 | 开发流程 | staged route、合法 next action、验证 gate、stale-evidence reset、peer-write invalidation、release/archive readiness、done criteria | DevelopmentProcessFlow 在流程被当作可用前检查 scenario failure、skipped gate、freshness gap 和无效完成声明 | 后续编辑、peer write 或 route mutation 之后，局部 green 不等于整体 green |
 | UI 界面 | 持久区域、上下文 panel、本地动作、overlay、恢复路径、按钮 availability、display ownership、重复控件规则、文本层级 | UI Flow Structure 检查 launch-to-terminal journey、可见控件 availability、恢复路径、重复功能、warning/error escalation 和真实点击证据 | 它建模 interaction structure；视觉打磨、无障碍细节和浏览器/设备行为仍要普通 UI review |
-| 代码结构 | module split、facade boundary、state owner、side-effect owner、config owner、validation owner、公开入口兼容计划 | Code Structure Recommendation 和 StructureMesh 检查 ownership leak、dependency cycle、facade drift、config drift 和缺失 parity evidence | 它建议更安全的拆分，不替代实现测试和 code review |
+| 代码结构 | module split、facade boundary、state owner、side-effect owner、config owner、validation owner、公开入口兼容计划和相似模型 shared-kernel 提示 | Code Structure Recommendation 和 StructureMesh 检查 ownership leak、dependency cycle、facade drift、config drift、缺失 parity evidence 和 false-friend 模型关系 | 它建议更安全的拆分，不替代实现测试和 code review |
 | 架构缩减 | observable contract、重复实现 candidate、proof status、required next route 和安全 target action | Architecture Reduction 在进入 StructureMesh 或实现前，检查模型等价的 branch、handler、adapter、module 或验证层能否缩小代码 | 它提出保持行为不变的收缩方案；公开入口和风险 candidate 仍需要兼容性与测试证据 |
 | 测试策略 | routine/release test layers、父子测试套件、timeout 边界、旧/隐藏证据规则、自动拆分触发、family parity、revalidation trigger | TestMesh 和 model-test alignment 对照模型义务、真实测试、hidden skip、stale pass、timeout 边界、过宽/过慢/只在 release 跑的直接证据、来源不对的 family evidence 和 release-only check | 测试只支持它实际覆盖到的模型义务 |
 | Model mesh 或 bug 修复 | 父子拆分、自动大模型拆分触发、evidence contract、reattachment gate、sibling impact review、leaf boundary matrix、model-miss 类型、同类坏 case、analogous defect scan、同类测试证据、obligation-family parity、复发缺陷族门槛 | ModelMesh 要求父级消费新鲜 child evidence；自动拆分诊断会把过大或未完成的直接模型证据路由到 ModelMesh；layered boundary proof 要求最低叶子模型证明有限 `Input x State -> Set(Output x State)` 真实代码边界；model-miss review 补同类坏 case 并扫描同形 sibling 风险，Model-Test Alignment 要求 observed regression、同类测试证据，以及相关义务的 family parity，复发/高风险同类 miss 还要 defect-family gate 后才能关闭 | child evidence 不会自动提高父级信心，必须被父级 contract 消费；粗叶子模型或修过的 miss 在真实代码、analogous scan 处置、同类测试证据、必要 family evidence 和缺陷族门槛不完整前只能 scoped |
@@ -487,9 +490,10 @@ FlowGuard 给这些薄弱点一个小而可执行的结构。
 | Child model reattachment | `v0.17.0` 要求父级 mesh 消费修复后的 child evidence id，并验证 input、output、state、side-effect 和导出 contract handoff |
 | Mesh closure model | 把父子模型之间的 handoff token 建成小模型，确保 child output、join、exit 和 out-of-scope 分支都被消费后才允许 `mesh_green_can_continue` |
 | Existing Model Preflight | 在已有模型系统里讨论、提 proposal、修 bug、加功能、改 refactor、prompt、skill、UI、test 或 process 前，先查清当前 FlowGuard 模型 ownership |
+| Model Similarity Consolidation | 对照结构化模型签名，分类 same-workflow、family-variant、shared-kernel、duplicate-boundary、adapter-only、evidence-duplicate、false-friend 和 unrelated 关系，并把建议交给正确的 FlowGuard 路线 |
 | TestMesh | 检查父子验证层、过宽或过慢的直接验证证据、旧证据、隐藏 skip、timeout，以及 routine/release gate |
 | StructureMesh | 检查大 refactor 拆分、facade 兼容、依赖环、配置漂移和 parity 证据 |
-| Code Structure Recommendation | 在写代码前，从模型推导 module、facade、state owner、side effect、config 和验证边界 |
+| Code Structure Recommendation | 在写代码前，从模型推导 module、facade、state owner、side effect、config、验证边界和相似模型 shared-kernel 提示 |
 | Architecture Reduction | 在简化代码前，审查 model-to-code 收缩 candidate、observable contract、proof status、required next route 和保持行为不变的 target action |
 | UI Flow Structure | 在视觉设计前，建模 UI 状态、可见按钮、控件、事件、从启动到终态的 app journey、真实界面点击验收证据、失败、恢复、overlay、重复控件和信息显示 ownership |
 | UI Text Hierarchy Blueprint | 按 state、region、role、semantic key、owner、priority、重复理由和 warning/error escalation 审查 UI 文案层级 |
@@ -538,6 +542,7 @@ python -m flowguard project-adoption-template
 python -m flowguard project-template
 python -m flowguard model-test-alignment-template
 python -m flowguard existing-model-preflight-template
+python -m flowguard model-similarity-template
 python -m flowguard risk-evidence-ledger-template
 python -m flowguard closure-contract-template
 python -m flowguard code-structure-recommendation-template

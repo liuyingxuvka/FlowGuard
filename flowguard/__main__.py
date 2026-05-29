@@ -228,6 +228,12 @@ FILE_TEMPLATE_COMMANDS: tuple[FileTemplateCommand, ...] = (
         "existing_model_preflight_template_files",
     ),
     FileTemplateCommand(
+        "model-similarity-template",
+        "Print or write the model similarity consolidation template.",
+        "model_similarity_consolidation",
+        "model_similarity_consolidation_template_files",
+    ),
+    FileTemplateCommand(
         "risk-evidence-ledger-template",
         "Print or write the risk evidence ledger final confidence template.",
         "risk_evidence_ledger",

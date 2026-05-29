@@ -18,6 +18,22 @@
 
 ## v0.34.0 - 2026-05-29
 
+- Added Model Similarity Consolidation so structured model signatures can be
+  compared before agents create parallel model boundaries or shared code. The
+  new route classifies same-workflow, family-variant, symmetric-flow,
+  shared-kernel, duplicate-boundary, overlapping-ownership, parent/child,
+  sibling-overlap, adapter-only, evidence-duplicate, false-friend, unrelated,
+  and manual-review relations.
+- Added `ModelSignature`, `ModelSimilarityEvidence`,
+  `ModelSimilarityRelation`, `ModelSimilarityPlan`,
+  `ModelSimilarityReport`, and `review_model_similarity_consolidation()` with
+  evidence-gated recommendations and downstream handoffs to Existing Model
+  Preflight, ModelMesh, Architecture Reduction, Code Structure Recommendation,
+  StructureMesh, Model-Test Alignment, or manual review.
+- Integrated model-similarity evidence into Existing Model Preflight,
+  Architecture Reduction, Code Structure Recommendation, and Model-Test
+  Alignment, plus CLI/template support through
+  `python -m flowguard model-similarity-template`.
 - Added Runtime Path Evidence so real code and tests can emit ordered runtime
   node observations that name their matching FlowGuard model ids, node ids,
   child model ids, proof artifacts, inputs, outputs, state, and behavior

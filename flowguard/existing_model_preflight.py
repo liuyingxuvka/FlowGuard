@@ -223,6 +223,11 @@ class ExistingModelPreflight:
     no_model_found_reason: str = ""
     proposed_new_boundaries: tuple[str, ...] = ()
     duplicate_risks: tuple[DuplicateBoundaryRisk, ...] = ()
+    similarity_review_required: bool = False
+    similarity_relation_ids: tuple[str, ...] = ()
+    similarity_evidence_current: bool = True
+    unresolved_similarity_gaps: tuple[str, ...] = ()
+    false_friend_rationales: tuple[str, ...] = ()
     skip_reason: str = ""
 
     def __post_init__(self) -> None:
@@ -237,6 +242,9 @@ class ExistingModelPreflight:
         object.__setattr__(self, "no_model_found_reason", str(self.no_model_found_reason))
         object.__setattr__(self, "proposed_new_boundaries", _as_tuple(self.proposed_new_boundaries))
         object.__setattr__(self, "duplicate_risks", tuple(self.duplicate_risks))
+        object.__setattr__(self, "similarity_relation_ids", _as_tuple(self.similarity_relation_ids))
+        object.__setattr__(self, "unresolved_similarity_gaps", _as_tuple(self.unresolved_similarity_gaps))
+        object.__setattr__(self, "false_friend_rationales", _as_tuple(self.false_friend_rationales))
         object.__setattr__(self, "skip_reason", str(self.skip_reason))
 
     def to_dict(self) -> dict[str, Any]:
@@ -257,6 +265,11 @@ class ExistingModelPreflight:
             "no_model_found_reason": self.no_model_found_reason,
             "proposed_new_boundaries": list(self.proposed_new_boundaries),
             "duplicate_risks": [risk.to_dict() for risk in self.duplicate_risks],
+            "similarity_review_required": self.similarity_review_required,
+            "similarity_relation_ids": list(self.similarity_relation_ids),
+            "similarity_evidence_current": self.similarity_evidence_current,
+            "unresolved_similarity_gaps": list(self.unresolved_similarity_gaps),
+            "false_friend_rationales": list(self.false_friend_rationales),
             "skip_reason": self.skip_reason,
         }
 
@@ -566,6 +579,32 @@ def review_existing_model_preflight(
                 )
             )
 
+    if preflight.mode == PREFLIGHT_MODE_FULL and preflight.similarity_review_required:
+        if not preflight.similarity_relation_ids:
+            findings.append(
+                ExistingModelPreflightFinding(
+                    "missing_similarity_evidence",
+                    "full preflight requires model-similarity review but names no current relation ids",
+                )
+            )
+        if not preflight.similarity_evidence_current:
+            findings.append(
+                ExistingModelPreflightFinding(
+                    "stale_similarity_evidence",
+                    "full preflight requires model-similarity review but the similarity evidence is stale",
+                    metadata={"similarity_relation_ids": list(preflight.similarity_relation_ids)},
+                )
+            )
+        for gap in preflight.unresolved_similarity_gaps:
+            findings.append(
+                ExistingModelPreflightFinding(
+                    "unresolved_similarity_gap",
+                    "model-similarity review reported an unresolved gap for this boundary decision",
+                    item_id=gap,
+                    metadata={"similarity_relation_ids": list(preflight.similarity_relation_ids)},
+                )
+            )
+
     if preflight.reuse_decision in {
         REUSE_DECISION_ADD_CHILD_MODEL,
         REUSE_DECISION_NEW_BOUNDARY,
@@ -574,6 +613,19 @@ def review_existing_model_preflight(
             ExistingModelPreflightFinding(
                 "new_boundary_without_rationale",
                 "new model or ownership boundary needs a named boundary and rationale for why existing models cannot carry it",
+            )
+        )
+    if (
+        preflight.reuse_decision == REUSE_DECISION_NEW_BOUNDARY
+        and preflight.similarity_relation_ids
+        and preflight.false_friend_rationales
+        and not preflight.rationale
+    ):
+        findings.append(
+            ExistingModelPreflightFinding(
+                "false_friend_rationale_missing",
+                "new boundary based on false-friend similarity must keep the separation rationale visible",
+                metadata={"false_friend_rationales": list(preflight.false_friend_rationales)},
             )
         )
 

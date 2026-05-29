@@ -273,6 +273,7 @@ class ArchitectureReductionCandidate:
     affected_state: tuple[str, ...] = ()
     affected_side_effects: tuple[str, ...] = ()
     evidence_refs: tuple[str, ...] = ()
+    similarity_relation_ids: tuple[str, ...] = ()
     lifecycle_disposition: str = CANDIDATE_DISPOSITION_ACTIVE
     completion_evidence_refs: tuple[str, ...] = ()
     metadata: Mapping[str, Any] = field(default_factory=dict)
@@ -290,6 +291,7 @@ class ArchitectureReductionCandidate:
         object.__setattr__(self, "affected_state", _as_tuple(self.affected_state))
         object.__setattr__(self, "affected_side_effects", _as_tuple(self.affected_side_effects))
         object.__setattr__(self, "evidence_refs", _as_tuple(self.evidence_refs))
+        object.__setattr__(self, "similarity_relation_ids", _as_tuple(self.similarity_relation_ids))
         object.__setattr__(self, "lifecycle_disposition", str(self.lifecycle_disposition))
         object.__setattr__(self, "completion_evidence_refs", _as_tuple(self.completion_evidence_refs))
         object.__setattr__(self, "metadata", dict(self.metadata))
@@ -322,6 +324,7 @@ class ArchitectureReductionCandidate:
             "affected_state": list(self.affected_state),
             "affected_side_effects": list(self.affected_side_effects),
             "evidence_refs": list(self.evidence_refs),
+            "similarity_relation_ids": list(self.similarity_relation_ids),
             "lifecycle_disposition": self.lifecycle_disposition,
             "completion_evidence_refs": list(self.completion_evidence_refs),
             "metadata": to_jsonable(dict(self.metadata)),
@@ -809,6 +812,16 @@ def review_architecture_reduction(plan: ArchitectureReductionPlan) -> Architectu
             )
         elif candidate.lifecycle_disposition == CANDIDATE_DISPOSITION_ACTIVE:
             required_routes.add(candidate.required_next_route)
+
+        if candidate.similarity_relation_ids and candidate.is_ready and not candidate.evidence_refs:
+            findings.append(
+                ArchitectureReductionFinding(
+                    "similarity_relation_without_candidate_evidence",
+                    "similarity relation provenance does not prove architecture contraction without candidate evidence refs",
+                    candidate_id=candidate.candidate_id,
+                    metadata={"similarity_relation_ids": list(candidate.similarity_relation_ids)},
+                )
+            )
 
         if (
             candidate.lifecycle_disposition == CANDIDATE_DISPOSITION_ACTIVE

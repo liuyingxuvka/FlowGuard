@@ -4081,6 +4081,176 @@ architecture changes, or risky behavior changes.
 """
 
 
+MODEL_SIMILARITY_CONSOLIDATION_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header
+
+Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
+Purpose: Compare FlowGuard model signatures before creating parallel model or code boundaries.
+Guards against: duplicate model ownership, unsafe shared-kernel extraction, false-friend consolidation, adapter-only duplication, and similarity advice without current evidence.
+Use before editing: Run this before adding a model boundary, recommending code structure, or turning similar workflows into shared code.
+Run: python .flowguard/model_similarity_consolidation/run_checks.py
+"""
+
+from __future__ import annotations
+
+from flowguard import (
+    ModelSignature,
+    ModelSimilarityEvidence,
+    ModelSimilarityPlan,
+    review_model_similarity_consolidation,
+)
+
+
+def correct_plan() -> ModelSimilarityPlan:
+    return ModelSimilarityPlan(
+        "checkout-model-similarity",
+        signatures=(
+            ModelSignature(
+                "checkout-simple",
+                workflow_family="checkout",
+                variant_id="simple",
+                function_blocks=("ValidateOrder", "PersistOrder"),
+                inputs=("OrderInput",),
+                outputs=("OrderStored",),
+                state_owned=("orders",),
+                side_effects_owned=("write_order",),
+                invariants=("no_duplicate_order",),
+                failure_modes=("duplicate_submit",),
+                public_entrypoints=("checkout.submit",),
+                evidence_ids=("sim:checkout-family",),
+            ),
+            ModelSignature(
+                "checkout-retry",
+                workflow_family="checkout",
+                variant_id="retry",
+                function_blocks=("ValidateOrder", "PersistOrder"),
+                inputs=("OrderInput",),
+                outputs=("OrderStored", "RetryScheduled"),
+                state_owned=("orders",),
+                side_effects_owned=("write_order",),
+                invariants=("no_duplicate_order",),
+                failure_modes=("duplicate_submit",),
+                public_entrypoints=("checkout.submit_with_retry",),
+                evidence_ids=("sim:checkout-family",),
+            ),
+        ),
+        comparison_pairs=(("checkout-simple", "checkout-retry"),),
+        evidence=(
+            ModelSimilarityEvidence(
+                "sim:checkout-family",
+                summary="family review confirmed shared checkout kernel with variant retry edge",
+            ),
+        ),
+        require_current_evidence=True,
+        rationale="Use similarity review before creating a parallel checkout workflow.",
+    )
+
+
+def broken_missing_evidence_plan() -> ModelSimilarityPlan:
+    return ModelSimilarityPlan(
+        "missing-evidence-similarity",
+        signatures=(
+            ModelSignature(
+                "billing-simple",
+                workflow_family="billing",
+                variant_id="simple",
+                function_blocks=("ValidateInvoice", "PersistInvoice"),
+                state_owned=("invoices",),
+                failure_modes=("duplicate_invoice",),
+            ),
+            ModelSignature(
+                "billing-retry",
+                workflow_family="billing",
+                variant_id="retry",
+                function_blocks=("ValidateInvoice", "PersistInvoice"),
+                state_owned=("invoices",),
+                failure_modes=("duplicate_invoice",),
+            ),
+        ),
+        comparison_pairs=(("billing-simple", "billing-retry"),),
+        require_current_evidence=True,
+        rationale="This intentionally broken plan lacks current evidence for a consolidation recommendation.",
+    )
+
+
+def false_friend_plan() -> ModelSimilarityPlan:
+    return ModelSimilarityPlan(
+        "false-friend-similarity",
+        signatures=(
+            ModelSignature(
+                "cache-refresh",
+                function_blocks=("RefreshCache",),
+                state_owned=("cache_entries",),
+                side_effects_owned=("write_cache",),
+                failure_modes=("stale_cache",),
+                false_friend_model_ids=("cache-report",),
+            ),
+            ModelSignature(
+                "cache-report",
+                function_blocks=("RenderReport",),
+                state_owned=("report_rows",),
+                side_effects_owned=("write_report",),
+                failure_modes=("missing_report_row",),
+            ),
+        ),
+        comparison_pairs=(("cache-refresh", "cache-report"),),
+        rationale="Name overlap should not collapse distinct state and side-effect ownership.",
+    )
+
+
+def run_checks():
+    return (
+        review_model_similarity_consolidation(correct_plan()),
+        review_model_similarity_consolidation(broken_missing_evidence_plan()),
+        review_model_similarity_consolidation(false_friend_plan()),
+    )
+'''
+
+
+MODEL_SIMILARITY_CONSOLIDATION_RUN_CHECKS_TEMPLATE = '''"""Run the model similarity consolidation template checks."""
+
+from __future__ import annotations
+
+from model import run_checks
+
+
+def main() -> int:
+    correct, missing_evidence, false_friend = run_checks()
+    print(correct.format_text())
+    print()
+    print(missing_evidence.format_text(max_findings=5))
+    print()
+    print(false_friend.format_text(max_findings=5))
+    return 0 if correct.ok and not missing_evidence.ok and false_friend.ok else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+'''
+
+
+MODEL_SIMILARITY_CONSOLIDATION_NOTES_TEMPLATE = """# FlowGuard Model Similarity Consolidation Notes
+
+Use this scaffold before adding a new model boundary, extracting shared code,
+or treating several model-backed features as one workflow family.
+
+## What Model Similarity Reviews
+
+- stable model signatures, including FunctionBlocks, inputs, outputs, state,
+  side effects, invariants, failure modes, contracts, entrypoints, and evidence;
+- typed relations such as same workflow, family variant, symmetric flow, shared
+  kernel, duplicate boundary, ownership overlap, adapter-only difference,
+  evidence duplicate, false friend, and unrelated;
+- route handoffs to Existing Model Preflight, ModelMesh, Architecture
+  Reduction, Code Structure Recommendation, StructureMesh, Model-Test
+  Alignment, or manual review;
+- evidence gaps that keep similarity advice scoped rather than full confidence.
+
+Similarity advice is not an implementation proof. Use the downstream route it
+names before merging models, extracting shared code, pruning adapters, or
+claiming broad test and code confidence.
+"""
+
+
 RISK_EVIDENCE_LEDGER_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header
 
 Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
@@ -4989,6 +5159,23 @@ def existing_model_preflight_template_files() -> tuple[TemplateFile, ...]:
     )
 
 
+def model_similarity_consolidation_template_files() -> tuple[TemplateFile, ...]:
+    return (
+        TemplateFile(
+            ".flowguard/model_similarity_consolidation/model.py",
+            MODEL_SIMILARITY_CONSOLIDATION_MODEL_TEMPLATE,
+        ),
+        TemplateFile(
+            ".flowguard/model_similarity_consolidation/run_checks.py",
+            MODEL_SIMILARITY_CONSOLIDATION_RUN_CHECKS_TEMPLATE,
+        ),
+        TemplateFile(
+            "docs/flowguard_model_similarity_consolidation.md",
+            MODEL_SIMILARITY_CONSOLIDATION_NOTES_TEMPLATE,
+        ),
+    )
+
+
 def risk_evidence_ledger_template_files() -> tuple[TemplateFile, ...]:
     return (
         TemplateFile(".flowguard/risk_evidence_ledger/model.py", RISK_EVIDENCE_LEDGER_MODEL_TEMPLATE),
@@ -5109,6 +5296,7 @@ __all__ = [
     "layered_boundary_proof_template_files",
     "maintenance_workflow_template_files",
     "model_miss_review_template_files",
+    "model_similarity_consolidation_template_files",
     "model_test_alignment_template_files",
     "project_template_files",
     "project_adoption_template_files",

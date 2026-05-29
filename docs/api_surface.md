@@ -111,6 +111,16 @@ Modeling helpers reduce boilerplate around common bug classes:
   or historical candidates out of the active ready queue, and handing target
   structure actions to Code Structure Recommendation or StructureMesh before
   production code is edited.
+- optional model-similarity consolidation helpers such as `ModelSignature`,
+  `ModelSimilarityEvidence`, `ModelSimilarityRelation`,
+  `ModelSimilarityPlan`, `ModelSimilarityReport`, and
+  `review_model_similarity_consolidation()` for comparing structured model
+  signatures, classifying typed relations such as same workflow, family
+  variant, shared kernel, duplicate boundary, adapter-only difference, evidence
+  duplicate, false friend, and unrelated, and handing reviewable next-route
+  advice to Existing Model Preflight, ModelMesh, Architecture Reduction, Code
+  Structure Recommendation, StructureMesh, Model-Test Alignment, or manual
+  review without merging models or rewriting code automatically.
 - optional model-test alignment helpers such as `ModelObligation`,
   `CodeContract`, `TestEvidence`, `ModelTestAlignmentPlan`, and
   `review_model_test_alignment()` for directly comparing model obligations
@@ -181,8 +191,10 @@ Modeling helpers reduce boilerplate around common bug classes:
   `review_existing_model_preflight()` for grounding discussion, proposal, or
   implementation work in current FlowGuard model ownership before creating a
   new boundary. Full preflight records layered proof evidence id, parent
-  coverage, child disjointness, child reattachment, and leaf boundary-matrix
-  status for parent models with child models.
+  coverage, child disjointness, child reattachment, leaf boundary-matrix
+  status for parent models with child models, and optional model-similarity
+  relation evidence when reuse, family variant, shared-kernel, or false-friend
+  decisions depend on cross-model comparison.
 - optional UI Flow Structure helpers such as `UIInteractionModel`,
   `UIControl`, `UIDisplayElement`, `UIStateNode`, `UITransition`,
   `UIJourneyCoverage`, `UIJourneyEntryPoint`, `UIFeatureJourney`,
@@ -290,6 +302,7 @@ Evidence APIs are used to keep FlowGuard itself honest:
 - public template writers, including `model_test_alignment_template_files()`,
   `code_structure_recommendation_template_files()`,
   `existing_model_preflight_template_files()`,
+  `model_similarity_consolidation_template_files()`,
   `risk_evidence_ledger_template_files()`,
   `development_process_flow_template_files()`,
   `project_adoption_template_files()`, `test_mesh_template_files()`,

@@ -13,6 +13,7 @@ from flowguard.templates import (
     existing_model_preflight_template_files,
     layered_boundary_proof_template_files,
     model_miss_review_template_files,
+    model_similarity_consolidation_template_files,
     model_test_alignment_template_files,
     project_adoption_template_files,
     project_template_files,
@@ -271,6 +272,16 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("flowguard existing model preflight", output)
         self.assertIn("duplicate_boundary_risk_unresolved", output)
 
+    def test_model_similarity_consolidation_template_executes(self):
+        output = self.run_written_template(
+            model_similarity_consolidation_template_files(),
+            (".flowguard", "model_similarity_consolidation"),
+        )
+        self.assertIn("flowguard model similarity consolidation", output)
+        self.assertIn("same_family_variant", output)
+        self.assertIn("missing_current_similarity_evidence", output)
+        self.assertIn("false_friend", output)
+
     def test_risk_evidence_ledger_template_executes(self):
         output = self.run_written_template(
             risk_evidence_ledger_template_files(),
@@ -330,6 +341,7 @@ class PublicTemplateTests(unittest.TestCase):
             model_test_alignment_template_files(),
             code_structure_recommendation_template_files(),
             existing_model_preflight_template_files(),
+            model_similarity_consolidation_template_files(),
             risk_evidence_ledger_template_files(),
             runtime_path_evidence_template_files(),
             layered_boundary_proof_template_files(),
@@ -367,6 +379,7 @@ class PublicTemplateTests(unittest.TestCase):
             "runtime-path-evidence-template": "runtime_path_evidence",
             "code-structure-recommendation-template": "code_structure_recommendation",
             "existing-model-preflight-template": "existing_model_preflight",
+            "model-similarity-template": "model_similarity_consolidation",
             "risk-evidence-ledger-template": "risk_evidence_ledger",
             "layered-boundary-proof-template": "layered_boundary_proof",
             "closure-contract-template": "closure_contract",
@@ -429,6 +442,7 @@ class PublicTemplateTests(unittest.TestCase):
             model_test_alignment_template_files(),
             code_structure_recommendation_template_files(),
             existing_model_preflight_template_files(),
+            model_similarity_consolidation_template_files(),
             risk_evidence_ledger_template_files(),
             runtime_path_evidence_template_files(),
             layered_boundary_proof_template_files(),
