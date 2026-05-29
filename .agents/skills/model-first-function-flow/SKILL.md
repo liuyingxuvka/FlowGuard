@@ -171,8 +171,8 @@ Codex skill:
 - Development lifecycle helpers such as `review_development_process_flow()` and `derive_revalidation_plan()`.
 - Existing-model grounding helpers such as `ExistingModelPreflight`, `ModelContextHit`, `ExistingOwnershipSnapshot`, `DuplicateBoundaryRisk`, and `review_existing_model_preflight()`.
 - Architecture reduction helpers such as `ObservableArchitectureContract`,
-  `ArchitectureReductionCandidate`, `ArchitectureReductionPlan`, and
-  `review_architecture_reduction()`.
+  `CompatibilitySurfaceClassification`, `ArchitectureReductionCandidate`,
+  `ArchitectureReductionPlan`, and `review_architecture_reduction()`.
 - UI flow structure helpers such as `UIDisplayElement`, `UIJourneyCoverage`,
   `UIImplementationValidation`, `UITextHierarchyBlueprint`,
   `review_ui_interaction_model()`, `review_ui_journey_coverage()`,

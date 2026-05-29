@@ -106,6 +106,38 @@ ARCHITECTURE_REDUCTION_COMPANION_ROUTES = {
     ROUTE_MANUAL_REVIEW,
 }
 
+COMPATIBILITY_SURFACE_CURRENT_CONTRACT = "current_contract"
+COMPATIBILITY_SURFACE_BOUNDARY_ADAPTER = "boundary_adapter"
+COMPATIBILITY_SURFACE_NEGATIVE_LEGACY_TEST = "negative_legacy_test"
+COMPATIBILITY_SURFACE_ARCHIVE_ONLY = "archive_only"
+COMPATIBILITY_SURFACE_PRUNE_CANDIDATE = "prune_candidate"
+COMPATIBILITY_SURFACE_EVIDENCE_NEEDED = "evidence_needed"
+
+COMPATIBILITY_SURFACE_CLASSIFICATIONS = {
+    COMPATIBILITY_SURFACE_CURRENT_CONTRACT,
+    COMPATIBILITY_SURFACE_BOUNDARY_ADAPTER,
+    COMPATIBILITY_SURFACE_NEGATIVE_LEGACY_TEST,
+    COMPATIBILITY_SURFACE_ARCHIVE_ONLY,
+    COMPATIBILITY_SURFACE_PRUNE_CANDIDATE,
+    COMPATIBILITY_SURFACE_EVIDENCE_NEEDED,
+}
+
+COMPATIBILITY_ACTION_KEEP = "keep"
+COMPATIBILITY_ACTION_ADAPT = "adapt"
+COMPATIBILITY_ACTION_REJECT = "reject"
+COMPATIBILITY_ACTION_ARCHIVE = "archive"
+COMPATIBILITY_ACTION_PRUNE = "prune"
+COMPATIBILITY_ACTION_COLLECT_EVIDENCE = "collect_evidence"
+
+COMPATIBILITY_SURFACE_RECOMMENDED_ACTIONS = {
+    COMPATIBILITY_ACTION_KEEP,
+    COMPATIBILITY_ACTION_ADAPT,
+    COMPATIBILITY_ACTION_REJECT,
+    COMPATIBILITY_ACTION_ARCHIVE,
+    COMPATIBILITY_ACTION_PRUNE,
+    COMPATIBILITY_ACTION_COLLECT_EVIDENCE,
+}
+
 
 def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
     if values is None:
@@ -162,6 +194,66 @@ class ObservableArchitectureContract:
             "observable_side_effects": list(self.observable_side_effects),
             "validation_boundaries": list(self.validation_boundaries),
             "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class CompatibilitySurfaceClassification:
+    """Pre-reduction classification for old or alternate compatibility surfaces."""
+
+    surface_id: str
+    classification: str
+    recommended_action: str
+    rationale: str
+    code_node_ids: tuple[str, ...] = ()
+    public_entrypoints: tuple[str, ...] = ()
+    runtime_authority: bool = False
+    owner_model_elements: tuple[str, ...] = ()
+    candidate_ids: tuple[str, ...] = ()
+    evidence_refs: tuple[str, ...] = ()
+    missing_evidence: tuple[str, ...] = ()
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "surface_id", str(self.surface_id))
+        object.__setattr__(self, "classification", str(self.classification))
+        object.__setattr__(self, "recommended_action", str(self.recommended_action))
+        object.__setattr__(self, "rationale", str(self.rationale))
+        object.__setattr__(self, "code_node_ids", _as_tuple(self.code_node_ids))
+        object.__setattr__(self, "public_entrypoints", _as_tuple(self.public_entrypoints))
+        object.__setattr__(self, "runtime_authority", bool(self.runtime_authority))
+        object.__setattr__(self, "owner_model_elements", _as_tuple(self.owner_model_elements))
+        object.__setattr__(self, "candidate_ids", _as_tuple(self.candidate_ids))
+        object.__setattr__(self, "evidence_refs", _as_tuple(self.evidence_refs))
+        object.__setattr__(self, "missing_evidence", _as_tuple(self.missing_evidence))
+        object.__setattr__(self, "metadata", dict(self.metadata))
+
+    def missing_fields(self) -> tuple[str, ...]:
+        missing: list[str] = []
+        if not self.surface_id:
+            missing.append("surface_id")
+        if not self.classification:
+            missing.append("classification")
+        if not self.recommended_action:
+            missing.append("recommended_action")
+        if not self.rationale:
+            missing.append("rationale")
+        return tuple(missing)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "surface_id": self.surface_id,
+            "classification": self.classification,
+            "recommended_action": self.recommended_action,
+            "rationale": self.rationale,
+            "code_node_ids": list(self.code_node_ids),
+            "public_entrypoints": list(self.public_entrypoints),
+            "runtime_authority": self.runtime_authority,
+            "owner_model_elements": list(self.owner_model_elements),
+            "candidate_ids": list(self.candidate_ids),
+            "evidence_refs": list(self.evidence_refs),
+            "missing_evidence": list(self.missing_evidence),
+            "metadata": to_jsonable(dict(self.metadata)),
         }
 
 
@@ -300,11 +392,13 @@ class ArchitectureReductionPlan:
     companion_route_triggers: tuple[ArchitectureReductionTrigger, ...] = ()
     target_structure: CodeStructureRecommendation | None = None
     rationale: str = ""
+    compatibility_surfaces: tuple[CompatibilitySurfaceClassification, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "reduction_id", str(self.reduction_id))
         object.__setattr__(self, "candidates", tuple(self.candidates))
         object.__setattr__(self, "companion_route_triggers", tuple(self.companion_route_triggers))
+        object.__setattr__(self, "compatibility_surfaces", tuple(self.compatibility_surfaces))
         object.__setattr__(self, "rationale", str(self.rationale))
 
     def to_dict(self) -> dict[str, Any]:
@@ -313,6 +407,7 @@ class ArchitectureReductionPlan:
             "observable_contract": self.observable_contract.to_dict(),
             "candidates": [candidate.to_dict() for candidate in self.candidates],
             "companion_route_triggers": [trigger.to_dict() for trigger in self.companion_route_triggers],
+            "compatibility_surfaces": [surface.to_dict() for surface in self.compatibility_surfaces],
             "target_structure": self.target_structure.to_dict() if self.target_structure else None,
             "rationale": self.rationale,
         }
@@ -361,6 +456,7 @@ class ArchitectureReductionReport:
     target_actions: tuple[TargetArchitectureAction, ...] = ()
     required_next_routes: tuple[str, ...] = ()
     summary: str = ""
+    compatibility_surfaces: tuple[CompatibilitySurfaceClassification, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "reduction_id", str(self.reduction_id))
@@ -370,6 +466,7 @@ class ArchitectureReductionReport:
         object.__setattr__(self, "completed_candidate_ids", _as_tuple(self.completed_candidate_ids))
         object.__setattr__(self, "target_actions", tuple(self.target_actions))
         object.__setattr__(self, "required_next_routes", _as_tuple(self.required_next_routes))
+        object.__setattr__(self, "compatibility_surfaces", tuple(self.compatibility_surfaces))
         if not self.summary:
             status = "OK" if self.ok else "BLOCKED"
             object.__setattr__(
@@ -395,6 +492,12 @@ class ArchitectureReductionReport:
             lines.append(f"completed_candidates: {', '.join(self.completed_candidate_ids)}")
         if self.required_next_routes:
             lines.append(f"required_next_routes: {', '.join(self.required_next_routes)}")
+        if self.compatibility_surfaces:
+            lines.append("compatibility_surfaces:")
+            for surface in self.compatibility_surfaces:
+                lines.append(
+                    f"  - {surface.surface_id}: {surface.classification} -> {surface.recommended_action}"
+                )
         if self.target_actions:
             lines.append("target_actions:")
             for action in self.target_actions:
@@ -422,6 +525,7 @@ class ArchitectureReductionReport:
             "completed_candidate_ids": list(self.completed_candidate_ids),
             "target_actions": [action.to_dict() for action in self.target_actions],
             "required_next_routes": list(self.required_next_routes),
+            "compatibility_surfaces": [surface.to_dict() for surface in self.compatibility_surfaces],
             "summary": self.summary,
         }
 
@@ -453,6 +557,14 @@ def _decision_for_findings(
             ("completed_candidate_missing_evidence", "completed_candidate_blocked"),
             ("missing_required_next_route", "candidate_blocked"),
             ("public_entrypoint_requires_structure_mesh", "structure_mesh_required"),
+            ("compatibility_surface_current_contract_blocks_contraction", "compatibility_surface_blocked"),
+            ("compatibility_surface_public_entrypoint_requires_structure_mesh", "structure_mesh_required"),
+            ("compatibility_surface_negative_legacy_test_requires_evidence", "compatibility_surface_blocked"),
+            ("compatibility_surface_archive_has_runtime_authority", "compatibility_surface_blocked"),
+            ("compatibility_surface_evidence_needed", "evidence_blocked"),
+            ("invalid_compatibility_surface_classification", "compatibility_surface_blocked"),
+            ("invalid_compatibility_surface_action", "compatibility_surface_blocked"),
+            ("incomplete_compatibility_surface", "compatibility_surface_blocked"),
             ("removes_observable_state", "observable_contract_blocked"),
             ("observable_side_effect_without_equivalence", "observable_contract_blocked"),
             ("conformance_replay_required", "conformance_required"),
@@ -502,6 +614,16 @@ def _target_action_from_candidate(candidate: ArchitectureReductionCandidate) -> 
     )
 
 
+def _surfaces_by_candidate(
+    surfaces: Sequence[CompatibilitySurfaceClassification],
+) -> dict[str, tuple[CompatibilitySurfaceClassification, ...]]:
+    grouped: dict[str, list[CompatibilitySurfaceClassification]] = {}
+    for surface in surfaces:
+        for candidate_id in surface.candidate_ids:
+            grouped.setdefault(candidate_id, []).append(surface)
+    return {candidate_id: tuple(items) for candidate_id, items in grouped.items()}
+
+
 def review_architecture_reduction(plan: ArchitectureReductionPlan) -> ArchitectureReductionReport:
     """Review whether modeled flow evidence supports code architecture contraction."""
 
@@ -510,6 +632,8 @@ def review_architecture_reduction(plan: ArchitectureReductionPlan) -> Architectu
     completed_candidates: list[str] = []
     target_actions: list[TargetArchitectureAction] = []
     required_routes: set[str] = set()
+    compatibility_blocked_candidate_ids: set[str] = set()
+    surfaces_by_candidate = _surfaces_by_candidate(plan.compatibility_surfaces)
 
     if not plan.reduction_id:
         findings.append(
@@ -565,10 +689,61 @@ def review_architecture_reduction(plan: ArchitectureReductionPlan) -> Architectu
                 )
             )
 
+    for surface in plan.compatibility_surfaces:
+        missing_surface_fields = surface.missing_fields()
+        if missing_surface_fields:
+            findings.append(
+                ArchitectureReductionFinding(
+                    "incomplete_compatibility_surface",
+                    "compatibility surface classification is incomplete",
+                    item_id=surface.surface_id,
+                    metadata={"missing_fields": missing_surface_fields, "surface": surface.to_dict()},
+                )
+            )
+        if surface.classification not in COMPATIBILITY_SURFACE_CLASSIFICATIONS:
+            findings.append(
+                ArchitectureReductionFinding(
+                    "invalid_compatibility_surface_classification",
+                    f"compatibility surface classification {surface.classification!r} is not supported",
+                    item_id=surface.surface_id,
+                    metadata=surface.to_dict(),
+                )
+            )
+        if surface.recommended_action not in COMPATIBILITY_SURFACE_RECOMMENDED_ACTIONS:
+            findings.append(
+                ArchitectureReductionFinding(
+                    "invalid_compatibility_surface_action",
+                    f"compatibility surface action {surface.recommended_action!r} is not supported",
+                    item_id=surface.surface_id,
+                    metadata=surface.to_dict(),
+                )
+            )
+        if surface.classification == COMPATIBILITY_SURFACE_ARCHIVE_ONLY and surface.runtime_authority:
+            compatibility_blocked_candidate_ids.update(surface.candidate_ids)
+            findings.append(
+                ArchitectureReductionFinding(
+                    "compatibility_surface_archive_has_runtime_authority",
+                    "archive-only compatibility surface still has runtime authority",
+                    item_id=surface.surface_id,
+                    metadata=surface.to_dict(),
+                )
+            )
+        if surface.classification == COMPATIBILITY_SURFACE_EVIDENCE_NEEDED:
+            compatibility_blocked_candidate_ids.update(surface.candidate_ids)
+            findings.append(
+                ArchitectureReductionFinding(
+                    "compatibility_surface_evidence_needed",
+                    "compatibility surface needs more evidence before linked candidates can be ready",
+                    item_id=surface.surface_id,
+                    metadata=surface.to_dict(),
+                )
+            )
+
     observable_state = set(plan.observable_contract.observable_state)
     observable_side_effects = set(plan.observable_contract.observable_side_effects)
 
     for candidate in plan.candidates:
+        linked_surfaces = surfaces_by_candidate.get(candidate.candidate_id, ())
         missing_candidate_fields = _candidate_incomplete(candidate)
         if missing_candidate_fields:
             findings.append(
@@ -649,6 +824,51 @@ def review_architecture_reduction(plan: ArchitectureReductionPlan) -> Architectu
                 )
             )
 
+        for surface in linked_surfaces:
+            if candidate.lifecycle_disposition != CANDIDATE_DISPOSITION_ACTIVE:
+                continue
+            if (
+                surface.classification == COMPATIBILITY_SURFACE_CURRENT_CONTRACT
+                and candidate.target_action in {TARGET_ACTION_REMOVE, TARGET_ACTION_COLLAPSE}
+            ):
+                compatibility_blocked_candidate_ids.add(candidate.candidate_id)
+                findings.append(
+                    ArchitectureReductionFinding(
+                        "compatibility_surface_current_contract_blocks_contraction",
+                        "candidate removes or collapses a surface classified as a current contract",
+                        candidate_id=candidate.candidate_id,
+                        item_id=surface.surface_id,
+                        metadata=surface.to_dict(),
+                    )
+                )
+            if surface.public_entrypoints and candidate.required_next_route != ROUTE_STRUCTURE_MESH:
+                compatibility_blocked_candidate_ids.add(candidate.candidate_id)
+                findings.append(
+                    ArchitectureReductionFinding(
+                        "compatibility_surface_public_entrypoint_requires_structure_mesh",
+                        "linked compatibility surface affects public entrypoints and must route through StructureMesh",
+                        candidate_id=candidate.candidate_id,
+                        item_id=surface.surface_id,
+                        metadata=surface.to_dict(),
+                    )
+                )
+            if (
+                surface.classification == COMPATIBILITY_SURFACE_NEGATIVE_LEGACY_TEST
+                and candidate.target_action == TARGET_ACTION_REMOVE
+                and not surface.evidence_refs
+                and not candidate.evidence_refs
+            ):
+                compatibility_blocked_candidate_ids.add(candidate.candidate_id)
+                findings.append(
+                    ArchitectureReductionFinding(
+                        "compatibility_surface_negative_legacy_test_requires_evidence",
+                        "candidate removes negative legacy test evidence without replacement evidence refs",
+                        candidate_id=candidate.candidate_id,
+                        item_id=surface.surface_id,
+                        metadata=surface.to_dict(),
+                    )
+                )
+
         removed_observable_state = tuple(sorted(observable_state.intersection(candidate.affected_state)))
         if candidate.lifecycle_disposition == CANDIDATE_DISPOSITION_ACTIVE and candidate.target_action == TARGET_ACTION_REMOVE and removed_observable_state:
             findings.append(
@@ -717,7 +937,7 @@ def review_architecture_reduction(plan: ArchitectureReductionPlan) -> Architectu
                 )
             )
 
-        if candidate.is_ready:
+        if candidate.is_ready and candidate.candidate_id not in compatibility_blocked_candidate_ids:
             ready_candidates.append(candidate.candidate_id)
             target_actions.append(_target_action_from_candidate(candidate))
 
@@ -753,6 +973,7 @@ def review_architecture_reduction(plan: ArchitectureReductionPlan) -> Architectu
         completed_candidate_ids=tuple(completed_candidates),
         target_actions=tuple(target_actions),
         required_next_routes=tuple(sorted(required_routes)),
+        compatibility_surfaces=plan.compatibility_surfaces,
     )
 
 
@@ -763,6 +984,20 @@ __all__ = [
     "ARCHITECTURE_REDUCTION_PROOF_STATUSES",
     "ARCHITECTURE_REDUCTION_ROUTE",
     "ARCHITECTURE_REDUCTION_TARGET_ACTIONS",
+    "COMPATIBILITY_ACTION_ADAPT",
+    "COMPATIBILITY_ACTION_ARCHIVE",
+    "COMPATIBILITY_ACTION_COLLECT_EVIDENCE",
+    "COMPATIBILITY_ACTION_KEEP",
+    "COMPATIBILITY_ACTION_PRUNE",
+    "COMPATIBILITY_ACTION_REJECT",
+    "COMPATIBILITY_SURFACE_ARCHIVE_ONLY",
+    "COMPATIBILITY_SURFACE_BOUNDARY_ADAPTER",
+    "COMPATIBILITY_SURFACE_CLASSIFICATIONS",
+    "COMPATIBILITY_SURFACE_CURRENT_CONTRACT",
+    "COMPATIBILITY_SURFACE_EVIDENCE_NEEDED",
+    "COMPATIBILITY_SURFACE_NEGATIVE_LEGACY_TEST",
+    "COMPATIBILITY_SURFACE_PRUNE_CANDIDATE",
+    "COMPATIBILITY_SURFACE_RECOMMENDED_ACTIONS",
     "CANDIDATE_COLLAPSE_ADAPTER",
     "CANDIDATE_DISPOSITION_ACTIVE",
     "CANDIDATE_DISPOSITION_COMPLETED",
@@ -801,6 +1036,7 @@ __all__ = [
     "ArchitectureReductionPlan",
     "ArchitectureReductionReport",
     "ArchitectureReductionTrigger",
+    "CompatibilitySurfaceClassification",
     "ObservableArchitectureContract",
     "TargetArchitectureAction",
     "review_architecture_reduction",

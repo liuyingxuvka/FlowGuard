@@ -6,6 +6,17 @@ from flowguard import (
     CANDIDATE_KEEP_PUBLIC_FACADE,
     CANDIDATE_MERGE_HANDLERS,
     CANDIDATE_REMOVE_STATE_FIELD,
+    COMPATIBILITY_ACTION_ARCHIVE,
+    COMPATIBILITY_ACTION_COLLECT_EVIDENCE,
+    COMPATIBILITY_ACTION_KEEP,
+    COMPATIBILITY_ACTION_PRUNE,
+    COMPATIBILITY_ACTION_REJECT,
+    COMPATIBILITY_SURFACE_ARCHIVE_ONLY,
+    COMPATIBILITY_SURFACE_BOUNDARY_ADAPTER,
+    COMPATIBILITY_SURFACE_CURRENT_CONTRACT,
+    COMPATIBILITY_SURFACE_EVIDENCE_NEEDED,
+    COMPATIBILITY_SURFACE_NEGATIVE_LEGACY_TEST,
+    COMPATIBILITY_SURFACE_PRUNE_CANDIDATE,
     PROOF_NEEDS_CONFORMANCE_REPLAY,
     PROOF_PROPERTY_ONLY_SAFE,
     PROOF_RISKY_KEEP,
@@ -24,6 +35,7 @@ from flowguard import (
     ArchitectureReductionPlan,
     ArchitectureReductionTrigger,
     CodeStructureRecommendation,
+    CompatibilitySurfaceClassification,
     ObservableArchitectureContract,
     TargetModuleRecommendation,
     review_architecture_reduction,
@@ -69,6 +81,20 @@ def candidate(**kwargs) -> ArchitectureReductionCandidate:
     }
     defaults.update(kwargs)
     return ArchitectureReductionCandidate(**defaults)
+
+
+def surface(**kwargs) -> CompatibilitySurfaceClassification:
+    defaults = {
+        "surface_id": "legacy-normalizer",
+        "classification": COMPATIBILITY_SURFACE_PRUNE_CANDIDATE,
+        "recommended_action": COMPATIBILITY_ACTION_PRUNE,
+        "rationale": "legacy normalizer no longer owns current runtime behavior",
+        "code_node_ids": ("router.normalizer_adapter",),
+        "candidate_ids": ("collapse-normalizer-adapter",),
+        "evidence_refs": ("tests/test_architecture_reduction.py",),
+    }
+    defaults.update(kwargs)
+    return CompatibilitySurfaceClassification(**defaults)
 
 
 def target_structure() -> CodeStructureRecommendation:
@@ -326,6 +352,204 @@ class ArchitectureReductionTests(unittest.TestCase):
         self.assertFalse(report.ok)
         self.assertEqual("target_structure_blocked", report.decision)
         self.assertIn("target_structure_blocked", [finding.code for finding in report.findings])
+
+    def test_compatibility_surface_is_reported_with_ready_candidate(self):
+        plan = ArchitectureReductionPlan(
+            "router-compat-reduction",
+            observable_contract=contract(),
+            candidates=(candidate(),),
+            compatibility_surfaces=(surface(),),
+            companion_route_triggers=(trigger(),),
+            rationale="legacy surface is classified before contraction",
+        )
+
+        report = review_architecture_reduction(plan)
+
+        self.assertTrue(report.ok)
+        self.assertEqual("architecture_reduction_ready", report.decision)
+        self.assertEqual(("collapse-normalizer-adapter",), report.ready_candidate_ids)
+        self.assertEqual(("legacy-normalizer",), tuple(item.surface_id for item in report.compatibility_surfaces))
+        self.assertIn("compatibility_surfaces:", report.format_text())
+        self.assertEqual(
+            COMPATIBILITY_SURFACE_PRUNE_CANDIDATE,
+            report.to_dict()["compatibility_surfaces"][0]["classification"],
+        )
+
+    def test_current_contract_surface_blocks_remove_or_collapse(self):
+        plan = ArchitectureReductionPlan(
+            "router-current-contract-reduction",
+            observable_contract=contract(),
+            candidates=(candidate(),),
+            compatibility_surfaces=(
+                surface(
+                    classification=COMPATIBILITY_SURFACE_CURRENT_CONTRACT,
+                    recommended_action=COMPATIBILITY_ACTION_KEEP,
+                    rationale="normalizer is still the current input contract",
+                ),
+            ),
+            companion_route_triggers=(trigger(),),
+            rationale="current contract cannot be collapsed as obsolete compatibility",
+        )
+
+        report = review_architecture_reduction(plan)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("compatibility_surface_blocked", report.decision)
+        self.assertEqual((), report.ready_candidate_ids)
+        self.assertIn(
+            "compatibility_surface_current_contract_blocks_contraction",
+            [finding.code for finding in report.findings],
+        )
+
+    def test_public_boundary_adapter_surface_requires_structure_mesh(self):
+        plan = ArchitectureReductionPlan(
+            "router-boundary-adapter-reduction",
+            observable_contract=contract(),
+            candidates=(candidate(),),
+            compatibility_surfaces=(
+                surface(
+                    classification=COMPATIBILITY_SURFACE_BOUNDARY_ADAPTER,
+                    recommended_action=COMPATIBILITY_ACTION_KEEP,
+                    public_entrypoints=("router.cli",),
+                    rationale="CLI remains a boundary adapter for old callers",
+                ),
+            ),
+            companion_route_triggers=(trigger(),),
+            rationale="public boundary adapter needs parity gate",
+        )
+
+        report = review_architecture_reduction(plan)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("structure_mesh_required", report.decision)
+        self.assertEqual((), report.ready_candidate_ids)
+        self.assertIn(
+            "compatibility_surface_public_entrypoint_requires_structure_mesh",
+            [finding.code for finding in report.findings],
+        )
+
+    def test_negative_legacy_test_removal_requires_replacement_evidence(self):
+        plan = ArchitectureReductionPlan(
+            "router-negative-test-reduction",
+            observable_contract=contract(),
+            candidates=(
+                candidate(
+                    candidate_id="remove-legacy-test",
+                    candidate_type=CANDIDATE_REMOVE_STATE_FIELD,
+                    code_node_id="tests.legacy_input_rejection",
+                    source_model_element="RejectLegacyInput",
+                    target_action=TARGET_ACTION_REMOVE,
+                    evidence_refs=(),
+                ),
+            ),
+            compatibility_surfaces=(
+                surface(
+                    surface_id="legacy-input-rejection-test",
+                    classification=COMPATIBILITY_SURFACE_NEGATIVE_LEGACY_TEST,
+                    recommended_action=COMPATIBILITY_ACTION_REJECT,
+                    candidate_ids=("remove-legacy-test",),
+                    evidence_refs=(),
+                    rationale="this test is the only evidence that legacy input is rejected",
+                ),
+            ),
+            companion_route_triggers=(trigger(),),
+            rationale="negative legacy tests must not disappear as dead code",
+        )
+
+        report = review_architecture_reduction(plan)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("compatibility_surface_blocked", report.decision)
+        self.assertEqual((), report.ready_candidate_ids)
+        self.assertIn(
+            "compatibility_surface_negative_legacy_test_requires_evidence",
+            [finding.code for finding in report.findings],
+        )
+
+    def test_archive_only_surface_with_runtime_authority_blocks(self):
+        plan = ArchitectureReductionPlan(
+            "router-archive-authority-reduction",
+            observable_contract=contract(),
+            candidates=(candidate(),),
+            compatibility_surfaces=(
+                surface(
+                    classification=COMPATIBILITY_SURFACE_ARCHIVE_ONLY,
+                    recommended_action=COMPATIBILITY_ACTION_ARCHIVE,
+                    runtime_authority=True,
+                    rationale="historical mapping still writes runtime state",
+                ),
+            ),
+            companion_route_triggers=(trigger(),),
+            rationale="archive-only material cannot retain runtime authority",
+        )
+
+        report = review_architecture_reduction(plan)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("compatibility_surface_blocked", report.decision)
+        self.assertEqual((), report.ready_candidate_ids)
+        self.assertIn(
+            "compatibility_surface_archive_has_runtime_authority",
+            [finding.code for finding in report.findings],
+        )
+
+    def test_evidence_needed_surface_blocks_ready_candidate(self):
+        plan = ArchitectureReductionPlan(
+            "router-missing-evidence-reduction",
+            observable_contract=contract(),
+            candidates=(candidate(),),
+            compatibility_surfaces=(
+                surface(
+                    classification=COMPATIBILITY_SURFACE_EVIDENCE_NEEDED,
+                    recommended_action=COMPATIBILITY_ACTION_COLLECT_EVIDENCE,
+                    missing_evidence=("external caller inventory",),
+                    rationale="external caller usage is unknown",
+                ),
+            ),
+            companion_route_triggers=(trigger(),),
+            rationale="missing evidence must keep contraction blocked",
+        )
+
+        report = review_architecture_reduction(plan)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("evidence_blocked", report.decision)
+        self.assertEqual((), report.ready_candidate_ids)
+        self.assertIn("compatibility_surface_evidence_needed", [finding.code for finding in report.findings])
+
+    def test_negative_legacy_test_with_replacement_evidence_can_continue(self):
+        plan = ArchitectureReductionPlan(
+            "router-negative-test-replaced",
+            observable_contract=contract(),
+            candidates=(
+                candidate(
+                    candidate_id="remove-legacy-test",
+                    candidate_type=CANDIDATE_REMOVE_STATE_FIELD,
+                    code_node_id="tests.legacy_input_rejection",
+                    source_model_element="RejectLegacyInput",
+                    target_action=TARGET_ACTION_REMOVE,
+                    evidence_refs=("tests/test_current_rejection.py",),
+                ),
+            ),
+            compatibility_surfaces=(
+                surface(
+                    surface_id="legacy-input-rejection-test",
+                    classification=COMPATIBILITY_SURFACE_NEGATIVE_LEGACY_TEST,
+                    recommended_action=COMPATIBILITY_ACTION_REJECT,
+                    candidate_ids=("remove-legacy-test",),
+                    evidence_refs=("tests/test_current_rejection.py",),
+                    rationale="replacement rejection evidence exists",
+                ),
+            ),
+            companion_route_triggers=(trigger(),),
+            rationale="negative legacy evidence has a replacement",
+        )
+
+        report = review_architecture_reduction(plan)
+
+        self.assertTrue(report.ok)
+        self.assertEqual("architecture_reduction_ready", report.decision)
+        self.assertEqual(("remove-legacy-test",), report.ready_candidate_ids)
 
 
 if __name__ == "__main__":

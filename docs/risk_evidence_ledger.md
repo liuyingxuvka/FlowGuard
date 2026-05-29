@@ -172,6 +172,12 @@ explicitly out of scope with a reason. `unknown` blocks closure. Delegated and
 same-contract-repaired paths should carry a proof artifact for the repaired
 contract before the risk ledger restores full confidence.
 
+Architecture Reduction's compatibility-surface classification can identify an
+old or alternate surface before contraction, but it does not close an
+executable old path by itself. If that old path remains reachable in a repair
+or final-confidence claim, add a `LegacyPathDisposition` row with proof or a
+scoped reason.
+
 Use the template with:
 
 ```powershell

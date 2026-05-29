@@ -99,15 +99,18 @@ Modeling helpers reduce boilerplate around common bug classes:
   `review_flowguard_closure_contract()` for consuming current route evidence
   before broad done, release, publish, or production-confidence claims.
 - optional architecture reduction helpers such as
-  `ObservableArchitectureContract`, `ArchitectureReductionCandidate`,
-  `ArchitectureReductionTrigger`, `TargetArchitectureAction`,
+  `ObservableArchitectureContract`, `CompatibilitySurfaceClassification`,
+  `ArchitectureReductionCandidate`, `ArchitectureReductionTrigger`,
+  `TargetArchitectureAction`,
   `ArchitectureReductionPlan`, `ArchitectureReductionReport`, and
   `review_architecture_reduction()` for reviewing whether an existing modeled
   implementation can be contracted without changing declared observable
-  behavior, classifying merge/collapse/remove/keep-facade candidates, keeping
-  completed or historical candidates out of the active ready queue, and handing
-  target structure actions to Code Structure Recommendation or StructureMesh
-  before production code is edited.
+  behavior, classifying compatibility surfaces such as old aliases, migration
+  paths, public facades, retired rejection tests, and archive-only evidence,
+  classifying merge/collapse/remove/keep-facade candidates, keeping completed
+  or historical candidates out of the active ready queue, and handing target
+  structure actions to Code Structure Recommendation or StructureMesh before
+  production code is edited.
 - optional model-test alignment helpers such as `ModelObligation`,
   `CodeContract`, `TestEvidence`, `ModelTestAlignmentPlan`, and
   `review_model_test_alignment()` for directly comparing model obligations

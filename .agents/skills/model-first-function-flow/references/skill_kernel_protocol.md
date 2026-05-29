@@ -77,7 +77,8 @@ These are package helpers:
 - `review_hierarchical_mesh()`, `review_mesh_closure_model()`,
   `review_test_mesh()`, `review_structure_mesh()`;
 - `review_development_process_flow()` and `derive_revalidation_plan()`;
-- `review_architecture_reduction()` and architecture reduction candidate rows;
+- `review_architecture_reduction()`, compatibility-surface classification, and
+  architecture reduction candidate rows;
 - `UIDisplayElement`, `UIJourneyCoverage`, `UIImplementationValidation`,
   `UITextHierarchyBlueprint`,
   `review_ui_interaction_model()`, `review_ui_journey_coverage()`,

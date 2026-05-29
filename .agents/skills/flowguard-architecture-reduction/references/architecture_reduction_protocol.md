@@ -78,6 +78,30 @@ Use `ArchitectureReductionCandidate` rows for candidate contractions:
 - `keep_public_facade`: internals can shrink but compatibility facade stays;
 - `manual_review`: the candidate is intentionally deferred.
 
+## Compatibility Surfaces
+
+When a candidate exists because of an old, alternate, or compatibility-like
+surface, add `CompatibilitySurfaceClassification` rows before deciding whether
+the candidate is ready. Classify old command aliases, event names, input
+shapes, migration branches, public facades, pass-through compatibility
+adapters, retired validation artifacts, and negative legacy tests.
+
+Use these classifications:
+
+- `current_contract`: still active behavior; remove/collapse is blocked;
+- `boundary_adapter`: edge stays but should translate into the current owner
+  contract; public surfaces require StructureMesh;
+- `negative_legacy_test`: evidence that retired input is rejected; do not
+  delete unless replacement rejection evidence is cited;
+- `archive_only`: historical evidence only; runtime authority blocks;
+- `prune_candidate`: obsolete surface that can contract when proof status is
+  ready;
+- `evidence_needed`: insufficient evidence; linked candidates are not ready.
+
+This classification is pre-reduction guidance. It does not replace
+`LegacyPathDisposition` for post-repair closure when an old executable path
+remains reachable.
+
 ## Proof Status
 
 Every candidate must have one proof status:
@@ -132,8 +156,12 @@ Before trusting the route, make these known-bad variants fail:
 - missing observable contract;
 - missing model-to-code mapping;
 - unclassified candidates;
+- unclassified compatibility surfaces around old paths;
 - hidden proof status;
 - risky candidates silently treated as deletions;
+- current contracts treated as obsolete compatibility;
+- negative legacy rejection tests deleted without replacement evidence;
+- archive-only evidence retaining runtime authority;
 - public entrypoint contraction without StructureMesh;
 - missing target structure handoff;
 - missing companion route triggers;
@@ -145,6 +173,7 @@ Before trusting the route, make these known-bad variants fail:
 ## Reporting
 
 For non-trivial reviews, show a compact user-facing diagram with current code
-boundary, source model, observable contract, reduction candidates, proof status,
-target structure, and required next route. The diagram explains the review and
-does not replace tests, conformance replay, or StructureMesh evidence.
+boundary, source model, observable contract, compatibility-surface
+classification, reduction candidates, proof status, target structure, and
+required next route. The diagram explains the review and does not replace
+tests, conformance replay, LegacyPathDisposition, or StructureMesh evidence.
