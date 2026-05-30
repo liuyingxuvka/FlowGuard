@@ -15,6 +15,7 @@ from flowguard.templates import (
     model_miss_review_template_files,
     model_similarity_consolidation_template_files,
     model_test_alignment_template_files,
+    plan_detailing_template_files,
     project_adoption_template_files,
     project_template_files,
     risk_evidence_ledger_template_files,
@@ -33,6 +34,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PUBLIC_TEMPLATE_FACTORIES = (
     project_template_files,
     risk_intent_template_files,
+    plan_detailing_template_files,
     model_miss_review_template_files,
     model_test_alignment_template_files,
     code_structure_recommendation_template_files,
@@ -53,6 +55,7 @@ TEMPLATE_CLI_COMMANDS = {
     "project-template": "project",
     "project-adoption-template": "project_adoption",
     "risk-intent-template": "risk_intent_check_plan",
+    "plan-detailing-template": "plan_detailing",
     "model-miss-template": "model_miss_review",
     "model-test-alignment-template": "model_test_alignment",
     "runtime-path-evidence-template": "runtime_path_evidence",
@@ -124,6 +127,29 @@ class PublicTemplateTests(unittest.TestCase):
         )
         self.assertIn("flowguard summary", output)
         self.assertIn("risk_intent", output)
+
+    def test_plan_detailing_template_executes(self):
+        output = self.run_written_template(
+            plan_detailing_template_files(),
+            (".flowguard", "plan_detailing"),
+        )
+        self.assertIn("flowguard plan-detailing template", output)
+        self.assertIn("flowguard plan detailing review", output)
+        self.assertIn("missing_failure_branches", output)
+        self.assertIn("rework_gate_missing", output)
+        self.assertIn("missing_validations", output)
+
+    def test_plan_detailing_template_teaches_detail_rows(self):
+        files = plan_detailing_template_files()
+        combined = "\n".join(file.content for file in files)
+
+        self.assertIn("PlanDetail", combined)
+        self.assertIn("PlanDetailStep", combined)
+        self.assertIn("PlanDetailValidation", combined)
+        self.assertIn("PlanDetailFailureBranch", combined)
+        self.assertIn("plan_detail_to_development_process", combined)
+        self.assertIn("plan_detail_to_step_contracts", combined)
+        self.assertIn("FlowGuard Risk Purpose Header", combined)
 
     def test_model_miss_review_template_executes(self):
         output = self.run_written_template(

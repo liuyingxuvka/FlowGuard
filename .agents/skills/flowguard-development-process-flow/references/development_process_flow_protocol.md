@@ -12,6 +12,13 @@ Conformance Adoption through ids and freshness metadata, and it should consume
 a Risk Evidence Ledger decision before final done/release/archive/publish
 claims. It does not inspect, replace, or repair those route internals.
 
+When the upstream plan is vague or only a short AI outline, use
+`flowguard-plan-detailing-compiler` first. Its `PlanDetail` rows can be
+projected with `plan_detail_to_development_process(...)` to create lifecycle
+artifacts, actions, evidence, validation requirements, and freshness rules.
+DevelopmentProcessFlow then owns evidence freshness; plan detailing only proves
+the lifecycle rows are explicit enough to review.
+
 ## Trigger
 
 Create or update a DevelopmentProcessFlow review when:

@@ -58,6 +58,11 @@ from .template_text.model_test_alignment import (
     MODEL_TEST_ALIGNMENT_RUN_CHECKS_TEMPLATE,
     MODEL_TEST_ALIGNMENT_NOTES_TEMPLATE,
 )
+from .template_text.plan_detailing import (
+    PLAN_DETAILING_MODEL_TEMPLATE,
+    PLAN_DETAILING_RUN_CHECKS_TEMPLATE,
+    PLAN_DETAILING_NOTES_TEMPLATE,
+)
 from .template_text.risk_evidence_ledger import (
     RISK_EVIDENCE_LEDGER_MODEL_TEMPLATE,
     RISK_EVIDENCE_LEDGER_RUN_CHECKS_TEMPLATE,
@@ -129,6 +134,14 @@ def risk_intent_template_files() -> tuple[TemplateFile, ...]:
         TemplateFile(".flowguard/risk_intent_check_plan/model.py", RISK_INTENT_CHECK_PLAN_MODEL_TEMPLATE),
         TemplateFile(".flowguard/risk_intent_check_plan/run_checks.py", RISK_INTENT_CHECK_PLAN_RUN_CHECKS_TEMPLATE),
         TemplateFile("docs/flowguard_risk_intent_check_plan.md", RISK_INTENT_CHECK_PLAN_NOTES_TEMPLATE),
+    )
+
+
+def plan_detailing_template_files() -> tuple[TemplateFile, ...]:
+    return (
+        TemplateFile(".flowguard/plan_detailing/model.py", PLAN_DETAILING_MODEL_TEMPLATE),
+        TemplateFile(".flowguard/plan_detailing/run_checks.py", PLAN_DETAILING_RUN_CHECKS_TEMPLATE),
+        TemplateFile("docs/flowguard_plan_detailing.md", PLAN_DETAILING_NOTES_TEMPLATE),
     )
 
 
@@ -318,6 +331,9 @@ __all__ = [
     "MODEL_TEST_ALIGNMENT_NOTES_TEMPLATE",
     "MODEL_TEST_ALIGNMENT_RUN_CHECKS_TEMPLATE",
     "MODEL_NOTES_TEMPLATE",
+    "PLAN_DETAILING_MODEL_TEMPLATE",
+    "PLAN_DETAILING_NOTES_TEMPLATE",
+    "PLAN_DETAILING_RUN_CHECKS_TEMPLATE",
     "RISK_INTENT_CHECK_PLAN_MODEL_TEMPLATE",
     "RISK_INTENT_CHECK_PLAN_NOTES_TEMPLATE",
     "RISK_INTENT_CHECK_PLAN_RUN_CHECKS_TEMPLATE",
@@ -347,6 +363,7 @@ __all__ = [
     "model_miss_review_template_files",
     "model_similarity_consolidation_template_files",
     "model_test_alignment_template_files",
+    "plan_detailing_template_files",
     "project_template_files",
     "project_adoption_template_files",
     "risk_evidence_ledger_template_files",

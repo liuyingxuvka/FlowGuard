@@ -33,6 +33,7 @@ request clearly matches their trigger:
 | --- | --- |
 | `flowguard-model-test-alignment` | `model_test_alignment` |
 | `flowguard-development-process-flow` | `development_process_flow` |
+| `flowguard-plan-detailing-compiler` | `plan_detailing_compiler` |
 | `flowguard-model-miss-review` | `model_miss_review` |
 | `flowguard-architecture-reduction` | `architecture_reduction` |
 | `flowguard-code-structure-recommendation` | `code_structure_recommendation` |
@@ -50,6 +51,7 @@ to the kernel instead of taking ownership of unclear work.
 | Sub-protocol | Owns |
 | --- | --- |
 | `core_modeling` | Risk Intent, state write inventory, function blocks, invariants, Explorer, CheckPlan |
+| `plan_detailing_compiler` | rough plans, short AI outlines, PlanDetail rows, receipts, validation, rework, human questions, and projection to sibling routes |
 | `architecture_reduction` | behavior-preserving code contraction candidates, observable architecture contracts, and target StructureMesh handoff |
 | `ui_flow_structure` | UI interaction model, app-level journey coverage, implemented/runnable UI click-through evidence alignment, reachable visible-control branches, state/control/event/display transitions, parent/child UI topology, menu levels, overlays, stable placements, UI text hierarchy blueprint, and intentional redundancy |
 | `model_test_alignment` | direct comparison of model obligations, optional code contracts, code-boundary observations, obligation-family parity, and ordinary test evidence |
@@ -77,6 +79,7 @@ These are package helpers:
 - `review_hierarchical_mesh()`, `review_mesh_closure_model()`,
   `review_test_mesh()`, `review_structure_mesh()`;
 - `review_development_process_flow()` and `derive_revalidation_plan()`;
+- `PlanDetail`, `review_plan_detail()`, and plan-detail projection helpers;
 - `review_architecture_reduction()`, compatibility-surface classification, and
   architecture reduction candidate rows;
 - `UIDisplayElement`, `UIJourneyCoverage`, `UIImplementationValidation`,

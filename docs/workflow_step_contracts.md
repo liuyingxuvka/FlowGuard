@@ -41,6 +41,12 @@ The model still uses ordinary `Workflow`, `FunctionBlock`, `Trace`, and
 counterexample machinery catches a skipped step, a reversed order, a premature
 claim, or a stale receipt.
 
+If the workflow began as a rough plan, use `PlanDetailStep` rows first and
+project them with `plan_detail_to_step_contracts(...)`. The projection preserves
+prerequisite receipts, produced receipts, invalidated receipts, claim labels,
+artifact ids, and validation skip policy so the receipt model starts from the
+same detailed plan the agent reviewed.
+
 ## How Receipts Work
 
 - `requires_receipts`: receipts that must be current before this step counts.

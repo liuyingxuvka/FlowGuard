@@ -180,6 +180,12 @@ FILE_TEMPLATE_COMMANDS: tuple[FileTemplateCommand, ...] = (
         "risk_intent_template_files",
     ),
     FileTemplateCommand(
+        "plan-detailing-template",
+        "Print or write the rough-plan to detailed FlowGuard plan template.",
+        "plan_detailing",
+        "plan_detailing_template_files",
+    ),
+    FileTemplateCommand(
         "model-miss-template",
         "Print or write the post-runtime model-miss review template.",
         "model_miss_review",

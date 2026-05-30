@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.39.0 - 2026-05-30
+
+- Added Plan Detailing Compiler so rough ideas, short plans, and AI-generated
+  outlines can be reviewed as typed `PlanDetail` rows before downstream
+  FlowGuard routes run.
+- Added projection helpers from PlanDetail to PlanIntake, Workflow Step
+  Contracts, DevelopmentProcessFlow, and AgentWorkflowRehearsal.
+- Added `python -m flowguard plan-detailing-template`, executable examples,
+  public docs, API exports, and the `flowguard-plan-detailing-compiler`
+  satellite skill.
+
 ## v0.38.0 - 2026-05-29
 
 - Removed compatibility-only public aliases that no current FlowGuard route

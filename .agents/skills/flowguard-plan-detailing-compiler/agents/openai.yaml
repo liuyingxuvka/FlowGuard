@@ -1,0 +1,4 @@
+interface:
+  display_name: "FlowGuard Plan Detailing Compiler"
+  short_description: "Turn rough plans into structured FlowGuard detail rows"
+  default_prompt: "Use $flowguard-plan-detailing-compiler when a non-trivial task starts from a vague idea, short plan, or AI-generated outline; build PlanDetail rows for scope, state, artifacts, side effects, receipts, validation, failure/rework, human questions, and claim evidence before downstream FlowGuard modeling."

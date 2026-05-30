@@ -124,6 +124,12 @@ class ApiSurfaceTests(unittest.TestCase):
         self.assertIn("review_architecture_reduction", flowguard.MODELING_HELPER_API)
         self.assertIn("COMPATIBILITY_SURFACE_PRUNE_CANDIDATE", flowguard.MODELING_HELPER_API)
         self.assertIn("COMPATIBILITY_ACTION_COLLECT_EVIDENCE", flowguard.MODELING_HELPER_API)
+        self.assertIn("PlanDetail", flowguard.REPORTING_HELPER_API)
+        self.assertIn("PlanDetailStep", flowguard.REPORTING_HELPER_API)
+        self.assertIn("PlanDetailValidation", flowguard.REPORTING_HELPER_API)
+        self.assertIn("review_plan_detail", flowguard.REPORTING_HELPER_API)
+        self.assertIn("plan_detail_to_development_process", flowguard.REPORTING_HELPER_API)
+        self.assertIn("plan_detailing_template_files", flowguard.EVIDENCE_API)
         self.assertNotIn("review_code_structure_recommendation", flowguard.CORE_API)
         self.assertNotIn("review_ui_interaction_model", flowguard.CORE_API)
         self.assertNotIn("review_ui_journey_coverage", flowguard.CORE_API)
@@ -183,6 +189,7 @@ class ApiSurfaceTests(unittest.TestCase):
             "architecture_reduction",
             "code_structure_recommendation",
             "model_test_alignment",
+            "plan_detailing_compiler",
         }
         self.assertEqual(expected_groups, set(flowguard.FLOWGUARD_ROUTE_API))
 
@@ -270,6 +277,7 @@ class ApiSurfaceTests(unittest.TestCase):
             "MODEL_TEST_ALIGNMENT_ROUTE_API",
             "MODEL_IMPACT_FRESHNESS_API",
             "MODEL_MATURATION_API",
+            "PLAN_DETAILING_ROUTE_API",
             "MODELING_HELPER_API",
             "REPORTING_HELPER_API",
             "TEMPLATE_STRUCTURE_API",

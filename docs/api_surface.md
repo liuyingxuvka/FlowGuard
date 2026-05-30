@@ -57,6 +57,9 @@ does not change `CheckReport`, traces, pass/fail status, or stdout output. Use
 For AI agents, route groups are the normal discovery surface:
 
 - `FLOWGUARD_ROUTE_API` names the supported route groups.
+- `PLAN_DETAILING_ROUTE_API` is the first stop for vague ideas, short plans,
+  and AI-generated outlines that need explicit source, scope, state, side
+  effect, step, receipt, validation, rework, human-question, and claim rows.
 - `MODEL_SIMILARITY_ROUTE_API` is the first stop for similar A/B/C workflow
   maintenance, shared kernels, adapter variants, sibling tests, and false
   friends.
@@ -288,6 +291,13 @@ Reporting helpers help an AI agent explain what was checked and what was not:
   under-declared plan inputs, lossy adapters, known false negatives,
   known-bad mutations, and unsupported promotion from narrow reports to broad
   confidence claims
+- plan-detailing helpers such as `PlanDetail`, `PlanDetailStep`,
+  `PlanDetailValidation`, `PlanDetailFailureBranch`,
+  `review_plan_detail()`, `plan_detail_to_plan_intake()`,
+  `plan_detail_to_step_contracts()`,
+  `plan_detail_to_development_process()`, and
+  `plan_detail_to_agent_workflow_plan()` for forcing rough plans into
+  checkable rows before downstream routes review them
 - model-impact freshness helpers such as `ModelFreshnessRecord`,
   `UpgradeImpact`, `ModelImpactAssessment`, `ModelReuseTicket`,
   `ModelRerunEvidence`, `ModelImpactFreshnessPlan`,
@@ -335,6 +345,7 @@ Evidence APIs are used to keep FlowGuard itself honest:
   `code_structure_recommendation_template_files()`,
   `existing_model_preflight_template_files()`,
   `model_similarity_consolidation_template_files()`,
+  `plan_detailing_template_files()`,
   `risk_evidence_ledger_template_files()`,
   `development_process_flow_template_files()`,
   `project_adoption_template_files()`, `test_mesh_template_files()`,
@@ -356,7 +367,7 @@ The package exports lightweight grouping constants:
   `TEMPLATE_STRUCTURE_API`, `EVIDENCE_FIELD_STRUCTURE_API`,
   `MODEL_SIMILARITY_ROUTE_API`, `ARCHITECTURE_REDUCTION_ROUTE_API`,
   `CODE_STRUCTURE_RECOMMENDATION_ROUTE_API`, and
-  `MODEL_TEST_ALIGNMENT_ROUTE_API`
+  `MODEL_TEST_ALIGNMENT_ROUTE_API`, and `PLAN_DETAILING_ROUTE_API`
 - `CORE_API`
 - `REPORTING_HELPER_API`
 - `EVIDENCE_API`
@@ -419,6 +430,10 @@ or production-confidence claim, run `review_flowguard_closure_contract()` so
 runtime trace mapping, artifact freshness, model quality, same-class miss
 closure, runtime gateway inventory, and Risk Evidence Ledger support are all
 current at the claim boundary.
+When the incoming work is still a vague idea or thin plan, run
+`review_plan_detail()` first and project the resulting rows into PlanIntake,
+WorkflowStepContracts, DevelopmentProcessFlow, or AgentWorkflowRehearsal as
+needed; do not treat the plan-detail pass as implementation proof.
 Use Code Structure Recommendation for direct pre-code architecture
 recommendations. Use Architecture Reduction when an existing implementation has
 repeated handlers, adapters, modules, branches, or validation layers and the

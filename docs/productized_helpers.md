@@ -118,6 +118,25 @@ The start command records `in_progress`; the finish command appends the final
 entry. This is a reporting helper only. It does not replace model checks,
 scenario review, conformance replay, or test execution.
 
+## Plan Detailing Compiler
+
+Use `PlanDetail` and `review_plan_detail(...)` when a human or AI starts with a
+rough idea, a short plan, or a vague workflow outline. The compiler does not
+generate the work by itself; it reviews structured rows for goal, source
+evidence, risk surfaces, artifacts, state, side effects, ordered steps,
+receipts, validation, failure branches, rework gates, human questions, and
+final evidence claim scope.
+
+Projection helpers connect the detailed plan to existing routes:
+
+- `plan_detail_to_plan_intake(...)`
+- `plan_detail_to_step_contracts(...)`
+- `plan_detail_to_development_process(...)`
+- `plan_detail_to_agent_workflow_plan(...)`
+
+A plan-detail pass means the plan is detailed enough for downstream checks. It
+does not prove the implementation, tests, replay, release, or done claim.
+
 ## Model Impact Freshness
 
 Use `review_model_impact_freshness(...)` during FlowGuard framework upgrades or
@@ -275,6 +294,7 @@ project:
 python -m flowguard project-template --output .
 python -m flowguard project-adoption-template --output .
 python -m flowguard risk-intent-template --output .
+python -m flowguard plan-detailing-template --output .
 python -m flowguard model-miss-template --output .
 python -m flowguard model-test-alignment-template --output .
 python -m flowguard development-process-flow-template --output .
@@ -286,7 +306,10 @@ URL and version policy. The basic project template demonstrates validation,
 rejection, duplicate input, and source-trace invariants. The Risk Intent
 template shows how to bind a
 `RiskIntent`, `RiskProfile`, and `FlowGuardCheckPlan` before running
-`run_model_first_checks(...)`. The model-miss template models the feedback loop
+`run_model_first_checks(...)`. The plan-detailing template shows how to turn a
+rough plan into explicit PlanDetail rows and broken variants before projecting
+to PlanIntake, WorkflowStepContracts, and DevelopmentProcessFlow. The
+model-miss template models the feedback loop
 used when runtime, tests, replay, or manual validation finds a problem after a
 FlowGuard pass. The model-test alignment template compares explicit
 `ModelObligation` rows with plain `TestEvidence` rows so a project can see

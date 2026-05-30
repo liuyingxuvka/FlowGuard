@@ -47,6 +47,13 @@ The exact file format can stay flexible; these fields are the contract:
 | `skipped_checks` | Checks the planner proposes to skip, with reasons. | Keeps skipped work visible; skipped is not pass. |
 | `completion_evidence` | What evidence proves the plan is done. | Prevents "completed" status without proof. |
 
+In current FlowGuard terms, this neutral handoff can be represented as
+`PlanDetail` rows. A rough planner output should be compiled with
+`review_plan_detail(...)`; then the same rows can be projected to PlanIntake,
+WorkflowStepContracts, DevelopmentProcessFlow, and AgentWorkflowRehearsal. This
+keeps collaboration optional while still forcing vague plans to declare state,
+side effects, receipts, validation, rework, and claim evidence.
+
 ## Collaboration Hazards To Catch
 
 | Hazard id | Possible bug introduced by this upgrade | Required model coverage |

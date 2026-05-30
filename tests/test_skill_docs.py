@@ -15,6 +15,7 @@ SATELLITE_SKILLS = {
     "flowguard-model-mesh": "model_mesh_protocol.md",
     "flowguard-model-miss-review": "model_miss_protocol.md",
     "flowguard-model-test-alignment": "model_test_alignment_protocol.md",
+    "flowguard-plan-detailing-compiler": "plan_detailing_compiler_protocol.md",
     "flowguard-structure-mesh": "structure_mesh_protocol.md",
     "flowguard-test-mesh": "test_mesh_protocol.md",
     "flowguard-ui-flow-structure": "ui_flow_structure_protocol.md",
@@ -119,6 +120,11 @@ class SkillDocsTests(unittest.TestCase):
                 "CodeContract",
                 "coverage",
                 "Do not invoke TestMesh",
+            ),
+            "flowguard-plan-detailing-compiler": (
+                "PlanDetail",
+                "review_plan_detail()",
+                "step receipts",
             ),
             "flowguard-structure-mesh": (
                 "public entrypoints",

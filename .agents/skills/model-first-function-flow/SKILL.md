@@ -18,6 +18,8 @@ Decision: `use_flowguard`, `skip_with_reason`, or `needs_human_review`.
 Use FlowGuard when order, state, ownership, retries, side effects, validation
 freshness, release/process steps, UI interaction state, model-test evidence, or
 module boundaries can change whether the result is safe.
+Use plan detailing first when a non-trivial request is still a rough idea or
+short plan that lacks explicit scope, state, artifacts, evidence, or rework.
 
 Skip only for tiny copy edits, formatting-only changes, direct command answers,
 or read-only explanation with no behavior/state/process impact. If the boundary
@@ -60,6 +62,7 @@ template CLIs are package helpers, not independently triggerable Codex skills.
 | --- | --- | --- |
 | Existing modeled system, ownership lookup, duplicate-boundary risk | `existing_model_preflight` | `flowguard-existing-model-preflight` |
 | Similar features, A/B workflow drift, sibling tests, shared-kernel/adapter suspicion | `model_similarity_consolidation` | `docs/model_similarity_consolidation.md` |
+| Rough idea/short plan needs detailed scope, state, evidence, receipts, rework | `plan_detailing_compiler` | `flowguard-plan-detailing-compiler` |
 | Multi-skill/tool/plugin planning, skipped skill consequences, rework gates | `agent_workflow_rehearsal` | `flowguard-agent-workflow-rehearsal` |
 | Ordinary behavior/state modeling, Risk Intent, state inventory | `core_modeling` | `references/modeling_protocol.md` |
 | Existing code/prompt flow should shrink without behavior loss | `architecture_reduction` | `flowguard-architecture-reduction` |

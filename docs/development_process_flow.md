@@ -17,6 +17,14 @@ each consumed `ProcessEvidence` row must attach a proof artifact with a result
 path and fingerprint; a green status string without a concrete artifact remains
 only a declaration.
 
+For vague or short upstream plans, use the plan-detailing compiler before this
+route. `plan_detail_to_development_process(...)` converts `PlanDetailArtifact`,
+ordered `PlanDetailStep`, `PlanDetailEvidence`, `PlanDetailValidation`, and
+`PlanDetailFreshnessRule` rows into the lifecycle shape below, including proof
+artifact references when a result path exists. DevelopmentProcessFlow then owns
+the evidence-freshness decision; the plan-detail pass only proves that enough
+rows exist to start the lifecycle review.
+
 ## Public API
 
 ```python

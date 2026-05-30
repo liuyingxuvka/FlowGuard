@@ -15,6 +15,13 @@ facts. FlowGuard checks the structured rows.
 plan sources -> intake surfaces -> adapter mappings -> miss backpropagation -> mutation probes -> typed claim chain
 ```
 
+When the starting point is only a rough idea or short AI-generated plan, first
+build `PlanDetail` rows and run `review_plan_detail(...)`. Then use
+`plan_detail_to_plan_intake(...)` so source evidence, reviewed risk surfaces,
+scoped omissions, and recurring/high-risk history flow into PlanIntake without
+being retyped from prose. A green plan-detail review still means "the plan is
+structured enough to check"; PlanIntake owns the plan-valid claim.
+
 ## Public API
 
 - `PlanIntakeRiskSurface`, `PlanIntakeCompletenessPlan`,

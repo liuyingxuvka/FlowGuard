@@ -85,6 +85,22 @@ claims `flowguard_package_available = False`, uses a fallback explorer, or
 defines local replacement `Explorer`/`Workflow` classes, record a
 `stale_fallback_model` warning. This is a confidence gap, not a hard failure.
 
+## 0.2 Detail Rough Plans Before Modeling
+
+When the request is non-trivial but still a rough idea, short plan, or
+AI-generated outline, use Plan Detailing before writing the behavior model.
+Create `PlanDetail` rows for goal, sources, risk surfaces, artifacts, state
+surfaces, side effects, ordered steps, receipts, validation, failure branches,
+rework gates, human-review questions, freshness rules, and final evidence.
+Run `review_plan_detail(...)` and keep scoped or missing rows visible.
+
+After detail review, project rows with `plan_detail_to_plan_intake(...)`,
+`plan_detail_to_step_contracts(...)`,
+`plan_detail_to_development_process(...)`, and
+`plan_detail_to_agent_workflow_plan(...)` as needed. A plan-detail pass means
+the plan is detailed enough to proceed; it is not implementation or production
+confidence.
+
 Keep the API surface boundary clear:
 
 - core modeling uses `FunctionBlock`, `FunctionResult`, `Invariant`,

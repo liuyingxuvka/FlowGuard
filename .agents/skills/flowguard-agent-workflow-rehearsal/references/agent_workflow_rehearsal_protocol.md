@@ -62,6 +62,12 @@ Build an `AgentWorkflowPlan` with:
   validation guidance;
 - final evidence claim: none, scoped, full, or blocked.
 
+If the work starts from a rough idea or short plan, build `PlanDetail` rows
+first and run `review_plan_detail(...)`. Use
+`plan_detail_to_agent_workflow_plan(...)` to carry selected skills, ordered
+steps, side effects, evidence gates, rework gates, risk flags, and final claim
+scope into AgentWorkflowRehearsal.
+
 Use `review_agent_workflow_rehearsal(...)` when the FlowGuard package helper is
 available. If only manual review is possible, preserve the same statuses:
 `pass`, `needs_revision`, `scoped`, or `blocked`.
