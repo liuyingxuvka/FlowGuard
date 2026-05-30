@@ -29,5 +29,5 @@
 - [x] 6.1 Run OpenSpec validation, FlowGuard self-model, focused tests, and project audit.
 - [x] 6.2 Run full regression in the background and inspect final exit/status artifacts.
 - [x] 6.3 Refresh editable install and verify import path, version, schema, and new API availability.
-- [x] 6.4 Sync the updated checkout to `C:\Users\liu_y\Documents\FlowGuard_20260427` and verify shadow imports and focused tests.
+- [x] 6.4 Sync the updated checkout to the local `FlowGuard_20260427` shadow workspace and verify shadow imports and focused tests.
 - [x] 6.5 Record FlowGuard adoption evidence, KB postflight, and local git commit.

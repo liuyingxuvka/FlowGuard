@@ -42,7 +42,7 @@
 - [x] 5.2 Sync repository-managed skills into installed Codex skills and verify
   content parity for all affected FlowGuard skills.
 - [x] 5.3 Sync the repository source to
-  `C:\Users\liu_y\Documents\FlowGuard_20260427` and verify shadow imports and
+  the local `FlowGuard_20260427` shadow workspace and verify shadow imports and
   focused checks.
 - [x] 5.4 Record FlowGuard adoption evidence and KB postflight.
 - [x] 5.5 Commit local git changes and create a local version tag if validation
