@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.39.1 - 2026-05-30
+
+- Refreshed FlowGuard source-only release metadata after confirming the
+  publication target.
+- Updated package, README, and project adoption version surfaces to `0.39.1`.
+- No runtime behavior, helper API, schema, or model semantics changed from
+  `v0.39.0`.
+
 ## v0.39.0 - 2026-05-30
 
 - Added Plan Detailing Compiler so rough ideas, short plans, and AI-generated
