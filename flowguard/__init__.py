@@ -818,6 +818,11 @@ from .proof_artifact import (
     coerce_proof_artifact_ref,
     proof_artifact_gap_codes,
 )
+from .test_reuse import (
+    TestResultReuseTicket,
+    coerce_test_result_reuse_ticket,
+    test_result_reuse_gap_codes,
+)
 from .legacy_path_disposition import (
     LEGACY_PATH_BLOCKED,
     LEGACY_PATH_DELEGATED,
@@ -1486,6 +1491,9 @@ REPORTING_HELPER_API = (
     "ProofArtifactRef",
     "coerce_proof_artifact_ref",
     "proof_artifact_gap_codes",
+    "TestResultReuseTicket",
+    "coerce_test_result_reuse_ticket",
+    "test_result_reuse_gap_codes",
     *FLOWGUARD_CLOSURE_CONTRACT_API,
     "LegacyPathDisposition",
     "LegacyPathDispositionFinding",

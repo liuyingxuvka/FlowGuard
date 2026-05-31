@@ -27,6 +27,8 @@ inspect or replace sibling route internals.
   current or record why it was not updated.
 - Do not create a fake mini-framework.
 - Skipped, stale, failed, progress-only, or release-only evidence is not pass.
+- Model and test reuse tickets can be invalidated by later writes; reused test
+  output needs current `TestResultReuseTicket` plus `ProofArtifactRef`.
 - Later writes can stale earlier evidence; preserve peer-agent changes.
 
 ## Minimum Workflow

@@ -25,6 +25,12 @@ from .hierarchy import (
     OWNERSHIP_READ_ONLY,
     OWNERSHIP_SHARED_KERNEL,
 )
+from .proof_artifact import ProofArtifactRef, coerce_proof_artifact_ref, proof_artifact_gap_codes
+from .test_reuse import (
+    TestResultReuseTicket,
+    coerce_test_result_reuse_ticket,
+    test_result_reuse_gap_codes,
+)
 
 
 TEST_STATUS_PASSED = "passed"
@@ -121,6 +127,9 @@ class TestSuiteEvidence:
     has_exit_artifact: bool = True
     has_result_artifact: bool = True
     progress_only: bool = False
+    proof_artifact: ProofArtifactRef | Mapping[str, Any] | None = None
+    result_reused: bool = False
+    reuse_ticket: TestResultReuseTicket | Mapping[str, Any] | None = None
     release_required: bool = False
     owns_state: tuple[str, ...] = ()
     owns_side_effects: tuple[str, ...] = ()
@@ -139,6 +148,9 @@ class TestSuiteEvidence:
         object.__setattr__(self, "skipped_count", int(self.skipped_count))
         object.__setattr__(self, "result_path", str(self.result_path))
         object.__setattr__(self, "log_root", str(self.log_root))
+        object.__setattr__(self, "proof_artifact", coerce_proof_artifact_ref(self.proof_artifact))
+        object.__setattr__(self, "result_reused", bool(self.result_reused))
+        object.__setattr__(self, "reuse_ticket", coerce_test_result_reuse_ticket(self.reuse_ticket))
         object.__setattr__(self, "owns_state", _as_tuple(self.owns_state))
         object.__setattr__(self, "owns_side_effects", _as_tuple(self.owns_side_effects))
         object.__setattr__(self, "owned_leaf_cell_ids", _as_tuple(self.owned_leaf_cell_ids))
@@ -177,6 +189,9 @@ class TestSuiteEvidence:
             "has_exit_artifact": self.has_exit_artifact,
             "has_result_artifact": self.has_result_artifact,
             "progress_only": self.progress_only,
+            "proof_artifact": self.proof_artifact.to_dict() if self.proof_artifact else None,
+            "result_reused": self.result_reused,
+            "reuse_ticket": self.reuse_ticket.to_dict() if self.reuse_ticket else None,
             "release_required": self.release_required,
             "owns_state": list(self.owns_state),
             "owns_side_effects": list(self.owns_side_effects),
@@ -231,6 +246,7 @@ class TestMeshPlan:
     target_split_derivation: TestTargetSplitDerivation | None = None
     required_leaf_cell_ids: tuple[str, ...] = ()
     required_evidence_tier: str = EVIDENCE_ABSTRACT_GREEN
+    require_proof_artifacts: bool = False
     decision_scope: str = TEST_SCOPE_ROUTINE
     release_deferred_allowed: bool = True
     allowed_shared_state: tuple[str, ...] = ()
@@ -242,6 +258,7 @@ class TestMeshPlan:
         object.__setattr__(self, "child_suites", tuple(self.child_suites))
         object.__setattr__(self, "required_leaf_cell_ids", _as_tuple(self.required_leaf_cell_ids))
         object.__setattr__(self, "required_evidence_tier", str(self.required_evidence_tier))
+        object.__setattr__(self, "require_proof_artifacts", bool(self.require_proof_artifacts))
         object.__setattr__(self, "decision_scope", str(self.decision_scope))
         object.__setattr__(self, "allowed_shared_state", _as_tuple(self.allowed_shared_state))
         object.__setattr__(self, "allowed_shared_side_effects", _as_tuple(self.allowed_shared_side_effects))
@@ -258,6 +275,7 @@ class TestMeshPlan:
             ),
             "required_leaf_cell_ids": list(self.required_leaf_cell_ids),
             "required_evidence_tier": self.required_evidence_tier,
+            "require_proof_artifacts": self.require_proof_artifacts,
             "decision_scope": self.decision_scope,
             "release_deferred_allowed": self.release_deferred_allowed,
             "allowed_shared_state": list(self.allowed_shared_state),
@@ -395,6 +413,12 @@ def _decision_for_findings(findings: Sequence[TestMeshFinding]) -> str:
         ("suite_timeout", "test_timeout_blocked"),
         ("hidden_skipped_tests", "hidden_skipped_tests"),
         ("stale_test_evidence", "stale_test_evidence"),
+        ("missing_test_reuse_ticket", "test_reuse_proof_required"),
+        ("test_reuse_ticket_not_current", "test_reuse_proof_required"),
+        ("test_reuse_missing_proof_artifact", "test_reuse_proof_required"),
+        ("test_reuse_stale_proof_artifact", "test_reuse_proof_required"),
+        ("test_reuse_progress_only_proof_artifact", "test_reuse_proof_required"),
+        ("suite_missing_proof_artifact", "test_proof_artifact_required"),
         ("insufficient_evidence_tier", "insufficient_evidence"),
         ("release_suite_not_current", "missing_release_evidence"),
     ]
@@ -661,6 +685,51 @@ def _suite_evidence_findings(plan: TestMeshPlan) -> tuple[list[TestMeshFinding],
                     metadata=suite.to_dict(),
                 )
             )
+        if suite.result_reused or suite.reuse_ticket is not None:
+            for code, message in test_result_reuse_gap_codes(
+                suite.reuse_ticket,
+                expected_evidence_id=suite.suite_id,
+                required_obligation_ids=suite.owned_leaf_cell_ids,
+            ):
+                findings.append(
+                    TestMeshFinding(
+                        code,
+                        message,
+                        suite_id=suite.suite_id,
+                        metadata=suite.to_dict(),
+                    )
+                )
+            for code, message in proof_artifact_gap_codes(
+                suite.proof_artifact,
+                declared_status=suite.result_status,
+                required_obligation_ids=suite.owned_leaf_cell_ids,
+                require_result_path=True,
+                require_fingerprints=True,
+            ):
+                findings.append(
+                    TestMeshFinding(
+                        f"test_reuse_{code}",
+                        message,
+                        suite_id=suite.suite_id,
+                        metadata=suite.to_dict(),
+                    )
+                )
+        if plan.require_proof_artifacts:
+            for code, message in proof_artifact_gap_codes(
+                suite.proof_artifact,
+                declared_status=suite.result_status,
+                required_obligation_ids=suite.owned_leaf_cell_ids,
+                require_result_path=True,
+                require_fingerprints=True,
+            ):
+                findings.append(
+                    TestMeshFinding(
+                        f"suite_{code}",
+                        message,
+                        suite_id=suite.suite_id,
+                        metadata=suite.to_dict(),
+                    )
+                )
         if suite.skipped_count and not suite.skipped_visible:
             findings.append(
                 TestMeshFinding(

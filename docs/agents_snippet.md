@@ -53,6 +53,8 @@ progress-only, or not-run checks are not passes.
 - Preserve user and peer-agent changes; later writes can stale earlier evidence.
 - Long background checks are liveness only until final output and exit/status
   artifacts exist.
+- Reused test results need current `TestResultReuseTicket` and
+  `ProofArtifactRef`; old `passed` output is not current evidence by itself.
 - For non-trivial FlowGuard work, show a route-specific Mermaid snapshot once
   the route/model is stable; diagrams explain and do not validate.
 - Before full done/release/publish confidence, connect risks, model obligations,

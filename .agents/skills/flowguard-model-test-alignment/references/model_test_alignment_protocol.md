@@ -181,6 +181,12 @@ List `TestEvidence` rows:
 - covered code contract ids when code contracts are in scope;
 - assertion scope: `external_contract`, `internal_path`, `mixed`, or
   `unknown`;
+- `result_reused=True` and `reuse_ticket=TestResultReuseTicket(...)` when a
+  previous test result is reused. The ticket must prove unchanged command, test
+  source, tested artifact, dependencies, environment, result fingerprint, and
+  coverage scope;
+- `proof_artifact=ProofArtifactRef(...)` for reused results and for strict
+  `require_proof_artifacts=True` plans;
 - whether the test overclaims full model confidence;
 - model-miss closure role when relevant: `observed_regression` or
   `same_class_generalized`.

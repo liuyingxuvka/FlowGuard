@@ -25,13 +25,16 @@ Return to `model-first-function-flow` for ordinary small test evidence.
   current or record why it was not updated.
 - Do not create a fake mini-framework.
 - In-progress background runs are liveness, not pass evidence.
+- Reused child-suite results need a current `TestResultReuseTicket` and
+  `ProofArtifactRef`; old `passed` output is not parent confidence by itself.
 - Parent confidence needs current child evidence and target split derivation.
 
 ## Minimum Workflow
 
 1. Identify parent suite/check and partition items.
 2. Derive target child suites or child test scripts from the model risk.
-3. Attach result status, evidence tier, result path, and freshness.
+3. Attach result status, evidence tier, result path, freshness, and reused
+   result proof when old test output is reused.
 4. Scope or block parent confidence when child evidence is stale or missing.
 
 ## Snapshot

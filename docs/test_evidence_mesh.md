@@ -108,11 +108,19 @@ Each child suite or child test script reports a `TestSuiteEvidence` summary:
 - whether skipped tests are visible;
 - duration, timeout, exit code, and result path;
 - background log root and final artifact flags;
+- optional `proof_artifact` for strict proof of the concrete suite result;
+- optional `result_reused=True` plus `reuse_ticket=TestResultReuseTicket(...)`
+  when an old suite result is reused because command, test source, tested
+  artifact, dependency, environment, result fingerprint, and coverage scope are
+  still current;
 - owned state and side effects;
 - not-run and stale reasons.
 
 Progress output is not completion evidence. A background suite is complete only
 when final exit/result artifacts exist and the run is not progress-only.
+If a child suite reuses a previous result, TestMesh requires a current reuse
+ticket and a current proof artifact before the child can support parent
+confidence. A `passed` status string alone is not enough for reused evidence.
 
 When a final FlowGuard confidence claim depends on these suites, feed each
 child suite's evidence id, status, freshness, and scope into the Risk Evidence
@@ -133,8 +141,8 @@ a current pass status.
 
 When a parent gate declares `required_leaf_cell_ids`, each id must be owned by
 a child `TestSuiteEvidence` row through `owned_leaf_cell_ids`. Missing, stale,
-skipped, progress-only, background-incomplete, or non-passing owners do not
-support the parent gate.
+skipped, progress-only, background-incomplete, non-passing, or invalidly reused
+owners do not support the parent gate.
 
 ## Routine Versus Release
 

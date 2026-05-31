@@ -174,6 +174,11 @@ List test evidence with `TestEvidence`:
   carry a proof artifact with a result path, artifact fingerprint, matching
   covered obligations, and external-contract scope when code contracts are
   being proved.
+- optional `result_reused=True` plus `reuse_ticket=TestResultReuseTicket(...)`
+  when the row reuses a previous test result instead of a fresh run. Reused test
+  evidence must carry both a current reuse ticket and a current proof artifact;
+  otherwise Model-Test Alignment reports the reuse/proof gap before the row can
+  support model obligation or code contract coverage.
 
 ## Findings
 
@@ -182,6 +187,9 @@ The review keeps these gaps visible:
 - model obligations with no current passing test evidence;
 - missing required test kinds;
 - stale, skipped, failed, timeout, not-run, running, or error evidence;
+- reused test evidence with a missing/stale reuse ticket, changed command/test
+  source/tested artifact/dependency/environment boundary, mismatched result
+  fingerprint, stale coverage scope, or missing/stale proof artifact;
 - orphan tests, unknown obligation references, and duplicate same-kind test
   evidence owners;
 - duplicate current primary `edge_path` evidence for the same obligation, which

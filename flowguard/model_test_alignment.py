@@ -28,6 +28,11 @@ from .runtime_path import (
     RuntimePathRun,
     review_runtime_path_alignment,
 )
+from .test_reuse import (
+    TestResultReuseTicket,
+    coerce_test_result_reuse_ticket,
+    test_result_reuse_gap_codes,
+)
 
 
 TEST_STATUS_PASSED = "passed"
@@ -395,6 +400,8 @@ class TestEvidence:
     evidence_role: str = TEST_EVIDENCE_ROLE_PRIMARY
     evidence_target_id: str = ""
     proof_artifact: ProofArtifactRef | Mapping[str, Any] | None = None
+    result_reused: bool = False
+    reuse_ticket: TestResultReuseTicket | Mapping[str, Any] | None = None
     stale_reasons: tuple[str, ...] = ()
     overclaims_model_confidence: bool = False
     closure_evidence_role: str = TEST_CLOSURE_ROLE_UNSPECIFIED
@@ -412,6 +419,8 @@ class TestEvidence:
         object.__setattr__(self, "evidence_role", str(self.evidence_role))
         object.__setattr__(self, "evidence_target_id", str(self.evidence_target_id))
         object.__setattr__(self, "proof_artifact", coerce_proof_artifact_ref(self.proof_artifact))
+        object.__setattr__(self, "result_reused", bool(self.result_reused))
+        object.__setattr__(self, "reuse_ticket", coerce_test_result_reuse_ticket(self.reuse_ticket))
         object.__setattr__(self, "stale_reasons", _as_tuple(self.stale_reasons))
         object.__setattr__(self, "closure_evidence_role", str(self.closure_evidence_role))
 
@@ -439,6 +448,8 @@ class TestEvidence:
             "evidence_role": self.evidence_role,
             "evidence_target_id": self.evidence_target_id,
             "proof_artifact": self.proof_artifact.to_dict() if self.proof_artifact else None,
+            "result_reused": self.result_reused,
+            "reuse_ticket": self.reuse_ticket.to_dict() if self.reuse_ticket else None,
             "stale_reasons": list(self.stale_reasons),
             "overclaims_model_confidence": self.overclaims_model_confidence,
             "closure_evidence_role": self.closure_evidence_role,
@@ -1769,6 +1780,36 @@ def _evidence_findings(
                     metadata=evidence.to_dict(),
                 )
             )
+        if evidence.result_reused or evidence.reuse_ticket is not None:
+            for code, message in test_result_reuse_gap_codes(
+                evidence.reuse_ticket,
+                expected_evidence_id=evidence.evidence_id,
+                required_obligation_ids=evidence.covered_obligations,
+            ):
+                findings.append(
+                    ModelTestAlignmentFinding(
+                        code,
+                        message,
+                        evidence_id=evidence.evidence_id,
+                        metadata=evidence.to_dict(),
+                    )
+                )
+            for code, message in proof_artifact_gap_codes(
+                evidence.proof_artifact,
+                declared_status=evidence.result_status,
+                required_obligation_ids=evidence.covered_obligations,
+                require_result_path=True,
+                require_fingerprints=True,
+                require_external_scope=bool(evidence.covered_code_contracts),
+            ):
+                findings.append(
+                    ModelTestAlignmentFinding(
+                        f"test_reuse_{code}",
+                        message,
+                        evidence_id=evidence.evidence_id,
+                        metadata=evidence.to_dict(),
+                    )
+                )
         if plan.require_proof_artifacts:
             for code, message in proof_artifact_gap_codes(
                 evidence.proof_artifact,

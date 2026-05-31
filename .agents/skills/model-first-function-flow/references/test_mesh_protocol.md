@@ -91,10 +91,16 @@ For each child suite or child test script, record:
 - whether skipped tests are visible;
 - duration, timeout, exit code, and result path;
 - background log root plus final exit/result artifact flags;
+- proof artifact and test-result reuse ticket when an old completed result is
+  reused;
 - owned state and side effects;
 - not-run reason.
 
 Progress output is liveness evidence only. It is not completion evidence.
+An old `passed` result is not reusable parent evidence unless
+`TestResultReuseTicket` and `ProofArtifactRef` are both current for the command,
+test source, tested artifact, dependency, environment, result fingerprint, and
+coverage scope.
 When a final confidence claim depends on the parent gate, export child evidence
 ids, status, freshness, and release-scope gaps to the Risk Evidence Ledger.
 Background runs need final exit/result artifacts before a parent gate can treat

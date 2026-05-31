@@ -213,6 +213,8 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("TEST_CLOSURE_ROLE_OBSERVED_REGRESSION", combined)
         self.assertIn("TEST_CLOSURE_ROLE_SAME_CLASS_GENERALIZED", combined)
         self.assertIn("same-class evidence", combined)
+        self.assertIn("TestResultReuseTicket", combined)
+        self.assertIn("result_reused=True", combined)
         self.assertNotIn("review_hierarchical_mesh", combined)
         self.assertNotIn("review_test_mesh", combined)
         self.assertNotIn("review_structure_mesh", combined)
@@ -261,6 +263,8 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("parallel to ModelMesh and StructureMesh", combined)
         self.assertIn("one giant parent graph", combined)
         self.assertIn("model-derived split", combined)
+        self.assertIn("TestResultReuseTicket", combined)
+        self.assertIn("result_reused=True", combined)
 
     def test_code_structure_recommendation_template_executes(self):
         output = self.run_written_template(

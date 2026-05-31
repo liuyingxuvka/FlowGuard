@@ -3,9 +3,11 @@ import unittest
 from flowguard import (
     EVIDENCE_ABSTRACT_GREEN,
     EVIDENCE_CONFORMANCE_GREEN,
+    ProofArtifactRef,
     TEST_LAYER_LEAF_MATRIX_CELL,
     TestMeshPlan,
     TestPartitionItem,
+    TestResultReuseTicket,
     TestSuiteEvidence,
     TestTargetSplitDerivation,
     review_test_mesh,
@@ -21,6 +23,33 @@ def suite(suite_id, **kwargs):
     }
     defaults.update(kwargs)
     return TestSuiteEvidence(suite_id, **defaults)
+
+
+def proof_artifact(artifact_id, *covered):
+    return ProofArtifactRef(
+        artifact_id,
+        result_status="passed",
+        exit_code=0,
+        result_path=f"tmp/{artifact_id.replace(':', '_')}.json",
+        artifact_fingerprints={f"tmp/{artifact_id.replace(':', '_')}.json": "sha256:test"},
+        covered_obligation_ids=covered,
+    )
+
+
+def reuse_ticket(suite_id, *covered, **kwargs):
+    defaults = {
+        "previous_evidence_id": f"{suite_id}@previous",
+        "reason": "same command, source, tested artifact, dependency, environment, and result fingerprints",
+        "command_fingerprint": "sha256:command",
+        "test_source_fingerprint": "sha256:test-source",
+        "tested_artifact_fingerprint": "sha256:tested-artifact",
+        "dependency_fingerprints": {"flowguard": "0.39.2"},
+        "environment_fingerprint": "python:3.12",
+        "result_fingerprint": "sha256:result",
+        "covered_obligation_ids": covered,
+    }
+    defaults.update(kwargs)
+    return TestResultReuseTicket(suite_id, **defaults)
 
 
 def target(source_model_id, suite_ids, item_ids, *, state=False, side_effect=False):
@@ -215,6 +244,69 @@ class TestMeshTests(unittest.TestCase):
         self.assertFalse(report.ok)
         self.assertEqual("background_incomplete", report.decision)
         self.assertIn("background_incomplete", [finding.code for finding in report.findings])
+
+    def test_reused_child_suite_requires_ticket_and_proof_artifact(self):
+        plan = TestMeshPlan(
+            parent_suite_id="router-runtime",
+            partition_items=(TestPartitionItem("startup", owner_suite_id="startup"),),
+            child_suites=(suite("startup", result_reused=True),),
+            target_split_derivation=target("router-runtime-validation", ("startup",), ("startup",)),
+        )
+
+        report = review_test_mesh(plan)
+        codes = [finding.code for finding in report.findings]
+
+        self.assertFalse(report.ok)
+        self.assertEqual("test_reuse_proof_required", report.decision)
+        self.assertIn("missing_test_reuse_ticket", codes)
+        self.assertIn("test_reuse_missing_proof_artifact", codes)
+
+    def test_reused_child_suite_can_support_parent_with_current_proof(self):
+        plan = TestMeshPlan(
+            parent_suite_id="router-runtime",
+            partition_items=(TestPartitionItem("startup", owner_suite_id="startup"),),
+            child_suites=(
+                suite(
+                    "startup",
+                    result_reused=True,
+                    reuse_ticket=reuse_ticket("startup"),
+                    proof_artifact=proof_artifact("artifact:startup"),
+                ),
+            ),
+            target_split_derivation=target("router-runtime-validation", ("startup",), ("startup",)),
+        )
+
+        report = review_test_mesh(plan)
+
+        self.assertTrue(report.ok, report.format_text())
+
+    def test_reused_background_progress_artifact_is_not_completion(self):
+        plan = TestMeshPlan(
+            parent_suite_id="router-runtime",
+            partition_items=(TestPartitionItem("startup", owner_suite_id="startup"),),
+            child_suites=(
+                suite(
+                    "startup",
+                    result_reused=True,
+                    reuse_ticket=reuse_ticket("startup"),
+                    proof_artifact=ProofArtifactRef(
+                        "artifact:startup",
+                        result_status="passed",
+                        exit_code=0,
+                        result_path="tmp/startup.json",
+                        artifact_fingerprints={"tmp/startup.json": "sha256:test"},
+                        progress_only=True,
+                    ),
+                ),
+            ),
+            target_split_derivation=target("router-runtime-validation", ("startup",), ("startup",)),
+        )
+
+        report = review_test_mesh(plan)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("test_reuse_proof_required", report.decision)
+        self.assertIn("test_reuse_progress_only_proof_artifact", [finding.code for finding in report.findings])
 
     def test_failed_timeout_and_stale_suites_are_not_parent_green(self):
         for status, decision in (("failed", "test_failure_blocked"), ("timeout", "test_timeout_blocked")):

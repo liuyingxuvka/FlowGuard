@@ -11,6 +11,7 @@ from flowguard import (
     FAMILY_EVIDENCE_PROVENANCE_MANUAL_EVENT,
     FAMILY_EVIDENCE_STATUS_PASSED,
     TestEvidence,
+    TestResultReuseTicket,
     TEST_CLOSURE_ROLE_OBSERVED_REGRESSION,
     TEST_CLOSURE_ROLE_SAME_CLASS_GENERALIZED,
     TEST_KIND_EDGE_PATH,
@@ -64,6 +65,22 @@ def proof_artifact(artifact_id, *covered):
         artifact_fingerprints={f"tmp/{artifact_id.replace(':', '_')}.json": "sha256:test"},
         covered_obligation_ids=covered,
     )
+
+
+def reuse_ticket(evidence_id, *covered, **kwargs):
+    defaults = {
+        "previous_evidence_id": f"{evidence_id}@previous",
+        "reason": "same command, source, tested artifact, dependency, environment, and result fingerprints",
+        "command_fingerprint": "sha256:command",
+        "test_source_fingerprint": "sha256:test-source",
+        "tested_artifact_fingerprint": "sha256:tested-artifact",
+        "dependency_fingerprints": {"flowguard": "0.39.2"},
+        "environment_fingerprint": "python:3.12",
+        "result_fingerprint": "sha256:result",
+        "covered_obligation_ids": covered,
+    }
+    defaults.update(kwargs)
+    return TestResultReuseTicket(evidence_id, **defaults)
 
 
 def contract_evidence(evidence_id, obligation_id, contract_id, **kwargs):
@@ -635,6 +652,76 @@ class ModelTestAlignmentTests(unittest.TestCase):
 
                 self.assertFalse(report.ok)
                 self.assertIn("missing_test_evidence", codes)
+
+    def test_reused_test_evidence_requires_ticket_and_proof_artifact(self):
+        plan = ModelTestAlignmentPlan(
+            model_id="checkout",
+            obligations=(obligation("accept_valid_order"),),
+            test_evidence=(
+                evidence(
+                    "test_accept_valid_order",
+                    "accept_valid_order",
+                    result_reused=True,
+                    proof_artifact=proof_artifact("artifact:accept", "accept_valid_order"),
+                ),
+            ),
+        )
+
+        report = review_model_test_alignment(plan)
+
+        self.assertFalse(report.ok)
+        self.assertIn("missing_test_reuse_ticket", finding_codes(report))
+
+    def test_current_reused_test_evidence_can_cover_obligation(self):
+        plan = ModelTestAlignmentPlan(
+            model_id="checkout",
+            obligations=(obligation("accept_valid_order"),),
+            test_evidence=(
+                evidence(
+                    "test_accept_valid_order",
+                    "accept_valid_order",
+                    result_reused=True,
+                    reuse_ticket=reuse_ticket("test_accept_valid_order", "accept_valid_order"),
+                    proof_artifact=proof_artifact("artifact:accept", "accept_valid_order"),
+                ),
+            ),
+        )
+
+        report = review_model_test_alignment(plan)
+
+        self.assertTrue(report.ok, report.format_text())
+
+    def test_reused_test_evidence_rejects_stale_proof_and_scope_mismatch(self):
+        plan = ModelTestAlignmentPlan(
+            model_id="checkout",
+            obligations=(obligation("accept_valid_order"),),
+            test_evidence=(
+                evidence(
+                    "test_accept_valid_order",
+                    "accept_valid_order",
+                    result_reused=True,
+                    reuse_ticket=reuse_ticket("test_accept_valid_order", "reject_duplicate_order"),
+                    proof_artifact=ProofArtifactRef(
+                        "artifact:accept",
+                        result_status="passed",
+                        exit_code=0,
+                        result_path="tmp/accept.json",
+                        artifact_fingerprints={},
+                        covered_obligation_ids=("reject_duplicate_order",),
+                        current=False,
+                    ),
+                ),
+            ),
+        )
+
+        report = review_model_test_alignment(plan)
+        codes = set(finding_codes(report))
+
+        self.assertFalse(report.ok)
+        self.assertIn("test_reuse_missing_obligation", codes)
+        self.assertIn("test_reuse_stale_proof_artifact", codes)
+        self.assertIn("test_reuse_proof_artifact_missing_fingerprint", codes)
+        self.assertIn("test_reuse_proof_artifact_missing_obligation", codes)
 
     def test_required_failure_path_cannot_be_replaced_by_happy_path_only(self):
         plan = ModelTestAlignmentPlan(

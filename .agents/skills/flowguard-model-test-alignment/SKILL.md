@@ -31,6 +31,9 @@ defined. Do not invoke TestMesh, ModelMesh, or StructureMesh from this route.
   current or record why it was not updated.
 - Do not create a fake mini-framework.
 - Tests must cover declared obligations, not just helper/internal paths.
+- Reused test results must carry `result_reused=True`, a current
+  `TestResultReuseTicket`, and a current `ProofArtifactRef`; an old `passed`
+  status alone is not current coverage.
 - Source audit is conservative support, not semantic proof.
 
 ## Minimum Workflow

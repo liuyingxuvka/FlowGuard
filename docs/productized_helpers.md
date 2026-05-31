@@ -156,6 +156,11 @@ The helper is intentionally selective. It blocks blind reuse of old evidence,
 but it also avoids forced reruns when a model has a valid reuse ticket and
 same-output or fingerprint proof.
 
+Use `TestResultReuseTicket` separately for old test results. A previous test
+result can support Model-Test Alignment or TestMesh only when the ticket and
+matching `ProofArtifactRef` prove unchanged command, test source, tested
+artifact, dependencies, environment, result fingerprint, and covered scope.
+
 ## Model Maturation Loop
 
 Use `review_model_maturation_loop(...)` after code, tests, model-miss review,

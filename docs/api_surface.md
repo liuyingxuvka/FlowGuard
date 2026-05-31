@@ -275,6 +275,11 @@ Reporting helpers help an AI agent explain what was checked and what was not:
   constants for binding declared evidence rows to concrete result paths,
   fingerprints, exit status, current route evidence, obligation coverage, and
   external-contract scope in strict confidence reviews
+- `TestResultReuseTicket`, `coerce_test_result_reuse_ticket()`, and
+  `test_result_reuse_gap_codes()` for proving that a previous test result can
+  still count as current evidence when the command, test source, tested
+  artifact, dependency, environment, result fingerprint, and coverage scope
+  have not changed
 - `DefectFamilyGate`, `DefectFamilyEvidence`, `DefectFamilyGatePlan`,
   `DefectFamilyGateReport`, and `review_defect_family_gates()` for promoting
   recurring or high-risk same-class model misses into a reusable FlowGuard gate

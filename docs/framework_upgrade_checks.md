@@ -72,6 +72,10 @@ This is a selective gate, not a blanket rerun rule:
   evidence;
 - not-impacted models may reuse old evidence only with a current reuse ticket,
   previous evidence id, fingerprint or same-output proof, and a reason;
+- unchanged test results may reuse old evidence only with a current
+  `TestResultReuseTicket` and `ProofArtifactRef` that prove unchanged command,
+  test source, tested artifact, dependency, environment, result fingerprint,
+  and coverage scope;
 - directly touched dependencies or FlowGuard semantic ids need a narrower
   non-impact rationale before reuse is accepted;
 - deprecated models must stay visible with a replacement model and reason;

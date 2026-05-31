@@ -52,3 +52,6 @@ If the exact same abstract model, scenarios, oracle, invariants, risk boundary,
 and task revision already passed and none of those inputs changed, it is
 acceptable to reuse that result instead of rerunning only for ceremony. Mention
 reuse briefly and keep stale evidence visible.
+For tests, reuse only a completed result with final exit/status/result artifacts
+plus a current `TestResultReuseTicket` and `ProofArtifactRef`. Progress output
+is liveness only, not reusable pass evidence.

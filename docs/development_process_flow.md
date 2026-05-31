@@ -191,4 +191,9 @@ sync, DevelopmentProcessFlow should also consume
 `review_model_impact_freshness(...)`. Affected old models remain blocked until
 current rerun evidence exists. Unchanged old models can reuse previous evidence
 only when a reuse ticket proves the model, dependencies, FlowGuard semantics,
-previous evidence, and output fingerprint are still current.
+previous evidence, and output fingerprint are still current. Unchanged old test
+results can be reused only when a `TestResultReuseTicket` and matching
+`ProofArtifactRef` prove the command, test source, tested artifacts,
+dependencies, environment, result fingerprint, and covered obligation scope are
+current. Later writes that touch any of those fields stale the reuse proof and
+force a rerun or refreshed ticket before done confidence.

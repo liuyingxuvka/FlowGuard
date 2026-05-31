@@ -163,6 +163,10 @@ duplicate same-kind test claims, duplicate code contract owners,
 internal-path-only tests, model-code-test binding mismatches,
 stale/non-passing evidence, missing required test kinds, and overclaimed model
 confidence.
+If a `TestEvidence` row reuses a previous result, mark `result_reused=True` and
+attach a current `TestResultReuseTicket` plus `ProofArtifactRef`; the old result
+must prove unchanged command, test source, tested artifacts, dependencies,
+environment, result fingerprint, and covered obligation scope.
 
 When several obligations are being treated as one family-level promise, add
 `ObligationFamily` and `ObligationFamilyEvidence` rows. The family review blocks
@@ -363,7 +367,9 @@ FlowGuard. The parent gate lists `TestPartitionItem` entries for behavior,
 state, module, command, side effect, invariant, or release boundaries.
 `review_test_mesh(...)` checks coverage, ownership conflicts, freshness,
 skipped visibility, timeout/failure status, background completion artifacts,
-and routine-vs-release confidence.
+routine-vs-release confidence, and reused-result proof. A reused child suite
+needs both a current `TestResultReuseTicket` and proof artifact before it can
+support parent confidence.
 
 Before TestMesh parent confidence, record a target split derivation from a
 FlowGuard validation-structure model. The derivation must name the source
@@ -683,6 +689,11 @@ other production-facing evidence. Rerun the abstract model when its inputs
 changed, previous evidence is unavailable or stale, a counterexample or design
 revision needs confirmation, the user asks for a refresh, or a quick rerun
 would materially help confidence.
+The same principle applies to tests: reuse an old completed test result only
+when a test-result reuse ticket and proof artifact prove the command, test
+source, tested artifact, dependencies, environment, result fingerprint, and
+coverage scope are unchanged. Background progress output is not reusable pass
+evidence.
 
 Production implementation should preserve:
 

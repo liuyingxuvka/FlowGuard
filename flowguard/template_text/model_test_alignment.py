@@ -53,6 +53,7 @@ from flowguard import (
     TEST_CLOSURE_ROLE_SAME_CLASS_GENERALIZED,
     TEST_KIND_FAILURE_PATH,
     TEST_KIND_HAPPY_PATH,
+    TestResultReuseTicket,
     TestEvidence,
     audit_python_code_contracts,
     audit_python_test_assertions,
@@ -70,6 +71,21 @@ def proof_artifact(evidence_id: str, *covered: str) -> ProofArtifactRef:
         exit_code=0,
         result_path=result_path,
         artifact_fingerprints={result_path: "sha256:template"},
+        covered_obligation_ids=covered,
+    )
+
+
+def reuse_ticket(evidence_id: str, *covered: str) -> TestResultReuseTicket:
+    return TestResultReuseTicket(
+        evidence_id,
+        previous_evidence_id=f"{evidence_id}@previous",
+        reason="same command, source, tested artifact, dependency, environment, and result fingerprints",
+        command_fingerprint="sha256:command",
+        test_source_fingerprint="sha256:test-source",
+        tested_artifact_fingerprint="sha256:tested-artifact",
+        dependency_fingerprints={"flowguard": "template"},
+        environment_fingerprint="python:template",
+        result_fingerprint="sha256:result",
         covered_obligation_ids=covered,
     )
 
@@ -149,6 +165,8 @@ def aligned_plan() -> ModelTestAlignmentPlan:
                 covered_obligations=("accept_valid_order",),
                 covered_code_contracts=("checkout_accept_order",),
                 assertion_scope=TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
+                result_reused=True,
+                reuse_ticket=reuse_ticket("test_accept_valid_order", "accept_valid_order"),
                 proof_artifact=proof_artifact("test_accept_valid_order", "accept_valid_order"),
             ),
             TestEvidence(

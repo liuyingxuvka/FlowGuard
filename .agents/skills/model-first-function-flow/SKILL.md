@@ -48,6 +48,8 @@ means partial or scoped FlowGuard evidence.
 - Preserve user and peer-agent changes; later writes can stale evidence.
 - Long checks may run in the background, but final confidence needs exit/status
   and result artifacts, not progress lines.
+- Reused test results need current `TestResultReuseTicket` and
+  `ProofArtifactRef`; old `passed` output is not current evidence by itself.
 - For non-trivial FlowGuard work, show a route-specific Mermaid snapshot once
   the route/model is stable. Diagrams explain; they are not validation.
 - Before broad done/release/publish confidence, use Risk Evidence Ledger or an

@@ -16,12 +16,39 @@ from __future__ import annotations
 from flowguard import (
     EVIDENCE_ABSTRACT_GREEN,
     EVIDENCE_CONFORMANCE_GREEN,
+    ProofArtifactRef,
     TestMeshPlan,
     TestPartitionItem,
+    TestResultReuseTicket,
     TestSuiteEvidence,
     TestTargetSplitDerivation,
     review_test_mesh,
 )
+
+
+def proof_artifact(suite_id: str) -> ProofArtifactRef:
+    result_path = f"tmp/{suite_id}.json"
+    return ProofArtifactRef(
+        f"artifact:{suite_id}",
+        result_status="passed",
+        exit_code=0,
+        result_path=result_path,
+        artifact_fingerprints={result_path: "sha256:template"},
+    )
+
+
+def reuse_ticket(suite_id: str) -> TestResultReuseTicket:
+    return TestResultReuseTicket(
+        suite_id,
+        previous_evidence_id=f"{suite_id}@previous",
+        reason="same command, source, tested artifact, dependency, environment, and result fingerprints",
+        command_fingerprint="sha256:command",
+        test_source_fingerprint="sha256:test-source",
+        tested_artifact_fingerprint="sha256:tested-artifact",
+        dependency_fingerprints={"flowguard": "template"},
+        environment_fingerprint="python:template",
+        result_fingerprint="sha256:result",
+    )
 
 
 def routine_plan() -> TestMeshPlan:
@@ -50,6 +77,9 @@ def routine_plan() -> TestMeshPlan:
                 evidence_current=True,
                 test_count=8,
                 selected_count=8,
+                result_reused=True,
+                reuse_ticket=reuse_ticket("runtime"),
+                proof_artifact=proof_artifact("runtime"),
             ),
             TestSuiteEvidence(
                 "release-full",

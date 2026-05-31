@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.39.2 - 2026-05-31
+
+- Added `TestResultReuseTicket` so previous test results can be reused only
+  with current command, source, tested artifact, dependency, environment,
+  result fingerprint, and coverage-scope proof.
+- Extended Model-Test Alignment and TestMesh to reject reused test evidence
+  unless it has both a current reuse ticket and current proof artifact.
+- Updated public templates, docs, OpenSpec artifacts, and FlowGuard skill
+  guidance for model/test result reuse and background evidence boundaries.
+
 ## v0.39.1 - 2026-05-30
 
 - Refreshed FlowGuard source-only release metadata after confirming the

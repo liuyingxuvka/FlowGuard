@@ -257,6 +257,9 @@ it must keep their freshness rules visible:
   the new id;
 - code, test, adapter, or observation edits under a leaf stale the affected
   leaf boundary-matrix cells.
+- test command, source, tested artifact, dependency, environment, result
+  fingerprint, or coverage-scope edits stale any `TestResultReuseTicket` that
+  reused old test output.
 
 Progress-only background regressions can show liveness, but they do not satisfy
 layered proof freshness until final artifacts and exit status exist.
