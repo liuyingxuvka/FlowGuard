@@ -43,6 +43,7 @@ Return to `model-first-function-flow` when the task is not UI behavior/state.
 
 Show a UI state diagram with visible-control branches, regions, displays,
 recovery paths, text ownership, and residual blindspots.
+When drawing the snapshot, edges mean reachable UI states, visible-control branches, recovery paths, or interaction transitions.
 
 ## Non-Goals
 

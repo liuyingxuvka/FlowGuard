@@ -55,6 +55,13 @@ means partial or scoped FlowGuard evidence.
 - Before broad done/release/publish confidence, use Risk Evidence Ledger or an
   equivalent explicit risk-to-evidence boundary.
 
+## FlowGuard diagram intent gate
+Before showing a non-trivial FlowGuard diagram, identify which route owns the
+relationship and choose a diagram whose edges match that route's evidence.
+Do not flatten these into a generic flowchart. FlowGuard diagrams can explain
+process order, UI reachability, model-test coverage, code ownership, or model
+mesh delegation without LogicGuard claim-support semantics.
+
 ## Route Map
 
 Pick the smallest named route that owns the actual risk. Helper APIs and

@@ -48,6 +48,7 @@ defined. Do not invoke TestMesh, ModelMesh, or StructureMesh from this route.
 
 Show coverage from model obligations to tests, code contracts, boundary
 observations, missing inputs/outputs/state writes, and scoped gaps.
+When drawing the snapshot, edges mean covers, partially covers, observes, misses, or requires additional evidence.
 
 ## Non-Goals
 

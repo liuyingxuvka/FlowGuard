@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.39.3 - 2026-05-31
+
+Codex skill diagram semantics sync.
+
+- Added route-specific diagram intent guidance to installed FlowGuard skill surfaces.
+- Clarified diagram edge meanings for development process, UI flow, model-test alignment, code-structure recommendation, and model mesh routes.
+- Kept package runtime behavior unchanged.
+
 ## v0.39.2 - 2026-05-31
 
 - Added `TestResultReuseTicket` so previous test results can be reused only

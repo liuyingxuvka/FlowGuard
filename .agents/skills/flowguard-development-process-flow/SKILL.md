@@ -43,6 +43,7 @@ inspect or replace sibling route internals.
 
 Show artifact versions, action order, invalidations, evidence ids, minimum
 revalidation, and unsupported claims.
+When drawing the snapshot, edges mean order, invalidation, or required revalidation.
 
 ## Non-Goals
 

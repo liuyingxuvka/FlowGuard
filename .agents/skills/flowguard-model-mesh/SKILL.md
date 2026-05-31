@@ -42,6 +42,7 @@ TestMesh for test hierarchy and StructureMesh for code hierarchy.
 
 Show a mesh diagram with parent, children, partition items, evidence
 tiers/freshness, reattachment status, and what the mesh does or does not prove.
+When drawing the snapshot, edges mean delegates, reattaches, consumes output, inherits obligations, or scopes confidence.
 
 ## Non-Goals
 

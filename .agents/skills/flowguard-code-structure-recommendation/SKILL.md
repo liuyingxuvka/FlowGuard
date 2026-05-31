@@ -45,6 +45,7 @@ StructureMesh when refactoring existing large code or public APIs.
 
 Show a code structure diagram with FunctionBlock-to-module ownership, state
 owners, facade boundary, and validation boundaries.
+When drawing the snapshot, edges mean owns, calls, adapts, exposes, or validates.
 
 ## Non-Goals
 
