@@ -14,7 +14,7 @@ Project FlowGuard record:
 - Human log: `docs/flowguard_adoption_log.md`
 
 Current adoption record:
-- FlowGuard package version: `0.39.4`
+- FlowGuard package version: `0.40.0`
 - FlowGuard schema version: `1.0`
 
 Before non-trivial work:
@@ -30,6 +30,12 @@ Before non-trivial work:
    Then rerun affected models/tests before broad confidence and record the result.
 6. If the installed version is older than the project record, stop and upgrade
    the local FlowGuard toolchain before claiming FlowGuard confidence.
+
+After non-trivial FlowGuard-managed work, run or record a maintenance scan when
+changed artifacts, skipped routes, stale evidence, or split/reduction signals
+may require an owning route such as Model-Test Alignment,
+DevelopmentProcessFlow, Architecture Reduction, StructureMesh, ModelMesh,
+TestMesh, or AgentWorkflowRehearsal.
 
 Do not create a fake local FlowGuard replacement. Do not claim full FlowGuard
 completion from an AGENTS/manifest/log update alone; executable model checks,

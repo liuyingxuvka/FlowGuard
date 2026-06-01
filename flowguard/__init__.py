@@ -621,10 +621,12 @@ from .runtime_gateway import (
     review_runtime_gateway_adoption,
 )
 from . import closure_contract as _closure_contract
+from . import maintenance_scan as _maintenance_scan
 from . import plan_intake as _plan_intake
 from . import model_freshness as _model_freshness
 from . import model_maturation as _model_maturation
 from .closure_contract import *  # noqa: F403
+from .maintenance_scan import *  # noqa: F403
 from .plan_intake import *  # noqa: F403
 from .model_freshness import *  # noqa: F403
 from .model_maturation import *  # noqa: F403
@@ -865,6 +867,7 @@ from .templates import (
     development_process_flow_template_files,
     existing_model_preflight_template_files,
     layered_boundary_proof_template_files,
+    maintenance_scan_template_files,
     maintenance_workflow_template_files,
     model_miss_review_template_files,
     model_similarity_consolidation_template_files,
@@ -886,6 +889,7 @@ from .workflow import Workflow, WorkflowPath, WorkflowRun
 
 PLAN_INTAKE_CLAIM_API = tuple(_plan_intake.__all__)
 FLOWGUARD_CLOSURE_CONTRACT_API = tuple(_closure_contract.__all__)
+MAINTENANCE_SCAN_ROUTE_API = tuple(_maintenance_scan.__all__)
 MODEL_IMPACT_FRESHNESS_API = tuple(_model_freshness.__all__)
 MODEL_MATURATION_API = tuple(_model_maturation.__all__)
 
@@ -1505,6 +1509,7 @@ REPORTING_HELPER_API = (
     "AutoSplitPolicy",
     "AutoSplitReport",
     "review_auto_mesh_splits",
+    *MAINTENANCE_SCAN_ROUTE_API,
     *PLAN_INTAKE_CLAIM_API,
     "PlanDetail",
     "PlanDetailArtifact",
@@ -1687,6 +1692,7 @@ EVIDENCE_API = (
     "development_process_flow_template_files",
     "existing_model_preflight_template_files",
     "layered_boundary_proof_template_files",
+    "maintenance_scan_template_files",
     "maintenance_workflow_template_files",
     "model_miss_review_template_files",
     "model_similarity_consolidation_template_files",
@@ -1720,6 +1726,7 @@ TEMPLATE_STRUCTURE_API = (
     "risk_evidence_ledger_template_files",
     "layered_boundary_proof_template_files",
     "closure_contract_template_files",
+    "maintenance_scan_template_files",
     "ui_flow_structure_template_files",
     "development_process_flow_template_files",
     "workflow_step_contracts_template_files",
@@ -1804,6 +1811,7 @@ FLOWGUARD_ROUTE_API = {
     "code_structure_recommendation": CODE_STRUCTURE_RECOMMENDATION_ROUTE_API,
     "model_test_alignment": MODEL_TEST_ALIGNMENT_ROUTE_API,
     "plan_detailing_compiler": PLAN_DETAILING_ROUTE_API,
+    "maintenance_scan_router": MAINTENANCE_SCAN_ROUTE_API,
 }
 
 API_SURFACE = {
@@ -1822,6 +1830,7 @@ _PUBLIC_API_SUPPLEMENT = (
     "EVIDENCE_API",
     "FLOWGUARD_ROUTE_API",
     "FLOWGUARD_CLOSURE_CONTRACT_API",
+    "MAINTENANCE_SCAN_ROUTE_API",
     "MODEL_SIMILARITY_ROUTE_API",
     "MODEL_TEST_ALIGNMENT_ROUTE_API",
     "MODEL_IMPACT_FRESHNESS_API",

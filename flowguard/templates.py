@@ -43,6 +43,10 @@ from .template_text.maintenance_workflow import (
     MAINTENANCE_WORKFLOW_RUN_CHECKS_TEMPLATE,
     MAINTENANCE_WORKFLOW_NOTES_TEMPLATE,
 )
+from .template_text.maintenance_scan import (
+    MAINTENANCE_SCAN_RUN_TEMPLATE,
+    MAINTENANCE_SCAN_NOTES_TEMPLATE,
+)
 from .template_text.model_miss_review import (
     MODEL_MISS_REVIEW_MODEL_TEMPLATE,
     MODEL_MISS_REVIEW_RUN_CHECKS_TEMPLATE,
@@ -158,6 +162,13 @@ def maintenance_workflow_template_files() -> tuple[TemplateFile, ...]:
         TemplateFile(".flowguard/maintenance_workflow/model.py", MAINTENANCE_WORKFLOW_MODEL_TEMPLATE),
         TemplateFile(".flowguard/maintenance_workflow/run_checks.py", MAINTENANCE_WORKFLOW_RUN_CHECKS_TEMPLATE),
         TemplateFile("docs/flowguard_maintenance_workflow.md", MAINTENANCE_WORKFLOW_NOTES_TEMPLATE),
+    )
+
+
+def maintenance_scan_template_files() -> tuple[TemplateFile, ...]:
+    return (
+        TemplateFile(".flowguard/maintenance_scan/run_scan.py", MAINTENANCE_SCAN_RUN_TEMPLATE),
+        TemplateFile("docs/flowguard_maintenance_scan.md", MAINTENANCE_SCAN_NOTES_TEMPLATE),
     )
 
 
@@ -324,6 +335,8 @@ __all__ = [
     "MAINTENANCE_WORKFLOW_MODEL_TEMPLATE",
     "MAINTENANCE_WORKFLOW_NOTES_TEMPLATE",
     "MAINTENANCE_WORKFLOW_RUN_CHECKS_TEMPLATE",
+    "MAINTENANCE_SCAN_NOTES_TEMPLATE",
+    "MAINTENANCE_SCAN_RUN_TEMPLATE",
     "MODEL_MISS_REVIEW_MODEL_TEMPLATE",
     "MODEL_MISS_REVIEW_NOTES_TEMPLATE",
     "MODEL_MISS_REVIEW_RUN_CHECKS_TEMPLATE",
@@ -360,6 +373,7 @@ __all__ = [
     "existing_model_preflight_template_files",
     "layered_boundary_proof_template_files",
     "maintenance_workflow_template_files",
+    "maintenance_scan_template_files",
     "model_miss_review_template_files",
     "model_similarity_consolidation_template_files",
     "model_test_alignment_template_files",

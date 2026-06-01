@@ -16,7 +16,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.39.4` | `1.0` | Python standard library only | MIT |
+| `v0.40.0` | `1.0` | Python standard library only | MIT |
 
 English lead content comes first; a Chinese mirror follows below.
 
@@ -58,7 +58,9 @@ evidence when a miss was repaired, model-test/code alignment when code or tests
 are in scope, mesh or boundary proof when parent/child evidence is in scope,
 obligation-family parity when related obligations share a confidence claim,
 analogous defect scan when a real miss may recur across similar surfaces,
-model maturation when later evidence shows the model is too coarse, evidence
+model maturation when later evidence shows the model is too coarse,
+maintenance-scan routing when changed artifacts or skipped routes imply more
+owner-route work, evidence
 freshness, Risk Evidence Ledger, and typed claim-chain review. If a required
 gate is missing, stale, skipped, progress-only, wrong-provenance, or scoped out, the result is
 partial FlowGuard evidence rather than a full FlowGuard completion claim.
@@ -73,6 +75,7 @@ FlowGuard is useful at the design stage. You name the states, inputs, outputs, o
 | UI interface | Persistent regions, contextual panels, local actions, overlays, recovery paths, button availability, display ownership, duplicate-control rules, and text hierarchy | UI Flow Structure checks launch-to-terminal journeys, visible control availability, recovery paths, duplicate functions, warning/error escalation, and implementation click-through evidence | It models interaction structure; visual polish, accessibility details, and browser/device behavior still need ordinary UI review |
 | Code structure | Module split, facade boundary, state owner, side-effect owner, config owner, validation owner, public-entrypoint compatibility plan, and model-similarity shared-kernel hints | Code Structure Recommendation and StructureMesh look for ownership leaks, dependency cycles, facade drift, config drift, missing parity evidence, and false-friend model relations | It recommends a safer split; it does not replace implementation tests or code review |
 | Architecture reduction | Observable contract, duplicate implementation candidates, proof status, required next route, and safe target action | Architecture Reduction checks whether model-equivalent branches, handlers, adapters, modules, or validation layers can shrink code before StructureMesh or implementation | It proposes behavior-preserving contraction; public entrypoints and risky candidates still need compatibility and test evidence |
+| Maintenance scan | Changed artifacts, skipped candidate routes, stale evidence, and split/reduction/test/model-mesh signals after non-trivial project work | The maintenance scan routes open work to the owning FlowGuard route before a broad claim is made | It is a router, not proof: Model-Test Alignment, DevelopmentProcessFlow, Architecture Reduction, StructureMesh, ModelMesh, TestMesh, or AgentWorkflowRehearsal still provide the evidence |
 | Test strategy | Routine/release test layers, parent/child suites, timeout boundaries, stale/hidden evidence rules, automatic split triggers, family parity, and revalidation triggers | TestMesh and model-test alignment compare model obligations with actual tests, hidden skips, stale passes, timeout boundaries, broad/slow/release-only direct evidence, wrong-provenance family evidence, and release-only checks | Tests only support the modeled obligations they actually cover |
 | Model mesh or bug repair | Parent/child split, automatic large-model split trigger, evidence contract, reattachment gate, sibling impact review, leaf boundary matrix, model-miss class, same-class bad case, analogous defect scan, same-class test evidence, obligation-family parity, and recurring defect-family gate | ModelMesh requires parents to consume fresh child evidence; automatic split diagnostics route oversized or incomplete direct model evidence into ModelMesh; layered boundary proof requires leaf models to prove finite `Input x State -> Set(Output x State)` real-code boundaries; model-miss review adds same-class bad cases and scans same-shape sibling risks, Model-Test Alignment requires observed-regression plus same-class test evidence and family parity for related obligations, and recurring/high-risk miss families require a defect-family gate before closure | Child evidence does not improve parent confidence until the parent contract consumes it, and a coarse leaf or repaired miss stays scoped until real-code, analogous scan disposition, same-class test evidence, required obligation-family evidence, and defect-family gate evidence are complete |
 

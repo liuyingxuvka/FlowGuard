@@ -219,6 +219,12 @@ Before non-trivial work:
 6. If the installed version is older than the project record, stop and upgrade
    the local FlowGuard toolchain before claiming FlowGuard confidence.
 
+After non-trivial FlowGuard-managed work, run or record a maintenance scan when
+changed artifacts, skipped routes, stale evidence, or split/reduction signals
+may require an owning route such as Model-Test Alignment,
+DevelopmentProcessFlow, Architecture Reduction, StructureMesh, ModelMesh,
+TestMesh, or AgentWorkflowRehearsal.
+
 Do not create a fake local FlowGuard replacement. Do not claim full FlowGuard
 completion from an AGENTS/manifest/log update alone; executable model checks,
 tests, replay, and closure evidence still need to be current for the claim.

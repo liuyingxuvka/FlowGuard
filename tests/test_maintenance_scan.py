@@ -1,0 +1,203 @@
+import json
+import os
+import subprocess
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+from flowguard import (
+    MAINTENANCE_ACTION_SUGGESTED,
+    MAINTENANCE_ARTIFACT_CODE,
+    MAINTENANCE_ARTIFACT_EVIDENCE,
+    MAINTENANCE_ARTIFACT_MODEL,
+    MAINTENANCE_ROUTE_AGENT_WORKFLOW_REHEARSAL,
+    MAINTENANCE_ROUTE_ARCHITECTURE_REDUCTION,
+    MAINTENANCE_ROUTE_DEVELOPMENT_PROCESS_FLOW,
+    MAINTENANCE_ROUTE_MODEL_TEST_ALIGNMENT,
+    MAINTENANCE_ROUTE_STRUCTURE_MESH,
+    MAINTENANCE_SCAN_DECISION_BLOCKED,
+    MAINTENANCE_SCAN_DECISION_CLEAR,
+    MAINTENANCE_SCAN_DECISION_REQUIRED,
+    MAINTENANCE_SCAN_DECISION_SCOPED,
+    MAINTENANCE_SCAN_DECISION_SUGGESTED,
+    MAINTENANCE_SIGNAL_LARGE_MODULE,
+    MAINTENANCE_SIGNAL_REDUCIBLE_BRANCH,
+    MaintenanceChangedArtifact,
+    MaintenanceEvidence,
+    MaintenanceScanPlan,
+    MaintenanceSignal,
+    MaintenanceSkippedRoute,
+    maintenance_scan_template_files,
+    review_maintenance_scan,
+)
+from flowguard.templates import write_template_files
+
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def routes(report):
+    return {action.route_id for action in report.actions}
+
+
+class MaintenanceScanTests(unittest.TestCase):
+    def test_clear_scan_is_not_validation(self):
+        report = review_maintenance_scan(MaintenanceScanPlan("clear"))
+
+        self.assertTrue(report.ok)
+        self.assertEqual(MAINTENANCE_SCAN_DECISION_CLEAR, report.decision)
+        self.assertIn("not model/test/replay validation", report.summary)
+
+    def test_changed_model_and_code_requires_alignment_for_broad_claim(self):
+        report = review_maintenance_scan(
+            MaintenanceScanPlan(
+                "model-code",
+                claim_scope="done",
+                changed_artifacts=(
+                    MaintenanceChangedArtifact("model", MAINTENANCE_ARTIFACT_MODEL),
+                    MaintenanceChangedArtifact("code", MAINTENANCE_ARTIFACT_CODE),
+                ),
+            )
+        )
+
+        self.assertTrue(report.ok)
+        self.assertEqual(MAINTENANCE_SCAN_DECISION_SCOPED, report.decision)
+        self.assertIn(MAINTENANCE_ROUTE_MODEL_TEST_ALIGNMENT, routes(report))
+        self.assertEqual(("model_test_alignment:changed_model_code_test_boundary",), report.unresolved_required_action_ids)
+
+    def test_current_owner_evidence_resolves_required_action(self):
+        report = review_maintenance_scan(
+            MaintenanceScanPlan(
+                "resolved",
+                claim_scope="done",
+                changed_artifacts=(
+                    MaintenanceChangedArtifact("model", MAINTENANCE_ARTIFACT_MODEL),
+                    MaintenanceChangedArtifact("code", MAINTENANCE_ARTIFACT_CODE),
+                ),
+                evidence=(
+                    MaintenanceEvidence(
+                        "alignment-current",
+                        MAINTENANCE_ROUTE_MODEL_TEST_ALIGNMENT,
+                        status="passed",
+                        current=True,
+                    ),
+                ),
+            )
+        )
+
+        self.assertTrue(report.ok)
+        self.assertEqual(MAINTENANCE_SCAN_DECISION_REQUIRED, report.decision)
+        self.assertEqual((), report.unresolved_required_action_ids)
+        self.assertEqual(("alignment-current",), report.actions[0].owner_evidence_ids)
+
+    def test_strict_broad_claim_blocks_unresolved_required_action(self):
+        report = review_maintenance_scan(
+            MaintenanceScanPlan(
+                "strict",
+                claim_scope="release",
+                allow_scoped_confidence=False,
+                changed_artifacts=(
+                    MaintenanceChangedArtifact("model", MAINTENANCE_ARTIFACT_MODEL),
+                    MaintenanceChangedArtifact("code", MAINTENANCE_ARTIFACT_CODE),
+                ),
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertEqual(MAINTENANCE_SCAN_DECISION_BLOCKED, report.decision)
+
+    def test_stale_evidence_routes_to_development_process(self):
+        report = review_maintenance_scan(
+            MaintenanceScanPlan(
+                "stale",
+                claim_scope="publish",
+                changed_artifacts=(
+                    MaintenanceChangedArtifact("full-pytest", MAINTENANCE_ARTIFACT_EVIDENCE, current=False),
+                ),
+            )
+        )
+
+        self.assertIn(MAINTENANCE_ROUTE_DEVELOPMENT_PROCESS_FLOW, routes(report))
+
+    def test_unaccepted_skipped_route_requires_workflow_rehearsal(self):
+        report = review_maintenance_scan(
+            MaintenanceScanPlan(
+                "skipped",
+                skipped_routes=(MaintenanceSkippedRoute("structure_mesh_maintenance"),),
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertEqual(MAINTENANCE_SCAN_DECISION_REQUIRED, report.decision)
+        self.assertIn(MAINTENANCE_ROUTE_AGENT_WORKFLOW_REHEARSAL, routes(report))
+
+    def test_reduction_and_structure_signals_route_without_replacing_owners(self):
+        report = review_maintenance_scan(
+            MaintenanceScanPlan(
+                "structure",
+                signals=(
+                    MaintenanceSignal("dup", MAINTENANCE_SIGNAL_REDUCIBLE_BRANCH),
+                    MaintenanceSignal("large", MAINTENANCE_SIGNAL_LARGE_MODULE),
+                ),
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertEqual(MAINTENANCE_SCAN_DECISION_REQUIRED, report.decision)
+        self.assertIn(MAINTENANCE_ROUTE_ARCHITECTURE_REDUCTION, routes(report))
+        self.assertIn(MAINTENANCE_ROUTE_STRUCTURE_MESH, routes(report))
+        action_by_route = {action.route_id: action for action in report.actions}
+        self.assertEqual(MAINTENANCE_ACTION_SUGGESTED, action_by_route[MAINTENANCE_ROUTE_ARCHITECTURE_REDUCTION].strength)
+
+    def test_template_cli_and_written_example_run(self):
+        printed = subprocess.run(
+            [sys.executable, "-m", "flowguard", "maintenance-scan-template"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(0, printed.returncode, printed.stderr)
+        data = json.loads(printed.stdout)
+        self.assertEqual("maintenance_scan", data["template"])
+        self.assertIn(".flowguard/maintenance_scan/run_scan.py", {item["path"] for item in data["files"]})
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_template_files(root, maintenance_scan_template_files())
+            env = os.environ.copy()
+            env["PYTHONPATH"] = str(ROOT) + os.pathsep + env.get("PYTHONPATH", "")
+            result = subprocess.run(
+                [sys.executable, "run_scan.py"],
+                cwd=root / ".flowguard" / "maintenance_scan",
+                env=env,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+            self.assertIn("clear: maintenance_scan_clear", result.stdout)
+            self.assertIn("alignment_needed: maintenance_scan_scoped_confidence", result.stdout)
+            self.assertIn("structure_needed: maintenance_scan_actions_required", result.stdout)
+
+    def test_self_model_checks_pass(self):
+        env = os.environ.copy()
+        env["PYTHONPATH"] = str(ROOT) + os.pathsep + env.get("PYTHONPATH", "")
+        result = subprocess.run(
+            [sys.executable, ".flowguard/maintenance_scan_router/run_checks.py"],
+            cwd=ROOT,
+            env=env,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertIn("correct_maintenance_scan_router: OK", result.stdout)
+        self.assertIn("maintenance_scan_bad_claim: VIOLATION", result.stdout)
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -61,6 +61,7 @@ class ProjectAdoptionTests(unittest.TestCase):
             self.assertIn("Do not remove.", agents_text)
             self.assertIn("FlowGuard repository:", agents_text)
             self.assertIn(FLOWGUARD_REPOSITORY_URL, agents_text)
+            self.assertIn("maintenance scan", agents_text)
             manifest_text = (root / FLOWGUARD_PROJECT_MANIFEST).read_text(encoding="utf-8")
             self.assertIn(f'adopted_package_version = "{installed_flowguard_package_version()}"', manifest_text)
             self.assertIn(f'schema_version = "{flowguard.SCHEMA_VERSION}"', manifest_text)

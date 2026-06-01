@@ -303,6 +303,7 @@ python -m flowguard plan-detailing-template --output .
 python -m flowguard model-miss-template --output .
 python -m flowguard model-test-alignment-template --output .
 python -m flowguard development-process-flow-template --output .
+python -m flowguard maintenance-scan-template --output .
 ```
 
 The project adoption template writes the target-project AGENTS block,
@@ -323,6 +324,9 @@ matching current tests. The development process flow template models
 non-trivial staged development or modification with validation, lifecycle
 ordering, artifact overwrite, validation freshness, V-style validation pairs,
 and minimum revalidation before safe continuation, done, or release claims.
+The maintenance scan template shows how to summarize changed artifacts,
+skipped candidate routes, stale evidence, and structure/reduction signals into
+required or suggested owner-route actions before a broad FlowGuard claim.
 
 These are scaffolds, not reusable business logic. Rename every state field,
 input, output, invariant, and blindspot to match the target project before
@@ -332,6 +336,28 @@ The development process flow helper is a sibling route. It can reference
 evidence produced by ModelMesh, TestMesh, StructureMesh, Model-Test Alignment,
 LongCheck, or Conformance Adoption through evidence ids and artifact-version
 metadata, but it does not inspect or supervise those routes.
+
+## Maintenance Scan Router
+
+Use the maintenance scan router after non-trivial FlowGuard-managed project
+work when the question is "what maintenance route did this change make
+necessary?":
+
+```powershell
+python -m flowguard maintenance-scan-template --output .
+```
+
+The scaffold writes:
+
+- `.flowguard/maintenance_scan/run_scan.py`
+- `docs/flowguard_maintenance_scan.md`
+
+The helper is intentionally thin. It turns model/code/test drift, stale
+evidence, skipped candidate routes, reducible branches, large modules, mesh
+pressure, and slow or broad validation into owner-route actions such as
+Model-Test Alignment, DevelopmentProcessFlow, Architecture Reduction,
+StructureMesh, ModelMesh, TestMesh, or AgentWorkflowRehearsal. It does not run
+those routes and a clear scan is not validation evidence by itself.
 
 ## Maintenance Workflow Template
 

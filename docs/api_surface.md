@@ -66,6 +66,9 @@ For AI agents, route groups are the normal discovery surface:
 - `CODE_STRUCTURE_RECOMMENDATION_ROUTE_API`,
   `MODEL_TEST_ALIGNMENT_ROUTE_API`, and `ARCHITECTURE_REDUCTION_ROUTE_API`
   consume `SimilarityHandoff` when model similarity drives their work.
+- `MAINTENANCE_SCAN_ROUTE_API` is the thin router for FlowGuard-managed
+  project work that needs to surface model/code/test drift, stale evidence,
+  skipped candidate routes, or split/reduction pressure before a broad claim.
 
 Use `MODELING_HELPER_API` only as the complete index after the route group is
 known. It is intentionally broad and is not first-read guidance.
@@ -353,6 +356,7 @@ Evidence APIs are used to keep FlowGuard itself honest:
   `plan_detailing_template_files()`,
   `risk_evidence_ledger_template_files()`,
   `development_process_flow_template_files()`,
+  `maintenance_scan_template_files()`,
   `project_adoption_template_files()`, `test_mesh_template_files()`,
   `structure_mesh_template_files()`, `closure_contract_template_files()`, and
   `layered_boundary_proof_template_files()`, and
@@ -371,8 +375,9 @@ The package exports lightweight grouping constants:
 - route-scoped discovery groups such as `FLOWGUARD_ROUTE_API`,
   `TEMPLATE_STRUCTURE_API`, `EVIDENCE_FIELD_STRUCTURE_API`,
   `MODEL_SIMILARITY_ROUTE_API`, `ARCHITECTURE_REDUCTION_ROUTE_API`,
-  `CODE_STRUCTURE_RECOMMENDATION_ROUTE_API`, and
-  `MODEL_TEST_ALIGNMENT_ROUTE_API`, and `PLAN_DETAILING_ROUTE_API`
+  `CODE_STRUCTURE_RECOMMENDATION_ROUTE_API`,
+  `MODEL_TEST_ALIGNMENT_ROUTE_API`, `MAINTENANCE_SCAN_ROUTE_API`, and
+  `PLAN_DETAILING_ROUTE_API`
 - `CORE_API`
 - `REPORTING_HELPER_API`
 - `EVIDENCE_API`
@@ -418,6 +423,9 @@ progress-only, or release-only, run `review_auto_mesh_splits()` and route the
 result to ModelMesh or TestMesh before claiming broad parent confidence. For
 large model or validation meshes, record the target split derivation from the
 FlowGuard source model before trusting parent/child ownership and evidence.
+After non-trivial FlowGuard-managed work, run or construct a maintenance scan
+with `review_maintenance_scan()` when changed artifacts, skipped routes, stale
+evidence, or structure/reduction signals may require another owner route.
 When parent confidence claims whole-flow closure, add a
 mesh closure model so root entries, child outputs, joins, terminal
 dispositions, and out-of-scope branches are checked as executable handoff

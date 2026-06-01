@@ -275,6 +275,12 @@ FILE_TEMPLATE_COMMANDS: tuple[FileTemplateCommand, ...] = (
         "maintenance_workflow",
         "maintenance_workflow_template_files",
     ),
+    FileTemplateCommand(
+        "maintenance-scan-template",
+        "Print or write the FlowGuard maintenance scan router template.",
+        "maintenance_scan",
+        "maintenance_scan_template_files",
+    ),
 )
 
 

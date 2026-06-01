@@ -56,6 +56,11 @@ Before changing files, separate three situations:
   minimum revalidation is the risky boundary. Use this sibling route to review
   lifecycle rows without supervising ModelMesh, TestMesh, StructureMesh, or
   Model-Test Alignment internals.
+- `maintenance_scan_router`: a non-trivial FlowGuard-managed project change is
+  ending or changing direction and the agent must check whether changed
+  artifacts, stale evidence, skipped candidate routes, or split/reduction
+  signals require an owner route. Use the scan to route work; do not treat it
+  as model/test/replay validation.
 - `risk_evidence_ledger`: a final done, release, publish, or full-confidence
   claim depends on whether user risks are linked to model obligations, optional
   code contracts, and current proof evidence. Use this boundary after the

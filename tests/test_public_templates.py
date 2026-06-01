@@ -70,6 +70,7 @@ TEMPLATE_CLI_COMMANDS = {
     "workflow-step-contracts-template": "workflow_step_contracts",
     "test-mesh-template": "test_mesh",
     "structure-mesh-template": "structure_mesh",
+    "maintenance-scan-template": "maintenance_scan",
 }
 
 

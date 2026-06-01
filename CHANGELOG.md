@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.40.0 - 2026-06-01
+
+FlowGuard maintenance scan router.
+
+- Added `review_maintenance_scan()` with typed changed-artifact, evidence,
+  signal, skipped-route, action, plan, and report rows.
+- Added route-scoped `maintenance_scan_router` API discovery plus a
+  `maintenance-scan-template` CLI scaffold.
+- Added a FlowGuard self-model and tests that catch missing model/test
+  alignment, missing StructureMesh routing, skipped-route drops, and broad
+  claims without owner-route evidence.
+- Updated docs and AGENTS guidance so non-trivial FlowGuard-managed work can
+  route model/code/test drift, stale evidence, split pressure, and skipped
+  routes to the owning maintenance skill without turning the scan into a heavy
+  universal gate.
+
 ## v0.39.4 - 2026-06-01
 
 FlowGuard guidance surface fold-down.
