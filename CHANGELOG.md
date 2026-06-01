@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.40.4 - 2026-06-01
+
+Model topology hazard review.
+
+- Added `review_topology_hazards()` with `UsageIntent`, topology digests,
+  anchored hazard candidates, confidence decisions, runner integration, and
+  route-scoped API discovery.
+- Added automatic `topology_hazard` summary sections to
+  `run_model_first_checks(...)` so model-shape future-use hazards stay visible
+  before broad done, release, publish, archive, or full-confidence claims.
+- Connected topology hazard gaps to maintenance scan, Risk Evidence Ledger,
+  public templates, OpenSpec artifacts, docs, Codex skill guidance, and
+  FlowGuard self-model checks.
+
 ## v0.40.3 - 2026-06-01
 
 Latest-schema-first upgrade policy.

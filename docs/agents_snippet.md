@@ -54,8 +54,8 @@ progress-only, or not-run checks are not passes.
   `ProofArtifactRef`; old `passed` output is not current evidence by itself.
 - For non-trivial FlowGuard work, show a route-specific Mermaid snapshot once
   the route/model is stable; diagrams explain and do not validate.
-- Before full done/release/publish confidence, connect risks, obligations, code/test evidence, proof artifacts, and automatic state-closure gaps through Risk Evidence Ledger or equivalent.
-- After non-trivial work, use `maintenance_scan_router` when changed artifacts, skipped routes, stale evidence, state-closure gaps, or split/reduction signals appear.
+- Before full done/release/publish confidence, connect risks, obligations, code/test evidence, proof artifacts, automatic state-closure gaps, and topology-hazard gaps through Risk Evidence Ledger or equivalent.
+- After non-trivial work, use `maintenance_scan_router` when changed artifacts, skipped routes, stale evidence, state-closure or topology-hazard gaps, or split/reduction signals appear.
 - Finish real project use with adoption evidence: trigger, model/risk,
   commands, findings, skipped gaps, validation results, and next actions.
 
@@ -73,6 +73,7 @@ progress-only, or not-run checks are not passes.
 | Existing code/prompt flow should shrink without behavior loss | `architecture_reduction` | `flowguard-architecture-reduction` |
 | Pre-code module/function/block ownership recommendation | `code_structure_recommendation` | `flowguard-code-structure-recommendation` |
 | UI controls, screens, journeys, display/text ownership, runnable UI evidence | `ui_flow_structure` | `flowguard-ui-flow-structure` |
+| Locally green model topology implies future-use hazards before broad confidence | `model_topology_hazard_review` | `flowguard-model-topology-hazard-review` |
 | Model obligations versus tests, code contracts, or boundary observations | `model_test_alignment` | `flowguard-model-test-alignment` |
 | Three or more models, oversized model, stale child evidence, parent/child mesh | `model_mesh_maintenance` | `flowguard-model-mesh` |
 | Large/slow/stale/release-only tests or parent/child test hierarchy | `test_mesh_maintenance` | `flowguard-test-mesh` |

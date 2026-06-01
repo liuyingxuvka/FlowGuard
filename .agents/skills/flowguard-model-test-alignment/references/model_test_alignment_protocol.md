@@ -49,6 +49,11 @@ evidence rows. Each runtime node observation must name `model_id`,
 contract when known. Anonymous logs or helper-only progress messages are not
 model-test alignment evidence.
 
+When a Model Topology Hazard Review names an anchored future-use hazard with a
+model/test disposition, treat the hazard id as a model obligation source. Bind
+current tests or code-boundary observations to that hazard, or return the gap
+to model maturation and Risk Evidence Ledger.
+
 When real Python source and tests are available, add the conservative source audit
 layer before trusting hand-authored rows. This layer reads Python ASTs to
 generate or check `PythonCodeContractEvidence` and
@@ -88,6 +93,8 @@ Create or update a model-test alignment review when:
 - declared code boundaries need runtime observation evidence showing allowed
   inputs, rejected inputs, outputs, errors, state writes, and side effects
   stayed inside the model-declared boundary.
+- topology-anchored future-use hazards need ordinary test, boundary, or
+  evidence rows before they can support broad confidence.
 
 Do not trigger this protocol merely because tests are large or slow. Use
 TestMesh for parent/child test hierarchy problems. Do not trigger it merely
@@ -132,6 +139,8 @@ Expand only when applicable:
 - `CodeBoundaryContract` and `CodeBoundaryObservation` rows for exact closed
   code boundaries.
 - Leaf boundary matrix rows when a finite leaf model is being proved.
+- `ModelObligation` rows for model-topology hazard candidates that became
+  testable obligations.
 - Detailed source-audit notes when AST-visible code or tests are reviewed.
 
 ## Conservative Source Audit Checklist

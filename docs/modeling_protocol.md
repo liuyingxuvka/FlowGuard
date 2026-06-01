@@ -3,10 +3,10 @@
 This document is the `core_modeling` sub-protocol for the FlowGuard Skill
 Kernel. The main Skill routes here for ordinary model-first work. Specialized
 routes such as UI flow structure, code structure recommendation, model-test
-alignment, Risk Evidence Ledger, ModelMesh, TestMesh, StructureMesh,
-DevelopmentProcessFlow, model-miss review, conformance/adoption, long-check
-observability, and framework upgrades live in their dedicated reference
-protocols.
+alignment, model topology hazard review, Risk Evidence Ledger, ModelMesh,
+TestMesh, StructureMesh, DevelopmentProcessFlow, model-miss review,
+conformance/adoption, long-check observability, and framework upgrades live in
+their dedicated reference protocols.
 
 Use this protocol before implementing non-trivial behavior involving workflows, state, retries, deduplication, idempotency, caching, or module boundaries.
 
@@ -38,6 +38,10 @@ Before changing files, separate three situations:
   or optional code external contracts have matching current test evidence. When
   real Python source/tests are in scope, first run or request conservative
   source audit evidence for the code and test rows.
+- `model_topology_hazard_review`: a locally green model topology may imply
+  future-use hazards before broad done, release, publish, or full-confidence
+  claims. Read topology and usage intent first; only hazards with concrete
+  anchors can affect confidence.
 - `test_mesh_maintenance`: validation is too large, broad, stale-prone, or
   layered to trust as one flat test command or script. Build a TestMesh that
   partitions parent test confidence into child-suite/script ownership and
@@ -77,9 +81,10 @@ Before changing files, separate three situations:
   against the upgrade impact, rerun affected models, and allow unchanged models
   to reuse previous evidence only with a current reuse ticket.
 - `model_maturation_loop`: later model-miss, model-test, state-closure,
-  ModelMesh, code-boundary, or freshness evidence says the model itself is too
-  coarse, stale, disconnected, or only supports a scoped claim. Translate that
-  signal into a model-upgrade action before broad confidence is claimed.
+  topology-hazard, ModelMesh, code-boundary, or freshness evidence says the
+  model itself is too coarse, stale, disconnected, or only supports a scoped
+  claim. Translate that signal into a model-upgrade action before broad
+  confidence is claimed.
 - `flowguard_closure_contract`: a full done, release, publish, or
   production-confidence claim is being made from FlowGuard evidence. Treat the
   closure chain as intrinsic to FlowGuard use, not as a mode: required

@@ -7,10 +7,11 @@ evidence after later work.
 
 This is a sibling sub-protocol. It supports planning and execution evidence
 without supervising other routes. It can reference evidence produced by
-ModelMesh, TestMesh, StructureMesh, Model-Test Alignment, LongCheck, or
-Conformance Adoption through ids and freshness metadata, and it should consume
-a Risk Evidence Ledger decision before final done/release/archive/publish
-claims. It does not inspect, replace, or repair those route internals.
+ModelMesh, TestMesh, StructureMesh, Model-Test Alignment, Model Topology Hazard
+Review, LongCheck, or Conformance Adoption through ids and freshness metadata,
+and it should consume a Risk Evidence Ledger decision before final
+done/release/archive/publish claims. It does not inspect, replace, or repair
+those route internals.
 
 When the upstream plan is vague or only a short AI outline, use
 `flowguard-plan-detailing-compiler` first. Its `PlanDetail` rows can be
@@ -90,6 +91,9 @@ Use these triage classes:
   current mesh evidence is consumed.
 - `model_test_mismatch`: model obligations, optional code contracts, and
   ordinary test evidence do not line up. Hand off to Model-Test Alignment.
+- `topology_hazard_gap`: a locally green model topology still has anchored
+  future-use hazards. Hand off to Model Topology Hazard Review and keep the
+  lifecycle claim scoped or blocked until current route evidence is consumed.
 - `stale_evidence`: the artifact or verifier version changed after evidence
   was produced. Rerun or replace the owning evidence before it can support the
   lifecycle claim.
@@ -146,9 +150,9 @@ Build a FlowGuard DevelopmentProcessFlow review for this repository.
 
 Treat the development lifecycle itself as the modeled process. Do not supervise
 or inspect sibling routes. If evidence came from TestMesh, StructureMesh,
-ModelMesh, Model-Test Alignment, LongCheck, or Conformance Adoption, reference
-only its evidence id, producer route, status, covered artifact versions, and
-freshness metadata.
+ModelMesh, Model-Test Alignment, Model Topology Hazard Review, LongCheck, or
+Conformance Adoption, reference only its evidence id, producer route, status,
+covered artifact versions, and freshness metadata.
 
 Use these groups:
 
@@ -171,6 +175,8 @@ Known hazards that must fail:
   failure instead of TestMesh handoff;
 - model/test obligation mismatch treated as an ordinary failure instead of
   Model-Test Alignment handoff;
+- topology-anchored future-use hazard treated as generic prose instead of
+  Model Topology Hazard Review evidence;
 - child-local green evidence counted as parent confidence before parent
   reattachment;
 - progress-only background evidence counted as complete;

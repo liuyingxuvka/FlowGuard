@@ -7,9 +7,9 @@ done. It also checks whether a release, archive, or publish claim still has
 current evidence.
 
 It is a sibling helper route. It can reference evidence ids produced by
-ModelMesh, TestMesh, StructureMesh, Model-Test Alignment, LongCheck, or
-Conformance Adoption, but it does not inspect or supervise those route
-internals.
+ModelMesh, TestMesh, StructureMesh, Model-Test Alignment, Model Topology Hazard
+Review, LongCheck, or Conformance Adoption, but it does not inspect or
+supervise those route internals.
 
 When a lifecycle claim is broad enough to say done, release, archive, publish,
 or framework-sync confidence, use `require_proof_artifacts=True`. In that mode,

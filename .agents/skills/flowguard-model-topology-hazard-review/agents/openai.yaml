@@ -1,0 +1,4 @@
+interface:
+  display_name: "FlowGuard Model Topology Hazard Review"
+  short_description: "Infer future-use hazards from FlowGuard model topology"
+  default_prompt: "Use $flowguard-model-topology-hazard-review when a locally green FlowGuard model still needs topology-grounded future-use risk review before broad confidence."

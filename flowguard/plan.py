@@ -78,6 +78,8 @@ class FlowGuardCheckPlan:
     scenario_matrix_config: ScenarioMatrixConfig | None = None
     assumption_card: Any = None
     state_closure_plan: Any = None
+    topology_hazard_plan: Any = None
+    usage_intent: Any = None
     metadata: FrozenMetadata = field(default_factory=tuple, compare=False)
 
     def __init__(
@@ -98,6 +100,8 @@ class FlowGuardCheckPlan:
         scenario_matrix_config: ScenarioMatrixConfig | Mapping[str, Any] | None = None,
         assumption_card: Any = None,
         state_closure_plan: Any = None,
+        topology_hazard_plan: Any = None,
+        usage_intent: Any = None,
         metadata: Mapping[str, Any] | Iterable[tuple[str, Any]] | None = None,
     ) -> None:
         object.__setattr__(self, "workflow", workflow)
@@ -119,6 +123,8 @@ class FlowGuardCheckPlan:
         )
         object.__setattr__(self, "assumption_card", assumption_card)
         object.__setattr__(self, "state_closure_plan", state_closure_plan)
+        object.__setattr__(self, "topology_hazard_plan", topology_hazard_plan)
+        object.__setattr__(self, "usage_intent", usage_intent)
         object.__setattr__(self, "metadata", freeze_metadata(metadata))
 
     def format_text(self) -> str:
@@ -136,6 +142,7 @@ class FlowGuardCheckPlan:
             f"conformance_status: {self.conformance_status or 'not_provided'}",
             f"assumption_card: {'provided' if self.assumption_card is not None else 'not_provided'}",
             f"state_closure_plan: {'provided' if self.state_closure_plan is not None else 'auto'}",
+            f"topology_hazard_plan: {'provided' if self.topology_hazard_plan is not None else 'auto'}",
         ]
         if self.risk_profile is not None:
             lines.append(f"risk_profile: {self.risk_profile.modeled_boundary}")
@@ -175,6 +182,8 @@ class FlowGuardCheckPlan:
             ),
             "assumption_card": _assumption_card_to_jsonable(self.assumption_card),
             "state_closure_plan": to_jsonable(self.state_closure_plan),
+            "topology_hazard_plan": to_jsonable(self.topology_hazard_plan),
+            "usage_intent": to_jsonable(self.usage_intent),
             "metadata": to_jsonable(self.metadata),
         }
 

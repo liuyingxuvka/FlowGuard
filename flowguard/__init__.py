@@ -635,12 +635,14 @@ from . import closure_contract as _closure_contract
 from . import maintenance_scan as _maintenance_scan
 from . import plan_intake as _plan_intake
 from . import state_closure as _state_closure
+from . import topology_hazard as _topology_hazard
 from . import model_freshness as _model_freshness
 from . import model_maturation as _model_maturation
 from .closure_contract import *  # noqa: F403
 from .maintenance_scan import *  # noqa: F403
 from .plan_intake import *  # noqa: F403
 from .state_closure import *  # noqa: F403
+from .topology_hazard import *  # noqa: F403
 from .model_freshness import *  # noqa: F403
 from .model_maturation import *  # noqa: F403
 from .development_process_flow import (
@@ -893,6 +895,7 @@ from .templates import (
     runtime_path_evidence_template_files,
     structure_mesh_template_files,
     test_mesh_template_files,
+    topology_hazard_template_files,
     ui_flow_structure_template_files,
     workflow_step_contracts_template_files,
     write_template_files,
@@ -904,6 +907,7 @@ PLAN_INTAKE_CLAIM_API = tuple(_plan_intake.__all__)
 FLOWGUARD_CLOSURE_CONTRACT_API = tuple(_closure_contract.__all__)
 MAINTENANCE_SCAN_ROUTE_API = tuple(_maintenance_scan.__all__)
 STATE_CLOSURE_ROUTE_API = tuple(_state_closure.__all__)
+TOPOLOGY_HAZARD_ROUTE_API = tuple(_topology_hazard.__all__)
 MODEL_IMPACT_FRESHNESS_API = tuple(_model_freshness.__all__)
 MODEL_MATURATION_API = tuple(_model_maturation.__all__)
 
@@ -1462,6 +1466,7 @@ MODELING_HELPER_API = (
     "DevelopmentProcessFlowReport",
     "review_development_process_flow",
     "derive_revalidation_plan",
+    *TOPOLOGY_HAZARD_ROUTE_API,
     "PROCESS_SCOPE_ROUTINE",
     "PROCESS_SCOPE_RELEASE",
     "PROCESS_EVIDENCE_PASSED",
@@ -1723,6 +1728,7 @@ EVIDENCE_API = (
     "runtime_path_evidence_template_files",
     "structure_mesh_template_files",
     "test_mesh_template_files",
+    "topology_hazard_template_files",
     "ui_flow_structure_template_files",
     "workflow_step_contracts_template_files",
     "write_template_files",
@@ -1749,6 +1755,7 @@ TEMPLATE_STRUCTURE_API = (
     "development_process_flow_template_files",
     "workflow_step_contracts_template_files",
     "test_mesh_template_files",
+    "topology_hazard_template_files",
     "structure_mesh_template_files",
 )
 
@@ -1831,6 +1838,7 @@ FLOWGUARD_ROUTE_API = {
     "plan_detailing_compiler": PLAN_DETAILING_ROUTE_API,
     "maintenance_scan_router": MAINTENANCE_SCAN_ROUTE_API,
     "state_closure": STATE_CLOSURE_ROUTE_API,
+    "model_topology_hazard_review": TOPOLOGY_HAZARD_ROUTE_API,
 }
 
 API_SURFACE = {
@@ -1856,6 +1864,7 @@ _PUBLIC_API_SUPPLEMENT = (
     "MODEL_MATURATION_API",
     "PLAN_DETAILING_ROUTE_API",
     "STATE_CLOSURE_ROUTE_API",
+    "TOPOLOGY_HAZARD_ROUTE_API",
     "MODELING_HELPER_API",
     "REPORTING_HELPER_API",
     "TEMPLATE_STRUCTURE_API",

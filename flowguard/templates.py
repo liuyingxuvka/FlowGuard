@@ -92,6 +92,11 @@ from .template_text.test_mesh import (
     TEST_MESH_RUN_CHECKS_TEMPLATE,
     TEST_MESH_NOTES_TEMPLATE,
 )
+from .template_text.topology_hazard import (
+    TOPOLOGY_HAZARD_MODEL_TEMPLATE,
+    TOPOLOGY_HAZARD_RUN_CHECKS_TEMPLATE,
+    TOPOLOGY_HAZARD_NOTES_TEMPLATE,
+)
 from .template_text.ui_flow_structure import (
     UI_FLOW_STRUCTURE_MODEL_TEMPLATE,
     UI_FLOW_STRUCTURE_RUN_CHECKS_TEMPLATE,
@@ -297,6 +302,14 @@ def structure_mesh_template_files() -> tuple[TemplateFile, ...]:
     )
 
 
+def topology_hazard_template_files() -> tuple[TemplateFile, ...]:
+    return (
+        TemplateFile(".flowguard/model_topology_hazard_review/model.py", TOPOLOGY_HAZARD_MODEL_TEMPLATE),
+        TemplateFile(".flowguard/model_topology_hazard_review/run_checks.py", TOPOLOGY_HAZARD_RUN_CHECKS_TEMPLATE),
+        TemplateFile("docs/flowguard_model_topology_hazard_review.md", TOPOLOGY_HAZARD_NOTES_TEMPLATE),
+    )
+
+
 def write_template_files(
     root: str | Path,
     files: tuple[TemplateFile, ...],
@@ -362,6 +375,9 @@ __all__ = [
     "TEST_MESH_MODEL_TEMPLATE",
     "TEST_MESH_NOTES_TEMPLATE",
     "TEST_MESH_RUN_CHECKS_TEMPLATE",
+    "TOPOLOGY_HAZARD_MODEL_TEMPLATE",
+    "TOPOLOGY_HAZARD_NOTES_TEMPLATE",
+    "TOPOLOGY_HAZARD_RUN_CHECKS_TEMPLATE",
     "TemplateFile",
     "WORKFLOW_STEP_CONTRACTS_MODEL_TEMPLATE",
     "WORKFLOW_STEP_CONTRACTS_NOTES_TEMPLATE",
@@ -385,6 +401,7 @@ __all__ = [
     "runtime_path_evidence_template_files",
     "structure_mesh_template_files",
     "test_mesh_template_files",
+    "topology_hazard_template_files",
     "ui_flow_structure_template_files",
     "workflow_step_contracts_template_files",
     "write_template_files",

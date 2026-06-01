@@ -14,7 +14,7 @@ The ledger does not make FlowGuard models deeper. It connects the coarse model
 to ordinary evidence:
 
 ```text
-user risk -> model obligation -> public code contract -> obligation-family gate -> analogous scan -> defect-family gate -> current proof evidence
+user risk -> topology hazard review -> model obligation -> public code contract -> obligation-family gate -> analogous scan -> defect-family gate -> current proof evidence
 ```
 
 If any link is missing, stale, skipped, progress-only, or internal-path-only, the
@@ -44,7 +44,9 @@ whether the rows and later claim promotion were too narrow.
   full confidence. Rows can also require a current family parity gate when a
   risk claims several sibling obligations are equivalently covered. After a
   model miss, rows can require a current analogous defect scan so the final
-  claim cannot ignore same-shape sibling risks.
+  claim cannot ignore same-shape sibling risks. Rows can also require a current
+  model-topology hazard review so future-use hazards inferred from model shape
+  are handled, scoped, or blocked before broad confidence.
 - `RiskEvidenceProof`: one test, replay, route report, or manual validation item.
   For full-confidence strict reviews, attach a `proof_artifact` instead of
   relying on the row's declared status alone.
@@ -87,6 +89,8 @@ plan = RiskEvidenceLedgerPlan(
             family_gate_required=True,
             analogous_scan_id="analogous:submit-routing",
             analogous_scan_required=True,
+            topology_hazard_id="topology:submit-routing",
+            topology_hazard_required=True,
             defect_family_id="defect-family:duplicate-submit",
             defect_family_gate_required=True,
         ),
@@ -128,6 +132,9 @@ public submit behavior.
   `family_gate_not_current`, `family_gate_blocked`,
   `missing_analogous_scan`, `analogous_scan_not_current`,
   `analogous_scan_blocked`,
+  `missing_topology_hazard_review`,
+  `topology_hazard_review_not_current`,
+  `topology_hazard_review_blocked`,
   `missing_defect_family_gate`,
   `defect_family_gate_not_current`, `defect_family_gate_blocked`,
   `missing_proof_evidence`, `missing_current_passing_proof`,
@@ -143,6 +150,9 @@ public submit behavior.
 - `analogous_scan_scoped_confidence`: the same-shape defect radius scan is
   current but explicitly scoped; do not claim the repair covered every related
   surface.
+- `topology_hazard_review_scoped_confidence`: the model-topology hazard review
+  is current but only supports scoped confidence; do not upgrade model-shaped
+  future-use risk to a full claim.
 
 ## Route Responsibilities
 
@@ -154,6 +164,9 @@ public submit behavior.
 - ModelMesh produces parent/child model evidence and reattachment status.
 - Model Maturation produces model-upgrade or scoped-claim decisions when later
   route evidence says the model is too coarse, stale, or disconnected.
+- Model Topology Hazard Review produces anchored future-use hazard candidates
+  from model shape and usage intent, then hands unresolved hazards to the
+  owning route before the ledger accepts broad confidence.
 - StructureMesh and UI Flow Structure produce public-entrypoint or journey
   evidence when structure or UI claims are involved.
 - DevelopmentProcessFlow checks the ledger before done, archive, publish, or

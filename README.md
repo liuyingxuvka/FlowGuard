@@ -16,7 +16,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.40.3` | `1.0` | Python standard library only | MIT |
+| `v0.40.4` | `1.0` | Python standard library only | MIT |
 
 English lead content comes first; a Chinese mirror follows below.
 
@@ -58,6 +58,7 @@ evidence when a miss was repaired, model-test/code alignment when code or tests
 are in scope, mesh or boundary proof when parent/child evidence is in scope,
 obligation-family parity when related obligations share a confidence claim,
 analogous defect scan when a real miss may recur across similar surfaces,
+model-topology hazard review when local green evidence may overclaim future use,
 model maturation when later evidence shows the model is too coarse,
 maintenance-scan routing when changed artifacts or skipped routes imply more
 owner-route work, evidence
@@ -125,6 +126,7 @@ FlowGuard gives those weak spots a small executable shape before the action beco
 | --- | --- |
 | Scenario and invariant review | Checks expected traces, hard rules, repeated inputs, dead branches, and bad terminal states |
 | State/input closure gate | Automatically keeps other, malformed, missing, old-schema, and externally unknown cases visible; safe handling can pass, undeclared policy scopes confidence, and unsafe side effects block it |
+| Model Topology Hazard Review | Reads model topology and usage intent to infer anchored future-use hazards from repeatable side effects, broad terminal states, old/new paths, external boundaries, shared writers, or parent/child compression before broad confidence |
 | Adversarial scenario synthesis | Derives candidate challenge routes from Explorer counterexamples, dead branches, exception branches, repeated state visits, and risk semantics, with bounded input-shape fallbacks kept as candidate evidence |
 | Conformance replay | Compares representative abstract traces with implementation behavior when code exists |
 | Runtime Gateway Adoption | Checks whether a project claiming runtime FlowGuard protection has complete critical-state writer inventory and every critical write is mediated by declared gateway contracts with step, boundary, replay, and proof evidence |
@@ -136,7 +138,7 @@ FlowGuard gives those weak spots a small executable shape before the action beco
 | Plan Intake And Claim Chain | Checks that plan inputs, evidence adapters, false-negative repairs, known-bad mutations, and typed claim dependencies are declared before broad confidence is claimed |
 | Model Impact Freshness | Classifies existing `.flowguard` models after a FlowGuard upgrade so affected models rerun and unchanged models reuse old evidence only with explicit proof |
 | Model Maturation Loop | Converts model-miss, state-closure, model-test, mesh, code-boundary, and evidence-freshness signals into explicit model-upgrade actions before broad claims are made |
-| Risk Evidence Ledger | Connects user-facing risks to model obligations, public code contracts, obligation-family gates, analogous scans, recurring defect-family gates, model/test split gates, and current proof evidence before any full-confidence claim |
+| Risk Evidence Ledger | Connects user-facing risks to topology hazard reviews, model obligations, public code contracts, obligation-family gates, analogous scans, recurring defect-family gates, model/test split gates, and current proof evidence before any full-confidence claim |
 | FlowGuard closure contract | Requires the relevant intake, model, same-class bug, family parity, analogous scan when required, alignment, mesh/boundary, model maturation, freshness, ledger, and claim-chain gates before complete FlowGuard use or full-confidence claims |
 | ModelMesh | Splits oversized or incomplete direct model evidence into parent/child evidence, propagates child boundary changes upward, reviews affected sibling models, and uses mesh closure models for whole-flow parent confidence |
 | Layered Boundary Proof | Joins parent coverage, child disjointness, child reattachment, and leaf boundary-matrix evidence before parent model confidence can claim the code stayed inside model boundaries |
@@ -305,12 +307,13 @@ print(report.format_text())
 
 ## Skill Architecture
 
-FlowGuard has one kernel and several peer satellite skills. Clear staged-development, UI, structure, test, mesh, alignment, or model-miss work should route directly to the matching satellite; `model-first-function-flow` remains the kernel for ordinary behavior/state modeling, unclear route selection, and cross-route coordination:
+FlowGuard has one kernel and several peer satellite skills. Clear staged-development, UI, structure, test, mesh, alignment, topology-hazard, or model-miss work should route directly to the matching satellite; `model-first-function-flow` remains the kernel for ordinary behavior/state modeling, unclear route selection, and cross-route coordination:
 
 | Skill route | Use it when |
 | --- | --- |
 | `model-first-function-flow` | Ordinary behavior/state modeling, unclear FlowGuard route selection, cross-route coordination, or core model work before a narrower route is known |
 | `flowguard-plan-detailing-compiler` | A rough idea, short plan, or AI-generated outline needs detailed scope, state, evidence, receipts, rework, and claim boundaries before downstream modeling |
+| `flowguard-model-topology-hazard-review` | A locally green model topology may imply future-use hazards before broad done, release, publish, archive, or full-confidence claims |
 | `flowguard-model-test-alignment` | Model obligations, code contracts, code-boundary observations, and test evidence need a direct comparison |
 | `flowguard-model-mesh` | A project has multiple local models, child evidence, or oversized model surfaces |
 | `flowguard-test-mesh` | Test evidence is layered, slow, stale, skipped, release-only, or split across child suites |
@@ -338,6 +341,7 @@ FlowGuard is the state and workflow guard.
 | File | Purpose |
 | --- | --- |
 | `docs/modeling_protocol.md` | Core model-first protocol |
+| `docs/model_topology_hazard_review.md` | Topology-grounded future-use hazard review |
 | `docs/flowguard_closure_contract.md` | Mandatory closure contract for complete FlowGuard use |
 | `docs/model_test_alignment.md` | Model obligation and test evidence alignment |
 | `docs/obligation_family_parity.md` | Sibling-obligation family coverage and provenance gate |
@@ -418,6 +422,7 @@ benchmark corpus、内部维护模型或 release-hardening ledger，才能从这
 model miss 时的同类坏 case、代码或测试在范围内时的 model-test/code alignment、
 父子证据在范围内时的 mesh 或 boundary proof、相关义务共用同一个信心声明时的
 obligation-family parity、真实 miss 可能在相似 surface 复发时的 analogous defect scan、
+局部 green 可能过度声明未来使用时的 model-topology hazard review、
 后续证据显示模型太粗时的 model maturation、证据新鲜度、Risk Evidence Ledger，
 以及 typed claim-chain review。任何必要 gate 缺失、过期、
 跳过、还在进度中、来源不对或只是 scoped，都只能报告
@@ -481,6 +486,8 @@ FlowGuard 给这些薄弱点一个小而可执行的结构。
 | 路线 | 作用 |
 | --- | --- |
 | Scenario 和 invariant review | 检查预期路径、硬规则、重复输入、死分支和坏终态 |
+| State/input closure gate | 自动把其他、畸形、缺失、旧 schema 和外部未知 case 保持可见；安全处理可以通过，未声明策略会降低信心，不安全 side effect 会阻塞 |
+| Model Topology Hazard Review | 从模型拓扑和使用意图出发，自动联想有锚点的未来使用风险，例如重复 side effect、宽泛终态、旧/新路径、外部边界、共享 writer 或父子压缩 |
 | Adversarial scenario synthesis | 从 Explorer 反例、死分支、异常分支、重复状态访问和风险语义里反推出候选挑战路线；固定输入形状只作为有边界的兜底候选证据 |
 | Conformance replay | 当代码已存在时，把抽象路径和真实实现行为对齐 |
 | Runtime Gateway Adoption | 当项目声称 FlowGuard 保护运行时状态写入时，检查关键状态写入口清单是否完整，且每个关键写入是否都经过带 step、boundary、replay 和 proof 证据的声明网关 |
@@ -492,7 +499,7 @@ FlowGuard 给这些薄弱点一个小而可执行的结构。
 | Plan Intake And Claim Chain | 在声明广泛信心前，检查计划输入、证据适配器、漏报修复、已知坏变异和 typed claim dependency 是否已经声明 |
 | Model Impact Freshness | FlowGuard 升级后先分类现有 `.flowguard` 模型：受影响的重跑，未受影响的只有带明确复用证明才沿用旧证据 |
 | Model Maturation Loop | 把 model miss、model-test、mesh、代码边界和证据新鲜度信号翻译成明确的模型升级动作，再允许广泛声明 |
-| Risk Evidence Ledger | 在声明完整信心前，把用户风险、模型义务、公开代码 contract、obligation-family gate、analogous scan、复发缺陷族门槛、模型/测试拆分门槛和当前证据连起来检查 |
+| Risk Evidence Ledger | 在声明完整信心前，把用户风险、topology hazard review、模型义务、公开代码 contract、obligation-family gate、analogous scan、复发缺陷族门槛、模型/测试拆分门槛和当前证据连起来检查 |
 | FlowGuard closure contract | 在报告完整 FlowGuard 使用或完整信心前，要求相关 intake、模型、同类 bug、family parity、必要时的 analogous scan、alignment、mesh/boundary、model maturation、新鲜度、ledger 和 claim-chain gate 成立 |
 | ModelMesh | 把过大或未完成的直接模型证据拆成父子证据，向上同步 child boundary 变化，检查 sibling，并用 closure model 支撑父级全流程信心 |
 | Layered Boundary Proof | 把 parent coverage、child disjointness、child reattachment 和 leaf boundary-matrix evidence 接成一个父级信心门，防止“子模型绿了但真实代码边界没证明” |
@@ -574,12 +581,13 @@ python examples/job_matching/run_checks.py
 
 ## Skill 架构
 
-FlowGuard 有一个 kernel 和多个同级 satellite skill。明确属于分阶段开发、UI、结构、测试、mesh、alignment 或 model-miss 的工作，应直接进入对应 satellite；`model-first-function-flow` 保留为普通行为/状态建模、路线不清楚、跨路线协调或先做核心模型时的 kernel：
+FlowGuard 有一个 kernel 和多个同级 satellite skill。明确属于分阶段开发、UI、结构、测试、mesh、alignment、topology-hazard 或 model-miss 的工作，应直接进入对应 satellite；`model-first-function-flow` 保留为普通行为/状态建模、路线不清楚、跨路线协调或先做核心模型时的 kernel：
 
 | Skill route | 适用场景 |
 | --- | --- |
 | `model-first-function-flow` | 普通行为/状态建模、FlowGuard 路线不清楚、跨路线协调，或在更窄路线明确前先做核心模型 |
 | `flowguard-plan-detailing-compiler` | 粗想法、短计划或 AI 大纲需要先补齐 scope、state、evidence、receipt、rework 和 claim boundary |
+| `flowguard-model-topology-hazard-review` | 模型本地变绿但拓扑可能暗示未来使用风险，且需要在广泛完成、发布或完整信心前处理 |
 | `flowguard-model-test-alignment` | 需要对照模型义务、代码契约、代码边界观测和测试证据 |
 | `flowguard-model-mesh` | 项目有多个本地模型、子证据或过大的模型表面 |
 | `flowguard-test-mesh` | 测试证据分层、很慢、过期、被 skip、只在 release 跑，或分布在子套件 |
@@ -607,6 +615,7 @@ FlowGuard 是状态和工作流 guard。
 | 文件 | 作用 |
 | --- | --- |
 | `docs/modeling_protocol.md` | 核心 model-first 协议 |
+| `docs/model_topology_hazard_review.md` | 从模型拓扑推断未来使用风险的审查路线 |
 | `docs/flowguard_closure_contract.md` | 完整使用 FlowGuard 前必须满足的闭环契约 |
 | `docs/model_test_alignment.md` | 模型义务和测试证据对齐 |
 | `docs/obligation_family_parity.md` | 相关义务 family 覆盖和证据来源 gate |

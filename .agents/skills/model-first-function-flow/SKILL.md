@@ -49,7 +49,7 @@ means partial or scoped FlowGuard evidence.
 - Long checks may run in the background, but final confidence needs exit/status and result artifacts, not progress lines.
 - Reused test results need current `TestResultReuseTicket` and `ProofArtifactRef`; old `passed` output is not current evidence by itself.
 - For non-trivial FlowGuard work, show a route-specific Mermaid snapshot once the route/model is stable; diagrams explain, not validate.
-- Before broad done/release/publish confidence, use Risk Evidence Ledger or equivalent and keep automatic state-closure gaps visible.
+- Before broad done/release/publish confidence, use Risk Evidence Ledger or equivalent and keep automatic state-closure and topology-hazard gaps visible.
 
 ## FlowGuard diagram intent gate
 Before showing a non-trivial FlowGuard diagram, identify which route owns the
@@ -74,6 +74,7 @@ template CLIs are package helpers, not independently triggerable Codex skills.
 | Existing code/prompt flow should shrink without behavior loss | `architecture_reduction` | `flowguard-architecture-reduction` |
 | Pre-code module/function/block ownership recommendation | `code_structure_recommendation` | `flowguard-code-structure-recommendation` |
 | UI controls, screens, journeys, display/text ownership, runnable UI evidence | `ui_flow_structure` | `flowguard-ui-flow-structure` |
+| Locally green model topology implies future-use hazards before broad confidence | `model_topology_hazard_review` | `flowguard-model-topology-hazard-review` |
 | Model obligations versus tests, code contracts, or boundary observations | `model_test_alignment` | `flowguard-model-test-alignment` |
 | Three or more models, oversized model, stale child evidence, parent/child mesh | `model_mesh_maintenance` | `flowguard-model-mesh` |
 | Large/slow/stale/release-only tests or parent/child test hierarchy | `test_mesh_maintenance` | `flowguard-test-mesh` |

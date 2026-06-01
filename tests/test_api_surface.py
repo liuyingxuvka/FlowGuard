@@ -129,6 +129,14 @@ class ApiSurfaceTests(unittest.TestCase):
         self.assertIn("ModelMaturationSignal", flowguard.MODELING_HELPER_API)
         self.assertIn("ModelMaturationReport", flowguard.MODELING_HELPER_API)
         self.assertIn("review_model_maturation_loop", flowguard.MODELING_HELPER_API)
+        self.assertIn("UsageIntent", flowguard.MODELING_HELPER_API)
+        self.assertIn("TopologyDigest", flowguard.MODELING_HELPER_API)
+        self.assertIn("TopologyHazardCandidate", flowguard.MODELING_HELPER_API)
+        self.assertIn("TopologyHazardReviewPlan", flowguard.MODELING_HELPER_API)
+        self.assertIn("TopologyHazardReport", flowguard.MODELING_HELPER_API)
+        self.assertIn("infer_topology_digest", flowguard.MODELING_HELPER_API)
+        self.assertIn("infer_topology_hazard_plan", flowguard.MODELING_HELPER_API)
+        self.assertIn("review_topology_hazards", flowguard.MODELING_HELPER_API)
         self.assertIn("ObservableArchitectureContract", flowguard.MODELING_HELPER_API)
         self.assertIn("CompatibilitySurfaceClassification", flowguard.MODELING_HELPER_API)
         self.assertIn("ArchitectureReductionCandidate", flowguard.MODELING_HELPER_API)
@@ -204,6 +212,7 @@ class ApiSurfaceTests(unittest.TestCase):
             "plan_detailing_compiler",
             "maintenance_scan_router",
             "state_closure",
+            "model_topology_hazard_review",
         }
         self.assertEqual(expected_groups, set(flowguard.FLOWGUARD_ROUTE_API))
 
@@ -294,6 +303,7 @@ class ApiSurfaceTests(unittest.TestCase):
             "MODEL_MATURATION_API",
             "PLAN_DETAILING_ROUTE_API",
             "STATE_CLOSURE_ROUTE_API",
+            "TOPOLOGY_HAZARD_ROUTE_API",
             "MODELING_HELPER_API",
             "REPORTING_HELPER_API",
             "TEMPLATE_STRUCTURE_API",

@@ -281,6 +281,12 @@ FILE_TEMPLATE_COMMANDS: tuple[FileTemplateCommand, ...] = (
         "maintenance_scan",
         "maintenance_scan_template_files",
     ),
+    FileTemplateCommand(
+        "topology-hazard-template",
+        "Print or write the model-topology hazard review template.",
+        "model_topology_hazard_review",
+        "topology_hazard_template_files",
+    ),
 )
 
 

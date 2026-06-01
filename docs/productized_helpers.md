@@ -228,10 +228,33 @@ and `schema_version`. Inferred unknown policies keep confidence scoped.
 Explicit open boundaries pass only when unknown cases are rejected, blocked,
 isolated, or routed to model maturation before side effects.
 
+## Model Topology Hazard Review
+
+`UsageIntent`, `TopologyDigest`, `TopologyHazardCandidate`,
+`TopologyHazardReviewPlan`, and `review_topology_hazards(...)` make the
+"experienced engineer" review automatic without turning it into a generic AI
+checklist. The helper first reads model topology and usage intent, then
+promotes only hazards tied to a concrete state, edge, side effect, terminal
+state, old/new compatibility path, external boundary, shared writer, or
+parent/child compression landmark.
+
+`run_model_first_checks(...)` appends a `topology_hazard` section by default.
+Unanchored AI concerns are observations only. Anchored unresolved hazards stay
+visible as scoped or blocked confidence and name the owner route: Model
+Maturation, Model-Test Alignment, DevelopmentProcessFlow, Architecture
+Reduction, or Risk Evidence Ledger.
+
+Use the template with:
+
+```powershell
+python -m flowguard topology-hazard-template --output .
+python .flowguard/model_topology_hazard_review/run_checks.py
+```
+
 ## Unified Summary Report
 
 `FlowGuardSummaryReport` combines optional sections such as model check, audit,
-state closure, scenario review, progress, contract, conformance, and
+state closure, topology hazard review, scenario review, progress, contract, conformance, and
 not-run/skipped checks.
 
 Status rules:

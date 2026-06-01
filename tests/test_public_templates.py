@@ -23,6 +23,7 @@ from flowguard.templates import (
     runtime_path_evidence_template_files,
     structure_mesh_template_files,
     test_mesh_template_files,
+    topology_hazard_template_files,
     ui_flow_structure_template_files,
     workflow_step_contracts_template_files,
     write_template_files,
@@ -49,6 +50,7 @@ PUBLIC_TEMPLATE_FACTORIES = (
     workflow_step_contracts_template_files,
     test_mesh_template_files,
     structure_mesh_template_files,
+    topology_hazard_template_files,
 )
 
 TEMPLATE_CLI_COMMANDS = {
@@ -71,6 +73,7 @@ TEMPLATE_CLI_COMMANDS = {
     "test-mesh-template": "test_mesh",
     "structure-mesh-template": "structure_mesh",
     "maintenance-scan-template": "maintenance_scan",
+    "topology-hazard-template": "model_topology_hazard_review",
 }
 
 
@@ -301,6 +304,15 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("flowguard structure mesh", output)
         self.assertIn("release_obligations", output)
         self.assertIn("duplicate_state_owner", output)
+
+    def test_topology_hazard_template_executes(self):
+        output = self.run_written_template(
+            topology_hazard_template_files(),
+            (".flowguard", "model_topology_hazard_review"),
+        )
+        self.assertIn("flowguard topology hazard review", output)
+        self.assertIn("topology_hazard_blocked", output)
+        self.assertIn("unresolved_hazard_ids", output)
 
     def test_development_process_flow_template_executes(self):
         output = self.run_written_template(

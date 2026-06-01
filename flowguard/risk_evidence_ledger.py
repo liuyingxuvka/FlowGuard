@@ -159,6 +159,11 @@ class RiskEvidenceRow:
     analogous_scan_current: bool = True
     analogous_scan_confidence: str = RISK_CONFIDENCE_FULL
     analogous_scan_scoped_reasons: tuple[str, ...] = ()
+    topology_hazard_id: str = ""
+    topology_hazard_required: bool = False
+    topology_hazard_current: bool = True
+    topology_hazard_confidence: str = RISK_CONFIDENCE_FULL
+    topology_hazard_scoped_reasons: tuple[str, ...] = ()
     overclaims_full_confidence: bool = False
     next_actions: tuple[str, ...] = ()
 
@@ -184,6 +189,9 @@ class RiskEvidenceRow:
         object.__setattr__(self, "analogous_scan_id", str(self.analogous_scan_id))
         object.__setattr__(self, "analogous_scan_confidence", str(self.analogous_scan_confidence))
         object.__setattr__(self, "analogous_scan_scoped_reasons", _as_tuple(self.analogous_scan_scoped_reasons))
+        object.__setattr__(self, "topology_hazard_id", str(self.topology_hazard_id))
+        object.__setattr__(self, "topology_hazard_confidence", str(self.topology_hazard_confidence))
+        object.__setattr__(self, "topology_hazard_scoped_reasons", _as_tuple(self.topology_hazard_scoped_reasons))
         object.__setattr__(self, "next_actions", _as_tuple(self.next_actions))
 
     def to_dict(self) -> dict[str, Any]:
@@ -225,6 +233,11 @@ class RiskEvidenceRow:
             "analogous_scan_current": self.analogous_scan_current,
             "analogous_scan_confidence": self.analogous_scan_confidence,
             "analogous_scan_scoped_reasons": list(self.analogous_scan_scoped_reasons),
+            "topology_hazard_id": self.topology_hazard_id,
+            "topology_hazard_required": self.topology_hazard_required,
+            "topology_hazard_current": self.topology_hazard_current,
+            "topology_hazard_confidence": self.topology_hazard_confidence,
+            "topology_hazard_scoped_reasons": list(self.topology_hazard_scoped_reasons),
             "overclaims_full_confidence": self.overclaims_full_confidence,
             "next_actions": list(self.next_actions),
         }
@@ -650,6 +663,65 @@ def review_risk_evidence_ledger(plan: RiskEvidenceLedgerPlan) -> RiskEvidenceLed
                     metadata={
                         "analogous_scan_id": row.analogous_scan_id,
                         "analogous_scan_scoped_reasons": list(row.analogous_scan_scoped_reasons),
+                    },
+                )
+            )
+
+        if row.topology_hazard_required and not row.topology_hazard_id:
+            findings.append(
+                _finding(
+                    "missing_topology_hazard_review",
+                    "required risk has no model-topology hazard review owner",
+                    risk_id=row.risk_id,
+                )
+            )
+
+        if row.topology_hazard_required and row.topology_hazard_id and not row.topology_hazard_current:
+            findings.append(
+                _finding(
+                    "topology_hazard_review_not_current",
+                    "required model-topology hazard review evidence is stale or has not been rerun",
+                    risk_id=row.risk_id,
+                    metadata={"topology_hazard_id": row.topology_hazard_id},
+                )
+            )
+
+        if row.topology_hazard_required and row.topology_hazard_id:
+            if row.topology_hazard_confidence == RISK_CONFIDENCE_BLOCKED:
+                findings.append(
+                    _finding(
+                        "topology_hazard_review_blocked",
+                        "required model-topology hazard review is blocked",
+                        risk_id=row.risk_id,
+                        metadata={"topology_hazard_id": row.topology_hazard_id},
+                    )
+                )
+            elif row.topology_hazard_confidence in {RISK_CONFIDENCE_SCOPED, RISK_CONFIDENCE_PARTIAL}:
+                severity = "warning" if plan.allow_scoped_confidence else "blocker"
+                findings.append(
+                    _finding(
+                        "topology_hazard_review_scoped_confidence",
+                        "model-topology hazard review remains explicitly scoped",
+                        risk_id=row.risk_id,
+                        severity=severity,
+                        metadata={
+                            "topology_hazard_id": row.topology_hazard_id,
+                            "topology_hazard_confidence": row.topology_hazard_confidence,
+                        },
+                    )
+                )
+
+        if row.topology_hazard_scoped_reasons:
+            severity = "warning" if plan.allow_scoped_confidence else "blocker"
+            findings.append(
+                _finding(
+                    "topology_hazard_review_scoped_confidence",
+                    "model-topology hazard review remains explicitly scoped",
+                    risk_id=row.risk_id,
+                    severity=severity,
+                    metadata={
+                        "topology_hazard_id": row.topology_hazard_id,
+                        "topology_hazard_scoped_reasons": list(row.topology_hazard_scoped_reasons),
                     },
                 )
             )

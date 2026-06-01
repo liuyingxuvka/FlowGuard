@@ -38,6 +38,7 @@ request clearly matches their trigger:
 | `flowguard-architecture-reduction` | `architecture_reduction` |
 | `flowguard-code-structure-recommendation` | `code_structure_recommendation` |
 | `flowguard-ui-flow-structure` | `ui_flow_structure` |
+| `flowguard-model-topology-hazard-review` | `model_topology_hazard_review` |
 | `flowguard-model-mesh` | `model_mesh_maintenance` |
 | `flowguard-test-mesh` | `test_mesh_maintenance` |
 | `flowguard-structure-mesh` | `structure_mesh_maintenance` |
@@ -54,6 +55,7 @@ to the kernel instead of taking ownership of unclear work.
 | `plan_detailing_compiler` | rough plans, short AI outlines, PlanDetail rows, receipts, validation, rework, human questions, and projection to sibling routes |
 | `architecture_reduction` | behavior-preserving code contraction candidates, observable architecture contracts, and target StructureMesh handoff |
 | `ui_flow_structure` | UI interaction model, app-level journey coverage, implemented/runnable UI click-through evidence alignment, reachable visible-control branches, state/control/event/display transitions, parent/child UI topology, menu levels, overlays, stable placements, UI text hierarchy blueprint, and intentional redundancy |
+| `model_topology_hazard_review` | topology digest, usage intent, anchored future-use hazards, required owner routes, and scoped or blocked confidence before broad claims |
 | `model_test_alignment` | direct comparison of model obligations, optional code contracts, code-boundary observations, obligation-family parity, and ordinary test evidence |
 | `model_maturation_loop` | converts post-code, post-miss, alignment, mesh, boundary, and freshness signals into model-upgrade or scoped-claim decisions |
 | `risk_evidence_ledger` | final risk-to-model-to-code-to-family-gates-to-evidence confidence boundary for done/release/publish/full-confidence claims |
@@ -134,6 +136,9 @@ sub-skills.
   aligns feature contracts with browser/desktop/manual click-through evidence
   when implemented/runnable UI completion is claimed; it
   does not replace visual design, final copywriting, or code-structure routes.
+- Keep Model Topology Hazard Review grounded in model shape. Unanchored AI
+  concerns are observations only; anchored hazards must route to the owning
+  sibling evidence path before broad confidence.
 - Keep oversize guidance as a short consideration hint, not a threshold policy
   or forced split rule.
 - Avoid duplicate ownership of the same rule across multiple references.

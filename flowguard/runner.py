@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Mapping
 
 from .audit import audit_model
 from .contract import check_trace_contracts
@@ -18,6 +18,12 @@ from .state_closure import (
     STATE_CLOSURE_CONFIDENCE_FULL,
     infer_state_closure_plan,
     review_state_closure,
+)
+from .topology_hazard import (
+    TOPOLOGY_CONFIDENCE_FULL,
+    UsageIntent,
+    infer_topology_hazard_plan,
+    review_topology_hazards,
 )
 from .step_contracts import compile_step_contract_invariants, review_step_contract_trace
 from .summary_report import (
@@ -83,6 +89,7 @@ def run_model_first_checks(plan: FlowGuardCheckPlan) -> FlowGuardSummaryReport:
     artifacts["audit_report"] = audit_report
     sections.append(section_from_audit_report(audit_report))
     _append_state_closure_section(sections, artifacts, plan)
+    _append_topology_hazard_section(sections, artifacts, plan)
 
     scenarios, generated_scenarios = _plan_or_generated_scenarios(plan)
     if generated_scenarios:
@@ -283,6 +290,50 @@ def _append_state_closure_section(
             metadata={
                 "report": report,
                 "generated_cases": report.generated_cases,
+                "always_show_findings": bool(report.findings),
+            },
+        )
+    )
+
+
+def _append_topology_hazard_section(
+    sections: list[FlowGuardSection],
+    artifacts: dict[str, Any],
+    plan: FlowGuardCheckPlan,
+) -> None:
+    usage_intent = None
+    if isinstance(plan.usage_intent, UsageIntent):
+        usage_intent = plan.usage_intent
+    elif isinstance(plan.usage_intent, Mapping):
+        usage_intent = UsageIntent(**dict(plan.usage_intent))
+    hazard_plan = plan.topology_hazard_plan or infer_topology_hazard_plan(
+        workflow=plan.workflow,
+        initial_states=plan.initial_states,
+        external_inputs=plan.external_inputs,
+        usage_intent=usage_intent,
+    )
+    report = review_topology_hazards(hazard_plan)
+    artifacts["topology_hazard_plan"] = hazard_plan
+    artifacts["topology_hazard_report"] = report
+    if not report.ok:
+        status = "blocked"
+    elif report.confidence == TOPOLOGY_CONFIDENCE_FULL:
+        status = "pass"
+    else:
+        status = "pass_with_gaps"
+    sections.append(
+        FlowGuardSection(
+            name="topology_hazard",
+            status=status,
+            summary=report.summary,
+            findings=tuple(
+                f"{finding.severity}: {finding.code}: {finding.message}"
+                for finding in report.findings
+            ),
+            metadata={
+                "report": report,
+                "landmarks": report.digest.landmarks,
+                "candidates": report.candidates,
                 "always_show_findings": bool(report.findings),
             },
         )

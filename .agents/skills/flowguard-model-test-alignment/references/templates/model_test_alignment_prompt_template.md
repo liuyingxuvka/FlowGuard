@@ -22,6 +22,8 @@ Use these groups:
   gaps.
 - State closure when finite inputs may be incomplete: representative unknown,
   malformed, missing, old-schema, or external-unknown cases and safe handling.
+- Topology hazard obligations when a Model Topology Hazard Review promoted an
+  anchored future-use hazard to model/test evidence.
 - Test evidence: identity, result/freshness, obligation or contract binding,
   assertion scope, and risk notes.
 

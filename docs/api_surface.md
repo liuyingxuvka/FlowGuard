@@ -74,6 +74,9 @@ For AI agents, route groups are the normal discovery surface:
   skipped candidate routes, or split/reduction pressure before a broad claim.
 - `STATE_CLOSURE_ROUTE_API` is the default runner gate for finite input/state
   enumerations that may have unknown, malformed, missing, or old-schema cases.
+- `TOPOLOGY_HAZARD_ROUTE_API` is the default runner review for model-shape
+  future-use hazards before broad done, release, publish, or full-confidence
+  claims.
 
 Use `MODELING_HELPER_API` only as the complete index after the route group is
 known. It is intentionally broad and is not first-read guidance.
@@ -99,6 +102,11 @@ inventory.
   `StateClosureDimension`, `infer_state_closure_plan()`, and
   `review_state_closure()` for keeping unknown/other cases visible in
   `run_model_first_checks(...)` without changing direct `Explorer` semantics.
+- default model topology hazard helpers such as `UsageIntent`,
+  `TopologyDigest`, `TopologyHazardCandidate`,
+  `infer_topology_digest()`, `infer_topology_hazard_plan()`, and
+  `review_topology_hazards()` for grounding future-use risk review in concrete
+  model topology anchors.
 - optional budgeted model-group helpers such as `BudgetedGraphConfig` and
   `run_budgeted_graph_checks()` for large reachable graph models that need
   shard-by-shard execution with a durable ledger.

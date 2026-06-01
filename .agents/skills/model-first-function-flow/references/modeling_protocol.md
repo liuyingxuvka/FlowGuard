@@ -3,9 +3,10 @@
 This document is the `core_modeling` sub-protocol for the FlowGuard Skill
 Kernel. The main Skill routes here for ordinary model-first work. Specialized
 routes such as UI flow structure, code structure recommendation, model-test
-alignment, ModelMesh, TestMesh, StructureMesh, DevelopmentProcessFlow,
-model-miss review, conformance/adoption, long-check observability, and
-framework upgrades live in their dedicated reference protocols.
+alignment, model topology hazard review, ModelMesh, TestMesh, StructureMesh,
+DevelopmentProcessFlow, model-miss review, conformance/adoption, long-check
+observability, and framework upgrades live in their dedicated reference
+protocols.
 
 Use this protocol before implementing non-trivial behavior involving workflows, state, retries, deduplication, idempotency, caching, or module boundaries.
 
@@ -30,6 +31,9 @@ Before changing files, separate three situations:
 - `model_test_alignment`: model obligations and ordinary tests both exist, and
   the risk is whether scenarios, invariants, hazards, transitions, or contracts
   have matching current test evidence.
+- `model_topology_hazard_review`: a locally green model topology may imply
+  future-use hazards before broad done/release/publish confidence. Read the
+  topology and usage intent, then promote only hazards with concrete anchors.
 - `test_mesh_maintenance`: validation is too large, broad, stale-prone, or
   layered to trust as one flat test command or script. Build a TestMesh that
   partitions parent test confidence into child-suite/script ownership and
@@ -133,6 +137,7 @@ below. Satellite details stay in the satellite-owned reference.
 | A large script, module, command, API, facade, config, or public entrypoint split needs structure ownership evidence. | StructureMesh | `.agents/skills/flowguard-structure-mesh/references/structure_mesh_protocol.md` |
 | The next step is an implementation structure recommendation rather than code edits. | Code Structure Recommendation | `.agents/skills/flowguard-code-structure-recommendation/references/code_structure_recommendation_protocol.md` |
 | UI controls, screens, overlays, navigation, display ownership, or copy hierarchy need interaction modeling. | UI Flow Structure | `.agents/skills/flowguard-ui-flow-structure/references/ui_flow_structure_protocol.md` |
+| Model topology suggests future-use hazards before broad confidence. | Model Topology Hazard Review | `.agents/skills/flowguard-model-topology-hazard-review/references/topology_hazard_protocol.md` |
 | Plan/edit/test/fix/verify ordering, artifact versions, peer writes, freshness, done, release, archive, or publish confidence is the risky boundary. | DevelopmentProcessFlow | `.agents/skills/flowguard-development-process-flow/references/development_process_flow_protocol.md` |
 | Runtime, tests, replay, logs, or manual validation failed after FlowGuard confidence. | Model-Miss Review | `.agents/skills/flowguard-model-miss-review/references/model_miss_protocol.md` |
 

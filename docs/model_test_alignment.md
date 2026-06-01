@@ -26,6 +26,11 @@ have the required mechanism evidence from an allowed provenance source. A
 manual event or controller receipt cannot prove a family requirement that says
 the evidence must come from durable reconciliation.
 
+When Model Topology Hazard Review promotes an anchored future-use hazard into a
+testable obligation, include that hazard id in the model obligation row. A green
+test suite should not close the hazard unless the test or code-boundary evidence
+covers the specific topology anchor and future failure mode.
+
 ## Code Boundary Conformance
 
 When a model-backed code surface claims a finite input/output boundary, add
