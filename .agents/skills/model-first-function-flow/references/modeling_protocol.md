@@ -118,215 +118,28 @@ that runs the checks. Keep this as a lightweight model header; do not add
 manifest files or extra project scaffolding unless the task separately requires
 them.
 
-## 0.3 Check The Model-Test Alignment Trigger
+## 0.3 Satellite Route Handoffs
 
-Before trusting a claim that model coverage and test coverage agree, ask
-whether the model obligations need a direct test-evidence alignment review.
-Trigger Model-Test Alignment when a FlowGuard model has explicit scenarios,
-invariants, hazards, state transitions, or input/output contracts and ordinary
-tests are expected to prove those obligations.
+Keep the kernel small. When one of these signals is present, stop expanding the
+case here and load the direct satellite route or the compact handoff stub named
+below. Satellite details stay in the satellite-owned reference.
 
-Model-Test Alignment is not a mesh route. It does not split tests, split code,
-or read TestMesh, StructureMesh, or ModelMesh reports. It compares
-`ModelObligation` rows with `TestEvidence` rows and reports missing evidence,
-orphan tests, duplicate same-kind test claims, stale/non-passing evidence,
-missing required test kinds, and overclaimed model confidence.
-Use `review_model_test_alignment(...)` for this direct comparison.
+| Signal | Route | Load next |
+| --- | --- | --- |
+| Model obligations and ordinary tests both need current evidence parity. | Model-Test Alignment | `.agents/skills/flowguard-model-test-alignment/references/model_test_alignment_protocol.md` |
+| Three or more local models, an oversized model, stale child evidence, or a parent/child model claim. | ModelMesh | `.agents/skills/flowguard-model-mesh/references/model_mesh_protocol.md` |
+| Model, test, mesh, miss, or code-boundary evidence says the model is too coarse or stale. | Model maturation loop | Stay in this protocol and use `review_model_maturation_loop(...)`; then rerun the owning route. |
+| Validation is large, slow, layered, backgrounded, stale-prone, or parent/child suite-owned. | TestMesh | `.agents/skills/flowguard-test-mesh/references/test_mesh_protocol.md` |
+| A large script, module, command, API, facade, config, or public entrypoint split needs structure ownership evidence. | StructureMesh | `.agents/skills/flowguard-structure-mesh/references/structure_mesh_protocol.md` |
+| The next step is an implementation structure recommendation rather than code edits. | Code Structure Recommendation | `.agents/skills/flowguard-code-structure-recommendation/references/code_structure_recommendation_protocol.md` |
+| UI controls, screens, overlays, navigation, display ownership, or copy hierarchy need interaction modeling. | UI Flow Structure | `.agents/skills/flowguard-ui-flow-structure/references/ui_flow_structure_protocol.md` |
+| Plan/edit/test/fix/verify ordering, artifact versions, peer writes, freshness, done, release, archive, or publish confidence is the risky boundary. | DevelopmentProcessFlow | `.agents/skills/flowguard-development-process-flow/references/development_process_flow_protocol.md` |
+| Runtime, tests, replay, logs, or manual validation failed after FlowGuard confidence. | Model-Miss Review | `.agents/skills/flowguard-model-miss-review/references/model_miss_protocol.md` |
 
-Use TestMesh only when the validation flow itself is large, slow, layered, or
-needs parent/child suite ownership. Use StructureMesh only when a large script,
-module, command, or API surface is being split.
-
-Read
-`.agents/skills/model-first-function-flow/references/model_test_alignment_protocol.md`
-for the checklist and prompt template.
-
-## 0.35 Check The Local Model Mesh Trigger
-
-Before trusting prior green results, scan for existing local FlowGuard models,
-runners, persisted result files, adoption logs, and replay/conformance
-artifacts. If the project has three or more local FlowGuard models, or the
-current decision spans multiple existing model boundaries, create or update a
-local model mesh before making broad continue, release, completion, or
-production-confidence claims. Also trigger mesh review when a single new or
-legacy model is too large to inspect comfortably, such as an estimated or
-observed state count above the configured threshold, a budgeted model group that
-remains incomplete, or one model mixing several unrelated functional areas.
-
-The mesh is a model-of-models. It should inventory child models and classify
-their evidence tiers, freshness rules, dependencies, contracts, skipped checks,
-and blindspots. Do not inline every child model's full state graph unless a
-specific contradiction requires a narrow adapter.
-
-For hierarchical modeling, treat the parent model as a total map and child
-models as region maps. The mesh should check the partition map for complete
-coverage, excessive sibling overlap, duplicate state-write ownership, duplicate
-side-effect ownership, stale evidence, and split-review decisions for oversized
-models. A child can become a parent and have its own local partition map and
-mesh review when that child grows large enough to split again.
-
-Before a ModelMesh parent can trust the child-model layout, record a target
-split derivation from the FlowGuard source model or model-of-models. The
-derivation must name the source model, target child model ids, covered partition
-items, state owner fields, side-effect owner fields, and rationale for the
-split. A partition map alone is not enough parent confidence.
-
-When a post-runtime miss is repaired in a local child model, route through
-Model-Miss Review and the affected ModelMesh. The child-local pass is not
-complete until the parent reattachment gate consumes the current child evidence
-id and confirms the input, output, state, side-effect, and outgoing-contract
-handoff still matches the parent flow.
-
-When the model hierarchy is meant to prove code boundaries, add layered
-boundary proof after the mesh inventory. The parent model must have every
-responsibility owned or explicitly scoped out, child models must be disjoint
-except for declared bridge/shared-kernel cases, the parent must consume each
-current child evidence id, and every leaf model must have a complete finite
-`Input x State -> Set(Output x State)` matrix backed by real-code tests or
-observations. If a leaf cannot be fully covered, split it into a lower model
-instead of treating a coarse internal test as enough.
-
-When code progress output is used as model/code evidence, require runtime path
-observations that name the FlowGuard `model_id`, `model_path`, `node_id`, run
-id, status, and obligation or code contract. Anonymous progress logs do not
-prove model alignment. Use the runtime path evidence helper or recorder so
-another AI can identify which model file the code node is compared against.
-
-Keep the current bug instance separate from the bug class. Model-Miss Review
-owns classification and same-class representation or out-of-scope recording;
-ModelMesh owns child-boundary propagation upward and affected sibling review
-when the repair changes inputs, outputs, state ownership, side-effect
-ownership, risk boundary, or outgoing guarantees. Background long-running
-checks may support either route only after final artifacts and exit status
-exist; progress is liveness, not pass evidence.
-
-## 0.33 Check The Model Maturation Loop
-
-After implementation, validation, model-miss review, Model-Test Alignment,
-ModelMesh, TestMesh, code-boundary review, or evidence-freshness review has
-produced new signals, use `review_model_maturation_loop(...)` to ask whether
-the model needs to mature before the claim can stay broad. The review should
-translate route signals into concrete actions such as adding a state field,
-transition case, invariant, same-class scenario, code-boundary observation,
-model obligation, child split, parent reattachment, or evidence refresh.
-
-This helper does not replace the owning route that found the signal. It answers
-whether that evidence means the model is still too coarse for the claim. If yes,
-upgrade the model and rerun the relevant checks, or downgrade the final claim to
-the scope that the current model actually proves.
-
-Read `docs/model_mesh_protocol.md` for the inventory fields, evidence tiers,
-required hazards, prompt template, and completion standard. At minimum, the
-mesh must catch abstract-only permission, hidden skipped live/replay checks,
-stale result reuse, unregistered model evidence, cross-model contradictions,
-hidden blockers, missing conformance, unrepresented model misses, sealed/private
-body reads, stale installed skill/source copies, oversized mesh expansion, and
-absence of a mesh when the model count or large-model threshold is met. For
-child repairs, it must also catch child-local green evidence that was not
-reattached to the parent.
-
-## 0.4 Check The TestMesh Trigger
-
-Before trusting a broad validation claim, ask whether tests need their own
-parent/child hierarchy mesh. Trigger TestMesh when a large test script, suite,
-or validation flow should split into child suites/scripts, when a suite is too
-slow for routine work, mixes unrelated behavior or release gates, runs in the
-background, hides skips or timeouts, or depends on stale result reuse.
-
-The TestMesh is the test-side sibling of ModelMesh and StructureMesh: the
-parent test gate is the total validation contract, while child suites or child test scripts own regions of that contract. The parent layer consumes child
-ownership and evidence contracts instead of expanding every child test case,
-fixture, or internal state route. A child suite can become its own parent gate
-when it grows large enough to split again.
-
-TestMesh does not run pytest, unittest, Playwright, shell commands, or manual
-checks. Project adapters run the suites and pass `TestSuiteEvidence` into
-FlowGuard. The parent gate lists `TestPartitionItem` entries for behavior,
-state, module, command, side effect, invariant, or release boundaries.
-`review_test_mesh(...)` checks coverage, ownership conflicts, freshness,
-skipped visibility, timeout/failure status, background completion artifacts,
-and routine-vs-release confidence.
-
-Before TestMesh parent confidence, record a target split derivation from a
-FlowGuard validation-structure model. The derivation must name the source
-model, target child suites/scripts, covered partition items, state owner fields,
-side-effect owner fields, and rationale for the split. A flat child-suite list
-without derivation is not enough.
-
-Read `docs/test_evidence_mesh.md` for the API sketch and
-`.agents/skills/model-first-function-flow/references/test_mesh_protocol.md` for
-the agent checklist.
-
-## 0.45 Check The StructureMesh Trigger
-
-Before trusting a large script or module split, ask whether the structure needs
-its own parent/child ownership mesh. Trigger StructureMesh when functions,
-state, config, side effects, public entrypoints, behavior contracts, or release
-obligations are being split across child modules.
-
-The StructureMesh is a structure-refactor evidence model for existing large
-scripts or modules. It does not move code or parse source files. Before
-ownership review, it requires a FlowGuard model-derived target child structure:
-FunctionBlock-to-module, state-owner, side-effect-owner, facade, and validation
-maps. Project adapters collect source inventory, model-derived target
-structure, dependency edges, facade status, public entrypoint compatibility,
-config/default changes, and parity evidence, then pass
-`CodeStructureRecommendation`, `ModuleStructureEvidence`,
-`PublicEntrypointEvidence`, and `StructurePartitionItem` objects into
-`review_structure_mesh(...)`.
-
-Read `docs/structure_mesh.md` for the API sketch and
-`.agents/skills/model-first-function-flow/references/structure_mesh_protocol.md`
-for the agent checklist.
-
-## 0.47 Check The Code Structure Recommendation Route
-
-Use the parallel code structure recommendation route when a user directly asks
-for a code architecture recommendation, or when a functional model exists and
-the next implementation step needs a module/function split plan. This route can
-create or use a functional or hierarchical model, but it does not write
-production code and it is not mandatory for every ordinary model-first task.
-
-Read `docs/code_structure_recommendation.md` and
-`.agents/skills/model-first-function-flow/references/code_structure_recommendation_protocol.md`
-for the recommendation shape.
-
-## 0.48 Check The UI Flow Structure Route
-
-Use the parallel UI flow structure route when a UI's buttons, menus, controls,
-screens, panels, overlays, navigation, information displays, state
-availability, duplicate/overlapping controls, headings, labels, action text,
-status/helper messages, error/recovery copy slots, complete app
-launch-to-terminal journey coverage, or implemented/runnable UI click-through
-evidence alignment need a model-first interaction flow before
-visual design or frontend implementation. This route models the UI as
-`UI event x UI state -> Set(UI output x UI state)`, reviews that interaction
-model, reviews journey coverage and reachable visible-control/event ownership
-when a complete app-level UI claim is made, validates feature/UI/click-through
-evidence when an implemented UI claim is made, derives parent/child UI topology,
-first-level persistent menus, second-level contextual regions, third-level
-local controls, information-display ownership, stable layout positions, overlay
-hierarchy, and explicit rationale for intentional redundancy, then derives the
-UI text hierarchy blueprint from the reviewed structure.
-
-Read `docs/ui_flow_structure.md` and
-`.agents/skills/flowguard-ui-flow-structure/references/ui_flow_structure_protocol.md`
-for the route shape.
-
-## 0.49 Check The DevelopmentProcessFlow Route
-
-Use the parallel development process route for non-trivial staged development
-or modification work that has validation, such as plan, edit, test, fix, and
-verify. Also use it when the question is whether a done, release, archive, or
-publish claim still has current evidence after lifecycle steps changed
-requirements, designs, models, code, tests, docs, adapters, or release
-artifacts. This route models the development lifecycle itself as a stateful
-process. It may reference sibling route evidence ids and covered artifact
-versions, but it does not inspect or replace sibling routes.
-
-Read `docs/development_process_flow.md` and
-`.agents/skills/model-first-function-flow/references/development_process_flow_protocol.md`
-for the lifecycle evidence shape.
+Kernel-side files such as
+`.agents/skills/model-first-function-flow/references/model_mesh_protocol.md`
+are handoff stubs only. They preserve legacy reference paths, but the detailed
+protocol lives with the satellite skill.
 
 ## 0.5 Write A Risk Intent Brief
 

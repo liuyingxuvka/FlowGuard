@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.39.4 - 2026-06-01
+
+FlowGuard guidance surface fold-down.
+
+- Folded model-first satellite trigger detail into a compact handoff table.
+- Replaced duplicate kernel reference protocol copies with satellite-owned
+  handoff stubs.
+- Moved long ModelMesh and Model-Test Alignment delegation prompts into
+  lazy-loaded template files.
+- Added skill documentation tests and guidance-compression model checks to keep
+  duplicate reference bodies and eager long templates from returning.
+
 ## v0.39.3 - 2026-05-31
 
 Codex skill diagram semantics sync.

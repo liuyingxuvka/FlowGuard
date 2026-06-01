@@ -21,6 +21,37 @@ SATELLITE_SKILLS = {
     "flowguard-ui-flow-structure": "ui_flow_structure_protocol.md",
 }
 
+KERNEL_HANDOFFS = {
+    "model_test_alignment_protocol.md": (
+        "flowguard-model-test-alignment",
+        "model_test_alignment_protocol.md",
+    ),
+    "model_mesh_protocol.md": (
+        "flowguard-model-mesh",
+        "model_mesh_protocol.md",
+    ),
+    "development_process_flow_protocol.md": (
+        "flowguard-development-process-flow",
+        "development_process_flow_protocol.md",
+    ),
+    "test_mesh_protocol.md": (
+        "flowguard-test-mesh",
+        "test_mesh_protocol.md",
+    ),
+    "structure_mesh_protocol.md": (
+        "flowguard-structure-mesh",
+        "structure_mesh_protocol.md",
+    ),
+    "code_structure_recommendation_protocol.md": (
+        "flowguard-code-structure-recommendation",
+        "code_structure_recommendation_protocol.md",
+    ),
+    "model_miss_protocol.md": (
+        "flowguard-model-miss-review",
+        "model_miss_protocol.md",
+    ),
+}
+
 
 class SkillDocsTests(unittest.TestCase):
     def read(self, path: Path) -> str:
@@ -163,6 +194,64 @@ class SkillDocsTests(unittest.TestCase):
                 self.assertGreater(len(reference), 200)
                 for phrase in route_expectations[skill_name]:
                     self.assertIn(phrase, text)
+
+    def test_kernel_satellite_reference_handoffs_are_compact(self):
+        for kernel_reference, (skill_name, satellite_reference) in KERNEL_HANDOFFS.items():
+            with self.subTest(reference=kernel_reference):
+                stub = self.read(KERNEL_ROOT / "references" / kernel_reference)
+                full_reference = self.read(SKILLS_ROOT / skill_name / "references" / satellite_reference)
+
+                self.assertLessEqual(len(stub.splitlines()), 18)
+                self.assertIn("compact handoff stub", stub)
+                self.assertIn(skill_name, stub)
+                self.assertIn(f"{skill_name}/references/{satellite_reference}", stub)
+                self.assertGreater(len(full_reference), 200)
+
+    def test_skill_references_do_not_duplicate_canonical_protocols(self):
+        seen = {}
+        for path in sorted(SKILLS_ROOT.glob("**/references/**/*.md")):
+            text = self.read(path).strip()
+            if not text:
+                continue
+            previous = seen.setdefault(text, path)
+            self.assertEqual(
+                previous,
+                path,
+                f"{path.relative_to(ROOT)} duplicates {previous.relative_to(ROOT)}",
+            )
+
+    def test_long_prompt_templates_are_lazy_loaded(self):
+        model_test_alignment = self.read(
+            SKILLS_ROOT
+            / "flowguard-model-test-alignment"
+            / "references"
+            / "model_test_alignment_protocol.md"
+        )
+        model_test_alignment_template = self.read(
+            SKILLS_ROOT
+            / "flowguard-model-test-alignment"
+            / "references"
+            / "templates"
+            / "model_test_alignment_prompt_template.md"
+        )
+        model_mesh = self.read(
+            SKILLS_ROOT / "flowguard-model-mesh" / "references" / "model_mesh_protocol.md"
+        )
+        model_mesh_template = self.read(
+            SKILLS_ROOT
+            / "flowguard-model-mesh"
+            / "references"
+            / "templates"
+            / "model_mesh_prompt_template.md"
+        )
+
+        self.assertIn("model_test_alignment_prompt_template.md", model_test_alignment)
+        self.assertNotIn("Build a FlowGuard Model-Test Alignment review", model_test_alignment)
+        self.assertIn("Build a FlowGuard Model-Test Alignment review", model_test_alignment_template)
+
+        self.assertIn("model_mesh_prompt_template.md", model_mesh)
+        self.assertNotIn("Build or update a FlowGuard model mesh", model_mesh)
+        self.assertIn("Build or update a FlowGuard model mesh", model_mesh_template)
 
     def test_current_satellite_topology_has_no_stale_fixed_count_model(self):
         satellite_names = sorted(path.name for path in SKILLS_ROOT.iterdir() if path.name.startswith("flowguard-"))

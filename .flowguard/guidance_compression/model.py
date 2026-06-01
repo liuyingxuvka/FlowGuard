@@ -64,6 +64,8 @@ class GuidanceState:
     hot_path_compressed: bool = False
     hard_gates_preserved: bool = False
     reference_handoffs_available: bool = False
+    duplicate_reference_detail_folded: bool = False
+    long_prompt_templates_lazy_loaded: bool = False
     budget_tests_added: bool = False
     validations_passed: bool = False
     editable_install_synced: bool = False
@@ -77,6 +79,8 @@ class GuidanceState:
             self.hot_path_compressed
             and self.hard_gates_preserved
             and self.reference_handoffs_available
+            and self.duplicate_reference_detail_folded
+            and self.long_prompt_templates_lazy_loaded
             and self.budget_tests_added
             and self.validations_passed
             and self.editable_install_synced
@@ -92,6 +96,8 @@ class CorrectGuidanceCompression:
         "hot_path_compressed",
         "hard_gates_preserved",
         "reference_handoffs_available",
+        "duplicate_reference_detail_folded",
+        "long_prompt_templates_lazy_loaded",
         "budget_tests_added",
         "validations_passed",
         "editable_install_synced",
@@ -116,6 +122,8 @@ class CorrectGuidanceCompression:
                     hot_path_compressed=True,
                     hard_gates_preserved=True,
                     reference_handoffs_available=True,
+                    duplicate_reference_detail_folded=True,
+                    long_prompt_templates_lazy_loaded=True,
                 ),
                 label="guidance_compressed",
             )
@@ -177,7 +185,7 @@ def no_done_without_full_sync(state: GuidanceState, trace) -> InvariantResult:
     del trace
     if state.done_claim == "accepted" and not state.ready_for_done():
         return InvariantResult.fail(
-            "done accepted before compressed prompts, hard gates, references, validation, install, shadow, and git evidence aligned"
+            "done accepted before compressed prompts, hard gates, folded references, lazy templates, validation, install, shadow, and git evidence aligned"
         )
     return InvariantResult.pass_()
 
@@ -185,7 +193,7 @@ def no_done_without_full_sync(state: GuidanceState, trace) -> InvariantResult:
 INVARIANTS = (
     Invariant(
         "no_done_without_full_sync",
-        "Guidance compression completion requires current validation, editable install, installed skill, shadow workspace, and git evidence.",
+        "Guidance compression completion requires folded references, lazy templates, current validation, editable install, installed skill, shadow workspace, and git evidence.",
         no_done_without_full_sync,
     ),
 )
@@ -227,7 +235,7 @@ def architecture_reduction_report():
             observable_outputs=(
                 "same FlowGuard hard gates remain visible",
                 "same direct route discoverability remains visible",
-                "same detailed protocols remain reachable through references",
+                "same detailed protocols remain reachable through satellite-owned references and lazy templates",
             ),
             observable_state=("installed Codex skill content", "shadow workspace package content"),
             observable_side_effects=("editable install refresh", "local git commit/tag evidence"),
@@ -260,6 +268,28 @@ def architecture_reduction_report():
                 proof_status=PROOF_SAFE_BY_PUBLIC_FACADE,
                 required_next_route=ROUTE_DEVELOPMENT_PROCESS_FLOW,
                 rationale="Keep one compact route table and move helper inventories to references.",
+                evidence_refs=("tests/test_skill_docs.py",),
+            ),
+            ArchitectureReductionCandidate(
+                candidate_id="fold-duplicated-kernel-reference-protocols",
+                candidate_type=CANDIDATE_COLLAPSE_ADAPTER,
+                code_node_id=".agents/skills/model-first-function-flow/references/*_protocol.md",
+                source_model_element="Kernel-owned reference paths are compatibility handoff stubs",
+                target_action=TARGET_ACTION_COLLAPSE,
+                proof_status=PROOF_SAFE_BY_PUBLIC_FACADE,
+                required_next_route=ROUTE_DEVELOPMENT_PROCESS_FLOW,
+                rationale="Keep legacy kernel reference paths while moving detailed ownership to direct satellite references.",
+                evidence_refs=("tests/test_skill_docs.py",),
+            ),
+            ArchitectureReductionCandidate(
+                candidate_id="split-long-agent-prompt-templates",
+                candidate_type=CANDIDATE_COLLAPSE_ADAPTER,
+                code_node_id=".agents/skills/flowguard-*/references/templates/*.md",
+                source_model_element="Long delegation prompts are lazy-loaded templates",
+                target_action=TARGET_ACTION_COLLAPSE,
+                proof_status=PROOF_SAFE_BY_PUBLIC_FACADE,
+                required_next_route=ROUTE_DEVELOPMENT_PROCESS_FLOW,
+                rationale="Keep detailed scaffolding prompts reachable without loading them in ordinary protocol reads.",
                 evidence_refs=("tests/test_skill_docs.py",),
             ),
         ),
