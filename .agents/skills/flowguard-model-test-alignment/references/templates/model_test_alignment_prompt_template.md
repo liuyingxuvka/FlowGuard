@@ -8,55 +8,20 @@ evidence. If an externally visible code surface is in scope, include optional
 code external contracts as plain alignment rows between the model obligations
 and tests. Do not invoke TestMesh, StructureMesh, ModelMesh, split tests, split
 code, split models, or read mesh reports.
-List each model obligation, optional code contract, and current test evidence.
+List each model obligation, optional code contract, and current test evidence
+using grouped fields.
 
-Model obligations:
-- id:
-- type:
-- required:
-- required test kinds:
-- shared evidence allowed:
-- shared implementation allowed:
-- external inputs/outputs:
-- state reads/writes:
-- side effects:
-- error paths:
-- exact external contract:
-- description:
+Use these groups:
 
-Code external contracts (optional; include only when in scope):
-- id:
-- path/symbol/surface type:
-- role:
-- implements obligation ids:
-- required:
-- external inputs/outputs:
-- state reads/writes:
-- side effects:
-- error paths:
-
-Code boundary conformance (optional; include when a code surface must be closed):
-- boundary id:
-- code contract id:
-- model obligation id:
-- allowed input cases:
-- rejected input cases:
-- allowed outputs/state writes/side effects/error paths:
-- exact boundary:
-- observations:
-
-Test evidence:
-- id:
-- test name/path/command:
-- status:
-- current or stale:
-- test kind:
-- covered obligation ids:
-- covered code contract ids:
-- assertion scope:
-- overclaiming:
-- model-miss closure role:
-- source-audit notes:
+- Model obligations: identity, required evidence, external boundary, and risk
+  notes.
+- Code external contracts when in scope: identity, obligation binding, external
+  boundary, and source-audit status.
+- Closed code boundaries or leaf matrices when in scope: boundary identity,
+  allowed/rejected cases or matrix cells, observed result/evidence, and scoped
+  gaps.
+- Test evidence: identity, result/freshness, obligation or contract binding,
+  assertion scope, and risk notes.
 
 If real Python source or tests are available, first perform a conservative AST
 audit of code contracts and test assertions. Use it to generate or check the

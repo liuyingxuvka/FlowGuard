@@ -51,28 +51,20 @@ change.
 
 ## Input Checklist
 
-List process artifacts:
+Use grouped process rows instead of separate blanks for every lifecycle field.
 
-- artifact id and type, such as requirement, design, model, code, test, adapter,
-  doc, release asset, or sibling route report;
-- current version or fingerprint;
-- path, owner, and upstream artifact ids when relevant.
-
-List process actions:
-
-- action id, type, actor, status, and decision scope;
-- read artifacts, written artifacts, direct invalidations, produced evidence,
-  required evidence, and required validation ids;
-- ordering dependencies such as `order_after`.
-
-List process evidence:
-
-- evidence id, kind, producer route, status, command, and result path;
-- covered artifact ids and covered versions;
-- verifier artifacts such as test files, model files, adapters, or checklists;
-- background completion artifacts, skipped visibility, and release-required
-  flags;
-- validation requirement ids the evidence is intended to satisfy.
+- changed artifacts: id/type, current version or fingerprint, path/owner, and
+  upstream artifact ids when they affect freshness;
+- process steps: action id/type, actor, status, decision scope, read/write
+  artifacts, invalidations, and ordering dependencies;
+- validation evidence: evidence id, kind, producer route, status, command or
+  result path, covered artifact versions, verifier artifacts, and validation
+  requirement ids;
+- evidence caveats: skipped visibility, background final artifacts,
+  release-required flags, stale reasons, and proof artifact when a final claim
+  depends on the row;
+- final claim boundary: routine vs release/archive/publish scope and the Risk
+  Evidence Ledger row that consumes the lifecycle evidence.
 
 ## Validation Failure Triage
 
@@ -116,20 +108,12 @@ missing an obligation, include a `review_model_maturation_loop(...)` row in the
 minimum revalidation plan. A broad lifecycle claim must either consume the
 current model-upgrade evidence or explicitly report scoped confidence.
 
-List validation requirements:
+Capture validation requirements as one grouped row per requirement: id,
+required artifacts, evidence kinds or explicit evidence ids, routine/release
+scope, V-style pair when relevant, and rerun command.
 
-- requirement id;
-- required artifact ids and evidence kinds;
-- explicit evidence ids when only selected evidence may satisfy the requirement;
-- routine or release scope;
-- V-style pair flag and rerun command.
-
-List freshness rules:
-
-- upstream artifact id;
-- downstream artifact ids or evidence kinds invalidated by that upstream
-  change;
-- rationale for why the propagation is intentional.
+Capture freshness as one grouped rule: upstream artifact, invalidated
+downstream artifacts or evidence kinds, and rationale for the propagation.
 
 ## Required Findings
 
@@ -166,37 +150,16 @@ ModelMesh, Model-Test Alignment, LongCheck, or Conformance Adoption, reference
 only its evidence id, producer route, status, covered artifact versions, and
 freshness metadata.
 
-Process artifacts:
-- artifact id/type/current version:
-- upstream artifacts:
+Use these groups:
 
-Process actions:
-- action id/type/actor/scope/status:
-- reads/writes/invalidates:
-- produced evidence:
-- required evidence or validation ids:
-
-Evidence records:
-- evidence id/kind/producer route/status:
-- covered artifacts and versions:
-- verifier artifacts:
-- background completion artifacts:
-- skipped visibility:
-- release required:
-
-Validation requirements:
-- requirement id:
-- required artifacts:
-- required evidence kinds:
-- explicit evidence ids:
-- routine or release scope:
-- V-style pair:
-- rerun command:
-
-Freshness rules:
-- upstream artifact:
-- invalidated downstream artifacts or evidence kinds:
-- rationale:
+- Changed artifacts: identity, version, and upstream links.
+- Process steps: action/status/scope, reads/writes/invalidates, and produced or
+  required evidence.
+- Validation evidence: identity/status/freshness, covered and verifier
+  artifacts, plus skipped/background/release caveats.
+- Validation requirements: requirement/scope, required artifacts or evidence,
+  and V-style pair or rerun command.
+- Freshness rules: upstream, downstream, and rationale.
 
 Known hazards that must fail:
 - stale evidence after code, test, model, or requirement changes;

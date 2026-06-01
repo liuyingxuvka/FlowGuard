@@ -7,45 +7,22 @@ to executable checks.
 
 ### Task
 
-- Task id:
-- Project:
-- Summary:
-- Trigger reason:
-- Status: in_progress | completed | blocked | skipped_with_reason | failed
-- Skill decision:
-
-### Timing
-
-- Started:
-- Ended:
-- Duration seconds:
+- Task captures id, project, summary, trigger reason, status, skill decision,
+  and timing.
 
 ### Files
 
-- Model files:
-- Scenario files:
-- Conformance files:
-- Contract/progress files:
+- Artifacts include model, scenario, conformance, contract, progress, adoption,
+  or other evidence files.
 
-### Commands
+### Evidence
 
-- Command:
-- Result:
-- Duration:
-- Summary:
+- Evidence captures commands, results, duration, and coverage.
 
-### Findings
+### Gaps / Next Actions
 
-- Finding:
-
-### Counterexamples
-
-- Counterexample:
-
-### Skipped Steps
-
-- Skipped step:
-- Reason:
+- Gaps capture findings, counterexamples, skipped or blocked steps, friction,
+  and next actions.
 
 ### Status Notes
 
@@ -54,11 +31,3 @@ to executable checks.
 - `blocked` means the task could not complete because a blocker such as missing toolchain remains.
 - `skipped_with_reason` means a step was intentionally skipped and the reason is recorded.
 - `failed` means a command, model check, conformance replay, or oracle review failed.
-
-### Friction
-
-- Friction point:
-
-### Next Actions
-
-- Next action:

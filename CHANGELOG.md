@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.40.1 - 2026-06-01
+
+FlowGuard field prompt reduction.
+
+- Collapsed Model-Test Alignment, DevelopmentProcessFlow, TestMesh, ModelMesh,
+  and adoption-log prompt fields into grouped field families.
+- Preserved required evidence, freshness, boundary, skipped/not-run, release,
+  and scoped-gap fields while moving rare details behind expand-when-applicable
+  guidance.
+- Added skill documentation tests and a FlowGuard self-model to prevent long
+  blank field lists or evidence-dropping reductions from returning.
+
 ## v0.40.0 - 2026-06-01
 
 FlowGuard maintenance scan router.

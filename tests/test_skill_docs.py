@@ -52,6 +52,20 @@ KERNEL_HANDOFFS = {
     ),
 }
 
+REDUCED_FIELD_PROMPT_FILES = (
+    SKILLS_ROOT
+    / "flowguard-model-test-alignment"
+    / "references"
+    / "templates"
+    / "model_test_alignment_prompt_template.md",
+    SKILLS_ROOT
+    / "flowguard-development-process-flow"
+    / "references"
+    / "development_process_flow_protocol.md",
+    SKILLS_ROOT / "flowguard-test-mesh" / "references" / "test_mesh_protocol.md",
+    SKILLS_ROOT / "model-first-function-flow" / "assets" / "adoption_log_template.md",
+)
+
 
 class SkillDocsTests(unittest.TestCase):
     def read(self, path: Path) -> str:
@@ -253,6 +267,45 @@ class SkillDocsTests(unittest.TestCase):
         self.assertNotIn("Build or update a FlowGuard model mesh", model_mesh)
         self.assertIn("Build or update a FlowGuard model mesh", model_mesh_template)
 
+    def test_reduced_field_prompts_use_grouped_families(self):
+        model_test_alignment = self.read(
+            SKILLS_ROOT
+            / "flowguard-model-test-alignment"
+            / "references"
+            / "model_test_alignment_protocol.md"
+        )
+        development_process = self.read(
+            SKILLS_ROOT
+            / "flowguard-development-process-flow"
+            / "references"
+            / "development_process_flow_protocol.md"
+        )
+        test_mesh = self.read(SKILLS_ROOT / "flowguard-test-mesh" / "references" / "test_mesh_protocol.md")
+        model_mesh = self.read(SKILLS_ROOT / "flowguard-model-mesh" / "references" / "model_mesh_protocol.md")
+        adoption_log = self.read(KERNEL_ROOT / "assets" / "adoption_log_template.md")
+
+        for phrase in ("identity", "required evidence", "external boundary", "result:", "freshness:"):
+            self.assertIn(phrase, model_test_alignment)
+        for phrase in ("Changed artifacts", "Process steps", "Validation evidence", "Freshness rules"):
+            self.assertIn(phrase, development_process)
+        for phrase in ("Parent gate", "Ownership map", "Child suite evidence", "Target split derivation"):
+            self.assertIn(phrase, test_mesh)
+        for phrase in ("`model`", "`interface`", "`ownership`", "`evidence`", "`deep_handoff`"):
+            self.assertIn(phrase, model_mesh)
+        for phrase in ("Task captures", "Artifacts include", "Evidence captures", "Gaps capture"):
+            self.assertIn(phrase, adoption_log)
+
+    def test_reduced_field_prompts_do_not_reintroduce_blank_field_lists(self):
+        for path in REDUCED_FIELD_PROMPT_FILES:
+            with self.subTest(path=path.relative_to(ROOT)):
+                text = self.read(path)
+                colon_prompt_lines = [
+                    line
+                    for line in text.splitlines()
+                    if line.strip().startswith("- ") and line.rstrip().endswith(":")
+                ]
+                self.assertEqual([], colon_prompt_lines)
+
     def test_current_satellite_topology_has_no_stale_fixed_count_model(self):
         satellite_names = sorted(path.name for path in SKILLS_ROOT.iterdir() if path.name.startswith("flowguard-"))
         topology_model = self.read(ROOT / ".flowguard" / "codex_skill_satellites" / "model.py")
@@ -308,6 +361,17 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("shadow workspace", model)
         self.assertIn("local git", model)
         self.assertIn("broken_prompt_only_completion", run_checks)
+
+    def test_field_prompt_reduction_model_exists(self):
+        model = self.read(ROOT / ".flowguard" / "field_prompt_reduction" / "model.py")
+        run_checks = self.read(ROOT / ".flowguard" / "field_prompt_reduction" / "run_checks.py")
+
+        self.assertIn("Input x State -> Set(Output x State)", model)
+        self.assertIn("grouped_fields_preserve_required_evidence", model)
+        self.assertIn("installed_skills_synced", model)
+        self.assertIn("shadow_workspace_synced", model)
+        self.assertIn("git_evidence_recorded", model)
+        self.assertIn("broken_drops_required_evidence", run_checks)
 
 
 if __name__ == "__main__":

@@ -76,16 +76,14 @@ coverage-incomplete derivations are blockers. TestMesh still does not run tests;
 it derives the target validation layout, then reviews the evidence supplied by
 the registered child suites/scripts.
 
-For the parent test gate, list each partition item:
+For the parent test gate, list each partition item as a grouped ownership row:
 
-- behavior or workflow boundary;
-- state field or state-write owner;
-- module or command boundary;
-- side effect;
-- invariant or replay adapter;
-- release-only obligation.
-- layered proof obligation: parent coverage, child disjointness, child
-  reattachment, or leaf boundary matrix.
+- boundary: behavior, workflow, state, module, command, side effect, invariant,
+  replay adapter, release-only obligation, or layered-proof obligation;
+- owner: child, parent, read-only, or shared-kernel plus the owning suite when
+  child-owned;
+- overlap note: duplicate state or side-effect ownership and the explicit
+  sharing rationale, if any.
 
 Assign every item one owner: `child`, `parent`, `read_only`, or
 `shared_kernel`. A child-owned item must name the owning suite. Duplicate state
@@ -93,22 +91,17 @@ or side-effect owners are blockers unless the overlap is explicitly allowed.
 
 ## Evidence Checklist
 
-For each child suite or child test script, record:
+For each child suite or child test script, record grouped evidence:
 
-- command and layer;
-- owned leaf matrix cell ids when the layer is `leaf_matrix_cell` or
-  `leaf_boundary_matrix`;
-- result status;
-- evidence tier;
-- freshness and stale reasons;
-- total, selected, and skipped counts;
-- whether skipped tests are visible;
-- duration, timeout, exit code, and result path;
-- background log root plus final exit/result artifact flags;
-- proof artifact and test-result reuse ticket when an old completed result is
-  reused;
-- owned state and side effects;
-- not-run reason.
+- identity: suite id, command, layer, and owned leaf matrix cell ids when the
+  layer is `leaf_matrix_cell` or `leaf_boundary_matrix`;
+- result summary: status, evidence tier, freshness or stale reason, selected
+  and skipped counts, duration, timeout, exit code, and result path;
+- visibility caveats: skipped visibility, not-run reason, background log root,
+  final exit/result artifact flags, proof artifact, and test-result reuse
+  ticket when an old result is reused;
+- ownership summary: owned state, side effects, partition items, and release
+  scope.
 
 Progress output is liveness evidence only. It is not completion evidence.
 An old `passed` result is not reusable parent evidence unless
@@ -142,38 +135,14 @@ or selected suites/scripts as child validation regions. Do not inline every
 child test case into the parent; expose each child through ownership and
 evidence contracts.
 
-Parent gate:
-- name:
-- routine decision scope:
-- release decision scope:
+Use these groups:
 
-Partition items:
-- behavior/state/module/side-effect:
-- owner suite:
-- ownership type:
-- touched paths:
-
-Child suite evidence:
-- suite id:
-- command:
-- layer:
-- result status:
-- evidence tier:
-- freshness:
-- selected/total/skipped counts:
-- skipped visible:
-- background artifacts:
-- owned state:
-- owned side effects:
-- not-run or stale reasons:
-
-Target split derivation:
-- source FlowGuard validation model:
-- target child suites/scripts:
-- covered partition items:
-- state owner fields:
-- side-effect owner fields:
-- rationale:
+- Parent gate: identity and routine/release scope.
+- Ownership map: boundary, owner, and overlap note.
+- Child suite evidence: identity, result summary, visibility caveats, and
+  ownership summary.
+- Target split derivation: source model, target suites, coverage, and
+  rationale.
 
 Known hazards that must fail:
 - missing target split derivation;

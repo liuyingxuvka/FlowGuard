@@ -83,31 +83,17 @@ input, not authority by itself.
 
 ## Inventory
 
-Before trusting existing models, write a compact inventory:
+Before trusting existing models, write a compact inventory with grouped fields:
 
-| Field | Meaning |
+| Group | What to capture |
 | --- | --- |
-| `model_id` | Stable name for the child model. |
-| `evidence_id` | Current child evidence id that a parent can consume. |
-| `model_file` | Path to the model script. |
-| `runner_file` | Path to the check runner, if any. |
-| `result_file` | Last persisted result, if any. |
+| `model` | Stable model id plus model, runner, and result paths. |
 | `risk_boundary` | Bug class or workflow protected by the model. |
-| `inputs_accepted` | Abstract input classes this child accepts from the parent or upstream flow. |
-| `outputs_emitted` | Abstract output classes this child can return to the parent flow. |
-| `state_owned` | Abstract state fields or production fields represented. |
-| `contracts_in` | Preconditions or upstream guarantees the child depends on. |
-| `contracts_out` | Outputs, guarantees, or evidence other models depend on. |
-| `depends_on` | Upstream models, live state, logs, fixtures, or artifacts. |
-| `evidence_tier` | Current tier from the list below. |
-| `freshness_rule` | What makes this result stale. |
-| `blindspots` | Known not-modeled areas and skipped checks. |
-| `coverage_owned` | Parent partition items owned by this child. |
-| `side_effects_owned` | Side effects this child can emit. |
-| `large_model_signal` | Estimated/observed state count, incomplete budgeted run, unrelated functional areas, broad parent evidence, or progress-only status that trigger split review. |
-| `target_split_derivation` | Source FlowGuard model and target child model layout that derived this parent split. |
-| `reattachment_contracts` | Parent expectations for repaired child inputs, outputs, ownership, outgoing guarantees, and consumed evidence ids. |
-| `closure_model` | FlowGuard-style parent/child handoff model for root entries, child outputs, consumers, joins, terminals, and out-of-scope dispositions. |
+| `interface` | Inputs accepted, outputs emitted, incoming contracts, outgoing contracts, and dependencies. |
+| `ownership` | State, side effects, and parent partition coverage owned by the child. |
+| `evidence` | Current evidence id, evidence tier, freshness rule, and stale or skipped gaps. |
+| `split_signal` | Oversized state count, incomplete budgeted run, unrelated responsibilities, broad parent evidence, or progress-only evidence. |
+| `deep_handoff` | Target split derivation, reattachment contracts, and closure model only when the decision needs parent/child confidence. |
 
 ## Partition And Overlap Review
 
