@@ -35,6 +35,8 @@ defined. Do not invoke TestMesh, ModelMesh, or StructureMesh from this route.
   `TestResultReuseTicket`, and a current `ProofArtifactRef`; an old `passed`
   status alone is not current coverage.
 - Source audit is conservative support, not semantic proof.
+- Open external boundaries must expose representative unknown/other cases or a
+  current state-closure report; unresolved cases route to model maturation.
 
 ## Minimum Workflow
 

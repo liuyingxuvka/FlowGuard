@@ -55,10 +55,10 @@ Before changing files, separate three situations:
   minimum revalidation is the risky boundary. Use this sibling route to review
   lifecycle rows without supervising ModelMesh, TestMesh, StructureMesh, or
   Model-Test Alignment internals.
-- `model_maturation_loop`: later model-miss, model-test, ModelMesh,
-  code-boundary, or freshness evidence says the model itself is too coarse,
-  stale, disconnected, or only supports a scoped claim. Translate that signal
-  into a model-upgrade action before broad confidence is claimed.
+- `model_maturation_loop`: later model-miss, model-test, state-closure,
+  ModelMesh, code-boundary, or freshness evidence says the model itself is too
+  coarse, stale, disconnected, or only supports a scoped claim. Translate that
+  signal into a model-upgrade action before broad confidence is claimed.
 
 If real FlowGuard is importable but a current `.flowguard` Python model still
 claims `flowguard_package_available = False`, uses a fallback explorer, or
@@ -285,7 +285,9 @@ They also attach optional `property_classes` metadata, such as
 `deduplication`, `at_most_once`, or `cache_consistency`, so `audit_model(...)`
 can recognize common property types without relying only on invariant names.
 Custom invariants can add the same metadata when useful, but metadata is not
-required and unknown values are not hard failures.
+required. Unknown input/state values are handled by the automatic state-closure
+gate in `run_model_first_checks(...)`; undeclared policy scopes confidence and
+unsafe handling blocks it.
 
 For common risks, optional domain packs can reduce boilerplate:
 `DeduplicationPack`, `CachePack`, `RetryPack`, and `SideEffectPack`. A pack only

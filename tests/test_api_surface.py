@@ -57,6 +57,10 @@ class ApiSurfaceTests(unittest.TestCase):
         self.assertIn("review_maintenance_scan", flowguard.REPORTING_HELPER_API)
         self.assertIn("maintenance_scan_template_files", flowguard.EVIDENCE_API)
         self.assertNotIn("review_maintenance_scan", flowguard.CORE_API)
+        self.assertIn("ArtifactUpgradeItem", flowguard.REPORTING_HELPER_API)
+        self.assertIn("ArtifactUpgradeReport", flowguard.REPORTING_HELPER_API)
+        self.assertIn("review_artifact_upgrades", flowguard.REPORTING_HELPER_API)
+        self.assertNotIn("review_artifact_upgrades", flowguard.CORE_API)
         self.assertIn("ModelFreshnessRecord", flowguard.REPORTING_HELPER_API)
         self.assertIn("UpgradeImpact", flowguard.REPORTING_HELPER_API)
         self.assertIn("ModelImpactAssessment", flowguard.REPORTING_HELPER_API)
@@ -199,6 +203,7 @@ class ApiSurfaceTests(unittest.TestCase):
             "model_test_alignment",
             "plan_detailing_compiler",
             "maintenance_scan_router",
+            "state_closure",
         }
         self.assertEqual(expected_groups, set(flowguard.FLOWGUARD_ROUTE_API))
 
@@ -288,6 +293,7 @@ class ApiSurfaceTests(unittest.TestCase):
             "MODEL_IMPACT_FRESHNESS_API",
             "MODEL_MATURATION_API",
             "PLAN_DETAILING_ROUTE_API",
+            "STATE_CLOSURE_ROUTE_API",
             "MODELING_HELPER_API",
             "REPORTING_HELPER_API",
             "TEMPLATE_STRUCTURE_API",
@@ -312,6 +318,12 @@ class ApiSurfaceTests(unittest.TestCase):
             "LEGACY_PATH_SAME_CONTRACT_REPAIRED",
             "LEGACY_PATH_OUT_OF_SCOPE",
             "LEGACY_PATH_UNKNOWN",
+            "ARTIFACT_UPGRADE_STATUS_BLOCKED",
+            "ARTIFACT_UPGRADE_STATUS_SKIPPED",
+            "ARTIFACT_UPGRADE_STATUS_UNCHANGED",
+            "ARTIFACT_UPGRADE_STATUS_UPGRADED",
+            "ARTIFACT_UPGRADE_STATUSES",
+            "ARTIFACT_UPGRADE_TEXT_REPLACEMENTS",
         )
         self.assertEqual(flowguard._PUBLIC_API_SUPPLEMENT, expected_supplement)
 

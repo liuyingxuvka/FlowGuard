@@ -36,6 +36,10 @@ DevelopmentProcessFlow as needed.
 - Do not create a fake mini-framework.
 - Every contraction candidate needs proof status and required next route.
 - Public entrypoints require StructureMesh or equivalent parity evidence.
+- Compatibility-only runtime branches, old aliases, wrappers, and prompt
+  wording are cleanup candidates after classification proves they are not
+  current contracts, safety classifiers, public facades, runtime-authoritative
+  archives, or unreplaced negative legacy tests.
 
 ## Minimum Workflow
 
@@ -43,7 +47,8 @@ DevelopmentProcessFlow as needed.
 2. Declare the observable contract.
 3. Map FunctionBlock, state, side effect, and public entrypoint ownership.
 4. Classify candidates as merge, collapse, remove, keep facade, or review.
-5. Separate ready, scoped, risky, and blocked candidates.
+5. Separate safety classifiers from removable compatibility-only surfaces.
+6. Separate ready, scoped, risky, and blocked candidates.
 
 ## Snapshot
 

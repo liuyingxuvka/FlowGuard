@@ -214,6 +214,8 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("TEST_CLOSURE_ROLE_OBSERVED_REGRESSION", combined)
         self.assertIn("TEST_CLOSURE_ROLE_SAME_CLASS_GENERALIZED", combined)
         self.assertIn("same-class evidence", combined)
+        self.assertIn("representative unknown/other", combined)
+        self.assertIn("state closure evidence", combined)
         self.assertIn("TestResultReuseTicket", combined)
         self.assertIn("result_reused=True", combined)
         self.assertNotIn("review_hierarchical_mesh", combined)
@@ -438,6 +440,8 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("https://github.com/liuyingxuvka/FlowGuard", combined)
         self.assertIn("project-audit", combined)
         self.assertIn("project-upgrade", combined)
+        self.assertIn("latest-schema-first", combined)
+        self.assertIn("artifact/model/test upgrade scanning", combined)
         self.assertIn("adopted_package_version", combined)
         self.assertIn("schema_version", combined)
 

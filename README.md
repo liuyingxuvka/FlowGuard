@@ -16,7 +16,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.40.1` | `1.0` | Python standard library only | MIT |
+| `v0.40.3` | `1.0` | Python standard library only | MIT |
 
 English lead content comes first; a Chinese mirror follows below.
 
@@ -124,6 +124,7 @@ FlowGuard gives those weak spots a small executable shape before the action beco
 | Route | Purpose |
 | --- | --- |
 | Scenario and invariant review | Checks expected traces, hard rules, repeated inputs, dead branches, and bad terminal states |
+| State/input closure gate | Automatically keeps other, malformed, missing, old-schema, and externally unknown cases visible; safe handling can pass, undeclared policy scopes confidence, and unsafe side effects block it |
 | Adversarial scenario synthesis | Derives candidate challenge routes from Explorer counterexamples, dead branches, exception branches, repeated state visits, and risk semantics, with bounded input-shape fallbacks kept as candidate evidence |
 | Conformance replay | Compares representative abstract traces with implementation behavior when code exists |
 | Runtime Gateway Adoption | Checks whether a project claiming runtime FlowGuard protection has complete critical-state writer inventory and every critical write is mediated by declared gateway contracts with step, boundary, replay, and proof evidence |
@@ -134,7 +135,7 @@ FlowGuard gives those weak spots a small executable shape before the action beco
 | Plan Detailing Compiler | Forces rough ideas, short plans, and AI-generated outlines into explicit source, scope, state, side-effect, step, receipt, validation, rework, human-question, and evidence-claim rows before downstream routes run |
 | Plan Intake And Claim Chain | Checks that plan inputs, evidence adapters, false-negative repairs, known-bad mutations, and typed claim dependencies are declared before broad confidence is claimed |
 | Model Impact Freshness | Classifies existing `.flowguard` models after a FlowGuard upgrade so affected models rerun and unchanged models reuse old evidence only with explicit proof |
-| Model Maturation Loop | Converts model-miss, model-test, mesh, code-boundary, and evidence-freshness signals into explicit model-upgrade actions before broad claims are made |
+| Model Maturation Loop | Converts model-miss, state-closure, model-test, mesh, code-boundary, and evidence-freshness signals into explicit model-upgrade actions before broad claims are made |
 | Risk Evidence Ledger | Connects user-facing risks to model obligations, public code contracts, obligation-family gates, analogous scans, recurring defect-family gates, model/test split gates, and current proof evidence before any full-confidence claim |
 | FlowGuard closure contract | Requires the relevant intake, model, same-class bug, family parity, analogous scan when required, alignment, mesh/boundary, model maturation, freshness, ledger, and claim-chain gates before complete FlowGuard use or full-confidence claims |
 | ModelMesh | Splits oversized or incomplete direct model evidence into parent/child evidence, propagates child boundary changes upward, reviews affected sibling models, and uses mesh closure models for whole-flow parent confidence |

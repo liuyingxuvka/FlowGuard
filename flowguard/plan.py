@@ -77,6 +77,7 @@ class FlowGuardCheckPlan:
     conformance_report: Any = None
     scenario_matrix_config: ScenarioMatrixConfig | None = None
     assumption_card: Any = None
+    state_closure_plan: Any = None
     metadata: FrozenMetadata = field(default_factory=tuple, compare=False)
 
     def __init__(
@@ -96,6 +97,7 @@ class FlowGuardCheckPlan:
         conformance_report: Any = None,
         scenario_matrix_config: ScenarioMatrixConfig | Mapping[str, Any] | None = None,
         assumption_card: Any = None,
+        state_closure_plan: Any = None,
         metadata: Mapping[str, Any] | Iterable[tuple[str, Any]] | None = None,
     ) -> None:
         object.__setattr__(self, "workflow", workflow)
@@ -116,6 +118,7 @@ class FlowGuardCheckPlan:
             _coerce_scenario_matrix_config(scenario_matrix_config),
         )
         object.__setattr__(self, "assumption_card", assumption_card)
+        object.__setattr__(self, "state_closure_plan", state_closure_plan)
         object.__setattr__(self, "metadata", freeze_metadata(metadata))
 
     def format_text(self) -> str:
@@ -132,6 +135,7 @@ class FlowGuardCheckPlan:
             f"progress_config: {'provided' if self.progress_config is not None else 'not_provided'}",
             f"conformance_status: {self.conformance_status or 'not_provided'}",
             f"assumption_card: {'provided' if self.assumption_card is not None else 'not_provided'}",
+            f"state_closure_plan: {'provided' if self.state_closure_plan is not None else 'auto'}",
         ]
         if self.risk_profile is not None:
             lines.append(f"risk_profile: {self.risk_profile.modeled_boundary}")
@@ -170,6 +174,7 @@ class FlowGuardCheckPlan:
                 else None
             ),
             "assumption_card": _assumption_card_to_jsonable(self.assumption_card),
+            "state_closure_plan": to_jsonable(self.state_closure_plan),
             "metadata": to_jsonable(self.metadata),
         }
 

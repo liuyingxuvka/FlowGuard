@@ -343,9 +343,17 @@ def _run_project_adoption_command(args: argparse.Namespace) -> int:
     elif args.project_action == "adopt":
         report = adopt_project(args.root)
     elif args.project_action == "upgrade":
-        report = upgrade_project(args.root)
+        report = upgrade_project(args.root, records_only=args.records_only)
     else:  # pragma: no cover
         raise ValueError(f"unknown project adoption action: {args.project_action}")
+    print(report.to_json_text() if args.json else report.format_text())
+    return 0 if report.ok else 1
+
+
+def _run_artifact_upgrade_command(args: argparse.Namespace) -> int:
+    from .artifact_upgrade import review_artifact_upgrades
+
+    report = review_artifact_upgrades(args.root, apply=args.apply, paths=tuple(args.path or ()))
     print(report.to_json_text() if args.json else report.format_text())
     return 0 if report.ok else 1
 
@@ -430,7 +438,32 @@ def _add_project_adoption_parser(
     parser = subparsers.add_parser(command_name, help=help_text)
     parser.add_argument("--root", default=".", help="Target project root.")
     parser.add_argument("--json", action="store_true", help="Print the report as JSON.")
+    if action == "upgrade":
+        parser.add_argument(
+            "--records-only",
+            action="store_true",
+            help="Only update AGENTS/manifest/adoption records; skip artifact/model/test upgrade scanning.",
+        )
+    else:
+        parser.set_defaults(records_only=False)
     parser.set_defaults(handler=_run_project_adoption_command, project_action=action)
+
+
+def _add_artifact_upgrade_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
+    parser = subparsers.add_parser(
+        "artifact-upgrade",
+        help="Scan or apply deterministic upgrades for older FlowGuard artifacts.",
+    )
+    parser.add_argument("--root", default=".", help="Target project root.")
+    parser.add_argument(
+        "--path",
+        action="append",
+        default=[],
+        help="Specific file or directory to scan. May be passed more than once.",
+    )
+    parser.add_argument("--apply", action="store_true", help="Write deterministic upgrades.")
+    parser.add_argument("--json", action="store_true", help="Print the report as JSON.")
+    parser.set_defaults(handler=_run_artifact_upgrade_command)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -442,6 +475,7 @@ def main(argv: list[str] | None = None) -> int:
     _add_existing_command_subparsers(subparsers)
     for command in FILE_TEMPLATE_COMMANDS:
         _add_file_template_parser(subparsers, command)
+    _add_artifact_upgrade_parser(subparsers)
     _add_project_adoption_parser(
         subparsers,
         "project-audit",

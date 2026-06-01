@@ -29,14 +29,18 @@ TestMesh for test hierarchy and StructureMesh for code hierarchy.
 - Parent confidence needs parent coverage, legal child disjointness, current
   child reattachment, and leaf boundary-matrix evidence.
 - Background or stale child evidence is scoped, not pass.
+- Older child or parent model artifacts must be upgraded to the current
+  FlowGuard shape, replaced, or explicitly blocked before they count as current
+  mesh evidence.
 
 ## Minimum Workflow
 
 1. Identify parent model, child models, partition items, and target split.
-2. Review required hazards and child ownership boundaries.
-3. Check parent coverage, child disjointness, and child reattachment.
-4. Review affected siblings when a child boundary changed.
-5. Keep whole-flow closure separate from local child green.
+2. Classify old-shape parent/child evidence as upgraded, replaced, or blocked.
+3. Review required hazards and child ownership boundaries.
+4. Check parent coverage, child disjointness, and child reattachment.
+5. Review affected siblings when a child boundary changed.
+6. Keep whole-flow closure separate from local child green.
 
 ## Snapshot
 

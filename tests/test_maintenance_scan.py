@@ -15,6 +15,7 @@ from flowguard import (
     MAINTENANCE_ROUTE_ARCHITECTURE_REDUCTION,
     MAINTENANCE_ROUTE_DEVELOPMENT_PROCESS_FLOW,
     MAINTENANCE_ROUTE_MODEL_TEST_ALIGNMENT,
+    MAINTENANCE_ROUTE_MODEL_MATURATION,
     MAINTENANCE_ROUTE_STRUCTURE_MESH,
     MAINTENANCE_SCAN_DECISION_BLOCKED,
     MAINTENANCE_SCAN_DECISION_CLEAR,
@@ -23,6 +24,7 @@ from flowguard import (
     MAINTENANCE_SCAN_DECISION_SUGGESTED,
     MAINTENANCE_SIGNAL_LARGE_MODULE,
     MAINTENANCE_SIGNAL_REDUCIBLE_BRANCH,
+    MAINTENANCE_SIGNAL_STATE_CLOSURE_GAP,
     MaintenanceChangedArtifact,
     MaintenanceEvidence,
     MaintenanceScanPlan,
@@ -149,6 +151,24 @@ class MaintenanceScanTests(unittest.TestCase):
         self.assertIn(MAINTENANCE_ROUTE_STRUCTURE_MESH, routes(report))
         action_by_route = {action.route_id: action for action in report.actions}
         self.assertEqual(MAINTENANCE_ACTION_SUGGESTED, action_by_route[MAINTENANCE_ROUTE_ARCHITECTURE_REDUCTION].strength)
+
+    def test_state_closure_gap_routes_to_model_maturation(self):
+        report = review_maintenance_scan(
+            MaintenanceScanPlan(
+                "state-closure",
+                signals=(
+                    MaintenanceSignal(
+                        "unknown-state",
+                        MAINTENANCE_SIGNAL_STATE_CLOSURE_GAP,
+                        description="Runner found an automatic state/input closure confidence gap.",
+                    ),
+                ),
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertEqual(MAINTENANCE_SCAN_DECISION_REQUIRED, report.decision)
+        self.assertIn(MAINTENANCE_ROUTE_MODEL_MATURATION, routes(report))
 
     def test_template_cli_and_written_example_run(self):
         printed = subprocess.run(

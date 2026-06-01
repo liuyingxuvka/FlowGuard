@@ -1,5 +1,29 @@
 # Changelog
 
+## v0.40.3 - 2026-06-01
+
+Latest-schema-first upgrade policy.
+
+- Added deterministic artifact upgrade scanning for old FlowGuard artifacts,
+  model/test evidence, docs, scripts, and skill guidance.
+- Extended `project-upgrade` so older adopted repositories upgrade known old
+  artifacts by default, with `--records-only` for narrow record refreshes.
+- Added the `artifact-upgrade` CLI, public report helpers, OpenSpec coverage,
+  self-model checks, focused tests, and updated agent guidance.
+
+## v0.40.2 - 2026-06-01
+
+Automatic state/input closure gate.
+
+- Added `review_state_closure()` with typed closure dimensions, representative
+  unknown cases, safe handling policies, reports, and route-scoped API
+  discovery.
+- Added automatic `state_closure` summary sections to
+  `run_model_first_checks(...)` so inferred unknown/other cases scope
+  confidence by default and unsafe handling blocks confidence.
+- Routed state closure maintenance gaps to `model_maturation_loop` and updated
+  docs, skill guidance, OpenSpec artifacts, tests, and the FlowGuard self-model.
+
 ## v0.40.1 - 2026-06-01
 
 FlowGuard field prompt reduction.

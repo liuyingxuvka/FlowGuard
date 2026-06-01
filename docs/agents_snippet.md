@@ -6,25 +6,16 @@ Copy this compact section into another repository's `AGENTS.md`.
 ## Global FlowGuard Skill Routing
 
 FlowGuard repository: https://github.com/liuyingxuvka/FlowGuard
-
-Keep the FlowGuard managed AGENTS.md block and `.flowguard/project.toml`
-version record current when this project adopts FlowGuard.
+Keep the managed AGENTS.md block and `.flowguard/project.toml` current.
 
 ### Decision
 
-For coding, repository, process, prompt, skill, documentation, release, archive,
-publish, UI, test, and software-maintenance work, first make a lightweight
-FlowGuard routing decision:
-`use_direct_flowguard_skill`, `use_model_first_kernel`, `skip_with_reason`, or
-`needs_human_review`.
+For coding, repository, process, prompt, skill, documentation, release, archive, publish, UI, test, and software-maintenance work, first decide:
+`use_direct_flowguard_skill`, `use_model_first_kernel`, `skip_with_reason`, or `needs_human_review`.
 
-- Use `use_direct_flowguard_skill` when a route-specific satellite clearly
-  matches.
-- Use `use_model_first_kernel` for ordinary behavior/state modeling, unclear
-  route selection, or cross-route coordination.
-- Use `skip_with_reason` only for tiny copy edits, formatting-only changes,
-  direct command answers, read-only explanation, or work with no
-  behavior/state/process/release impact.
+- Use `use_direct_flowguard_skill` when a route-specific satellite clearly matches.
+- Use `use_model_first_kernel` for ordinary behavior/state modeling, unclear route selection, or cross-route coordination.
+- Use `skip_with_reason` only for tiny copy edits, formatting-only changes, direct command answers, read-only explanation, or work with no behavior/state/process/release impact.
 - Use `needs_human_review` when the risk boundary cannot be narrowed safely.
 
 ### Thin Default Path
@@ -48,6 +39,12 @@ progress-only, or not-run checks are not passes.
 - If the managed AGENTS block or `.flowguard/project.toml` is missing, use
   `python -m flowguard project-adopt --root .`; if installed FlowGuard is newer
   than the project record, use `python -m flowguard project-upgrade --root .`.
+  Project upgrade scans known FlowGuard artifacts, model evidence, tests, docs,
+  and guidance for deterministic upgrades into the current FlowGuard shape.
+  Use `--records-only` only when intentionally scoping out that scan.
+- FlowGuard is latest-schema-first: old artifacts may be detected and upgraded
+  at project/tool boundaries, but normal route logic should not preserve
+  long-lived compatibility branches for obsolete fields, aliases, or wrappers.
 - Do not create a fake mini-framework or replace executable modeling with prose.
 - Represent each modeled block as `Input x State -> Set(Output x State)`.
 - Preserve user and peer-agent changes; later writes can stale earlier evidence.
@@ -57,8 +54,8 @@ progress-only, or not-run checks are not passes.
   `ProofArtifactRef`; old `passed` output is not current evidence by itself.
 - For non-trivial FlowGuard work, show a route-specific Mermaid snapshot once
   the route/model is stable; diagrams explain and do not validate.
-- Before full done/release/publish confidence, connect risks, obligations, code/test evidence, and proof artifacts through Risk Evidence Ledger or equivalent.
-- After non-trivial work, use `maintenance_scan_router` when changed artifacts, skipped routes, stale evidence, or split/reduction signals appear.
+- Before full done/release/publish confidence, connect risks, obligations, code/test evidence, proof artifacts, and automatic state-closure gaps through Risk Evidence Ledger or equivalent.
+- After non-trivial work, use `maintenance_scan_router` when changed artifacts, skipped routes, stale evidence, state-closure gaps, or split/reduction signals appear.
 - Finish real project use with adoption evidence: trigger, model/risk,
   commands, findings, skipped gaps, validation results, and next actions.
 
@@ -67,6 +64,7 @@ progress-only, or not-run checks are not passes.
 | Trigger | Route | Entry |
 | --- | --- | --- |
 | Changed artifacts, stale evidence, skipped routes, split/reduction pressure after project work | `maintenance_scan_router` | `review_maintenance_scan()` or `maintenance-scan-template` |
+| Older adopted project, old FlowGuard artifact, old model/test evidence, obsolete API aliases | `artifact_schema_upgrade` | `artifact-upgrade` or `project-upgrade` |
 | Existing modeled system, ownership lookup, duplicate-boundary risk | `existing_model_preflight` | `flowguard-existing-model-preflight` |
 | Similar features, A/B workflow drift, sibling tests, shared-kernel/adapter suspicion | `model_similarity_consolidation` | `model-first-function-flow` reference |
 | Rough idea/short plan needs detailed scope, state, evidence, receipts, rework | `plan_detailing_compiler` | `flowguard-plan-detailing-compiler` |
@@ -81,7 +79,7 @@ progress-only, or not-run checks are not passes.
 | Large script/module/package/API split, facade or public entrypoint parity | `structure_mesh_maintenance` | `flowguard-structure-mesh` |
 | Staged development, edits, validation freshness, install/shadow/git sync | `development_process_flow` | `flowguard-development-process-flow` |
 | Runtime/test/replay/manual evidence fails after FlowGuard passed | `model_miss_review` | `flowguard-model-miss-review` |
-| Model too coarse after code/test/mesh/freshness evidence | `model_maturation_loop` | `model-first-function-flow` reference |
+| Model too coarse after state-closure/code/test/mesh/freshness evidence | `model_maturation_loop` | `model-first-function-flow` reference |
 | Final broad confidence boundary | `risk_evidence_ledger` | `docs/risk_evidence_ledger.md` |
 | Production conformance, install sync, shadow workspace sync | `conformance_adoption` | `model-first-function-flow` reference |
 | Long-running model/test/regression check | `long_check_observability` | `model-first-function-flow` reference |

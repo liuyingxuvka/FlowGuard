@@ -16,6 +16,7 @@ except ModuleNotFoundError:  # pragma: no cover
     tomllib = None  # type: ignore[assignment]
 
 from .adoption import append_jsonl, append_markdown_log, make_adoption_log_entry
+from .artifact_upgrade import ArtifactUpgradeReport, review_artifact_upgrades
 from .core import FrozenMetadata, freeze_metadata
 from .export import to_jsonable
 from .schema import SCHEMA_VERSION
@@ -82,6 +83,7 @@ class ProjectAdoptionReport:
     manifest_schema_version: str = ""
     findings: tuple[ProjectAdoptionFinding, ...] = ()
     written_files: tuple[str, ...] = ()
+    artifact_upgrade_report: ArtifactUpgradeReport | None = None
 
     @property
     def ok(self) -> bool:
@@ -109,6 +111,11 @@ class ProjectAdoptionReport:
             "manifest_schema_version": self.manifest_schema_version,
             "written_files": list(self.written_files),
             "findings": [finding.to_dict() for finding in self.findings],
+            "artifact_upgrade_report": (
+                self.artifact_upgrade_report.to_dict()
+                if self.artifact_upgrade_report is not None
+                else None
+            ),
         }
 
     def to_json_text(self, indent: int = 2) -> str:
@@ -128,6 +135,15 @@ class ProjectAdoptionReport:
         if self.written_files:
             lines.append("written_files:")
             lines.extend(f"- {path}" for path in self.written_files)
+        if self.artifact_upgrade_report is not None:
+            lines.extend(
+                [
+                    "",
+                    "artifact_upgrade:",
+                    f"  status: {'pass' if self.artifact_upgrade_report.ok else 'blocked'}",
+                    f"  summary: {self.artifact_upgrade_report.summary}",
+                ]
+            )
         for finding in self.findings:
             lines.extend(
                 [
@@ -173,6 +189,8 @@ def current_project_manifest_text(
         "\n"
         "[policy]\n"
         "upgrade_when_installed_version_is_newer = true\n"
+        "latest_schema_first = true\n"
+        "upgrade_existing_artifacts_when_project_version_is_older = true\n"
         "require_adoption_log = true\n"
         "require_model_update_for_behavior_changes = true\n"
     )
@@ -215,9 +233,18 @@ Before non-trivial work:
 4. Compare the installed version with `{FLOWGUARD_PROJECT_MANIFEST}`.
 5. If the installed version is newer, run:
    `python -m flowguard project-upgrade --root .`
+   This updates the project record and scans existing FlowGuard artifacts,
+   model evidence, tests, docs, and guidance for deterministic upgrades into
+   the current FlowGuard shape. Use `--records-only` only when intentionally
+   scoping out artifact/model/test upgrade scanning.
    Then rerun affected models/tests before broad confidence and record the result.
 6. If the installed version is older than the project record, stop and upgrade
    the local FlowGuard toolchain before claiming FlowGuard confidence.
+
+FlowGuard runtime guidance is latest-schema-first: old artifacts may be
+detected and upgraded at project/tool boundaries, but normal route logic should
+not preserve long-lived compatibility branches for obsolete fields, aliases, or
+wrappers.
 
 After non-trivial FlowGuard-managed work, run or record a maintenance scan when
 changed artifacts, skipped routes, stale evidence, or split/reduction signals
@@ -281,13 +308,25 @@ def upgrade_project(
     root: str | Path = ".",
     *,
     verified_by: str = "FlowGuard project-upgrade",
+    records_only: bool = False,
 ) -> ProjectAdoptionReport:
     """Explicitly update target-project FlowGuard records to the installed version."""
 
-    return _write_project_adoption(root, action=PROJECT_ADOPTION_ACTION_UPGRADE, verified_by=verified_by)
+    return _write_project_adoption(
+        root,
+        action=PROJECT_ADOPTION_ACTION_UPGRADE,
+        verified_by=verified_by,
+        records_only=records_only,
+    )
 
 
-def _write_project_adoption(root: str | Path, *, action: str, verified_by: str) -> ProjectAdoptionReport:
+def _write_project_adoption(
+    root: str | Path,
+    *,
+    action: str,
+    verified_by: str,
+    records_only: bool = False,
+) -> ProjectAdoptionReport:
     root_path = Path(root).resolve()
     package_version = installed_flowguard_package_version()
     manifest_path = root_path / FLOWGUARD_PROJECT_MANIFEST
@@ -306,6 +345,11 @@ def _write_project_adoption(root: str | Path, *, action: str, verified_by: str) 
             manifest_schema_version=manifest_schema,
             findings=tuple(blocked),
         )
+
+    artifact_upgrade_report: ArtifactUpgradeReport | None = None
+    upgrade_needed = _project_upgrade_scan_needed(package_version, manifest_package, manifest_schema)
+    if action == PROJECT_ADOPTION_ACTION_UPGRADE and upgrade_needed and not records_only:
+        artifact_upgrade_report = review_artifact_upgrades(root_path, apply=True)
 
     agents_path = root_path / "AGENTS.md"
     existing_agents = _read_text(agents_path)
@@ -339,9 +383,19 @@ def _write_project_adoption(root: str | Path, *, action: str, verified_by: str) 
             f"FlowGuard repository recorded: {FLOWGUARD_REPOSITORY_URL}",
             f"FlowGuard package version recorded: {package_version}",
             f"FlowGuard schema version recorded: {SCHEMA_VERSION}",
+            *(
+                (f"Artifact upgrade scan: {artifact_upgrade_report.summary}",)
+                if artifact_upgrade_report is not None
+                else ()
+            ),
         ),
         skipped_steps=(
             "Project adoption record does not replace executable model checks, tests, replay, or closure evidence.",
+            *(
+                ("Artifact/model/test upgrade scan was scoped out by records-only mode.",)
+                if action == PROJECT_ADOPTION_ACTION_UPGRADE and records_only
+                else ()
+            ),
         ),
         next_actions=(
             "Rerun affected FlowGuard models/tests before broad completion claims when behavior, tests, or version records change.",
@@ -356,6 +410,25 @@ def _write_project_adoption(root: str | Path, *, action: str, verified_by: str) 
         for finding in preflight_findings
         if finding.category not in {"missing_agents_block", "missing_project_manifest", "project_flowguard_upgrade_available"}
     ]
+    if action == PROJECT_ADOPTION_ACTION_UPGRADE and records_only:
+        findings.append(
+            ProjectAdoptionFinding(
+                "warning",
+                "artifact_upgrade_scan_scoped_out",
+                "Artifact/model/test upgrade scanning was scoped out by records-only mode.",
+                "Run project-upgrade without --records-only or run artifact-upgrade before broad confidence claims.",
+            )
+        )
+    if artifact_upgrade_report is not None and not artifact_upgrade_report.ok:
+        findings.append(
+            ProjectAdoptionFinding(
+                "blocked",
+                "artifact_upgrade_blocked",
+                "Artifact/model/test upgrade scan found blocked items.",
+                "Review blocked paths before claiming the project is current.",
+                metadata={"blocked_paths": artifact_upgrade_report.blocked_paths},
+            )
+        )
     findings.append(
         ProjectAdoptionFinding(
             "info",
@@ -373,7 +446,17 @@ def _write_project_adoption(root: str | Path, *, action: str, verified_by: str) 
         manifest_schema_version=SCHEMA_VERSION,
         findings=tuple(findings),
         written_files=tuple(written),
+        artifact_upgrade_report=artifact_upgrade_report,
     )
+
+
+def _project_upgrade_scan_needed(package_version: str, manifest_package: str, manifest_schema: str) -> bool:
+    if manifest_schema and manifest_schema != SCHEMA_VERSION:
+        return True
+    if manifest_package and package_version:
+        comparison = compare_versions(package_version, manifest_package)
+        return comparison is not None and comparison > 0
+    return False
 
 
 def _audit_findings(

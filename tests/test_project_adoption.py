@@ -94,12 +94,53 @@ class ProjectAdoptionTests(unittest.TestCase):
             manifest = root / FLOWGUARD_PROJECT_MANIFEST
             manifest.parent.mkdir(parents=True)
             manifest.write_text(current_project_manifest_text(package_version="0.1.0"), encoding="utf-8")
+            old_report = root / ".flowguard" / "old_report.json"
+            old_report.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "0.1",
+                        "artifact_type": "flowguard_test_report",
+                        "payload": {"ok": True},
+                    }
+                ),
+                encoding="utf-8",
+            )
 
             report = upgrade_project(root)
 
             self.assertTrue(report.ok, report.format_text())
+            self.assertIsNotNone(report.artifact_upgrade_report)
+            self.assertEqual(1, report.artifact_upgrade_report.upgraded_count)
+            self.assertEqual(flowguard.SCHEMA_VERSION, json.loads(old_report.read_text(encoding="utf-8"))["schema_version"])
             manifest_text = manifest.read_text(encoding="utf-8")
             self.assertIn(f'adopted_package_version = "{installed_flowguard_package_version()}"', manifest_text)
+
+    def test_project_upgrade_records_only_scopes_artifact_scan(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "AGENTS.md").write_text(build_flowguard_agents_block(package_version="0.1.0"), encoding="utf-8")
+            manifest = root / FLOWGUARD_PROJECT_MANIFEST
+            manifest.parent.mkdir(parents=True)
+            manifest.write_text(current_project_manifest_text(package_version="0.1.0"), encoding="utf-8")
+            old_report = root / ".flowguard" / "old_report.json"
+            old_report.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "0.1",
+                        "artifact_type": "flowguard_test_report",
+                        "payload": {"ok": True},
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            report = upgrade_project(root, records_only=True)
+
+            self.assertTrue(report.ok, report.format_text())
+            self.assertIsNone(report.artifact_upgrade_report)
+            categories = {finding.category for finding in report.findings}
+            self.assertIn("artifact_upgrade_scan_scoped_out", categories)
+            self.assertEqual("0.1", json.loads(old_report.read_text(encoding="utf-8"))["schema_version"])
 
     def test_project_adopt_cli_outputs_json(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -118,6 +159,37 @@ class ProjectAdoptionTests(unittest.TestCase):
             self.assertTrue(payload["ok"])
             self.assertTrue((Path(directory) / "AGENTS.md").exists())
             self.assertTrue((Path(directory) / FLOWGUARD_PROJECT_MANIFEST).exists())
+
+    def test_project_upgrade_cli_accepts_records_only(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "AGENTS.md").write_text(build_flowguard_agents_block(package_version="0.1.0"), encoding="utf-8")
+            manifest = root / FLOWGUARD_PROJECT_MANIFEST
+            manifest.parent.mkdir(parents=True)
+            manifest.write_text(current_project_manifest_text(package_version="0.1.0"), encoding="utf-8")
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "flowguard",
+                    "project-upgrade",
+                    "--root",
+                    directory,
+                    "--records-only",
+                    "--json",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertIsNone(payload["artifact_upgrade_report"])
+            categories = {finding["category"] for finding in payload["findings"]}
+            self.assertIn("artifact_upgrade_scan_scoped_out", categories)
 
 
 if __name__ == "__main__":

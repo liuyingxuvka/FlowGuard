@@ -14,6 +14,11 @@ from .review import review_scenarios
 from .scenario import run_exact_sequence
 from .scenario_matrix import ScenarioMatrixBuilder
 from .scenario_matrix import synthesize_challenge_scenarios_from_report
+from .state_closure import (
+    STATE_CLOSURE_CONFIDENCE_FULL,
+    infer_state_closure_plan,
+    review_state_closure,
+)
 from .step_contracts import compile_step_contract_invariants, review_step_contract_trace
 from .summary_report import (
     FlowGuardSection,
@@ -77,6 +82,7 @@ def run_model_first_checks(plan: FlowGuardCheckPlan) -> FlowGuardSummaryReport:
     )
     artifacts["audit_report"] = audit_report
     sections.append(section_from_audit_report(audit_report))
+    _append_state_closure_section(sections, artifacts, plan)
 
     scenarios, generated_scenarios = _plan_or_generated_scenarios(plan)
     if generated_scenarios:
@@ -240,6 +246,44 @@ def _append_assumption_card_section(
             metadata={
                 "assumption_card": assumption_card,
                 "always_show_findings": True,
+            },
+        )
+    )
+
+
+def _append_state_closure_section(
+    sections: list[FlowGuardSection],
+    artifacts: dict[str, Any],
+    plan: FlowGuardCheckPlan,
+) -> None:
+    closure_plan = plan.state_closure_plan or infer_state_closure_plan(
+        workflow=plan.workflow,
+        initial_states=plan.initial_states,
+        external_inputs=plan.external_inputs,
+        risk_profile=plan.risk_profile,
+    )
+    report = review_state_closure(closure_plan)
+    artifacts["state_closure_plan"] = closure_plan
+    artifacts["state_closure_report"] = report
+    if not report.ok:
+        status = "blocked"
+    elif report.confidence == STATE_CLOSURE_CONFIDENCE_FULL:
+        status = "pass"
+    else:
+        status = "pass_with_gaps"
+    sections.append(
+        FlowGuardSection(
+            name="state_closure",
+            status=status,
+            summary=report.summary,
+            findings=tuple(
+                f"{finding.severity}: {finding.code}: {finding.message}"
+                for finding in report.findings
+            ),
+            metadata={
+                "report": report,
+                "generated_cases": report.generated_cases,
+                "always_show_findings": bool(report.findings),
             },
         )
     )

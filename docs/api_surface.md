@@ -45,6 +45,9 @@ Core APIs are the stable objects needed to build and run a direct finite model:
 These APIs should stay small and semantically stable. New helpers should not
 change the meaning of `FunctionBlock`, `Workflow`, or `Explorer`, and obsolete
 compatibility-only aliases should not remain in the first-read surface.
+FlowGuard is latest-schema-first: old artifacts may be detected and upgraded at
+project/tool boundaries, but normal route logic should consume current-schema
+artifacts and current route-first APIs only.
 
 `Explorer.explore()` emits minimal progress visibility by default: a start line
 and bounded ten-step progress lines on `stderr`, counted by top-level
@@ -69,6 +72,8 @@ For AI agents, route groups are the normal discovery surface:
 - `MAINTENANCE_SCAN_ROUTE_API` is the thin router for FlowGuard-managed
   project work that needs to surface model/code/test drift, stale evidence,
   skipped candidate routes, or split/reduction pressure before a broad claim.
+- `STATE_CLOSURE_ROUTE_API` is the default runner gate for finite input/state
+  enumerations that may have unknown, malformed, missing, or old-schema cases.
 
 Use `MODELING_HELPER_API` only as the complete index after the route group is
 known. It is intentionally broad and is not first-read guidance.
@@ -90,6 +95,10 @@ inventory.
 - optional domain packs such as `DeduplicationPack`, `CachePack`, `RetryPack`,
   and `SideEffectPack`;
 - optional loop, progress, contract, conformance, and replay helpers.
+- default state/input closure helpers such as `StateClosurePlan`,
+  `StateClosureDimension`, `infer_state_closure_plan()`, and
+  `review_state_closure()` for keeping unknown/other cases visible in
+  `run_model_first_checks(...)` without changing direct `Explorer` semantics.
 - optional budgeted model-group helpers such as `BudgetedGraphConfig` and
   `run_budgeted_graph_checks()` for large reachable graph models that need
   shard-by-shard execution with a durable ledger.
@@ -321,10 +330,17 @@ Reporting helpers help an AI agent explain what was checked and what was not:
 - adoption logging and `audit_flowguard_adoption`
 - thin adoption logging commands such as `adoption-start` and
   `adoption-finish`
+- artifact/project upgrade helpers such as `ArtifactUpgradeReport`,
+  `review_artifact_upgrades()`, and `artifact-upgrade` for detecting old
+  FlowGuard artifacts, applying deterministic current-schema upgrades, and
+  reporting blocked/manual-review cases without adding runtime compatibility
+  branches
 - project adoption/version helpers such as `audit_project_adoption()`,
   `adopt_project()`, and `upgrade_project()` for writing the managed
   FlowGuard `AGENTS.md` block, `.flowguard/project.toml`, and adoption records
-  in target repositories. These helpers record FlowGuard's GitHub repository
+  in target repositories. Project upgrade scans older adopted repositories for
+  deterministic artifact/model/test/guidance upgrades unless records-only mode
+  is explicitly requested. These helpers record FlowGuard's GitHub repository
   and package/schema versions; they do not replace executable model checks.
 - schema, JSON artifact helpers, and explicit Mermaid source exporters for
   user-facing model explanations when a compact diagram helps clarify major

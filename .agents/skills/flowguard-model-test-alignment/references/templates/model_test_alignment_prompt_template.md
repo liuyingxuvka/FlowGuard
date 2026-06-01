@@ -20,6 +20,8 @@ Use these groups:
 - Closed code boundaries or leaf matrices when in scope: boundary identity,
   allowed/rejected cases or matrix cells, observed result/evidence, and scoped
   gaps.
+- State closure when finite inputs may be incomplete: representative unknown,
+  malformed, missing, old-schema, or external-unknown cases and safe handling.
 - Test evidence: identity, result/freshness, obligation or contract binding,
   assertion scope, and risk notes.
 
@@ -33,8 +35,9 @@ generalized evidence separately. Do not let the observed regression substitute
 for same-class closure evidence.
 
 Flag missing model-obligation coverage, missing or mismatched code external
-contracts, boundary observations that accept forbidden inputs or emit
-undeclared behavior, missing external-contract test evidence, orphan tests,
+contracts, missing state-closure cases, unsafe unknown handling, boundary
+observations that accept forbidden inputs or emit undeclared behavior, missing
+external-contract test evidence, orphan tests,
 orphan code contracts, unknown references, duplicate same-kind test claims,
 duplicate code contract owners, internal-path-only tests, model-code-test
 binding mismatches, happy-path-only coverage for risky obligations, stale or

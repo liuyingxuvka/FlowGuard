@@ -14,7 +14,7 @@ Project FlowGuard record:
 - Human log: `docs/flowguard_adoption_log.md`
 
 Current adoption record:
-- FlowGuard package version: `0.40.1`
+- FlowGuard package version: `0.40.3`
 - FlowGuard schema version: `1.0`
 
 Before non-trivial work:
@@ -27,9 +27,18 @@ Before non-trivial work:
 4. Compare the installed version with `.flowguard/project.toml`.
 5. If the installed version is newer, run:
    `python -m flowguard project-upgrade --root .`
+   This updates the project record and scans existing FlowGuard artifacts,
+   model evidence, tests, docs, and guidance for deterministic upgrades into
+   the current FlowGuard shape. Use `--records-only` only when intentionally
+   scoping out artifact/model/test upgrade scanning.
    Then rerun affected models/tests before broad confidence and record the result.
 6. If the installed version is older than the project record, stop and upgrade
    the local FlowGuard toolchain before claiming FlowGuard confidence.
+
+FlowGuard runtime guidance is latest-schema-first: old artifacts may be
+detected and upgraded at project/tool boundaries, but normal route logic should
+not preserve long-lived compatibility branches for obsolete fields, aliases, or
+wrappers.
 
 After non-trivial FlowGuard-managed work, run or record a maintenance scan when
 changed artifacts, skipped routes, stale evidence, or split/reduction signals

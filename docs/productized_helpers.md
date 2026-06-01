@@ -212,10 +212,27 @@ state revisits, interleaved replay, and risk-signaling trace text. This is
 different from a generic `[A, B, A]` matrix row because the model report
 explains why that route is worth testing.
 
+## State Closure Gate
+
+`StateClosurePlan`, `StateClosureDimension`, `StateClosureCase`, and
+`review_state_closure(...)` make "all other values" explicit without changing
+core `Explorer` into an infinite-state engine. Use `closed_enumeration` only
+when the listed values really are complete. Use `open_boundary` when other,
+malformed, missing, old-schema, invalid-terminal, or externally unknown cases
+may occur.
+
+`run_model_first_checks(...)` runs this gate automatically. If no explicit
+closure plan is supplied, FlowGuard infers visible dimensions from external
+inputs and dataclass fields such as `status`, `phase`, `kind`, `type`, `mode`,
+and `schema_version`. Inferred unknown policies keep confidence scoped.
+Explicit open boundaries pass only when unknown cases are rejected, blocked,
+isolated, or routed to model maturation before side effects.
+
 ## Unified Summary Report
 
 `FlowGuardSummaryReport` combines optional sections such as model check, audit,
-scenario review, progress, contract, conformance, and not-run/skipped checks.
+state closure, scenario review, progress, contract, conformance, and
+not-run/skipped checks.
 
 Status rules:
 
@@ -352,12 +369,14 @@ The scaffold writes:
 - `.flowguard/maintenance_scan/run_scan.py`
 - `docs/flowguard_maintenance_scan.md`
 
-The helper is intentionally thin. It turns model/code/test drift, stale
-evidence, skipped candidate routes, reducible branches, large modules, mesh
-pressure, and slow or broad validation into owner-route actions such as
+The helper is intentionally thin. It turns model/code/test drift, state-closure
+gaps, stale evidence, skipped candidate routes, reducible branches, large
+modules, mesh pressure, and slow or broad validation into owner-route actions
+such as
 Model-Test Alignment, DevelopmentProcessFlow, Architecture Reduction,
-StructureMesh, ModelMesh, TestMesh, or AgentWorkflowRehearsal. It does not run
-those routes and a clear scan is not validation evidence by itself.
+StructureMesh, ModelMesh, TestMesh, Model Maturation, or
+AgentWorkflowRehearsal. It does not run those routes and a clear scan is not
+validation evidence by itself.
 
 ## Maintenance Workflow Template
 

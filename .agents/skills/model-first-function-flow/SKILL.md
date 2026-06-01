@@ -39,21 +39,17 @@ means partial or scoped FlowGuard evidence.
 
 ## Hard Gates
 
-- Verify the real package before modeling:
-  `python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"`.
-- For real target-project use, ensure the FlowGuard AGENTS.md managed block/version record exists, or record why scope prevented it.
+- Verify the real package before modeling: `python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"`.
+- For real target-project use, ensure the FlowGuard AGENTS.md managed block/version record exists; if installed FlowGuard is newer, run `python -m flowguard project-upgrade --root .` with artifact/model/test upgrade scanning before relying on old models/tests/evidence.
+- FlowGuard is latest-schema-first: upgrade old artifacts at project/tool boundaries; do not preserve long-lived runtime compatibility for obsolete fields, aliases, or wrappers.
 - If import fails, connect the real toolchain or report blocked/partial; do not write a temporary mini-framework or fake mini-framework substitute.
 - Represent modeled blocks as `Input x State -> Set(Output x State)`.
 - Do not replace executable modeling with prose or weaken invariants to pass.
 - Preserve user and peer-agent changes; later writes can stale evidence.
-- Long checks may run in the background, but final confidence needs exit/status
-  and result artifacts, not progress lines.
-- Reused test results need current `TestResultReuseTicket` and
-  `ProofArtifactRef`; old `passed` output is not current evidence by itself.
-- For non-trivial FlowGuard work, show a route-specific Mermaid snapshot once
-  the route/model is stable. Diagrams explain; they are not validation.
-- Before broad done/release/publish confidence, use Risk Evidence Ledger or an
-  equivalent explicit risk-to-evidence boundary.
+- Long checks may run in the background, but final confidence needs exit/status and result artifacts, not progress lines.
+- Reused test results need current `TestResultReuseTicket` and `ProofArtifactRef`; old `passed` output is not current evidence by itself.
+- For non-trivial FlowGuard work, show a route-specific Mermaid snapshot once the route/model is stable; diagrams explain, not validate.
+- Before broad done/release/publish confidence, use Risk Evidence Ledger or equivalent and keep automatic state-closure gaps visible.
 
 ## FlowGuard diagram intent gate
 Before showing a non-trivial FlowGuard diagram, identify which route owns the
@@ -69,6 +65,7 @@ template CLIs are package helpers, not independently triggerable Codex skills.
 
 | Trigger | Route | Entry |
 | --- | --- | --- |
+| Older adopted project, old FlowGuard artifact, old model/test evidence, obsolete API aliases | `artifact_schema_upgrade` | `artifact-upgrade` or `project-upgrade` |
 | Existing modeled system, ownership lookup, duplicate-boundary risk | `existing_model_preflight` | `flowguard-existing-model-preflight` |
 | Similar features, A/B workflow drift, sibling tests, shared-kernel/adapter suspicion | `model_similarity_consolidation` | `docs/model_similarity_consolidation.md` |
 | Rough idea/short plan needs detailed scope, state, evidence, receipts, rework | `plan_detailing_compiler` | `flowguard-plan-detailing-compiler` |
@@ -83,7 +80,7 @@ template CLIs are package helpers, not independently triggerable Codex skills.
 | Large script/module/package/API split, facade or public entrypoint parity | `structure_mesh_maintenance` | `flowguard-structure-mesh` |
 | Staged development, edits, validation freshness, install/shadow/git sync | `development_process_flow` | `flowguard-development-process-flow` |
 | Runtime/test/replay/manual evidence fails after FlowGuard passed | `model_miss_review` | `flowguard-model-miss-review` |
-| Model too coarse after code/test/mesh/freshness evidence | `model_maturation_loop` | `references/modeling_protocol.md` |
+| Model too coarse after state-closure/code/test/mesh/freshness evidence | `model_maturation_loop` | `references/modeling_protocol.md` |
 | Final broad confidence boundary | `risk_evidence_ledger` | `docs/risk_evidence_ledger.md` |
 | Production conformance, install sync, shadow workspace sync | `conformance_adoption` | `references/conformance_adoption_protocol.md` |
 | Long-running model/test/regression check | `long_check_observability` | `references/long_check_protocol.md` |

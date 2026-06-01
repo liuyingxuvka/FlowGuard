@@ -279,6 +279,8 @@ def _ledger_category(section: FlowGuardSection, message: str) -> str:
         return "blocked_check"
     if "missing_invariant" in text or "missing_scenario" in text or "missing_progress" in text:
         return "model_coverage_gap"
+    if "state_closure" in text:
+        return "model_coverage_gap"
     if section.status == "failed" or "violation" in text or "exception" in text:
         return "failure"
     if section.status == "pass_with_gaps":

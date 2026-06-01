@@ -24,6 +24,11 @@ Before changing files, separate three situations:
 - `model_maintenance`: existing `.flowguard` models, replay adapters, or
   adoption evidence appear stale. Update those artifacts before making claims
   from them.
+- `artifact_schema_upgrade`: a repository has an older FlowGuard adoption
+  record or old FlowGuard artifacts/tests/guidance. Run `project-upgrade` or
+  `artifact-upgrade` to move deterministic cases into the current shape; block
+  ambiguous behavior-bearing scripts instead of preserving old runtime
+  compatibility.
 - `layered_boundary_proof`: parent model confidence depends on child models and
   leaf real-code boundary evidence. Join parent coverage, child disjointness,
   child reattachment, and leaf boundary-matrix rows before claiming the parent
@@ -71,10 +76,10 @@ Before changing files, separate three situations:
   sync must account for existing `.flowguard` models. Classify each model
   against the upgrade impact, rerun affected models, and allow unchanged models
   to reuse previous evidence only with a current reuse ticket.
-- `model_maturation_loop`: later model-miss, model-test, ModelMesh,
-  code-boundary, or freshness evidence says the model itself is too coarse,
-  stale, disconnected, or only supports a scoped claim. Translate that signal
-  into a model-upgrade action before broad confidence is claimed.
+- `model_maturation_loop`: later model-miss, model-test, state-closure,
+  ModelMesh, code-boundary, or freshness evidence says the model itself is too
+  coarse, stale, disconnected, or only supports a scoped claim. Translate that
+  signal into a model-upgrade action before broad confidence is claimed.
 - `flowguard_closure_contract`: a full done, release, publish, or
   production-confidence claim is being made from FlowGuard evidence. Treat the
   closure chain as intrinsic to FlowGuard use, not as a mode: required
@@ -651,12 +656,16 @@ pass/fail evidence and it does not change `CheckReport` semantics. Use
 `progress_steps=0` or `FLOWGUARD_PROGRESS=0` when a strict environment requires
 no progress output.
 
-When using the optional orchestration path, put the intended coverage boundary
-in a `RiskProfile`, then create a `FlowGuardCheckPlan` and call
-`run_model_first_checks(plan)`. The runner performs audit, optional scenario
-scaffolding, Explorer, counterexample minimization, scenario review, optional
-progress/contract/conformance sections, and a unified summary. This is a
-convenience path, not the only valid way to run FlowGuard.
+When using the orchestration path, put the intended coverage boundary in a
+`RiskProfile`, then create a `FlowGuardCheckPlan` and call
+`run_model_first_checks(plan)`. The runner performs audit, automatic
+state/input closure review, optional scenario scaffolding, Explorer,
+counterexample minimization, scenario review, optional
+progress/contract/conformance sections, and a unified summary. The closure
+review generates representative `other`, malformed, and missing-field cases for
+inferred finite dimensions; undeclared policies scope confidence, and unsafe
+unknown handling blocks it. This is a convenience path, not the only valid way
+to run FlowGuard.
 
 ## 10. Inspect Counterexamples
 
@@ -994,6 +1003,11 @@ Recommended low-friction agent flow:
 9. Do not claim production conformance unless conformance replay or equivalent
    real-code evidence exists.
 10. Record skipped checks; skipped is not pass.
+
+For older adopted repositories, run project upgrade before relying on existing
+FlowGuard files. FlowGuard's runtime path is latest-schema-first: old artifacts
+can be detected and upgraded at project/tool boundaries, but current route
+reviews should not keep accepting obsolete fields, aliases, or wrappers.
 
 ## Completion Checklist
 

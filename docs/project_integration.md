@@ -157,9 +157,20 @@ run the explicit upgrade path before broad confidence claims:
 python -m flowguard project-upgrade --root .
 ```
 
+This does more than update version text. For an older adopted repository,
+`project-upgrade` also scans known FlowGuard artifacts, model evidence, tests,
+docs, and guidance for deterministic upgrades into the current FlowGuard
+shape. Use `--records-only` only when intentionally scoping out that scan, and
+run `python -m flowguard artifact-upgrade --root . --apply` when you need the
+upgrade scan directly.
+
 Then check release notes or the changelog, rerun affected FlowGuard models and
 tests, and record the evidence. If the installed package version is older than
 the project record, upgrade the local FlowGuard toolchain first.
+
+FlowGuard is latest-schema-first. Old artifacts may be detected and upgraded at
+project/tool boundaries, but normal route logic should not preserve long-lived
+compatibility branches for obsolete fields, aliases, or wrappers.
 
 If the target project also uses a spec/SPAC-style planning or orchestration
 skill, treat that tool's plan as optional FlowGuard handoff context. The handoff

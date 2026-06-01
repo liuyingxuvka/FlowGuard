@@ -31,6 +31,8 @@ class ProjectIntegrationTests(unittest.TestCase):
         self.assertIn("project-adopt", text)
         self.assertIn("project-audit", text)
         self.assertIn("project-upgrade", text)
+        self.assertIn("artifact-upgrade", text)
+        self.assertIn("latest-schema-first", text)
         self.assertIn(".flowguard/project.toml", text)
 
     def test_skill_requires_import_preflight_and_rejects_substitute(self):
@@ -47,6 +49,8 @@ class ProjectIntegrationTests(unittest.TestCase):
         self.assertIn("assets/toolchain_preflight.py", text)
         self.assertIn("blocked/partial", text)
         self.assertIn("FlowGuard AGENTS.md managed block/version record", text)
+        self.assertIn("latest-schema-first", text)
+        self.assertIn("artifact/model/test upgrade scanning", text)
 
     def test_import_preflight_command_works_in_this_environment(self):
         completed = subprocess.run(

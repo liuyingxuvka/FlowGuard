@@ -11,6 +11,17 @@ from .adoption import (
     utc_now_text,
 )
 from .adoption_audit import AdoptionAuditFinding, AdoptionAuditReport, audit_flowguard_adoption
+from .artifact_upgrade import (
+    ARTIFACT_UPGRADE_STATUS_BLOCKED,
+    ARTIFACT_UPGRADE_STATUS_SKIPPED,
+    ARTIFACT_UPGRADE_STATUS_UNCHANGED,
+    ARTIFACT_UPGRADE_STATUS_UPGRADED,
+    ARTIFACT_UPGRADE_STATUSES,
+    ARTIFACT_UPGRADE_TEXT_REPLACEMENTS,
+    ArtifactUpgradeItem,
+    ArtifactUpgradeReport,
+    review_artifact_upgrades,
+)
 from .project_adoption import (
     FLOWGUARD_AGENTS_BEGIN,
     FLOWGUARD_AGENTS_END,
@@ -623,11 +634,13 @@ from .runtime_gateway import (
 from . import closure_contract as _closure_contract
 from . import maintenance_scan as _maintenance_scan
 from . import plan_intake as _plan_intake
+from . import state_closure as _state_closure
 from . import model_freshness as _model_freshness
 from . import model_maturation as _model_maturation
 from .closure_contract import *  # noqa: F403
 from .maintenance_scan import *  # noqa: F403
 from .plan_intake import *  # noqa: F403
+from .state_closure import *  # noqa: F403
 from .model_freshness import *  # noqa: F403
 from .model_maturation import *  # noqa: F403
 from .development_process_flow import (
@@ -890,6 +903,7 @@ from .workflow import Workflow, WorkflowPath, WorkflowRun
 PLAN_INTAKE_CLAIM_API = tuple(_plan_intake.__all__)
 FLOWGUARD_CLOSURE_CONTRACT_API = tuple(_closure_contract.__all__)
 MAINTENANCE_SCAN_ROUTE_API = tuple(_maintenance_scan.__all__)
+STATE_CLOSURE_ROUTE_API = tuple(_state_closure.__all__)
 MODEL_IMPACT_FRESHNESS_API = tuple(_model_freshness.__all__)
 MODEL_MATURATION_API = tuple(_model_maturation.__all__)
 
@@ -1503,6 +1517,9 @@ REPORTING_HELPER_API = (
     "LegacyPathDispositionFinding",
     "LegacyPathDispositionReport",
     "review_legacy_path_dispositions",
+    "ArtifactUpgradeItem",
+    "ArtifactUpgradeReport",
+    "review_artifact_upgrades",
     "AutoSplitCandidate",
     "AutoSplitFinding",
     "AutoSplitPlan",
@@ -1595,6 +1612,7 @@ REPORTING_HELPER_API = (
     "FlowGuardFindingLedgerEntry",
     "ScenarioMatrixConfig",
     "run_model_first_checks",
+    *STATE_CLOSURE_ROUTE_API,
     "ModelQualityAuditReport",
     "ModelQualityFinding",
     "audit_model",
@@ -1812,6 +1830,7 @@ FLOWGUARD_ROUTE_API = {
     "model_test_alignment": MODEL_TEST_ALIGNMENT_ROUTE_API,
     "plan_detailing_compiler": PLAN_DETAILING_ROUTE_API,
     "maintenance_scan_router": MAINTENANCE_SCAN_ROUTE_API,
+    "state_closure": STATE_CLOSURE_ROUTE_API,
 }
 
 API_SURFACE = {
@@ -1836,6 +1855,7 @@ _PUBLIC_API_SUPPLEMENT = (
     "MODEL_IMPACT_FRESHNESS_API",
     "MODEL_MATURATION_API",
     "PLAN_DETAILING_ROUTE_API",
+    "STATE_CLOSURE_ROUTE_API",
     "MODELING_HELPER_API",
     "REPORTING_HELPER_API",
     "TEMPLATE_STRUCTURE_API",
@@ -1860,6 +1880,12 @@ _PUBLIC_API_SUPPLEMENT = (
     "LEGACY_PATH_SAME_CONTRACT_REPAIRED",
     "LEGACY_PATH_OUT_OF_SCOPE",
     "LEGACY_PATH_UNKNOWN",
+    "ARTIFACT_UPGRADE_STATUS_BLOCKED",
+    "ARTIFACT_UPGRADE_STATUS_SKIPPED",
+    "ARTIFACT_UPGRADE_STATUS_UNCHANGED",
+    "ARTIFACT_UPGRADE_STATUS_UPGRADED",
+    "ARTIFACT_UPGRADE_STATUSES",
+    "ARTIFACT_UPGRADE_TEXT_REPLACEMENTS",
 )
 
 

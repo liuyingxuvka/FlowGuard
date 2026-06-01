@@ -35,13 +35,18 @@ this preflight with the downstream route that owns the actual work.
 - Do not create a fake mini-framework.
 - Prefer existing modeled responsibilities over parallel ownership.
 - Keep stale, skipped, missing, and no-model-found evidence visible.
+- Treat older FlowGuard model artifacts as upgrade-boundary inputs. Run
+  `project-upgrade` or `artifact-upgrade` when the project record is older than
+  the installed package; do not trust old-shape models as current evidence until
+  they are upgraded or explicitly blocked.
 
 ## Minimum Workflow
 
 1. Search model records, docs, OpenSpec changes, and `.flowguard/`.
 2. Extract FunctionBlock, state, side-effect, and public-entrypoint owners.
-3. Decide reuse, extend, add child model, new boundary, or no model found.
-4. Route duplicate-boundary shrinkage to Architecture Reduction.
+3. Classify old-shape models as upgraded, blocked, or current before reuse.
+4. Decide reuse, extend, add child model, new boundary, or no model found.
+5. Route duplicate-boundary shrinkage to Architecture Reduction.
 
 ## Snapshot
 

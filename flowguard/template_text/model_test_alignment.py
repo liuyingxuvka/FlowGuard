@@ -19,6 +19,8 @@ Guards against:
 - tests that are not bound to any model obligation;
 - tests that are not bound to the code contract they are meant to prove;
 - tests that inspect only internal paths while claiming external contract proof;
+- open finite boundaries with no representative unknown/other cases;
+- unknown inputs accepted as normal flow or causing side effects before closure;
 - duplicate tests claiming the same model obligation without clear intent;
 - risky model paths covered only by happy-path tests;
 - model-miss repairs that only test the observed bug without same-class evidence;
@@ -524,6 +526,10 @@ List code-boundary conformance evidence when a code surface must be closed:
 - Boundary observations are runtime evidence. They do not replace conformance
   replay when ordered production traces, durable state, or adapter projection
   are part of the claim.
+- When finite inputs may be incomplete, include state closure evidence:
+  representative unknown/other, malformed, missing-field, old-schema, or
+  external-unknown cases plus safe reject/block/isolate/model-maturation
+  handling before side effects.
 
 Optionally run the conservative source audit:
 
