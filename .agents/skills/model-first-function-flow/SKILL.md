@@ -48,6 +48,7 @@ means partial or scoped FlowGuard evidence.
 - Preserve user and peer-agent changes; later writes can stale evidence.
 - Long checks may run in the background, but final confidence needs exit/status and result artifacts, not progress lines.
 - Reused test results need current `TestResultReuseTicket` and `ProofArtifactRef`; old `passed` output is not current evidence by itself.
+- Broad transition-test claims need a transition matrix projected to MTA or TestMesh, or an explicit scoped-out reason.
 - For non-trivial FlowGuard work, show a route-specific Mermaid snapshot once the route/model is stable; diagrams explain, not validate.
 - Before broad done/release/publish confidence, use Risk Evidence Ledger or equivalent and keep remembered maintenance obligations, automatic state-closure, and topology-hazard gaps visible.
 
@@ -76,7 +77,7 @@ template CLIs are package helpers, not independently triggerable Codex skills.
 | Pre-code module/function/block ownership recommendation | `code_structure_recommendation` | `flowguard-code-structure-recommendation` |
 | UI controls, screens, journeys, display/text ownership, runnable UI evidence | `ui_flow_structure` | `flowguard-ui-flow-structure` |
 | Locally green model topology implies future-use hazards before broad confidence | `model_topology_hazard_review` | `flowguard-model-topology-hazard-review` |
-| Model obligations versus tests, code contracts, or boundary observations | `model_test_alignment` | `flowguard-model-test-alignment` |
+| Model obligations or transition coverage versus tests, code contracts, or boundary observations | `model_test_alignment` | `flowguard-model-test-alignment` |
 | Three or more models, oversized model, stale child evidence, parent/child mesh | `model_mesh_maintenance` | `flowguard-model-mesh` |
 | Large/slow/stale/release-only tests or parent/child test hierarchy | `test_mesh_maintenance` | `flowguard-test-mesh` |
 | Large script/module/package/API split, facade or public entrypoint parity | `structure_mesh_maintenance` | `flowguard-structure-mesh` |
@@ -104,7 +105,7 @@ smallest executable model first.
 3. Model the risky boundary with finite state.
 4. Make at least one representative bad path fail before trusting the pass.
 5. Inspect counterexamples and revise model, code, tests, or process.
-6. Run route-specific validation and record adoption evidence.
+6. Derive transition coverage obligations for broad transition-test claims, then run route-specific validation and record adoption evidence.
 
 ## Reference Map
 

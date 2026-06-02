@@ -54,6 +54,8 @@ layered plan:
 - a model-miss repair needs broad same-class coverage, such as parameterized
   variants, property tests, seeded fuzz, background shards, or release-only
   regressions that are too large for a direct Model-Test Alignment row set.
+- a transition coverage matrix is too large, slow, UI/browser-heavy, or
+  release-only to prove with one flat direct evidence row set.
 
 Automatic split diagnostics provide the trigger before a broad test result is
 accepted as enough. When direct validation evidence reports slow duration,
@@ -143,6 +145,13 @@ When a parent gate declares `required_leaf_cell_ids`, each id must be owned by
 a child `TestSuiteEvidence` row through `owned_leaf_cell_ids`. Missing, stale,
 skipped, progress-only, background-incomplete, non-passing, or invalidly reused
 owners do not support the parent gate.
+
+Transition coverage matrices can feed this same surface. Use
+`transition_coverage_to_required_leaf_cell_ids(...)` to produce required cell
+ids, register those ids as partition items, and let child suites own the ids
+they actually prove. TestMesh checks evidence freshness and ownership for the
+cells; Model-Test Alignment still owns whether those cells cover the declared
+transition obligations.
 
 ## Routine Versus Release
 

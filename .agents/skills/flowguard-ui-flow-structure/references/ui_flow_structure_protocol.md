@@ -8,6 +8,9 @@ that model, then derive a UI text hierarchy blueprint from the reviewed
 structure. It has a fifth implementation-evidence stage only when the agent
 claims the running UI is implemented, runnable, or complete. Local
 component-only UI work may skip journey coverage with an explicit scope reason.
+When a UI transition-test coverage claim is made, project the reviewed
+`UIInteractionModel.transitions` into a transition coverage matrix before
+claiming test coverage.
 
 ## Trigger
 
@@ -65,6 +68,8 @@ Collect the lightest fit-for-risk UI evidence:
 - browser, desktop automation, or manual click-through evidence, including
   model revision/fingerprint and step-level event/state observations, when
   implementation completion is claimed;
+- transition coverage matrix ids or scoped-out reasons when claiming tests
+  cover the modeled UI transitions;
 - downstream validation boundaries such as scenario review, browser checks,
   implementation tests, Figma review, or design implementation review.
 
@@ -287,6 +292,16 @@ Known-bad hazards:
 - an implementation blindspot lacks scope, reason, owner, validation boundary,
   or rationale.
 
+## Stage 6: Transition Coverage Projection
+
+Use this stage when the claim says tests cover modeled UI transitions. Project
+the reviewed interaction model with `ui_interaction_model_to_transition_coverage(...)`.
+Small matrices can feed Model-Test Alignment directly through
+`transition_coverage_to_model_obligations(...)`; large browser-heavy matrices
+can feed TestMesh through `transition_coverage_to_required_leaf_cell_ids(...)`.
+The projection is not implementation evidence by itself. It creates stable cell
+targets for browser, desktop, or manual evidence.
+
 ## Recommendation Shape
 
 Produce a UI structure contract with:
@@ -317,6 +332,9 @@ Produce a UI structure contract with:
 - implementation evidence boundary: feature contracts, journey runs, step
   evidence, model revision, pure UI actions, residual implementation
   blindspots, and remaining manual/browser validation boundaries.
+- transition coverage boundary when model-to-test coverage is claimed:
+  projected cell ids, required test kinds, evidence targets, and scoped-out
+  cells with reasons.
 
 ## Relationship To Other Routes
 

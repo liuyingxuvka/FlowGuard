@@ -1,13 +1,13 @@
 ---
 name: flowguard-model-test-alignment
-description: Use when a FlowGuard model's obligations, optional externally visible code contracts, code-boundary runtime observations, and ordinary test evidence need direct comparison. Triggers include model-test alignment, missing test coverage for model scenarios or invariants, code contract evidence, code-boundary conformance evidence, Python source/test assertion audit, or checking whether tests actually cover FlowGuard obligations without invoking ModelMesh, TestMesh, or StructureMesh.
+description: Use when FlowGuard obligations, transition cells, tests, optional code contracts, source audits, or code-boundary observations need direct comparison without ModelMesh, TestMesh, or StructureMesh.
 ---
 
 # FlowGuard Model-Test Alignment
 
-Standalone FlowGuard satellite skill for comparing model obligations against
-ordinary tests, optional code contracts, source/test assertion audits, and
-finite code-boundary observations.
+Standalone FlowGuard satellite skill for comparing model obligations, transition
+cells, ordinary tests, optional code contracts, source audits, and finite
+code-boundary observations.
 When similar A/B/C workflows share behavior, consume Model Similarity
 Consolidation test obligations so shared tests prove the family and variant
 tests keep sibling differences visible.
@@ -18,8 +18,8 @@ defined. Do not invoke TestMesh, ModelMesh, or StructureMesh from this route.
 ## First Read
 
 - Route id: `model_test_alignment`.
-- Core helpers: `review_model_test_alignment()`, `CodeContract`,
-  `PythonCodeContractEvidence`, `PythonTestAssertionEvidence`.
+- Core helpers: `review_model_test_alignment()`, `TransitionCoverageMatrix`,
+  `transition_coverage_to_model_obligations()`, `CodeContract`.
 - Similarity handoff: cite maintenance group ids plus shared/variant test
   obligation ids when claiming similar workflows are covered.
 - Reference: `references/model_test_alignment_protocol.md`.
@@ -31,6 +31,7 @@ defined. Do not invoke TestMesh, ModelMesh, or StructureMesh from this route.
   current or record why it was not updated.
 - Do not create a fake mini-framework.
 - Tests must cover declared obligations, not just helper/internal paths.
+- Transition coverage claims need cells plus evidence targets, or a scoped-out boundary.
 - Reused test results must carry `result_reused=True`, a current
   `TestResultReuseTicket`, and a current `ProofArtifactRef`; an old `passed`
   status alone is not current coverage.
@@ -41,10 +42,9 @@ defined. Do not invoke TestMesh, ModelMesh, or StructureMesh from this route.
 
 ## Minimum Workflow
 
-1. List model obligations, scenarios, invariants, hazards, and transitions.
-2. Add optional code contracts only for externally visible code surfaces.
-3. Add boundary observations when finite inputs/outputs/errors/state/side
-   effects must be proven.
+1. List obligations, scenarios, invariants, hazards, and transitions.
+2. Project transition matrices into obligations when transition-test coverage is claimed.
+3. Add optional external code contracts and finite boundary observations.
 4. Compare evidence, classify gaps, and route split needs outward.
 
 ## Snapshot

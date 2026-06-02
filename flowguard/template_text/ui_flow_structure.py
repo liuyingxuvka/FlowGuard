@@ -5,8 +5,8 @@ from __future__ import annotations
 UI_FLOW_STRUCTURE_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header
 
 Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
-Purpose: Model UI-level interaction behavior first, then derive parent/child UI structure and text hierarchy from that model.
-Guards against: layout-only UI plans, unmodeled controls, missing recovery actions, drifting menu levels, unstable global controls, duplicate information, overlapping same-level controls, ad hoc headings, over-prominent button text, and hierarchy recommendations that are not tied to UI state.
+Purpose: Model UI-level interaction behavior first, derive parent/child UI structure and text hierarchy from that model, then project transitions into coverage cells when test coverage is claimed.
+Guards against: layout-only UI plans, unmodeled controls, missing recovery actions, drifting menu levels, unstable global controls, duplicate information, overlapping same-level controls, ad hoc headings, over-prominent button text, untested transition cells, and hierarchy recommendations that are not tied to UI state.
 Use before editing: Ask for this route before visual design or frontend implementation when UI controls, states, navigation, panels, menus, overlays, or parent/child UI topology matter.
 Run: python .flowguard/ui_flow_structure/run_checks.py
 """
@@ -34,6 +34,9 @@ from flowguard import (
     UITypographyToken,
     UITerminalActionAllowance,
     UITransition,
+    transition_coverage_to_model_obligations,
+    transition_coverage_to_required_leaf_cell_ids,
+    ui_interaction_model_to_transition_coverage,
     review_ui_implementation_validation,
     review_ui_interaction_model,
     review_ui_journey_coverage,
@@ -208,6 +211,15 @@ def interaction_model() -> UIInteractionModel:
         validation_boundaries=("UI scenario review", "browser state transition test"),
         rationale="The model separates launch, new-project, load-existing, loaded, running, result, failure, cancel, and exit UI states before any layout is derived.",
     )
+
+
+def transition_matrix():
+    matrix = ui_interaction_model_to_transition_coverage(interaction_model())
+    # Small matrices can feed Model-Test Alignment directly; large browser-heavy
+    # matrices can feed TestMesh leaf-cell ids.
+    transition_coverage_to_model_obligations(matrix)
+    transition_coverage_to_required_leaf_cell_ids(matrix)
+    return matrix
 
 
 def journey_coverage() -> UIJourneyCoverage:

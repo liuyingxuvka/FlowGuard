@@ -29,6 +29,12 @@ leaf boundary-matrix tests. A broad parent test command cannot replace missing
 leaf matrix evidence, and release-only/background progress cannot support a
 routine parent proof until it has final current pass artifacts.
 
+Transition coverage matrices can also feed TestMesh. When Model-Test Alignment
+or UI Flow Structure produces required transition cell ids for a large, slow,
+or browser-heavy matrix, TestMesh owns the parent/child evidence hierarchy for
+those ids. It does not decide the semantic transition obligation; it proves
+which child suites currently own and pass the required cells.
+
 ## Trigger
 
 Create or update a TestMesh when:
@@ -47,6 +53,8 @@ Create or update a TestMesh when:
   large, broad, progress-only, or release-only direct validation evidence;
 - release-only suites should stay visible without blocking routine local
   confidence.
+- a transition coverage matrix is too large, slow, browser/manual-heavy, or
+  release-only for direct flat evidence rows.
 
 When DevelopmentProcessFlow classifies a failed or blocked validation as
 `test_too_thick`, slow/layered validation, stale/skipped/progress-only
@@ -117,6 +125,8 @@ When `required_leaf_cell_ids` are declared on the parent gate, every required
 cell must be owned by a registered child suite/script with current passing
 evidence. A leaf matrix-cell suite that does not name its cells is a blocker,
 because the parent cannot tell which finite boundary cell was proved.
+Transition coverage cells use the same required id surface when they are routed
+through TestMesh.
 
 ## Routine And Release Scope
 
@@ -141,6 +151,8 @@ Use these groups:
 - Ownership map: boundary, owner, and overlap note.
 - Child suite evidence: identity, result summary, visibility caveats, and
   ownership summary.
+- Required cell ids: transition or leaf matrix cells that child suites must
+  own with current evidence.
 - Target split derivation: source model, target suites, coverage, and
   rationale.
 
@@ -159,6 +171,7 @@ Known hazards that must fail:
 - timeout or failed suite;
 - background progress without final exit/result artifacts;
 - release-required suite missing under release scope.
+- transition coverage required cell id missing child evidence.
 - DevelopmentProcessFlow `test_too_thick` handoff treated as an ordinary
   implementation failure without child validation structure.
 ```
@@ -175,6 +188,8 @@ A TestMesh review can support the parent only when:
 - parent confidence is based on child contracts rather than expanded child
   internals;
 - all required suites have current pass evidence for the requested scope;
+- all required transition or leaf matrix cell ids have current passing child
+  evidence;
 - skipped, not-run, timeout, and stale evidence remain visible;
 - background jobs have final completion artifacts;
 - DevelopmentProcessFlow `test_too_thick` handoffs have explicit child

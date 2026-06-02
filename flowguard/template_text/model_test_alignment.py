@@ -13,6 +13,7 @@ contracts, and ordinary test evidence describe the same behavioral surface.
 
 Guards against:
 - model scenarios, invariants, hazards, or transitions with no test evidence;
+- model state transitions that were never projected into testable matrix cells;
 - model obligations with no code external contract owner;
 - code functions or entrypoints that miss model-declared external behavior;
 - code functions or entrypoints that add model-forbidden external behavior;
@@ -53,16 +54,25 @@ from flowguard import (
     TEST_ASSERTION_SCOPE_INTERNAL_PATH,
     TEST_CLOSURE_ROLE_OBSERVED_REGRESSION,
     TEST_CLOSURE_ROLE_SAME_CLASS_GENERALIZED,
+    TEST_EVIDENCE_ROLE_TRANSITION_CELL,
     TEST_KIND_FAILURE_PATH,
     TEST_KIND_HAPPY_PATH,
     TestResultReuseTicket,
     TestEvidence,
+    TransitionCoverageCell,
+    TransitionCoverageMatrix,
     audit_python_code_contracts,
     audit_python_test_assertions,
     review_code_boundary_conformance,
     review_python_contract_source_audit,
     review_model_test_alignment,
+    transition_coverage_to_model_obligations,
+    transition_obligation_id,
 )
+
+
+ACCEPT_TRANSITION_CELL_ID = "pending.submit->accepted"
+ACCEPT_TRANSITION_OBLIGATION_ID = transition_obligation_id(ACCEPT_TRANSITION_CELL_ID)
 
 
 def proof_artifact(evidence_id: str, *covered: str) -> ProofArtifactRef:
@@ -89,6 +99,25 @@ def reuse_ticket(evidence_id: str, *covered: str) -> TestResultReuseTicket:
         environment_fingerprint="python:template",
         result_fingerprint="sha256:result",
         covered_obligation_ids=covered,
+    )
+
+
+def transition_matrix() -> TransitionCoverageMatrix:
+    return TransitionCoverageMatrix(
+        "sample_checkout_transition_matrix",
+        model_id="sample_checkout_model",
+        cells=(
+            TransitionCoverageCell(
+                ACCEPT_TRANSITION_CELL_ID,
+                source_state="pending",
+                trigger="submit_valid_order",
+                target_state="accepted",
+                expected_output="Accepted",
+                function_block="AcceptOrder",
+                required_test_kinds=(TEST_KIND_HAPPY_PATH,),
+                rationale="Submitting a valid pending order reaches the accepted state.",
+            ),
+        ),
     )
 
 
@@ -126,6 +155,7 @@ def aligned_plan() -> ModelTestAlignmentPlan:
                 requires_same_class_test_evidence=True,
                 required_test_kinds=(TEST_KIND_HAPPY_PATH,),
             ),
+            *transition_coverage_to_model_obligations(transition_matrix()),
         ),
         code_contracts=(
             CodeContract(
@@ -136,6 +166,16 @@ def aligned_plan() -> ModelTestAlignmentPlan:
                 external_inputs=("order_id", "payment_token"),
                 external_outputs=("Accepted",),
                 state_writes=("order_status",),
+            ),
+            CodeContract(
+                "checkout_accept_transition",
+                path="checkout/service.py",
+                symbol="accept_order_transition",
+                implements_obligations=(ACCEPT_TRANSITION_OBLIGATION_ID,),
+                external_inputs=("submit_valid_order",),
+                external_outputs=("Accepted",),
+                state_reads=("pending",),
+                state_writes=("accepted",),
             ),
             CodeContract(
                 "checkout_reject_duplicate",
@@ -170,6 +210,22 @@ def aligned_plan() -> ModelTestAlignmentPlan:
                 result_reused=True,
                 reuse_ticket=reuse_ticket("test_accept_valid_order", "accept_valid_order"),
                 proof_artifact=proof_artifact("test_accept_valid_order", "accept_valid_order"),
+            ),
+            TestEvidence(
+                "test_pending_submit_reaches_accepted",
+                test_name="test_pending_submit_reaches_accepted",
+                path="tests/test_checkout.py",
+                result_status="passed",
+                test_kind=TEST_KIND_HAPPY_PATH,
+                covered_obligations=(ACCEPT_TRANSITION_OBLIGATION_ID,),
+                covered_code_contracts=("checkout_accept_transition",),
+                assertion_scope=TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
+                evidence_role=TEST_EVIDENCE_ROLE_TRANSITION_CELL,
+                evidence_target_id=ACCEPT_TRANSITION_CELL_ID,
+                proof_artifact=proof_artifact(
+                    "test_pending_submit_reaches_accepted",
+                    ACCEPT_TRANSITION_OBLIGATION_ID,
+                ),
             ),
             TestEvidence(
                 "test_reject_duplicate_order_happy",
@@ -369,6 +425,12 @@ def accept_order(order_id, payment_token):
     state["order_status"] = "Accepted"
     return "Accepted"
 
+def accept_order_transition(submit_valid_order):
+    pending = submit_valid_order
+    accepted = "Accepted"
+    _ = pending
+    return "Accepted"
+
 def reject_duplicate_order(order_id):
     if order_id:
         return "Rejected"
@@ -377,6 +439,10 @@ def reject_duplicate_order(order_id):
     "tests/test_checkout.py": """
 def test_accept_valid_order():
     result = accept_order("order-1", "token")
+    assert result == "Accepted"
+
+def test_pending_submit_reaches_accepted():
+    result = accept_order_transition("submit")
     assert result == "Accepted"
 
 def test_reject_duplicate_order_happy():

@@ -36,6 +36,8 @@ Before changing files, separate three situations:
 - `model_test_alignment`: model obligations and ordinary tests both exist, and
   the risk is whether scenarios, invariants, hazards, transitions, contracts,
   or optional code external contracts have matching current test evidence. When
+  broad transition coverage is claimed, derive a transition coverage matrix so
+  modeled transitions become explicit Model-Test Alignment obligations. When
   real Python source/tests are in scope, first run or request conservative
   source audit evidence for the code and test rows.
 - `model_topology_hazard_review`: a locally green model topology may imply
@@ -182,6 +184,13 @@ If a `TestEvidence` row reuses a previous result, mark `result_reused=True` and
 attach a current `TestResultReuseTicket` plus `ProofArtifactRef`; the old result
 must prove unchanged command, test source, tested artifacts, dependencies,
 environment, result fingerprint, and covered obligation scope.
+
+For transition-heavy models, use `TransitionCoverageMatrix` and
+`transition_coverage_to_model_obligations(...)` before a broad coverage claim.
+If the resulting cell set is too large or slow for direct evidence rows, use
+`transition_coverage_to_required_leaf_cell_ids(...)` and route the evidence
+hierarchy to TestMesh while keeping the semantic obligations visible in
+Model-Test Alignment.
 
 When several obligations are being treated as one family-level promise, add
 `ObligationFamily` and `ObligationFamilyEvidence` rows. The family review blocks

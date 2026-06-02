@@ -108,6 +108,10 @@ class ApiSurfaceTests(unittest.TestCase):
         self.assertIn("review_ui_text_hierarchy", flowguard.MODELING_HELPER_API)
         self.assertIn("ModelTestAlignmentPlan", flowguard.MODELING_HELPER_API)
         self.assertIn("review_model_test_alignment", flowguard.MODELING_HELPER_API)
+        self.assertIn("TransitionCoverageCell", flowguard.MODELING_HELPER_API)
+        self.assertIn("TransitionCoverageMatrix", flowguard.MODELING_HELPER_API)
+        self.assertIn("transition_coverage_to_model_obligations", flowguard.MODELING_HELPER_API)
+        self.assertIn("ui_interaction_model_to_transition_coverage", flowguard.MODELING_HELPER_API)
         self.assertIn("ModelSignature", flowguard.MODELING_HELPER_API)
         self.assertIn("ModelSimilarityPlan", flowguard.MODELING_HELPER_API)
         self.assertIn("ModelSimilarityRelation", flowguard.MODELING_HELPER_API)
@@ -186,6 +190,7 @@ class ApiSurfaceTests(unittest.TestCase):
             "TEST_EVIDENCE_ROLE_PRIMARY",
             "TEST_EVIDENCE_ROLE_PRIMARY_EDGE_PATH",
             "TEST_EVIDENCE_ROLE_LEAF_MATRIX_CELL",
+            "TEST_EVIDENCE_ROLE_TRANSITION_CELL",
             "TEST_EVIDENCE_ROLE_SUPPORTING_CONTRACT",
             "TEST_EVIDENCE_ROLE_INTEGRATION_SMOKE",
             "PythonCodeContractEvidence",
@@ -200,6 +205,29 @@ class ApiSurfaceTests(unittest.TestCase):
 
         for name in expected:
             self.assertIn(name, flowguard.MODELING_HELPER_API)
+            self.assertIn(name, flowguard.__all__)
+            self.assertTrue(hasattr(flowguard, name), name)
+            self.assertNotIn(name, flowguard.CORE_API)
+
+    def test_transition_coverage_api_is_public_model_test_alignment_helper(self):
+        expected = (
+            "TransitionCoverageCell",
+            "TransitionCoverageMatrix",
+            "TRANSITION_COVERAGE_OBLIGATION_PREFIX",
+            "TRANSITION_COVERAGE_OBLIGATION_TYPE",
+            "TRANSITION_COVERAGE_SOURCE_MODEL",
+            "TRANSITION_COVERAGE_SOURCE_UI",
+            "TRANSITION_COVERAGE_SOURCE_WORKFLOW",
+            "TRANSITION_COVERAGE_SOURCE_LEAF_BOUNDARY",
+            "transition_coverage_to_model_obligations",
+            "transition_coverage_to_required_leaf_cell_ids",
+            "transition_obligation_id",
+            "ui_interaction_model_to_transition_coverage",
+        )
+
+        for name in expected:
+            self.assertIn(name, flowguard.MODELING_HELPER_API)
+            self.assertIn(name, flowguard.MODEL_TEST_ALIGNMENT_ROUTE_API)
             self.assertIn(name, flowguard.__all__)
             self.assertTrue(hasattr(flowguard, name), name)
             self.assertNotIn(name, flowguard.CORE_API)

@@ -19,7 +19,8 @@ Return to `model-first-function-flow` when the task is not UI behavior/state.
   navigation, and recovery.
 - Core helpers: `UIDisplayElement`, `UIJourneyCoverage`,
   `UIImplementationValidation`, `UITextHierarchyBlueprint`,
-  `review_ui_interaction_model()`.
+  `review_ui_interaction_model()`,
+  `ui_interaction_model_to_transition_coverage()`.
 - Reference: `references/ui_flow_structure_protocol.md`.
 
 ## Hard Gates
@@ -31,13 +32,17 @@ Return to `model-first-function-flow` when the task is not UI behavior/state.
 - Visible-control branches, recovery/cancel paths, and residual blindspots must
   stay explicit.
 - Running UI completion needs structured click-through or browser evidence.
+- Broad UI transition-test coverage claims need projected transition coverage
+  cells before completion is claimed.
 
 ## Minimum Workflow
 
 1. Model UI states, events, controls, displays, overlays, and transitions.
 2. Derive persistent menus, contextual regions, local controls, and text slots.
 3. Check duplicate controls/information and overlapping same-level controls.
-4. Add journey coverage and implementation validation when claiming runnable UI.
+4. Project UI transitions into transition coverage cells when claiming
+   transition-test coverage.
+5. Add journey coverage and implementation validation when claiming runnable UI.
 
 ## Snapshot
 

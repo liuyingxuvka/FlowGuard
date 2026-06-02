@@ -8,6 +8,10 @@ evidence. If an externally visible code surface is in scope, include optional
 code external contracts as plain alignment rows between the model obligations
 and tests. Do not invoke TestMesh, StructureMesh, ModelMesh, split tests, split
 code, split models, or read mesh reports.
+If the coverage claim includes state transitions, first derive a transition
+coverage matrix and project its required cells into Model-Test Alignment
+obligations. For large or slow transition matrices, keep the semantic
+obligations here and route child evidence ownership to TestMesh.
 List each model obligation, optional code contract, and current test evidence
 using grouped fields.
 
@@ -15,6 +19,9 @@ Use these groups:
 
 - Model obligations: identity, required evidence, external boundary, and risk
   notes.
+- Transition coverage matrix when in scope: cell id, source state, trigger,
+  target state, expected output, required test kinds, and scoped-out cells with
+  reasons.
 - Code external contracts when in scope: identity, obligation binding, external
   boundary, and source-audit status.
 - Closed code boundaries or leaf matrices when in scope: boundary identity,
@@ -45,5 +52,6 @@ duplicate code contract owners, internal-path-only tests, model-code-test
 binding mismatches, happy-path-only coverage for risky obligations, stale or
 non-passing evidence, partial source-audit support, dynamic or ambiguous
 source-audit findings, manual-review-required findings, and overclaimed model
-confidence.
+confidence. Flag transition-cell evidence that omits or mismatches the target
+cell id.
 ```

@@ -6,8 +6,8 @@ TEST_MESH_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header
 
 Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
 Purpose: Review whether a parent test gate can trust child suites/scripts as owned validation regions.
-Guards against: flat test splits, stale child suites, hidden skips, progress-only background runs, duplicate ownership, and release checks blocking routine confidence.
-Use before editing: Update this TestMesh when changing validation layout, test partitions, child test scripts, slow regression gates, or background evidence contracts.
+Guards against: flat test splits, stale child suites, hidden skips, progress-only background runs, duplicate ownership, missing transition matrix-cell evidence, and release checks blocking routine confidence.
+Use before editing: Update this TestMesh when changing validation layout, test partitions, transition coverage matrices, child test scripts, slow regression gates, or background evidence contracts.
 Run: python .flowguard/test_mesh/run_checks.py
 """
 
@@ -17,12 +17,16 @@ from flowguard import (
     EVIDENCE_ABSTRACT_GREEN,
     EVIDENCE_CONFORMANCE_GREEN,
     ProofArtifactRef,
+    TEST_LAYER_LEAF_MATRIX_CELL,
     TestMeshPlan,
     TestPartitionItem,
     TestResultReuseTicket,
     TestSuiteEvidence,
     TestTargetSplitDerivation,
+    TransitionCoverageCell,
+    TransitionCoverageMatrix,
     review_test_mesh,
+    transition_coverage_to_required_leaf_cell_ids,
 )
 
 
@@ -51,13 +55,35 @@ def reuse_ticket(suite_id: str) -> TestResultReuseTicket:
     )
 
 
+def transition_matrix() -> TransitionCoverageMatrix:
+    return TransitionCoverageMatrix(
+        "project-ui-transition-matrix",
+        model_id="project-validation-model",
+        cells=(
+            TransitionCoverageCell(
+                "loaded.click_run->running",
+                source_state="loaded",
+                trigger="click_run",
+                target_state="running",
+                expected_output="run_started",
+                function_block="StartRun",
+            ),
+        ),
+    )
+
+
 def routine_plan() -> TestMeshPlan:
+    transition_cell_ids = transition_coverage_to_required_leaf_cell_ids(transition_matrix())
     return TestMeshPlan(
         parent_suite_id="project-validation",
         decision_scope="routine",
         partition_items=(
             TestPartitionItem("unit-fast", owner_suite_id="unit"),
             TestPartitionItem("runtime-contract", owner_suite_id="runtime"),
+            *(
+                TestPartitionItem(cell_id, item_type="transition_coverage", owner_suite_id="transition-cells")
+                for cell_id in transition_cell_ids
+            ),
         ),
         child_suites=(
             TestSuiteEvidence(
@@ -82,6 +108,17 @@ def routine_plan() -> TestMeshPlan:
                 proof_artifact=proof_artifact("runtime"),
             ),
             TestSuiteEvidence(
+                "transition-cells",
+                command="python -m unittest tests.test_ui_transitions",
+                layer=TEST_LAYER_LEAF_MATRIX_CELL,
+                result_status="passed",
+                evidence_tier=EVIDENCE_ABSTRACT_GREEN,
+                evidence_current=True,
+                test_count=1,
+                selected_count=1,
+                owned_leaf_cell_ids=transition_cell_ids,
+            ),
+            TestSuiteEvidence(
                 "release-full",
                 command="python -m unittest discover -s tests",
                 layer="release",
@@ -93,10 +130,11 @@ def routine_plan() -> TestMeshPlan:
         ),
         target_split_derivation=TestTargetSplitDerivation(
             "project-validation-model",
-            target_suite_ids=("unit", "runtime", "release-full"),
-            covered_partition_item_ids=("unit-fast", "runtime-contract"),
+            target_suite_ids=("unit", "runtime", "transition-cells", "release-full"),
+            covered_partition_item_ids=("unit-fast", "runtime-contract", *transition_cell_ids),
             rationale="derived from the parent validation FlowGuard model and release gate boundaries",
         ),
+        required_leaf_cell_ids=transition_cell_ids,
     )
 
 
@@ -161,6 +199,8 @@ Use this scaffold to keep a project's validation hierarchy explicit.
   partition;
 - whether child suite/script evidence is current and strong enough for the
   parent;
+- whether transition coverage matrix cells have current child evidence when
+  the matrix is too large or slow for direct Model-Test Alignment rows;
 - whether background logs include final exit/result artifacts;
 - whether skipped, timed-out, not-run, or release-only checks remain visible.
 

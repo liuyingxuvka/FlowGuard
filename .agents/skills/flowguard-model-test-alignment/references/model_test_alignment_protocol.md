@@ -10,6 +10,14 @@ It does not split tests, split code, split models, or read mesh reports. It
 compares explicit model obligations, optional code external contracts, and
 plain test evidence.
 
+When the claim covers state transitions, derive a transition coverage matrix.
+Use `TransitionCoverageMatrix` and
+`transition_coverage_to_model_obligations(...)` so each required
+`Input/Event x State -> Output x State` cell becomes an explicit
+`transition_coverage` obligation. Evidence for a transition cell should use a
+stable target id; large or slow matrices can project required cell ids to
+TestMesh through `transition_coverage_to_required_leaf_cell_ids(...)`.
+
 When the result supports a final done, release, publish, or full-confidence
 claim, pass the obligation ids, code contract ids, test evidence ids, statuses,
 freshness, and assertion scopes into a Risk Evidence Ledger. Alignment proves
@@ -69,6 +77,7 @@ Create or update a model-test alignment review when:
 
 - a FlowGuard model adds or changes scenarios, invariants, hazards, state
   transitions, or input/output contracts;
+- a report claims that modeled state transitions have matching test coverage;
 - a public function, API, CLI, facade, adapter, persisted output, or other
   externally visible code surface is expected to implement a model-backed
   obligation;
@@ -112,6 +121,8 @@ Use grouped field families instead of a blank for every possible detail.
   miss, and whether shared evidence or implementation is allowed;
 - external boundary when relevant: inputs, outputs, state reads/writes, side
   effects, error paths, and exactness.
+- transition coverage source when generated from a matrix: cell id, source
+  state, trigger, target state, expected output, and required test kinds.
 
 `CodeContract` rows are optional. Use them only for externally visible code
 surfaces in scope, and capture:
@@ -141,6 +152,8 @@ Expand only when applicable:
 - Leaf boundary matrix rows when a finite leaf model is being proved.
 - `ModelObligation` rows for model-topology hazard candidates that became
   testable obligations.
+- `TransitionCoverageMatrix` rows when transitions should become required test
+  targets.
 - Detailed source-audit notes when AST-visible code or tests are reviewed.
 
 ## Conservative Source Audit Checklist
@@ -176,8 +189,9 @@ reports:
   accepted inputs, unknown accepted inputs, and extra outputs/errors/state
   writes/side effects;
 - binding gaps: orphan tests or code contracts, unknown references,
-  model/code/test mismatches, supporting evidence without a target, and leaf
-  matrix evidence without a cell id;
+  model/code/test mismatches, supporting evidence without a target, leaf matrix
+  evidence without a cell id, and transition-cell evidence without a matching
+  target id;
 - duplication and granularity gaps: duplicate owner claims or obligations too
   coarse for primary evidence;
 - model-miss gaps: missing observed-regression evidence, missing same-class
@@ -196,6 +210,8 @@ checklists above without loading the full prompt body.
 A model-test alignment review can support a coverage claim only when:
 
 - required obligations have current passing evidence for required test kinds;
+- required transition coverage cells have current passing evidence or are
+  explicitly scoped out with a reason;
 - required code contracts and exact boundaries preserve declared external
   behavior without hidden extras;
 - required owner code contracts have current external-contract or mixed-scope

@@ -221,6 +221,10 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("state closure evidence", combined)
         self.assertIn("TestResultReuseTicket", combined)
         self.assertIn("result_reused=True", combined)
+        self.assertIn("TransitionCoverageMatrix", combined)
+        self.assertIn("TransitionCoverageCell", combined)
+        self.assertIn("TEST_EVIDENCE_ROLE_TRANSITION_CELL", combined)
+        self.assertIn("transition_coverage_to_model_obligations", combined)
         self.assertNotIn("review_hierarchical_mesh", combined)
         self.assertNotIn("review_test_mesh", combined)
         self.assertNotIn("review_structure_mesh", combined)
@@ -271,6 +275,9 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("model-derived split", combined)
         self.assertIn("TestResultReuseTicket", combined)
         self.assertIn("result_reused=True", combined)
+        self.assertIn("TransitionCoverageMatrix", combined)
+        self.assertIn("transition_coverage_to_required_leaf_cell_ids", combined)
+        self.assertIn("required_leaf_cell_ids", combined)
 
     def test_code_structure_recommendation_template_executes(self):
         output = self.run_written_template(

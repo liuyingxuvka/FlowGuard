@@ -62,6 +62,7 @@ TEST_KIND_REPLAY = "replay"
 TEST_EVIDENCE_ROLE_PRIMARY = "primary"
 TEST_EVIDENCE_ROLE_PRIMARY_EDGE_PATH = "primary_edge_path"
 TEST_EVIDENCE_ROLE_LEAF_MATRIX_CELL = "leaf_matrix_cell"
+TEST_EVIDENCE_ROLE_TRANSITION_CELL = "transition_cell"
 TEST_EVIDENCE_ROLE_SUPPORTING_CONTRACT = "supporting_contract"
 TEST_EVIDENCE_ROLE_INTEGRATION_SMOKE = "integration_smoke"
 PRIMARY_TEST_EVIDENCE_ROLES = {
@@ -70,6 +71,7 @@ PRIMARY_TEST_EVIDENCE_ROLES = {
 }
 ALLOWED_TEST_EVIDENCE_ROLES = PRIMARY_TEST_EVIDENCE_ROLES | {
     TEST_EVIDENCE_ROLE_LEAF_MATRIX_CELL,
+    TEST_EVIDENCE_ROLE_TRANSITION_CELL,
     TEST_EVIDENCE_ROLE_SUPPORTING_CONTRACT,
     TEST_EVIDENCE_ROLE_INTEGRATION_SMOKE,
 }
@@ -1662,6 +1664,18 @@ def _evidence_findings(
                 )
             )
         if (
+            evidence.evidence_role == TEST_EVIDENCE_ROLE_TRANSITION_CELL
+            and not evidence.evidence_target_id
+        ):
+            findings.append(
+                ModelTestAlignmentFinding(
+                    "transition_cell_target_missing",
+                    f"transition-cell evidence {evidence.evidence_id} must name the transition cell it proves",
+                    evidence_id=evidence.evidence_id,
+                    metadata=evidence.to_dict(),
+                )
+            )
+        if (
             evidence.evidence_role == TEST_EVIDENCE_ROLE_SUPPORTING_CONTRACT
             and not evidence.evidence_target_id
             and not evidence.covered_code_contracts
@@ -1686,7 +1700,8 @@ def _evidence_findings(
                 )
             )
         for obligation_id in evidence.covered_obligations:
-            if obligation_id not in obligations_by_id:
+            obligation = obligations_by_id.get(obligation_id)
+            if obligation is None:
                 severity = "warning" if plan.allow_orphan_tests else "blocker"
                 findings.append(
                     ModelTestAlignmentFinding(
@@ -1696,6 +1711,19 @@ def _evidence_findings(
                         obligation_id=obligation_id,
                         evidence_id=evidence.evidence_id,
                         metadata=evidence.to_dict(),
+                    )
+                )
+            elif not _transition_cell_target_matches(evidence, obligation):
+                findings.append(
+                    ModelTestAlignmentFinding(
+                        "transition_cell_target_mismatch",
+                        f"transition-cell evidence {evidence.evidence_id} targets {evidence.evidence_target_id!r} but covers transition obligation {obligation_id}",
+                        obligation_id=obligation_id,
+                        evidence_id=evidence.evidence_id,
+                        metadata={
+                            "evidence": evidence.to_dict(),
+                            "obligation": obligation.to_dict(),
+                        },
                     )
                 )
         for code_contract_id in evidence.covered_code_contracts:
@@ -1884,7 +1912,26 @@ def _is_primary_edge_evidence(evidence: TestEvidence) -> bool:
 def _counts_as_obligation_coverage(evidence: TestEvidence) -> bool:
     return evidence.evidence_role in PRIMARY_TEST_EVIDENCE_ROLES | {
         TEST_EVIDENCE_ROLE_LEAF_MATRIX_CELL,
+        TEST_EVIDENCE_ROLE_TRANSITION_CELL,
     }
+
+
+def _expected_transition_cell_ids(obligation: ModelObligation) -> tuple[str, ...]:
+    if obligation.obligation_type != "transition_coverage":
+        return ()
+    obligation_id = obligation.obligation_id
+    if ":" in obligation_id:
+        return (obligation_id.split(":", 1)[1], obligation_id)
+    return (obligation_id,)
+
+
+def _transition_cell_target_matches(evidence: TestEvidence, obligation: ModelObligation) -> bool:
+    if evidence.evidence_role != TEST_EVIDENCE_ROLE_TRANSITION_CELL:
+        return True
+    expected = _expected_transition_cell_ids(obligation)
+    if not expected:
+        return True
+    return evidence.evidence_target_id in expected
 
 
 def _closure_role_finding_code(role: str) -> str:
@@ -1913,7 +1960,10 @@ def _coverage_findings(
     for obligation_id, obligation in obligations_by_id.items():
         passing = tuple(passing_by_obligation.get(obligation_id, ()))
         coverage_evidence = tuple(
-            evidence for evidence in passing if _counts_as_obligation_coverage(evidence)
+            evidence
+            for evidence in passing
+            if _counts_as_obligation_coverage(evidence)
+            and _transition_cell_target_matches(evidence, obligation)
         )
         primary_edge = tuple(
             evidence for evidence in passing if _is_primary_edge_evidence(evidence)
@@ -2626,6 +2676,7 @@ __all__ = [
     "TEST_EVIDENCE_ROLE_PRIMARY",
     "TEST_EVIDENCE_ROLE_PRIMARY_EDGE_PATH",
     "TEST_EVIDENCE_ROLE_SUPPORTING_CONTRACT",
+    "TEST_EVIDENCE_ROLE_TRANSITION_CELL",
     "TEST_KIND_EDGE_PATH",
     "TEST_KIND_FAILURE_PATH",
     "TEST_KIND_HAPPY_PATH",

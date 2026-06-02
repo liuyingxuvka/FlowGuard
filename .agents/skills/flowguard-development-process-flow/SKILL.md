@@ -29,6 +29,8 @@ inspect or replace sibling route internals.
 - Skipped, stale, failed, progress-only, or release-only evidence is not pass.
 - Model and test reuse tickets can be invalidated by later writes; reused test
   output needs current `TestResultReuseTicket` plus `ProofArtifactRef`.
+- Model transition changes stale transition coverage matrices, generated MTA
+  obligations, and TestMesh required cell evidence unless refreshed.
 - Later writes can stale evidence or reopen maintenance obligations; preserve peer-agent changes.
 
 ## Minimum Workflow
@@ -36,8 +38,9 @@ inspect or replace sibling route internals.
 1. List stages and touched artifacts.
 2. Record which validation evidence covers which artifact version.
 3. Identify later actions that stale evidence.
-4. Derive the minimum revalidation plan.
-5. Triage failures before continuing or claiming done.
+4. Include transition coverage regeneration when model/UI transitions changed.
+5. Derive the minimum revalidation plan.
+6. Triage failures before continuing or claiming done.
 
 ## Snapshot
 

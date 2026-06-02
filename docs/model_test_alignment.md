@@ -31,6 +31,32 @@ testable obligation, include that hazard id in the model obligation row. A green
 test suite should not close the hazard unless the test or code-boundary evidence
 covers the specific topology anchor and future failure mode.
 
+## Transition Coverage Matrix
+
+For ordinary state-transition claims, first derive a transition coverage
+matrix before claiming tests cover the model. A transition cell is one finite
+`Input/Event x State -> Output x State` obligation. Projecting the matrix turns
+each required cell into a `ModelObligation` with obligation type
+`transition_coverage`.
+
+Use:
+
+```python
+from flowguard import (
+    TransitionCoverageCell,
+    TransitionCoverageMatrix,
+    transition_coverage_to_model_obligations,
+    transition_coverage_to_required_leaf_cell_ids,
+)
+```
+
+Small matrices can feed `ModelTestAlignmentPlan.obligations` directly. Large,
+slow, layered, browser-heavy, or release-only matrices should also project
+required cell ids into TestMesh through
+`transition_coverage_to_required_leaf_cell_ids(...)`. The generated matrix
+does not prove anything by itself; it only creates stable targets that current
+test evidence must cover.
+
 ## Code Boundary Conformance
 
 When a model-backed code surface claims a finite input/output boundary, add
@@ -163,9 +189,10 @@ List test evidence with `TestEvidence`:
 - test kind;
 - evidence role: primary boundary evidence, primary edge-path evidence,
   supporting contract evidence, integration smoke evidence, or leaf matrix-cell
-  evidence;
-- evidence target id when a row supports a child obligation, code contract, or
-  leaf matrix cell;
+  evidence. Use transition-cell evidence when a row proves a projected
+  transition coverage cell;
+- evidence target id when a row supports a child obligation, code contract,
+  leaf matrix cell, or transition coverage cell;
 - covered model obligation ids;
 - covered code contract ids;
 - assertion scope, especially whether the test proves the external contract or
@@ -205,6 +232,8 @@ The review keeps these gaps visible:
 - same-class closure evidence that is stale, overclaimed, internal-path-only,
   or attached to the wrong model obligation;
 - supporting or leaf matrix-cell evidence without a target id;
+- transition-cell evidence without a target id, or with a target id that does
+  not match the projected transition obligation;
 - model obligations with no code external contract owner;
 - code contracts that miss model-declared external behavior;
 - exact code contracts that add model-forbidden external behavior;
@@ -229,10 +258,10 @@ This helper is not TestMesh and not StructureMesh. Use TestMesh when the
 validation flow itself needs parent/child suite ownership. Use StructureMesh
 when a large script, module, command, or API surface is being split. Model-Test
 Alignment stays focused on declared obligations, optional code external
-contracts, family parity matrices, and the tests that prove them. Layered
-boundary proof may consume the aligned boundary evidence for leaf matrices, but
-it owns the parent coverage, child disjointness, and child reattachment
-decision.
+contracts, transition coverage matrices, family parity matrices, and the tests
+that prove them. Layered boundary proof may consume the aligned boundary
+evidence for leaf matrices, but it owns the parent coverage, child disjointness,
+and child reattachment decision.
 
 Conservative source audit is also not conformance replay. Use replay when the
 claim depends on real production state, side effects, external systems,

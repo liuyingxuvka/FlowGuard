@@ -69,6 +69,9 @@ For AI agents, route groups are the normal discovery surface:
 - `CODE_STRUCTURE_RECOMMENDATION_ROUTE_API`,
   `MODEL_TEST_ALIGNMENT_ROUTE_API`, and `ARCHITECTURE_REDUCTION_ROUTE_API`
   consume `SimilarityHandoff` when model similarity drives their work.
+  `MODEL_TEST_ALIGNMENT_ROUTE_API` also exposes transition coverage matrix
+  helpers for turning modeled transitions into direct test-evidence
+  obligations.
 - `MAINTENANCE_SCAN_ROUTE_API` is the thin router for FlowGuard-managed
   project work that needs to surface model/code/test drift, stale evidence,
   skipped candidate routes, or split/reduction pressure before a broad claim.
@@ -180,8 +183,14 @@ inventory.
   with ordinary test evidence and optional code external contracts without
   invoking TestMesh or StructureMesh. `TestEvidence` can distinguish primary
   proof, primary `edge_path` proof, supporting contract evidence, integration
-  smoke evidence, exact leaf matrix-cell evidence, and model-miss closure roles
-  such as observed regression versus same-class generalized evidence.
+  smoke evidence, exact leaf matrix-cell evidence, transition-cell evidence,
+  and model-miss closure roles such as observed regression versus same-class
+  generalized evidence. `TransitionCoverageCell`,
+  `TransitionCoverageMatrix`, `transition_coverage_to_model_obligations()`,
+  `transition_coverage_to_required_leaf_cell_ids()`,
+  `transition_obligation_id()`, and
+  `ui_interaction_model_to_transition_coverage()` provide the standard bridge
+  from modeled transitions into those alignment and TestMesh evidence targets.
 - optional obligation-family parity helpers such as `ObligationFamily`,
   `ObligationFamilyMember`, `ObligationFamilyEvidence`,
   `FamilyBadCaseSeed`, `derive_same_class_bad_cases()`, and

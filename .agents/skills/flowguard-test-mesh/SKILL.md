@@ -15,7 +15,7 @@ Return to `model-first-function-flow` for ordinary small test evidence.
 
 - Route id: `test_mesh_maintenance`.
 - Core helpers: `review_test_mesh()`, `TestTargetSplitDerivation`,
-  `TestSuiteEvidence`.
+  `TestSuiteEvidence`, `transition_coverage_to_required_leaf_cell_ids()`.
 - Reference: `references/test_mesh_protocol.md`.
 
 ## Hard Gates
@@ -28,14 +28,19 @@ Return to `model-first-function-flow` for ordinary small test evidence.
 - Reused child-suite results need a current `TestResultReuseTicket` and
   `ProofArtifactRef`; old `passed` output is not parent confidence by itself.
 - Parent confidence needs current child evidence and target split derivation.
+- Transition coverage matrices that are large, slow, UI/browser-heavy, or
+  release-only can feed required leaf-cell ids; every required cell needs a
+  current child owner.
 
 ## Minimum Workflow
 
 1. Identify parent suite/check and partition items.
 2. Derive target child suites or child test scripts from the model risk.
-3. Attach result status, evidence tier, result path, freshness, and reused
+3. Include required transition/leaf cell ids when the parent claim depends on a
+   transition coverage matrix.
+4. Attach result status, evidence tier, result path, freshness, and reused
    result proof when old test output is reused.
-4. Scope or block parent confidence when child evidence is stale or missing.
+5. Scope or block parent confidence when child evidence is stale or missing.
 
 ## Snapshot
 

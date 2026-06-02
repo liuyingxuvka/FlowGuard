@@ -34,6 +34,8 @@ Create or update a DevelopmentProcessFlow review when:
 - a later step might overwrite or invalidate an earlier step's evidence;
 - tests, model files, validation adapters, review checklists, or other verifier
   artifacts changed after evidence was produced;
+- a model or UI transition changed after transition coverage matrices, MTA
+  obligations, or TestMesh required cell evidence were produced;
 - a done, release, archive, or publish claim depends on validation evidence;
 - peer-agent or unknown-writer changes could make earlier evidence stale;
 - a changed artifact touches a remembered open maintenance obligation and the
@@ -93,6 +95,10 @@ Use these triage classes:
   current mesh evidence is consumed.
 - `model_test_mismatch`: model obligations, optional code contracts, and
   ordinary test evidence do not line up. Hand off to Model-Test Alignment.
+- `transition_coverage_stale`: modeled transitions changed after the transition
+  coverage matrix, Model-Test Alignment obligations, or TestMesh required cell
+  ids were generated. Regenerate the matrix and rerun the owning evidence
+  route.
 - `topology_hazard_gap`: a locally green model topology still has anchored
   future-use hazards. Hand off to Model Topology Hazard Review and keep the
   lifecycle claim scoped or blocked until current route evidence is consumed.
@@ -130,6 +136,7 @@ Keep these findings visible:
 - `stale_evidence_after_artifact_change`;
 - `test_changed_after_test_pass`;
 - `model_changed_after_alignment_pass`;
+- `transition_matrix_changed_after_test_pass`;
 - `requirement_change_without_downstream_revalidation`;
 - `unknown_writer_invalidates_evidence`;
 - `ambiguous_freshness_policy`;
@@ -170,6 +177,7 @@ Use these groups:
 
 Known hazards that must fail:
 - stale evidence after code, test, model, or requirement changes;
+- stale transition coverage after model/UI transition changes;
 - done/release/archive/publish claim using stale evidence;
 - failed validation pushed through without failure triage;
 - oversized model evidence treated as an ordinary failure instead of ModelMesh
@@ -231,6 +239,8 @@ it must keep their freshness rules visible:
   the new id;
 - code, test, adapter, or observation edits under a leaf stale the affected
   leaf boundary-matrix cells.
+- model/UI transition edits stale generated transition coverage cells, MTA
+  transition obligations, and TestMesh required cell ids derived from them.
 - test command, source, tested artifact, dependency, environment, result
   fingerprint, or coverage-scope edits stale any `TestResultReuseTicket` that
   reused old test output.
