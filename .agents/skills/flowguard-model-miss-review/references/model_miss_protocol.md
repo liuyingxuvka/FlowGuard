@@ -20,8 +20,8 @@ not close a known model miss unless the miss has been reviewed.
 5. Add current test evidence for the observed regression and for the
    same-class generalized case. A point regression is necessary but does not
    close an in-scope miss by itself.
-6. Run Model-Test Alignment on the repaired model obligation, optional code
-   contracts when in scope, and the observed/same-class test evidence. If the
+6. Run Model-Test Alignment on the repaired model obligation, owner code
+   contracts, and the observed/same-class test evidence. If the
    same-class validation is too large, slow, layered, stale-prone,
    background, or release-only, route that hierarchy to TestMesh and report
    scoped confidence until current child evidence exists.

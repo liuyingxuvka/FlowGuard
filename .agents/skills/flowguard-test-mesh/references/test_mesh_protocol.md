@@ -32,8 +32,10 @@ routine parent proof until it has final current pass artifacts.
 Transition coverage matrices can also feed TestMesh. When Model-Test Alignment
 or UI Flow Structure produces required transition cell ids for a large, slow,
 or browser-heavy matrix, TestMesh owns the parent/child evidence hierarchy for
-those ids. It does not decide the semantic transition obligation; it proves
-which child suites currently own and pass the required cells.
+those ids. It preserves the model obligation and code contract target ids for
+downstream alignment. It does not decide the semantic transition obligation;
+Model-Test Alignment still proves that model obligation, owner code contract,
+and external-contract test evidence bind the same behavior.
 
 ## Trigger
 
@@ -151,8 +153,9 @@ Use these groups:
 - Ownership map: boundary, owner, and overlap note.
 - Child suite evidence: identity, result summary, visibility caveats, and
   ownership summary.
-- Required cell ids: transition or leaf matrix cells that child suites must
-  own with current evidence.
+- Required cell ids: transition or leaf matrix cells that child suites must own
+  with current evidence, plus the model obligation and code contract targets
+  that downstream Model-Test Alignment must bind.
 - Target split derivation: source model, target suites, coverage, and
   rationale.
 

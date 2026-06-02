@@ -35,9 +35,10 @@ Before changing files, separate three situations:
   stayed inside its model.
 - `model_test_alignment`: model obligations and ordinary tests both exist, and
   the risk is whether scenarios, invariants, hazards, transitions, contracts,
-  or optional code external contracts have matching current test evidence. When
+  or owner code external contracts have matching current test evidence. When
   broad transition coverage is claimed, derive a transition coverage matrix so
-  modeled transitions become explicit Model-Test Alignment obligations. When
+  modeled transitions become explicit Model-Test Alignment obligations and
+  owner code contracts. When
   real Python source/tests are in scope, first run or request conservative
   source audit evidence for the code and test rows.
 - `model_topology_hazard_review`: a locally green model topology may imply
@@ -73,7 +74,7 @@ Before changing files, separate three situations:
   candidate routes, or split/reduction signals require an owner route. Use the
   scan to route work; do not treat it as model/test/replay validation.
 - `risk_evidence_ledger`: a final done, release, publish, or full-confidence
-  claim depends on whether user risks are linked to model obligations, optional
+  claim depends on whether user risks are linked to model obligations, owner
   code contracts, and current proof evidence. Use this boundary after the
   producing routes have generated evidence; do not treat it as a replacement
   for Model-Test Alignment, TestMesh, ModelMesh, StructureMesh, UI Flow
@@ -161,10 +162,10 @@ Before trusting a claim that model coverage and test coverage agree, ask
 whether the model obligations need a direct test-evidence alignment review.
 Trigger Model-Test Alignment when a FlowGuard model has explicit scenarios,
 invariants, hazards, state transitions, or input/output contracts and ordinary
-tests are expected to prove those obligations. If the reviewed behavior also
-depends on a public function, API, CLI, facade, adapter, persisted output, or
-other externally visible code surface, include optional code external contract
-rows in the same direct review.
+tests are expected to prove those obligations. Every required model-backed
+behavior in the confidence claim needs an owner code external contract row in
+the same direct review, including public functions, APIs, CLIs, facades,
+adapters, persisted outputs, and other externally visible code surfaces.
 When that code surface claims finite inputs or outputs, include
 code-boundary conformance rows so real-code observations prove allowed inputs,
 rejected inputs, outputs, error paths, state writes, and side effects stay
@@ -172,7 +173,7 @@ inside the declared boundary.
 
 Model-Test Alignment is not a mesh route. It does not split tests, split code,
 split models, or read TestMesh, StructureMesh, or ModelMesh reports. It
-compares `ModelObligation` rows, optional `CodeContract` rows, optional
+compares `ModelObligation` rows, required owner `CodeContract` rows, optional
 `CodeBoundaryContract` / `CodeBoundaryObservation` rows, and `TestEvidence`
 rows and reports missing evidence, missing or mismatched code contracts,
 boundary-crossing code observations, orphan tests, orphan code contracts,
@@ -792,7 +793,7 @@ When this happens:
    practical.
 5. Add current test evidence for the observed regression and same-class
    generalized bad case, then run Model-Test Alignment to verify the repaired
-   obligation, optional code contracts, and tests cover the same behavior. A
+   obligation, owner code contracts, and tests cover the same behavior. A
    single observed-bug regression test is not full closure.
    When sibling obligations make the same family-level claim, add family parity
    rows so every sibling has the required mechanism and allowed provenance.

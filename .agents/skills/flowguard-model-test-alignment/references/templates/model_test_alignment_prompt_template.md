@@ -3,16 +3,16 @@
 ```text
 Build a FlowGuard Model-Test Alignment review for this repository.
 
-Treat the FlowGuard model as the obligation source and ordinary tests as
-evidence. If an externally visible code surface is in scope, include optional
-code external contracts as plain alignment rows between the model obligations
-and tests. Do not invoke TestMesh, StructureMesh, ModelMesh, split tests, split
+Treat the FlowGuard model as the obligation source, owner code contracts as the
+implementation binding, and ordinary tests as evidence. Include owner code
+external contracts as plain alignment rows between the model obligations and
+tests. Do not invoke TestMesh, StructureMesh, ModelMesh, split tests, split
 code, split models, or read mesh reports.
 If the coverage claim includes state transitions, first derive a transition
 coverage matrix and project its required cells into Model-Test Alignment
-obligations. For large or slow transition matrices, keep the semantic
-obligations here and route child evidence ownership to TestMesh.
-List each model obligation, optional code contract, and current test evidence
+obligations and code contracts. For large or slow transition matrices, keep the
+semantic obligations here and route child evidence ownership to TestMesh.
+List each model obligation, owner code contract, and current test evidence
 using grouped fields.
 
 Use these groups:
@@ -20,10 +20,10 @@ Use these groups:
 - Model obligations: identity, required evidence, external boundary, and risk
   notes.
 - Transition coverage matrix when in scope: cell id, source state, trigger,
-  target state, expected output, required test kinds, and scoped-out cells with
-  reasons.
-- Code external contracts when in scope: identity, obligation binding, external
-  boundary, and source-audit status.
+  target state, expected output, owner code contract id, runtime node id,
+  required test kinds, and scoped-out cells with reasons.
+- Code external contracts: identity, obligation binding, external boundary, and
+  source-audit status.
 - Closed code boundaries or leaf matrices when in scope: boundary identity,
   allowed/rejected cases or matrix cells, observed result/evidence, and scoped
   gaps.
@@ -32,7 +32,8 @@ Use these groups:
 - Topology hazard obligations when a Model Topology Hazard Review promoted an
   anchored future-use hazard to model/test evidence.
 - Test evidence: identity, result/freshness, obligation or contract binding,
-  assertion scope, and risk notes.
+  assertion scope, and risk notes. A row that proves a model obligation must
+  cover a code contract implementing that same obligation.
 
 If real Python source or tests are available, first perform a conservative AST
 audit of code contracts and test assertions. Use it to generate or check the

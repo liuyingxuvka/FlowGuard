@@ -46,6 +46,7 @@ def row(risk_id="r1", **kwargs):
     return RiskEvidenceRow(
         risk_id,
         model_obligation_id=kwargs.pop("model_obligation_id", "model:r1"),
+        code_contract_id=kwargs.pop("code_contract_id", "code:r1"),
         proof_evidence_ids=kwargs.pop("proof_evidence_ids", ("e1",)),
         **kwargs,
     )
@@ -88,9 +89,7 @@ class RiskEvidenceLedgerTests(unittest.TestCase):
         self.assertEqual(RISK_CONFIDENCE_BLOCKED, missing_model.confidence)
         self.assertIn("missing_model_obligation", finding_codes(missing_model))
 
-        missing_contract = review_risk_evidence_ledger(
-            plan(require_code_contracts=True, rows=(row(code_contract_id=""),))
-        )
+        missing_contract = review_risk_evidence_ledger(plan(rows=(row(code_contract_id=""),)))
         self.assertFalse(missing_contract.ok)
         self.assertEqual("missing_code_contract", missing_contract.decision)
 

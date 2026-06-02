@@ -104,8 +104,8 @@ Execution order:
 3. `Explorer`
 4. counterexample minimization for the first invariant violation
 5. scenario review when scenarios exist
-6. optional transition coverage projection when broad model-to-test coverage is
-   claimed
+6. optional transition coverage projection when broad model-to-code-to-test
+   coverage is claimed
 7. optional progress, contract, and conformance sections
 8. unified summary report
 
@@ -113,8 +113,8 @@ If Explorer fails, the summary fails. If Explorer passes but audit has warnings
 or generated scenarios need review, the summary is `pass_with_gaps`. If
 conformance is not run, it is a confidence gap, not a failure and not a pass.
 Generated transition coverage cells are also not pass evidence; project them to
-Model-Test Alignment obligations or TestMesh required cells before claiming
-test coverage.
+Model-Test Alignment obligations and code contracts, then bind current test
+evidence to the same cell and contract before claiming coverage.
 
 Every `FlowGuardSummaryReport` also exposes `finding_ledger` and
 `maintenance_obligations`, and `to_dict()` includes both as machine-readable

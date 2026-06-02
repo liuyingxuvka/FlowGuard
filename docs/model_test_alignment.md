@@ -1,7 +1,7 @@
 # Model-Test Alignment
 
 Model-Test Alignment compares a FlowGuard model's explicit obligations with
-ordinary test evidence and, when supplied, code external contracts. It is still
+owner code contracts and ordinary test evidence. It is still
 a direct alignment helper: it does not split tests, refactor source code, or
 read TestMesh, StructureMesh, or ModelMesh reports.
 
@@ -45,6 +45,7 @@ Use:
 from flowguard import (
     TransitionCoverageCell,
     TransitionCoverageMatrix,
+    transition_coverage_to_code_contracts,
     transition_coverage_to_model_obligations,
     transition_coverage_to_required_leaf_cell_ids,
 )
@@ -55,7 +56,10 @@ slow, layered, browser-heavy, or release-only matrices should also project
 required cell ids into TestMesh through
 `transition_coverage_to_required_leaf_cell_ids(...)`. The generated matrix
 does not prove anything by itself; it only creates stable targets that current
-test evidence must cover.
+test evidence must cover. When a cell names `code_contract_id`, also project
+the matrix into `CodeContract` rows with
+`transition_coverage_to_code_contracts(...)` and bind transition-cell test
+evidence to the same contract.
 
 ## Code Boundary Conformance
 
@@ -140,9 +144,10 @@ List model obligations with `ModelObligation`:
 - required closure evidence roles, normally `observed_regression` and
   `same_class_generalized` for in-scope model-miss repairs.
 
-List code external contracts with `CodeContract` when model-to-code alignment
-is in scope. These rows may be hand-authored, generated from conservative source
-audit, or hand-authored and then checked against source audit evidence:
+List code external contracts with `CodeContract` for every required model
+obligation that is part of the confidence claim. These rows may be
+hand-authored, generated from transition coverage or conservative source audit,
+or hand-authored and then checked against source audit evidence:
 
 - code contract id, path, symbol, and surface type;
 - role: owner, helper, adapter, facade, or read-only support;
@@ -242,6 +247,8 @@ The review keeps these gaps visible:
   undeclared output, state writes, side effects, or error paths;
 - tests that cover a model obligation without binding the code contract they
   are meant to prove;
+- tests that bind a code contract that does not implement the same model
+  obligation;
 - tests that bind a code contract but only inspect internal implementation
   paths;
 - audited source evidence that is partial, ambiguous, dynamic, or requires
@@ -257,7 +264,7 @@ The review keeps these gaps visible:
 This helper is not TestMesh and not StructureMesh. Use TestMesh when the
 validation flow itself needs parent/child suite ownership. Use StructureMesh
 when a large script, module, command, or API surface is being split. Model-Test
-Alignment stays focused on declared obligations, optional code external
+Alignment stays focused on declared obligations, owner code external
 contracts, transition coverage matrices, family parity matrices, and the tests
 that prove them. Layered boundary proof may consume the aligned boundary
 evidence for leaf matrices, but it owns the parent coverage, child disjointness,

@@ -150,8 +150,9 @@ Transition coverage matrices can feed this same surface. Use
 `transition_coverage_to_required_leaf_cell_ids(...)` to produce required cell
 ids, register those ids as partition items, and let child suites own the ids
 they actually prove. TestMesh checks evidence freshness and ownership for the
-cells; Model-Test Alignment still owns whether those cells cover the declared
-transition obligations.
+cells; Model-Test Alignment still owns whether those cells bind the declared
+transition obligations, owner code contracts, and current external-contract
+test evidence.
 
 ## Routine Versus Release
 

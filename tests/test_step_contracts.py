@@ -20,6 +20,7 @@ from flowguard.development_process_flow import (
     review_development_process_flow,
 )
 from flowguard.model_test_alignment import (
+    CodeContract,
     TEST_KIND_REPLAY,
     TEST_STATUS_PASSED,
     TestEvidence,
@@ -231,12 +232,22 @@ class WorkflowStepContractTests(unittest.TestCase):
             ModelTestAlignmentPlan(
                 "workflow-step-model",
                 obligations=(obligation,),
+                code_contracts=(
+                    CodeContract(
+                        "workflow.regression",
+                        implements_obligations=(obligation.obligation_id,),
+                        external_outputs=obligation.external_outputs,
+                        state_reads=obligation.state_reads,
+                        state_writes=obligation.state_writes,
+                    ),
+                ),
                 test_evidence=(
                     TestEvidence(
                         "regression-replay",
                         result_status=TEST_STATUS_PASSED,
                         test_kind=TEST_KIND_REPLAY,
                         covered_obligations=(obligation.obligation_id,),
+                        covered_code_contracts=("workflow.regression",),
                     ),
                 ),
             )

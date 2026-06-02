@@ -1,6 +1,6 @@
 """Risk evidence ledger helpers for final FlowGuard confidence claims.
 
-The ledger connects user-meaningful risks to model obligations, optional public
+The ledger connects user-meaningful risks to model obligations, owner public
 code contracts, proof evidence, freshness, and scoped-out gaps. It summarizes
 route-specific evidence; it does not replace Model-Test Alignment, TestMesh,
 ModelMesh, DevelopmentProcessFlow, or conformance replay.
@@ -268,7 +268,6 @@ class RiskEvidenceLedgerPlan:
     rows: tuple[RiskEvidenceRow, ...] = ()
     proof_evidence: tuple[RiskEvidenceProof, ...] = ()
     maintenance_obligations: tuple[MaintenanceObligation, ...] = ()
-    require_code_contracts: bool = False
     require_proof_artifacts: bool = False
     allow_scoped_confidence: bool = True
 
@@ -288,7 +287,6 @@ class RiskEvidenceLedgerPlan:
             "rows": [row.to_dict() for row in self.rows],
             "proof_evidence": [evidence.to_dict() for evidence in self.proof_evidence],
             "maintenance_obligations": [obligation.to_dict() for obligation in self.maintenance_obligations],
-            "require_code_contracts": self.require_code_contracts,
             "require_proof_artifacts": self.require_proof_artifacts,
             "allow_scoped_confidence": self.allow_scoped_confidence,
         }
@@ -526,11 +524,11 @@ def review_risk_evidence_ledger(plan: RiskEvidenceLedgerPlan) -> RiskEvidenceLed
                 )
             )
 
-        if (plan.require_code_contracts or row.code_contract_required) and not row.code_contract_id:
+        if row.required and not row.code_contract_id:
             findings.append(
                 _finding(
                     "missing_code_contract",
-                    "required risk has no public code contract owner",
+                    "required in-scope risk has no public code contract owner",
                     risk_id=row.risk_id,
                 )
             )

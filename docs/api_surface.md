@@ -177,16 +177,18 @@ inventory.
   Architecture Reduction, Code Structure Recommendation, StructureMesh,
   Model-Test Alignment, or manual review without merging models or rewriting
   code automatically.
-- optional model-test alignment helpers such as `ModelObligation`,
+- model-test alignment helpers such as `ModelObligation`,
   `CodeContract`, `TestEvidence`, `ModelTestAlignmentPlan`, and
   `review_model_test_alignment()` for directly comparing model obligations
-  with ordinary test evidence and optional code external contracts without
-  invoking TestMesh or StructureMesh. `TestEvidence` can distinguish primary
+  with owner code external contracts and ordinary test evidence without
+  invoking TestMesh or StructureMesh. `ModelCodeTestBindingRow` exposes the
+  required three-way row status. `TestEvidence` can distinguish primary
   proof, primary `edge_path` proof, supporting contract evidence, integration
   smoke evidence, exact leaf matrix-cell evidence, transition-cell evidence,
   and model-miss closure roles such as observed regression versus same-class
   generalized evidence. `TransitionCoverageCell`,
   `TransitionCoverageMatrix`, `transition_coverage_to_model_obligations()`,
+  `transition_coverage_to_code_contracts()`,
   `transition_coverage_to_required_leaf_cell_ids()`,
   `transition_obligation_id()`, and
   `ui_interaction_model_to_transition_coverage()` provide the standard bridge

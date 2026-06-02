@@ -3,6 +3,7 @@ import unittest
 from flowguard import (
     EVIDENCE_ABSTRACT_GREEN,
     ModelTestAlignmentPlan,
+    TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
     TEST_EVIDENCE_ROLE_TRANSITION_CELL,
     TEST_KIND_FAILURE_PATH,
     TEST_KIND_HAPPY_PATH,
@@ -20,6 +21,7 @@ from flowguard import (
     UITransition,
     review_model_test_alignment,
     review_test_mesh,
+    transition_coverage_to_code_contracts,
     transition_coverage_to_model_obligations,
     transition_coverage_to_required_leaf_cell_ids,
     transition_obligation_id,
@@ -27,12 +29,14 @@ from flowguard import (
 )
 
 
-def transition_evidence(evidence_id, obligation_id, cell_id, **kwargs):
+def transition_evidence(evidence_id, obligation_id, cell_id, contract_id="map.drag_handler", **kwargs):
     defaults = {
         "result_status": "passed",
         "evidence_current": True,
         "test_kind": TEST_KIND_HAPPY_PATH,
         "covered_obligations": (obligation_id,),
+        "covered_code_contracts": (contract_id,),
+        "assertion_scope": TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
         "evidence_role": TEST_EVIDENCE_ROLE_TRANSITION_CELL,
         "evidence_target_id": cell_id,
     }
@@ -66,6 +70,8 @@ class TransitionCoverageTests(unittest.TestCase):
                     target_state="dragging",
                     expected_output="viewport_changed",
                     function_block="PanMap",
+                    code_contract_id="map.drag_handler",
+                    runtime_node_id="map.drag_transition",
                     required_test_kinds=(TEST_KIND_HAPPY_PATH, TEST_KIND_FAILURE_PATH),
                     side_effects=("render_viewport",),
                 ),
@@ -91,19 +97,60 @@ class TransitionCoverageTests(unittest.TestCase):
         self.assertEqual(("idle",), obligations[0].state_reads)
         self.assertEqual(("dragging",), obligations[0].state_writes)
         self.assertEqual(("render_viewport",), obligations[0].side_effects)
+        self.assertEqual(("map.drag_transition",), obligations[0].required_runtime_node_ids)
         self.assertEqual((TEST_KIND_HAPPY_PATH, TEST_KIND_FAILURE_PATH), obligations[0].required_test_kinds)
+        self.assertEqual("map.drag_handler", matrix.to_dict()["cells"][0]["code_contract_id"])
+        self.assertEqual("map.drag_transition", matrix.to_dict()["cells"][0]["runtime_node_id"])
+
+    def test_transition_matrix_projects_to_code_contracts(self):
+        matrix = TransitionCoverageMatrix(
+            "map-ui-transitions",
+            model_id="map-ui",
+            cells=(
+                TransitionCoverageCell(
+                    "idle.drag->dragging",
+                    "idle",
+                    "drag",
+                    "dragging",
+                    expected_output="viewport_changed",
+                    function_block="PanMap.handle_drag",
+                    code_contract_id="map.drag_handler",
+                    side_effects=("render_viewport",),
+                ),
+            ),
+        )
+
+        contracts = transition_coverage_to_code_contracts(matrix)
+
+        self.assertEqual(1, len(contracts))
+        self.assertEqual("map.drag_handler", contracts[0].code_contract_id)
+        self.assertEqual("PanMap.handle_drag", contracts[0].symbol)
+        self.assertEqual((transition_obligation_id("idle.drag->dragging"),), contracts[0].implements_obligations)
+        self.assertEqual(("drag",), contracts[0].external_inputs)
+        self.assertEqual(("viewport_changed",), contracts[0].external_outputs)
+        self.assertEqual(("idle",), contracts[0].state_reads)
+        self.assertEqual(("dragging",), contracts[0].state_writes)
 
     def test_transition_obligation_without_test_evidence_blocks_alignment(self):
         matrix = TransitionCoverageMatrix(
             "map-ui-transitions",
             model_id="map-ui",
-            cells=(TransitionCoverageCell("idle.drag->dragging", "idle", "drag", "dragging"),),
+            cells=(
+                TransitionCoverageCell(
+                    "idle.drag->dragging",
+                    "idle",
+                    "drag",
+                    "dragging",
+                    code_contract_id="map.drag_handler",
+                ),
+            ),
         )
 
         report = review_model_test_alignment(
             ModelTestAlignmentPlan(
                 "map-ui",
                 obligations=transition_coverage_to_model_obligations(matrix),
+                code_contracts=transition_coverage_to_code_contracts(matrix),
             )
         )
 
@@ -114,7 +161,15 @@ class TransitionCoverageTests(unittest.TestCase):
         matrix = TransitionCoverageMatrix(
             "map-ui-transitions",
             model_id="map-ui",
-            cells=(TransitionCoverageCell("idle.drag->dragging", "idle", "drag", "dragging"),),
+            cells=(
+                TransitionCoverageCell(
+                    "idle.drag->dragging",
+                    "idle",
+                    "drag",
+                    "dragging",
+                    code_contract_id="map.drag_handler",
+                ),
+            ),
         )
         obligation_id = transition_obligation_id("idle.drag->dragging")
 
@@ -122,6 +177,7 @@ class TransitionCoverageTests(unittest.TestCase):
             ModelTestAlignmentPlan(
                 "map-ui",
                 obligations=transition_coverage_to_model_obligations(matrix),
+                code_contracts=transition_coverage_to_code_contracts(matrix),
                 test_evidence=(
                     transition_evidence(
                         "test_drag_updates_viewport",
@@ -139,7 +195,15 @@ class TransitionCoverageTests(unittest.TestCase):
         matrix = TransitionCoverageMatrix(
             "map-ui-transitions",
             model_id="map-ui",
-            cells=(TransitionCoverageCell("idle.drag->dragging", "idle", "drag", "dragging"),),
+            cells=(
+                TransitionCoverageCell(
+                    "idle.drag->dragging",
+                    "idle",
+                    "drag",
+                    "dragging",
+                    code_contract_id="map.drag_handler",
+                ),
+            ),
         )
         obligation_id = transition_obligation_id("idle.drag->dragging")
 
@@ -147,6 +211,7 @@ class TransitionCoverageTests(unittest.TestCase):
             ModelTestAlignmentPlan(
                 "map-ui",
                 obligations=transition_coverage_to_model_obligations(matrix),
+                code_contracts=transition_coverage_to_code_contracts(matrix),
                 test_evidence=(
                     transition_evidence(
                         "test_drag_updates_viewport",
@@ -178,6 +243,8 @@ class TransitionCoverageTests(unittest.TestCase):
                     "idle",
                     "dragging",
                     function_block="PanMap",
+                    code_contract_id="map.drag_handler",
+                    runtime_node_id="map.drag_transition",
                     output="viewport_changed",
                 ),
             ),
@@ -189,7 +256,10 @@ class TransitionCoverageTests(unittest.TestCase):
         self.assertEqual("map-ui:transition-coverage", matrix.matrix_id)
         self.assertEqual("ui_flow_structure", matrix.source_route)
         self.assertEqual(("idle.drag->dragging",), matrix.required_cell_ids())
+        self.assertEqual("map.drag_handler", matrix.cells[0].code_contract_id)
+        self.assertEqual("map.drag_transition", matrix.cells[0].runtime_node_id)
         self.assertEqual("transition:idle.drag->dragging", obligations[0].obligation_id)
+        self.assertEqual(("map.drag_transition",), obligations[0].required_runtime_node_ids)
         self.assertEqual(("viewport_changed",), obligations[0].external_outputs)
 
     def test_transition_matrix_required_cells_feed_test_mesh(self):

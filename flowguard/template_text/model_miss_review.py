@@ -643,8 +643,8 @@ Use this scaffold when real validation finds an issue after a FlowGuard pass.
   whole model target?
 - Which observed-regression test and same-class generalized test evidence now
   prove the repaired obligation?
-- Which Model-Test Alignment rows prove the new model obligations, optional
-  code contracts, and same-class tests cover the same behavior?
+- Which Model-Test Alignment rows prove the new model obligations, owner code
+  contracts, and same-class tests cover the same behavior?
 - Has this same-class family appeared before, or is it high risk enough to
   require a defect-family gate rather than another ordinary bug fix?
 - Which defect-family gate records the family id, authority boundary, observed

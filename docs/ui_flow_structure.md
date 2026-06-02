@@ -152,8 +152,8 @@ product/workflow intent
 -> review regions, menu levels, displays, overlays, stable placement, hierarchy
 -> UI text hierarchy blueprint
 -> review headings, labels, action text, status/helper/error/recovery slots
--> transition coverage matrix when claiming model-to-test coverage
--> project UI transitions to Model-Test Alignment obligations or TestMesh cells
+-> transition coverage matrix when claiming model-to-code-to-test coverage
+-> project UI transitions to Model-Test Alignment obligations, code contracts, or TestMesh cells
 -> UI implementation validation when claiming the running UI is complete
 -> review feature contracts, real journey runs, step evidence, model freshness, blindspots
 -> handoff to Figma, frontend implementation, browser checks, copy/design, or design review
@@ -238,13 +238,15 @@ The fifth stage is only for implemented/runnable UI claims. It checks:
 - skipped or hard-to-automate branches are recorded as implementation
   blindspots with scope, owner, and validation boundary.
 
-Before a broad UI model-to-test coverage claim, project the reviewed
+Before a broad UI model-to-code-to-test coverage claim, project the reviewed
 `UIInteractionModel.transitions` with
-`ui_interaction_model_to_transition_coverage(...)`. Each generated cell gives
-browser, desktop, or manual evidence a stable target such as
-`loaded.click_run->running`. Small UI matrices can be reviewed directly by
-Model-Test Alignment; larger browser or release-only matrices should route the
-required cell ids to TestMesh.
+`ui_interaction_model_to_transition_coverage(...)`. Each transition should name
+the handler/function block plus a code contract or runtime node id when broad
+coverage is claimed. Each generated cell gives browser, desktop, or manual
+evidence a stable target such as `loaded.click_run->running`. Small UI matrices
+can be reviewed directly by Model-Test Alignment with projected obligations and
+code contracts; larger browser or release-only matrices should route the
+required cell ids to TestMesh while preserving those targets.
 
 ## Example
 

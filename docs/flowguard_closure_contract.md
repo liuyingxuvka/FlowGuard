@@ -83,9 +83,9 @@ Use the gates that match the claim:
   have been resolved, or the claim is explicitly scoped down.
 - Evidence freshness: later edits, peer writes, adapter changes, generated
   artifacts, and long-running checks have not made earlier evidence stale.
-- Risk Evidence Ledger: user risks connect to model obligations, optional code
-  contracts, obligation-family gates, analogous defect scans, defect-family
-  gates, split gates, and current proof evidence.
+- Risk Evidence Ledger: user risks connect to model obligations, owner code
+  contracts, model-code-test binding rows, obligation-family gates, analogous
+  defect scans, defect-family gates, split gates, and current proof evidence.
 - Typed claim chain: broad claims consume the right support type instead of
   promoting plan-only, model-only, or test-only evidence into production
   confidence.

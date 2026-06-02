@@ -1,22 +1,24 @@
 # Model-Test Alignment Protocol
 
 Use Model-Test Alignment when a FlowGuard model and ordinary tests both exist
-and the question is whether they cover the same obligations. When the reviewed
-behavior also has an externally visible code surface, include optional code
-external contracts between the model obligations and the test evidence.
+and the question is whether they cover the same obligations. For any required
+behavior in the confidence claim, include owner code external contracts between
+the model obligations and the test evidence.
 
 This protocol is independent from TestMesh, StructureMesh, and ModelMesh.
 It does not split tests, split code, split models, or read mesh reports. It
-compares explicit model obligations, optional code external contracts, and
+compares explicit model obligations, required owner code external contracts, and
 plain test evidence.
 
 When the claim covers state transitions, derive a transition coverage matrix.
 Use `TransitionCoverageMatrix` and
 `transition_coverage_to_model_obligations(...)` so each required
 `Input/Event x State -> Output x State` cell becomes an explicit
-`transition_coverage` obligation. Evidence for a transition cell should use a
-stable target id; large or slow matrices can project required cell ids to
-TestMesh through `transition_coverage_to_required_leaf_cell_ids(...)`.
+`transition_coverage` obligation. When a transition cell names a code contract,
+also project it with `transition_coverage_to_code_contracts(...)`. Evidence for
+a transition cell should use a stable target id and cover the same code
+contract; large or slow matrices can project required cell ids to TestMesh
+through `transition_coverage_to_required_leaf_cell_ids(...)`.
 
 When the result supports a final done, release, publish, or full-confidence
 claim, pass the obligation ids, code contract ids, test evidence ids, statuses,
@@ -124,8 +126,8 @@ Use grouped field families instead of a blank for every possible detail.
 - transition coverage source when generated from a matrix: cell id, source
   state, trigger, target state, expected output, and required test kinds.
 
-`CodeContract` rows are optional. Use them only for externally visible code
-surfaces in scope, and capture:
+`CodeContract` rows are required for required model obligations in the current
+confidence claim. Capture:
 
 - identity: contract id, path/symbol/surface type, role, and required flag;
 - binding: implemented model obligation ids;
@@ -140,7 +142,8 @@ surfaces in scope, and capture:
 - freshness: current, stale reason, reuse ticket, and proof artifact when an
   old result is reused;
 - binding: covered obligation ids, code contract ids, evidence target id, and
-  assertion scope;
+  assertion scope. A test that proves a model obligation must cover a code
+  contract implementing the same obligation;
 - risk notes: overclaim, internal-path-only, source-audit caveat, or model-miss
   closure role.
 

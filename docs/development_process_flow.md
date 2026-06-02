@@ -171,11 +171,12 @@ missing an obligation, DevelopmentProcessFlow should also consume
 until the required model upgrade is resolved or explicitly out of scope.
 
 Before done, release, archive, publish, or production-confidence claims,
-DevelopmentProcessFlow should review direct model/test evidence with
-`review_auto_mesh_splits()` when size, pending states, slow duration, broad
-obligation coverage, background progress-only logs, or release-only scope could
-hide the need for ModelMesh or TestMesh. A required split keeps the lifecycle
-claim blocked or scoped until the owning mesh route supplies current evidence.
+DevelopmentProcessFlow should review direct model-code-test evidence freshness
+and run `review_auto_mesh_splits()` when size, pending states, slow duration,
+broad obligation coverage, background progress-only logs, or release-only scope
+could hide the need for ModelMesh or TestMesh. A required split or stale
+binding row keeps the lifecycle claim blocked or scoped until the owning route
+supplies current evidence.
 
 When a lifecycle claim depends on an AI-built plan, a project-specific evidence
 adapter, a post-green false-negative repair, or known-bad mutation probes,

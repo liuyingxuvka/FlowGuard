@@ -107,9 +107,11 @@ class ApiSurfaceTests(unittest.TestCase):
         self.assertIn("review_ui_structure_derivation", flowguard.MODELING_HELPER_API)
         self.assertIn("review_ui_text_hierarchy", flowguard.MODELING_HELPER_API)
         self.assertIn("ModelTestAlignmentPlan", flowguard.MODELING_HELPER_API)
+        self.assertIn("ModelCodeTestBindingRow", flowguard.MODELING_HELPER_API)
         self.assertIn("review_model_test_alignment", flowguard.MODELING_HELPER_API)
         self.assertIn("TransitionCoverageCell", flowguard.MODELING_HELPER_API)
         self.assertIn("TransitionCoverageMatrix", flowguard.MODELING_HELPER_API)
+        self.assertIn("transition_coverage_to_code_contracts", flowguard.MODELING_HELPER_API)
         self.assertIn("transition_coverage_to_model_obligations", flowguard.MODELING_HELPER_API)
         self.assertIn("ui_interaction_model_to_transition_coverage", flowguard.MODELING_HELPER_API)
         self.assertIn("ModelSignature", flowguard.MODELING_HELPER_API)
@@ -193,6 +195,7 @@ class ApiSurfaceTests(unittest.TestCase):
             "TEST_EVIDENCE_ROLE_TRANSITION_CELL",
             "TEST_EVIDENCE_ROLE_SUPPORTING_CONTRACT",
             "TEST_EVIDENCE_ROLE_INTEGRATION_SMOKE",
+            "ModelCodeTestBindingRow",
             "PythonCodeContractEvidence",
             "PythonTestAssertionEvidence",
             "ContractSourceAuditFinding",
@@ -219,6 +222,7 @@ class ApiSurfaceTests(unittest.TestCase):
             "TRANSITION_COVERAGE_SOURCE_UI",
             "TRANSITION_COVERAGE_SOURCE_WORKFLOW",
             "TRANSITION_COVERAGE_SOURCE_LEAF_BOUNDARY",
+            "transition_coverage_to_code_contracts",
             "transition_coverage_to_model_obligations",
             "transition_coverage_to_required_leaf_cell_ids",
             "transition_obligation_id",

@@ -154,6 +154,8 @@ class UITransition:
     source_state_id: str
     target_state_id: str
     function_block: str = ""
+    code_contract_id: str = ""
+    runtime_node_id: str = ""
     output: str = ""
     side_effects: tuple[str, ...] = ()
     rationale: str = ""
@@ -164,6 +166,8 @@ class UITransition:
         object.__setattr__(self, "source_state_id", str(self.source_state_id))
         object.__setattr__(self, "target_state_id", str(self.target_state_id))
         object.__setattr__(self, "function_block", str(self.function_block))
+        object.__setattr__(self, "code_contract_id", str(self.code_contract_id))
+        object.__setattr__(self, "runtime_node_id", str(self.runtime_node_id))
         object.__setattr__(self, "output", str(self.output))
         object.__setattr__(self, "side_effects", _as_tuple(self.side_effects))
         object.__setattr__(self, "rationale", str(self.rationale))
@@ -175,6 +179,8 @@ class UITransition:
             "source_state_id": self.source_state_id,
             "target_state_id": self.target_state_id,
             "function_block": self.function_block,
+            "code_contract_id": self.code_contract_id,
+            "runtime_node_id": self.runtime_node_id,
             "output": self.output,
             "side_effects": list(self.side_effects),
             "rationale": self.rationale,

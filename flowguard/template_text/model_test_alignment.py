@@ -8,7 +8,7 @@ Created with FlowGuard:
 https://github.com/liuyingxuvka/FlowGuard
 
 Purpose:
-Reviews whether explicit FlowGuard model obligations, optional code external
+Reviews whether explicit FlowGuard model obligations, owner code external
 contracts, and ordinary test evidence describe the same behavioral surface.
 
 Guards against:
@@ -35,7 +35,7 @@ Run:
 python .flowguard/model_test_alignment/run_checks.py
 
 This template does not use TestMesh, StructureMesh, or ModelMesh. It compares
-plain model obligations, optional code external contracts, and plain test
+plain model obligations, required owner code external contracts, and plain test
 evidence. If one obligation has several primary edge-path tests, split child
 obligations or attach those tests to leaf matrix cells instead of relabeling one
 as generic support.
@@ -50,6 +50,7 @@ from flowguard import (
     ModelObligation,
     ModelTestAlignmentPlan,
     ProofArtifactRef,
+    RuntimeNodeObservation,
     TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
     TEST_ASSERTION_SCOPE_INTERNAL_PATH,
     TEST_CLOSURE_ROLE_OBSERVED_REGRESSION,
@@ -66,6 +67,7 @@ from flowguard import (
     review_code_boundary_conformance,
     review_python_contract_source_audit,
     review_model_test_alignment,
+    transition_coverage_to_code_contracts,
     transition_coverage_to_model_obligations,
     transition_obligation_id,
 )
@@ -113,11 +115,31 @@ def transition_matrix() -> TransitionCoverageMatrix:
                 trigger="submit_valid_order",
                 target_state="accepted",
                 expected_output="Accepted",
-                function_block="AcceptOrder",
+                function_block="accept_order_transition",
+                code_contract_id="checkout_accept_transition",
+                runtime_node_id="checkout.accept_transition",
                 required_test_kinds=(TEST_KIND_HAPPY_PATH,),
                 rationale="Submitting a valid pending order reaches the accepted state.",
             ),
         ),
+    )
+
+
+def transition_code_contracts() -> tuple[CodeContract, ...]:
+    projected = transition_coverage_to_code_contracts(transition_matrix())
+    return tuple(
+        CodeContract(
+            contract.code_contract_id,
+            path="checkout/service.py",
+            symbol=contract.symbol,
+            implements_obligations=contract.implements_obligations,
+            external_inputs=contract.external_inputs,
+            external_outputs=contract.external_outputs,
+            state_reads=contract.state_reads,
+            state_writes=contract.state_writes,
+            side_effects=contract.side_effects,
+        )
+        for contract in projected
     )
 
 
@@ -167,16 +189,7 @@ def aligned_plan() -> ModelTestAlignmentPlan:
                 external_outputs=("Accepted",),
                 state_writes=("order_status",),
             ),
-            CodeContract(
-                "checkout_accept_transition",
-                path="checkout/service.py",
-                symbol="accept_order_transition",
-                implements_obligations=(ACCEPT_TRANSITION_OBLIGATION_ID,),
-                external_inputs=("submit_valid_order",),
-                external_outputs=("Accepted",),
-                state_reads=("pending",),
-                state_writes=("accepted",),
-            ),
+            *transition_code_contracts(),
             CodeContract(
                 "checkout_reject_duplicate",
                 path="checkout/service.py",
@@ -286,6 +299,20 @@ def aligned_plan() -> ModelTestAlignmentPlan:
                 ),
             ),
         ),
+        runtime_node_observations=(
+            RuntimeNodeObservation(
+                "obs:checkout.accept_transition",
+                "checkout.accept_transition",
+                model_id="sample_checkout_model",
+                model_obligation_id=ACCEPT_TRANSITION_OBLIGATION_ID,
+                code_contract_id="checkout_accept_transition",
+                observed_output="Accepted",
+                proof_artifact=proof_artifact(
+                    "obs_checkout_accept_transition",
+                    ACCEPT_TRANSITION_OBLIGATION_ID,
+                ),
+            ),
+        ),
         boundary_contracts=(
             CodeBoundaryContract(
                 "checkout_reject_duplicate_boundary",
@@ -367,6 +394,16 @@ def broken_plan() -> ModelTestAlignmentPlan:
                 covered_obligations=("reject_duplicate_order",),
                 covered_code_contracts=("checkout_reject_duplicate",),
                 assertion_scope=TEST_ASSERTION_SCOPE_INTERNAL_PATH,
+            ),
+            TestEvidence(
+                "test_duplicate_external_happy",
+                test_name="test_duplicate_external_happy",
+                path="tests/test_checkout.py",
+                result_status="passed",
+                test_kind=TEST_KIND_HAPPY_PATH,
+                covered_obligations=("reject_duplicate_order",),
+                covered_code_contracts=("checkout_reject_duplicate",),
+                assertion_scope=TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
             ),
             TestEvidence(
                 "test_unbound_helper",
@@ -535,7 +572,7 @@ if __name__ == "__main__":
 MODEL_TEST_ALIGNMENT_NOTES_TEMPLATE = """# FlowGuard Model-Test Alignment Notes
 
 Use this scaffold to compare a FlowGuard model's explicit obligations with
-optional code external contracts, ordinary test evidence, and conservative
+required owner code external contracts, ordinary test evidence, and conservative
 Python source audits for those contracts. When the model says the real code
 surface has a finite input/output boundary, also add code-boundary conformance
 observations from runtime tests, replay, or a harness.
@@ -556,7 +593,7 @@ List model obligations:
 - required test kinds such as happy path, failure path, edge path, negative
   path, or replay.
 
-List code external contracts when the review needs model-to-code alignment:
+List code external contracts for every required model obligation in the review:
 
 - code contract id;
 - path, symbol, and surface type;
@@ -617,7 +654,7 @@ Optionally run the conservative source audit:
 ## Boundary
 
 Model-Test Alignment does not split tests, refactor source code, or read mesh
-reports. It compares declared obligations, optional external code contracts,
+reports. It compares declared obligations, required external code contracts,
 and evidence. Use TestMesh only when a large validation flow needs parent/child
 test hierarchy ownership. Use StructureMesh only when a large script, module,
 command, or API surface is being split.

@@ -6,11 +6,12 @@ owned by the direct satellite skill `flowguard-model-test-alignment`.
 Load:
 `.agents/skills/flowguard-model-test-alignment/references/model_test_alignment_protocol.md`
 
-Use this route when model obligations, optional external code contracts, and
+Use this route when model obligations, owner external code contracts, and
 ordinary test evidence need current parity before a done, release, publish, or
 full-confidence claim.
 
 Keep the hard gates: use the real FlowGuard package, preserve
 `Input x State -> Set(Output x State)` boundaries, keep stale or skipped
-evidence visible, and feed missing obligations or duplicate primary evidence
-to `review_model_maturation_loop(...)` before broad confidence.
+evidence visible, block model+test-only green rows, and feed missing
+obligations or duplicate primary evidence to `review_model_maturation_loop(...)`
+before broad confidence.

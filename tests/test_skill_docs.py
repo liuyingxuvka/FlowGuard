@@ -164,6 +164,7 @@ class SkillDocsTests(unittest.TestCase):
             ),
             "flowguard-model-test-alignment": (
                 "CodeContract",
+                "Full confidence requires",
                 "coverage",
                 "Do not invoke TestMesh",
             ),
@@ -214,6 +215,24 @@ class SkillDocsTests(unittest.TestCase):
                 self.assertGreater(len(reference), 200)
                 for phrase in route_expectations[skill_name]:
                     self.assertIn(phrase, text)
+
+    def test_model_test_alignment_skill_does_not_teach_optional_code_contracts(self):
+        checked = (
+            SKILLS_ROOT / "flowguard-model-test-alignment" / "SKILL.md",
+            SKILLS_ROOT / "flowguard-model-test-alignment" / "references" / "model_test_alignment_protocol.md",
+            SKILLS_ROOT / "flowguard-model-test-alignment" / "references" / "templates" / "model_test_alignment_prompt_template.md",
+            KERNEL_ROOT / "SKILL.md",
+            KERNEL_ROOT / "references" / "skill_kernel_protocol.md",
+            KERNEL_ROOT / "references" / "model_test_alignment_protocol.md",
+        )
+
+        for path in checked:
+            with self.subTest(path=path):
+                text = self.read(path)
+                self.assertNotIn("optional code contracts", text)
+                self.assertNotIn("optional code external contracts", text)
+                self.assertNotIn("optional external code contracts", text)
+                self.assertNotIn("model-test-only", text)
 
     def test_kernel_satellite_reference_handoffs_are_compact(self):
         for kernel_reference, (skill_name, satellite_reference) in KERNEL_HANDOFFS.items():

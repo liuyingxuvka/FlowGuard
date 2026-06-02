@@ -297,10 +297,14 @@ Known-bad hazards:
 Use this stage when the claim says tests cover modeled UI transitions. Project
 the reviewed interaction model with `ui_interaction_model_to_transition_coverage(...)`.
 Small matrices can feed Model-Test Alignment directly through
-`transition_coverage_to_model_obligations(...)`; large browser-heavy matrices
-can feed TestMesh through `transition_coverage_to_required_leaf_cell_ids(...)`.
-The projection is not implementation evidence by itself. It creates stable cell
-targets for browser, desktop, or manual evidence.
+`transition_coverage_to_model_obligations(...)` and
+`transition_coverage_to_code_contracts(...)`; large browser-heavy matrices can
+feed TestMesh through `transition_coverage_to_required_leaf_cell_ids(...)`.
+Each transition should carry the visible event/control, source state, target
+state, handler/function block, and code contract or runtime node id that owns
+the transition. The projection is not implementation evidence by itself. It
+creates stable model obligation, code contract, and cell targets for browser,
+desktop, or manual evidence.
 
 ## Recommendation Shape
 
@@ -332,9 +336,9 @@ Produce a UI structure contract with:
 - implementation evidence boundary: feature contracts, journey runs, step
   evidence, model revision, pure UI actions, residual implementation
   blindspots, and remaining manual/browser validation boundaries.
-- transition coverage boundary when model-to-test coverage is claimed:
-  projected cell ids, required test kinds, evidence targets, and scoped-out
-  cells with reasons.
+- transition coverage boundary when model-code-test coverage is claimed:
+  projected cell ids, owner code contract ids, runtime node ids, required test
+  kinds, evidence targets, and scoped-out cells with reasons.
 
 ## Relationship To Other Routes
 

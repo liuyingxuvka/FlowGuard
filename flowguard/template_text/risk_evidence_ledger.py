@@ -30,7 +30,6 @@ from flowguard import (
 def correct_ledger() -> RiskEvidenceLedgerPlan:
     return RiskEvidenceLedgerPlan(
         "checkout-final-confidence",
-        require_code_contracts=True,
         require_proof_artifacts=True,
         rows=(
             RiskEvidenceRow(
@@ -100,7 +99,6 @@ def correct_ledger() -> RiskEvidenceLedgerPlan:
 def broken_internal_only_ledger() -> RiskEvidenceLedgerPlan:
     return RiskEvidenceLedgerPlan(
         "internal-only-confidence",
-        require_code_contracts=True,
         rows=(
             RiskEvidenceRow(
                 "duplicate_submit",
@@ -131,6 +129,7 @@ def broken_progress_only_ledger() -> RiskEvidenceLedgerPlan:
                 "release_regression",
                 description="Release regression must finish before publication.",
                 model_obligation_id="model:release-regression",
+                code_contract_id="suite:release-regression",
                 proof_evidence_ids=("suite:release-regression",),
             ),
         ),
@@ -154,6 +153,7 @@ def broken_missing_defect_family_gate_ledger() -> RiskEvidenceLedgerPlan:
                 "duplicate_submit",
                 description="Repeated same-class submit miss must be promoted before full confidence.",
                 model_obligation_id="model:dedupe-submit",
+                code_contract_id="api:submit_order",
                 proof_evidence_ids=("test:duplicate-submit",),
                 defect_family_gate_required=True,
             ),
@@ -178,6 +178,7 @@ def broken_missing_model_split_gate_ledger() -> RiskEvidenceLedgerPlan:
                 "oversized_checkout_model",
                 description="Oversized checkout model must consume a current ModelMesh split before full confidence.",
                 model_obligation_id="model:checkout-parent",
+                code_contract_id="api:submit_order",
                 proof_evidence_ids=("model:checkout-direct",),
                 model_split_gate_required=True,
             ),
@@ -202,6 +203,7 @@ def broken_open_maintenance_obligation_ledger() -> RiskEvidenceLedgerPlan:
                 "structure_parity",
                 description="Structure parity must be closed before broad confidence.",
                 model_obligation_id="model:structure-parity",
+                code_contract_id="api:submit_order",
                 proof_evidence_ids=("test:structure-parity",),
                 maintenance_obligation_ids=("structure:checkout",),
                 maintenance_obligations_required=True,

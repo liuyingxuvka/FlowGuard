@@ -84,7 +84,6 @@ from flowguard import (
 
 plan = RiskEvidenceLedgerPlan(
     "submit-final-confidence",
-    require_code_contracts=True,
     require_proof_artifacts=True,
     rows=(
         RiskEvidenceRow(
@@ -181,9 +180,9 @@ public submit behavior.
 
 ## Route Responsibilities
 
-- Model-Test Alignment produces model obligations, optional code contracts,
-  optional code-boundary observations, obligation-family parity findings, and
-  ordinary test evidence.
+- Model-Test Alignment produces model obligations, owner code contracts,
+  optional code-boundary observations, obligation-family parity findings,
+  model-code-test binding rows, and ordinary test evidence.
 - TestMesh produces child-suite evidence status, freshness, skipped/timeout
   visibility, and release/routine boundaries.
 - ModelMesh produces parent/child model evidence and reattachment status.

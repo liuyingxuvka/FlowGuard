@@ -33,7 +33,9 @@ Return to `model-first-function-flow` when the task is not UI behavior/state.
   stay explicit.
 - Running UI completion needs structured click-through or browser evidence.
 - Broad UI transition-test coverage claims need projected transition coverage
-  cells before completion is claimed.
+  cells with code contract or runtime node owners before completion is claimed.
+  The projected cells must then bind owner code contracts and current test
+  evidence through Model-Test Alignment or TestMesh.
 
 ## Minimum Workflow
 
@@ -41,7 +43,8 @@ Return to `model-first-function-flow` when the task is not UI behavior/state.
 2. Derive persistent menus, contextual regions, local controls, and text slots.
 3. Check duplicate controls/information and overlapping same-level controls.
 4. Project UI transitions into transition coverage cells when claiming
-   transition-test coverage.
+   transition-test coverage; carry code contract/runtime node ids for each
+   handler that owns the transition.
 5. Add journey coverage and implementation validation when claiming runnable UI.
 
 ## Snapshot

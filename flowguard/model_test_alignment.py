@@ -1,9 +1,9 @@
 """Model obligation, code contract, and test evidence alignment helpers.
 
 Model-Test Alignment reviews whether explicit FlowGuard model obligations,
-optional code external contracts, and ordinary test evidence describe the same
-behavioral surface. It intentionally does not read TestMesh, StructureMesh, or
-ModelMesh reports.
+code external contracts, and ordinary test evidence describe the same
+behavioral surface. Full confidence requires all three by default. It
+intentionally does not read TestMesh, StructureMesh, or ModelMesh reports.
 """
 
 from __future__ import annotations
@@ -677,7 +677,6 @@ class ModelTestAlignmentPlan:
     runtime_node_observations: tuple[RuntimeNodeObservation, ...] = ()
     runtime_path_runs: tuple[RuntimePathRun, ...] = ()
     similarity_handoff: SimilarityHandoff | Mapping[str, Any] | None = None
-    require_code_contracts: bool = False
     require_proof_artifacts: bool = False
     require_runtime_path_evidence: bool = False
     allow_orphan_tests: bool = False
@@ -737,7 +736,6 @@ class ModelTestAlignmentPlan:
             "similarity_handoff": self.similarity_handoff.to_dict()
             if self.similarity_handoff
             else None,
-            "require_code_contracts": self.require_code_contracts,
             "require_proof_artifacts": self.require_proof_artifacts,
             "require_runtime_path_evidence": self.require_runtime_path_evidence,
             "allow_orphan_tests": self.allow_orphan_tests,
@@ -779,6 +777,33 @@ class ModelTestAlignmentFinding:
 
 
 @dataclass(frozen=True)
+class ModelCodeTestBindingRow:
+    """One visible lock row for a required model obligation."""
+
+    model_obligation_id: str
+    code_contract_id: str = ""
+    test_evidence_id: str = ""
+    status: str = "blocked"
+    gaps: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "model_obligation_id", str(self.model_obligation_id))
+        object.__setattr__(self, "code_contract_id", str(self.code_contract_id))
+        object.__setattr__(self, "test_evidence_id", str(self.test_evidence_id))
+        object.__setattr__(self, "status", str(self.status))
+        object.__setattr__(self, "gaps", _as_tuple(self.gaps))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "model_obligation_id": self.model_obligation_id,
+            "code_contract_id": self.code_contract_id,
+            "test_evidence_id": self.test_evidence_id,
+            "status": self.status,
+            "gaps": list(self.gaps),
+        }
+
+
+@dataclass(frozen=True)
 class ModelTestAlignmentReport:
     """Structured outcome of a model-test alignment review."""
 
@@ -786,12 +811,14 @@ class ModelTestAlignmentReport:
     model_id: str
     decision: str
     findings: tuple[ModelTestAlignmentFinding, ...] = ()
+    binding_rows: tuple[ModelCodeTestBindingRow, ...] = ()
     summary: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "model_id", str(self.model_id))
         object.__setattr__(self, "decision", str(self.decision))
         object.__setattr__(self, "findings", tuple(self.findings))
+        object.__setattr__(self, "binding_rows", tuple(self.binding_rows))
         if not self.summary:
             status = "OK" if self.ok else "BLOCKED"
             object.__setattr__(
@@ -803,14 +830,26 @@ class ModelTestAlignmentReport:
     def blocker_count(self) -> int:
         return sum(1 for finding in self.findings if finding.severity == "blocker")
 
-    def format_text(self, max_findings: int = 10) -> str:
+    def format_text(self, max_findings: int = 10, max_binding_rows: int = 10) -> str:
         lines = [
             "=== flowguard model-test alignment review ===",
             f"status: {'OK' if self.ok else 'BLOCKED'}",
             f"model: {self.model_id}",
             f"decision: {self.decision}",
+            f"binding_rows: {len(self.binding_rows)}",
             f"findings: {len(self.findings)}",
         ]
+        for row in self.binding_rows[:max_binding_rows]:
+            lines.extend(
+                [
+                    "",
+                    f"binding: {row.status}",
+                    f"obligation: {row.model_obligation_id or '(none)'}",
+                    f"code_contract: {row.code_contract_id or '(none)'}",
+                    f"evidence: {row.test_evidence_id or '(none)'}",
+                    f"gaps: {', '.join(row.gaps) if row.gaps else '(none)'}",
+                ]
+            )
         for finding in self.findings[:max_findings]:
             lines.extend(
                 [
@@ -831,6 +870,7 @@ class ModelTestAlignmentReport:
             "model_id": self.model_id,
             "decision": self.decision,
             "findings": [finding.to_dict() for finding in self.findings],
+            "binding_rows": [row.to_dict() for row in self.binding_rows],
             "summary": self.summary,
         }
 
@@ -1551,9 +1591,6 @@ def _code_contract_findings(
                     )
                 )
 
-    if not code_contracts_by_id and not plan.require_code_contracts:
-        return findings
-
     for obligation_id, obligation in obligations_by_id.items():
         owner_contracts = tuple(contracts_by_obligation.get(obligation_id, ()))
         if obligation.required and not owner_contracts:
@@ -1678,7 +1715,6 @@ def _evidence_findings(
         if (
             evidence.evidence_role == TEST_EVIDENCE_ROLE_SUPPORTING_CONTRACT
             and not evidence.evidence_target_id
-            and not evidence.covered_code_contracts
         ):
             findings.append(
                 ModelTestAlignmentFinding(
@@ -1739,7 +1775,7 @@ def _evidence_findings(
                         code_contract_id=code_contract_id,
                     )
                 )
-        if code_contracts_by_id and evidence.covered_obligations and not evidence.covered_code_contracts:
+        if evidence.covered_obligations and not evidence.covered_code_contracts:
             findings.append(
                 ModelTestAlignmentFinding(
                     "test_not_bound_to_code_contract",
@@ -1763,11 +1799,12 @@ def _evidence_findings(
             )
         if evidence.covered_obligations and evidence.covered_code_contracts:
             covered_obligations = set(evidence.covered_obligations)
-            implemented_obligations: set[str] = set()
+            implemented_by_contract: dict[str, set[str]] = {}
             for code_contract_id in evidence.covered_code_contracts:
                 contract = code_contracts_by_id.get(code_contract_id)
                 if contract is not None:
-                    implemented_obligations.update(contract.implements_obligations)
+                    implemented_by_contract[code_contract_id] = set(contract.implements_obligations)
+            implemented_obligations = set().union(*implemented_by_contract.values()) if implemented_by_contract else set()
             if implemented_obligations and not (covered_obligations & implemented_obligations):
                 findings.append(
                     ModelTestAlignmentFinding(
@@ -1781,6 +1818,31 @@ def _evidence_findings(
                         },
                     )
                 )
+            for obligation_id in covered_obligations:
+                if obligation_id not in obligations_by_id:
+                    continue
+                implementing_contract_ids = tuple(
+                    code_contract_id
+                    for code_contract_id, implemented in implemented_by_contract.items()
+                    if obligation_id in implemented
+                )
+                if implemented_by_contract and not implementing_contract_ids:
+                    findings.append(
+                        ModelTestAlignmentFinding(
+                            "model_code_test_binding_mismatch",
+                            f"test evidence {evidence.evidence_id} covers model obligation {obligation_id} but none of its covered code contracts implement it",
+                            obligation_id=obligation_id,
+                            evidence_id=evidence.evidence_id,
+                            metadata={
+                                "covered_obligation": obligation_id,
+                                "covered_code_contracts": list(evidence.covered_code_contracts),
+                                "implemented_by_contract": {
+                                    key: sorted(value) for key, value in implemented_by_contract.items()
+                                },
+                                "evidence": evidence.to_dict(),
+                            },
+                        )
+                    )
         if evidence.result_status in NON_PASSING_STATUSES:
             findings.append(
                 ModelTestAlignmentFinding(
@@ -1934,6 +1996,78 @@ def _transition_cell_target_matches(evidence: TestEvidence, obligation: ModelObl
     return evidence.evidence_target_id in expected
 
 
+def _evidence_binds_obligation_to_code_contract(
+    evidence: TestEvidence,
+    obligation_id: str,
+    obligation: ModelObligation,
+    code_contracts_by_id: Mapping[str, CodeContract],
+) -> bool:
+    if not evidence.covered_code_contracts or not evidence.has_external_contract_assertion():
+        return False
+    if not _transition_cell_target_matches(evidence, obligation):
+        return False
+    for code_contract_id in evidence.covered_code_contracts:
+        contract = code_contracts_by_id.get(code_contract_id)
+        if contract is not None and obligation_id in contract.implements_obligations:
+            return True
+    return False
+
+
+def _binding_rows(
+    obligations_by_id: Mapping[str, ModelObligation],
+    code_contracts_by_id: Mapping[str, CodeContract],
+    passing_by_obligation: Mapping[str, Sequence[TestEvidence]],
+) -> tuple[ModelCodeTestBindingRow, ...]:
+    contracts_by_obligation = _code_contracts_by_obligation(code_contracts_by_id, obligations_by_id)
+    rows: list[ModelCodeTestBindingRow] = []
+    for obligation_id, obligation in obligations_by_id.items():
+        if not obligation.required:
+            continue
+        owner_contracts = tuple(contracts_by_obligation.get(obligation_id, ()))
+        if not owner_contracts:
+            rows.append(
+                ModelCodeTestBindingRow(
+                    model_obligation_id=obligation_id,
+                    status="blocked",
+                    gaps=("missing_code_contract",),
+                )
+            )
+            continue
+        for contract in owner_contracts:
+            locked_evidence = tuple(
+                evidence
+                for evidence in passing_by_obligation.get(obligation_id, ())
+                if _counts_as_obligation_coverage(evidence)
+                and contract.code_contract_id in evidence.covered_code_contracts
+                and _evidence_binds_obligation_to_code_contract(
+                    evidence,
+                    obligation_id,
+                    obligation,
+                    code_contracts_by_id,
+                )
+            )
+            if locked_evidence:
+                for evidence in locked_evidence:
+                    rows.append(
+                        ModelCodeTestBindingRow(
+                            model_obligation_id=obligation_id,
+                            code_contract_id=contract.code_contract_id,
+                            test_evidence_id=evidence.evidence_id,
+                            status="locked",
+                        )
+                    )
+            else:
+                rows.append(
+                    ModelCodeTestBindingRow(
+                        model_obligation_id=obligation_id,
+                        code_contract_id=contract.code_contract_id,
+                        status="blocked",
+                        gaps=("missing_code_contract_test_evidence",),
+                    )
+                )
+    return tuple(rows)
+
+
 def _closure_role_finding_code(role: str) -> str:
     if role == TEST_CLOSURE_ROLE_SAME_CLASS_GENERALIZED:
         return "missing_same_class_test_evidence"
@@ -1964,6 +2098,12 @@ def _coverage_findings(
             for evidence in passing
             if _counts_as_obligation_coverage(evidence)
             and _transition_cell_target_matches(evidence, obligation)
+            and _evidence_binds_obligation_to_code_contract(
+                evidence,
+                obligation_id,
+                obligation,
+                code_contracts_by_id,
+            )
         )
         primary_edge = tuple(
             evidence for evidence in passing if _is_primary_edge_evidence(evidence)
@@ -2163,6 +2303,7 @@ def review_model_test_alignment(plan: ModelTestAlignmentPlan) -> ModelTestAlignm
         )
     passing_by_obligation = _passing_evidence_by_obligation(plan, obligations_by_id)
     passing_by_code_contract = _passing_external_evidence_by_code_contract(plan, code_contracts_by_id)
+    binding_rows = _binding_rows(obligations_by_id, code_contracts_by_id, passing_by_obligation)
     findings.extend(
         _coverage_findings(
             obligations_by_id,
@@ -2177,6 +2318,7 @@ def review_model_test_alignment(plan: ModelTestAlignmentPlan) -> ModelTestAlignm
         model_id=plan.model_id,
         decision=_decision_for_findings(findings),
         findings=tuple(findings),
+        binding_rows=binding_rows,
     )
 
 
@@ -2657,6 +2799,7 @@ __all__ = [
     "CodeContract",
     "ContractSourceAuditFinding",
     "ContractSourceAuditReport",
+    "ModelCodeTestBindingRow",
     "ModelObligation",
     "ModelTestAlignmentFinding",
     "ModelTestAlignmentPlan",

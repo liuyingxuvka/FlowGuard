@@ -92,6 +92,14 @@ def contract_evidence(evidence_id, obligation_id, contract_id, **kwargs):
     return evidence(evidence_id, obligation_id, **defaults)
 
 
+def owner_contract(obligation_id, **kwargs):
+    return code_contract(f"checkout.{obligation_id}", obligation_id, **kwargs)
+
+
+def bound_evidence(evidence_id, obligation_id, **kwargs):
+    return contract_evidence(evidence_id, obligation_id, f"checkout.{obligation_id}", **kwargs)
+
+
 def finding_codes(report):
     return [finding.code for finding in report.findings]
 
@@ -101,7 +109,7 @@ def source_audit_finding_codes(report):
 
 
 class ModelTestAlignmentTests(unittest.TestCase):
-    def test_legacy_model_test_only_alignment_can_continue(self):
+    def test_model_test_only_alignment_is_blocked_by_default(self):
         plan = ModelTestAlignmentPlan(
             model_id="checkout",
             obligations=(
@@ -115,10 +123,12 @@ class ModelTestAlignmentTests(unittest.TestCase):
         )
 
         report = review_model_test_alignment(plan)
+        codes = set(finding_codes(report))
 
-        self.assertTrue(report.ok)
-        self.assertEqual("model_test_alignment_green", report.decision)
-        self.assertEqual([], report.to_dict()["findings"])
+        self.assertFalse(report.ok)
+        self.assertEqual("missing_code_contract", report.decision)
+        self.assertIn("missing_code_contract", codes)
+        self.assertIn("test_not_bound_to_code_contract", codes)
         self.assertIn("flowguard model-test alignment", report.format_text())
 
     def test_model_code_contract_and_test_evidence_alignment_can_continue(self):
@@ -192,7 +202,8 @@ class ModelTestAlignmentTests(unittest.TestCase):
                     required_runtime_node_ids=("validate_order",),
                 ),
             ),
-            test_evidence=(evidence("test_accept_valid_order", "accept_valid_order"),),
+            code_contracts=(owner_contract("accept_valid_order"),),
+            test_evidence=(bound_evidence("test_accept_valid_order", "accept_valid_order"),),
             runtime_node_observations=(
                 RuntimeNodeObservation(
                     "obs:validate_order",
@@ -224,7 +235,8 @@ class ModelTestAlignmentTests(unittest.TestCase):
                     required_runtime_node_ids=("validate_order",),
                 ),
             ),
-            test_evidence=(evidence("test_accept_valid_order", "accept_valid_order"),),
+            code_contracts=(owner_contract("accept_valid_order"),),
+            test_evidence=(bound_evidence("test_accept_valid_order", "accept_valid_order"),),
             require_runtime_path_evidence=True,
         )
 
@@ -238,7 +250,8 @@ class ModelTestAlignmentTests(unittest.TestCase):
         plan = ModelTestAlignmentPlan(
             model_id="checkout",
             obligations=(obligation("accept_valid_order"),),
-            test_evidence=(evidence("test_accept_valid_order", "accept_valid_order"),),
+            code_contracts=(owner_contract("accept_valid_order"),),
+            test_evidence=(bound_evidence("test_accept_valid_order", "accept_valid_order"),),
             runtime_node_contracts=(
                 RuntimeNodeContract(
                     "validate_order",
@@ -267,9 +280,13 @@ class ModelTestAlignmentTests(unittest.TestCase):
                 obligation("material_result_reconciles"),
                 obligation("research_result_reconciles"),
             ),
+            code_contracts=(
+                owner_contract("material_result_reconciles"),
+                owner_contract("research_result_reconciles"),
+            ),
             test_evidence=(
-                evidence("test_material", "material_result_reconciles"),
-                evidence("test_research", "research_result_reconciles"),
+                bound_evidence("test_material", "material_result_reconciles"),
+                bound_evidence("test_research", "research_result_reconciles"),
             ),
             obligation_families=(
                 ObligationFamily(
@@ -514,6 +531,7 @@ class ModelTestAlignmentTests(unittest.TestCase):
         plan = ModelTestAlignmentPlan(
             model_id="checkout",
             obligations=(obligation("reject_duplicate_order"),),
+            code_contracts=(owner_contract("reject_duplicate_order"),),
             test_evidence=(),
         )
 
@@ -527,10 +545,11 @@ class ModelTestAlignmentTests(unittest.TestCase):
         plan = ModelTestAlignmentPlan(
             model_id="checkout",
             obligations=(obligation("accept_valid_order"),),
+            code_contracts=(owner_contract("accept_valid_order"),),
             test_evidence=(
                 evidence("test_unbound"),
                 evidence("test_unknown", "unknown_obligation"),
-                evidence("test_accept_valid_order", "accept_valid_order"),
+                bound_evidence("test_accept_valid_order", "accept_valid_order"),
             ),
         )
 
@@ -546,14 +565,16 @@ class ModelTestAlignmentTests(unittest.TestCase):
         blocked = ModelTestAlignmentPlan(
             model_id="checkout",
             obligations=(obligation("accept_valid_order"),),
+            code_contracts=(owner_contract("accept_valid_order"),),
             test_evidence=(
-                evidence("test_accept_a", "accept_valid_order"),
-                evidence("test_accept_b", "accept_valid_order"),
+                bound_evidence("test_accept_a", "accept_valid_order"),
+                bound_evidence("test_accept_b", "accept_valid_order"),
             ),
         )
         allowed = ModelTestAlignmentPlan(
             model_id="checkout",
             obligations=(obligation("accept_valid_order", allow_shared_evidence=True),),
+            code_contracts=blocked.code_contracts,
             test_evidence=blocked.test_evidence,
         )
 
@@ -568,9 +589,10 @@ class ModelTestAlignmentTests(unittest.TestCase):
         plan = ModelTestAlignmentPlan(
             model_id="checkout",
             obligations=(obligation("terminal_ledger", required_test_kinds=(TEST_KIND_EDGE_PATH,)),),
+            code_contracts=(owner_contract("terminal_ledger"),),
             test_evidence=(
-                evidence("test_source_entries", "terminal_ledger", test_kind=TEST_KIND_EDGE_PATH),
-                evidence("test_replay_closure", "terminal_ledger", test_kind=TEST_KIND_EDGE_PATH),
+                bound_evidence("test_source_entries", "terminal_ledger", test_kind=TEST_KIND_EDGE_PATH),
+                bound_evidence("test_replay_closure", "terminal_ledger", test_kind=TEST_KIND_EDGE_PATH),
             ),
         )
 
@@ -584,15 +606,16 @@ class ModelTestAlignmentTests(unittest.TestCase):
         plan = ModelTestAlignmentPlan(
             model_id="checkout",
             obligations=(obligation("validate_submit", required_test_kinds=(TEST_KIND_EDGE_PATH,)),),
+            code_contracts=(owner_contract("validate_submit"),),
             test_evidence=(
-                evidence(
+                bound_evidence(
                     "test_empty_idle_cell",
                     "validate_submit",
                     test_kind=TEST_KIND_EDGE_PATH,
                     evidence_role=api_name("TEST_EVIDENCE_ROLE_LEAF_MATRIX_CELL"),
                     evidence_target_id="submit.empty:idle",
                 ),
-                evidence(
+                bound_evidence(
                     "test_valid_idle_cell",
                     "validate_submit",
                     test_kind=TEST_KIND_EDGE_PATH,
@@ -610,13 +633,14 @@ class ModelTestAlignmentTests(unittest.TestCase):
         plan = ModelTestAlignmentPlan(
             model_id="checkout",
             obligations=(obligation("validate_submit"),),
+            code_contracts=(owner_contract("validate_submit"),),
             test_evidence=(
-                evidence(
+                bound_evidence(
                     "test_leaf_without_cell",
                     "validate_submit",
                     evidence_role=api_name("TEST_EVIDENCE_ROLE_LEAF_MATRIX_CELL"),
                 ),
-                evidence(
+                bound_evidence(
                     "test_support_without_target",
                     "validate_submit",
                     evidence_role=api_name("TEST_EVIDENCE_ROLE_SUPPORTING_CONTRACT"),
@@ -644,7 +668,16 @@ class ModelTestAlignmentTests(unittest.TestCase):
                 plan = ModelTestAlignmentPlan(
                     model_id="checkout",
                     obligations=(obligation("reject_duplicate_order"),),
-                    test_evidence=(item,),
+                    code_contracts=(owner_contract("reject_duplicate_order"),),
+                    test_evidence=(
+                        contract_evidence(
+                            item.evidence_id,
+                            "reject_duplicate_order",
+                            "checkout.reject_duplicate_order",
+                            result_status=item.result_status,
+                            evidence_current=item.evidence_current,
+                        ),
+                    ),
                 )
 
                 report = review_model_test_alignment(plan)
@@ -657,8 +690,9 @@ class ModelTestAlignmentTests(unittest.TestCase):
         plan = ModelTestAlignmentPlan(
             model_id="checkout",
             obligations=(obligation("accept_valid_order"),),
+            code_contracts=(owner_contract("accept_valid_order"),),
             test_evidence=(
-                evidence(
+                bound_evidence(
                     "test_accept_valid_order",
                     "accept_valid_order",
                     result_reused=True,
@@ -676,8 +710,9 @@ class ModelTestAlignmentTests(unittest.TestCase):
         plan = ModelTestAlignmentPlan(
             model_id="checkout",
             obligations=(obligation("accept_valid_order"),),
+            code_contracts=(owner_contract("accept_valid_order"),),
             test_evidence=(
-                evidence(
+                bound_evidence(
                     "test_accept_valid_order",
                     "accept_valid_order",
                     result_reused=True,
@@ -695,8 +730,9 @@ class ModelTestAlignmentTests(unittest.TestCase):
         plan = ModelTestAlignmentPlan(
             model_id="checkout",
             obligations=(obligation("accept_valid_order"),),
+            code_contracts=(owner_contract("accept_valid_order"),),
             test_evidence=(
-                evidence(
+                bound_evidence(
                     "test_accept_valid_order",
                     "accept_valid_order",
                     result_reused=True,
@@ -732,7 +768,8 @@ class ModelTestAlignmentTests(unittest.TestCase):
                     required_test_kinds=(TEST_KIND_HAPPY_PATH, TEST_KIND_FAILURE_PATH),
                 ),
             ),
-            test_evidence=(evidence("test_duplicate_happy", "reject_duplicate_order"),),
+            code_contracts=(owner_contract("reject_duplicate_order"),),
+            test_evidence=(bound_evidence("test_duplicate_happy", "reject_duplicate_order"),),
         )
 
         report = review_model_test_alignment(plan)
@@ -750,9 +787,10 @@ class ModelTestAlignmentTests(unittest.TestCase):
                     required_test_kinds=(TEST_KIND_HAPPY_PATH, TEST_KIND_FAILURE_PATH),
                 ),
             ),
+            code_contracts=(owner_contract("reject_duplicate_order"),),
             test_evidence=(
-                evidence("test_duplicate_happy", "reject_duplicate_order"),
-                evidence(
+                bound_evidence("test_duplicate_happy", "reject_duplicate_order"),
+                bound_evidence(
                     "test_duplicate_failure",
                     "reject_duplicate_order",
                     test_kind=TEST_KIND_FAILURE_PATH,
@@ -774,13 +812,14 @@ class ModelTestAlignmentTests(unittest.TestCase):
                     requires_same_class_test_evidence=True,
                 ),
             ),
+            code_contracts=(owner_contract("reject_duplicate_submit_family"),),
             test_evidence=(
-                evidence(
+                bound_evidence(
                     "test_observed_duplicate_submit",
                     "reject_duplicate_submit_family",
                     closure_evidence_role=TEST_CLOSURE_ROLE_OBSERVED_REGRESSION,
                 ),
-                evidence(
+                bound_evidence(
                     "test_same_class_duplicate_submit_variants",
                     "reject_duplicate_submit_family",
                     closure_evidence_role=TEST_CLOSURE_ROLE_SAME_CLASS_GENERALIZED,
@@ -810,8 +849,9 @@ class ModelTestAlignmentTests(unittest.TestCase):
                     requires_same_class_test_evidence=True,
                 ),
             ),
+            code_contracts=(owner_contract("reject_duplicate_submit_family"),),
             test_evidence=(
-                evidence(
+                bound_evidence(
                     "test_observed_duplicate_submit",
                     "reject_duplicate_submit_family",
                     closure_evidence_role=TEST_CLOSURE_ROLE_OBSERVED_REGRESSION,
@@ -836,13 +876,17 @@ class ModelTestAlignmentTests(unittest.TestCase):
                 ),
                 obligation("other_repair_family"),
             ),
+            code_contracts=(
+                owner_contract("reject_duplicate_submit_family"),
+                owner_contract("other_repair_family"),
+            ),
             test_evidence=(
-                evidence(
+                bound_evidence(
                     "test_observed_duplicate_submit",
                     "reject_duplicate_submit_family",
                     closure_evidence_role=TEST_CLOSURE_ROLE_OBSERVED_REGRESSION,
                 ),
-                evidence(
+                bound_evidence(
                     "test_same_class_wrong_family",
                     "other_repair_family",
                     closure_evidence_role=TEST_CLOSURE_ROLE_SAME_CLASS_GENERALIZED,
@@ -865,13 +909,14 @@ class ModelTestAlignmentTests(unittest.TestCase):
                     requires_same_class_test_evidence=True,
                 ),
             ),
+            code_contracts=(owner_contract("reject_duplicate_submit_family"),),
             test_evidence=(
-                evidence(
+                bound_evidence(
                     "test_observed_duplicate_submit",
                     "reject_duplicate_submit_family",
                     closure_evidence_role=TEST_CLOSURE_ROLE_OBSERVED_REGRESSION,
                 ),
-                evidence(
+                bound_evidence(
                     "test_same_class_overclaim",
                     "reject_duplicate_submit_family",
                     closure_evidence_role=TEST_CLOSURE_ROLE_SAME_CLASS_GENERALIZED,
@@ -1033,7 +1078,8 @@ def test_submit_order():
             model_id="checkout",
             require_proof_artifacts=True,
             obligations=(obligation("accept_valid_order"),),
-            test_evidence=(evidence("test_accept_valid_order", "accept_valid_order"),),
+            code_contracts=(owner_contract("accept_valid_order"),),
+            test_evidence=(bound_evidence("test_accept_valid_order", "accept_valid_order"),),
         )
 
         report = review_model_test_alignment(plan)
@@ -1046,8 +1092,9 @@ def test_submit_order():
             model_id="checkout",
             require_proof_artifacts=True,
             obligations=(obligation("accept_valid_order"),),
+            code_contracts=(owner_contract("accept_valid_order"),),
             test_evidence=(
-                evidence(
+                bound_evidence(
                     "test_accept_valid_order",
                     "accept_valid_order",
                     proof_artifact=proof_artifact("artifact:accept", "accept_valid_order"),

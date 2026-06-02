@@ -53,7 +53,6 @@ def _append_once(values: tuple[str, ...], value: str) -> tuple[str, ...]:
 def full_confidence_plan() -> RiskEvidenceLedgerPlan:
     return RiskEvidenceLedgerPlan(
         "full-confidence",
-        require_code_contracts=True,
         rows=(
             RiskEvidenceRow(
                 "duplicate_submit",
@@ -77,7 +76,6 @@ def full_confidence_plan() -> RiskEvidenceLedgerPlan:
 def internal_only_plan() -> RiskEvidenceLedgerPlan:
     return RiskEvidenceLedgerPlan(
         "internal-only",
-        require_code_contracts=True,
         rows=(
             RiskEvidenceRow(
                 "duplicate_submit",

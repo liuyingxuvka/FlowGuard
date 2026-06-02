@@ -79,6 +79,7 @@ def run_helper_cases() -> bool:
                 RiskEvidenceRow(
                     "risk:structure",
                     model_obligation_id="model:structure",
+                    code_contract_id="code:structure",
                     proof_evidence_ids=("proof:unit",),
                     maintenance_obligations_required=True,
                     maintenance_obligation_ids=("structure:checkout",),
@@ -103,6 +104,7 @@ def run_helper_cases() -> bool:
                 RiskEvidenceRow(
                     "risk:structure",
                     model_obligation_id="model:structure",
+                    code_contract_id="code:structure",
                     proof_evidence_ids=("proof:unit",),
                     maintenance_obligations_required=True,
                     maintenance_obligation_ids=("structure:checkout",),

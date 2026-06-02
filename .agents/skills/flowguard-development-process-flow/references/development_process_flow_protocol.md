@@ -93,8 +93,9 @@ Use these triage classes:
   progress-only, or release-only. Hand off to the reported ModelMesh or
   TestMesh split gate and keep lifecycle confidence blocked or scoped until
   current mesh evidence is consumed.
-- `model_test_mismatch`: model obligations, optional code contracts, and
-  ordinary test evidence do not line up. Hand off to Model-Test Alignment.
+- `model_test_mismatch`: model obligations, owner code contracts, and ordinary
+  test evidence do not bind the same behavior. Hand off to Model-Test
+  Alignment.
 - `transition_coverage_stale`: modeled transitions changed after the transition
   coverage matrix, Model-Test Alignment obligations, or TestMesh required cell
   ids were generated. Regenerate the matrix and rerun the owning evidence
@@ -105,6 +106,10 @@ Use these triage classes:
 - `stale_evidence`: the artifact or verifier version changed after evidence
   was produced. Rerun or replace the owning evidence before it can support the
   lifecycle claim.
+- `three_way_binding_stale`: a model obligation, owner code contract, code
+  source, test row, transition cell, or proof artifact changed after a
+  model-code-test binding row was produced. Regenerate the affected row and
+  rerun Model-Test Alignment before claiming done or release confidence.
 - `parent_child_evidence_not_reattached`: a child model, child validation
   suite, or sibling route is locally green, but the parent has not consumed the
   current evidence id and contract. Return to the owning parent evidence gate.

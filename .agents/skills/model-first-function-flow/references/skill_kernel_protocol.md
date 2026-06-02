@@ -23,6 +23,10 @@ standalone satellite skills.
   defect scan when a post-green miss exposes a reusable failure shape,
   alignment, mesh/boundary proof when relevant, model maturation, freshness,
   ledger, and claim-chain support.
+- the default model-code-test binding rule: broad model/test confidence needs
+  model obligation ids, owner code contract ids, and current external-contract
+  test evidence to name the same behavior. Model+test-only rows are scoped or
+  blocked, not green.
 
 ## Standalone Satellite Skills
 
@@ -56,7 +60,7 @@ to the kernel instead of taking ownership of unclear work.
 | `architecture_reduction` | behavior-preserving code contraction candidates, observable architecture contracts, and target StructureMesh handoff |
 | `ui_flow_structure` | UI interaction model, app-level journey coverage, implemented/runnable UI click-through evidence alignment, reachable visible-control branches, state/control/event/display transitions, parent/child UI topology, menu levels, overlays, stable placements, UI text hierarchy blueprint, and intentional redundancy |
 | `model_topology_hazard_review` | topology digest, usage intent, anchored future-use hazards, required owner routes, and scoped or blocked confidence before broad claims |
-| `model_test_alignment` | direct comparison of model obligations, transition coverage obligations, optional code contracts, code-boundary observations, obligation-family parity, and ordinary test evidence |
+| `model_test_alignment` | direct comparison of model obligations, transition coverage obligations, owner code contracts, code-boundary observations, obligation-family parity, and ordinary test evidence |
 | `model_maturation_loop` | converts post-code, post-miss, alignment, mesh, boundary, and freshness signals into model-upgrade or scoped-claim decisions |
 | `risk_evidence_ledger` | final risk-to-model-to-code-to-family-gates-to-evidence confidence boundary for done/release/publish/full-confidence claims |
 | `model_mesh_maintenance` | parent/child model hierarchy, child reattachment, whole-flow mesh closure, and oversized-model governance |
@@ -76,7 +80,8 @@ These are package helpers:
 - property factories and packs;
 - `review_model_test_alignment()` and `review_code_boundary_conformance()`;
 - `TransitionCoverageMatrix`, `transition_coverage_to_model_obligations()`,
-  and `transition_coverage_to_required_leaf_cell_ids()`;
+  `transition_coverage_to_code_contracts()`, and
+  `transition_coverage_to_required_leaf_cell_ids()`;
 - `review_obligation_family_parity()` and `review_analogous_defect_scan()`;
 - `review_model_maturation_loop()` for post-evidence model upgrade decisions;
 - `review_risk_evidence_ledger()` and risk evidence ledger rows;
