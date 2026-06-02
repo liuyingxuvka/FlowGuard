@@ -154,6 +154,8 @@ A StructureMesh is complete when:
 - routine/release obligations are visible;
 - public-entrypoint parity ids and deferred release obligations are available
   to the Risk Evidence Ledger before broader final confidence claims;
+- stale facade, public-entrypoint, or parity gaps are exported as maintenance
+  obligations so later scans can reopen StructureMesh when related files move;
 - known-bad hazards fail in executable evidence.
 
 ## Layered Boundary Handoff

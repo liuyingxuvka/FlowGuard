@@ -14,7 +14,7 @@ The ledger does not make FlowGuard models deeper. It connects the coarse model
 to ordinary evidence:
 
 ```text
-user risk -> topology hazard review -> model obligation -> public code contract -> obligation-family gate -> analogous scan -> defect-family gate -> current proof evidence
+user risk -> topology hazard review -> model obligation -> remembered maintenance obligation -> public code contract -> obligation-family gate -> analogous scan -> defect-family gate -> current proof evidence
 ```
 
 If any link is missing, stale, skipped, progress-only, or internal-path-only, the
@@ -46,7 +46,9 @@ whether the rows and later claim promotion were too narrow.
   model miss, rows can require a current analogous defect scan so the final
   claim cannot ignore same-shape sibling risks. Rows can also require a current
   model-topology hazard review so future-use hazards inferred from model shape
-  are handled, scoped, or blocked before broad confidence.
+  are handled, scoped, or blocked before broad confidence. Rows can also name
+  remembered maintenance obligations so old route-owned gaps cannot disappear
+  when later work touches the same risk surface.
 - `RiskEvidenceProof`: one test, replay, route report, or manual validation item.
   For full-confidence strict reviews, attach a `proof_artifact` instead of
   relying on the row's declared status alone.
@@ -55,6 +57,9 @@ whether the rows and later claim promotion were too narrow.
   missing result paths, missing fingerprints, non-passing statuses, stale route
   evidence, progress-only artifacts, and internal-only assertion scope.
 - `RiskEvidenceLedgerPlan`: the rows and evidence being reviewed.
+- `MaintenanceObligation`: route-owned maintenance memory consumed by the
+  ledger. Open obligations block, scoped obligations downgrade confidence, and
+  resolved obligations need owner-route evidence ids.
 - `RiskEvidenceLedgerReport`: final decision, confidence, and findings.
 - `review_risk_evidence_ledger(plan)`: the executable checker.
 - `DefectFamilyGate`, `DefectFamilyEvidence`,
@@ -66,8 +71,10 @@ whether the rows and later claim promotion were too narrow.
 
 ```python
 from flowguard import (
+    OBLIGATION_STATUS_RESOLVED,
     RISK_PROOF_SCOPE_INTERNAL_PATH,
     RISK_PROOF_STATUS_PASSED,
+    MaintenanceObligation,
     ProofArtifactRef,
     RiskEvidenceLedgerPlan,
     RiskEvidenceProof,
@@ -91,6 +98,8 @@ plan = RiskEvidenceLedgerPlan(
             analogous_scan_required=True,
             topology_hazard_id="topology:submit-routing",
             topology_hazard_required=True,
+            maintenance_obligation_ids=("structure:submit-routing",),
+            maintenance_obligations_required=True,
             defect_family_id="defect-family:duplicate-submit",
             defect_family_gate_required=True,
         ),
@@ -109,6 +118,15 @@ plan = RiskEvidenceLedgerPlan(
                 covered_obligation_ids=("model:dedupe-submit",),
                 assertion_scope=RISK_PROOF_SCOPE_INTERNAL_PATH,
             ),
+        ),
+    ),
+    maintenance_obligations=(
+        MaintenanceObligation(
+            "structure:submit-routing",
+            owner_route="structure_mesh_maintenance",
+            reason_code="public_entrypoint_parity",
+            status=OBLIGATION_STATUS_RESOLVED,
+            evidence_ids=("structuremesh:submit-routing",),
         ),
     ),
 )
@@ -135,6 +153,11 @@ public submit behavior.
   `missing_topology_hazard_review`,
   `topology_hazard_review_not_current`,
   `topology_hazard_review_blocked`,
+  `missing_maintenance_obligation`,
+  `unknown_maintenance_obligation_reference`,
+  `maintenance_obligation_not_current`,
+  `open_maintenance_obligation`,
+  `maintenance_obligation_missing_resolution_evidence`,
   `missing_defect_family_gate`,
   `defect_family_gate_not_current`, `defect_family_gate_blocked`,
   `missing_proof_evidence`, `missing_current_passing_proof`,
@@ -153,6 +176,8 @@ public submit behavior.
 - `topology_hazard_review_scoped_confidence`: the model-topology hazard review
   is current but only supports scoped confidence; do not upgrade model-shaped
   future-use risk to a full claim.
+- `maintenance_obligation_scoped_confidence`: a remembered route-owned gap is
+  explicitly scoped; carry that scoped confidence into the final claim.
 
 ## Route Responsibilities
 
@@ -163,7 +188,11 @@ public submit behavior.
   visibility, and release/routine boundaries.
 - ModelMesh produces parent/child model evidence and reattachment status.
 - Model Maturation produces model-upgrade or scoped-claim decisions when later
-  route evidence says the model is too coarse, stale, or disconnected.
+  route evidence says the model is too coarse, stale, or disconnected, and can
+  emit maintenance obligations that later scans and ledgers inherit.
+- Maintenance Scan consumes remembered maintenance obligations; anchored open
+  obligations touched by the current change reopen their owner route, while
+  unanchored observations stay visible without becoming unrelated hard gates.
 - Model Topology Hazard Review produces anchored future-use hazard candidates
   from model shape and usage intent, then hands unresolved hazards to the
   owning route before the ledger accepts broad confidence.

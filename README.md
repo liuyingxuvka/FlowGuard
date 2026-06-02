@@ -16,7 +16,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.40.4` | `1.0` | Python standard library only | MIT |
+| `v0.40.5` | `1.0` | Python standard library only | MIT |
 
 English lead content comes first; a Chinese mirror follows below.
 
@@ -64,6 +64,7 @@ That small shape is enough to expose many large-project problems:
 - dead branches that return no legal output;
 - multiple possible outputs that need explicit ownership;
 - stale evidence after later artifact changes;
+- remembered maintenance obligations that reopen when the same surface changes;
 - parent/child model drift;
 - invalid final claims after skipped or scoped validation.
 
@@ -152,6 +153,7 @@ python -m flowguard model-test-alignment-template
 python -m flowguard existing-model-preflight-template
 python -m flowguard model-similarity-template
 python -m flowguard risk-evidence-ledger-template
+python -m flowguard maintenance-scan-template
 python -m flowguard closure-contract-template
 python -m flowguard code-structure-recommendation-template
 python -m flowguard ui-flow-structure-template
@@ -361,6 +363,7 @@ Input x State -> Set(Output x State)
 - 死分支是否没有合法 output；
 - 多个可能 output 是否有明确 ownership；
 - 后续 artifact 变化后证据是否过期；
+- 记住的维护义务是否会在同一风险面被再次改动时自动重开；
 - 父子模型证据是否漂移；
 - final claim 是否在跳过验证或 scoped 验证后仍被接受。
 
@@ -449,6 +452,7 @@ python -m flowguard model-test-alignment-template
 python -m flowguard existing-model-preflight-template
 python -m flowguard model-similarity-template
 python -m flowguard risk-evidence-ledger-template
+python -m flowguard maintenance-scan-template
 python -m flowguard closure-contract-template
 python -m flowguard code-structure-recommendation-template
 python -m flowguard ui-flow-structure-template

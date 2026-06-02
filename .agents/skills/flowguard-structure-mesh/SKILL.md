@@ -27,6 +27,7 @@ needs derivation.
   current or record why it was not updated.
 - Do not create a fake mini-framework.
 - Existing public entrypoints need facade/parity evidence.
+- Stale parity or facade gaps should remain maintenance obligations for later scans.
 - Dependency cycles and config boundaries must stay visible.
 
 ## Minimum Workflow

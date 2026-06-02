@@ -173,7 +173,7 @@ disconnected. The helper reviews:
 - `ModelMaturationPlan`: the claim scope and whether a broad closure claim is
   being made;
 - `ModelMaturationReport`: the decision, confidence, required model-upgrade
-  actions, and scoped signal ids.
+  actions, scoped signal ids, and maintenance obligations for later scans.
 
 The helper keeps broad claims honest. It does not replace the owning route; it
 decides whether that route's evidence requires a model update, parent
@@ -269,6 +269,8 @@ Status rules:
 
 Use the summary in PR notes or agent replies to avoid overstating "FlowGuard
 passed" when only the model checker ran.
+`FlowGuardSummaryReport.maintenance_obligations` also turns non-pass gaps into
+route-owned memory that future maintenance scans and risk ledgers can inherit.
 
 ## Mermaid Source Export
 
@@ -365,8 +367,9 @@ non-trivial staged development or modification with validation, lifecycle
 ordering, artifact overwrite, validation freshness, V-style validation pairs,
 and minimum revalidation before safe continuation, done, or release claims.
 The maintenance scan template shows how to summarize changed artifacts,
-skipped candidate routes, stale evidence, and structure/reduction signals into
-required or suggested owner-route actions before a broad FlowGuard claim.
+remembered maintenance obligations, skipped candidate routes, stale evidence,
+and structure/reduction signals into required or suggested owner-route actions
+before a broad FlowGuard claim.
 
 These are scaffolds, not reusable business logic. Rename every state field,
 input, output, invariant, and blindspot to match the target project before
@@ -392,10 +395,10 @@ The scaffold writes:
 - `.flowguard/maintenance_scan/run_scan.py`
 - `docs/flowguard_maintenance_scan.md`
 
-The helper is intentionally thin. It turns model/code/test drift, state-closure
-gaps, stale evidence, skipped candidate routes, reducible branches, large
-modules, mesh pressure, and slow or broad validation into owner-route actions
-such as
+The helper is intentionally thin. It turns model/code/test drift, remembered
+open obligations, state-closure gaps, stale evidence, skipped candidate routes,
+reducible branches, large modules, mesh pressure, and slow or broad validation
+into owner-route actions such as
 Model-Test Alignment, DevelopmentProcessFlow, Architecture Reduction,
 StructureMesh, ModelMesh, TestMesh, Model Maturation, or
 AgentWorkflowRehearsal. It does not run those routes and a clear scan is not

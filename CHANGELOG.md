@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.40.5 - 2026-06-02
+
+Maintenance obligation memory.
+
+- Added route-owned `MaintenanceObligation` memory helpers so unresolved
+  structure, evidence, model, and risk gaps can stay visible without creating a
+  standalone technical-debt scanner.
+- Extended summary reports, maintenance scans, model maturation, and Risk
+  Evidence Ledger reviews so anchored open obligations reopen owner routes and
+  broad confidence is blocked or scoped until obligations are resolved.
+- Updated public templates, OpenSpec coverage, FlowGuard skills, docs, version
+  records, and self-model checks for the maintenance-obligation memory flow.
+
 ## v0.40.4 - 2026-06-01
 
 Model topology hazard review.

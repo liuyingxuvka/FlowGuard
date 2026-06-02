@@ -632,6 +632,7 @@ from .runtime_gateway import (
     review_runtime_gateway_adoption,
 )
 from . import closure_contract as _closure_contract
+from . import maintenance_obligation as _maintenance_obligation
 from . import maintenance_scan as _maintenance_scan
 from . import plan_intake as _plan_intake
 from . import state_closure as _state_closure
@@ -639,6 +640,7 @@ from . import topology_hazard as _topology_hazard
 from . import model_freshness as _model_freshness
 from . import model_maturation as _model_maturation
 from .closure_contract import *  # noqa: F403
+from .maintenance_obligation import *  # noqa: F403
 from .maintenance_scan import *  # noqa: F403
 from .plan_intake import *  # noqa: F403
 from .state_closure import *  # noqa: F403
@@ -905,6 +907,7 @@ from .workflow import Workflow, WorkflowPath, WorkflowRun
 
 PLAN_INTAKE_CLAIM_API = tuple(_plan_intake.__all__)
 FLOWGUARD_CLOSURE_CONTRACT_API = tuple(_closure_contract.__all__)
+MAINTENANCE_OBLIGATION_MEMORY_API = tuple(_maintenance_obligation.__all__)
 MAINTENANCE_SCAN_ROUTE_API = tuple(_maintenance_scan.__all__)
 STATE_CLOSURE_ROUTE_API = tuple(_state_closure.__all__)
 TOPOLOGY_HAZARD_ROUTE_API = tuple(_topology_hazard.__all__)
@@ -1531,6 +1534,7 @@ REPORTING_HELPER_API = (
     "AutoSplitPolicy",
     "AutoSplitReport",
     "review_auto_mesh_splits",
+    *MAINTENANCE_OBLIGATION_MEMORY_API,
     *MAINTENANCE_SCAN_ROUTE_API,
     *PLAN_INTAKE_CLAIM_API,
     "PlanDetail",
@@ -1836,6 +1840,7 @@ FLOWGUARD_ROUTE_API = {
     "code_structure_recommendation": CODE_STRUCTURE_RECOMMENDATION_ROUTE_API,
     "model_test_alignment": MODEL_TEST_ALIGNMENT_ROUTE_API,
     "plan_detailing_compiler": PLAN_DETAILING_ROUTE_API,
+    "maintenance_obligation_memory": MAINTENANCE_OBLIGATION_MEMORY_API,
     "maintenance_scan_router": MAINTENANCE_SCAN_ROUTE_API,
     "state_closure": STATE_CLOSURE_ROUTE_API,
     "model_topology_hazard_review": TOPOLOGY_HAZARD_ROUTE_API,
@@ -1857,6 +1862,7 @@ _PUBLIC_API_SUPPLEMENT = (
     "EVIDENCE_API",
     "FLOWGUARD_ROUTE_API",
     "FLOWGUARD_CLOSURE_CONTRACT_API",
+    "MAINTENANCE_OBLIGATION_MEMORY_API",
     "MAINTENANCE_SCAN_ROUTE_API",
     "MODEL_SIMILARITY_ROUTE_API",
     "MODEL_TEST_ALIGNMENT_ROUTE_API",

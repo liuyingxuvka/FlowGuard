@@ -52,6 +52,9 @@ class ApiSurfaceTests(unittest.TestCase):
         self.assertIn("AutoSplitPlan", flowguard.REPORTING_HELPER_API)
         self.assertIn("AutoSplitReport", flowguard.REPORTING_HELPER_API)
         self.assertIn("review_auto_mesh_splits", flowguard.REPORTING_HELPER_API)
+        self.assertIn("MaintenanceObligation", flowguard.REPORTING_HELPER_API)
+        self.assertIn("MaintenanceObligationReport", flowguard.REPORTING_HELPER_API)
+        self.assertIn("build_maintenance_obligation_report", flowguard.REPORTING_HELPER_API)
         self.assertIn("MaintenanceScanPlan", flowguard.REPORTING_HELPER_API)
         self.assertIn("MaintenanceAction", flowguard.REPORTING_HELPER_API)
         self.assertIn("review_maintenance_scan", flowguard.REPORTING_HELPER_API)
@@ -210,6 +213,7 @@ class ApiSurfaceTests(unittest.TestCase):
             "code_structure_recommendation",
             "model_test_alignment",
             "plan_detailing_compiler",
+            "maintenance_obligation_memory",
             "maintenance_scan_router",
             "state_closure",
             "model_topology_hazard_review",
@@ -296,6 +300,7 @@ class ApiSurfaceTests(unittest.TestCase):
             "EVIDENCE_API",
             "FLOWGUARD_ROUTE_API",
             "FLOWGUARD_CLOSURE_CONTRACT_API",
+            "MAINTENANCE_OBLIGATION_MEMORY_API",
             "MAINTENANCE_SCAN_ROUTE_API",
             "MODEL_SIMILARITY_ROUTE_API",
             "MODEL_TEST_ALIGNMENT_ROUTE_API",

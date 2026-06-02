@@ -16,6 +16,7 @@ from flowguard import (
     MAINTENANCE_SIGNAL_LARGE_MODULE,
     MAINTENANCE_SIGNAL_REDUCIBLE_BRANCH,
     MaintenanceChangedArtifact,
+    MaintenanceObligation,
     MaintenanceScanPlan,
     MaintenanceSignal,
     review_maintenance_scan,
@@ -54,6 +55,20 @@ def main():
             MaintenanceSignal("large-module", MAINTENANCE_SIGNAL_LARGE_MODULE),
         ),
     )
+    remembered_obligation = MaintenanceScanPlan(
+        "remembered-structure-gap",
+        changed_artifacts=(
+            MaintenanceChangedArtifact("checkout-code", MAINTENANCE_ARTIFACT_CODE, "src/checkout.py"),
+        ),
+        prior_obligations=(
+            MaintenanceObligation(
+                "structure:checkout",
+                owner_route="structure_mesh_maintenance",
+                reason_code="large_module",
+                anchor_paths=("checkout.py",),
+            ),
+        ),
+    )
 
     ok = all(
         (
@@ -64,6 +79,12 @@ def main():
                 structure_needed,
                 "maintenance_scan_actions_required",
                 ("architecture_reduction", "structure_mesh_maintenance"),
+            ),
+            run_case(
+                "remembered_obligation",
+                remembered_obligation,
+                "maintenance_scan_actions_required",
+                ("structure_mesh_maintenance",),
             ),
         )
     )
@@ -90,6 +111,7 @@ ModelMesh, TestMesh, DevelopmentProcessFlow, or AgentWorkflowRehearsal.
 - model/code/test changed together;
 - stale evidence, changed guidance, or release artifacts;
 - skipped candidate FlowGuard route without accepted scope;
+- anchored prior maintenance obligations touched by the current change;
 - duplicate branch, pass-through adapter, removable state, or duplicate
   validation;
 - large module, public API split, oversized model, stale child model evidence,

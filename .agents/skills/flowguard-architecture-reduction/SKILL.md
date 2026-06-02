@@ -34,7 +34,7 @@ DevelopmentProcessFlow as needed.
 - For real target-project work, keep the AGENTS.md managed block/version record
   current or record why it was not updated.
 - Do not create a fake mini-framework.
-- Every contraction candidate needs proof status and required next route.
+- Every candidate needs proof status, next route, and scoped/risky obligations.
 - Public entrypoints require StructureMesh or equivalent parity evidence.
 - Compatibility-only runtime branches, old aliases, wrappers, and prompt
   wording are cleanup candidates after classification proves they are not

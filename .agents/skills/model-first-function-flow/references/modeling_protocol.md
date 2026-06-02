@@ -63,6 +63,9 @@ Before changing files, separate three situations:
   ModelMesh, code-boundary, or freshness evidence says the model itself is too
   coarse, stale, disconnected, or only supports a scoped claim. Translate that
   signal into a model-upgrade action before broad confidence is claimed.
+- `maintenance_scan_router`: after non-trivial FlowGuard-managed work, changed
+  artifacts, remembered maintenance obligations, stale evidence, skipped
+  routes, or split/reduction signals may need an existing owner route.
 
 If real FlowGuard is importable but a current `.flowguard` Python model still
 claims `flowguard_package_available = False`, uses a fallback explorer, or
@@ -133,6 +136,7 @@ below. Satellite details stay in the satellite-owned reference.
 | Model obligations and ordinary tests both need current evidence parity. | Model-Test Alignment | `.agents/skills/flowguard-model-test-alignment/references/model_test_alignment_protocol.md` |
 | Three or more local models, an oversized model, stale child evidence, or a parent/child model claim. | ModelMesh | `.agents/skills/flowguard-model-mesh/references/model_mesh_protocol.md` |
 | Model, test, mesh, miss, or code-boundary evidence says the model is too coarse or stale. | Model maturation loop | Stay in this protocol and use `review_model_maturation_loop(...)`; then rerun the owning route. |
+| Changed artifacts, remembered maintenance obligations, stale evidence, or skipped routes need owner-route review. | Maintenance scan router | Use `review_maintenance_scan(...)`; then rerun the owner route. |
 | Validation is large, slow, layered, backgrounded, stale-prone, or parent/child suite-owned. | TestMesh | `.agents/skills/flowguard-test-mesh/references/test_mesh_protocol.md` |
 | A large script, module, command, API, facade, config, or public entrypoint split needs structure ownership evidence. | StructureMesh | `.agents/skills/flowguard-structure-mesh/references/structure_mesh_protocol.md` |
 | The next step is an implementation structure recommendation rather than code edits. | Code Structure Recommendation | `.agents/skills/flowguard-code-structure-recommendation/references/code_structure_recommendation_protocol.md` |
@@ -637,6 +641,11 @@ model-miss repair decisions. The repair choice should be explicit: fix the real
 system, adjust the check flow, extend the model, or mark a boundary out of
 scope. A point rule is acceptable only after the ledger shows it is the right
 repair rather than the first visible patch.
+
+`FlowGuardSummaryReport.maintenance_obligations` turns non-pass gaps into
+route-owned memory. Pass relevant prior obligations to `review_maintenance_scan(...)`;
+anchored open items touched by a change reopen their owner route, while
+unanchored observations remain visible memory rather than hard gates.
 
 Do not report model-level confidence as production confidence unless
 conformance replay or another production-facing evidence source supports that

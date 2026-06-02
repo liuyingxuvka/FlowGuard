@@ -37,6 +37,7 @@ defined. Do not invoke TestMesh, ModelMesh, or StructureMesh from this route.
 - Source audit is conservative support, not semantic proof.
 - Open external boundaries must expose representative unknown/other cases or a
   current state-closure report; unresolved cases route to model maturation.
+- Missing evidence can become future maintenance obligations.
 
 ## Minimum Workflow
 

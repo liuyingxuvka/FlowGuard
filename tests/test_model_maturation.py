@@ -57,6 +57,9 @@ class ModelMaturationTests(unittest.TestCase):
         self.assertIn(MATURITY_ACTION_ADD_STATE_FIELD, report.recommended_actions)
         self.assertEqual(report.findings[0].signal_id, "sig-state")
         self.assertEqual(report.findings[0].action, MATURITY_ACTION_ADD_STATE_FIELD)
+        self.assertEqual(1, len(report.maintenance_obligations))
+        self.assertEqual(("checkout",), report.maintenance_obligations[0].model_ids)
+        self.assertEqual(("risk-state",), report.maintenance_obligations[0].risk_ids)
 
     def test_full_claim_can_be_scoped_when_model_upgrade_is_still_open(self):
         report = review_model_maturation_loop(
@@ -181,6 +184,7 @@ class ModelMaturationTests(unittest.TestCase):
         self.assertIn("FlowGuard model maturation loop", text)
         self.assertIn(MATURITY_ACTION_ADD_STATE_FIELD, text)
         self.assertIn("model_upgrade_required", text)
+        self.assertIn("maintenance obligations", text)
 
 
 if __name__ == "__main__":

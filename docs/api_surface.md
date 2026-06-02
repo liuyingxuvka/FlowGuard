@@ -72,6 +72,9 @@ For AI agents, route groups are the normal discovery surface:
 - `MAINTENANCE_SCAN_ROUTE_API` is the thin router for FlowGuard-managed
   project work that needs to surface model/code/test drift, stale evidence,
   skipped candidate routes, or split/reduction pressure before a broad claim.
+- `MAINTENANCE_OBLIGATION_MEMORY_API` is the shared memory object used by
+  summary reports, maintenance scan, model maturation, and risk ledger so
+  unresolved route-owned gaps can be inherited without a separate debt scan.
 - `STATE_CLOSURE_ROUTE_API` is the default runner gate for finite input/state
   enumerations that may have unknown, malformed, missing, or old-schema cases.
 - `TOPOLOGY_HAZARD_ROUTE_API` is the default runner review for model-shape
@@ -192,7 +195,8 @@ inventory.
   `ModelMaturationPlan`, `ModelMaturationReport`, and
   `review_model_maturation_loop()` for turning model-miss, model-test,
   ModelMesh, code-boundary, and freshness signals into explicit model-upgrade
-  actions or scoped-claim decisions before a broad FlowGuard claim is made.
+  actions, scoped-claim decisions, and maintenance obligations before a broad
+  FlowGuard claim is made.
 - optional conservative Python source-audit helpers such as
   `PythonCodeContractEvidence`, `PythonTestAssertionEvidence`,
   `ContractSourceAuditReport`, `audit_python_code_contracts()`,
@@ -289,8 +293,12 @@ Reporting helpers help an AI agent explain what was checked and what was not:
   `RiskEvidenceLedgerReport`, and `review_risk_evidence_ledger()` for the final
   confidence ledger that connects user risks to FlowGuard model obligations,
   optional public code contracts, obligation-family gates, analogous defect
-  scans, recurring defect-family gates, model/test split gates, and current
-  proof evidence
+  scans, recurring defect-family gates, model/test split gates, remembered
+  maintenance obligations, and current proof evidence
+- `MaintenanceObligation`, `MaintenanceObligationReport`, and
+  `build_maintenance_obligation_report()` for preserving unresolved
+  route-owned gaps as future scan/ledger inputs without making them a separate
+  skill route
 - `ProofArtifactRef`, `proof_artifact_gap_codes()`, and proof-artifact status
   constants for binding declared evidence rows to concrete result paths,
   fingerprints, exit status, current route evidence, obligation coverage, and
@@ -333,8 +341,9 @@ Reporting helpers help an AI agent explain what was checked and what was not:
 - `run_model_first_checks`
 - `audit_model`
 - `FlowGuardSummaryReport`
-- `FlowGuardFindingLedger` and `build_finding_ledger` for flattening all
-  section findings and skipped/not-run gaps before deciding a repair path
+- `FlowGuardFindingLedger`, `build_finding_ledger`, and summary-derived
+  `maintenance_obligations` for flattening all section findings and
+  skipped/not-run gaps before deciding or inheriting a repair path
 - adoption logging and `audit_flowguard_adoption`
 - thin adoption logging commands such as `adoption-start` and
   `adoption-finish`
@@ -400,8 +409,8 @@ The package exports lightweight grouping constants:
   `TEMPLATE_STRUCTURE_API`, `EVIDENCE_FIELD_STRUCTURE_API`,
   `MODEL_SIMILARITY_ROUTE_API`, `ARCHITECTURE_REDUCTION_ROUTE_API`,
   `CODE_STRUCTURE_RECOMMENDATION_ROUTE_API`,
-  `MODEL_TEST_ALIGNMENT_ROUTE_API`, `MAINTENANCE_SCAN_ROUTE_API`, and
-  `PLAN_DETAILING_ROUTE_API`
+  `MODEL_TEST_ALIGNMENT_ROUTE_API`, `MAINTENANCE_OBLIGATION_MEMORY_API`,
+  `MAINTENANCE_SCAN_ROUTE_API`, and `PLAN_DETAILING_ROUTE_API`
 - `CORE_API`
 - `REPORTING_HELPER_API`
 - `EVIDENCE_API`
@@ -448,8 +457,9 @@ result to ModelMesh or TestMesh before claiming broad parent confidence. For
 large model or validation meshes, record the target split derivation from the
 FlowGuard source model before trusting parent/child ownership and evidence.
 After non-trivial FlowGuard-managed work, run or construct a maintenance scan
-with `review_maintenance_scan()` when changed artifacts, skipped routes, stale
-evidence, or structure/reduction signals may require another owner route.
+with `review_maintenance_scan()` when changed artifacts, remembered maintenance
+obligations, skipped routes, stale evidence, or structure/reduction signals may
+require another owner route.
 When parent confidence claims whole-flow closure, add a
 mesh closure model so root entries, child outputs, joins, terminal
 dispositions, and out-of-scope branches are checked as executable handoff

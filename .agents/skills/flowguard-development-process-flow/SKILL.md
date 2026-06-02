@@ -29,7 +29,7 @@ inspect or replace sibling route internals.
 - Skipped, stale, failed, progress-only, or release-only evidence is not pass.
 - Model and test reuse tickets can be invalidated by later writes; reused test
   output needs current `TestResultReuseTicket` plus `ProofArtifactRef`.
-- Later writes can stale earlier evidence; preserve peer-agent changes.
+- Later writes can stale evidence or reopen maintenance obligations; preserve peer-agent changes.
 
 ## Minimum Workflow
 

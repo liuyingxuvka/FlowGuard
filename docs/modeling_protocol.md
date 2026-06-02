@@ -67,9 +67,9 @@ Before changing files, separate three situations:
   Model-Test Alignment internals.
 - `maintenance_scan_router`: a non-trivial FlowGuard-managed project change is
   ending or changing direction and the agent must check whether changed
-  artifacts, stale evidence, skipped candidate routes, or split/reduction
-  signals require an owner route. Use the scan to route work; do not treat it
-  as model/test/replay validation.
+  artifacts, remembered maintenance obligations, stale evidence, skipped
+  candidate routes, or split/reduction signals require an owner route. Use the
+  scan to route work; do not treat it as model/test/replay validation.
 - `risk_evidence_ledger`: a final done, release, publish, or full-confidence
   claim depends on whether user risks are linked to model obligations, optional
   code contracts, and current proof evidence. Use this boundary after the
@@ -229,6 +229,8 @@ scan and whether same-shape candidates are covered, scoped, or blocked.
 Use `review_risk_evidence_ledger(...)` to make these gaps explicit:
 
 - a risk was modeled but has no proof evidence;
+- a remembered maintenance obligation is missing, still open, stale, or
+  resolved without owner-route evidence;
 - a test passed only through an internal helper path instead of the external
   contract;
 - evidence is stale, skipped, failed, progress-only, or still running in the
@@ -988,6 +990,12 @@ model-miss repair decisions. The repair choice should be explicit: fix the real
 system, adjust the check flow, extend the model, or mark a boundary out of
 scope. A point rule is acceptable only after the ledger shows it is the right
 repair rather than the first visible patch.
+
+`FlowGuardSummaryReport.maintenance_obligations` turns non-pass gaps into
+route-owned memory. Future maintenance scans should pass relevant prior
+obligations as `prior_obligations`; anchored open items that touch changed
+artifacts reopen their owner route, while unanchored observations remain
+visible memory rather than hard gates.
 
 Do not report model-level confidence as production confidence unless
 conformance replay or another production-facing evidence source supports that

@@ -14,9 +14,11 @@ Run: python .flowguard/risk_evidence_ledger/run_checks.py
 from __future__ import annotations
 
 from flowguard import (
+    OBLIGATION_STATUS_RESOLVED,
     RISK_PROOF_SCOPE_INTERNAL_PATH,
     RISK_PROOF_STATUS_PASSED,
     RISK_PROOF_STATUS_PROGRESS_ONLY,
+    MaintenanceObligation,
     ProofArtifactRef,
     RiskEvidenceLedgerPlan,
     RiskEvidenceProof,
@@ -37,6 +39,8 @@ def correct_ledger() -> RiskEvidenceLedgerPlan:
                 model_obligation_id="model:dedupe-submit",
                 code_contract_id="api:submit_order",
                 proof_evidence_ids=("test:duplicate-submit",),
+                maintenance_obligation_ids=("structure:submit-routing",),
+                maintenance_obligations_required=True,
                 defect_family_id="defect-family:duplicate-submit",
                 defect_family_gate_required=True,
             ),
@@ -79,6 +83,15 @@ def correct_ledger() -> RiskEvidenceLedgerPlan:
                     artifact_fingerprints={"tmp/replay-invalid-payment.json": "sha256:template"},
                     covered_obligation_ids=("model:reject-invalid-payment",),
                 ),
+            ),
+        ),
+        maintenance_obligations=(
+            MaintenanceObligation(
+                "structure:submit-routing",
+                owner_route="structure_mesh_maintenance",
+                reason_code="public_entrypoint_parity",
+                status=OBLIGATION_STATUS_RESOLVED,
+                evidence_ids=("structuremesh:submit-routing",),
             ),
         ),
     )
@@ -181,6 +194,39 @@ def broken_missing_model_split_gate_ledger() -> RiskEvidenceLedgerPlan:
     )
 
 
+def broken_open_maintenance_obligation_ledger() -> RiskEvidenceLedgerPlan:
+    return RiskEvidenceLedgerPlan(
+        "open-maintenance-obligation",
+        rows=(
+            RiskEvidenceRow(
+                "structure_parity",
+                description="Structure parity must be closed before broad confidence.",
+                model_obligation_id="model:structure-parity",
+                proof_evidence_ids=("test:structure-parity",),
+                maintenance_obligation_ids=("structure:checkout",),
+                maintenance_obligations_required=True,
+            ),
+        ),
+        proof_evidence=(
+            RiskEvidenceProof(
+                "test:structure-parity",
+                result_status=RISK_PROOF_STATUS_PASSED,
+                producer_route="structure_mesh_maintenance",
+                command="python .flowguard/structure_mesh/run_checks.py",
+                summary="test passed, but the remembered StructureMesh obligation is still open",
+            ),
+        ),
+        maintenance_obligations=(
+            MaintenanceObligation(
+                "structure:checkout",
+                owner_route="structure_mesh_maintenance",
+                reason_code="large_module",
+                anchor_paths=("checkout.py",),
+            ),
+        ),
+    )
+
+
 def run_checks():
     return (
         review_risk_evidence_ledger(correct_ledger()),
@@ -188,6 +234,7 @@ def run_checks():
         review_risk_evidence_ledger(broken_progress_only_ledger()),
         review_risk_evidence_ledger(broken_missing_defect_family_gate_ledger()),
         review_risk_evidence_ledger(broken_missing_model_split_gate_ledger()),
+        review_risk_evidence_ledger(broken_open_maintenance_obligation_ledger()),
     )
 '''
 
@@ -199,7 +246,7 @@ from model import run_checks
 
 
 def main() -> int:
-    correct, internal_only, progress_only, missing_defect_family, missing_model_split = run_checks()
+    correct, internal_only, progress_only, missing_defect_family, missing_model_split, open_obligation = run_checks()
     print(correct.format_text())
     print()
     print(internal_only.format_text(max_findings=5))
@@ -209,6 +256,8 @@ def main() -> int:
     print(missing_defect_family.format_text(max_findings=5))
     print()
     print(missing_model_split.format_text(max_findings=5))
+    print()
+    print(open_obligation.format_text(max_findings=5))
     expected_blockers = (
         not internal_only.ok
         and internal_only.decision == "internal_path_only_evidence"
@@ -218,6 +267,8 @@ def main() -> int:
         and missing_defect_family.decision == "missing_defect_family_gate"
         and not missing_model_split.ok
         and missing_model_split.decision == "missing_model_split_gate"
+        and not open_obligation.ok
+        and open_obligation.decision == "open_maintenance_obligation"
     )
     return 0 if correct.ok and expected_blockers else 1
 
@@ -237,6 +288,8 @@ Use this scaffold before final confidence claims.
 - each recurring or high-risk same-class model miss has a current defect-family gate;
 - each required ModelMesh or TestMesh split gate is current before broad parent
   confidence is claimed;
+- each remembered maintenance obligation is resolved by owner-route evidence,
+  explicitly scoped, or still blocks full confidence;
 - each risk has current proof evidence from tests, replay, route reports, or manual validation;
 - internal-path-only tests, stale evidence, skipped checks, and progress-only background runs are visible;
 - scoped-out risks have explicit reasons and cannot be silently counted as fully proven.

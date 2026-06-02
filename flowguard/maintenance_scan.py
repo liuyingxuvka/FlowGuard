@@ -13,6 +13,11 @@ from typing import Any, Mapping, Sequence
 
 from .evidence_fields import PASSING_EVIDENCE_GATE_STATUSES
 from .export import to_jsonable
+from .maintenance_obligation import (
+    MaintenanceObligation,
+    coerce_maintenance_obligation,
+    obligation_from_maintenance_action,
+)
 
 
 MAINTENANCE_ARTIFACT_MODEL = "model"
@@ -277,6 +282,7 @@ class MaintenanceScanPlan:
     evidence: tuple[MaintenanceEvidence, ...] = ()
     signals: tuple[MaintenanceSignal, ...] = ()
     skipped_routes: tuple[MaintenanceSkippedRoute, ...] = ()
+    prior_obligations: tuple[MaintenanceObligation, ...] = ()
     claim_scope: str = "bounded"
     allow_scoped_confidence: bool = True
 
@@ -286,6 +292,11 @@ class MaintenanceScanPlan:
         object.__setattr__(self, "evidence", tuple(self.evidence))
         object.__setattr__(self, "signals", tuple(self.signals))
         object.__setattr__(self, "skipped_routes", tuple(self.skipped_routes))
+        object.__setattr__(
+            self,
+            "prior_obligations",
+            tuple(coerce_maintenance_obligation(item) for item in self.prior_obligations),
+        )
         object.__setattr__(self, "claim_scope", str(self.claim_scope))
         object.__setattr__(self, "allow_scoped_confidence", bool(self.allow_scoped_confidence))
 
@@ -299,6 +310,7 @@ class MaintenanceScanPlan:
             "evidence": [item.to_dict() for item in self.evidence],
             "signals": [signal.to_dict() for signal in self.signals],
             "skipped_routes": [route.to_dict() for route in self.skipped_routes],
+            "prior_obligations": [obligation.to_dict() for obligation in self.prior_obligations],
             "claim_scope": self.claim_scope,
             "allow_scoped_confidence": self.allow_scoped_confidence,
         }
@@ -314,6 +326,9 @@ class MaintenanceScanReport:
     confidence: str
     actions: tuple[MaintenanceAction, ...] = ()
     unresolved_required_action_ids: tuple[str, ...] = ()
+    reopened_obligation_ids: tuple[str, ...] = ()
+    visible_obligation_ids: tuple[str, ...] = ()
+    obligations: tuple[MaintenanceObligation, ...] = ()
     summary: str = ""
 
     def __post_init__(self) -> None:
@@ -326,6 +341,13 @@ class MaintenanceScanReport:
             "unresolved_required_action_ids",
             _as_tuple(self.unresolved_required_action_ids),
         )
+        object.__setattr__(self, "reopened_obligation_ids", _as_tuple(self.reopened_obligation_ids))
+        object.__setattr__(self, "visible_obligation_ids", _as_tuple(self.visible_obligation_ids))
+        object.__setattr__(
+            self,
+            "obligations",
+            tuple(coerce_maintenance_obligation(item) for item in self.obligations),
+        )
         object.__setattr__(self, "summary", str(self.summary))
 
     def to_dict(self) -> dict[str, Any]:
@@ -336,6 +358,9 @@ class MaintenanceScanReport:
             "confidence": self.confidence,
             "actions": [action.to_dict() for action in self.actions],
             "unresolved_required_action_ids": list(self.unresolved_required_action_ids),
+            "reopened_obligation_ids": list(self.reopened_obligation_ids),
+            "visible_obligation_ids": list(self.visible_obligation_ids),
+            "obligations": [obligation.to_dict() for obligation in self.obligations],
             "summary": self.summary,
         }
 
@@ -363,6 +388,8 @@ class MaintenanceScanReport:
                 "unresolved_required_action_ids: "
                 + ", ".join(self.unresolved_required_action_ids)
             )
+        if self.reopened_obligation_ids:
+            lines.append("reopened_obligation_ids: " + ", ".join(self.reopened_obligation_ids))
         return "\n".join(lines)
 
 
@@ -425,6 +452,24 @@ def _make_action(
     )
 
 
+def _action_from_obligation(
+    obligation: MaintenanceObligation,
+    *,
+    evidence_ids: Sequence[str] = (),
+) -> MaintenanceAction:
+    reason = f"open_obligation:{obligation.reason_code or obligation.obligation_id}"
+    return _make_action(
+        route_id=obligation.owner_route,
+        strength=obligation.strength,
+        reason_code=reason,
+        message=obligation.message
+        or f"Open maintenance obligation {obligation.obligation_id} requires {obligation.owner_route}.",
+        artifact_ids=obligation.artifact_ids,
+        signal_ids=(obligation.obligation_id,),
+        evidence_ids=evidence_ids,
+    )
+
+
 def _merge_actions(actions: Sequence[MaintenanceAction]) -> tuple[MaintenanceAction, ...]:
     by_id: dict[str, MaintenanceAction] = {}
     for action in actions:
@@ -457,10 +502,17 @@ def review_maintenance_scan(plan: MaintenanceScanPlan) -> MaintenanceScanReport:
 
     evidence_by_route = _current_evidence_by_route(plan)
     actions: list[MaintenanceAction] = []
+    reopened_obligation_ids: list[str] = []
+    visible_obligation_ids: list[str] = []
     changed_by_kind: dict[str, list[MaintenanceChangedArtifact]] = {}
     for artifact in plan.changed_artifacts:
         if artifact.changed:
             changed_by_kind.setdefault(artifact.artifact_kind, []).append(artifact)
+    changed_artifacts = tuple(
+        artifact
+        for artifacts in changed_by_kind.values()
+        for artifact in artifacts
+    )
 
     model_artifacts = changed_by_kind.get(MAINTENANCE_ARTIFACT_MODEL, [])
     code_or_test_artifacts = changed_by_kind.get(MAINTENANCE_ARTIFACT_CODE, []) + changed_by_kind.get(
@@ -533,6 +585,20 @@ def review_maintenance_scan(plan: MaintenanceScanPlan) -> MaintenanceScanReport:
                 )
             )
 
+    for obligation in plan.prior_obligations:
+        if not obligation.is_active():
+            continue
+        visible_obligation_ids.append(obligation.obligation_id)
+        if not obligation.has_anchor() or not obligation.touches_any(changed_artifacts):
+            continue
+        reopened_obligation_ids.append(obligation.obligation_id)
+        actions.append(
+            _action_from_obligation(
+                obligation,
+                evidence_ids=evidence_by_route.get(obligation.owner_route, ()),
+            )
+        )
+
     merged_actions = _merge_actions(actions)
     unresolved = tuple(action.action_id for action in merged_actions if action.is_open_required())
     has_required = any(action.strength == MAINTENANCE_ACTION_REQUIRED for action in merged_actions)
@@ -579,6 +645,9 @@ def review_maintenance_scan(plan: MaintenanceScanPlan) -> MaintenanceScanReport:
         confidence=confidence,
         actions=merged_actions,
         unresolved_required_action_ids=unresolved,
+        reopened_obligation_ids=_unique(reopened_obligation_ids),
+        visible_obligation_ids=_unique(visible_obligation_ids),
+        obligations=tuple(obligation_from_maintenance_action(action) for action in merged_actions),
         summary=summary,
     )
 

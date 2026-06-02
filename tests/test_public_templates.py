@@ -394,6 +394,7 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("proof_evidence_not_passing", output)
         self.assertIn("missing_defect_family_gate", output)
         self.assertIn("missing_model_split_gate", output)
+        self.assertIn("open_maintenance_obligation", output)
         self.assertIn("defect-family", output)
 
     def test_layered_boundary_proof_template_executes(self):

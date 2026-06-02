@@ -116,6 +116,9 @@ Every candidate must have one proof status:
 Only `safe_by_equivalence` and `safe_by_public_facade` can become ready
 contraction candidates. Property-only and replay-needed candidates are useful
 diagnostics, not safe deletion proof.
+Scoped, risky, or evidence-needed candidates that remain relevant should be
+recorded as maintenance obligations with their owner route instead of prose
+TODOs.
 
 ## Target Actions
 
@@ -167,6 +170,8 @@ Before trusting the route, make these known-bad variants fail:
 - missing companion route triggers;
 - direct production-code rewrite by the review route;
 - hidden validation or parity gates.
+- scoped or risky reduction candidates disappear instead of being preserved as
+  maintenance obligations.
 - illegal child overlap treated as a testing problem instead of a duplicate
   ownership or architecture-reduction candidate.
 

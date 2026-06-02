@@ -8,6 +8,11 @@ from typing import Any, Iterable
 
 from .core import FrozenMetadata, freeze_metadata
 from .export import to_jsonable
+from .maintenance_obligation import (
+    MaintenanceObligationReport,
+    build_maintenance_obligation_report,
+    obligations_from_finding_ledger,
+)
 
 
 SECTION_STATUSES = (
@@ -183,6 +188,15 @@ class FlowGuardSummaryReport:
 
         return build_finding_ledger(self.sections)
 
+    @property
+    def maintenance_obligations(self) -> MaintenanceObligationReport:
+        """Return route-owned obligations derived from anchored non-pass gaps."""
+
+        return build_maintenance_obligation_report(
+            "summary_report",
+            obligations_from_finding_ledger(self.finding_ledger),
+        )
+
     def format_text(self, verbose: bool = False) -> str:
         lines = [
             "=== flowguard summary ===",
@@ -193,6 +207,9 @@ class FlowGuardSummaryReport:
         ledger = self.finding_ledger
         if ledger.entries:
             lines.append(f"finding_ledger: {ledger.summary}")
+        obligations = self.maintenance_obligations
+        if obligations.obligations:
+            lines.append(f"maintenance_obligations: {obligations.summary}")
         for section in self.sections:
             suffix = f" - {section.summary}" if section.summary else ""
             lines.append(f"- {section.name}: {section.status}{suffix}")
@@ -209,6 +226,7 @@ class FlowGuardSummaryReport:
             "summary": self.summary,
             "sections": [section.to_dict() for section in self.sections],
             "finding_ledger": self.finding_ledger.to_dict(),
+            "maintenance_obligations": self.maintenance_obligations.to_dict(),
             "metadata": to_jsonable(self.metadata),
         }
 
@@ -505,6 +523,7 @@ __all__ = [
     "FlowGuardFindingLedger",
     "FlowGuardFindingLedgerEntry",
     "FlowGuardSummaryReport",
+    "MaintenanceObligationReport",
     "SECTION_STATUSES",
     "LEDGER_SEVERITIES",
     "build_finding_ledger",

@@ -49,7 +49,7 @@ means partial or scoped FlowGuard evidence.
 - Long checks may run in the background, but final confidence needs exit/status and result artifacts, not progress lines.
 - Reused test results need current `TestResultReuseTicket` and `ProofArtifactRef`; old `passed` output is not current evidence by itself.
 - For non-trivial FlowGuard work, show a route-specific Mermaid snapshot once the route/model is stable; diagrams explain, not validate.
-- Before broad done/release/publish confidence, use Risk Evidence Ledger or equivalent and keep automatic state-closure and topology-hazard gaps visible.
+- Before broad done/release/publish confidence, use Risk Evidence Ledger or equivalent and keep remembered maintenance obligations, automatic state-closure, and topology-hazard gaps visible.
 
 ## FlowGuard diagram intent gate
 Before showing a non-trivial FlowGuard diagram, identify which route owns the
@@ -66,6 +66,7 @@ template CLIs are package helpers, not independently triggerable Codex skills.
 | Trigger | Route | Entry |
 | --- | --- | --- |
 | Older adopted project, old FlowGuard artifact, old model/test evidence, obsolete API aliases | `artifact_schema_upgrade` | `artifact-upgrade` or `project-upgrade` |
+| Changed artifacts, open maintenance obligations, stale evidence, skipped routes, split/reduction pressure | `maintenance_scan_router` | `maintenance-scan-template` |
 | Existing modeled system, ownership lookup, duplicate-boundary risk | `existing_model_preflight` | `flowguard-existing-model-preflight` |
 | Similar features, A/B workflow drift, sibling tests, shared-kernel/adapter suspicion | `model_similarity_consolidation` | `docs/model_similarity_consolidation.md` |
 | Rough idea/short plan needs detailed scope, state, evidence, receipts, rework | `plan_detailing_compiler` | `flowguard-plan-detailing-compiler` |

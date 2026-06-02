@@ -54,8 +54,8 @@ progress-only, or not-run checks are not passes.
   `ProofArtifactRef`; old `passed` output is not current evidence by itself.
 - For non-trivial FlowGuard work, show a route-specific Mermaid snapshot once
   the route/model is stable; diagrams explain and do not validate.
-- Before full done/release/publish confidence, connect risks, obligations, code/test evidence, proof artifacts, automatic state-closure gaps, and topology-hazard gaps through Risk Evidence Ledger or equivalent.
-- After non-trivial work, use `maintenance_scan_router` when changed artifacts, skipped routes, stale evidence, state-closure or topology-hazard gaps, or split/reduction signals appear.
+- Before full done/release/publish confidence, connect risks, obligations, remembered maintenance obligations, code/test evidence, proof artifacts, automatic state-closure gaps, and topology-hazard gaps through Risk Evidence Ledger or equivalent.
+- After non-trivial work, use `maintenance_scan_router` when changed artifacts, open maintenance obligations, skipped routes, stale evidence, state-closure or topology-hazard gaps, or split/reduction signals appear.
 - Finish real project use with adoption evidence: trigger, model/risk,
   commands, findings, skipped gaps, validation results, and next actions.
 
@@ -63,7 +63,7 @@ progress-only, or not-run checks are not passes.
 
 | Trigger | Route | Entry |
 | --- | --- | --- |
-| Changed artifacts, stale evidence, skipped routes, split/reduction pressure after project work | `maintenance_scan_router` | `review_maintenance_scan()` or `maintenance-scan-template` |
+| Changed artifacts, open maintenance obligations, stale evidence, skipped routes, split/reduction pressure after project work | `maintenance_scan_router` | `review_maintenance_scan()` or `maintenance-scan-template` |
 | Older adopted project, old FlowGuard artifact, old model/test evidence, obsolete API aliases | `artifact_schema_upgrade` | `artifact-upgrade` or `project-upgrade` |
 | Existing modeled system, ownership lookup, duplicate-boundary risk | `existing_model_preflight` | `flowguard-existing-model-preflight` |
 | Similar features, A/B workflow drift, sibling tests, shared-kernel/adapter suspicion | `model_similarity_consolidation` | `model-first-function-flow` reference |

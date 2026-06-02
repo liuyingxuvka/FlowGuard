@@ -23,7 +23,7 @@ Reference: `references/topology_hazard_protocol.md`.
   current or record why it was not updated.
 - Do not create a fake mini-framework.
 - Read topology before naming hazards; this is not a fixed risk checklist.
-- Unanchored AI concerns are observations only, not hard gates.
+- Unanchored AI concerns are observations only; anchored scoped hazards can become maintenance obligations.
 
 ## Inputs
 

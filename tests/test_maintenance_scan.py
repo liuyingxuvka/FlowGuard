@@ -27,6 +27,7 @@ from flowguard import (
     MAINTENANCE_SIGNAL_STATE_CLOSURE_GAP,
     MaintenanceChangedArtifact,
     MaintenanceEvidence,
+    MaintenanceObligation,
     MaintenanceScanPlan,
     MaintenanceSignal,
     MaintenanceSkippedRoute,
@@ -169,6 +170,90 @@ class MaintenanceScanTests(unittest.TestCase):
         self.assertFalse(report.ok)
         self.assertEqual(MAINTENANCE_SCAN_DECISION_REQUIRED, report.decision)
         self.assertIn(MAINTENANCE_ROUTE_MODEL_MATURATION, routes(report))
+
+    def test_prior_obligation_reopens_when_changed_anchor_is_touched(self):
+        report = review_maintenance_scan(
+            MaintenanceScanPlan(
+                "prior-obligation",
+                changed_artifacts=(
+                    MaintenanceChangedArtifact(
+                        "checkout-module",
+                        MAINTENANCE_ARTIFACT_CODE,
+                        path="src/flowguard/checkout.py",
+                    ),
+                ),
+                prior_obligations=(
+                    MaintenanceObligation(
+                        "structure:checkout",
+                        owner_route=MAINTENANCE_ROUTE_STRUCTURE_MESH,
+                        reason_code="large_module",
+                        anchor_paths=("flowguard/checkout.py",),
+                    ),
+                ),
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertEqual(("structure:checkout",), report.reopened_obligation_ids)
+        self.assertEqual(("structure:checkout",), report.visible_obligation_ids)
+        self.assertIn(MAINTENANCE_ROUTE_STRUCTURE_MESH, routes(report))
+
+    def test_unanchored_prior_obligation_is_visible_but_not_reopened(self):
+        report = review_maintenance_scan(
+            MaintenanceScanPlan(
+                "prior-observation",
+                changed_artifacts=(
+                    MaintenanceChangedArtifact("checkout-module", MAINTENANCE_ARTIFACT_CODE),
+                ),
+                prior_obligations=(
+                    MaintenanceObligation(
+                        "structure:unanchored",
+                        owner_route=MAINTENANCE_ROUTE_STRUCTURE_MESH,
+                        reason_code="large_module",
+                    ),
+                ),
+            )
+        )
+
+        self.assertTrue(report.ok)
+        self.assertEqual(MAINTENANCE_SCAN_DECISION_CLEAR, report.decision)
+        self.assertEqual((), report.reopened_obligation_ids)
+        self.assertEqual(("structure:unanchored",), report.visible_obligation_ids)
+
+    def test_current_owner_evidence_resolves_reopened_prior_obligation(self):
+        report = review_maintenance_scan(
+            MaintenanceScanPlan(
+                "prior-obligation-resolved",
+                changed_artifacts=(
+                    MaintenanceChangedArtifact(
+                        "checkout-module",
+                        MAINTENANCE_ARTIFACT_CODE,
+                        path="src/flowguard/checkout.py",
+                    ),
+                ),
+                prior_obligations=(
+                    MaintenanceObligation(
+                        "structure:checkout",
+                        owner_route=MAINTENANCE_ROUTE_STRUCTURE_MESH,
+                        reason_code="large_module",
+                        anchor_paths=("flowguard/checkout.py",),
+                    ),
+                ),
+                evidence=(
+                    MaintenanceEvidence(
+                        "structure-current",
+                        MAINTENANCE_ROUTE_STRUCTURE_MESH,
+                        status="passed",
+                        current=True,
+                    ),
+                ),
+            )
+        )
+
+        self.assertTrue(report.ok)
+        self.assertEqual(MAINTENANCE_SCAN_DECISION_REQUIRED, report.decision)
+        self.assertEqual(("structure-current",), report.actions[0].owner_evidence_ids)
+        self.assertEqual((), report.unresolved_required_action_ids)
 
     def test_template_cli_and_written_example_run(self):
         printed = subprocess.run(

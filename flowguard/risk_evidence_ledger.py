@@ -12,6 +12,11 @@ from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
 from .export import to_jsonable
+from .maintenance_obligation import (
+    OBLIGATION_STATUS_SCOPED,
+    MaintenanceObligation,
+    coerce_maintenance_obligation,
+)
 from .proof_artifact import ProofArtifactRef, coerce_proof_artifact_ref, proof_artifact_gap_codes
 
 
@@ -164,6 +169,9 @@ class RiskEvidenceRow:
     topology_hazard_current: bool = True
     topology_hazard_confidence: str = RISK_CONFIDENCE_FULL
     topology_hazard_scoped_reasons: tuple[str, ...] = ()
+    maintenance_obligation_ids: tuple[str, ...] = ()
+    maintenance_obligations_required: bool = False
+    maintenance_obligation_scoped_reasons: tuple[str, ...] = ()
     overclaims_full_confidence: bool = False
     next_actions: tuple[str, ...] = ()
 
@@ -192,6 +200,12 @@ class RiskEvidenceRow:
         object.__setattr__(self, "topology_hazard_id", str(self.topology_hazard_id))
         object.__setattr__(self, "topology_hazard_confidence", str(self.topology_hazard_confidence))
         object.__setattr__(self, "topology_hazard_scoped_reasons", _as_tuple(self.topology_hazard_scoped_reasons))
+        object.__setattr__(self, "maintenance_obligation_ids", _as_tuple(self.maintenance_obligation_ids))
+        object.__setattr__(
+            self,
+            "maintenance_obligation_scoped_reasons",
+            _as_tuple(self.maintenance_obligation_scoped_reasons),
+        )
         object.__setattr__(self, "next_actions", _as_tuple(self.next_actions))
 
     def to_dict(self) -> dict[str, Any]:
@@ -238,6 +252,9 @@ class RiskEvidenceRow:
             "topology_hazard_current": self.topology_hazard_current,
             "topology_hazard_confidence": self.topology_hazard_confidence,
             "topology_hazard_scoped_reasons": list(self.topology_hazard_scoped_reasons),
+            "maintenance_obligation_ids": list(self.maintenance_obligation_ids),
+            "maintenance_obligations_required": self.maintenance_obligations_required,
+            "maintenance_obligation_scoped_reasons": list(self.maintenance_obligation_scoped_reasons),
             "overclaims_full_confidence": self.overclaims_full_confidence,
             "next_actions": list(self.next_actions),
         }
@@ -250,6 +267,7 @@ class RiskEvidenceLedgerPlan:
     ledger_id: str
     rows: tuple[RiskEvidenceRow, ...] = ()
     proof_evidence: tuple[RiskEvidenceProof, ...] = ()
+    maintenance_obligations: tuple[MaintenanceObligation, ...] = ()
     require_code_contracts: bool = False
     require_proof_artifacts: bool = False
     allow_scoped_confidence: bool = True
@@ -258,12 +276,18 @@ class RiskEvidenceLedgerPlan:
         object.__setattr__(self, "ledger_id", str(self.ledger_id))
         object.__setattr__(self, "rows", tuple(self.rows))
         object.__setattr__(self, "proof_evidence", tuple(self.proof_evidence))
+        object.__setattr__(
+            self,
+            "maintenance_obligations",
+            tuple(coerce_maintenance_obligation(item) for item in self.maintenance_obligations),
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "ledger_id": self.ledger_id,
             "rows": [row.to_dict() for row in self.rows],
             "proof_evidence": [evidence.to_dict() for evidence in self.proof_evidence],
+            "maintenance_obligations": [obligation.to_dict() for obligation in self.maintenance_obligations],
             "require_code_contracts": self.require_code_contracts,
             "require_proof_artifacts": self.require_proof_artifacts,
             "allow_scoped_confidence": self.allow_scoped_confidence,
@@ -388,9 +412,14 @@ def _decision_for(findings: Sequence[RiskEvidenceFinding]) -> tuple[str, str, bo
     priority = (
         "duplicate_risk_id",
         "duplicate_evidence_id",
+        "duplicate_maintenance_obligation_id",
         "unknown_evidence_reference",
+        "unknown_maintenance_obligation_reference",
         "missing_model_obligation",
         "missing_code_contract",
+        "missing_maintenance_obligation",
+        "maintenance_obligation_not_current",
+        "open_maintenance_obligation",
         "missing_defect_family_gate",
         "defect_family_gate_not_current",
         "defect_family_gate_blocked",
@@ -418,6 +447,8 @@ def _decision_for(findings: Sequence[RiskEvidenceFinding]) -> tuple[str, str, bo
         "analogous_scan_scoped_confidence",
         "model_split_gate_scoped_confidence",
         "test_split_gate_scoped_confidence",
+        "maintenance_obligation_scoped_confidence",
+        "maintenance_obligation_missing_resolution_evidence",
         "proof_overclaims_full_confidence",
         "scoped_out_required_risk",
     )
@@ -457,6 +488,20 @@ def review_risk_evidence_ledger(plan: RiskEvidenceLedgerPlan) -> RiskEvidenceLed
                     )
                 )
             seen.add(proof.evidence_id)
+
+    obligation_by_id = {obligation.obligation_id: obligation for obligation in plan.maintenance_obligations}
+    if len(obligation_by_id) != len(plan.maintenance_obligations):
+        seen_obligations: set[str] = set()
+        for obligation in plan.maintenance_obligations:
+            if obligation.obligation_id in seen_obligations:
+                findings.append(
+                    _finding(
+                        "duplicate_maintenance_obligation_id",
+                        f"maintenance obligation id {obligation.obligation_id!r} appears more than once",
+                        metadata={"obligation_id": obligation.obligation_id},
+                    )
+                )
+            seen_obligations.add(obligation.obligation_id)
 
     for row in plan.rows:
         if not row.in_scope:
@@ -810,6 +855,81 @@ def review_risk_evidence_ledger(plan: RiskEvidenceLedgerPlan) -> RiskEvidenceLed
                 )
             )
 
+        if row.maintenance_obligations_required and not row.maintenance_obligation_ids:
+            findings.append(
+                _finding(
+                    "missing_maintenance_obligation",
+                    "required risk has no remembered maintenance obligation owner",
+                    risk_id=row.risk_id,
+                )
+            )
+
+        for obligation_id in row.maintenance_obligation_ids:
+            obligation = obligation_by_id.get(obligation_id)
+            if obligation is None:
+                findings.append(
+                    _finding(
+                        "unknown_maintenance_obligation_reference",
+                        f"risk references unknown maintenance obligation {obligation_id!r}",
+                        risk_id=row.risk_id,
+                        metadata={"obligation_id": obligation_id},
+                    )
+                )
+                continue
+            if not obligation.current:
+                findings.append(
+                    _finding(
+                        "maintenance_obligation_not_current",
+                        "referenced maintenance obligation memory is stale",
+                        risk_id=row.risk_id,
+                        metadata={"obligation": obligation.to_dict()},
+                    )
+                )
+            if obligation.is_active():
+                findings.append(
+                    _finding(
+                        "open_maintenance_obligation",
+                        "referenced maintenance obligation is still open",
+                        risk_id=row.risk_id,
+                        metadata={"obligation": obligation.to_dict()},
+                    )
+                )
+            elif obligation.status == OBLIGATION_STATUS_SCOPED or obligation.scope_reason:
+                severity = "warning" if plan.allow_scoped_confidence else "blocker"
+                findings.append(
+                    _finding(
+                        "maintenance_obligation_scoped_confidence",
+                        "referenced maintenance obligation remains explicitly scoped",
+                        risk_id=row.risk_id,
+                        severity=severity,
+                        metadata={"obligation": obligation.to_dict()},
+                    )
+                )
+            elif not obligation.has_resolution_evidence():
+                findings.append(
+                    _finding(
+                        "maintenance_obligation_missing_resolution_evidence",
+                        "referenced maintenance obligation has no resolution evidence",
+                        risk_id=row.risk_id,
+                        metadata={"obligation": obligation.to_dict()},
+                    )
+                )
+
+        if row.maintenance_obligation_scoped_reasons:
+            severity = "warning" if plan.allow_scoped_confidence else "blocker"
+            findings.append(
+                _finding(
+                    "maintenance_obligation_scoped_confidence",
+                    "maintenance obligation memory remains explicitly scoped",
+                    risk_id=row.risk_id,
+                    severity=severity,
+                    metadata={
+                        "maintenance_obligation_ids": list(row.maintenance_obligation_ids),
+                        "maintenance_obligation_scoped_reasons": list(row.maintenance_obligation_scoped_reasons),
+                    },
+                )
+            )
+
         if row.required and not row.proof_evidence_ids:
             findings.append(
                 _finding(
@@ -947,6 +1067,7 @@ __all__ = [
     "RISK_PROOF_STATUS_RUNNING",
     "RISK_PROOF_STATUS_SKIPPED",
     "RISK_PROOF_STATUS_STALE",
+    "MaintenanceObligation",
     "RiskEvidenceFinding",
     "RiskEvidenceLedgerPlan",
     "RiskEvidenceLedgerReport",

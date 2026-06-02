@@ -8,10 +8,15 @@ means the model itself is too coarse, stale, or only supports scoped confidence.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Mapping, Sequence
 
 from .export import to_jsonable
+from .maintenance_obligation import (
+    MaintenanceObligation,
+    coerce_maintenance_obligation,
+    obligations_from_maturation_findings,
+)
 
 
 MODEL_MATURATION_DECISION_CURRENT = "model_maturation_current"
@@ -254,6 +259,7 @@ class ModelMaturationReport:
     recommended_actions: tuple[str, ...] = ()
     findings: tuple[ModelMaturationFinding, ...] = ()
     scoped_signal_ids: tuple[str, ...] = ()
+    maintenance_obligations: tuple[MaintenanceObligation, ...] = ()
     summary: str = ""
 
     def __post_init__(self) -> None:
@@ -265,6 +271,12 @@ class ModelMaturationReport:
         object.__setattr__(self, "recommended_actions", _as_tuple(self.recommended_actions))
         object.__setattr__(self, "findings", tuple(self.findings))
         object.__setattr__(self, "scoped_signal_ids", _as_tuple(self.scoped_signal_ids))
+        obligations = self.maintenance_obligations or obligations_from_maturation_findings(self.findings)
+        object.__setattr__(
+            self,
+            "maintenance_obligations",
+            tuple(coerce_maintenance_obligation(item) for item in obligations),
+        )
         object.__setattr__(self, "summary", str(self.summary))
 
     def to_dict(self) -> dict[str, Any]:
@@ -278,6 +290,7 @@ class ModelMaturationReport:
             "recommended_actions": list(self.recommended_actions),
             "findings": [finding.to_dict() for finding in self.findings],
             "scoped_signal_ids": list(self.scoped_signal_ids),
+            "maintenance_obligations": [obligation.to_dict() for obligation in self.maintenance_obligations],
             "summary": self.summary,
         }
 
@@ -298,6 +311,12 @@ class ModelMaturationReport:
             lines.extend(
                 f"- [{finding.severity}] {finding.code}: {finding.message}"
                 for finding in self.findings
+            )
+        if self.maintenance_obligations:
+            lines.append("maintenance obligations:")
+            lines.extend(
+                f"- {obligation.status} {obligation.strength}: {obligation.obligation_id}"
+                for obligation in self.maintenance_obligations
             )
         if self.summary:
             lines.append(self.summary)
@@ -332,6 +351,13 @@ def review_model_maturation_loop(plan: ModelMaturationPlan) -> ModelMaturationRe
     scoped_signal_ids: list[str] = []
 
     for signal in plan.signals:
+        if not signal.model_id or not signal.risk_id:
+            signal = replace(
+                signal,
+                model_id=signal.model_id or plan.model_id,
+                risk_id=signal.risk_id or plan.risk_id,
+            )
+
         if not signal.current:
             findings.append(
                 _signal_finding(

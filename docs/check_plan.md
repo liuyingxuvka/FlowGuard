@@ -111,16 +111,19 @@ If Explorer fails, the summary fails. If Explorer passes but audit has warnings
 or generated scenarios need review, the summary is `pass_with_gaps`. If
 conformance is not run, it is a confidence gap, not a failure and not a pass.
 
-Every `FlowGuardSummaryReport` also exposes `finding_ledger`, and
-`to_dict()` includes it as machine-readable output. The ledger flattens model
-check failures, audit warnings, scenario/live-audit gaps, progress findings,
-contract findings, conformance findings, and skipped/not-run sections into one
-coverage-first list. Use it before FlowGuard or LiveFlowGuard framework
-upgrades and post-runtime model-miss repairs so the next action is chosen
-deliberately: fix the real system, adjust the check flow, extend the model, or
-record a boundary as out of scope. For in-scope model-miss repairs, the next
-action also includes upgrading tests from an observed-bug regression to
-same-class evidence and rerunning Model-Test Alignment before full closure.
+Every `FlowGuardSummaryReport` also exposes `finding_ledger` and
+`maintenance_obligations`, and `to_dict()` includes both as machine-readable
+output. The ledger flattens model check failures, audit warnings,
+scenario/live-audit gaps, progress findings, contract findings, conformance
+findings, and skipped/not-run sections into one coverage-first list. The
+maintenance obligations turn those non-pass gaps into route-owned memory for
+future `review_maintenance_scan(...)` runs. Use them before FlowGuard or
+LiveFlowGuard framework upgrades and post-runtime model-miss repairs so the
+next action is chosen deliberately: fix the real system, adjust the check flow,
+extend the model, or record a boundary as out of scope. For in-scope
+model-miss repairs, the next action also includes upgrading tests from an
+observed-bug regression to same-class evidence and rerunning Model-Test
+Alignment before full closure.
 
 ## Domain Packs
 

@@ -49,6 +49,9 @@ Classify dispositions:
 - Architecture Reduction plus ledger when old/new compatibility paths need a
   preserve, migrate, block, delete, or latest-schema-first decision;
 - scoped out only with a concrete reason.
+Anchored hazards that remain scoped or unresolved should become maintenance
+obligations so later scans can reopen the owner route when the same model,
+entrypoint, or artifact changes.
 
 ## Prompt Template
 
@@ -63,6 +66,8 @@ A topology hazard review can support broad confidence only when:
 - unanchored hard candidates have been downgraded to observation-only;
 - each anchored unresolved hazard has an owner route or is handled/scoped with
   current evidence;
+- scoped anchored hazards are exported as maintenance obligations when they can
+  affect later work;
 - compatibility/history surfaces have an explicit disposition;
 - repeatable side effects and external boundaries are covered by current
   model-test, process, or risk-ledger evidence when broad usage is possible;

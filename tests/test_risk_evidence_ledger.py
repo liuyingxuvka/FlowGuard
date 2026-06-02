@@ -12,6 +12,9 @@ from flowguard import (
     RISK_PROOF_STATUS_PROGRESS_ONLY,
     RISK_PROOF_STATUS_SKIPPED,
     RISK_PROOF_STATUS_STALE,
+    OBLIGATION_STATUS_RESOLVED,
+    OBLIGATION_STATUS_SCOPED,
+    MaintenanceObligation,
     ProofArtifactRef,
     RiskEvidenceLedgerPlan,
     RiskEvidenceProof,
@@ -44,6 +47,15 @@ def row(risk_id="r1", **kwargs):
         risk_id,
         model_obligation_id=kwargs.pop("model_obligation_id", "model:r1"),
         proof_evidence_ids=kwargs.pop("proof_evidence_ids", ("e1",)),
+        **kwargs,
+    )
+
+
+def obligation(obligation_id="obligation:structure", **kwargs):
+    return MaintenanceObligation(
+        obligation_id,
+        owner_route=kwargs.pop("owner_route", "structure_mesh_maintenance"),
+        reason_code=kwargs.pop("reason_code", "large_module"),
         **kwargs,
     )
 
@@ -418,6 +430,82 @@ class RiskEvidenceLedgerTests(unittest.TestCase):
         )
 
         self.assertTrue(report.ok, report.format_text())
+
+    def test_required_maintenance_obligation_must_be_named(self):
+        report = review_risk_evidence_ledger(
+            plan(rows=(row(maintenance_obligations_required=True),))
+        )
+
+        self.assertFalse(report.ok)
+        self.assertEqual("missing_maintenance_obligation", report.decision)
+
+    def test_open_maintenance_obligation_blocks_full_confidence(self):
+        report = review_risk_evidence_ledger(
+            plan(
+                rows=(
+                    row(
+                        maintenance_obligations_required=True,
+                        maintenance_obligation_ids=("obligation:structure",),
+                    ),
+                ),
+                maintenance_obligations=(obligation(),),
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertEqual("open_maintenance_obligation", report.decision)
+
+    def test_resolved_maintenance_obligation_needs_resolution_evidence(self):
+        report = review_risk_evidence_ledger(
+            plan(
+                rows=(row(maintenance_obligation_ids=("obligation:structure",)),),
+                maintenance_obligations=(
+                    obligation(status=OBLIGATION_STATUS_RESOLVED),
+                ),
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertEqual("maintenance_obligation_missing_resolution_evidence", report.decision)
+
+    def test_resolved_maintenance_obligation_with_evidence_allows_full_claim(self):
+        report = review_risk_evidence_ledger(
+            plan(
+                rows=(
+                    row(
+                        maintenance_obligations_required=True,
+                        maintenance_obligation_ids=("obligation:structure",),
+                    ),
+                ),
+                maintenance_obligations=(
+                    obligation(
+                        status=OBLIGATION_STATUS_RESOLVED,
+                        evidence_ids=("structuremesh:passed",),
+                    ),
+                ),
+            )
+        )
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual(RISK_LEDGER_DECISION_FULL, report.decision)
+
+    def test_scoped_maintenance_obligation_downgrades_confidence(self):
+        report = review_risk_evidence_ledger(
+            plan(
+                rows=(row(maintenance_obligation_ids=("obligation:structure",)),),
+                maintenance_obligations=(
+                    obligation(
+                        status=OBLIGATION_STATUS_SCOPED,
+                        scope_reason="secondary entrypoint is release-only",
+                    ),
+                ),
+            )
+        )
+
+        self.assertTrue(report.ok)
+        self.assertEqual(RISK_LEDGER_DECISION_SCOPED, report.decision)
+        self.assertEqual(RISK_CONFIDENCE_SCOPED, report.confidence)
+        self.assertIn("maintenance_obligation_scoped_confidence", finding_codes(report))
 
 
 if __name__ == "__main__":

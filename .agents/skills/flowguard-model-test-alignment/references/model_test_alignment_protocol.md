@@ -207,6 +207,8 @@ A model-test alignment review can support a coverage claim only when:
 - missing obligations, boundary mismatches, stale rows, and duplicate primary
   edge paths are fed to `review_model_maturation_loop(...)` before broad
   confidence;
+- unresolved alignment gaps that cannot be fixed in the current task are kept
+  as maintenance obligations instead of being left as prose TODOs;
 - final claims supply enough evidence ids, assertion scopes, and gaps for
   `review_risk_evidence_ledger(...)`;
 - conservative source-audit output is not overclaimed as semantic proof or

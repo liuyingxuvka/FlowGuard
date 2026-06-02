@@ -36,6 +36,8 @@ Create or update a DevelopmentProcessFlow review when:
   artifacts changed after evidence was produced;
 - a done, release, archive, or publish claim depends on validation evidence;
 - peer-agent or unknown-writer changes could make earlier evidence stale;
+- a changed artifact touches a remembered open maintenance obligation and the
+  owner route must be rerun or the final claim kept scoped;
 - V-style requirement/design/model/code-to-validation pairs need explicit
   freshness checks;
 - routine confidence may proceed while release-required evidence remains
@@ -141,7 +143,8 @@ Keep these findings visible:
 - `release_evidence_not_current`;
 - `model_maturation_required_before_final_claim`;
 - `final_claim_missing_risk_evidence_ledger`;
-- `final_claim_uses_blocked_risk_evidence`.
+- `final_claim_uses_blocked_risk_evidence`;
+- `open_maintenance_obligation_claimed_done`.
 
 ## Prompt Template
 
@@ -206,6 +209,8 @@ A DevelopmentProcessFlow review can support a lifecycle claim only when:
   covered validation obligation, and no route gaps;
 - release-required evidence is current for release scope, or visibly deferred
   only for routine scope;
+- remembered maintenance obligations touched by changed artifacts have current
+  owner-route evidence or are carried as scoped confidence;
 - any validation failure has a visible triage class, and non-ordinary triage
   classes have current evidence from the owning satellite or parent evidence
   gate;
