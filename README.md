@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <strong>A universal AI-agent skill layer for executable finite-state models that check workflows, UI flows, and development processes before agents act.</strong>
+  <strong>A model-first guardrail for AI coding agents before small edits become large-project maintenance debt.</strong>
 </p>
 <!-- README HERO END -->
 
@@ -20,161 +20,109 @@
 
 English lead content comes first; a Chinese mirror follows below.
 
-## What FlowGuard Is
+## Why FlowGuard Exists
 
-FlowGuard is a universal AI-agent skill layer and lightweight Python toolkit for turning risky stateful behavior into an executable finite-state model before action. Any AI agent can use the method; Codex integration is provided as ready-to-install skills, not the boundary of the project. It is the workflow/state guard in the Guard family: use it when order, state, ownership, side effects, UI availability, role handoff, or evidence freshness can change whether a plan is actually safe.
+AI coding agents are useful because they can move quickly through small edits. The failure mode appears when the project stops being small: the agent can keep adding code while the real workflow state is already wrong.
 
-It models a function block as:
+Common symptoms look familiar:
+
+- a retry path runs twice and creates duplicate side effects;
+- branches multiply until nobody knows which path still owns the state;
+- tests pass, but they no longer prove the claim being made;
+- a child fix is fresh, while the parent plan still trusts stale evidence;
+- a UI has visible buttons, but the launch-to-terminal journey has no valid recovery path;
+- a release, README, or "done" claim survives after later code, docs, tests, or peer writes invalidated it.
+
+FlowGuard is built for that problem. It makes the risky transition explicit before the agent acts, runs a small executable state model, and turns hidden failure paths into counterexamples that can change the next engineering step.
+
+It does not promise that software has no bugs. It helps prevent a specific maintenance disaster: AI agents continuing from an invalid state and piling more code, tests, or public claims on top of it.
+
+## What FlowGuard Does
+
+FlowGuard is a lightweight Python toolkit and AI-agent skill layer for model-first workflow checks. Any agent can use the method; Codex-compatible skills are provided as ready-to-install guidance, not as the boundary of the project.
+
+The practical loop is:
+
+```text
+risky AI action -> explicit state model -> executable checks
+-> counterexample trace -> revise plan, code, tests, UI, or claim
+```
+
+Instead of asking an agent to "be careful", FlowGuard asks the agent to name the state, inputs, outputs, side effects, ownership boundaries, and evidence gates that decide whether the next action is safe.
+
+## The Core Model
+
+Each function block is represented as:
 
 ```text
 Input x State -> Set(Output x State)
 ```
 
-That model is then checked for reachable traces, invariant failures, loops, stuck states, stale evidence, missing handoffs, conformance gaps, parent/child evidence drift, and counterexample paths that should change the next engineering step.
+That small shape is enough to expose many large-project problems:
 
-FlowGuard is not an LLM wrapper, a probability engine, a Monte Carlo simulator, or a replacement for tests. It is a structural preflight layer: make the risky transition explicit, run the small model, inspect the counterexample, then change the plan or code with less hidden state.
+- repeated inputs that should be idempotent;
+- dead branches that return no legal output;
+- multiple possible outputs that need explicit ownership;
+- stale evidence after later artifact changes;
+- parent/child model drift;
+- invalid final claims after skipped or scoped validation.
+
+FlowGuard explores finite traces inside the declared model and checks invariants, scenarios, progress properties, conformance expectations, evidence freshness, and closure boundaries. When a check fails, the important output is the counterexample path: the concrete state sequence that shows why the current plan should not continue unchanged.
 
 ## Start Small
 
-The default AI path is intentionally thin:
+Most useful FlowGuard work can start thin:
 
 ```text
-risky boundary -> Input x State -> Set(Output x State)
--> one invariant or scenario -> run checks
--> inspect counterexample -> escalate only if a named risk requires it
+choose one risky boundary
+-> name Input, State, Output, side effects, and owners
+-> write one invariant or scenario
+-> run the check
+-> inspect the counterexample
+-> fix the model, plan, code, tests, UI, or claim
 ```
 
-Use the advanced routes only when the task asks for that risk boundary: UI
-topology, code structure, test hierarchy, model/test alignment, model mesh,
-staged release evidence, architecture reduction, existing-model ownership, or
-post-failure model repair. Ordinary users do not need the benchmark corpus,
-deep maintenance models, or release-hardening ledger before this small path is
-useful.
-
-This thin path is an entry path, not a completion shortcut. Complete FlowGuard
-use means the closure contract is current for the claim being made: plan/risk
-intake, existing-model ownership or new model boundary, same-class model-miss
-evidence when a miss was repaired, model-test/code alignment when code or tests
-are in scope, mesh or boundary proof when parent/child evidence is in scope,
-obligation-family parity when related obligations share a confidence claim,
-analogous defect scan when a real miss may recur across similar surfaces,
-model-topology hazard review when local green evidence may overclaim future use,
-model maturation when later evidence shows the model is too coarse,
-maintenance-scan routing when changed artifacts or skipped routes imply more
-owner-route work, evidence
-freshness, Risk Evidence Ledger, and typed claim-chain review. If a required
-gate is missing, stale, skipped, progress-only, wrong-provenance, or scoped out, the result is
-partial FlowGuard evidence rather than a full FlowGuard completion claim.
+Only escalate when the risk boundary demands it: UI topology, code structure, test hierarchy, model/test alignment, parent/child model mesh, staged release evidence, architecture reduction, existing-model ownership, or model-miss repair.
 
 ## What You Can Design And Verify
 
-FlowGuard is useful at the design stage. You name the states, inputs, outputs, ownership boundaries, side effects, and gates; the model then gives you both a design shape and the checks that decide whether that shape is currently safe.
-
-| Work type | Model-first design output | What keeps it trustworthy | Boundary |
-| --- | --- | --- | --- |
-| Development process | Staged route, legal next actions, validation gates, stale-evidence reset, peer-write invalidation, archive/release readiness, and done criteria | DevelopmentProcessFlow reviews scenario failures, skipped gates, freshness gaps, and invalid completion claims before the process is treated as usable | A green local step is not global green after later edits, peer writes, or route mutation |
-| UI interface | Persistent regions, contextual panels, local actions, overlays, recovery paths, button availability, display ownership, duplicate-control rules, and text hierarchy | UI Flow Structure checks launch-to-terminal journeys, visible control availability, recovery paths, duplicate functions, warning/error escalation, and implementation click-through evidence | It models interaction structure; visual polish, accessibility details, and browser/device behavior still need ordinary UI review |
-| Code structure | Module split, facade boundary, state owner, side-effect owner, config owner, validation owner, public-entrypoint compatibility plan, and model-similarity shared-kernel hints | Code Structure Recommendation and StructureMesh look for ownership leaks, dependency cycles, facade drift, config drift, missing parity evidence, and false-friend model relations | It recommends a safer split; it does not replace implementation tests or code review |
-| Architecture reduction | Observable contract, duplicate implementation candidates, proof status, required next route, and safe target action | Architecture Reduction checks whether model-equivalent branches, handlers, adapters, modules, or validation layers can shrink code before StructureMesh or implementation | It proposes behavior-preserving contraction; public entrypoints and risky candidates still need compatibility and test evidence |
-| Maintenance scan | Changed artifacts, skipped candidate routes, stale evidence, and split/reduction/test/model-mesh signals after non-trivial project work | The maintenance scan routes open work to the owning FlowGuard route before a broad claim is made | It is a router, not proof: Model-Test Alignment, DevelopmentProcessFlow, Architecture Reduction, StructureMesh, ModelMesh, TestMesh, or AgentWorkflowRehearsal still provide the evidence |
-| Test strategy | Routine/release test layers, parent/child suites, timeout boundaries, stale/hidden evidence rules, automatic split triggers, family parity, and revalidation triggers | TestMesh and model-test alignment compare model obligations with actual tests, hidden skips, stale passes, timeout boundaries, broad/slow/release-only direct evidence, wrong-provenance family evidence, and release-only checks | Tests only support the modeled obligations they actually cover |
-| Model mesh or bug repair | Parent/child split, automatic large-model split trigger, evidence contract, reattachment gate, sibling impact review, leaf boundary matrix, model-miss class, same-class bad case, analogous defect scan, same-class test evidence, obligation-family parity, and recurring defect-family gate | ModelMesh requires parents to consume fresh child evidence; automatic split diagnostics route oversized or incomplete direct model evidence into ModelMesh; layered boundary proof requires leaf models to prove finite `Input x State -> Set(Output x State)` real-code boundaries; model-miss review adds same-class bad cases and scans same-shape sibling risks, Model-Test Alignment requires observed-regression plus same-class test evidence and family parity for related obligations, and recurring/high-risk miss families require a defect-family gate before closure | Child evidence does not improve parent confidence until the parent contract consumes it, and a coarse leaf or repaired miss stays scoped until real-code, analogous scan disposition, same-class test evidence, required obligation-family evidence, and defect-family gate evidence are complete |
+| Work type | What FlowGuard helps design | What it checks |
+| --- | --- | --- |
+| Development process | staged route, legal next actions, validation gates, stale-evidence reset, peer-write invalidation, done and release readiness | skipped gates, stale validation, progress-only evidence, invalid completion claims |
+| UI flow | persistent regions, contextual panels, visible controls, overlays, recovery paths, display ownership, duplicate-control rules | launch-to-terminal journeys, unavailable controls, missing recovery, duplicate actions, warning/error escalation |
+| Code structure | module split, facade boundary, state owner, side-effect owner, config owner, validation owner | ownership leaks, dependency cycles, facade drift, config drift, missing parity evidence |
+| Architecture reduction | observable contract, duplicate implementation candidates, safe target action | whether handlers, adapters, branches, modules, or validation layers can shrink without changing observable behavior |
+| Test strategy | routine and release test layers, parent/child suites, timeout boundaries, stale and hidden evidence rules | skipped tests, release-only evidence, broad/slow direct checks, stale passes, wrong-provenance evidence |
+| Model mesh and bug repair | parent/child boundaries, reattachment gates, sibling-impact review, same-class bad cases | child evidence freshness, parent consumption, analogous defect risks, same-class test evidence |
+| Release and public claims | evidence ledger, claim-chain boundary, publish readiness | whether the public claim is supported by current model, code, test, mesh, freshness, and risk evidence |
 
 This is the core product: FlowGuard turns a vague workflow, UI journey, refactor, test strategy, or release process into a small state machine with explicit failure traces. The counterexample is not just a bug report; it is design feedback that says which state, gate, owner, or evidence rule must change before work continues.
 
-## Why It Is Worth Trying
+## What FlowGuard Is Not
 
-- It turns fuzzy workflow, UI, code-structure, test, or release decisions into small executable models before the agent writes code, tests, or public claims.
-- It derives development routes, interface topology, module ownership, validation hierarchy, and release gates from the model, then checks those decisions with traces.
-- It shows the exact failure path: skipped review, stale child evidence, invalid button state, facade drift, missing revalidation, or a parent that trusted a child too early.
-- It is intentionally small: many useful models are just a few states, inputs, invariants, and transition functions.
-- It keeps evidence honest across parent and child models, so a repaired child or later file edit does not leave stale green status behind.
-- It runs on the Python standard library and fits into ordinary repository workflows without becoming a heavy platform.
+FlowGuard is not an LLM wrapper, a prompt trick, a probability engine, a Monte Carlo simulator, or a replacement for ordinary tests.
 
-## The Logic Contract
+It is a structural preflight layer. Tests still verify production code. Code review still matters. UI polish and browser/device behavior still need real UI review. FlowGuard sits earlier: it asks whether the agent's intended transition is coherent before the transition becomes code, tests, UI, or a public confidence claim.
 
-FlowGuard is useful when these preconditions hold:
+## When To Use It
 
-| Layer | Requirement |
-| --- | --- |
-| Risk boundary | There is a workflow, implementation path, UI path, test hierarchy, model mesh, or release decision where order and state matter |
-| State vocabulary | The relevant states, inputs, outputs, ownership boundaries, and side effects can be named at useful abstraction level |
-| Expected behavior | At least one invariant, scenario expectation, conformance trace, or freshness rule can be stated |
-| Actionability | A counterexample would change what the agent, engineer, or reviewer does next |
+Use FlowGuard when order, state, ownership, side effects, UI availability, role handoff, or evidence freshness can change whether the plan is actually safe.
 
-The postconditions FlowGuard aims to create:
+Good fits:
 
-| Output | Meaning |
-| --- | --- |
-| Reviewed model | A small executable representation of the risky part of the work |
-| Counterexample trace | A concrete path showing how the plan can fail |
-| Passing evidence | A bounded claim that the modeled scenarios, invariants, and evidence rules currently pass |
-| Scoped confidence | A decision boundary that says what is green, what is still unknown, and what must be revalidated after later edits |
-| Complete FlowGuard use | The closure contract for the claim has consumed current model, test, code-boundary, obligation-family parity, analogous scan when required, mesh, evidence-freshness, ledger, and claim-chain support |
+- AI-agent coding work with multiple stages or handoffs;
+- retries, deduplication, cache refresh, ingestion, or repeated job processing;
+- refactors where public entrypoints must remain compatible;
+- UI flows where visible controls do not guarantee legal recovery paths;
+- tests or release checks where old evidence can be mistaken for current proof;
+- parent/child models where one green result should not automatically make the parent green.
 
-The core rule is simple: local green is not global green unless the parent contract has consumed fresh child evidence.
+Bad fits:
 
-## Why It Exists
-
-AI-agent projects often fail at the same point: the local edit looks correct, but the surrounding workflow is not modeled. Retries duplicate side effects. Cache state drifts. A refactor preserves the public entrypoint but breaks ownership. A UI journey has visible controls but no valid recovery path. A child model is repaired, but the parent still trusts stale evidence. A release README says "done" after code, tests, docs, or peer writes have already invalidated the proof.
-
-FlowGuard gives those weak spots a small executable shape before the action becomes expensive.
-
-## What It Checks
-
-| Route | Purpose |
-| --- | --- |
-| Scenario and invariant review | Checks expected traces, hard rules, repeated inputs, dead branches, and bad terminal states |
-| State/input closure gate | Automatically keeps other, malformed, missing, old-schema, and externally unknown cases visible; safe handling can pass, undeclared policy scopes confidence, and unsafe side effects block it |
-| Model Topology Hazard Review | Reads model topology and usage intent to infer anchored future-use hazards from repeatable side effects, broad terminal states, old/new paths, external boundaries, shared writers, or parent/child compression before broad confidence |
-| Adversarial scenario synthesis | Derives candidate challenge routes from Explorer counterexamples, dead branches, exception branches, repeated state visits, and risk semantics, with bounded input-shape fallbacks kept as candidate evidence |
-| Conformance replay | Compares representative abstract traces with implementation behavior when code exists |
-| Runtime Gateway Adoption | Checks whether a project claiming runtime FlowGuard protection has complete critical-state writer inventory and every critical write is mediated by declared gateway contracts with step, boundary, replay, and proof evidence |
-| Loop and progress review | Finds non-progressing cycles, stuck states, and weak completion evidence |
-| Model-test alignment | Compares model obligations, external code contracts, ordinary test evidence, model-miss observed/same-class closure evidence, and optional obligation-family parity matrices |
-| Obligation Family Parity | Requires related obligations to carry the same required mechanism evidence with allowed provenance before a family-level claim can be full confidence |
-| Analogous Defect Scan | After a real model miss, asks where the same failure shape may recur and requires must-scan candidates to be covered, repaired, scoped to a separate change, or excluded with a reason before full closure |
-| Plan Detailing Compiler | Forces rough ideas, short plans, and AI-generated outlines into explicit source, scope, state, side-effect, step, receipt, validation, rework, human-question, and evidence-claim rows before downstream routes run |
-| Plan Intake And Claim Chain | Checks that plan inputs, evidence adapters, false-negative repairs, known-bad mutations, and typed claim dependencies are declared before broad confidence is claimed |
-| Model Impact Freshness | Classifies existing `.flowguard` models after a FlowGuard upgrade so affected models rerun and unchanged models reuse old evidence only with explicit proof |
-| Model Maturation Loop | Converts model-miss, state-closure, model-test, mesh, code-boundary, and evidence-freshness signals into explicit model-upgrade actions before broad claims are made |
-| Risk Evidence Ledger | Connects user-facing risks to topology hazard reviews, model obligations, public code contracts, obligation-family gates, analogous scans, recurring defect-family gates, model/test split gates, and current proof evidence before any full-confidence claim |
-| FlowGuard closure contract | Requires the relevant intake, model, same-class bug, family parity, analogous scan when required, alignment, mesh/boundary, model maturation, freshness, ledger, and claim-chain gates before complete FlowGuard use or full-confidence claims |
-| ModelMesh | Splits oversized or incomplete direct model evidence into parent/child evidence, propagates child boundary changes upward, reviews affected sibling models, and uses mesh closure models for whole-flow parent confidence |
-| Layered Boundary Proof | Joins parent coverage, child disjointness, child reattachment, and leaf boundary-matrix evidence before parent model confidence can claim the code stayed inside model boundaries |
-| Child model reattachment | Requires a parent mesh to consume the repaired child evidence id and verify input, output, state, side-effect, and exported-contract handoffs |
-| Mesh closure model | Models parent/child handoff tokens so child outputs, joins, exits, and out-of-scope branches must be consumed before `mesh_green_can_continue` |
-| Existing Model Preflight | Looks up current FlowGuard model ownership before discussion, proposal, bug fix, feature work, refactor, prompt, skill, UI, test, or process changes in an existing modeled system |
-| Model Similarity Consolidation | Compares structured model signatures through basic profile helpers or full schema, classifies same-workflow, family-variant, shared-kernel, duplicate-boundary, adapter-only, evidence-duplicate, false-friend, and unrelated relations, derives maintenance groups, changed-sibling review, shared/variant test obligations, and code obligations, then passes one `SimilarityHandoff` to downstream FlowGuard routes |
-| TestMesh | Reviews parent/child validation layers, broad or slow direct validation evidence, stale evidence, hidden skips, timeouts, and routine-vs-release gates |
-| StructureMesh | Reviews large refactor splits, facade compatibility, dependency cycles, config drift, and parity evidence |
-| Code Structure Recommendation | Derives module, facade, state-owner, side-effect, config, and validation boundaries before code is written |
-| Architecture Reduction | Reviews model-to-code contraction candidates, observable contracts, proof status, required next routes, and behavior-preserving target actions before code is simplified |
-| UI Flow Structure | Models UI states, controls, visible buttons, events, failures, recovery paths, launch-to-terminal app journeys, implementation click-through evidence, overlays, duplicate controls, and display ownership before deriving interface topology |
-| UI Text Hierarchy Blueprint | Reviews visible and assistive UI text by state, region, role, semantic key, owner, priority, duplication rationale, and warning/error escalation |
-| DevelopmentProcessFlow | Checks staged development flow, lifecycle ordering, artifact overwrite, validation freshness, minimum revalidation, archive readiness, and release confidence |
-| Model-Miss Review | After a runtime failure, classifies what the model missed, adds a generalized same-class bad case, and scans analogous same-shape defect candidates, then requires same-class test evidence through Model-Test Alignment; recurring/high-risk same-class misses promote to a defect-family gate before full closure |
-
-For non-trivial FlowGuard work, skill guidance now defaults to a user-facing
-Mermaid model snapshot during the work once the route or model shape is stable
-enough to explain. The agent first chooses the FlowGuard diagram semantics:
-behavior/state, development process, UI state, model-test coverage, code
-structure, or mesh. The diagram can show major states, branches, gates,
-evidence, skipped/not-run gaps, and claim boundaries, and it should be updated
-when the model boundary materially changes. Tiny or user-suppressed tasks may
-stay concise. Diagrams are explanation only; executable checks remain the
-source of validation.
-
-## Typical Workflow
-
-1. Choose the smallest boundary where state, ordering, or evidence freshness matters.
-2. Name the inputs, states, outputs, side effects, and ownership handoffs.
-3. Model the transition as `Input x State -> Set(Output x State)`.
-4. Add invariants, scenario expectations, or parent/child contracts.
-5. Run the review and inspect counterexamples.
-6. Revise the model, plan, tests, or implementation.
-7. Consume the closure contract for any full done/release/publish/production-confidence claim.
-8. Record what was checked, what remains out of scope, and when the evidence becomes stale.
+- one-line typo fixes;
+- formatting-only edits;
+- tasks where no state, side effect, ordering, or evidence boundary matters;
+- claims that need statistical truth rather than structural workflow checks.
 
 ## Quick Start
 
@@ -186,8 +134,7 @@ python -m flowguard schema-version
 python -m flowguard self-review
 ```
 
-Adopt FlowGuard into another project so future agents can find the repository,
-version record, and project rules:
+Adopt FlowGuard into another project so future agents can find the repository, version record, and project rules:
 
 ```powershell
 python -m flowguard project-adopt --root <target-project>
@@ -198,8 +145,8 @@ python -m flowguard project-upgrade --root <target-project>
 Useful template entry points:
 
 ```powershell
-python -m flowguard project-adoption-template
 python -m flowguard project-template
+python -m flowguard project-adoption-template
 python -m flowguard plan-detailing-template
 python -m flowguard model-test-alignment-template
 python -m flowguard existing-model-preflight-template
@@ -212,19 +159,8 @@ python -m flowguard development-process-flow-template
 python -m flowguard workflow-step-contracts-template
 python -m flowguard test-mesh-template
 python -m flowguard structure-mesh-template
+python -m flowguard topology-hazard-template
 ```
-
-Model-Test Alignment can also check whether real code stays inside a declared
-model-backed boundary: `CodeBoundaryContract` declares the allowed and rejected
-input cases plus allowed outputs, state writes, side effects, and error paths;
-`CodeBoundaryObservation` records what runtime tests, replay, or a harness
-actually observed.
-
-Workflow step contracts cover the ordered-process case: `WorkflowStepContract`
-declares which receipts a step requires, produces, invalidates, and which
-done/release claim labels require those receipts. Use
-`docs/workflow_step_contracts.md` when a known workflow is correct on paper but
-code might skip a required step or reuse stale evidence.
 
 Run focused examples:
 
@@ -305,61 +241,55 @@ report = Explorer(
 print(report.format_text())
 ```
 
-## Skill Architecture
+## Skill Routes
 
-FlowGuard has one kernel and several peer satellite skills. Clear staged-development, UI, structure, test, mesh, alignment, topology-hazard, or model-miss work should route directly to the matching satellite; `model-first-function-flow` remains the kernel for ordinary behavior/state modeling, unclear route selection, and cross-route coordination:
+FlowGuard has one kernel and several peer satellite skills. Use the smallest route that owns the actual risk:
 
 | Skill route | Use it when |
 | --- | --- |
-| `model-first-function-flow` | Ordinary behavior/state modeling, unclear FlowGuard route selection, cross-route coordination, or core model work before a narrower route is known |
-| `flowguard-plan-detailing-compiler` | A rough idea, short plan, or AI-generated outline needs detailed scope, state, evidence, receipts, rework, and claim boundaries before downstream modeling |
-| `flowguard-model-topology-hazard-review` | A locally green model topology may imply future-use hazards before broad done, release, publish, archive, or full-confidence claims |
-| `flowguard-model-test-alignment` | Model obligations, code contracts, code-boundary observations, and test evidence need a direct comparison |
-| `flowguard-model-mesh` | A project has multiple local models, child evidence, or oversized model surfaces |
-| `flowguard-test-mesh` | Test evidence is layered, slow, stale, skipped, release-only, or split across child suites |
-| `flowguard-structure-mesh` | A script, package, command, public API, or refactor split needs compatibility governance |
-| `flowguard-existing-model-preflight` | Existing modeled-system work should first identify the current FlowGuard model owner, reuse/extend decision, duplicate-boundary risk, and downstream route |
-| `flowguard-architecture-reduction` | Existing model and code structure look over-complex, duplicated, or shrinkable without changing observable behavior |
-| `flowguard-code-structure-recommendation` | A function-flow model should derive module and ownership boundaries before code |
-| `flowguard-ui-flow-structure` | UI controls, visible buttons, states, events, launch-to-terminal journeys, implementation click-through evidence, overlays, recovery actions, and information ownership need modeling before visual design |
-| `flowguard-development-process-flow` | Non-trivial staged development or modification needs validation, or done/archive/publish/release confidence depends on validation freshness |
-| `flowguard-model-miss-review` | Real runtime evidence failed after a FlowGuard model passed |
+| `model-first-function-flow` | ordinary behavior/state modeling, unclear route selection, or cross-route coordination |
+| `flowguard-plan-detailing-compiler` | a rough idea or short plan needs explicit scope, state, side effects, evidence, receipts, rework, and claim boundaries |
+| `flowguard-existing-model-preflight` | existing modeled-system work should first identify model ownership, reuse/extend decisions, and duplicate-boundary risk |
+| `flowguard-development-process-flow` | staged development, archive, publish, release, or done confidence depends on current validation evidence |
+| `flowguard-ui-flow-structure` | UI controls, visible buttons, launch-to-terminal journeys, overlays, recovery paths, and information ownership need modeling |
+| `flowguard-code-structure-recommendation` | a function-flow model should derive module, facade, state-owner, side-effect, config, and validation boundaries |
+| `flowguard-structure-mesh` | a script, package, command, public API, or refactor split needs facade compatibility and parity evidence |
+| `flowguard-test-mesh` | validation is layered, slow, stale, skipped, release-only, or split across child suites |
+| `flowguard-model-test-alignment` | model obligations, code contracts, code-boundary observations, and test evidence need direct comparison |
+| `flowguard-model-mesh` | parent/child model evidence, sibling impact, or oversized model surfaces need mesh governance |
+| `flowguard-model-topology-hazard-review` | a locally green model may still imply repeatable future-use hazards before broad confidence |
+| `flowguard-architecture-reduction` | model-equivalent handlers, adapters, modules, branches, or validation layers may be safely contracted |
+| `flowguard-model-miss-review` | runtime, tests, replay, logs, or manual validation failed after a FlowGuard model passed |
 
 ## Relationship To The Guard Family
 
-FlowGuard is the state and workflow guard.
-
 | Project | Focus |
 | --- | --- |
-| FlowGuard | Stateful behavior, process flow, evidence freshness, parent/child model confidence |
-| LogicGuard | Claims, evidence, warrants, assumptions, rebuttals, scope, and overclaiming in written reasoning |
-| PhysicsGuard | Low-fidelity residual checks and model-building blueprints for physical simulation debugging |
-| FlowPilot | Long-running project orchestration and route control for AI-agent software work |
+| FlowGuard | stateful behavior, process flow, evidence freshness, parent/child model confidence |
+| LogicGuard | claims, evidence, warrants, assumptions, rebuttals, scope, and overclaiming in written reasoning |
+| PhysicsGuard | low-fidelity residual checks and model-building blueprints for physical simulation debugging |
+| FlowPilot | long-running project orchestration and route control for AI-agent software work |
 
 ## Documentation Map
 
 | File | Purpose |
 | --- | --- |
-| `docs/modeling_protocol.md` | Core model-first protocol |
-| `docs/model_topology_hazard_review.md` | Topology-grounded future-use hazard review |
-| `docs/flowguard_closure_contract.md` | Mandatory closure contract for complete FlowGuard use |
-| `docs/model_test_alignment.md` | Model obligation and test evidence alignment |
-| `docs/obligation_family_parity.md` | Sibling-obligation family coverage and provenance gate |
-| `docs/risk_evidence_ledger.md` | Final risk-to-model-to-code-to-evidence confidence boundary |
-| `docs/plan_detailing_compiler.md` | Rough-plan to structured PlanDetail rows and downstream route projections |
-| `docs/plan_intake_claims.md` | Plan input, adapter, miss-backpropagation, mutation, and typed claim-chain boundary |
-| `docs/framework_upgrade_checks.md` | FlowGuard framework upgrade evidence and existing-model freshness gates |
-| `docs/model_mesh_protocol.md` | Parent/child model mesh governance |
-| `docs/hierarchical_model_mesh.md` | Hierarchical model examples and child evidence |
-| `docs/test_evidence_mesh.md` | Layered validation and evidence freshness |
-| `docs/structure_mesh.md` | Refactor and module split governance |
-| `docs/existing_model_preflight.md` | Existing model lookup, reuse-first route grounding, and duplicate-boundary preflight |
-| `docs/model_similarity_consolidation.md` | Model-to-model relation review and consolidation route handoffs |
-| `docs/code_structure_recommendation.md` | Model-derived code structure recommendations |
+| `docs/concept.md` | short conceptual introduction |
+| `docs/modeling_protocol.md` | core model-first protocol |
+| `docs/api_surface.md` | public Python API overview |
+| `docs/invariant_examples.md` | examples of useful invariants |
+| `docs/development_process_flow.md` | staged development, validation freshness, archive, publish, and release gates |
 | `docs/ui_flow_structure.md` | UI interaction and structure modeling |
-| `docs/development_process_flow.md` | Staged development lifecycle, validation freshness, archive, publish, and release gates |
-| `docs/runtime_gateway_adoption.md` | Runtime gateway adoption levels, critical-state writer inventory, and direct-write bypass blockers |
-| `docs/api_surface.md` | Public Python API overview |
+| `docs/code_structure_recommendation.md` | model-derived code structure recommendations |
+| `docs/structure_mesh.md` | refactor and module split governance |
+| `docs/test_evidence_mesh.md` | layered validation and evidence freshness |
+| `docs/model_test_alignment.md` | model obligation and test evidence alignment |
+| `docs/model_mesh_protocol.md` | parent/child model mesh governance |
+| `docs/model_topology_hazard_review.md` | topology-grounded future-use hazard review |
+| `docs/model_similarity_consolidation.md` | model-to-model relation review and consolidation handoffs |
+| `docs/flowguard_closure_contract.md` | closure contract for complete FlowGuard use |
+| `docs/risk_evidence_ledger.md` | risk-to-model-to-code-to-evidence confidence boundary |
+| `docs/runtime_gateway_adoption.md` | runtime gateway adoption levels and critical-state writer inventory |
 
 ## Repository Layout
 
@@ -385,153 +315,111 @@ MIT. See `LICENSE`.
 
 ## 中文说明
 
-FlowGuard 是一个在危险转移变成代码、UI、测试或发布结论之前，先用有限状态模型设计并验证流程的预检系统。
+FlowGuard 是给 AI 编程 agent 用的 model-first guardrail：在小改动逐渐变成大项目维护债之前，先把危险的状态转移建模并检查。
 
-## FlowGuard 是什么
+## 为什么需要 FlowGuard
 
-FlowGuard 是一个通用 AI agent 技能层，也是一个轻量 Python 工具包。它把有风险的有状态行为先写成可执行的有限状态模型，再从模型推导开发流程、UI 交互结构、代码 ownership、测试层级或发布 gate。任何 AI agent 都可以使用这套方法；Codex skill 只是其中一种现成接入方式，不是 FlowGuard 的边界。它是 Guard family 里的 workflow/state guard：当顺序、状态、ownership、副作用或证据新鲜度会改变计划是否安全时，就应该先用它。
+AI 编程 agent 在小代码、小软件、小改动里很好用。真正危险的地方通常出现在项目变大以后：agent 还能继续写代码，但实际 workflow 的状态、证据、ownership 或发布结论已经错了。
 
-它把一个函数块表示成：
+常见症状包括：
+
+- retry 路径跑了两次，产生重复 side effect；
+- 分支越来越多，没人知道哪条路径还拥有真实 state；
+- 测试通过了，但已经不再证明当前声明；
+- 子模型刚修好，父级计划却还在信任旧证据；
+- UI 有可见按钮，但从启动到终态的 journey 没有合法恢复路径；
+- release、README 或 done 声明在后续代码、文档、测试或 peer 写入后仍然留着。
+
+FlowGuard 就是为这个问题设计的。它在 agent 动手之前，把危险转移写成明确的小型状态模型，运行可执行检查，并把隐藏失败路径变成能改变下一步工程动作的 counterexample。
+
+它不承诺软件没有 bug。它防的是一种更具体的维护灾难：AI agent 带着无效状态继续推进，把更多代码、测试或公开声明堆在错误计划上。
+
+## FlowGuard 做什么
+
+FlowGuard 是轻量 Python 工具包，也是通用 AI-agent skill layer。任何 agent 都可以用这套方法；Codex-compatible skills 只是现成接入方式，不是项目边界。
+
+实际循环是：
+
+```text
+危险 AI 行动 -> 显式状态模型 -> 可执行检查
+-> counterexample trace -> 修改计划、代码、测试、UI 或声明
+```
+
+它不是让 agent “小心一点”，而是要求 agent 说清楚 state、input、output、side effect、ownership boundary 和 evidence gate，因为这些才决定下一步是否安全。
+
+## 核心模型
+
+每个 function block 表示为：
 
 ```text
 Input x State -> Set(Output x State)
 ```
 
-然后检查可达路径、invariant 失败、循环、卡住状态、旧证据、缺失 handoff、实现不一致、父子模型证据漂移，以及应该改变下一步工程动作的 counterexample。
+这个小结构足以暴露很多大项目问题：
 
-FlowGuard 不是 LLM wrapper，不调用模型 API，不做概率估计，也不是测试替代品。它是结构化预检层：先把危险的状态转移说清楚，跑小模型，看 counterexample，再决定计划或代码怎么改。
+- 重复 input 是否应该幂等；
+- 死分支是否没有合法 output；
+- 多个可能 output 是否有明确 ownership；
+- 后续 artifact 变化后证据是否过期；
+- 父子模型证据是否漂移；
+- final claim 是否在跳过验证或 scoped 验证后仍被接受。
+
+FlowGuard 在声明的有限模型里探索 trace，并检查 invariant、scenario、progress、conformance、evidence freshness 和 closure boundary。失败时，最重要的输出是 counterexample path：一条具体状态序列，说明当前计划为什么不能原样继续。
 
 ## 从小开始
 
-默认 AI 路径应该很薄：
+大多数 FlowGuard 使用可以很薄：
 
 ```text
-风险边界 -> Input x State -> Set(Output x State)
--> 一个 invariant 或 scenario -> 运行检查
--> 查看 counterexample -> 只有出现明确风险时才升级到高级路线
+选择一个风险边界
+-> 命名 Input、State、Output、side effect 和 owner
+-> 写一个 invariant 或 scenario
+-> 运行检查
+-> 看 counterexample
+-> 修模型、计划、代码、测试、UI 或声明
 ```
 
-只有任务真的触发对应风险时，才进入高级路线：UI 拓扑、代码结构、测试层级、
-model-test alignment、model mesh、分阶段发布证据、architecture reduction、
-existing-model ownership 或失败后的 model repair。普通用户不需要先理解
-benchmark corpus、内部维护模型或 release-hardening ledger，才能从这条小路径
-获得价值。
-
-这条小路径只是入口，不是完成捷径。完整使用 FlowGuard，意味着当前声明所需的
-闭环契约已经成立：plan/risk intake、已有模型 ownership 或新模型边界、修复
-model miss 时的同类坏 case、代码或测试在范围内时的 model-test/code alignment、
-父子证据在范围内时的 mesh 或 boundary proof、相关义务共用同一个信心声明时的
-obligation-family parity、真实 miss 可能在相似 surface 复发时的 analogous defect scan、
-局部 green 可能过度声明未来使用时的 model-topology hazard review、
-后续证据显示模型太粗时的 model maturation、证据新鲜度、Risk Evidence Ledger，
-以及 typed claim-chain review。任何必要 gate 缺失、过期、
-跳过、还在进度中、来源不对或只是 scoped，都只能报告
-为部分 FlowGuard 证据，不能报告为完整 FlowGuard 完成。
+只有风险边界真的需要时，才升级到高级路线：UI 拓扑、代码结构、测试层级、model/test alignment、parent/child model mesh、分阶段发布证据、architecture reduction、existing-model ownership 或 model-miss repair。
 
 ## 它能设计并验证什么
 
-FlowGuard 的价值在动手之前就开始。你先命名 state、input、output、ownership boundary、side effect 和 gate；模型同时给出设计形状，以及判断这个形状当前是否安全的检查。
+| 工作类型 | FlowGuard 帮你设计什么 | 它检查什么 |
+| --- | --- | --- |
+| 开发流程 | staged route、合法 next action、validation gate、stale-evidence reset、peer-write invalidation、done/release readiness | skipped gate、旧验证、progress-only evidence、无效完成声明 |
+| UI flow | 持久区域、上下文 panel、可见控件、overlay、恢复路径、display ownership、重复控件规则 | launch-to-terminal journey、不可用控件、缺失恢复、重复动作、warning/error escalation |
+| 代码结构 | module split、facade boundary、state owner、side-effect owner、config owner、validation owner | ownership leak、dependency cycle、facade drift、config drift、缺失 parity evidence |
+| 架构缩减 | observable contract、重复实现 candidate、安全 target action | handler、adapter、branch、module 或 validation layer 能否在不改变可观察行为的前提下收缩 |
+| 测试策略 | routine/release test layer、父子 suite、timeout 边界、旧证据和隐藏证据规则 | skipped test、release-only evidence、过宽/过慢直接检查、旧 pass、来源不对的 evidence |
+| Model mesh 和 bug 修复 | 父子边界、reattachment gate、sibling-impact review、same-class bad case | child evidence freshness、parent consumption、analogous defect risk、same-class test evidence |
+| 发布和公开声明 | evidence ledger、claim-chain boundary、publish readiness | 公开声明是否被当前 model、code、test、mesh、freshness 和 risk evidence 支撑 |
 
-| 工作类型 | 模型先行的设计输出 | 什么让它可信 | 边界 |
-| --- | --- | --- | --- |
-| 开发流程 | staged route、合法 next action、验证 gate、stale-evidence reset、peer-write invalidation、release/archive readiness、done criteria | DevelopmentProcessFlow 在流程被当作可用前检查 scenario failure、skipped gate、freshness gap 和无效完成声明 | 后续编辑、peer write 或 route mutation 之后，局部 green 不等于整体 green |
-| UI 界面 | 持久区域、上下文 panel、本地动作、overlay、恢复路径、按钮 availability、display ownership、重复控件规则、文本层级 | UI Flow Structure 检查 launch-to-terminal journey、可见控件 availability、恢复路径、重复功能、warning/error escalation 和真实点击证据 | 它建模 interaction structure；视觉打磨、无障碍细节和浏览器/设备行为仍要普通 UI review |
-| 代码结构 | module split、facade boundary、state owner、side-effect owner、config owner、validation owner、公开入口兼容计划和相似模型 shared-kernel 提示 | Code Structure Recommendation 和 StructureMesh 检查 ownership leak、dependency cycle、facade drift、config drift、缺失 parity evidence 和 false-friend 模型关系 | 它建议更安全的拆分，不替代实现测试和 code review |
-| 架构缩减 | observable contract、重复实现 candidate、proof status、required next route 和安全 target action | Architecture Reduction 在进入 StructureMesh 或实现前，检查模型等价的 branch、handler、adapter、module 或验证层能否缩小代码 | 它提出保持行为不变的收缩方案；公开入口和风险 candidate 仍需要兼容性与测试证据 |
-| 测试策略 | routine/release test layers、父子测试套件、timeout 边界、旧/隐藏证据规则、自动拆分触发、family parity、revalidation trigger | TestMesh 和 model-test alignment 对照模型义务、真实测试、hidden skip、stale pass、timeout 边界、过宽/过慢/只在 release 跑的直接证据、来源不对的 family evidence 和 release-only check | 测试只支持它实际覆盖到的模型义务 |
-| Model mesh 或 bug 修复 | 父子拆分、自动大模型拆分触发、evidence contract、reattachment gate、sibling impact review、leaf boundary matrix、model-miss 类型、同类坏 case、analogous defect scan、同类测试证据、obligation-family parity、复发缺陷族门槛 | ModelMesh 要求父级消费新鲜 child evidence；自动拆分诊断会把过大或未完成的直接模型证据路由到 ModelMesh；layered boundary proof 要求最低叶子模型证明有限 `Input x State -> Set(Output x State)` 真实代码边界；model-miss review 补同类坏 case 并扫描同形 sibling 风险，Model-Test Alignment 要求 observed regression、同类测试证据，以及相关义务的 family parity，复发/高风险同类 miss 还要 defect-family gate 后才能关闭 | child evidence 不会自动提高父级信心，必须被父级 contract 消费；粗叶子模型或修过的 miss 在真实代码、analogous scan 处置、同类测试证据、必要 family evidence 和缺陷族门槛不完整前只能 scoped |
+这才是 FlowGuard 的核心产品：把模糊的 workflow、UI journey、refactor、test strategy 或 release process 变成小型状态机，并给出明确失败路径。counterexample 不是单纯 bug report，而是设计反馈：它告诉你哪个 state、gate、owner 或 evidence rule 必须先改，工作才能继续。
 
-这才是 FlowGuard 的核心产品：把模糊的 workflow、UI journey、refactor、test strategy 或 release process 变成小型状态机，并给出明确失败路径。counterexample 是设计反馈：它告诉你哪个 state、gate、owner 或 evidence rule 必须先改，工作才能继续。
+## FlowGuard 不是什么
 
-## 为什么值得一试
+FlowGuard 不是 LLM wrapper，不是 prompt trick，不是概率引擎，不是 Monte Carlo simulator，也不是普通测试的替代品。
 
-- 它把模糊的 workflow、UI、代码结构、测试或发布决策先变成小型可执行模型，再让 agent 写代码、测试或公开声明。
-- 它能从模型推导开发路线、界面拓扑、模块 ownership、验证层级和 release gate，然后用 trace 检查这些决策。
-- 它会给出具体失败路径：跳过 review、旧 child evidence、错误按钮状态、facade drift、缺失 revalidation，或者父级过早信任子级。
-- 它刻意保持小：很多有用模型只需要少量 state、input、invariant 和 transition function。
-- 它会维护父子模型之间的证据新鲜度，避免 child 修过或文件后来又改过之后，父级还拿旧 green status 当证据。
-- 它只依赖 Python 标准库，可以嵌入普通仓库工作流，而不是变成重平台。
+它是结构化预检层。测试仍然要验证真实代码，code review 仍然重要，UI polish 和浏览器/设备行为仍然需要真实 UI review。FlowGuard 更早一步：在转移变成代码、测试、UI 或公开信心声明之前，先检查这个转移是否自洽。
 
-## 逻辑契约
+## 什么时候用
 
-FlowGuard 适合在这些前置条件成立时使用：
+当顺序、状态、ownership、side effect、UI availability、role handoff 或 evidence freshness 会改变计划是否安全时，用 FlowGuard。
 
-| 层级 | 要求 |
-| --- | --- |
-| 风险边界 | 存在 workflow、实现路径、UI 路径、测试层级、model mesh 或发布决策，且顺序和状态会影响结果 |
-| 状态词汇 | 相关 state、input、output、ownership boundary 和 side effect 能被抽象命名 |
-| 预期行为 | 至少能写出一个 invariant、scenario expectation、conformance trace 或 freshness rule |
-| 可行动性 | 如果模型给出反例，下一步行动会因此改变 |
+适合：
 
-它要交付的后置条件是：
+- 有多个阶段或 handoff 的 AI-agent coding work；
+- retry、deduplication、cache refresh、ingestion 或重复 job processing；
+- 公开入口必须兼容的 refactor；
+- 可见控件不等于合法恢复路径的 UI flow；
+- 旧 evidence 可能被误当作当前 proof 的测试或发布检查；
+- 一个 child green 不应该自动让 parent green 的父子模型。
 
-| 输出 | 含义 |
-| --- | --- |
-| 已审查模型 | 对风险边界的小型可执行表示 |
-| 反例路径 | 一条具体路径，说明计划如何失败 |
-| 通过证据 | 一个有边界的结论：当前声明的场景、invariant 和证据规则通过 |
-| 范围化信心 | 明确哪些是 green，哪些仍未知，以及后续编辑后需要重新验证什么 |
-| 完整 FlowGuard 使用 | 当前声明的闭环契约已经消费了新鲜的模型、测试、代码边界、obligation-family parity、必要时的 analogous scan、mesh、证据新鲜度、ledger 和 claim-chain 支撑 |
+不适合：
 
-核心规则是：局部变绿不等于整体变绿，除非父级 contract 已经消费了新鲜的子级证据。
-
-## 为什么需要它
-
-AI-agent 项目经常不是坏在局部代码，而是坏在外围 workflow 没有建模。retry 产生重复 side effect，cache 状态漂移，refactor 保留了入口但破坏了 ownership，UI journey 有可见控件但没有有效恢复路径，子模型修好了但父模型还拿着旧证据，README 或 release note 在后续代码、测试、文档或 peer 写入之后仍然说自己已经 done。
-
-FlowGuard 给这些薄弱点一个小而可执行的结构。
-
-## 它检查什么
-
-| 路线 | 作用 |
-| --- | --- |
-| Scenario 和 invariant review | 检查预期路径、硬规则、重复输入、死分支和坏终态 |
-| State/input closure gate | 自动把其他、畸形、缺失、旧 schema 和外部未知 case 保持可见；安全处理可以通过，未声明策略会降低信心，不安全 side effect 会阻塞 |
-| Model Topology Hazard Review | 从模型拓扑和使用意图出发，自动联想有锚点的未来使用风险，例如重复 side effect、宽泛终态、旧/新路径、外部边界、共享 writer 或父子压缩 |
-| Adversarial scenario synthesis | 从 Explorer 反例、死分支、异常分支、重复状态访问和风险语义里反推出候选挑战路线；固定输入形状只作为有边界的兜底候选证据 |
-| Conformance replay | 当代码已存在时，把抽象路径和真实实现行为对齐 |
-| Runtime Gateway Adoption | 当项目声称 FlowGuard 保护运行时状态写入时，检查关键状态写入口清单是否完整，且每个关键写入是否都经过带 step、boundary、replay 和 proof 证据的声明网关 |
-| Loop 和 progress review | 找不前进的循环、卡住状态和弱完成证据 |
-| Model-test alignment | 对照模型义务、外部代码 contract、代码边界观测、普通测试证据、model-miss 的 observed/same-class 关闭证据，以及可选的 obligation-family parity matrix |
-| Obligation Family Parity | 要求同一类相关义务都有同样必要机制的证据，并且证据来源被允许，才能把 family-level 声明报成 full confidence |
-| Analogous Defect Scan | 真实 model miss 发生后，主动问同样的失败形状还可能在哪些地方复发；must-scan candidate 必须被覆盖、修复、转入单独变更或带理由排除，才能完整关闭 |
-| Plan Detailing Compiler | 把粗想法、短计划或 AI 生成的大纲逼成明确的 source、scope、state、side effect、step、receipt、validation、rework、人工问题和证据声明边界 |
-| Plan Intake And Claim Chain | 在声明广泛信心前，检查计划输入、证据适配器、漏报修复、已知坏变异和 typed claim dependency 是否已经声明 |
-| Model Impact Freshness | FlowGuard 升级后先分类现有 `.flowguard` 模型：受影响的重跑，未受影响的只有带明确复用证明才沿用旧证据 |
-| Model Maturation Loop | 把 model miss、model-test、mesh、代码边界和证据新鲜度信号翻译成明确的模型升级动作，再允许广泛声明 |
-| Risk Evidence Ledger | 在声明完整信心前，把用户风险、topology hazard review、模型义务、公开代码 contract、obligation-family gate、analogous scan、复发缺陷族门槛、模型/测试拆分门槛和当前证据连起来检查 |
-| FlowGuard closure contract | 在报告完整 FlowGuard 使用或完整信心前，要求相关 intake、模型、同类 bug、family parity、必要时的 analogous scan、alignment、mesh/boundary、model maturation、新鲜度、ledger 和 claim-chain gate 成立 |
-| ModelMesh | 把过大或未完成的直接模型证据拆成父子证据，向上同步 child boundary 变化，检查 sibling，并用 closure model 支撑父级全流程信心 |
-| Layered Boundary Proof | 把 parent coverage、child disjointness、child reattachment 和 leaf boundary-matrix evidence 接成一个父级信心门，防止“子模型绿了但真实代码边界没证明” |
-| Child model reattachment | `v0.17.0` 要求父级 mesh 消费修复后的 child evidence id，并验证 input、output、state、side-effect 和导出 contract handoff |
-| Mesh closure model | 把父子模型之间的 handoff token 建成小模型，确保 child output、join、exit 和 out-of-scope 分支都被消费后才允许 `mesh_green_can_continue` |
-| Existing Model Preflight | 在已有模型系统里讨论、提 proposal、修 bug、加功能、改 refactor、prompt、skill、UI、test 或 process 前，先查清当前 FlowGuard 模型 ownership |
-| Model Similarity Consolidation | 用 basic profile helper 或 full schema 对照结构化模型签名，分类 same-workflow、family-variant、shared-kernel、duplicate-boundary、adapter-only、evidence-duplicate、false-friend 和 unrelated 关系，生成维护组、改 A 必查 B/C、共享/变体测试义务和代码维护义务，并通过一个 `SimilarityHandoff` 交给下游 FlowGuard 路线 |
-| TestMesh | 检查父子验证层、过宽或过慢的直接验证证据、旧证据、隐藏 skip、timeout，以及 routine/release gate |
-| StructureMesh | 检查大 refactor 拆分、facade 兼容、依赖环、配置漂移和 parity 证据 |
-| Code Structure Recommendation | 在写代码前，从模型推导 module、facade、state owner、side effect、config、验证边界和相似模型 shared-kernel 提示 |
-| Architecture Reduction | 在简化代码前，审查 model-to-code 收缩 candidate、observable contract、proof status、required next route 和保持行为不变的 target action |
-| UI Flow Structure | 在视觉设计前，建模 UI 状态、可见按钮、控件、事件、从启动到终态的 app journey、真实界面点击验收证据、失败、恢复、overlay、重复控件和信息显示 ownership |
-| UI Text Hierarchy Blueprint | 按 state、region、role、semantic key、owner、priority、重复理由和 warning/error escalation 审查 UI 文案层级 |
-| DevelopmentProcessFlow | 检查分阶段开发流程、生命周期顺序、artifact 覆盖、验证新鲜度、最小重验证、archive readiness 和 release confidence |
-| Model-Miss Review | 当运行时失败发生在 FlowGuard 通过之后，分类模型漏了什么，补一个同类坏 case，并扫描同形风险半径；然后通过 Model-Test Alignment 要求同类测试证据；复发/高风险同类 miss 还要升级到 defect-family gate 后才允许完整关闭 |
-
-对于非平凡的 FlowGuard 工作，skill guidance 现在默认在工作过程中给用户
-展示 Mermaid 模型快照，只要路线或模型形状已经稳定到足以解释。图可以展示
-主要状态、分支、gate、证据、skipped/not-run 缺口和结论边界；当模型边界发生
-实质变化时应该更新。很小的任务或用户明确不想看图时可以保持简洁。图只是
-解释层；真正的验证仍然来自可执行检查。
-
-## 典型流程
-
-1. 选最小的风险边界，通常是状态、顺序或证据新鲜度会影响结果的地方。
-2. 命名 input、state、output、side effect 和 ownership handoff。
-3. 把转移写成 `Input x State -> Set(Output x State)`。
-4. 加 invariant、scenario expectation 或父子 contract。
-5. 跑 review，看 counterexample。
-6. 修改模型、计划、测试或实现。
-7. 如果要声明 done/release/publish/production confidence，先消费闭环契约。
-8. 记录检查过什么、哪些不在范围内，以及证据什么时候会变旧。
+- 一行 typo；
+- 纯格式修改；
+- 没有 state、side effect、顺序或 evidence boundary 的任务；
+- 需要统计事实而不是结构化 workflow 检查的声明。
 
 ## 快速开始
 
@@ -543,7 +431,7 @@ python -m flowguard schema-version
 python -m flowguard self-review
 ```
 
-把 FlowGuard 接入另一个项目，让后续 AI 能看到仓库地址、版本记录和项目规则：
+把 FlowGuard 接入另一个项目，让后续 agent 能看到仓库地址、版本记录和项目规则：
 
 ```powershell
 python -m flowguard project-adopt --root <target-project>
@@ -554,8 +442,8 @@ python -m flowguard project-upgrade --root <target-project>
 常用模板入口：
 
 ```powershell
-python -m flowguard project-adoption-template
 python -m flowguard project-template
+python -m flowguard project-adoption-template
 python -m flowguard plan-detailing-template
 python -m flowguard model-test-alignment-template
 python -m flowguard existing-model-preflight-template
@@ -568,6 +456,7 @@ python -m flowguard development-process-flow-template
 python -m flowguard workflow-step-contracts-template
 python -m flowguard test-mesh-template
 python -m flowguard structure-mesh-template
+python -m flowguard topology-hazard-template
 ```
 
 运行示例：
@@ -581,58 +470,53 @@ python examples/job_matching/run_checks.py
 
 ## Skill 架构
 
-FlowGuard 有一个 kernel 和多个同级 satellite skill。明确属于分阶段开发、UI、结构、测试、mesh、alignment、topology-hazard 或 model-miss 的工作，应直接进入对应 satellite；`model-first-function-flow` 保留为普通行为/状态建模、路线不清楚、跨路线协调或先做核心模型时的 kernel：
+FlowGuard 有一个 kernel 和多个同级 satellite skill。选择真正拥有当前风险的最小路线：
 
 | Skill route | 适用场景 |
 | --- | --- |
-| `model-first-function-flow` | 普通行为/状态建模、FlowGuard 路线不清楚、跨路线协调，或在更窄路线明确前先做核心模型 |
-| `flowguard-plan-detailing-compiler` | 粗想法、短计划或 AI 大纲需要先补齐 scope、state、evidence、receipt、rework 和 claim boundary |
-| `flowguard-model-topology-hazard-review` | 模型本地变绿但拓扑可能暗示未来使用风险，且需要在广泛完成、发布或完整信心前处理 |
-| `flowguard-model-test-alignment` | 需要对照模型义务、代码契约、代码边界观测和测试证据 |
-| `flowguard-model-mesh` | 项目有多个本地模型、子证据或过大的模型表面 |
-| `flowguard-test-mesh` | 测试证据分层、很慢、过期、被 skip、只在 release 跑，或分布在子套件 |
-| `flowguard-structure-mesh` | 脚本、包、命令、公开 API 或 refactor 拆分需要兼容性治理 |
-| `flowguard-existing-model-preflight` | 已有模型系统里的改动，要先找到当前 FlowGuard 模型 owner、复用/扩展判断、重复 boundary 风险和下游路线 |
-| `flowguard-architecture-reduction` | 现有模型和代码结构看起来过复杂、重复，或可在不改变可观察行为的前提下缩小 |
-| `flowguard-code-structure-recommendation` | 写代码前，需要让 function-flow 模型推导 module 和 ownership boundary |
-| `flowguard-ui-flow-structure` | UI control、可见按钮、state、event、启动到终态 journey、真实界面点击验收证据、overlay、恢复动作和信息 ownership 需要先建模 |
-| `flowguard-development-process-flow` | 非平凡的分阶段开发或修改需要验证，或 done、archive、publish、release 信心取决于验证证据是否新鲜 |
-| `flowguard-model-miss-review` | FlowGuard 模型通过后，真实运行证据仍然失败 |
+| `model-first-function-flow` | 普通行为/状态建模、路线不清楚或跨路线协调 |
+| `flowguard-plan-detailing-compiler` | 粗想法或短计划需要明确 scope、state、side effect、evidence、receipt、rework 和 claim boundary |
+| `flowguard-existing-model-preflight` | 已有模型系统里的工作要先找到 model owner、复用/扩展判断和重复 boundary 风险 |
+| `flowguard-development-process-flow` | staged development、archive、publish、release 或 done confidence 取决于当前验证证据 |
+| `flowguard-ui-flow-structure` | UI control、可见按钮、launch-to-terminal journey、overlay、恢复路径和信息 ownership 需要建模 |
+| `flowguard-code-structure-recommendation` | function-flow 模型要推导 module、facade、state-owner、side-effect、config 和 validation boundary |
+| `flowguard-structure-mesh` | 脚本、包、命令、公开 API 或 refactor 拆分需要 facade compatibility 和 parity evidence |
+| `flowguard-test-mesh` | 验证分层、很慢、过期、被 skip、只在 release 跑，或分布在 child suite |
+| `flowguard-model-test-alignment` | 需要直接对照 model obligation、code contract、code-boundary observation 和 test evidence |
+| `flowguard-model-mesh` | parent/child model evidence、sibling impact 或过大 model surface 需要 mesh governance |
+| `flowguard-model-topology-hazard-review` | 本地 green 模型在广泛信心前仍可能暗示可复发的未来使用风险 |
+| `flowguard-architecture-reduction` | 模型等价的 handler、adapter、module、branch 或 validation layer 可能可以安全收缩 |
+| `flowguard-model-miss-review` | runtime、test、replay、log 或人工验证在 FlowGuard 模型通过后仍然失败 |
 
 ## Guard Family 关系
 
-FlowGuard 是状态和工作流 guard。
-
 | 项目 | 关注点 |
 | --- | --- |
-| FlowGuard | 状态行为、过程流、证据新鲜度、父子模型信心 |
-| LogicGuard | 写作推理中的 claim、evidence、warrant、assumption、rebuttal、scope 和 overclaiming |
-| PhysicsGuard | 物理仿真调试中的低保真 residual 检查和候选模型构建蓝图 |
+| FlowGuard | stateful behavior、process flow、evidence freshness、parent/child model confidence |
+| LogicGuard | 写作推理里的 claim、evidence、warrant、assumption、rebuttal、scope 和 overclaiming |
+| PhysicsGuard | 物理仿真调试中的低保真 residual check 和模型构建蓝图 |
 | FlowPilot | 长周期 AI-agent 软件工作的项目编排和路线控制 |
 
 ## 文档入口
 
 | 文件 | 作用 |
 | --- | --- |
+| `docs/concept.md` | 简短概念介绍 |
 | `docs/modeling_protocol.md` | 核心 model-first 协议 |
-| `docs/model_topology_hazard_review.md` | 从模型拓扑推断未来使用风险的审查路线 |
-| `docs/flowguard_closure_contract.md` | 完整使用 FlowGuard 前必须满足的闭环契约 |
-| `docs/model_test_alignment.md` | 模型义务和测试证据对齐 |
-| `docs/obligation_family_parity.md` | 相关义务 family 覆盖和证据来源 gate |
-| `docs/risk_evidence_ledger.md` | 最终风险、模型、代码和证据之间的信心边界 |
-| `docs/plan_detailing_compiler.md` | 把粗计划变成结构化 PlanDetail 行，并投影到下游路线 |
-| `docs/plan_intake_claims.md` | 计划输入、适配器、漏报回传、变异和声明链边界 |
-| `docs/framework_upgrade_checks.md` | FlowGuard 框架升级证据和旧模型 freshness gate |
-| `docs/model_mesh_protocol.md` | 父子模型 mesh 治理 |
-| `docs/hierarchical_model_mesh.md` | 层级模型示例和子证据 |
-| `docs/test_evidence_mesh.md` | 分层验证和证据新鲜度 |
-| `docs/structure_mesh.md` | refactor 和模块拆分治理 |
-| `docs/existing_model_preflight.md` | 已有模型查找、复用优先路线和重复 boundary 预检 |
-| `docs/code_structure_recommendation.md` | 模型推导代码结构建议 |
-| `docs/ui_flow_structure.md` | UI interaction 和结构建模 |
-| `docs/development_process_flow.md` | 分阶段开发生命周期、验证新鲜度、archive、publish 和 release gate |
-| `docs/runtime_gateway_adoption.md` | 运行时网关采用等级、关键状态写入口清单和直接写入绕过 blocker |
 | `docs/api_surface.md` | 公开 Python API 概览 |
+| `docs/invariant_examples.md` | 常用 invariant 示例 |
+| `docs/development_process_flow.md` | staged development、validation freshness、archive、publish 和 release gate |
+| `docs/ui_flow_structure.md` | UI interaction 和结构建模 |
+| `docs/code_structure_recommendation.md` | 模型推导代码结构建议 |
+| `docs/structure_mesh.md` | refactor 和 module split 治理 |
+| `docs/test_evidence_mesh.md` | 分层验证和证据新鲜度 |
+| `docs/model_test_alignment.md` | 模型义务和测试证据对齐 |
+| `docs/model_mesh_protocol.md` | parent/child model mesh 治理 |
+| `docs/model_topology_hazard_review.md` | 从模型拓扑推断未来使用风险的审查 |
+| `docs/model_similarity_consolidation.md` | model-to-model 关系审查和 consolidation handoff |
+| `docs/flowguard_closure_contract.md` | 完整 FlowGuard 使用的 closure contract |
+| `docs/risk_evidence_ledger.md` | risk-to-model-to-code-to-evidence 信心边界 |
+| `docs/runtime_gateway_adoption.md` | runtime gateway adoption level 和 critical-state writer inventory |
 
 ## 仓库结构
 
@@ -646,7 +530,7 @@ assets/        README hero image 和生成说明
 
 ## 公开边界
 
-这个仓库适合作为公开 starter 和 reference implementation。它包含库代码、示例、协议文档、公开模板和通用 AI-agent 技能材料，其中也包括 Codex-compatible skills。
+这个仓库适合作为公开 starter 和 reference implementation。它包含库代码、示例、协议文档、公开模板和通用 AI-agent skill material，其中也包括 Codex-compatible skills。
 
 它不包含私有项目日志、个人 predictive knowledge、credential、客户数据，也不声称模型覆盖了所有真实系统。FlowGuard 通过只表示声明的模型义务通过，不表示整个项目已经正确。
 
