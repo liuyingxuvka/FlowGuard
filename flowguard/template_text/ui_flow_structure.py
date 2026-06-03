@@ -550,14 +550,26 @@ def structure_derivation() -> UIStructureDerivation:
 
 
 def typography_token(token_id: str, level: int, roles: tuple[str, ...]) -> UITypographyToken:
+    visual_scale_by_token = {
+        "page-title": "surface-title",
+        "section-title": "region-heading",
+        "panel-title": "region-heading",
+        "control-label": "standard-text",
+        "status-text": "standard-text",
+        "body-text": "standard-text",
+        "caption-text": "supporting-text",
+    }
     return UITypographyToken(
         token_id,
         hierarchy_level=level,
         text_roles=roles,
-        scale=f"level-{level}",
+        scale=visual_scale_by_token.get(token_id, "standard-text"),
         weight="regular" if level >= 4 else "semibold",
         color_role="default",
-        rationale=f"{token_id} is reserved for {roles}.",
+        rationale=(
+            f"{token_id} is reserved for {roles}; semantic levels can share "
+            "visual treatment when their text jobs are similar."
+        ),
     )
 
 
@@ -967,6 +979,14 @@ code. Use the derived structure and text hierarchy contract as input to Figma,
 frontend implementation, browser checks, and design implementation review; feed
 real click-through results back as implementation validation before claiming
 the running UI is complete.
+
+The text hierarchy contract is semantic. Do not translate every hierarchy
+level into a separate visual font size by default. During visual handoff,
+similar text jobs should usually reuse visual treatments, and visual
+differences should have a clear attention or meaning role. Treat excessive
+one-off text sizes, weights, or color roles as typography noise to review and
+consolidate unless the exception has an explicit hero, editorial, brand,
+warning, or state-critical purpose.
 """
 
 __all__ = [

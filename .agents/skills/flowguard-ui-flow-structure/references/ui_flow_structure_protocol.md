@@ -238,6 +238,20 @@ Text hierarchy recommendations should be explicit:
   constrain;
 - overlay text names the blocked or scoped parent interaction it interrupts.
 
+Visual handoff hygiene should stay soft but explicit:
+
+- semantic hierarchy levels are not a command to create one visual font size per
+  level;
+- labels, helper text, status text, metadata, and panel text with similar jobs
+  should usually reuse visual treatments;
+- when text looks different through size, weight, color role, spacing, or
+  placement, name the job it performs: primary focus, region scan, local
+  control, warning, helper text, quiet metadata, or brand expression;
+- prefer grouping, spacing, weight, color role, or placement before inventing a
+  one-off visual text style;
+- preserve expressive hero, editorial, brand-heavy, warning, or state-critical
+  exceptions when their attention or meaning role is clear.
+
 Known-bad hazards:
 
 - final UI copy is written before the interaction model and structure are
@@ -248,6 +262,10 @@ Known-bad hazards:
 - repeated labels or messages create competing sources of truth without
   rationale;
 - text ownership is ambiguous across parent, child, overlay, and local regions;
+- every semantic text role becomes a separate visual text style without a clear
+  job;
+- nearby text with the same local function uses unrelated sizes, weights, or
+  color roles only to create artificial design variation;
 - downstream copy/design work receives only prose, not state/control/display
   maps for the text slots.
 

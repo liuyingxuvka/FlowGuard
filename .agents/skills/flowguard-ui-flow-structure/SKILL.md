@@ -1,6 +1,6 @@
 ---
 name: flowguard-ui-flow-structure
-description: Use when a FlowGuard model should be built or reviewed for UI-level interaction behavior first, then used to derive UI parent/child topology, screen or region structure, menu levels, stable control placement, navigation state, button/event ownership, information display ownership, duplicate information/control-function review, overlays, recovery actions, model-derived interface hierarchy, and a UI text hierarchy blueprint before visual design, copywriting, or frontend implementation.
+description: Use when a FlowGuard model should be built or reviewed for UI-level interaction behavior first, then used to derive UI parent/child topology, regions, menu levels, stable placement, event/display ownership, duplicate control/info review, overlays, recovery actions, and text hierarchy before visual design or frontend implementation.
 ---
 
 # FlowGuard UI Flow Structure
@@ -42,10 +42,12 @@ Return to `model-first-function-flow` when the task is not UI behavior/state.
 1. Model UI states, events, controls, displays, overlays, and transitions.
 2. Derive persistent menus, contextual regions, local controls, and text slots.
 3. Check duplicate controls/information and overlapping same-level controls.
-4. Project UI transitions into transition coverage cells when claiming
+4. Hand off text hierarchy with calm typography guidance: reuse treatments for
+   similar text jobs and explain visible differences.
+5. Project UI transitions into transition coverage cells when claiming
    transition-test coverage; carry code contract/runtime node ids for each
    handler that owns the transition.
-5. Add journey coverage and implementation validation when claiming runnable UI.
+6. Add journey coverage and implementation validation when claiming runnable UI.
 
 ## Snapshot
 

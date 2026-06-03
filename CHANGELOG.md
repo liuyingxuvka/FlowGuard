@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.40.8 - 2026-06-03
+
+Soft UI typography hierarchy guidance.
+
+- Clarified that UI text hierarchy blueprints are semantic handoff artifacts,
+  not instructions to create one visual font size per hierarchy level.
+- Updated FlowGuard UI Flow Structure guidance, templates, docs, and focused
+  tests so typography noise is treated as a design smell with intentional
+  exceptions rather than a hard numeric rule.
+- Synced first-pass design, implementation review, and design iteration skills
+  with calm hierarchy, reusable text treatment, and clear-rationale guidance.
+
 ## v0.40.5 - 2026-06-02
 
 Maintenance obligation memory.

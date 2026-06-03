@@ -234,6 +234,24 @@ class SkillDocsTests(unittest.TestCase):
                 self.assertNotIn("optional external code contracts", text)
                 self.assertNotIn("model-test-only", text)
 
+    def test_ui_flow_structure_teaches_soft_typography_handoff(self):
+        skill = self.read(SKILLS_ROOT / "flowguard-ui-flow-structure" / "SKILL.md")
+        openai_yaml = self.read(SKILLS_ROOT / "flowguard-ui-flow-structure" / "agents" / "openai.yaml")
+        protocol = self.read(
+            SKILLS_ROOT
+            / "flowguard-ui-flow-structure"
+            / "references"
+            / "ui_flow_structure_protocol.md"
+        )
+
+        self.assertIn("calm typography guidance", skill)
+        self.assertIn("calm visual handoff guidance", openai_yaml)
+        self.assertIn("semantic hierarchy levels are not a command", protocol)
+        self.assertIn("similar jobs", protocol)
+        self.assertIn("one-off visual text style", protocol)
+        self.assertNotIn("maximum font-size", protocol.lower())
+        self.assertNotIn("font size limit", protocol.lower())
+
     def test_kernel_satellite_reference_handoffs_are_compact(self):
         for kernel_reference, (skill_name, satellite_reference) in KERNEL_HANDOFFS.items():
             with self.subTest(reference=kernel_reference):

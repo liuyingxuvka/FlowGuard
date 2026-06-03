@@ -306,6 +306,18 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("source_interaction_model_not_reviewed", output)
         self.assertIn("text_role_too_prominent", output)
 
+    def test_ui_flow_structure_template_uses_visual_job_typography_scale(self):
+        files = ui_flow_structure_template_files()
+        combined = "\n".join(file.content for file in files)
+
+        self.assertIn('"surface-title"', combined)
+        self.assertIn('"region-heading"', combined)
+        self.assertIn('"standard-text"', combined)
+        self.assertIn('"supporting-text"', combined)
+        self.assertIn("The text hierarchy contract is semantic", combined)
+        self.assertIn("similar text jobs should usually reuse visual treatments", combined)
+        self.assertNotIn('scale=f"level-{level}"', combined)
+
     def test_structure_mesh_template_executes(self):
         output = self.run_written_template(
             structure_mesh_template_files(),

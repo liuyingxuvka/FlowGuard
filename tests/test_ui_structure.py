@@ -522,14 +522,23 @@ def derivation() -> UIStructureDerivation:
 
 
 def typography_token(token_id: str, hierarchy_level: int, text_roles: tuple[str, ...]) -> UITypographyToken:
+    visual_scale_by_token = {
+        "page-title": "surface-title",
+        "section-title": "region-heading",
+        "panel-title": "region-heading",
+        "control-label": "standard-text",
+        "status-text": "standard-text",
+        "body-text": "standard-text",
+        "caption-text": "supporting-text",
+    }
     return UITypographyToken(
         token_id,
         hierarchy_level=hierarchy_level,
         text_roles=text_roles,
-        scale=f"level-{hierarchy_level}",
+        scale=visual_scale_by_token.get(token_id, "standard-text"),
         weight="regular" if hierarchy_level >= 4 else "semibold",
         color_role="default",
-        rationale=f"{token_id} is the typography token for {text_roles}",
+        rationale=f"{token_id} is the semantic typography token for {text_roles}",
     )
 
 

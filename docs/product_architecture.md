@@ -120,7 +120,11 @@ The package exposes `UITypographyToken`, `UITextElement`,
 `UITextHierarchyBlueprint`, `UITextHierarchyReport`, and
 `review_ui_text_hierarchy(...)` so this handoff can be checked before
 copywriting, visual design, frontend implementation, and accessibility review.
-It is not itself a browser or accessibility validation pass.
+It is not itself a browser or accessibility validation pass, and it does not
+mean every semantic hierarchy level should become a separate visual font size.
+The handoff should encourage reusable visual text treatments, clear reasons for
+visible differences, and soft review of typography noise before implementation
+claims.
 
 ## UI Flow Structure
 

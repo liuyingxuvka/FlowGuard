@@ -278,8 +278,8 @@ inventory.
   validating implemented/runnable UI claims against feature contracts and real
   browser/manual click-through evidence, deriving parent/child UI topology, menu
   levels, stable placement, overlays, control hierarchy, information-display
-  ownership, and then deriving semantic text hierarchy tokens before visual
-  design or frontend implementation.
+  ownership, and then deriving semantic text hierarchy tokens with calm visual
+  handoff guidance before visual design or frontend implementation.
 - optional DevelopmentProcessFlow helpers such as `ProcessArtifact`,
   `ProcessAction`, `ProcessEvidence`, `ValidationRequirement`,
   `DevelopmentProcessPlan`, `review_development_process_flow()`, and

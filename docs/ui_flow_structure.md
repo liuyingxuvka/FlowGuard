@@ -224,6 +224,14 @@ frontend, Figma, copy, or design-review workflow which text slots exist, what
 each slot must communicate, which state or region owns it, and which labels
 must remain stable across states.
 
+The blueprint is also not a command to create one visual font size for every
+semantic hierarchy level. During visual handoff, related text jobs should be
+grouped into reusable treatments where possible. A visual difference in size,
+weight, color role, spacing, or placement should have a clear job, such as
+primary focus, region scanning, local control, warning, helper text, quiet
+metadata, or intentional brand expression. Excessive one-off text treatments
+are a design smell to review and consolidate, not a fixed numeric failure.
+
 The fifth stage is only for implemented/runnable UI claims. It checks:
 
 - every user-visible feature contract has a UI journey, entry point, event, or
@@ -502,18 +510,21 @@ text_blueprint = UITextHierarchyBlueprint(
             "page-title",
             hierarchy_level=1,
             text_roles=("page_title",),
+            scale="surface-title",
             rationale="The surface title is the highest text role.",
         ),
         UITypographyToken(
             "control-label",
             hierarchy_level=4,
             text_roles=("button_label", "menu_label", "control_label"),
+            scale="standard-text",
             rationale="Control labels stay below headings.",
         ),
         UITypographyToken(
             "status-text",
             hierarchy_level=4,
             text_roles=("status_text",),
+            scale="standard-text",
             rationale="Status text belongs to the state or display owner.",
         ),
     ),
