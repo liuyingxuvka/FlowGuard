@@ -289,8 +289,9 @@ thin model-first path starts the work; it does not replace final claim support.
 
 The closure contract consumes evidence from the sibling routes that actually
 own each boundary: plan intake and adapter conformance for source coverage,
-Existing Model Preflight for model ownership, Model-Miss Review for post-green
-bugs, Model-Test Alignment for model/code/test rows, ModelMesh/TestMesh or
+Existing Model Preflight for model ownership, Model-Miss Review for
+non-trivial bug repairs and post-green bugs, Model-Test Alignment for
+model/code/test rows, ModelMesh/TestMesh or
 layered proof for parent/child confidence, the model maturation loop for
 post-evidence model-upgrade signals, DevelopmentProcessFlow for freshness, Risk
 Evidence Ledger for user-risk support, and the typed claim-chain helper for
@@ -335,11 +336,11 @@ derivation must name the source model, target child model ids, covered partition
 items, state owner fields, side-effect owner fields, and rationale for the
 split. A partition map alone is not enough parent confidence.
 
-When a post-runtime miss is repaired in a local child model, route through
-Model-Miss Review and the affected ModelMesh. The child-local pass is not
-complete until the parent reattachment gate consumes the current child evidence
-id and confirms the input, output, state, side-effect, and outgoing-contract
-handoff still matches the parent flow.
+When a non-trivial bug repair or post-runtime miss changes a local child model,
+route through Model-Miss Review and the affected ModelMesh. The child-local
+pass is not complete until the parent reattachment gate consumes the current
+child evidence id and confirms the input, output, state, side-effect, and
+outgoing-contract handoff still matches the parent flow.
 
 When the model hierarchy is meant to prove code boundaries, add layered
 boundary proof after the mesh inventory. The parent model must have every
@@ -766,18 +767,20 @@ Do not require real internal state to equal abstract state directly. Use project
 
 The production behavior must conform to model expectations or the model must be explicitly revised. Do not silently diverge from the model.
 
-## 13.5 Handle Post-Runtime Model Misses
+## 13.5 Handle Bug Repairs And Post-Runtime Model Misses
 
-Treat a runtime, test, replay, log, or manual-validation failure that appears
-after a FlowGuard pass as a model-miss review trigger until proven otherwise.
-The earlier pass is still useful, but it is provisional evidence, not a reason
-to patch and finish directly.
+Treat a non-trivial bug repair, or a runtime, test, replay, log, or
+manual-validation failure that appears after a FlowGuard pass, as a model-miss
+review trigger until proven otherwise. The earlier pass is still useful, but it
+is provisional evidence, not a reason to patch and finish directly.
 
 When this happens:
 
 1. Reopen the model-first work and keep completion blocked while the model-miss
    obligation is open.
-2. Build or inspect the finding ledger across invariant/model checks,
+2. Run existing-model preflight when the bug is inside an existing modeled
+   system, then build or inspect the finding ledger across invariant/model
+   checks,
    model-quality audit, scenario or live-audit evidence, progress, contracts,
    conformance, skipped/not-run sections, and adoption evidence. The ledger is
    the coverage-first view used to avoid patching only the visible failure.
@@ -787,49 +790,56 @@ When this happens:
    `evidence_overclaimed`.
    Record unusual details in plain language instead of expanding the formal
    daily category list.
-4. If the issue belongs in scope, represent it as executable evidence: scenario,
+4. Backpropagate the root cause into the previous plan/model/test gap when a
+   prior green claim existed: previous claim, observed failure, supported cause,
+   `would_have_failed_if`, new plan/model/test item, and closure evidence.
+5. If the issue belongs in scope, represent it as executable evidence: scenario,
    invariant, replay adapter, representative trace, or a model boundary update
    for the observed issue, plus one same-class generalized bad case when
    practical.
-5. Add current test evidence for the observed regression and same-class
+6. Add current test evidence for the observed regression and same-class
    generalized bad case, then run Model-Test Alignment to verify the repaired
-   obligation, owner code contracts, and tests cover the same behavior. A
+   obligation, owner code contract, and tests cover the same behavior. A
    single observed-bug regression test is not full closure.
    When sibling obligations make the same family-level claim, add family parity
    rows so every sibling has the required mechanism and allowed provenance.
    Also run an analogous defect scan when the miss shape may recur outside the
    observed member.
-6. If same-class coverage is large, slow, layered, background, or release-only,
+7. If old, fallback, compatibility, or alternate paths remain reachable, record
+   whether they are deleted, blocked, delegated to a repaired contract,
+   same-contract repaired, or explicitly out of scope with a reason.
+8. If same-class coverage is large, slow, layered, background, or release-only,
    route the validation hierarchy to TestMesh and report scoped confidence
    until current child evidence exists.
-7. If the same-class miss has recurred, or if the first miss is high risk enough
+9. If the same-class miss has recurred, or if the first miss is high risk enough
    that a local point fix would overclaim full confidence, promote it to a
    defect-family gate with a model obligation, authority boundary, observed
    failure case, same-class generalized case, historical holdout case, current
    family parity status and analogous scan status when related obligations are
    in scope, and current proof evidence.
-8. Rerun the relevant model checks and confirm the old weakness plus the
+10. Rerun the relevant model checks and confirm the old weakness plus the
    same-class case are now visible, or deliberately out of scope.
-9. Validate the repair with the refined model plus the strongest practical
+11. Validate the repair with the refined model plus the strongest practical
    production-facing evidence.
-10. If the repair changed a child model under a parent ModelMesh, rerun the
+12. If the repair changed a child model under a parent ModelMesh, rerun the
    affected parent reattachment gate and keep the miss open until the parent
    consumes current child evidence.
-11. If the child boundary changed, keep the miss open until ModelMesh has
+13. If the child boundary changed, keep the miss open until ModelMesh has
     propagated the boundary review upward and reviewed affected sibling models
     or recorded why none are affected.
-12. Run the model maturation loop over the miss classification, alignment rows,
+14. Run the model maturation loop over the miss classification, alignment rows,
     mesh rows, and freshness rows. If it reports state, branch, invariant,
     same-class, child reattachment, or obligation gaps, upgrade the model or
     keep the final claim scoped.
-13. Do not use a background long-running check as closure until final artifacts
+15. Do not use a background long-running check as closure until final artifacts
     and exit status exist; progress output is only liveness.
-14. Record `Miss type`, `Generalized case`, observed-regression test evidence,
-    same-class test evidence, family parity result, analogous scan result,
-    Model-Test Alignment result, and any parent reattachment or defect-family
-    gate decision in the adoption log, or the
-   reason no generalized case was added, along with rerun commands, skipped
-   checks, and residual blindspots.
+16. Record `Miss type`, `Root cause backpropagation`, `Generalized case`,
+    owner code contract, observed-regression test evidence, same-class test
+    evidence, legacy path disposition, family parity result, analogous scan
+    result, Model-Test Alignment result, and any parent reattachment or
+    defect-family gate decision in the adoption log, or the reason no
+    generalized case was added, along with rerun commands, skipped checks, and
+    residual blindspots.
 
 A later green runtime check or one observed-bug regression test does not close
 a known model miss by itself. The miss is closed only when it has been
@@ -1072,8 +1082,8 @@ reviews should not keep accepting obsolete fields, aliases, or wrappers.
 - Representative traces can be exported for audit or replay.
 - Production implementations have conformance replay adapters when feasible.
 - Production replay either conforms to the model or documents why the model changed.
-- Post-FlowGuard runtime/test/replay/manual-validation failures trigger
-  model-miss review before completion.
+- Non-trivial bug repairs and post-FlowGuard runtime/test/replay/manual
+  failures trigger model-miss review before completion.
 - FlowGuard/LiveFlowGuard upgrades and live-failure triage use a full finding
   ledger before point-rule patches.
 - Known model misses are classified, represented in executable evidence or

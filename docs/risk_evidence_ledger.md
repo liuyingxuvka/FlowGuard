@@ -28,6 +28,12 @@ existing Model-Miss Review, Model-Test Alignment, DevelopmentProcessFlow, and
 Risk Evidence Ledger chain. It is not a new skill route and it is not owned by a
 downstream app.
 
+For non-trivial bug repairs, the ledger row should connect the repaired model
+obligation, owner code contract, observed-regression proof, same-class proof,
+analogous or family proof when relevant, and any legacy path disposition. If
+one of those links is missing, the row should stay scoped or blocked rather
+than reporting full confidence from a green command alone.
+
 When the risk ledger depends on project-specific plan construction or evidence
 adapter rows, run `review_plan_intake_completeness(...)`,
 `review_evidence_adapter_conformance(...)`,

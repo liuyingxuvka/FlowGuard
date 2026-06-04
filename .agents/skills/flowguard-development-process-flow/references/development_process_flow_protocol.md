@@ -36,6 +36,9 @@ Create or update a DevelopmentProcessFlow review when:
   artifacts changed after evidence was produced;
 - a model or UI transition changed after transition coverage matrices, MTA
   obligations, or TestMesh required cell evidence were produced;
+- a non-trivial bug repair changed root-cause evidence, model obligations,
+  owner code contracts, observed/same-class tests, compatibility disposition,
+  or ledger rows after earlier validation;
 - a done, release, archive, or publish claim depends on validation evidence;
 - peer-agent or unknown-writer changes could make earlier evidence stale;
 - a changed artifact touches a remembered open maintenance obligation and the
@@ -110,6 +113,10 @@ Use these triage classes:
   source, test row, transition cell, or proof artifact changed after a
   model-code-test binding row was produced. Regenerate the affected row and
   rerun Model-Test Alignment before claiming done or release confidence.
+- `bug_repair_closure_stale`: a root-cause backpropagation record,
+  same-class case, owner code contract, legacy path disposition, or Risk
+  Evidence Ledger row changed after the repair was validated. Rerun the owning
+  route evidence before claiming done or release confidence.
 - `parent_child_evidence_not_reattached`: a child model, child validation
   suite, or sibling route is locally green, but the parent has not consumed the
   current evidence id and contract. Return to the owning parent evidence gate.
@@ -224,6 +231,9 @@ A DevelopmentProcessFlow review can support a lifecycle claim only when:
   only for routine scope;
 - remembered maintenance obligations touched by changed artifacts have current
   owner-route evidence or are carried as scoped confidence;
+- bug-repair claims consume current root-cause backpropagation,
+  model-code-test alignment, compatibility or legacy path disposition, and
+  Risk Evidence Ledger evidence instead of only a later green test command;
 - any validation failure has a visible triage class, and non-ordinary triage
   classes have current evidence from the owning satellite or parent evidence
   gate;

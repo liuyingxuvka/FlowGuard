@@ -123,12 +123,13 @@ scenario/live-audit gaps, progress findings, contract findings, conformance
 findings, and skipped/not-run sections into one coverage-first list. The
 maintenance obligations turn those non-pass gaps into route-owned memory for
 future `review_maintenance_scan(...)` runs. Use them before FlowGuard or
-LiveFlowGuard framework upgrades and post-runtime model-miss repairs so the
+LiveFlowGuard framework upgrades and non-trivial bug/model-miss repairs so the
 next action is chosen deliberately: fix the real system, adjust the check flow,
 extend the model, or record a boundary as out of scope. For in-scope
-model-miss repairs, the next action also includes upgrading tests from an
-observed-bug regression to same-class evidence and rerunning Model-Test
-Alignment before full closure.
+bug/model-miss repairs, the next action also includes root-cause
+backpropagation, upgrading tests from an observed-bug regression to same-class
+evidence, binding the owner code contract, and rerunning Model-Test Alignment
+before full closure.
 
 ## Domain Packs
 

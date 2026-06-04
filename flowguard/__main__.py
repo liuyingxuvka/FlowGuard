@@ -187,7 +187,7 @@ FILE_TEMPLATE_COMMANDS: tuple[FileTemplateCommand, ...] = (
     ),
     FileTemplateCommand(
         "model-miss-template",
-        "Print or write the post-runtime model-miss review template.",
+        "Print or write the bug-repair/model-miss review template.",
         "model_miss_review",
         "model_miss_review_template_files",
     ),

@@ -102,6 +102,10 @@ while the current artifact is `code.checkout@4`.
 - model-miss repair changes that invalidate earlier alignment evidence, such
   as a new miss classification, same-class generalized case, closure evidence
   role, or test row used to prove closure;
+- bug-repair evidence changes that invalidate earlier closure, such as a new
+  root-cause backpropagation record, owner code contract, compatibility or
+  legacy path disposition, observed-regression test, same-class test, or Risk
+  Evidence Ledger row;
 - ambiguous freshness policy for declared upstream/downstream artifacts;
 - progress-only background evidence, hidden skipped validation, failed
   evidence, and not-run evidence;
@@ -157,12 +161,15 @@ evidence id. Parent coverage edits, child ownership or contract edits, child
 evidence-id changes, and leaf code/test/observation edits stale the related
 layered proof rows until they are rerun and reattached.
 
-When the final claim closes a model miss, DevelopmentProcessFlow should include
-Model-Test Alignment as a required validation pair for the repaired model
-obligation and the observed/same-class test rows. If the same-class evidence is
-large, slow, background, layered, or release-only, it should also include
-TestMesh evidence and keep routine confidence scoped until current release
-evidence exists.
+When the final claim closes a model miss or non-trivial bug repair,
+DevelopmentProcessFlow should include Model-Test Alignment as a required
+validation pair for the repaired model obligation, owner code contract, and
+observed/same-class test rows. It should also include the root-cause
+backpropagation record, compatibility or legacy path disposition, and Risk
+Evidence Ledger row as freshness-sensitive artifacts. If the same-class
+evidence is large, slow, background, layered, or release-only, it should also
+include TestMesh evidence and keep routine confidence scoped until current
+release evidence exists.
 
 When later implementation, validation, alignment, mesh, code-boundary, or
 freshness evidence says the model itself is too coarse, stale, disconnected, or

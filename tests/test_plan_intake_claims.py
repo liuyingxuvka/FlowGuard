@@ -223,6 +223,27 @@ class FalseNegativeBackpropagationTests(unittest.TestCase):
         self.assertFalse(report.ok)
         self.assertIn("missing_would_have_failed_if", codes(report))
         self.assertIn("missing_backprop_plan_update", codes(report))
+        self.assertIn("missing_false_negative_closure_evidence", codes(report))
+
+    def test_false_negative_backpropagation_requires_closure_evidence(self):
+        report = review_false_negative_backpropagation(
+            FalseNegativeBackpropagationPlan(
+                "fn",
+                cases=(
+                    FalseNegativeCase(
+                        "fn-1",
+                        previous_claim_id="claim:old-green",
+                        observed_failure_id="runtime:duplicate-submit",
+                        cause=FALSE_NEGATIVE_CAUSE_MODEL_INPUT_MISSING,
+                        would_have_failed_if=("duplicate input branch had existed",),
+                        new_model_obligation_id="model:duplicate-submit-family",
+                    ),
+                ),
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("missing_false_negative_closure_evidence", codes(report))
 
 
 class PlanMutationReviewTests(unittest.TestCase):

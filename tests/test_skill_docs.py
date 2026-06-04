@@ -159,6 +159,8 @@ class SkillDocsTests(unittest.TestCase):
             ),
             "flowguard-model-miss-review": (
                 "same-class generalized bad case",
+                "root-cause backpropagation",
+                "owner code contract",
                 "miss-repair diagram",
                 "boundary_missing",
             ),

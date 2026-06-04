@@ -6,7 +6,7 @@ they understand the FlowGuard models that already describe the current system.
 It is a companion route. Pair it with the downstream route that owns the actual
 work:
 
-- bug after runtime/test evidence: Model-Miss Review;
+- non-trivial bug repair or bug after runtime/test evidence: Model-Miss Review;
 - parent/child model or stale child evidence: ModelMesh;
 - parent/child/leaf proof chain or finite code boundary matrix: ModelMesh,
   Model-Test Alignment, TestMesh, then layered boundary proof;
@@ -27,6 +27,10 @@ evidence by itself.
 Use this protocol for non-trivial discussion, analysis, proposal, feature,
 bug-fix, refactor, UI, test, prompt, skill, agent-workflow, or process change
 inside an existing modeled system.
+
+For bug-fix work, the preflight should identify the existing model boundary
+that owns the failed behavior before Model-Miss Review adds the root-cause,
+same-class, model-code-test, or legacy-path closure evidence.
 
 Do not use it for typo-only changes, formatting-only work, direct command
 answers, pure read-only explanations, or greenfield work that has no existing

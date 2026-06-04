@@ -25,6 +25,10 @@ Use it when a task touches an existing modeled system and involves:
 Skip it for typo-only edits, formatting-only work, direct command answers, pure
 read-only explanations, or greenfield work with no existing model context.
 
+For non-trivial bug fixes, run at least light preflight before Model-Miss
+Review. The point is to identify which existing model owns the failing behavior
+before adding a new model, test boundary, or compatibility path.
+
 ## Light And Full Modes
 
 Light mode is for discussion and early analysis. It records likely relevant

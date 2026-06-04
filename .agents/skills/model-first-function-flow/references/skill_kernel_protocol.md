@@ -20,9 +20,9 @@ standalone satellite skills.
   full done/release/publish/production-confidence claim requires current
   intake, model ownership, same-class miss evidence when relevant,
   obligation-family parity when related obligations share a claim, analogous
-  defect scan when a post-green miss exposes a reusable failure shape,
-  alignment, mesh/boundary proof when relevant, model maturation, freshness,
-  ledger, and claim-chain support.
+  defect scan when a bug repair exposes a reusable failure shape, alignment,
+  mesh/boundary proof when relevant, model maturation, freshness, ledger, and
+  claim-chain support.
 - the default model-code-test binding rule: broad model/test confidence needs
   model obligation ids, owner code contract ids, and current external-contract
   test evidence to name the same behavior. Model+test-only rows are scoped or
@@ -67,7 +67,7 @@ to the kernel instead of taking ownership of unclear work.
 | `test_mesh_maintenance` | parent/child test hierarchy plus validation evidence |
 | `structure_mesh_maintenance` | parent/child script/module structure split evidence |
 | `development_process_flow` | non-trivial staged development or modification, lifecycle ordering, artifact overwrite, evidence freshness, and minimum revalidation |
-| `model_miss_review` | post-runtime model miss classification, current bug instance handling, same-class bug responsibility, and analogous defect scan closure |
+| `model_miss_review` | non-trivial bug repair, model miss classification, root-cause backpropagation, current bug instance handling, same-class bug responsibility, and analogous defect scan closure |
 | `conformance_adoption` | replay, install sync, shadow workspace sync, release sync, adoption evidence |
 | `long_check_observability` | background log artifacts, liveness-only progress, and completion proof |
 | `framework_upgrade` | FlowGuard self-upgrades and broad capability claims |

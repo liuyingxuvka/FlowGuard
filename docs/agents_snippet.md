@@ -79,7 +79,7 @@ progress-only, or not-run checks are not passes.
 | Large/slow/stale/release-only tests or parent/child test hierarchy | `test_mesh_maintenance` | `flowguard-test-mesh` |
 | Large script/module/package/API split, facade or public entrypoint parity | `structure_mesh_maintenance` | `flowguard-structure-mesh` |
 | Staged development, edits, validation freshness, install/shadow/git sync | `development_process_flow` | `flowguard-development-process-flow` |
-| Runtime/test/replay/manual evidence fails after FlowGuard passed | `model_miss_review` | `flowguard-model-miss-review` |
+| Non-trivial bug repair, false confidence, or runtime/test/replay/manual evidence shows a missed failure class | `model_miss_review` | `flowguard-model-miss-review` |
 | Model too coarse after state-closure/code/test/mesh/freshness evidence | `model_maturation_loop` | `model-first-function-flow` reference |
 | Final broad confidence boundary | `risk_evidence_ledger` | `docs/risk_evidence_ledger.md` |
 | Production conformance, install sync, shadow workspace sync | `conformance_adoption` | `model-first-function-flow` reference |

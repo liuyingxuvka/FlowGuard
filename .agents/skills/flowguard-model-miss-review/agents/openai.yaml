@@ -1,4 +1,4 @@
 interface:
   display_name: "FlowGuard Model Miss Review"
-  short_description: "Diagnose runtime failures after model passes"
-  default_prompt: "Use $flowguard-model-miss-review when real validation fails after FlowGuard passed."
+  short_description: "Repair bug classes after real failures"
+  default_prompt: "Use $flowguard-model-miss-review for non-trivial bug repairs or when real validation fails after FlowGuard passed; preserve the existing route and close the root-cause/model-code-test evidence loop."

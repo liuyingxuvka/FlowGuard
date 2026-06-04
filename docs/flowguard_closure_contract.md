@@ -57,11 +57,15 @@ Use the gates that match the claim:
   new boundary is justified.
 - Model obligation: the relevant `Input x State -> Set(Output x State)` model,
   invariant, scenario, replay, or parent/child obligation is current.
-- Model-miss repair: every post-green in-scope miss has the observed failure
-  plus a same-class generalized bad case when practical.
+- Model-miss or bug repair: every non-trivial in-scope bug class has the
+  observed failure, root-cause backpropagation when a prior claim existed, and
+  a same-class generalized bad case when practical.
 - Model-test/code alignment: model obligations, code contracts, code-boundary
   observations, and test evidence line up at the external boundary being
   claimed.
+- Legacy path disposition: old, fallback, compatibility, or alternate paths
+  left reachable by the repair are deleted, blocked, delegated to a repaired
+  contract, same-contract repaired, or explicitly scoped with a reason.
 - Obligation-family parity: when related obligations share one confidence
   claim, each sibling has the required mechanism evidence from allowed
   provenance sources, or the family gap stays visible.
@@ -97,11 +101,12 @@ internal-path-only, a direct runtime write can bypass the declared gateway, or
 the gate is explicitly scoped out, report the result as partial or scoped
 FlowGuard evidence. Do not say FlowGuard is complete for that claim.
 
-If a later runtime, test, replay, log, or manual validation failure appears
-after a green FlowGuard result, treat it as a closure-contract miss until
-Model-Miss Review, same-class evidence, family parity, analogous defect scan,
-alignment, model maturation, freshness, ledger, and claim-chain evidence have
-been repaired.
+If a later runtime, test, replay, log, manual validation failure, or
+non-trivial bug report appears after a green FlowGuard result, treat it as a
+closure-contract miss until Model-Miss Review, root-cause backpropagation,
+same-class evidence, owner code contract binding, family parity, analogous
+defect scan, legacy path disposition, alignment, model maturation, freshness,
+ledger, and claim-chain evidence have been repaired.
 
 ## What This Does Not Mean
 

@@ -26,10 +26,12 @@ freshness, and assertion scopes into a Risk Evidence Ledger. Alignment proves
 rows agree; the ledger decides whether the broader user-risk claim is full,
 scoped, or blocked.
 
-For recurring or high-risk same-class model misses, alignment evidence is an
-input to the defect-family gate. Use `review_defect_family_gates(...)` before
-the Risk Evidence Ledger claim; do not make Model-Test Alignment the family
-promotion route.
+For non-trivial bug repairs and recurring or high-risk same-class model misses,
+alignment evidence is an input to closure and to the defect-family gate. Bind
+the repaired model obligation, the owner code external contract, the
+observed-regression test, and the same-class generalized test to the same
+behavior before the Risk Evidence Ledger claim; do not make Model-Test
+Alignment the family promotion route.
 
 For related obligations that share a family-level confidence claim, add
 `ObligationFamily` and `ObligationFamilyEvidence` rows. The family parity check
@@ -89,8 +91,9 @@ Create or update a model-test alignment review when:
   model-backed behavior;
 - a model pass and test pass need to be reconciled before release or broad
   completion;
-- a post-runtime model-miss repair needs proof that tests cover both the
-  observed regression and the same-class generalized bug family;
+- a bug repair or post-runtime model-miss repair needs proof that tests cover
+  both the observed regression and the same-class generalized bug family
+  through the owner code contract;
 - several sibling obligations are being promoted as one family-level claim and
   need required mechanism coverage with allowed provenance;
 - reviewers suspect orphan tests, orphan code contracts, duplicated test
@@ -198,7 +201,8 @@ reports:
 - duplication and granularity gaps: duplicate owner claims or obligations too
   coarse for primary evidence;
 - model-miss gaps: missing observed-regression evidence, missing same-class
-  evidence, or internal-path-only closure evidence;
+  evidence, missing owner code contract binding, or internal-path-only closure
+  evidence;
 - source-audit gaps: partial, dynamic, ambiguous, or manual-review-required
   audit findings.
 

@@ -39,7 +39,7 @@ structured enough to check"; PlanIntake owns the plan-valid claim.
   `FalseNegativeBackpropagationReport`, and
   `review_false_negative_backpropagation(plan)`: checks that a post-green miss
   names the old passing claim, observed failure, cause, would-have-failed-if
-  condition, and new plan/model item before closure.
+  condition, new plan/model item, and closure evidence before closure.
 - `PlanMutationCase`, `PlanMutationReviewPlan`,
   `PlanMutationReviewReport`, and `review_plan_mutations(plan)`: checks that
   known-bad mutations fail instead of being accepted by a too-wide plan/model

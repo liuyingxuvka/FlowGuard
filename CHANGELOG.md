@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.40.9 - 2026-06-04
+
+Bug repair closure hardening.
+
+- Broadened Model-Miss Review so non-trivial bug repairs use the existing
+  model-miss route instead of falling back to implementation-only patches.
+- Added root-cause backpropagation, owner code-contract binding, same-class
+  evidence, legacy path disposition, DevelopmentProcessFlow freshness, and
+  Risk Evidence Ledger closure requirements to the bug repair loop.
+- Refreshed the public model-miss template, self-model, OpenSpec change,
+  focused tests, and docs so model, code, and tests stay tied to the same
+  repaired behavior before broad confidence.
+
 ## v0.40.8 - 2026-06-03
 
 Soft UI typography hierarchy guidance.

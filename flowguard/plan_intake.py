@@ -1153,6 +1153,14 @@ def review_false_negative_backpropagation(
                     case_id=case.case_id,
                 )
             )
+        if not case.closure_evidence_ids:
+            findings.append(
+                _false_negative_finding(
+                    "missing_false_negative_closure_evidence",
+                    "false-negative case has no closure evidence for the repaired plan/model/test gap",
+                    case_id=case.case_id,
+                )
+            )
         if plan.recurring_or_high_risk and not case.generalized_case_id:
             findings.append(
                 _false_negative_finding(

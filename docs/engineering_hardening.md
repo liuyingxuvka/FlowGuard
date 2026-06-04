@@ -47,8 +47,9 @@ The package also exposes public-safe scaffolds for common agent situations:
 
 - `risk_intent_template_files()`: a Risk Intent + `FlowGuardCheckPlan`
   starter with model-level confidence boundaries;
-- `model_miss_review_template_files()`: a post-runtime model-miss review
-  starter for cases where real validation finds a gap after a FlowGuard pass;
+- `model_miss_review_template_files()`: a bug-repair/model-miss review starter
+  for non-trivial bug repairs or cases where real validation finds a gap after
+  a FlowGuard pass;
 - `model_test_alignment_template_files()`: a direct model-obligation to
   ordinary test-evidence alignment starter;
 - `maintenance_workflow_template_files()`: a recurring maintenance workflow

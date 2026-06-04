@@ -8,12 +8,14 @@ read TestMesh, StructureMesh, or ModelMesh reports.
 Use it before claiming that model coverage, code behavior, and test coverage
 describe the same behavioral surface.
 
-For post-runtime model-miss repairs, use Model-Test Alignment after
-Model-Miss Review updates the model. The repaired in-scope obligation should
-mark that it originated from a model miss and require closure evidence roles:
-one current observed-regression test and one current same-class generalized
-test. A green exact regression test is necessary, but it is not enough for full
-closure.
+For post-runtime model-miss repairs and non-trivial bug fixes, use Model-Test
+Alignment after Model-Miss Review updates the model. The repaired in-scope
+obligation should mark that it originated from a model miss and require closure
+evidence roles: one current observed-regression test and one current same-class
+generalized test. It also needs the owner `CodeContract` for the real public,
+CLI, API, facade, adapter, or persisted-output surface that implements the
+repair. A green exact regression test is necessary, but it is not enough for
+full closure.
 
 If the same-class miss recurs or is high risk, Model-Test Alignment still only
 proves the obligation/test rows. The recurring family itself is handled by
@@ -236,6 +238,8 @@ The review keeps these gaps visible:
   and lack same-class generalized test evidence;
 - same-class closure evidence that is stale, overclaimed, internal-path-only,
   or attached to the wrong model obligation;
+- bug-repair closure evidence whose model obligation, owner code contract, and
+  observed/same-class tests do not all bind the same repaired behavior;
 - supporting or leaf matrix-cell evidence without a target id;
 - transition-cell evidence without a target id, or with a target id that does
   not match the projected transition obligation;

@@ -40,9 +40,10 @@ audit of code contracts and test assertions. Use it to generate or check the
 CodeContract and TestEvidence rows, but do not treat it as a perfect semantic
 proof or a conformance replay substitute.
 
-For post-runtime model-miss repairs, mark observed-regression and same-class
-generalized evidence separately. Do not let the observed regression substitute
-for same-class closure evidence.
+For non-trivial bug repairs and post-runtime model-miss repairs, mark
+observed-regression and same-class generalized evidence separately, and bind
+both to the owner code contract for the repaired behavior. Do not let the
+observed regression substitute for same-class closure evidence.
 
 Flag missing model-obligation coverage, missing or mismatched code external
 contracts, missing state-closure cases, unsafe unknown handling, boundary

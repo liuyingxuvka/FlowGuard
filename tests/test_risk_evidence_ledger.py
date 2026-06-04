@@ -488,6 +488,34 @@ class RiskEvidenceLedgerTests(unittest.TestCase):
         self.assertTrue(report.ok, report.format_text())
         self.assertEqual(RISK_LEDGER_DECISION_FULL, report.decision)
 
+    def test_bug_repair_row_can_require_family_analogous_and_maintenance_links(self):
+        report = review_risk_evidence_ledger(
+            plan(
+                rows=(
+                    row(
+                        "bug:duplicate-submit",
+                        defect_family_gate_required=True,
+                        defect_family_id="defect-family:duplicate-submit",
+                        family_gate_required=True,
+                        family_gate_id="family:submit-repair",
+                        analogous_scan_required=True,
+                        analogous_scan_id="analogous:submit-repair",
+                        maintenance_obligations_required=True,
+                        maintenance_obligation_ids=("obligation:structure",),
+                    ),
+                ),
+                maintenance_obligations=(
+                    obligation(
+                        status=OBLIGATION_STATUS_RESOLVED,
+                        evidence_ids=("structuremesh:passed",),
+                    ),
+                ),
+            )
+        )
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual(RISK_LEDGER_DECISION_FULL, report.decision)
+
     def test_scoped_maintenance_obligation_downgrades_confidence(self):
         report = review_risk_evidence_ledger(
             plan(
