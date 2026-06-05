@@ -52,10 +52,11 @@ progress-only, or not-run checks are not passes.
   artifacts exist.
 - Reused test results need current `TestResultReuseTicket` and
   `ProofArtifactRef`; old `passed` output is not current evidence by itself.
+- After `run_model_first_checks()`, read structured ledger routes and obligations before manual route inference.
 - For non-trivial FlowGuard work, show a route-specific Mermaid snapshot once
   the route/model is stable; diagrams explain and do not validate.
 - Before full done/release/publish confidence, connect risks, obligations, remembered maintenance obligations, code/test evidence, proof artifacts, automatic state-closure gaps, and topology-hazard gaps through Risk Evidence Ledger or equivalent.
-- After non-trivial work, use `maintenance_scan_router` when changed artifacts, open maintenance obligations, skipped routes, stale evidence, state-closure or topology-hazard gaps, or split/reduction signals appear.
+- After non-trivial work, use `maintenance_scan_router` for SummaryReport gaps, changed artifacts, open obligations, skipped routes, stale evidence, state/topology gaps, or split/reduction signals.
 - Finish real project use with adoption evidence: trigger, model/risk,
   commands, findings, skipped gaps, validation results, and next actions.
 

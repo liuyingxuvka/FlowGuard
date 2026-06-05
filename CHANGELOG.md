@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.40.10 - 2026-06-05
+
+AI route handoff optimization.
+
+- Added structured owner-route, action, proof-gap, required-input, and claim
+  boundary fields to SummaryReport findings, maintenance obligations,
+  maintenance scan actions, and DevelopmentProcessFlow revalidation guidance.
+- Added `maintenance_scan_plan_from_summary_report(...)` and
+  `existing_model_preflight_from_project(...)` so agents can continue through
+  existing FlowGuard routes instead of inventing a parallel session runner.
+- Refreshed templates, compact skill guidance, API docs, OpenSpec artifacts,
+  tests, and FlowGuard self-model evidence for the SummaryReport ->
+  MaintenanceScan -> specialist-route handoff.
+
 ## v0.40.9 - 2026-06-04
 
 Bug repair closure hardening.

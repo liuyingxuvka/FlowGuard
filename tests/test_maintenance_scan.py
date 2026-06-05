@@ -25,12 +25,15 @@ from flowguard import (
     MAINTENANCE_SIGNAL_LARGE_MODULE,
     MAINTENANCE_SIGNAL_REDUCIBLE_BRANCH,
     MAINTENANCE_SIGNAL_STATE_CLOSURE_GAP,
+    FlowGuardSection,
+    FlowGuardSummaryReport,
     MaintenanceChangedArtifact,
     MaintenanceEvidence,
     MaintenanceObligation,
     MaintenanceScanPlan,
     MaintenanceSignal,
     MaintenanceSkippedRoute,
+    maintenance_scan_plan_from_summary_report,
     maintenance_scan_template_files,
     review_maintenance_scan,
 )
@@ -170,6 +173,58 @@ class MaintenanceScanTests(unittest.TestCase):
         self.assertFalse(report.ok)
         self.assertEqual(MAINTENANCE_SCAN_DECISION_REQUIRED, report.decision)
         self.assertIn(MAINTENANCE_ROUTE_MODEL_MATURATION, routes(report))
+
+    def test_summary_report_bridge_routes_structured_gap_to_scan_action(self):
+        summary = FlowGuardSummaryReport.from_sections(
+            (
+                FlowGuardSection(
+                    "conformance",
+                    "not_run",
+                    "conformance_status not provided",
+                ),
+            )
+        )
+
+        plan = maintenance_scan_plan_from_summary_report(
+            summary,
+            plan_id="summary-bridge",
+            claim_scope="done",
+        )
+        report = review_maintenance_scan(plan)
+
+        self.assertTrue(report.ok)
+        self.assertEqual(MAINTENANCE_SCAN_DECISION_SUGGESTED, report.decision)
+        self.assertEqual((MAINTENANCE_ROUTE_DEVELOPMENT_PROCESS_FLOW,), tuple(action.route_id for action in report.actions))
+        action = report.actions[0]
+        self.assertEqual("scoped_until_resolved", action.claim_effect)
+        self.assertIn("proof_artifact", action.required_input_kinds)
+        self.assertIn("missing_conformance_proof", action.proof_gap_codes)
+
+    def test_signal_metadata_is_preserved_on_maintenance_action(self):
+        report = review_maintenance_scan(
+            MaintenanceScanPlan(
+                "metadata",
+                signals=(
+                    MaintenanceSignal(
+                        "alignment-gap",
+                        "model_code_test_mismatch",
+                        route_id=MAINTENANCE_ROUTE_MODEL_TEST_ALIGNMENT,
+                        required_input_kinds=("code_contract", "test_evidence"),
+                        proof_gap_codes=("missing_external_contract_test",),
+                        claim_effect="blocked_until_resolved",
+                        suggested_commands=("run model-test alignment",),
+                        source_obligation_ids=("summary:model_check:1",),
+                    ),
+                ),
+            )
+        )
+
+        action = report.actions[0]
+        self.assertEqual(("code_contract", "test_evidence"), action.required_input_kinds)
+        self.assertEqual(("missing_external_contract_test",), action.proof_gap_codes)
+        self.assertEqual("blocked_until_resolved", action.claim_effect)
+        self.assertEqual(("run model-test alignment",), action.suggested_commands)
+        self.assertEqual(("summary:model_check:1",), action.source_obligation_ids)
 
     def test_prior_obligation_reopens_when_changed_anchor_is_touched(self):
         report = review_maintenance_scan(

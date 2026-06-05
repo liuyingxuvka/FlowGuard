@@ -251,6 +251,7 @@ from .existing_model_preflight import (
     REUSE_DECISION_REUSE_EXISTING,
     REUSE_DECISION_SKIP,
     REUSE_DECISIONS,
+    existing_model_preflight_from_project,
     review_existing_model_preflight,
 )
 from .agent_workflow_rehearsal import (
@@ -1187,6 +1188,7 @@ MODELING_HELPER_API = (
     "REUSE_DECISION_SKIP",
     "REUSE_DECISIONS",
     "DUPLICATE_RISK_RESOLUTIONS",
+    "existing_model_preflight_from_project",
     "review_existing_model_preflight",
     "AgentWorkflowPlan",
     "AgentWorkflowRehearsalFinding",

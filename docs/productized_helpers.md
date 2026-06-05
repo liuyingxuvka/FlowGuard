@@ -161,6 +161,26 @@ result can support Model-Test Alignment or TestMesh only when the ticket and
 matching `ProofArtifactRef` prove unchanged command, test source, tested
 artifact, dependencies, environment, result fingerprint, and covered scope.
 
+## AI Route Handoff Reports
+
+`FlowGuardSummaryReport` includes a finding ledger and maintenance obligations.
+Each non-pass ledger entry carries the existing owner route, action kind,
+required input kinds, proof gap codes, suggested command text, and claim
+effect. This lets AI agents continue through the existing route system instead
+of guessing from prose.
+
+Use `maintenance_scan_plan_from_summary_report(...)` to turn those report gaps
+into a `MaintenanceScanPlan`. The maintenance scan remains a router: it points
+to existing specialists such as DevelopmentProcessFlow, Model-Test Alignment,
+Model Maturation, TestMesh, StructureMesh, or AgentWorkflowRehearsal, but it
+does not run those routes or validate their evidence.
+
+`DevelopmentProcessFlow` revalidation recommendations include the prior
+producer route, proof-artifact requirement, freshness gap codes, and claim
+scopes blocked until rerun. `existing_model_preflight_from_project(...)`
+collects a lightweight project inventory into the existing preflight shape;
+`review_existing_model_preflight(...)` remains the validator.
+
 ## Model Maturation Loop
 
 Use `review_model_maturation_loop(...)` after code, tests, model-miss review,

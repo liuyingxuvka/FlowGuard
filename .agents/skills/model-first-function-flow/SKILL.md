@@ -50,6 +50,7 @@ means partial or scoped FlowGuard evidence.
 - Reused test results need current `TestResultReuseTicket` and `ProofArtifactRef`; old `passed` output is not current evidence by itself.
 - Broad confidence needs model obligation ids, owner code contract ids, and current external-contract test evidence bound to the same behavior; model+test-only rows are scoped/blocked.
 - Broad transition-test claims need a transition matrix projected to MTA code/test rows or TestMesh, or an explicit scoped-out reason.
+- After `run_model_first_checks()`, read structured ledger owner routes and maintenance obligations before manually inferring the next route.
 - For non-trivial FlowGuard work, show a route-specific Mermaid snapshot once the route/model is stable; diagrams explain, not validate.
 - Before broad done/release/publish confidence, use Risk Evidence Ledger or equivalent and keep remembered maintenance obligations, automatic state-closure, and topology-hazard gaps visible.
 

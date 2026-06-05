@@ -9,6 +9,8 @@ them to existing FlowGuard capabilities; it does not run those capabilities.
 """
 
 from flowguard import (
+    FlowGuardSection,
+    FlowGuardSummaryReport,
     MAINTENANCE_ARTIFACT_CODE,
     MAINTENANCE_ARTIFACT_MODEL,
     MAINTENANCE_SCAN_DECISION_CLEAR,
@@ -19,6 +21,7 @@ from flowguard import (
     MaintenanceObligation,
     MaintenanceScanPlan,
     MaintenanceSignal,
+    maintenance_scan_plan_from_summary_report,
     review_maintenance_scan,
 )
 
@@ -69,6 +72,12 @@ def main():
             ),
         ),
     )
+    summary_bridge = maintenance_scan_plan_from_summary_report(
+        FlowGuardSummaryReport.from_sections((
+            FlowGuardSection("conformance", "not_run", "conformance_status not provided"),
+        )),
+        plan_id="summary-bridge",
+    )
 
     ok = all(
         (
@@ -85,6 +94,12 @@ def main():
                 remembered_obligation,
                 "maintenance_scan_actions_required",
                 ("structure_mesh_maintenance",),
+            ),
+            run_case(
+                "summary_bridge",
+                summary_bridge,
+                "maintenance_scan_actions_suggested",
+                ("development_process_flow",),
             ),
         )
     )
@@ -112,6 +127,8 @@ ModelMesh, TestMesh, DevelopmentProcessFlow, or AgentWorkflowRehearsal.
 - stale evidence, changed guidance, or release artifacts;
 - skipped candidate FlowGuard route without accepted scope;
 - anchored prior maintenance obligations touched by the current change;
+- route-owned SummaryReport gaps converted by
+  `maintenance_scan_plan_from_summary_report(...)`;
 - duplicate branch, pass-through adapter, removable state, or duplicate
   validation;
 - large module, public API split, oversized model, stale child model evidence,

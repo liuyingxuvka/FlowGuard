@@ -10,6 +10,8 @@ the model map that already exists.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
+import re
 from typing import Any, Mapping, Sequence
 
 from .export import to_jsonable
@@ -412,6 +414,144 @@ def _decision_for_findings(
     return "full_existing_model_preflight_can_continue"
 
 
+def _model_id_from_path(path: Path, root: Path) -> str:
+    try:
+        relative = path.relative_to(root)
+    except ValueError:
+        relative = path
+    parts = list(relative.parts)
+    if len(parts) >= 3 and parts[0] == ".flowguard":
+        return ":".join(parts[1:-1]) or path.stem
+    return ":".join(parts[:-1] + [path.stem]) or path.stem
+
+
+def _class_names(text: str) -> tuple[str, ...]:
+    return tuple(dict.fromkeys(re.findall(r"^class\s+([A-Za-z_][A-Za-z0-9_]*)\b", text, re.MULTILINE)))
+
+
+def _purpose_lines(text: str, limit: int = 3) -> tuple[str, ...]:
+    lines: list[str] = []
+    capture = False
+    for raw_line in text.splitlines():
+        line = raw_line.strip().strip("#").strip()
+        if not line:
+            if capture:
+                break
+            continue
+        lowered = line.lower()
+        if lowered.startswith("purpose:"):
+            capture = True
+            value = line.split(":", 1)[1].strip()
+            if value:
+                lines.append(value)
+            continue
+        if capture:
+            if lowered.startswith(("guards against:", "use before editing:", "run:")):
+                break
+            lines.append(line)
+        if len(lines) >= limit:
+            break
+    return tuple(lines)
+
+
+def _matches_changed_paths(path: Path, text: str, changed_paths: Sequence[str]) -> bool:
+    if not changed_paths:
+        return True
+    haystack = f"{path.as_posix()}\n{text}".lower()
+    return any(str(item).lower().replace("\\", "/") in haystack for item in changed_paths)
+
+
+def existing_model_preflight_from_project(
+    root: str | Path,
+    task_summary: str,
+    *,
+    preflight_id: str = "",
+    changed_paths: Sequence[str] = (),
+    downstream_routes: Sequence[str] = (),
+    mode: str = PREFLIGHT_MODE_FULL,
+) -> ExistingModelPreflight:
+    """Create an ExistingModelPreflight input from lightweight project inventory.
+
+    This helper collects likely model context only. Use
+    `review_existing_model_preflight(...)` for the actual confidence decision.
+    """
+
+    root_path = Path(root)
+    search_roots = tuple(
+        path
+        for path in (
+            root_path / ".flowguard",
+            root_path / "docs",
+            root_path / "openspec",
+        )
+        if path.exists()
+    )
+    searched_paths = tuple(str(path.relative_to(root_path) if path.is_relative_to(root_path) else path) for path in search_roots)
+    hits: list[ModelContextHit] = []
+    flowguard_root = root_path / ".flowguard"
+    if flowguard_root.exists():
+        for path in sorted(flowguard_root.rglob("*.py")):
+            if "__pycache__" in path.parts:
+                continue
+            text = path.read_text(encoding="utf-8", errors="replace")
+            if "FlowGuard" not in text and "Workflow" not in text and "Invariant" not in text:
+                continue
+            if not _matches_changed_paths(path, text, changed_paths):
+                continue
+            model_id = _model_id_from_path(path, flowguard_root)
+            classes = _class_names(text)
+            responsibilities = _purpose_lines(text) or (model_id,)
+            relative_path = str(path.relative_to(root_path))
+            hits.append(
+                ModelContextHit(
+                    model_id=model_id,
+                    model_path=relative_path,
+                    evidence_tier="project_inventory",
+                    evidence_current=True,
+                    responsibilities=responsibilities,
+                    function_blocks=classes,
+                    validation_evidence=(relative_path,),
+                    rationale="Discovered from project FlowGuard inventory.",
+                )
+            )
+
+    ownership_snapshot = None
+    if hits:
+        ownership_snapshot = ExistingOwnershipSnapshot(
+            function_block_owners=tuple(
+                (block, hit.model_id)
+                for hit in hits
+                for block in hit.function_blocks
+            ),
+            responsibility_owners=tuple(
+                (responsibility, hit.model_id)
+                for hit in hits
+                for responsibility in hit.responsibilities
+            ),
+        )
+    reuse_decision = REUSE_DECISION_REUSE_EXISTING if hits else REUSE_DECISION_NO_MODEL_FOUND
+    no_model_found_reason = "" if hits else "No relevant FlowGuard model files were found in project inventory."
+    rationale = (
+        "Project inventory found existing FlowGuard model context."
+        if hits
+        else "Proceed with explicit no-model-found boundary before downstream modeling."
+    )
+    return ExistingModelPreflight(
+        preflight_id or "project-inventory-preflight",
+        task_summary,
+        mode=mode,
+        existing_modeled_system=True,
+        model_search_performed=True,
+        search_paths=searched_paths,
+        relevant_models=tuple(hits),
+        ownership_snapshot=ownership_snapshot,
+        reuse_decision=reuse_decision,
+        downstream_routes=tuple(downstream_routes),
+        rationale=rationale,
+        no_model_found_reason=no_model_found_reason,
+    )
+
+
 def review_existing_model_preflight(
     preflight: ExistingModelPreflight,
 ) -> ExistingModelPreflightReport:
@@ -699,4 +839,5 @@ __all__ = [
     "REUSE_DECISION_SKIP",
     "REUSE_DECISIONS",
     "review_existing_model_preflight",
+    "existing_model_preflight_from_project",
 ]

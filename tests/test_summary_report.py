@@ -118,6 +118,35 @@ class SummaryReportTests(unittest.TestCase):
         self.assertIn("entries=2", ledger.summary)
         self.assertIn("finding_ledger", FlowGuardSummaryReport.from_sections(()).to_dict())
 
+    def test_finding_ledger_entries_include_structured_ai_handoff_fields(self):
+        ledger = build_finding_ledger(
+            (
+                FlowGuardSection(
+                    "conformance",
+                    "not_run",
+                    "conformance_status not provided",
+                ),
+                FlowGuardSection(
+                    "model_quality_audit",
+                    "pass_with_gaps",
+                    "warnings=1",
+                    ("warning: missing_invariant: add hard rule",),
+                ),
+            )
+        )
+
+        conformance, model_gap = ledger.entries
+        self.assertEqual("development_process_flow", conformance.owner_route)
+        self.assertEqual("run_conformance_or_scope_claim", conformance.action_kind)
+        self.assertIn("proof_artifact", conformance.required_input_kinds)
+        self.assertEqual("scoped_until_resolved", conformance.claim_effect)
+        self.assertIn("missing_conformance_proof", conformance.proof_gap_codes)
+
+        self.assertEqual("model_maturation_loop", model_gap.owner_route)
+        self.assertEqual("extend_model_coverage", model_gap.action_kind)
+        self.assertIn("scenario_or_invariant", model_gap.required_input_kinds)
+        self.assertIn("owner_route", model_gap.to_dict())
+
 
 if __name__ == "__main__":
     unittest.main()

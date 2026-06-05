@@ -75,6 +75,10 @@ class MaintenanceObligation:
     code_contract_ids: tuple[str, ...] = ()
     public_entrypoint_ids: tuple[str, ...] = ()
     evidence_ids: tuple[str, ...] = ()
+    required_input_kinds: tuple[str, ...] = ()
+    proof_gap_codes: tuple[str, ...] = ()
+    claim_effect: str = ""
+    suggested_commands: tuple[str, ...] = ()
     message: str = ""
     scope_reason: str = ""
     current: bool = True
@@ -101,6 +105,10 @@ class MaintenanceObligation:
         object.__setattr__(self, "code_contract_ids", _as_tuple(self.code_contract_ids))
         object.__setattr__(self, "public_entrypoint_ids", _as_tuple(self.public_entrypoint_ids))
         object.__setattr__(self, "evidence_ids", _as_tuple(self.evidence_ids))
+        object.__setattr__(self, "required_input_kinds", _as_tuple(self.required_input_kinds))
+        object.__setattr__(self, "proof_gap_codes", _as_tuple(self.proof_gap_codes))
+        object.__setattr__(self, "claim_effect", str(self.claim_effect))
+        object.__setattr__(self, "suggested_commands", _as_tuple(self.suggested_commands))
         object.__setattr__(self, "message", str(self.message))
         object.__setattr__(self, "scope_reason", str(self.scope_reason))
         object.__setattr__(self, "current", bool(self.current))
@@ -161,6 +169,10 @@ class MaintenanceObligation:
             "code_contract_ids": list(self.code_contract_ids),
             "public_entrypoint_ids": list(self.public_entrypoint_ids),
             "evidence_ids": list(self.evidence_ids),
+            "required_input_kinds": list(self.required_input_kinds),
+            "proof_gap_codes": list(self.proof_gap_codes),
+            "claim_effect": self.claim_effect,
+            "suggested_commands": list(self.suggested_commands),
             "message": self.message,
             "scope_reason": self.scope_reason,
             "current": self.current,
@@ -243,7 +255,7 @@ def obligation_from_finding_ledger_entry(entry: Any) -> MaintenanceObligation | 
     category = str(getattr(entry, "category", "") or "")
     if severity == "info":
         return None
-    owner_route = _owner_route_for_section(section_name, category)
+    owner_route = str(getattr(entry, "owner_route", "") or "") or _owner_route_for_section(section_name, category)
     finding_index = getattr(entry, "finding_index", None)
     obligation_id = f"{_slug(section_name)}:{_slug(category)}"
     if finding_index is not None:
@@ -254,6 +266,10 @@ def obligation_from_finding_ledger_entry(entry: Any) -> MaintenanceObligation | 
         reason_code=category or "summary_gap",
         source_route=section_name,
         strength=OBLIGATION_STRENGTH_REQUIRED if severity in {"failure", "blocker"} else OBLIGATION_STRENGTH_SUGGESTED,
+        required_input_kinds=tuple(getattr(entry, "required_input_kinds", ()) or ()),
+        proof_gap_codes=tuple(getattr(entry, "proof_gap_codes", ()) or ()),
+        claim_effect=str(getattr(entry, "claim_effect", "") or ""),
+        suggested_commands=tuple(getattr(entry, "suggested_commands", ()) or ()),
         message=str(getattr(entry, "message", "") or ""),
         metadata={"ledger_entry": getattr(entry, "to_dict", lambda: repr(entry))()},
     )
@@ -287,6 +303,10 @@ def obligation_from_maintenance_action(action: Any, *, source_route: str = "main
         strength=strength,
         artifact_ids=tuple(getattr(action, "artifact_ids", ()) or ()),
         evidence_ids=evidence_ids,
+        required_input_kinds=tuple(getattr(action, "required_input_kinds", ()) or ()),
+        proof_gap_codes=tuple(getattr(action, "proof_gap_codes", ()) or ()),
+        claim_effect=str(getattr(action, "claim_effect", "") or ""),
+        suggested_commands=tuple(getattr(action, "suggested_commands", ()) or ()),
         message=str(getattr(action, "message", "") or ""),
         metadata={"maintenance_action": getattr(action, "to_dict", lambda: repr(action))()},
     )

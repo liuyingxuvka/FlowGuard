@@ -75,6 +75,9 @@ For AI agents, route groups are the normal discovery surface:
 - `MAINTENANCE_SCAN_ROUTE_API` is the thin router for FlowGuard-managed
   project work that needs to surface model/code/test drift, stale evidence,
   skipped candidate routes, or split/reduction pressure before a broad claim.
+  `maintenance_scan_plan_from_summary_report(...)` bridges structured
+  SummaryReport gaps into that same router without making the runner a new
+  workflow engine.
 - `MAINTENANCE_OBLIGATION_MEMORY_API` is the shared memory object used by
   summary reports, maintenance scan, model maturation, and risk ledger so
   unresolved route-owned gaps can be inherited without a separate debt scan.

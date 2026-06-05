@@ -128,6 +128,11 @@ change in an existing modeled system.
 Use a light grounding note for discussion and early analysis. Use a full
 structured preflight before implementation, OpenSpec proposals, major
 architecture changes, or risky behavior changes.
+
+Use `existing_model_preflight_from_project(...)` when an agent needs a quick
+project inventory from `.flowguard`, docs, and OpenSpec before filling or
+reviewing the same `ExistingModelPreflight` shape. The inventory helper is not
+the validator; pass its output to `review_existing_model_preflight(...)`.
 """
 
 __all__ = [

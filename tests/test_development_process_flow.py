@@ -131,7 +131,12 @@ class DevelopmentProcessFlowTests(unittest.TestCase):
         self.assertIn("stale_evidence_after_artifact_change", codes)
         self.assertIn("release_claim_with_stale_evidence", codes)
         self.assertEqual("revalidation_required", report.decision)
-        self.assertEqual(("unit-current",), tuple(r.requirement_id for r in derive_revalidation_plan(plan)))
+        recommendations = derive_revalidation_plan(plan)
+        self.assertEqual(("unit-current",), tuple(r.requirement_id for r in recommendations))
+        self.assertEqual("unit-pass", recommendations[0].evidence_id)
+        self.assertEqual("development_process_flow", recommendations[0].producer_route)
+        self.assertIn("stale_evidence_after_artifact_change", recommendations[0].freshness_gap_codes)
+        self.assertIn(PROCESS_SCOPE_RELEASE, recommendations[0].blocks_claim_scopes)
 
     def test_test_verifier_change_after_test_pass_is_stale(self):
         plan = DevelopmentProcessPlan(
@@ -166,6 +171,39 @@ class DevelopmentProcessFlowTests(unittest.TestCase):
 
         self.assertFalse(report.ok)
         self.assertIn("test_changed_after_test_pass", {finding.code for finding in report.findings})
+
+    def test_revalidation_recommendation_marks_required_proof_artifact(self):
+        plan = DevelopmentProcessPlan(
+            "proof-required-rerun",
+            require_proof_artifacts=True,
+            artifacts=base_artifacts(code_version="2"),
+            evidence=(
+                ProcessEvidence(
+                    "unit-pass",
+                    evidence_kind="unit",
+                    status=PROCESS_EVIDENCE_PASSED,
+                    covers_artifacts=("code.search",),
+                    covered_versions={"code.search": "1"},
+                    validation_requirement_ids=("unit-current",),
+                    command="python -m unittest tests.test_search",
+                ),
+            ),
+            validation_requirements=(
+                ValidationRequirement(
+                    "unit-current",
+                    required_artifact_ids=("code.search",),
+                    required_evidence_kinds=("unit",),
+                    evidence_ids=("unit-pass",),
+                    command="python -m unittest tests.test_search",
+                ),
+            ),
+        )
+
+        recommendation = derive_revalidation_plan(plan)[0]
+
+        self.assertTrue(recommendation.proof_artifact_required)
+        self.assertEqual(("stale_evidence_after_artifact_change",), recommendation.freshness_gap_codes)
+        self.assertEqual(("code.search",), recommendation.artifact_ids)
 
     def test_model_change_after_alignment_pass_is_stale(self):
         plan = DevelopmentProcessPlan(

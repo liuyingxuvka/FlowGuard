@@ -174,6 +174,11 @@ class MaintenanceSignal:
     route_id: str = ""
     strength: str = MAINTENANCE_ACTION_REQUIRED
     artifact_ids: tuple[str, ...] = ()
+    required_input_kinds: tuple[str, ...] = ()
+    proof_gap_codes: tuple[str, ...] = ()
+    claim_effect: str = ""
+    suggested_commands: tuple[str, ...] = ()
+    source_obligation_ids: tuple[str, ...] = ()
     description: str = ""
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
@@ -183,6 +188,11 @@ class MaintenanceSignal:
         object.__setattr__(self, "route_id", str(self.route_id))
         object.__setattr__(self, "strength", str(self.strength))
         object.__setattr__(self, "artifact_ids", _as_tuple(self.artifact_ids))
+        object.__setattr__(self, "required_input_kinds", _as_tuple(self.required_input_kinds))
+        object.__setattr__(self, "proof_gap_codes", _as_tuple(self.proof_gap_codes))
+        object.__setattr__(self, "claim_effect", str(self.claim_effect))
+        object.__setattr__(self, "suggested_commands", _as_tuple(self.suggested_commands))
+        object.__setattr__(self, "source_obligation_ids", _as_tuple(self.source_obligation_ids))
         object.__setattr__(self, "description", str(self.description))
         object.__setattr__(self, "metadata", dict(self.metadata))
 
@@ -193,6 +203,11 @@ class MaintenanceSignal:
             "route_id": self.route_id,
             "strength": self.strength,
             "artifact_ids": list(self.artifact_ids),
+            "required_input_kinds": list(self.required_input_kinds),
+            "proof_gap_codes": list(self.proof_gap_codes),
+            "claim_effect": self.claim_effect,
+            "suggested_commands": list(self.suggested_commands),
+            "source_obligation_ids": list(self.source_obligation_ids),
             "description": self.description,
             "metadata": to_jsonable(dict(self.metadata)),
         }
@@ -240,6 +255,11 @@ class MaintenanceAction:
     artifact_ids: tuple[str, ...] = ()
     signal_ids: tuple[str, ...] = ()
     owner_evidence_ids: tuple[str, ...] = ()
+    required_input_kinds: tuple[str, ...] = ()
+    proof_gap_codes: tuple[str, ...] = ()
+    claim_effect: str = ""
+    suggested_commands: tuple[str, ...] = ()
+    source_obligation_ids: tuple[str, ...] = ()
     resolved: bool = False
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
@@ -252,6 +272,11 @@ class MaintenanceAction:
         object.__setattr__(self, "artifact_ids", _as_tuple(self.artifact_ids))
         object.__setattr__(self, "signal_ids", _as_tuple(self.signal_ids))
         object.__setattr__(self, "owner_evidence_ids", _as_tuple(self.owner_evidence_ids))
+        object.__setattr__(self, "required_input_kinds", _as_tuple(self.required_input_kinds))
+        object.__setattr__(self, "proof_gap_codes", _as_tuple(self.proof_gap_codes))
+        object.__setattr__(self, "claim_effect", str(self.claim_effect))
+        object.__setattr__(self, "suggested_commands", _as_tuple(self.suggested_commands))
+        object.__setattr__(self, "source_obligation_ids", _as_tuple(self.source_obligation_ids))
         object.__setattr__(self, "resolved", bool(self.resolved))
         object.__setattr__(self, "metadata", dict(self.metadata))
 
@@ -268,6 +293,11 @@ class MaintenanceAction:
             "artifact_ids": list(self.artifact_ids),
             "signal_ids": list(self.signal_ids),
             "owner_evidence_ids": list(self.owner_evidence_ids),
+            "required_input_kinds": list(self.required_input_kinds),
+            "proof_gap_codes": list(self.proof_gap_codes),
+            "claim_effect": self.claim_effect,
+            "suggested_commands": list(self.suggested_commands),
+            "source_obligation_ids": list(self.source_obligation_ids),
             "resolved": self.resolved,
             "metadata": to_jsonable(dict(self.metadata)),
         }
@@ -437,6 +467,11 @@ def _make_action(
     artifact_ids: Sequence[str] = (),
     signal_ids: Sequence[str] = (),
     evidence_ids: Sequence[str] = (),
+    required_input_kinds: Sequence[str] = (),
+    proof_gap_codes: Sequence[str] = (),
+    claim_effect: str = "",
+    suggested_commands: Sequence[str] = (),
+    source_obligation_ids: Sequence[str] = (),
 ) -> MaintenanceAction:
     action_id = f"{route_id}:{reason_code}"
     return MaintenanceAction(
@@ -448,6 +483,11 @@ def _make_action(
         artifact_ids=_unique(artifact_ids),
         signal_ids=_unique(signal_ids),
         owner_evidence_ids=_unique(evidence_ids),
+        required_input_kinds=_unique(required_input_kinds),
+        proof_gap_codes=_unique(proof_gap_codes),
+        claim_effect=claim_effect,
+        suggested_commands=_unique(suggested_commands),
+        source_obligation_ids=_unique(source_obligation_ids),
         resolved=bool(evidence_ids),
     )
 
@@ -467,6 +507,11 @@ def _action_from_obligation(
         artifact_ids=obligation.artifact_ids,
         signal_ids=(obligation.obligation_id,),
         evidence_ids=evidence_ids,
+        required_input_kinds=obligation.required_input_kinds,
+        proof_gap_codes=obligation.proof_gap_codes,
+        claim_effect=obligation.claim_effect,
+        suggested_commands=obligation.suggested_commands,
+        source_obligation_ids=(obligation.obligation_id,),
     )
 
 
@@ -491,6 +536,11 @@ def _merge_actions(actions: Sequence[MaintenanceAction]) -> tuple[MaintenanceAct
             artifact_ids=_unique(existing.artifact_ids + action.artifact_ids),
             signal_ids=_unique(existing.signal_ids + action.signal_ids),
             owner_evidence_ids=_unique(existing.owner_evidence_ids + action.owner_evidence_ids),
+            required_input_kinds=_unique(existing.required_input_kinds + action.required_input_kinds),
+            proof_gap_codes=_unique(existing.proof_gap_codes + action.proof_gap_codes),
+            claim_effect=existing.claim_effect or action.claim_effect,
+            suggested_commands=_unique(existing.suggested_commands + action.suggested_commands),
+            source_obligation_ids=_unique(existing.source_obligation_ids + action.source_obligation_ids),
             resolved=existing.resolved or action.resolved,
             metadata={**existing.metadata, **action.metadata},
         )
@@ -569,6 +619,11 @@ def review_maintenance_scan(plan: MaintenanceScanPlan) -> MaintenanceScanReport:
                 artifact_ids=signal.artifact_ids,
                 signal_ids=(signal.signal_id,),
                 evidence_ids=evidence_by_route.get(route_id, ()),
+                required_input_kinds=signal.required_input_kinds,
+                proof_gap_codes=signal.proof_gap_codes,
+                claim_effect=signal.claim_effect,
+                suggested_commands=signal.suggested_commands,
+                source_obligation_ids=signal.source_obligation_ids,
             )
         )
 
@@ -652,6 +707,72 @@ def review_maintenance_scan(plan: MaintenanceScanPlan) -> MaintenanceScanReport:
     )
 
 
+def _signal_strength_for_ledger_entry(entry: Any) -> str:
+    severity = str(getattr(entry, "severity", "") or "")
+    if severity in {"failure", "blocker"}:
+        return MAINTENANCE_ACTION_REQUIRED
+    return MAINTENANCE_ACTION_SUGGESTED
+
+
+def maintenance_scan_plan_from_summary_report(
+    report: Any,
+    *,
+    plan_id: str = "",
+    changed_artifacts: Sequence[MaintenanceChangedArtifact] = (),
+    evidence: Sequence[MaintenanceEvidence] = (),
+    skipped_routes: Sequence[MaintenanceSkippedRoute] = (),
+    prior_obligations: Sequence[MaintenanceObligation] = (),
+    claim_scope: str = "bounded",
+    allow_scoped_confidence: bool = True,
+) -> MaintenanceScanPlan:
+    """Build a maintenance scan plan from a FlowGuard summary report.
+
+    The bridge preserves MaintenanceScan as the router. It does not run owner
+    routes or validate the summary's gaps.
+    """
+
+    ledger = getattr(report, "finding_ledger", None)
+    entries = tuple(getattr(ledger, "entries", ()) or ())
+    report_obligations = tuple(
+        getattr(getattr(report, "maintenance_obligations", None), "obligations", ()) or ()
+    )
+    signals: list[MaintenanceSignal] = []
+    for index, entry in enumerate(entries, start=1):
+        if str(getattr(entry, "severity", "") or "") == "info":
+            continue
+        route_id = str(getattr(entry, "owner_route", "") or "") or MAINTENANCE_ROUTE_DEVELOPMENT_PROCESS_FLOW
+        signal_id = f"summary:{getattr(entry, 'section_name', 'section')}:{index}"
+        signals.append(
+            MaintenanceSignal(
+                signal_id,
+                str(getattr(entry, "category", "") or "summary_gap"),
+                route_id=route_id,
+                strength=_signal_strength_for_ledger_entry(entry),
+                required_input_kinds=tuple(getattr(entry, "required_input_kinds", ()) or ()),
+                proof_gap_codes=tuple(getattr(entry, "proof_gap_codes", ()) or ()),
+                claim_effect=str(getattr(entry, "claim_effect", "") or ""),
+                suggested_commands=tuple(getattr(entry, "suggested_commands", ()) or ()),
+                source_obligation_ids=tuple(
+                    obligation.obligation_id
+                    for obligation in report_obligations
+                    if obligation.source_route == getattr(entry, "section_name", "")
+                ),
+                description=str(getattr(entry, "message", "") or ""),
+                metadata={"summary_ledger_entry": getattr(entry, "to_dict", lambda: repr(entry))()},
+            )
+        )
+    return MaintenanceScanPlan(
+        plan_id or str(getattr(report, "summary", "") or "summary-report"),
+        changed_artifacts=tuple(changed_artifacts),
+        evidence=tuple(evidence),
+        signals=tuple(signals),
+        skipped_routes=tuple(skipped_routes),
+        prior_obligations=tuple(prior_obligations) + report_obligations,
+        claim_scope=claim_scope,
+        allow_scoped_confidence=allow_scoped_confidence,
+    )
+
+
 __all__ = [
     "MAINTENANCE_ACTION_OPTIONAL",
     "MAINTENANCE_ACTION_REQUIRED",
@@ -704,5 +825,6 @@ __all__ = [
     "MaintenanceScanReport",
     "MaintenanceSignal",
     "MaintenanceSkippedRoute",
+    "maintenance_scan_plan_from_summary_report",
     "review_maintenance_scan",
 ]

@@ -189,6 +189,9 @@ Use this scaffold to model a development lifecycle as a stateful process.
   oversized, incomplete, slow, broad, progress-only, or release-only;
 - whether done, release, archive, or publish claims have current evidence;
 - the minimum revalidation needed when evidence is stale or missing.
+  Revalidation recommendations include the route that produced prior evidence,
+  proof-artifact requirement, freshness gap codes, and claim scopes blocked
+  until rerun.
 
 ## Sibling Route Boundary
 

@@ -22,6 +22,7 @@ this preflight with the downstream route that owns the actual work.
 - Route id: `existing_model_preflight`.
 - Core helpers: `ExistingModelPreflight`, `ModelContextHit`,
   `ExistingOwnershipSnapshot`, `DuplicateBoundaryRisk`,
+  `existing_model_preflight_from_project()`,
   `review_existing_model_preflight()`.
 - Similarity handoff: cite relation ids, maintenance group ids, change-impact
   ids, and impacted sibling model ids when A/B/C workflows may drift.

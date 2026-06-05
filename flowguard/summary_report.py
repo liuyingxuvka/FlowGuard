@@ -77,6 +77,12 @@ class FlowGuardFindingLedgerEntry:
     finding_index: int | None = None
     section_summary: str = ""
     next_step: str = ""
+    owner_route: str = ""
+    action_kind: str = ""
+    required_input_kinds: tuple[str, ...] = ()
+    proof_gap_codes: tuple[str, ...] = ()
+    claim_effect: str = ""
+    suggested_commands: tuple[str, ...] = ()
     metadata: FrozenMetadata = field(default_factory=tuple, compare=False)
 
     def __post_init__(self) -> None:
@@ -93,6 +99,24 @@ class FlowGuardFindingLedgerEntry:
         object.__setattr__(self, "message", str(self.message))
         object.__setattr__(self, "section_summary", str(self.section_summary or ""))
         object.__setattr__(self, "next_step", str(self.next_step or ""))
+        object.__setattr__(self, "owner_route", str(self.owner_route or ""))
+        object.__setattr__(self, "action_kind", str(self.action_kind or ""))
+        object.__setattr__(
+            self,
+            "required_input_kinds",
+            tuple(str(value) for value in self.required_input_kinds if str(value)),
+        )
+        object.__setattr__(
+            self,
+            "proof_gap_codes",
+            tuple(str(value) for value in self.proof_gap_codes if str(value)),
+        )
+        object.__setattr__(self, "claim_effect", str(self.claim_effect or ""))
+        object.__setattr__(
+            self,
+            "suggested_commands",
+            tuple(str(value) for value in self.suggested_commands if str(value)),
+        )
         object.__setattr__(self, "metadata", freeze_metadata(self.metadata))
 
     def to_dict(self) -> dict[str, Any]:
@@ -105,6 +129,12 @@ class FlowGuardFindingLedgerEntry:
             "finding_index": self.finding_index,
             "section_summary": self.section_summary,
             "next_step": self.next_step,
+            "owner_route": self.owner_route,
+            "action_kind": self.action_kind,
+            "required_input_kinds": list(self.required_input_kinds),
+            "proof_gap_codes": list(self.proof_gap_codes),
+            "claim_effect": self.claim_effect,
+            "suggested_commands": list(self.suggested_commands),
             "metadata": to_jsonable(self.metadata),
         }
 
@@ -322,6 +352,91 @@ def _ledger_next_step(section: FlowGuardSection, category: str) -> str:
     return "No action required unless this finding affects the current risk boundary."
 
 
+def _ledger_owner_route(section: FlowGuardSection, category: str) -> str:
+    text = f"{section.name} {category}".lower()
+    if "human_review" in text:
+        return "agent_workflow_rehearsal"
+    if "model_test" in text or "alignment" in text:
+        return "model_test_alignment"
+    if "conformance" in text:
+        return "development_process_flow"
+    if "state_closure" in text or "topology_hazard" in text:
+        return "model_maturation_loop"
+    if any(token in text for token in ("model", "scenario", "contract", "progress")):
+        return "model_maturation_loop"
+    return "development_process_flow"
+
+
+def _ledger_action_kind(section: FlowGuardSection, category: str) -> str:
+    if section.status == "failed":
+        return "inspect_failure"
+    if category == "model_coverage_gap":
+        return "extend_model_coverage"
+    if category == "conformance_gap":
+        return "run_conformance_or_scope_claim"
+    if category == "missing_or_skipped_check":
+        return "run_missing_check_or_record_skip"
+    if category == "blocked_check":
+        return "resolve_blocker"
+    if category == "human_review":
+        return "supply_policy_or_oracle"
+    if category == "confidence_gap":
+        return "review_confidence_gap"
+    return "review_finding"
+
+
+def _ledger_required_input_kinds(section: FlowGuardSection, category: str) -> tuple[str, ...]:
+    if section.status == "failed":
+        return ("counterexample", "owner_route_decision")
+    if category == "model_coverage_gap":
+        return ("model_update", "scenario_or_invariant")
+    if category == "conformance_gap":
+        return ("conformance_report", "proof_artifact")
+    if category == "missing_or_skipped_check":
+        return ("proof_artifact", "skip_reason")
+    if category == "blocked_check":
+        return ("blocker_resolution", "proof_artifact")
+    if category == "human_review":
+        return ("policy_expectation", "oracle")
+    if category == "confidence_gap":
+        return ("owner_route_evidence",)
+    return ()
+
+
+def _ledger_proof_gap_codes(section: FlowGuardSection, category: str) -> tuple[str, ...]:
+    if section.status == "failed":
+        return ("failing_evidence_requires_triage",)
+    if category == "conformance_gap":
+        return ("missing_conformance_proof",)
+    if category == "missing_or_skipped_check":
+        return ("missing_or_skipped_proof",)
+    if category == "blocked_check":
+        return ("blocked_proof_artifact",)
+    if category in {"model_coverage_gap", "confidence_gap", "human_review"}:
+        return ("route_gap_visible",)
+    return ()
+
+
+def _ledger_claim_effect(section: FlowGuardSection, category: str) -> str:
+    if section.status in {"failed", "blocked"}:
+        return "blocked_until_resolved"
+    if category in {"conformance_gap", "model_coverage_gap", "missing_or_skipped_check", "confidence_gap", "human_review"}:
+        return "scoped_until_resolved"
+    return "no_claim_effect"
+
+
+def _ledger_suggested_commands(section: FlowGuardSection, category: str) -> tuple[str, ...]:
+    if category == "conformance_gap":
+        return ("run conformance replay or attach a current conformance proof artifact",)
+    if category == "model_coverage_gap":
+        return ("extend the model/scenario/invariant and rerun the owning FlowGuard check",)
+    if category == "missing_or_skipped_check":
+        return ("run the missing check or record an accepted scoped skip",)
+    if section.status == "failed":
+        return ("inspect the counterexample and rerun after repair",)
+    return ()
+
+
 def _format_ledger_message(finding: Any) -> str:
     if isinstance(finding, str):
         return finding
@@ -343,6 +458,12 @@ def _ledger_entry(
         finding_index=finding_index,
         section_summary=section.summary,
         next_step=_ledger_next_step(section, category),
+        owner_route=_ledger_owner_route(section, category),
+        action_kind=_ledger_action_kind(section, category),
+        required_input_kinds=_ledger_required_input_kinds(section, category),
+        proof_gap_codes=_ledger_proof_gap_codes(section, category),
+        claim_effect=_ledger_claim_effect(section, category),
+        suggested_commands=_ledger_suggested_commands(section, category),
     )
 
 

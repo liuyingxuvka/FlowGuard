@@ -18,6 +18,8 @@ inspect or replace sibling route internals.
 - Route id: `development_process_flow`.
 - Core helpers: `review_development_process_flow()`,
   `derive_revalidation_plan()`, `review_auto_mesh_splits()`.
+- Revalidation recommendations include route, proof, freshness-gap, and
+  blocked-claim metadata for AI rerun decisions.
 - Reference: `references/development_process_flow_protocol.md`.
 
 ## Hard Gates

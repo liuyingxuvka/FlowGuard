@@ -428,6 +428,10 @@ class RevalidationRecommendation:
     scope: str = PROCESS_SCOPE_ROUTINE
     artifact_ids: tuple[str, ...] = ()
     reason: str = ""
+    producer_route: str = ""
+    proof_artifact_required: bool = False
+    freshness_gap_codes: tuple[str, ...] = ()
+    blocks_claim_scopes: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "requirement_id", str(self.requirement_id))
@@ -436,6 +440,10 @@ class RevalidationRecommendation:
         object.__setattr__(self, "scope", str(self.scope))
         object.__setattr__(self, "artifact_ids", _as_tuple(self.artifact_ids))
         object.__setattr__(self, "reason", str(self.reason))
+        object.__setattr__(self, "producer_route", str(self.producer_route))
+        object.__setattr__(self, "proof_artifact_required", bool(self.proof_artifact_required))
+        object.__setattr__(self, "freshness_gap_codes", _as_tuple(self.freshness_gap_codes))
+        object.__setattr__(self, "blocks_claim_scopes", _as_tuple(self.blocks_claim_scopes))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -445,6 +453,10 @@ class RevalidationRecommendation:
             "scope": self.scope,
             "artifact_ids": list(self.artifact_ids),
             "reason": self.reason,
+            "producer_route": self.producer_route,
+            "proof_artifact_required": self.proof_artifact_required,
+            "freshness_gap_codes": list(self.freshness_gap_codes),
+            "blocks_claim_scopes": list(self.blocks_claim_scopes),
         }
 
 
@@ -536,7 +548,21 @@ class DevelopmentProcessFlowReport:
             lines.append("revalidation:")
             for recommendation in self.revalidation_recommendations:
                 detail = recommendation.evidence_id or recommendation.requirement_id
-                lines.append(f"  - {detail}: {recommendation.reason}")
+                suffix_parts = []
+                if recommendation.producer_route:
+                    suffix_parts.append(f"route={recommendation.producer_route}")
+                if recommendation.proof_artifact_required:
+                    suffix_parts.append("proof_artifact_required=true")
+                if recommendation.freshness_gap_codes:
+                    suffix_parts.append(
+                        "gaps=" + ",".join(recommendation.freshness_gap_codes)
+                    )
+                if recommendation.blocks_claim_scopes:
+                    suffix_parts.append(
+                        "blocks=" + ",".join(recommendation.blocks_claim_scopes)
+                    )
+                suffix = f" ({'; '.join(suffix_parts)})" if suffix_parts else ""
+                lines.append(f"  - {detail}: {recommendation.reason}{suffix}")
         for finding in self.findings[:max_findings]:
             lines.extend(
                 [
@@ -1033,17 +1059,26 @@ def _requirement_findings(
             )
         )
         evidence_id = candidates[0].evidence_id if candidates else ""
+        candidate = candidates[0] if candidates else None
+        stale_reasons = stale_by_evidence.get(evidence_id, {}) if evidence_id else {}
         reason = "missing current evidence"
-        if candidates and stale_by_evidence.get(candidates[0].evidence_id):
-            reason = next(iter(stale_by_evidence[candidates[0].evidence_id].values()))[1]
+        if stale_reasons:
+            reason = next(iter(stale_reasons.values()))[1]
+        blocks_claim_scopes = [requirement.scope]
+        if plan.decision_scope not in blocks_claim_scopes:
+            blocks_claim_scopes.append(plan.decision_scope)
         recommendations.append(
             RevalidationRecommendation(
                 requirement.requirement_id,
                 evidence_id=evidence_id,
-                command=requirement.command or (candidates[0].command if candidates else ""),
+                command=requirement.command or (candidate.command if candidate else ""),
                 scope=requirement.scope,
                 artifact_ids=requirement.required_artifact_ids,
                 reason=reason,
+                producer_route=candidate.producer_route if candidate else "",
+                proof_artifact_required=plan.require_proof_artifacts,
+                freshness_gap_codes=tuple(code for code, _message in stale_reasons.values()),
+                blocks_claim_scopes=tuple(blocks_claim_scopes),
             )
         )
     return findings, release_obligations, recommendations
