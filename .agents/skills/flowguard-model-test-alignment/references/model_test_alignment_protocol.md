@@ -10,6 +10,11 @@ It does not split tests, split code, split models, or read mesh reports. It
 compares explicit model obligations, required owner code external contracts, and
 plain test evidence.
 
+When a change touches behavior-bearing fields, consume FieldLifecycleMesh
+reports or projections. `field_lifecycle_to_model_obligations(...)` and
+`field_lifecycle_to_code_contracts(...)` turn field rows into the same
+obligation and owner-contract rows this protocol already compares.
+
 When the claim covers state transitions, derive a transition coverage matrix.
 Use `TransitionCoverageMatrix` and
 `transition_coverage_to_model_obligations(...)` so each required
@@ -86,6 +91,8 @@ Create or update a model-test alignment review when:
   externally visible code surface is expected to implement a model-backed
   obligation;
 - tests are added or changed for model-backed behavior;
+- behavior-bearing field lifecycle projections need test and code-contract
+  proof;
 - a report claims that model coverage and test coverage agree;
 - a report claims that code contract coverage and test coverage agree for a
   model-backed behavior;
@@ -128,6 +135,9 @@ Use grouped field families instead of a blank for every possible detail.
   effects, error paths, and exactness.
 - transition coverage source when generated from a matrix: cell id, source
   state, trigger, target state, expected output, and required test kinds.
+- field lifecycle source when generated from FieldLifecycleMesh: field id,
+  projection id, behavior impact, old-field disposition if relevant, and owner
+  route.
 
 `CodeContract` rows are required for required model obligations in the current
 confidence claim. Capture:
@@ -153,6 +163,8 @@ confidence claim. Capture:
 Expand only when applicable:
 
 - `ObligationFamily` rows for sibling obligations promoted as one claim.
+- FieldLifecycleMesh reports or `FieldProjection` rows for behavior-bearing
+  fields.
 - `CodeBoundaryContract` and `CodeBoundaryObservation` rows for exact closed
   code boundaries.
 - Leaf boundary matrix rows when a finite leaf model is being proved.

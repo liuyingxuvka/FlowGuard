@@ -163,6 +163,7 @@ class ApiSurfaceTests(unittest.TestCase):
         self.assertIn("review_plan_detail", flowguard.REPORTING_HELPER_API)
         self.assertIn("plan_detail_to_development_process", flowguard.REPORTING_HELPER_API)
         self.assertIn("plan_detailing_template_files", flowguard.EVIDENCE_API)
+        self.assertIn("field_lifecycle_template_files", flowguard.EVIDENCE_API)
         self.assertNotIn("review_code_structure_recommendation", flowguard.CORE_API)
         self.assertNotIn("review_ui_interaction_model", flowguard.CORE_API)
         self.assertNotIn("review_ui_journey_coverage", flowguard.CORE_API)
@@ -248,6 +249,7 @@ class ApiSurfaceTests(unittest.TestCase):
             "architecture_reduction",
             "code_structure_recommendation",
             "model_test_alignment",
+            "field_lifecycle_mesh",
             "plan_detailing_compiler",
             "maintenance_obligation_memory",
             "maintenance_scan_router",
@@ -336,6 +338,7 @@ class ApiSurfaceTests(unittest.TestCase):
             "EVIDENCE_API",
             "FLOWGUARD_ROUTE_API",
             "FLOWGUARD_CLOSURE_CONTRACT_API",
+            "FIELD_LIFECYCLE_MESH_API",
             "MAINTENANCE_OBLIGATION_MEMORY_API",
             "MAINTENANCE_SCAN_ROUTE_API",
             "MODEL_SIMILARITY_ROUTE_API",

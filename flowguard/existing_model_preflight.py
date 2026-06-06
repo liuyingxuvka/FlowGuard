@@ -72,6 +72,7 @@ class ModelContextHit:
     state_owned: tuple[str, ...] = ()
     side_effects_owned: tuple[str, ...] = ()
     public_entrypoints: tuple[str, ...] = ()
+    fields_owned: tuple[str, ...] = ()
     parent_model_id: str = ""
     child_model_ids: tuple[str, ...] = ()
     layered_proof_evidence_id: str = ""
@@ -92,6 +93,7 @@ class ModelContextHit:
         object.__setattr__(self, "state_owned", _as_tuple(self.state_owned))
         object.__setattr__(self, "side_effects_owned", _as_tuple(self.side_effects_owned))
         object.__setattr__(self, "public_entrypoints", _as_tuple(self.public_entrypoints))
+        object.__setattr__(self, "fields_owned", _as_tuple(self.fields_owned))
         object.__setattr__(self, "parent_model_id", str(self.parent_model_id))
         object.__setattr__(self, "child_model_ids", _as_tuple(self.child_model_ids))
         object.__setattr__(self, "layered_proof_evidence_id", str(self.layered_proof_evidence_id))
@@ -108,6 +110,7 @@ class ModelContextHit:
             or self.state_owned
             or self.side_effects_owned
             or self.public_entrypoints
+            or self.fields_owned
             or self.responsibilities
         )
 
@@ -123,6 +126,7 @@ class ModelContextHit:
             "state_owned": list(self.state_owned),
             "side_effects_owned": list(self.side_effects_owned),
             "public_entrypoints": list(self.public_entrypoints),
+            "fields_owned": list(self.fields_owned),
             "parent_model_id": self.parent_model_id,
             "child_model_ids": list(self.child_model_ids),
             "layered_proof_evidence_id": self.layered_proof_evidence_id,
@@ -143,6 +147,7 @@ class ExistingOwnershipSnapshot:
     state_owners: tuple[tuple[str, str], ...] = ()
     side_effect_owners: tuple[tuple[str, str], ...] = ()
     public_entrypoint_owners: tuple[tuple[str, str], ...] = ()
+    field_owners: tuple[tuple[str, str], ...] = ()
     responsibility_owners: tuple[tuple[str, str], ...] = ()
 
     def __post_init__(self) -> None:
@@ -150,6 +155,7 @@ class ExistingOwnershipSnapshot:
         object.__setattr__(self, "state_owners", _as_pairs(self.state_owners))
         object.__setattr__(self, "side_effect_owners", _as_pairs(self.side_effect_owners))
         object.__setattr__(self, "public_entrypoint_owners", _as_pairs(self.public_entrypoint_owners))
+        object.__setattr__(self, "field_owners", _as_pairs(self.field_owners))
         object.__setattr__(self, "responsibility_owners", _as_pairs(self.responsibility_owners))
 
     def has_any(self) -> bool:
@@ -158,6 +164,7 @@ class ExistingOwnershipSnapshot:
             or self.state_owners
             or self.side_effect_owners
             or self.public_entrypoint_owners
+            or self.field_owners
             or self.responsibility_owners
         )
 
@@ -167,6 +174,7 @@ class ExistingOwnershipSnapshot:
             "state_owners": [list(pair) for pair in self.state_owners],
             "side_effect_owners": [list(pair) for pair in self.side_effect_owners],
             "public_entrypoint_owners": [list(pair) for pair in self.public_entrypoint_owners],
+            "field_owners": [list(pair) for pair in self.field_owners],
             "responsibility_owners": [list(pair) for pair in self.responsibility_owners],
         }
 
@@ -226,6 +234,10 @@ class ExistingModelPreflight:
     no_model_found_reason: str = ""
     proposed_new_boundaries: tuple[str, ...] = ()
     duplicate_risks: tuple[DuplicateBoundaryRisk, ...] = ()
+    behavior_field_ids: tuple[str, ...] = ()
+    field_lifecycle_required: bool = False
+    field_lifecycle_model_ids: tuple[str, ...] = ()
+    field_lifecycle_gap_ids: tuple[str, ...] = ()
     similarity_review_required: bool = False
     similarity_handoff: SimilarityHandoff | Mapping[str, Any] | None = None
     skip_reason: str = ""
@@ -242,6 +254,10 @@ class ExistingModelPreflight:
         object.__setattr__(self, "no_model_found_reason", str(self.no_model_found_reason))
         object.__setattr__(self, "proposed_new_boundaries", _as_tuple(self.proposed_new_boundaries))
         object.__setattr__(self, "duplicate_risks", tuple(self.duplicate_risks))
+        object.__setattr__(self, "behavior_field_ids", _as_tuple(self.behavior_field_ids))
+        object.__setattr__(self, "field_lifecycle_required", bool(self.field_lifecycle_required))
+        object.__setattr__(self, "field_lifecycle_model_ids", _as_tuple(self.field_lifecycle_model_ids))
+        object.__setattr__(self, "field_lifecycle_gap_ids", _as_tuple(self.field_lifecycle_gap_ids))
         object.__setattr__(self, "similarity_handoff", normalize_similarity_handoff(self.similarity_handoff))
         object.__setattr__(self, "skip_reason", str(self.skip_reason))
 
@@ -263,6 +279,10 @@ class ExistingModelPreflight:
             "no_model_found_reason": self.no_model_found_reason,
             "proposed_new_boundaries": list(self.proposed_new_boundaries),
             "duplicate_risks": [risk.to_dict() for risk in self.duplicate_risks],
+            "behavior_field_ids": list(self.behavior_field_ids),
+            "field_lifecycle_required": self.field_lifecycle_required,
+            "field_lifecycle_model_ids": list(self.field_lifecycle_model_ids),
+            "field_lifecycle_gap_ids": list(self.field_lifecycle_gap_ids),
             "similarity_review_required": self.similarity_review_required,
             "similarity_handoff": self.similarity_handoff.to_dict()
             if self.similarity_handoff
@@ -400,6 +420,10 @@ def _decision_for_findings(
             return "ownership_snapshot_required"
         if "layered_proof_status_unknown" in codes:
             return "layered_proof_status_required"
+        if "missing_field_lifecycle_ownership" in codes:
+            return "field_lifecycle_ownership_required"
+        if "field_lifecycle_gap_unresolved" in codes:
+            return "field_lifecycle_gap_blocked"
         if "duplicate_boundary_risk_unresolved" in codes:
             return "duplicate_boundary_risk_blocked"
         if "new_boundary_without_rationale" in codes:
@@ -502,6 +526,7 @@ def existing_model_preflight_from_project(
             classes = _class_names(text)
             responsibilities = _purpose_lines(text) or (model_id,)
             relative_path = str(path.relative_to(root_path))
+            fields_owned = tuple(dict.fromkeys(re.findall(r"field:[A-Za-z0-9_.:-]+", text)))
             hits.append(
                 ModelContextHit(
                     model_id=model_id,
@@ -510,6 +535,7 @@ def existing_model_preflight_from_project(
                     evidence_current=True,
                     responsibilities=responsibilities,
                     function_blocks=classes,
+                    fields_owned=fields_owned,
                     validation_evidence=(relative_path,),
                     rationale="Discovered from project FlowGuard inventory.",
                 )
@@ -527,6 +553,11 @@ def existing_model_preflight_from_project(
                 (responsibility, hit.model_id)
                 for hit in hits
                 for responsibility in hit.responsibilities
+            ),
+            field_owners=tuple(
+                (field_id, hit.model_id)
+                for hit in hits
+                for field_id in hit.fields_owned
             ),
         )
     reuse_decision = REUSE_DECISION_REUSE_EXISTING if hits else REUSE_DECISION_NO_MODEL_FOUND
@@ -713,6 +744,42 @@ def review_existing_model_preflight(
                     "full preflight does not explain the reuse or route decision",
                 )
             )
+
+    field_lifecycle_required = preflight.field_lifecycle_required or bool(preflight.behavior_field_ids)
+    known_field_owner_ids = set(preflight.field_lifecycle_model_ids)
+    for model in preflight.relevant_models:
+        known_field_owner_ids.update(model.fields_owned)
+    if preflight.ownership_snapshot:
+        known_field_owner_ids.update(field_id for field_id, _owner in preflight.ownership_snapshot.field_owners)
+    if field_lifecycle_required and not known_field_owner_ids:
+        findings.append(
+            ExistingModelPreflightFinding(
+                "missing_field_lifecycle_ownership",
+                "behavior-bearing fields are in scope but no field lifecycle model, field owner, or field ownership snapshot is recorded",
+                metadata={
+                    "behavior_field_ids": list(preflight.behavior_field_ids),
+                    "downstream_routes": list(preflight.downstream_routes),
+                },
+            )
+        )
+    if field_lifecycle_required and "field_lifecycle_mesh" not in preflight.downstream_routes:
+        findings.append(
+            ExistingModelPreflightFinding(
+                "missing_field_lifecycle_route",
+                "behavior-bearing fields are in scope but field_lifecycle_mesh is not named as a downstream route",
+                severity="warning",
+                metadata={"behavior_field_ids": list(preflight.behavior_field_ids)},
+            )
+        )
+    for gap_id in preflight.field_lifecycle_gap_ids:
+        findings.append(
+            ExistingModelPreflightFinding(
+                "field_lifecycle_gap_unresolved",
+                "existing field lifecycle preflight found an unresolved field model gap",
+                item_id=gap_id,
+                metadata={"field_lifecycle_gap_ids": list(preflight.field_lifecycle_gap_ids)},
+            )
+        )
 
     similarity_handoff = preflight.similarity_handoff
     similarity_relation_ids = similarity_handoff.relation_ids if similarity_handoff else ()

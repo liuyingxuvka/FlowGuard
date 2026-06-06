@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
 from .export import to_jsonable
-from .legacy_path_disposition import LegacyPathDisposition, review_legacy_path_dispositions
+from .legacy_path_disposition import LEGACY_PATH_KIND_FIELD, LegacyPathDisposition, review_legacy_path_dispositions
 from .proof_artifact import ProofArtifactRef, coerce_proof_artifact_ref, proof_artifact_gap_codes
 from .risk_evidence_ledger import (
     RISK_CONFIDENCE_BLOCKED,
@@ -161,6 +161,9 @@ class DefectFamilyGate:
     historical_holdout_case_id: str = ""
     proof_evidence_ids: tuple[str, ...] = ()
     legacy_path_dispositions: tuple[LegacyPathDisposition, ...] = ()
+    root_cause_field_ids: tuple[str, ...] = ()
+    same_class_field_ids: tuple[str, ...] = ()
+    old_field_ids: tuple[str, ...] = ()
     scoped_confidence_reasons: tuple[str, ...] = ()
     next_actions: tuple[str, ...] = ()
     metadata: Mapping[str, Any] = field(default_factory=dict)
@@ -182,6 +185,9 @@ class DefectFamilyGate:
         object.__setattr__(self, "historical_holdout_case_id", str(self.historical_holdout_case_id))
         object.__setattr__(self, "proof_evidence_ids", _as_tuple(self.proof_evidence_ids))
         object.__setattr__(self, "legacy_path_dispositions", tuple(self.legacy_path_dispositions))
+        object.__setattr__(self, "root_cause_field_ids", _as_tuple(self.root_cause_field_ids))
+        object.__setattr__(self, "same_class_field_ids", _as_tuple(self.same_class_field_ids))
+        object.__setattr__(self, "old_field_ids", _as_tuple(self.old_field_ids))
         object.__setattr__(
             self,
             "scoped_confidence_reasons",
@@ -210,6 +216,9 @@ class DefectFamilyGate:
             "historical_holdout_case_id": self.historical_holdout_case_id,
             "proof_evidence_ids": list(self.proof_evidence_ids),
             "legacy_path_dispositions": [disposition.to_dict() for disposition in self.legacy_path_dispositions],
+            "root_cause_field_ids": list(self.root_cause_field_ids),
+            "same_class_field_ids": list(self.same_class_field_ids),
+            "old_field_ids": list(self.old_field_ids),
             "scoped_confidence_reasons": list(self.scoped_confidence_reasons),
             "next_actions": list(self.next_actions),
             "metadata": to_jsonable(dict(self.metadata)),
@@ -378,6 +387,8 @@ def _decision_for(findings: Sequence[DefectFamilyGateFinding]) -> tuple[str, str
         "missing_defect_family_authority_boundary",
         "missing_observed_failure_case",
         "missing_same_class_generalized_case",
+        "missing_same_class_field_case",
+        "missing_old_field_disposition",
         "missing_historical_holdout_case",
         "missing_defect_family_proof_evidence",
         "unknown_defect_family_evidence",
@@ -485,6 +496,16 @@ def review_defect_family_gates(plan: DefectFamilyGatePlan) -> DefectFamilyGateRe
                     "missing_same_class_generalized_case",
                     "promoted family has no same-class generalized case",
                     gate_id=gate.gate_id,
+                ),
+            )
+        if gate.root_cause_field_ids and not gate.same_class_field_ids:
+            add_gap(
+                gate.gate_id,
+                _finding(
+                    "missing_same_class_field_case",
+                    "field-root-cause model miss has no same-class field case ids",
+                    gate_id=gate.gate_id,
+                    metadata={"root_cause_field_ids": list(gate.root_cause_field_ids)},
                 ),
             )
         if not has_holdout_case:
@@ -623,6 +644,25 @@ def review_defect_family_gates(plan: DefectFamilyGatePlan) -> DefectFamilyGateRe
                         metadata={"legacy_path": finding.to_dict()},
                     ),
                 )
+            if gate.old_field_ids:
+                dispositioned_old_fields = {
+                    disposition.field_id
+                    for disposition in gate.legacy_path_dispositions
+                    if disposition.path_kind == LEGACY_PATH_KIND_FIELD and disposition.field_id
+                }
+                for field_id in sorted(set(gate.old_field_ids) - dispositioned_old_fields):
+                    add_gap(
+                        gate.gate_id,
+                        _finding(
+                            "missing_old_field_disposition",
+                            "promoted field-root-cause gate does not dispose an old field",
+                            gate_id=gate.gate_id,
+                            metadata={
+                                "old_field_id": field_id,
+                                "old_field_ids": list(gate.old_field_ids),
+                            },
+                        ),
+                    )
 
         if gate.scoped_confidence_reasons:
             severity = "warning" if plan.allow_scoped_confidence else "blocker"

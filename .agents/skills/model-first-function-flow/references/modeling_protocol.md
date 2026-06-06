@@ -459,31 +459,38 @@ When this happens:
    invariant, replay adapter, representative trace, or a model boundary update
    for the observed issue, plus one same-class generalized bad case when
    practical.
-6. Add observed-regression and same-class test evidence, then run Model-Test
+6. If the miss involves a field, schema key, config flag, prompt/config field,
+   payload column, or persisted attribute, run or update FieldLifecycleMesh so
+   the root-cause field, same-class field cases, and any old/replaced field are
+   visible.
+7. Add observed-regression and same-class test evidence, then run Model-Test
    Alignment to verify the repaired obligation, owner code contract, and tests
-   cover the same behavior.
-7. If old, fallback, compatibility, or alternate paths remain reachable, record
-   whether they are deleted, blocked, delegated to a repaired contract,
-   same-contract repaired, or explicitly out of scope with a reason.
-8. Rerun the relevant model checks and confirm the old weakness plus the
+   cover the same behavior. Behavior-bearing field projections should feed the
+   same alignment rows.
+8. If old, fallback, compatibility, alternate paths, or old fields remain
+   reachable, record whether they are deleted, blocked, migrated, delegated to
+   a repaired contract or replacement field, same-contract repaired, or
+   explicitly out of scope with a reason.
+9. Rerun the relevant model checks and confirm the old weakness plus the
    same-class case are now visible, or deliberately out of scope.
-9. Validate the repair with the refined model plus the strongest practical
+10. Validate the repair with the refined model plus the strongest practical
    production-facing evidence.
-10. If the repair changed a child model under a parent ModelMesh, rerun the
+11. If the repair changed a child model under a parent ModelMesh, rerun the
    affected parent reattachment gate and keep the miss open until the parent
    consumes current child evidence.
-11. If the child boundary changed, keep the miss open until ModelMesh has
+12. If the child boundary changed, keep the miss open until ModelMesh has
    propagated the boundary review upward and reviewed affected sibling models
    or recorded why none are affected.
-12. Run the model maturation loop over the miss classification, alignment rows,
+13. Run the model maturation loop over the miss classification, alignment rows,
    mesh rows, and freshness rows. If it reports state, branch, invariant,
    same-class, child reattachment, or obligation gaps, upgrade the model or keep
    the final claim scoped.
-13. Do not use a background long-running check as closure until final artifacts
+14. Do not use a background long-running check as closure until final artifacts
    and exit status exist; progress output is only liveness.
-14. Record `Miss type`, `Root cause backpropagation`, `Generalized case`, owner
-   code contract, observed/same-class tests, legacy path disposition, and any
-   parent reattachment decision in the adoption log, or the reason no
+15. Record `Miss type`, `Root cause backpropagation`, `Generalized case`,
+   field lifecycle/projection/disposition evidence when fields are involved,
+   owner code contract, observed/same-class tests, legacy path disposition, and
+   any parent reattachment decision in the adoption log, or the reason no
    generalized case was added, along with rerun commands, skipped checks, and
    residual blindspots.
 

@@ -36,6 +36,9 @@ Create or update a DevelopmentProcessFlow review when:
   artifacts changed after evidence was produced;
 - a model or UI transition changed after transition coverage matrices, MTA
   obligations, or TestMesh required cell evidence were produced;
+- a field lifecycle mesh, field projection, replacement disposition, or
+  bug-repair closure artifact changed after alignment, process, or closure
+  evidence was produced;
 - a non-trivial bug repair changed root-cause evidence, model obligations,
   owner code contracts, observed/same-class tests, compatibility disposition,
   or ledger rows after earlier validation;
@@ -117,6 +120,18 @@ Use these triage classes:
   same-class case, owner code contract, legacy path disposition, or Risk
   Evidence Ledger row changed after the repair was validated. Rerun the owning
   route evidence before claiming done or release confidence.
+- `field_lifecycle_changed_after_field_evidence`: FieldLifecycleMesh rows
+  changed after field lifecycle evidence was produced. Rerun FieldLifecycleMesh
+  and consume the new report before broad claims.
+- `field_projection_changed_after_alignment_pass`: a behavior-bearing field
+  projection changed after Model-Test Alignment passed. Regenerate field
+  obligations/contracts and rerun alignment.
+- `replacement_disposition_changed_after_closure_pass`: old-path or old-field
+  disposition changed after closure evidence. Rerun the owning disposition and
+  closure routes.
+- `bug_repair_closure_changed_after_review_pass`: observed/same-class/root
+  cause closure rows changed after review. Rerun Model-Miss Review and consume
+  the new evidence.
 - `parent_child_evidence_not_reattached`: a child model, child validation
   suite, or sibling route is locally green, but the parent has not consumed the
   current evidence id and contract. Return to the owning parent evidence gate.

@@ -6,7 +6,7 @@ DEVELOPMENT_PROCESS_FLOW_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header
 
 Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
 Purpose: Review a development lifecycle as a sibling process route, tracking artifact versions, automatic model/test split gates, and validation evidence freshness before done or release claims.
-Guards against: stale validation after code/test/model/requirement changes, oversized direct model evidence, slow or broad direct validation evidence, progress-only evidence, hidden skips, missing V-style validation pairs, peer writes, and release overclaims.
+Guards against: stale validation after code/test/model/requirement/field-lifecycle changes, oversized direct model evidence, slow or broad direct validation evidence, progress-only evidence, hidden skips, missing V-style validation pairs, peer writes, and release overclaims.
 Use before editing: Update this development process flow when changing development ordering, validation gates, automatic split triggers, release readiness, or evidence freshness policy.
 Run: python .flowguard/development_process_flow/run_checks.py
 """
@@ -15,9 +15,17 @@ from __future__ import annotations
 
 from flowguard import (
     PROCESS_ARTIFACT_CODE,
+    PROCESS_ARTIFACT_BUG_REPAIR_CLOSURE,
+    PROCESS_ARTIFACT_FIELD_LIFECYCLE,
+    PROCESS_ARTIFACT_FIELD_PROJECTION,
     PROCESS_ARTIFACT_MODEL,
+    PROCESS_ARTIFACT_REPLACEMENT_DISPOSITION,
     PROCESS_ARTIFACT_REQUIREMENT,
     PROCESS_ARTIFACT_TEST,
+    PROCESS_EVIDENCE_BUG_REPAIR_CLOSURE,
+    PROCESS_EVIDENCE_FIELD_LIFECYCLE,
+    PROCESS_EVIDENCE_FIELD_PROJECTION,
+    PROCESS_EVIDENCE_MODEL_MISS_REVIEW,
     PROCESS_EVIDENCE_PASSED,
     PROCESS_SCOPE_RELEASE,
     DevelopmentProcessPlan,
@@ -179,7 +187,8 @@ Use this scaffold to model a development lifecycle as a stateful process.
 ## What DevelopmentProcessFlow Reviews
 
 - versioned requirements, designs, models, code, tests, docs, release assets,
-  adapters, and sibling route report artifacts;
+  adapters, field lifecycle meshes, field projections, replacement
+  dispositions, bug-repair closure rows, and sibling route report artifacts;
 - ordered development actions that read, write, invalidate, or claim evidence;
 - validation evidence and the exact artifact versions it covers;
 - verifier changes, such as tests or model files changing after evidence was
@@ -192,6 +201,14 @@ Use this scaffold to model a development lifecycle as a stateful process.
   Revalidation recommendations include the route that produced prior evidence,
   proof-artifact requirement, freshness gap codes, and claim scopes blocked
   until rerun.
+
+For field-bearing work, add `PROCESS_ARTIFACT_FIELD_LIFECYCLE`,
+`PROCESS_ARTIFACT_FIELD_PROJECTION`, `PROCESS_ARTIFACT_REPLACEMENT_DISPOSITION`,
+or `PROCESS_ARTIFACT_BUG_REPAIR_CLOSURE` artifacts when those rows change. Pair
+them with `PROCESS_EVIDENCE_FIELD_LIFECYCLE`,
+`PROCESS_EVIDENCE_FIELD_PROJECTION`, `PROCESS_EVIDENCE_MODEL_MISS_REVIEW`, or
+`PROCESS_EVIDENCE_BUG_REPAIR_CLOSURE` evidence so later done/release claims can
+see when field evidence became stale.
 
 ## Sibling Route Boundary
 

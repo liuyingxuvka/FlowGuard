@@ -14,7 +14,7 @@ Project FlowGuard record:
 - Human log: `docs/flowguard_adoption_log.md`
 
 Current adoption record:
-- FlowGuard package version: `0.40.9`
+- FlowGuard package version: `0.40.11`
 - FlowGuard schema version: `1.0`
 
 Before non-trivial work:
@@ -39,6 +39,17 @@ FlowGuard runtime guidance is latest-schema-first: old artifacts may be
 detected and upgraded at project/tool boundaries, but normal route logic should
 not preserve long-lived compatibility branches for obsolete fields, aliases, or
 wrappers.
+
+Default replacement means dispose the old path, old field, alias, wrapper, or
+fallback unless compatibility or preservation is explicitly requested. If
+compatibility is explicit, record the preserved surface, compatibility intent,
+and current evidence; otherwise delete, block, migrate, delegate, repair, or
+scope it out with a concrete reason.
+
+Field-bearing work should use or update FieldLifecycleMesh: high-level behavior
+models include behavior-bearing fields, while child/leaf field rows account all
+discovered fields and record owner, readers, writers, projection, lifecycle,
+and old-field disposition.
 
 After non-trivial FlowGuard-managed work, run or record a maintenance scan when
 changed artifacts, skipped routes, stale evidence, or split/reduction signals

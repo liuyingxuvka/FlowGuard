@@ -13,6 +13,7 @@ from flowguard import (
     DefectFamilyGate,
     DefectFamilyGatePlan,
     LEGACY_PATH_DELEGATED,
+    LEGACY_PATH_KIND_FIELD,
     LegacyPathDisposition,
     ProofArtifactRef,
     review_defect_family_gates,
@@ -119,6 +120,65 @@ class RecurringModelMissTests(unittest.TestCase):
         self.assertFalse(report.ok)
         self.assertIn("missing_same_class_generalized_case", codes)
         self.assertIn("missing_historical_holdout_case", codes)
+
+    def test_field_root_cause_requires_same_class_field_case(self):
+        report = review_defect_family_gates(
+            plan(
+                gates=(
+                    promoted_gate(
+                        root_cause_field_ids=("field:mode",),
+                        same_class_field_ids=(),
+                    ),
+                ),
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("missing_same_class_field_case", finding_codes(report))
+
+    def test_old_field_in_model_miss_requires_field_disposition_when_strict(self):
+        report = review_defect_family_gates(
+            plan(
+                require_legacy_path_dispositions=True,
+                gates=(
+                    promoted_gate(
+                        root_cause_field_ids=("field:mode",),
+                        same_class_field_ids=("field:mode:legacy-empty",),
+                        old_field_ids=("field:old_mode",),
+                        legacy_path_dispositions=(),
+                    ),
+                ),
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("missing_old_field_disposition", finding_codes(report))
+
+    def test_field_model_miss_with_old_field_disposition_can_pass(self):
+        report = review_defect_family_gates(
+            plan(
+                require_legacy_path_dispositions=True,
+                gates=(
+                    promoted_gate(
+                        root_cause_field_ids=("field:mode",),
+                        same_class_field_ids=("field:mode:legacy-empty",),
+                        old_field_ids=("field:old_mode",),
+                        legacy_path_dispositions=(
+                            LegacyPathDisposition(
+                                "field:old_mode",
+                                disposition=LEGACY_PATH_DELEGATED,
+                                path_kind=LEGACY_PATH_KIND_FIELD,
+                                field_id="field:old_mode",
+                                replacement_field_id="field:mode",
+                                repaired_contract_id="model:duplicate-submit-family",
+                            ),
+                        ),
+                    ),
+                ),
+            )
+        )
+
+        self.assertTrue(report.ok, report.format_text())
 
     def test_progress_only_and_internal_only_proof_do_not_satisfy_family_gate(self):
         progress_report = review_defect_family_gates(

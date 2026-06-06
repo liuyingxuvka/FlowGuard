@@ -25,7 +25,7 @@ from typing import Iterable
 from flowguard import FunctionResult, Invariant, InvariantResult, Workflow
 
 
-SATELLITE_COUNT = 13
+SATELLITE_COUNT = 14
 
 
 @dataclass(frozen=True)

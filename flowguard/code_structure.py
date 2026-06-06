@@ -42,6 +42,9 @@ class TargetModuleRecommendation:
     owns_state: tuple[str, ...] = ()
     owns_side_effects: tuple[str, ...] = ()
     owns_config: tuple[str, ...] = ()
+    owns_fields: tuple[str, ...] = ()
+    reads_fields: tuple[str, ...] = ()
+    writes_fields: tuple[str, ...] = ()
     public_entrypoints: tuple[str, ...] = ()
     validation_boundaries: tuple[str, ...] = ()
     rationale: str = ""
@@ -54,6 +57,9 @@ class TargetModuleRecommendation:
         object.__setattr__(self, "owns_state", _as_tuple(self.owns_state))
         object.__setattr__(self, "owns_side_effects", _as_tuple(self.owns_side_effects))
         object.__setattr__(self, "owns_config", _as_tuple(self.owns_config))
+        object.__setattr__(self, "owns_fields", _as_tuple(self.owns_fields))
+        object.__setattr__(self, "reads_fields", _as_tuple(self.reads_fields))
+        object.__setattr__(self, "writes_fields", _as_tuple(self.writes_fields))
         object.__setattr__(self, "public_entrypoints", _as_tuple(self.public_entrypoints))
         object.__setattr__(self, "validation_boundaries", _as_tuple(self.validation_boundaries))
         object.__setattr__(self, "rationale", str(self.rationale))
@@ -67,6 +73,9 @@ class TargetModuleRecommendation:
             "owns_state": list(self.owns_state),
             "owns_side_effects": list(self.owns_side_effects),
             "owns_config": list(self.owns_config),
+            "owns_fields": list(self.owns_fields),
+            "reads_fields": list(self.reads_fields),
+            "writes_fields": list(self.writes_fields),
             "public_entrypoints": list(self.public_entrypoints),
             "validation_boundaries": list(self.validation_boundaries),
             "rationale": self.rationale,
@@ -87,6 +96,9 @@ class CodeStructureRecommendation:
     state_owner_map: tuple[tuple[str, str], ...] = ()
     side_effect_owner_map: tuple[tuple[str, str], ...] = ()
     config_owner_map: tuple[tuple[str, str], ...] = ()
+    field_owner_map: tuple[tuple[str, str], ...] = ()
+    field_reader_map: tuple[tuple[str, str], ...] = ()
+    field_writer_map: tuple[tuple[str, str], ...] = ()
     public_entrypoint_map: tuple[tuple[str, str], ...] = ()
     facade_module_id: str = ""
     similarity_handoff: SimilarityHandoff | Mapping[str, Any] | None = None
@@ -107,6 +119,9 @@ class CodeStructureRecommendation:
         object.__setattr__(self, "state_owner_map", _as_pairs(self.state_owner_map))
         object.__setattr__(self, "side_effect_owner_map", _as_pairs(self.side_effect_owner_map))
         object.__setattr__(self, "config_owner_map", _as_pairs(self.config_owner_map))
+        object.__setattr__(self, "field_owner_map", _as_pairs(self.field_owner_map))
+        object.__setattr__(self, "field_reader_map", _as_pairs(self.field_reader_map))
+        object.__setattr__(self, "field_writer_map", _as_pairs(self.field_writer_map))
         object.__setattr__(self, "public_entrypoint_map", _as_pairs(self.public_entrypoint_map))
         object.__setattr__(self, "facade_module_id", str(self.facade_module_id))
         object.__setattr__(self, "similarity_handoff", normalize_similarity_handoff(self.similarity_handoff))
@@ -130,6 +145,15 @@ class CodeStructureRecommendation:
     def config_owners(self) -> dict[str, str]:
         return _pair_map(self.config_owner_map)
 
+    def field_owners(self) -> dict[str, str]:
+        return _pair_map(self.field_owner_map)
+
+    def field_readers(self) -> dict[str, str]:
+        return _pair_map(self.field_reader_map)
+
+    def field_writers(self) -> dict[str, str]:
+        return _pair_map(self.field_writer_map)
+
     def public_entrypoint_owners(self) -> dict[str, str]:
         return _pair_map(self.public_entrypoint_map)
 
@@ -145,6 +169,9 @@ class CodeStructureRecommendation:
             "state_owner_map": [list(pair) for pair in self.state_owner_map],
             "side_effect_owner_map": [list(pair) for pair in self.side_effect_owner_map],
             "config_owner_map": [list(pair) for pair in self.config_owner_map],
+            "field_owner_map": [list(pair) for pair in self.field_owner_map],
+            "field_reader_map": [list(pair) for pair in self.field_reader_map],
+            "field_writer_map": [list(pair) for pair in self.field_writer_map],
             "public_entrypoint_map": [list(pair) for pair in self.public_entrypoint_map],
             "facade_module_id": self.facade_module_id,
             "similarity_handoff": self.similarity_handoff.to_dict()
@@ -403,6 +430,9 @@ def review_code_structure_recommendation(
         ("state_owner_not_registered", "state", recommendation.state_owner_map),
         ("side_effect_owner_not_registered", "side effect", recommendation.side_effect_owner_map),
         ("config_owner_not_registered", "config", recommendation.config_owner_map),
+        ("field_owner_not_registered", "field owner", recommendation.field_owner_map),
+        ("field_reader_not_registered", "field reader", recommendation.field_reader_map),
+        ("field_writer_not_registered", "field writer", recommendation.field_writer_map),
         ("entrypoint_owner_not_registered", "public entrypoint", recommendation.public_entrypoint_map),
     )
     for code, noun, pairs in all_pairs:
@@ -416,6 +446,20 @@ def review_code_structure_recommendation(
                         item_id=item_id,
                     )
                 )
+
+    owned_fields = {field_id for field_id, _module_id in recommendation.field_owner_map}
+    accessed_fields = {
+        field_id
+        for field_id, _module_id in (*recommendation.field_reader_map, *recommendation.field_writer_map)
+    }
+    for field_id in sorted(accessed_fields - owned_fields):
+        findings.append(
+            CodeStructureFinding(
+                "field_access_without_owner",
+                f"field {field_id} is read or written but has no recommended owner module",
+                item_id=field_id,
+            )
+        )
 
     findings.extend(
         _duplicate_pair_keys(
@@ -443,6 +487,13 @@ def review_code_structure_recommendation(
             recommendation.config_owner_map,
             code="duplicate_config_recommendation_owner",
             noun="config",
+        )
+    )
+    findings.extend(
+        _duplicate_pair_keys(
+            recommendation.field_owner_map,
+            code="duplicate_field_recommendation_owner",
+            noun="field",
         )
     )
     blockers = _blocker_findings(findings)

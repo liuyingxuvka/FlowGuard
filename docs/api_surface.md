@@ -81,6 +81,12 @@ For AI agents, route groups are the normal discovery surface:
 - `MAINTENANCE_OBLIGATION_MEMORY_API` is the shared memory object used by
   summary reports, maintenance scan, model maturation, and risk ledger so
   unresolved route-owned gaps can be inherited without a separate debt scan.
+- `FIELD_LIFECYCLE_MESH_API` is the field-governance layer for changes where
+  fields carry behavior, routing, permissions, schema, replay, migration, or
+  external-contract meaning. High-level models project important fields into
+  obligations and code contracts; leaf field groups account for every
+  discovered field, including display-only fields with scoped-out reasons and
+  old/replaced/deprecated fields with closing disposition evidence.
 - `STATE_CLOSURE_ROUTE_API` is the default runner gate for finite input/state
   enumerations that may have unknown, malformed, missing, or old-schema cases.
 - `TOPOLOGY_HAZARD_ROUTE_API` is the default runner review for model-shape
@@ -196,6 +202,16 @@ inventory.
   `transition_obligation_id()`, and
   `ui_interaction_model_to_transition_coverage()` provide the standard bridge
   from modeled transitions into those alignment and TestMesh evidence targets.
+  Field lifecycle reports and projections can be supplied directly to
+  `ModelTestAlignmentPlan`, where behavior-bearing fields become model
+  obligations and code contracts that still require current test evidence.
+- field lifecycle helpers such as `FieldLifecyclePlan`,
+  `FieldLifecycleGroup`, `FieldLifecycleRow`, `FieldProjection`,
+  `FieldLifecycleReport`, `review_field_lifecycle()`,
+  `field_lifecycle_to_model_obligations()`, and
+  `field_lifecycle_to_code_contracts()` for keeping field ownership,
+  reader/writer maps, lifecycle state, behavior projection, scoped-out
+  reasons, and old-field disposition visible before code or done claims.
 - optional obligation-family parity helpers such as `ObligationFamily`,
   `ObligationFamilyMember`, `ObligationFamilyEvidence`,
   `FamilyBadCaseSeed`, `derive_same_class_bad_cases()`, and
@@ -253,7 +269,9 @@ inventory.
 - optional Code Structure Recommendation helpers such as
   `CodeStructureRecommendation`, `TargetModuleRecommendation`, and
   `review_code_structure_recommendation()` for recommending implementation
-  structure from a FlowGuard functional model before code is written.
+  structure from a FlowGuard functional model before code is written. The
+  recommendation surface includes field owner, reader, and writer maps so
+  fields do not disappear during module splitting or function movement.
 - optional Existing Model Preflight helpers such as `ExistingModelPreflight`,
   `ModelContextHit`, `ExistingOwnershipSnapshot`, `DuplicateBoundaryRisk`, and
   `review_existing_model_preflight()` for grounding discussion, proposal, or
@@ -262,7 +280,9 @@ inventory.
   coverage, child disjointness, child reattachment, leaf boundary-matrix
   status for parent models with child models, and optional model-similarity
   relation evidence when reuse, family variant, shared-kernel, or false-friend
-  decisions depend on cross-model comparison.
+  decisions depend on cross-model comparison. For field-bearing changes it
+  also records behavior field ids, field owners, existing field lifecycle
+  model ids, and unresolved field lifecycle gaps before downstream work starts.
 - optional UI Flow Structure helpers such as `UIInteractionModel`,
   `UIControl`, `UIDisplayElement`, `UIStateNode`, `UITransition`,
   `UIJourneyCoverage`, `UIJourneyEntryPoint`, `UIFeatureJourney`,
@@ -289,7 +309,9 @@ inventory.
   `derive_revalidation_plan()` for reviewing lifecycle ordering, artifact
   overwrite, evidence freshness, and minimum revalidation as a sibling route
   without supervising ModelMesh, TestMesh, StructureMesh, or Model-Test
-  Alignment.
+  Alignment. Field lifecycle artifacts, field projections, replacement
+  disposition records, and bug-repair closure records have route-specific
+  freshness codes so later writes cannot reuse stale field evidence.
 
 These helpers return or consume the same core model objects. They are useful
 shortcuts, not a new modeling language and not mandatory for valid FlowGuard
@@ -399,6 +421,7 @@ Evidence APIs are used to keep FlowGuard itself honest:
 - public template writers, including `model_test_alignment_template_files()`,
   `code_structure_recommendation_template_files()`,
   `existing_model_preflight_template_files()`,
+  `field_lifecycle_template_files()`,
   `model_similarity_consolidation_template_files()`,
   `plan_detailing_template_files()`,
   `risk_evidence_ledger_template_files()`,

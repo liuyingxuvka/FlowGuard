@@ -19,6 +19,8 @@ Guards against:
 - changed artifacts that still rely on stale proof;
 - unresolved model-quality or same-class model-miss gaps;
 - critical runtime writes without gateway inventory evidence.
+- field lifecycle, field projection, or replacement disposition evidence that
+  is missing or stale before a broad confidence claim.
 
 Use before editing:
 final confidence reports, runtime gateway adoption, release closure, or route
@@ -35,6 +37,7 @@ from __future__ import annotations
 
 from flowguard import (
     CLOSURE_CONFIDENCE_FULL,
+    CLOSURE_REPORT_FIELD_LIFECYCLE,
     CLOSURE_REPORT_RISK_LEDGER,
     CLOSURE_REPORT_RUNTIME_GATEWAY,
     MODEL_QUALITY_HIDDEN_STATE,
@@ -106,9 +109,11 @@ def correct_closure_plan():
             ),
         ),
         evidence_reports=(
+            evidence_report("report:field-lifecycle", CLOSURE_REPORT_FIELD_LIFECYCLE),
             evidence_report("report:runtime-gateway", CLOSURE_REPORT_RUNTIME_GATEWAY),
             evidence_report("report:risk-ledger", CLOSURE_REPORT_RISK_LEDGER),
         ),
+        require_field_lifecycle=True,
     )
 
 
@@ -190,6 +195,8 @@ production-confidence claim.
 - Same-class model-miss closure evidence with both the observed failure and
   same-class proof.
 - Runtime gateway inventory closure for critical state writers.
+- FieldLifecycleMesh evidence for behavior-bearing fields, old/replaced fields,
+  and replacement disposition.
 - Risk Evidence Ledger and route reports with current passing full-confidence
   evidence.
 

@@ -650,6 +650,7 @@ from .runtime_gateway import (
     review_runtime_gateway_adoption,
 )
 from . import closure_contract as _closure_contract
+from . import field_lifecycle as _field_lifecycle
 from . import maintenance_obligation as _maintenance_obligation
 from . import maintenance_scan as _maintenance_scan
 from . import plan_intake as _plan_intake
@@ -658,6 +659,7 @@ from . import topology_hazard as _topology_hazard
 from . import model_freshness as _model_freshness
 from . import model_maturation as _model_maturation
 from .closure_contract import *  # noqa: F403
+from .field_lifecycle import *  # noqa: F403
 from .maintenance_obligation import *  # noqa: F403
 from .maintenance_scan import *  # noqa: F403
 from .plan_intake import *  # noqa: F403
@@ -667,17 +669,25 @@ from .model_freshness import *  # noqa: F403
 from .model_maturation import *  # noqa: F403
 from .development_process_flow import (
     PROCESS_ARTIFACT_ADAPTER,
+    PROCESS_ARTIFACT_BUG_REPAIR_CLOSURE,
     PROCESS_ARTIFACT_CODE,
     PROCESS_ARTIFACT_DESIGN,
     PROCESS_ARTIFACT_DOC,
+    PROCESS_ARTIFACT_FIELD_LIFECYCLE,
+    PROCESS_ARTIFACT_FIELD_PROJECTION,
     PROCESS_ARTIFACT_MODEL,
+    PROCESS_ARTIFACT_REPLACEMENT_DISPOSITION,
     PROCESS_ARTIFACT_RELEASE,
     PROCESS_ARTIFACT_REPORT,
     PROCESS_ARTIFACT_REQUIREMENT,
     PROCESS_ARTIFACT_TEST,
     PROCESS_CLAIM_ACTIONS,
+    PROCESS_EVIDENCE_BUG_REPAIR_CLOSURE,
     PROCESS_EVIDENCE_ERROR,
     PROCESS_EVIDENCE_FAILED,
+    PROCESS_EVIDENCE_FIELD_LIFECYCLE,
+    PROCESS_EVIDENCE_FIELD_PROJECTION,
+    PROCESS_EVIDENCE_MODEL_MISS_REVIEW,
     PROCESS_EVIDENCE_NOT_RUN,
     PROCESS_EVIDENCE_PASSED,
     PROCESS_EVIDENCE_RUNNING,
@@ -864,12 +874,19 @@ from .legacy_path_disposition import (
     LEGACY_PATH_BLOCKED,
     LEGACY_PATH_DELEGATED,
     LEGACY_PATH_DELETED,
+    LEGACY_PATH_EXPLICITLY_PRESERVED,
+    LEGACY_PATH_KIND_FIELD,
+    LEGACY_PATH_KIND_RUNTIME_PATH,
+    LEGACY_PATH_KINDS,
     LEGACY_PATH_OUT_OF_SCOPE,
     LEGACY_PATH_SAME_CONTRACT_REPAIRED,
     LEGACY_PATH_UNKNOWN,
+    FIELD_DISPOSITION_TO_LEGACY_PATH,
     LegacyPathDisposition,
     LegacyPathDispositionFinding,
     LegacyPathDispositionReport,
+    field_rows_to_legacy_path_dispositions,
+    legacy_path_disposition_from_field_row,
     review_legacy_path_dispositions,
 )
 from .runner import run_model_first_checks
@@ -901,6 +918,7 @@ from .templates import (
     code_structure_recommendation_template_files,
     development_process_flow_template_files,
     existing_model_preflight_template_files,
+    field_lifecycle_template_files,
     layered_boundary_proof_template_files,
     maintenance_scan_template_files,
     maintenance_workflow_template_files,
@@ -925,6 +943,7 @@ from .workflow import Workflow, WorkflowPath, WorkflowRun
 
 PLAN_INTAKE_CLAIM_API = tuple(_plan_intake.__all__)
 FLOWGUARD_CLOSURE_CONTRACT_API = tuple(_closure_contract.__all__)
+FIELD_LIFECYCLE_MESH_API = tuple(_field_lifecycle.__all__)
 MAINTENANCE_OBLIGATION_MEMORY_API = tuple(_maintenance_obligation.__all__)
 MAINTENANCE_SCAN_ROUTE_API = tuple(_maintenance_scan.__all__)
 STATE_CLOSURE_ROUTE_API = tuple(_state_closure.__all__)
@@ -1503,6 +1522,7 @@ MODELING_HELPER_API = (
     "DevelopmentProcessFlowReport",
     "review_development_process_flow",
     "derive_revalidation_plan",
+    *FIELD_LIFECYCLE_MESH_API,
     *TOPOLOGY_HAZARD_ROUTE_API,
     "PROCESS_SCOPE_ROUTINE",
     "PROCESS_SCOPE_RELEASE",
@@ -1513,10 +1533,18 @@ MODELING_HELPER_API = (
     "PROCESS_EVIDENCE_NOT_RUN",
     "PROCESS_EVIDENCE_RUNNING",
     "PROCESS_EVIDENCE_ERROR",
+    "PROCESS_EVIDENCE_FIELD_LIFECYCLE",
+    "PROCESS_EVIDENCE_FIELD_PROJECTION",
+    "PROCESS_EVIDENCE_MODEL_MISS_REVIEW",
+    "PROCESS_EVIDENCE_BUG_REPAIR_CLOSURE",
     "PROCESS_CLAIM_ACTIONS",
     "PROCESS_ARTIFACT_REQUIREMENT",
     "PROCESS_ARTIFACT_DESIGN",
     "PROCESS_ARTIFACT_MODEL",
+    "PROCESS_ARTIFACT_FIELD_LIFECYCLE",
+    "PROCESS_ARTIFACT_FIELD_PROJECTION",
+    "PROCESS_ARTIFACT_REPLACEMENT_DISPOSITION",
+    "PROCESS_ARTIFACT_BUG_REPAIR_CLOSURE",
     "PROCESS_ARTIFACT_CODE",
     "PROCESS_ARTIFACT_TEST",
     "PROCESS_ARTIFACT_DOC",
@@ -1558,6 +1586,13 @@ REPORTING_HELPER_API = (
     "LegacyPathDisposition",
     "LegacyPathDispositionFinding",
     "LegacyPathDispositionReport",
+    "LEGACY_PATH_EXPLICITLY_PRESERVED",
+    "LEGACY_PATH_KIND_FIELD",
+    "LEGACY_PATH_KIND_RUNTIME_PATH",
+    "LEGACY_PATH_KINDS",
+    "FIELD_DISPOSITION_TO_LEGACY_PATH",
+    "field_rows_to_legacy_path_dispositions",
+    "legacy_path_disposition_from_field_row",
     "review_legacy_path_dispositions",
     "ArtifactUpgradeItem",
     "ArtifactUpgradeReport",
@@ -1752,6 +1787,7 @@ EVIDENCE_API = (
     "code_structure_recommendation_template_files",
     "development_process_flow_template_files",
     "existing_model_preflight_template_files",
+    "field_lifecycle_template_files",
     "layered_boundary_proof_template_files",
     "maintenance_scan_template_files",
     "maintenance_workflow_template_files",
@@ -1784,6 +1820,7 @@ TEMPLATE_STRUCTURE_API = (
     "plan_detailing_template_files",
     "code_structure_recommendation_template_files",
     "existing_model_preflight_template_files",
+    "field_lifecycle_template_files",
     "model_similarity_consolidation_template_files",
     "risk_evidence_ledger_template_files",
     "layered_boundary_proof_template_files",
@@ -1887,6 +1924,7 @@ FLOWGUARD_ROUTE_API = {
     "architecture_reduction": ARCHITECTURE_REDUCTION_ROUTE_API,
     "code_structure_recommendation": CODE_STRUCTURE_RECOMMENDATION_ROUTE_API,
     "model_test_alignment": MODEL_TEST_ALIGNMENT_ROUTE_API,
+    "field_lifecycle_mesh": FIELD_LIFECYCLE_MESH_API,
     "plan_detailing_compiler": PLAN_DETAILING_ROUTE_API,
     "maintenance_obligation_memory": MAINTENANCE_OBLIGATION_MEMORY_API,
     "maintenance_scan_router": MAINTENANCE_SCAN_ROUTE_API,
@@ -1910,6 +1948,7 @@ _PUBLIC_API_SUPPLEMENT = (
     "EVIDENCE_API",
     "FLOWGUARD_ROUTE_API",
     "FLOWGUARD_CLOSURE_CONTRACT_API",
+    "FIELD_LIFECYCLE_MESH_API",
     "MAINTENANCE_OBLIGATION_MEMORY_API",
     "MAINTENANCE_SCAN_ROUTE_API",
     "MODEL_SIMILARITY_ROUTE_API",

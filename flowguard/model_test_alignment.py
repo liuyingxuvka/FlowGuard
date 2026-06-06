@@ -9,7 +9,7 @@ intentionally does not read TestMesh, StructureMesh, or ModelMesh reports.
 from __future__ import annotations
 
 import ast
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Mapping, Sequence
 
 from .export import to_jsonable
@@ -676,6 +676,8 @@ class ModelTestAlignmentPlan:
     runtime_node_contracts: tuple[RuntimeNodeContract, ...] = ()
     runtime_node_observations: tuple[RuntimeNodeObservation, ...] = ()
     runtime_path_runs: tuple[RuntimePathRun, ...] = ()
+    field_lifecycle_reports: tuple[Any, ...] = ()
+    field_lifecycle_projections: tuple[Any, ...] = ()
     similarity_handoff: SimilarityHandoff | Mapping[str, Any] | None = None
     require_proof_artifacts: bool = False
     require_runtime_path_evidence: bool = False
@@ -716,6 +718,8 @@ class ModelTestAlignmentPlan:
             "runtime_path_runs",
             tuple(item if isinstance(item, RuntimePathRun) else RuntimePathRun(**item) for item in self.runtime_path_runs),
         )
+        object.__setattr__(self, "field_lifecycle_reports", tuple(self.field_lifecycle_reports))
+        object.__setattr__(self, "field_lifecycle_projections", tuple(self.field_lifecycle_projections))
         object.__setattr__(self, "similarity_handoff", normalize_similarity_handoff(self.similarity_handoff))
 
     def to_dict(self) -> dict[str, Any]:
@@ -733,6 +737,14 @@ class ModelTestAlignmentPlan:
                 observation.to_dict() for observation in self.runtime_node_observations
             ],
             "runtime_path_runs": [run.to_dict() for run in self.runtime_path_runs],
+            "field_lifecycle_reports": [
+                report.to_dict() if hasattr(report, "to_dict") else to_jsonable(report)
+                for report in self.field_lifecycle_reports
+            ],
+            "field_lifecycle_projections": [
+                projection.to_dict() if hasattr(projection, "to_dict") else to_jsonable(projection)
+                for projection in self.field_lifecycle_projections
+            ],
             "similarity_handoff": self.similarity_handoff.to_dict()
             if self.similarity_handoff
             else None,
@@ -1495,6 +1507,74 @@ def _family_findings_as_alignment_findings(
     ]
 
 
+def _field_lifecycle_projection_rows(plan: ModelTestAlignmentPlan) -> tuple[Any, ...]:
+    rows: list[Any] = list(plan.field_lifecycle_projections)
+    for report in plan.field_lifecycle_reports:
+        rows.extend(getattr(report, "projections", ()))
+    return tuple(rows)
+
+
+def _field_lifecycle_findings(plan: ModelTestAlignmentPlan) -> list[ModelTestAlignmentFinding]:
+    findings: list[ModelTestAlignmentFinding] = []
+    for report in plan.field_lifecycle_reports:
+        report_ok = bool(getattr(report, "ok", False))
+        report_decision = str(getattr(report, "decision", ""))
+        for finding in getattr(report, "findings", ()):
+            severity = str(getattr(finding, "severity", "blocker"))
+            if not report_ok and severity in {"gap", "blocker"}:
+                severity = "blocker"
+            elif severity == "gap":
+                severity = "warning"
+            metadata = finding.to_dict() if hasattr(finding, "to_dict") else to_jsonable(finding)
+            obligation_id = ""
+            field_id = str(getattr(finding, "field_id", ""))
+            if field_id:
+                obligation_id = f"field:{field_id}"
+            findings.append(
+                ModelTestAlignmentFinding(
+                    f"field_lifecycle_{getattr(finding, 'code', 'finding')}",
+                    str(getattr(finding, "message", "field lifecycle finding")),
+                    severity=severity,
+                    obligation_id=obligation_id,
+                    metadata={
+                        "field_lifecycle_decision": report_decision,
+                        "field_lifecycle_finding": metadata,
+                    },
+                )
+            )
+    return findings
+
+
+def _plan_with_field_lifecycle_projections(plan: ModelTestAlignmentPlan) -> ModelTestAlignmentPlan:
+    projections = _field_lifecycle_projection_rows(plan)
+    if not projections:
+        return plan
+
+    obligations = list(plan.obligations)
+    code_contracts = list(plan.code_contracts)
+    obligation_ids = {obligation.obligation_id for obligation in obligations}
+    code_contract_ids = {contract.code_contract_id for contract in code_contracts}
+    for projection in projections:
+        to_obligation = getattr(projection, "to_model_obligation", None)
+        if callable(to_obligation):
+            obligation = to_obligation()
+            if obligation is not None and obligation.obligation_id not in obligation_ids:
+                obligations.append(obligation)
+                obligation_ids.add(obligation.obligation_id)
+        to_contract = getattr(projection, "to_code_contract", None)
+        if callable(to_contract):
+            contract = to_contract()
+            if contract is not None and contract.code_contract_id not in code_contract_ids:
+                code_contracts.append(contract)
+                code_contract_ids.add(contract.code_contract_id)
+
+    return replace(
+        plan,
+        obligations=tuple(obligations),
+        code_contracts=tuple(code_contracts),
+    )
+
+
 def _obligation_index(plan: ModelTestAlignmentPlan) -> tuple[dict[str, ModelObligation], list[ModelTestAlignmentFinding]]:
     obligations_by_id: dict[str, ModelObligation] = {}
     findings: list[ModelTestAlignmentFinding] = []
@@ -2225,7 +2305,10 @@ def _coverage_findings(
 def review_model_test_alignment(plan: ModelTestAlignmentPlan) -> ModelTestAlignmentReport:
     """Review explicit model obligations against code contracts and test evidence."""
 
+    field_lifecycle_findings = _field_lifecycle_findings(plan)
+    plan = _plan_with_field_lifecycle_projections(plan)
     obligations_by_id, findings = _obligation_index(plan)
+    findings = field_lifecycle_findings + findings
     code_contracts_by_id, code_contract_findings = _code_contract_index(plan)
     findings.extend(code_contract_findings)
     findings.extend(_code_contract_findings(plan, obligations_by_id, code_contracts_by_id))

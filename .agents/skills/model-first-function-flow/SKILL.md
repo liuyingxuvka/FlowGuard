@@ -42,6 +42,7 @@ means partial or scoped FlowGuard evidence.
 - Verify the real package before modeling: `python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"`.
 - For real target-project use, ensure the FlowGuard AGENTS.md managed block/version record exists; if installed FlowGuard is newer, run `python -m flowguard project-upgrade --root .` with artifact/model/test upgrade scanning before relying on old models/tests/evidence.
 - FlowGuard is latest-schema-first: upgrade old artifacts at project/tool boundaries; do not preserve long-lived runtime compatibility for obsolete fields, aliases, or wrappers.
+- Default replacement means cleanup: old fields, aliases, wrappers, fallback paths, and compatibility-like surfaces need a disposition unless the user explicitly requests compatibility preservation.
 - If import fails, connect the real toolchain or report blocked/partial; do not write a temporary mini-framework or fake mini-framework substitute.
 - Represent modeled blocks as `Input x State -> Set(Output x State)`.
 - Do not replace executable modeling with prose or weaken invariants to pass.
@@ -60,14 +61,14 @@ Do not flatten these into a generic flowchart. FlowGuard diagrams can explain pr
 
 ## Route Map
 
-Pick the smallest named route that owns the actual risk. Helper APIs and
-template CLIs are package helpers, not independently triggerable Codex skills.
+Pick the smallest named route that owns the actual risk. Helper APIs and template CLIs are package helpers, not independently triggerable Codex skills.
 
 | Trigger | Route | Entry |
 | --- | --- | --- |
 | Older adopted project, old FlowGuard artifact, old model/test evidence, obsolete API aliases | `artifact_schema_upgrade` | `artifact-upgrade` or `project-upgrade` |
 | Changed artifacts, open maintenance obligations, stale evidence, skipped routes, split/reduction pressure | `maintenance_scan_router` | `maintenance-scan-template` |
 | Existing modeled system, ownership lookup, duplicate-boundary risk | `existing_model_preflight` | `flowguard-existing-model-preflight` |
+| Field additions, removals, renames, migrations, replacements, prompt/config fields, payload/schema keys, old-field disposition | `field_lifecycle_mesh` | `flowguard-field-lifecycle-mesh` |
 | Similar features, A/B workflow drift, sibling tests, shared-kernel/adapter suspicion | `model_similarity_consolidation` | `docs/model_similarity_consolidation.md` |
 | Rough idea/short plan needs detailed scope, state, evidence, receipts, rework | `plan_detailing_compiler` | `flowguard-plan-detailing-compiler` |
 | Multi-skill/tool/plugin planning, skipped skill consequences, rework gates | `agent_workflow_rehearsal` | `flowguard-agent-workflow-rehearsal` |

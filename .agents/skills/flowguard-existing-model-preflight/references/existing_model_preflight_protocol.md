@@ -12,6 +12,8 @@ work:
   Model-Test Alignment, TestMesh, then layered boundary proof;
 - code refactor or public entrypoint split: StructureMesh;
 - implementation structure recommendation: Code Structure Recommendation;
+- field additions, migrations, replacements, prompt/config fields, schema keys,
+  or old-field disposition: FieldLifecycleMesh;
 - UI state, control, journey, or implemented UI claim: UI Flow Structure;
 - validation hierarchy or slow/stale tests: TestMesh;
 - staged development or release confidence: DevelopmentProcessFlow;
@@ -31,6 +33,10 @@ inside an existing modeled system.
 For bug-fix work, the preflight should identify the existing model boundary
 that owns the failed behavior before Model-Miss Review adds the root-cause,
 same-class, model-code-test, or legacy-path closure evidence.
+
+For field-bearing changes, the preflight should also identify existing
+FieldLifecycleMesh owners, behavior field ids, and any unresolved field
+lifecycle gap before code or model changes begin.
 
 Do not use it for typo-only changes, formatting-only work, direct command
 answers, pure read-only explanations, or greenfield work that has no existing
@@ -59,13 +65,16 @@ possible. A full report should include:
 - search paths or inventory consulted;
 - relevant `ModelContextHit` rows, or `no_model_found` with a reason;
 - `ExistingOwnershipSnapshot` for FunctionBlocks, state, side effects,
-  public entrypoints, and responsibilities when models are found;
+  public entrypoints, behavior fields, and responsibilities when models are
+  found;
 - layered proof status for parent models with children: evidence id, parent
   coverage, child disjointness, child reattachment, and leaf boundary-matrix
   status;
 - a reuse decision;
 - `DuplicateBoundaryRisk` rows for any overlapping ownership;
 - downstream FlowGuard routes;
+- `field_lifecycle_mesh` as a downstream route when behavior-bearing fields or
+  old/replaced fields are in scope;
 - rationale and stale evidence notes.
 
 ## Required Hazards
@@ -78,6 +87,8 @@ Known-bad variants should fail or be reported:
 - new boundary proposed without explaining why existing models cannot carry it;
 - duplicate state, side-effect, FunctionBlock, entrypoint, or responsibility
   owner without resolution;
+- behavior-bearing field changed without field lifecycle ownership or a
+  downstream FieldLifecycleMesh route;
 - no model found but search path and reason omitted;
 - stale model evidence treated as green;
 - parent model found but parent coverage, child disjointness, child
@@ -101,6 +112,7 @@ Model search:
 Existing ownership:
 - FunctionBlocks:
 - State:
+- Fields:
 - Side effects:
 - Public entrypoints:
 - Responsibilities:

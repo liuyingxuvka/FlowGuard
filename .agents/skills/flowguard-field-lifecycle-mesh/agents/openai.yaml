@@ -1,0 +1,4 @@
+interface:
+  display_name: "FlowGuard FieldLifecycleMesh"
+  short_description: "Account fields and old-field disposition"
+  default_prompt: "Use $flowguard-field-lifecycle-mesh to account fields, project behavior-bearing fields, and close old-field disposition."

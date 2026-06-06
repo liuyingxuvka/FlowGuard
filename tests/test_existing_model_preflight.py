@@ -60,6 +60,76 @@ class ExistingModelPreflightTests(unittest.TestCase):
         self.assertEqual("full_existing_model_preflight_can_continue", report.decision)
         self.assertEqual(0, report.blocker_count())
 
+    def test_full_preflight_can_continue_with_field_lifecycle_ownership(self):
+        preflight = ExistingModelPreflight(
+            "router-fields",
+            "Replace mode routing field",
+            mode="full",
+            model_search_performed=True,
+            search_paths=(".flowguard/router",),
+            relevant_models=(model_hit(fields_owned=("field:mode",)),),
+            ownership_snapshot=ExistingOwnershipSnapshot(
+                function_block_owners=(("RouteTask", "router-flow"),),
+                field_owners=(("field:mode", "router-flow"),),
+            ),
+            reuse_decision=REUSE_DECISION_EXTEND_EXISTING,
+            downstream_routes=("field_lifecycle_mesh", "model_test_alignment"),
+            behavior_field_ids=("field:mode",),
+            field_lifecycle_model_ids=("router-flow",),
+            rationale="The router model owns the behavior field and the field lifecycle route will project it.",
+        )
+
+        report = review_existing_model_preflight(preflight)
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual("full_existing_model_preflight_can_continue", report.decision)
+
+    def test_behavior_field_requires_field_lifecycle_ownership(self):
+        preflight = ExistingModelPreflight(
+            "router-fields",
+            "Replace mode routing field",
+            mode="full",
+            model_search_performed=True,
+            search_paths=(".flowguard/router",),
+            relevant_models=(model_hit(fields_owned=()),),
+            ownership_snapshot=ExistingOwnershipSnapshot(
+                function_block_owners=(("RouteTask", "router-flow"),),
+            ),
+            reuse_decision=REUSE_DECISION_EXTEND_EXISTING,
+            downstream_routes=("model_test_alignment",),
+            behavior_field_ids=("field:mode",),
+            rationale="The router model owns the behavior, but no field owner was recorded.",
+        )
+
+        report = review_existing_model_preflight(preflight)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("field_lifecycle_ownership_required", report.decision)
+        self.assertIn("missing_field_lifecycle_ownership", {finding.code for finding in report.findings})
+        self.assertIn("missing_field_lifecycle_route", {finding.code for finding in report.findings})
+
+    def test_field_lifecycle_gap_blocks_preflight(self):
+        preflight = ExistingModelPreflight(
+            "router-fields",
+            "Replace mode routing field",
+            mode="full",
+            model_search_performed=True,
+            search_paths=(".flowguard/router",),
+            relevant_models=(model_hit(fields_owned=("field:mode",)),),
+            reuse_decision=REUSE_DECISION_EXTEND_EXISTING,
+            downstream_routes=("field_lifecycle_mesh", "model_test_alignment"),
+            behavior_field_ids=("field:mode",),
+            field_lifecycle_model_ids=("router-flow",),
+            field_lifecycle_gap_ids=("field:old_mode:disposition",),
+            rationale="The router model owns the behavior field, but old field disposition is still open.",
+        )
+
+        report = review_existing_model_preflight(preflight)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("field_lifecycle_gap_blocked", report.decision)
+        self.assertIn("field_lifecycle_gap_unresolved", {finding.code for finding in report.findings})
+
     def test_light_discussion_grounding_can_continue(self):
         preflight = ExistingModelPreflight(
             "router-discussion",

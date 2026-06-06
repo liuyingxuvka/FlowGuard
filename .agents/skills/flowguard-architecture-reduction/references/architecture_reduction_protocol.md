@@ -83,8 +83,9 @@ Use `ArchitectureReductionCandidate` rows for candidate contractions:
 When a candidate exists because of an old, alternate, or compatibility-like
 surface, add `CompatibilitySurfaceClassification` rows before deciding whether
 the candidate is ready. Classify old command aliases, event names, input
-shapes, migration branches, public facades, pass-through compatibility
-adapters, retired validation artifacts, and negative legacy tests.
+shapes, migration branches, old/replaced fields, field aliases, public facades,
+pass-through compatibility adapters, retired validation artifacts, and negative
+legacy tests.
 
 Use these classifications:
 
@@ -101,6 +102,8 @@ Use these classifications:
 This classification is pre-reduction guidance. It does not replace
 `LegacyPathDisposition` for post-repair closure when an old executable path
 remains reachable.
+It also does not replace FieldLifecycleMesh disposition when an old or
+compatibility-like field remains reachable.
 
 ## Proof Status
 
@@ -146,6 +149,8 @@ Architecture Reduction is usually called by or hands off to another route:
   regressions, and done/release claims.
 - ModelMesh supplies sibling model overlap and parent/child boundary evidence.
 - Model-Test Alignment supplies obligation and test duplication evidence.
+- FieldLifecycleMesh supplies old-field ids, replacement field ids, and
+  disposition evidence for field compatibility surfaces.
 - UI Flow Structure supplies UI state/control/display duplication evidence.
 - Layered boundary proof may expose duplicate child ownership; reduce the
   duplicated implementation or route the ownership conflict back to ModelMesh
@@ -159,7 +164,7 @@ Before trusting the route, make these known-bad variants fail:
 - missing observable contract;
 - missing model-to-code mapping;
 - unclassified candidates;
-- unclassified compatibility surfaces around old paths;
+- unclassified compatibility surfaces around old paths or old fields;
 - hidden proof status;
 - risky candidates silently treated as deletions;
 - current contracts treated as obsolete compatibility;

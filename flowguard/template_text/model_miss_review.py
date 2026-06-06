@@ -853,6 +853,8 @@ issue after a FlowGuard pass.
   bug class before the fix?
 - Was the boundary too narrow, the state too coarse, an input branch missing, an
   invariant weak, a replay skipped, or the issue outside the modeled scope?
+- Was a behavior-bearing field omitted, under-modeled, scoped out incorrectly,
+  or left without FieldLifecycleMesh projection?
 - How is the issue now represented: scenario, invariant, replay adapter,
   representative trace, or explicit out-of-scope boundary?
 - What same-class generalized bad case prevents a point-fix-only repair, and is
@@ -861,12 +863,16 @@ issue after a FlowGuard pass.
   whole model target?
 - Which observed-regression test and same-class generalized test evidence now
   prove the repaired obligation?
+- Which `root_cause_field_ids`, `same_class_field_ids`, and `old_field_ids`
+  describe the field-level miss, and does FieldLifecycleMesh close their
+  projection or disposition gaps?
 - Which owner code contract implements the repaired behavior, and which
   Model-Test Alignment rows prove the model obligation, owner code contract,
   observed-regression test, and same-class test cover the same behavior?
 - Are old, fallback, compatibility, or alternate paths still reachable? If yes,
   are they deleted, blocked, delegated to the repaired contract,
-  same-contract repaired, or explicitly out of scope with a reason?
+  same-contract repaired, or explicitly out of scope with a reason? Include old
+  fields and aliases in the same disposition review.
 - Has this same-class family appeared before, or is it high risk enough to
   require a defect-family gate rather than another ordinary bug fix?
 - Which defect-family gate records the family id, authority boundary, observed
@@ -882,9 +888,10 @@ issue after a FlowGuard pass.
 
 Do not let a later green runtime check, one observed-bug regression test, or a
 second local point fix close a known model miss by itself. Full closure needs
-root-cause backpropagation when there was a prior claim, owner code contract
-binding, same-class test evidence, legacy path disposition for reachable old
-paths, and recurring families need a defect-family gate or an explicit
+root-cause backpropagation when there was a prior claim, FieldLifecycleMesh
+projection for behavior-bearing fields, owner code contract binding, same-class
+test evidence, old-path/old-field disposition for reachable old paths or
+fields, and recurring families need a defect-family gate or an explicit
 scoped-confidence boundary.
 Child-local green is not enough when parent mesh confidence depends on the
 child's input/output/state/side-effect handoff.

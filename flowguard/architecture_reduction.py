@@ -208,6 +208,8 @@ class CompatibilitySurfaceClassification:
     rationale: str
     code_node_ids: tuple[str, ...] = ()
     public_entrypoints: tuple[str, ...] = ()
+    field_ids: tuple[str, ...] = ()
+    replacement_field_ids: tuple[str, ...] = ()
     runtime_authority: bool = False
     owner_model_elements: tuple[str, ...] = ()
     candidate_ids: tuple[str, ...] = ()
@@ -222,6 +224,8 @@ class CompatibilitySurfaceClassification:
         object.__setattr__(self, "rationale", str(self.rationale))
         object.__setattr__(self, "code_node_ids", _as_tuple(self.code_node_ids))
         object.__setattr__(self, "public_entrypoints", _as_tuple(self.public_entrypoints))
+        object.__setattr__(self, "field_ids", _as_tuple(self.field_ids))
+        object.__setattr__(self, "replacement_field_ids", _as_tuple(self.replacement_field_ids))
         object.__setattr__(self, "runtime_authority", bool(self.runtime_authority))
         object.__setattr__(self, "owner_model_elements", _as_tuple(self.owner_model_elements))
         object.__setattr__(self, "candidate_ids", _as_tuple(self.candidate_ids))
@@ -249,6 +253,8 @@ class CompatibilitySurfaceClassification:
             "rationale": self.rationale,
             "code_node_ids": list(self.code_node_ids),
             "public_entrypoints": list(self.public_entrypoints),
+            "field_ids": list(self.field_ids),
+            "replacement_field_ids": list(self.replacement_field_ids),
             "runtime_authority": self.runtime_authority,
             "owner_model_elements": list(self.owner_model_elements),
             "candidate_ids": list(self.candidate_ids),
@@ -567,6 +573,7 @@ def _decision_for_findings(
             ("compatibility_surface_public_entrypoint_requires_structure_mesh", "structure_mesh_required"),
             ("compatibility_surface_negative_legacy_test_requires_evidence", "compatibility_surface_blocked"),
             ("compatibility_surface_archive_has_runtime_authority", "compatibility_surface_blocked"),
+            ("compatibility_field_surface_missing_evidence", "compatibility_surface_blocked"),
             ("compatibility_surface_evidence_needed", "evidence_blocked"),
             ("invalid_compatibility_surface_classification", "compatibility_surface_blocked"),
             ("invalid_compatibility_surface_action", "compatibility_surface_blocked"),
@@ -711,6 +718,15 @@ def review_architecture_reduction(plan: ArchitectureReductionPlan) -> Architectu
                 ArchitectureReductionFinding(
                     "invalid_compatibility_surface_classification",
                     f"compatibility surface classification {surface.classification!r} is not supported",
+                    item_id=surface.surface_id,
+                    metadata=surface.to_dict(),
+                )
+            )
+        if surface.field_ids and not (surface.evidence_refs or surface.owner_model_elements):
+            findings.append(
+                ArchitectureReductionFinding(
+                    "compatibility_field_surface_missing_evidence",
+                    "compatibility surface names old fields but lacks model owner or disposition evidence",
                     item_id=surface.surface_id,
                     metadata=surface.to_dict(),
                 )

@@ -28,6 +28,8 @@ Collect or create the lightest fit-for-risk functional model:
 - source model id and path when one already exists;
 - function blocks and their reads/writes;
 - modeled state fields, caches, config, and durable records;
+- FieldLifecycleMesh field ids, behavior projections, reader ids, writer ids,
+  and owner route when fields are in scope;
 - side effects such as writes, publishes, external calls, generated artifacts,
   database writes, or UI commits;
 - public entrypoints, facades, commands, routes, or data shapes;
@@ -51,6 +53,7 @@ Produce a structured recommendation with:
 - target modules and paths;
 - FunctionBlock-to-module ownership;
 - state-owner mapping;
+- field-owner, field-reader, and field-writer mapping;
 - side-effect-owner mapping;
 - config-owner mapping when config/defaults matter;
 - facade or public entrypoint plan;
@@ -61,6 +64,11 @@ Produce a structured recommendation with:
 The recommendation may group several related FunctionBlocks into one cohesive
 module. It should keep orchestration separate from durable state ownership and
 external side effects when those boundaries are present in the model.
+
+Every field reader and writer should point to exactly one field owner. If an
+old, replaced, deprecated, alias, or compatibility-like field is still visible,
+keep it in the recommendation until FieldLifecycleMesh and Architecture
+Reduction have closed its disposition.
 
 If a proposed leaf module cannot expose stable inputs, outputs, state writes,
 side effects, and error paths for complete boundary-matrix tests, recommend a
@@ -86,6 +94,8 @@ A recommendation is complete when:
 - target modules are named;
 - FunctionBlock ownership is mapped;
 - modeled state and side effects have clear owners when present;
+- behavior-bearing fields have clear owners, readers, writers, and downstream
+  FieldLifecycleMesh or Model-Test Alignment handoffs when present;
 - public entrypoints or facades are mapped when present;
 - validation boundaries are visible;
 - leaf boundary-matrix observation points are named when layered proof is a

@@ -25,6 +25,9 @@ Guards against:
 - duplicate tests claiming the same model obligation without clear intent;
 - risky model paths covered only by happy-path tests;
 - model-miss repairs that only test the observed bug without same-class evidence;
+- behavior-bearing field lifecycle projections with no model obligation,
+  owner code contract, or external-contract test evidence;
+- old or replaced field behavior with no current disposition evidence;
 - stale, skipped, failed, timeout, not-run, or overclaiming test evidence.
 
 Use before editing:
@@ -584,6 +587,7 @@ List model obligations:
 - scenario ids;
 - invariant ids;
 - hazard ids;
+- field lifecycle projection ids from FieldLifecycleMesh;
 - state-transition or input/output contract ids;
 - external inputs and outputs;
 - state reads and writes;
@@ -603,6 +607,12 @@ List code external contracts for every required model obligation in the review:
 - external inputs and outputs;
 - state reads and writes;
 - side effects and error paths.
+
+For field-bearing changes, pass FieldLifecycleMesh reports or projections into
+`ModelTestAlignmentPlan.field_lifecycle_reports` or
+`field_lifecycle_projections`. The alignment route will convert those
+projections into model obligations and required owner code contracts, then the
+ordinary test evidence must prove the same external behavior.
 
 List test evidence:
 

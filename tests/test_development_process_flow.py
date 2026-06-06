@@ -2,10 +2,18 @@ import unittest
 
 from flowguard import (
     PROCESS_ARTIFACT_CODE,
+    PROCESS_ARTIFACT_BUG_REPAIR_CLOSURE,
+    PROCESS_ARTIFACT_FIELD_LIFECYCLE,
+    PROCESS_ARTIFACT_FIELD_PROJECTION,
     PROCESS_ARTIFACT_MODEL,
+    PROCESS_ARTIFACT_REPLACEMENT_DISPOSITION,
     PROCESS_ARTIFACT_REQUIREMENT,
     PROCESS_ARTIFACT_TEST,
+    PROCESS_EVIDENCE_BUG_REPAIR_CLOSURE,
+    PROCESS_EVIDENCE_FIELD_LIFECYCLE,
+    PROCESS_EVIDENCE_FIELD_PROJECTION,
     PROCESS_EVIDENCE_FAILED,
+    PROCESS_EVIDENCE_MODEL_MISS_REVIEW,
     PROCESS_EVIDENCE_NOT_RUN,
     PROCESS_EVIDENCE_PASSED,
     PROCESS_SCOPE_RELEASE,
@@ -237,6 +245,83 @@ class DevelopmentProcessFlowTests(unittest.TestCase):
 
         self.assertFalse(report.ok)
         self.assertIn("model_changed_after_alignment_pass", {finding.code for finding in report.findings})
+
+    def test_field_lifecycle_projection_replacement_and_bug_repair_changes_are_stale(self):
+        plan = DevelopmentProcessPlan(
+            "field-stale",
+            artifacts=(
+                ProcessArtifact("field.lifecycle", PROCESS_ARTIFACT_FIELD_LIFECYCLE, "2"),
+                ProcessArtifact("field.projection", PROCESS_ARTIFACT_FIELD_PROJECTION, "2"),
+                ProcessArtifact("replacement.disposition", PROCESS_ARTIFACT_REPLACEMENT_DISPOSITION, "2"),
+                ProcessArtifact("bug.repair.closure", PROCESS_ARTIFACT_BUG_REPAIR_CLOSURE, "2"),
+            ),
+            evidence=(
+                ProcessEvidence(
+                    "field-lifecycle-pass",
+                    evidence_kind=PROCESS_EVIDENCE_FIELD_LIFECYCLE,
+                    status=PROCESS_EVIDENCE_PASSED,
+                    covers_artifacts=("field.lifecycle",),
+                    covered_versions={"field.lifecycle": "1"},
+                ),
+                ProcessEvidence(
+                    "field-projection-pass",
+                    evidence_kind=PROCESS_EVIDENCE_FIELD_PROJECTION,
+                    status=PROCESS_EVIDENCE_PASSED,
+                    covers_artifacts=("field.projection",),
+                    covered_versions={"field.projection": "1"},
+                ),
+                ProcessEvidence(
+                    "replacement-pass",
+                    evidence_kind="flowguard_closure_contract",
+                    status=PROCESS_EVIDENCE_PASSED,
+                    covers_artifacts=("replacement.disposition",),
+                    covered_versions={"replacement.disposition": "1"},
+                ),
+                ProcessEvidence(
+                    "bug-repair-pass",
+                    evidence_kind=PROCESS_EVIDENCE_MODEL_MISS_REVIEW,
+                    status=PROCESS_EVIDENCE_PASSED,
+                    covers_artifacts=("bug.repair.closure",),
+                    covered_versions={"bug.repair.closure": "1"},
+                ),
+            ),
+            validation_requirements=(
+                ValidationRequirement(
+                    "field-current",
+                    required_artifact_ids=("field.lifecycle",),
+                    required_evidence_kinds=(PROCESS_EVIDENCE_FIELD_LIFECYCLE,),
+                    evidence_ids=("field-lifecycle-pass",),
+                ),
+                ValidationRequirement(
+                    "projection-current",
+                    required_artifact_ids=("field.projection",),
+                    required_evidence_kinds=(PROCESS_EVIDENCE_FIELD_PROJECTION,),
+                    evidence_ids=("field-projection-pass",),
+                ),
+                ValidationRequirement(
+                    "replacement-current",
+                    required_artifact_ids=("replacement.disposition",),
+                    required_evidence_kinds=("flowguard_closure_contract",),
+                    evidence_ids=("replacement-pass",),
+                ),
+                ValidationRequirement(
+                    "bug-repair-current",
+                    required_artifact_ids=("bug.repair.closure",),
+                    required_evidence_kinds=(PROCESS_EVIDENCE_MODEL_MISS_REVIEW,),
+                    evidence_ids=("bug-repair-pass",),
+                ),
+            ),
+        )
+
+        report = review_development_process_flow(plan)
+        codes = {finding.code for finding in report.findings}
+
+        self.assertFalse(report.ok)
+        self.assertIn("field_lifecycle_changed_after_field_evidence", codes)
+        self.assertIn("field_projection_changed_after_alignment_pass", codes)
+        self.assertIn("replacement_disposition_changed_after_closure_pass", codes)
+        self.assertIn("bug_repair_closure_changed_after_review_pass", codes)
+        self.assertEqual("revalidation_required", report.decision)
 
     def test_requirement_change_propagates_with_freshness_rule(self):
         plan = DevelopmentProcessPlan(

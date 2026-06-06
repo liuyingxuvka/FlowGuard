@@ -1,13 +1,16 @@
 import unittest
 
+import flowguard
 from flowguard import (
     LEGACY_PATH_DELEGATED,
+    LEGACY_PATH_KIND_FIELD,
     LEGACY_PATH_UNKNOWN,
     PROOF_ARTIFACT_SCOPE_INTERNAL_PATH,
     PROOF_ARTIFACT_STATUS_FAILED,
     PROOF_ARTIFACT_STATUS_PASSED,
     LegacyPathDisposition,
     ProofArtifactRef,
+    legacy_path_disposition_from_field_row,
     proof_artifact_gap_codes,
     review_legacy_path_dispositions,
 )
@@ -89,6 +92,35 @@ class ProofArtifactTests(unittest.TestCase):
 
         self.assertFalse(report.ok)
         self.assertEqual("legacy_path_disposition_unknown", report.findings[0].code)
+
+    def test_field_row_can_be_reviewed_as_legacy_path_disposition(self):
+        row = flowguard.FieldLifecycleRow(
+            "field:old_mode",
+            lifecycle=flowguard.FIELD_LIFECYCLE_REPLACED,
+            replacement_field_id="field:mode",
+            disposition=flowguard.FIELD_DISPOSITION_MIGRATED,
+            disposition_evidence_refs=("test_old_mode_migrates",),
+        )
+
+        disposition = legacy_path_disposition_from_field_row(row)
+        report = review_legacy_path_dispositions((disposition,))
+
+        self.assertTrue(report.ok, report.to_dict())
+        self.assertEqual(LEGACY_PATH_KIND_FIELD, disposition.path_kind)
+        self.assertEqual("field:old_mode", disposition.field_id)
+
+    def test_unknown_field_disposition_blocks_legacy_path_review(self):
+        row = flowguard.FieldLifecycleRow(
+            "field:old_mode",
+            lifecycle=flowguard.FIELD_LIFECYCLE_REPLACED,
+            replacement_field_id="field:mode",
+            disposition=flowguard.FIELD_DISPOSITION_UNKNOWN,
+        )
+
+        report = review_legacy_path_dispositions((legacy_path_disposition_from_field_row(row),))
+
+        self.assertFalse(report.ok)
+        self.assertIn("legacy_path_disposition_unknown", [finding.code for finding in report.findings])
 
     def test_legacy_path_delegation_requires_artifact_in_strict_mode(self):
         blocked = review_legacy_path_dispositions(

@@ -33,6 +33,9 @@ Build a `FlowGuardClosureContractPlan` with:
 - `SameClassMissClosure` rows for observed failures plus same-class proof.
 - `RuntimeGatewayInventoryClosure` rows for critical runtime state writer
   inventory and gateway adoption evidence.
+- `field_lifecycle_reports` or `ClosureEvidenceReport` rows with
+  `field_lifecycle_mesh` kind when behavior-bearing fields, replacements, or
+  old-field disposition are in scope.
 - `ClosureEvidenceReport` rows for the Risk Evidence Ledger and route reports
   that the final claim consumes.
 
@@ -66,6 +69,10 @@ Use the gates that match the claim:
 - Legacy path disposition: old, fallback, compatibility, or alternate paths
   left reachable by the repair are deleted, blocked, delegated to a repaired
   contract, same-contract repaired, or explicitly scoped with a reason.
+- Field lifecycle: behavior-bearing fields are projected into model
+  obligations and code contracts, display-only fields are scoped out with
+  reasons, and old/replaced/deprecated fields have closing disposition
+  evidence.
 - Obligation-family parity: when related obligations share one confidence
   claim, each sibling has the required mechanism evidence from allowed
   provenance sources, or the family gap stays visible.
@@ -107,6 +114,8 @@ closure-contract miss until Model-Miss Review, root-cause backpropagation,
 same-class evidence, owner code contract binding, family parity, analogous
 defect scan, legacy path disposition, alignment, model maturation, freshness,
 ledger, and claim-chain evidence have been repaired.
+If the miss or replacement involved fields, include FieldLifecycleMesh and
+old-field disposition repair in that same closure chain.
 
 ## What This Does Not Mean
 

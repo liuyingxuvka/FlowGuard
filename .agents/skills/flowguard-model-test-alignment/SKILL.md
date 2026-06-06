@@ -5,9 +5,9 @@ description: Use when FlowGuard obligations, transition cells, tests, required c
 
 # FlowGuard Model-Test Alignment
 
-Standalone FlowGuard satellite skill for comparing model obligations, transition
-cells, ordinary tests, required owner code contracts, source audits, and finite
-code-boundary observations.
+Standalone FlowGuard satellite skill for comparing model obligations,
+transition cells, tests, owner code contracts, source audits, code-boundary
+observations, and FieldLifecycleMesh projections.
 Consume Model Similarity handoffs when shared/variant tests matter.
 
 Return to `model-first-function-flow` when the model obligations are not yet
@@ -17,7 +17,8 @@ defined. Do not invoke TestMesh, ModelMesh, or StructureMesh from this route.
 
 - Route id: `model_test_alignment`.
 - Core helpers: `review_model_test_alignment()`, `TransitionCoverageMatrix`,
-  `transition_coverage_to_model_obligations()`, `CodeContract`.
+  `transition_coverage_to_model_obligations()`, `CodeContract`, and field
+  lifecycle projection helpers.
 - Similarity handoff: cite maintenance group ids plus shared/variant test
   obligation ids when claiming similar workflows are covered.
 - Reference: `references/model_test_alignment_protocol.md`.
@@ -32,6 +33,7 @@ defined. Do not invoke TestMesh, ModelMesh, or StructureMesh from this route.
   `CodeContract` and current external-contract test evidence for the same
   obligation. Model+test-only evidence is blocked or scoped, not green.
 - Transition coverage claims need cells plus evidence targets, or a scoped-out boundary.
+- Behavior-bearing fields need FieldLifecycleMesh projection or a scoped-out reason.
 - Reused test results need `result_reused=True`, current `TestResultReuseTicket`, and current `ProofArtifactRef`.
 - Source audit is conservative support, not semantic proof.
 - Open external boundaries must expose representative unknown/other cases or a
@@ -40,7 +42,7 @@ defined. Do not invoke TestMesh, ModelMesh, or StructureMesh from this route.
 
 ## Minimum Workflow
 
-1. List obligations, scenarios, invariants, hazards, and transitions.
+1. List obligations, scenarios, invariants, hazards, transitions, and field projections.
 2. Project transition matrices into obligations when transition-test coverage is claimed.
 3. Add owner external code contracts, finite boundary observations, and
    test evidence that covers the same code contract ids.

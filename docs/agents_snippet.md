@@ -26,25 +26,16 @@ risky boundary -> Input x State -> Set(Output x State)
 -> inspect counterexample -> escalate only if a named risk requires it
 ```
 
-This is the entry path, not a completion shortcut. Complete FlowGuard use needs
-current evidence for the selected route. Skipped, stale, deferred,
-progress-only, or not-run checks are not passes.
+This is the entry path, not a completion shortcut. Complete FlowGuard use needs current evidence for the selected route; skipped, stale, deferred, progress-only, or not-run checks are not passes.
 
 ### Hard Gates
 
-- Verify the real package before modeling:
-  `python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"`.
-- Verify the package version when adoption/version freshness matters:
-  `python -c "import importlib.metadata as m; print(m.version('flowguard'))"`.
-- If the managed AGENTS block or `.flowguard/project.toml` is missing, use
-  `python -m flowguard project-adopt --root .`; if installed FlowGuard is newer
-  than the project record, use `python -m flowguard project-upgrade --root .`.
-  Project upgrade scans known FlowGuard artifacts, model evidence, tests, docs,
-  and guidance for deterministic upgrades into the current FlowGuard shape.
-  Use `--records-only` only when intentionally scoping out that scan.
-- FlowGuard is latest-schema-first: old artifacts may be detected and upgraded
-  at project/tool boundaries, but normal route logic should not preserve
-  long-lived compatibility branches for obsolete fields, aliases, or wrappers.
+- Verify the real package before modeling: `python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"`.
+- Verify the package version when adoption/version freshness matters: `python -c "import importlib.metadata as m; print(m.version('flowguard'))"`.
+- If the managed AGENTS block or `.flowguard/project.toml` is missing, use `python -m flowguard project-adopt --root .`; if installed FlowGuard is newer than the project record, use `python -m flowguard project-upgrade --root .`. Project upgrade scans known FlowGuard artifacts, model evidence, tests, docs, and guidance; use `--records-only` only when intentionally scoping out that scan.
+- FlowGuard is latest-schema-first: old artifacts may be upgraded at project/tool boundaries, but route logic should not preserve long-lived compatibility branches for obsolete fields, aliases, or wrappers.
+- Default replacement means dispose the old path, old field, alias, wrapper, or fallback unless the user explicitly requests compatibility or preservation. If compatibility is explicit, record the preserved surface and evidence; otherwise delete, block, migrate, delegate, repair, or scope it out with a concrete reason.
+- Field-bearing work needs a FieldLifecycleMesh view: high-level models include behavior-bearing fields, while child/leaf field models account all discovered fields and record owner, readers, writers, projection, lifecycle, and old-field disposition.
 - Do not create a fake mini-framework or replace executable modeling with prose.
 - Represent each modeled block as `Input x State -> Set(Output x State)`.
 - Preserve user and peer-agent changes; later writes can stale earlier evidence.
@@ -53,9 +44,8 @@ progress-only, or not-run checks are not passes.
 - Reused test results need current `TestResultReuseTicket` and
   `ProofArtifactRef`; old `passed` output is not current evidence by itself.
 - After `run_model_first_checks()`, read structured ledger routes and obligations before manual route inference.
-- For non-trivial FlowGuard work, show a route-specific Mermaid snapshot once
-  the route/model is stable; diagrams explain and do not validate.
-- Before full done/release/publish confidence, connect risks, obligations, remembered maintenance obligations, code/test evidence, proof artifacts, automatic state-closure gaps, and topology-hazard gaps through Risk Evidence Ledger or equivalent.
+- For non-trivial FlowGuard work, show a route-specific Mermaid snapshot once the route/model is stable; diagrams explain and do not validate.
+- Before full done/release/publish confidence, connect risks, obligations, maintenance obligations, code/test evidence, proof artifacts, automatic state-closure gaps, and topology-hazard gaps through Risk Evidence Ledger or equivalent.
 - After non-trivial work, use `maintenance_scan_router` for SummaryReport gaps, changed artifacts, open obligations, skipped routes, stale evidence, state/topology gaps, or split/reduction signals.
 - Finish real project use with adoption evidence: trigger, model/risk,
   commands, findings, skipped gaps, validation results, and next actions.
@@ -67,6 +57,7 @@ progress-only, or not-run checks are not passes.
 | Changed artifacts, open maintenance obligations, stale evidence, skipped routes, split/reduction pressure after project work | `maintenance_scan_router` | `review_maintenance_scan()` or `maintenance-scan-template` |
 | Older adopted project, old FlowGuard artifact, old model/test evidence, obsolete API aliases | `artifact_schema_upgrade` | `artifact-upgrade` or `project-upgrade` |
 | Existing modeled system, ownership lookup, duplicate-boundary risk | `existing_model_preflight` | `flowguard-existing-model-preflight` |
+| Field lifecycle, behavior-bearing field projection, old/replaced/deprecated field disposition | `field_lifecycle_mesh` | `flowguard-field-lifecycle-mesh` |
 | Similar features, A/B workflow drift, sibling tests, shared-kernel/adapter suspicion | `model_similarity_consolidation` | `model-first-function-flow` reference |
 | Rough idea/short plan needs detailed scope, state, evidence, receipts, rework | `plan_detailing_compiler` | `flowguard-plan-detailing-compiler` |
 | Multi-skill/tool/plugin planning, skipped skill consequences, rework gates | `agent_workflow_rehearsal` | `flowguard-agent-workflow-rehearsal` |

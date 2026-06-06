@@ -6,10 +6,7 @@ description: Use for non-trivial bug repairs or when runtime, tests, replay, log
 # FlowGuard Model Miss Review
 
 Standalone FlowGuard satellite skill for bug repairs where a real failure shows
-the model, code contract, tests, or final claim may be too narrow. Use it for
-boundary missing, code-boundary mismatch, state too coarse, input branch
-missing, invariant too weak, root-cause backpropagation, or evidence
-overclaimed.
+the model, code contract, tests, or final claim may be too narrow.
 
 Return to `model-first-function-flow` only when there is no concrete failure
 evidence yet or the work is ordinary behavior modeling rather than bug repair.
@@ -17,9 +14,10 @@ evidence yet or the work is ordinary behavior modeling rather than bug repair.
 ## First Read
 
 - Route id: `model_miss_review`.
-- Core concepts: observed failure, same-class generalized bad case,
-  root-cause backpropagation, owner code contract, `boundary_missing`,
-  recurring defect-family gate, legacy path disposition,
+- Core concepts: observed failure, same-class generalized bad case, root-cause
+  backpropagation, owner code contract, `boundary_missing`, field ids,
+  old-field disposition,
+  recurring defect-family gate, legacy path disposition, and
   `review_model_maturation_loop()`.
 - Reference: `references/model_miss_protocol.md`.
 
@@ -34,6 +32,7 @@ evidence yet or the work is ordinary behavior modeling rather than bug repair.
   same-class test must bind to the same repaired behavior before broad closure.
 - Old, fallback, compatibility, or alternate paths need a disposition instead
   of being left reachable by accident.
+- Field misses need FieldLifecycleMesh projection and old-field disposition.
 - A later green runtime check does not close a miss without same-class evidence.
 
 ## Minimum Workflow
@@ -42,7 +41,8 @@ evidence yet or the work is ordinary behavior modeling rather than bug repair.
 2. Classify the miss, preserve observed evidence, and backpropagate root cause
    into the plan/model/test gap that would have caught it.
 3. Add or name one same-class generalized bad case when practical.
-4. Update the model and bind the owner code contract before broad closure.
+4. Update the model or FieldLifecycleMesh and bind the owner code contract
+   before broad closure.
 5. Add observed-regression and same-class test evidence, then rerun alignment,
    legacy/fallback disposition, mesh/reattachment, maturation, process
    freshness, and risk ledger gates as relevant.
@@ -50,8 +50,8 @@ evidence yet or the work is ordinary behavior modeling rather than bug repair.
 ## Snapshot
 
 Show a miss-repair diagram with observed failure, missing boundary, generalized
-bad case, root cause, code owner, tests, legacy path disposition, reattachment
-needs, and residual gaps.
+bad case, root cause, field lifecycle gap when relevant, code owner, tests,
+legacy path/old-field disposition, reattachment needs, and residual gaps.
 
 ## Non-Goals
 

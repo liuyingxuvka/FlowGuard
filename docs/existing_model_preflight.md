@@ -47,9 +47,11 @@ The main objects are:
 - `ModelContextHit`: one existing model that may own the requested behavior.
   Parent hits with child models can also record the current layered proof
   evidence id plus parent coverage, child disjointness, child reattachment, and
-  leaf boundary-matrix status.
+  leaf boundary-matrix status. Field-bearing hits can record `fields_owned`
+  when a field lifecycle or behavior field already belongs to that model.
 - `ExistingOwnershipSnapshot`: FunctionBlock, state, side-effect,
-  public-entrypoint, and responsibility ownership extracted from model hits.
+  public-entrypoint, field, and responsibility ownership extracted from model
+  hits.
 - `DuplicateBoundaryRisk`: an overlap between a proposed boundary and an
   existing owner.
 - `ExistingModelPreflight`: the light or full preflight report.
@@ -96,9 +98,12 @@ preflight = ExistingModelPreflight(
         state_owners=(("pending_tasks", "router-flow"),),
         side_effect_owners=(("dispatch_task", "router-flow"),),
         public_entrypoint_owners=(("router.dispatch", "router-flow"),),
+        field_owners=(("field:dispatch_mode", "router-flow"),),
     ),
     reuse_decision=REUSE_DECISION_EXTEND_EXISTING,
-    downstream_routes=("development_process_flow",),
+    downstream_routes=("field_lifecycle_mesh", "development_process_flow"),
+    behavior_field_ids=("field:dispatch_mode",),
+    field_lifecycle_model_ids=("router-flow",),
     rationale="The existing router model owns task dispatch, so extend it.",
 )
 
@@ -137,3 +142,13 @@ by itself.
 When layered proof is in scope, preflight should surface the existing parent,
 child, and leaf model ids plus any duplicate-boundary risks before a new model
 or test boundary is added.
+
+## Field Lifecycle Handoff
+
+If the task changes fields that affect routing, state, permissions, schema,
+migration, replay, side effects, or external contracts, record
+`behavior_field_ids`, `field_lifecycle_model_ids`, and any
+`field_lifecycle_gap_ids`. Full preflight should name `field_lifecycle_mesh` as
+a downstream route before code changes. Presentation-only or metadata fields
+can be scoped out, but the scoped-out reason belongs in FieldLifecycleMesh, not
+in a hidden assumption.

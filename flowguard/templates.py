@@ -28,6 +28,11 @@ from .template_text.existing_model_preflight import (
     EXISTING_MODEL_PREFLIGHT_RUN_CHECKS_TEMPLATE,
     EXISTING_MODEL_PREFLIGHT_NOTES_TEMPLATE,
 )
+from .template_text.field_lifecycle import (
+    FIELD_LIFECYCLE_MODEL_TEMPLATE,
+    FIELD_LIFECYCLE_RUN_CHECKS_TEMPLATE,
+    FIELD_LIFECYCLE_NOTES_TEMPLATE,
+)
 from .template_text.flowguard_closure_contract import (
     FLOWGUARD_CLOSURE_CONTRACT_MODEL_TEMPLATE,
     FLOWGUARD_CLOSURE_CONTRACT_RUN_CHECKS_TEMPLATE,
@@ -237,6 +242,14 @@ def existing_model_preflight_template_files() -> tuple[TemplateFile, ...]:
     )
 
 
+def field_lifecycle_template_files() -> tuple[TemplateFile, ...]:
+    return (
+        TemplateFile(".flowguard/field_lifecycle/model.py", FIELD_LIFECYCLE_MODEL_TEMPLATE),
+        TemplateFile(".flowguard/field_lifecycle/run_checks.py", FIELD_LIFECYCLE_RUN_CHECKS_TEMPLATE),
+        TemplateFile("docs/flowguard_field_lifecycle_mesh.md", FIELD_LIFECYCLE_NOTES_TEMPLATE),
+    )
+
+
 def model_similarity_consolidation_template_files() -> tuple[TemplateFile, ...]:
     return (
         TemplateFile(
@@ -339,6 +352,9 @@ __all__ = [
     "EXISTING_MODEL_PREFLIGHT_MODEL_TEMPLATE",
     "EXISTING_MODEL_PREFLIGHT_NOTES_TEMPLATE",
     "EXISTING_MODEL_PREFLIGHT_RUN_CHECKS_TEMPLATE",
+    "FIELD_LIFECYCLE_MODEL_TEMPLATE",
+    "FIELD_LIFECYCLE_NOTES_TEMPLATE",
+    "FIELD_LIFECYCLE_RUN_CHECKS_TEMPLATE",
     "FLOWGUARD_CLOSURE_CONTRACT_MODEL_TEMPLATE",
     "FLOWGUARD_CLOSURE_CONTRACT_NOTES_TEMPLATE",
     "FLOWGUARD_CLOSURE_CONTRACT_RUN_CHECKS_TEMPLATE",
@@ -387,6 +403,7 @@ __all__ = [
     "code_structure_recommendation_template_files",
     "development_process_flow_template_files",
     "existing_model_preflight_template_files",
+    "field_lifecycle_template_files",
     "layered_boundary_proof_template_files",
     "maintenance_workflow_template_files",
     "maintenance_scan_template_files",

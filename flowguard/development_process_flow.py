@@ -52,12 +52,21 @@ PROCESS_CLAIM_ACTIONS = {
 PROCESS_ARTIFACT_REQUIREMENT = "requirement"
 PROCESS_ARTIFACT_DESIGN = "design"
 PROCESS_ARTIFACT_MODEL = "model"
+PROCESS_ARTIFACT_FIELD_LIFECYCLE = "field_lifecycle"
+PROCESS_ARTIFACT_FIELD_PROJECTION = "field_projection"
+PROCESS_ARTIFACT_REPLACEMENT_DISPOSITION = "replacement_disposition"
+PROCESS_ARTIFACT_BUG_REPAIR_CLOSURE = "bug_repair_closure"
 PROCESS_ARTIFACT_CODE = "code"
 PROCESS_ARTIFACT_TEST = "test"
 PROCESS_ARTIFACT_DOC = "doc"
 PROCESS_ARTIFACT_RELEASE = "release"
 PROCESS_ARTIFACT_REPORT = "report"
 PROCESS_ARTIFACT_ADAPTER = "adapter"
+
+PROCESS_EVIDENCE_FIELD_LIFECYCLE = "field_lifecycle_mesh"
+PROCESS_EVIDENCE_FIELD_PROJECTION = "field_projection"
+PROCESS_EVIDENCE_MODEL_MISS_REVIEW = "model_miss_review"
+PROCESS_EVIDENCE_BUG_REPAIR_CLOSURE = "bug_repair_closure"
 
 
 def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
@@ -611,6 +620,10 @@ def _decision_for_findings(findings: Sequence[ProcessFlowFinding]) -> str:
         ("stale_evidence_after_artifact_change", "revalidation_required"),
         ("test_changed_after_test_pass", "revalidation_required"),
         ("model_changed_after_alignment_pass", "revalidation_required"),
+        ("field_lifecycle_changed_after_field_evidence", "revalidation_required"),
+        ("field_projection_changed_after_alignment_pass", "revalidation_required"),
+        ("replacement_disposition_changed_after_closure_pass", "revalidation_required"),
+        ("bug_repair_closure_changed_after_review_pass", "revalidation_required"),
         ("requirement_change_without_downstream_revalidation", "revalidation_required"),
         ("direct_evidence_invalidation", "revalidation_required"),
         ("unknown_writer_invalidates_evidence", "peer_write_review_required"),
@@ -766,6 +779,24 @@ def _action_index(plan: DevelopmentProcessPlan) -> dict[str, int]:
     return {action.action_id: index for index, action in enumerate(plan.actions)}
 
 
+def _stale_code_for_artifact(artifact: ProcessArtifact | None, evidence: ProcessEvidence) -> str:
+    if artifact is None:
+        return "stale_evidence_after_artifact_change"
+    if artifact.artifact_type == PROCESS_ARTIFACT_TEST or artifact.artifact_id in evidence.verifier_artifacts:
+        return "test_changed_after_test_pass"
+    if artifact.artifact_type == PROCESS_ARTIFACT_MODEL and evidence.evidence_kind == "model_test_alignment":
+        return "model_changed_after_alignment_pass"
+    if artifact.artifact_type == PROCESS_ARTIFACT_FIELD_LIFECYCLE:
+        return "field_lifecycle_changed_after_field_evidence"
+    if artifact.artifact_type == PROCESS_ARTIFACT_FIELD_PROJECTION:
+        return "field_projection_changed_after_alignment_pass"
+    if artifact.artifact_type == PROCESS_ARTIFACT_REPLACEMENT_DISPOSITION:
+        return "replacement_disposition_changed_after_closure_pass"
+    if artifact.artifact_type == PROCESS_ARTIFACT_BUG_REPAIR_CLOSURE:
+        return "bug_repair_closure_changed_after_review_pass"
+    return "stale_evidence_after_artifact_change"
+
+
 def _evidence_stale_reasons(
     plan: DevelopmentProcessPlan,
     artifacts: Mapping[str, ProcessArtifact],
@@ -786,13 +817,7 @@ def _evidence_stale_reasons(
                 f"evidence does not record covered version for {artifact_id}",
             )
         elif covered_version != artifact.current_version:
-            artifact_type = artifact.artifact_type
-            if artifact_type == PROCESS_ARTIFACT_TEST or artifact_id in evidence.verifier_artifacts:
-                code = "test_changed_after_test_pass"
-            elif artifact_type == PROCESS_ARTIFACT_MODEL and evidence.evidence_kind == "model_test_alignment":
-                code = "model_changed_after_alignment_pass"
-            else:
-                code = "stale_evidence_after_artifact_change"
+            code = _stale_code_for_artifact(artifact, evidence)
             reasons[f"version:{artifact_id}"] = (
                 code,
                 f"evidence covers {artifact_id}@{covered_version}, current is {artifact.current_version}",
@@ -814,11 +839,7 @@ def _evidence_stale_reasons(
         if set(evidence.covered_artifact_ids()) & written:
             artifact_id = sorted(set(evidence.covered_artifact_ids()) & written)[0]
             artifact = artifacts.get(artifact_id)
-            code = "stale_evidence_after_artifact_change"
-            if artifact is not None and artifact.artifact_type == PROCESS_ARTIFACT_TEST:
-                code = "test_changed_after_test_pass"
-            elif artifact is not None and artifact.artifact_type == PROCESS_ARTIFACT_MODEL and evidence.evidence_kind == "model_test_alignment":
-                code = "model_changed_after_alignment_pass"
+            code = _stale_code_for_artifact(artifact, evidence)
             reasons[f"write:{action.action_id}:{artifact_id}"] = (
                 code,
                 f"action {action.action_id} changed {artifact_id} after evidence {evidence.evidence_id}",
@@ -1221,7 +1242,11 @@ __all__ = [
     "PROCESS_ARTIFACT_CODE",
     "PROCESS_ARTIFACT_DESIGN",
     "PROCESS_ARTIFACT_DOC",
+    "PROCESS_ARTIFACT_BUG_REPAIR_CLOSURE",
+    "PROCESS_ARTIFACT_FIELD_LIFECYCLE",
+    "PROCESS_ARTIFACT_FIELD_PROJECTION",
     "PROCESS_ARTIFACT_MODEL",
+    "PROCESS_ARTIFACT_REPLACEMENT_DISPOSITION",
     "PROCESS_ARTIFACT_RELEASE",
     "PROCESS_ARTIFACT_REPORT",
     "PROCESS_ARTIFACT_REQUIREMENT",
@@ -1229,6 +1254,10 @@ __all__ = [
     "PROCESS_CLAIM_ACTIONS",
     "PROCESS_EVIDENCE_ERROR",
     "PROCESS_EVIDENCE_FAILED",
+    "PROCESS_EVIDENCE_BUG_REPAIR_CLOSURE",
+    "PROCESS_EVIDENCE_FIELD_LIFECYCLE",
+    "PROCESS_EVIDENCE_FIELD_PROJECTION",
+    "PROCESS_EVIDENCE_MODEL_MISS_REVIEW",
     "PROCESS_EVIDENCE_NOT_RUN",
     "PROCESS_EVIDENCE_PASSED",
     "PROCESS_EVIDENCE_RUNNING",

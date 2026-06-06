@@ -234,6 +234,12 @@ FILE_TEMPLATE_COMMANDS: tuple[FileTemplateCommand, ...] = (
         "existing_model_preflight_template_files",
     ),
     FileTemplateCommand(
+        "field-lifecycle-template",
+        "Print or write the FieldLifecycleMesh field coverage and replacement disposition template.",
+        "field_lifecycle",
+        "field_lifecycle_template_files",
+    ),
+    FileTemplateCommand(
         "model-similarity-template",
         "Print or write the model similarity consolidation template.",
         "model_similarity_consolidation",

@@ -22,11 +22,13 @@ Use it when:
 The main objects are:
 
 - `TargetModuleRecommendation`: one proposed target module or script with
-  owned FunctionBlocks, state fields, side effects, config, public entrypoints,
-  validation boundaries, and rationale.
+  owned FunctionBlocks, state fields, behavior fields, field reads/writes,
+  side effects, config, public entrypoints, validation boundaries, and
+  rationale.
 - `CodeStructureRecommendation`: the complete recommendation, including source
-  FlowGuard model evidence, target modules, owner maps, facade plan, validation
-  boundaries, and rationale.
+  FlowGuard model evidence, target modules, FunctionBlock/state/field/side
+  effect/config/entrypoint owner maps, field reader and writer maps, facade
+  plan, validation boundaries, and rationale.
 - `CodeStructureRecommendationReport`: structured review output.
 - `review_code_structure_recommendation(recommendation)`: the executable
   checker.
@@ -74,6 +76,9 @@ recommendation = CodeStructureRecommendation(
         ("RouteCheckout", "orchestrator"),
         ("PersistOrder", "effects"),
     ),
+    field_owner_map=(("field:checkout_mode", "orchestrator"),),
+    field_reader_map=(("field:checkout_mode", "orchestrator"),),
+    field_writer_map=(("field:checkout_mode", "orchestrator"),),
     side_effect_owner_map=(("write_order", "effects"),),
     validation_boundaries=("model scenario replay",),
     rationale="the model separates ordering from durable effects",
@@ -103,3 +108,9 @@ points needed for a complete leaf boundary matrix: accepted/rejected inputs,
 outputs, error paths, state writes, and side effects. If those points cannot be
 observed cleanly, recommend a smaller child model or code boundary before the
 implementation is treated as ready for layered proof.
+
+Field ownership is part of the structure recommendation, not an afterthought.
+If a field is read or written by a target module, give it a field owner. If the
+field is old, replaced, deprecated, or compatibility-like, route its
+disposition through FieldLifecycleMesh and Architecture Reduction before
+claiming the structure is clean.

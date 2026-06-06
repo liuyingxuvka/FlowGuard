@@ -30,6 +30,9 @@ class CodeStructureRecommendationTests(unittest.TestCase):
                     owns_function_blocks=("PersistOrder",),
                     owns_state=("orders",),
                     owns_side_effects=("write_order",),
+                    owns_fields=("field:mode",),
+                    reads_fields=("field:mode",),
+                    writes_fields=("field:mode",),
                 ),
             ),
             function_block_map=(
@@ -38,6 +41,9 @@ class CodeStructureRecommendationTests(unittest.TestCase):
             ),
             state_owner_map=(("orders", "effects"),),
             side_effect_owner_map=(("write_order", "effects"),),
+            field_owner_map=(("field:mode", "effects"),),
+            field_reader_map=(("field:mode", "effects"),),
+            field_writer_map=(("field:mode", "effects"),),
             validation_boundaries=("model scenario replay",),
             rationale="the functional model separates routing from durable effects",
         )
@@ -46,6 +52,32 @@ class CodeStructureRecommendationTests(unittest.TestCase):
 
         self.assertTrue(report.ok)
         self.assertEqual(0, report.blocker_count())
+
+    def test_field_reader_writer_maps_require_owner_and_registered_modules(self):
+        recommendation = CodeStructureRecommendation(
+            "checkout-structure",
+            source_model_id="checkout-functional-model",
+            parent_module_id="checkout",
+            target_modules=(module("effects"),),
+            function_block_map=(("PersistOrder", "effects"),),
+            field_owner_map=(
+                ("field:mode", "effects"),
+                ("field:mode", "other"),
+            ),
+            field_reader_map=(("field:mode", "reader"),),
+            field_writer_map=(("field:status", "effects"),),
+            validation_boundaries=("model scenario replay",),
+            rationale="field ownership should stay visible in the target split",
+        )
+
+        report = review_code_structure_recommendation(recommendation)
+        codes = {finding.code for finding in report.findings}
+
+        self.assertFalse(report.ok)
+        self.assertIn("duplicate_field_recommendation_owner", codes)
+        self.assertIn("field_owner_not_registered", codes)
+        self.assertIn("field_reader_not_registered", codes)
+        self.assertIn("field_access_without_owner", codes)
 
     def test_missing_model_source_blocks(self):
         recommendation = CodeStructureRecommendation(

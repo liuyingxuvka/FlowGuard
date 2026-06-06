@@ -31,6 +31,7 @@ def recommendation() -> CodeStructureRecommendation:
                 "orchestrator",
                 path="checkout/orchestrator.py",
                 owns_function_blocks=("RouteCheckout",),
+                reads_fields=("field:checkout_mode",),
                 validation_boundaries=("route scenario test",),
                 rationale="The orchestrator owns ordering only and does not own durable state.",
             ),
@@ -38,6 +39,7 @@ def recommendation() -> CodeStructureRecommendation:
                 "state",
                 path="checkout/state.py",
                 owns_state=("orders", "attempts"),
+                owns_fields=("field:checkout_mode", "field:old_mode"),
                 validation_boundaries=("state shape test",),
                 rationale="State and type definitions stay separate from transition logic.",
             ),
@@ -46,6 +48,7 @@ def recommendation() -> CodeStructureRecommendation:
                 path="checkout/effects.py",
                 owns_function_blocks=("PersistOrder",),
                 owns_side_effects=("write_order",),
+                writes_fields=("field:checkout_mode",),
                 validation_boundaries=("effect idempotency replay",),
                 rationale="Durable writes are isolated behind an adapter boundary.",
             ),
@@ -55,6 +58,9 @@ def recommendation() -> CodeStructureRecommendation:
             ("PersistOrder", "effects"),
         ),
         state_owner_map=(("orders", "state"), ("attempts", "state")),
+        field_owner_map=(("field:checkout_mode", "state"), ("field:old_mode", "state")),
+        field_reader_map=(("field:checkout_mode", "orchestrator"),),
+        field_writer_map=(("field:checkout_mode", "effects"),),
         side_effect_owner_map=(("write_order", "effects"),),
         validation_boundaries=("route scenario test", "state shape test", "effect idempotency replay"),
         rationale="The functional model separates ordering, abstract state, and durable side effects.",
@@ -108,6 +114,7 @@ before writing production code.
 - recommended target modules and paths;
 - FunctionBlock-to-module ownership;
 - state, config, and side-effect owner maps;
+- field owner/reader/writer maps from FieldLifecycleMesh projections;
 - public entrypoint or facade plans when relevant;
 - validation boundaries that keep the recommendation tied to executable model
   evidence.
@@ -115,6 +122,10 @@ before writing production code.
 This route recommends structure. It does not write production code and does not
 replace StructureMesh. StructureMesh uses model-derived target structure when an
 existing large script or module is being split.
+
+For field-heavy changes, every reader and writer should point to exactly one
+field owner. Old or replacement fields should stay visible here until
+FieldLifecycleMesh and Architecture Reduction have closed their disposition.
 """
 
 __all__ = [

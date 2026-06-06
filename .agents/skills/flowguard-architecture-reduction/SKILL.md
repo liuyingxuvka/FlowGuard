@@ -1,6 +1,6 @@
 ---
 name: flowguard-architecture-reduction
-description: Use when a FlowGuard model should drive behavior-preserving code architecture simplification, including shrinking overgrown flows, merging duplicate handlers/modules, collapsing pass-through adapters, removing dead branches or irrelevant state, and producing a StructureMesh-ready contraction plan before editing production code.
+description: Use when a FlowGuard model should drive behavior-preserving architecture simplification, including shrinking overgrown flows, merging duplicate handlers/modules, collapsing adapters, removing dead branches, or producing a StructureMesh-ready contraction plan.
 ---
 
 # FlowGuard Architecture Reduction
@@ -36,10 +36,10 @@ DevelopmentProcessFlow as needed.
 - Do not create a fake mini-framework.
 - Every candidate needs proof status, next route, and scoped/risky obligations.
 - Public entrypoints require StructureMesh or equivalent parity evidence.
-- Compatibility-only runtime branches, old aliases, wrappers, and prompt
-  wording are cleanup candidates after classification proves they are not
-  current contracts, safety classifiers, public facades, runtime-authoritative
-  archives, or unreplaced negative legacy tests.
+- Compatibility-only branches, old aliases, wrappers, prompt wording, and
+  old/replaced field aliases are cleanup candidates unless classification
+  proves they are current contracts, safety classifiers, public facades,
+  preserved compatibility fields, archives, or negative legacy tests.
 
 ## Minimum Workflow
 
@@ -47,7 +47,8 @@ DevelopmentProcessFlow as needed.
 2. Declare the observable contract.
 3. Map FunctionBlock, state, side effect, and public entrypoint ownership.
 4. Classify candidates as merge, collapse, remove, keep facade, or review.
-5. Separate safety classifiers from removable compatibility-only surfaces.
+5. Separate safety classifiers and explicit compatibility fields from
+   removable compatibility-only surfaces.
 6. Separate ready, scoped, risky, and blocked candidates.
 
 ## Snapshot

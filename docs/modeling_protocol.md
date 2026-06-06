@@ -797,49 +797,55 @@ When this happens:
    invariant, replay adapter, representative trace, or a model boundary update
    for the observed issue, plus one same-class generalized bad case when
    practical.
-6. Add current test evidence for the observed regression and same-class
+6. If the miss involves a field, schema key, config flag, prompt/config field,
+   payload column, or persisted attribute, run or update FieldLifecycleMesh so
+   the root-cause field, same-class field cases, and any old/replaced field are
+   visible.
+7. Add current test evidence for the observed regression and same-class
    generalized bad case, then run Model-Test Alignment to verify the repaired
    obligation, owner code contract, and tests cover the same behavior. A
-   single observed-bug regression test is not full closure.
+   single observed-bug regression test is not full closure. Behavior-bearing
+   field projections should feed the same alignment rows.
    When sibling obligations make the same family-level claim, add family parity
    rows so every sibling has the required mechanism and allowed provenance.
    Also run an analogous defect scan when the miss shape may recur outside the
    observed member.
-7. If old, fallback, compatibility, or alternate paths remain reachable, record
-   whether they are deleted, blocked, delegated to a repaired contract,
-   same-contract repaired, or explicitly out of scope with a reason.
-8. If same-class coverage is large, slow, layered, background, or release-only,
+8. If old, fallback, compatibility, alternate paths, or old fields remain
+   reachable, record whether they are deleted, blocked, migrated, delegated to
+   a repaired contract or replacement field, same-contract repaired, or
+   explicitly out of scope with a reason.
+9. If same-class coverage is large, slow, layered, background, or release-only,
    route the validation hierarchy to TestMesh and report scoped confidence
    until current child evidence exists.
-9. If the same-class miss has recurred, or if the first miss is high risk enough
+10. If the same-class miss has recurred, or if the first miss is high risk enough
    that a local point fix would overclaim full confidence, promote it to a
    defect-family gate with a model obligation, authority boundary, observed
    failure case, same-class generalized case, historical holdout case, current
    family parity status and analogous scan status when related obligations are
    in scope, and current proof evidence.
-10. Rerun the relevant model checks and confirm the old weakness plus the
+11. Rerun the relevant model checks and confirm the old weakness plus the
    same-class case are now visible, or deliberately out of scope.
-11. Validate the repair with the refined model plus the strongest practical
+12. Validate the repair with the refined model plus the strongest practical
    production-facing evidence.
-12. If the repair changed a child model under a parent ModelMesh, rerun the
+13. If the repair changed a child model under a parent ModelMesh, rerun the
    affected parent reattachment gate and keep the miss open until the parent
    consumes current child evidence.
-13. If the child boundary changed, keep the miss open until ModelMesh has
+14. If the child boundary changed, keep the miss open until ModelMesh has
     propagated the boundary review upward and reviewed affected sibling models
     or recorded why none are affected.
-14. Run the model maturation loop over the miss classification, alignment rows,
+15. Run the model maturation loop over the miss classification, alignment rows,
     mesh rows, and freshness rows. If it reports state, branch, invariant,
     same-class, child reattachment, or obligation gaps, upgrade the model or
     keep the final claim scoped.
-15. Do not use a background long-running check as closure until final artifacts
+16. Do not use a background long-running check as closure until final artifacts
     and exit status exist; progress output is only liveness.
-16. Record `Miss type`, `Root cause backpropagation`, `Generalized case`,
-    owner code contract, observed-regression test evidence, same-class test
-    evidence, legacy path disposition, family parity result, analogous scan
-    result, Model-Test Alignment result, and any parent reattachment or
-    defect-family gate decision in the adoption log, or the reason no
-    generalized case was added, along with rerun commands, skipped checks, and
-    residual blindspots.
+17. Record `Miss type`, `Root cause backpropagation`, `Generalized case`, field
+    lifecycle/projection/disposition evidence when fields are involved, owner
+    code contract, observed-regression test evidence, same-class test evidence,
+    legacy path disposition, family parity result, analogous scan result,
+    Model-Test Alignment result, and any parent reattachment or defect-family
+    gate decision in the adoption log, or the reason no generalized case was
+    added, along with rerun commands, skipped checks, and residual blindspots.
 
 A later green runtime check or one observed-bug regression test does not close
 a known model miss by itself. The miss is closed only when it has been

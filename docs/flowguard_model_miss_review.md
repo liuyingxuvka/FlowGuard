@@ -13,6 +13,8 @@ issue after a FlowGuard pass.
   bug class before the fix?
 - Was the boundary too narrow, the state too coarse, an input branch missing, an
   invariant weak, a replay skipped, or the issue outside the modeled scope?
+- Was a behavior-bearing field omitted, under-modeled, wrongly scoped out, or
+  left without reader/writer/owner visibility?
 - How is the issue now represented: scenario, invariant, replay adapter,
   representative trace, or explicit out-of-scope boundary?
 - What same-class generalized bad case prevents a point-fix-only repair, and is
@@ -21,12 +23,17 @@ issue after a FlowGuard pass.
   whole model target?
 - Which observed-regression test and same-class generalized test evidence now
   prove the repaired obligation?
+- Which root-cause field ids and same-class field case ids prove the repair is
+  not only an observed-field point fix?
 - Which owner code contract implements the repaired behavior, and which
   Model-Test Alignment rows prove the model obligation, owner code contract,
   observed-regression test, and same-class test cover the same behavior?
 - Are old, fallback, compatibility, or alternate paths still reachable? If yes,
   are they deleted, blocked, delegated to the repaired contract,
   same-contract repaired, or explicitly out of scope with a reason?
+- Are old, replaced, deprecated, or compatibility-like fields still reachable?
+  If yes, has FieldLifecycleMesh produced a closing disposition and can that
+  row be reviewed as legacy path disposition evidence?
 - Has this same-class family appeared before, or is it high risk enough to
   require a defect-family gate rather than another ordinary bug fix?
 - Which defect-family gate records the family id, authority boundary, observed
@@ -46,5 +53,8 @@ root-cause backpropagation when there was a prior claim, owner code contract
 binding, same-class test evidence, legacy path disposition for reachable old
 paths, and recurring families need a defect-family gate or an explicit
 scoped-confidence boundary.
+When the root cause is a field, full closure also needs same-class field cases,
+field lifecycle projection into Model-Test Alignment, and old-field
+disposition for any legacy field left in or near the repaired path.
 Child-local green is not enough when parent mesh confidence depends on the
 child's input/output/state/side-effect handoff.

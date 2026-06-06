@@ -11,6 +11,7 @@ from flowguard.templates import (
     code_structure_recommendation_template_files,
     development_process_flow_template_files,
     existing_model_preflight_template_files,
+    field_lifecycle_template_files,
     layered_boundary_proof_template_files,
     model_miss_review_template_files,
     model_similarity_consolidation_template_files,
@@ -40,6 +41,7 @@ PUBLIC_TEMPLATE_FACTORIES = (
     model_test_alignment_template_files,
     code_structure_recommendation_template_files,
     existing_model_preflight_template_files,
+    field_lifecycle_template_files,
     model_similarity_consolidation_template_files,
     risk_evidence_ledger_template_files,
     runtime_path_evidence_template_files,
@@ -63,6 +65,7 @@ TEMPLATE_CLI_COMMANDS = {
     "runtime-path-evidence-template": "runtime_path_evidence",
     "code-structure-recommendation-template": "code_structure_recommendation",
     "existing-model-preflight-template": "existing_model_preflight",
+    "field-lifecycle-template": "field_lifecycle",
     "model-similarity-template": "model_similarity_consolidation",
     "risk-evidence-ledger-template": "risk_evidence_ledger",
     "layered-boundary-proof-template": "layered_boundary_proof",
@@ -399,6 +402,29 @@ class PublicTemplateTests(unittest.TestCase):
         )
         self.assertIn("flowguard existing model preflight", output)
         self.assertIn("duplicate_boundary_risk_unresolved", output)
+
+    def test_field_lifecycle_template_executes(self):
+        output = self.run_written_template(
+            field_lifecycle_template_files(),
+            (".flowguard", "field_lifecycle"),
+        )
+        self.assertIn("flowguard field lifecycle mesh", output)
+        self.assertIn("projected_model_obligations: 2", output)
+        self.assertIn("behavior_field_projection_missing", output)
+        self.assertIn("old_field_disposition_open", output)
+
+    def test_field_lifecycle_template_teaches_default_replacement_handoffs(self):
+        files = field_lifecycle_template_files()
+        combined = "\n".join(file.content for file in files)
+
+        self.assertIn("FieldLifecycleMesh", combined)
+        self.assertIn("Default replacement policy", combined)
+        self.assertIn("old fields", combined)
+        self.assertIn("compatibility intent", combined)
+        self.assertIn("field_lifecycle_to_model_obligations", combined)
+        self.assertIn("field_lifecycle_to_code_contracts", combined)
+        self.assertIn("Model-Test Alignment", combined)
+        self.assertIn("DevelopmentProcessFlow", combined)
 
     def test_model_similarity_consolidation_template_executes(self):
         output = self.run_written_template(

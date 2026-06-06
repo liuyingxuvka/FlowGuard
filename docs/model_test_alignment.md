@@ -219,6 +219,12 @@ List test evidence with `TestEvidence`:
   otherwise Model-Test Alignment reports the reuse/proof gap before the row can
   support model obligation or code contract coverage.
 
+For field-bearing changes, supply FieldLifecycleMesh reports or projections to
+`ModelTestAlignmentPlan`. Behavior-bearing fields become model obligations and
+owner code contracts through `FieldProjection`; they still need current test
+evidence. Old or replacement fields must have closing field lifecycle
+disposition evidence before the alignment can support full confidence.
+
 ## Findings
 
 The review keeps these gaps visible:

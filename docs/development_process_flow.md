@@ -95,7 +95,9 @@ while the current artifact is `code.checkout@4`.
   test, fix, and verify;
 - unknown artifact, evidence, validation, and action references;
 - out-of-order process dependencies;
-- stale evidence after code, test, model, requirement, or direct invalidation;
+- stale evidence after code, test, model, requirement, field lifecycle, field
+  projection, replacement disposition, bug-repair closure, or direct
+  invalidation;
 - verifier changes after validation, such as tests or model files changing;
 - explicit upstream freshness rules, such as requirement changes invalidating
   downstream code and validation evidence;
@@ -146,6 +148,12 @@ a parent/child split. Use StructureMesh when code structure is being split. Use
 Model-Test Alignment when model obligations and test or code-contract evidence
 need direct comparison. Use Conformance Adoption when production traces or
 install/runtime sync determine confidence.
+
+For field-bearing work, register field lifecycle plans, field projections,
+replacement disposition rows, and bug-repair closure rows as first-class
+process artifacts. Evidence that covered those artifacts before a later write
+must be rerun or refreshed before done, release, archive, or publish
+confidence.
 
 For final completion claims, DevelopmentProcessFlow should reference the Risk
 Evidence Ledger decision as one evidence boundary. If the ledger reports

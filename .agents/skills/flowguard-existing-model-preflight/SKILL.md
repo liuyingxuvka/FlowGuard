@@ -34,7 +34,8 @@ this preflight with the downstream route that owns the actual work.
 - For real target-project work, keep the AGENTS.md managed block/version record
   current or record why it was not updated.
 - Do not create a fake mini-framework.
-- Prefer existing modeled responsibilities over parallel ownership.
+- Prefer existing modeled responsibilities and field lifecycle ownership over
+  parallel ownership.
 - Keep stale, skipped, missing, and no-model-found evidence visible.
 - Treat older FlowGuard model artifacts as upgrade-boundary inputs. Run
   `project-upgrade` or `artifact-upgrade` when the project record is older than
@@ -44,15 +45,16 @@ this preflight with the downstream route that owns the actual work.
 ## Minimum Workflow
 
 1. Search model records, docs, OpenSpec changes, and `.flowguard/`.
-2. Extract FunctionBlock, state, side-effect, and public-entrypoint owners.
+2. Extract FunctionBlock, state, side-effect, public-entrypoint, and field
+   lifecycle owners.
 3. Classify old-shape models as upgraded, blocked, or current before reuse.
 4. Decide reuse, extend, add child model, new boundary, or no model found.
 5. Route duplicate-boundary shrinkage to Architecture Reduction.
 
 ## Snapshot
 
-Show existing model boundaries, reuse decision, duplicate-boundary risks, and
-downstream route.
+Show existing model boundaries, field lifecycle owners or gaps, reuse decision,
+duplicate-boundary risks, and downstream route.
 
 ## Non-Goals
 

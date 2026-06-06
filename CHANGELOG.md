@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.40.11 - 2026-06-06
+
+Default replacement and field lifecycle hardening.
+
+- Added FieldLifecycleMesh helpers, route-scoped API discovery, a public
+  `field-lifecycle-template`, and a Codex skill route for complete leaf-level
+  field accounting.
+- Connected behavior-bearing field projections and old-field disposition to
+  existing model preflight, code structure, architecture reduction,
+  Model-Test Alignment, Model-Miss Review, DevelopmentProcessFlow, legacy path
+  disposition, and Closure Contract.
+- Updated project AGENTS guidance, docs, public templates, OpenSpec coverage,
+  skill protocols, and FlowGuard self-model checks so replacement work cleans
+  up old paths/fields by default unless compatibility is explicit and evidenced.
+
 ## v0.40.10 - 2026-06-05
 
 AI route handoff optimization.

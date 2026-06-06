@@ -83,6 +83,34 @@ def reuse_ticket(evidence_id, *covered, **kwargs):
     return TestResultReuseTicket(evidence_id, **defaults)
 
 
+def field_report_with_projection():
+    projection = flowguard.FieldProjection(
+        "projection:mode",
+        "field:mode",
+        model_obligation_id="field:mode:obligation",
+        code_contract_id="contract:mode",
+        external_inputs=("mode",),
+        external_outputs=("mode applied",),
+        state_reads=("mode",),
+        state_writes=("mode",),
+        rationale="mode controls checkout routing",
+    )
+    return flowguard.review_field_lifecycle(
+        flowguard.FieldLifecyclePlan(
+            "checkout-fields",
+            discovered_field_ids=("field:mode",),
+            fields=(
+                flowguard.FieldLifecycleRow(
+                    "field:mode",
+                    role=flowguard.FIELD_ROLE_ROUTING,
+                    behavior_impacts=(flowguard.FIELD_IMPACT_ROUTING,),
+                    projection=projection,
+                ),
+            ),
+        )
+    )
+
+
 def contract_evidence(evidence_id, obligation_id, contract_id, **kwargs):
     defaults = {
         "covered_code_contracts": (contract_id,),
@@ -109,6 +137,38 @@ def source_audit_finding_codes(report):
 
 
 class ModelTestAlignmentTests(unittest.TestCase):
+    def test_field_lifecycle_projection_feeds_model_code_test_alignment(self):
+        field_report = field_report_with_projection()
+        self.assertTrue(field_report.ok, field_report.format_text())
+
+        missing_test = review_model_test_alignment(
+            ModelTestAlignmentPlan(
+                "checkout",
+                field_lifecycle_reports=(field_report,),
+            )
+        )
+        self.assertFalse(missing_test.ok)
+        self.assertIn("missing_test_evidence", set(finding_codes(missing_test)))
+        self.assertIn("missing_code_contract_test_evidence", set(finding_codes(missing_test)))
+
+        passing = review_model_test_alignment(
+            ModelTestAlignmentPlan(
+                "checkout",
+                field_lifecycle_reports=(field_report,),
+                test_evidence=(
+                    evidence(
+                        "test_mode_field_routing",
+                        "field:mode:obligation",
+                        covered_code_contracts=("contract:mode",),
+                        assertion_scope=flowguard.TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
+                    ),
+                ),
+            )
+        )
+        self.assertTrue(passing.ok, passing.format_text())
+        self.assertEqual("model_test_alignment_green", passing.decision)
+        self.assertEqual("field:mode:obligation", passing.binding_rows[0].model_obligation_id)
+
     def test_model_test_only_alignment_is_blocked_by_default(self):
         plan = ModelTestAlignmentPlan(
             model_id="checkout",

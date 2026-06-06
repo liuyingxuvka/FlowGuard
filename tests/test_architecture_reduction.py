@@ -358,7 +358,12 @@ class ArchitectureReductionTests(unittest.TestCase):
             "router-compat-reduction",
             observable_contract=contract(),
             candidates=(candidate(),),
-            compatibility_surfaces=(surface(),),
+            compatibility_surfaces=(
+                surface(
+                    field_ids=("field:old_mode",),
+                    replacement_field_ids=("field:mode",),
+                ),
+            ),
             companion_route_triggers=(trigger(),),
             rationale="legacy surface is classified before contraction",
         )
@@ -374,6 +379,32 @@ class ArchitectureReductionTests(unittest.TestCase):
             COMPATIBILITY_SURFACE_PRUNE_CANDIDATE,
             report.to_dict()["compatibility_surfaces"][0]["classification"],
         )
+        self.assertEqual(("field:old_mode",), report.compatibility_surfaces[0].field_ids)
+
+    def test_old_field_surface_requires_disposition_evidence(self):
+        plan = ArchitectureReductionPlan(
+            "router-field-compat-reduction",
+            observable_contract=contract(),
+            candidates=(candidate(),),
+            compatibility_surfaces=(
+                surface(
+                    surface_id="old-mode-field",
+                    field_ids=("field:old_mode",),
+                    replacement_field_ids=("field:mode",),
+                    evidence_refs=(),
+                    owner_model_elements=(),
+                    rationale="old mode field must not be pruned without disposition evidence",
+                ),
+            ),
+            companion_route_triggers=(trigger(),),
+            rationale="field compatibility surfaces need explicit closure",
+        )
+
+        report = review_architecture_reduction(plan)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("compatibility_surface_blocked", report.decision)
+        self.assertIn("compatibility_field_surface_missing_evidence", [finding.code for finding in report.findings])
 
     def test_current_contract_surface_blocks_remove_or_collapse(self):
         plan = ArchitectureReductionPlan(

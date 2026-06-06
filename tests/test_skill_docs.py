@@ -12,6 +12,7 @@ SATELLITE_SKILLS = {
     "flowguard-code-structure-recommendation": "code_structure_recommendation_protocol.md",
     "flowguard-development-process-flow": "development_process_flow_protocol.md",
     "flowguard-existing-model-preflight": "existing_model_preflight_protocol.md",
+    "flowguard-field-lifecycle-mesh": "field_lifecycle_mesh_protocol.md",
     "flowguard-model-mesh": "model_mesh_protocol.md",
     "flowguard-model-miss-review": "model_miss_protocol.md",
     "flowguard-model-test-alignment": "model_test_alignment_protocol.md",
@@ -151,6 +152,11 @@ class SkillDocsTests(unittest.TestCase):
                 "existing model boundaries",
                 "duplicate-boundary",
                 "downstream route",
+            ),
+            "flowguard-field-lifecycle-mesh": (
+                "FieldLifecyclePlan",
+                "behavior-bearing fields",
+                "old-field disposition",
             ),
             "flowguard-model-mesh": (
                 "Child Reattachment Gate",

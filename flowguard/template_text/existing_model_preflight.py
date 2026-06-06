@@ -40,6 +40,7 @@ def correct_preflight():
                 responsibilities=("route scheduling",),
                 function_blocks=("RouteTask",),
                 state_owned=("pending_tasks",),
+                fields_owned=("field:dispatch_mode",),
                 side_effects_owned=("dispatch_task",),
                 public_entrypoints=("router.dispatch",),
                 validation_evidence=("router scenario replay",),
@@ -48,11 +49,14 @@ def correct_preflight():
         ownership_snapshot=ExistingOwnershipSnapshot(
             function_block_owners=(("RouteTask", "router-flow"),),
             state_owners=(("pending_tasks", "router-flow"),),
+            field_owners=(("field:dispatch_mode", "router-flow"),),
             side_effect_owners=(("dispatch_task", "router-flow"),),
             public_entrypoint_owners=(("router.dispatch", "router-flow"),),
         ),
         reuse_decision=REUSE_DECISION_EXTEND_EXISTING,
-        downstream_routes=("development_process_flow",),
+        downstream_routes=("field_lifecycle_mesh", "development_process_flow"),
+        behavior_field_ids=("field:dispatch_mode",),
+        field_lifecycle_model_ids=("router-flow",),
         rationale="The existing router model owns task dispatch, so extend that boundary instead of creating a parallel scheduler.",
     )
 
@@ -118,12 +122,18 @@ change in an existing modeled system.
 
 - which existing FlowGuard models were searched;
 - which model responsibilities, FunctionBlocks, state fields, side effects,
-  and public entrypoints already own the requested behavior;
+  public entrypoints, and behavior-bearing fields already own the requested
+  behavior;
 - whether the change should reuse an existing boundary, extend an existing
   model, add a child model, or create a new boundary;
 - whether duplicate model, state, side-effect, entrypoint, or responsibility
   ownership is resolved before downstream work starts;
 - which downstream FlowGuard route should handle the concrete work.
+
+For field-bearing work, include `behavior_field_ids`, `field_owners`, and
+`field_lifecycle_model_ids`, and name `field_lifecycle_mesh` as a downstream
+route. If a field is discovered but not owned yet, stop at preflight and create
+or extend FieldLifecycleMesh before changing production behavior.
 
 Use a light grounding note for discussion and early analysis. Use a full
 structured preflight before implementation, OpenSpec proposals, major

@@ -27,61 +27,69 @@ creating a parallel one.
 4. If the issue belongs in scope, represent the observed issue in executable
    evidence: scenario, invariant, replay adapter, representative trace, or
    model boundary note.
-5. Add one same-class generalized bad case when practical.
-6. Add current test evidence for the observed regression and for the
+5. If the root cause involves a behavior-bearing field, schema key, config
+   flag, prompt/config field, payload column, or persisted attribute, add
+   `root_cause_field_ids`, `same_class_field_ids`, and `old_field_ids` as
+   needed, then update FieldLifecycleMesh so projection and disposition gaps are
+   explicit.
+6. Add one same-class generalized bad case when practical.
+7. Add current test evidence for the observed regression and for the
    same-class generalized case. A point regression is necessary but does not
    close an in-scope miss by itself.
-7. Bind the repaired obligation to the owner code contract that actually
+8. Bind the repaired obligation to the owner code contract that actually
    implements the behavior. Helper-only, adapter-only, or internal-path tests
    cannot close a public bug class by themselves.
-8. Run Model-Test Alignment on the repaired model obligation, owner code
+9. Run Model-Test Alignment on the repaired model obligation, owner code
    contracts, and the observed/same-class test evidence. If the
    same-class validation is too large, slow, layered, stale-prone,
    background, or release-only, route that hierarchy to TestMesh and report
    scoped confidence until current child evidence exists.
-9. If the repair adds, replaces, bypasses, or preserves an old/fallback/legacy
-   path, route the compatibility surface through Architecture Reduction when
-   appropriate and record a LegacyPathDisposition: deleted, blocked,
-   delegated to a repaired contract, same-contract repaired, or explicitly out
-   of scope with a reason. `unknown` blocks broad closure.
-10. If sibling obligations share the same family-level claim, run
+10. If the repair adds, replaces, bypasses, or preserves an old/fallback/legacy
+   path or old/replaced/deprecated field, route the compatibility surface
+   through Architecture Reduction when appropriate and record a
+   LegacyPathDisposition or field disposition: deleted, blocked, migrated,
+   delegated to a repaired contract or replacement field, same-contract
+   repaired, or explicitly out of scope with a reason. `unknown` blocks broad
+   closure.
+11. If sibling obligations share the same family-level claim, run
    obligation-family parity so every sibling has required mechanism evidence
    from allowed provenance.
-11. Run an analogous defect scan for same-family siblings and caller-supplied
+12. Run an analogous defect scan for same-family siblings and caller-supplied
    related surfaces. Open must-scan candidates block broad closure; should-scan
    candidates must be covered, assigned to a separate change, or excluded with
    a concrete reason.
-12. If the same-class miss recurs, or if a high-risk first miss would make a
+13. If the same-class miss recurs, or if a high-risk first miss would make a
    local point fix overclaim full confidence, promote it to a defect-family gate
    with a model obligation, authority boundary, observed failure, same-class
    generalized case, historical holdout, and current proof evidence. The gate
    is FlowGuard evidence for the existing Model-Miss/Risk Evidence Ledger
    chain, not a new downstream app skill.
-13. Rerun the relevant model checks and confirm the old weakness is now visible,
+14. Rerun the relevant model checks and confirm the old weakness is now visible,
    or deliberately mark the generalized case out of scope.
-14. Validate the repair with the refined model plus the strongest practical
+15. Validate the repair with the refined model plus the strongest practical
    production-facing evidence.
-15. If the repair changed a child model under a parent ModelMesh, rerun the
+16. If the repair changed a child model under a parent ModelMesh, rerun the
    affected parent child-reattachment gate. The parent must consume the current
    child evidence id and confirm the child's inputs, outputs, state ownership,
    side-effect ownership, and outgoing guarantees still fit the parent flow.
-16. If the miss shows that real code accepted an unmodeled input, emitted an
+17. If the miss shows that real code accepted an unmodeled input, emitted an
     extra output/error/state write/side effect, or failed a declared leaf cell,
     update the leaf boundary matrix and rerun layered proof. Do not close the
     miss with only a new ordinary test when the model boundary itself overflowed.
-17. Run `review_model_maturation_loop(...)` over the miss classification,
+18. Run `review_model_maturation_loop(...)` over the miss classification,
     alignment result, mesh/layered proof result, code-boundary observations, and
     freshness rows. Resolve or explicitly scope any state, branch, invariant,
     same-class, obligation, child reattachment, or evidence-refresh action.
-18. Run DevelopmentProcessFlow over the changed plan/model/code/test/docs
+19. Run DevelopmentProcessFlow over the changed plan/model/code/test/docs
     artifacts so later edits do not stale the repair evidence.
-19. Record `Miss type`, `Root cause backpropagation`, `Generalized case`,
-    owner code contract, observed-regression test evidence, same-class test
-    evidence, family parity result, analogous scan result, legacy path
-    disposition, Model-Test Alignment result, process freshness, and any parent
-    reattachment or defect-family gate decision in adoption evidence and the
-    Risk Evidence Ledger when a prior final claim had one, or explain why no
-    generalized case was added.
+20. Record `Miss type`, `Root cause backpropagation`, `Generalized case`, field
+    lifecycle/projection/disposition evidence when fields are involved, owner
+    code contract, observed-regression test evidence, same-class test evidence,
+    family parity result, analogous scan result, legacy path disposition,
+    Model-Test Alignment result, process freshness, and any parent reattachment
+    or defect-family gate decision in adoption evidence and the Risk Evidence
+    Ledger when a prior final claim had one, or explain why no generalized case
+    was added.
 
 ## What Not To Add By Default
 
@@ -98,8 +106,10 @@ in executable evidence or explicitly out of scope, rerun, validated with
 production-facing evidence, and, for in-scope misses, backed by current
 observed-regression and same-class test evidence in Model-Test Alignment. Root
 cause must be backpropagated into the previous plan/model/test gap when a prior
-claim existed, the repaired model obligation must bind to the owner code
-contract, and reachable old/fallback/legacy paths must have a disposition.
+claim existed, behavior-bearing fields must be represented in FieldLifecycleMesh
+and projected when relevant, the repaired model obligation must bind to the
+owner code contract, and reachable old/fallback/legacy paths or old fields must
+have a disposition.
 When the miss was repaired in a child model under a parent mesh, the affected
 parent reattachment gate must also pass or remain an explicit blocker. The model
 maturation loop must show no open in-scope upgrade action for a broad claim. A
