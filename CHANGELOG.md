@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.41.1 - 2026-06-07
+
+FlowGuard self-maintenance optimization.
+
+- Added a route-first FlowGuard self-maintenance mesh with compact route
+  profiles, AI entry profiles, field layer profiles, and child closure reports
+  so agents can maintain FlowGuard without starting from the full helper list.
+- Expanded public route grouping and API-surface tests so installed satellite
+  routes are discoverable through stable route entries instead of scattered
+  flat fields.
+- Added OpenSpec coverage, a self-maintenance model, skill/docs updates,
+  focused regression evidence, and shadow-workspace sync checks for the new
+  maintenance path.
+
 ## v0.41.0 - 2026-06-07
 
 Open-ended model-angle deliberation.

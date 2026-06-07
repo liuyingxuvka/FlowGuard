@@ -191,6 +191,27 @@ python -m flowguard model-angle-template --output .
 python .flowguard/model_angle_deliberation/run_checks.py
 ```
 
+## FlowGuard Self-Maintenance Mesh
+
+Use `default_flowguard_route_profiles()`,
+`default_ai_maintenance_profiles()`, `default_field_layer_profiles()`, and
+`review_flowguard_self_maintenance(...)` when FlowGuard itself feels too heavy
+for AI agents to use directly. The helper keeps the first-read path thin:
+
+- route profiles connect installed capabilities to trigger, minimal input,
+  output, evidence owner, API group, template, skill, and next action;
+- AI maintenance profiles start common work from fields, route graph,
+  structure, or validation instead of from `__all__`;
+- field layer profiles keep core fields visible, route-owned fields lazy,
+  shared proof fields compact, display/metadata fields scoped, and
+  compatibility-like fields disposition-bound;
+- child reports preserve the closure contract shape for route graph, field,
+  structure, validation, install/shadow sync, and final claim evidence.
+
+This mesh is a parent check, not a new supervisor route. It can say a route is
+missing, stale, skipped, or blocked, but the owner route still supplies the real
+model/test/replay/structure/ledger evidence.
+
 ## AI Route Handoff Reports
 
 `FlowGuardSummaryReport` includes a finding ledger and maintenance obligations.

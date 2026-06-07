@@ -60,6 +60,15 @@ does not change `CheckReport`, traces, pass/fail status, or stdout output. Use
 For AI agents, route groups are the normal discovery surface:
 
 - `FLOWGUARD_ROUTE_API` names the supported route groups.
+- `default_flowguard_route_profiles()` is the compact first-read map for AI
+  maintenance: each `RouteProfile` names the trigger, minimal inputs, outputs,
+  evidence owner, API group, template, skill, and next actions. Use
+  `review_flowguard_self_maintenance()` to check that profile ids stay aligned
+  with public route groups.
+- `default_ai_maintenance_profiles()` gives thin entry profiles for common
+  FlowGuard self-maintenance work such as fields, route graph connection,
+  structure, and validation. They are entry profiles only; route-owned evidence
+  still expands in the specialist route.
 - `PLAN_DETAILING_ROUTE_API` is the first stop for vague ideas, short plans,
   and AI-generated outlines that need explicit source, scope, state, side
   effect, step, receipt, validation, rework, human-question, and claim rows.
@@ -97,6 +106,9 @@ For AI agents, route groups are the normal discovery surface:
 - `TOPOLOGY_HAZARD_ROUTE_API` is the default runner review for model-shape
   future-use hazards before broad done, release, publish, or full-confidence
   claims.
+- `FLOWGUARD_SELF_MAINTENANCE_ROUTE_API` is the parent route for FlowGuard's
+  own maintenance chain: route graph completeness, AI entry profiles, field
+  layers, child route reports, install/shadow sync, and closure boundaries.
 
 Use `MODELING_HELPER_API` only as the complete index after the route group is
 known. It is intentionally broad and is not first-read guidance.
@@ -240,6 +252,17 @@ inventory.
   owner route that can produce evidence. Existing Model Preflight, Maintenance
   Scan, Risk Evidence Ledger, and Closure Contract can consume unresolved
   model-angle gaps before broad confidence.
+- optional FlowGuard self-maintenance helpers such as `RouteProfile`,
+  `AIMaintenanceProfile`, `FieldLayerProfile`,
+  `SelfMaintenanceChildReport`, `SelfMaintenancePlan`,
+  `default_flowguard_route_profiles()`,
+  `default_ai_maintenance_profiles()`, `default_field_layer_profiles()`,
+  `route_graph_completeness_findings()`, and
+  `review_flowguard_self_maintenance()` for keeping FlowGuard's own AI-facing
+  maintenance path route-first. These helpers make fields and evidence lighter
+  at first read, but they do not delete behavior-bearing fields or replace
+  Model-Test Alignment, StructureMesh, TestMesh, DevelopmentProcessFlow, Risk
+  Evidence Ledger, or Closure Contract.
 - optional conservative Python source-audit helpers such as
   `PythonCodeContractEvidence`, `PythonTestAssertionEvidence`,
   `ContractSourceAuditReport`, `audit_python_code_contracts()`,
@@ -459,6 +482,7 @@ The package exports lightweight grouping constants:
 
 - route-scoped discovery groups such as `FLOWGUARD_ROUTE_API`,
   `TEMPLATE_STRUCTURE_API`, `EVIDENCE_FIELD_STRUCTURE_API`,
+  `FLOWGUARD_SELF_MAINTENANCE_ROUTE_API`,
   `MODEL_SIMILARITY_ROUTE_API`, `ARCHITECTURE_REDUCTION_ROUTE_API`,
   `CODE_STRUCTURE_RECOMMENDATION_ROUTE_API`,
   `MODEL_TEST_ALIGNMENT_ROUTE_API`, `MODEL_ANGLE_DELIBERATION_API`,

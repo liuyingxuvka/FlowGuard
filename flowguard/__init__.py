@@ -649,16 +649,27 @@ from .runtime_gateway import (
     RuntimeWriteObservation,
     review_runtime_gateway_adoption,
 )
+from . import agent_workflow_rehearsal as _agent_workflow_rehearsal
 from . import closure_contract as _closure_contract
+from . import development_process_flow as _development_process_flow
+from . import existing_model_preflight as _existing_model_preflight
 from . import field_lifecycle as _field_lifecycle
+from . import hierarchy as _hierarchy
 from . import maintenance_obligation as _maintenance_obligation
 from . import maintenance_scan as _maintenance_scan
 from . import model_angle_deliberation as _model_angle_deliberation
 from . import plan_intake as _plan_intake
+from . import recurring_model_miss as _recurring_model_miss
+from . import risk_evidence_ledger as _risk_evidence_ledger
+from . import self_maintenance as _self_maintenance
 from . import state_closure as _state_closure
+from . import structuremesh as _structuremesh
+from . import testmesh as _testmesh
 from . import topology_hazard as _topology_hazard
+from . import ui_structure as _ui_structure
 from . import model_freshness as _model_freshness
 from . import model_maturation as _model_maturation
+from .self_maintenance import *  # noqa: F403
 from .closure_contract import *  # noqa: F403
 from .field_lifecycle import *  # noqa: F403
 from .maintenance_obligation import *  # noqa: F403
@@ -945,13 +956,23 @@ from .trace import Trace, TraceStep
 from .workflow import Workflow, WorkflowPath, WorkflowRun
 
 PLAN_INTAKE_CLAIM_API = tuple(_plan_intake.__all__)
+AGENT_WORKFLOW_REHEARSAL_ROUTE_API = tuple(name for name in _agent_workflow_rehearsal.__all__ if name in globals())
 FLOWGUARD_CLOSURE_CONTRACT_API = tuple(_closure_contract.__all__)
+DEVELOPMENT_PROCESS_FLOW_ROUTE_API = tuple(name for name in _development_process_flow.__all__ if name in globals())
+EXISTING_MODEL_PREFLIGHT_ROUTE_API = tuple(name for name in _existing_model_preflight.__all__ if name in globals())
 FIELD_LIFECYCLE_MESH_API = tuple(_field_lifecycle.__all__)
+MODEL_MESH_ROUTE_API = tuple(name for name in _hierarchy.__all__ if name in globals())
 MAINTENANCE_OBLIGATION_MEMORY_API = tuple(_maintenance_obligation.__all__)
 MAINTENANCE_SCAN_ROUTE_API = tuple(_maintenance_scan.__all__)
 MODEL_ANGLE_DELIBERATION_API = tuple(_model_angle_deliberation.__all__)
+MODEL_MISS_REVIEW_ROUTE_API = tuple(name for name in _recurring_model_miss.__all__ if name in globals())
+RISK_EVIDENCE_LEDGER_ROUTE_API = tuple(name for name in _risk_evidence_ledger.__all__ if name in globals())
+FLOWGUARD_SELF_MAINTENANCE_ROUTE_API = tuple(_self_maintenance.__all__)
 STATE_CLOSURE_ROUTE_API = tuple(_state_closure.__all__)
+STRUCTURE_MESH_ROUTE_API = tuple(name for name in _structuremesh.__all__ if name in globals())
+TEST_MESH_ROUTE_API = tuple(name for name in _testmesh.__all__ if name in globals())
 TOPOLOGY_HAZARD_ROUTE_API = tuple(_topology_hazard.__all__)
+UI_FLOW_STRUCTURE_ROUTE_API = tuple(name for name in _ui_structure.__all__ if name in globals())
 MODEL_IMPACT_FRESHNESS_API = tuple(_model_freshness.__all__)
 MODEL_MATURATION_API = tuple(_model_maturation.__all__)
 
@@ -1004,6 +1025,7 @@ MODELING_HELPER_API = (
     "scenario_status_explanation",
     "scenario_status_ok",
     "ScenarioMatrixBuilder",
+    *FLOWGUARD_SELF_MAINTENANCE_ROUTE_API,
     *MODEL_ANGLE_DELIBERATION_API,
     "CachePack",
     "DeduplicationPack",
@@ -1925,8 +1947,11 @@ PLAN_DETAILING_ROUTE_API = (
 )
 
 FLOWGUARD_ROUTE_API = {
+    "flowguard_self_maintenance": FLOWGUARD_SELF_MAINTENANCE_ROUTE_API,
     "template_structure": TEMPLATE_STRUCTURE_API,
     "evidence_field_structure": EVIDENCE_FIELD_STRUCTURE_API,
+    "existing_model_preflight": EXISTING_MODEL_PREFLIGHT_ROUTE_API,
+    "agent_workflow_rehearsal": AGENT_WORKFLOW_REHEARSAL_ROUTE_API,
     "model_similarity_consolidation": MODEL_SIMILARITY_ROUTE_API,
     "architecture_reduction": ARCHITECTURE_REDUCTION_ROUTE_API,
     "code_structure_recommendation": CODE_STRUCTURE_RECOMMENDATION_ROUTE_API,
@@ -1936,6 +1961,14 @@ FLOWGUARD_ROUTE_API = {
     "maintenance_obligation_memory": MAINTENANCE_OBLIGATION_MEMORY_API,
     "maintenance_scan_router": MAINTENANCE_SCAN_ROUTE_API,
     "model_angle_deliberation": MODEL_ANGLE_DELIBERATION_API,
+    "ui_flow_structure": UI_FLOW_STRUCTURE_ROUTE_API,
+    "model_mesh_maintenance": MODEL_MESH_ROUTE_API,
+    "test_mesh_maintenance": TEST_MESH_ROUTE_API,
+    "structure_mesh_maintenance": STRUCTURE_MESH_ROUTE_API,
+    "development_process_flow": DEVELOPMENT_PROCESS_FLOW_ROUTE_API,
+    "model_miss_review": MODEL_MISS_REVIEW_ROUTE_API,
+    "risk_evidence_ledger": RISK_EVIDENCE_LEDGER_ROUTE_API,
+    "flowguard_closure_contract": FLOWGUARD_CLOSURE_CONTRACT_API,
     "state_closure": STATE_CLOSURE_ROUTE_API,
     "model_topology_hazard_review": TOPOLOGY_HAZARD_ROUTE_API,
 }
@@ -1948,25 +1981,35 @@ API_SURFACE = {
 }
 
 _PUBLIC_API_SUPPLEMENT = (
+    "AGENT_WORKFLOW_REHEARSAL_ROUTE_API",
     "API_SURFACE",
     "ARCHITECTURE_REDUCTION_ROUTE_API",
     "CODE_STRUCTURE_RECOMMENDATION_ROUTE_API",
     "CORE_API",
+    "DEVELOPMENT_PROCESS_FLOW_ROUTE_API",
     "EVIDENCE_FIELD_STRUCTURE_API",
     "EVIDENCE_API",
+    "EXISTING_MODEL_PREFLIGHT_ROUTE_API",
     "FLOWGUARD_ROUTE_API",
     "FLOWGUARD_CLOSURE_CONTRACT_API",
+    "FLOWGUARD_SELF_MAINTENANCE_ROUTE_API",
     "FIELD_LIFECYCLE_MESH_API",
     "MAINTENANCE_OBLIGATION_MEMORY_API",
     "MAINTENANCE_SCAN_ROUTE_API",
     "MODEL_ANGLE_DELIBERATION_API",
+    "MODEL_MESH_ROUTE_API",
+    "MODEL_MISS_REVIEW_ROUTE_API",
     "MODEL_SIMILARITY_ROUTE_API",
     "MODEL_TEST_ALIGNMENT_ROUTE_API",
     "MODEL_IMPACT_FRESHNESS_API",
     "MODEL_MATURATION_API",
     "PLAN_DETAILING_ROUTE_API",
+    "RISK_EVIDENCE_LEDGER_ROUTE_API",
     "STATE_CLOSURE_ROUTE_API",
+    "STRUCTURE_MESH_ROUTE_API",
+    "TEST_MESH_ROUTE_API",
     "TOPOLOGY_HAZARD_ROUTE_API",
+    "UI_FLOW_STRUCTURE_ROUTE_API",
     "MODELING_HELPER_API",
     "REPORTING_HELPER_API",
     "TEMPLATE_STRUCTURE_API",

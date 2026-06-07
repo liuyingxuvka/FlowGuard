@@ -59,6 +59,7 @@ This is the entry path, not a completion shortcut. Complete FlowGuard use needs 
 
 | Trigger | Route | Entry |
 | --- | --- | --- |
+| FlowGuard itself feels heavy, route groups are incomplete, field layers need folding, or AI needs route-first self-maintenance | `flowguard_self_maintenance` | `review_flowguard_self_maintenance()` |
 | Changed artifacts, open maintenance obligations, stale evidence, skipped routes, split/reduction pressure after project work | `maintenance_scan_router` | `review_maintenance_scan()` or `maintenance-scan-template` |
 | Older adopted project, old FlowGuard artifact, old model/test evidence, obsolete API aliases | `artifact_schema_upgrade` | `artifact-upgrade` or `project-upgrade` |
 | Existing modeled system, ownership lookup, duplicate-boundary risk | `existing_model_preflight` | `flowguard-existing-model-preflight` |
@@ -91,7 +92,7 @@ Package helpers such as `review_model_test_alignment()`,
 `review_development_process_flow()`, `review_test_mesh()`,
 `review_structure_mesh()`, `review_architecture_reduction()`,
 `review_existing_model_preflight()`, `review_model_angle_deliberations()`,
-`review_model_similarity_consolidation()`,
+`review_flowguard_self_maintenance()`, `review_model_similarity_consolidation()`,
 `review_plan_detail()`, `review_agent_workflow_rehearsal()`, templates, and
 starter CLIs are helpers, not separate Codex skills.
 

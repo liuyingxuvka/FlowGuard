@@ -91,6 +91,12 @@ class ApiSurfaceTests(unittest.TestCase):
         self.assertIn("review_model_angle_deliberations", flowguard.MODELING_HELPER_API)
         self.assertIn("model_angle_deliberation_template_files", flowguard.EVIDENCE_API)
         self.assertNotIn("review_model_angle_deliberations", flowguard.CORE_API)
+        self.assertIn("RouteProfile", flowguard.MODELING_HELPER_API)
+        self.assertIn("AIMaintenanceProfile", flowguard.MODELING_HELPER_API)
+        self.assertIn("FieldLayerProfile", flowguard.MODELING_HELPER_API)
+        self.assertIn("SelfMaintenancePlan", flowguard.MODELING_HELPER_API)
+        self.assertIn("review_flowguard_self_maintenance", flowguard.MODELING_HELPER_API)
+        self.assertNotIn("review_flowguard_self_maintenance", flowguard.CORE_API)
         self.assertIn("UIInteractionModel", flowguard.MODELING_HELPER_API)
         self.assertIn("UIJourneyCoverage", flowguard.MODELING_HELPER_API)
         self.assertIn("UIJourneyCoverageReport", flowguard.MODELING_HELPER_API)
@@ -248,8 +254,11 @@ class ApiSurfaceTests(unittest.TestCase):
 
     def test_route_api_registry_groups_public_names(self):
         expected_groups = {
+            "flowguard_self_maintenance",
             "template_structure",
             "evidence_field_structure",
+            "existing_model_preflight",
+            "agent_workflow_rehearsal",
             "model_similarity_consolidation",
             "architecture_reduction",
             "code_structure_recommendation",
@@ -259,6 +268,14 @@ class ApiSurfaceTests(unittest.TestCase):
             "maintenance_obligation_memory",
             "maintenance_scan_router",
             "model_angle_deliberation",
+            "ui_flow_structure",
+            "model_mesh_maintenance",
+            "test_mesh_maintenance",
+            "structure_mesh_maintenance",
+            "development_process_flow",
+            "model_miss_review",
+            "risk_evidence_ledger",
+            "flowguard_closure_contract",
             "state_closure",
             "model_topology_hazard_review",
         }
@@ -274,6 +291,90 @@ class ApiSurfaceTests(unittest.TestCase):
 
         for name in flowguard.EVIDENCE_FIELD_STRUCTURE_API:
             self.assertIn(name, flowguard.EVIDENCE_API)
+
+    def test_route_profiles_cover_public_route_api(self):
+        profiles = flowguard.default_flowguard_route_profiles()
+        profile_ids = {profile.route_id for profile in profiles}
+
+        expected_profile_ids = {
+            "flowguard_self_maintenance",
+            "template_structure",
+            "evidence_field_structure",
+            "existing_model_preflight",
+            "model_angle_deliberation",
+            "maintenance_scan_router",
+            "maintenance_obligation_memory",
+            "field_lifecycle_mesh",
+            "model_similarity_consolidation",
+            "architecture_reduction",
+            "code_structure_recommendation",
+            "structure_mesh_maintenance",
+            "model_test_alignment",
+            "test_mesh_maintenance",
+            "model_mesh_maintenance",
+            "development_process_flow",
+            "risk_evidence_ledger",
+            "flowguard_closure_contract",
+            "agent_workflow_rehearsal",
+            "ui_flow_structure",
+            "model_miss_review",
+            "plan_detailing_compiler",
+            "state_closure",
+            "model_topology_hazard_review",
+        }
+        self.assertEqual(expected_profile_ids, profile_ids)
+
+        report = flowguard.review_flowguard_self_maintenance(
+            flowguard.SelfMaintenancePlan(
+                "api-route-profile-check",
+                route_profiles=profiles,
+                api_route_group_ids=tuple(flowguard.FLOWGUARD_ROUTE_API),
+                ai_profiles=flowguard.default_ai_maintenance_profiles(),
+                field_layers=flowguard.default_field_layer_profiles(),
+                child_reports=(
+                    flowguard.SelfMaintenanceChildReport(
+                        "route-graph",
+                        "flowguard_self_maintenance",
+                        "route_graph",
+                        closure_status=flowguard.SELF_MAINTENANCE_STATUS_PASS,
+                        current=True,
+                        safe_claim="route profiles are discoverable",
+                        unsafe_claim_boundary="does not prove route internals",
+                    ),
+                ),
+            )
+        )
+        self.assertTrue(report.ok, report.format_text())
+        self.assertFalse(report.findings, report.format_text())
+
+    def test_route_completeness_reports_missing_route_group(self):
+        profiles = flowguard.default_flowguard_route_profiles()
+        api_groups = tuple(
+            group
+            for group in flowguard.FLOWGUARD_ROUTE_API
+            if group != "field_lifecycle_mesh"
+        )
+
+        findings = flowguard.route_graph_completeness_findings(profiles, api_groups)
+
+        self.assertIn("route_profile_missing_api_group", {finding.code for finding in findings})
+        self.assertIn("field_lifecycle_mesh", {finding.owner_route for finding in findings})
+
+    def test_field_layer_profiles_are_entry_only_and_preserve_expansion(self):
+        layers = flowguard.default_field_layer_profiles()
+        by_layer = {layer.layer_id: layer for layer in layers}
+
+        self.assertEqual(set(flowguard.FIELD_LAYERS), set(by_layer))
+        self.assertEqual("first_read", by_layer[flowguard.FIELD_LAYER_CORE].first_read_exposure)
+        self.assertEqual(
+            "expand_when_route_runs",
+            by_layer[flowguard.FIELD_LAYER_ROUTE_OWNED].first_read_exposure,
+        )
+        self.assertTrue(by_layer[flowguard.FIELD_LAYER_COMPATIBILITY].disposition_required)
+        self.assertIn(
+            "model_test_alignment",
+            by_layer[flowguard.FIELD_LAYER_ROUTE_OWNED].expansion_required_for,
+        )
 
     def test_legacy_plan_intake_aliases_are_not_exported(self):
         removed_aliases = {
@@ -336,25 +437,35 @@ class ApiSurfaceTests(unittest.TestCase):
 
     def test_public_all_is_derived_from_api_groups_and_supplement(self):
         expected_supplement = (
+            "AGENT_WORKFLOW_REHEARSAL_ROUTE_API",
             "API_SURFACE",
             "ARCHITECTURE_REDUCTION_ROUTE_API",
             "CODE_STRUCTURE_RECOMMENDATION_ROUTE_API",
             "CORE_API",
+            "DEVELOPMENT_PROCESS_FLOW_ROUTE_API",
             "EVIDENCE_FIELD_STRUCTURE_API",
             "EVIDENCE_API",
+            "EXISTING_MODEL_PREFLIGHT_ROUTE_API",
             "FLOWGUARD_ROUTE_API",
             "FLOWGUARD_CLOSURE_CONTRACT_API",
+            "FLOWGUARD_SELF_MAINTENANCE_ROUTE_API",
             "FIELD_LIFECYCLE_MESH_API",
             "MAINTENANCE_OBLIGATION_MEMORY_API",
             "MAINTENANCE_SCAN_ROUTE_API",
             "MODEL_ANGLE_DELIBERATION_API",
+            "MODEL_MESH_ROUTE_API",
+            "MODEL_MISS_REVIEW_ROUTE_API",
             "MODEL_SIMILARITY_ROUTE_API",
             "MODEL_TEST_ALIGNMENT_ROUTE_API",
             "MODEL_IMPACT_FRESHNESS_API",
             "MODEL_MATURATION_API",
             "PLAN_DETAILING_ROUTE_API",
+            "RISK_EVIDENCE_LEDGER_ROUTE_API",
             "STATE_CLOSURE_ROUTE_API",
+            "STRUCTURE_MESH_ROUTE_API",
+            "TEST_MESH_ROUTE_API",
             "TOPOLOGY_HAZARD_ROUTE_API",
+            "UI_FLOW_STRUCTURE_ROUTE_API",
             "MODELING_HELPER_API",
             "REPORTING_HELPER_API",
             "TEMPLATE_STRUCTURE_API",

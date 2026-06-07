@@ -63,6 +63,7 @@ Pick the smallest named route that owns the actual risk. Helper APIs and templat
 | Trigger | Route | Entry |
 | --- | --- | --- |
 | Older adopted project, old FlowGuard artifact, old model/test evidence, obsolete API aliases | `artifact_schema_upgrade` | `artifact-upgrade` or `project-upgrade` |
+| FlowGuard itself feels heavy, route groups are incomplete, field layers need folding, or AI needs route-first self-maintenance | `flowguard_self_maintenance` | `review_flowguard_self_maintenance()` |
 | Changed artifacts, open maintenance obligations, stale evidence, skipped routes, split/reduction pressure | `maintenance_scan_router` | `maintenance-scan-template` |
 | Existing modeled system, ownership lookup, duplicate-boundary risk | `existing_model_preflight` | `flowguard-existing-model-preflight` |
 | Current route/model may be too narrow or a new model angle may be needed | `model_angle_deliberation` | `model-angle-template` or `review_model_angle_deliberations()` |
