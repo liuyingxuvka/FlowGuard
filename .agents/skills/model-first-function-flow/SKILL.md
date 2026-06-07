@@ -15,15 +15,10 @@ core model work before narrowing.
 
 Decision: `use_flowguard`, `skip_with_reason`, or `needs_human_review`.
 
-Use FlowGuard when order, state, ownership, retries, side effects, validation
-freshness, release/process steps, UI interaction state, model-test evidence, or
-module boundaries can change whether the result is safe.
-Use plan detailing first when a non-trivial request is still a rough idea or
-short plan that lacks explicit scope, state, artifacts, evidence, or rework.
+Use FlowGuard when order, state, ownership, retries, side effects, validation freshness, release/process steps, UI interaction state, model-test evidence, or module boundaries can change whether the result is safe.
+Use plan detailing first when a non-trivial rough idea or short plan lacks explicit scope, state, artifacts, evidence, or rework.
 
-Skip only for tiny copy edits, formatting-only changes, direct command answers,
-or read-only explanation with no behavior/state/process impact. If the boundary
-is unclear, narrow it or mark `needs_human_review`.
+Skip only tiny copy edits, formatting-only changes, direct command answers, or read-only explanation with no behavior/state/process impact. If the boundary is unclear, narrow it or mark `needs_human_review`.
 
 ## Thin Default Path
 
@@ -54,10 +49,8 @@ means partial or scoped FlowGuard evidence.
 - After `run_model_first_checks()`, read structured ledger owner routes and maintenance obligations before manually inferring the next route.
 - For non-trivial FlowGuard work, show a route-specific Mermaid snapshot once the route/model is stable; diagrams explain, not validate.
 - Before broad done/release/publish confidence, use Risk Evidence Ledger or equivalent and keep remembered maintenance obligations, automatic state-closure, and topology-hazard gaps visible.
-
-## FlowGuard diagram intent gate
-Before showing a non-trivial FlowGuard diagram, identify which route owns the relationship and choose a diagram whose edges match that route's evidence.
-Do not flatten these into a generic flowchart. FlowGuard diagrams can explain process order, UI reachability, model-test coverage, code ownership, or model mesh delegation without LogicGuard claim-support semantics.
+- Guard-family children must return closure reports with `owner_guard`, `artifact_kind`, `closure_status`, `findings`, `missing_inputs`, `stale_evidence`, `skipped_checks`, `next_actions`, `safe_claim`, and `unsafe_claim_boundary`; validate them with `assets/guard_closure_contract.py` before broad confidence.
+- Treat child `partial`, `blocked`, `downgraded`, stale, skipped, or hard-finding reports as FlowGuard maintenance obligations, not passed final claims.
 
 ## Route Map
 
@@ -88,40 +81,25 @@ Pick the smallest named route that owns the actual risk. Helper APIs and templat
 | Production conformance, install sync, shadow workspace sync | `conformance_adoption` | `references/conformance_adoption_protocol.md` |
 | Long-running model/test/regression check | `long_check_observability` | `references/long_check_protocol.md` |
 | FlowGuard framework upgrade or benchmark/corpus claim | `framework_upgrade` | `references/framework_upgrade_protocol.md` |
+| Guard-family child reports, cross-Guard gaps, stale child evidence, skipped child checks | `guard_closure_contract` | `assets/guard_closure_contract.py` |
 
-When no direct route clearly matches, stay in this kernel and build the
-smallest executable model first.
+When no direct route clearly matches, stay in this kernel and build the smallest executable model first.
 
 ## Flow Lenses
 
-- `behavior_flow`: software, UI, release, human workflow, and stateful process.
-- `argument_flow`: papers, reports, proposals, proofs, and claim support.
-- `decision_flow`: plans, tradeoffs, commitments, and changed conditions.
+Use `behavior_flow` for software/UI/release/process state, `argument_flow` for claims and support, and `decision_flow` for plans, tradeoffs, commitments, and changed conditions.
 
 ## Minimal Workflow
 
-1. Decide applicability and lens.
-2. Verify the package and project adoption record when this is real project work.
-3. Model the risky boundary with finite state.
-4. Make at least one representative bad path fail before trusting the pass.
-5. Inspect counterexamples and revise model, code, tests, or process.
-6. Derive transition coverage obligations and owner code-contract rows for broad transition-test claims, then run route-specific validation and record adoption evidence.
+1. Decide applicability/lens, verify the package/adoption record for real project work, and model the risky finite-state boundary.
+2. Make at least one representative bad path fail before trusting the pass.
+3. Inspect counterexamples, revise model/code/tests/process, derive transition/code-contract obligations for broad claims, run route-specific validation, and record evidence.
 
 ## Reference Map
 
-- Kernel/core: `references/skill_kernel_protocol.md`,
-  `references/modeling_protocol.md`, `references/invariant_examples.md`,
-  `references/adoption_protocol.md`.
-- Supporting protocols: `references/model_test_alignment_protocol.md`,
-  `references/model_mesh_protocol.md`, `references/test_mesh_protocol.md`,
-  `references/structure_mesh_protocol.md`,
-  `references/development_process_flow_protocol.md`,
-  `references/model_miss_protocol.md`,
-  `references/conformance_adoption_protocol.md`,
-  `references/long_check_protocol.md`, `references/framework_upgrade_protocol.md`,
-  `references/project_integration.md`.
-- Starter assets: `assets/model_template/model.py`,
-  `assets/model_template/run_checks.py`, `assets/toolchain_preflight.py`.
+- Kernel/core: `references/skill_kernel_protocol.md`, `references/modeling_protocol.md`, `references/invariant_examples.md`, `references/adoption_protocol.md`.
+- Supporting protocols: `references/model_test_alignment_protocol.md`, `references/model_mesh_protocol.md`, `references/test_mesh_protocol.md`, `references/structure_mesh_protocol.md`, `references/development_process_flow_protocol.md`, `references/model_miss_protocol.md`, `references/conformance_adoption_protocol.md`, `references/long_check_protocol.md`, `references/framework_upgrade_protocol.md`, `references/project_integration.md`.
+- Starter assets: `assets/model_template/model.py`, `assets/model_template/run_checks.py`, `assets/toolchain_preflight.py`.
 
 ## Constraints
 

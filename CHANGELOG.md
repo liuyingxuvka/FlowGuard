@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.40.12 - 2026-06-07
+
+Guard-family closure contract upgrade.
+
+- Added a reusable Guard closure contract checker for child Guard skills so
+  passing claims cannot hide hard findings, missing inputs, stale evidence, or
+  skipped checks.
+- Updated the model-first skill guidance so SourceGuard, TraceGuard,
+  LogicGuard, PhysicsGuard, research, and thesis workflows can hand AI agents
+  structured next actions instead of relying on prose-only reminders.
+- Added OpenSpec and FlowGuard self-model evidence for the closure-report
+  maintenance path.
+
 ## v0.40.11 - 2026-06-06
 
 Default replacement and field lifecycle hardening.
