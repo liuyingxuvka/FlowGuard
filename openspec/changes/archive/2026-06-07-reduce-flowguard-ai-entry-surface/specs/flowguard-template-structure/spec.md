@@ -1,10 +1,5 @@
-# flowguard-template-structure Specification
+## MODIFIED Requirements
 
-## Purpose
-
-Define route-scoped template ownership while preserving the public
-`flowguard.templates` compatibility facade.
-## Requirements
 ### Requirement: Route-scoped template ownership
 FlowGuard SHALL store route template bodies in route-scoped internal modules
 while preserving `flowguard.templates` as the public compatibility facade.
@@ -33,4 +28,3 @@ template tests and CLI smoke coverage.
 - **WHEN** full template commands are inspected
 - **THEN** CLI smoke tests verify they print and write the deep route template
   files without replacing the compact defaults
-

@@ -670,8 +670,154 @@ test hierarchy ownership. Use StructureMesh only when a large script, module,
 command, or API surface is being split.
 """
 
+MODEL_TEST_ALIGNMENT_FULL_MODEL_TEMPLATE = MODEL_TEST_ALIGNMENT_MODEL_TEMPLATE
+MODEL_TEST_ALIGNMENT_FULL_RUN_CHECKS_TEMPLATE = MODEL_TEST_ALIGNMENT_RUN_CHECKS_TEMPLATE
+MODEL_TEST_ALIGNMENT_FULL_NOTES_TEMPLATE = MODEL_TEST_ALIGNMENT_NOTES_TEMPLATE
+
+MODEL_TEST_ALIGNMENT_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header.
+
+Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
+Purpose: compact alignment of one model obligation, one owner code contract,
+one required test, and one replay/negative evidence item.
+Guards against: claiming model coverage when the owner code contract, plain
+test evidence, same-class or negative check, or replay evidence is missing.
+Use before editing: field, state, input/output, side-effect, or runtime-shape
+changes whose model obligations need direct code/test binding.
+Run: python .flowguard/model_test_alignment/run_checks.py
+Modeled block shape: Input x State -> Set(Output x State).
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+
+PASSING_STATUSES = {"passed"}
+
+
+@dataclass(frozen=True)
+class CompactAlignmentPlan:
+    plan_id: str
+    model_obligation_id: str
+    owner_code_contract_id: str
+    test_evidence_id: str
+    test_status: str
+    test_covers_model_obligation: bool
+    test_covers_owner_code_contract: bool
+    same_class_or_negative_test_present: bool
+    replay_evidence_id: str
+    replay_status: str
+
+
+@dataclass(frozen=True)
+class CompactAlignmentReport:
+    plan_id: str
+    ok: bool
+    findings: tuple[str, ...]
+
+    def format_text(self) -> str:
+        lines = [f"flowguard model-test alignment: {self.plan_id}", f"status: {'PASS' if self.ok else 'FAIL'}"]
+        lines.extend(f"- {finding}" for finding in self.findings)
+        return "\\n".join(lines)
+
+
+def review_compact_alignment(plan: CompactAlignmentPlan) -> CompactAlignmentReport:
+    findings: list[str] = []
+    if not plan.model_obligation_id:
+        findings.append("missing_model_obligation")
+    if not plan.owner_code_contract_id:
+        findings.append("missing_owner_code_contract")
+    if not plan.test_evidence_id:
+        findings.append("missing_required_test_kind")
+    if plan.test_status not in PASSING_STATUSES:
+        findings.append("test_evidence_not_passing")
+    if not plan.test_covers_model_obligation:
+        findings.append("test_missing_model_obligation")
+    if not plan.test_covers_owner_code_contract:
+        findings.append("test_missing_owner_code_contract")
+    if not plan.same_class_or_negative_test_present:
+        findings.append("missing_same_class_test_evidence")
+    if not plan.replay_evidence_id or plan.replay_status not in PASSING_STATUSES:
+        findings.append("missing_replay_evidence")
+    return CompactAlignmentReport(plan.plan_id, not findings, tuple(findings))
+
+
+def aligned_plan() -> CompactAlignmentPlan:
+    return CompactAlignmentPlan(
+        plan_id="aligned",
+        model_obligation_id="model:missing-field-rejected",
+        owner_code_contract_id="contract:parse_request",
+        test_evidence_id="test:test_missing_field_is_rejected",
+        test_status="passed",
+        test_covers_model_obligation=True,
+        test_covers_owner_code_contract=True,
+        same_class_or_negative_test_present=True,
+        replay_evidence_id="replay:runtime-shape-missing-field",
+        replay_status="passed",
+    )
+
+
+def broken_plan() -> CompactAlignmentPlan:
+    return CompactAlignmentPlan(
+        plan_id="broken",
+        model_obligation_id="model:missing-field-rejected",
+        owner_code_contract_id="contract:parse_request",
+        test_evidence_id="",
+        test_status="not_run",
+        test_covers_model_obligation=False,
+        test_covers_owner_code_contract=False,
+        same_class_or_negative_test_present=False,
+        replay_evidence_id="",
+        replay_status="not_run",
+    )
+
+
+def run_checks():
+    return review_compact_alignment(aligned_plan()), review_compact_alignment(broken_plan())
+'''
+
+MODEL_TEST_ALIGNMENT_RUN_CHECKS_TEMPLATE = '''"""Run the compact Model-Test Alignment template checks."""
+
+from __future__ import annotations
+
+from model import run_checks
+
+
+def main() -> int:
+    aligned, broken = run_checks()
+    print(aligned.format_text())
+    print()
+    print(broken.format_text())
+    print()
+    print("plain model obligations -> owner code external contracts -> plain test evidence -> replay evidence")
+    print("escalate to model-test-alignment-full-template for code-boundary conformance, source audit, state closure evidence, TestResultReuseTicket, or TransitionCoverageMatrix")
+    return 0 if aligned.ok and not broken.ok else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+'''
+
+MODEL_TEST_ALIGNMENT_NOTES_TEMPLATE = """# FlowGuard Model-Test Alignment Notes
+
+This compact default compares one model obligation with its owner code external
+contract (`CodeContract` in the full API), passing test evidence, same-class or
+negative evidence, and replay evidence. It is the right first scaffold when the
+goal is to prove a field, state, input/output, or side-effect obligation is
+actually guarded by runtime code and tests.
+
+Escalate to `model-test-alignment-full-template` when the claim needs
+code-boundary conformance rows, conservative Python source audit,
+state-closure evidence for unknown/old-schema cases, reused test-result
+tickets, transition coverage matrices, FieldLifecycleMesh projections, or
+large TestMesh/StructureMesh handoffs.
+"""
+
 __all__ = [
     'MODEL_TEST_ALIGNMENT_MODEL_TEMPLATE',
     'MODEL_TEST_ALIGNMENT_RUN_CHECKS_TEMPLATE',
     'MODEL_TEST_ALIGNMENT_NOTES_TEMPLATE',
+    'MODEL_TEST_ALIGNMENT_FULL_MODEL_TEMPLATE',
+    'MODEL_TEST_ALIGNMENT_FULL_RUN_CHECKS_TEMPLATE',
+    'MODEL_TEST_ALIGNMENT_FULL_NOTES_TEMPLATE',
 ]

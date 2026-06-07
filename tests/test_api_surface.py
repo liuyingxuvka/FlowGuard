@@ -9,23 +9,48 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class ApiSurfaceTests(unittest.TestCase):
+    def iter_api_surface_names(self):
+        for group in flowguard.API_SURFACE.values():
+            if isinstance(group, dict):
+                for names in group.values():
+                    yield from names
+            else:
+                yield from group
+
     def test_api_surface_groups_are_exported(self):
         self.assertEqual(
             set(flowguard.API_SURFACE),
-            {"agent_default", "core", "modeling_helpers", "reporting_helpers", "evidence"},
+            {
+                "agent_default",
+                "route_starters",
+                "route_advanced",
+                "core",
+                "modeling_helpers_full",
+                "reporting_helpers_full",
+                "evidence",
+            },
         )
 
         canonical_grouped_names = []
-        for group_name, names in flowguard.API_SURFACE.items():
-            self.assertIsInstance(names, tuple, group_name)
-            self.assertTrue(names, group_name)
-            for name in names:
-                self.assertIn(name, flowguard.__all__, f"{group_name}:{name}")
-                self.assertTrue(hasattr(flowguard, name), f"{group_name}:{name}")
-                if group_name != "agent_default":
-                    canonical_grouped_names.append(name)
+        for group_name, group in flowguard.API_SURFACE.items():
+            if isinstance(group, dict):
+                self.assertTrue(group, group_name)
+                for route_id, names in group.items():
+                    self.assertIsInstance(names, tuple, f"{group_name}:{route_id}")
+                    self.assertTrue(names, f"{group_name}:{route_id}")
+                    for name in names:
+                        self.assertIn(name, flowguard.__all__, f"{group_name}:{route_id}:{name}")
+                        self.assertTrue(hasattr(flowguard, name), f"{group_name}:{route_id}:{name}")
+                        canonical_grouped_names.append(name)
+            else:
+                self.assertIsInstance(group, tuple, group_name)
+                self.assertTrue(group, group_name)
+                for name in group:
+                    self.assertIn(name, flowguard.__all__, f"{group_name}:{name}")
+                    self.assertTrue(hasattr(flowguard, name), f"{group_name}:{name}")
+                    if group_name != "agent_default":
+                        canonical_grouped_names.append(name)
 
-        self.assertEqual(len(canonical_grouped_names), len(set(canonical_grouped_names)))
         public_first_read_names = set(canonical_grouped_names) | set(flowguard._PUBLIC_API_SUPPLEMENT)
         self.assertTrue(set(flowguard.AGENT_DEFAULT_API).issubset(public_first_read_names))
 
@@ -45,6 +70,29 @@ class ApiSurfaceTests(unittest.TestCase):
         }
         self.assertTrue(expected.issubset(set(flowguard.AGENT_DEFAULT_API)))
         self.assertEqual(flowguard.AGENT_DEFAULT_API, flowguard.API_SURFACE["agent_default"])
+
+    def test_route_starter_api_is_compact_and_public(self):
+        self.assertEqual(flowguard.ROUTE_STARTER_API, flowguard.API_SURFACE["route_starters"])
+        self.assertEqual(flowguard.ROUTE_ADVANCED_API, flowguard.API_SURFACE["route_advanced"])
+        self.assertIn("plan_intake_claims", flowguard.ROUTE_STARTER_API)
+        self.assertLessEqual(max(len(names) for names in flowguard.ROUTE_STARTER_API.values()), 12)
+        self.assertLessEqual(len(flowguard.PLAN_INTAKE_STARTER_API), 25)
+        self.assertGreater(len(flowguard.PLAN_INTAKE_ADVANCED_API), len(flowguard.PLAN_INTAKE_STARTER_API))
+        self.assertEqual(flowguard.PLAN_INTAKE_ADVANCED_API, flowguard.PLAN_INTAKE_CLAIM_API)
+
+        broad_surfaces = {
+            "MODELING_HELPER_API",
+            "REPORTING_HELPER_API",
+            "PLAN_INTAKE_CLAIM_API",
+            "PLAN_INTAKE_ADVANCED_API",
+        }
+        for route_id, names in flowguard.ROUTE_STARTER_API.items():
+            with self.subTest(route=route_id):
+                self.assertTrue(names)
+                self.assertTrue(broad_surfaces.isdisjoint(names))
+                for name in names:
+                    self.assertIn(name, flowguard.__all__, name)
+                    self.assertTrue(hasattr(flowguard, name), name)
 
     def test_core_group_keeps_minimal_path_visible(self):
         self.assertIn("Workflow", flowguard.CORE_API)
@@ -520,7 +568,11 @@ class ApiSurfaceTests(unittest.TestCase):
             "MODEL_IMPACT_FRESHNESS_API",
             "MODEL_MATURATION_API",
             "PLAN_DETAILING_ROUTE_API",
+            "PLAN_INTAKE_ADVANCED_API",
             "RISK_EVIDENCE_LEDGER_ROUTE_API",
+            "ROUTE_ADVANCED_API",
+            "ROUTE_STARTER_API",
+            "PLAN_INTAKE_STARTER_API",
             "STATE_CLOSURE_ROUTE_API",
             "STRUCTURE_MESH_ROUTE_API",
             "TEST_MESH_ROUTE_API",
@@ -560,8 +612,7 @@ class ApiSurfaceTests(unittest.TestCase):
         self.assertEqual(flowguard._PUBLIC_API_SUPPLEMENT, expected_supplement)
 
         expected = []
-        for names in flowguard.API_SURFACE.values():
-            expected.extend(names)
+        expected.extend(self.iter_api_surface_names())
         expected.extend(expected_supplement)
 
         self.assertEqual(set(flowguard.__all__), set(expected))

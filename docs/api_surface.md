@@ -49,6 +49,32 @@ It keeps the normal path short:
 Use this group before expanding to `FLOWGUARD_ROUTE_API` or the complete
 `MODELING_HELPER_API` inventory.
 
+## Route Starter API
+
+`ROUTE_STARTER_API` is the default second step after `AGENT_DEFAULT_API`.
+It maps route ids to compact helper names, usually one plan/report shape, one
+review function, and one template factory. These are the names an AI agent
+should read before opening a full route group.
+
+Use the layers in this order:
+
+```text
+AGENT_DEFAULT_API
+-> ROUTE_STARTER_API[route_id]
+-> ROUTE_ADVANCED_API[route_id]
+-> MODELING_HELPER_API / REPORTING_HELPER_API as full indexes only
+```
+
+`ROUTE_ADVANCED_API` keeps the full route groups available for deep work.
+`PLAN_INTAKE_STARTER_API` is the compact first-read slice for plan-intake claim
+review; `PLAN_INTAKE_ADVANCED_API` remains the complete plan-intake inventory.
+
+Template defaults follow the same rule. `model-miss-template`,
+`model-test-alignment-template`, and `ui-flow-structure-template` emit compact
+runnable scaffolds. Use `model-miss-full-template`,
+`model-test-alignment-full-template`, or `ui-flow-structure-full-template` only
+when the route needs the deep example.
+
 ## Core API
 
 Core APIs are the stable objects needed to build and run a direct finite model:
@@ -479,6 +505,7 @@ Evidence APIs are used to keep FlowGuard itself honest:
 - problem corpus and executable corpus reports;
 - pytest/template helpers used by examples and framework validation;
 - public template writers, including `model_test_alignment_template_files()`,
+  `model_test_alignment_full_template_files()`,
   `code_structure_recommendation_template_files()`,
   `existing_model_preflight_template_files()`,
   `model_angle_deliberation_template_files()`,
@@ -488,7 +515,8 @@ Evidence APIs are used to keep FlowGuard itself honest:
   `risk_evidence_ledger_template_files()`,
   `development_process_flow_template_files()`,
   `maintenance_scan_template_files()`,
-  `project_adoption_template_files()`, `test_mesh_template_files()`,
+  `project_adoption_template_files()`, `model_miss_review_full_template_files()`,
+  `ui_flow_structure_full_template_files()`, `test_mesh_template_files()`,
   `structure_mesh_template_files()`, `closure_contract_template_files()`, and
   `layered_boundary_proof_template_files()`, and
   `runtime_path_evidence_template_files()`. The public facade remains

@@ -897,8 +897,152 @@ Child-local green is not enough when parent mesh confidence depends on the
 child's input/output/state/side-effect handoff.
 """
 
+MODEL_MISS_REVIEW_FULL_MODEL_TEMPLATE = MODEL_MISS_REVIEW_MODEL_TEMPLATE
+MODEL_MISS_REVIEW_FULL_RUN_CHECKS_TEMPLATE = MODEL_MISS_REVIEW_RUN_CHECKS_TEMPLATE
+MODEL_MISS_REVIEW_FULL_NOTES_TEMPLATE = MODEL_MISS_REVIEW_NOTES_TEMPLATE
+
+MODEL_MISS_REVIEW_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header.
+
+Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
+Purpose: compact model-miss repair review for one observed runtime/test miss.
+Guards against: validating a point fix without root-cause model repair,
+same-class test evidence, owner code contract binding, or replay/negative
+evidence.
+Use before editing: non-trivial bug repairs after runtime, tests, replay, or
+manual validation reveals a FlowGuard model miss.
+Run: python .flowguard/model_miss_review/run_checks.py
+Modeled block shape: Input x State -> Set(Output x State).
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class MissRepairPlan:
+    plan_id: str
+    runtime_issue_observed: bool
+    model_miss_classified: bool
+    root_cause_backpropagated: bool
+    issue_represented_in_model: bool
+    same_class_test_evidence_added: bool
+    owner_code_contract_bound: bool
+    replay_or_negative_check_added: bool
+    fix_validated_after_refinement: bool
+    completed: bool = False
+
+
+@dataclass(frozen=True)
+class MissRepairReport:
+    scenario_name: str
+    ok: bool
+    findings: tuple[str, ...]
+
+
+def review_compact_model_miss(plan: MissRepairPlan) -> MissRepairReport:
+    findings: list[str] = []
+    if not plan.runtime_issue_observed:
+        findings.append("missing_runtime_issue_observed")
+    if not plan.model_miss_classified:
+        findings.append("missing_model_miss_classification")
+    if not plan.root_cause_backpropagated:
+        findings.append("missing_root_cause_backpropagation")
+    if not plan.issue_represented_in_model:
+        findings.append("missing_model_representation")
+    if not plan.same_class_test_evidence_added:
+        findings.append("missing_same_class_test_evidence")
+    if not plan.owner_code_contract_bound:
+        findings.append("missing_owner_code_contract")
+    if not plan.replay_or_negative_check_added:
+        findings.append("missing_replay_or_negative_check")
+    if plan.fix_validated_after_refinement and findings:
+        findings.append("fix_validation_requires_root_cause_backpropagation")
+    if plan.completed and (findings or not plan.fix_validated_after_refinement):
+        findings.append("completion_requires_refined_validation")
+    return MissRepairReport(plan.plan_id, not findings and plan.completed, tuple(findings))
+
+
+def correct_plan() -> MissRepairPlan:
+    return MissRepairPlan(
+        plan_id="correct_model_miss_review",
+        runtime_issue_observed=True,
+        model_miss_classified=True,
+        root_cause_backpropagated=True,
+        issue_represented_in_model=True,
+        same_class_test_evidence_added=True,
+        owner_code_contract_bound=True,
+        replay_or_negative_check_added=True,
+        fix_validated_after_refinement=True,
+        completed=True,
+    )
+
+
+def broken_plans() -> tuple[MissRepairPlan, ...]:
+    return (
+        MissRepairPlan("validate_without_root_cause_backpropagation", True, True, False, True, True, True, True, True, True),
+        MissRepairPlan("point_fix_only_without_same_class_test", True, True, True, True, False, True, True, True, True),
+        MissRepairPlan("validate_without_owner_code_contract", True, True, True, True, True, False, True, True, True),
+        MissRepairPlan("validate_without_replay_or_negative_check", True, True, True, True, True, True, False, True, True),
+    )
+
+
+def run_checks():
+    correct = review_compact_model_miss(correct_plan())
+    broken = tuple(review_compact_model_miss(plan) for plan in broken_plans())
+    return correct, broken
+'''
+
+MODEL_MISS_REVIEW_RUN_CHECKS_TEMPLATE = '''"""Run the compact bug-repair/model-miss review template."""
+
+from model import run_checks
+
+
+def main() -> int:
+    correct, broken = run_checks()
+    print(f"{correct.scenario_name}: {'PASS' if correct.ok else 'FAIL'}")
+    print("required gates: root_cause_backpropagated, same_class_test_evidence_added, owner_code_contract_bound")
+    print("required test/replay: replay_or_negative_check_added")
+    print(f"expected violations observed: {sum(not report.ok for report in broken)}")
+    for report in broken:
+        print(f"- {report.scenario_name}: {', '.join(report.findings)}")
+    return 0 if correct.ok and all(not report.ok for report in broken) else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+'''
+
+MODEL_MISS_REVIEW_NOTES_TEMPLATE = """# FlowGuard Model-Miss Review Notes
+
+This is the compact default scaffold for ordinary bug repair after runtime,
+test, replay, or manual validation exposes a miss that earlier modeling did not
+catch.
+
+Default closure needs:
+
+- observed runtime or validation issue;
+- model-miss classification;
+- root-cause backpropagation into the model;
+- same-class test evidence, not only the observed regression;
+- owner code contract binding through Model-Test Alignment;
+- replay or negative check evidence;
+- validation after the refined model/checks.
+
+Escalate to `model-miss-full-template` when the repair needs generalized bad
+case modeling, known-bug holdout evidence, legacy path or old-field disposition,
+recurring defect-family gates, parent/child ModelMesh reattachment, TestMesh
+ownership, or Risk Evidence Ledger closure.
+
+If old runtime paths or fields are still reachable, the full route should record
+`legacy_path_disposition_recorded` evidence before broad completion.
+"""
+
 __all__ = [
     'MODEL_MISS_REVIEW_MODEL_TEMPLATE',
     'MODEL_MISS_REVIEW_RUN_CHECKS_TEMPLATE',
     'MODEL_MISS_REVIEW_NOTES_TEMPLATE',
+    'MODEL_MISS_REVIEW_FULL_MODEL_TEMPLATE',
+    'MODEL_MISS_REVIEW_FULL_RUN_CHECKS_TEMPLATE',
+    'MODEL_MISS_REVIEW_FULL_NOTES_TEMPLATE',
 ]

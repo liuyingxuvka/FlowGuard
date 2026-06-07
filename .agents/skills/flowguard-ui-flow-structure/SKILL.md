@@ -1,20 +1,23 @@
 ---
 name: flowguard-ui-flow-structure
-description: Use when a FlowGuard model should be built or reviewed for UI-level interaction behavior first, then used to derive UI parent/child topology, regions, menu levels, stable placement, event/display ownership, duplicate control/info review, overlays, recovery actions, and text hierarchy before visual design or frontend implementation.
+description: Use when UI interaction behavior should be modeled first, then used to derive topology, regions, menus, stable placement, event/display ownership, duplicate controls/info, overlays, recovery actions, and text hierarchy before frontend work.
 ---
 
 # FlowGuard UI Flow Structure
 
 Standalone FlowGuard satellite skill for UI interaction behavior and
-model-derived screen/control/text structure. Use it before visual design or
-frontend implementation when UI state, controls, journeys, overlays, or visible
-recovery paths are the risk.
+model-derived screen/control/text structure. Use it when UI state, controls,
+journeys, overlays, or recovery paths are the risk.
 
 Return to `model-first-function-flow` when the task is not UI behavior/state.
 
 ## First Read
 
 - Route id: `ui_flow_structure`.
+- Default entry: `ROUTE_STARTER_API["ui_flow_structure"]` and
+  `ui-flow-structure-template`.
+- Full entry: `ui-flow-structure-full-template` for full journeys, regions,
+  text blueprints, or many runnable validation paths.
 - Model shape: UI event x UI state -> visible controls, displays, overlays,
   navigation, and recovery.
 - Core helpers: `UIDisplayElement`, `UIJourneyCoverage`,
@@ -31,11 +34,9 @@ Return to `model-first-function-flow` when the task is not UI behavior/state.
 - Do not create a fake mini-framework.
 - Visible-control branches, recovery/cancel paths, and residual blindspots must
   stay explicit.
-- Running UI completion needs structured click-through or browser evidence.
-- Broad UI transition-test coverage claims need projected transition coverage
-  cells with code contract or runtime node owners before completion is claimed.
-  The projected cells must then bind owner code contracts and current test
-  evidence through Model-Test Alignment or TestMesh.
+- Running UI completion needs click-through or browser evidence.
+- Broad transition-test claims need projected cells with code contract/runtime
+  owners, then Model-Test Alignment or TestMesh evidence.
 
 ## Minimum Workflow
 
@@ -51,9 +52,8 @@ Return to `model-first-function-flow` when the task is not UI behavior/state.
 
 ## Snapshot
 
-Show a UI state diagram with visible-control branches, regions, displays,
-recovery paths, text ownership, and residual blindspots.
-When drawing the snapshot, edges mean reachable UI states, visible-control branches, recovery paths, or interaction transitions.
+Show a UI state diagram with visible controls, regions, displays, recovery
+paths, text ownership, and residual blindspots.
 
 ## Non-Goals
 

@@ -56,6 +56,9 @@ from .template_text.model_miss_review import (
     MODEL_MISS_REVIEW_MODEL_TEMPLATE,
     MODEL_MISS_REVIEW_RUN_CHECKS_TEMPLATE,
     MODEL_MISS_REVIEW_NOTES_TEMPLATE,
+    MODEL_MISS_REVIEW_FULL_MODEL_TEMPLATE,
+    MODEL_MISS_REVIEW_FULL_RUN_CHECKS_TEMPLATE,
+    MODEL_MISS_REVIEW_FULL_NOTES_TEMPLATE,
 )
 from .template_text.model_angle_deliberation import (
     MODEL_ANGLE_DELIBERATION_MODEL_TEMPLATE,
@@ -71,6 +74,9 @@ from .template_text.model_test_alignment import (
     MODEL_TEST_ALIGNMENT_MODEL_TEMPLATE,
     MODEL_TEST_ALIGNMENT_RUN_CHECKS_TEMPLATE,
     MODEL_TEST_ALIGNMENT_NOTES_TEMPLATE,
+    MODEL_TEST_ALIGNMENT_FULL_MODEL_TEMPLATE,
+    MODEL_TEST_ALIGNMENT_FULL_RUN_CHECKS_TEMPLATE,
+    MODEL_TEST_ALIGNMENT_FULL_NOTES_TEMPLATE,
 )
 from .template_text.plan_detailing import (
     PLAN_DETAILING_MODEL_TEMPLATE,
@@ -111,6 +117,9 @@ from .template_text.ui_flow_structure import (
     UI_FLOW_STRUCTURE_MODEL_TEMPLATE,
     UI_FLOW_STRUCTURE_RUN_CHECKS_TEMPLATE,
     UI_FLOW_STRUCTURE_NOTES_TEMPLATE,
+    UI_FLOW_STRUCTURE_FULL_MODEL_TEMPLATE,
+    UI_FLOW_STRUCTURE_FULL_RUN_CHECKS_TEMPLATE,
+    UI_FLOW_STRUCTURE_FULL_NOTES_TEMPLATE,
 )
 from .template_text.workflow_step_contracts import (
     WORKFLOW_STEP_CONTRACTS_MODEL_TEMPLATE,
@@ -172,6 +181,14 @@ def model_miss_review_template_files() -> tuple[TemplateFile, ...]:
     )
 
 
+def model_miss_review_full_template_files() -> tuple[TemplateFile, ...]:
+    return (
+        TemplateFile(".flowguard/model_miss_review/model.py", MODEL_MISS_REVIEW_FULL_MODEL_TEMPLATE),
+        TemplateFile(".flowguard/model_miss_review/run_checks.py", MODEL_MISS_REVIEW_FULL_RUN_CHECKS_TEMPLATE),
+        TemplateFile("docs/flowguard_model_miss_review.md", MODEL_MISS_REVIEW_FULL_NOTES_TEMPLATE),
+    )
+
+
 def maintenance_workflow_template_files() -> tuple[TemplateFile, ...]:
     return (
         TemplateFile(".flowguard/maintenance_workflow/model.py", MAINTENANCE_WORKFLOW_MODEL_TEMPLATE),
@@ -200,6 +217,14 @@ def model_test_alignment_template_files() -> tuple[TemplateFile, ...]:
         TemplateFile(".flowguard/model_test_alignment/model.py", MODEL_TEST_ALIGNMENT_MODEL_TEMPLATE),
         TemplateFile(".flowguard/model_test_alignment/run_checks.py", MODEL_TEST_ALIGNMENT_RUN_CHECKS_TEMPLATE),
         TemplateFile("docs/model_test_alignment.md", MODEL_TEST_ALIGNMENT_NOTES_TEMPLATE),
+    )
+
+
+def model_test_alignment_full_template_files() -> tuple[TemplateFile, ...]:
+    return (
+        TemplateFile(".flowguard/model_test_alignment/model.py", MODEL_TEST_ALIGNMENT_FULL_MODEL_TEMPLATE),
+        TemplateFile(".flowguard/model_test_alignment/run_checks.py", MODEL_TEST_ALIGNMENT_FULL_RUN_CHECKS_TEMPLATE),
+        TemplateFile("docs/model_test_alignment.md", MODEL_TEST_ALIGNMENT_FULL_NOTES_TEMPLATE),
     )
 
 
@@ -312,6 +337,14 @@ def ui_flow_structure_template_files() -> tuple[TemplateFile, ...]:
     )
 
 
+def ui_flow_structure_full_template_files() -> tuple[TemplateFile, ...]:
+    return (
+        TemplateFile(".flowguard/ui_flow_structure/model.py", UI_FLOW_STRUCTURE_FULL_MODEL_TEMPLATE),
+        TemplateFile(".flowguard/ui_flow_structure/run_checks.py", UI_FLOW_STRUCTURE_FULL_RUN_CHECKS_TEMPLATE),
+        TemplateFile("docs/flowguard_ui_flow_structure.md", UI_FLOW_STRUCTURE_FULL_NOTES_TEMPLATE),
+    )
+
+
 def test_mesh_template_files() -> tuple[TemplateFile, ...]:
     return (
         TemplateFile(".flowguard/test_mesh/model.py", TEST_MESH_MODEL_TEMPLATE),
@@ -385,9 +418,15 @@ __all__ = [
     "MODEL_MISS_REVIEW_MODEL_TEMPLATE",
     "MODEL_MISS_REVIEW_NOTES_TEMPLATE",
     "MODEL_MISS_REVIEW_RUN_CHECKS_TEMPLATE",
+    "MODEL_MISS_REVIEW_FULL_MODEL_TEMPLATE",
+    "MODEL_MISS_REVIEW_FULL_NOTES_TEMPLATE",
+    "MODEL_MISS_REVIEW_FULL_RUN_CHECKS_TEMPLATE",
     "MODEL_TEST_ALIGNMENT_MODEL_TEMPLATE",
     "MODEL_TEST_ALIGNMENT_NOTES_TEMPLATE",
     "MODEL_TEST_ALIGNMENT_RUN_CHECKS_TEMPLATE",
+    "MODEL_TEST_ALIGNMENT_FULL_MODEL_TEMPLATE",
+    "MODEL_TEST_ALIGNMENT_FULL_NOTES_TEMPLATE",
+    "MODEL_TEST_ALIGNMENT_FULL_RUN_CHECKS_TEMPLATE",
     "MODEL_NOTES_TEMPLATE",
     "PLAN_DETAILING_MODEL_TEMPLATE",
     "PLAN_DETAILING_NOTES_TEMPLATE",
@@ -411,6 +450,9 @@ __all__ = [
     "TOPOLOGY_HAZARD_NOTES_TEMPLATE",
     "TOPOLOGY_HAZARD_RUN_CHECKS_TEMPLATE",
     "TemplateFile",
+    "UI_FLOW_STRUCTURE_FULL_MODEL_TEMPLATE",
+    "UI_FLOW_STRUCTURE_FULL_NOTES_TEMPLATE",
+    "UI_FLOW_STRUCTURE_FULL_RUN_CHECKS_TEMPLATE",
     "WORKFLOW_STEP_CONTRACTS_MODEL_TEMPLATE",
     "WORKFLOW_STEP_CONTRACTS_NOTES_TEMPLATE",
     "WORKFLOW_STEP_CONTRACTS_RUN_CHECKS_TEMPLATE",
@@ -424,8 +466,10 @@ __all__ = [
     "maintenance_workflow_template_files",
     "maintenance_scan_template_files",
     "model_angle_deliberation_template_files",
+    "model_miss_review_full_template_files",
     "model_miss_review_template_files",
     "model_similarity_consolidation_template_files",
+    "model_test_alignment_full_template_files",
     "model_test_alignment_template_files",
     "plan_detailing_template_files",
     "project_template_files",
@@ -436,6 +480,7 @@ __all__ = [
     "structure_mesh_template_files",
     "test_mesh_template_files",
     "topology_hazard_template_files",
+    "ui_flow_structure_full_template_files",
     "ui_flow_structure_template_files",
     "workflow_step_contracts_template_files",
     "write_template_files",

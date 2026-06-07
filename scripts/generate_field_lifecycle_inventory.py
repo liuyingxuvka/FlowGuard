@@ -63,6 +63,56 @@ COMPATIBILITY_HINTS = {
     "replaced",
 }
 DISPLAY_HINTS = {"description", "display", "label", "message", "name", "text", "title"}
+STARTER_FIELD_HINTS = {
+    "action",
+    "case",
+    "claim",
+    "code",
+    "command",
+    "contract",
+    "current",
+    "evidence",
+    "finding",
+    "findings",
+    "id",
+    "model",
+    "obligation",
+    "ok",
+    "path",
+    "plan",
+    "reason",
+    "route",
+    "scenario",
+    "status",
+    "test",
+}
+MODULE_ROUTE_OWNERS = {
+    "agent_workflow_rehearsal": "agent_workflow_rehearsal",
+    "architecture_reduction": "architecture_reduction",
+    "closure_contract": "flowguard_closure_contract",
+    "code_structure": "code_structure_recommendation",
+    "development_process_flow": "development_process_flow",
+    "existing_model_preflight": "existing_model_preflight",
+    "field_lifecycle": "field_lifecycle_mesh",
+    "hierarchy": "model_mesh_maintenance",
+    "maintenance_obligation": "maintenance_obligation_memory",
+    "maintenance_scan": "maintenance_scan_router",
+    "model_angle_deliberation": "model_angle_deliberation",
+    "model_freshness": "model_impact_freshness",
+    "model_maturation": "model_maturation_loop",
+    "model_similarity": "model_similarity_consolidation",
+    "model_test_alignment": "model_test_alignment",
+    "plan_detailing": "plan_detailing_compiler",
+    "plan_intake": "plan_intake_claims",
+    "recurring_model_miss": "model_miss_review",
+    "risk_evidence_ledger": "risk_evidence_ledger",
+    "self_maintenance": "flowguard_self_maintenance",
+    "state_closure": "state_closure",
+    "structuremesh": "structure_mesh_maintenance",
+    "testmesh": "test_mesh_maintenance",
+    "topology_hazard": "model_topology_hazard_review",
+    "ui_structure": "ui_flow_structure",
+}
 
 
 @dataclass(frozen=True)
@@ -73,6 +123,8 @@ class FieldInventoryRow:
     annotation: str
     lifecycle_layer: str
     behavior_hint: bool
+    ai_surface_tier: str
+    route_owner: str
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -82,6 +134,8 @@ class FieldInventoryRow:
             "annotation": self.annotation,
             "lifecycle_layer": self.lifecycle_layer,
             "behavior_hint": self.behavior_hint,
+            "ai_surface_tier": self.ai_surface_tier,
+            "route_owner": self.route_owner,
         }
 
 
@@ -121,6 +175,24 @@ def infer_lifecycle_layer(field_name: str, annotation: str = "") -> str:
     return "unclassified"
 
 
+def infer_route_owner(module: str) -> str:
+    return MODULE_ROUTE_OWNERS.get(module, "core_or_internal")
+
+
+def infer_ai_surface_tier(field_name: str, lifecycle_layer: str, route_owner: str) -> str:
+    lowered = field_name.lower()
+    tokens = {token for token in lowered.replace("-", "_").split("_") if token}
+    if lifecycle_layer == "compatibility_or_old_path":
+        return "advanced"
+    if route_owner == "core_or_internal":
+        return "internal"
+    if tokens & STARTER_FIELD_HINTS:
+        return "starter"
+    if lifecycle_layer in {"behavior_or_contract", "evidence_or_decision"}:
+        return "advanced"
+    return "internal"
+
+
 def collect_field_inventory(root: str | Path = ".") -> tuple[FieldInventoryRow, ...]:
     root_path = Path(root).resolve()
     package_root = root_path / "flowguard"
@@ -137,6 +209,7 @@ def collect_field_inventory(root: str | Path = ".") -> tuple[FieldInventoryRow, 
                 if isinstance(item, ast.AnnAssign) and isinstance(item.target, ast.Name):
                     annotation = _annotation_text(item.annotation)
                     layer = infer_lifecycle_layer(item.target.id, annotation)
+                    route_owner = infer_route_owner(module)
                     rows.append(
                         FieldInventoryRow(
                             module=module,
@@ -145,6 +218,8 @@ def collect_field_inventory(root: str | Path = ".") -> tuple[FieldInventoryRow, 
                             annotation=annotation,
                             lifecycle_layer=layer,
                             behavior_hint=layer in {"behavior_or_contract", "compatibility_or_old_path"},
+                            ai_surface_tier=infer_ai_surface_tier(item.target.id, layer, route_owner),
+                            route_owner=route_owner,
                         )
                     )
     return tuple(rows)
@@ -152,12 +227,16 @@ def collect_field_inventory(root: str | Path = ".") -> tuple[FieldInventoryRow, 
 
 def build_inventory_report(rows: Sequence[FieldInventoryRow]) -> dict[str, object]:
     by_layer = Counter(row.lifecycle_layer for row in rows)
+    by_ai_surface_tier = Counter(row.ai_surface_tier for row in rows)
+    by_route_owner = Counter(row.route_owner for row in rows)
     by_module = Counter(row.module for row in rows)
     return {
         "artifact_type": "flowguard_field_lifecycle_inventory",
         "field_count": len(rows),
         "module_count": len(by_module),
         "layers": dict(sorted(by_layer.items())),
+        "ai_surface_tiers": dict(sorted(by_ai_surface_tier.items())),
+        "route_owners": dict(sorted(by_route_owner.items())),
         "modules": dict(sorted(by_module.items())),
         "rows": [row.to_dict() for row in rows],
     }
@@ -184,6 +263,18 @@ def format_markdown(report: dict[str, object]) -> str:
     for layer, count in layers.items():
         lines.append(f"| `{layer}` | {count} |")
 
+    lines.extend(["", "## AI Surface Tiers", "", "| Tier | Fields |", "| --- | ---: |"])
+    tiers = report["ai_surface_tiers"]
+    assert isinstance(tiers, dict)
+    for tier, count in tiers.items():
+        lines.append(f"| `{tier}` | {count} |")
+
+    lines.extend(["", "## Route Owners", "", "| Route Owner | Fields |", "| --- | ---: |"])
+    owners = report["route_owners"]
+    assert isinstance(owners, dict)
+    for owner, count in sorted(owners.items(), key=lambda item: (-int(item[1]), str(item[0]))):
+        lines.append(f"| `{owner}` | {count} |")
+
     lines.extend(["", "## Module Field Counts", "", "| Module | Fields |", "| --- | ---: |"])
     modules = report["modules"]
     assert isinstance(modules, dict)
@@ -195,8 +286,8 @@ def format_markdown(report: dict[str, object]) -> str:
             "",
             "## Field Rows",
             "",
-            "| Module | Class | Field | Layer | Behavior Hint |",
-            "| --- | --- | --- | --- | --- |",
+            "| Module | Class | Field | Route Owner | AI Surface Tier | Layer | Behavior Hint |",
+            "| --- | --- | --- | --- | --- | --- | --- |",
         ]
     )
     rows = report["rows"]
@@ -205,6 +296,7 @@ def format_markdown(report: dict[str, object]) -> str:
         assert isinstance(row, dict)
         lines.append(
             f"| `{row['module']}` | `{row['class_name']}` | `{row['field_name']}` | "
+            f"`{row['route_owner']}` | `{row['ai_surface_tier']}` | "
             f"`{row['lifecycle_layer']}` | `{str(row['behavior_hint']).lower()}` |"
         )
     return "\n".join(lines) + "\n"

@@ -14,8 +14,10 @@ from flowguard.templates import (
     field_lifecycle_template_files,
     layered_boundary_proof_template_files,
     model_angle_deliberation_template_files,
+    model_miss_review_full_template_files,
     model_miss_review_template_files,
     model_similarity_consolidation_template_files,
+    model_test_alignment_full_template_files,
     model_test_alignment_template_files,
     plan_detailing_template_files,
     project_adoption_template_files,
@@ -26,6 +28,7 @@ from flowguard.templates import (
     structure_mesh_template_files,
     test_mesh_template_files,
     topology_hazard_template_files,
+    ui_flow_structure_full_template_files,
     ui_flow_structure_template_files,
     workflow_step_contracts_template_files,
     write_template_files,
@@ -63,7 +66,9 @@ TEMPLATE_CLI_COMMANDS = {
     "risk-intent-template": "risk_intent_check_plan",
     "plan-detailing-template": "plan_detailing",
     "model-miss-template": "model_miss_review",
+    "model-miss-full-template": "model_miss_review_full",
     "model-test-alignment-template": "model_test_alignment",
+    "model-test-alignment-full-template": "model_test_alignment_full",
     "runtime-path-evidence-template": "runtime_path_evidence",
     "code-structure-recommendation-template": "code_structure_recommendation",
     "existing-model-preflight-template": "existing_model_preflight",
@@ -74,6 +79,7 @@ TEMPLATE_CLI_COMMANDS = {
     "layered-boundary-proof-template": "layered_boundary_proof",
     "closure-contract-template": "closure_contract",
     "ui-flow-structure-template": "ui_flow_structure",
+    "ui-flow-structure-full-template": "ui_flow_structure_full",
     "development-process-flow-template": "development_process_flow",
     "workflow-step-contracts-template": "workflow_step_contracts",
     "test-mesh-template": "test_mesh",
@@ -167,36 +173,36 @@ class PublicTemplateTests(unittest.TestCase):
             (".flowguard", "model_miss_review"),
         )
         self.assertIn("correct_model_miss_review: PASS", output)
-        self.assertIn("expected violations observed: 9", output)
+        self.assertIn("expected violations observed: 4", output)
+        self.assertIn("root_cause_backpropagated", output)
+        self.assertIn("same_class_test_evidence_added", output)
+        self.assertIn("owner_code_contract_bound", output)
+        self.assertIn("replay_or_negative_check_added", output)
 
-    def test_model_miss_review_template_requires_generalized_bad_case(self):
+    def test_model_miss_review_template_is_compact_but_preserves_gates(self):
         files = model_miss_review_template_files()
+        combined = "\n".join(file.content for file in files)
+
+        self.assertIn("root_cause_backpropagated", combined)
+        self.assertIn("owner_code_contract_bound", combined)
+        self.assertIn("legacy_path_disposition_recorded", combined)
+        self.assertIn("same_class_test_evidence_added", combined)
+        self.assertIn("replay_or_negative_check_added", combined)
+        self.assertIn("fix_validation_requires_root_cause_backpropagation", combined)
+        self.assertIn("validate_without_root_cause_backpropagation", combined)
+        self.assertIn("point_fix_only_without_same_class_test", combined)
+        self.assertIn("validate_without_owner_code_contract", combined)
+        self.assertLessEqual(next(file for file in files if file.path.endswith("model.py")).content.count("\n"), 140)
+
+    def test_model_miss_full_template_keeps_deep_review_material(self):
+        files = model_miss_review_full_template_files()
         combined = "\n".join(file.content for file in files)
 
         self.assertIn("generalized_bad_case_in_scope", combined)
         self.assertIn("generalized_bad_case_represented_in_model", combined)
-        self.assertIn("root_cause_backpropagated", combined)
         self.assertIn("known_bug_used_as_holdout", combined)
-        self.assertIn("owner_code_contract_bound", combined)
-        self.assertIn("legacy_path_disposition_recorded", combined)
-        self.assertIn("backpropagate_root_cause", combined)
-        self.assertIn("represent_generalized_bad_case", combined)
         self.assertIn("record_known_bug_holdout", combined)
-        self.assertIn("bind_owner_code_contract", combined)
-        self.assertIn("record_legacy_path_disposition", combined)
-        self.assertIn("fix_validation_requires_root_cause_backpropagation", combined)
-        self.assertIn("fix_validation_requires_generalized_bad_case", combined)
-        self.assertIn("fix_validation_requires_known_bug_holdout_role", combined)
-        self.assertIn("fix_validation_requires_same_class_test_evidence", combined)
-        self.assertIn("fix_validation_requires_owner_code_contract", combined)
-        self.assertIn("fix_validation_requires_legacy_path_disposition", combined)
-        self.assertIn("validate_without_root_cause_backpropagation", combined)
-        self.assertIn("point_fix_only_without_generalized_bad_case", combined)
-        self.assertIn("validate_without_known_bug_holdout_role", combined)
-        self.assertIn("validate_without_same_class_test_evidence", combined)
-        self.assertIn("validate_without_owner_code_contract", combined)
-        self.assertIn("validate_without_legacy_path_disposition", combined)
-        self.assertIn("same_class_test_evidence_added", combined)
+        self.assertIn("legacy_path_disposition_recorded", combined)
         self.assertIn("model_test_alignment_rerun", combined)
         self.assertIn("recurring_family_detected", combined)
         self.assertIn("defect_family_gate_promoted", combined)
@@ -219,41 +225,36 @@ class PublicTemplateTests(unittest.TestCase):
         files = model_test_alignment_template_files()
         combined = "\n".join(file.content for file in files)
 
-        self.assertIn("does not use TestMesh, StructureMesh, or ModelMesh", combined)
         self.assertIn("plain model obligations", combined)
         self.assertIn("plain test", combined)
         self.assertIn("evidence", combined)
-        self.assertIn("code external contracts", combined)
+        self.assertIn("owner code external contracts", combined)
         self.assertIn("CodeContract", combined)
-        self.assertIn("CodeBoundaryContract", combined)
-        self.assertIn("CodeBoundaryObservation", combined)
-        self.assertIn("covered code contract ids", combined)
-        self.assertIn("required owner code external contracts", combined)
-        self.assertIn("review_code_boundary_conformance", combined)
-        self.assertIn("audit_python_code_contracts", combined)
-        self.assertIn("audit_python_test_assertions", combined)
-        self.assertIn("review_python_contract_source_audit", combined)
-        self.assertIn("TEST_CLOSURE_ROLE_OBSERVED_REGRESSION", combined)
-        self.assertIn("TEST_CLOSURE_ROLE_SAME_CLASS_GENERALIZED", combined)
-        self.assertIn("same-class evidence", combined)
-        self.assertIn("representative unknown/other", combined)
-        self.assertIn("state closure evidence", combined)
-        self.assertIn("TestResultReuseTicket", combined)
-        self.assertIn("result_reused=True", combined)
-        self.assertIn("TransitionCoverageMatrix", combined)
-        self.assertIn("TransitionCoverageCell", combined)
-        self.assertIn("TEST_EVIDENCE_ROLE_TRANSITION_CELL", combined)
-        self.assertIn("transition_coverage_to_code_contracts", combined)
-        self.assertIn("transition_coverage_to_model_obligations", combined)
+        self.assertIn("CompactAlignmentPlan", combined)
+        self.assertIn("same_class_or_negative_test_present", combined)
+        self.assertIn("replay_evidence_id", combined)
+        self.assertIn("missing_required_test_kind", combined)
+        self.assertIn("missing_same_class_test_evidence", combined)
+        self.assertIn("model-test-alignment-full-template", combined)
+        self.assertLessEqual(next(file for file in files if file.path.endswith("model.py")).content.count("\n"), 130)
         self.assertNotIn("optional code external contracts", combined)
         self.assertNotIn("review_hierarchical_mesh", combined)
         self.assertNotIn("review_test_mesh", combined)
         self.assertNotIn("review_structure_mesh", combined)
 
-    def test_model_test_alignment_template_teaches_conservative_python_source_audit(self):
-        files = model_test_alignment_template_files()
+    def test_model_test_alignment_full_template_teaches_conservative_python_source_audit(self):
+        files = model_test_alignment_full_template_files()
         combined = "\n".join(file.content for file in files)
 
+        self.assertIn("CodeBoundaryContract", combined)
+        self.assertIn("CodeBoundaryObservation", combined)
+        self.assertIn("review_code_boundary_conformance", combined)
+        self.assertIn("TransitionCoverageMatrix", combined)
+        self.assertIn("TransitionCoverageCell", combined)
+        self.assertIn("TEST_EVIDENCE_ROLE_TRANSITION_CELL", combined)
+        self.assertIn("transition_coverage_to_code_contracts", combined)
+        self.assertIn("transition_coverage_to_model_obligations", combined)
+        self.assertIn("TestResultReuseTicket", combined)
         self.assertIn("audit_python_code_contracts", combined)
         self.assertIn("audit_python_test_assertions", combined)
         self.assertIn("review_python_contract_source_audit", combined)
@@ -334,7 +335,19 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn('"supporting-text"', combined)
         self.assertIn("The text hierarchy contract is semantic", combined)
         self.assertIn("similar text jobs should usually reuse visual treatments", combined)
+        self.assertIn("ui-flow-structure-full-template", combined)
+        self.assertLessEqual(next(file for file in files if file.path.endswith("model.py")).content.count("\n"), 160)
         self.assertNotIn('scale=f"level-{level}"', combined)
+
+    def test_ui_flow_structure_full_template_keeps_deep_route_material(self):
+        files = ui_flow_structure_full_template_files()
+        combined = "\n".join(file.content for file in files)
+
+        self.assertIn("UIJourneyCoverage", combined)
+        self.assertIn("UIImplementationValidation", combined)
+        self.assertIn("UIStructureDerivation", combined)
+        self.assertIn("UITextHierarchyBlueprint", combined)
+        self.assertIn("UIFeatureContract", combined)
 
     def test_structure_mesh_template_executes(self):
         output = self.run_written_template(

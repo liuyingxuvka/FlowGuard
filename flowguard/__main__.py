@@ -192,10 +192,22 @@ FILE_TEMPLATE_COMMANDS: tuple[FileTemplateCommand, ...] = (
         "model_miss_review_template_files",
     ),
     FileTemplateCommand(
+        "model-miss-full-template",
+        "Print or write the full bug-repair/model-miss review template.",
+        "model_miss_review_full",
+        "model_miss_review_full_template_files",
+    ),
+    FileTemplateCommand(
         "model-test-alignment-template",
         "Print or write the model/test/code contract, code-boundary, and source-audit alignment template.",
         "model_test_alignment",
         "model_test_alignment_template_files",
+    ),
+    FileTemplateCommand(
+        "model-test-alignment-full-template",
+        "Print or write the full model/test/code contract, code-boundary, and source-audit alignment template.",
+        "model_test_alignment_full",
+        "model_test_alignment_full_template_files",
     ),
     FileTemplateCommand(
         "runtime-path-evidence-template",
@@ -214,6 +226,12 @@ FILE_TEMPLATE_COMMANDS: tuple[FileTemplateCommand, ...] = (
         "Print or write the UI interaction flow and structure derivation template.",
         "ui_flow_structure",
         "ui_flow_structure_template_files",
+    ),
+    FileTemplateCommand(
+        "ui-flow-structure-full-template",
+        "Print or write the full UI interaction flow and structure derivation template.",
+        "ui_flow_structure_full",
+        "ui_flow_structure_full_template_files",
     ),
     FileTemplateCommand(
         "development-process-flow-template",

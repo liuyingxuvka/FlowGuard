@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.41.8 - 2026-06-07
+
+AI-entry surface reduction for thinner default FlowGuard authoring.
+
+- Added `ROUTE_STARTER_API`, `ROUTE_ADVANCED_API`,
+  `PLAN_INTAKE_STARTER_API`, and `PLAN_INTAKE_ADVANCED_API` so agents can read
+  compact route-specific entry points before full helper inventories.
+- Made model-miss, model-test-alignment, and UI-flow template commands emit
+  compact runnable defaults while adding explicit full-template commands for
+  deep scaffolds.
+- Added AI surface tier and route-owner metadata to the generated field
+  lifecycle inventory so later field deletion can start from starter,
+  advanced, and internal exposure evidence.
+- Added a FlowGuard self-check model for AI-entry reduction and updated docs,
+  skills, and tests to keep starter surfaces compact without hiding full
+  escalation paths.
+
 ## v0.41.7 - 2026-06-07
 
 Breaking field-schema cleanup for thinner AI-authored route inputs.

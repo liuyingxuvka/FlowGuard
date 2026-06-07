@@ -231,33 +231,33 @@ local git evidence are checked after the final prompt/reference edits.
   or commit/tag evidence
 
 ### Requirement: Route-first AI surface exposes basic and full paths
-FlowGuard SHALL present route-scoped discovery and basic constructors before the
-flat helper inventory when documenting routine AI use.
+FlowGuard SHALL present route-scoped starter discovery and compact route
+templates before flat helper inventories when documenting routine AI use.
 
-#### Scenario: Agent handles similar workflow maintenance
-- **WHEN** an agent needs to compare similar A/B/C model families for
-  maintenance, code, or test drift
-- **THEN** the documented first path MUST be Model Similarity Consolidation
-  route group discovery, lightweight signature or plan helper construction, and
-  a `SimilarityHandoff` to downstream routes
-- **AND** the full dataclass schema MUST remain discoverable as the advanced
-  full path
+#### Scenario: Agent starts route maintenance
+- **WHEN** an AI consumer reads API docs or uses public template commands for a
+  route covered by this change
+- **THEN** the documented first path is the route starter API and compact
+  template for that route
+- **AND** the full helper list and full template remain discoverable as explicit
+  advanced paths
 
-#### Scenario: Agent needs full control
-- **WHEN** a model-similarity review requires advanced evidence, explicit pair
-  selection, stale-evidence status, false-friend details, or metadata
-- **THEN** FlowGuard MUST keep the full dataclass constructors documented after
-  the basic path
+#### Scenario: Compact path preserves safety gates
+- **WHEN** the AI uses a compact template for model miss, model-test alignment,
+  or UI-flow structure
+- **THEN** the generated files still include the route's required gate, test,
+  replay, validation, or implementation evidence boundaries
 
 ### Requirement: Flat helper inventory is not first-read guidance
-FlowGuard SHALL document `MODELING_HELPER_API` as a complete index rather than
-the preferred first-read surface for AI agents.
+FlowGuard SHALL document `MODELING_HELPER_API`, `REPORTING_HELPER_API`, and
+`__all__` as complete indexes rather than preferred first-read surfaces for AI
+agents.
 
 #### Scenario: API documentation is read from top to bottom
 - **WHEN** an agent reads `docs/api_surface.md`
-- **THEN** route-scoped API groups and route-specific helper lists MUST appear
-  before the flat `MODELING_HELPER_API` discussion
-- **AND** the flat inventory MUST be described as a fallback or full index
+- **THEN** `AGENT_DEFAULT_API` and `ROUTE_STARTER_API` appear before full helper
+  inventory discussion
+- **AND** the full helper inventories are labeled as full or fallback indexes
 
 ### Requirement: Existing similarity route remains the owner
 FlowGuard SHALL extend the existing Model Similarity Consolidation route instead
@@ -287,17 +287,13 @@ surfaces so the thin default path remains operational rather than aspirational.
 ### Requirement: Guidance compression preserves local synchronization evidence
 FlowGuard guidance compression SHALL be finalized only after repository source,
 editable install behavior, installed Codex skills, shadow workspace imports,
-and local git evidence are aligned.
+formal local repository sync, and local git evidence are aligned or explicitly
+scoped out.
 
 #### Scenario: Compressed guidance is finalized locally
-- **WHEN** compressed prompt or skill guidance is ready to claim done
-- **THEN** validation includes focused skill docs tests, practical FlowGuard
-  model/regression checks, editable install verification, installed skill sync
-  verification, shadow workspace import verification, and local git status
-  evidence
+- **WHEN** compact AI entry guidance is ready to claim done
+- **THEN** validation includes OpenSpec checks, FlowGuard self-checks, focused
+  API/template tests, broader regression, editable install verification, shadow
+  workspace verification, formal repository sync verification, and local git
+  status or commit/tag evidence
 
-#### Scenario: Repository-only prompt edit is not installed behavior
-- **WHEN** a repository-managed skill prompt changes but installed Codex skills
-  have not been refreshed or checked
-- **THEN** completion evidence MUST report the installed behavior as unsynced or
-  scoped instead of claiming active local behavior

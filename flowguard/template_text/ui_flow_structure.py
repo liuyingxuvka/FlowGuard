@@ -988,8 +988,171 @@ consolidate unless the exception has an explicit hero, editorial, brand,
 warning, or state-critical purpose.
 """
 
+UI_FLOW_STRUCTURE_FULL_MODEL_TEMPLATE = UI_FLOW_STRUCTURE_MODEL_TEMPLATE
+UI_FLOW_STRUCTURE_FULL_RUN_CHECKS_TEMPLATE = UI_FLOW_STRUCTURE_RUN_CHECKS_TEMPLATE
+UI_FLOW_STRUCTURE_FULL_NOTES_TEMPLATE = UI_FLOW_STRUCTURE_NOTES_TEMPLATE
+
+UI_FLOW_STRUCTURE_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header.
+
+Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
+Purpose: compact UI flow structure model for one screen, three controls, two
+transitions, one journey, and one implementation validation gate.
+Guards against: shipping a UI whose visible controls, journeys,
+implementation evidence, structure derivation, or text hierarchy are not
+modeled.
+Use before editing: frontend work where UI state, controls, navigation,
+validation, or visible text hierarchy affect behavior.
+Run: python .flowguard/ui_flow_structure/run_checks.py
+Modeled block shape: Input x State -> Set(Output x State).
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class UICompactPlan:
+    plan_id: str
+    states: tuple[str, ...]
+    controls: tuple[str, ...]
+    transitions: tuple[tuple[str, str, str], ...]
+    journey_entry_points: tuple[str, ...]
+    implementation_run_ids: tuple[str, ...]
+    source_interaction_model_reviewed: bool
+    text_roles: dict[str, str]
+
+
+@dataclass(frozen=True)
+class UICompactReport:
+    label: str
+    ok: bool
+    findings: tuple[str, ...]
+
+    def format_text(self) -> str:
+        lines = [self.label, f"status: {'PASS' if self.ok else 'FAIL'}"]
+        lines.extend(f"- {finding}" for finding in self.findings)
+        return "\\n".join(lines)
+
+
+def review_interaction_model(plan: UICompactPlan) -> UICompactReport:
+    findings: list[str] = []
+    if len(plan.states) < 3:
+        findings.append("missing_state_availability_matrix")
+    if len(plan.controls) < 3:
+        findings.append("visible_control_without_modeled_event")
+    if len(plan.transitions) < 2:
+        findings.append("modeled_event_missing_transition")
+    return UICompactReport("flowguard UI interaction model", not findings, tuple(findings))
+
+
+def review_journey(plan: UICompactPlan) -> UICompactReport:
+    findings = () if plan.journey_entry_points else ("feature_entry_point_not_declared",)
+    return UICompactReport("flowguard UI journey coverage", not findings, findings)
+
+
+def review_implementation(plan: UICompactPlan) -> UICompactReport:
+    findings = () if plan.implementation_run_ids else ("missing_implementation_run_for_journey",)
+    return UICompactReport("flowguard UI implementation validation", not findings, findings)
+
+
+def review_structure(plan: UICompactPlan) -> UICompactReport:
+    findings = () if plan.source_interaction_model_reviewed else ("source_interaction_model_not_reviewed",)
+    return UICompactReport("flowguard UI structure derivation", not findings, findings)
+
+
+def review_text(plan: UICompactPlan) -> UICompactReport:
+    findings: list[str] = []
+    if plan.text_roles.get("button") in {"surface-title", "region-heading"}:
+        findings.append("text_role_too_prominent")
+    return UICompactReport("flowguard UI text hierarchy", not findings, tuple(findings))
+
+
+def correct_plan() -> UICompactPlan:
+    return UICompactPlan(
+        plan_id="compact-ui-flow",
+        states=("empty", "editing", "submitted"),
+        controls=("add", "submit", "reset"),
+        transitions=(("empty", "add", "editing"), ("editing", "submit", "submitted")),
+        journey_entry_points=("launch:add-submit",),
+        implementation_run_ids=("browser:ui-flow-smoke",),
+        source_interaction_model_reviewed=True,
+        text_roles={"title": "surface-title", "section": "region-heading", "body": "standard-text", "hint": "supporting-text", "button": "standard-text"},
+    )
+
+
+def broken_plan() -> UICompactPlan:
+    return UICompactPlan(
+        plan_id="broken-ui-flow",
+        states=("empty",),
+        controls=("submit",),
+        transitions=(),
+        journey_entry_points=(),
+        implementation_run_ids=(),
+        source_interaction_model_reviewed=False,
+        text_roles={"button": "surface-title"},
+    )
+
+
+def run_checks():
+    good = correct_plan()
+    bad = broken_plan()
+    return (
+        review_interaction_model(good),
+        review_journey(good),
+        review_implementation(good),
+        review_structure(good),
+        review_text(good),
+        review_interaction_model(bad),
+        review_journey(bad),
+        review_implementation(bad),
+        review_structure(bad),
+        review_text(bad),
+    )
+'''
+
+UI_FLOW_STRUCTURE_RUN_CHECKS_TEMPLATE = '''"""Run the compact UI Flow Structure template checks."""
+
+from model import run_checks
+
+
+def main() -> int:
+    reports = run_checks()
+    for report in reports:
+        print(report.format_text())
+        print()
+    good = reports[:5]
+    broken = reports[5:]
+    return 0 if all(report.ok for report in good) and all(not report.ok for report in broken) else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+'''
+
+UI_FLOW_STRUCTURE_NOTES_TEMPLATE = """# FlowGuard UI Flow Structure Notes
+
+This compact default scaffold covers the first useful UI model: three states,
+three visible controls, two transitions, one journey, one implementation run,
+and one text hierarchy check.
+
+The text hierarchy contract is semantic. Use stable roles such as
+`"surface-title"`, `"region-heading"`, `"standard-text"`, and
+`"supporting-text"`; similar text jobs should usually reuse visual treatments
+unless the exception has an explicit hero, editorial, brand, warning, or
+state-critical purpose.
+
+Escalate to `ui-flow-structure-full-template` when the work needs complete
+journey coverage, region derivation, overlays, redundancy analysis, full text
+hierarchy blueprints, browser click-through evidence, or implementation
+validation for many feature paths.
+"""
+
 __all__ = [
     'UI_FLOW_STRUCTURE_MODEL_TEMPLATE',
     'UI_FLOW_STRUCTURE_RUN_CHECKS_TEMPLATE',
     'UI_FLOW_STRUCTURE_NOTES_TEMPLATE',
+    'UI_FLOW_STRUCTURE_FULL_MODEL_TEMPLATE',
+    'UI_FLOW_STRUCTURE_FULL_RUN_CHECKS_TEMPLATE',
+    'UI_FLOW_STRUCTURE_FULL_NOTES_TEMPLATE',
 ]

@@ -6,7 +6,7 @@ description: Use for non-trivial bug repairs or when runtime, tests, replay, log
 # FlowGuard Model Miss Review
 
 Standalone FlowGuard satellite skill for bug repairs where a real failure shows
-the model, code contract, tests, or final claim may be too narrow.
+the model, code contract, tests, or final claim is too narrow.
 
 Return to `model-first-function-flow` only when there is no concrete failure
 evidence yet or the work is ordinary behavior modeling rather than bug repair.
@@ -14,11 +14,13 @@ evidence yet or the work is ordinary behavior modeling rather than bug repair.
 ## First Read
 
 - Route id: `model_miss_review`.
-- Core concepts: observed failure, same-class generalized bad case, root-cause
-  backpropagation, owner code contract, `boundary_missing`, field ids,
-  old-field disposition,
-  recurring defect-family gate, legacy path disposition, and
-  `review_model_maturation_loop()`.
+- Default entry: `ROUTE_STARTER_API["model_miss_review"]` and
+  `model-miss-template`.
+- Full entry: `model-miss-full-template` for generalized bad cases, known-bug
+  holdout, legacy/old-field disposition, defect-family gates, or reattachment.
+- Core concepts: observed failure, same-class generalized bad case,
+  `boundary_missing`, root-cause backpropagation, owner code contract,
+  old-field disposition, defect-family gate, and maturation.
 - Reference: `references/model_miss_protocol.md`.
 
 ## Hard Gates
@@ -49,9 +51,8 @@ evidence yet or the work is ordinary behavior modeling rather than bug repair.
 
 ## Snapshot
 
-Show a miss-repair diagram with observed failure, missing boundary, generalized
-bad case, root cause, field lifecycle gap when relevant, code owner, tests,
-legacy path/old-field disposition, reattachment needs, and residual gaps.
+Show a miss-repair diagram with failure, boundary_missing, same-class case,
+root cause, field gap, code owner, tests, old-path disposition, and gaps.
 
 ## Non-Goals
 

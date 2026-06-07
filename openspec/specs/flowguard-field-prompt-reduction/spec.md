@@ -4,17 +4,19 @@
 This capability defines FlowGuard's Flowguard Field Prompt Reduction behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: AI-facing field prompts are grouped
+FlowGuard field inventory and prompt guidance SHALL distinguish starter,
+advanced, and internal field exposure so AI agents do not treat all discovered
+fields as default authoring fields.
 
-FlowGuard skill references SHALL prefer grouped field families over long
-form-like lists when the grouped fields preserve the same evidence boundary.
+#### Scenario: Inventory exposes AI surface tier
+- **WHEN** the field lifecycle inventory is regenerated
+- **THEN** each row includes an AI surface tier suitable for starter,
+  advanced, or internal routing decisions
 
-#### Scenario: Routine route reads see grouped fields
-
-- **WHEN** an agent reads Model-Test Alignment, DevelopmentProcessFlow,
-  TestMesh, ModelMesh, or adoption-log guidance for routine use
-- **THEN** the guidance presents compact field groups instead of requiring a
-  blank for every optional text field
-- **AND** uncommon details are clearly marked as expandable only when applicable
+#### Scenario: Tiering does not delete fields by itself
+- **WHEN** a field is classified as advanced or internal
+- **THEN** the inventory does not claim the field is removable without owner,
+  reader, writer, lifecycle, and test-binding evidence
 
 ### Requirement: Quality-critical evidence fields remain visible
 

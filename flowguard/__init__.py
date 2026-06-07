@@ -941,8 +941,10 @@ from .templates import (
     maintenance_scan_template_files,
     maintenance_workflow_template_files,
     model_angle_deliberation_template_files,
+    model_miss_review_full_template_files,
     model_miss_review_template_files,
     model_similarity_consolidation_template_files,
+    model_test_alignment_full_template_files,
     model_test_alignment_template_files,
     plan_detailing_template_files,
     project_adoption_template_files,
@@ -953,6 +955,7 @@ from .templates import (
     structure_mesh_template_files,
     test_mesh_template_files,
     topology_hazard_template_files,
+    ui_flow_structure_full_template_files,
     ui_flow_structure_template_files,
     workflow_step_contracts_template_files,
     write_template_files,
@@ -961,6 +964,17 @@ from .trace import Trace, TraceStep
 from .workflow import Workflow, WorkflowPath, WorkflowRun
 
 PLAN_INTAKE_CLAIM_API = tuple(_plan_intake.__all__)
+PLAN_INTAKE_STARTER_API = (
+    "PlanIntakeCompletenessPlan",
+    "PlanIntakeCompletenessReport",
+    "PlanIntakeRiskSurface",
+    "PlanSourceEvidence",
+    "PlanIntakeFinding",
+    "review_plan_intake_completeness",
+    "FlowGuardClaim",
+    "FlowGuardClaimDependency",
+)
+PLAN_INTAKE_ADVANCED_API = PLAN_INTAKE_CLAIM_API
 AGENT_WORKFLOW_REHEARSAL_ROUTE_API = tuple(name for name in _agent_workflow_rehearsal.__all__ if name in globals())
 FLOWGUARD_CLOSURE_CONTRACT_API = tuple(_closure_contract.__all__)
 DEVELOPMENT_PROCESS_FLOW_ROUTE_API = tuple(name for name in _development_process_flow.__all__ if name in globals())
@@ -1849,8 +1863,10 @@ EVIDENCE_API = (
     "maintenance_scan_template_files",
     "maintenance_workflow_template_files",
     "model_angle_deliberation_template_files",
+    "model_miss_review_full_template_files",
     "model_miss_review_template_files",
     "model_similarity_consolidation_template_files",
+    "model_test_alignment_full_template_files",
     "model_test_alignment_template_files",
     "plan_detailing_template_files",
     "project_adoption_template_files",
@@ -1861,6 +1877,7 @@ EVIDENCE_API = (
     "structure_mesh_template_files",
     "test_mesh_template_files",
     "topology_hazard_template_files",
+    "ui_flow_structure_full_template_files",
     "ui_flow_structure_template_files",
     "workflow_step_contracts_template_files",
     "write_template_files",
@@ -1873,7 +1890,9 @@ TEMPLATE_STRUCTURE_API = (
     "project_adoption_template_files",
     "risk_intent_template_files",
     "model_miss_review_template_files",
+    "model_miss_review_full_template_files",
     "model_test_alignment_template_files",
+    "model_test_alignment_full_template_files",
     "runtime_path_evidence_template_files",
     "plan_detailing_template_files",
     "code_structure_recommendation_template_files",
@@ -1886,6 +1905,7 @@ TEMPLATE_STRUCTURE_API = (
     "maintenance_scan_template_files",
     "model_angle_deliberation_template_files",
     "ui_flow_structure_template_files",
+    "ui_flow_structure_full_template_files",
     "development_process_flow_template_files",
     "workflow_step_contracts_template_files",
     "test_mesh_template_files",
@@ -1999,6 +2019,174 @@ FLOWGUARD_ROUTE_API = {
     "model_topology_hazard_review": TOPOLOGY_HAZARD_ROUTE_API,
 }
 
+ROUTE_STARTER_API = {
+    "flowguard_self_maintenance": (
+        "default_flowguard_self_maintenance_plan",
+        "review_flowguard_self_maintenance",
+        "SelfMaintenancePlan",
+        "SelfMaintenanceChildReport",
+    ),
+    "template_structure": (
+        "TemplateFile",
+        "write_template_files",
+        "project_template_files",
+    ),
+    "evidence_field_structure": (
+        "EvidenceGate",
+        "summarize_evidence_gates",
+        "evidence_gates_from_process_like",
+    ),
+    "existing_model_preflight": (
+        "ExistingModelPreflight",
+        "ExistingModelPreflightFinding",
+        "ExistingModelPreflightReport",
+        "existing_model_preflight_from_project",
+        "review_existing_model_preflight",
+        "existing_model_preflight_template_files",
+    ),
+    "agent_workflow_rehearsal": (
+        "AgentWorkflowPlan",
+        "AgentWorkflowRehearsalReport",
+        "AgentWorkflowStep",
+        "review_agent_workflow_rehearsal",
+    ),
+    "model_similarity_consolidation": (
+        "ModelSignature",
+        "ModelSimilarityPlan",
+        "SimilarityHandoff",
+        "model_signature_minimal",
+        "model_similarity_plan_for_changed_member",
+        "review_model_similarity_consolidation",
+        "model_similarity_consolidation_template_files",
+    ),
+    "architecture_reduction": (
+        "ObservableArchitectureContract",
+        "ArchitectureReductionCandidate",
+        "ArchitectureReductionPlan",
+        "review_architecture_reduction",
+    ),
+    "code_structure_recommendation": (
+        "CodeStructureRecommendation",
+        "TargetModuleRecommendation",
+        "review_code_structure_recommendation",
+        "code_structure_recommendation_template_files",
+    ),
+    "model_test_alignment": (
+        "ModelTestAlignmentPlan",
+        "ModelObligation",
+        "CodeContract",
+        "TestEvidence",
+        "review_model_test_alignment",
+        "model_test_alignment_template_files",
+    ),
+    "field_lifecycle_mesh": (
+        "FieldLifecycleRow",
+        "FieldLifecyclePlan",
+        "FieldLifecycleReport",
+        "review_field_lifecycle",
+        "field_lifecycle_template_files",
+    ),
+    "plan_intake_claims": PLAN_INTAKE_STARTER_API,
+    "plan_detailing_compiler": (
+        "PlanDetail",
+        "PlanDetailStep",
+        "PlanDetailValidation",
+        "review_plan_detail",
+        "plan_detail_to_development_process",
+        "plan_detailing_template_files",
+    ),
+    "maintenance_obligation_memory": (
+        "MaintenanceObligation",
+        "MaintenanceObligationReport",
+        "build_maintenance_obligation_report",
+    ),
+    "maintenance_scan_router": (
+        "MaintenanceScanPlan",
+        "MaintenanceAction",
+        "MaintenanceScanReport",
+        "review_maintenance_scan",
+        "maintenance_scan_template_files",
+    ),
+    "model_angle_deliberation": (
+        "ModelAngleDeliberation",
+        "ModelAngleReviewReport",
+        "review_model_angle_deliberations",
+        "model_angle_deliberation_template_files",
+    ),
+    "ui_flow_structure": (
+        "UIInteractionModel",
+        "UIStateNode",
+        "UIControl",
+        "UITransition",
+        "review_ui_interaction_model",
+        "ui_flow_structure_template_files",
+    ),
+    "model_mesh_maintenance": (
+        "ChildModelEvidence",
+        "HierarchyMeshReport",
+        "HierarchyMeshFinding",
+        "review_hierarchical_mesh",
+    ),
+    "test_mesh_maintenance": (
+        "TestSuiteEvidence",
+        "TestMeshPlan",
+        "TestMeshReport",
+        "review_test_mesh",
+        "test_mesh_template_files",
+    ),
+    "structure_mesh_maintenance": (
+        "StructureMeshPlan",
+        "StructureMeshReport",
+        "StructurePartitionItem",
+        "review_structure_mesh",
+        "structure_mesh_template_files",
+    ),
+    "development_process_flow": (
+        "DevelopmentProcessPlan",
+        "ProcessEvidence",
+        "ProcessAction",
+        "review_development_process_flow",
+        "development_process_flow_template_files",
+    ),
+    "model_miss_review": (
+        "DefectFamilyGatePlan",
+        "DefectFamilyGateReport",
+        "DefectFamilyCase",
+        "review_defect_family_gates",
+        "model_miss_review_template_files",
+    ),
+    "risk_evidence_ledger": (
+        "RiskEvidenceLedgerPlan",
+        "RiskEvidenceGate",
+        "RiskEvidenceProof",
+        "review_risk_evidence_ledger",
+        "risk_evidence_ledger_template_files",
+    ),
+    "flowguard_closure_contract": (
+        "FlowGuardClosureContractPlan",
+        "FlowGuardClosureContractReport",
+        "review_flowguard_closure_contract",
+        "closure_contract_template_files",
+    ),
+    "state_closure": (
+        "StateClosurePlan",
+        "StateClosureReport",
+        "review_state_closure",
+    ),
+    "model_topology_hazard_review": (
+        "TopologyDigest",
+        "TopologyHazardReviewPlan",
+        "TopologyHazardReport",
+        "review_topology_hazards",
+        "topology_hazard_template_files",
+    ),
+}
+
+ROUTE_ADVANCED_API = {
+    **FLOWGUARD_ROUTE_API,
+    "plan_intake_claims": PLAN_INTAKE_ADVANCED_API,
+}
+
 
 def default_flowguard_self_maintenance_plan(
     plan_id,
@@ -2043,9 +2231,11 @@ def default_flowguard_self_maintenance_plan(
 
 API_SURFACE = {
     "agent_default": AGENT_DEFAULT_API,
+    "route_starters": ROUTE_STARTER_API,
+    "route_advanced": ROUTE_ADVANCED_API,
     "core": CORE_API,
-    "modeling_helpers": MODELING_HELPER_API,
-    "reporting_helpers": REPORTING_HELPER_API,
+    "modeling_helpers_full": MODELING_HELPER_API,
+    "reporting_helpers_full": REPORTING_HELPER_API,
     "evidence": EVIDENCE_API,
 }
 
@@ -2074,7 +2264,11 @@ _PUBLIC_API_SUPPLEMENT = (
     "MODEL_IMPACT_FRESHNESS_API",
     "MODEL_MATURATION_API",
     "PLAN_DETAILING_ROUTE_API",
+    "PLAN_INTAKE_ADVANCED_API",
     "RISK_EVIDENCE_LEDGER_ROUTE_API",
+    "ROUTE_ADVANCED_API",
+    "ROUTE_STARTER_API",
+    "PLAN_INTAKE_STARTER_API",
     "STATE_CLOSURE_ROUTE_API",
     "STRUCTURE_MESH_ROUTE_API",
     "TEST_MESH_ROUTE_API",

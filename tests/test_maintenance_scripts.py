@@ -6,7 +6,12 @@ from pathlib import Path
 import importlib.metadata as metadata
 
 from scripts.run_flowguard_model_regressions import discover_runners, run_regressions
-from scripts.generate_field_lifecycle_inventory import collect_field_inventory, infer_lifecycle_layer
+from scripts.generate_field_lifecycle_inventory import (
+    collect_field_inventory,
+    infer_ai_surface_tier,
+    infer_lifecycle_layer,
+    infer_route_owner,
+)
 from scripts.sync_shadow_workspace import sync_workspace, verify_workspace
 
 
@@ -74,6 +79,15 @@ class MaintenanceScriptTests(unittest.TestCase):
         self.assertEqual("compatibility_or_old_path", infer_lifecycle_layer("legacy_alias"))
         self.assertEqual("evidence_or_decision", infer_lifecycle_layer("evidence_refs"))
         self.assertEqual("display_or_metadata", infer_lifecycle_layer("description"))
+        self.assertEqual("model_test_alignment", infer_route_owner("model_test_alignment"))
+        self.assertEqual(
+            "starter",
+            infer_ai_surface_tier("owner_code_contract_id", "behavior_or_contract", "model_test_alignment"),
+        )
+        self.assertEqual(
+            "advanced",
+            infer_ai_surface_tier("legacy_alias", "compatibility_or_old_path", "field_lifecycle_mesh"),
+        )
 
     def test_field_inventory_collects_dataclass_fields(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -100,6 +114,8 @@ class MaintenanceScriptTests(unittest.TestCase):
             self.assertEqual(("external_inputs", "description"), tuple(row.field_name for row in rows))
             self.assertEqual("behavior_or_contract", rows[0].lifecycle_layer)
             self.assertEqual("display_or_metadata", rows[1].lifecycle_layer)
+            self.assertEqual("core_or_internal", rows[0].route_owner)
+            self.assertEqual("internal", rows[0].ai_surface_tier)
 
 
 if __name__ == "__main__":

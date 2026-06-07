@@ -18,6 +18,45 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `evidence_or_decision` | 652 |
 | `unclassified` | 1261 |
 
+## AI Surface Tiers
+
+| Tier | Fields |
+| --- | ---: |
+| `advanced` | 385 |
+| `internal` | 1977 |
+| `starter` | 864 |
+
+## Route Owners
+
+| Route Owner | Fields |
+| --- | ---: |
+| `core_or_internal` | 1123 |
+| `ui_flow_structure` | 226 |
+| `plan_intake_claims` | 177 |
+| `model_test_alignment` | 160 |
+| `model_mesh_maintenance` | 147 |
+| `model_similarity_consolidation` | 136 |
+| `plan_detailing_compiler` | 121 |
+| `development_process_flow` | 95 |
+| `flowguard_closure_contract` | 90 |
+| `model_impact_freshness` | 75 |
+| `model_topology_hazard_review` | 73 |
+| `architecture_reduction` | 71 |
+| `existing_model_preflight` | 68 |
+| `maintenance_scan_router` | 66 |
+| `test_mesh_maintenance` | 66 |
+| `field_lifecycle_mesh` | 65 |
+| `agent_workflow_rehearsal` | 61 |
+| `flowguard_self_maintenance` | 61 |
+| `structure_mesh_maintenance` | 61 |
+| `model_miss_review` | 59 |
+| `risk_evidence_ledger` | 47 |
+| `code_structure_recommendation` | 44 |
+| `model_maturation_loop` | 39 |
+| `state_closure` | 38 |
+| `model_angle_deliberation` | 32 |
+| `maintenance_obligation_memory` | 25 |
+
 ## Module Field Counts
 
 | Module | Fields |
@@ -93,3231 +132,3231 @@ and evidence-bearing fields still need route-owned proof before edits.
 
 ## Field Rows
 
-| Module | Class | Field | Layer | Behavior Hint |
-| --- | --- | --- | --- | --- |
-| `__main__` | `FileTemplateCommand` | `name` | `display_or_metadata` | `false` |
-| `__main__` | `FileTemplateCommand` | `help_text` | `display_or_metadata` | `false` |
-| `__main__` | `FileTemplateCommand` | `template_name` | `display_or_metadata` | `false` |
-| `__main__` | `FileTemplateCommand` | `factory_name` | `display_or_metadata` | `false` |
-| `adoption` | `AdoptionCommandResult` | `command` | `unclassified` | `false` |
-| `adoption` | `AdoptionCommandResult` | `ok` | `evidence_or_decision` | `false` |
-| `adoption` | `AdoptionCommandResult` | `duration_seconds` | `unclassified` | `false` |
-| `adoption` | `AdoptionCommandResult` | `summary` | `evidence_or_decision` | `false` |
-| `adoption` | `AdoptionCommandResult` | `metadata` | `unclassified` | `false` |
-| `adoption` | `AdoptionLogEntry` | `task_id` | `unclassified` | `false` |
-| `adoption` | `AdoptionLogEntry` | `project` | `unclassified` | `false` |
-| `adoption` | `AdoptionLogEntry` | `task_summary` | `evidence_or_decision` | `false` |
-| `adoption` | `AdoptionLogEntry` | `trigger_reason` | `evidence_or_decision` | `false` |
-| `adoption` | `AdoptionLogEntry` | `started_at` | `unclassified` | `false` |
-| `adoption` | `AdoptionLogEntry` | `ended_at` | `unclassified` | `false` |
-| `adoption` | `AdoptionLogEntry` | `duration_seconds` | `unclassified` | `false` |
-| `adoption` | `AdoptionLogEntry` | `status` | `evidence_or_decision` | `false` |
-| `adoption` | `AdoptionLogEntry` | `skill_decision` | `evidence_or_decision` | `false` |
-| `adoption` | `AdoptionLogEntry` | `model_files` | `collection_metadata` | `false` |
-| `adoption` | `AdoptionLogEntry` | `commands` | `collection_metadata` | `false` |
-| `adoption` | `AdoptionLogEntry` | `findings` | `evidence_or_decision` | `false` |
-| `adoption` | `AdoptionLogEntry` | `counterexamples` | `collection_metadata` | `false` |
-| `adoption` | `AdoptionLogEntry` | `friction_points` | `collection_metadata` | `false` |
-| `adoption` | `AdoptionLogEntry` | `skipped_steps` | `collection_metadata` | `false` |
-| `adoption` | `AdoptionLogEntry` | `risk_evidence_summary` | `evidence_or_decision` | `false` |
-| `adoption` | `AdoptionLogEntry` | `next_actions` | `behavior_or_contract` | `true` |
-| `adoption` | `AdoptionLogEntry` | `metadata` | `unclassified` | `false` |
-| `adoption_audit` | `AdoptionAuditFinding` | `severity` | `unclassified` | `false` |
-| `adoption_audit` | `AdoptionAuditFinding` | `category` | `unclassified` | `false` |
-| `adoption_audit` | `AdoptionAuditFinding` | `message` | `display_or_metadata` | `false` |
-| `adoption_audit` | `AdoptionAuditFinding` | `recommendation` | `unclassified` | `false` |
-| `adoption_audit` | `AdoptionAuditFinding` | `file_path` | `unclassified` | `false` |
-| `adoption_audit` | `AdoptionAuditFinding` | `metadata` | `unclassified` | `false` |
-| `adoption_audit` | `AdoptionAuditReport` | `root` | `unclassified` | `false` |
-| `adoption_audit` | `AdoptionAuditReport` | `flowguard_available` | `unclassified` | `false` |
-| `adoption_audit` | `AdoptionAuditReport` | `findings` | `evidence_or_decision` | `false` |
-| `adoption_audit` | `AdoptionAuditReport` | `scanned_files` | `collection_metadata` | `false` |
-| `agent_workflow_rehearsal` | `SkillCapability` | `skill_name` | `display_or_metadata` | `false` |
-| `agent_workflow_rehearsal` | `SkillCapability` | `description` | `display_or_metadata` | `false` |
-| `agent_workflow_rehearsal` | `SkillCapability` | `source` | `unclassified` | `false` |
-| `agent_workflow_rehearsal` | `SkillCapability` | `trigger_keywords` | `collection_metadata` | `false` |
-| `agent_workflow_rehearsal` | `SkillCapability` | `capabilities` | `collection_metadata` | `false` |
-| `agent_workflow_rehearsal` | `SkillCapability` | `limitations` | `collection_metadata` | `false` |
-| `agent_workflow_rehearsal` | `SkillCapability` | `side_effects` | `behavior_or_contract` | `true` |
-| `agent_workflow_rehearsal` | `SkillCapability` | `validation_guidance_status` | `evidence_or_decision` | `false` |
-| `agent_workflow_rehearsal` | `SkillCapability` | `validation_guidance` | `unclassified` | `false` |
-| `agent_workflow_rehearsal` | `SkillCapability` | `candidate_for_task` | `unclassified` | `false` |
-| `agent_workflow_rehearsal` | `SkillCapability` | `required_for_task` | `unclassified` | `false` |
-| `agent_workflow_rehearsal` | `SkillCapability` | `deep_read` | `unclassified` | `false` |
-| `agent_workflow_rehearsal` | `SkillInventorySnapshot` | `snapshot_id` | `unclassified` | `false` |
-| `agent_workflow_rehearsal` | `SkillInventorySnapshot` | `skills` | `collection_metadata` | `false` |
-| `agent_workflow_rehearsal` | `SkillInventorySnapshot` | `source_paths` | `collection_metadata` | `false` |
-| `agent_workflow_rehearsal` | `SkillInventorySnapshot` | `current` | `unclassified` | `false` |
-| `agent_workflow_rehearsal` | `SkillInventorySnapshot` | `from_cache` | `unclassified` | `false` |
-| `agent_workflow_rehearsal` | `SkillInventorySnapshot` | `generated_for_task` | `unclassified` | `false` |
-| `agent_workflow_rehearsal` | `SkillInventorySnapshot` | `notes` | `collection_metadata` | `false` |
-| `agent_workflow_rehearsal` | `SkippedSkill` | `skill_name` | `display_or_metadata` | `false` |
-| `agent_workflow_rehearsal` | `SkippedSkill` | `reason` | `evidence_or_decision` | `false` |
-| `agent_workflow_rehearsal` | `SkippedSkill` | `consequence` | `unclassified` | `false` |
-| `agent_workflow_rehearsal` | `SkippedSkill` | `accepted` | `unclassified` | `false` |
-| `agent_workflow_rehearsal` | `SkippedSkill` | `scope_boundary` | `unclassified` | `false` |
-| `agent_workflow_rehearsal` | `AgentWorkflowStep` | `step_id` | `unclassified` | `false` |
-| `agent_workflow_rehearsal` | `AgentWorkflowStep` | `skill_name` | `display_or_metadata` | `false` |
-| `agent_workflow_rehearsal` | `AgentWorkflowStep` | `action` | `behavior_or_contract` | `true` |
-| `agent_workflow_rehearsal` | `AgentWorkflowStep` | `step_type` | `unclassified` | `false` |
-| `agent_workflow_rehearsal` | `AgentWorkflowStep` | `order_after` | `collection_metadata` | `false` |
-| `agent_workflow_rehearsal` | `AgentWorkflowStep` | `required_completed_step_ids` | `collection_metadata` | `false` |
-| `agent_workflow_rehearsal` | `AgentWorkflowStep` | `required_evidence_ids` | `evidence_or_decision` | `false` |
-| `agent_workflow_rehearsal` | `AgentWorkflowStep` | `produced_evidence_ids` | `evidence_or_decision` | `false` |
-| `agent_workflow_rehearsal` | `AgentWorkflowStep` | `continue_evidence_ids` | `evidence_or_decision` | `false` |
-| `agent_workflow_rehearsal` | `AgentWorkflowStep` | `compensating_check_ids` | `collection_metadata` | `false` |
-| `agent_workflow_rehearsal` | `AgentWorkflowStep` | `side_effects` | `behavior_or_contract` | `true` |
-| `agent_workflow_rehearsal` | `AgentWorkflowStep` | `validation_required` | `unclassified` | `false` |
-| `agent_workflow_rehearsal` | `AgentWorkflowStep` | `irreversible` | `unclassified` | `false` |
-| `agent_workflow_rehearsal` | `AgentWorkflowStep` | `rework_step_id` | `unclassified` | `false` |
-| `agent_workflow_rehearsal` | `AgentWorkflowStep` | `description` | `display_or_metadata` | `false` |
-| `agent_workflow_rehearsal` | `AgentWorkflowPlan` | `plan_id` | `unclassified` | `false` |
-| `agent_workflow_rehearsal` | `AgentWorkflowPlan` | `task_summary` | `evidence_or_decision` | `false` |
-| `agent_workflow_rehearsal` | `AgentWorkflowPlan` | `inventory` | `unclassified` | `false` |
-| `agent_workflow_rehearsal` | `AgentWorkflowPlan` | `selected_skill_names` | `collection_metadata` | `false` |
-| `agent_workflow_rehearsal` | `AgentWorkflowPlan` | `skipped_candidate_skills` | `collection_metadata` | `false` |
-| `agent_workflow_rehearsal` | `AgentWorkflowPlan` | `steps` | `collection_metadata` | `false` |
-| `agent_workflow_rehearsal` | `AgentWorkflowPlan` | `final_claim` | `unclassified` | `false` |
-| `agent_workflow_rehearsal` | `AgentWorkflowPlan` | `final_evidence_ids` | `evidence_or_decision` | `false` |
-| `agent_workflow_rehearsal` | `AgentWorkflowPlan` | `risk_flags` | `collection_metadata` | `false` |
-| `agent_workflow_rehearsal` | `AgentWorkflowPlan` | `task_trivial` | `unclassified` | `false` |
-| `agent_workflow_rehearsal` | `AgentWorkflowRehearsalFinding` | `code` | `unclassified` | `false` |
-| `agent_workflow_rehearsal` | `AgentWorkflowRehearsalFinding` | `message` | `display_or_metadata` | `false` |
-| `agent_workflow_rehearsal` | `AgentWorkflowRehearsalFinding` | `severity` | `unclassified` | `false` |
-| `agent_workflow_rehearsal` | `AgentWorkflowRehearsalFinding` | `skill_name` | `display_or_metadata` | `false` |
-| `agent_workflow_rehearsal` | `AgentWorkflowRehearsalFinding` | `step_id` | `unclassified` | `false` |
-| `agent_workflow_rehearsal` | `AgentWorkflowRehearsalFinding` | `metadata` | `collection_metadata` | `false` |
-| `agent_workflow_rehearsal` | `AgentWorkflowRehearsalReport` | `plan_id` | `unclassified` | `false` |
-| `agent_workflow_rehearsal` | `AgentWorkflowRehearsalReport` | `status` | `evidence_or_decision` | `false` |
-| `agent_workflow_rehearsal` | `AgentWorkflowRehearsalReport` | `inventory_snapshot_id` | `unclassified` | `false` |
-| `agent_workflow_rehearsal` | `AgentWorkflowRehearsalReport` | `findings` | `evidence_or_decision` | `false` |
-| `agent_workflow_rehearsal` | `AgentWorkflowRehearsalReport` | `selected_skills` | `collection_metadata` | `false` |
-| `agent_workflow_rehearsal` | `AgentWorkflowRehearsalReport` | `skipped_skills` | `collection_metadata` | `false` |
-| `architecture_reduction` | `ObservableArchitectureContract` | `source_model_id` | `unclassified` | `false` |
-| `architecture_reduction` | `ObservableArchitectureContract` | `source_code_boundary_id` | `unclassified` | `false` |
-| `architecture_reduction` | `ObservableArchitectureContract` | `public_entrypoints` | `collection_metadata` | `false` |
-| `architecture_reduction` | `ObservableArchitectureContract` | `observable_outputs` | `behavior_or_contract` | `true` |
-| `architecture_reduction` | `ObservableArchitectureContract` | `observable_state` | `behavior_or_contract` | `true` |
-| `architecture_reduction` | `ObservableArchitectureContract` | `observable_side_effects` | `behavior_or_contract` | `true` |
-| `architecture_reduction` | `ObservableArchitectureContract` | `validation_boundaries` | `collection_metadata` | `false` |
-| `architecture_reduction` | `ObservableArchitectureContract` | `rationale` | `unclassified` | `false` |
-| `architecture_reduction` | `CompatibilitySurfaceClassification` | `surface_id` | `unclassified` | `false` |
-| `architecture_reduction` | `CompatibilitySurfaceClassification` | `classification` | `unclassified` | `false` |
-| `architecture_reduction` | `CompatibilitySurfaceClassification` | `recommended_action` | `behavior_or_contract` | `true` |
-| `architecture_reduction` | `CompatibilitySurfaceClassification` | `rationale` | `unclassified` | `false` |
-| `architecture_reduction` | `CompatibilitySurfaceClassification` | `code_node_ids` | `collection_metadata` | `false` |
-| `architecture_reduction` | `CompatibilitySurfaceClassification` | `public_entrypoints` | `collection_metadata` | `false` |
-| `architecture_reduction` | `CompatibilitySurfaceClassification` | `field_ids` | `collection_metadata` | `false` |
-| `architecture_reduction` | `CompatibilitySurfaceClassification` | `replacement_field_ids` | `compatibility_or_old_path` | `true` |
-| `architecture_reduction` | `CompatibilitySurfaceClassification` | `runtime_authority` | `unclassified` | `false` |
-| `architecture_reduction` | `CompatibilitySurfaceClassification` | `owner_model_elements` | `collection_metadata` | `false` |
-| `architecture_reduction` | `CompatibilitySurfaceClassification` | `candidate_ids` | `collection_metadata` | `false` |
-| `architecture_reduction` | `CompatibilitySurfaceClassification` | `evidence_refs` | `evidence_or_decision` | `false` |
-| `architecture_reduction` | `CompatibilitySurfaceClassification` | `missing_evidence` | `evidence_or_decision` | `false` |
-| `architecture_reduction` | `CompatibilitySurfaceClassification` | `metadata` | `collection_metadata` | `false` |
-| `architecture_reduction` | `ArchitectureReductionCandidate` | `candidate_id` | `unclassified` | `false` |
-| `architecture_reduction` | `ArchitectureReductionCandidate` | `candidate_type` | `unclassified` | `false` |
-| `architecture_reduction` | `ArchitectureReductionCandidate` | `code_node_id` | `unclassified` | `false` |
-| `architecture_reduction` | `ArchitectureReductionCandidate` | `source_model_element` | `unclassified` | `false` |
-| `architecture_reduction` | `ArchitectureReductionCandidate` | `target_action` | `behavior_or_contract` | `true` |
-| `architecture_reduction` | `ArchitectureReductionCandidate` | `proof_status` | `evidence_or_decision` | `false` |
-| `architecture_reduction` | `ArchitectureReductionCandidate` | `required_next_route` | `behavior_or_contract` | `true` |
-| `architecture_reduction` | `ArchitectureReductionCandidate` | `rationale` | `unclassified` | `false` |
-| `architecture_reduction` | `ArchitectureReductionCandidate` | `affected_public_entrypoints` | `collection_metadata` | `false` |
-| `architecture_reduction` | `ArchitectureReductionCandidate` | `affected_state` | `behavior_or_contract` | `true` |
-| `architecture_reduction` | `ArchitectureReductionCandidate` | `affected_side_effects` | `behavior_or_contract` | `true` |
-| `architecture_reduction` | `ArchitectureReductionCandidate` | `evidence_refs` | `evidence_or_decision` | `false` |
-| `architecture_reduction` | `ArchitectureReductionCandidate` | `similarity_handoff` | `collection_metadata` | `false` |
-| `architecture_reduction` | `ArchitectureReductionCandidate` | `lifecycle_disposition` | `unclassified` | `false` |
-| `architecture_reduction` | `ArchitectureReductionCandidate` | `completion_evidence_refs` | `evidence_or_decision` | `false` |
-| `architecture_reduction` | `ArchitectureReductionCandidate` | `metadata` | `collection_metadata` | `false` |
-| `architecture_reduction` | `ArchitectureReductionTrigger` | `route_id` | `behavior_or_contract` | `true` |
-| `architecture_reduction` | `ArchitectureReductionTrigger` | `trigger_reason` | `evidence_or_decision` | `false` |
-| `architecture_reduction` | `ArchitectureReductionTrigger` | `complexity_signal` | `unclassified` | `false` |
-| `architecture_reduction` | `ArchitectureReductionTrigger` | `recommended_timing` | `unclassified` | `false` |
-| `architecture_reduction` | `ArchitectureReductionTrigger` | `required` | `unclassified` | `false` |
-| `architecture_reduction` | `TargetArchitectureAction` | `candidate_id` | `unclassified` | `false` |
-| `architecture_reduction` | `TargetArchitectureAction` | `action` | `behavior_or_contract` | `true` |
-| `architecture_reduction` | `TargetArchitectureAction` | `code_node_id` | `unclassified` | `false` |
-| `architecture_reduction` | `TargetArchitectureAction` | `required_next_route` | `behavior_or_contract` | `true` |
-| `architecture_reduction` | `TargetArchitectureAction` | `rationale` | `unclassified` | `false` |
-| `architecture_reduction` | `ArchitectureReductionPlan` | `reduction_id` | `unclassified` | `false` |
-| `architecture_reduction` | `ArchitectureReductionPlan` | `observable_contract` | `behavior_or_contract` | `true` |
-| `architecture_reduction` | `ArchitectureReductionPlan` | `candidates` | `collection_metadata` | `false` |
-| `architecture_reduction` | `ArchitectureReductionPlan` | `companion_route_triggers` | `behavior_or_contract` | `true` |
-| `architecture_reduction` | `ArchitectureReductionPlan` | `target_structure` | `unclassified` | `false` |
-| `architecture_reduction` | `ArchitectureReductionPlan` | `rationale` | `unclassified` | `false` |
-| `architecture_reduction` | `ArchitectureReductionPlan` | `compatibility_surfaces` | `compatibility_or_old_path` | `true` |
-| `architecture_reduction` | `ArchitectureReductionFinding` | `code` | `unclassified` | `false` |
-| `architecture_reduction` | `ArchitectureReductionFinding` | `message` | `display_or_metadata` | `false` |
-| `architecture_reduction` | `ArchitectureReductionFinding` | `severity` | `unclassified` | `false` |
-| `architecture_reduction` | `ArchitectureReductionFinding` | `candidate_id` | `unclassified` | `false` |
-| `architecture_reduction` | `ArchitectureReductionFinding` | `item_id` | `unclassified` | `false` |
-| `architecture_reduction` | `ArchitectureReductionFinding` | `metadata` | `collection_metadata` | `false` |
-| `architecture_reduction` | `ArchitectureReductionReport` | `ok` | `evidence_or_decision` | `false` |
-| `architecture_reduction` | `ArchitectureReductionReport` | `reduction_id` | `unclassified` | `false` |
-| `architecture_reduction` | `ArchitectureReductionReport` | `decision` | `evidence_or_decision` | `false` |
-| `architecture_reduction` | `ArchitectureReductionReport` | `findings` | `evidence_or_decision` | `false` |
-| `architecture_reduction` | `ArchitectureReductionReport` | `ready_candidate_ids` | `collection_metadata` | `false` |
-| `architecture_reduction` | `ArchitectureReductionReport` | `completed_candidate_ids` | `collection_metadata` | `false` |
-| `architecture_reduction` | `ArchitectureReductionReport` | `target_actions` | `behavior_or_contract` | `true` |
-| `architecture_reduction` | `ArchitectureReductionReport` | `required_next_routes` | `behavior_or_contract` | `true` |
-| `architecture_reduction` | `ArchitectureReductionReport` | `summary` | `evidence_or_decision` | `false` |
-| `architecture_reduction` | `ArchitectureReductionReport` | `compatibility_surfaces` | `compatibility_or_old_path` | `true` |
-| `artifact_upgrade` | `ArtifactUpgradeItem` | `path` | `unclassified` | `false` |
-| `artifact_upgrade` | `ArtifactUpgradeItem` | `item_kind` | `unclassified` | `false` |
-| `artifact_upgrade` | `ArtifactUpgradeItem` | `status` | `evidence_or_decision` | `false` |
-| `artifact_upgrade` | `ArtifactUpgradeItem` | `detected_shape` | `unclassified` | `false` |
-| `artifact_upgrade` | `ArtifactUpgradeItem` | `replacement` | `compatibility_or_old_path` | `true` |
-| `artifact_upgrade` | `ArtifactUpgradeItem` | `message` | `display_or_metadata` | `false` |
-| `artifact_upgrade` | `ArtifactUpgradeItem` | `changed` | `unclassified` | `false` |
-| `artifact_upgrade` | `ArtifactUpgradeItem` | `metadata` | `collection_metadata` | `false` |
-| `artifact_upgrade` | `ArtifactUpgradeReport` | `root` | `unclassified` | `false` |
-| `artifact_upgrade` | `ArtifactUpgradeReport` | `apply` | `unclassified` | `false` |
-| `artifact_upgrade` | `ArtifactUpgradeReport` | `items` | `collection_metadata` | `false` |
-| `artifact_upgrade` | `ArtifactUpgradeReport` | `summary` | `evidence_or_decision` | `false` |
-| `assumptions` | `ConditionalAssumption` | `name` | `display_or_metadata` | `false` |
-| `assumptions` | `ConditionalAssumption` | `fixed` | `unclassified` | `false` |
-| `assumptions` | `ConditionalAssumption` | `boundary` | `unclassified` | `false` |
-| `assumptions` | `ConditionalAssumption` | `preconditions` | `collection_metadata` | `false` |
-| `assumptions` | `ConditionalAssumption` | `why_not_modeled` | `unclassified` | `false` |
-| `assumptions` | `ConditionalAssumption` | `rationale` | `unclassified` | `false` |
-| `assumptions` | `ConditionalAssumption` | `invalidated_by` | `collection_metadata` | `false` |
-| `assumptions` | `ConditionalAssumption` | `checks` | `collection_metadata` | `false` |
-| `assumptions` | `ConditionalAssumption` | `scope` | `unclassified` | `false` |
-| `assumptions` | `ConditionalAssumption` | `metadata` | `unclassified` | `false` |
-| `assumptions` | `AssumptionCard` | `assumptions` | `collection_metadata` | `false` |
-| `assumptions` | `AssumptionCard` | `title` | `display_or_metadata` | `false` |
-| `assumptions` | `AssumptionCard` | `purpose` | `unclassified` | `false` |
-| `assumptions` | `AssumptionCard` | `checked_scope` | `collection_metadata` | `false` |
-| `assumptions` | `AssumptionCard` | `not_covered` | `collection_metadata` | `false` |
-| `assumptions` | `AssumptionCard` | `metadata` | `unclassified` | `false` |
-| `audit` | `ModelQualityFinding` | `severity` | `unclassified` | `false` |
-| `audit` | `ModelQualityFinding` | `category` | `unclassified` | `false` |
-| `audit` | `ModelQualityFinding` | `message` | `display_or_metadata` | `false` |
-| `audit` | `ModelQualityFinding` | `recommendation` | `unclassified` | `false` |
-| `audit` | `ModelQualityFinding` | `metadata` | `unclassified` | `false` |
-| `audit` | `ModelQualityAuditReport` | `ok` | `evidence_or_decision` | `false` |
-| `audit` | `ModelQualityAuditReport` | `status` | `evidence_or_decision` | `false` |
-| `audit` | `ModelQualityAuditReport` | `findings` | `evidence_or_decision` | `false` |
-| `audit` | `ModelQualityAuditReport` | `summary` | `evidence_or_decision` | `false` |
-| `auto_split` | `AutoSplitPolicy` | `model_state_threshold` | `compatibility_or_old_path` | `true` |
-| `auto_split` | `AutoSplitPolicy` | `test_duration_seconds_threshold` | `compatibility_or_old_path` | `true` |
-| `auto_split` | `AutoSplitPolicy` | `test_count_threshold` | `compatibility_or_old_path` | `true` |
-| `auto_split` | `AutoSplitPolicy` | `selected_test_threshold` | `compatibility_or_old_path` | `true` |
-| `auto_split` | `AutoSplitPolicy` | `broad_obligation_threshold` | `compatibility_or_old_path` | `true` |
-| `auto_split` | `AutoSplitCandidate` | `candidate_id` | `unclassified` | `false` |
-| `auto_split` | `AutoSplitCandidate` | `target_kind` | `unclassified` | `false` |
-| `auto_split` | `AutoSplitCandidate` | `parent_id` | `unclassified` | `false` |
-| `auto_split` | `AutoSplitCandidate` | `evidence_id` | `evidence_or_decision` | `false` |
-| `auto_split` | `AutoSplitCandidate` | `source_model_id` | `unclassified` | `false` |
-| `auto_split` | `AutoSplitCandidate` | `source_model_path` | `unclassified` | `false` |
-| `auto_split` | `AutoSplitCandidate` | `estimated_state_count` | `behavior_or_contract` | `true` |
-| `auto_split` | `AutoSplitCandidate` | `observed_state_count` | `behavior_or_contract` | `true` |
-| `auto_split` | `AutoSplitCandidate` | `processed_state_count` | `behavior_or_contract` | `true` |
-| `auto_split` | `AutoSplitCandidate` | `pending_state_count` | `behavior_or_contract` | `true` |
-| `auto_split` | `AutoSplitCandidate` | `duration_seconds` | `unclassified` | `false` |
-| `auto_split` | `AutoSplitCandidate` | `test_count` | `unclassified` | `false` |
-| `auto_split` | `AutoSplitCandidate` | `selected_count` | `unclassified` | `false` |
-| `auto_split` | `AutoSplitCandidate` | `covered_obligation_count` | `behavior_or_contract` | `true` |
-| `auto_split` | `AutoSplitCandidate` | `separable_areas` | `unclassified` | `false` |
-| `auto_split` | `AutoSplitCandidate` | `background` | `unclassified` | `false` |
-| `auto_split` | `AutoSplitCandidate` | `progress_only` | `unclassified` | `false` |
-| `auto_split` | `AutoSplitCandidate` | `release_only` | `unclassified` | `false` |
-| `auto_split` | `AutoSplitCandidate` | `suggested_child_ids` | `collection_metadata` | `false` |
-| `auto_split` | `AutoSplitCandidate` | `covered_partition_item_ids` | `collection_metadata` | `false` |
-| `auto_split` | `AutoSplitCandidate` | `state_owner_fields` | `behavior_or_contract` | `true` |
-| `auto_split` | `AutoSplitCandidate` | `side_effect_owner_fields` | `behavior_or_contract` | `true` |
-| `auto_split` | `AutoSplitCandidate` | `split_gate_id` | `unclassified` | `false` |
-| `auto_split` | `AutoSplitCandidate` | `split_review_current` | `unclassified` | `false` |
-| `auto_split` | `AutoSplitCandidate` | `split_confidence` | `evidence_or_decision` | `false` |
-| `auto_split` | `AutoSplitCandidate` | `scoped_reasons` | `evidence_or_decision` | `false` |
-| `auto_split` | `AutoSplitCandidate` | `rationale` | `unclassified` | `false` |
-| `auto_split` | `AutoSplitCandidate` | `metadata` | `collection_metadata` | `false` |
-| `auto_split` | `AutoSplitPlan` | `plan_id` | `unclassified` | `false` |
-| `auto_split` | `AutoSplitPlan` | `candidates` | `collection_metadata` | `false` |
-| `auto_split` | `AutoSplitPlan` | `policy` | `unclassified` | `false` |
-| `auto_split` | `AutoSplitPlan` | `allow_scoped_confidence` | `evidence_or_decision` | `false` |
-| `auto_split` | `AutoSplitFinding` | `code` | `unclassified` | `false` |
-| `auto_split` | `AutoSplitFinding` | `message` | `display_or_metadata` | `false` |
-| `auto_split` | `AutoSplitFinding` | `severity` | `unclassified` | `false` |
-| `auto_split` | `AutoSplitFinding` | `candidate_id` | `unclassified` | `false` |
-| `auto_split` | `AutoSplitFinding` | `target_route` | `behavior_or_contract` | `true` |
-| `auto_split` | `AutoSplitFinding` | `metadata` | `collection_metadata` | `false` |
-| `auto_split` | `AutoSplitReport` | `ok` | `evidence_or_decision` | `false` |
-| `auto_split` | `AutoSplitReport` | `plan_id` | `unclassified` | `false` |
-| `auto_split` | `AutoSplitReport` | `decision` | `evidence_or_decision` | `false` |
-| `auto_split` | `AutoSplitReport` | `findings` | `evidence_or_decision` | `false` |
-| `auto_split` | `AutoSplitReport` | `required_model_candidate_ids` | `collection_metadata` | `false` |
-| `auto_split` | `AutoSplitReport` | `required_test_candidate_ids` | `collection_metadata` | `false` |
-| `auto_split` | `AutoSplitReport` | `model_target_split_derivations` | `collection_metadata` | `false` |
-| `auto_split` | `AutoSplitReport` | `test_target_split_derivations` | `collection_metadata` | `false` |
-| `auto_split` | `AutoSplitReport` | `summary` | `evidence_or_decision` | `false` |
-| `baseline` | `EvidenceCaseResult` | `name` | `display_or_metadata` | `false` |
-| `baseline` | `EvidenceCaseResult` | `group` | `unclassified` | `false` |
-| `baseline` | `EvidenceCaseResult` | `bug_class` | `unclassified` | `false` |
-| `baseline` | `EvidenceCaseResult` | `expected` | `unclassified` | `false` |
-| `baseline` | `EvidenceCaseResult` | `observed` | `unclassified` | `false` |
-| `baseline` | `EvidenceCaseResult` | `status` | `evidence_or_decision` | `false` |
-| `baseline` | `EvidenceCaseResult` | `evidence` | `evidence_or_decision` | `false` |
-| `baseline` | `EvidenceCaseResult` | `metadata` | `unclassified` | `false` |
-| `baseline` | `EvidenceBaselineReport` | `ok` | `evidence_or_decision` | `false` |
-| `baseline` | `EvidenceBaselineReport` | `total_cases` | `unclassified` | `false` |
-| `baseline` | `EvidenceBaselineReport` | `target_cases` | `unclassified` | `false` |
-| `baseline` | `EvidenceBaselineReport` | `meets_target` | `unclassified` | `false` |
-| `baseline` | `EvidenceBaselineReport` | `status_counts` | `evidence_or_decision` | `false` |
-| `baseline` | `EvidenceBaselineReport` | `group_counts` | `collection_metadata` | `false` |
-| `baseline` | `EvidenceBaselineReport` | `bug_class_counts` | `collection_metadata` | `false` |
-| `baseline` | `EvidenceBaselineReport` | `results` | `evidence_or_decision` | `false` |
-| `baseline` | `EvidenceBaselineReport` | `summary` | `evidence_or_decision` | `false` |
-| `benchmark` | `BenchmarkScorecard` | `ok` | `evidence_or_decision` | `false` |
-| `benchmark` | `BenchmarkScorecard` | `total_cases` | `unclassified` | `false` |
-| `benchmark` | `BenchmarkScorecard` | `real_model_cases` | `unclassified` | `false` |
-| `benchmark` | `BenchmarkScorecard` | `generic_fallback_cases` | `compatibility_or_old_path` | `true` |
-| `benchmark` | `BenchmarkScorecard` | `model_variant_total` | `unclassified` | `false` |
-| `benchmark` | `BenchmarkScorecard` | `model_families_with_six_variants` | `unclassified` | `false` |
-| `benchmark` | `BenchmarkScorecard` | `failure_cases` | `unclassified` | `false` |
-| `benchmark` | `BenchmarkScorecard` | `status_counts` | `evidence_or_decision` | `false` |
-| `benchmark` | `BenchmarkScorecard` | `model_family_counts` | `collection_metadata` | `false` |
-| `benchmark` | `BenchmarkScorecard` | `failure_mode_counts` | `collection_metadata` | `false` |
-| `benchmark` | `BenchmarkScorecard` | `model_variant_counts` | `collection_metadata` | `false` |
-| `benchmark` | `BenchmarkScorecard` | `oracle_type_counts` | `collection_metadata` | `false` |
-| `benchmark` | `BenchmarkScorecard` | `summary` | `evidence_or_decision` | `false` |
-| `budgeted` | `BudgetedGraphConfig` | `model_name` | `display_or_metadata` | `false` |
-| `budgeted` | `BudgetedGraphConfig` | `initial_states` | `behavior_or_contract` | `true` |
-| `budgeted` | `BudgetedGraphConfig` | `transition_fn` | `behavior_or_contract` | `true` |
-| `budgeted` | `BudgetedGraphConfig` | `state_id` | `behavior_or_contract` | `true` |
-| `budgeted` | `BudgetedGraphConfig` | `encode_state` | `behavior_or_contract` | `true` |
-| `budgeted` | `BudgetedGraphConfig` | `decode_state` | `behavior_or_contract` | `true` |
-| `budgeted` | `BudgetedGraphConfig` | `run_root` | `unclassified` | `false` |
-| `budgeted` | `BudgetedGraphConfig` | `budget_per_shard` | `unclassified` | `false` |
-| `budgeted` | `BudgetedGraphConfig` | `max_shards_per_run` | `unclassified` | `false` |
-| `budgeted` | `BudgetedGraphConfig` | `invariants` | `behavior_or_contract` | `true` |
-| `budgeted` | `BudgetedGraphConfig` | `required_labels` | `collection_metadata` | `false` |
-| `budgeted` | `BudgetedGraphConfig` | `fingerprint_parts` | `collection_metadata` | `false` |
-| `budgeted` | `BudgetedGraphConfig` | `fingerprint_files` | `collection_metadata` | `false` |
-| `budgeted` | `BudgetedGraphConfig` | `max_failure_samples` | `unclassified` | `false` |
-| `budgeted` | `BudgetedGraphConfig` | `progress_steps` | `unclassified` | `false` |
-| `budgeted` | `BudgetedGraphFailure` | `kind` | `unclassified` | `false` |
-| `budgeted` | `BudgetedGraphFailure` | `name` | `display_or_metadata` | `false` |
-| `budgeted` | `BudgetedGraphFailure` | `message` | `display_or_metadata` | `false` |
-| `budgeted` | `BudgetedGraphFailure` | `state_id` | `behavior_or_contract` | `true` |
-| `budgeted` | `BudgetedGraphFailure` | `state` | `behavior_or_contract` | `true` |
-| `budgeted` | `BudgetedGraphFailure` | `metadata` | `unclassified` | `false` |
-| `budgeted` | `BudgetedShardReport` | `shard_index` | `unclassified` | `false` |
-| `budgeted` | `BudgetedShardReport` | `status` | `evidence_or_decision` | `false` |
-| `budgeted` | `BudgetedShardReport` | `processed_state_count` | `behavior_or_contract` | `true` |
-| `budgeted` | `BudgetedShardReport` | `edge_count` | `unclassified` | `false` |
-| `budgeted` | `BudgetedShardReport` | `pending_state_count` | `behavior_or_contract` | `true` |
-| `budgeted` | `BudgetedShardReport` | `started_at` | `unclassified` | `false` |
-| `budgeted` | `BudgetedShardReport` | `finished_at` | `unclassified` | `false` |
-| `budgeted` | `BudgetedGraphReport` | `ok` | `evidence_or_decision` | `false` |
-| `budgeted` | `BudgetedGraphReport` | `status` | `evidence_or_decision` | `false` |
-| `budgeted` | `BudgetedGraphReport` | `complete` | `unclassified` | `false` |
-| `budgeted` | `BudgetedGraphReport` | `model_name` | `display_or_metadata` | `false` |
-| `budgeted` | `BudgetedGraphReport` | `fingerprint` | `unclassified` | `false` |
-| `budgeted` | `BudgetedGraphReport` | `run_dir` | `unclassified` | `false` |
-| `budgeted` | `BudgetedGraphReport` | `budget_per_shard` | `unclassified` | `false` |
-| `budgeted` | `BudgetedGraphReport` | `max_shards_per_run` | `unclassified` | `false` |
-| `budgeted` | `BudgetedGraphReport` | `known_state_count` | `behavior_or_contract` | `true` |
-| `budgeted` | `BudgetedGraphReport` | `processed_state_count` | `behavior_or_contract` | `true` |
-| `budgeted` | `BudgetedGraphReport` | `processed_this_run` | `unclassified` | `false` |
-| `budgeted` | `BudgetedGraphReport` | `pending_state_count` | `behavior_or_contract` | `true` |
-| `budgeted` | `BudgetedGraphReport` | `edge_count` | `unclassified` | `false` |
-| `budgeted` | `BudgetedGraphReport` | `edge_count_this_run` | `unclassified` | `false` |
-| `budgeted` | `BudgetedGraphReport` | `shard_count` | `unclassified` | `false` |
-| `budgeted` | `BudgetedGraphReport` | `shards_processed_this_run` | `unclassified` | `false` |
-| `budgeted` | `BudgetedGraphReport` | `labels` | `collection_metadata` | `false` |
-| `budgeted` | `BudgetedGraphReport` | `required_labels` | `collection_metadata` | `false` |
-| `budgeted` | `BudgetedGraphReport` | `missing_labels` | `collection_metadata` | `false` |
-| `budgeted` | `BudgetedGraphReport` | `failure_count` | `unclassified` | `false` |
-| `budgeted` | `BudgetedGraphReport` | `failures` | `collection_metadata` | `false` |
-| `budgeted` | `BudgetedGraphReport` | `shards` | `collection_metadata` | `false` |
-| `budgeted` | `BudgetedGraphReport` | `reused_complete_result` | `evidence_or_decision` | `false` |
-| `budgeted` | `BudgetedGraphReport` | `summary` | `evidence_or_decision` | `false` |
-| `closure_contract` | `ClosureEvidenceReport` | `report_id` | `evidence_or_decision` | `false` |
-| `closure_contract` | `ClosureEvidenceReport` | `report_kind` | `evidence_or_decision` | `false` |
-| `closure_contract` | `ClosureEvidenceReport` | `decision` | `evidence_or_decision` | `false` |
-| `closure_contract` | `ClosureEvidenceReport` | `ok` | `evidence_or_decision` | `false` |
-| `closure_contract` | `ClosureEvidenceReport` | `current` | `unclassified` | `false` |
-| `closure_contract` | `ClosureEvidenceReport` | `confidence` | `evidence_or_decision` | `false` |
-| `closure_contract` | `ClosureEvidenceReport` | `result_status` | `evidence_or_decision` | `false` |
-| `closure_contract` | `ClosureEvidenceReport` | `proof_artifact_ids` | `evidence_or_decision` | `false` |
-| `closure_contract` | `ClosureEvidenceReport` | `summary` | `evidence_or_decision` | `false` |
-| `closure_contract` | `ClosureEvidenceReport` | `metadata` | `unclassified` | `false` |
-| `closure_contract` | `RuntimeTraceMapping` | `trace_id` | `unclassified` | `false` |
-| `closure_contract` | `RuntimeTraceMapping` | `model_obligation_id` | `behavior_or_contract` | `true` |
-| `closure_contract` | `RuntimeTraceMapping` | `source_evidence_id` | `evidence_or_decision` | `false` |
-| `closure_contract` | `RuntimeTraceMapping` | `current` | `unclassified` | `false` |
-| `closure_contract` | `RuntimeTraceMapping` | `result_status` | `evidence_or_decision` | `false` |
-| `closure_contract` | `RuntimeTraceMapping` | `in_scope` | `unclassified` | `false` |
-| `closure_contract` | `RuntimeTraceMapping` | `required` | `unclassified` | `false` |
-| `closure_contract` | `RuntimeTraceMapping` | `out_of_scope_reason` | `evidence_or_decision` | `false` |
-| `closure_contract` | `RuntimeTraceMapping` | `metadata` | `unclassified` | `false` |
-| `closure_contract` | `ArtifactInvalidation` | `artifact_id` | `unclassified` | `false` |
-| `closure_contract` | `ArtifactInvalidation` | `changed` | `unclassified` | `false` |
-| `closure_contract` | `ArtifactInvalidation` | `dependent_evidence_ids` | `evidence_or_decision` | `false` |
-| `closure_contract` | `ArtifactInvalidation` | `revalidation_evidence_ids` | `evidence_or_decision` | `false` |
-| `closure_contract` | `ArtifactInvalidation` | `current` | `unclassified` | `false` |
-| `closure_contract` | `ArtifactInvalidation` | `result_status` | `evidence_or_decision` | `false` |
-| `closure_contract` | `ArtifactInvalidation` | `evidence_area` | `evidence_or_decision` | `false` |
-| `closure_contract` | `ArtifactInvalidation` | `stale_evidence_ids` | `evidence_or_decision` | `false` |
-| `closure_contract` | `ArtifactInvalidation` | `required` | `unclassified` | `false` |
-| `closure_contract` | `ArtifactInvalidation` | `metadata` | `unclassified` | `false` |
-| `closure_contract` | `ModelQualitySignal` | `signal_id` | `unclassified` | `false` |
-| `closure_contract` | `ModelQualitySignal` | `signal_type` | `unclassified` | `false` |
-| `closure_contract` | `ModelQualitySignal` | `model_id` | `unclassified` | `false` |
-| `closure_contract` | `ModelQualitySignal` | `description` | `display_or_metadata` | `false` |
-| `closure_contract` | `ModelQualitySignal` | `resolved` | `unclassified` | `false` |
-| `closure_contract` | `ModelQualitySignal` | `current` | `unclassified` | `false` |
-| `closure_contract` | `ModelQualitySignal` | `in_scope` | `unclassified` | `false` |
-| `closure_contract` | `ModelQualitySignal` | `required` | `unclassified` | `false` |
-| `closure_contract` | `ModelQualitySignal` | `resolution_evidence_ids` | `evidence_or_decision` | `false` |
-| `closure_contract` | `ModelQualitySignal` | `metadata` | `unclassified` | `false` |
-| `closure_contract` | `SameClassMissClosure` | `miss_id` | `unclassified` | `false` |
-| `closure_contract` | `SameClassMissClosure` | `observed_failure_evidence_id` | `evidence_or_decision` | `false` |
-| `closure_contract` | `SameClassMissClosure` | `same_class_proof_evidence_id` | `evidence_or_decision` | `false` |
-| `closure_contract` | `SameClassMissClosure` | `model_obligation_id` | `behavior_or_contract` | `true` |
-| `closure_contract` | `SameClassMissClosure` | `defect_family_id` | `unclassified` | `false` |
-| `closure_contract` | `SameClassMissClosure` | `current` | `unclassified` | `false` |
-| `closure_contract` | `SameClassMissClosure` | `result_status` | `evidence_or_decision` | `false` |
-| `closure_contract` | `SameClassMissClosure` | `in_scope` | `unclassified` | `false` |
-| `closure_contract` | `SameClassMissClosure` | `required` | `unclassified` | `false` |
-| `closure_contract` | `SameClassMissClosure` | `metadata` | `unclassified` | `false` |
-| `closure_contract` | `RuntimeGatewayInventoryClosure` | `closure_id` | `unclassified` | `false` |
-| `closure_contract` | `RuntimeGatewayInventoryClosure` | `inventory_source_evidence_ids` | `evidence_or_decision` | `false` |
-| `closure_contract` | `RuntimeGatewayInventoryClosure` | `gateway_report_evidence_id` | `evidence_or_decision` | `false` |
-| `closure_contract` | `RuntimeGatewayInventoryClosure` | `current` | `unclassified` | `false` |
-| `closure_contract` | `RuntimeGatewayInventoryClosure` | `result_status` | `evidence_or_decision` | `false` |
-| `closure_contract` | `RuntimeGatewayInventoryClosure` | `unresolved_path_owner_conflicts` | `collection_metadata` | `false` |
-| `closure_contract` | `RuntimeGatewayInventoryClosure` | `in_scope` | `unclassified` | `false` |
-| `closure_contract` | `RuntimeGatewayInventoryClosure` | `required` | `unclassified` | `false` |
-| `closure_contract` | `RuntimeGatewayInventoryClosure` | `metadata` | `unclassified` | `false` |
-| `closure_contract` | `FlowGuardClosureContractPlan` | `claim_id` | `unclassified` | `false` |
-| `closure_contract` | `FlowGuardClosureContractPlan` | `claim_scope` | `unclassified` | `false` |
-| `closure_contract` | `FlowGuardClosureContractPlan` | `runtime_trace_mappings` | `collection_metadata` | `false` |
-| `closure_contract` | `FlowGuardClosureContractPlan` | `artifact_invalidations` | `collection_metadata` | `false` |
-| `closure_contract` | `FlowGuardClosureContractPlan` | `model_quality_signals` | `collection_metadata` | `false` |
-| `closure_contract` | `FlowGuardClosureContractPlan` | `same_class_miss_closures` | `collection_metadata` | `false` |
-| `closure_contract` | `FlowGuardClosureContractPlan` | `runtime_gateway_closures` | `collection_metadata` | `false` |
-| `closure_contract` | `FlowGuardClosureContractPlan` | `field_lifecycle_reports` | `evidence_or_decision` | `false` |
-| `closure_contract` | `FlowGuardClosureContractPlan` | `model_angle_reports` | `evidence_or_decision` | `false` |
-| `closure_contract` | `FlowGuardClosureContractPlan` | `evidence_reports` | `evidence_or_decision` | `false` |
-| `closure_contract` | `FlowGuardClosureContractPlan` | `require_runtime_trace_mapping` | `unclassified` | `false` |
-| `closure_contract` | `FlowGuardClosureContractPlan` | `require_artifact_freshness` | `unclassified` | `false` |
-| `closure_contract` | `FlowGuardClosureContractPlan` | `require_model_quality_review` | `unclassified` | `false` |
-| `closure_contract` | `FlowGuardClosureContractPlan` | `require_same_class_miss_closure` | `unclassified` | `false` |
-| `closure_contract` | `FlowGuardClosureContractPlan` | `require_runtime_gateway_closure` | `unclassified` | `false` |
-| `closure_contract` | `FlowGuardClosureContractPlan` | `require_field_lifecycle` | `unclassified` | `false` |
-| `closure_contract` | `FlowGuardClosureContractPlan` | `require_model_angle_review` | `unclassified` | `false` |
-| `closure_contract` | `FlowGuardClosureContractPlan` | `require_runtime_path_alignment` | `unclassified` | `false` |
-| `closure_contract` | `FlowGuardClosureContractPlan` | `require_risk_ledger` | `unclassified` | `false` |
-| `closure_contract` | `FlowGuardClosureContractPlan` | `allow_scoped_confidence` | `evidence_or_decision` | `false` |
-| `closure_contract` | `FlowGuardClosureContractPlan` | `metadata` | `unclassified` | `false` |
-| `closure_contract` | `FlowGuardClosureFinding` | `code` | `unclassified` | `false` |
-| `closure_contract` | `FlowGuardClosureFinding` | `message` | `display_or_metadata` | `false` |
-| `closure_contract` | `FlowGuardClosureFinding` | `severity` | `unclassified` | `false` |
-| `closure_contract` | `FlowGuardClosureFinding` | `evidence_id` | `evidence_or_decision` | `false` |
-| `closure_contract` | `FlowGuardClosureFinding` | `model_obligation_id` | `behavior_or_contract` | `true` |
-| `closure_contract` | `FlowGuardClosureFinding` | `metadata` | `unclassified` | `false` |
-| `closure_contract` | `FlowGuardClosureContractReport` | `plan` | `unclassified` | `false` |
-| `closure_contract` | `FlowGuardClosureContractReport` | `findings` | `evidence_or_decision` | `false` |
-| `closure_contract` | `FlowGuardClosureContractReport` | `decision` | `evidence_or_decision` | `false` |
-| `closure_contract` | `FlowGuardClosureContractReport` | `confidence` | `evidence_or_decision` | `false` |
-| `closure_contract` | `FlowGuardClosureContractReport` | `summary` | `evidence_or_decision` | `false` |
-| `code_structure` | `TargetModuleRecommendation` | `module_id` | `unclassified` | `false` |
-| `code_structure` | `TargetModuleRecommendation` | `path` | `unclassified` | `false` |
-| `code_structure` | `TargetModuleRecommendation` | `layer` | `unclassified` | `false` |
-| `code_structure` | `TargetModuleRecommendation` | `owns_function_blocks` | `collection_metadata` | `false` |
-| `code_structure` | `TargetModuleRecommendation` | `owns_state` | `behavior_or_contract` | `true` |
-| `code_structure` | `TargetModuleRecommendation` | `owns_side_effects` | `behavior_or_contract` | `true` |
-| `code_structure` | `TargetModuleRecommendation` | `owns_config` | `collection_metadata` | `false` |
-| `code_structure` | `TargetModuleRecommendation` | `owns_fields` | `collection_metadata` | `false` |
-| `code_structure` | `TargetModuleRecommendation` | `reads_fields` | `collection_metadata` | `false` |
-| `code_structure` | `TargetModuleRecommendation` | `writes_fields` | `collection_metadata` | `false` |
-| `code_structure` | `TargetModuleRecommendation` | `public_entrypoints` | `collection_metadata` | `false` |
-| `code_structure` | `TargetModuleRecommendation` | `validation_boundaries` | `collection_metadata` | `false` |
-| `code_structure` | `TargetModuleRecommendation` | `rationale` | `unclassified` | `false` |
-| `code_structure` | `CodeStructureRecommendation` | `recommendation_id` | `unclassified` | `false` |
-| `code_structure` | `CodeStructureRecommendation` | `source_model_id` | `unclassified` | `false` |
-| `code_structure` | `CodeStructureRecommendation` | `parent_module_id` | `unclassified` | `false` |
-| `code_structure` | `CodeStructureRecommendation` | `target_modules` | `collection_metadata` | `false` |
-| `code_structure` | `CodeStructureRecommendation` | `source_model_path` | `unclassified` | `false` |
-| `code_structure` | `CodeStructureRecommendation` | `source_model_evidence_tier` | `evidence_or_decision` | `false` |
-| `code_structure` | `CodeStructureRecommendation` | `function_block_map` | `collection_metadata` | `false` |
-| `code_structure` | `CodeStructureRecommendation` | `state_owner_map` | `behavior_or_contract` | `true` |
-| `code_structure` | `CodeStructureRecommendation` | `side_effect_owner_map` | `behavior_or_contract` | `true` |
-| `code_structure` | `CodeStructureRecommendation` | `config_owner_map` | `collection_metadata` | `false` |
-| `code_structure` | `CodeStructureRecommendation` | `field_owner_map` | `collection_metadata` | `false` |
-| `code_structure` | `CodeStructureRecommendation` | `field_reader_map` | `collection_metadata` | `false` |
-| `code_structure` | `CodeStructureRecommendation` | `field_writer_map` | `collection_metadata` | `false` |
-| `code_structure` | `CodeStructureRecommendation` | `public_entrypoint_map` | `collection_metadata` | `false` |
-| `code_structure` | `CodeStructureRecommendation` | `facade_module_id` | `unclassified` | `false` |
-| `code_structure` | `CodeStructureRecommendation` | `similarity_handoff` | `collection_metadata` | `false` |
-| `code_structure` | `CodeStructureRecommendation` | `shared_kernel_module_id` | `unclassified` | `false` |
-| `code_structure` | `CodeStructureRecommendation` | `variant_adapter_module_ids` | `collection_metadata` | `false` |
-| `code_structure` | `CodeStructureRecommendation` | `validation_boundaries` | `collection_metadata` | `false` |
-| `code_structure` | `CodeStructureRecommendation` | `rationale` | `unclassified` | `false` |
-| `code_structure` | `CodeStructureRecommendation` | `hierarchical_model_used` | `unclassified` | `false` |
-| `code_structure` | `CodeStructureFinding` | `code` | `unclassified` | `false` |
-| `code_structure` | `CodeStructureFinding` | `message` | `display_or_metadata` | `false` |
-| `code_structure` | `CodeStructureFinding` | `severity` | `unclassified` | `false` |
-| `code_structure` | `CodeStructureFinding` | `module_id` | `unclassified` | `false` |
-| `code_structure` | `CodeStructureFinding` | `item_id` | `unclassified` | `false` |
-| `code_structure` | `CodeStructureFinding` | `metadata` | `collection_metadata` | `false` |
-| `code_structure` | `CodeStructureRecommendationReport` | `ok` | `evidence_or_decision` | `false` |
-| `code_structure` | `CodeStructureRecommendationReport` | `recommendation_id` | `unclassified` | `false` |
-| `code_structure` | `CodeStructureRecommendationReport` | `findings` | `evidence_or_decision` | `false` |
-| `code_structure` | `CodeStructureRecommendationReport` | `summary` | `evidence_or_decision` | `false` |
-| `conformance` | `ConformanceRule` | `name` | `display_or_metadata` | `false` |
-| `conformance` | `ConformanceRule` | `description` | `display_or_metadata` | `false` |
-| `conformance` | `ConformanceRule` | `check` | `unclassified` | `false` |
-| `conformance` | `ConformanceViolation` | `message` | `display_or_metadata` | `false` |
-| `conformance` | `ConformanceViolation` | `step_index` | `unclassified` | `false` |
-| `conformance` | `ConformanceViolation` | `expected_step` | `unclassified` | `false` |
-| `conformance` | `ConformanceViolation` | `observed_step` | `unclassified` | `false` |
-| `conformance` | `ConformanceViolation` | `rule_name` | `display_or_metadata` | `false` |
-| `conformance` | `ConformanceViolation` | `trace` | `unclassified` | `false` |
-| `conformance` | `ConformanceViolation` | `metadata` | `unclassified` | `false` |
-| `conformance` | `ConformanceReport` | `ok` | `evidence_or_decision` | `false` |
-| `conformance` | `ConformanceReport` | `violations` | `collection_metadata` | `false` |
-| `conformance` | `ConformanceReport` | `replayed_steps` | `collection_metadata` | `false` |
-| `conformance` | `ConformanceReport` | `failed_step_index` | `unclassified` | `false` |
-| `conformance` | `ConformanceReport` | `expected_trace` | `unclassified` | `false` |
-| `conformance` | `ConformanceReport` | `summary` | `evidence_or_decision` | `false` |
-| `contract` | `FunctionContract` | `function_name` | `display_or_metadata` | `false` |
-| `contract` | `FunctionContract` | `accepted_input_type` | `behavior_or_contract` | `true` |
-| `contract` | `FunctionContract` | `output_type` | `behavior_or_contract` | `true` |
-| `contract` | `FunctionContract` | `reads` | `collection_metadata` | `false` |
-| `contract` | `FunctionContract` | `writes` | `collection_metadata` | `false` |
-| `contract` | `FunctionContract` | `forbidden_writes` | `collection_metadata` | `false` |
-| `contract` | `FunctionContract` | `preconditions` | `collection_metadata` | `false` |
-| `contract` | `FunctionContract` | `postconditions` | `collection_metadata` | `false` |
-| `contract` | `FunctionContract` | `idempotency_rule` | `unclassified` | `false` |
-| `contract` | `FunctionContract` | `traceability_rule` | `unclassified` | `false` |
-| `contract` | `FunctionContract` | `failure_modes` | `collection_metadata` | `false` |
-| `contract` | `FunctionContract` | `metadata` | `unclassified` | `false` |
-| `contract` | `ContractViolation` | `name` | `display_or_metadata` | `false` |
-| `contract` | `ContractViolation` | `message` | `display_or_metadata` | `false` |
-| `contract` | `ContractViolation` | `function_name` | `display_or_metadata` | `false` |
-| `contract` | `ContractViolation` | `step_index` | `unclassified` | `false` |
-| `contract` | `ContractViolation` | `step` | `unclassified` | `false` |
-| `contract` | `ContractViolation` | `metadata` | `unclassified` | `false` |
-| `contract` | `ContractCheckReport` | `ok` | `evidence_or_decision` | `false` |
-| `contract` | `ContractCheckReport` | `violations` | `collection_metadata` | `false` |
-| `contract` | `ContractCheckReport` | `checked_steps` | `unclassified` | `false` |
-| `contract` | `ContractCheckReport` | `summary` | `evidence_or_decision` | `false` |
-| `core` | `FunctionResult` | `output` | `behavior_or_contract` | `true` |
-| `core` | `FunctionResult` | `new_state` | `behavior_or_contract` | `true` |
-| `core` | `FunctionResult` | `label` | `display_or_metadata` | `false` |
-| `core` | `FunctionResult` | `reason` | `evidence_or_decision` | `false` |
-| `core` | `FunctionResult` | `metadata` | `unclassified` | `false` |
-| `core` | `InvariantResult` | `ok` | `evidence_or_decision` | `false` |
-| `core` | `InvariantResult` | `message` | `display_or_metadata` | `false` |
-| `core` | `InvariantResult` | `metadata` | `unclassified` | `false` |
-| `core` | `Invariant` | `name` | `display_or_metadata` | `false` |
-| `core` | `Invariant` | `description` | `display_or_metadata` | `false` |
-| `core` | `Invariant` | `predicate` | `unclassified` | `false` |
-| `core` | `Invariant` | `metadata` | `unclassified` | `false` |
-| `corpus` | `ProblemCase` | `case_id` | `unclassified` | `false` |
-| `corpus` | `ProblemCase` | `title` | `display_or_metadata` | `false` |
-| `corpus` | `ProblemCase` | `software_domain` | `unclassified` | `false` |
-| `corpus` | `ProblemCase` | `workflow_family` | `unclassified` | `false` |
-| `corpus` | `ProblemCase` | `software_structure` | `unclassified` | `false` |
-| `corpus` | `ProblemCase` | `operation_boundary` | `unclassified` | `false` |
-| `corpus` | `ProblemCase` | `actors` | `collection_metadata` | `false` |
-| `corpus` | `ProblemCase` | `external_inputs` | `behavior_or_contract` | `true` |
-| `corpus` | `ProblemCase` | `initial_state_shape` | `behavior_or_contract` | `true` |
-| `corpus` | `ProblemCase` | `state_transition_focus` | `behavior_or_contract` | `true` |
-| `corpus` | `ProblemCase` | `side_effects` | `behavior_or_contract` | `true` |
-| `corpus` | `ProblemCase` | `expected_behavior` | `unclassified` | `false` |
-| `corpus` | `ProblemCase` | `forbidden_behavior` | `collection_metadata` | `false` |
-| `corpus` | `ProblemCase` | `failure_mode` | `unclassified` | `false` |
-| `corpus` | `ProblemCase` | `evidence_to_check` | `evidence_or_decision` | `false` |
-| `corpus` | `ProblemCase` | `oracle_type` | `unclassified` | `false` |
-| `corpus` | `ProblemCase` | `case_kind` | `unclassified` | `false` |
-| `corpus` | `ProblemCase` | `importance` | `unclassified` | `false` |
-| `corpus` | `ProblemCase` | `non_goals` | `collection_metadata` | `false` |
-| `corpus` | `ProblemCase` | `notes` | `unclassified` | `false` |
-| `corpus` | `ProblemCase` | `metadata` | `unclassified` | `false` |
-| `corpus` | `ProblemCorpus` | `cases` | `collection_metadata` | `false` |
-| `corpus` | `ProblemCorpus` | `name` | `display_or_metadata` | `false` |
-| `corpus` | `ProblemCorpus` | `description` | `display_or_metadata` | `false` |
-| `corpus` | `ProblemCorpusReport` | `ok` | `evidence_or_decision` | `false` |
-| `corpus` | `ProblemCorpusReport` | `total_cases` | `unclassified` | `false` |
-| `corpus` | `ProblemCorpusReport` | `min_cases` | `unclassified` | `false` |
-| `corpus` | `ProblemCorpusReport` | `workflow_family_count` | `unclassified` | `false` |
-| `corpus` | `ProblemCorpusReport` | `failure_mode_count` | `unclassified` | `false` |
-| `corpus` | `ProblemCorpusReport` | `case_kind_counts` | `collection_metadata` | `false` |
-| `corpus` | `ProblemCorpusReport` | `workflow_family_counts` | `collection_metadata` | `false` |
-| `corpus` | `ProblemCorpusReport` | `failure_mode_counts` | `collection_metadata` | `false` |
-| `corpus` | `ProblemCorpusReport` | `oracle_type_counts` | `collection_metadata` | `false` |
-| `corpus` | `ProblemCorpusReport` | `software_domain_counts` | `collection_metadata` | `false` |
-| `corpus` | `ProblemCorpusReport` | `validation_errors` | `behavior_or_contract` | `true` |
-| `corpus` | `ProblemCorpusReport` | `case_source_counts` | `collection_metadata` | `false` |
-| `corpus` | `ProblemCorpusReport` | `gap_focus_counts` | `evidence_or_decision` | `false` |
-| `corpus` | `ProblemCorpusReport` | `pressure_focus_counts` | `collection_metadata` | `false` |
-| `corpus` | `ProblemCorpusReport` | `count_semantics` | `unclassified` | `false` |
-| `corpus` | `ProblemCorpusReport` | `execution_claim` | `unclassified` | `false` |
-| `corpus` | `ProblemCorpusReport` | `max_workflow_family_share` | `unclassified` | `false` |
-| `corpus` | `ProblemCorpusReport` | `top_5_failure_mode_share` | `unclassified` | `false` |
-| `corpus` | `ProblemCorpusReport` | `software_domain_count` | `unclassified` | `false` |
-| `corpus` | `ProblemCorpusReport` | `max_software_domain_share` | `unclassified` | `false` |
-| `corpus` | `ProblemCorpusReport` | `near_duplicate_group_max` | `unclassified` | `false` |
-| `corpus` | `ProblemCorpusReport` | `expected_behavior_uniqueness` | `unclassified` | `false` |
-| `corpus` | `ProblemCorpusReport` | `evidence_uniqueness` | `evidence_or_decision` | `false` |
-| `corpus` | `ProblemCorpusReport` | `summary` | `evidence_or_decision` | `false` |
-| `coverage` | `BenchmarkCoverageAudit` | `ok` | `evidence_or_decision` | `false` |
-| `coverage` | `BenchmarkCoverageAudit` | `total_cases` | `unclassified` | `false` |
-| `coverage` | `BenchmarkCoverageAudit` | `variant_target` | `unclassified` | `false` |
-| `coverage` | `BenchmarkCoverageAudit` | `variant_total` | `unclassified` | `false` |
-| `coverage` | `BenchmarkCoverageAudit` | `variant_min_cases` | `unclassified` | `false` |
-| `coverage` | `BenchmarkCoverageAudit` | `variant_max_cases` | `unclassified` | `false` |
-| `coverage` | `BenchmarkCoverageAudit` | `variants_below_target` | `collection_metadata` | `false` |
-| `coverage` | `BenchmarkCoverageAudit` | `required_case_kinds` | `collection_metadata` | `false` |
-| `coverage` | `BenchmarkCoverageAudit` | `families_missing_required_case_kinds` | `collection_metadata` | `false` |
-| `coverage` | `BenchmarkCoverageAudit` | `required_bug_classes` | `collection_metadata` | `false` |
-| `coverage` | `BenchmarkCoverageAudit` | `families_missing_required_bug_classes` | `collection_metadata` | `false` |
-| `coverage` | `BenchmarkCoverageAudit` | `family_case_kind_matrix` | `collection_metadata` | `false` |
-| `coverage` | `BenchmarkCoverageAudit` | `family_bug_class_matrix` | `collection_metadata` | `false` |
-| `coverage` | `BenchmarkCoverageAudit` | `single_family_dominance_ratio` | `unclassified` | `false` |
-| `coverage` | `BenchmarkCoverageAudit` | `job_matching_case_count` | `unclassified` | `false` |
-| `coverage` | `BenchmarkCoverageAudit` | `job_matching_dominance_ratio` | `unclassified` | `false` |
-| `coverage` | `BenchmarkCoverageAudit` | `production_conformance_family_count` | `unclassified` | `false` |
-| `coverage` | `BenchmarkCoverageAudit` | `production_conformance_families` | `collection_metadata` | `false` |
-| `coverage` | `BenchmarkCoverageAudit` | `summary` | `evidence_or_decision` | `false` |
-| `development_process_flow` | `ProcessArtifact` | `artifact_id` | `unclassified` | `false` |
-| `development_process_flow` | `ProcessArtifact` | `artifact_type` | `unclassified` | `false` |
-| `development_process_flow` | `ProcessArtifact` | `current_version` | `unclassified` | `false` |
-| `development_process_flow` | `ProcessArtifact` | `path` | `unclassified` | `false` |
-| `development_process_flow` | `ProcessArtifact` | `owner` | `unclassified` | `false` |
-| `development_process_flow` | `ProcessArtifact` | `upstream_artifact_ids` | `collection_metadata` | `false` |
-| `development_process_flow` | `ProcessArtifact` | `description` | `display_or_metadata` | `false` |
-| `development_process_flow` | `ActionEffect` | `target_id` | `unclassified` | `false` |
-| `development_process_flow` | `ActionEffect` | `effect_type` | `behavior_or_contract` | `true` |
-| `development_process_flow` | `ActionEffect` | `target_type` | `unclassified` | `false` |
-| `development_process_flow` | `ActionEffect` | `description` | `display_or_metadata` | `false` |
-| `development_process_flow` | `ProcessAction` | `action_id` | `behavior_or_contract` | `true` |
-| `development_process_flow` | `ProcessAction` | `action_type` | `behavior_or_contract` | `true` |
-| `development_process_flow` | `ProcessAction` | `reads_artifacts` | `collection_metadata` | `false` |
-| `development_process_flow` | `ProcessAction` | `writes_artifacts` | `collection_metadata` | `false` |
-| `development_process_flow` | `ProcessAction` | `invalidates_artifacts` | `collection_metadata` | `false` |
-| `development_process_flow` | `ProcessAction` | `invalidates_evidence` | `evidence_or_decision` | `false` |
-| `development_process_flow` | `ProcessAction` | `produced_evidence_ids` | `evidence_or_decision` | `false` |
-| `development_process_flow` | `ProcessAction` | `required_evidence_ids` | `evidence_or_decision` | `false` |
-| `development_process_flow` | `ProcessAction` | `required_validation_ids` | `collection_metadata` | `false` |
-| `development_process_flow` | `ProcessAction` | `effects` | `behavior_or_contract` | `true` |
-| `development_process_flow` | `ProcessAction` | `order_after` | `collection_metadata` | `false` |
-| `development_process_flow` | `ProcessAction` | `actor` | `unclassified` | `false` |
-| `development_process_flow` | `ProcessAction` | `status` | `evidence_or_decision` | `false` |
-| `development_process_flow` | `ProcessAction` | `decision_scope` | `evidence_or_decision` | `false` |
-| `development_process_flow` | `ProcessAction` | `description` | `display_or_metadata` | `false` |
-| `development_process_flow` | `ProcessEvidence` | `evidence_id` | `evidence_or_decision` | `false` |
-| `development_process_flow` | `ProcessEvidence` | `evidence_kind` | `evidence_or_decision` | `false` |
-| `development_process_flow` | `ProcessEvidence` | `producer_route` | `behavior_or_contract` | `true` |
-| `development_process_flow` | `ProcessEvidence` | `status` | `evidence_or_decision` | `false` |
-| `development_process_flow` | `ProcessEvidence` | `covers_artifacts` | `collection_metadata` | `false` |
-| `development_process_flow` | `ProcessEvidence` | `covered_versions` | `collection_metadata` | `false` |
-| `development_process_flow` | `ProcessEvidence` | `verifier_artifacts` | `collection_metadata` | `false` |
-| `development_process_flow` | `ProcessEvidence` | `validation_requirement_ids` | `collection_metadata` | `false` |
-| `development_process_flow` | `ProcessEvidence` | `produced_by_action_id` | `behavior_or_contract` | `true` |
-| `development_process_flow` | `ProcessEvidence` | `command` | `unclassified` | `false` |
-| `development_process_flow` | `ProcessEvidence` | `result_path` | `evidence_or_decision` | `false` |
-| `development_process_flow` | `ProcessEvidence` | `proof_artifact` | `evidence_or_decision` | `false` |
-| `development_process_flow` | `ProcessEvidence` | `background` | `unclassified` | `false` |
-| `development_process_flow` | `ProcessEvidence` | `has_exit_artifact` | `unclassified` | `false` |
-| `development_process_flow` | `ProcessEvidence` | `has_result_artifact` | `evidence_or_decision` | `false` |
-| `development_process_flow` | `ProcessEvidence` | `progress_only` | `unclassified` | `false` |
-| `development_process_flow` | `ProcessEvidence` | `skipped_count` | `unclassified` | `false` |
-| `development_process_flow` | `ProcessEvidence` | `skipped_visible` | `unclassified` | `false` |
-| `development_process_flow` | `ProcessEvidence` | `release_required` | `unclassified` | `false` |
-| `development_process_flow` | `ProcessEvidence` | `stale_reasons` | `evidence_or_decision` | `false` |
-| `development_process_flow` | `FreshnessRule` | `rule_id` | `unclassified` | `false` |
-| `development_process_flow` | `FreshnessRule` | `upstream_artifact_id` | `unclassified` | `false` |
-| `development_process_flow` | `FreshnessRule` | `invalidates_artifact_ids` | `collection_metadata` | `false` |
-| `development_process_flow` | `FreshnessRule` | `invalidates_evidence_kinds` | `evidence_or_decision` | `false` |
-| `development_process_flow` | `FreshnessRule` | `description` | `display_or_metadata` | `false` |
-| `development_process_flow` | `ValidationRequirement` | `requirement_id` | `unclassified` | `false` |
-| `development_process_flow` | `ValidationRequirement` | `required_artifact_ids` | `collection_metadata` | `false` |
-| `development_process_flow` | `ValidationRequirement` | `required_evidence_kinds` | `evidence_or_decision` | `false` |
-| `development_process_flow` | `ValidationRequirement` | `evidence_ids` | `evidence_or_decision` | `false` |
-| `development_process_flow` | `ValidationRequirement` | `scope` | `unclassified` | `false` |
-| `development_process_flow` | `ValidationRequirement` | `release_required` | `unclassified` | `false` |
-| `development_process_flow` | `ValidationRequirement` | `v_model_pair` | `unclassified` | `false` |
-| `development_process_flow` | `ValidationRequirement` | `command` | `unclassified` | `false` |
-| `development_process_flow` | `ValidationRequirement` | `description` | `display_or_metadata` | `false` |
-| `development_process_flow` | `DevelopmentProcessPlan` | `process_id` | `unclassified` | `false` |
-| `development_process_flow` | `DevelopmentProcessPlan` | `artifacts` | `collection_metadata` | `false` |
-| `development_process_flow` | `DevelopmentProcessPlan` | `actions` | `behavior_or_contract` | `true` |
-| `development_process_flow` | `DevelopmentProcessPlan` | `evidence` | `evidence_or_decision` | `false` |
-| `development_process_flow` | `DevelopmentProcessPlan` | `validation_requirements` | `collection_metadata` | `false` |
-| `development_process_flow` | `DevelopmentProcessPlan` | `freshness_rules` | `collection_metadata` | `false` |
-| `development_process_flow` | `DevelopmentProcessPlan` | `decision_scope` | `evidence_or_decision` | `false` |
-| `development_process_flow` | `DevelopmentProcessPlan` | `require_proof_artifacts` | `evidence_or_decision` | `false` |
-| `development_process_flow` | `DevelopmentProcessPlan` | `release_deferred_allowed` | `unclassified` | `false` |
-| `development_process_flow` | `RevalidationRecommendation` | `requirement_id` | `unclassified` | `false` |
-| `development_process_flow` | `RevalidationRecommendation` | `evidence_id` | `evidence_or_decision` | `false` |
-| `development_process_flow` | `RevalidationRecommendation` | `command` | `unclassified` | `false` |
-| `development_process_flow` | `RevalidationRecommendation` | `scope` | `unclassified` | `false` |
-| `development_process_flow` | `RevalidationRecommendation` | `artifact_ids` | `collection_metadata` | `false` |
-| `development_process_flow` | `RevalidationRecommendation` | `reason` | `evidence_or_decision` | `false` |
-| `development_process_flow` | `RevalidationRecommendation` | `producer_route` | `behavior_or_contract` | `true` |
-| `development_process_flow` | `RevalidationRecommendation` | `proof_artifact_required` | `evidence_or_decision` | `false` |
-| `development_process_flow` | `RevalidationRecommendation` | `freshness_gap_codes` | `evidence_or_decision` | `false` |
-| `development_process_flow` | `RevalidationRecommendation` | `blocks_claim_scopes` | `collection_metadata` | `false` |
-| `development_process_flow` | `ProcessFlowFinding` | `code` | `unclassified` | `false` |
-| `development_process_flow` | `ProcessFlowFinding` | `message` | `display_or_metadata` | `false` |
-| `development_process_flow` | `ProcessFlowFinding` | `severity` | `unclassified` | `false` |
-| `development_process_flow` | `ProcessFlowFinding` | `action_id` | `behavior_or_contract` | `true` |
-| `development_process_flow` | `ProcessFlowFinding` | `evidence_id` | `evidence_or_decision` | `false` |
-| `development_process_flow` | `ProcessFlowFinding` | `artifact_id` | `unclassified` | `false` |
-| `development_process_flow` | `ProcessFlowFinding` | `requirement_id` | `unclassified` | `false` |
-| `development_process_flow` | `ProcessFlowFinding` | `metadata` | `collection_metadata` | `false` |
-| `development_process_flow` | `DevelopmentProcessFlowReport` | `ok` | `evidence_or_decision` | `false` |
-| `development_process_flow` | `DevelopmentProcessFlowReport` | `process_id` | `unclassified` | `false` |
-| `development_process_flow` | `DevelopmentProcessFlowReport` | `decision` | `evidence_or_decision` | `false` |
-| `development_process_flow` | `DevelopmentProcessFlowReport` | `decision_scope` | `evidence_or_decision` | `false` |
-| `development_process_flow` | `DevelopmentProcessFlowReport` | `findings` | `evidence_or_decision` | `false` |
-| `development_process_flow` | `DevelopmentProcessFlowReport` | `release_obligations` | `behavior_or_contract` | `true` |
-| `development_process_flow` | `DevelopmentProcessFlowReport` | `revalidation_recommendations` | `collection_metadata` | `false` |
-| `development_process_flow` | `DevelopmentProcessFlowReport` | `summary` | `evidence_or_decision` | `false` |
-| `evidence_fields` | `EvidenceGate` | `gate_id` | `unclassified` | `false` |
-| `evidence_fields` | `EvidenceGate` | `gate_kind` | `unclassified` | `false` |
-| `evidence_fields` | `EvidenceGate` | `required` | `unclassified` | `false` |
-| `evidence_fields` | `EvidenceGate` | `result_status` | `evidence_or_decision` | `false` |
-| `evidence_fields` | `EvidenceGate` | `current` | `unclassified` | `false` |
-| `evidence_fields` | `EvidenceGate` | `confidence` | `evidence_or_decision` | `false` |
-| `evidence_fields` | `EvidenceGate` | `scoped_reasons` | `evidence_or_decision` | `false` |
-| `evidence_fields` | `EvidenceGate` | `proof_evidence_ids` | `evidence_or_decision` | `false` |
-| `evidence_fields` | `EvidenceGate` | `next_actions` | `behavior_or_contract` | `true` |
-| `evidence_fields` | `EvidenceGate` | `metadata` | `collection_metadata` | `false` |
-| `executable` | `ExecutableCaseResult` | `case_id` | `unclassified` | `false` |
-| `executable` | `ExecutableCaseResult` | `title` | `display_or_metadata` | `false` |
-| `executable` | `ExecutableCaseResult` | `case_kind` | `unclassified` | `false` |
-| `executable` | `ExecutableCaseResult` | `workflow_family` | `unclassified` | `false` |
-| `executable` | `ExecutableCaseResult` | `failure_mode` | `unclassified` | `false` |
-| `executable` | `ExecutableCaseResult` | `oracle_type` | `unclassified` | `false` |
-| `executable` | `ExecutableCaseResult` | `expected_status` | `evidence_or_decision` | `false` |
-| `executable` | `ExecutableCaseResult` | `expected_violation_names` | `collection_metadata` | `false` |
-| `executable` | `ExecutableCaseResult` | `observed_status` | `evidence_or_decision` | `false` |
-| `executable` | `ExecutableCaseResult` | `observed_violation_names` | `collection_metadata` | `false` |
-| `executable` | `ExecutableCaseResult` | `status` | `evidence_or_decision` | `false` |
-| `executable` | `ExecutableCaseResult` | `execution_kind` | `unclassified` | `false` |
-| `executable` | `ExecutableCaseResult` | `mapped_checker` | `unclassified` | `false` |
-| `executable` | `ExecutableCaseResult` | `evidence` | `evidence_or_decision` | `false` |
-| `executable` | `ExecutableCaseResult` | `counterexample_trace` | `unclassified` | `false` |
-| `executable` | `ExecutableCaseResult` | `graph_evidence` | `evidence_or_decision` | `false` |
-| `executable` | `ExecutableCaseResult` | `not_executable_reason` | `evidence_or_decision` | `false` |
-| `executable` | `ExecutableCaseResult` | `limitation_reason` | `evidence_or_decision` | `false` |
-| `executable` | `ExecutableCaseResult` | `metadata` | `unclassified` | `false` |
-| `executable` | `ExecutableCorpusReport` | `ok` | `evidence_or_decision` | `false` |
-| `executable` | `ExecutableCorpusReport` | `total_cases` | `unclassified` | `false` |
-| `executable` | `ExecutableCorpusReport` | `executable_cases` | `unclassified` | `false` |
-| `executable` | `ExecutableCorpusReport` | `not_executable_yet` | `unclassified` | `false` |
-| `executable` | `ExecutableCorpusReport` | `coverage_ratio` | `unclassified` | `false` |
-| `executable` | `ExecutableCorpusReport` | `coverage_complete` | `unclassified` | `false` |
-| `executable` | `ExecutableCorpusReport` | `accepted_executable_cases` | `unclassified` | `false` |
-| `executable` | `ExecutableCorpusReport` | `strong_pass_cases` | `unclassified` | `false` |
-| `executable` | `ExecutableCorpusReport` | `expected_violations_observed` | `unclassified` | `false` |
-| `executable` | `ExecutableCorpusReport` | `failure_cases` | `unclassified` | `false` |
-| `executable` | `ExecutableCorpusReport` | `status_counts` | `evidence_or_decision` | `false` |
-| `executable` | `ExecutableCorpusReport` | `execution_kind_counts` | `collection_metadata` | `false` |
-| `executable` | `ExecutableCorpusReport` | `case_kind_counts` | `collection_metadata` | `false` |
-| `executable` | `ExecutableCorpusReport` | `workflow_family_counts` | `collection_metadata` | `false` |
-| `executable` | `ExecutableCorpusReport` | `failure_mode_counts` | `collection_metadata` | `false` |
-| `executable` | `ExecutableCorpusReport` | `oracle_type_counts` | `collection_metadata` | `false` |
-| `executable` | `ExecutableCorpusReport` | `case_source_counts` | `collection_metadata` | `false` |
-| `executable` | `ExecutableCorpusReport` | `gap_focus_counts` | `evidence_or_decision` | `false` |
-| `executable` | `ExecutableCorpusReport` | `pressure_focus_counts` | `collection_metadata` | `false` |
-| `executable` | `ExecutableCorpusReport` | `not_executable_reasons` | `evidence_or_decision` | `false` |
-| `executable` | `ExecutableCorpusReport` | `real_model_cases` | `unclassified` | `false` |
-| `executable` | `ExecutableCorpusReport` | `generic_fallback_cases` | `compatibility_or_old_path` | `true` |
-| `executable` | `ExecutableCorpusReport` | `model_variant_total` | `unclassified` | `false` |
-| `executable` | `ExecutableCorpusReport` | `model_families_with_six_variants` | `unclassified` | `false` |
-| `executable` | `ExecutableCorpusReport` | `model_binding_counts` | `collection_metadata` | `false` |
-| `executable` | `ExecutableCorpusReport` | `model_family_counts` | `collection_metadata` | `false` |
-| `executable` | `ExecutableCorpusReport` | `model_variant_counts` | `collection_metadata` | `false` |
-| `executable` | `ExecutableCorpusReport` | `results` | `evidence_or_decision` | `false` |
-| `executable` | `ExecutableCorpusReport` | `summary` | `evidence_or_decision` | `false` |
-| `existing_model_preflight` | `ModelContextHit` | `model_id` | `unclassified` | `false` |
-| `existing_model_preflight` | `ModelContextHit` | `model_path` | `unclassified` | `false` |
-| `existing_model_preflight` | `ModelContextHit` | `evidence_id` | `evidence_or_decision` | `false` |
-| `existing_model_preflight` | `ModelContextHit` | `evidence_tier` | `evidence_or_decision` | `false` |
-| `existing_model_preflight` | `ModelContextHit` | `evidence_current` | `evidence_or_decision` | `false` |
-| `existing_model_preflight` | `ModelContextHit` | `responsibilities` | `collection_metadata` | `false` |
-| `existing_model_preflight` | `ModelContextHit` | `function_blocks` | `collection_metadata` | `false` |
-| `existing_model_preflight` | `ModelContextHit` | `state_owned` | `behavior_or_contract` | `true` |
-| `existing_model_preflight` | `ModelContextHit` | `side_effects_owned` | `behavior_or_contract` | `true` |
-| `existing_model_preflight` | `ModelContextHit` | `public_entrypoints` | `collection_metadata` | `false` |
-| `existing_model_preflight` | `ModelContextHit` | `fields_owned` | `collection_metadata` | `false` |
-| `existing_model_preflight` | `ModelContextHit` | `parent_model_id` | `unclassified` | `false` |
-| `existing_model_preflight` | `ModelContextHit` | `child_model_ids` | `collection_metadata` | `false` |
-| `existing_model_preflight` | `ModelContextHit` | `layered_proof_evidence_id` | `evidence_or_decision` | `false` |
-| `existing_model_preflight` | `ModelContextHit` | `parent_coverage_status` | `evidence_or_decision` | `false` |
-| `existing_model_preflight` | `ModelContextHit` | `child_disjointness_status` | `evidence_or_decision` | `false` |
-| `existing_model_preflight` | `ModelContextHit` | `child_reattachment_status` | `evidence_or_decision` | `false` |
-| `existing_model_preflight` | `ModelContextHit` | `leaf_boundary_matrix_status` | `evidence_or_decision` | `false` |
-| `existing_model_preflight` | `ModelContextHit` | `validation_evidence` | `evidence_or_decision` | `false` |
-| `existing_model_preflight` | `ModelContextHit` | `rationale` | `unclassified` | `false` |
-| `existing_model_preflight` | `ExistingOwnershipSnapshot` | `function_block_owners` | `collection_metadata` | `false` |
-| `existing_model_preflight` | `ExistingOwnershipSnapshot` | `state_owners` | `behavior_or_contract` | `true` |
-| `existing_model_preflight` | `ExistingOwnershipSnapshot` | `side_effect_owners` | `behavior_or_contract` | `true` |
-| `existing_model_preflight` | `ExistingOwnershipSnapshot` | `public_entrypoint_owners` | `collection_metadata` | `false` |
-| `existing_model_preflight` | `ExistingOwnershipSnapshot` | `field_owners` | `collection_metadata` | `false` |
-| `existing_model_preflight` | `ExistingOwnershipSnapshot` | `responsibility_owners` | `collection_metadata` | `false` |
-| `existing_model_preflight` | `DuplicateBoundaryRisk` | `item_type` | `unclassified` | `false` |
-| `existing_model_preflight` | `DuplicateBoundaryRisk` | `item_id` | `unclassified` | `false` |
-| `existing_model_preflight` | `DuplicateBoundaryRisk` | `existing_owner_id` | `unclassified` | `false` |
-| `existing_model_preflight` | `DuplicateBoundaryRisk` | `proposed_owner_id` | `unclassified` | `false` |
-| `existing_model_preflight` | `DuplicateBoundaryRisk` | `resolution` | `unclassified` | `false` |
-| `existing_model_preflight` | `DuplicateBoundaryRisk` | `rationale` | `unclassified` | `false` |
-| `existing_model_preflight` | `DuplicateBoundaryRisk` | `resolved` | `unclassified` | `false` |
-| `existing_model_preflight` | `ExistingModelPreflight` | `preflight_id` | `unclassified` | `false` |
-| `existing_model_preflight` | `ExistingModelPreflight` | `task_summary` | `evidence_or_decision` | `false` |
-| `existing_model_preflight` | `ExistingModelPreflight` | `mode` | `unclassified` | `false` |
-| `existing_model_preflight` | `ExistingModelPreflight` | `existing_modeled_system` | `unclassified` | `false` |
-| `existing_model_preflight` | `ExistingModelPreflight` | `model_search_performed` | `unclassified` | `false` |
-| `existing_model_preflight` | `ExistingModelPreflight` | `search_paths` | `collection_metadata` | `false` |
-| `existing_model_preflight` | `ExistingModelPreflight` | `relevant_models` | `collection_metadata` | `false` |
-| `existing_model_preflight` | `ExistingModelPreflight` | `ownership_snapshot` | `unclassified` | `false` |
-| `existing_model_preflight` | `ExistingModelPreflight` | `reuse_decision` | `evidence_or_decision` | `false` |
-| `existing_model_preflight` | `ExistingModelPreflight` | `downstream_routes` | `behavior_or_contract` | `true` |
-| `existing_model_preflight` | `ExistingModelPreflight` | `rationale` | `unclassified` | `false` |
-| `existing_model_preflight` | `ExistingModelPreflight` | `no_model_found_reason` | `evidence_or_decision` | `false` |
-| `existing_model_preflight` | `ExistingModelPreflight` | `proposed_new_boundaries` | `collection_metadata` | `false` |
-| `existing_model_preflight` | `ExistingModelPreflight` | `duplicate_risks` | `collection_metadata` | `false` |
-| `existing_model_preflight` | `ExistingModelPreflight` | `behavior_field_ids` | `collection_metadata` | `false` |
-| `existing_model_preflight` | `ExistingModelPreflight` | `field_lifecycle_required` | `unclassified` | `false` |
-| `existing_model_preflight` | `ExistingModelPreflight` | `field_lifecycle_model_ids` | `collection_metadata` | `false` |
-| `existing_model_preflight` | `ExistingModelPreflight` | `field_lifecycle_gap_ids` | `evidence_or_decision` | `false` |
-| `existing_model_preflight` | `ExistingModelPreflight` | `model_angle_review_required` | `unclassified` | `false` |
-| `existing_model_preflight` | `ExistingModelPreflight` | `model_angle_deliberations` | `collection_metadata` | `false` |
-| `existing_model_preflight` | `ExistingModelPreflight` | `model_angle_gap_ids` | `evidence_or_decision` | `false` |
-| `existing_model_preflight` | `ExistingModelPreflight` | `similarity_review_required` | `unclassified` | `false` |
-| `existing_model_preflight` | `ExistingModelPreflight` | `similarity_handoff` | `collection_metadata` | `false` |
-| `existing_model_preflight` | `ExistingModelPreflight` | `skip_reason` | `evidence_or_decision` | `false` |
-| `existing_model_preflight` | `ExistingModelPreflightFinding` | `code` | `unclassified` | `false` |
-| `existing_model_preflight` | `ExistingModelPreflightFinding` | `message` | `display_or_metadata` | `false` |
-| `existing_model_preflight` | `ExistingModelPreflightFinding` | `severity` | `unclassified` | `false` |
-| `existing_model_preflight` | `ExistingModelPreflightFinding` | `model_id` | `unclassified` | `false` |
-| `existing_model_preflight` | `ExistingModelPreflightFinding` | `item_id` | `unclassified` | `false` |
-| `existing_model_preflight` | `ExistingModelPreflightFinding` | `metadata` | `collection_metadata` | `false` |
-| `existing_model_preflight` | `ExistingModelPreflightReport` | `ok` | `evidence_or_decision` | `false` |
-| `existing_model_preflight` | `ExistingModelPreflightReport` | `preflight_id` | `unclassified` | `false` |
-| `existing_model_preflight` | `ExistingModelPreflightReport` | `decision` | `evidence_or_decision` | `false` |
-| `existing_model_preflight` | `ExistingModelPreflightReport` | `findings` | `evidence_or_decision` | `false` |
-| `existing_model_preflight` | `ExistingModelPreflightReport` | `summary` | `evidence_or_decision` | `false` |
-| `explorer` | `ReachabilityCondition` | `name` | `display_or_metadata` | `false` |
-| `explorer` | `ReachabilityCondition` | `predicate` | `unclassified` | `false` |
-| `explorer` | `ReachabilityCondition` | `description` | `display_or_metadata` | `false` |
-| `explorer` | `Explorer` | `workflow` | `unclassified` | `false` |
-| `explorer` | `Explorer` | `initial_states` | `behavior_or_contract` | `true` |
-| `explorer` | `Explorer` | `external_inputs` | `behavior_or_contract` | `true` |
-| `explorer` | `Explorer` | `invariants` | `behavior_or_contract` | `true` |
-| `explorer` | `Explorer` | `max_sequence_length` | `unclassified` | `false` |
-| `explorer` | `Explorer` | `terminal_predicate` | `unclassified` | `false` |
-| `explorer` | `Explorer` | `success_predicate` | `unclassified` | `false` |
-| `explorer` | `Explorer` | `required_labels` | `collection_metadata` | `false` |
-| `explorer` | `Explorer` | `required_reachable` | `collection_metadata` | `false` |
-| `explorer` | `Explorer` | `assumption_card` | `unclassified` | `false` |
-| `explorer` | `Explorer` | `progress_steps` | `unclassified` | `false` |
-| `field_lifecycle` | `FieldLifecycleGroup` | `group_id` | `unclassified` | `false` |
-| `field_lifecycle` | `FieldLifecycleGroup` | `boundary_kind` | `unclassified` | `false` |
-| `field_lifecycle` | `FieldLifecycleGroup` | `parent_group_id` | `unclassified` | `false` |
-| `field_lifecycle` | `FieldLifecycleGroup` | `field_ids` | `collection_metadata` | `false` |
-| `field_lifecycle` | `FieldLifecycleGroup` | `child_group_ids` | `collection_metadata` | `false` |
-| `field_lifecycle` | `FieldLifecycleGroup` | `owner_route` | `behavior_or_contract` | `true` |
-| `field_lifecycle` | `FieldLifecycleGroup` | `evidence_refs` | `evidence_or_decision` | `false` |
-| `field_lifecycle` | `FieldLifecycleGroup` | `rationale` | `unclassified` | `false` |
-| `field_lifecycle` | `FieldLifecycleGroup` | `metadata` | `collection_metadata` | `false` |
-| `field_lifecycle` | `FieldProjection` | `projection_id` | `unclassified` | `false` |
-| `field_lifecycle` | `FieldProjection` | `field_id` | `unclassified` | `false` |
-| `field_lifecycle` | `FieldProjection` | `model_obligation_id` | `behavior_or_contract` | `true` |
-| `field_lifecycle` | `FieldProjection` | `transition_cell_id` | `behavior_or_contract` | `true` |
-| `field_lifecycle` | `FieldProjection` | `code_contract_id` | `behavior_or_contract` | `true` |
-| `field_lifecycle` | `FieldProjection` | `required_test_kinds` | `collection_metadata` | `false` |
-| `field_lifecycle` | `FieldProjection` | `external_inputs` | `behavior_or_contract` | `true` |
-| `field_lifecycle` | `FieldProjection` | `external_outputs` | `behavior_or_contract` | `true` |
-| `field_lifecycle` | `FieldProjection` | `state_reads` | `behavior_or_contract` | `true` |
-| `field_lifecycle` | `FieldProjection` | `state_writes` | `behavior_or_contract` | `true` |
-| `field_lifecycle` | `FieldProjection` | `side_effects` | `behavior_or_contract` | `true` |
-| `field_lifecycle` | `FieldProjection` | `error_paths` | `behavior_or_contract` | `true` |
-| `field_lifecycle` | `FieldProjection` | `risk_level` | `unclassified` | `false` |
-| `field_lifecycle` | `FieldProjection` | `evidence_refs` | `evidence_or_decision` | `false` |
-| `field_lifecycle` | `FieldProjection` | `rationale` | `unclassified` | `false` |
-| `field_lifecycle` | `FieldLifecycleRow` | `field_id` | `unclassified` | `false` |
-| `field_lifecycle` | `FieldLifecycleRow` | `field_name` | `display_or_metadata` | `false` |
-| `field_lifecycle` | `FieldLifecycleRow` | `locations` | `collection_metadata` | `false` |
-| `field_lifecycle` | `FieldLifecycleRow` | `group_id` | `unclassified` | `false` |
-| `field_lifecycle` | `FieldLifecycleRow` | `role` | `unclassified` | `false` |
-| `field_lifecycle` | `FieldLifecycleRow` | `lifecycle` | `unclassified` | `false` |
-| `field_lifecycle` | `FieldLifecycleRow` | `behavior_impacts` | `collection_metadata` | `false` |
-| `field_lifecycle` | `FieldLifecycleRow` | `reader_ids` | `collection_metadata` | `false` |
-| `field_lifecycle` | `FieldLifecycleRow` | `writer_ids` | `collection_metadata` | `false` |
-| `field_lifecycle` | `FieldLifecycleRow` | `replacement_field_id` | `compatibility_or_old_path` | `true` |
-| `field_lifecycle` | `FieldLifecycleRow` | `old_field_ids` | `compatibility_or_old_path` | `true` |
-| `field_lifecycle` | `FieldLifecycleRow` | `disposition` | `unclassified` | `false` |
-| `field_lifecycle` | `FieldLifecycleRow` | `compatibility_intent` | `compatibility_or_old_path` | `true` |
-| `field_lifecycle` | `FieldLifecycleRow` | `disposition_evidence_refs` | `evidence_or_decision` | `false` |
-| `field_lifecycle` | `FieldLifecycleRow` | `projection` | `collection_metadata` | `false` |
-| `field_lifecycle` | `FieldLifecycleRow` | `scoped_out_reason` | `evidence_or_decision` | `false` |
-| `field_lifecycle` | `FieldLifecycleRow` | `required` | `unclassified` | `false` |
-| `field_lifecycle` | `FieldLifecycleRow` | `current` | `unclassified` | `false` |
-| `field_lifecycle` | `FieldLifecycleRow` | `metadata` | `collection_metadata` | `false` |
-| `field_lifecycle` | `FieldLifecyclePlan` | `mesh_id` | `unclassified` | `false` |
-| `field_lifecycle` | `FieldLifecyclePlan` | `discovered_field_ids` | `collection_metadata` | `false` |
-| `field_lifecycle` | `FieldLifecyclePlan` | `groups` | `collection_metadata` | `false` |
-| `field_lifecycle` | `FieldLifecyclePlan` | `fields` | `collection_metadata` | `false` |
-| `field_lifecycle` | `FieldLifecyclePlan` | `claim_scope` | `unclassified` | `false` |
-| `field_lifecycle` | `FieldLifecyclePlan` | `allow_scoped_confidence` | `evidence_or_decision` | `false` |
-| `field_lifecycle` | `FieldLifecyclePlan` | `notes` | `unclassified` | `false` |
-| `field_lifecycle` | `FieldLifecycleFinding` | `code` | `unclassified` | `false` |
-| `field_lifecycle` | `FieldLifecycleFinding` | `message` | `display_or_metadata` | `false` |
-| `field_lifecycle` | `FieldLifecycleFinding` | `severity` | `unclassified` | `false` |
-| `field_lifecycle` | `FieldLifecycleFinding` | `field_id` | `unclassified` | `false` |
-| `field_lifecycle` | `FieldLifecycleFinding` | `group_id` | `unclassified` | `false` |
-| `field_lifecycle` | `FieldLifecycleFinding` | `owner_route` | `behavior_or_contract` | `true` |
-| `field_lifecycle` | `FieldLifecycleFinding` | `action` | `behavior_or_contract` | `true` |
-| `field_lifecycle` | `FieldLifecycleFinding` | `metadata` | `collection_metadata` | `false` |
-| `field_lifecycle` | `FieldLifecycleReport` | `ok` | `evidence_or_decision` | `false` |
-| `field_lifecycle` | `FieldLifecycleReport` | `mesh_id` | `unclassified` | `false` |
-| `field_lifecycle` | `FieldLifecycleReport` | `decision` | `evidence_or_decision` | `false` |
-| `field_lifecycle` | `FieldLifecycleReport` | `confidence` | `evidence_or_decision` | `false` |
-| `field_lifecycle` | `FieldLifecycleReport` | `findings` | `evidence_or_decision` | `false` |
-| `field_lifecycle` | `FieldLifecycleReport` | `projections` | `collection_metadata` | `false` |
-| `field_lifecycle` | `FieldLifecycleReport` | `summary` | `evidence_or_decision` | `false` |
-| `hierarchy` | `HierarchyCoverageItem` | `item_id` | `unclassified` | `false` |
-| `hierarchy` | `HierarchyCoverageItem` | `item_type` | `unclassified` | `false` |
-| `hierarchy` | `HierarchyCoverageItem` | `owner_model_id` | `unclassified` | `false` |
-| `hierarchy` | `HierarchyCoverageItem` | `ownership` | `unclassified` | `false` |
-| `hierarchy` | `HierarchyCoverageItem` | `description` | `display_or_metadata` | `false` |
-| `hierarchy` | `HierarchyCoverageItem` | `allowed_shared_with` | `collection_metadata` | `false` |
-| `hierarchy` | `ChildModelEvidence` | `model_id` | `unclassified` | `false` |
-| `hierarchy` | `ChildModelEvidence` | `evidence_id` | `evidence_or_decision` | `false` |
-| `hierarchy` | `ChildModelEvidence` | `risk_boundary` | `unclassified` | `false` |
-| `hierarchy` | `ChildModelEvidence` | `inputs_accepted` | `behavior_or_contract` | `true` |
-| `hierarchy` | `ChildModelEvidence` | `outputs_emitted` | `behavior_or_contract` | `true` |
-| `hierarchy` | `ChildModelEvidence` | `state_owned` | `behavior_or_contract` | `true` |
-| `hierarchy` | `ChildModelEvidence` | `side_effects_owned` | `behavior_or_contract` | `true` |
-| `hierarchy` | `ChildModelEvidence` | `functional_areas` | `collection_metadata` | `false` |
-| `hierarchy` | `ChildModelEvidence` | `contracts_in` | `behavior_or_contract` | `true` |
-| `hierarchy` | `ChildModelEvidence` | `contracts_out` | `behavior_or_contract` | `true` |
-| `hierarchy` | `ChildModelEvidence` | `depends_on` | `collection_metadata` | `false` |
-| `hierarchy` | `ChildModelEvidence` | `evidence_tier` | `evidence_or_decision` | `false` |
-| `hierarchy` | `ChildModelEvidence` | `evidence_current` | `evidence_or_decision` | `false` |
-| `hierarchy` | `ChildModelEvidence` | `skipped_checks` | `collection_metadata` | `false` |
-| `hierarchy` | `ChildModelEvidence` | `not_run_checks` | `collection_metadata` | `false` |
-| `hierarchy` | `ChildModelEvidence` | `estimated_state_count` | `behavior_or_contract` | `true` |
-| `hierarchy` | `ChildModelEvidence` | `observed_state_count` | `behavior_or_contract` | `true` |
-| `hierarchy` | `ChildModelEvidence` | `budgeted_incomplete` | `unclassified` | `false` |
-| `hierarchy` | `ChildModelEvidence` | `unrelated_functional_areas` | `unclassified` | `false` |
-| `hierarchy` | `ChildModelEvidence` | `structurally_cohesive` | `unclassified` | `false` |
-| `hierarchy` | `ChildModelEvidence` | `is_legacy` | `compatibility_or_old_path` | `true` |
-| `hierarchy` | `ChildModelEvidence` | `has_compatibility_contract` | `compatibility_or_old_path` | `true` |
-| `hierarchy` | `ChildModelEvidence` | `overlaps_existing_model` | `unclassified` | `false` |
-| `hierarchy` | `ChildModelEvidence` | `functions_owned` | `collection_metadata` | `false` |
-| `hierarchy` | `ChildModelEvidence` | `invariants_owned` | `behavior_or_contract` | `true` |
-| `hierarchy` | `ChildModelEvidence` | `risk_classes` | `collection_metadata` | `false` |
-| `hierarchy` | `ChildModelEvidence` | `validation_evidence` | `evidence_or_decision` | `false` |
-| `hierarchy` | `ChildModelEvidence` | `runtime_path_evidence_ids` | `evidence_or_decision` | `false` |
-| `hierarchy` | `ChildBoundaryChangeSummary` | `child_model_id` | `unclassified` | `false` |
-| `hierarchy` | `ChildBoundaryChangeSummary` | `propagation` | `unclassified` | `false` |
-| `hierarchy` | `ChildBoundaryChangeSummary` | `previous_evidence_id` | `evidence_or_decision` | `false` |
-| `hierarchy` | `ChildBoundaryChangeSummary` | `current_evidence_id` | `evidence_or_decision` | `false` |
-| `hierarchy` | `ChildBoundaryChangeSummary` | `changed_fields` | `collection_metadata` | `false` |
-| `hierarchy` | `ChildBoundaryChangeSummary` | `added_by_field` | `collection_metadata` | `false` |
-| `hierarchy` | `ChildBoundaryChangeSummary` | `removed_by_field` | `collection_metadata` | `false` |
-| `hierarchy` | `ChildBoundaryChangeSummary` | `previous_risk_boundary` | `unclassified` | `false` |
-| `hierarchy` | `ChildBoundaryChangeSummary` | `current_risk_boundary` | `unclassified` | `false` |
-| `hierarchy` | `ChildBoundaryChangeSummary` | `current_bug_id` | `unclassified` | `false` |
-| `hierarchy` | `ChildBoundaryChangeSummary` | `known_bug_ids` | `collection_metadata` | `false` |
-| `hierarchy` | `ChildBoundaryChangeSummary` | `generalized_target` | `unclassified` | `false` |
-| `hierarchy` | `ChildBoundaryChangeSummary` | `current_bug_is_only_model_target` | `unclassified` | `false` |
-| `hierarchy` | `ChildBoundaryChangeSummary` | `rationale` | `unclassified` | `false` |
-| `hierarchy` | `ModelTargetSplitDerivation` | `source_model_id` | `unclassified` | `false` |
-| `hierarchy` | `ModelTargetSplitDerivation` | `target_child_model_ids` | `collection_metadata` | `false` |
-| `hierarchy` | `ModelTargetSplitDerivation` | `covered_partition_item_ids` | `collection_metadata` | `false` |
-| `hierarchy` | `ModelTargetSplitDerivation` | `state_owner_fields` | `behavior_or_contract` | `true` |
-| `hierarchy` | `ModelTargetSplitDerivation` | `side_effect_owner_fields` | `behavior_or_contract` | `true` |
-| `hierarchy` | `ModelTargetSplitDerivation` | `source_model_path` | `unclassified` | `false` |
-| `hierarchy` | `ModelTargetSplitDerivation` | `rationale` | `unclassified` | `false` |
-| `hierarchy` | `ModelTargetSplitDerivation` | `derived_from_flowguard_model` | `unclassified` | `false` |
-| `hierarchy` | `ChildReattachmentContract` | `child_model_id` | `unclassified` | `false` |
-| `hierarchy` | `ChildReattachmentContract` | `consumed_evidence_id` | `evidence_or_decision` | `false` |
-| `hierarchy` | `ChildReattachmentContract` | `consumed_runtime_path_evidence_ids` | `evidence_or_decision` | `false` |
-| `hierarchy` | `ChildReattachmentContract` | `expected_inputs` | `behavior_or_contract` | `true` |
-| `hierarchy` | `ChildReattachmentContract` | `expected_outputs` | `behavior_or_contract` | `true` |
-| `hierarchy` | `ChildReattachmentContract` | `expected_state_owned` | `behavior_or_contract` | `true` |
-| `hierarchy` | `ChildReattachmentContract` | `expected_side_effects_owned` | `behavior_or_contract` | `true` |
-| `hierarchy` | `ChildReattachmentContract` | `expected_contracts_out` | `behavior_or_contract` | `true` |
-| `hierarchy` | `ChildReattachmentContract` | `allow_extra_inputs` | `behavior_or_contract` | `true` |
-| `hierarchy` | `ChildReattachmentContract` | `allow_extra_outputs` | `behavior_or_contract` | `true` |
-| `hierarchy` | `ChildReattachmentContract` | `rationale` | `unclassified` | `false` |
-| `hierarchy` | `MeshClosureTransition` | `transition_id` | `behavior_or_contract` | `true` |
-| `hierarchy` | `MeshClosureTransition` | `consumes` | `collection_metadata` | `false` |
-| `hierarchy` | `MeshClosureTransition` | `emits` | `collection_metadata` | `false` |
-| `hierarchy` | `MeshClosureTransition` | `consumer_model_id` | `unclassified` | `false` |
-| `hierarchy` | `MeshClosureTransition` | `loop` | `unclassified` | `false` |
-| `hierarchy` | `MeshClosureTransition` | `progress_rule` | `unclassified` | `false` |
-| `hierarchy` | `MeshClosureTransition` | `max_iterations` | `unclassified` | `false` |
-| `hierarchy` | `MeshClosureTransition` | `rationale` | `unclassified` | `false` |
-| `hierarchy` | `MeshClosureJoin` | `join_id` | `unclassified` | `false` |
-| `hierarchy` | `MeshClosureJoin` | `required_inputs` | `behavior_or_contract` | `true` |
-| `hierarchy` | `MeshClosureJoin` | `emits` | `collection_metadata` | `false` |
-| `hierarchy` | `MeshClosureJoin` | `rationale` | `unclassified` | `false` |
-| `hierarchy` | `MeshClosureTerminal` | `terminal_id` | `unclassified` | `false` |
-| `hierarchy` | `MeshClosureTerminal` | `consumes` | `collection_metadata` | `false` |
-| `hierarchy` | `MeshClosureTerminal` | `terminal_kind` | `unclassified` | `false` |
-| `hierarchy` | `MeshClosureTerminal` | `rationale` | `unclassified` | `false` |
-| `hierarchy` | `MeshClosureModel` | `parent_model_id` | `unclassified` | `false` |
-| `hierarchy` | `MeshClosureModel` | `root_entries` | `collection_metadata` | `false` |
-| `hierarchy` | `MeshClosureModel` | `transitions` | `behavior_or_contract` | `true` |
-| `hierarchy` | `MeshClosureModel` | `joins` | `collection_metadata` | `false` |
-| `hierarchy` | `MeshClosureModel` | `terminals` | `collection_metadata` | `false` |
-| `hierarchy` | `MeshClosureModel` | `required_outputs` | `behavior_or_contract` | `true` |
-| `hierarchy` | `MeshClosureModel` | `require_normal_exit` | `unclassified` | `false` |
-| `hierarchy` | `MeshClosureModel` | `rationale` | `unclassified` | `false` |
-| `hierarchy` | `MeshClosureFinding` | `code` | `unclassified` | `false` |
-| `hierarchy` | `MeshClosureFinding` | `message` | `display_or_metadata` | `false` |
-| `hierarchy` | `MeshClosureFinding` | `severity` | `unclassified` | `false` |
-| `hierarchy` | `MeshClosureFinding` | `model_id` | `unclassified` | `false` |
-| `hierarchy` | `MeshClosureFinding` | `item_id` | `unclassified` | `false` |
-| `hierarchy` | `MeshClosureFinding` | `metadata` | `collection_metadata` | `false` |
-| `hierarchy` | `MeshClosureReport` | `ok` | `evidence_or_decision` | `false` |
-| `hierarchy` | `MeshClosureReport` | `parent_model_id` | `unclassified` | `false` |
-| `hierarchy` | `MeshClosureReport` | `decision` | `evidence_or_decision` | `false` |
-| `hierarchy` | `MeshClosureReport` | `findings` | `evidence_or_decision` | `false` |
-| `hierarchy` | `MeshClosureReport` | `reachable_tokens` | `evidence_or_decision` | `false` |
-| `hierarchy` | `MeshClosureReport` | `summary` | `evidence_or_decision` | `false` |
-| `hierarchy` | `HierarchyPartitionMap` | `parent_model_id` | `unclassified` | `false` |
-| `hierarchy` | `HierarchyPartitionMap` | `coverage_items` | `collection_metadata` | `false` |
-| `hierarchy` | `HierarchyPartitionMap` | `child_models` | `collection_metadata` | `false` |
-| `hierarchy` | `HierarchyPartitionMap` | `target_split_derivation` | `unclassified` | `false` |
-| `hierarchy` | `HierarchyPartitionMap` | `reattachment_contracts` | `behavior_or_contract` | `true` |
-| `hierarchy` | `HierarchyPartitionMap` | `required_evidence_tier` | `evidence_or_decision` | `false` |
-| `hierarchy` | `HierarchyPartitionMap` | `allowed_shared_areas` | `collection_metadata` | `false` |
-| `hierarchy` | `HierarchyPartitionMap` | `boundary_changes` | `collection_metadata` | `false` |
-| `hierarchy` | `HierarchyPartitionMap` | `closure_model` | `unclassified` | `false` |
-| `hierarchy` | `HierarchyMeshFinding` | `code` | `unclassified` | `false` |
-| `hierarchy` | `HierarchyMeshFinding` | `message` | `display_or_metadata` | `false` |
-| `hierarchy` | `HierarchyMeshFinding` | `severity` | `unclassified` | `false` |
-| `hierarchy` | `HierarchyMeshFinding` | `model_id` | `unclassified` | `false` |
-| `hierarchy` | `HierarchyMeshFinding` | `item_id` | `unclassified` | `false` |
-| `hierarchy` | `HierarchyMeshFinding` | `metadata` | `collection_metadata` | `false` |
-| `hierarchy` | `HierarchyMeshReport` | `ok` | `evidence_or_decision` | `false` |
-| `hierarchy` | `HierarchyMeshReport` | `parent_model_id` | `unclassified` | `false` |
-| `hierarchy` | `HierarchyMeshReport` | `decision` | `evidence_or_decision` | `false` |
-| `hierarchy` | `HierarchyMeshReport` | `activation_reasons` | `evidence_or_decision` | `false` |
-| `hierarchy` | `HierarchyMeshReport` | `findings` | `evidence_or_decision` | `false` |
-| `hierarchy` | `HierarchyMeshReport` | `split_decisions` | `evidence_or_decision` | `false` |
-| `hierarchy` | `HierarchyMeshReport` | `summary` | `evidence_or_decision` | `false` |
-| `hierarchy` | `HierarchyMeshReport` | `boundary_change_decisions` | `evidence_or_decision` | `false` |
-| `hierarchy` | `HierarchyMeshReport` | `closure_report` | `evidence_or_decision` | `false` |
-| `hierarchy` | `LegacyModelRecord` | `model_id` | `unclassified` | `false` |
-| `hierarchy` | `LegacyModelRecord` | `model_file` | `unclassified` | `false` |
-| `hierarchy` | `LegacyModelRecord` | `has_compatibility_contract` | `compatibility_or_old_path` | `true` |
-| `hierarchy` | `LegacyModelRecord` | `estimated_state_count` | `behavior_or_contract` | `true` |
-| `hierarchy` | `LegacyModelRecord` | `observed_state_count` | `behavior_or_contract` | `true` |
-| `hierarchy` | `LegacyModelRecord` | `budgeted_incomplete` | `unclassified` | `false` |
-| `hierarchy` | `LegacyModelRecord` | `functional_area_count` | `unclassified` | `false` |
-| `hierarchy` | `LegacyModelRecord` | `evidence_current` | `evidence_or_decision` | `false` |
-| `hierarchy` | `LegacyModelRecord` | `skipped_checks` | `collection_metadata` | `false` |
-| `hierarchy` | `LegacyModelRecord` | `not_run_checks` | `collection_metadata` | `false` |
-| `hierarchy` | `LegacyModelRecord` | `overlaps_existing_model` | `unclassified` | `false` |
-| `hierarchy` | `LegacyModelClassification` | `model_id` | `unclassified` | `false` |
-| `hierarchy` | `LegacyModelClassification` | `labels` | `collection_metadata` | `false` |
-| `hierarchy` | `LegacyModelClassification` | `requires_split_review` | `unclassified` | `false` |
-| `hierarchy` | `LegacyModelClassification` | `can_be_strong_evidence` | `evidence_or_decision` | `false` |
-| `hierarchy` | `LegacyModelClassification` | `reason` | `evidence_or_decision` | `false` |
-| `hierarchy` | `_ClosureState` | `available` | `unclassified` | `false` |
-| `hierarchy` | `_ClosureState` | `consumed` | `unclassified` | `false` |
-| `hierarchy` | `_ClosureState` | `completed_joins` | `unclassified` | `false` |
-| `hierarchy` | `_ClosureState` | `terminal_kind` | `unclassified` | `false` |
-| `layered_proof` | `ParentCoverageItem` | `item_id` | `unclassified` | `false` |
-| `layered_proof` | `ParentCoverageItem` | `item_type` | `unclassified` | `false` |
-| `layered_proof` | `ParentCoverageItem` | `owner_model_id` | `unclassified` | `false` |
-| `layered_proof` | `ParentCoverageItem` | `owner_kind` | `unclassified` | `false` |
-| `layered_proof` | `ParentCoverageItem` | `description` | `display_or_metadata` | `false` |
-| `layered_proof` | `ParentCoverageItem` | `allowed_shared_with` | `collection_metadata` | `false` |
-| `layered_proof` | `ParentCoverageItem` | `rationale` | `unclassified` | `false` |
-| `layered_proof` | `ChildProofContract` | `child_model_id` | `unclassified` | `false` |
-| `layered_proof` | `ChildProofContract` | `evidence_id` | `evidence_or_decision` | `false` |
-| `layered_proof` | `ChildProofContract` | `evidence_status` | `evidence_or_decision` | `false` |
-| `layered_proof` | `ChildProofContract` | `evidence_current` | `evidence_or_decision` | `false` |
-| `layered_proof` | `ChildProofContract` | `proof_artifact` | `evidence_or_decision` | `false` |
-| `layered_proof` | `ChildProofContract` | `responsibilities` | `collection_metadata` | `false` |
-| `layered_proof` | `ChildProofContract` | `functions_owned` | `collection_metadata` | `false` |
-| `layered_proof` | `ChildProofContract` | `inputs_accepted` | `behavior_or_contract` | `true` |
-| `layered_proof` | `ChildProofContract` | `outputs_emitted` | `behavior_or_contract` | `true` |
-| `layered_proof` | `ChildProofContract` | `state_owned` | `behavior_or_contract` | `true` |
-| `layered_proof` | `ChildProofContract` | `side_effects_owned` | `behavior_or_contract` | `true` |
-| `layered_proof` | `ChildProofContract` | `invariants_owned` | `behavior_or_contract` | `true` |
-| `layered_proof` | `ChildProofContract` | `risk_classes` | `collection_metadata` | `false` |
-| `layered_proof` | `ChildProofContract` | `contracts_out` | `behavior_or_contract` | `true` |
-| `layered_proof` | `ChildProofContract` | `is_leaf` | `unclassified` | `false` |
-| `layered_proof` | `ChildProofContract` | `leaf_matrix_id` | `unclassified` | `false` |
-| `layered_proof` | `ChildProofContract` | `split_required` | `unclassified` | `false` |
-| `layered_proof` | `ChildProofContract` | `rationale` | `unclassified` | `false` |
-| `layered_proof` | `ChildReattachmentProof` | `child_model_id` | `unclassified` | `false` |
-| `layered_proof` | `ChildReattachmentProof` | `consumed_evidence_id` | `evidence_or_decision` | `false` |
-| `layered_proof` | `ChildReattachmentProof` | `expected_inputs` | `behavior_or_contract` | `true` |
-| `layered_proof` | `ChildReattachmentProof` | `expected_outputs` | `behavior_or_contract` | `true` |
-| `layered_proof` | `ChildReattachmentProof` | `expected_state_owned` | `behavior_or_contract` | `true` |
-| `layered_proof` | `ChildReattachmentProof` | `expected_side_effects_owned` | `behavior_or_contract` | `true` |
-| `layered_proof` | `ChildReattachmentProof` | `expected_contracts_out` | `behavior_or_contract` | `true` |
-| `layered_proof` | `ChildReattachmentProof` | `allow_extra_inputs` | `behavior_or_contract` | `true` |
-| `layered_proof` | `ChildReattachmentProof` | `allow_extra_outputs` | `behavior_or_contract` | `true` |
-| `layered_proof` | `ChildReattachmentProof` | `allow_extra_state_owned` | `behavior_or_contract` | `true` |
-| `layered_proof` | `ChildReattachmentProof` | `allow_extra_side_effects` | `behavior_or_contract` | `true` |
-| `layered_proof` | `ChildReattachmentProof` | `allow_extra_contracts_out` | `behavior_or_contract` | `true` |
-| `layered_proof` | `ChildReattachmentProof` | `rationale` | `unclassified` | `false` |
-| `layered_proof` | `LeafBoundaryMatrixCell` | `cell_id` | `unclassified` | `false` |
-| `layered_proof` | `LeafBoundaryMatrixCell` | `input_case` | `behavior_or_contract` | `true` |
-| `layered_proof` | `LeafBoundaryMatrixCell` | `state_case` | `behavior_or_contract` | `true` |
-| `layered_proof` | `LeafBoundaryMatrixCell` | `expected_outputs` | `behavior_or_contract` | `true` |
-| `layered_proof` | `LeafBoundaryMatrixCell` | `observed_outputs` | `behavior_or_contract` | `true` |
-| `layered_proof` | `LeafBoundaryMatrixCell` | `expected_next_states` | `behavior_or_contract` | `true` |
-| `layered_proof` | `LeafBoundaryMatrixCell` | `observed_next_states` | `behavior_or_contract` | `true` |
-| `layered_proof` | `LeafBoundaryMatrixCell` | `expected_state_writes` | `behavior_or_contract` | `true` |
-| `layered_proof` | `LeafBoundaryMatrixCell` | `observed_state_writes` | `behavior_or_contract` | `true` |
-| `layered_proof` | `LeafBoundaryMatrixCell` | `expected_side_effects` | `behavior_or_contract` | `true` |
-| `layered_proof` | `LeafBoundaryMatrixCell` | `observed_side_effects` | `behavior_or_contract` | `true` |
-| `layered_proof` | `LeafBoundaryMatrixCell` | `expected_error_paths` | `behavior_or_contract` | `true` |
-| `layered_proof` | `LeafBoundaryMatrixCell` | `observed_error_paths` | `behavior_or_contract` | `true` |
-| `layered_proof` | `LeafBoundaryMatrixCell` | `evidence_ids` | `evidence_or_decision` | `false` |
-| `layered_proof` | `LeafBoundaryMatrixCell` | `runtime_node_ids` | `collection_metadata` | `false` |
-| `layered_proof` | `LeafBoundaryMatrixCell` | `runtime_path_evidence_ids` | `evidence_or_decision` | `false` |
-| `layered_proof` | `LeafBoundaryMatrixCell` | `evidence_status` | `evidence_or_decision` | `false` |
-| `layered_proof` | `LeafBoundaryMatrixCell` | `evidence_current` | `evidence_or_decision` | `false` |
-| `layered_proof` | `LeafBoundaryMatrixCell` | `proof_artifact` | `evidence_or_decision` | `false` |
-| `layered_proof` | `LeafBoundaryMatrixCell` | `assertion_scope` | `unclassified` | `false` |
-| `layered_proof` | `LeafBoundaryMatrixCell` | `metadata` | `collection_metadata` | `false` |
-| `layered_proof` | `LeafBoundaryMatrix` | `leaf_model_id` | `unclassified` | `false` |
-| `layered_proof` | `LeafBoundaryMatrix` | `matrix_id` | `unclassified` | `false` |
-| `layered_proof` | `LeafBoundaryMatrix` | `input_cases` | `behavior_or_contract` | `true` |
-| `layered_proof` | `LeafBoundaryMatrix` | `state_cases` | `behavior_or_contract` | `true` |
-| `layered_proof` | `LeafBoundaryMatrix` | `expected_cell_ids` | `collection_metadata` | `false` |
-| `layered_proof` | `LeafBoundaryMatrix` | `cells` | `collection_metadata` | `false` |
-| `layered_proof` | `LeafBoundaryMatrix` | `finite` | `unclassified` | `false` |
-| `layered_proof` | `LeafBoundaryMatrix` | `complete` | `unclassified` | `false` |
-| `layered_proof` | `LeafBoundaryMatrix` | `too_large_for_leaf` | `unclassified` | `false` |
-| `layered_proof` | `LeafBoundaryMatrix` | `split_required` | `unclassified` | `false` |
-| `layered_proof` | `LeafBoundaryMatrix` | `scoped_exemption` | `unclassified` | `false` |
-| `layered_proof` | `LeafBoundaryMatrix` | `evidence_current` | `evidence_or_decision` | `false` |
-| `layered_proof` | `LeafBoundaryMatrix` | `rationale` | `unclassified` | `false` |
-| `layered_proof` | `LayeredBoundaryProofPlan` | `proof_id` | `evidence_or_decision` | `false` |
-| `layered_proof` | `LayeredBoundaryProofPlan` | `parent_model_id` | `unclassified` | `false` |
-| `layered_proof` | `LayeredBoundaryProofPlan` | `parent_items` | `collection_metadata` | `false` |
-| `layered_proof` | `LayeredBoundaryProofPlan` | `child_contracts` | `behavior_or_contract` | `true` |
-| `layered_proof` | `LayeredBoundaryProofPlan` | `reattachment_proofs` | `evidence_or_decision` | `false` |
-| `layered_proof` | `LayeredBoundaryProofPlan` | `leaf_matrices` | `collection_metadata` | `false` |
-| `layered_proof` | `LayeredBoundaryProofPlan` | `allowed_shared_responsibilities` | `collection_metadata` | `false` |
-| `layered_proof` | `LayeredBoundaryProofPlan` | `allowed_shared_functions` | `collection_metadata` | `false` |
-| `layered_proof` | `LayeredBoundaryProofPlan` | `allowed_shared_state` | `behavior_or_contract` | `true` |
-| `layered_proof` | `LayeredBoundaryProofPlan` | `allowed_shared_side_effects` | `behavior_or_contract` | `true` |
-| `layered_proof` | `LayeredBoundaryProofPlan` | `allowed_shared_invariants` | `behavior_or_contract` | `true` |
-| `layered_proof` | `LayeredBoundaryProofPlan` | `allowed_shared_risk_classes` | `collection_metadata` | `false` |
-| `layered_proof` | `LayeredBoundaryProofPlan` | `require_leaf_matrix_for_leaf_children` | `unclassified` | `false` |
-| `layered_proof` | `LayeredBoundaryProofPlan` | `require_proof_artifacts` | `evidence_or_decision` | `false` |
-| `layered_proof` | `LayeredBoundaryProofPlan` | `allow_scoped_leaf_exemptions` | `unclassified` | `false` |
-| `layered_proof` | `LayeredBoundaryProofPlan` | `claim_scope` | `unclassified` | `false` |
-| `layered_proof` | `LayeredBoundaryProofPlan` | `rationale` | `unclassified` | `false` |
-| `layered_proof` | `LayeredBoundaryFinding` | `code` | `unclassified` | `false` |
-| `layered_proof` | `LayeredBoundaryFinding` | `message` | `display_or_metadata` | `false` |
-| `layered_proof` | `LayeredBoundaryFinding` | `severity` | `unclassified` | `false` |
-| `layered_proof` | `LayeredBoundaryFinding` | `parent_model_id` | `unclassified` | `false` |
-| `layered_proof` | `LayeredBoundaryFinding` | `child_model_id` | `unclassified` | `false` |
-| `layered_proof` | `LayeredBoundaryFinding` | `item_id` | `unclassified` | `false` |
-| `layered_proof` | `LayeredBoundaryFinding` | `cell_id` | `unclassified` | `false` |
-| `layered_proof` | `LayeredBoundaryFinding` | `metadata` | `collection_metadata` | `false` |
-| `layered_proof` | `LayeredBoundaryProofReport` | `ok` | `evidence_or_decision` | `false` |
-| `layered_proof` | `LayeredBoundaryProofReport` | `proof_id` | `evidence_or_decision` | `false` |
-| `layered_proof` | `LayeredBoundaryProofReport` | `parent_model_id` | `unclassified` | `false` |
-| `layered_proof` | `LayeredBoundaryProofReport` | `decision` | `evidence_or_decision` | `false` |
-| `layered_proof` | `LayeredBoundaryProofReport` | `findings` | `evidence_or_decision` | `false` |
-| `layered_proof` | `LayeredBoundaryProofReport` | `summary` | `evidence_or_decision` | `false` |
-| `legacy_path_disposition` | `LegacyPathDisposition` | `path_id` | `unclassified` | `false` |
-| `legacy_path_disposition` | `LegacyPathDisposition` | `disposition` | `unclassified` | `false` |
-| `legacy_path_disposition` | `LegacyPathDisposition` | `path_kind` | `unclassified` | `false` |
-| `legacy_path_disposition` | `LegacyPathDisposition` | `parent_entry_ids` | `collection_metadata` | `false` |
-| `legacy_path_disposition` | `LegacyPathDisposition` | `repaired_contract_id` | `behavior_or_contract` | `true` |
-| `legacy_path_disposition` | `LegacyPathDisposition` | `field_id` | `unclassified` | `false` |
-| `legacy_path_disposition` | `LegacyPathDisposition` | `replacement_field_id` | `compatibility_or_old_path` | `true` |
-| `legacy_path_disposition` | `LegacyPathDisposition` | `compatibility_intent` | `compatibility_or_old_path` | `true` |
-| `legacy_path_disposition` | `LegacyPathDisposition` | `proof_artifact` | `evidence_or_decision` | `false` |
-| `legacy_path_disposition` | `LegacyPathDisposition` | `in_scope` | `unclassified` | `false` |
-| `legacy_path_disposition` | `LegacyPathDisposition` | `out_of_scope_reason` | `evidence_or_decision` | `false` |
-| `legacy_path_disposition` | `LegacyPathDisposition` | `rationale` | `unclassified` | `false` |
-| `legacy_path_disposition` | `LegacyPathDisposition` | `metadata` | `collection_metadata` | `false` |
-| `legacy_path_disposition` | `LegacyPathDispositionFinding` | `code` | `unclassified` | `false` |
-| `legacy_path_disposition` | `LegacyPathDispositionFinding` | `message` | `display_or_metadata` | `false` |
-| `legacy_path_disposition` | `LegacyPathDispositionFinding` | `path_id` | `unclassified` | `false` |
-| `legacy_path_disposition` | `LegacyPathDispositionFinding` | `metadata` | `collection_metadata` | `false` |
-| `legacy_path_disposition` | `LegacyPathDispositionReport` | `ok` | `evidence_or_decision` | `false` |
-| `legacy_path_disposition` | `LegacyPathDispositionReport` | `findings` | `evidence_or_decision` | `false` |
-| `loop` | `GraphEdge` | `old_state` | `compatibility_or_old_path` | `true` |
-| `loop` | `GraphEdge` | `new_state` | `behavior_or_contract` | `true` |
-| `loop` | `GraphEdge` | `label` | `display_or_metadata` | `false` |
-| `loop` | `GraphEdge` | `reason` | `evidence_or_decision` | `false` |
-| `loop` | `GraphEdge` | `metadata` | `unclassified` | `false` |
-| `loop` | `LoopCheckConfig` | `initial_states` | `behavior_or_contract` | `true` |
-| `loop` | `LoopCheckConfig` | `transition_fn` | `behavior_or_contract` | `true` |
-| `loop` | `LoopCheckConfig` | `is_terminal` | `unclassified` | `false` |
-| `loop` | `LoopCheckConfig` | `is_success` | `unclassified` | `false` |
-| `loop` | `LoopCheckConfig` | `max_states` | `behavior_or_contract` | `true` |
-| `loop` | `LoopCheckConfig` | `max_depth` | `unclassified` | `false` |
-| `loop` | `LoopCheckConfig` | `required_success` | `unclassified` | `false` |
-| `loop` | `LoopCheckConfig` | `report_terminal_outgoing` | `evidence_or_decision` | `false` |
-| `loop` | `NonTerminatingComponent` | `states` | `behavior_or_contract` | `true` |
-| `loop` | `NonTerminatingComponent` | `reason` | `evidence_or_decision` | `false` |
-| `loop` | `NonTerminatingComponent` | `outgoing_edges` | `collection_metadata` | `false` |
-| `loop` | `TerminalOutgoing` | `state` | `behavior_or_contract` | `true` |
-| `loop` | `TerminalOutgoing` | `outgoing_edges` | `collection_metadata` | `false` |
-| `loop` | `LoopCheckReport` | `ok` | `evidence_or_decision` | `false` |
-| `loop` | `LoopCheckReport` | `stuck_states` | `behavior_or_contract` | `true` |
-| `loop` | `LoopCheckReport` | `non_terminating_components` | `collection_metadata` | `false` |
-| `loop` | `LoopCheckReport` | `unreachable_success` | `unclassified` | `false` |
-| `loop` | `LoopCheckReport` | `terminal_with_outgoing_edges` | `collection_metadata` | `false` |
-| `loop` | `LoopCheckReport` | `graph_summary` | `evidence_or_decision` | `false` |
-| `loop` | `LoopCheckReport` | `reachable_states` | `behavior_or_contract` | `true` |
-| `loop` | `LoopCheckReport` | `edges` | `collection_metadata` | `false` |
-| `loop` | `LoopCheckReport` | `sccs` | `collection_metadata` | `false` |
-| `loop` | `LoopCheckReport` | `bottom_sccs` | `collection_metadata` | `false` |
-| `maintenance_obligation` | `MaintenanceObligation` | `obligation_id` | `behavior_or_contract` | `true` |
-| `maintenance_obligation` | `MaintenanceObligation` | `owner_route` | `behavior_or_contract` | `true` |
-| `maintenance_obligation` | `MaintenanceObligation` | `reason_code` | `evidence_or_decision` | `false` |
-| `maintenance_obligation` | `MaintenanceObligation` | `source_route` | `behavior_or_contract` | `true` |
-| `maintenance_obligation` | `MaintenanceObligation` | `status` | `evidence_or_decision` | `false` |
-| `maintenance_obligation` | `MaintenanceObligation` | `strength` | `unclassified` | `false` |
-| `maintenance_obligation` | `MaintenanceObligation` | `artifact_ids` | `collection_metadata` | `false` |
-| `maintenance_obligation` | `MaintenanceObligation` | `anchor_paths` | `collection_metadata` | `false` |
-| `maintenance_obligation` | `MaintenanceObligation` | `anchor_symbols` | `collection_metadata` | `false` |
-| `maintenance_obligation` | `MaintenanceObligation` | `model_ids` | `collection_metadata` | `false` |
-| `maintenance_obligation` | `MaintenanceObligation` | `risk_ids` | `collection_metadata` | `false` |
-| `maintenance_obligation` | `MaintenanceObligation` | `code_contract_ids` | `behavior_or_contract` | `true` |
-| `maintenance_obligation` | `MaintenanceObligation` | `public_entrypoint_ids` | `collection_metadata` | `false` |
-| `maintenance_obligation` | `MaintenanceObligation` | `evidence_ids` | `evidence_or_decision` | `false` |
-| `maintenance_obligation` | `MaintenanceObligation` | `required_input_kinds` | `behavior_or_contract` | `true` |
-| `maintenance_obligation` | `MaintenanceObligation` | `proof_gap_codes` | `evidence_or_decision` | `false` |
-| `maintenance_obligation` | `MaintenanceObligation` | `claim_effect` | `behavior_or_contract` | `true` |
-| `maintenance_obligation` | `MaintenanceObligation` | `suggested_commands` | `collection_metadata` | `false` |
-| `maintenance_obligation` | `MaintenanceObligation` | `message` | `display_or_metadata` | `false` |
-| `maintenance_obligation` | `MaintenanceObligation` | `scope_reason` | `evidence_or_decision` | `false` |
-| `maintenance_obligation` | `MaintenanceObligation` | `current` | `unclassified` | `false` |
-| `maintenance_obligation` | `MaintenanceObligation` | `metadata` | `collection_metadata` | `false` |
-| `maintenance_obligation` | `MaintenanceObligationReport` | `report_id` | `evidence_or_decision` | `false` |
-| `maintenance_obligation` | `MaintenanceObligationReport` | `obligations` | `behavior_or_contract` | `true` |
-| `maintenance_obligation` | `MaintenanceObligationReport` | `summary` | `evidence_or_decision` | `false` |
-| `maintenance_scan` | `MaintenanceChangedArtifact` | `artifact_id` | `unclassified` | `false` |
-| `maintenance_scan` | `MaintenanceChangedArtifact` | `artifact_kind` | `unclassified` | `false` |
-| `maintenance_scan` | `MaintenanceChangedArtifact` | `path` | `unclassified` | `false` |
-| `maintenance_scan` | `MaintenanceChangedArtifact` | `changed` | `unclassified` | `false` |
-| `maintenance_scan` | `MaintenanceChangedArtifact` | `current` | `unclassified` | `false` |
-| `maintenance_scan` | `MaintenanceChangedArtifact` | `description` | `display_or_metadata` | `false` |
-| `maintenance_scan` | `MaintenanceChangedArtifact` | `metadata` | `collection_metadata` | `false` |
-| `maintenance_scan` | `MaintenanceEvidence` | `evidence_id` | `evidence_or_decision` | `false` |
-| `maintenance_scan` | `MaintenanceEvidence` | `route_id` | `behavior_or_contract` | `true` |
-| `maintenance_scan` | `MaintenanceEvidence` | `status` | `evidence_or_decision` | `false` |
-| `maintenance_scan` | `MaintenanceEvidence` | `current` | `unclassified` | `false` |
-| `maintenance_scan` | `MaintenanceEvidence` | `covers_artifact_ids` | `collection_metadata` | `false` |
-| `maintenance_scan` | `MaintenanceEvidence` | `covers_signal_ids` | `collection_metadata` | `false` |
-| `maintenance_scan` | `MaintenanceEvidence` | `result_path` | `evidence_or_decision` | `false` |
-| `maintenance_scan` | `MaintenanceEvidence` | `description` | `display_or_metadata` | `false` |
-| `maintenance_scan` | `MaintenanceEvidence` | `metadata` | `collection_metadata` | `false` |
-| `maintenance_scan` | `MaintenanceSignal` | `signal_id` | `unclassified` | `false` |
-| `maintenance_scan` | `MaintenanceSignal` | `signal_type` | `unclassified` | `false` |
-| `maintenance_scan` | `MaintenanceSignal` | `route_id` | `behavior_or_contract` | `true` |
-| `maintenance_scan` | `MaintenanceSignal` | `strength` | `unclassified` | `false` |
-| `maintenance_scan` | `MaintenanceSignal` | `artifact_ids` | `collection_metadata` | `false` |
-| `maintenance_scan` | `MaintenanceSignal` | `required_input_kinds` | `behavior_or_contract` | `true` |
-| `maintenance_scan` | `MaintenanceSignal` | `proof_gap_codes` | `evidence_or_decision` | `false` |
-| `maintenance_scan` | `MaintenanceSignal` | `claim_effect` | `behavior_or_contract` | `true` |
-| `maintenance_scan` | `MaintenanceSignal` | `suggested_commands` | `collection_metadata` | `false` |
-| `maintenance_scan` | `MaintenanceSignal` | `source_obligation_ids` | `behavior_or_contract` | `true` |
-| `maintenance_scan` | `MaintenanceSignal` | `description` | `display_or_metadata` | `false` |
-| `maintenance_scan` | `MaintenanceSignal` | `metadata` | `collection_metadata` | `false` |
-| `maintenance_scan` | `MaintenanceSkippedRoute` | `route_id` | `behavior_or_contract` | `true` |
-| `maintenance_scan` | `MaintenanceSkippedRoute` | `reason` | `evidence_or_decision` | `false` |
-| `maintenance_scan` | `MaintenanceSkippedRoute` | `accepted_scope` | `unclassified` | `false` |
-| `maintenance_scan` | `MaintenanceSkippedRoute` | `consequence` | `unclassified` | `false` |
-| `maintenance_scan` | `MaintenanceSkippedRoute` | `metadata` | `collection_metadata` | `false` |
-| `maintenance_scan` | `MaintenanceAction` | `action_id` | `behavior_or_contract` | `true` |
-| `maintenance_scan` | `MaintenanceAction` | `route_id` | `behavior_or_contract` | `true` |
-| `maintenance_scan` | `MaintenanceAction` | `strength` | `unclassified` | `false` |
-| `maintenance_scan` | `MaintenanceAction` | `reason_code` | `evidence_or_decision` | `false` |
-| `maintenance_scan` | `MaintenanceAction` | `message` | `display_or_metadata` | `false` |
-| `maintenance_scan` | `MaintenanceAction` | `artifact_ids` | `collection_metadata` | `false` |
-| `maintenance_scan` | `MaintenanceAction` | `signal_ids` | `collection_metadata` | `false` |
-| `maintenance_scan` | `MaintenanceAction` | `owner_evidence_ids` | `evidence_or_decision` | `false` |
-| `maintenance_scan` | `MaintenanceAction` | `required_input_kinds` | `behavior_or_contract` | `true` |
-| `maintenance_scan` | `MaintenanceAction` | `proof_gap_codes` | `evidence_or_decision` | `false` |
-| `maintenance_scan` | `MaintenanceAction` | `claim_effect` | `behavior_or_contract` | `true` |
-| `maintenance_scan` | `MaintenanceAction` | `suggested_commands` | `collection_metadata` | `false` |
-| `maintenance_scan` | `MaintenanceAction` | `source_obligation_ids` | `behavior_or_contract` | `true` |
-| `maintenance_scan` | `MaintenanceAction` | `resolved` | `unclassified` | `false` |
-| `maintenance_scan` | `MaintenanceAction` | `metadata` | `collection_metadata` | `false` |
-| `maintenance_scan` | `MaintenanceScanPlan` | `plan_id` | `unclassified` | `false` |
-| `maintenance_scan` | `MaintenanceScanPlan` | `changed_artifacts` | `collection_metadata` | `false` |
-| `maintenance_scan` | `MaintenanceScanPlan` | `evidence` | `evidence_or_decision` | `false` |
-| `maintenance_scan` | `MaintenanceScanPlan` | `signals` | `collection_metadata` | `false` |
-| `maintenance_scan` | `MaintenanceScanPlan` | `skipped_routes` | `behavior_or_contract` | `true` |
-| `maintenance_scan` | `MaintenanceScanPlan` | `prior_obligations` | `behavior_or_contract` | `true` |
-| `maintenance_scan` | `MaintenanceScanPlan` | `claim_scope` | `unclassified` | `false` |
-| `maintenance_scan` | `MaintenanceScanPlan` | `allow_scoped_confidence` | `evidence_or_decision` | `false` |
-| `maintenance_scan` | `MaintenanceScanReport` | `ok` | `evidence_or_decision` | `false` |
-| `maintenance_scan` | `MaintenanceScanReport` | `plan_id` | `unclassified` | `false` |
-| `maintenance_scan` | `MaintenanceScanReport` | `decision` | `evidence_or_decision` | `false` |
-| `maintenance_scan` | `MaintenanceScanReport` | `confidence` | `evidence_or_decision` | `false` |
-| `maintenance_scan` | `MaintenanceScanReport` | `actions` | `behavior_or_contract` | `true` |
-| `maintenance_scan` | `MaintenanceScanReport` | `unresolved_required_action_ids` | `behavior_or_contract` | `true` |
-| `maintenance_scan` | `MaintenanceScanReport` | `reopened_obligation_ids` | `behavior_or_contract` | `true` |
-| `maintenance_scan` | `MaintenanceScanReport` | `visible_obligation_ids` | `behavior_or_contract` | `true` |
-| `maintenance_scan` | `MaintenanceScanReport` | `obligations` | `behavior_or_contract` | `true` |
-| `maintenance_scan` | `MaintenanceScanReport` | `summary` | `evidence_or_decision` | `false` |
-| `minimize` | `ReductionStep` | `pass_index` | `unclassified` | `false` |
-| `minimize` | `ReductionStep` | `removed_start` | `unclassified` | `false` |
-| `minimize` | `ReductionStep` | `removed_length` | `unclassified` | `false` |
-| `minimize` | `ReductionStep` | `candidate_length` | `unclassified` | `false` |
-| `minimize` | `ReductionStep` | `sequence` | `collection_metadata` | `false` |
-| `minimize` | `MinimizedCounterexample` | `original_sequence` | `collection_metadata` | `false` |
-| `minimize` | `MinimizedCounterexample` | `minimized_sequence` | `collection_metadata` | `false` |
-| `minimize` | `MinimizedCounterexample` | `status` | `evidence_or_decision` | `false` |
-| `minimize` | `MinimizedCounterexample` | `reason` | `evidence_or_decision` | `false` |
-| `minimize` | `MinimizedCounterexample` | `attempts` | `unclassified` | `false` |
-| `minimize` | `MinimizedCounterexample` | `passes` | `unclassified` | `false` |
-| `minimize` | `MinimizedCounterexample` | `reduction_steps` | `collection_metadata` | `false` |
-| `minimize` | `MinimizedCounterexample` | `violation_name` | `display_or_metadata` | `false` |
-| `minimize` | `MinimizedCounterexample` | `original_result` | `evidence_or_decision` | `false` |
-| `minimize` | `MinimizedCounterexample` | `minimized_result` | `evidence_or_decision` | `false` |
-| `model_angle_deliberation` | `ModelAngleDeliberation` | `angle_id` | `unclassified` | `false` |
-| `model_angle_deliberation` | `ModelAngleDeliberation` | `angle_name` | `display_or_metadata` | `false` |
-| `model_angle_deliberation` | `ModelAngleDeliberation` | `trigger_observation` | `unclassified` | `false` |
-| `model_angle_deliberation` | `ModelAngleDeliberation` | `current_model_sees` | `unclassified` | `false` |
-| `model_angle_deliberation` | `ModelAngleDeliberation` | `current_model_misses` | `unclassified` | `false` |
-| `model_angle_deliberation` | `ModelAngleDeliberation` | `failure_if_ignored` | `unclassified` | `false` |
-| `model_angle_deliberation` | `ModelAngleDeliberation` | `candidate_action` | `behavior_or_contract` | `true` |
-| `model_angle_deliberation` | `ModelAngleDeliberation` | `existing_model_ids` | `collection_metadata` | `false` |
-| `model_angle_deliberation` | `ModelAngleDeliberation` | `proposed_model_boundary` | `unclassified` | `false` |
-| `model_angle_deliberation` | `ModelAngleDeliberation` | `owner_route_hint` | `behavior_or_contract` | `true` |
-| `model_angle_deliberation` | `ModelAngleDeliberation` | `required_before_broad_claim` | `unclassified` | `false` |
-| `model_angle_deliberation` | `ModelAngleDeliberation` | `scoped_out_reason` | `evidence_or_decision` | `false` |
-| `model_angle_deliberation` | `ModelAngleDeliberation` | `evidence_needed` | `evidence_or_decision` | `false` |
-| `model_angle_deliberation` | `ModelAngleDeliberation` | `open_questions` | `collection_metadata` | `false` |
-| `model_angle_deliberation` | `ModelAngleDeliberation` | `resolved` | `unclassified` | `false` |
-| `model_angle_deliberation` | `ModelAngleDeliberation` | `current` | `unclassified` | `false` |
-| `model_angle_deliberation` | `ModelAngleDeliberation` | `metadata` | `collection_metadata` | `false` |
-| `model_angle_deliberation` | `ModelAngleFinding` | `code` | `unclassified` | `false` |
-| `model_angle_deliberation` | `ModelAngleFinding` | `message` | `display_or_metadata` | `false` |
-| `model_angle_deliberation` | `ModelAngleFinding` | `severity` | `unclassified` | `false` |
-| `model_angle_deliberation` | `ModelAngleFinding` | `angle_id` | `unclassified` | `false` |
-| `model_angle_deliberation` | `ModelAngleFinding` | `owner_route` | `behavior_or_contract` | `true` |
-| `model_angle_deliberation` | `ModelAngleFinding` | `candidate_action` | `behavior_or_contract` | `true` |
-| `model_angle_deliberation` | `ModelAngleFinding` | `metadata` | `collection_metadata` | `false` |
-| `model_angle_deliberation` | `ModelAngleReviewReport` | `ok` | `evidence_or_decision` | `false` |
-| `model_angle_deliberation` | `ModelAngleReviewReport` | `review_id` | `unclassified` | `false` |
-| `model_angle_deliberation` | `ModelAngleReviewReport` | `decision` | `evidence_or_decision` | `false` |
-| `model_angle_deliberation` | `ModelAngleReviewReport` | `confidence` | `evidence_or_decision` | `false` |
-| `model_angle_deliberation` | `ModelAngleReviewReport` | `deliberations` | `collection_metadata` | `false` |
-| `model_angle_deliberation` | `ModelAngleReviewReport` | `findings` | `evidence_or_decision` | `false` |
-| `model_angle_deliberation` | `ModelAngleReviewReport` | `unresolved_angle_ids` | `collection_metadata` | `false` |
-| `model_angle_deliberation` | `ModelAngleReviewReport` | `summary` | `evidence_or_decision` | `false` |
-| `model_freshness` | `ModelFreshnessRecord` | `model_id` | `unclassified` | `false` |
-| `model_freshness` | `ModelFreshnessRecord` | `model_path` | `unclassified` | `false` |
-| `model_freshness` | `ModelFreshnessRecord` | `dependency_artifact_ids` | `collection_metadata` | `false` |
-| `model_freshness` | `ModelFreshnessRecord` | `flowguard_semantic_ids` | `collection_metadata` | `false` |
-| `model_freshness` | `ModelFreshnessRecord` | `previous_evidence_id` | `evidence_or_decision` | `false` |
-| `model_freshness` | `ModelFreshnessRecord` | `last_verified_fingerprint` | `unclassified` | `false` |
-| `model_freshness` | `ModelFreshnessRecord` | `replacement_model_id` | `compatibility_or_old_path` | `true` |
-| `model_freshness` | `ModelFreshnessRecord` | `metadata` | `collection_metadata` | `false` |
-| `model_freshness` | `UpgradeImpact` | `upgrade_id` | `unclassified` | `false` |
-| `model_freshness` | `UpgradeImpact` | `changed_artifact_ids` | `collection_metadata` | `false` |
-| `model_freshness` | `UpgradeImpact` | `changed_flowguard_semantic_ids` | `collection_metadata` | `false` |
-| `model_freshness` | `UpgradeImpact` | `description` | `display_or_metadata` | `false` |
-| `model_freshness` | `UpgradeImpact` | `metadata` | `collection_metadata` | `false` |
-| `model_freshness` | `ModelImpactAssessment` | `model_id` | `unclassified` | `false` |
-| `model_freshness` | `ModelImpactAssessment` | `classification` | `unclassified` | `false` |
-| `model_freshness` | `ModelImpactAssessment` | `rationale` | `unclassified` | `false` |
-| `model_freshness` | `ModelImpactAssessment` | `impacted_artifact_ids` | `collection_metadata` | `false` |
-| `model_freshness` | `ModelImpactAssessment` | `impacted_semantic_ids` | `collection_metadata` | `false` |
-| `model_freshness` | `ModelImpactAssessment` | `replacement_model_id` | `compatibility_or_old_path` | `true` |
-| `model_freshness` | `ModelImpactAssessment` | `blocked_reason` | `evidence_or_decision` | `false` |
-| `model_freshness` | `ModelImpactAssessment` | `reviewer` | `unclassified` | `false` |
-| `model_freshness` | `ModelImpactAssessment` | `metadata` | `collection_metadata` | `false` |
-| `model_freshness` | `ModelReuseTicket` | `model_id` | `unclassified` | `false` |
-| `model_freshness` | `ModelReuseTicket` | `reason` | `evidence_or_decision` | `false` |
-| `model_freshness` | `ModelReuseTicket` | `previous_evidence_id` | `evidence_or_decision` | `false` |
-| `model_freshness` | `ModelReuseTicket` | `same_output_proof_id` | `behavior_or_contract` | `true` |
-| `model_freshness` | `ModelReuseTicket` | `output_fingerprint` | `behavior_or_contract` | `true` |
-| `model_freshness` | `ModelReuseTicket` | `ticket_current` | `unclassified` | `false` |
-| `model_freshness` | `ModelReuseTicket` | `model_fingerprint_current` | `unclassified` | `false` |
-| `model_freshness` | `ModelReuseTicket` | `dependency_fingerprints_current` | `unclassified` | `false` |
-| `model_freshness` | `ModelReuseTicket` | `flowguard_semantics_current` | `unclassified` | `false` |
-| `model_freshness` | `ModelReuseTicket` | `previous_evidence_current` | `evidence_or_decision` | `false` |
-| `model_freshness` | `ModelReuseTicket` | `output_fingerprint_matches` | `behavior_or_contract` | `true` |
-| `model_freshness` | `ModelReuseTicket` | `checked_by` | `unclassified` | `false` |
-| `model_freshness` | `ModelReuseTicket` | `checked_at` | `unclassified` | `false` |
-| `model_freshness` | `ModelReuseTicket` | `metadata` | `collection_metadata` | `false` |
-| `model_freshness` | `ModelRerunEvidence` | `model_id` | `unclassified` | `false` |
-| `model_freshness` | `ModelRerunEvidence` | `status` | `evidence_or_decision` | `false` |
-| `model_freshness` | `ModelRerunEvidence` | `current` | `unclassified` | `false` |
-| `model_freshness` | `ModelRerunEvidence` | `evidence_id` | `evidence_or_decision` | `false` |
-| `model_freshness` | `ModelRerunEvidence` | `command` | `unclassified` | `false` |
-| `model_freshness` | `ModelRerunEvidence` | `model_update_reviewed` | `unclassified` | `false` |
-| `model_freshness` | `ModelRerunEvidence` | `model_updated` | `unclassified` | `false` |
-| `model_freshness` | `ModelRerunEvidence` | `model_update_not_required_reason` | `evidence_or_decision` | `false` |
-| `model_freshness` | `ModelRerunEvidence` | `test_update_reviewed` | `unclassified` | `false` |
-| `model_freshness` | `ModelRerunEvidence` | `tests_updated` | `unclassified` | `false` |
-| `model_freshness` | `ModelRerunEvidence` | `test_update_not_required_reason` | `evidence_or_decision` | `false` |
-| `model_freshness` | `ModelRerunEvidence` | `output_changed` | `behavior_or_contract` | `true` |
-| `model_freshness` | `ModelRerunEvidence` | `output_change_explanation` | `behavior_or_contract` | `true` |
-| `model_freshness` | `ModelRerunEvidence` | `checked_at` | `unclassified` | `false` |
-| `model_freshness` | `ModelRerunEvidence` | `metadata` | `collection_metadata` | `false` |
-| `model_freshness` | `ModelImpactFreshnessPlan` | `plan_id` | `unclassified` | `false` |
-| `model_freshness` | `ModelImpactFreshnessPlan` | `records` | `collection_metadata` | `false` |
-| `model_freshness` | `ModelImpactFreshnessPlan` | `impact` | `unclassified` | `false` |
-| `model_freshness` | `ModelImpactFreshnessPlan` | `assessments` | `collection_metadata` | `false` |
-| `model_freshness` | `ModelImpactFreshnessPlan` | `reuse_tickets` | `collection_metadata` | `false` |
-| `model_freshness` | `ModelImpactFreshnessPlan` | `rerun_evidence` | `evidence_or_decision` | `false` |
-| `model_freshness` | `ModelImpactFreshnessPlan` | `require_explicit_classification` | `unclassified` | `false` |
-| `model_freshness` | `ModelImpactFreshnessPlan` | `metadata` | `collection_metadata` | `false` |
-| `model_freshness` | `ModelFreshnessFinding` | `code` | `unclassified` | `false` |
-| `model_freshness` | `ModelFreshnessFinding` | `message` | `display_or_metadata` | `false` |
-| `model_freshness` | `ModelFreshnessFinding` | `severity` | `unclassified` | `false` |
-| `model_freshness` | `ModelFreshnessFinding` | `model_id` | `unclassified` | `false` |
-| `model_freshness` | `ModelFreshnessFinding` | `metadata` | `collection_metadata` | `false` |
-| `model_freshness` | `ModelImpactFreshnessReport` | `ok` | `evidence_or_decision` | `false` |
-| `model_freshness` | `ModelImpactFreshnessReport` | `plan_id` | `unclassified` | `false` |
-| `model_freshness` | `ModelImpactFreshnessReport` | `decision` | `evidence_or_decision` | `false` |
-| `model_freshness` | `ModelImpactFreshnessReport` | `findings` | `evidence_or_decision` | `false` |
-| `model_freshness` | `ModelImpactFreshnessReport` | `affected_model_ids` | `collection_metadata` | `false` |
-| `model_freshness` | `ModelImpactFreshnessReport` | `reused_model_ids` | `collection_metadata` | `false` |
-| `model_freshness` | `ModelImpactFreshnessReport` | `rerun_model_ids` | `collection_metadata` | `false` |
-| `model_freshness` | `ModelImpactFreshnessReport` | `deprecated_model_ids` | `compatibility_or_old_path` | `true` |
-| `model_freshness` | `ModelImpactFreshnessReport` | `blocked_model_ids` | `collection_metadata` | `false` |
-| `model_freshness` | `ModelImpactFreshnessReport` | `unknown_model_ids` | `collection_metadata` | `false` |
-| `model_freshness` | `ModelImpactFreshnessReport` | `summary` | `evidence_or_decision` | `false` |
-| `model_maturation` | `ModelMaturationSignal` | `signal_id` | `unclassified` | `false` |
-| `model_maturation` | `ModelMaturationSignal` | `signal_type` | `unclassified` | `false` |
-| `model_maturation` | `ModelMaturationSignal` | `source_route` | `behavior_or_contract` | `true` |
-| `model_maturation` | `ModelMaturationSignal` | `model_id` | `unclassified` | `false` |
-| `model_maturation` | `ModelMaturationSignal` | `risk_id` | `unclassified` | `false` |
-| `model_maturation` | `ModelMaturationSignal` | `evidence_id` | `evidence_or_decision` | `false` |
-| `model_maturation` | `ModelMaturationSignal` | `description` | `display_or_metadata` | `false` |
-| `model_maturation` | `ModelMaturationSignal` | `in_scope` | `unclassified` | `false` |
-| `model_maturation` | `ModelMaturationSignal` | `required` | `unclassified` | `false` |
-| `model_maturation` | `ModelMaturationSignal` | `resolved` | `unclassified` | `false` |
-| `model_maturation` | `ModelMaturationSignal` | `current` | `unclassified` | `false` |
-| `model_maturation` | `ModelMaturationSignal` | `suggested_actions` | `behavior_or_contract` | `true` |
-| `model_maturation` | `ModelMaturationSignal` | `metadata` | `collection_metadata` | `false` |
-| `model_maturation` | `ModelMaturationFinding` | `code` | `unclassified` | `false` |
-| `model_maturation` | `ModelMaturationFinding` | `message` | `display_or_metadata` | `false` |
-| `model_maturation` | `ModelMaturationFinding` | `severity` | `unclassified` | `false` |
-| `model_maturation` | `ModelMaturationFinding` | `signal_id` | `unclassified` | `false` |
-| `model_maturation` | `ModelMaturationFinding` | `model_id` | `unclassified` | `false` |
-| `model_maturation` | `ModelMaturationFinding` | `risk_id` | `unclassified` | `false` |
-| `model_maturation` | `ModelMaturationFinding` | `action` | `behavior_or_contract` | `true` |
-| `model_maturation` | `ModelMaturationFinding` | `metadata` | `collection_metadata` | `false` |
-| `model_maturation` | `ModelMaturationPlan` | `plan_id` | `unclassified` | `false` |
-| `model_maturation` | `ModelMaturationPlan` | `model_id` | `unclassified` | `false` |
-| `model_maturation` | `ModelMaturationPlan` | `risk_id` | `unclassified` | `false` |
-| `model_maturation` | `ModelMaturationPlan` | `signals` | `collection_metadata` | `false` |
-| `model_maturation` | `ModelMaturationPlan` | `claim_scope` | `unclassified` | `false` |
-| `model_maturation` | `ModelMaturationPlan` | `require_full_closure` | `unclassified` | `false` |
-| `model_maturation` | `ModelMaturationPlan` | `allow_scoped_claim` | `unclassified` | `false` |
-| `model_maturation` | `ModelMaturationReport` | `ok` | `evidence_or_decision` | `false` |
-| `model_maturation` | `ModelMaturationReport` | `plan_id` | `unclassified` | `false` |
-| `model_maturation` | `ModelMaturationReport` | `decision` | `evidence_or_decision` | `false` |
-| `model_maturation` | `ModelMaturationReport` | `confidence` | `evidence_or_decision` | `false` |
-| `model_maturation` | `ModelMaturationReport` | `model_id` | `unclassified` | `false` |
-| `model_maturation` | `ModelMaturationReport` | `risk_id` | `unclassified` | `false` |
-| `model_maturation` | `ModelMaturationReport` | `recommended_actions` | `behavior_or_contract` | `true` |
-| `model_maturation` | `ModelMaturationReport` | `findings` | `evidence_or_decision` | `false` |
-| `model_maturation` | `ModelMaturationReport` | `scoped_signal_ids` | `collection_metadata` | `false` |
-| `model_maturation` | `ModelMaturationReport` | `maintenance_obligations` | `behavior_or_contract` | `true` |
-| `model_maturation` | `ModelMaturationReport` | `summary` | `evidence_or_decision` | `false` |
-| `model_similarity` | `ModelSignature` | `model_id` | `unclassified` | `false` |
-| `model_similarity` | `ModelSignature` | `model_path` | `unclassified` | `false` |
-| `model_similarity` | `ModelSignature` | `workflow_family` | `unclassified` | `false` |
-| `model_similarity` | `ModelSignature` | `variant_id` | `unclassified` | `false` |
-| `model_similarity` | `ModelSignature` | `function_blocks` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSignature` | `inputs` | `behavior_or_contract` | `true` |
-| `model_similarity` | `ModelSignature` | `outputs` | `behavior_or_contract` | `true` |
-| `model_similarity` | `ModelSignature` | `state_owned` | `behavior_or_contract` | `true` |
-| `model_similarity` | `ModelSignature` | `state_read` | `behavior_or_contract` | `true` |
-| `model_similarity` | `ModelSignature` | `side_effects_owned` | `behavior_or_contract` | `true` |
-| `model_similarity` | `ModelSignature` | `invariants` | `behavior_or_contract` | `true` |
-| `model_similarity` | `ModelSignature` | `failure_modes` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSignature` | `contracts_in` | `behavior_or_contract` | `true` |
-| `model_similarity` | `ModelSignature` | `contracts_out` | `behavior_or_contract` | `true` |
-| `model_similarity` | `ModelSignature` | `public_entrypoints` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSignature` | `code_paths` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSignature` | `test_paths` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSignature` | `owned_public_behaviors` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSignature` | `shared_kernel_id` | `unclassified` | `false` |
-| `model_similarity` | `ModelSignature` | `adapter_ids` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSignature` | `maintenance_tags` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSignature` | `changed_refs` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSignature` | `parent_model_id` | `unclassified` | `false` |
-| `model_similarity` | `ModelSignature` | `child_model_ids` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSignature` | `evidence_ids` | `evidence_or_decision` | `false` |
-| `model_similarity` | `ModelSignature` | `evidence_current` | `evidence_or_decision` | `false` |
-| `model_similarity` | `ModelSignature` | `known_blindspots` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSignature` | `false_friend_model_ids` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSignature` | `metadata` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSimilarityEvidence` | `evidence_id` | `evidence_or_decision` | `false` |
-| `model_similarity` | `ModelSimilarityEvidence` | `relation_id` | `unclassified` | `false` |
-| `model_similarity` | `ModelSimilarityEvidence` | `evidence_type` | `evidence_or_decision` | `false` |
-| `model_similarity` | `ModelSimilarityEvidence` | `result_status` | `evidence_or_decision` | `false` |
-| `model_similarity` | `ModelSimilarityEvidence` | `current` | `unclassified` | `false` |
-| `model_similarity` | `ModelSimilarityEvidence` | `summary` | `evidence_or_decision` | `false` |
-| `model_similarity` | `ModelSimilarityEvidence` | `metadata` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSimilarityRelation` | `relation_id` | `unclassified` | `false` |
-| `model_similarity` | `ModelSimilarityRelation` | `left_model_id` | `unclassified` | `false` |
-| `model_similarity` | `ModelSimilarityRelation` | `right_model_id` | `unclassified` | `false` |
-| `model_similarity` | `ModelSimilarityRelation` | `relation_type` | `unclassified` | `false` |
-| `model_similarity` | `ModelSimilarityRelation` | `confidence` | `evidence_or_decision` | `false` |
-| `model_similarity` | `ModelSimilarityRelation` | `matched_elements` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSimilarityRelation` | `different_elements` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSimilarityRelation` | `risk_if_merged` | `unclassified` | `false` |
-| `model_similarity` | `ModelSimilarityRelation` | `risk_if_kept_separate` | `unclassified` | `false` |
-| `model_similarity` | `ModelSimilarityRelation` | `recommendation` | `unclassified` | `false` |
-| `model_similarity` | `ModelSimilarityRelation` | `required_next_routes` | `behavior_or_contract` | `true` |
-| `model_similarity` | `ModelSimilarityRelation` | `required_evidence` | `evidence_or_decision` | `false` |
-| `model_similarity` | `ModelSimilarityRelation` | `evidence_refs` | `evidence_or_decision` | `false` |
-| `model_similarity` | `ModelSimilarityRelation` | `rationale` | `unclassified` | `false` |
-| `model_similarity` | `ModelSimilarityRelation` | `manual_review_required` | `unclassified` | `false` |
-| `model_similarity` | `ModelSimilarityRelation` | `metadata` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSimilarityPlan` | `plan_id` | `unclassified` | `false` |
-| `model_similarity` | `ModelSimilarityPlan` | `signatures` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSimilarityPlan` | `comparison_pairs` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSimilarityPlan` | `evidence` | `evidence_or_decision` | `false` |
-| `model_similarity` | `ModelSimilarityPlan` | `required_relation_ids` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSimilarityPlan` | `changed_model_ids` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSimilarityPlan` | `changed_code_paths` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSimilarityPlan` | `require_current_evidence` | `evidence_or_decision` | `false` |
-| `model_similarity` | `ModelSimilarityPlan` | `require_maintenance_test_paths` | `unclassified` | `false` |
-| `model_similarity` | `ModelSimilarityPlan` | `rationale` | `unclassified` | `false` |
-| `model_similarity` | `ModelSimilarityFinding` | `code` | `unclassified` | `false` |
-| `model_similarity` | `ModelSimilarityFinding` | `message` | `display_or_metadata` | `false` |
-| `model_similarity` | `ModelSimilarityFinding` | `severity` | `unclassified` | `false` |
-| `model_similarity` | `ModelSimilarityFinding` | `relation_id` | `unclassified` | `false` |
-| `model_similarity` | `ModelSimilarityFinding` | `model_id` | `unclassified` | `false` |
-| `model_similarity` | `ModelSimilarityFinding` | `item_id` | `unclassified` | `false` |
-| `model_similarity` | `ModelSimilarityFinding` | `metadata` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSimilarityMaintenanceGroup` | `group_id` | `unclassified` | `false` |
-| `model_similarity` | `ModelSimilarityMaintenanceGroup` | `member_model_ids` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSimilarityMaintenanceGroup` | `relation_ids` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSimilarityMaintenanceGroup` | `relation_types` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSimilarityMaintenanceGroup` | `shared_elements` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSimilarityMaintenanceGroup` | `variant_elements` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSimilarityMaintenanceGroup` | `code_paths` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSimilarityMaintenanceGroup` | `test_paths` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSimilarityMaintenanceGroup` | `shared_kernel_ids` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSimilarityMaintenanceGroup` | `adapter_ids` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSimilarityMaintenanceGroup` | `maintenance_tags` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSimilarityMaintenanceGroup` | `required_next_routes` | `behavior_or_contract` | `true` |
-| `model_similarity` | `ModelSimilarityMaintenanceGroup` | `rationale` | `unclassified` | `false` |
-| `model_similarity` | `ModelSimilarityChangeImpact` | `impact_id` | `unclassified` | `false` |
-| `model_similarity` | `ModelSimilarityChangeImpact` | `changed_model_id` | `unclassified` | `false` |
-| `model_similarity` | `ModelSimilarityChangeImpact` | `maintenance_group_id` | `unclassified` | `false` |
-| `model_similarity` | `ModelSimilarityChangeImpact` | `impacted_model_ids` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSimilarityChangeImpact` | `impacted_code_paths` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSimilarityChangeImpact` | `impacted_test_paths` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSimilarityChangeImpact` | `relation_ids` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSimilarityChangeImpact` | `shared_elements` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSimilarityChangeImpact` | `variant_elements` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSimilarityChangeImpact` | `required_next_routes` | `behavior_or_contract` | `true` |
-| `model_similarity` | `ModelSimilarityChangeImpact` | `rationale` | `unclassified` | `false` |
-| `model_similarity` | `ModelSimilarityTestObligation` | `obligation_id` | `behavior_or_contract` | `true` |
-| `model_similarity` | `ModelSimilarityTestObligation` | `maintenance_group_id` | `unclassified` | `false` |
-| `model_similarity` | `ModelSimilarityTestObligation` | `obligation_type` | `behavior_or_contract` | `true` |
-| `model_similarity` | `ModelSimilarityTestObligation` | `model_ids` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSimilarityTestObligation` | `behaviors` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSimilarityTestObligation` | `test_paths` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSimilarityTestObligation` | `relation_ids` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSimilarityTestObligation` | `rationale` | `unclassified` | `false` |
-| `model_similarity` | `ModelSimilarityCodeObligation` | `obligation_id` | `behavior_or_contract` | `true` |
-| `model_similarity` | `ModelSimilarityCodeObligation` | `maintenance_group_id` | `unclassified` | `false` |
-| `model_similarity` | `ModelSimilarityCodeObligation` | `obligation_type` | `behavior_or_contract` | `true` |
-| `model_similarity` | `ModelSimilarityCodeObligation` | `model_ids` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSimilarityCodeObligation` | `relation_ids` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSimilarityCodeObligation` | `shared_kernel_owner` | `unclassified` | `false` |
-| `model_similarity` | `ModelSimilarityCodeObligation` | `adapter_owners` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSimilarityCodeObligation` | `code_paths` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSimilarityCodeObligation` | `required_next_routes` | `behavior_or_contract` | `true` |
-| `model_similarity` | `ModelSimilarityCodeObligation` | `rationale` | `unclassified` | `false` |
-| `model_similarity` | `SimilarityHandoff` | `relation_ids` | `collection_metadata` | `false` |
-| `model_similarity` | `SimilarityHandoff` | `maintenance_group_ids` | `collection_metadata` | `false` |
-| `model_similarity` | `SimilarityHandoff` | `change_impact_ids` | `collection_metadata` | `false` |
-| `model_similarity` | `SimilarityHandoff` | `impacted_model_ids` | `collection_metadata` | `false` |
-| `model_similarity` | `SimilarityHandoff` | `test_obligation_ids` | `behavior_or_contract` | `true` |
-| `model_similarity` | `SimilarityHandoff` | `code_obligation_ids` | `behavior_or_contract` | `true` |
-| `model_similarity` | `SimilarityHandoff` | `same_family_relation_ids` | `collection_metadata` | `false` |
-| `model_similarity` | `SimilarityHandoff` | `evidence_duplicate_relation_ids` | `evidence_or_decision` | `false` |
-| `model_similarity` | `SimilarityHandoff` | `false_friend_rationales` | `collection_metadata` | `false` |
-| `model_similarity` | `SimilarityHandoff` | `unresolved_gaps` | `evidence_or_decision` | `false` |
-| `model_similarity` | `SimilarityHandoff` | `recommended_next_routes` | `behavior_or_contract` | `true` |
-| `model_similarity` | `SimilarityHandoff` | `evidence_current` | `evidence_or_decision` | `false` |
-| `model_similarity` | `SimilarityHandoff` | `source_report_id` | `evidence_or_decision` | `false` |
-| `model_similarity` | `SimilarityHandoff` | `metadata` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSimilarityReport` | `ok` | `evidence_or_decision` | `false` |
-| `model_similarity` | `ModelSimilarityReport` | `plan_id` | `unclassified` | `false` |
-| `model_similarity` | `ModelSimilarityReport` | `decision` | `evidence_or_decision` | `false` |
-| `model_similarity` | `ModelSimilarityReport` | `relations` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSimilarityReport` | `maintenance_groups` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSimilarityReport` | `change_impacts` | `collection_metadata` | `false` |
-| `model_similarity` | `ModelSimilarityReport` | `test_obligations` | `behavior_or_contract` | `true` |
-| `model_similarity` | `ModelSimilarityReport` | `code_obligations` | `behavior_or_contract` | `true` |
-| `model_similarity` | `ModelSimilarityReport` | `findings` | `evidence_or_decision` | `false` |
-| `model_similarity` | `ModelSimilarityReport` | `recommended_next_routes` | `behavior_or_contract` | `true` |
-| `model_similarity` | `ModelSimilarityReport` | `summary` | `evidence_or_decision` | `false` |
-| `model_test_alignment` | `ModelObligation` | `obligation_id` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `ModelObligation` | `obligation_type` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `ModelObligation` | `description` | `display_or_metadata` | `false` |
-| `model_test_alignment` | `ModelObligation` | `required` | `unclassified` | `false` |
-| `model_test_alignment` | `ModelObligation` | `required_test_kinds` | `collection_metadata` | `false` |
-| `model_test_alignment` | `ModelObligation` | `risk_level` | `unclassified` | `false` |
-| `model_test_alignment` | `ModelObligation` | `allow_shared_evidence` | `evidence_or_decision` | `false` |
-| `model_test_alignment` | `ModelObligation` | `allow_shared_implementation` | `unclassified` | `false` |
-| `model_test_alignment` | `ModelObligation` | `external_inputs` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `ModelObligation` | `external_outputs` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `ModelObligation` | `state_reads` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `ModelObligation` | `state_writes` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `ModelObligation` | `side_effects` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `ModelObligation` | `error_paths` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `ModelObligation` | `exact_external_contract` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `ModelObligation` | `model_miss_origin` | `unclassified` | `false` |
-| `model_test_alignment` | `ModelObligation` | `requires_same_class_test_evidence` | `evidence_or_decision` | `false` |
-| `model_test_alignment` | `ModelObligation` | `required_closure_evidence_roles` | `evidence_or_decision` | `false` |
-| `model_test_alignment` | `ModelObligation` | `required_runtime_node_ids` | `collection_metadata` | `false` |
-| `model_test_alignment` | `CodeContract` | `code_contract_id` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `CodeContract` | `path` | `unclassified` | `false` |
-| `model_test_alignment` | `CodeContract` | `symbol` | `unclassified` | `false` |
-| `model_test_alignment` | `CodeContract` | `surface_type` | `unclassified` | `false` |
-| `model_test_alignment` | `CodeContract` | `role` | `unclassified` | `false` |
-| `model_test_alignment` | `CodeContract` | `implements_obligations` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `CodeContract` | `external_inputs` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `CodeContract` | `external_outputs` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `CodeContract` | `state_reads` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `CodeContract` | `state_writes` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `CodeContract` | `side_effects` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `CodeContract` | `error_paths` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `CodeContract` | `required` | `unclassified` | `false` |
-| `model_test_alignment` | `PythonCodeContractEvidence` | `code_contract_id` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `PythonCodeContractEvidence` | `path` | `unclassified` | `false` |
-| `model_test_alignment` | `PythonCodeContractEvidence` | `symbol` | `unclassified` | `false` |
-| `model_test_alignment` | `PythonCodeContractEvidence` | `found` | `unclassified` | `false` |
-| `model_test_alignment` | `PythonCodeContractEvidence` | `parameters` | `collection_metadata` | `false` |
-| `model_test_alignment` | `PythonCodeContractEvidence` | `returns_value` | `unclassified` | `false` |
-| `model_test_alignment` | `PythonCodeContractEvidence` | `return_values` | `collection_metadata` | `false` |
-| `model_test_alignment` | `PythonCodeContractEvidence` | `raised_errors` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `PythonCodeContractEvidence` | `state_reads` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `PythonCodeContractEvidence` | `state_writes` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `PythonCodeContractEvidence` | `side_effects` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `PythonCodeContractEvidence` | `calls` | `collection_metadata` | `false` |
-| `model_test_alignment` | `PythonCodeContractEvidence` | `parse_error` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `PythonTestAssertionEvidence` | `evidence_id` | `evidence_or_decision` | `false` |
-| `model_test_alignment` | `PythonTestAssertionEvidence` | `path` | `unclassified` | `false` |
-| `model_test_alignment` | `PythonTestAssertionEvidence` | `test_name` | `display_or_metadata` | `false` |
-| `model_test_alignment` | `PythonTestAssertionEvidence` | `found` | `unclassified` | `false` |
-| `model_test_alignment` | `PythonTestAssertionEvidence` | `called_code_contracts` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `PythonTestAssertionEvidence` | `assert_count` | `unclassified` | `false` |
-| `model_test_alignment` | `PythonTestAssertionEvidence` | `assertion_scope` | `unclassified` | `false` |
-| `model_test_alignment` | `PythonTestAssertionEvidence` | `calls` | `collection_metadata` | `false` |
-| `model_test_alignment` | `PythonTestAssertionEvidence` | `parse_error` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `TestEvidence` | `evidence_id` | `evidence_or_decision` | `false` |
-| `model_test_alignment` | `TestEvidence` | `test_name` | `display_or_metadata` | `false` |
-| `model_test_alignment` | `TestEvidence` | `path` | `unclassified` | `false` |
-| `model_test_alignment` | `TestEvidence` | `command` | `unclassified` | `false` |
-| `model_test_alignment` | `TestEvidence` | `result_status` | `evidence_or_decision` | `false` |
-| `model_test_alignment` | `TestEvidence` | `evidence_current` | `evidence_or_decision` | `false` |
-| `model_test_alignment` | `TestEvidence` | `test_kind` | `unclassified` | `false` |
-| `model_test_alignment` | `TestEvidence` | `covered_obligations` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `TestEvidence` | `covered_code_contracts` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `TestEvidence` | `assertion_scope` | `unclassified` | `false` |
-| `model_test_alignment` | `TestEvidence` | `evidence_role` | `evidence_or_decision` | `false` |
-| `model_test_alignment` | `TestEvidence` | `evidence_target_id` | `evidence_or_decision` | `false` |
-| `model_test_alignment` | `TestEvidence` | `proof_artifact` | `evidence_or_decision` | `false` |
-| `model_test_alignment` | `TestEvidence` | `result_reused` | `evidence_or_decision` | `false` |
-| `model_test_alignment` | `TestEvidence` | `reuse_ticket` | `collection_metadata` | `false` |
-| `model_test_alignment` | `TestEvidence` | `stale_reasons` | `evidence_or_decision` | `false` |
-| `model_test_alignment` | `TestEvidence` | `overclaims_model_confidence` | `evidence_or_decision` | `false` |
-| `model_test_alignment` | `TestEvidence` | `closure_evidence_role` | `evidence_or_decision` | `false` |
-| `model_test_alignment` | `CodeBoundaryContract` | `boundary_id` | `unclassified` | `false` |
-| `model_test_alignment` | `CodeBoundaryContract` | `code_contract_id` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `CodeBoundaryContract` | `model_obligation_id` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `CodeBoundaryContract` | `allowed_inputs` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `CodeBoundaryContract` | `rejected_inputs` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `CodeBoundaryContract` | `allowed_outputs` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `CodeBoundaryContract` | `allowed_state_writes` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `CodeBoundaryContract` | `allowed_side_effects` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `CodeBoundaryContract` | `allowed_error_paths` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `CodeBoundaryContract` | `exact` | `unclassified` | `false` |
-| `model_test_alignment` | `CodeBoundaryContract` | `input_gate_required` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `CodeBoundaryContract` | `required` | `unclassified` | `false` |
-| `model_test_alignment` | `CodeBoundaryContract` | `required_observation_ids` | `collection_metadata` | `false` |
-| `model_test_alignment` | `CodeBoundaryObservation` | `observation_id` | `unclassified` | `false` |
-| `model_test_alignment` | `CodeBoundaryObservation` | `boundary_id` | `unclassified` | `false` |
-| `model_test_alignment` | `CodeBoundaryObservation` | `input_case` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `CodeBoundaryObservation` | `accepted` | `unclassified` | `false` |
-| `model_test_alignment` | `CodeBoundaryObservation` | `observed_output` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `CodeBoundaryObservation` | `observed_state_writes` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `CodeBoundaryObservation` | `observed_side_effects` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `CodeBoundaryObservation` | `observed_error_path` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `CodeBoundaryObservation` | `result_status` | `evidence_or_decision` | `false` |
-| `model_test_alignment` | `CodeBoundaryObservation` | `evidence_current` | `evidence_or_decision` | `false` |
-| `model_test_alignment` | `CodeBoundaryObservation` | `evidence_id` | `evidence_or_decision` | `false` |
-| `model_test_alignment` | `CodeBoundaryObservation` | `assertion_scope` | `unclassified` | `false` |
-| `model_test_alignment` | `CodeBoundaryObservation` | `metadata` | `collection_metadata` | `false` |
-| `model_test_alignment` | `CodeBoundaryFinding` | `code` | `unclassified` | `false` |
-| `model_test_alignment` | `CodeBoundaryFinding` | `message` | `display_or_metadata` | `false` |
-| `model_test_alignment` | `CodeBoundaryFinding` | `severity` | `unclassified` | `false` |
-| `model_test_alignment` | `CodeBoundaryFinding` | `boundary_id` | `unclassified` | `false` |
-| `model_test_alignment` | `CodeBoundaryFinding` | `observation_id` | `unclassified` | `false` |
-| `model_test_alignment` | `CodeBoundaryFinding` | `code_contract_id` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `CodeBoundaryFinding` | `metadata` | `collection_metadata` | `false` |
-| `model_test_alignment` | `CodeBoundaryConformanceReport` | `ok` | `evidence_or_decision` | `false` |
-| `model_test_alignment` | `CodeBoundaryConformanceReport` | `decision` | `evidence_or_decision` | `false` |
-| `model_test_alignment` | `CodeBoundaryConformanceReport` | `findings` | `evidence_or_decision` | `false` |
-| `model_test_alignment` | `CodeBoundaryConformanceReport` | `checked_boundaries` | `unclassified` | `false` |
-| `model_test_alignment` | `CodeBoundaryConformanceReport` | `checked_observations` | `unclassified` | `false` |
-| `model_test_alignment` | `CodeBoundaryConformanceReport` | `summary` | `evidence_or_decision` | `false` |
-| `model_test_alignment` | `ModelTestAlignmentPlan` | `model_id` | `unclassified` | `false` |
-| `model_test_alignment` | `ModelTestAlignmentPlan` | `obligations` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `ModelTestAlignmentPlan` | `code_contracts` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `ModelTestAlignmentPlan` | `test_evidence` | `evidence_or_decision` | `false` |
-| `model_test_alignment` | `ModelTestAlignmentPlan` | `obligation_families` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `ModelTestAlignmentPlan` | `family_evidence` | `evidence_or_decision` | `false` |
-| `model_test_alignment` | `ModelTestAlignmentPlan` | `boundary_contracts` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `ModelTestAlignmentPlan` | `boundary_observations` | `collection_metadata` | `false` |
-| `model_test_alignment` | `ModelTestAlignmentPlan` | `runtime_node_contracts` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `ModelTestAlignmentPlan` | `runtime_node_observations` | `collection_metadata` | `false` |
-| `model_test_alignment` | `ModelTestAlignmentPlan` | `runtime_path_runs` | `collection_metadata` | `false` |
-| `model_test_alignment` | `ModelTestAlignmentPlan` | `field_lifecycle_reports` | `evidence_or_decision` | `false` |
-| `model_test_alignment` | `ModelTestAlignmentPlan` | `field_lifecycle_projections` | `collection_metadata` | `false` |
-| `model_test_alignment` | `ModelTestAlignmentPlan` | `similarity_handoff` | `collection_metadata` | `false` |
-| `model_test_alignment` | `ModelTestAlignmentPlan` | `require_proof_artifacts` | `evidence_or_decision` | `false` |
-| `model_test_alignment` | `ModelTestAlignmentPlan` | `require_runtime_path_evidence` | `evidence_or_decision` | `false` |
-| `model_test_alignment` | `ModelTestAlignmentPlan` | `allow_orphan_tests` | `unclassified` | `false` |
-| `model_test_alignment` | `ModelTestAlignmentPlan` | `allow_orphan_code_contracts` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `ModelTestAlignmentFinding` | `code` | `unclassified` | `false` |
-| `model_test_alignment` | `ModelTestAlignmentFinding` | `message` | `display_or_metadata` | `false` |
-| `model_test_alignment` | `ModelTestAlignmentFinding` | `severity` | `unclassified` | `false` |
-| `model_test_alignment` | `ModelTestAlignmentFinding` | `obligation_id` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `ModelTestAlignmentFinding` | `evidence_id` | `evidence_or_decision` | `false` |
-| `model_test_alignment` | `ModelTestAlignmentFinding` | `metadata` | `collection_metadata` | `false` |
-| `model_test_alignment` | `ModelTestAlignmentFinding` | `code_contract_id` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `ModelCodeTestBindingRow` | `model_obligation_id` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `ModelCodeTestBindingRow` | `code_contract_id` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `ModelCodeTestBindingRow` | `test_evidence_id` | `evidence_or_decision` | `false` |
-| `model_test_alignment` | `ModelCodeTestBindingRow` | `status` | `evidence_or_decision` | `false` |
-| `model_test_alignment` | `ModelCodeTestBindingRow` | `gaps` | `evidence_or_decision` | `false` |
-| `model_test_alignment` | `ModelTestAlignmentReport` | `ok` | `evidence_or_decision` | `false` |
-| `model_test_alignment` | `ModelTestAlignmentReport` | `model_id` | `unclassified` | `false` |
-| `model_test_alignment` | `ModelTestAlignmentReport` | `decision` | `evidence_or_decision` | `false` |
-| `model_test_alignment` | `ModelTestAlignmentReport` | `findings` | `evidence_or_decision` | `false` |
-| `model_test_alignment` | `ModelTestAlignmentReport` | `binding_rows` | `collection_metadata` | `false` |
-| `model_test_alignment` | `ModelTestAlignmentReport` | `summary` | `evidence_or_decision` | `false` |
-| `model_test_alignment` | `ContractSourceAuditFinding` | `code` | `unclassified` | `false` |
-| `model_test_alignment` | `ContractSourceAuditFinding` | `message` | `display_or_metadata` | `false` |
-| `model_test_alignment` | `ContractSourceAuditFinding` | `severity` | `unclassified` | `false` |
-| `model_test_alignment` | `ContractSourceAuditFinding` | `code_contract_id` | `behavior_or_contract` | `true` |
-| `model_test_alignment` | `ContractSourceAuditFinding` | `evidence_id` | `evidence_or_decision` | `false` |
-| `model_test_alignment` | `ContractSourceAuditFinding` | `path` | `unclassified` | `false` |
-| `model_test_alignment` | `ContractSourceAuditFinding` | `metadata` | `collection_metadata` | `false` |
-| `model_test_alignment` | `ContractSourceAuditReport` | `ok` | `evidence_or_decision` | `false` |
-| `model_test_alignment` | `ContractSourceAuditReport` | `decision` | `evidence_or_decision` | `false` |
-| `model_test_alignment` | `ContractSourceAuditReport` | `findings` | `evidence_or_decision` | `false` |
-| `model_test_alignment` | `ContractSourceAuditReport` | `code_evidence` | `evidence_or_decision` | `false` |
-| `model_test_alignment` | `ContractSourceAuditReport` | `test_evidence` | `evidence_or_decision` | `false` |
-| `model_test_alignment` | `ContractSourceAuditReport` | `summary` | `evidence_or_decision` | `false` |
-| `obligation_family` | `ObligationFamilyMember` | `member_id` | `unclassified` | `false` |
-| `obligation_family` | `ObligationFamilyMember` | `description` | `display_or_metadata` | `false` |
-| `obligation_family` | `ObligationFamilyMember` | `obligation_ids` | `behavior_or_contract` | `true` |
-| `obligation_family` | `ObligationFamilyMember` | `required` | `unclassified` | `false` |
-| `obligation_family` | `ObligationFamilyMember` | `exception_reason` | `evidence_or_decision` | `false` |
-| `obligation_family` | `ObligationFamilyMember` | `required_mechanisms` | `collection_metadata` | `false` |
-| `obligation_family` | `ObligationFamilyMember` | `allowed_provenance` | `collection_metadata` | `false` |
-| `obligation_family` | `ObligationFamily` | `family_id` | `unclassified` | `false` |
-| `obligation_family` | `ObligationFamily` | `description` | `display_or_metadata` | `false` |
-| `obligation_family` | `ObligationFamily` | `members` | `collection_metadata` | `false` |
-| `obligation_family` | `ObligationFamily` | `required_mechanisms` | `collection_metadata` | `false` |
-| `obligation_family` | `ObligationFamily` | `allowed_provenance` | `collection_metadata` | `false` |
-| `obligation_family` | `ObligationFamily` | `required` | `unclassified` | `false` |
-| `obligation_family` | `ObligationFamily` | `require_external_evidence` | `behavior_or_contract` | `true` |
-| `obligation_family` | `ObligationFamily` | `require_proof_artifacts` | `evidence_or_decision` | `false` |
-| `obligation_family` | `ObligationFamily` | `allow_scoped_confidence` | `evidence_or_decision` | `false` |
-| `obligation_family` | `ObligationFamily` | `metadata` | `collection_metadata` | `false` |
-| `obligation_family` | `ObligationFamilyEvidence` | `evidence_id` | `evidence_or_decision` | `false` |
-| `obligation_family` | `ObligationFamilyEvidence` | `family_id` | `unclassified` | `false` |
-| `obligation_family` | `ObligationFamilyEvidence` | `member_id` | `unclassified` | `false` |
-| `obligation_family` | `ObligationFamilyEvidence` | `mechanism_id` | `unclassified` | `false` |
-| `obligation_family` | `ObligationFamilyEvidence` | `provenance` | `unclassified` | `false` |
-| `obligation_family` | `ObligationFamilyEvidence` | `result_status` | `evidence_or_decision` | `false` |
-| `obligation_family` | `ObligationFamilyEvidence` | `current` | `unclassified` | `false` |
-| `obligation_family` | `ObligationFamilyEvidence` | `assertion_scope` | `unclassified` | `false` |
-| `obligation_family` | `ObligationFamilyEvidence` | `covered_obligations` | `behavior_or_contract` | `true` |
-| `obligation_family` | `ObligationFamilyEvidence` | `command` | `unclassified` | `false` |
-| `obligation_family` | `ObligationFamilyEvidence` | `summary` | `evidence_or_decision` | `false` |
-| `obligation_family` | `ObligationFamilyEvidence` | `proof_artifact` | `evidence_or_decision` | `false` |
-| `obligation_family` | `ObligationFamilyEvidence` | `stale_reasons` | `evidence_or_decision` | `false` |
-| `obligation_family` | `ObligationFamilyEvidence` | `metadata` | `collection_metadata` | `false` |
-| `obligation_family` | `FamilyBadCaseSeed` | `seed_id` | `unclassified` | `false` |
-| `obligation_family` | `FamilyBadCaseSeed` | `family_id` | `unclassified` | `false` |
-| `obligation_family` | `FamilyBadCaseSeed` | `source_member_id` | `unclassified` | `false` |
-| `obligation_family` | `FamilyBadCaseSeed` | `mechanism_id` | `unclassified` | `false` |
-| `obligation_family` | `FamilyBadCaseSeed` | `failure_mode` | `unclassified` | `false` |
-| `obligation_family` | `FamilyBadCaseSeed` | `description` | `display_or_metadata` | `false` |
-| `obligation_family` | `FamilyBadCaseSeed` | `source_case_id` | `unclassified` | `false` |
-| `obligation_family` | `FamilyBadCaseSeed` | `exclude_member_ids` | `collection_metadata` | `false` |
-| `obligation_family` | `FamilyBadCaseSeed` | `metadata` | `collection_metadata` | `false` |
-| `obligation_family` | `DerivedFamilyBadCase` | `case_id` | `unclassified` | `false` |
-| `obligation_family` | `DerivedFamilyBadCase` | `family_id` | `unclassified` | `false` |
-| `obligation_family` | `DerivedFamilyBadCase` | `member_id` | `unclassified` | `false` |
-| `obligation_family` | `DerivedFamilyBadCase` | `mechanism_id` | `unclassified` | `false` |
-| `obligation_family` | `DerivedFamilyBadCase` | `failure_mode` | `unclassified` | `false` |
-| `obligation_family` | `DerivedFamilyBadCase` | `source_member_id` | `unclassified` | `false` |
-| `obligation_family` | `DerivedFamilyBadCase` | `source_case_id` | `unclassified` | `false` |
-| `obligation_family` | `DerivedFamilyBadCase` | `description` | `display_or_metadata` | `false` |
-| `obligation_family` | `DerivedFamilyBadCase` | `expected_status` | `evidence_or_decision` | `false` |
-| `obligation_family` | `DerivedFamilyBadCase` | `metadata` | `collection_metadata` | `false` |
-| `obligation_family` | `AnalogousDefectCandidate` | `candidate_id` | `unclassified` | `false` |
-| `obligation_family` | `AnalogousDefectCandidate` | `family_id` | `unclassified` | `false` |
-| `obligation_family` | `AnalogousDefectCandidate` | `member_id` | `unclassified` | `false` |
-| `obligation_family` | `AnalogousDefectCandidate` | `mechanism_id` | `unclassified` | `false` |
-| `obligation_family` | `AnalogousDefectCandidate` | `failure_mode` | `unclassified` | `false` |
-| `obligation_family` | `AnalogousDefectCandidate` | `radius` | `unclassified` | `false` |
-| `obligation_family` | `AnalogousDefectCandidate` | `description` | `display_or_metadata` | `false` |
-| `obligation_family` | `AnalogousDefectCandidate` | `disposition` | `unclassified` | `false` |
-| `obligation_family` | `AnalogousDefectCandidate` | `disposition_reason` | `evidence_or_decision` | `false` |
-| `obligation_family` | `AnalogousDefectCandidate` | `evidence_ids` | `evidence_or_decision` | `false` |
-| `obligation_family` | `AnalogousDefectCandidate` | `source` | `unclassified` | `false` |
-| `obligation_family` | `AnalogousDefectCandidate` | `metadata` | `collection_metadata` | `false` |
-| `obligation_family` | `AnalogousDefectScanFinding` | `code` | `unclassified` | `false` |
-| `obligation_family` | `AnalogousDefectScanFinding` | `message` | `display_or_metadata` | `false` |
-| `obligation_family` | `AnalogousDefectScanFinding` | `severity` | `unclassified` | `false` |
-| `obligation_family` | `AnalogousDefectScanFinding` | `candidate_id` | `unclassified` | `false` |
-| `obligation_family` | `AnalogousDefectScanFinding` | `family_id` | `unclassified` | `false` |
-| `obligation_family` | `AnalogousDefectScanFinding` | `member_id` | `unclassified` | `false` |
-| `obligation_family` | `AnalogousDefectScanFinding` | `mechanism_id` | `unclassified` | `false` |
-| `obligation_family` | `AnalogousDefectScanFinding` | `metadata` | `collection_metadata` | `false` |
-| `obligation_family` | `AnalogousDefectScanReport` | `ok` | `evidence_or_decision` | `false` |
-| `obligation_family` | `AnalogousDefectScanReport` | `decision` | `evidence_or_decision` | `false` |
-| `obligation_family` | `AnalogousDefectScanReport` | `confidence` | `evidence_or_decision` | `false` |
-| `obligation_family` | `AnalogousDefectScanReport` | `seed` | `unclassified` | `false` |
-| `obligation_family` | `AnalogousDefectScanReport` | `candidates` | `collection_metadata` | `false` |
-| `obligation_family` | `AnalogousDefectScanReport` | `findings` | `evidence_or_decision` | `false` |
-| `obligation_family` | `AnalogousDefectScanReport` | `derived_bad_cases` | `collection_metadata` | `false` |
-| `obligation_family` | `AnalogousDefectScanReport` | `summary` | `evidence_or_decision` | `false` |
-| `obligation_family` | `ObligationFamilyCoverageCell` | `family_id` | `unclassified` | `false` |
-| `obligation_family` | `ObligationFamilyCoverageCell` | `member_id` | `unclassified` | `false` |
-| `obligation_family` | `ObligationFamilyCoverageCell` | `mechanism_id` | `unclassified` | `false` |
-| `obligation_family` | `ObligationFamilyCoverageCell` | `status` | `evidence_or_decision` | `false` |
-| `obligation_family` | `ObligationFamilyCoverageCell` | `evidence_ids` | `evidence_or_decision` | `false` |
-| `obligation_family` | `ObligationFamilyCoverageCell` | `accepted_provenance` | `collection_metadata` | `false` |
-| `obligation_family` | `ObligationFamilyCoverageCell` | `scoped_reasons` | `evidence_or_decision` | `false` |
-| `obligation_family` | `ObligationFamilyParityFinding` | `code` | `unclassified` | `false` |
-| `obligation_family` | `ObligationFamilyParityFinding` | `message` | `display_or_metadata` | `false` |
-| `obligation_family` | `ObligationFamilyParityFinding` | `severity` | `unclassified` | `false` |
-| `obligation_family` | `ObligationFamilyParityFinding` | `family_id` | `unclassified` | `false` |
-| `obligation_family` | `ObligationFamilyParityFinding` | `member_id` | `unclassified` | `false` |
-| `obligation_family` | `ObligationFamilyParityFinding` | `mechanism_id` | `unclassified` | `false` |
-| `obligation_family` | `ObligationFamilyParityFinding` | `evidence_id` | `evidence_or_decision` | `false` |
-| `obligation_family` | `ObligationFamilyParityFinding` | `metadata` | `collection_metadata` | `false` |
-| `obligation_family` | `ObligationFamilyParityReport` | `ok` | `evidence_or_decision` | `false` |
-| `obligation_family` | `ObligationFamilyParityReport` | `decision` | `evidence_or_decision` | `false` |
-| `obligation_family` | `ObligationFamilyParityReport` | `confidence` | `evidence_or_decision` | `false` |
-| `obligation_family` | `ObligationFamilyParityReport` | `findings` | `evidence_or_decision` | `false` |
-| `obligation_family` | `ObligationFamilyParityReport` | `coverage_matrix` | `collection_metadata` | `false` |
-| `obligation_family` | `ObligationFamilyParityReport` | `derived_bad_cases` | `collection_metadata` | `false` |
-| `obligation_family` | `ObligationFamilyParityReport` | `summary` | `evidence_or_decision` | `false` |
-| `plan` | `ScenarioMatrixConfig` | `enabled` | `unclassified` | `false` |
-| `plan` | `ScenarioMatrixConfig` | `max_scenarios` | `unclassified` | `false` |
-| `plan` | `ScenarioMatrixConfig` | `max_sequence_length` | `unclassified` | `false` |
-| `plan` | `ScenarioMatrixConfig` | `include_single_inputs` | `behavior_or_contract` | `true` |
-| `plan` | `ScenarioMatrixConfig` | `include_repeat_same` | `unclassified` | `false` |
-| `plan` | `ScenarioMatrixConfig` | `include_pairwise_orders` | `unclassified` | `false` |
-| `plan` | `ScenarioMatrixConfig` | `include_aba` | `unclassified` | `false` |
-| `plan` | `ScenarioMatrixConfig` | `include_challenge_patterns` | `unclassified` | `false` |
-| `plan` | `ScenarioMatrixConfig` | `include_model_derived_challenges` | `unclassified` | `false` |
-| `plan` | `ScenarioMatrixConfig` | `name_prefix` | `display_or_metadata` | `false` |
-| `plan` | `ScenarioMatrixConfig` | `notes` | `unclassified` | `false` |
-| `plan` | `FlowGuardCheckPlan` | `workflow` | `unclassified` | `false` |
-| `plan` | `FlowGuardCheckPlan` | `initial_states` | `behavior_or_contract` | `true` |
-| `plan` | `FlowGuardCheckPlan` | `external_inputs` | `behavior_or_contract` | `true` |
-| `plan` | `FlowGuardCheckPlan` | `invariants` | `behavior_or_contract` | `true` |
-| `plan` | `FlowGuardCheckPlan` | `max_sequence_length` | `unclassified` | `false` |
-| `plan` | `FlowGuardCheckPlan` | `risk_profile` | `unclassified` | `false` |
-| `plan` | `FlowGuardCheckPlan` | `scenarios` | `collection_metadata` | `false` |
-| `plan` | `FlowGuardCheckPlan` | `contracts` | `behavior_or_contract` | `true` |
-| `plan` | `FlowGuardCheckPlan` | `step_contracts` | `behavior_or_contract` | `true` |
-| `plan` | `FlowGuardCheckPlan` | `progress_config` | `unclassified` | `false` |
-| `plan` | `FlowGuardCheckPlan` | `conformance_status` | `evidence_or_decision` | `false` |
-| `plan` | `FlowGuardCheckPlan` | `conformance_report` | `evidence_or_decision` | `false` |
-| `plan` | `FlowGuardCheckPlan` | `scenario_matrix_config` | `unclassified` | `false` |
-| `plan` | `FlowGuardCheckPlan` | `assumption_card` | `unclassified` | `false` |
-| `plan` | `FlowGuardCheckPlan` | `state_closure_plan` | `behavior_or_contract` | `true` |
-| `plan` | `FlowGuardCheckPlan` | `topology_hazard_plan` | `unclassified` | `false` |
-| `plan` | `FlowGuardCheckPlan` | `usage_intent` | `unclassified` | `false` |
-| `plan` | `FlowGuardCheckPlan` | `metadata` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetailSource` | `source_id` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetailSource` | `source_kind` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetailSource` | `current` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetailSource` | `supports_surface_ids` | `collection_metadata` | `false` |
-| `plan_detailing` | `PlanDetailSource` | `summary` | `evidence_or_decision` | `false` |
-| `plan_detailing` | `PlanDetailSource` | `metadata` | `collection_metadata` | `false` |
-| `plan_detailing` | `PlanDetailSurface` | `surface_id` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetailSurface` | `surface_kind` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetailSurface` | `description` | `display_or_metadata` | `false` |
-| `plan_detailing` | `PlanDetailSurface` | `in_scope` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetailSurface` | `reviewed` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetailSurface` | `included` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetailSurface` | `source_ids` | `collection_metadata` | `false` |
-| `plan_detailing` | `PlanDetailSurface` | `evidence_ids` | `evidence_or_decision` | `false` |
-| `plan_detailing` | `PlanDetailSurface` | `out_of_scope_reason` | `evidence_or_decision` | `false` |
-| `plan_detailing` | `PlanDetailSurface` | `omission_reason` | `evidence_or_decision` | `false` |
-| `plan_detailing` | `PlanDetailSurface` | `recurring` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetailSurface` | `high_risk` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetailSurface` | `observed_failure_ids` | `collection_metadata` | `false` |
-| `plan_detailing` | `PlanDetailSurface` | `same_class_case_ids` | `collection_metadata` | `false` |
-| `plan_detailing` | `PlanDetailSurface` | `historical_holdout_ids` | `compatibility_or_old_path` | `true` |
-| `plan_detailing` | `PlanDetailSurface` | `scoped_reasons` | `evidence_or_decision` | `false` |
-| `plan_detailing` | `PlanDetailSurface` | `metadata` | `collection_metadata` | `false` |
-| `plan_detailing` | `PlanDetailStateSurface` | `state_id` | `behavior_or_contract` | `true` |
-| `plan_detailing` | `PlanDetailStateSurface` | `owner` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetailStateSurface` | `read_by_step_ids` | `collection_metadata` | `false` |
-| `plan_detailing` | `PlanDetailStateSurface` | `written_by_step_ids` | `collection_metadata` | `false` |
-| `plan_detailing` | `PlanDetailStateSurface` | `must_model` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetailStateSurface` | `description` | `display_or_metadata` | `false` |
-| `plan_detailing` | `PlanDetailSideEffect` | `side_effect_id` | `behavior_or_contract` | `true` |
-| `plan_detailing` | `PlanDetailSideEffect` | `step_id` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetailSideEffect` | `effect_kind` | `behavior_or_contract` | `true` |
-| `plan_detailing` | `PlanDetailSideEffect` | `required_evidence_ids` | `evidence_or_decision` | `false` |
-| `plan_detailing` | `PlanDetailSideEffect` | `reversible` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetailSideEffect` | `description` | `display_or_metadata` | `false` |
-| `plan_detailing` | `PlanDetailStep` | `step_id` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetailStep` | `action` | `behavior_or_contract` | `true` |
-| `plan_detailing` | `PlanDetailStep` | `skill_name` | `display_or_metadata` | `false` |
-| `plan_detailing` | `PlanDetailStep` | `step_type` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetailStep` | `order_after` | `collection_metadata` | `false` |
-| `plan_detailing` | `PlanDetailStep` | `requires_receipts` | `collection_metadata` | `false` |
-| `plan_detailing` | `PlanDetailStep` | `produces_receipts` | `collection_metadata` | `false` |
-| `plan_detailing` | `PlanDetailStep` | `invalidates_receipts` | `collection_metadata` | `false` |
-| `plan_detailing` | `PlanDetailStep` | `reads_artifacts` | `collection_metadata` | `false` |
-| `plan_detailing` | `PlanDetailStep` | `writes_artifacts` | `collection_metadata` | `false` |
-| `plan_detailing` | `PlanDetailStep` | `invalidates_artifacts` | `collection_metadata` | `false` |
-| `plan_detailing` | `PlanDetailStep` | `required_evidence_ids` | `evidence_or_decision` | `false` |
-| `plan_detailing` | `PlanDetailStep` | `produced_evidence_ids` | `evidence_or_decision` | `false` |
-| `plan_detailing` | `PlanDetailStep` | `continue_evidence_ids` | `evidence_or_decision` | `false` |
-| `plan_detailing` | `PlanDetailStep` | `validation_required` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetailStep` | `rework_step_id` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetailStep` | `claim_labels` | `collection_metadata` | `false` |
-| `plan_detailing` | `PlanDetailStep` | `side_effect_ids` | `behavior_or_contract` | `true` |
-| `plan_detailing` | `PlanDetailStep` | `description` | `display_or_metadata` | `false` |
-| `plan_detailing` | `PlanDetailValidation` | `validation_id` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetailValidation` | `required_artifact_ids` | `collection_metadata` | `false` |
-| `plan_detailing` | `PlanDetailValidation` | `required_evidence_kinds` | `evidence_or_decision` | `false` |
-| `plan_detailing` | `PlanDetailValidation` | `evidence_ids` | `evidence_or_decision` | `false` |
-| `plan_detailing` | `PlanDetailValidation` | `command` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetailValidation` | `scope` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetailValidation` | `release_required` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetailValidation` | `description` | `display_or_metadata` | `false` |
-| `plan_detailing` | `PlanDetailEvidence` | `evidence_id` | `evidence_or_decision` | `false` |
-| `plan_detailing` | `PlanDetailEvidence` | `evidence_kind` | `evidence_or_decision` | `false` |
-| `plan_detailing` | `PlanDetailEvidence` | `status` | `evidence_or_decision` | `false` |
-| `plan_detailing` | `PlanDetailEvidence` | `produced_by_step_id` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetailEvidence` | `covers_artifacts` | `collection_metadata` | `false` |
-| `plan_detailing` | `PlanDetailEvidence` | `verifier_artifacts` | `collection_metadata` | `false` |
-| `plan_detailing` | `PlanDetailEvidence` | `covered_versions` | `collection_metadata` | `false` |
-| `plan_detailing` | `PlanDetailEvidence` | `validation_ids` | `collection_metadata` | `false` |
-| `plan_detailing` | `PlanDetailEvidence` | `command` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetailEvidence` | `result_path` | `evidence_or_decision` | `false` |
-| `plan_detailing` | `PlanDetailEvidence` | `description` | `display_or_metadata` | `false` |
-| `plan_detailing` | `PlanDetailFailureBranch` | `branch_id` | `behavior_or_contract` | `true` |
-| `plan_detailing` | `PlanDetailFailureBranch` | `trigger` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetailFailureBranch` | `step_id` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetailFailureBranch` | `rework_step_id` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetailFailureBranch` | `expected_resolution` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetailFailureBranch` | `evidence_ids` | `evidence_or_decision` | `false` |
-| `plan_detailing` | `PlanDetailFailureBranch` | `description` | `display_or_metadata` | `false` |
-| `plan_detailing` | `PlanDetailHumanQuestion` | `question_id` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetailHumanQuestion` | `question` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetailHumanQuestion` | `blocking` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetailHumanQuestion` | `resolved` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetailHumanQuestion` | `decision` | `evidence_or_decision` | `false` |
-| `plan_detailing` | `PlanDetailFreshnessRule` | `rule_id` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetailFreshnessRule` | `upstream_artifact_id` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetailFreshnessRule` | `invalidates_artifact_ids` | `collection_metadata` | `false` |
-| `plan_detailing` | `PlanDetailFreshnessRule` | `invalidates_evidence_kinds` | `evidence_or_decision` | `false` |
-| `plan_detailing` | `PlanDetailFreshnessRule` | `description` | `display_or_metadata` | `false` |
-| `plan_detailing` | `PlanDetail` | `plan_id` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetail` | `task_summary` | `evidence_or_decision` | `false` |
-| `plan_detailing` | `PlanDetail` | `goal` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetail` | `assumptions` | `collection_metadata` | `false` |
-| `plan_detailing` | `PlanDetail` | `sources` | `collection_metadata` | `false` |
-| `plan_detailing` | `PlanDetail` | `surfaces` | `collection_metadata` | `false` |
-| `plan_detailing` | `PlanDetail` | `artifacts` | `collection_metadata` | `false` |
-| `plan_detailing` | `PlanDetail` | `state_surfaces` | `behavior_or_contract` | `true` |
-| `plan_detailing` | `PlanDetail` | `side_effects` | `behavior_or_contract` | `true` |
-| `plan_detailing` | `PlanDetail` | `steps` | `collection_metadata` | `false` |
-| `plan_detailing` | `PlanDetail` | `validations` | `collection_metadata` | `false` |
-| `plan_detailing` | `PlanDetail` | `evidence` | `evidence_or_decision` | `false` |
-| `plan_detailing` | `PlanDetail` | `failure_branches` | `behavior_or_contract` | `true` |
-| `plan_detailing` | `PlanDetail` | `human_questions` | `collection_metadata` | `false` |
-| `plan_detailing` | `PlanDetail` | `freshness_rules` | `collection_metadata` | `false` |
-| `plan_detailing` | `PlanDetail` | `final_claim` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetail` | `final_evidence_ids` | `evidence_or_decision` | `false` |
-| `plan_detailing` | `PlanDetail` | `claim_labels` | `collection_metadata` | `false` |
-| `plan_detailing` | `PlanDetail` | `non_trivial` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetail` | `exploratory` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetail` | `allow_scoped_confidence` | `evidence_or_decision` | `false` |
-| `plan_detailing` | `PlanDetail` | `metadata` | `collection_metadata` | `false` |
-| `plan_detailing` | `PlanDetailFinding` | `code` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetailFinding` | `message` | `display_or_metadata` | `false` |
-| `plan_detailing` | `PlanDetailFinding` | `severity` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetailFinding` | `row_id` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetailFinding` | `metadata` | `collection_metadata` | `false` |
-| `plan_detailing` | `PlanDetailReviewReport` | `plan_id` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetailReviewReport` | `status` | `evidence_or_decision` | `false` |
-| `plan_detailing` | `PlanDetailReviewReport` | `findings` | `evidence_or_decision` | `false` |
-| `plan_detailing` | `PlanDetailReviewReport` | `summary` | `evidence_or_decision` | `false` |
-| `plan_intake` | `PlanSourceEvidence` | `source_id` | `unclassified` | `false` |
-| `plan_intake` | `PlanSourceEvidence` | `source_kind` | `unclassified` | `false` |
-| `plan_intake` | `PlanSourceEvidence` | `current` | `unclassified` | `false` |
-| `plan_intake` | `PlanSourceEvidence` | `supports_surface_ids` | `collection_metadata` | `false` |
-| `plan_intake` | `PlanSourceEvidence` | `summary` | `evidence_or_decision` | `false` |
-| `plan_intake` | `PlanSourceEvidence` | `metadata` | `collection_metadata` | `false` |
-| `plan_intake` | `PlanIntakeRiskSurface` | `surface_id` | `unclassified` | `false` |
-| `plan_intake` | `PlanIntakeRiskSurface` | `surface_kind` | `unclassified` | `false` |
-| `plan_intake` | `PlanIntakeRiskSurface` | `description` | `display_or_metadata` | `false` |
-| `plan_intake` | `PlanIntakeRiskSurface` | `in_scope` | `unclassified` | `false` |
-| `plan_intake` | `PlanIntakeRiskSurface` | `included` | `unclassified` | `false` |
-| `plan_intake` | `PlanIntakeRiskSurface` | `reviewed` | `unclassified` | `false` |
-| `plan_intake` | `PlanIntakeRiskSurface` | `source_ids` | `collection_metadata` | `false` |
-| `plan_intake` | `PlanIntakeRiskSurface` | `evidence_ids` | `evidence_or_decision` | `false` |
-| `plan_intake` | `PlanIntakeRiskSurface` | `out_of_scope_reason` | `evidence_or_decision` | `false` |
-| `plan_intake` | `PlanIntakeRiskSurface` | `omission_reason` | `evidence_or_decision` | `false` |
-| `plan_intake` | `PlanIntakeRiskSurface` | `recurring` | `unclassified` | `false` |
-| `plan_intake` | `PlanIntakeRiskSurface` | `high_risk` | `unclassified` | `false` |
-| `plan_intake` | `PlanIntakeRiskSurface` | `observed_failure_ids` | `collection_metadata` | `false` |
-| `plan_intake` | `PlanIntakeRiskSurface` | `same_class_case_ids` | `collection_metadata` | `false` |
-| `plan_intake` | `PlanIntakeRiskSurface` | `historical_holdout_ids` | `compatibility_or_old_path` | `true` |
-| `plan_intake` | `PlanIntakeRiskSurface` | `scoped_reasons` | `evidence_or_decision` | `false` |
-| `plan_intake` | `PlanIntakeRiskSurface` | `metadata` | `collection_metadata` | `false` |
-| `plan_intake` | `PlanIntakeCompletenessPlan` | `plan_id` | `unclassified` | `false` |
-| `plan_intake` | `PlanIntakeCompletenessPlan` | `sources` | `collection_metadata` | `false` |
-| `plan_intake` | `PlanIntakeCompletenessPlan` | `surfaces` | `collection_metadata` | `false` |
-| `plan_intake` | `PlanIntakeCompletenessPlan` | `source_evidence_ids` | `evidence_or_decision` | `false` |
-| `plan_intake` | `PlanIntakeCompletenessPlan` | `source_evidence_current` | `evidence_or_decision` | `false` |
-| `plan_intake` | `PlanIntakeCompletenessPlan` | `risk_surfaces` | `collection_metadata` | `false` |
-| `plan_intake` | `PlanIntakeCompletenessPlan` | `required_surface_kinds` | `collection_metadata` | `false` |
-| `plan_intake` | `PlanIntakeCompletenessPlan` | `recurring_or_high_risk` | `unclassified` | `false` |
-| `plan_intake` | `PlanIntakeCompletenessPlan` | `happy_path_only` | `unclassified` | `false` |
-| `plan_intake` | `PlanIntakeCompletenessPlan` | `observed_failure_case_id` | `unclassified` | `false` |
-| `plan_intake` | `PlanIntakeCompletenessPlan` | `same_class_case_id` | `unclassified` | `false` |
-| `plan_intake` | `PlanIntakeCompletenessPlan` | `historical_holdout_case_id` | `compatibility_or_old_path` | `true` |
-| `plan_intake` | `PlanIntakeCompletenessPlan` | `allow_scoped_confidence` | `evidence_or_decision` | `false` |
-| `plan_intake` | `PlanIntakeFinding` | `code` | `unclassified` | `false` |
-| `plan_intake` | `PlanIntakeFinding` | `message` | `display_or_metadata` | `false` |
-| `plan_intake` | `PlanIntakeFinding` | `severity` | `unclassified` | `false` |
-| `plan_intake` | `PlanIntakeFinding` | `surface_id` | `unclassified` | `false` |
-| `plan_intake` | `PlanIntakeFinding` | `metadata` | `collection_metadata` | `false` |
-| `plan_intake` | `PlanIntakeCompletenessReport` | `ok` | `evidence_or_decision` | `false` |
-| `plan_intake` | `PlanIntakeCompletenessReport` | `plan_id` | `unclassified` | `false` |
-| `plan_intake` | `PlanIntakeCompletenessReport` | `decision` | `evidence_or_decision` | `false` |
-| `plan_intake` | `PlanIntakeCompletenessReport` | `confidence` | `evidence_or_decision` | `false` |
-| `plan_intake` | `PlanIntakeCompletenessReport` | `findings` | `evidence_or_decision` | `false` |
-| `plan_intake` | `PlanIntakeCompletenessReport` | `summary` | `evidence_or_decision` | `false` |
-| `plan_intake` | `EvidenceAdapterMapping` | `mapping_id` | `unclassified` | `false` |
-| `plan_intake` | `EvidenceAdapterMapping` | `raw_artifact_id` | `unclassified` | `false` |
-| `plan_intake` | `EvidenceAdapterMapping` | `mapped_evidence_id` | `evidence_or_decision` | `false` |
-| `plan_intake` | `EvidenceAdapterMapping` | `raw_kind` | `unclassified` | `false` |
-| `plan_intake` | `EvidenceAdapterMapping` | `expected_classification` | `unclassified` | `false` |
-| `plan_intake` | `EvidenceAdapterMapping` | `mapped_classification` | `unclassified` | `false` |
-| `plan_intake` | `EvidenceAdapterMapping` | `raw_current` | `unclassified` | `false` |
-| `plan_intake` | `EvidenceAdapterMapping` | `mapped_current` | `unclassified` | `false` |
-| `plan_intake` | `EvidenceAdapterMapping` | `freshness_preserved` | `unclassified` | `false` |
-| `plan_intake` | `EvidenceAdapterMapping` | `scoped_reasons` | `evidence_or_decision` | `false` |
-| `plan_intake` | `EvidenceAdapterMapping` | `metadata` | `collection_metadata` | `false` |
-| `plan_intake` | `EvidenceAdapterConformancePlan` | `adapter_id` | `unclassified` | `false` |
-| `plan_intake` | `EvidenceAdapterConformancePlan` | `mappings` | `collection_metadata` | `false` |
-| `plan_intake` | `EvidenceAdapterConformancePlan` | `allow_scoped_confidence` | `evidence_or_decision` | `false` |
-| `plan_intake` | `EvidenceAdapterFinding` | `code` | `unclassified` | `false` |
-| `plan_intake` | `EvidenceAdapterFinding` | `message` | `display_or_metadata` | `false` |
-| `plan_intake` | `EvidenceAdapterFinding` | `severity` | `unclassified` | `false` |
-| `plan_intake` | `EvidenceAdapterFinding` | `mapping_id` | `unclassified` | `false` |
-| `plan_intake` | `EvidenceAdapterFinding` | `raw_artifact_id` | `unclassified` | `false` |
-| `plan_intake` | `EvidenceAdapterFinding` | `mapped_evidence_id` | `evidence_or_decision` | `false` |
-| `plan_intake` | `EvidenceAdapterFinding` | `metadata` | `collection_metadata` | `false` |
-| `plan_intake` | `EvidenceAdapterConformanceReport` | `ok` | `evidence_or_decision` | `false` |
-| `plan_intake` | `EvidenceAdapterConformanceReport` | `adapter_id` | `unclassified` | `false` |
-| `plan_intake` | `EvidenceAdapterConformanceReport` | `decision` | `evidence_or_decision` | `false` |
-| `plan_intake` | `EvidenceAdapterConformanceReport` | `confidence` | `evidence_or_decision` | `false` |
-| `plan_intake` | `EvidenceAdapterConformanceReport` | `findings` | `evidence_or_decision` | `false` |
-| `plan_intake` | `EvidenceAdapterConformanceReport` | `summary` | `evidence_or_decision` | `false` |
-| `plan_intake` | `FalseNegativeCase` | `case_id` | `unclassified` | `false` |
-| `plan_intake` | `FalseNegativeCase` | `previous_claim_id` | `unclassified` | `false` |
-| `plan_intake` | `FalseNegativeCase` | `observed_failure_id` | `unclassified` | `false` |
-| `plan_intake` | `FalseNegativeCase` | `cause` | `unclassified` | `false` |
-| `plan_intake` | `FalseNegativeCase` | `would_have_failed_if` | `collection_metadata` | `false` |
-| `plan_intake` | `FalseNegativeCase` | `adapter_gap_ids` | `evidence_or_decision` | `false` |
-| `plan_intake` | `FalseNegativeCase` | `generalized_case_id` | `unclassified` | `false` |
-| `plan_intake` | `FalseNegativeCase` | `new_model_obligation_id` | `behavior_or_contract` | `true` |
-| `plan_intake` | `FalseNegativeCase` | `new_plan_item_ids` | `collection_metadata` | `false` |
-| `plan_intake` | `FalseNegativeCase` | `closure_evidence_ids` | `evidence_or_decision` | `false` |
-| `plan_intake` | `FalseNegativeCase` | `repair_evidence_ids` | `evidence_or_decision` | `false` |
-| `plan_intake` | `FalseNegativeCase` | `scoped_reasons` | `evidence_or_decision` | `false` |
-| `plan_intake` | `FalseNegativeCase` | `metadata` | `collection_metadata` | `false` |
-| `plan_intake` | `FalseNegativeBackpropagationPlan` | `plan_id` | `unclassified` | `false` |
-| `plan_intake` | `FalseNegativeBackpropagationPlan` | `cases` | `collection_metadata` | `false` |
-| `plan_intake` | `FalseNegativeBackpropagationPlan` | `recurring_or_high_risk` | `unclassified` | `false` |
-| `plan_intake` | `FalseNegativeBackpropagationPlan` | `allow_scoped_confidence` | `evidence_or_decision` | `false` |
-| `plan_intake` | `FalseNegativeFinding` | `code` | `unclassified` | `false` |
-| `plan_intake` | `FalseNegativeFinding` | `message` | `display_or_metadata` | `false` |
-| `plan_intake` | `FalseNegativeFinding` | `severity` | `unclassified` | `false` |
-| `plan_intake` | `FalseNegativeFinding` | `case_id` | `unclassified` | `false` |
-| `plan_intake` | `FalseNegativeFinding` | `metadata` | `collection_metadata` | `false` |
-| `plan_intake` | `FalseNegativeBackpropagationReport` | `ok` | `evidence_or_decision` | `false` |
-| `plan_intake` | `FalseNegativeBackpropagationReport` | `plan_id` | `unclassified` | `false` |
-| `plan_intake` | `FalseNegativeBackpropagationReport` | `decision` | `evidence_or_decision` | `false` |
-| `plan_intake` | `FalseNegativeBackpropagationReport` | `confidence` | `evidence_or_decision` | `false` |
-| `plan_intake` | `FalseNegativeBackpropagationReport` | `findings` | `evidence_or_decision` | `false` |
-| `plan_intake` | `FalseNegativeBackpropagationReport` | `summary` | `evidence_or_decision` | `false` |
-| `plan_intake` | `PlanMutationCase` | `mutation_id` | `unclassified` | `false` |
-| `plan_intake` | `PlanMutationCase` | `target_id` | `unclassified` | `false` |
-| `plan_intake` | `PlanMutationCase` | `mutation_kind` | `unclassified` | `false` |
-| `plan_intake` | `PlanMutationCase` | `expected_to_fail` | `unclassified` | `false` |
-| `plan_intake` | `PlanMutationCase` | `observed_ok` | `evidence_or_decision` | `false` |
-| `plan_intake` | `PlanMutationCase` | `observed_decision` | `evidence_or_decision` | `false` |
-| `plan_intake` | `PlanMutationCase` | `evidence_id` | `evidence_or_decision` | `false` |
-| `plan_intake` | `PlanMutationCase` | `expected_result` | `evidence_or_decision` | `false` |
-| `plan_intake` | `PlanMutationCase` | `observed_result` | `evidence_or_decision` | `false` |
-| `plan_intake` | `PlanMutationCase` | `check_id` | `unclassified` | `false` |
-| `plan_intake` | `PlanMutationCase` | `current` | `unclassified` | `false` |
-| `plan_intake` | `PlanMutationCase` | `description` | `display_or_metadata` | `false` |
-| `plan_intake` | `PlanMutationCase` | `scoped_reasons` | `evidence_or_decision` | `false` |
-| `plan_intake` | `PlanMutationCase` | `metadata` | `collection_metadata` | `false` |
-| `plan_intake` | `PlanMutationReviewPlan` | `review_id` | `unclassified` | `false` |
-| `plan_intake` | `PlanMutationReviewPlan` | `mutations` | `collection_metadata` | `false` |
-| `plan_intake` | `PlanMutationReviewPlan` | `allow_scoped_confidence` | `evidence_or_decision` | `false` |
-| `plan_intake` | `PlanMutationFinding` | `code` | `unclassified` | `false` |
-| `plan_intake` | `PlanMutationFinding` | `message` | `display_or_metadata` | `false` |
-| `plan_intake` | `PlanMutationFinding` | `severity` | `unclassified` | `false` |
-| `plan_intake` | `PlanMutationFinding` | `mutation_id` | `unclassified` | `false` |
-| `plan_intake` | `PlanMutationFinding` | `metadata` | `collection_metadata` | `false` |
-| `plan_intake` | `PlanMutationReviewReport` | `ok` | `evidence_or_decision` | `false` |
-| `plan_intake` | `PlanMutationReviewReport` | `review_id` | `unclassified` | `false` |
-| `plan_intake` | `PlanMutationReviewReport` | `decision` | `evidence_or_decision` | `false` |
-| `plan_intake` | `PlanMutationReviewReport` | `confidence` | `evidence_or_decision` | `false` |
-| `plan_intake` | `PlanMutationReviewReport` | `findings` | `evidence_or_decision` | `false` |
-| `plan_intake` | `PlanMutationReviewReport` | `summary` | `evidence_or_decision` | `false` |
-| `plan_intake` | `FlowGuardClaim` | `claim_id` | `unclassified` | `false` |
-| `plan_intake` | `FlowGuardClaim` | `claim_scope` | `unclassified` | `false` |
-| `plan_intake` | `FlowGuardClaim` | `result_status` | `evidence_or_decision` | `false` |
-| `plan_intake` | `FlowGuardClaim` | `confidence` | `evidence_or_decision` | `false` |
-| `plan_intake` | `FlowGuardClaim` | `current` | `unclassified` | `false` |
-| `plan_intake` | `FlowGuardClaim` | `evidence_ids` | `evidence_or_decision` | `false` |
-| `plan_intake` | `FlowGuardClaim` | `supports_claim_ids` | `collection_metadata` | `false` |
-| `plan_intake` | `FlowGuardClaim` | `report_id` | `evidence_or_decision` | `false` |
-| `plan_intake` | `FlowGuardClaim` | `scoped_reasons` | `evidence_or_decision` | `false` |
-| `plan_intake` | `FlowGuardClaim` | `metadata` | `collection_metadata` | `false` |
-| `plan_intake` | `FlowGuardClaimDependency` | `dependency_id` | `unclassified` | `false` |
-| `plan_intake` | `FlowGuardClaimDependency` | `claim_scope` | `unclassified` | `false` |
-| `plan_intake` | `FlowGuardClaimDependency` | `status` | `evidence_or_decision` | `false` |
-| `plan_intake` | `FlowGuardClaimDependency` | `current` | `unclassified` | `false` |
-| `plan_intake` | `FlowGuardClaimDependency` | `confidence` | `evidence_or_decision` | `false` |
-| `plan_intake` | `FlowGuardClaimDependency` | `report_id` | `evidence_or_decision` | `false` |
-| `plan_intake` | `FlowGuardClaimDependency` | `evidence_id` | `evidence_or_decision` | `false` |
-| `plan_intake` | `FlowGuardClaimDependency` | `scoped_reasons` | `evidence_or_decision` | `false` |
-| `plan_intake` | `FlowGuardClaimDependency` | `metadata` | `collection_metadata` | `false` |
-| `plan_intake` | `FlowGuardClaimChainPlan` | `claim_id` | `unclassified` | `false` |
-| `plan_intake` | `FlowGuardClaimChainPlan` | `target_scope` | `unclassified` | `false` |
-| `plan_intake` | `FlowGuardClaimChainPlan` | `dependencies` | `collection_metadata` | `false` |
-| `plan_intake` | `FlowGuardClaimChainPlan` | `claims` | `collection_metadata` | `false` |
-| `plan_intake` | `FlowGuardClaimChainPlan` | `target_claim_id` | `unclassified` | `false` |
-| `plan_intake` | `FlowGuardClaimChainPlan` | `required_scope` | `unclassified` | `false` |
-| `plan_intake` | `FlowGuardClaimChainPlan` | `allow_scoped_confidence` | `evidence_or_decision` | `false` |
-| `plan_intake` | `FlowGuardClaimChainPlan` | `runtime_replay_required` | `unclassified` | `false` |
-| `plan_intake` | `FlowGuardClaimChainPlan` | `risk_evidence_required` | `evidence_or_decision` | `false` |
-| `plan_intake` | `FlowGuardClaimChainPlan` | `plan_intake_required` | `unclassified` | `false` |
-| `plan_intake` | `FlowGuardClaimChainPlan` | `adapter_conformance_required` | `unclassified` | `false` |
-| `plan_intake` | `FlowGuardClaimChainPlan` | `false_negative_backprop_required` | `unclassified` | `false` |
-| `plan_intake` | `FlowGuardClaimChainPlan` | `mutation_review_required` | `unclassified` | `false` |
-| `plan_intake` | `FlowGuardClaimChainPlan` | `require_false_negative_closure` | `unclassified` | `false` |
-| `plan_intake` | `FlowGuardClaimChainPlan` | `require_mutation_review` | `unclassified` | `false` |
-| `plan_intake` | `FlowGuardClaimChainFinding` | `code` | `unclassified` | `false` |
-| `plan_intake` | `FlowGuardClaimChainFinding` | `message` | `display_or_metadata` | `false` |
-| `plan_intake` | `FlowGuardClaimChainFinding` | `severity` | `unclassified` | `false` |
-| `plan_intake` | `FlowGuardClaimChainFinding` | `dependency_id` | `unclassified` | `false` |
-| `plan_intake` | `FlowGuardClaimChainFinding` | `claim_scope` | `unclassified` | `false` |
-| `plan_intake` | `FlowGuardClaimChainFinding` | `metadata` | `collection_metadata` | `false` |
-| `plan_intake` | `FlowGuardClaimChainReport` | `ok` | `evidence_or_decision` | `false` |
-| `plan_intake` | `FlowGuardClaimChainReport` | `claim_id` | `unclassified` | `false` |
-| `plan_intake` | `FlowGuardClaimChainReport` | `target_scope` | `unclassified` | `false` |
-| `plan_intake` | `FlowGuardClaimChainReport` | `decision` | `evidence_or_decision` | `false` |
-| `plan_intake` | `FlowGuardClaimChainReport` | `confidence` | `evidence_or_decision` | `false` |
-| `plan_intake` | `FlowGuardClaimChainReport` | `findings` | `evidence_or_decision` | `false` |
-| `plan_intake` | `FlowGuardClaimChainReport` | `summary` | `evidence_or_decision` | `false` |
-| `progress` | `EventuallyProperty` | `name` | `display_or_metadata` | `false` |
-| `progress` | `EventuallyProperty` | `trigger` | `unclassified` | `false` |
-| `progress` | `EventuallyProperty` | `target` | `unclassified` | `false` |
-| `progress` | `EventuallyProperty` | `description` | `display_or_metadata` | `false` |
-| `progress` | `BoundedEventuallyProperty` | `max_steps` | `unclassified` | `false` |
-| `progress` | `ProgressFinding` | `name` | `display_or_metadata` | `false` |
-| `progress` | `ProgressFinding` | `message` | `display_or_metadata` | `false` |
-| `progress` | `ProgressFinding` | `states` | `behavior_or_contract` | `true` |
-| `progress` | `ProgressFinding` | `edges` | `collection_metadata` | `false` |
-| `progress` | `ProgressFinding` | `metadata` | `unclassified` | `false` |
-| `progress` | `ProgressCheckConfig` | `initial_states` | `behavior_or_contract` | `true` |
-| `progress` | `ProgressCheckConfig` | `transition_fn` | `behavior_or_contract` | `true` |
-| `progress` | `ProgressCheckConfig` | `is_terminal` | `unclassified` | `false` |
-| `progress` | `ProgressCheckConfig` | `is_success` | `unclassified` | `false` |
-| `progress` | `ProgressCheckConfig` | `ranking_fn` | `unclassified` | `false` |
-| `progress` | `ProgressCheckConfig` | `eventually` | `behavior_or_contract` | `true` |
-| `progress` | `ProgressCheckConfig` | `bounded_eventually` | `behavior_or_contract` | `true` |
-| `progress` | `ProgressCheckConfig` | `max_states` | `behavior_or_contract` | `true` |
-| `progress` | `ProgressCheckConfig` | `max_depth` | `unclassified` | `false` |
-| `progress` | `ProgressCheckReport` | `ok` | `evidence_or_decision` | `false` |
-| `progress` | `ProgressCheckReport` | `findings` | `evidence_or_decision` | `false` |
-| `progress` | `ProgressCheckReport` | `graph_summary` | `evidence_or_decision` | `false` |
-| `progress` | `ProgressCheckReport` | `reachable_states` | `behavior_or_contract` | `true` |
-| `progress` | `ProgressCheckReport` | `edges` | `collection_metadata` | `false` |
-| `progress` | `ProgressCheckReport` | `sccs` | `collection_metadata` | `false` |
-| `project_adoption` | `ProjectAdoptionFinding` | `severity` | `unclassified` | `false` |
-| `project_adoption` | `ProjectAdoptionFinding` | `category` | `unclassified` | `false` |
-| `project_adoption` | `ProjectAdoptionFinding` | `message` | `display_or_metadata` | `false` |
-| `project_adoption` | `ProjectAdoptionFinding` | `recommendation` | `unclassified` | `false` |
-| `project_adoption` | `ProjectAdoptionFinding` | `file_path` | `unclassified` | `false` |
-| `project_adoption` | `ProjectAdoptionFinding` | `metadata` | `unclassified` | `false` |
-| `project_adoption` | `ProjectAdoptionReport` | `root` | `unclassified` | `false` |
-| `project_adoption` | `ProjectAdoptionReport` | `action` | `behavior_or_contract` | `true` |
-| `project_adoption` | `ProjectAdoptionReport` | `installed_package_version` | `unclassified` | `false` |
-| `project_adoption` | `ProjectAdoptionReport` | `schema_version` | `unclassified` | `false` |
-| `project_adoption` | `ProjectAdoptionReport` | `manifest_package_version` | `unclassified` | `false` |
-| `project_adoption` | `ProjectAdoptionReport` | `manifest_schema_version` | `unclassified` | `false` |
-| `project_adoption` | `ProjectAdoptionReport` | `findings` | `evidence_or_decision` | `false` |
-| `project_adoption` | `ProjectAdoptionReport` | `written_files` | `collection_metadata` | `false` |
-| `project_adoption` | `ProjectAdoptionReport` | `artifact_upgrade_report` | `evidence_or_decision` | `false` |
-| `proof_artifact` | `ProofArtifactRef` | `artifact_id` | `unclassified` | `false` |
-| `proof_artifact` | `ProofArtifactRef` | `producer_route` | `behavior_or_contract` | `true` |
-| `proof_artifact` | `ProofArtifactRef` | `command` | `unclassified` | `false` |
-| `proof_artifact` | `ProofArtifactRef` | `result_path` | `evidence_or_decision` | `false` |
-| `proof_artifact` | `ProofArtifactRef` | `result_status` | `evidence_or_decision` | `false` |
-| `proof_artifact` | `ProofArtifactRef` | `exit_code` | `unclassified` | `false` |
-| `proof_artifact` | `ProofArtifactRef` | `started_at` | `unclassified` | `false` |
-| `proof_artifact` | `ProofArtifactRef` | `finished_at` | `unclassified` | `false` |
-| `proof_artifact` | `ProofArtifactRef` | `artifact_fingerprints` | `collection_metadata` | `false` |
-| `proof_artifact` | `ProofArtifactRef` | `covered_obligation_ids` | `behavior_or_contract` | `true` |
-| `proof_artifact` | `ProofArtifactRef` | `assertion_scope` | `unclassified` | `false` |
-| `proof_artifact` | `ProofArtifactRef` | `current` | `unclassified` | `false` |
-| `proof_artifact` | `ProofArtifactRef` | `route_evidence_current` | `behavior_or_contract` | `true` |
-| `proof_artifact` | `ProofArtifactRef` | `progress_only` | `unclassified` | `false` |
-| `proof_artifact` | `ProofArtifactRef` | `stale_reasons` | `evidence_or_decision` | `false` |
-| `proof_artifact` | `ProofArtifactRef` | `route_gap_codes` | `behavior_or_contract` | `true` |
-| `proof_artifact` | `ProofArtifactRef` | `metadata` | `collection_metadata` | `false` |
-| `recurring_model_miss` | `DefectFamilyEvidence` | `evidence_id` | `evidence_or_decision` | `false` |
-| `recurring_model_miss` | `DefectFamilyEvidence` | `result_status` | `evidence_or_decision` | `false` |
-| `recurring_model_miss` | `DefectFamilyEvidence` | `current` | `unclassified` | `false` |
-| `recurring_model_miss` | `DefectFamilyEvidence` | `assertion_scope` | `unclassified` | `false` |
-| `recurring_model_miss` | `DefectFamilyEvidence` | `producer_route` | `behavior_or_contract` | `true` |
-| `recurring_model_miss` | `DefectFamilyEvidence` | `command` | `unclassified` | `false` |
-| `recurring_model_miss` | `DefectFamilyEvidence` | `summary` | `evidence_or_decision` | `false` |
-| `recurring_model_miss` | `DefectFamilyEvidence` | `proof_artifact` | `evidence_or_decision` | `false` |
-| `recurring_model_miss` | `DefectFamilyEvidence` | `stale_reasons` | `evidence_or_decision` | `false` |
-| `recurring_model_miss` | `DefectFamilyEvidence` | `route_gap_codes` | `behavior_or_contract` | `true` |
-| `recurring_model_miss` | `DefectFamilyEvidence` | `route_evidence_current` | `behavior_or_contract` | `true` |
-| `recurring_model_miss` | `DefectFamilyEvidence` | `metadata` | `collection_metadata` | `false` |
-| `recurring_model_miss` | `DefectFamilyCase` | `case_id` | `unclassified` | `false` |
-| `recurring_model_miss` | `DefectFamilyCase` | `role` | `unclassified` | `false` |
-| `recurring_model_miss` | `DefectFamilyCase` | `description` | `display_or_metadata` | `false` |
-| `recurring_model_miss` | `DefectFamilyCase` | `source` | `unclassified` | `false` |
-| `recurring_model_miss` | `DefectFamilyCase` | `metadata` | `collection_metadata` | `false` |
-| `recurring_model_miss` | `DefectFamilyGate` | `gate_id` | `unclassified` | `false` |
-| `recurring_model_miss` | `DefectFamilyGate` | `family_name` | `display_or_metadata` | `false` |
-| `recurring_model_miss` | `DefectFamilyGate` | `description` | `display_or_metadata` | `false` |
-| `recurring_model_miss` | `DefectFamilyGate` | `recurrence_count` | `unclassified` | `false` |
-| `recurring_model_miss` | `DefectFamilyGate` | `high_risk` | `unclassified` | `false` |
-| `recurring_model_miss` | `DefectFamilyGate` | `required` | `unclassified` | `false` |
-| `recurring_model_miss` | `DefectFamilyGate` | `promoted` | `unclassified` | `false` |
-| `recurring_model_miss` | `DefectFamilyGate` | `model_obligation_id` | `behavior_or_contract` | `true` |
-| `recurring_model_miss` | `DefectFamilyGate` | `authority_boundary` | `unclassified` | `false` |
-| `recurring_model_miss` | `DefectFamilyGate` | `cases` | `collection_metadata` | `false` |
-| `recurring_model_miss` | `DefectFamilyGate` | `observed_failure_case_id` | `unclassified` | `false` |
-| `recurring_model_miss` | `DefectFamilyGate` | `same_class_generalized_case_id` | `unclassified` | `false` |
-| `recurring_model_miss` | `DefectFamilyGate` | `historical_holdout_case_id` | `compatibility_or_old_path` | `true` |
-| `recurring_model_miss` | `DefectFamilyGate` | `proof_evidence_ids` | `evidence_or_decision` | `false` |
-| `recurring_model_miss` | `DefectFamilyGate` | `legacy_path_dispositions` | `compatibility_or_old_path` | `true` |
-| `recurring_model_miss` | `DefectFamilyGate` | `root_cause_field_ids` | `collection_metadata` | `false` |
-| `recurring_model_miss` | `DefectFamilyGate` | `same_class_field_ids` | `collection_metadata` | `false` |
-| `recurring_model_miss` | `DefectFamilyGate` | `old_field_ids` | `compatibility_or_old_path` | `true` |
-| `recurring_model_miss` | `DefectFamilyGate` | `scoped_confidence_reasons` | `evidence_or_decision` | `false` |
-| `recurring_model_miss` | `DefectFamilyGate` | `next_actions` | `behavior_or_contract` | `true` |
-| `recurring_model_miss` | `DefectFamilyGate` | `metadata` | `collection_metadata` | `false` |
-| `recurring_model_miss` | `DefectFamilyGatePlan` | `plan_id` | `unclassified` | `false` |
-| `recurring_model_miss` | `DefectFamilyGatePlan` | `gates` | `collection_metadata` | `false` |
-| `recurring_model_miss` | `DefectFamilyGatePlan` | `proof_evidence` | `evidence_or_decision` | `false` |
-| `recurring_model_miss` | `DefectFamilyGatePlan` | `require_proof_artifacts` | `evidence_or_decision` | `false` |
-| `recurring_model_miss` | `DefectFamilyGatePlan` | `require_legacy_path_dispositions` | `compatibility_or_old_path` | `true` |
-| `recurring_model_miss` | `DefectFamilyGatePlan` | `allow_scoped_confidence` | `evidence_or_decision` | `false` |
-| `recurring_model_miss` | `DefectFamilyGateFinding` | `code` | `unclassified` | `false` |
-| `recurring_model_miss` | `DefectFamilyGateFinding` | `message` | `display_or_metadata` | `false` |
-| `recurring_model_miss` | `DefectFamilyGateFinding` | `severity` | `unclassified` | `false` |
-| `recurring_model_miss` | `DefectFamilyGateFinding` | `gate_id` | `unclassified` | `false` |
-| `recurring_model_miss` | `DefectFamilyGateFinding` | `evidence_id` | `evidence_or_decision` | `false` |
-| `recurring_model_miss` | `DefectFamilyGateFinding` | `metadata` | `collection_metadata` | `false` |
-| `recurring_model_miss` | `DefectFamilyGateReport` | `ok` | `evidence_or_decision` | `false` |
-| `recurring_model_miss` | `DefectFamilyGateReport` | `plan_id` | `unclassified` | `false` |
-| `recurring_model_miss` | `DefectFamilyGateReport` | `decision` | `evidence_or_decision` | `false` |
-| `recurring_model_miss` | `DefectFamilyGateReport` | `confidence` | `evidence_or_decision` | `false` |
-| `recurring_model_miss` | `DefectFamilyGateReport` | `findings` | `evidence_or_decision` | `false` |
-| `recurring_model_miss` | `DefectFamilyGateReport` | `passed_gate_ids` | `collection_metadata` | `false` |
-| `recurring_model_miss` | `DefectFamilyGateReport` | `scoped_gate_ids` | `collection_metadata` | `false` |
-| `recurring_model_miss` | `DefectFamilyGateReport` | `blocked_gate_ids` | `collection_metadata` | `false` |
-| `recurring_model_miss` | `DefectFamilyGateReport` | `summary` | `evidence_or_decision` | `false` |
-| `replay` | `ReplayObservation` | `function_name` | `display_or_metadata` | `false` |
-| `replay` | `ReplayObservation` | `observed_output` | `behavior_or_contract` | `true` |
-| `replay` | `ReplayObservation` | `observed_state` | `behavior_or_contract` | `true` |
-| `replay` | `ReplayObservation` | `label` | `display_or_metadata` | `false` |
-| `replay` | `ReplayObservation` | `reason` | `evidence_or_decision` | `false` |
-| `replay` | `ReplayObservation` | `metadata` | `unclassified` | `false` |
-| `report` | `DeadBranch` | `reason` | `evidence_or_decision` | `false` |
-| `report` | `DeadBranch` | `trace` | `unclassified` | `false` |
-| `report` | `DeadBranch` | `function_name` | `display_or_metadata` | `false` |
-| `report` | `DeadBranch` | `function_input` | `behavior_or_contract` | `true` |
-| `report` | `DeadBranch` | `state` | `behavior_or_contract` | `true` |
-| `report` | `DeadBranch` | `metadata` | `unclassified` | `false` |
-| `report` | `ExceptionBranch` | `error_type` | `behavior_or_contract` | `true` |
-| `report` | `ExceptionBranch` | `message` | `display_or_metadata` | `false` |
-| `report` | `ExceptionBranch` | `trace` | `unclassified` | `false` |
-| `report` | `ExceptionBranch` | `function_name` | `display_or_metadata` | `false` |
-| `report` | `ExceptionBranch` | `function_input` | `behavior_or_contract` | `true` |
-| `report` | `ExceptionBranch` | `state` | `behavior_or_contract` | `true` |
-| `report` | `InvariantViolation` | `invariant_name` | `behavior_or_contract` | `true` |
-| `report` | `InvariantViolation` | `description` | `display_or_metadata` | `false` |
-| `report` | `InvariantViolation` | `message` | `display_or_metadata` | `false` |
-| `report` | `InvariantViolation` | `state` | `behavior_or_contract` | `true` |
-| `report` | `InvariantViolation` | `trace` | `unclassified` | `false` |
-| `report` | `InvariantViolation` | `metadata` | `unclassified` | `false` |
-| `report` | `ReachabilityFailure` | `name` | `display_or_metadata` | `false` |
-| `report` | `ReachabilityFailure` | `description` | `display_or_metadata` | `false` |
-| `report` | `ReachabilityFailure` | `message` | `display_or_metadata` | `false` |
-| `report` | `CheckReport` | `ok` | `evidence_or_decision` | `false` |
-| `report` | `CheckReport` | `violations` | `collection_metadata` | `false` |
-| `report` | `CheckReport` | `traces` | `collection_metadata` | `false` |
-| `report` | `CheckReport` | `summary` | `evidence_or_decision` | `false` |
-| `report` | `CheckReport` | `dead_branches` | `behavior_or_contract` | `true` |
-| `report` | `CheckReport` | `exception_branches` | `behavior_or_contract` | `true` |
-| `report` | `CheckReport` | `reachability_failures` | `collection_metadata` | `false` |
-| `report` | `CheckReport` | `explored_sequences` | `collection_metadata` | `false` |
-| `report` | `CheckReport` | `assumption_card` | `unclassified` | `false` |
-| `review` | `OracleReviewResult` | `scenario_name` | `display_or_metadata` | `false` |
-| `review` | `OracleReviewResult` | `expected_summary` | `evidence_or_decision` | `false` |
-| `review` | `OracleReviewResult` | `observed_summary` | `evidence_or_decision` | `false` |
-| `review` | `OracleReviewResult` | `status` | `evidence_or_decision` | `false` |
-| `review` | `OracleReviewResult` | `evidence` | `evidence_or_decision` | `false` |
-| `review` | `OracleReviewResult` | `counterexample_trace` | `unclassified` | `false` |
-| `review` | `OracleReviewResult` | `scenario_run` | `unclassified` | `false` |
-| `review` | `OracleReviewResult` | `ok` | `evidence_or_decision` | `false` |
-| `review` | `OracleReviewResult` | `status_explanation` | `evidence_or_decision` | `false` |
-| `review` | `ScenarioReviewReport` | `ok` | `evidence_or_decision` | `false` |
-| `review` | `ScenarioReviewReport` | `total_scenarios` | `unclassified` | `false` |
-| `review` | `ScenarioReviewReport` | `passed` | `unclassified` | `false` |
-| `review` | `ScenarioReviewReport` | `expected_violations_observed` | `unclassified` | `false` |
-| `review` | `ScenarioReviewReport` | `unexpected_violations` | `unclassified` | `false` |
-| `review` | `ScenarioReviewReport` | `missing_expected_violations` | `unclassified` | `false` |
-| `review` | `ScenarioReviewReport` | `needs_human_review` | `unclassified` | `false` |
-| `review` | `ScenarioReviewReport` | `known_limitations` | `unclassified` | `false` |
-| `review` | `ScenarioReviewReport` | `oracle_mismatches` | `unclassified` | `false` |
-| `review` | `ScenarioReviewReport` | `results` | `evidence_or_decision` | `false` |
-| `risk` | `RiskIntent` | `failure_modes` | `collection_metadata` | `false` |
-| `risk` | `RiskIntent` | `protected_harms` | `collection_metadata` | `false` |
-| `risk` | `RiskIntent` | `must_model_state` | `behavior_or_contract` | `true` |
-| `risk` | `RiskIntent` | `adversarial_inputs` | `behavior_or_contract` | `true` |
-| `risk` | `RiskIntent` | `hard_invariants` | `behavior_or_contract` | `true` |
-| `risk` | `RiskIntent` | `blindspots` | `collection_metadata` | `false` |
-| `risk` | `SkippedCheck` | `name` | `display_or_metadata` | `false` |
-| `risk` | `SkippedCheck` | `reason` | `evidence_or_decision` | `false` |
-| `risk` | `SkippedCheck` | `status` | `evidence_or_decision` | `false` |
-| `risk` | `SkippedCheck` | `metadata` | `unclassified` | `false` |
-| `risk` | `RiskProfile` | `modeled_boundary` | `unclassified` | `false` |
-| `risk` | `RiskProfile` | `risk_classes` | `collection_metadata` | `false` |
-| `risk` | `RiskProfile` | `risk_intent` | `unclassified` | `false` |
-| `risk` | `RiskProfile` | `confidence_goal` | `evidence_or_decision` | `false` |
-| `risk` | `RiskProfile` | `skipped_checks` | `collection_metadata` | `false` |
-| `risk` | `RiskProfile` | `notes` | `unclassified` | `false` |
-| `risk` | `RiskProfile` | `metadata` | `unclassified` | `false` |
-| `risk_evidence_ledger` | `RiskEvidenceProof` | `evidence_id` | `evidence_or_decision` | `false` |
-| `risk_evidence_ledger` | `RiskEvidenceProof` | `proof_kind` | `evidence_or_decision` | `false` |
-| `risk_evidence_ledger` | `RiskEvidenceProof` | `result_status` | `evidence_or_decision` | `false` |
-| `risk_evidence_ledger` | `RiskEvidenceProof` | `current` | `unclassified` | `false` |
-| `risk_evidence_ledger` | `RiskEvidenceProof` | `assertion_scope` | `unclassified` | `false` |
-| `risk_evidence_ledger` | `RiskEvidenceProof` | `producer_route` | `behavior_or_contract` | `true` |
-| `risk_evidence_ledger` | `RiskEvidenceProof` | `command` | `unclassified` | `false` |
-| `risk_evidence_ledger` | `RiskEvidenceProof` | `summary` | `evidence_or_decision` | `false` |
-| `risk_evidence_ledger` | `RiskEvidenceProof` | `proof_artifact` | `evidence_or_decision` | `false` |
-| `risk_evidence_ledger` | `RiskEvidenceProof` | `stale_reasons` | `evidence_or_decision` | `false` |
-| `risk_evidence_ledger` | `RiskEvidenceProof` | `route_gap_codes` | `behavior_or_contract` | `true` |
-| `risk_evidence_ledger` | `RiskEvidenceProof` | `route_evidence_current` | `behavior_or_contract` | `true` |
-| `risk_evidence_ledger` | `RiskEvidenceProof` | `metadata` | `collection_metadata` | `false` |
-| `risk_evidence_ledger` | `RiskEvidenceGate` | `kind` | `unclassified` | `false` |
-| `risk_evidence_ledger` | `RiskEvidenceGate` | `evidence_id` | `evidence_or_decision` | `false` |
-| `risk_evidence_ledger` | `RiskEvidenceGate` | `required` | `unclassified` | `false` |
-| `risk_evidence_ledger` | `RiskEvidenceGate` | `current` | `unclassified` | `false` |
-| `risk_evidence_ledger` | `RiskEvidenceGate` | `confidence` | `evidence_or_decision` | `false` |
-| `risk_evidence_ledger` | `RiskEvidenceGate` | `scoped_reasons` | `evidence_or_decision` | `false` |
-| `risk_evidence_ledger` | `RiskEvidenceRow` | `risk_id` | `unclassified` | `false` |
-| `risk_evidence_ledger` | `RiskEvidenceRow` | `required` | `unclassified` | `false` |
-| `risk_evidence_ledger` | `RiskEvidenceRow` | `in_scope` | `unclassified` | `false` |
-| `risk_evidence_ledger` | `RiskEvidenceRow` | `out_of_scope_reason` | `evidence_or_decision` | `false` |
-| `risk_evidence_ledger` | `RiskEvidenceRow` | `model_obligation_id` | `behavior_or_contract` | `true` |
-| `risk_evidence_ledger` | `RiskEvidenceRow` | `code_contract_id` | `behavior_or_contract` | `true` |
-| `risk_evidence_ledger` | `RiskEvidenceRow` | `proof_evidence_ids` | `evidence_or_decision` | `false` |
-| `risk_evidence_ledger` | `RiskEvidenceRow` | `require_external_proof` | `behavior_or_contract` | `true` |
-| `risk_evidence_ledger` | `RiskEvidenceRow` | `gates` | `collection_metadata` | `false` |
-| `risk_evidence_ledger` | `RiskEvidenceRow` | `maintenance_obligation_ids` | `behavior_or_contract` | `true` |
-| `risk_evidence_ledger` | `RiskEvidenceLedgerPlan` | `ledger_id` | `unclassified` | `false` |
-| `risk_evidence_ledger` | `RiskEvidenceLedgerPlan` | `rows` | `collection_metadata` | `false` |
-| `risk_evidence_ledger` | `RiskEvidenceLedgerPlan` | `proof_evidence` | `evidence_or_decision` | `false` |
-| `risk_evidence_ledger` | `RiskEvidenceLedgerPlan` | `maintenance_obligations` | `behavior_or_contract` | `true` |
-| `risk_evidence_ledger` | `RiskEvidenceLedgerPlan` | `require_proof_artifacts` | `evidence_or_decision` | `false` |
-| `risk_evidence_ledger` | `RiskEvidenceLedgerPlan` | `allow_scoped_confidence` | `evidence_or_decision` | `false` |
-| `risk_evidence_ledger` | `RiskEvidenceFinding` | `code` | `unclassified` | `false` |
-| `risk_evidence_ledger` | `RiskEvidenceFinding` | `message` | `display_or_metadata` | `false` |
-| `risk_evidence_ledger` | `RiskEvidenceFinding` | `severity` | `unclassified` | `false` |
-| `risk_evidence_ledger` | `RiskEvidenceFinding` | `risk_id` | `unclassified` | `false` |
-| `risk_evidence_ledger` | `RiskEvidenceFinding` | `evidence_id` | `evidence_or_decision` | `false` |
-| `risk_evidence_ledger` | `RiskEvidenceFinding` | `metadata` | `collection_metadata` | `false` |
-| `risk_evidence_ledger` | `RiskEvidenceLedgerReport` | `ok` | `evidence_or_decision` | `false` |
-| `risk_evidence_ledger` | `RiskEvidenceLedgerReport` | `ledger_id` | `unclassified` | `false` |
-| `risk_evidence_ledger` | `RiskEvidenceLedgerReport` | `decision` | `evidence_or_decision` | `false` |
-| `risk_evidence_ledger` | `RiskEvidenceLedgerReport` | `confidence` | `evidence_or_decision` | `false` |
-| `risk_evidence_ledger` | `RiskEvidenceLedgerReport` | `findings` | `evidence_or_decision` | `false` |
-| `risk_evidence_ledger` | `RiskEvidenceLedgerReport` | `summary` | `evidence_or_decision` | `false` |
-| `runtime_gateway` | `RuntimeStateSurface` | `surface_id` | `unclassified` | `false` |
-| `runtime_gateway` | `RuntimeStateSurface` | `description` | `display_or_metadata` | `false` |
-| `runtime_gateway` | `RuntimeStateSurface` | `paths` | `collection_metadata` | `false` |
-| `runtime_gateway` | `RuntimeStateSurface` | `critical` | `unclassified` | `false` |
-| `runtime_gateway` | `RuntimeStateSurface` | `owner_gateway_ids` | `collection_metadata` | `false` |
-| `runtime_gateway` | `RuntimeStateSurface` | `metadata` | `unclassified` | `false` |
-| `runtime_gateway` | `RuntimeGatewayContract` | `gateway_id` | `unclassified` | `false` |
-| `runtime_gateway` | `RuntimeGatewayContract` | `managed_surface_ids` | `collection_metadata` | `false` |
-| `runtime_gateway` | `RuntimeGatewayContract` | `description` | `display_or_metadata` | `false` |
-| `runtime_gateway` | `RuntimeGatewayContract` | `requires_atomic_commit` | `unclassified` | `false` |
-| `runtime_gateway` | `RuntimeGatewayContract` | `requires_replay_observation` | `unclassified` | `false` |
-| `runtime_gateway` | `RuntimeGatewayContract` | `requires_step_contract_binding` | `behavior_or_contract` | `true` |
-| `runtime_gateway` | `RuntimeGatewayContract` | `requires_code_boundary_binding` | `unclassified` | `false` |
-| `runtime_gateway` | `RuntimeGatewayContract` | `requires_runtime_path_binding` | `unclassified` | `false` |
-| `runtime_gateway` | `RuntimeGatewayContract` | `requires_proof_artifact` | `evidence_or_decision` | `false` |
-| `runtime_gateway` | `RuntimeGatewayContract` | `step_contract_ids` | `behavior_or_contract` | `true` |
-| `runtime_gateway` | `RuntimeGatewayContract` | `code_boundary_ids` | `collection_metadata` | `false` |
-| `runtime_gateway` | `RuntimeGatewayContract` | `runtime_node_ids` | `collection_metadata` | `false` |
-| `runtime_gateway` | `RuntimeGatewayContract` | `metadata` | `unclassified` | `false` |
-| `runtime_gateway` | `RuntimeWriteObservation` | `observation_id` | `unclassified` | `false` |
-| `runtime_gateway` | `RuntimeWriteObservation` | `surface_id` | `unclassified` | `false` |
-| `runtime_gateway` | `RuntimeWriteObservation` | `path` | `unclassified` | `false` |
-| `runtime_gateway` | `RuntimeWriteObservation` | `symbol` | `unclassified` | `false` |
-| `runtime_gateway` | `RuntimeWriteObservation` | `write_kind` | `unclassified` | `false` |
-| `runtime_gateway` | `RuntimeWriteObservation` | `gateway_id` | `unclassified` | `false` |
-| `runtime_gateway` | `RuntimeWriteObservation` | `action_id` | `behavior_or_contract` | `true` |
-| `runtime_gateway` | `RuntimeWriteObservation` | `step_contract_ids` | `behavior_or_contract` | `true` |
-| `runtime_gateway` | `RuntimeWriteObservation` | `code_boundary_ids` | `collection_metadata` | `false` |
-| `runtime_gateway` | `RuntimeWriteObservation` | `runtime_node_ids` | `collection_metadata` | `false` |
-| `runtime_gateway` | `RuntimeWriteObservation` | `proof_artifact_ids` | `evidence_or_decision` | `false` |
-| `runtime_gateway` | `RuntimeWriteObservation` | `current` | `unclassified` | `false` |
-| `runtime_gateway` | `RuntimeWriteObservation` | `result_status` | `evidence_or_decision` | `false` |
-| `runtime_gateway` | `RuntimeWriteObservation` | `legacy_bypass_reason` | `compatibility_or_old_path` | `true` |
-| `runtime_gateway` | `RuntimeWriteObservation` | `metadata` | `unclassified` | `false` |
-| `runtime_gateway` | `RuntimeGatewayAdoptionPlan` | `project_id` | `unclassified` | `false` |
-| `runtime_gateway` | `RuntimeGatewayAdoptionPlan` | `target_level` | `unclassified` | `false` |
-| `runtime_gateway` | `RuntimeGatewayAdoptionPlan` | `state_surfaces` | `behavior_or_contract` | `true` |
-| `runtime_gateway` | `RuntimeGatewayAdoptionPlan` | `gateways` | `collection_metadata` | `false` |
-| `runtime_gateway` | `RuntimeGatewayAdoptionPlan` | `write_observations` | `collection_metadata` | `false` |
-| `runtime_gateway` | `RuntimeGatewayAdoptionPlan` | `complete_inventory_evidence_ids` | `evidence_or_decision` | `false` |
-| `runtime_gateway` | `RuntimeGatewayAdoptionPlan` | `require_complete_inventory` | `unclassified` | `false` |
-| `runtime_gateway` | `RuntimeGatewayAdoptionPlan` | `require_observed_writer_for_critical_surfaces` | `unclassified` | `false` |
-| `runtime_gateway` | `RuntimeGatewayAdoptionPlan` | `metadata` | `unclassified` | `false` |
-| `runtime_gateway` | `RuntimeGatewayFinding` | `code` | `unclassified` | `false` |
-| `runtime_gateway` | `RuntimeGatewayFinding` | `message` | `display_or_metadata` | `false` |
-| `runtime_gateway` | `RuntimeGatewayFinding` | `severity` | `unclassified` | `false` |
-| `runtime_gateway` | `RuntimeGatewayFinding` | `surface_id` | `unclassified` | `false` |
-| `runtime_gateway` | `RuntimeGatewayFinding` | `gateway_id` | `unclassified` | `false` |
-| `runtime_gateway` | `RuntimeGatewayFinding` | `observation_id` | `unclassified` | `false` |
-| `runtime_gateway` | `RuntimeGatewayFinding` | `metadata` | `unclassified` | `false` |
-| `runtime_gateway` | `RuntimeGatewayAdoptionReport` | `plan` | `unclassified` | `false` |
-| `runtime_gateway` | `RuntimeGatewayAdoptionReport` | `findings` | `evidence_or_decision` | `false` |
-| `runtime_gateway` | `RuntimeGatewayAdoptionReport` | `decision` | `evidence_or_decision` | `false` |
-| `runtime_gateway` | `RuntimeGatewayAdoptionReport` | `summary` | `evidence_or_decision` | `false` |
-| `runtime_path` | `RuntimeNodeContract` | `node_id` | `unclassified` | `false` |
-| `runtime_path` | `RuntimeNodeContract` | `model_id` | `unclassified` | `false` |
-| `runtime_path` | `RuntimeNodeContract` | `model_path` | `unclassified` | `false` |
-| `runtime_path` | `RuntimeNodeContract` | `child_model_id` | `unclassified` | `false` |
-| `runtime_path` | `RuntimeNodeContract` | `leaf_model_id` | `unclassified` | `false` |
-| `runtime_path` | `RuntimeNodeContract` | `model_obligation_id` | `behavior_or_contract` | `true` |
-| `runtime_path` | `RuntimeNodeContract` | `code_contract_id` | `behavior_or_contract` | `true` |
-| `runtime_path` | `RuntimeNodeContract` | `boundary_id` | `unclassified` | `false` |
-| `runtime_path` | `RuntimeNodeContract` | `input_case` | `behavior_or_contract` | `true` |
-| `runtime_path` | `RuntimeNodeContract` | `state_case` | `behavior_or_contract` | `true` |
-| `runtime_path` | `RuntimeNodeContract` | `required` | `unclassified` | `false` |
-| `runtime_path` | `RuntimeNodeContract` | `ordered` | `unclassified` | `false` |
-| `runtime_path` | `RuntimeNodeContract` | `sequence_index` | `unclassified` | `false` |
-| `runtime_path` | `RuntimeNodeContract` | `allowed_outputs` | `behavior_or_contract` | `true` |
-| `runtime_path` | `RuntimeNodeContract` | `allowed_next_states` | `behavior_or_contract` | `true` |
-| `runtime_path` | `RuntimeNodeContract` | `allowed_state_writes` | `behavior_or_contract` | `true` |
-| `runtime_path` | `RuntimeNodeContract` | `allowed_side_effects` | `behavior_or_contract` | `true` |
-| `runtime_path` | `RuntimeNodeContract` | `allowed_error_paths` | `behavior_or_contract` | `true` |
-| `runtime_path` | `RuntimeNodeContract` | `required_observation_ids` | `collection_metadata` | `false` |
-| `runtime_path` | `RuntimeNodeContract` | `exact` | `unclassified` | `false` |
-| `runtime_path` | `RuntimeNodeContract` | `requires_gateway_binding` | `unclassified` | `false` |
-| `runtime_path` | `RuntimeNodeContract` | `metadata` | `collection_metadata` | `false` |
-| `runtime_path` | `RuntimeNodeObservation` | `observation_id` | `unclassified` | `false` |
-| `runtime_path` | `RuntimeNodeObservation` | `node_id` | `unclassified` | `false` |
-| `runtime_path` | `RuntimeNodeObservation` | `run_id` | `unclassified` | `false` |
-| `runtime_path` | `RuntimeNodeObservation` | `model_id` | `unclassified` | `false` |
-| `runtime_path` | `RuntimeNodeObservation` | `model_path` | `unclassified` | `false` |
-| `runtime_path` | `RuntimeNodeObservation` | `child_model_id` | `unclassified` | `false` |
-| `runtime_path` | `RuntimeNodeObservation` | `leaf_model_id` | `unclassified` | `false` |
-| `runtime_path` | `RuntimeNodeObservation` | `model_obligation_id` | `behavior_or_contract` | `true` |
-| `runtime_path` | `RuntimeNodeObservation` | `code_contract_id` | `behavior_or_contract` | `true` |
-| `runtime_path` | `RuntimeNodeObservation` | `boundary_id` | `unclassified` | `false` |
-| `runtime_path` | `RuntimeNodeObservation` | `input_case` | `behavior_or_contract` | `true` |
-| `runtime_path` | `RuntimeNodeObservation` | `state_case` | `behavior_or_contract` | `true` |
-| `runtime_path` | `RuntimeNodeObservation` | `sequence_index` | `unclassified` | `false` |
-| `runtime_path` | `RuntimeNodeObservation` | `accepted` | `unclassified` | `false` |
-| `runtime_path` | `RuntimeNodeObservation` | `observed_output` | `behavior_or_contract` | `true` |
-| `runtime_path` | `RuntimeNodeObservation` | `observed_next_state` | `behavior_or_contract` | `true` |
-| `runtime_path` | `RuntimeNodeObservation` | `observed_state_writes` | `behavior_or_contract` | `true` |
-| `runtime_path` | `RuntimeNodeObservation` | `observed_side_effects` | `behavior_or_contract` | `true` |
-| `runtime_path` | `RuntimeNodeObservation` | `observed_error_path` | `behavior_or_contract` | `true` |
-| `runtime_path` | `RuntimeNodeObservation` | `gateway_id` | `unclassified` | `false` |
-| `runtime_path` | `RuntimeNodeObservation` | `result_status` | `evidence_or_decision` | `false` |
-| `runtime_path` | `RuntimeNodeObservation` | `evidence_current` | `evidence_or_decision` | `false` |
-| `runtime_path` | `RuntimeNodeObservation` | `evidence_id` | `evidence_or_decision` | `false` |
-| `runtime_path` | `RuntimeNodeObservation` | `assertion_scope` | `unclassified` | `false` |
-| `runtime_path` | `RuntimeNodeObservation` | `proof_artifact` | `evidence_or_decision` | `false` |
-| `runtime_path` | `RuntimeNodeObservation` | `progress_message` | `display_or_metadata` | `false` |
-| `runtime_path` | `RuntimeNodeObservation` | `metadata` | `collection_metadata` | `false` |
-| `runtime_path` | `RuntimePathRun` | `run_id` | `unclassified` | `false` |
-| `runtime_path` | `RuntimePathRun` | `observations` | `collection_metadata` | `false` |
-| `runtime_path` | `RuntimePathRun` | `source_evidence_id` | `evidence_or_decision` | `false` |
-| `runtime_path` | `RuntimePathRun` | `result_status` | `evidence_or_decision` | `false` |
-| `runtime_path` | `RuntimePathRun` | `current` | `unclassified` | `false` |
-| `runtime_path` | `RuntimePathRun` | `metadata` | `collection_metadata` | `false` |
-| `runtime_path` | `RuntimePathAlignmentPlan` | `plan_id` | `unclassified` | `false` |
-| `runtime_path` | `RuntimePathAlignmentPlan` | `model_id` | `unclassified` | `false` |
-| `runtime_path` | `RuntimePathAlignmentPlan` | `node_contracts` | `behavior_or_contract` | `true` |
-| `runtime_path` | `RuntimePathAlignmentPlan` | `observations` | `collection_metadata` | `false` |
-| `runtime_path` | `RuntimePathAlignmentPlan` | `runs` | `collection_metadata` | `false` |
-| `runtime_path` | `RuntimePathAlignmentPlan` | `require_exact_path` | `unclassified` | `false` |
-| `runtime_path` | `RuntimePathAlignmentPlan` | `require_proof_artifacts` | `evidence_or_decision` | `false` |
-| `runtime_path` | `RuntimePathAlignmentPlan` | `allow_uncontracted_nodes` | `behavior_or_contract` | `true` |
-| `runtime_path` | `RuntimePathAlignmentPlan` | `claim_scope` | `unclassified` | `false` |
-| `runtime_path` | `RuntimePathAlignmentPlan` | `metadata` | `collection_metadata` | `false` |
-| `runtime_path` | `RuntimePathFinding` | `code` | `unclassified` | `false` |
-| `runtime_path` | `RuntimePathFinding` | `message` | `display_or_metadata` | `false` |
-| `runtime_path` | `RuntimePathFinding` | `severity` | `unclassified` | `false` |
-| `runtime_path` | `RuntimePathFinding` | `node_id` | `unclassified` | `false` |
-| `runtime_path` | `RuntimePathFinding` | `observation_id` | `unclassified` | `false` |
-| `runtime_path` | `RuntimePathFinding` | `evidence_id` | `evidence_or_decision` | `false` |
-| `runtime_path` | `RuntimePathFinding` | `metadata` | `collection_metadata` | `false` |
-| `runtime_path` | `RuntimePathAlignmentReport` | `ok` | `evidence_or_decision` | `false` |
-| `runtime_path` | `RuntimePathAlignmentReport` | `plan_id` | `unclassified` | `false` |
-| `runtime_path` | `RuntimePathAlignmentReport` | `decision` | `evidence_or_decision` | `false` |
-| `runtime_path` | `RuntimePathAlignmentReport` | `confidence` | `evidence_or_decision` | `false` |
-| `runtime_path` | `RuntimePathAlignmentReport` | `findings` | `evidence_or_decision` | `false` |
-| `runtime_path` | `RuntimePathAlignmentReport` | `checked_contracts` | `behavior_or_contract` | `true` |
-| `runtime_path` | `RuntimePathAlignmentReport` | `checked_observations` | `unclassified` | `false` |
-| `runtime_path` | `RuntimePathAlignmentReport` | `summary` | `evidence_or_decision` | `false` |
-| `scenario` | `OracleCheckResult` | `ok` | `evidence_or_decision` | `false` |
-| `scenario` | `OracleCheckResult` | `message` | `display_or_metadata` | `false` |
-| `scenario` | `OracleCheckResult` | `evidence` | `evidence_or_decision` | `false` |
-| `scenario` | `OracleCheckResult` | `violation_name` | `display_or_metadata` | `false` |
-| `scenario` | `OracleCheckResult` | `metadata` | `unclassified` | `false` |
-| `scenario` | `ScenarioExpectation` | `expected_status` | `evidence_or_decision` | `false` |
-| `scenario` | `ScenarioExpectation` | `expected_violation_names` | `collection_metadata` | `false` |
-| `scenario` | `ScenarioExpectation` | `required_trace_labels` | `collection_metadata` | `false` |
-| `scenario` | `ScenarioExpectation` | `forbidden_trace_labels` | `collection_metadata` | `false` |
-| `scenario` | `ScenarioExpectation` | `required_evidence` | `evidence_or_decision` | `false` |
-| `scenario` | `ScenarioExpectation` | `custom_checks` | `collection_metadata` | `false` |
-| `scenario` | `ScenarioExpectation` | `summary` | `evidence_or_decision` | `false` |
-| `scenario` | `Scenario` | `name` | `display_or_metadata` | `false` |
-| `scenario` | `Scenario` | `description` | `display_or_metadata` | `false` |
-| `scenario` | `Scenario` | `initial_state` | `behavior_or_contract` | `true` |
-| `scenario` | `Scenario` | `external_input_sequence` | `behavior_or_contract` | `true` |
-| `scenario` | `Scenario` | `expected` | `unclassified` | `false` |
-| `scenario` | `Scenario` | `tags` | `collection_metadata` | `false` |
-| `scenario` | `Scenario` | `notes` | `unclassified` | `false` |
-| `scenario` | `Scenario` | `workflow` | `unclassified` | `false` |
-| `scenario` | `Scenario` | `invariants` | `behavior_or_contract` | `true` |
-| `scenario` | `ScenarioRun` | `scenario` | `unclassified` | `false` |
-| `scenario` | `ScenarioRun` | `model_report` | `evidence_or_decision` | `false` |
-| `scenario` | `ScenarioRun` | `traces` | `collection_metadata` | `false` |
-| `scenario` | `ScenarioRun` | `final_states` | `behavior_or_contract` | `true` |
-| `scenario` | `ScenarioRun` | `observed_status` | `evidence_or_decision` | `false` |
-| `scenario` | `ScenarioRun` | `observed_violation_names` | `collection_metadata` | `false` |
-| `scenario` | `ScenarioRun` | `evidence` | `evidence_or_decision` | `false` |
-| `scenario` | `ScenarioRun` | `oracle_check_results` | `evidence_or_decision` | `false` |
-| `scenario` | `ScenarioRun` | `conformance_report` | `evidence_or_decision` | `false` |
-| `scenario_matrix` | `_StateEntry` | `state` | `behavior_or_contract` | `true` |
-| `scenario_matrix` | `_StateEntry` | `tags` | `collection_metadata` | `false` |
-| `scenario_matrix` | `_StateEntry` | `notes` | `unclassified` | `false` |
-| `scenario_matrix` | `_ScenarioPattern` | `kind` | `unclassified` | `false` |
-| `scenario_matrix` | `_ScenarioPattern` | `sequence` | `collection_metadata` | `false` |
-| `scenario_matrix` | `_ScenarioPattern` | `token` | `evidence_or_decision` | `false` |
-| `scenario_matrix` | `_ScenarioPattern` | `description` | `display_or_metadata` | `false` |
-| `scenario_matrix` | `_ScenarioPattern` | `tags` | `collection_metadata` | `false` |
-| `scenario_matrix` | `_ScenarioPattern` | `notes` | `unclassified` | `false` |
-| `scenario_matrix` | `_ModelChallengeCandidate` | `kind` | `unclassified` | `false` |
-| `scenario_matrix` | `_ModelChallengeCandidate` | `sequence` | `collection_metadata` | `false` |
-| `scenario_matrix` | `_ModelChallengeCandidate` | `initial_state` | `behavior_or_contract` | `true` |
-| `scenario_matrix` | `_ModelChallengeCandidate` | `tags` | `collection_metadata` | `false` |
-| `scenario_matrix` | `_ModelChallengeCandidate` | `notes` | `unclassified` | `false` |
-| `scenario_matrix` | `_ModelChallengeCandidate` | `priority` | `unclassified` | `false` |
-| `schema` | `ArtifactEnvelope` | `artifact_type` | `unclassified` | `false` |
-| `schema` | `ArtifactEnvelope` | `payload` | `unclassified` | `false` |
-| `schema` | `ArtifactEnvelope` | `schema_version` | `unclassified` | `false` |
-| `schema` | `ArtifactEnvelope` | `created_by` | `unclassified` | `false` |
-| `schema` | `ArtifactEnvelope` | `model_name` | `display_or_metadata` | `false` |
-| `schema` | `ArtifactEnvelope` | `scenario_name` | `display_or_metadata` | `false` |
-| `schema` | `ArtifactEnvelope` | `trace_id` | `unclassified` | `false` |
-| `self_maintenance` | `RouteProfile` | `route_id` | `behavior_or_contract` | `true` |
-| `self_maintenance` | `RouteProfile` | `trigger` | `unclassified` | `false` |
-| `self_maintenance` | `RouteProfile` | `minimal_inputs` | `behavior_or_contract` | `true` |
-| `self_maintenance` | `RouteProfile` | `outputs` | `behavior_or_contract` | `true` |
-| `self_maintenance` | `RouteProfile` | `evidence_owner` | `evidence_or_decision` | `false` |
-| `self_maintenance` | `RouteProfile` | `next_actions` | `behavior_or_contract` | `true` |
-| `self_maintenance` | `RouteProfile` | `api_group` | `unclassified` | `false` |
-| `self_maintenance` | `RouteProfile` | `template_factory` | `unclassified` | `false` |
-| `self_maintenance` | `RouteProfile` | `skill_name` | `display_or_metadata` | `false` |
-| `self_maintenance` | `RouteProfile` | `summary` | `evidence_or_decision` | `false` |
-| `self_maintenance` | `RouteProfile` | `metadata` | `collection_metadata` | `false` |
-| `self_maintenance` | `AIMaintenanceProfile` | `profile_id` | `unclassified` | `false` |
-| `self_maintenance` | `AIMaintenanceProfile` | `intent` | `unclassified` | `false` |
-| `self_maintenance` | `AIMaintenanceProfile` | `first_route` | `behavior_or_contract` | `true` |
-| `self_maintenance` | `AIMaintenanceProfile` | `minimal_inputs` | `behavior_or_contract` | `true` |
-| `self_maintenance` | `AIMaintenanceProfile` | `expansion_routes` | `behavior_or_contract` | `true` |
-| `self_maintenance` | `AIMaintenanceProfile` | `broad_claim_requires` | `collection_metadata` | `false` |
-| `self_maintenance` | `AIMaintenanceProfile` | `flat_surface_warning` | `unclassified` | `false` |
-| `self_maintenance` | `FieldLayerProfile` | `layer_id` | `unclassified` | `false` |
-| `self_maintenance` | `FieldLayerProfile` | `field_kinds` | `collection_metadata` | `false` |
-| `self_maintenance` | `FieldLayerProfile` | `first_read_exposure` | `unclassified` | `false` |
-| `self_maintenance` | `FieldLayerProfile` | `owner_route` | `behavior_or_contract` | `true` |
-| `self_maintenance` | `FieldLayerProfile` | `expansion_required_for` | `collection_metadata` | `false` |
-| `self_maintenance` | `FieldLayerProfile` | `disposition_required` | `unclassified` | `false` |
-| `self_maintenance` | `FieldLayerProfile` | `summary` | `evidence_or_decision` | `false` |
-| `self_maintenance` | `SelfMaintenanceChildReport` | `child_id` | `unclassified` | `false` |
-| `self_maintenance` | `SelfMaintenanceChildReport` | `owner_guard` | `unclassified` | `false` |
-| `self_maintenance` | `SelfMaintenanceChildReport` | `artifact_kind` | `unclassified` | `false` |
-| `self_maintenance` | `SelfMaintenanceChildReport` | `closure_status` | `evidence_or_decision` | `false` |
-| `self_maintenance` | `SelfMaintenanceChildReport` | `findings` | `evidence_or_decision` | `false` |
-| `self_maintenance` | `SelfMaintenanceChildReport` | `missing_inputs` | `behavior_or_contract` | `true` |
-| `self_maintenance` | `SelfMaintenanceChildReport` | `stale_evidence` | `evidence_or_decision` | `false` |
-| `self_maintenance` | `SelfMaintenanceChildReport` | `skipped_checks` | `collection_metadata` | `false` |
-| `self_maintenance` | `SelfMaintenanceChildReport` | `next_actions` | `behavior_or_contract` | `true` |
-| `self_maintenance` | `SelfMaintenanceChildReport` | `safe_claim` | `unclassified` | `false` |
-| `self_maintenance` | `SelfMaintenanceChildReport` | `unsafe_claim_boundary` | `unclassified` | `false` |
-| `self_maintenance` | `SelfMaintenanceChildReport` | `current` | `unclassified` | `false` |
-| `self_maintenance` | `SelfMaintenanceChildReport` | `metadata` | `collection_metadata` | `false` |
-| `self_maintenance` | `SelfMaintenanceFinding` | `code` | `unclassified` | `false` |
-| `self_maintenance` | `SelfMaintenanceFinding` | `message` | `display_or_metadata` | `false` |
-| `self_maintenance` | `SelfMaintenanceFinding` | `severity` | `unclassified` | `false` |
-| `self_maintenance` | `SelfMaintenanceFinding` | `owner_route` | `behavior_or_contract` | `true` |
-| `self_maintenance` | `SelfMaintenanceFinding` | `child_id` | `unclassified` | `false` |
-| `self_maintenance` | `SelfMaintenanceFinding` | `next_action` | `behavior_or_contract` | `true` |
-| `self_maintenance` | `SelfMaintenanceFinding` | `metadata` | `collection_metadata` | `false` |
-| `self_maintenance` | `SelfMaintenancePlan` | `plan_id` | `unclassified` | `false` |
-| `self_maintenance` | `SelfMaintenancePlan` | `route_profiles` | `behavior_or_contract` | `true` |
-| `self_maintenance` | `SelfMaintenancePlan` | `api_route_group_ids` | `behavior_or_contract` | `true` |
-| `self_maintenance` | `SelfMaintenancePlan` | `ai_profiles` | `collection_metadata` | `false` |
-| `self_maintenance` | `SelfMaintenancePlan` | `field_layers` | `collection_metadata` | `false` |
-| `self_maintenance` | `SelfMaintenancePlan` | `child_reports` | `evidence_or_decision` | `false` |
-| `self_maintenance` | `SelfMaintenancePlan` | `broad_claim` | `unclassified` | `false` |
-| `self_maintenance` | `SelfMaintenancePlan` | `allow_scoped_confidence` | `evidence_or_decision` | `false` |
-| `self_maintenance` | `SelfMaintenanceReport` | `ok` | `evidence_or_decision` | `false` |
-| `self_maintenance` | `SelfMaintenanceReport` | `plan_id` | `unclassified` | `false` |
-| `self_maintenance` | `SelfMaintenanceReport` | `decision` | `evidence_or_decision` | `false` |
-| `self_maintenance` | `SelfMaintenanceReport` | `confidence` | `evidence_or_decision` | `false` |
-| `self_maintenance` | `SelfMaintenanceReport` | `findings` | `evidence_or_decision` | `false` |
-| `self_maintenance` | `SelfMaintenanceReport` | `route_profiles` | `behavior_or_contract` | `true` |
-| `self_maintenance` | `SelfMaintenanceReport` | `child_reports` | `evidence_or_decision` | `false` |
-| `self_maintenance` | `SelfMaintenanceReport` | `summary` | `evidence_or_decision` | `false` |
-| `state_closure` | `StateClosureCase` | `case_id` | `unclassified` | `false` |
-| `state_closure` | `StateClosureCase` | `dimension_id` | `unclassified` | `false` |
-| `state_closure` | `StateClosureCase` | `case_kind` | `unclassified` | `false` |
-| `state_closure` | `StateClosureCase` | `value` | `unclassified` | `false` |
-| `state_closure` | `StateClosureCase` | `description` | `display_or_metadata` | `false` |
-| `state_closure` | `StateClosureCase` | `generated` | `unclassified` | `false` |
-| `state_closure` | `StateClosureCase` | `metadata` | `collection_metadata` | `false` |
-| `state_closure` | `StateClosureDimension` | `dimension_id` | `unclassified` | `false` |
-| `state_closure` | `StateClosureDimension` | `dimension_kind` | `unclassified` | `false` |
-| `state_closure` | `StateClosureDimension` | `policy` | `unclassified` | `false` |
-| `state_closure` | `StateClosureDimension` | `known_values` | `collection_metadata` | `false` |
-| `state_closure` | `StateClosureDimension` | `representative_unknowns` | `collection_metadata` | `false` |
-| `state_closure` | `StateClosureDimension` | `handling` | `unclassified` | `false` |
-| `state_closure` | `StateClosureDimension` | `side_effects_before_resolution` | `behavior_or_contract` | `true` |
-| `state_closure` | `StateClosureDimension` | `required` | `unclassified` | `false` |
-| `state_closure` | `StateClosureDimension` | `description` | `display_or_metadata` | `false` |
-| `state_closure` | `StateClosureDimension` | `metadata` | `collection_metadata` | `false` |
-| `state_closure` | `StateClosureFinding` | `code` | `unclassified` | `false` |
-| `state_closure` | `StateClosureFinding` | `message` | `display_or_metadata` | `false` |
-| `state_closure` | `StateClosureFinding` | `severity` | `unclassified` | `false` |
-| `state_closure` | `StateClosureFinding` | `dimension_id` | `unclassified` | `false` |
-| `state_closure` | `StateClosureFinding` | `case_id` | `unclassified` | `false` |
-| `state_closure` | `StateClosureFinding` | `action` | `behavior_or_contract` | `true` |
-| `state_closure` | `StateClosureFinding` | `metadata` | `collection_metadata` | `false` |
-| `state_closure` | `StateClosurePlan` | `plan_id` | `unclassified` | `false` |
-| `state_closure` | `StateClosurePlan` | `dimensions` | `collection_metadata` | `false` |
-| `state_closure` | `StateClosurePlan` | `supplied_cases` | `collection_metadata` | `false` |
-| `state_closure` | `StateClosurePlan` | `claim_scope` | `unclassified` | `false` |
-| `state_closure` | `StateClosurePlan` | `allow_scoped_confidence` | `evidence_or_decision` | `false` |
-| `state_closure` | `StateClosurePlan` | `notes` | `unclassified` | `false` |
-| `state_closure` | `StateClosureReport` | `ok` | `evidence_or_decision` | `false` |
-| `state_closure` | `StateClosureReport` | `plan_id` | `unclassified` | `false` |
-| `state_closure` | `StateClosureReport` | `decision` | `evidence_or_decision` | `false` |
-| `state_closure` | `StateClosureReport` | `confidence` | `evidence_or_decision` | `false` |
-| `state_closure` | `StateClosureReport` | `generated_cases` | `collection_metadata` | `false` |
-| `state_closure` | `StateClosureReport` | `findings` | `evidence_or_decision` | `false` |
-| `state_closure` | `StateClosureReport` | `unresolved_finding_ids` | `evidence_or_decision` | `false` |
-| `state_closure` | `StateClosureReport` | `summary` | `evidence_or_decision` | `false` |
-| `step_contracts` | `WorkflowStepContract` | `step_id` | `unclassified` | `false` |
-| `step_contracts` | `WorkflowStepContract` | `completion_labels` | `collection_metadata` | `false` |
-| `step_contracts` | `WorkflowStepContract` | `requires_receipts` | `collection_metadata` | `false` |
-| `step_contracts` | `WorkflowStepContract` | `produces_receipts` | `collection_metadata` | `false` |
-| `step_contracts` | `WorkflowStepContract` | `invalidates_receipts` | `collection_metadata` | `false` |
-| `step_contracts` | `WorkflowStepContract` | `required_for_claims` | `collection_metadata` | `false` |
-| `step_contracts` | `WorkflowStepContract` | `skip_policy` | `unclassified` | `false` |
-| `step_contracts` | `WorkflowStepContract` | `description` | `display_or_metadata` | `false` |
-| `step_contracts` | `WorkflowStepContract` | `evidence_kind` | `evidence_or_decision` | `false` |
-| `step_contracts` | `WorkflowStepContract` | `required_test_kinds` | `collection_metadata` | `false` |
-| `step_contracts` | `WorkflowStepContract` | `artifact_ids` | `collection_metadata` | `false` |
-| `step_contracts` | `WorkflowStepContract` | `code_contract_ids` | `behavior_or_contract` | `true` |
-| `step_contracts` | `WorkflowStepContract` | `runtime_node_ids` | `collection_metadata` | `false` |
-| `step_contracts` | `WorkflowStepContract` | `release_required` | `unclassified` | `false` |
-| `step_contracts` | `WorkflowStepContract` | `metadata` | `unclassified` | `false` |
-| `step_contracts` | `StepContractFinding` | `code` | `unclassified` | `false` |
-| `step_contracts` | `StepContractFinding` | `message` | `display_or_metadata` | `false` |
-| `step_contracts` | `StepContractFinding` | `step_index` | `unclassified` | `false` |
-| `step_contracts` | `StepContractFinding` | `step_id` | `unclassified` | `false` |
-| `step_contracts` | `StepContractFinding` | `receipt_id` | `unclassified` | `false` |
-| `step_contracts` | `StepContractFinding` | `claim_label` | `display_or_metadata` | `false` |
-| `step_contracts` | `StepContractFinding` | `metadata` | `unclassified` | `false` |
-| `step_contracts` | `StepContractReport` | `ok` | `evidence_or_decision` | `false` |
-| `step_contracts` | `StepContractReport` | `findings` | `evidence_or_decision` | `false` |
-| `step_contracts` | `StepContractReport` | `current_receipts` | `collection_metadata` | `false` |
-| `step_contracts` | `StepContractReport` | `stale_receipts` | `collection_metadata` | `false` |
-| `step_contracts` | `StepContractReport` | `skipped_step_ids` | `collection_metadata` | `false` |
-| `step_contracts` | `StepContractReport` | `first_failed_step_index` | `unclassified` | `false` |
-| `step_contracts` | `StepContractReport` | `summary` | `evidence_or_decision` | `false` |
-| `structuremesh` | `StructurePartitionItem` | `item_id` | `unclassified` | `false` |
-| `structuremesh` | `StructurePartitionItem` | `item_type` | `unclassified` | `false` |
-| `structuremesh` | `StructurePartitionItem` | `owner_module_id` | `unclassified` | `false` |
-| `structuremesh` | `StructurePartitionItem` | `ownership` | `unclassified` | `false` |
-| `structuremesh` | `StructurePartitionItem` | `description` | `display_or_metadata` | `false` |
-| `structuremesh` | `StructurePartitionItem` | `public_surface` | `unclassified` | `false` |
-| `structuremesh` | `StructurePartitionItem` | `old_path` | `compatibility_or_old_path` | `true` |
-| `structuremesh` | `StructurePartitionItem` | `new_path` | `unclassified` | `false` |
-| `structuremesh` | `PublicEntrypointEvidence` | `entrypoint_id` | `unclassified` | `false` |
-| `structuremesh` | `PublicEntrypointEvidence` | `entrypoint_type` | `unclassified` | `false` |
-| `structuremesh` | `PublicEntrypointEvidence` | `old_path` | `compatibility_or_old_path` | `true` |
-| `structuremesh` | `PublicEntrypointEvidence` | `new_path` | `unclassified` | `false` |
-| `structuremesh` | `PublicEntrypointEvidence` | `compatibility_preserved` | `compatibility_or_old_path` | `true` |
-| `structuremesh` | `PublicEntrypointEvidence` | `facade_available` | `unclassified` | `false` |
-| `structuremesh` | `PublicEntrypointEvidence` | `parity_evidence_current` | `evidence_or_decision` | `false` |
-| `structuremesh` | `PublicEntrypointEvidence` | `parity_evidence_tier` | `evidence_or_decision` | `false` |
-| `structuremesh` | `PublicEntrypointEvidence` | `release_required` | `unclassified` | `false` |
-| `structuremesh` | `PublicEntrypointEvidence` | `evidence_path` | `evidence_or_decision` | `false` |
-| `structuremesh` | `PublicEntrypointEvidence` | `not_ready_reason` | `evidence_or_decision` | `false` |
-| `structuremesh` | `ModuleStructureEvidence` | `module_id` | `unclassified` | `false` |
-| `structuremesh` | `ModuleStructureEvidence` | `path` | `unclassified` | `false` |
-| `structuremesh` | `ModuleStructureEvidence` | `layer` | `unclassified` | `false` |
-| `structuremesh` | `ModuleStructureEvidence` | `extracted_from` | `unclassified` | `false` |
-| `structuremesh` | `ModuleStructureEvidence` | `owns_functions` | `collection_metadata` | `false` |
-| `structuremesh` | `ModuleStructureEvidence` | `owns_state` | `behavior_or_contract` | `true` |
-| `structuremesh` | `ModuleStructureEvidence` | `owns_side_effects` | `behavior_or_contract` | `true` |
-| `structuremesh` | `ModuleStructureEvidence` | `owns_config` | `collection_metadata` | `false` |
-| `structuremesh` | `ModuleStructureEvidence` | `behavior_contracts` | `behavior_or_contract` | `true` |
-| `structuremesh` | `ModuleStructureEvidence` | `dependencies` | `collection_metadata` | `false` |
-| `structuremesh` | `ModuleStructureEvidence` | `dependency_cycles` | `collection_metadata` | `false` |
-| `structuremesh` | `ModuleStructureEvidence` | `facade_retained` | `unclassified` | `false` |
-| `structuremesh` | `ModuleStructureEvidence` | `behavior_parity_current` | `unclassified` | `false` |
-| `structuremesh` | `ModuleStructureEvidence` | `behavior_parity_tier` | `unclassified` | `false` |
-| `structuremesh` | `ModuleStructureEvidence` | `config_defaults_changed` | `unclassified` | `false` |
-| `structuremesh` | `ModuleStructureEvidence` | `release_required` | `unclassified` | `false` |
-| `structuremesh` | `ModuleStructureEvidence` | `not_ready_reason` | `evidence_or_decision` | `false` |
-| `structuremesh` | `StructureMeshPlan` | `parent_module_id` | `unclassified` | `false` |
-| `structuremesh` | `StructureMeshPlan` | `partition_items` | `collection_metadata` | `false` |
-| `structuremesh` | `StructureMeshPlan` | `child_modules` | `collection_metadata` | `false` |
-| `structuremesh` | `StructureMeshPlan` | `public_entrypoints` | `collection_metadata` | `false` |
-| `structuremesh` | `StructureMeshPlan` | `target_structure` | `unclassified` | `false` |
-| `structuremesh` | `StructureMeshPlan` | `required_evidence_tier` | `evidence_or_decision` | `false` |
-| `structuremesh` | `StructureMeshPlan` | `decision_scope` | `evidence_or_decision` | `false` |
-| `structuremesh` | `StructureMeshPlan` | `release_deferred_allowed` | `unclassified` | `false` |
-| `structuremesh` | `StructureMeshPlan` | `allowed_shared_state` | `behavior_or_contract` | `true` |
-| `structuremesh` | `StructureMeshPlan` | `allowed_shared_side_effects` | `behavior_or_contract` | `true` |
-| `structuremesh` | `StructureMeshPlan` | `allowed_shared_config` | `collection_metadata` | `false` |
-| `structuremesh` | `StructureMeshPlan` | `allowed_dependency_cycles` | `collection_metadata` | `false` |
-| `structuremesh` | `StructureMeshFinding` | `code` | `unclassified` | `false` |
-| `structuremesh` | `StructureMeshFinding` | `message` | `display_or_metadata` | `false` |
-| `structuremesh` | `StructureMeshFinding` | `severity` | `unclassified` | `false` |
-| `structuremesh` | `StructureMeshFinding` | `module_id` | `unclassified` | `false` |
-| `structuremesh` | `StructureMeshFinding` | `item_id` | `unclassified` | `false` |
-| `structuremesh` | `StructureMeshFinding` | `metadata` | `collection_metadata` | `false` |
-| `structuremesh` | `StructureMeshReport` | `ok` | `evidence_or_decision` | `false` |
-| `structuremesh` | `StructureMeshReport` | `parent_module_id` | `unclassified` | `false` |
-| `structuremesh` | `StructureMeshReport` | `decision` | `evidence_or_decision` | `false` |
-| `structuremesh` | `StructureMeshReport` | `decision_scope` | `evidence_or_decision` | `false` |
-| `structuremesh` | `StructureMeshReport` | `findings` | `evidence_or_decision` | `false` |
-| `structuremesh` | `StructureMeshReport` | `release_obligations` | `behavior_or_contract` | `true` |
-| `structuremesh` | `StructureMeshReport` | `summary` | `evidence_or_decision` | `false` |
-| `summary_report` | `FlowGuardSection` | `name` | `display_or_metadata` | `false` |
-| `summary_report` | `FlowGuardSection` | `status` | `evidence_or_decision` | `false` |
-| `summary_report` | `FlowGuardSection` | `summary` | `evidence_or_decision` | `false` |
-| `summary_report` | `FlowGuardSection` | `findings` | `evidence_or_decision` | `false` |
-| `summary_report` | `FlowGuardSection` | `metadata` | `unclassified` | `false` |
-| `summary_report` | `FlowGuardFindingLedgerEntry` | `section_name` | `display_or_metadata` | `false` |
-| `summary_report` | `FlowGuardFindingLedgerEntry` | `section_status` | `evidence_or_decision` | `false` |
-| `summary_report` | `FlowGuardFindingLedgerEntry` | `severity` | `unclassified` | `false` |
-| `summary_report` | `FlowGuardFindingLedgerEntry` | `category` | `unclassified` | `false` |
-| `summary_report` | `FlowGuardFindingLedgerEntry` | `message` | `display_or_metadata` | `false` |
-| `summary_report` | `FlowGuardFindingLedgerEntry` | `finding_index` | `evidence_or_decision` | `false` |
-| `summary_report` | `FlowGuardFindingLedgerEntry` | `section_summary` | `evidence_or_decision` | `false` |
-| `summary_report` | `FlowGuardFindingLedgerEntry` | `next_step` | `unclassified` | `false` |
-| `summary_report` | `FlowGuardFindingLedgerEntry` | `owner_route` | `behavior_or_contract` | `true` |
-| `summary_report` | `FlowGuardFindingLedgerEntry` | `action_kind` | `behavior_or_contract` | `true` |
-| `summary_report` | `FlowGuardFindingLedgerEntry` | `required_input_kinds` | `behavior_or_contract` | `true` |
-| `summary_report` | `FlowGuardFindingLedgerEntry` | `proof_gap_codes` | `evidence_or_decision` | `false` |
-| `summary_report` | `FlowGuardFindingLedgerEntry` | `claim_effect` | `behavior_or_contract` | `true` |
-| `summary_report` | `FlowGuardFindingLedgerEntry` | `suggested_commands` | `collection_metadata` | `false` |
-| `summary_report` | `FlowGuardFindingLedgerEntry` | `metadata` | `unclassified` | `false` |
-| `summary_report` | `FlowGuardFindingLedger` | `entries` | `collection_metadata` | `false` |
-| `summary_report` | `FlowGuardFindingLedger` | `summary` | `evidence_or_decision` | `false` |
-| `summary_report` | `FlowGuardSummaryReport` | `overall_status` | `evidence_or_decision` | `false` |
-| `summary_report` | `FlowGuardSummaryReport` | `sections` | `collection_metadata` | `false` |
-| `summary_report` | `FlowGuardSummaryReport` | `summary` | `evidence_or_decision` | `false` |
-| `summary_report` | `FlowGuardSummaryReport` | `metadata` | `unclassified` | `false` |
-| `templates` | `TemplateFile` | `path` | `unclassified` | `false` |
-| `templates` | `TemplateFile` | `content` | `unclassified` | `false` |
-| `test_reuse` | `TestResultReuseTicket` | `evidence_id` | `evidence_or_decision` | `false` |
-| `test_reuse` | `TestResultReuseTicket` | `previous_evidence_id` | `evidence_or_decision` | `false` |
-| `test_reuse` | `TestResultReuseTicket` | `reason` | `evidence_or_decision` | `false` |
-| `test_reuse` | `TestResultReuseTicket` | `same_output_proof_id` | `behavior_or_contract` | `true` |
-| `test_reuse` | `TestResultReuseTicket` | `command_fingerprint` | `unclassified` | `false` |
-| `test_reuse` | `TestResultReuseTicket` | `test_source_fingerprint` | `unclassified` | `false` |
-| `test_reuse` | `TestResultReuseTicket` | `tested_artifact_fingerprint` | `unclassified` | `false` |
-| `test_reuse` | `TestResultReuseTicket` | `dependency_fingerprints` | `collection_metadata` | `false` |
-| `test_reuse` | `TestResultReuseTicket` | `environment_fingerprint` | `unclassified` | `false` |
-| `test_reuse` | `TestResultReuseTicket` | `result_fingerprint` | `evidence_or_decision` | `false` |
-| `test_reuse` | `TestResultReuseTicket` | `covered_obligation_ids` | `behavior_or_contract` | `true` |
-| `test_reuse` | `TestResultReuseTicket` | `ticket_current` | `unclassified` | `false` |
-| `test_reuse` | `TestResultReuseTicket` | `command_current` | `unclassified` | `false` |
-| `test_reuse` | `TestResultReuseTicket` | `test_source_current` | `unclassified` | `false` |
-| `test_reuse` | `TestResultReuseTicket` | `tested_artifacts_current` | `unclassified` | `false` |
-| `test_reuse` | `TestResultReuseTicket` | `dependencies_current` | `unclassified` | `false` |
-| `test_reuse` | `TestResultReuseTicket` | `environment_current` | `unclassified` | `false` |
-| `test_reuse` | `TestResultReuseTicket` | `previous_result_current` | `evidence_or_decision` | `false` |
-| `test_reuse` | `TestResultReuseTicket` | `result_fingerprint_matches` | `evidence_or_decision` | `false` |
-| `test_reuse` | `TestResultReuseTicket` | `coverage_scope_current` | `unclassified` | `false` |
-| `test_reuse` | `TestResultReuseTicket` | `metadata` | `collection_metadata` | `false` |
-| `testmesh` | `TestPartitionItem` | `item_id` | `unclassified` | `false` |
-| `testmesh` | `TestPartitionItem` | `item_type` | `unclassified` | `false` |
-| `testmesh` | `TestPartitionItem` | `owner_suite_id` | `unclassified` | `false` |
-| `testmesh` | `TestPartitionItem` | `ownership` | `unclassified` | `false` |
-| `testmesh` | `TestPartitionItem` | `description` | `display_or_metadata` | `false` |
-| `testmesh` | `TestPartitionItem` | `touched_paths` | `collection_metadata` | `false` |
-| `testmesh` | `TestSuiteEvidence` | `suite_id` | `unclassified` | `false` |
-| `testmesh` | `TestSuiteEvidence` | `command` | `unclassified` | `false` |
-| `testmesh` | `TestSuiteEvidence` | `layer` | `unclassified` | `false` |
-| `testmesh` | `TestSuiteEvidence` | `result_status` | `evidence_or_decision` | `false` |
-| `testmesh` | `TestSuiteEvidence` | `evidence_tier` | `evidence_or_decision` | `false` |
-| `testmesh` | `TestSuiteEvidence` | `evidence_current` | `evidence_or_decision` | `false` |
-| `testmesh` | `TestSuiteEvidence` | `test_count` | `unclassified` | `false` |
-| `testmesh` | `TestSuiteEvidence` | `selected_count` | `unclassified` | `false` |
-| `testmesh` | `TestSuiteEvidence` | `skipped_count` | `unclassified` | `false` |
-| `testmesh` | `TestSuiteEvidence` | `skipped_visible` | `unclassified` | `false` |
-| `testmesh` | `TestSuiteEvidence` | `timeout_seconds` | `unclassified` | `false` |
-| `testmesh` | `TestSuiteEvidence` | `duration_seconds` | `unclassified` | `false` |
-| `testmesh` | `TestSuiteEvidence` | `exit_code` | `unclassified` | `false` |
-| `testmesh` | `TestSuiteEvidence` | `result_path` | `evidence_or_decision` | `false` |
-| `testmesh` | `TestSuiteEvidence` | `log_root` | `unclassified` | `false` |
-| `testmesh` | `TestSuiteEvidence` | `background` | `unclassified` | `false` |
-| `testmesh` | `TestSuiteEvidence` | `has_exit_artifact` | `unclassified` | `false` |
-| `testmesh` | `TestSuiteEvidence` | `has_result_artifact` | `evidence_or_decision` | `false` |
-| `testmesh` | `TestSuiteEvidence` | `progress_only` | `unclassified` | `false` |
-| `testmesh` | `TestSuiteEvidence` | `proof_artifact` | `evidence_or_decision` | `false` |
-| `testmesh` | `TestSuiteEvidence` | `result_reused` | `evidence_or_decision` | `false` |
-| `testmesh` | `TestSuiteEvidence` | `reuse_ticket` | `collection_metadata` | `false` |
-| `testmesh` | `TestSuiteEvidence` | `release_required` | `unclassified` | `false` |
-| `testmesh` | `TestSuiteEvidence` | `owns_state` | `behavior_or_contract` | `true` |
-| `testmesh` | `TestSuiteEvidence` | `owns_side_effects` | `behavior_or_contract` | `true` |
-| `testmesh` | `TestSuiteEvidence` | `owned_leaf_cell_ids` | `collection_metadata` | `false` |
-| `testmesh` | `TestSuiteEvidence` | `not_run_reason` | `evidence_or_decision` | `false` |
-| `testmesh` | `TestSuiteEvidence` | `stale_reasons` | `evidence_or_decision` | `false` |
-| `testmesh` | `TestTargetSplitDerivation` | `source_model_id` | `unclassified` | `false` |
-| `testmesh` | `TestTargetSplitDerivation` | `target_suite_ids` | `collection_metadata` | `false` |
-| `testmesh` | `TestTargetSplitDerivation` | `covered_partition_item_ids` | `collection_metadata` | `false` |
-| `testmesh` | `TestTargetSplitDerivation` | `state_owner_fields` | `behavior_or_contract` | `true` |
-| `testmesh` | `TestTargetSplitDerivation` | `side_effect_owner_fields` | `behavior_or_contract` | `true` |
-| `testmesh` | `TestTargetSplitDerivation` | `source_model_path` | `unclassified` | `false` |
-| `testmesh` | `TestTargetSplitDerivation` | `rationale` | `unclassified` | `false` |
-| `testmesh` | `TestTargetSplitDerivation` | `derived_from_flowguard_model` | `unclassified` | `false` |
-| `testmesh` | `TestMeshPlan` | `parent_suite_id` | `unclassified` | `false` |
-| `testmesh` | `TestMeshPlan` | `partition_items` | `collection_metadata` | `false` |
-| `testmesh` | `TestMeshPlan` | `child_suites` | `collection_metadata` | `false` |
-| `testmesh` | `TestMeshPlan` | `target_split_derivation` | `unclassified` | `false` |
-| `testmesh` | `TestMeshPlan` | `required_leaf_cell_ids` | `collection_metadata` | `false` |
-| `testmesh` | `TestMeshPlan` | `required_evidence_tier` | `evidence_or_decision` | `false` |
-| `testmesh` | `TestMeshPlan` | `require_proof_artifacts` | `evidence_or_decision` | `false` |
-| `testmesh` | `TestMeshPlan` | `decision_scope` | `evidence_or_decision` | `false` |
-| `testmesh` | `TestMeshPlan` | `release_deferred_allowed` | `unclassified` | `false` |
-| `testmesh` | `TestMeshPlan` | `allowed_shared_state` | `behavior_or_contract` | `true` |
-| `testmesh` | `TestMeshPlan` | `allowed_shared_side_effects` | `behavior_or_contract` | `true` |
-| `testmesh` | `TestMeshFinding` | `code` | `unclassified` | `false` |
-| `testmesh` | `TestMeshFinding` | `message` | `display_or_metadata` | `false` |
-| `testmesh` | `TestMeshFinding` | `severity` | `unclassified` | `false` |
-| `testmesh` | `TestMeshFinding` | `suite_id` | `unclassified` | `false` |
-| `testmesh` | `TestMeshFinding` | `item_id` | `unclassified` | `false` |
-| `testmesh` | `TestMeshFinding` | `metadata` | `collection_metadata` | `false` |
-| `testmesh` | `TestMeshReport` | `ok` | `evidence_or_decision` | `false` |
-| `testmesh` | `TestMeshReport` | `parent_suite_id` | `unclassified` | `false` |
-| `testmesh` | `TestMeshReport` | `decision` | `evidence_or_decision` | `false` |
-| `testmesh` | `TestMeshReport` | `decision_scope` | `evidence_or_decision` | `false` |
-| `testmesh` | `TestMeshReport` | `findings` | `evidence_or_decision` | `false` |
-| `testmesh` | `TestMeshReport` | `release_obligations` | `behavior_or_contract` | `true` |
-| `testmesh` | `TestMeshReport` | `summary` | `evidence_or_decision` | `false` |
-| `topology_hazard` | `UsageIntent` | `intent_id` | `unclassified` | `false` |
-| `topology_hazard` | `UsageIntent` | `usage_modes` | `collection_metadata` | `false` |
-| `topology_hazard` | `UsageIntent` | `final_claim` | `unclassified` | `false` |
-| `topology_hazard` | `UsageIntent` | `goal` | `unclassified` | `false` |
-| `topology_hazard` | `UsageIntent` | `external_users_possible` | `behavior_or_contract` | `true` |
-| `topology_hazard` | `UsageIntent` | `persistent_history_possible` | `unclassified` | `false` |
-| `topology_hazard` | `UsageIntent` | `compatibility_policy` | `compatibility_or_old_path` | `true` |
-| `topology_hazard` | `UsageIntent` | `metadata` | `collection_metadata` | `false` |
-| `topology_hazard` | `TopologyNode` | `node_id` | `unclassified` | `false` |
-| `topology_hazard` | `TopologyNode` | `node_kind` | `unclassified` | `false` |
-| `topology_hazard` | `TopologyNode` | `label` | `display_or_metadata` | `false` |
-| `topology_hazard` | `TopologyNode` | `metadata` | `collection_metadata` | `false` |
-| `topology_hazard` | `TopologyEdge` | `edge_id` | `unclassified` | `false` |
-| `topology_hazard` | `TopologyEdge` | `edge_kind` | `unclassified` | `false` |
-| `topology_hazard` | `TopologyEdge` | `source_id` | `unclassified` | `false` |
-| `topology_hazard` | `TopologyEdge` | `target_id` | `unclassified` | `false` |
-| `topology_hazard` | `TopologyEdge` | `label` | `display_or_metadata` | `false` |
-| `topology_hazard` | `TopologyEdge` | `block_name` | `display_or_metadata` | `false` |
-| `topology_hazard` | `TopologyEdge` | `reads` | `collection_metadata` | `false` |
-| `topology_hazard` | `TopologyEdge` | `writes` | `collection_metadata` | `false` |
-| `topology_hazard` | `TopologyEdge` | `side_effects` | `behavior_or_contract` | `true` |
-| `topology_hazard` | `TopologyEdge` | `repeatable` | `unclassified` | `false` |
-| `topology_hazard` | `TopologyEdge` | `metadata` | `collection_metadata` | `false` |
-| `topology_hazard` | `TopologyLandmark` | `landmark_id` | `unclassified` | `false` |
-| `topology_hazard` | `TopologyLandmark` | `landmark_type` | `unclassified` | `false` |
-| `topology_hazard` | `TopologyLandmark` | `anchor_ids` | `collection_metadata` | `false` |
-| `topology_hazard` | `TopologyLandmark` | `description` | `display_or_metadata` | `false` |
-| `topology_hazard` | `TopologyLandmark` | `metadata` | `collection_metadata` | `false` |
-| `topology_hazard` | `TopologyDigest` | `digest_id` | `unclassified` | `false` |
-| `topology_hazard` | `TopologyDigest` | `workflow_name` | `display_or_metadata` | `false` |
-| `topology_hazard` | `TopologyDigest` | `nodes` | `collection_metadata` | `false` |
-| `topology_hazard` | `TopologyDigest` | `edges` | `collection_metadata` | `false` |
-| `topology_hazard` | `TopologyDigest` | `landmarks` | `collection_metadata` | `false` |
-| `topology_hazard` | `TopologyDigest` | `usage_intent` | `unclassified` | `false` |
-| `topology_hazard` | `TopologyDigest` | `metadata` | `collection_metadata` | `false` |
-| `topology_hazard` | `TopologyHazardCandidate` | `hazard_id` | `unclassified` | `false` |
-| `topology_hazard` | `TopologyHazardCandidate` | `summary` | `evidence_or_decision` | `false` |
-| `topology_hazard` | `TopologyHazardCandidate` | `rationale` | `unclassified` | `false` |
-| `topology_hazard` | `TopologyHazardCandidate` | `future_failure_mode` | `unclassified` | `false` |
-| `topology_hazard` | `TopologyHazardCandidate` | `topology_anchor_ids` | `collection_metadata` | `false` |
-| `topology_hazard` | `TopologyHazardCandidate` | `source_landmark_ids` | `collection_metadata` | `false` |
-| `topology_hazard` | `TopologyHazardCandidate` | `disposition` | `unclassified` | `false` |
-| `topology_hazard` | `TopologyHazardCandidate` | `required_routes` | `behavior_or_contract` | `true` |
-| `topology_hazard` | `TopologyHazardCandidate` | `confidence_effect` | `behavior_or_contract` | `true` |
-| `topology_hazard` | `TopologyHazardCandidate` | `severity` | `unclassified` | `false` |
-| `topology_hazard` | `TopologyHazardCandidate` | `handled` | `unclassified` | `false` |
-| `topology_hazard` | `TopologyHazardCandidate` | `scoped_reason` | `evidence_or_decision` | `false` |
-| `topology_hazard` | `TopologyHazardCandidate` | `model_obligation_id` | `behavior_or_contract` | `true` |
-| `topology_hazard` | `TopologyHazardCandidate` | `proof_evidence_ids` | `evidence_or_decision` | `false` |
-| `topology_hazard` | `TopologyHazardCandidate` | `metadata` | `collection_metadata` | `false` |
-| `topology_hazard` | `TopologyHazardFinding` | `code` | `unclassified` | `false` |
-| `topology_hazard` | `TopologyHazardFinding` | `message` | `display_or_metadata` | `false` |
-| `topology_hazard` | `TopologyHazardFinding` | `severity` | `unclassified` | `false` |
-| `topology_hazard` | `TopologyHazardFinding` | `hazard_id` | `unclassified` | `false` |
-| `topology_hazard` | `TopologyHazardFinding` | `anchor_ids` | `collection_metadata` | `false` |
-| `topology_hazard` | `TopologyHazardFinding` | `required_routes` | `behavior_or_contract` | `true` |
-| `topology_hazard` | `TopologyHazardFinding` | `action` | `behavior_or_contract` | `true` |
-| `topology_hazard` | `TopologyHazardFinding` | `metadata` | `collection_metadata` | `false` |
-| `topology_hazard` | `TopologyHazardReviewPlan` | `plan_id` | `unclassified` | `false` |
-| `topology_hazard` | `TopologyHazardReviewPlan` | `digest` | `unclassified` | `false` |
-| `topology_hazard` | `TopologyHazardReviewPlan` | `candidates` | `collection_metadata` | `false` |
-| `topology_hazard` | `TopologyHazardReviewPlan` | `auto_generate_candidates` | `unclassified` | `false` |
-| `topology_hazard` | `TopologyHazardReviewPlan` | `allow_scoped_confidence` | `evidence_or_decision` | `false` |
-| `topology_hazard` | `TopologyHazardReviewPlan` | `final_claim` | `unclassified` | `false` |
-| `topology_hazard` | `TopologyHazardReport` | `ok` | `evidence_or_decision` | `false` |
-| `topology_hazard` | `TopologyHazardReport` | `plan_id` | `unclassified` | `false` |
-| `topology_hazard` | `TopologyHazardReport` | `decision` | `evidence_or_decision` | `false` |
-| `topology_hazard` | `TopologyHazardReport` | `confidence` | `evidence_or_decision` | `false` |
-| `topology_hazard` | `TopologyHazardReport` | `digest` | `unclassified` | `false` |
-| `topology_hazard` | `TopologyHazardReport` | `candidates` | `collection_metadata` | `false` |
-| `topology_hazard` | `TopologyHazardReport` | `findings` | `evidence_or_decision` | `false` |
-| `topology_hazard` | `TopologyHazardReport` | `unresolved_hazard_ids` | `collection_metadata` | `false` |
-| `topology_hazard` | `TopologyHazardReport` | `summary` | `evidence_or_decision` | `false` |
-| `trace` | `TraceStep` | `external_input` | `behavior_or_contract` | `true` |
-| `trace` | `TraceStep` | `function_name` | `display_or_metadata` | `false` |
-| `trace` | `TraceStep` | `function_input` | `behavior_or_contract` | `true` |
-| `trace` | `TraceStep` | `function_output` | `behavior_or_contract` | `true` |
-| `trace` | `TraceStep` | `old_state` | `compatibility_or_old_path` | `true` |
-| `trace` | `TraceStep` | `new_state` | `behavior_or_contract` | `true` |
-| `trace` | `TraceStep` | `label` | `display_or_metadata` | `false` |
-| `trace` | `TraceStep` | `reason` | `evidence_or_decision` | `false` |
-| `trace` | `TraceStep` | `metadata` | `unclassified` | `false` |
-| `trace` | `Trace` | `steps` | `collection_metadata` | `false` |
-| `trace` | `Trace` | `initial_state` | `behavior_or_contract` | `true` |
-| `trace` | `Trace` | `external_inputs` | `behavior_or_contract` | `true` |
-| `trace` | `Trace` | `metadata` | `unclassified` | `false` |
-| `transition_coverage` | `TransitionCoverageCell` | `cell_id` | `unclassified` | `false` |
-| `transition_coverage` | `TransitionCoverageCell` | `source_state` | `behavior_or_contract` | `true` |
-| `transition_coverage` | `TransitionCoverageCell` | `trigger` | `unclassified` | `false` |
-| `transition_coverage` | `TransitionCoverageCell` | `target_state` | `behavior_or_contract` | `true` |
-| `transition_coverage` | `TransitionCoverageCell` | `expected_output` | `behavior_or_contract` | `true` |
-| `transition_coverage` | `TransitionCoverageCell` | `function_block` | `unclassified` | `false` |
-| `transition_coverage` | `TransitionCoverageCell` | `code_contract_id` | `behavior_or_contract` | `true` |
-| `transition_coverage` | `TransitionCoverageCell` | `runtime_node_id` | `unclassified` | `false` |
-| `transition_coverage` | `TransitionCoverageCell` | `risk_class` | `unclassified` | `false` |
-| `transition_coverage` | `TransitionCoverageCell` | `required_test_kinds` | `collection_metadata` | `false` |
-| `transition_coverage` | `TransitionCoverageCell` | `side_effects` | `behavior_or_contract` | `true` |
-| `transition_coverage` | `TransitionCoverageCell` | `rationale` | `unclassified` | `false` |
-| `transition_coverage` | `TransitionCoverageMatrix` | `matrix_id` | `unclassified` | `false` |
-| `transition_coverage` | `TransitionCoverageMatrix` | `model_id` | `unclassified` | `false` |
-| `transition_coverage` | `TransitionCoverageMatrix` | `source_route` | `behavior_or_contract` | `true` |
-| `transition_coverage` | `TransitionCoverageMatrix` | `cells` | `collection_metadata` | `false` |
-| `transition_coverage` | `TransitionCoverageMatrix` | `scoped_out_cell_reasons` | `evidence_or_decision` | `false` |
-| `transition_coverage` | `TransitionCoverageMatrix` | `rationale` | `unclassified` | `false` |
-| `ui_structure` | `UIControl` | `control_id` | `unclassified` | `false` |
-| `ui_structure` | `UIControl` | `label` | `display_or_metadata` | `false` |
-| `ui_structure` | `UIControl` | `control_type` | `unclassified` | `false` |
-| `ui_structure` | `UIControl` | `level` | `unclassified` | `false` |
-| `ui_structure` | `UIControl` | `placement_hint` | `unclassified` | `false` |
-| `ui_structure` | `UIControl` | `persistent` | `unclassified` | `false` |
-| `ui_structure` | `UIControl` | `destructive` | `unclassified` | `false` |
-| `ui_structure` | `UIControl` | `depends_on_states` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UIControl` | `rationale` | `unclassified` | `false` |
-| `ui_structure` | `UIControl` | `function_key` | `unclassified` | `false` |
-| `ui_structure` | `UIControl` | `duplicate_group` | `unclassified` | `false` |
-| `ui_structure` | `UIControl` | `redundancy_rationale` | `unclassified` | `false` |
-| `ui_structure` | `UIStateNode` | `state_id` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UIStateNode` | `parent_state_id` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UIStateNode` | `role` | `unclassified` | `false` |
-| `ui_structure` | `UIStateNode` | `visible_controls` | `collection_metadata` | `false` |
-| `ui_structure` | `UIStateNode` | `enabled_controls` | `collection_metadata` | `false` |
-| `ui_structure` | `UIStateNode` | `disabled_controls` | `collection_metadata` | `false` |
-| `ui_structure` | `UIStateNode` | `hidden_controls` | `collection_metadata` | `false` |
-| `ui_structure` | `UIStateNode` | `recovery_controls` | `collection_metadata` | `false` |
-| `ui_structure` | `UIStateNode` | `terminal` | `unclassified` | `false` |
-| `ui_structure` | `UIStateNode` | `failure` | `unclassified` | `false` |
-| `ui_structure` | `UIStateNode` | `rationale` | `unclassified` | `false` |
-| `ui_structure` | `UIStateNode` | `visible_displays` | `collection_metadata` | `false` |
-| `ui_structure` | `UITransition` | `event_id` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UITransition` | `control_id` | `unclassified` | `false` |
-| `ui_structure` | `UITransition` | `source_state_id` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UITransition` | `target_state_id` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UITransition` | `function_block` | `unclassified` | `false` |
-| `ui_structure` | `UITransition` | `code_contract_id` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UITransition` | `runtime_node_id` | `unclassified` | `false` |
-| `ui_structure` | `UITransition` | `output` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UITransition` | `side_effects` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UITransition` | `rationale` | `unclassified` | `false` |
-| `ui_structure` | `UIDisplayElement` | `display_id` | `display_or_metadata` | `false` |
-| `ui_structure` | `UIDisplayElement` | `semantic_key` | `unclassified` | `false` |
-| `ui_structure` | `UIDisplayElement` | `label` | `display_or_metadata` | `false` |
-| `ui_structure` | `UIDisplayElement` | `display_type` | `display_or_metadata` | `false` |
-| `ui_structure` | `UIDisplayElement` | `depends_on_states` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UIDisplayElement` | `region_hint` | `unclassified` | `false` |
-| `ui_structure` | `UIDisplayElement` | `duplicate_group` | `unclassified` | `false` |
-| `ui_structure` | `UIDisplayElement` | `redundancy_rationale` | `unclassified` | `false` |
-| `ui_structure` | `UIDisplayElement` | `rationale` | `unclassified` | `false` |
-| `ui_structure` | `UIInteractionModel` | `model_id` | `unclassified` | `false` |
-| `ui_structure` | `UIInteractionModel` | `initial_state_id` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UIInteractionModel` | `states` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UIInteractionModel` | `controls` | `collection_metadata` | `false` |
-| `ui_structure` | `UIInteractionModel` | `transitions` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UIInteractionModel` | `displays` | `collection_metadata` | `false` |
-| `ui_structure` | `UIInteractionModel` | `source_product_model_id` | `unclassified` | `false` |
-| `ui_structure` | `UIInteractionModel` | `source_product_model_path` | `unclassified` | `false` |
-| `ui_structure` | `UIInteractionModel` | `validation_boundaries` | `collection_metadata` | `false` |
-| `ui_structure` | `UIInteractionModel` | `rationale` | `unclassified` | `false` |
-| `ui_structure` | `UIJourneyEntryPoint` | `entry_id` | `unclassified` | `false` |
-| `ui_structure` | `UIJourneyEntryPoint` | `control_id` | `unclassified` | `false` |
-| `ui_structure` | `UIJourneyEntryPoint` | `event_id` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UIJourneyEntryPoint` | `label` | `display_or_metadata` | `false` |
-| `ui_structure` | `UIJourneyEntryPoint` | `source_state_ids` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UIJourneyEntryPoint` | `required` | `unclassified` | `false` |
-| `ui_structure` | `UIJourneyEntryPoint` | `rationale` | `unclassified` | `false` |
-| `ui_structure` | `UIFeatureJourney` | `feature_id` | `unclassified` | `false` |
-| `ui_structure` | `UIFeatureJourney` | `label` | `display_or_metadata` | `false` |
-| `ui_structure` | `UIFeatureJourney` | `entry_point_ids` | `collection_metadata` | `false` |
-| `ui_structure` | `UIFeatureJourney` | `required_state_ids` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UIFeatureJourney` | `required_event_ids` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UIFeatureJourney` | `success_terminal_state_ids` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UIFeatureJourney` | `failure_state_ids` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UIFeatureJourney` | `recovery_event_ids` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UIFeatureJourney` | `cancel_event_ids` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UIFeatureJourney` | `exit_event_ids` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UIFeatureJourney` | `validation_boundaries` | `collection_metadata` | `false` |
-| `ui_structure` | `UIFeatureJourney` | `rationale` | `unclassified` | `false` |
-| `ui_structure` | `UITerminalActionAllowance` | `state_id` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UITerminalActionAllowance` | `event_id` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UITerminalActionAllowance` | `purpose` | `unclassified` | `false` |
-| `ui_structure` | `UITerminalActionAllowance` | `rationale` | `unclassified` | `false` |
-| `ui_structure` | `UIBlindspot` | `blindspot_id` | `unclassified` | `false` |
-| `ui_structure` | `UIBlindspot` | `feature_id` | `unclassified` | `false` |
-| `ui_structure` | `UIBlindspot` | `control_ids` | `collection_metadata` | `false` |
-| `ui_structure` | `UIBlindspot` | `event_ids` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UIBlindspot` | `reason` | `evidence_or_decision` | `false` |
-| `ui_structure` | `UIBlindspot` | `owner` | `unclassified` | `false` |
-| `ui_structure` | `UIBlindspot` | `validation_boundaries` | `collection_metadata` | `false` |
-| `ui_structure` | `UIBlindspot` | `rationale` | `unclassified` | `false` |
-| `ui_structure` | `UIJourneyCoverage` | `coverage_id` | `unclassified` | `false` |
-| `ui_structure` | `UIJourneyCoverage` | `source_interaction_model_id` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UIJourneyCoverage` | `launch_state_id` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UIJourneyCoverage` | `entry_points` | `collection_metadata` | `false` |
-| `ui_structure` | `UIJourneyCoverage` | `feature_journeys` | `collection_metadata` | `false` |
-| `ui_structure` | `UIJourneyCoverage` | `terminal_action_allowances` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UIJourneyCoverage` | `residual_blindspots` | `collection_metadata` | `false` |
-| `ui_structure` | `UIJourneyCoverage` | `interaction_model_reviewed` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UIJourneyCoverage` | `validation_boundaries` | `collection_metadata` | `false` |
-| `ui_structure` | `UIJourneyCoverage` | `rationale` | `unclassified` | `false` |
-| `ui_structure` | `UIFeatureContract` | `feature_id` | `unclassified` | `false` |
-| `ui_structure` | `UIFeatureContract` | `label` | `display_or_metadata` | `false` |
-| `ui_structure` | `UIFeatureContract` | `source_feature_id` | `unclassified` | `false` |
-| `ui_structure` | `UIFeatureContract` | `user_visible` | `unclassified` | `false` |
-| `ui_structure` | `UIFeatureContract` | `exposure` | `unclassified` | `false` |
-| `ui_structure` | `UIFeatureContract` | `journey_ids` | `collection_metadata` | `false` |
-| `ui_structure` | `UIFeatureContract` | `entry_point_ids` | `collection_metadata` | `false` |
-| `ui_structure` | `UIFeatureContract` | `required_control_ids` | `collection_metadata` | `false` |
-| `ui_structure` | `UIFeatureContract` | `required_event_ids` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UIFeatureContract` | `validation_boundaries` | `collection_metadata` | `false` |
-| `ui_structure` | `UIFeatureContract` | `rationale` | `unclassified` | `false` |
-| `ui_structure` | `UIImplementationStepEvidence` | `step_id` | `unclassified` | `false` |
-| `ui_structure` | `UIImplementationStepEvidence` | `event_id` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UIImplementationStepEvidence` | `control_id` | `unclassified` | `false` |
-| `ui_structure` | `UIImplementationStepEvidence` | `source_state_id` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UIImplementationStepEvidence` | `target_state_id` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UIImplementationStepEvidence` | `method` | `unclassified` | `false` |
-| `ui_structure` | `UIImplementationStepEvidence` | `result` | `evidence_or_decision` | `false` |
-| `ui_structure` | `UIImplementationStepEvidence` | `evidence_ref` | `evidence_or_decision` | `false` |
-| `ui_structure` | `UIImplementationStepEvidence` | `observed_state_id` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UIImplementationStepEvidence` | `observed_output` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UIImplementationStepEvidence` | `rationale` | `unclassified` | `false` |
-| `ui_structure` | `UIImplementationJourneyRun` | `run_id` | `unclassified` | `false` |
-| `ui_structure` | `UIImplementationJourneyRun` | `feature_id` | `unclassified` | `false` |
-| `ui_structure` | `UIImplementationJourneyRun` | `journey_id` | `unclassified` | `false` |
-| `ui_structure` | `UIImplementationJourneyRun` | `entry_point_id` | `unclassified` | `false` |
-| `ui_structure` | `UIImplementationJourneyRun` | `steps` | `collection_metadata` | `false` |
-| `ui_structure` | `UIImplementationJourneyRun` | `method` | `unclassified` | `false` |
-| `ui_structure` | `UIImplementationJourneyRun` | `result` | `evidence_or_decision` | `false` |
-| `ui_structure` | `UIImplementationJourneyRun` | `evidence_ref` | `evidence_or_decision` | `false` |
-| `ui_structure` | `UIImplementationJourneyRun` | `model_revision` | `unclassified` | `false` |
-| `ui_structure` | `UIImplementationJourneyRun` | `validation_boundaries` | `collection_metadata` | `false` |
-| `ui_structure` | `UIImplementationJourneyRun` | `rationale` | `unclassified` | `false` |
-| `ui_structure` | `UIImplementationValidation` | `validation_id` | `unclassified` | `false` |
-| `ui_structure` | `UIImplementationValidation` | `source_feature_model_id` | `unclassified` | `false` |
-| `ui_structure` | `UIImplementationValidation` | `source_interaction_model_id` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UIImplementationValidation` | `source_journey_coverage_id` | `unclassified` | `false` |
-| `ui_structure` | `UIImplementationValidation` | `implementation_target` | `unclassified` | `false` |
-| `ui_structure` | `UIImplementationValidation` | `current_model_revision` | `unclassified` | `false` |
-| `ui_structure` | `UIImplementationValidation` | `feature_contracts` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UIImplementationValidation` | `journey_runs` | `collection_metadata` | `false` |
-| `ui_structure` | `UIImplementationValidation` | `pure_ui_control_ids` | `collection_metadata` | `false` |
-| `ui_structure` | `UIImplementationValidation` | `pure_ui_event_ids` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UIImplementationValidation` | `implementation_blindspots` | `collection_metadata` | `false` |
-| `ui_structure` | `UIImplementationValidation` | `journey_coverage_reviewed` | `unclassified` | `false` |
-| `ui_structure` | `UIImplementationValidation` | `validation_boundaries` | `collection_metadata` | `false` |
-| `ui_structure` | `UIImplementationValidation` | `rationale` | `unclassified` | `false` |
-| `ui_structure` | `UIRegionRecommendation` | `region_id` | `unclassified` | `false` |
-| `ui_structure` | `UIRegionRecommendation` | `level` | `unclassified` | `false` |
-| `ui_structure` | `UIRegionRecommendation` | `placement` | `unclassified` | `false` |
-| `ui_structure` | `UIRegionRecommendation` | `parent_region_id` | `unclassified` | `false` |
-| `ui_structure` | `UIRegionRecommendation` | `owns_states` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UIRegionRecommendation` | `owns_controls` | `collection_metadata` | `false` |
-| `ui_structure` | `UIRegionRecommendation` | `owns_events` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UIRegionRecommendation` | `stable_across_states` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UIRegionRecommendation` | `validation_boundaries` | `collection_metadata` | `false` |
-| `ui_structure` | `UIRegionRecommendation` | `rationale` | `unclassified` | `false` |
-| `ui_structure` | `UIRegionRecommendation` | `owns_displays` | `collection_metadata` | `false` |
-| `ui_structure` | `UIStructureDerivation` | `derivation_id` | `unclassified` | `false` |
-| `ui_structure` | `UIStructureDerivation` | `source_interaction_model_id` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UIStructureDerivation` | `parent_surface_id` | `unclassified` | `false` |
-| `ui_structure` | `UIStructureDerivation` | `target_regions` | `collection_metadata` | `false` |
-| `ui_structure` | `UIStructureDerivation` | `interaction_model_reviewed` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UIStructureDerivation` | `state_region_map` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UIStructureDerivation` | `control_region_map` | `collection_metadata` | `false` |
-| `ui_structure` | `UIStructureDerivation` | `event_region_map` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UIStructureDerivation` | `display_region_map` | `display_or_metadata` | `false` |
-| `ui_structure` | `UIStructureDerivation` | `hierarchy_edges` | `collection_metadata` | `false` |
-| `ui_structure` | `UIStructureDerivation` | `persistent_control_ids` | `collection_metadata` | `false` |
-| `ui_structure` | `UIStructureDerivation` | `contextual_control_ids` | `collection_metadata` | `false` |
-| `ui_structure` | `UIStructureDerivation` | `overlay_region_ids` | `collection_metadata` | `false` |
-| `ui_structure` | `UIStructureDerivation` | `stable_region_ids` | `collection_metadata` | `false` |
-| `ui_structure` | `UIStructureDerivation` | `validation_boundaries` | `collection_metadata` | `false` |
-| `ui_structure` | `UIStructureDerivation` | `rationale` | `unclassified` | `false` |
-| `ui_structure` | `UITypographyToken` | `token_id` | `evidence_or_decision` | `false` |
-| `ui_structure` | `UITypographyToken` | `hierarchy_level` | `unclassified` | `false` |
-| `ui_structure` | `UITypographyToken` | `text_roles` | `display_or_metadata` | `false` |
-| `ui_structure` | `UITypographyToken` | `scale` | `unclassified` | `false` |
-| `ui_structure` | `UITypographyToken` | `weight` | `unclassified` | `false` |
-| `ui_structure` | `UITypographyToken` | `color_role` | `unclassified` | `false` |
-| `ui_structure` | `UITypographyToken` | `rationale` | `unclassified` | `false` |
-| `ui_structure` | `UITextElement` | `text_id` | `display_or_metadata` | `false` |
-| `ui_structure` | `UITextElement` | `role` | `unclassified` | `false` |
-| `ui_structure` | `UITextElement` | `token_id` | `evidence_or_decision` | `false` |
-| `ui_structure` | `UITextElement` | `semantic_key` | `unclassified` | `false` |
-| `ui_structure` | `UITextElement` | `label` | `display_or_metadata` | `false` |
-| `ui_structure` | `UITextElement` | `region_id` | `unclassified` | `false` |
-| `ui_structure` | `UITextElement` | `parent_text_id` | `display_or_metadata` | `false` |
-| `ui_structure` | `UITextElement` | `source_state_ids` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UITextElement` | `source_control_id` | `unclassified` | `false` |
-| `ui_structure` | `UITextElement` | `source_display_id` | `display_or_metadata` | `false` |
-| `ui_structure` | `UITextElement` | `visible_in_states` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UITextElement` | `duplicate_group` | `unclassified` | `false` |
-| `ui_structure` | `UITextElement` | `redundancy_rationale` | `unclassified` | `false` |
-| `ui_structure` | `UITextElement` | `rationale` | `unclassified` | `false` |
-| `ui_structure` | `UITextHierarchyBlueprint` | `blueprint_id` | `unclassified` | `false` |
-| `ui_structure` | `UITextHierarchyBlueprint` | `source_interaction_model_id` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UITextHierarchyBlueprint` | `source_structure_derivation_id` | `unclassified` | `false` |
-| `ui_structure` | `UITextHierarchyBlueprint` | `parent_surface_id` | `unclassified` | `false` |
-| `ui_structure` | `UITextHierarchyBlueprint` | `typography_tokens` | `evidence_or_decision` | `false` |
-| `ui_structure` | `UITextHierarchyBlueprint` | `text_elements` | `display_or_metadata` | `false` |
-| `ui_structure` | `UITextHierarchyBlueprint` | `structure_derivation_reviewed` | `unclassified` | `false` |
-| `ui_structure` | `UITextHierarchyBlueprint` | `validation_boundaries` | `collection_metadata` | `false` |
-| `ui_structure` | `UITextHierarchyBlueprint` | `rationale` | `unclassified` | `false` |
-| `ui_structure` | `UIFlowStructureFinding` | `code` | `unclassified` | `false` |
-| `ui_structure` | `UIFlowStructureFinding` | `message` | `display_or_metadata` | `false` |
-| `ui_structure` | `UIFlowStructureFinding` | `severity` | `unclassified` | `false` |
-| `ui_structure` | `UIFlowStructureFinding` | `item_id` | `unclassified` | `false` |
-| `ui_structure` | `UIFlowStructureFinding` | `metadata` | `collection_metadata` | `false` |
-| `ui_structure` | `UIInteractionModelReport` | `ok` | `evidence_or_decision` | `false` |
-| `ui_structure` | `UIInteractionModelReport` | `model_id` | `unclassified` | `false` |
-| `ui_structure` | `UIInteractionModelReport` | `findings` | `evidence_or_decision` | `false` |
-| `ui_structure` | `UIInteractionModelReport` | `summary` | `evidence_or_decision` | `false` |
-| `ui_structure` | `UIJourneyCoverageReport` | `ok` | `evidence_or_decision` | `false` |
-| `ui_structure` | `UIJourneyCoverageReport` | `coverage_id` | `unclassified` | `false` |
-| `ui_structure` | `UIJourneyCoverageReport` | `findings` | `evidence_or_decision` | `false` |
-| `ui_structure` | `UIJourneyCoverageReport` | `reachable_state_ids` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UIJourneyCoverageReport` | `summary` | `evidence_or_decision` | `false` |
-| `ui_structure` | `UIImplementationValidationReport` | `ok` | `evidence_or_decision` | `false` |
-| `ui_structure` | `UIImplementationValidationReport` | `validation_id` | `unclassified` | `false` |
-| `ui_structure` | `UIImplementationValidationReport` | `findings` | `evidence_or_decision` | `false` |
-| `ui_structure` | `UIImplementationValidationReport` | `covered_feature_ids` | `collection_metadata` | `false` |
-| `ui_structure` | `UIImplementationValidationReport` | `covered_event_ids` | `behavior_or_contract` | `true` |
-| `ui_structure` | `UIImplementationValidationReport` | `summary` | `evidence_or_decision` | `false` |
-| `ui_structure` | `UIStructureDerivationReport` | `ok` | `evidence_or_decision` | `false` |
-| `ui_structure` | `UIStructureDerivationReport` | `derivation_id` | `unclassified` | `false` |
-| `ui_structure` | `UIStructureDerivationReport` | `findings` | `evidence_or_decision` | `false` |
-| `ui_structure` | `UIStructureDerivationReport` | `summary` | `evidence_or_decision` | `false` |
-| `ui_structure` | `UITextHierarchyReport` | `ok` | `evidence_or_decision` | `false` |
-| `ui_structure` | `UITextHierarchyReport` | `blueprint_id` | `unclassified` | `false` |
-| `ui_structure` | `UITextHierarchyReport` | `findings` | `evidence_or_decision` | `false` |
-| `ui_structure` | `UITextHierarchyReport` | `summary` | `evidence_or_decision` | `false` |
-| `workflow` | `WorkflowPath` | `current_input` | `behavior_or_contract` | `true` |
-| `workflow` | `WorkflowPath` | `state` | `behavior_or_contract` | `true` |
-| `workflow` | `WorkflowPath` | `trace` | `unclassified` | `false` |
-| `workflow` | `WorkflowRun` | `completed_paths` | `collection_metadata` | `false` |
-| `workflow` | `WorkflowRun` | `dead_branches` | `behavior_or_contract` | `true` |
-| `workflow` | `WorkflowRun` | `exception_branches` | `behavior_or_contract` | `true` |
-| `workflow` | `Workflow` | `blocks` | `collection_metadata` | `false` |
-| `workflow` | `Workflow` | `name` | `display_or_metadata` | `false` |
+| Module | Class | Field | Route Owner | AI Surface Tier | Layer | Behavior Hint |
+| --- | --- | --- | --- | --- | --- | --- |
+| `__main__` | `FileTemplateCommand` | `name` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `__main__` | `FileTemplateCommand` | `help_text` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `__main__` | `FileTemplateCommand` | `template_name` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `__main__` | `FileTemplateCommand` | `factory_name` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `adoption` | `AdoptionCommandResult` | `command` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `adoption` | `AdoptionCommandResult` | `ok` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `adoption` | `AdoptionCommandResult` | `duration_seconds` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `adoption` | `AdoptionCommandResult` | `summary` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `adoption` | `AdoptionCommandResult` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `adoption` | `AdoptionLogEntry` | `task_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `adoption` | `AdoptionLogEntry` | `project` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `adoption` | `AdoptionLogEntry` | `task_summary` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `adoption` | `AdoptionLogEntry` | `trigger_reason` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `adoption` | `AdoptionLogEntry` | `started_at` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `adoption` | `AdoptionLogEntry` | `ended_at` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `adoption` | `AdoptionLogEntry` | `duration_seconds` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `adoption` | `AdoptionLogEntry` | `status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `adoption` | `AdoptionLogEntry` | `skill_decision` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `adoption` | `AdoptionLogEntry` | `model_files` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `adoption` | `AdoptionLogEntry` | `commands` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `adoption` | `AdoptionLogEntry` | `findings` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `adoption` | `AdoptionLogEntry` | `counterexamples` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `adoption` | `AdoptionLogEntry` | `friction_points` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `adoption` | `AdoptionLogEntry` | `skipped_steps` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `adoption` | `AdoptionLogEntry` | `risk_evidence_summary` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `adoption` | `AdoptionLogEntry` | `next_actions` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `adoption` | `AdoptionLogEntry` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `adoption_audit` | `AdoptionAuditFinding` | `severity` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `adoption_audit` | `AdoptionAuditFinding` | `category` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `adoption_audit` | `AdoptionAuditFinding` | `message` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `adoption_audit` | `AdoptionAuditFinding` | `recommendation` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `adoption_audit` | `AdoptionAuditFinding` | `file_path` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `adoption_audit` | `AdoptionAuditFinding` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `adoption_audit` | `AdoptionAuditReport` | `root` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `adoption_audit` | `AdoptionAuditReport` | `flowguard_available` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `adoption_audit` | `AdoptionAuditReport` | `findings` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `adoption_audit` | `AdoptionAuditReport` | `scanned_files` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `agent_workflow_rehearsal` | `SkillCapability` | `skill_name` | `agent_workflow_rehearsal` | `internal` | `display_or_metadata` | `false` |
+| `agent_workflow_rehearsal` | `SkillCapability` | `description` | `agent_workflow_rehearsal` | `internal` | `display_or_metadata` | `false` |
+| `agent_workflow_rehearsal` | `SkillCapability` | `source` | `agent_workflow_rehearsal` | `internal` | `unclassified` | `false` |
+| `agent_workflow_rehearsal` | `SkillCapability` | `trigger_keywords` | `agent_workflow_rehearsal` | `internal` | `collection_metadata` | `false` |
+| `agent_workflow_rehearsal` | `SkillCapability` | `capabilities` | `agent_workflow_rehearsal` | `internal` | `collection_metadata` | `false` |
+| `agent_workflow_rehearsal` | `SkillCapability` | `limitations` | `agent_workflow_rehearsal` | `internal` | `collection_metadata` | `false` |
+| `agent_workflow_rehearsal` | `SkillCapability` | `side_effects` | `agent_workflow_rehearsal` | `advanced` | `behavior_or_contract` | `true` |
+| `agent_workflow_rehearsal` | `SkillCapability` | `validation_guidance_status` | `agent_workflow_rehearsal` | `starter` | `evidence_or_decision` | `false` |
+| `agent_workflow_rehearsal` | `SkillCapability` | `validation_guidance` | `agent_workflow_rehearsal` | `internal` | `unclassified` | `false` |
+| `agent_workflow_rehearsal` | `SkillCapability` | `candidate_for_task` | `agent_workflow_rehearsal` | `internal` | `unclassified` | `false` |
+| `agent_workflow_rehearsal` | `SkillCapability` | `required_for_task` | `agent_workflow_rehearsal` | `internal` | `unclassified` | `false` |
+| `agent_workflow_rehearsal` | `SkillCapability` | `deep_read` | `agent_workflow_rehearsal` | `internal` | `unclassified` | `false` |
+| `agent_workflow_rehearsal` | `SkillInventorySnapshot` | `snapshot_id` | `agent_workflow_rehearsal` | `starter` | `unclassified` | `false` |
+| `agent_workflow_rehearsal` | `SkillInventorySnapshot` | `skills` | `agent_workflow_rehearsal` | `internal` | `collection_metadata` | `false` |
+| `agent_workflow_rehearsal` | `SkillInventorySnapshot` | `source_paths` | `agent_workflow_rehearsal` | `internal` | `collection_metadata` | `false` |
+| `agent_workflow_rehearsal` | `SkillInventorySnapshot` | `current` | `agent_workflow_rehearsal` | `starter` | `unclassified` | `false` |
+| `agent_workflow_rehearsal` | `SkillInventorySnapshot` | `from_cache` | `agent_workflow_rehearsal` | `internal` | `unclassified` | `false` |
+| `agent_workflow_rehearsal` | `SkillInventorySnapshot` | `generated_for_task` | `agent_workflow_rehearsal` | `internal` | `unclassified` | `false` |
+| `agent_workflow_rehearsal` | `SkillInventorySnapshot` | `notes` | `agent_workflow_rehearsal` | `internal` | `collection_metadata` | `false` |
+| `agent_workflow_rehearsal` | `SkippedSkill` | `skill_name` | `agent_workflow_rehearsal` | `internal` | `display_or_metadata` | `false` |
+| `agent_workflow_rehearsal` | `SkippedSkill` | `reason` | `agent_workflow_rehearsal` | `starter` | `evidence_or_decision` | `false` |
+| `agent_workflow_rehearsal` | `SkippedSkill` | `consequence` | `agent_workflow_rehearsal` | `internal` | `unclassified` | `false` |
+| `agent_workflow_rehearsal` | `SkippedSkill` | `accepted` | `agent_workflow_rehearsal` | `internal` | `unclassified` | `false` |
+| `agent_workflow_rehearsal` | `SkippedSkill` | `scope_boundary` | `agent_workflow_rehearsal` | `internal` | `unclassified` | `false` |
+| `agent_workflow_rehearsal` | `AgentWorkflowStep` | `step_id` | `agent_workflow_rehearsal` | `starter` | `unclassified` | `false` |
+| `agent_workflow_rehearsal` | `AgentWorkflowStep` | `skill_name` | `agent_workflow_rehearsal` | `internal` | `display_or_metadata` | `false` |
+| `agent_workflow_rehearsal` | `AgentWorkflowStep` | `action` | `agent_workflow_rehearsal` | `starter` | `behavior_or_contract` | `true` |
+| `agent_workflow_rehearsal` | `AgentWorkflowStep` | `step_type` | `agent_workflow_rehearsal` | `internal` | `unclassified` | `false` |
+| `agent_workflow_rehearsal` | `AgentWorkflowStep` | `order_after` | `agent_workflow_rehearsal` | `internal` | `collection_metadata` | `false` |
+| `agent_workflow_rehearsal` | `AgentWorkflowStep` | `required_completed_step_ids` | `agent_workflow_rehearsal` | `internal` | `collection_metadata` | `false` |
+| `agent_workflow_rehearsal` | `AgentWorkflowStep` | `required_evidence_ids` | `agent_workflow_rehearsal` | `starter` | `evidence_or_decision` | `false` |
+| `agent_workflow_rehearsal` | `AgentWorkflowStep` | `produced_evidence_ids` | `agent_workflow_rehearsal` | `starter` | `evidence_or_decision` | `false` |
+| `agent_workflow_rehearsal` | `AgentWorkflowStep` | `continue_evidence_ids` | `agent_workflow_rehearsal` | `starter` | `evidence_or_decision` | `false` |
+| `agent_workflow_rehearsal` | `AgentWorkflowStep` | `compensating_check_ids` | `agent_workflow_rehearsal` | `internal` | `collection_metadata` | `false` |
+| `agent_workflow_rehearsal` | `AgentWorkflowStep` | `side_effects` | `agent_workflow_rehearsal` | `advanced` | `behavior_or_contract` | `true` |
+| `agent_workflow_rehearsal` | `AgentWorkflowStep` | `validation_required` | `agent_workflow_rehearsal` | `internal` | `unclassified` | `false` |
+| `agent_workflow_rehearsal` | `AgentWorkflowStep` | `irreversible` | `agent_workflow_rehearsal` | `internal` | `unclassified` | `false` |
+| `agent_workflow_rehearsal` | `AgentWorkflowStep` | `rework_step_id` | `agent_workflow_rehearsal` | `starter` | `unclassified` | `false` |
+| `agent_workflow_rehearsal` | `AgentWorkflowStep` | `description` | `agent_workflow_rehearsal` | `internal` | `display_or_metadata` | `false` |
+| `agent_workflow_rehearsal` | `AgentWorkflowPlan` | `plan_id` | `agent_workflow_rehearsal` | `starter` | `unclassified` | `false` |
+| `agent_workflow_rehearsal` | `AgentWorkflowPlan` | `task_summary` | `agent_workflow_rehearsal` | `advanced` | `evidence_or_decision` | `false` |
+| `agent_workflow_rehearsal` | `AgentWorkflowPlan` | `inventory` | `agent_workflow_rehearsal` | `internal` | `unclassified` | `false` |
+| `agent_workflow_rehearsal` | `AgentWorkflowPlan` | `selected_skill_names` | `agent_workflow_rehearsal` | `internal` | `collection_metadata` | `false` |
+| `agent_workflow_rehearsal` | `AgentWorkflowPlan` | `skipped_candidate_skills` | `agent_workflow_rehearsal` | `internal` | `collection_metadata` | `false` |
+| `agent_workflow_rehearsal` | `AgentWorkflowPlan` | `steps` | `agent_workflow_rehearsal` | `internal` | `collection_metadata` | `false` |
+| `agent_workflow_rehearsal` | `AgentWorkflowPlan` | `final_claim` | `agent_workflow_rehearsal` | `starter` | `unclassified` | `false` |
+| `agent_workflow_rehearsal` | `AgentWorkflowPlan` | `final_evidence_ids` | `agent_workflow_rehearsal` | `starter` | `evidence_or_decision` | `false` |
+| `agent_workflow_rehearsal` | `AgentWorkflowPlan` | `risk_flags` | `agent_workflow_rehearsal` | `internal` | `collection_metadata` | `false` |
+| `agent_workflow_rehearsal` | `AgentWorkflowPlan` | `task_trivial` | `agent_workflow_rehearsal` | `internal` | `unclassified` | `false` |
+| `agent_workflow_rehearsal` | `AgentWorkflowRehearsalFinding` | `code` | `agent_workflow_rehearsal` | `starter` | `unclassified` | `false` |
+| `agent_workflow_rehearsal` | `AgentWorkflowRehearsalFinding` | `message` | `agent_workflow_rehearsal` | `internal` | `display_or_metadata` | `false` |
+| `agent_workflow_rehearsal` | `AgentWorkflowRehearsalFinding` | `severity` | `agent_workflow_rehearsal` | `internal` | `unclassified` | `false` |
+| `agent_workflow_rehearsal` | `AgentWorkflowRehearsalFinding` | `skill_name` | `agent_workflow_rehearsal` | `internal` | `display_or_metadata` | `false` |
+| `agent_workflow_rehearsal` | `AgentWorkflowRehearsalFinding` | `step_id` | `agent_workflow_rehearsal` | `starter` | `unclassified` | `false` |
+| `agent_workflow_rehearsal` | `AgentWorkflowRehearsalFinding` | `metadata` | `agent_workflow_rehearsal` | `internal` | `collection_metadata` | `false` |
+| `agent_workflow_rehearsal` | `AgentWorkflowRehearsalReport` | `plan_id` | `agent_workflow_rehearsal` | `starter` | `unclassified` | `false` |
+| `agent_workflow_rehearsal` | `AgentWorkflowRehearsalReport` | `status` | `agent_workflow_rehearsal` | `starter` | `evidence_or_decision` | `false` |
+| `agent_workflow_rehearsal` | `AgentWorkflowRehearsalReport` | `inventory_snapshot_id` | `agent_workflow_rehearsal` | `starter` | `unclassified` | `false` |
+| `agent_workflow_rehearsal` | `AgentWorkflowRehearsalReport` | `findings` | `agent_workflow_rehearsal` | `starter` | `evidence_or_decision` | `false` |
+| `agent_workflow_rehearsal` | `AgentWorkflowRehearsalReport` | `selected_skills` | `agent_workflow_rehearsal` | `internal` | `collection_metadata` | `false` |
+| `agent_workflow_rehearsal` | `AgentWorkflowRehearsalReport` | `skipped_skills` | `agent_workflow_rehearsal` | `internal` | `collection_metadata` | `false` |
+| `architecture_reduction` | `ObservableArchitectureContract` | `source_model_id` | `architecture_reduction` | `starter` | `unclassified` | `false` |
+| `architecture_reduction` | `ObservableArchitectureContract` | `source_code_boundary_id` | `architecture_reduction` | `starter` | `unclassified` | `false` |
+| `architecture_reduction` | `ObservableArchitectureContract` | `public_entrypoints` | `architecture_reduction` | `internal` | `collection_metadata` | `false` |
+| `architecture_reduction` | `ObservableArchitectureContract` | `observable_outputs` | `architecture_reduction` | `advanced` | `behavior_or_contract` | `true` |
+| `architecture_reduction` | `ObservableArchitectureContract` | `observable_state` | `architecture_reduction` | `advanced` | `behavior_or_contract` | `true` |
+| `architecture_reduction` | `ObservableArchitectureContract` | `observable_side_effects` | `architecture_reduction` | `advanced` | `behavior_or_contract` | `true` |
+| `architecture_reduction` | `ObservableArchitectureContract` | `validation_boundaries` | `architecture_reduction` | `internal` | `collection_metadata` | `false` |
+| `architecture_reduction` | `ObservableArchitectureContract` | `rationale` | `architecture_reduction` | `internal` | `unclassified` | `false` |
+| `architecture_reduction` | `CompatibilitySurfaceClassification` | `surface_id` | `architecture_reduction` | `starter` | `unclassified` | `false` |
+| `architecture_reduction` | `CompatibilitySurfaceClassification` | `classification` | `architecture_reduction` | `internal` | `unclassified` | `false` |
+| `architecture_reduction` | `CompatibilitySurfaceClassification` | `recommended_action` | `architecture_reduction` | `starter` | `behavior_or_contract` | `true` |
+| `architecture_reduction` | `CompatibilitySurfaceClassification` | `rationale` | `architecture_reduction` | `internal` | `unclassified` | `false` |
+| `architecture_reduction` | `CompatibilitySurfaceClassification` | `code_node_ids` | `architecture_reduction` | `starter` | `collection_metadata` | `false` |
+| `architecture_reduction` | `CompatibilitySurfaceClassification` | `public_entrypoints` | `architecture_reduction` | `internal` | `collection_metadata` | `false` |
+| `architecture_reduction` | `CompatibilitySurfaceClassification` | `field_ids` | `architecture_reduction` | `internal` | `collection_metadata` | `false` |
+| `architecture_reduction` | `CompatibilitySurfaceClassification` | `replacement_field_ids` | `architecture_reduction` | `advanced` | `compatibility_or_old_path` | `true` |
+| `architecture_reduction` | `CompatibilitySurfaceClassification` | `runtime_authority` | `architecture_reduction` | `internal` | `unclassified` | `false` |
+| `architecture_reduction` | `CompatibilitySurfaceClassification` | `owner_model_elements` | `architecture_reduction` | `starter` | `collection_metadata` | `false` |
+| `architecture_reduction` | `CompatibilitySurfaceClassification` | `candidate_ids` | `architecture_reduction` | `internal` | `collection_metadata` | `false` |
+| `architecture_reduction` | `CompatibilitySurfaceClassification` | `evidence_refs` | `architecture_reduction` | `starter` | `evidence_or_decision` | `false` |
+| `architecture_reduction` | `CompatibilitySurfaceClassification` | `missing_evidence` | `architecture_reduction` | `starter` | `evidence_or_decision` | `false` |
+| `architecture_reduction` | `CompatibilitySurfaceClassification` | `metadata` | `architecture_reduction` | `internal` | `collection_metadata` | `false` |
+| `architecture_reduction` | `ArchitectureReductionCandidate` | `candidate_id` | `architecture_reduction` | `starter` | `unclassified` | `false` |
+| `architecture_reduction` | `ArchitectureReductionCandidate` | `candidate_type` | `architecture_reduction` | `internal` | `unclassified` | `false` |
+| `architecture_reduction` | `ArchitectureReductionCandidate` | `code_node_id` | `architecture_reduction` | `starter` | `unclassified` | `false` |
+| `architecture_reduction` | `ArchitectureReductionCandidate` | `source_model_element` | `architecture_reduction` | `starter` | `unclassified` | `false` |
+| `architecture_reduction` | `ArchitectureReductionCandidate` | `target_action` | `architecture_reduction` | `starter` | `behavior_or_contract` | `true` |
+| `architecture_reduction` | `ArchitectureReductionCandidate` | `proof_status` | `architecture_reduction` | `starter` | `evidence_or_decision` | `false` |
+| `architecture_reduction` | `ArchitectureReductionCandidate` | `required_next_route` | `architecture_reduction` | `starter` | `behavior_or_contract` | `true` |
+| `architecture_reduction` | `ArchitectureReductionCandidate` | `rationale` | `architecture_reduction` | `internal` | `unclassified` | `false` |
+| `architecture_reduction` | `ArchitectureReductionCandidate` | `affected_public_entrypoints` | `architecture_reduction` | `internal` | `collection_metadata` | `false` |
+| `architecture_reduction` | `ArchitectureReductionCandidate` | `affected_state` | `architecture_reduction` | `advanced` | `behavior_or_contract` | `true` |
+| `architecture_reduction` | `ArchitectureReductionCandidate` | `affected_side_effects` | `architecture_reduction` | `advanced` | `behavior_or_contract` | `true` |
+| `architecture_reduction` | `ArchitectureReductionCandidate` | `evidence_refs` | `architecture_reduction` | `starter` | `evidence_or_decision` | `false` |
+| `architecture_reduction` | `ArchitectureReductionCandidate` | `similarity_handoff` | `architecture_reduction` | `internal` | `collection_metadata` | `false` |
+| `architecture_reduction` | `ArchitectureReductionCandidate` | `lifecycle_disposition` | `architecture_reduction` | `internal` | `unclassified` | `false` |
+| `architecture_reduction` | `ArchitectureReductionCandidate` | `completion_evidence_refs` | `architecture_reduction` | `starter` | `evidence_or_decision` | `false` |
+| `architecture_reduction` | `ArchitectureReductionCandidate` | `metadata` | `architecture_reduction` | `internal` | `collection_metadata` | `false` |
+| `architecture_reduction` | `ArchitectureReductionTrigger` | `route_id` | `architecture_reduction` | `starter` | `behavior_or_contract` | `true` |
+| `architecture_reduction` | `ArchitectureReductionTrigger` | `trigger_reason` | `architecture_reduction` | `starter` | `evidence_or_decision` | `false` |
+| `architecture_reduction` | `ArchitectureReductionTrigger` | `complexity_signal` | `architecture_reduction` | `internal` | `unclassified` | `false` |
+| `architecture_reduction` | `ArchitectureReductionTrigger` | `recommended_timing` | `architecture_reduction` | `internal` | `unclassified` | `false` |
+| `architecture_reduction` | `ArchitectureReductionTrigger` | `required` | `architecture_reduction` | `internal` | `unclassified` | `false` |
+| `architecture_reduction` | `TargetArchitectureAction` | `candidate_id` | `architecture_reduction` | `starter` | `unclassified` | `false` |
+| `architecture_reduction` | `TargetArchitectureAction` | `action` | `architecture_reduction` | `starter` | `behavior_or_contract` | `true` |
+| `architecture_reduction` | `TargetArchitectureAction` | `code_node_id` | `architecture_reduction` | `starter` | `unclassified` | `false` |
+| `architecture_reduction` | `TargetArchitectureAction` | `required_next_route` | `architecture_reduction` | `starter` | `behavior_or_contract` | `true` |
+| `architecture_reduction` | `TargetArchitectureAction` | `rationale` | `architecture_reduction` | `internal` | `unclassified` | `false` |
+| `architecture_reduction` | `ArchitectureReductionPlan` | `reduction_id` | `architecture_reduction` | `starter` | `unclassified` | `false` |
+| `architecture_reduction` | `ArchitectureReductionPlan` | `observable_contract` | `architecture_reduction` | `starter` | `behavior_or_contract` | `true` |
+| `architecture_reduction` | `ArchitectureReductionPlan` | `candidates` | `architecture_reduction` | `internal` | `collection_metadata` | `false` |
+| `architecture_reduction` | `ArchitectureReductionPlan` | `companion_route_triggers` | `architecture_reduction` | `starter` | `behavior_or_contract` | `true` |
+| `architecture_reduction` | `ArchitectureReductionPlan` | `target_structure` | `architecture_reduction` | `internal` | `unclassified` | `false` |
+| `architecture_reduction` | `ArchitectureReductionPlan` | `rationale` | `architecture_reduction` | `internal` | `unclassified` | `false` |
+| `architecture_reduction` | `ArchitectureReductionPlan` | `compatibility_surfaces` | `architecture_reduction` | `advanced` | `compatibility_or_old_path` | `true` |
+| `architecture_reduction` | `ArchitectureReductionFinding` | `code` | `architecture_reduction` | `starter` | `unclassified` | `false` |
+| `architecture_reduction` | `ArchitectureReductionFinding` | `message` | `architecture_reduction` | `internal` | `display_or_metadata` | `false` |
+| `architecture_reduction` | `ArchitectureReductionFinding` | `severity` | `architecture_reduction` | `internal` | `unclassified` | `false` |
+| `architecture_reduction` | `ArchitectureReductionFinding` | `candidate_id` | `architecture_reduction` | `starter` | `unclassified` | `false` |
+| `architecture_reduction` | `ArchitectureReductionFinding` | `item_id` | `architecture_reduction` | `starter` | `unclassified` | `false` |
+| `architecture_reduction` | `ArchitectureReductionFinding` | `metadata` | `architecture_reduction` | `internal` | `collection_metadata` | `false` |
+| `architecture_reduction` | `ArchitectureReductionReport` | `ok` | `architecture_reduction` | `starter` | `evidence_or_decision` | `false` |
+| `architecture_reduction` | `ArchitectureReductionReport` | `reduction_id` | `architecture_reduction` | `starter` | `unclassified` | `false` |
+| `architecture_reduction` | `ArchitectureReductionReport` | `decision` | `architecture_reduction` | `advanced` | `evidence_or_decision` | `false` |
+| `architecture_reduction` | `ArchitectureReductionReport` | `findings` | `architecture_reduction` | `starter` | `evidence_or_decision` | `false` |
+| `architecture_reduction` | `ArchitectureReductionReport` | `ready_candidate_ids` | `architecture_reduction` | `internal` | `collection_metadata` | `false` |
+| `architecture_reduction` | `ArchitectureReductionReport` | `completed_candidate_ids` | `architecture_reduction` | `internal` | `collection_metadata` | `false` |
+| `architecture_reduction` | `ArchitectureReductionReport` | `target_actions` | `architecture_reduction` | `advanced` | `behavior_or_contract` | `true` |
+| `architecture_reduction` | `ArchitectureReductionReport` | `required_next_routes` | `architecture_reduction` | `advanced` | `behavior_or_contract` | `true` |
+| `architecture_reduction` | `ArchitectureReductionReport` | `summary` | `architecture_reduction` | `advanced` | `evidence_or_decision` | `false` |
+| `architecture_reduction` | `ArchitectureReductionReport` | `compatibility_surfaces` | `architecture_reduction` | `advanced` | `compatibility_or_old_path` | `true` |
+| `artifact_upgrade` | `ArtifactUpgradeItem` | `path` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `artifact_upgrade` | `ArtifactUpgradeItem` | `item_kind` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `artifact_upgrade` | `ArtifactUpgradeItem` | `status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `artifact_upgrade` | `ArtifactUpgradeItem` | `detected_shape` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `artifact_upgrade` | `ArtifactUpgradeItem` | `replacement` | `core_or_internal` | `advanced` | `compatibility_or_old_path` | `true` |
+| `artifact_upgrade` | `ArtifactUpgradeItem` | `message` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `artifact_upgrade` | `ArtifactUpgradeItem` | `changed` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `artifact_upgrade` | `ArtifactUpgradeItem` | `metadata` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `artifact_upgrade` | `ArtifactUpgradeReport` | `root` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `artifact_upgrade` | `ArtifactUpgradeReport` | `apply` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `artifact_upgrade` | `ArtifactUpgradeReport` | `items` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `artifact_upgrade` | `ArtifactUpgradeReport` | `summary` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `assumptions` | `ConditionalAssumption` | `name` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `assumptions` | `ConditionalAssumption` | `fixed` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `assumptions` | `ConditionalAssumption` | `boundary` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `assumptions` | `ConditionalAssumption` | `preconditions` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `assumptions` | `ConditionalAssumption` | `why_not_modeled` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `assumptions` | `ConditionalAssumption` | `rationale` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `assumptions` | `ConditionalAssumption` | `invalidated_by` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `assumptions` | `ConditionalAssumption` | `checks` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `assumptions` | `ConditionalAssumption` | `scope` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `assumptions` | `ConditionalAssumption` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `assumptions` | `AssumptionCard` | `assumptions` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `assumptions` | `AssumptionCard` | `title` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `assumptions` | `AssumptionCard` | `purpose` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `assumptions` | `AssumptionCard` | `checked_scope` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `assumptions` | `AssumptionCard` | `not_covered` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `assumptions` | `AssumptionCard` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `audit` | `ModelQualityFinding` | `severity` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `audit` | `ModelQualityFinding` | `category` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `audit` | `ModelQualityFinding` | `message` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `audit` | `ModelQualityFinding` | `recommendation` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `audit` | `ModelQualityFinding` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `audit` | `ModelQualityAuditReport` | `ok` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `audit` | `ModelQualityAuditReport` | `status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `audit` | `ModelQualityAuditReport` | `findings` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `audit` | `ModelQualityAuditReport` | `summary` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `auto_split` | `AutoSplitPolicy` | `model_state_threshold` | `core_or_internal` | `advanced` | `compatibility_or_old_path` | `true` |
+| `auto_split` | `AutoSplitPolicy` | `test_duration_seconds_threshold` | `core_or_internal` | `advanced` | `compatibility_or_old_path` | `true` |
+| `auto_split` | `AutoSplitPolicy` | `test_count_threshold` | `core_or_internal` | `advanced` | `compatibility_or_old_path` | `true` |
+| `auto_split` | `AutoSplitPolicy` | `selected_test_threshold` | `core_or_internal` | `advanced` | `compatibility_or_old_path` | `true` |
+| `auto_split` | `AutoSplitPolicy` | `broad_obligation_threshold` | `core_or_internal` | `advanced` | `compatibility_or_old_path` | `true` |
+| `auto_split` | `AutoSplitCandidate` | `candidate_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `auto_split` | `AutoSplitCandidate` | `target_kind` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `auto_split` | `AutoSplitCandidate` | `parent_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `auto_split` | `AutoSplitCandidate` | `evidence_id` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `auto_split` | `AutoSplitCandidate` | `source_model_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `auto_split` | `AutoSplitCandidate` | `source_model_path` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `auto_split` | `AutoSplitCandidate` | `estimated_state_count` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `auto_split` | `AutoSplitCandidate` | `observed_state_count` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `auto_split` | `AutoSplitCandidate` | `processed_state_count` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `auto_split` | `AutoSplitCandidate` | `pending_state_count` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `auto_split` | `AutoSplitCandidate` | `duration_seconds` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `auto_split` | `AutoSplitCandidate` | `test_count` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `auto_split` | `AutoSplitCandidate` | `selected_count` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `auto_split` | `AutoSplitCandidate` | `covered_obligation_count` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `auto_split` | `AutoSplitCandidate` | `separable_areas` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `auto_split` | `AutoSplitCandidate` | `background` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `auto_split` | `AutoSplitCandidate` | `progress_only` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `auto_split` | `AutoSplitCandidate` | `release_only` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `auto_split` | `AutoSplitCandidate` | `suggested_child_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `auto_split` | `AutoSplitCandidate` | `covered_partition_item_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `auto_split` | `AutoSplitCandidate` | `state_owner_fields` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `auto_split` | `AutoSplitCandidate` | `side_effect_owner_fields` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `auto_split` | `AutoSplitCandidate` | `split_gate_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `auto_split` | `AutoSplitCandidate` | `split_review_current` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `auto_split` | `AutoSplitCandidate` | `split_confidence` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `auto_split` | `AutoSplitCandidate` | `scoped_reasons` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `auto_split` | `AutoSplitCandidate` | `rationale` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `auto_split` | `AutoSplitCandidate` | `metadata` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `auto_split` | `AutoSplitPlan` | `plan_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `auto_split` | `AutoSplitPlan` | `candidates` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `auto_split` | `AutoSplitPlan` | `policy` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `auto_split` | `AutoSplitPlan` | `allow_scoped_confidence` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `auto_split` | `AutoSplitFinding` | `code` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `auto_split` | `AutoSplitFinding` | `message` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `auto_split` | `AutoSplitFinding` | `severity` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `auto_split` | `AutoSplitFinding` | `candidate_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `auto_split` | `AutoSplitFinding` | `target_route` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `auto_split` | `AutoSplitFinding` | `metadata` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `auto_split` | `AutoSplitReport` | `ok` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `auto_split` | `AutoSplitReport` | `plan_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `auto_split` | `AutoSplitReport` | `decision` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `auto_split` | `AutoSplitReport` | `findings` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `auto_split` | `AutoSplitReport` | `required_model_candidate_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `auto_split` | `AutoSplitReport` | `required_test_candidate_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `auto_split` | `AutoSplitReport` | `model_target_split_derivations` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `auto_split` | `AutoSplitReport` | `test_target_split_derivations` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `auto_split` | `AutoSplitReport` | `summary` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `baseline` | `EvidenceCaseResult` | `name` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `baseline` | `EvidenceCaseResult` | `group` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `baseline` | `EvidenceCaseResult` | `bug_class` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `baseline` | `EvidenceCaseResult` | `expected` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `baseline` | `EvidenceCaseResult` | `observed` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `baseline` | `EvidenceCaseResult` | `status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `baseline` | `EvidenceCaseResult` | `evidence` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `baseline` | `EvidenceCaseResult` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `baseline` | `EvidenceBaselineReport` | `ok` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `baseline` | `EvidenceBaselineReport` | `total_cases` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `baseline` | `EvidenceBaselineReport` | `target_cases` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `baseline` | `EvidenceBaselineReport` | `meets_target` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `baseline` | `EvidenceBaselineReport` | `status_counts` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `baseline` | `EvidenceBaselineReport` | `group_counts` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `baseline` | `EvidenceBaselineReport` | `bug_class_counts` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `baseline` | `EvidenceBaselineReport` | `results` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `baseline` | `EvidenceBaselineReport` | `summary` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `benchmark` | `BenchmarkScorecard` | `ok` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `benchmark` | `BenchmarkScorecard` | `total_cases` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `benchmark` | `BenchmarkScorecard` | `real_model_cases` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `benchmark` | `BenchmarkScorecard` | `generic_fallback_cases` | `core_or_internal` | `advanced` | `compatibility_or_old_path` | `true` |
+| `benchmark` | `BenchmarkScorecard` | `model_variant_total` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `benchmark` | `BenchmarkScorecard` | `model_families_with_six_variants` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `benchmark` | `BenchmarkScorecard` | `failure_cases` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `benchmark` | `BenchmarkScorecard` | `status_counts` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `benchmark` | `BenchmarkScorecard` | `model_family_counts` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `benchmark` | `BenchmarkScorecard` | `failure_mode_counts` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `benchmark` | `BenchmarkScorecard` | `model_variant_counts` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `benchmark` | `BenchmarkScorecard` | `oracle_type_counts` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `benchmark` | `BenchmarkScorecard` | `summary` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `budgeted` | `BudgetedGraphConfig` | `model_name` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `budgeted` | `BudgetedGraphConfig` | `initial_states` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `budgeted` | `BudgetedGraphConfig` | `transition_fn` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `budgeted` | `BudgetedGraphConfig` | `state_id` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `budgeted` | `BudgetedGraphConfig` | `encode_state` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `budgeted` | `BudgetedGraphConfig` | `decode_state` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `budgeted` | `BudgetedGraphConfig` | `run_root` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `budgeted` | `BudgetedGraphConfig` | `budget_per_shard` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `budgeted` | `BudgetedGraphConfig` | `max_shards_per_run` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `budgeted` | `BudgetedGraphConfig` | `invariants` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `budgeted` | `BudgetedGraphConfig` | `required_labels` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `budgeted` | `BudgetedGraphConfig` | `fingerprint_parts` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `budgeted` | `BudgetedGraphConfig` | `fingerprint_files` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `budgeted` | `BudgetedGraphConfig` | `max_failure_samples` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `budgeted` | `BudgetedGraphConfig` | `progress_steps` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `budgeted` | `BudgetedGraphFailure` | `kind` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `budgeted` | `BudgetedGraphFailure` | `name` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `budgeted` | `BudgetedGraphFailure` | `message` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `budgeted` | `BudgetedGraphFailure` | `state_id` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `budgeted` | `BudgetedGraphFailure` | `state` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `budgeted` | `BudgetedGraphFailure` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `budgeted` | `BudgetedShardReport` | `shard_index` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `budgeted` | `BudgetedShardReport` | `status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `budgeted` | `BudgetedShardReport` | `processed_state_count` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `budgeted` | `BudgetedShardReport` | `edge_count` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `budgeted` | `BudgetedShardReport` | `pending_state_count` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `budgeted` | `BudgetedShardReport` | `started_at` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `budgeted` | `BudgetedShardReport` | `finished_at` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `budgeted` | `BudgetedGraphReport` | `ok` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `budgeted` | `BudgetedGraphReport` | `status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `budgeted` | `BudgetedGraphReport` | `complete` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `budgeted` | `BudgetedGraphReport` | `model_name` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `budgeted` | `BudgetedGraphReport` | `fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `budgeted` | `BudgetedGraphReport` | `run_dir` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `budgeted` | `BudgetedGraphReport` | `budget_per_shard` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `budgeted` | `BudgetedGraphReport` | `max_shards_per_run` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `budgeted` | `BudgetedGraphReport` | `known_state_count` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `budgeted` | `BudgetedGraphReport` | `processed_state_count` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `budgeted` | `BudgetedGraphReport` | `processed_this_run` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `budgeted` | `BudgetedGraphReport` | `pending_state_count` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `budgeted` | `BudgetedGraphReport` | `edge_count` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `budgeted` | `BudgetedGraphReport` | `edge_count_this_run` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `budgeted` | `BudgetedGraphReport` | `shard_count` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `budgeted` | `BudgetedGraphReport` | `shards_processed_this_run` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `budgeted` | `BudgetedGraphReport` | `labels` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `budgeted` | `BudgetedGraphReport` | `required_labels` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `budgeted` | `BudgetedGraphReport` | `missing_labels` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `budgeted` | `BudgetedGraphReport` | `failure_count` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `budgeted` | `BudgetedGraphReport` | `failures` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `budgeted` | `BudgetedGraphReport` | `shards` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `budgeted` | `BudgetedGraphReport` | `reused_complete_result` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `budgeted` | `BudgetedGraphReport` | `summary` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `closure_contract` | `ClosureEvidenceReport` | `report_id` | `flowguard_closure_contract` | `starter` | `evidence_or_decision` | `false` |
+| `closure_contract` | `ClosureEvidenceReport` | `report_kind` | `flowguard_closure_contract` | `advanced` | `evidence_or_decision` | `false` |
+| `closure_contract` | `ClosureEvidenceReport` | `decision` | `flowguard_closure_contract` | `advanced` | `evidence_or_decision` | `false` |
+| `closure_contract` | `ClosureEvidenceReport` | `ok` | `flowguard_closure_contract` | `starter` | `evidence_or_decision` | `false` |
+| `closure_contract` | `ClosureEvidenceReport` | `current` | `flowguard_closure_contract` | `starter` | `unclassified` | `false` |
+| `closure_contract` | `ClosureEvidenceReport` | `confidence` | `flowguard_closure_contract` | `advanced` | `evidence_or_decision` | `false` |
+| `closure_contract` | `ClosureEvidenceReport` | `result_status` | `flowguard_closure_contract` | `starter` | `evidence_or_decision` | `false` |
+| `closure_contract` | `ClosureEvidenceReport` | `proof_artifact_ids` | `flowguard_closure_contract` | `advanced` | `evidence_or_decision` | `false` |
+| `closure_contract` | `ClosureEvidenceReport` | `summary` | `flowguard_closure_contract` | `advanced` | `evidence_or_decision` | `false` |
+| `closure_contract` | `ClosureEvidenceReport` | `metadata` | `flowguard_closure_contract` | `internal` | `unclassified` | `false` |
+| `closure_contract` | `RuntimeTraceMapping` | `trace_id` | `flowguard_closure_contract` | `starter` | `unclassified` | `false` |
+| `closure_contract` | `RuntimeTraceMapping` | `model_obligation_id` | `flowguard_closure_contract` | `starter` | `behavior_or_contract` | `true` |
+| `closure_contract` | `RuntimeTraceMapping` | `source_evidence_id` | `flowguard_closure_contract` | `starter` | `evidence_or_decision` | `false` |
+| `closure_contract` | `RuntimeTraceMapping` | `current` | `flowguard_closure_contract` | `starter` | `unclassified` | `false` |
+| `closure_contract` | `RuntimeTraceMapping` | `result_status` | `flowguard_closure_contract` | `starter` | `evidence_or_decision` | `false` |
+| `closure_contract` | `RuntimeTraceMapping` | `in_scope` | `flowguard_closure_contract` | `internal` | `unclassified` | `false` |
+| `closure_contract` | `RuntimeTraceMapping` | `required` | `flowguard_closure_contract` | `internal` | `unclassified` | `false` |
+| `closure_contract` | `RuntimeTraceMapping` | `out_of_scope_reason` | `flowguard_closure_contract` | `starter` | `evidence_or_decision` | `false` |
+| `closure_contract` | `RuntimeTraceMapping` | `metadata` | `flowguard_closure_contract` | `internal` | `unclassified` | `false` |
+| `closure_contract` | `ArtifactInvalidation` | `artifact_id` | `flowguard_closure_contract` | `starter` | `unclassified` | `false` |
+| `closure_contract` | `ArtifactInvalidation` | `changed` | `flowguard_closure_contract` | `internal` | `unclassified` | `false` |
+| `closure_contract` | `ArtifactInvalidation` | `dependent_evidence_ids` | `flowguard_closure_contract` | `starter` | `evidence_or_decision` | `false` |
+| `closure_contract` | `ArtifactInvalidation` | `revalidation_evidence_ids` | `flowguard_closure_contract` | `starter` | `evidence_or_decision` | `false` |
+| `closure_contract` | `ArtifactInvalidation` | `current` | `flowguard_closure_contract` | `starter` | `unclassified` | `false` |
+| `closure_contract` | `ArtifactInvalidation` | `result_status` | `flowguard_closure_contract` | `starter` | `evidence_or_decision` | `false` |
+| `closure_contract` | `ArtifactInvalidation` | `evidence_area` | `flowguard_closure_contract` | `starter` | `evidence_or_decision` | `false` |
+| `closure_contract` | `ArtifactInvalidation` | `stale_evidence_ids` | `flowguard_closure_contract` | `starter` | `evidence_or_decision` | `false` |
+| `closure_contract` | `ArtifactInvalidation` | `required` | `flowguard_closure_contract` | `internal` | `unclassified` | `false` |
+| `closure_contract` | `ArtifactInvalidation` | `metadata` | `flowguard_closure_contract` | `internal` | `unclassified` | `false` |
+| `closure_contract` | `ModelQualitySignal` | `signal_id` | `flowguard_closure_contract` | `starter` | `unclassified` | `false` |
+| `closure_contract` | `ModelQualitySignal` | `signal_type` | `flowguard_closure_contract` | `internal` | `unclassified` | `false` |
+| `closure_contract` | `ModelQualitySignal` | `model_id` | `flowguard_closure_contract` | `starter` | `unclassified` | `false` |
+| `closure_contract` | `ModelQualitySignal` | `description` | `flowguard_closure_contract` | `internal` | `display_or_metadata` | `false` |
+| `closure_contract` | `ModelQualitySignal` | `resolved` | `flowguard_closure_contract` | `internal` | `unclassified` | `false` |
+| `closure_contract` | `ModelQualitySignal` | `current` | `flowguard_closure_contract` | `starter` | `unclassified` | `false` |
+| `closure_contract` | `ModelQualitySignal` | `in_scope` | `flowguard_closure_contract` | `internal` | `unclassified` | `false` |
+| `closure_contract` | `ModelQualitySignal` | `required` | `flowguard_closure_contract` | `internal` | `unclassified` | `false` |
+| `closure_contract` | `ModelQualitySignal` | `resolution_evidence_ids` | `flowguard_closure_contract` | `starter` | `evidence_or_decision` | `false` |
+| `closure_contract` | `ModelQualitySignal` | `metadata` | `flowguard_closure_contract` | `internal` | `unclassified` | `false` |
+| `closure_contract` | `SameClassMissClosure` | `miss_id` | `flowguard_closure_contract` | `starter` | `unclassified` | `false` |
+| `closure_contract` | `SameClassMissClosure` | `observed_failure_evidence_id` | `flowguard_closure_contract` | `starter` | `evidence_or_decision` | `false` |
+| `closure_contract` | `SameClassMissClosure` | `same_class_proof_evidence_id` | `flowguard_closure_contract` | `starter` | `evidence_or_decision` | `false` |
+| `closure_contract` | `SameClassMissClosure` | `model_obligation_id` | `flowguard_closure_contract` | `starter` | `behavior_or_contract` | `true` |
+| `closure_contract` | `SameClassMissClosure` | `defect_family_id` | `flowguard_closure_contract` | `starter` | `unclassified` | `false` |
+| `closure_contract` | `SameClassMissClosure` | `current` | `flowguard_closure_contract` | `starter` | `unclassified` | `false` |
+| `closure_contract` | `SameClassMissClosure` | `result_status` | `flowguard_closure_contract` | `starter` | `evidence_or_decision` | `false` |
+| `closure_contract` | `SameClassMissClosure` | `in_scope` | `flowguard_closure_contract` | `internal` | `unclassified` | `false` |
+| `closure_contract` | `SameClassMissClosure` | `required` | `flowguard_closure_contract` | `internal` | `unclassified` | `false` |
+| `closure_contract` | `SameClassMissClosure` | `metadata` | `flowguard_closure_contract` | `internal` | `unclassified` | `false` |
+| `closure_contract` | `RuntimeGatewayInventoryClosure` | `closure_id` | `flowguard_closure_contract` | `starter` | `unclassified` | `false` |
+| `closure_contract` | `RuntimeGatewayInventoryClosure` | `inventory_source_evidence_ids` | `flowguard_closure_contract` | `starter` | `evidence_or_decision` | `false` |
+| `closure_contract` | `RuntimeGatewayInventoryClosure` | `gateway_report_evidence_id` | `flowguard_closure_contract` | `starter` | `evidence_or_decision` | `false` |
+| `closure_contract` | `RuntimeGatewayInventoryClosure` | `current` | `flowguard_closure_contract` | `starter` | `unclassified` | `false` |
+| `closure_contract` | `RuntimeGatewayInventoryClosure` | `result_status` | `flowguard_closure_contract` | `starter` | `evidence_or_decision` | `false` |
+| `closure_contract` | `RuntimeGatewayInventoryClosure` | `unresolved_path_owner_conflicts` | `flowguard_closure_contract` | `starter` | `collection_metadata` | `false` |
+| `closure_contract` | `RuntimeGatewayInventoryClosure` | `in_scope` | `flowguard_closure_contract` | `internal` | `unclassified` | `false` |
+| `closure_contract` | `RuntimeGatewayInventoryClosure` | `required` | `flowguard_closure_contract` | `internal` | `unclassified` | `false` |
+| `closure_contract` | `RuntimeGatewayInventoryClosure` | `metadata` | `flowguard_closure_contract` | `internal` | `unclassified` | `false` |
+| `closure_contract` | `FlowGuardClosureContractPlan` | `claim_id` | `flowguard_closure_contract` | `starter` | `unclassified` | `false` |
+| `closure_contract` | `FlowGuardClosureContractPlan` | `claim_scope` | `flowguard_closure_contract` | `starter` | `unclassified` | `false` |
+| `closure_contract` | `FlowGuardClosureContractPlan` | `runtime_trace_mappings` | `flowguard_closure_contract` | `internal` | `collection_metadata` | `false` |
+| `closure_contract` | `FlowGuardClosureContractPlan` | `artifact_invalidations` | `flowguard_closure_contract` | `internal` | `collection_metadata` | `false` |
+| `closure_contract` | `FlowGuardClosureContractPlan` | `model_quality_signals` | `flowguard_closure_contract` | `starter` | `collection_metadata` | `false` |
+| `closure_contract` | `FlowGuardClosureContractPlan` | `same_class_miss_closures` | `flowguard_closure_contract` | `internal` | `collection_metadata` | `false` |
+| `closure_contract` | `FlowGuardClosureContractPlan` | `runtime_gateway_closures` | `flowguard_closure_contract` | `internal` | `collection_metadata` | `false` |
+| `closure_contract` | `FlowGuardClosureContractPlan` | `field_lifecycle_reports` | `flowguard_closure_contract` | `advanced` | `evidence_or_decision` | `false` |
+| `closure_contract` | `FlowGuardClosureContractPlan` | `model_angle_reports` | `flowguard_closure_contract` | `starter` | `evidence_or_decision` | `false` |
+| `closure_contract` | `FlowGuardClosureContractPlan` | `evidence_reports` | `flowguard_closure_contract` | `starter` | `evidence_or_decision` | `false` |
+| `closure_contract` | `FlowGuardClosureContractPlan` | `require_runtime_trace_mapping` | `flowguard_closure_contract` | `internal` | `unclassified` | `false` |
+| `closure_contract` | `FlowGuardClosureContractPlan` | `require_artifact_freshness` | `flowguard_closure_contract` | `internal` | `unclassified` | `false` |
+| `closure_contract` | `FlowGuardClosureContractPlan` | `require_model_quality_review` | `flowguard_closure_contract` | `starter` | `unclassified` | `false` |
+| `closure_contract` | `FlowGuardClosureContractPlan` | `require_same_class_miss_closure` | `flowguard_closure_contract` | `internal` | `unclassified` | `false` |
+| `closure_contract` | `FlowGuardClosureContractPlan` | `require_runtime_gateway_closure` | `flowguard_closure_contract` | `internal` | `unclassified` | `false` |
+| `closure_contract` | `FlowGuardClosureContractPlan` | `require_field_lifecycle` | `flowguard_closure_contract` | `internal` | `unclassified` | `false` |
+| `closure_contract` | `FlowGuardClosureContractPlan` | `require_model_angle_review` | `flowguard_closure_contract` | `starter` | `unclassified` | `false` |
+| `closure_contract` | `FlowGuardClosureContractPlan` | `require_runtime_path_alignment` | `flowguard_closure_contract` | `starter` | `unclassified` | `false` |
+| `closure_contract` | `FlowGuardClosureContractPlan` | `require_risk_ledger` | `flowguard_closure_contract` | `internal` | `unclassified` | `false` |
+| `closure_contract` | `FlowGuardClosureContractPlan` | `allow_scoped_confidence` | `flowguard_closure_contract` | `advanced` | `evidence_or_decision` | `false` |
+| `closure_contract` | `FlowGuardClosureContractPlan` | `metadata` | `flowguard_closure_contract` | `internal` | `unclassified` | `false` |
+| `closure_contract` | `FlowGuardClosureFinding` | `code` | `flowguard_closure_contract` | `starter` | `unclassified` | `false` |
+| `closure_contract` | `FlowGuardClosureFinding` | `message` | `flowguard_closure_contract` | `internal` | `display_or_metadata` | `false` |
+| `closure_contract` | `FlowGuardClosureFinding` | `severity` | `flowguard_closure_contract` | `internal` | `unclassified` | `false` |
+| `closure_contract` | `FlowGuardClosureFinding` | `evidence_id` | `flowguard_closure_contract` | `starter` | `evidence_or_decision` | `false` |
+| `closure_contract` | `FlowGuardClosureFinding` | `model_obligation_id` | `flowguard_closure_contract` | `starter` | `behavior_or_contract` | `true` |
+| `closure_contract` | `FlowGuardClosureFinding` | `metadata` | `flowguard_closure_contract` | `internal` | `unclassified` | `false` |
+| `closure_contract` | `FlowGuardClosureContractReport` | `plan` | `flowguard_closure_contract` | `starter` | `unclassified` | `false` |
+| `closure_contract` | `FlowGuardClosureContractReport` | `findings` | `flowguard_closure_contract` | `starter` | `evidence_or_decision` | `false` |
+| `closure_contract` | `FlowGuardClosureContractReport` | `decision` | `flowguard_closure_contract` | `advanced` | `evidence_or_decision` | `false` |
+| `closure_contract` | `FlowGuardClosureContractReport` | `confidence` | `flowguard_closure_contract` | `advanced` | `evidence_or_decision` | `false` |
+| `closure_contract` | `FlowGuardClosureContractReport` | `summary` | `flowguard_closure_contract` | `advanced` | `evidence_or_decision` | `false` |
+| `code_structure` | `TargetModuleRecommendation` | `module_id` | `code_structure_recommendation` | `starter` | `unclassified` | `false` |
+| `code_structure` | `TargetModuleRecommendation` | `path` | `code_structure_recommendation` | `starter` | `unclassified` | `false` |
+| `code_structure` | `TargetModuleRecommendation` | `layer` | `code_structure_recommendation` | `internal` | `unclassified` | `false` |
+| `code_structure` | `TargetModuleRecommendation` | `owns_function_blocks` | `code_structure_recommendation` | `internal` | `collection_metadata` | `false` |
+| `code_structure` | `TargetModuleRecommendation` | `owns_state` | `code_structure_recommendation` | `advanced` | `behavior_or_contract` | `true` |
+| `code_structure` | `TargetModuleRecommendation` | `owns_side_effects` | `code_structure_recommendation` | `advanced` | `behavior_or_contract` | `true` |
+| `code_structure` | `TargetModuleRecommendation` | `owns_config` | `code_structure_recommendation` | `internal` | `collection_metadata` | `false` |
+| `code_structure` | `TargetModuleRecommendation` | `owns_fields` | `code_structure_recommendation` | `internal` | `collection_metadata` | `false` |
+| `code_structure` | `TargetModuleRecommendation` | `reads_fields` | `code_structure_recommendation` | `internal` | `collection_metadata` | `false` |
+| `code_structure` | `TargetModuleRecommendation` | `writes_fields` | `code_structure_recommendation` | `internal` | `collection_metadata` | `false` |
+| `code_structure` | `TargetModuleRecommendation` | `public_entrypoints` | `code_structure_recommendation` | `internal` | `collection_metadata` | `false` |
+| `code_structure` | `TargetModuleRecommendation` | `validation_boundaries` | `code_structure_recommendation` | `internal` | `collection_metadata` | `false` |
+| `code_structure` | `TargetModuleRecommendation` | `rationale` | `code_structure_recommendation` | `internal` | `unclassified` | `false` |
+| `code_structure` | `CodeStructureRecommendation` | `recommendation_id` | `code_structure_recommendation` | `starter` | `unclassified` | `false` |
+| `code_structure` | `CodeStructureRecommendation` | `source_model_id` | `code_structure_recommendation` | `starter` | `unclassified` | `false` |
+| `code_structure` | `CodeStructureRecommendation` | `parent_module_id` | `code_structure_recommendation` | `starter` | `unclassified` | `false` |
+| `code_structure` | `CodeStructureRecommendation` | `target_modules` | `code_structure_recommendation` | `internal` | `collection_metadata` | `false` |
+| `code_structure` | `CodeStructureRecommendation` | `source_model_path` | `code_structure_recommendation` | `starter` | `unclassified` | `false` |
+| `code_structure` | `CodeStructureRecommendation` | `source_model_evidence_tier` | `code_structure_recommendation` | `starter` | `evidence_or_decision` | `false` |
+| `code_structure` | `CodeStructureRecommendation` | `function_block_map` | `code_structure_recommendation` | `internal` | `collection_metadata` | `false` |
+| `code_structure` | `CodeStructureRecommendation` | `state_owner_map` | `code_structure_recommendation` | `advanced` | `behavior_or_contract` | `true` |
+| `code_structure` | `CodeStructureRecommendation` | `side_effect_owner_map` | `code_structure_recommendation` | `advanced` | `behavior_or_contract` | `true` |
+| `code_structure` | `CodeStructureRecommendation` | `config_owner_map` | `code_structure_recommendation` | `internal` | `collection_metadata` | `false` |
+| `code_structure` | `CodeStructureRecommendation` | `field_owner_map` | `code_structure_recommendation` | `internal` | `collection_metadata` | `false` |
+| `code_structure` | `CodeStructureRecommendation` | `field_reader_map` | `code_structure_recommendation` | `internal` | `collection_metadata` | `false` |
+| `code_structure` | `CodeStructureRecommendation` | `field_writer_map` | `code_structure_recommendation` | `internal` | `collection_metadata` | `false` |
+| `code_structure` | `CodeStructureRecommendation` | `public_entrypoint_map` | `code_structure_recommendation` | `internal` | `collection_metadata` | `false` |
+| `code_structure` | `CodeStructureRecommendation` | `facade_module_id` | `code_structure_recommendation` | `starter` | `unclassified` | `false` |
+| `code_structure` | `CodeStructureRecommendation` | `similarity_handoff` | `code_structure_recommendation` | `internal` | `collection_metadata` | `false` |
+| `code_structure` | `CodeStructureRecommendation` | `shared_kernel_module_id` | `code_structure_recommendation` | `starter` | `unclassified` | `false` |
+| `code_structure` | `CodeStructureRecommendation` | `variant_adapter_module_ids` | `code_structure_recommendation` | `internal` | `collection_metadata` | `false` |
+| `code_structure` | `CodeStructureRecommendation` | `validation_boundaries` | `code_structure_recommendation` | `internal` | `collection_metadata` | `false` |
+| `code_structure` | `CodeStructureRecommendation` | `rationale` | `code_structure_recommendation` | `internal` | `unclassified` | `false` |
+| `code_structure` | `CodeStructureRecommendation` | `hierarchical_model_used` | `code_structure_recommendation` | `starter` | `unclassified` | `false` |
+| `code_structure` | `CodeStructureFinding` | `code` | `code_structure_recommendation` | `starter` | `unclassified` | `false` |
+| `code_structure` | `CodeStructureFinding` | `message` | `code_structure_recommendation` | `internal` | `display_or_metadata` | `false` |
+| `code_structure` | `CodeStructureFinding` | `severity` | `code_structure_recommendation` | `internal` | `unclassified` | `false` |
+| `code_structure` | `CodeStructureFinding` | `module_id` | `code_structure_recommendation` | `starter` | `unclassified` | `false` |
+| `code_structure` | `CodeStructureFinding` | `item_id` | `code_structure_recommendation` | `starter` | `unclassified` | `false` |
+| `code_structure` | `CodeStructureFinding` | `metadata` | `code_structure_recommendation` | `internal` | `collection_metadata` | `false` |
+| `code_structure` | `CodeStructureRecommendationReport` | `ok` | `code_structure_recommendation` | `starter` | `evidence_or_decision` | `false` |
+| `code_structure` | `CodeStructureRecommendationReport` | `recommendation_id` | `code_structure_recommendation` | `starter` | `unclassified` | `false` |
+| `code_structure` | `CodeStructureRecommendationReport` | `findings` | `code_structure_recommendation` | `starter` | `evidence_or_decision` | `false` |
+| `code_structure` | `CodeStructureRecommendationReport` | `summary` | `code_structure_recommendation` | `advanced` | `evidence_or_decision` | `false` |
+| `conformance` | `ConformanceRule` | `name` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `conformance` | `ConformanceRule` | `description` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `conformance` | `ConformanceRule` | `check` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `conformance` | `ConformanceViolation` | `message` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `conformance` | `ConformanceViolation` | `step_index` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `conformance` | `ConformanceViolation` | `expected_step` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `conformance` | `ConformanceViolation` | `observed_step` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `conformance` | `ConformanceViolation` | `rule_name` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `conformance` | `ConformanceViolation` | `trace` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `conformance` | `ConformanceViolation` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `conformance` | `ConformanceReport` | `ok` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `conformance` | `ConformanceReport` | `violations` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `conformance` | `ConformanceReport` | `replayed_steps` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `conformance` | `ConformanceReport` | `failed_step_index` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `conformance` | `ConformanceReport` | `expected_trace` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `conformance` | `ConformanceReport` | `summary` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `contract` | `FunctionContract` | `function_name` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `contract` | `FunctionContract` | `accepted_input_type` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `contract` | `FunctionContract` | `output_type` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `contract` | `FunctionContract` | `reads` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `contract` | `FunctionContract` | `writes` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `contract` | `FunctionContract` | `forbidden_writes` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `contract` | `FunctionContract` | `preconditions` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `contract` | `FunctionContract` | `postconditions` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `contract` | `FunctionContract` | `idempotency_rule` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `contract` | `FunctionContract` | `traceability_rule` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `contract` | `FunctionContract` | `failure_modes` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `contract` | `FunctionContract` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `contract` | `ContractViolation` | `name` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `contract` | `ContractViolation` | `message` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `contract` | `ContractViolation` | `function_name` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `contract` | `ContractViolation` | `step_index` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `contract` | `ContractViolation` | `step` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `contract` | `ContractViolation` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `contract` | `ContractCheckReport` | `ok` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `contract` | `ContractCheckReport` | `violations` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `contract` | `ContractCheckReport` | `checked_steps` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `contract` | `ContractCheckReport` | `summary` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `core` | `FunctionResult` | `output` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `core` | `FunctionResult` | `new_state` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `core` | `FunctionResult` | `label` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `core` | `FunctionResult` | `reason` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `core` | `FunctionResult` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `core` | `InvariantResult` | `ok` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `core` | `InvariantResult` | `message` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `core` | `InvariantResult` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `core` | `Invariant` | `name` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `core` | `Invariant` | `description` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `core` | `Invariant` | `predicate` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `core` | `Invariant` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `corpus` | `ProblemCase` | `case_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `corpus` | `ProblemCase` | `title` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `corpus` | `ProblemCase` | `software_domain` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `corpus` | `ProblemCase` | `workflow_family` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `corpus` | `ProblemCase` | `software_structure` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `corpus` | `ProblemCase` | `operation_boundary` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `corpus` | `ProblemCase` | `actors` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `corpus` | `ProblemCase` | `external_inputs` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `corpus` | `ProblemCase` | `initial_state_shape` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `corpus` | `ProblemCase` | `state_transition_focus` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `corpus` | `ProblemCase` | `side_effects` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `corpus` | `ProblemCase` | `expected_behavior` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `corpus` | `ProblemCase` | `forbidden_behavior` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `corpus` | `ProblemCase` | `failure_mode` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `corpus` | `ProblemCase` | `evidence_to_check` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `corpus` | `ProblemCase` | `oracle_type` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `corpus` | `ProblemCase` | `case_kind` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `corpus` | `ProblemCase` | `importance` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `corpus` | `ProblemCase` | `non_goals` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `corpus` | `ProblemCase` | `notes` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `corpus` | `ProblemCase` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `corpus` | `ProblemCorpus` | `cases` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `corpus` | `ProblemCorpus` | `name` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `corpus` | `ProblemCorpus` | `description` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `corpus` | `ProblemCorpusReport` | `ok` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `corpus` | `ProblemCorpusReport` | `total_cases` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `corpus` | `ProblemCorpusReport` | `min_cases` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `corpus` | `ProblemCorpusReport` | `workflow_family_count` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `corpus` | `ProblemCorpusReport` | `failure_mode_count` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `corpus` | `ProblemCorpusReport` | `case_kind_counts` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `corpus` | `ProblemCorpusReport` | `workflow_family_counts` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `corpus` | `ProblemCorpusReport` | `failure_mode_counts` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `corpus` | `ProblemCorpusReport` | `oracle_type_counts` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `corpus` | `ProblemCorpusReport` | `software_domain_counts` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `corpus` | `ProblemCorpusReport` | `validation_errors` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `corpus` | `ProblemCorpusReport` | `case_source_counts` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `corpus` | `ProblemCorpusReport` | `gap_focus_counts` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `corpus` | `ProblemCorpusReport` | `pressure_focus_counts` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `corpus` | `ProblemCorpusReport` | `count_semantics` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `corpus` | `ProblemCorpusReport` | `execution_claim` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `corpus` | `ProblemCorpusReport` | `max_workflow_family_share` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `corpus` | `ProblemCorpusReport` | `top_5_failure_mode_share` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `corpus` | `ProblemCorpusReport` | `software_domain_count` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `corpus` | `ProblemCorpusReport` | `max_software_domain_share` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `corpus` | `ProblemCorpusReport` | `near_duplicate_group_max` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `corpus` | `ProblemCorpusReport` | `expected_behavior_uniqueness` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `corpus` | `ProblemCorpusReport` | `evidence_uniqueness` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `corpus` | `ProblemCorpusReport` | `summary` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `coverage` | `BenchmarkCoverageAudit` | `ok` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `coverage` | `BenchmarkCoverageAudit` | `total_cases` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `coverage` | `BenchmarkCoverageAudit` | `variant_target` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `coverage` | `BenchmarkCoverageAudit` | `variant_total` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `coverage` | `BenchmarkCoverageAudit` | `variant_min_cases` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `coverage` | `BenchmarkCoverageAudit` | `variant_max_cases` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `coverage` | `BenchmarkCoverageAudit` | `variants_below_target` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `coverage` | `BenchmarkCoverageAudit` | `required_case_kinds` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `coverage` | `BenchmarkCoverageAudit` | `families_missing_required_case_kinds` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `coverage` | `BenchmarkCoverageAudit` | `required_bug_classes` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `coverage` | `BenchmarkCoverageAudit` | `families_missing_required_bug_classes` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `coverage` | `BenchmarkCoverageAudit` | `family_case_kind_matrix` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `coverage` | `BenchmarkCoverageAudit` | `family_bug_class_matrix` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `coverage` | `BenchmarkCoverageAudit` | `single_family_dominance_ratio` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `coverage` | `BenchmarkCoverageAudit` | `job_matching_case_count` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `coverage` | `BenchmarkCoverageAudit` | `job_matching_dominance_ratio` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `coverage` | `BenchmarkCoverageAudit` | `production_conformance_family_count` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `coverage` | `BenchmarkCoverageAudit` | `production_conformance_families` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `coverage` | `BenchmarkCoverageAudit` | `summary` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `development_process_flow` | `ProcessArtifact` | `artifact_id` | `development_process_flow` | `starter` | `unclassified` | `false` |
+| `development_process_flow` | `ProcessArtifact` | `artifact_type` | `development_process_flow` | `internal` | `unclassified` | `false` |
+| `development_process_flow` | `ProcessArtifact` | `current_version` | `development_process_flow` | `starter` | `unclassified` | `false` |
+| `development_process_flow` | `ProcessArtifact` | `path` | `development_process_flow` | `starter` | `unclassified` | `false` |
+| `development_process_flow` | `ProcessArtifact` | `owner` | `development_process_flow` | `internal` | `unclassified` | `false` |
+| `development_process_flow` | `ProcessArtifact` | `upstream_artifact_ids` | `development_process_flow` | `internal` | `collection_metadata` | `false` |
+| `development_process_flow` | `ProcessArtifact` | `description` | `development_process_flow` | `internal` | `display_or_metadata` | `false` |
+| `development_process_flow` | `ActionEffect` | `target_id` | `development_process_flow` | `starter` | `unclassified` | `false` |
+| `development_process_flow` | `ActionEffect` | `effect_type` | `development_process_flow` | `advanced` | `behavior_or_contract` | `true` |
+| `development_process_flow` | `ActionEffect` | `target_type` | `development_process_flow` | `internal` | `unclassified` | `false` |
+| `development_process_flow` | `ActionEffect` | `description` | `development_process_flow` | `internal` | `display_or_metadata` | `false` |
+| `development_process_flow` | `ProcessAction` | `action_id` | `development_process_flow` | `starter` | `behavior_or_contract` | `true` |
+| `development_process_flow` | `ProcessAction` | `action_type` | `development_process_flow` | `starter` | `behavior_or_contract` | `true` |
+| `development_process_flow` | `ProcessAction` | `reads_artifacts` | `development_process_flow` | `internal` | `collection_metadata` | `false` |
+| `development_process_flow` | `ProcessAction` | `writes_artifacts` | `development_process_flow` | `internal` | `collection_metadata` | `false` |
+| `development_process_flow` | `ProcessAction` | `invalidates_artifacts` | `development_process_flow` | `internal` | `collection_metadata` | `false` |
+| `development_process_flow` | `ProcessAction` | `invalidates_evidence` | `development_process_flow` | `starter` | `evidence_or_decision` | `false` |
+| `development_process_flow` | `ProcessAction` | `produced_evidence_ids` | `development_process_flow` | `starter` | `evidence_or_decision` | `false` |
+| `development_process_flow` | `ProcessAction` | `required_evidence_ids` | `development_process_flow` | `starter` | `evidence_or_decision` | `false` |
+| `development_process_flow` | `ProcessAction` | `required_validation_ids` | `development_process_flow` | `internal` | `collection_metadata` | `false` |
+| `development_process_flow` | `ProcessAction` | `effects` | `development_process_flow` | `advanced` | `behavior_or_contract` | `true` |
+| `development_process_flow` | `ProcessAction` | `order_after` | `development_process_flow` | `internal` | `collection_metadata` | `false` |
+| `development_process_flow` | `ProcessAction` | `actor` | `development_process_flow` | `internal` | `unclassified` | `false` |
+| `development_process_flow` | `ProcessAction` | `status` | `development_process_flow` | `starter` | `evidence_or_decision` | `false` |
+| `development_process_flow` | `ProcessAction` | `decision_scope` | `development_process_flow` | `advanced` | `evidence_or_decision` | `false` |
+| `development_process_flow` | `ProcessAction` | `description` | `development_process_flow` | `internal` | `display_or_metadata` | `false` |
+| `development_process_flow` | `ProcessEvidence` | `evidence_id` | `development_process_flow` | `starter` | `evidence_or_decision` | `false` |
+| `development_process_flow` | `ProcessEvidence` | `evidence_kind` | `development_process_flow` | `starter` | `evidence_or_decision` | `false` |
+| `development_process_flow` | `ProcessEvidence` | `producer_route` | `development_process_flow` | `starter` | `behavior_or_contract` | `true` |
+| `development_process_flow` | `ProcessEvidence` | `status` | `development_process_flow` | `starter` | `evidence_or_decision` | `false` |
+| `development_process_flow` | `ProcessEvidence` | `covers_artifacts` | `development_process_flow` | `internal` | `collection_metadata` | `false` |
+| `development_process_flow` | `ProcessEvidence` | `covered_versions` | `development_process_flow` | `internal` | `collection_metadata` | `false` |
+| `development_process_flow` | `ProcessEvidence` | `verifier_artifacts` | `development_process_flow` | `internal` | `collection_metadata` | `false` |
+| `development_process_flow` | `ProcessEvidence` | `validation_requirement_ids` | `development_process_flow` | `internal` | `collection_metadata` | `false` |
+| `development_process_flow` | `ProcessEvidence` | `produced_by_action_id` | `development_process_flow` | `starter` | `behavior_or_contract` | `true` |
+| `development_process_flow` | `ProcessEvidence` | `command` | `development_process_flow` | `starter` | `unclassified` | `false` |
+| `development_process_flow` | `ProcessEvidence` | `result_path` | `development_process_flow` | `starter` | `evidence_or_decision` | `false` |
+| `development_process_flow` | `ProcessEvidence` | `proof_artifact` | `development_process_flow` | `advanced` | `evidence_or_decision` | `false` |
+| `development_process_flow` | `ProcessEvidence` | `background` | `development_process_flow` | `internal` | `unclassified` | `false` |
+| `development_process_flow` | `ProcessEvidence` | `has_exit_artifact` | `development_process_flow` | `internal` | `unclassified` | `false` |
+| `development_process_flow` | `ProcessEvidence` | `has_result_artifact` | `development_process_flow` | `advanced` | `evidence_or_decision` | `false` |
+| `development_process_flow` | `ProcessEvidence` | `progress_only` | `development_process_flow` | `internal` | `unclassified` | `false` |
+| `development_process_flow` | `ProcessEvidence` | `skipped_count` | `development_process_flow` | `internal` | `unclassified` | `false` |
+| `development_process_flow` | `ProcessEvidence` | `skipped_visible` | `development_process_flow` | `internal` | `unclassified` | `false` |
+| `development_process_flow` | `ProcessEvidence` | `release_required` | `development_process_flow` | `internal` | `unclassified` | `false` |
+| `development_process_flow` | `ProcessEvidence` | `stale_reasons` | `development_process_flow` | `advanced` | `evidence_or_decision` | `false` |
+| `development_process_flow` | `FreshnessRule` | `rule_id` | `development_process_flow` | `starter` | `unclassified` | `false` |
+| `development_process_flow` | `FreshnessRule` | `upstream_artifact_id` | `development_process_flow` | `starter` | `unclassified` | `false` |
+| `development_process_flow` | `FreshnessRule` | `invalidates_artifact_ids` | `development_process_flow` | `internal` | `collection_metadata` | `false` |
+| `development_process_flow` | `FreshnessRule` | `invalidates_evidence_kinds` | `development_process_flow` | `starter` | `evidence_or_decision` | `false` |
+| `development_process_flow` | `FreshnessRule` | `description` | `development_process_flow` | `internal` | `display_or_metadata` | `false` |
+| `development_process_flow` | `ValidationRequirement` | `requirement_id` | `development_process_flow` | `starter` | `unclassified` | `false` |
+| `development_process_flow` | `ValidationRequirement` | `required_artifact_ids` | `development_process_flow` | `internal` | `collection_metadata` | `false` |
+| `development_process_flow` | `ValidationRequirement` | `required_evidence_kinds` | `development_process_flow` | `starter` | `evidence_or_decision` | `false` |
+| `development_process_flow` | `ValidationRequirement` | `evidence_ids` | `development_process_flow` | `starter` | `evidence_or_decision` | `false` |
+| `development_process_flow` | `ValidationRequirement` | `scope` | `development_process_flow` | `internal` | `unclassified` | `false` |
+| `development_process_flow` | `ValidationRequirement` | `release_required` | `development_process_flow` | `internal` | `unclassified` | `false` |
+| `development_process_flow` | `ValidationRequirement` | `v_model_pair` | `development_process_flow` | `starter` | `unclassified` | `false` |
+| `development_process_flow` | `ValidationRequirement` | `command` | `development_process_flow` | `starter` | `unclassified` | `false` |
+| `development_process_flow` | `ValidationRequirement` | `description` | `development_process_flow` | `internal` | `display_or_metadata` | `false` |
+| `development_process_flow` | `DevelopmentProcessPlan` | `process_id` | `development_process_flow` | `starter` | `unclassified` | `false` |
+| `development_process_flow` | `DevelopmentProcessPlan` | `artifacts` | `development_process_flow` | `internal` | `collection_metadata` | `false` |
+| `development_process_flow` | `DevelopmentProcessPlan` | `actions` | `development_process_flow` | `advanced` | `behavior_or_contract` | `true` |
+| `development_process_flow` | `DevelopmentProcessPlan` | `evidence` | `development_process_flow` | `starter` | `evidence_or_decision` | `false` |
+| `development_process_flow` | `DevelopmentProcessPlan` | `validation_requirements` | `development_process_flow` | `internal` | `collection_metadata` | `false` |
+| `development_process_flow` | `DevelopmentProcessPlan` | `freshness_rules` | `development_process_flow` | `internal` | `collection_metadata` | `false` |
+| `development_process_flow` | `DevelopmentProcessPlan` | `decision_scope` | `development_process_flow` | `advanced` | `evidence_or_decision` | `false` |
+| `development_process_flow` | `DevelopmentProcessPlan` | `require_proof_artifacts` | `development_process_flow` | `advanced` | `evidence_or_decision` | `false` |
+| `development_process_flow` | `DevelopmentProcessPlan` | `release_deferred_allowed` | `development_process_flow` | `internal` | `unclassified` | `false` |
+| `development_process_flow` | `RevalidationRecommendation` | `requirement_id` | `development_process_flow` | `starter` | `unclassified` | `false` |
+| `development_process_flow` | `RevalidationRecommendation` | `evidence_id` | `development_process_flow` | `starter` | `evidence_or_decision` | `false` |
+| `development_process_flow` | `RevalidationRecommendation` | `command` | `development_process_flow` | `starter` | `unclassified` | `false` |
+| `development_process_flow` | `RevalidationRecommendation` | `scope` | `development_process_flow` | `internal` | `unclassified` | `false` |
+| `development_process_flow` | `RevalidationRecommendation` | `artifact_ids` | `development_process_flow` | `internal` | `collection_metadata` | `false` |
+| `development_process_flow` | `RevalidationRecommendation` | `reason` | `development_process_flow` | `starter` | `evidence_or_decision` | `false` |
+| `development_process_flow` | `RevalidationRecommendation` | `producer_route` | `development_process_flow` | `starter` | `behavior_or_contract` | `true` |
+| `development_process_flow` | `RevalidationRecommendation` | `proof_artifact_required` | `development_process_flow` | `advanced` | `evidence_or_decision` | `false` |
+| `development_process_flow` | `RevalidationRecommendation` | `freshness_gap_codes` | `development_process_flow` | `advanced` | `evidence_or_decision` | `false` |
+| `development_process_flow` | `RevalidationRecommendation` | `blocks_claim_scopes` | `development_process_flow` | `starter` | `collection_metadata` | `false` |
+| `development_process_flow` | `ProcessFlowFinding` | `code` | `development_process_flow` | `starter` | `unclassified` | `false` |
+| `development_process_flow` | `ProcessFlowFinding` | `message` | `development_process_flow` | `internal` | `display_or_metadata` | `false` |
+| `development_process_flow` | `ProcessFlowFinding` | `severity` | `development_process_flow` | `internal` | `unclassified` | `false` |
+| `development_process_flow` | `ProcessFlowFinding` | `action_id` | `development_process_flow` | `starter` | `behavior_or_contract` | `true` |
+| `development_process_flow` | `ProcessFlowFinding` | `evidence_id` | `development_process_flow` | `starter` | `evidence_or_decision` | `false` |
+| `development_process_flow` | `ProcessFlowFinding` | `artifact_id` | `development_process_flow` | `starter` | `unclassified` | `false` |
+| `development_process_flow` | `ProcessFlowFinding` | `requirement_id` | `development_process_flow` | `starter` | `unclassified` | `false` |
+| `development_process_flow` | `ProcessFlowFinding` | `metadata` | `development_process_flow` | `internal` | `collection_metadata` | `false` |
+| `development_process_flow` | `DevelopmentProcessFlowReport` | `ok` | `development_process_flow` | `starter` | `evidence_or_decision` | `false` |
+| `development_process_flow` | `DevelopmentProcessFlowReport` | `process_id` | `development_process_flow` | `starter` | `unclassified` | `false` |
+| `development_process_flow` | `DevelopmentProcessFlowReport` | `decision` | `development_process_flow` | `advanced` | `evidence_or_decision` | `false` |
+| `development_process_flow` | `DevelopmentProcessFlowReport` | `decision_scope` | `development_process_flow` | `advanced` | `evidence_or_decision` | `false` |
+| `development_process_flow` | `DevelopmentProcessFlowReport` | `findings` | `development_process_flow` | `starter` | `evidence_or_decision` | `false` |
+| `development_process_flow` | `DevelopmentProcessFlowReport` | `release_obligations` | `development_process_flow` | `advanced` | `behavior_or_contract` | `true` |
+| `development_process_flow` | `DevelopmentProcessFlowReport` | `revalidation_recommendations` | `development_process_flow` | `internal` | `collection_metadata` | `false` |
+| `development_process_flow` | `DevelopmentProcessFlowReport` | `summary` | `development_process_flow` | `advanced` | `evidence_or_decision` | `false` |
+| `evidence_fields` | `EvidenceGate` | `gate_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `evidence_fields` | `EvidenceGate` | `gate_kind` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `evidence_fields` | `EvidenceGate` | `required` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `evidence_fields` | `EvidenceGate` | `result_status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `evidence_fields` | `EvidenceGate` | `current` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `evidence_fields` | `EvidenceGate` | `confidence` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `evidence_fields` | `EvidenceGate` | `scoped_reasons` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `evidence_fields` | `EvidenceGate` | `proof_evidence_ids` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `evidence_fields` | `EvidenceGate` | `next_actions` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `evidence_fields` | `EvidenceGate` | `metadata` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `executable` | `ExecutableCaseResult` | `case_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `executable` | `ExecutableCaseResult` | `title` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `executable` | `ExecutableCaseResult` | `case_kind` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `executable` | `ExecutableCaseResult` | `workflow_family` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `executable` | `ExecutableCaseResult` | `failure_mode` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `executable` | `ExecutableCaseResult` | `oracle_type` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `executable` | `ExecutableCaseResult` | `expected_status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `executable` | `ExecutableCaseResult` | `expected_violation_names` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `executable` | `ExecutableCaseResult` | `observed_status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `executable` | `ExecutableCaseResult` | `observed_violation_names` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `executable` | `ExecutableCaseResult` | `status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `executable` | `ExecutableCaseResult` | `execution_kind` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `executable` | `ExecutableCaseResult` | `mapped_checker` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `executable` | `ExecutableCaseResult` | `evidence` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `executable` | `ExecutableCaseResult` | `counterexample_trace` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `executable` | `ExecutableCaseResult` | `graph_evidence` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `executable` | `ExecutableCaseResult` | `not_executable_reason` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `executable` | `ExecutableCaseResult` | `limitation_reason` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `executable` | `ExecutableCaseResult` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `executable` | `ExecutableCorpusReport` | `ok` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `executable` | `ExecutableCorpusReport` | `total_cases` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `executable` | `ExecutableCorpusReport` | `executable_cases` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `executable` | `ExecutableCorpusReport` | `not_executable_yet` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `executable` | `ExecutableCorpusReport` | `coverage_ratio` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `executable` | `ExecutableCorpusReport` | `coverage_complete` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `executable` | `ExecutableCorpusReport` | `accepted_executable_cases` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `executable` | `ExecutableCorpusReport` | `strong_pass_cases` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `executable` | `ExecutableCorpusReport` | `expected_violations_observed` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `executable` | `ExecutableCorpusReport` | `failure_cases` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `executable` | `ExecutableCorpusReport` | `status_counts` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `executable` | `ExecutableCorpusReport` | `execution_kind_counts` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `executable` | `ExecutableCorpusReport` | `case_kind_counts` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `executable` | `ExecutableCorpusReport` | `workflow_family_counts` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `executable` | `ExecutableCorpusReport` | `failure_mode_counts` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `executable` | `ExecutableCorpusReport` | `oracle_type_counts` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `executable` | `ExecutableCorpusReport` | `case_source_counts` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `executable` | `ExecutableCorpusReport` | `gap_focus_counts` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `executable` | `ExecutableCorpusReport` | `pressure_focus_counts` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `executable` | `ExecutableCorpusReport` | `not_executable_reasons` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `executable` | `ExecutableCorpusReport` | `real_model_cases` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `executable` | `ExecutableCorpusReport` | `generic_fallback_cases` | `core_or_internal` | `advanced` | `compatibility_or_old_path` | `true` |
+| `executable` | `ExecutableCorpusReport` | `model_variant_total` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `executable` | `ExecutableCorpusReport` | `model_families_with_six_variants` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `executable` | `ExecutableCorpusReport` | `model_binding_counts` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `executable` | `ExecutableCorpusReport` | `model_family_counts` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `executable` | `ExecutableCorpusReport` | `model_variant_counts` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `executable` | `ExecutableCorpusReport` | `results` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `executable` | `ExecutableCorpusReport` | `summary` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `existing_model_preflight` | `ModelContextHit` | `model_id` | `existing_model_preflight` | `starter` | `unclassified` | `false` |
+| `existing_model_preflight` | `ModelContextHit` | `model_path` | `existing_model_preflight` | `starter` | `unclassified` | `false` |
+| `existing_model_preflight` | `ModelContextHit` | `evidence_id` | `existing_model_preflight` | `starter` | `evidence_or_decision` | `false` |
+| `existing_model_preflight` | `ModelContextHit` | `evidence_tier` | `existing_model_preflight` | `starter` | `evidence_or_decision` | `false` |
+| `existing_model_preflight` | `ModelContextHit` | `evidence_current` | `existing_model_preflight` | `starter` | `evidence_or_decision` | `false` |
+| `existing_model_preflight` | `ModelContextHit` | `responsibilities` | `existing_model_preflight` | `internal` | `collection_metadata` | `false` |
+| `existing_model_preflight` | `ModelContextHit` | `function_blocks` | `existing_model_preflight` | `internal` | `collection_metadata` | `false` |
+| `existing_model_preflight` | `ModelContextHit` | `state_owned` | `existing_model_preflight` | `advanced` | `behavior_or_contract` | `true` |
+| `existing_model_preflight` | `ModelContextHit` | `side_effects_owned` | `existing_model_preflight` | `advanced` | `behavior_or_contract` | `true` |
+| `existing_model_preflight` | `ModelContextHit` | `public_entrypoints` | `existing_model_preflight` | `internal` | `collection_metadata` | `false` |
+| `existing_model_preflight` | `ModelContextHit` | `fields_owned` | `existing_model_preflight` | `internal` | `collection_metadata` | `false` |
+| `existing_model_preflight` | `ModelContextHit` | `parent_model_id` | `existing_model_preflight` | `starter` | `unclassified` | `false` |
+| `existing_model_preflight` | `ModelContextHit` | `child_model_ids` | `existing_model_preflight` | `starter` | `collection_metadata` | `false` |
+| `existing_model_preflight` | `ModelContextHit` | `layered_proof_evidence_id` | `existing_model_preflight` | `starter` | `evidence_or_decision` | `false` |
+| `existing_model_preflight` | `ModelContextHit` | `parent_coverage_status` | `existing_model_preflight` | `starter` | `evidence_or_decision` | `false` |
+| `existing_model_preflight` | `ModelContextHit` | `child_disjointness_status` | `existing_model_preflight` | `starter` | `evidence_or_decision` | `false` |
+| `existing_model_preflight` | `ModelContextHit` | `child_reattachment_status` | `existing_model_preflight` | `starter` | `evidence_or_decision` | `false` |
+| `existing_model_preflight` | `ModelContextHit` | `leaf_boundary_matrix_status` | `existing_model_preflight` | `starter` | `evidence_or_decision` | `false` |
+| `existing_model_preflight` | `ModelContextHit` | `validation_evidence` | `existing_model_preflight` | `starter` | `evidence_or_decision` | `false` |
+| `existing_model_preflight` | `ModelContextHit` | `rationale` | `existing_model_preflight` | `internal` | `unclassified` | `false` |
+| `existing_model_preflight` | `ExistingOwnershipSnapshot` | `function_block_owners` | `existing_model_preflight` | `internal` | `collection_metadata` | `false` |
+| `existing_model_preflight` | `ExistingOwnershipSnapshot` | `state_owners` | `existing_model_preflight` | `advanced` | `behavior_or_contract` | `true` |
+| `existing_model_preflight` | `ExistingOwnershipSnapshot` | `side_effect_owners` | `existing_model_preflight` | `advanced` | `behavior_or_contract` | `true` |
+| `existing_model_preflight` | `ExistingOwnershipSnapshot` | `public_entrypoint_owners` | `existing_model_preflight` | `internal` | `collection_metadata` | `false` |
+| `existing_model_preflight` | `ExistingOwnershipSnapshot` | `field_owners` | `existing_model_preflight` | `internal` | `collection_metadata` | `false` |
+| `existing_model_preflight` | `ExistingOwnershipSnapshot` | `responsibility_owners` | `existing_model_preflight` | `internal` | `collection_metadata` | `false` |
+| `existing_model_preflight` | `DuplicateBoundaryRisk` | `item_type` | `existing_model_preflight` | `internal` | `unclassified` | `false` |
+| `existing_model_preflight` | `DuplicateBoundaryRisk` | `item_id` | `existing_model_preflight` | `starter` | `unclassified` | `false` |
+| `existing_model_preflight` | `DuplicateBoundaryRisk` | `existing_owner_id` | `existing_model_preflight` | `starter` | `unclassified` | `false` |
+| `existing_model_preflight` | `DuplicateBoundaryRisk` | `proposed_owner_id` | `existing_model_preflight` | `starter` | `unclassified` | `false` |
+| `existing_model_preflight` | `DuplicateBoundaryRisk` | `resolution` | `existing_model_preflight` | `internal` | `unclassified` | `false` |
+| `existing_model_preflight` | `DuplicateBoundaryRisk` | `rationale` | `existing_model_preflight` | `internal` | `unclassified` | `false` |
+| `existing_model_preflight` | `DuplicateBoundaryRisk` | `resolved` | `existing_model_preflight` | `internal` | `unclassified` | `false` |
+| `existing_model_preflight` | `ExistingModelPreflight` | `preflight_id` | `existing_model_preflight` | `starter` | `unclassified` | `false` |
+| `existing_model_preflight` | `ExistingModelPreflight` | `task_summary` | `existing_model_preflight` | `advanced` | `evidence_or_decision` | `false` |
+| `existing_model_preflight` | `ExistingModelPreflight` | `mode` | `existing_model_preflight` | `internal` | `unclassified` | `false` |
+| `existing_model_preflight` | `ExistingModelPreflight` | `existing_modeled_system` | `existing_model_preflight` | `internal` | `unclassified` | `false` |
+| `existing_model_preflight` | `ExistingModelPreflight` | `model_search_performed` | `existing_model_preflight` | `starter` | `unclassified` | `false` |
+| `existing_model_preflight` | `ExistingModelPreflight` | `search_paths` | `existing_model_preflight` | `internal` | `collection_metadata` | `false` |
+| `existing_model_preflight` | `ExistingModelPreflight` | `relevant_models` | `existing_model_preflight` | `internal` | `collection_metadata` | `false` |
+| `existing_model_preflight` | `ExistingModelPreflight` | `ownership_snapshot` | `existing_model_preflight` | `internal` | `unclassified` | `false` |
+| `existing_model_preflight` | `ExistingModelPreflight` | `reuse_decision` | `existing_model_preflight` | `advanced` | `evidence_or_decision` | `false` |
+| `existing_model_preflight` | `ExistingModelPreflight` | `downstream_routes` | `existing_model_preflight` | `advanced` | `behavior_or_contract` | `true` |
+| `existing_model_preflight` | `ExistingModelPreflight` | `rationale` | `existing_model_preflight` | `internal` | `unclassified` | `false` |
+| `existing_model_preflight` | `ExistingModelPreflight` | `no_model_found_reason` | `existing_model_preflight` | `starter` | `evidence_or_decision` | `false` |
+| `existing_model_preflight` | `ExistingModelPreflight` | `proposed_new_boundaries` | `existing_model_preflight` | `internal` | `collection_metadata` | `false` |
+| `existing_model_preflight` | `ExistingModelPreflight` | `duplicate_risks` | `existing_model_preflight` | `internal` | `collection_metadata` | `false` |
+| `existing_model_preflight` | `ExistingModelPreflight` | `behavior_field_ids` | `existing_model_preflight` | `internal` | `collection_metadata` | `false` |
+| `existing_model_preflight` | `ExistingModelPreflight` | `field_lifecycle_required` | `existing_model_preflight` | `internal` | `unclassified` | `false` |
+| `existing_model_preflight` | `ExistingModelPreflight` | `field_lifecycle_model_ids` | `existing_model_preflight` | `starter` | `collection_metadata` | `false` |
+| `existing_model_preflight` | `ExistingModelPreflight` | `field_lifecycle_gap_ids` | `existing_model_preflight` | `advanced` | `evidence_or_decision` | `false` |
+| `existing_model_preflight` | `ExistingModelPreflight` | `model_angle_review_required` | `existing_model_preflight` | `starter` | `unclassified` | `false` |
+| `existing_model_preflight` | `ExistingModelPreflight` | `model_angle_deliberations` | `existing_model_preflight` | `starter` | `collection_metadata` | `false` |
+| `existing_model_preflight` | `ExistingModelPreflight` | `model_angle_gap_ids` | `existing_model_preflight` | `starter` | `evidence_or_decision` | `false` |
+| `existing_model_preflight` | `ExistingModelPreflight` | `similarity_review_required` | `existing_model_preflight` | `internal` | `unclassified` | `false` |
+| `existing_model_preflight` | `ExistingModelPreflight` | `similarity_handoff` | `existing_model_preflight` | `internal` | `collection_metadata` | `false` |
+| `existing_model_preflight` | `ExistingModelPreflight` | `skip_reason` | `existing_model_preflight` | `starter` | `evidence_or_decision` | `false` |
+| `existing_model_preflight` | `ExistingModelPreflightFinding` | `code` | `existing_model_preflight` | `starter` | `unclassified` | `false` |
+| `existing_model_preflight` | `ExistingModelPreflightFinding` | `message` | `existing_model_preflight` | `internal` | `display_or_metadata` | `false` |
+| `existing_model_preflight` | `ExistingModelPreflightFinding` | `severity` | `existing_model_preflight` | `internal` | `unclassified` | `false` |
+| `existing_model_preflight` | `ExistingModelPreflightFinding` | `model_id` | `existing_model_preflight` | `starter` | `unclassified` | `false` |
+| `existing_model_preflight` | `ExistingModelPreflightFinding` | `item_id` | `existing_model_preflight` | `starter` | `unclassified` | `false` |
+| `existing_model_preflight` | `ExistingModelPreflightFinding` | `metadata` | `existing_model_preflight` | `internal` | `collection_metadata` | `false` |
+| `existing_model_preflight` | `ExistingModelPreflightReport` | `ok` | `existing_model_preflight` | `starter` | `evidence_or_decision` | `false` |
+| `existing_model_preflight` | `ExistingModelPreflightReport` | `preflight_id` | `existing_model_preflight` | `starter` | `unclassified` | `false` |
+| `existing_model_preflight` | `ExistingModelPreflightReport` | `decision` | `existing_model_preflight` | `advanced` | `evidence_or_decision` | `false` |
+| `existing_model_preflight` | `ExistingModelPreflightReport` | `findings` | `existing_model_preflight` | `starter` | `evidence_or_decision` | `false` |
+| `existing_model_preflight` | `ExistingModelPreflightReport` | `summary` | `existing_model_preflight` | `advanced` | `evidence_or_decision` | `false` |
+| `explorer` | `ReachabilityCondition` | `name` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `explorer` | `ReachabilityCondition` | `predicate` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `explorer` | `ReachabilityCondition` | `description` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `explorer` | `Explorer` | `workflow` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `explorer` | `Explorer` | `initial_states` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `explorer` | `Explorer` | `external_inputs` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `explorer` | `Explorer` | `invariants` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `explorer` | `Explorer` | `max_sequence_length` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `explorer` | `Explorer` | `terminal_predicate` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `explorer` | `Explorer` | `success_predicate` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `explorer` | `Explorer` | `required_labels` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `explorer` | `Explorer` | `required_reachable` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `explorer` | `Explorer` | `assumption_card` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `explorer` | `Explorer` | `progress_steps` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `field_lifecycle` | `FieldLifecycleGroup` | `group_id` | `field_lifecycle_mesh` | `starter` | `unclassified` | `false` |
+| `field_lifecycle` | `FieldLifecycleGroup` | `boundary_kind` | `field_lifecycle_mesh` | `internal` | `unclassified` | `false` |
+| `field_lifecycle` | `FieldLifecycleGroup` | `parent_group_id` | `field_lifecycle_mesh` | `starter` | `unclassified` | `false` |
+| `field_lifecycle` | `FieldLifecycleGroup` | `field_ids` | `field_lifecycle_mesh` | `internal` | `collection_metadata` | `false` |
+| `field_lifecycle` | `FieldLifecycleGroup` | `child_group_ids` | `field_lifecycle_mesh` | `internal` | `collection_metadata` | `false` |
+| `field_lifecycle` | `FieldLifecycleGroup` | `owner_route` | `field_lifecycle_mesh` | `starter` | `behavior_or_contract` | `true` |
+| `field_lifecycle` | `FieldLifecycleGroup` | `evidence_refs` | `field_lifecycle_mesh` | `starter` | `evidence_or_decision` | `false` |
+| `field_lifecycle` | `FieldLifecycleGroup` | `rationale` | `field_lifecycle_mesh` | `internal` | `unclassified` | `false` |
+| `field_lifecycle` | `FieldLifecycleGroup` | `metadata` | `field_lifecycle_mesh` | `internal` | `collection_metadata` | `false` |
+| `field_lifecycle` | `FieldProjection` | `projection_id` | `field_lifecycle_mesh` | `starter` | `unclassified` | `false` |
+| `field_lifecycle` | `FieldProjection` | `field_id` | `field_lifecycle_mesh` | `starter` | `unclassified` | `false` |
+| `field_lifecycle` | `FieldProjection` | `model_obligation_id` | `field_lifecycle_mesh` | `starter` | `behavior_or_contract` | `true` |
+| `field_lifecycle` | `FieldProjection` | `transition_cell_id` | `field_lifecycle_mesh` | `starter` | `behavior_or_contract` | `true` |
+| `field_lifecycle` | `FieldProjection` | `code_contract_id` | `field_lifecycle_mesh` | `starter` | `behavior_or_contract` | `true` |
+| `field_lifecycle` | `FieldProjection` | `required_test_kinds` | `field_lifecycle_mesh` | `starter` | `collection_metadata` | `false` |
+| `field_lifecycle` | `FieldProjection` | `external_inputs` | `field_lifecycle_mesh` | `advanced` | `behavior_or_contract` | `true` |
+| `field_lifecycle` | `FieldProjection` | `external_outputs` | `field_lifecycle_mesh` | `advanced` | `behavior_or_contract` | `true` |
+| `field_lifecycle` | `FieldProjection` | `state_reads` | `field_lifecycle_mesh` | `advanced` | `behavior_or_contract` | `true` |
+| `field_lifecycle` | `FieldProjection` | `state_writes` | `field_lifecycle_mesh` | `advanced` | `behavior_or_contract` | `true` |
+| `field_lifecycle` | `FieldProjection` | `side_effects` | `field_lifecycle_mesh` | `advanced` | `behavior_or_contract` | `true` |
+| `field_lifecycle` | `FieldProjection` | `error_paths` | `field_lifecycle_mesh` | `advanced` | `behavior_or_contract` | `true` |
+| `field_lifecycle` | `FieldProjection` | `risk_level` | `field_lifecycle_mesh` | `internal` | `unclassified` | `false` |
+| `field_lifecycle` | `FieldProjection` | `evidence_refs` | `field_lifecycle_mesh` | `starter` | `evidence_or_decision` | `false` |
+| `field_lifecycle` | `FieldProjection` | `rationale` | `field_lifecycle_mesh` | `internal` | `unclassified` | `false` |
+| `field_lifecycle` | `FieldLifecycleRow` | `field_id` | `field_lifecycle_mesh` | `starter` | `unclassified` | `false` |
+| `field_lifecycle` | `FieldLifecycleRow` | `field_name` | `field_lifecycle_mesh` | `internal` | `display_or_metadata` | `false` |
+| `field_lifecycle` | `FieldLifecycleRow` | `locations` | `field_lifecycle_mesh` | `internal` | `collection_metadata` | `false` |
+| `field_lifecycle` | `FieldLifecycleRow` | `group_id` | `field_lifecycle_mesh` | `starter` | `unclassified` | `false` |
+| `field_lifecycle` | `FieldLifecycleRow` | `role` | `field_lifecycle_mesh` | `internal` | `unclassified` | `false` |
+| `field_lifecycle` | `FieldLifecycleRow` | `lifecycle` | `field_lifecycle_mesh` | `internal` | `unclassified` | `false` |
+| `field_lifecycle` | `FieldLifecycleRow` | `behavior_impacts` | `field_lifecycle_mesh` | `internal` | `collection_metadata` | `false` |
+| `field_lifecycle` | `FieldLifecycleRow` | `reader_ids` | `field_lifecycle_mesh` | `internal` | `collection_metadata` | `false` |
+| `field_lifecycle` | `FieldLifecycleRow` | `writer_ids` | `field_lifecycle_mesh` | `internal` | `collection_metadata` | `false` |
+| `field_lifecycle` | `FieldLifecycleRow` | `replacement_field_id` | `field_lifecycle_mesh` | `advanced` | `compatibility_or_old_path` | `true` |
+| `field_lifecycle` | `FieldLifecycleRow` | `old_field_ids` | `field_lifecycle_mesh` | `advanced` | `compatibility_or_old_path` | `true` |
+| `field_lifecycle` | `FieldLifecycleRow` | `disposition` | `field_lifecycle_mesh` | `internal` | `unclassified` | `false` |
+| `field_lifecycle` | `FieldLifecycleRow` | `compatibility_intent` | `field_lifecycle_mesh` | `advanced` | `compatibility_or_old_path` | `true` |
+| `field_lifecycle` | `FieldLifecycleRow` | `disposition_evidence_refs` | `field_lifecycle_mesh` | `starter` | `evidence_or_decision` | `false` |
+| `field_lifecycle` | `FieldLifecycleRow` | `projection` | `field_lifecycle_mesh` | `internal` | `collection_metadata` | `false` |
+| `field_lifecycle` | `FieldLifecycleRow` | `scoped_out_reason` | `field_lifecycle_mesh` | `starter` | `evidence_or_decision` | `false` |
+| `field_lifecycle` | `FieldLifecycleRow` | `required` | `field_lifecycle_mesh` | `internal` | `unclassified` | `false` |
+| `field_lifecycle` | `FieldLifecycleRow` | `current` | `field_lifecycle_mesh` | `starter` | `unclassified` | `false` |
+| `field_lifecycle` | `FieldLifecycleRow` | `metadata` | `field_lifecycle_mesh` | `internal` | `collection_metadata` | `false` |
+| `field_lifecycle` | `FieldLifecyclePlan` | `mesh_id` | `field_lifecycle_mesh` | `starter` | `unclassified` | `false` |
+| `field_lifecycle` | `FieldLifecyclePlan` | `discovered_field_ids` | `field_lifecycle_mesh` | `internal` | `collection_metadata` | `false` |
+| `field_lifecycle` | `FieldLifecyclePlan` | `groups` | `field_lifecycle_mesh` | `internal` | `collection_metadata` | `false` |
+| `field_lifecycle` | `FieldLifecyclePlan` | `fields` | `field_lifecycle_mesh` | `internal` | `collection_metadata` | `false` |
+| `field_lifecycle` | `FieldLifecyclePlan` | `claim_scope` | `field_lifecycle_mesh` | `starter` | `unclassified` | `false` |
+| `field_lifecycle` | `FieldLifecyclePlan` | `allow_scoped_confidence` | `field_lifecycle_mesh` | `advanced` | `evidence_or_decision` | `false` |
+| `field_lifecycle` | `FieldLifecyclePlan` | `notes` | `field_lifecycle_mesh` | `internal` | `unclassified` | `false` |
+| `field_lifecycle` | `FieldLifecycleFinding` | `code` | `field_lifecycle_mesh` | `starter` | `unclassified` | `false` |
+| `field_lifecycle` | `FieldLifecycleFinding` | `message` | `field_lifecycle_mesh` | `internal` | `display_or_metadata` | `false` |
+| `field_lifecycle` | `FieldLifecycleFinding` | `severity` | `field_lifecycle_mesh` | `internal` | `unclassified` | `false` |
+| `field_lifecycle` | `FieldLifecycleFinding` | `field_id` | `field_lifecycle_mesh` | `starter` | `unclassified` | `false` |
+| `field_lifecycle` | `FieldLifecycleFinding` | `group_id` | `field_lifecycle_mesh` | `starter` | `unclassified` | `false` |
+| `field_lifecycle` | `FieldLifecycleFinding` | `owner_route` | `field_lifecycle_mesh` | `starter` | `behavior_or_contract` | `true` |
+| `field_lifecycle` | `FieldLifecycleFinding` | `action` | `field_lifecycle_mesh` | `starter` | `behavior_or_contract` | `true` |
+| `field_lifecycle` | `FieldLifecycleFinding` | `metadata` | `field_lifecycle_mesh` | `internal` | `collection_metadata` | `false` |
+| `field_lifecycle` | `FieldLifecycleReport` | `ok` | `field_lifecycle_mesh` | `starter` | `evidence_or_decision` | `false` |
+| `field_lifecycle` | `FieldLifecycleReport` | `mesh_id` | `field_lifecycle_mesh` | `starter` | `unclassified` | `false` |
+| `field_lifecycle` | `FieldLifecycleReport` | `decision` | `field_lifecycle_mesh` | `advanced` | `evidence_or_decision` | `false` |
+| `field_lifecycle` | `FieldLifecycleReport` | `confidence` | `field_lifecycle_mesh` | `advanced` | `evidence_or_decision` | `false` |
+| `field_lifecycle` | `FieldLifecycleReport` | `findings` | `field_lifecycle_mesh` | `starter` | `evidence_or_decision` | `false` |
+| `field_lifecycle` | `FieldLifecycleReport` | `projections` | `field_lifecycle_mesh` | `internal` | `collection_metadata` | `false` |
+| `field_lifecycle` | `FieldLifecycleReport` | `summary` | `field_lifecycle_mesh` | `advanced` | `evidence_or_decision` | `false` |
+| `hierarchy` | `HierarchyCoverageItem` | `item_id` | `model_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `hierarchy` | `HierarchyCoverageItem` | `item_type` | `model_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `hierarchy` | `HierarchyCoverageItem` | `owner_model_id` | `model_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `hierarchy` | `HierarchyCoverageItem` | `ownership` | `model_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `hierarchy` | `HierarchyCoverageItem` | `description` | `model_mesh_maintenance` | `internal` | `display_or_metadata` | `false` |
+| `hierarchy` | `HierarchyCoverageItem` | `allowed_shared_with` | `model_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `hierarchy` | `ChildModelEvidence` | `model_id` | `model_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `hierarchy` | `ChildModelEvidence` | `evidence_id` | `model_mesh_maintenance` | `starter` | `evidence_or_decision` | `false` |
+| `hierarchy` | `ChildModelEvidence` | `risk_boundary` | `model_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `hierarchy` | `ChildModelEvidence` | `inputs_accepted` | `model_mesh_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `hierarchy` | `ChildModelEvidence` | `outputs_emitted` | `model_mesh_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `hierarchy` | `ChildModelEvidence` | `state_owned` | `model_mesh_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `hierarchy` | `ChildModelEvidence` | `side_effects_owned` | `model_mesh_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `hierarchy` | `ChildModelEvidence` | `functional_areas` | `model_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `hierarchy` | `ChildModelEvidence` | `contracts_in` | `model_mesh_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `hierarchy` | `ChildModelEvidence` | `contracts_out` | `model_mesh_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `hierarchy` | `ChildModelEvidence` | `depends_on` | `model_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `hierarchy` | `ChildModelEvidence` | `evidence_tier` | `model_mesh_maintenance` | `starter` | `evidence_or_decision` | `false` |
+| `hierarchy` | `ChildModelEvidence` | `evidence_current` | `model_mesh_maintenance` | `starter` | `evidence_or_decision` | `false` |
+| `hierarchy` | `ChildModelEvidence` | `skipped_checks` | `model_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `hierarchy` | `ChildModelEvidence` | `not_run_checks` | `model_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `hierarchy` | `ChildModelEvidence` | `estimated_state_count` | `model_mesh_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `hierarchy` | `ChildModelEvidence` | `observed_state_count` | `model_mesh_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `hierarchy` | `ChildModelEvidence` | `budgeted_incomplete` | `model_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `hierarchy` | `ChildModelEvidence` | `unrelated_functional_areas` | `model_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `hierarchy` | `ChildModelEvidence` | `structurally_cohesive` | `model_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `hierarchy` | `ChildModelEvidence` | `is_legacy` | `model_mesh_maintenance` | `advanced` | `compatibility_or_old_path` | `true` |
+| `hierarchy` | `ChildModelEvidence` | `has_compatibility_contract` | `model_mesh_maintenance` | `advanced` | `compatibility_or_old_path` | `true` |
+| `hierarchy` | `ChildModelEvidence` | `overlaps_existing_model` | `model_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `hierarchy` | `ChildModelEvidence` | `functions_owned` | `model_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `hierarchy` | `ChildModelEvidence` | `invariants_owned` | `model_mesh_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `hierarchy` | `ChildModelEvidence` | `risk_classes` | `model_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `hierarchy` | `ChildModelEvidence` | `validation_evidence` | `model_mesh_maintenance` | `starter` | `evidence_or_decision` | `false` |
+| `hierarchy` | `ChildModelEvidence` | `runtime_path_evidence_ids` | `model_mesh_maintenance` | `starter` | `evidence_or_decision` | `false` |
+| `hierarchy` | `ChildBoundaryChangeSummary` | `child_model_id` | `model_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `hierarchy` | `ChildBoundaryChangeSummary` | `propagation` | `model_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `hierarchy` | `ChildBoundaryChangeSummary` | `previous_evidence_id` | `model_mesh_maintenance` | `starter` | `evidence_or_decision` | `false` |
+| `hierarchy` | `ChildBoundaryChangeSummary` | `current_evidence_id` | `model_mesh_maintenance` | `starter` | `evidence_or_decision` | `false` |
+| `hierarchy` | `ChildBoundaryChangeSummary` | `changed_fields` | `model_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `hierarchy` | `ChildBoundaryChangeSummary` | `added_by_field` | `model_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `hierarchy` | `ChildBoundaryChangeSummary` | `removed_by_field` | `model_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `hierarchy` | `ChildBoundaryChangeSummary` | `previous_risk_boundary` | `model_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `hierarchy` | `ChildBoundaryChangeSummary` | `current_risk_boundary` | `model_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `hierarchy` | `ChildBoundaryChangeSummary` | `current_bug_id` | `model_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `hierarchy` | `ChildBoundaryChangeSummary` | `known_bug_ids` | `model_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `hierarchy` | `ChildBoundaryChangeSummary` | `generalized_target` | `model_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `hierarchy` | `ChildBoundaryChangeSummary` | `current_bug_is_only_model_target` | `model_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `hierarchy` | `ChildBoundaryChangeSummary` | `rationale` | `model_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `hierarchy` | `ModelTargetSplitDerivation` | `source_model_id` | `model_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `hierarchy` | `ModelTargetSplitDerivation` | `target_child_model_ids` | `model_mesh_maintenance` | `starter` | `collection_metadata` | `false` |
+| `hierarchy` | `ModelTargetSplitDerivation` | `covered_partition_item_ids` | `model_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `hierarchy` | `ModelTargetSplitDerivation` | `state_owner_fields` | `model_mesh_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `hierarchy` | `ModelTargetSplitDerivation` | `side_effect_owner_fields` | `model_mesh_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `hierarchy` | `ModelTargetSplitDerivation` | `source_model_path` | `model_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `hierarchy` | `ModelTargetSplitDerivation` | `rationale` | `model_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `hierarchy` | `ModelTargetSplitDerivation` | `derived_from_flowguard_model` | `model_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `hierarchy` | `ChildReattachmentContract` | `child_model_id` | `model_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `hierarchy` | `ChildReattachmentContract` | `consumed_evidence_id` | `model_mesh_maintenance` | `starter` | `evidence_or_decision` | `false` |
+| `hierarchy` | `ChildReattachmentContract` | `consumed_runtime_path_evidence_ids` | `model_mesh_maintenance` | `starter` | `evidence_or_decision` | `false` |
+| `hierarchy` | `ChildReattachmentContract` | `expected_inputs` | `model_mesh_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `hierarchy` | `ChildReattachmentContract` | `expected_outputs` | `model_mesh_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `hierarchy` | `ChildReattachmentContract` | `expected_state_owned` | `model_mesh_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `hierarchy` | `ChildReattachmentContract` | `expected_side_effects_owned` | `model_mesh_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `hierarchy` | `ChildReattachmentContract` | `expected_contracts_out` | `model_mesh_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `hierarchy` | `ChildReattachmentContract` | `allow_extra_inputs` | `model_mesh_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `hierarchy` | `ChildReattachmentContract` | `allow_extra_outputs` | `model_mesh_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `hierarchy` | `ChildReattachmentContract` | `rationale` | `model_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `hierarchy` | `MeshClosureTransition` | `transition_id` | `model_mesh_maintenance` | `starter` | `behavior_or_contract` | `true` |
+| `hierarchy` | `MeshClosureTransition` | `consumes` | `model_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `hierarchy` | `MeshClosureTransition` | `emits` | `model_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `hierarchy` | `MeshClosureTransition` | `consumer_model_id` | `model_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `hierarchy` | `MeshClosureTransition` | `loop` | `model_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `hierarchy` | `MeshClosureTransition` | `progress_rule` | `model_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `hierarchy` | `MeshClosureTransition` | `max_iterations` | `model_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `hierarchy` | `MeshClosureTransition` | `rationale` | `model_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `hierarchy` | `MeshClosureJoin` | `join_id` | `model_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `hierarchy` | `MeshClosureJoin` | `required_inputs` | `model_mesh_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `hierarchy` | `MeshClosureJoin` | `emits` | `model_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `hierarchy` | `MeshClosureJoin` | `rationale` | `model_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `hierarchy` | `MeshClosureTerminal` | `terminal_id` | `model_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `hierarchy` | `MeshClosureTerminal` | `consumes` | `model_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `hierarchy` | `MeshClosureTerminal` | `terminal_kind` | `model_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `hierarchy` | `MeshClosureTerminal` | `rationale` | `model_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `hierarchy` | `MeshClosureModel` | `parent_model_id` | `model_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `hierarchy` | `MeshClosureModel` | `root_entries` | `model_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `hierarchy` | `MeshClosureModel` | `transitions` | `model_mesh_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `hierarchy` | `MeshClosureModel` | `joins` | `model_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `hierarchy` | `MeshClosureModel` | `terminals` | `model_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `hierarchy` | `MeshClosureModel` | `required_outputs` | `model_mesh_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `hierarchy` | `MeshClosureModel` | `require_normal_exit` | `model_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `hierarchy` | `MeshClosureModel` | `rationale` | `model_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `hierarchy` | `MeshClosureFinding` | `code` | `model_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `hierarchy` | `MeshClosureFinding` | `message` | `model_mesh_maintenance` | `internal` | `display_or_metadata` | `false` |
+| `hierarchy` | `MeshClosureFinding` | `severity` | `model_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `hierarchy` | `MeshClosureFinding` | `model_id` | `model_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `hierarchy` | `MeshClosureFinding` | `item_id` | `model_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `hierarchy` | `MeshClosureFinding` | `metadata` | `model_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `hierarchy` | `MeshClosureReport` | `ok` | `model_mesh_maintenance` | `starter` | `evidence_or_decision` | `false` |
+| `hierarchy` | `MeshClosureReport` | `parent_model_id` | `model_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `hierarchy` | `MeshClosureReport` | `decision` | `model_mesh_maintenance` | `advanced` | `evidence_or_decision` | `false` |
+| `hierarchy` | `MeshClosureReport` | `findings` | `model_mesh_maintenance` | `starter` | `evidence_or_decision` | `false` |
+| `hierarchy` | `MeshClosureReport` | `reachable_tokens` | `model_mesh_maintenance` | `advanced` | `evidence_or_decision` | `false` |
+| `hierarchy` | `MeshClosureReport` | `summary` | `model_mesh_maintenance` | `advanced` | `evidence_or_decision` | `false` |
+| `hierarchy` | `HierarchyPartitionMap` | `parent_model_id` | `model_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `hierarchy` | `HierarchyPartitionMap` | `coverage_items` | `model_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `hierarchy` | `HierarchyPartitionMap` | `child_models` | `model_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `hierarchy` | `HierarchyPartitionMap` | `target_split_derivation` | `model_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `hierarchy` | `HierarchyPartitionMap` | `reattachment_contracts` | `model_mesh_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `hierarchy` | `HierarchyPartitionMap` | `required_evidence_tier` | `model_mesh_maintenance` | `starter` | `evidence_or_decision` | `false` |
+| `hierarchy` | `HierarchyPartitionMap` | `allowed_shared_areas` | `model_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `hierarchy` | `HierarchyPartitionMap` | `boundary_changes` | `model_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `hierarchy` | `HierarchyPartitionMap` | `closure_model` | `model_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `hierarchy` | `HierarchyMeshFinding` | `code` | `model_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `hierarchy` | `HierarchyMeshFinding` | `message` | `model_mesh_maintenance` | `internal` | `display_or_metadata` | `false` |
+| `hierarchy` | `HierarchyMeshFinding` | `severity` | `model_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `hierarchy` | `HierarchyMeshFinding` | `model_id` | `model_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `hierarchy` | `HierarchyMeshFinding` | `item_id` | `model_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `hierarchy` | `HierarchyMeshFinding` | `metadata` | `model_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `hierarchy` | `HierarchyMeshReport` | `ok` | `model_mesh_maintenance` | `starter` | `evidence_or_decision` | `false` |
+| `hierarchy` | `HierarchyMeshReport` | `parent_model_id` | `model_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `hierarchy` | `HierarchyMeshReport` | `decision` | `model_mesh_maintenance` | `advanced` | `evidence_or_decision` | `false` |
+| `hierarchy` | `HierarchyMeshReport` | `activation_reasons` | `model_mesh_maintenance` | `advanced` | `evidence_or_decision` | `false` |
+| `hierarchy` | `HierarchyMeshReport` | `findings` | `model_mesh_maintenance` | `starter` | `evidence_or_decision` | `false` |
+| `hierarchy` | `HierarchyMeshReport` | `split_decisions` | `model_mesh_maintenance` | `advanced` | `evidence_or_decision` | `false` |
+| `hierarchy` | `HierarchyMeshReport` | `summary` | `model_mesh_maintenance` | `advanced` | `evidence_or_decision` | `false` |
+| `hierarchy` | `HierarchyMeshReport` | `boundary_change_decisions` | `model_mesh_maintenance` | `advanced` | `evidence_or_decision` | `false` |
+| `hierarchy` | `HierarchyMeshReport` | `closure_report` | `model_mesh_maintenance` | `advanced` | `evidence_or_decision` | `false` |
+| `hierarchy` | `LegacyModelRecord` | `model_id` | `model_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `hierarchy` | `LegacyModelRecord` | `model_file` | `model_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `hierarchy` | `LegacyModelRecord` | `has_compatibility_contract` | `model_mesh_maintenance` | `advanced` | `compatibility_or_old_path` | `true` |
+| `hierarchy` | `LegacyModelRecord` | `estimated_state_count` | `model_mesh_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `hierarchy` | `LegacyModelRecord` | `observed_state_count` | `model_mesh_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `hierarchy` | `LegacyModelRecord` | `budgeted_incomplete` | `model_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `hierarchy` | `LegacyModelRecord` | `functional_area_count` | `model_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `hierarchy` | `LegacyModelRecord` | `evidence_current` | `model_mesh_maintenance` | `starter` | `evidence_or_decision` | `false` |
+| `hierarchy` | `LegacyModelRecord` | `skipped_checks` | `model_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `hierarchy` | `LegacyModelRecord` | `not_run_checks` | `model_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `hierarchy` | `LegacyModelRecord` | `overlaps_existing_model` | `model_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `hierarchy` | `LegacyModelClassification` | `model_id` | `model_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `hierarchy` | `LegacyModelClassification` | `labels` | `model_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `hierarchy` | `LegacyModelClassification` | `requires_split_review` | `model_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `hierarchy` | `LegacyModelClassification` | `can_be_strong_evidence` | `model_mesh_maintenance` | `starter` | `evidence_or_decision` | `false` |
+| `hierarchy` | `LegacyModelClassification` | `reason` | `model_mesh_maintenance` | `starter` | `evidence_or_decision` | `false` |
+| `hierarchy` | `_ClosureState` | `available` | `model_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `hierarchy` | `_ClosureState` | `consumed` | `model_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `hierarchy` | `_ClosureState` | `completed_joins` | `model_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `hierarchy` | `_ClosureState` | `terminal_kind` | `model_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `layered_proof` | `ParentCoverageItem` | `item_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `layered_proof` | `ParentCoverageItem` | `item_type` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `layered_proof` | `ParentCoverageItem` | `owner_model_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `layered_proof` | `ParentCoverageItem` | `owner_kind` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `layered_proof` | `ParentCoverageItem` | `description` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `layered_proof` | `ParentCoverageItem` | `allowed_shared_with` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `layered_proof` | `ParentCoverageItem` | `rationale` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `layered_proof` | `ChildProofContract` | `child_model_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `layered_proof` | `ChildProofContract` | `evidence_id` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `layered_proof` | `ChildProofContract` | `evidence_status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `layered_proof` | `ChildProofContract` | `evidence_current` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `layered_proof` | `ChildProofContract` | `proof_artifact` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `layered_proof` | `ChildProofContract` | `responsibilities` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `layered_proof` | `ChildProofContract` | `functions_owned` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `layered_proof` | `ChildProofContract` | `inputs_accepted` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `layered_proof` | `ChildProofContract` | `outputs_emitted` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `layered_proof` | `ChildProofContract` | `state_owned` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `layered_proof` | `ChildProofContract` | `side_effects_owned` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `layered_proof` | `ChildProofContract` | `invariants_owned` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `layered_proof` | `ChildProofContract` | `risk_classes` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `layered_proof` | `ChildProofContract` | `contracts_out` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `layered_proof` | `ChildProofContract` | `is_leaf` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `layered_proof` | `ChildProofContract` | `leaf_matrix_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `layered_proof` | `ChildProofContract` | `split_required` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `layered_proof` | `ChildProofContract` | `rationale` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `layered_proof` | `ChildReattachmentProof` | `child_model_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `layered_proof` | `ChildReattachmentProof` | `consumed_evidence_id` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `layered_proof` | `ChildReattachmentProof` | `expected_inputs` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `layered_proof` | `ChildReattachmentProof` | `expected_outputs` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `layered_proof` | `ChildReattachmentProof` | `expected_state_owned` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `layered_proof` | `ChildReattachmentProof` | `expected_side_effects_owned` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `layered_proof` | `ChildReattachmentProof` | `expected_contracts_out` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `layered_proof` | `ChildReattachmentProof` | `allow_extra_inputs` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `layered_proof` | `ChildReattachmentProof` | `allow_extra_outputs` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `layered_proof` | `ChildReattachmentProof` | `allow_extra_state_owned` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `layered_proof` | `ChildReattachmentProof` | `allow_extra_side_effects` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `layered_proof` | `ChildReattachmentProof` | `allow_extra_contracts_out` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `layered_proof` | `ChildReattachmentProof` | `rationale` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `layered_proof` | `LeafBoundaryMatrixCell` | `cell_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `layered_proof` | `LeafBoundaryMatrixCell` | `input_case` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `layered_proof` | `LeafBoundaryMatrixCell` | `state_case` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `layered_proof` | `LeafBoundaryMatrixCell` | `expected_outputs` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `layered_proof` | `LeafBoundaryMatrixCell` | `observed_outputs` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `layered_proof` | `LeafBoundaryMatrixCell` | `expected_next_states` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `layered_proof` | `LeafBoundaryMatrixCell` | `observed_next_states` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `layered_proof` | `LeafBoundaryMatrixCell` | `expected_state_writes` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `layered_proof` | `LeafBoundaryMatrixCell` | `observed_state_writes` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `layered_proof` | `LeafBoundaryMatrixCell` | `expected_side_effects` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `layered_proof` | `LeafBoundaryMatrixCell` | `observed_side_effects` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `layered_proof` | `LeafBoundaryMatrixCell` | `expected_error_paths` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `layered_proof` | `LeafBoundaryMatrixCell` | `observed_error_paths` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `layered_proof` | `LeafBoundaryMatrixCell` | `evidence_ids` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `layered_proof` | `LeafBoundaryMatrixCell` | `runtime_node_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `layered_proof` | `LeafBoundaryMatrixCell` | `runtime_path_evidence_ids` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `layered_proof` | `LeafBoundaryMatrixCell` | `evidence_status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `layered_proof` | `LeafBoundaryMatrixCell` | `evidence_current` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `layered_proof` | `LeafBoundaryMatrixCell` | `proof_artifact` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `layered_proof` | `LeafBoundaryMatrixCell` | `assertion_scope` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `layered_proof` | `LeafBoundaryMatrixCell` | `metadata` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `layered_proof` | `LeafBoundaryMatrix` | `leaf_model_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `layered_proof` | `LeafBoundaryMatrix` | `matrix_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `layered_proof` | `LeafBoundaryMatrix` | `input_cases` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `layered_proof` | `LeafBoundaryMatrix` | `state_cases` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `layered_proof` | `LeafBoundaryMatrix` | `expected_cell_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `layered_proof` | `LeafBoundaryMatrix` | `cells` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `layered_proof` | `LeafBoundaryMatrix` | `finite` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `layered_proof` | `LeafBoundaryMatrix` | `complete` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `layered_proof` | `LeafBoundaryMatrix` | `too_large_for_leaf` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `layered_proof` | `LeafBoundaryMatrix` | `split_required` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `layered_proof` | `LeafBoundaryMatrix` | `scoped_exemption` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `layered_proof` | `LeafBoundaryMatrix` | `evidence_current` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `layered_proof` | `LeafBoundaryMatrix` | `rationale` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `layered_proof` | `LayeredBoundaryProofPlan` | `proof_id` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `layered_proof` | `LayeredBoundaryProofPlan` | `parent_model_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `layered_proof` | `LayeredBoundaryProofPlan` | `parent_items` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `layered_proof` | `LayeredBoundaryProofPlan` | `child_contracts` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `layered_proof` | `LayeredBoundaryProofPlan` | `reattachment_proofs` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `layered_proof` | `LayeredBoundaryProofPlan` | `leaf_matrices` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `layered_proof` | `LayeredBoundaryProofPlan` | `allowed_shared_responsibilities` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `layered_proof` | `LayeredBoundaryProofPlan` | `allowed_shared_functions` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `layered_proof` | `LayeredBoundaryProofPlan` | `allowed_shared_state` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `layered_proof` | `LayeredBoundaryProofPlan` | `allowed_shared_side_effects` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `layered_proof` | `LayeredBoundaryProofPlan` | `allowed_shared_invariants` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `layered_proof` | `LayeredBoundaryProofPlan` | `allowed_shared_risk_classes` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `layered_proof` | `LayeredBoundaryProofPlan` | `require_leaf_matrix_for_leaf_children` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `layered_proof` | `LayeredBoundaryProofPlan` | `require_proof_artifacts` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `layered_proof` | `LayeredBoundaryProofPlan` | `allow_scoped_leaf_exemptions` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `layered_proof` | `LayeredBoundaryProofPlan` | `claim_scope` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `layered_proof` | `LayeredBoundaryProofPlan` | `rationale` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `layered_proof` | `LayeredBoundaryFinding` | `code` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `layered_proof` | `LayeredBoundaryFinding` | `message` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `layered_proof` | `LayeredBoundaryFinding` | `severity` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `layered_proof` | `LayeredBoundaryFinding` | `parent_model_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `layered_proof` | `LayeredBoundaryFinding` | `child_model_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `layered_proof` | `LayeredBoundaryFinding` | `item_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `layered_proof` | `LayeredBoundaryFinding` | `cell_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `layered_proof` | `LayeredBoundaryFinding` | `metadata` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `layered_proof` | `LayeredBoundaryProofReport` | `ok` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `layered_proof` | `LayeredBoundaryProofReport` | `proof_id` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `layered_proof` | `LayeredBoundaryProofReport` | `parent_model_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `layered_proof` | `LayeredBoundaryProofReport` | `decision` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `layered_proof` | `LayeredBoundaryProofReport` | `findings` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `layered_proof` | `LayeredBoundaryProofReport` | `summary` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `legacy_path_disposition` | `LegacyPathDisposition` | `path_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `legacy_path_disposition` | `LegacyPathDisposition` | `disposition` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `legacy_path_disposition` | `LegacyPathDisposition` | `path_kind` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `legacy_path_disposition` | `LegacyPathDisposition` | `parent_entry_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `legacy_path_disposition` | `LegacyPathDisposition` | `repaired_contract_id` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `legacy_path_disposition` | `LegacyPathDisposition` | `field_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `legacy_path_disposition` | `LegacyPathDisposition` | `replacement_field_id` | `core_or_internal` | `advanced` | `compatibility_or_old_path` | `true` |
+| `legacy_path_disposition` | `LegacyPathDisposition` | `compatibility_intent` | `core_or_internal` | `advanced` | `compatibility_or_old_path` | `true` |
+| `legacy_path_disposition` | `LegacyPathDisposition` | `proof_artifact` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `legacy_path_disposition` | `LegacyPathDisposition` | `in_scope` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `legacy_path_disposition` | `LegacyPathDisposition` | `out_of_scope_reason` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `legacy_path_disposition` | `LegacyPathDisposition` | `rationale` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `legacy_path_disposition` | `LegacyPathDisposition` | `metadata` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `legacy_path_disposition` | `LegacyPathDispositionFinding` | `code` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `legacy_path_disposition` | `LegacyPathDispositionFinding` | `message` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `legacy_path_disposition` | `LegacyPathDispositionFinding` | `path_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `legacy_path_disposition` | `LegacyPathDispositionFinding` | `metadata` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `legacy_path_disposition` | `LegacyPathDispositionReport` | `ok` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `legacy_path_disposition` | `LegacyPathDispositionReport` | `findings` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `loop` | `GraphEdge` | `old_state` | `core_or_internal` | `advanced` | `compatibility_or_old_path` | `true` |
+| `loop` | `GraphEdge` | `new_state` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `loop` | `GraphEdge` | `label` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `loop` | `GraphEdge` | `reason` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `loop` | `GraphEdge` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `loop` | `LoopCheckConfig` | `initial_states` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `loop` | `LoopCheckConfig` | `transition_fn` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `loop` | `LoopCheckConfig` | `is_terminal` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `loop` | `LoopCheckConfig` | `is_success` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `loop` | `LoopCheckConfig` | `max_states` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `loop` | `LoopCheckConfig` | `max_depth` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `loop` | `LoopCheckConfig` | `required_success` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `loop` | `LoopCheckConfig` | `report_terminal_outgoing` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `loop` | `NonTerminatingComponent` | `states` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `loop` | `NonTerminatingComponent` | `reason` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `loop` | `NonTerminatingComponent` | `outgoing_edges` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `loop` | `TerminalOutgoing` | `state` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `loop` | `TerminalOutgoing` | `outgoing_edges` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `loop` | `LoopCheckReport` | `ok` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `loop` | `LoopCheckReport` | `stuck_states` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `loop` | `LoopCheckReport` | `non_terminating_components` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `loop` | `LoopCheckReport` | `unreachable_success` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `loop` | `LoopCheckReport` | `terminal_with_outgoing_edges` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `loop` | `LoopCheckReport` | `graph_summary` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `loop` | `LoopCheckReport` | `reachable_states` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `loop` | `LoopCheckReport` | `edges` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `loop` | `LoopCheckReport` | `sccs` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `loop` | `LoopCheckReport` | `bottom_sccs` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `maintenance_obligation` | `MaintenanceObligation` | `obligation_id` | `maintenance_obligation_memory` | `starter` | `behavior_or_contract` | `true` |
+| `maintenance_obligation` | `MaintenanceObligation` | `owner_route` | `maintenance_obligation_memory` | `starter` | `behavior_or_contract` | `true` |
+| `maintenance_obligation` | `MaintenanceObligation` | `reason_code` | `maintenance_obligation_memory` | `starter` | `evidence_or_decision` | `false` |
+| `maintenance_obligation` | `MaintenanceObligation` | `source_route` | `maintenance_obligation_memory` | `starter` | `behavior_or_contract` | `true` |
+| `maintenance_obligation` | `MaintenanceObligation` | `status` | `maintenance_obligation_memory` | `starter` | `evidence_or_decision` | `false` |
+| `maintenance_obligation` | `MaintenanceObligation` | `strength` | `maintenance_obligation_memory` | `internal` | `unclassified` | `false` |
+| `maintenance_obligation` | `MaintenanceObligation` | `artifact_ids` | `maintenance_obligation_memory` | `internal` | `collection_metadata` | `false` |
+| `maintenance_obligation` | `MaintenanceObligation` | `anchor_paths` | `maintenance_obligation_memory` | `internal` | `collection_metadata` | `false` |
+| `maintenance_obligation` | `MaintenanceObligation` | `anchor_symbols` | `maintenance_obligation_memory` | `internal` | `collection_metadata` | `false` |
+| `maintenance_obligation` | `MaintenanceObligation` | `model_ids` | `maintenance_obligation_memory` | `starter` | `collection_metadata` | `false` |
+| `maintenance_obligation` | `MaintenanceObligation` | `risk_ids` | `maintenance_obligation_memory` | `internal` | `collection_metadata` | `false` |
+| `maintenance_obligation` | `MaintenanceObligation` | `code_contract_ids` | `maintenance_obligation_memory` | `starter` | `behavior_or_contract` | `true` |
+| `maintenance_obligation` | `MaintenanceObligation` | `public_entrypoint_ids` | `maintenance_obligation_memory` | `internal` | `collection_metadata` | `false` |
+| `maintenance_obligation` | `MaintenanceObligation` | `evidence_ids` | `maintenance_obligation_memory` | `starter` | `evidence_or_decision` | `false` |
+| `maintenance_obligation` | `MaintenanceObligation` | `required_input_kinds` | `maintenance_obligation_memory` | `advanced` | `behavior_or_contract` | `true` |
+| `maintenance_obligation` | `MaintenanceObligation` | `proof_gap_codes` | `maintenance_obligation_memory` | `advanced` | `evidence_or_decision` | `false` |
+| `maintenance_obligation` | `MaintenanceObligation` | `claim_effect` | `maintenance_obligation_memory` | `starter` | `behavior_or_contract` | `true` |
+| `maintenance_obligation` | `MaintenanceObligation` | `suggested_commands` | `maintenance_obligation_memory` | `internal` | `collection_metadata` | `false` |
+| `maintenance_obligation` | `MaintenanceObligation` | `message` | `maintenance_obligation_memory` | `internal` | `display_or_metadata` | `false` |
+| `maintenance_obligation` | `MaintenanceObligation` | `scope_reason` | `maintenance_obligation_memory` | `starter` | `evidence_or_decision` | `false` |
+| `maintenance_obligation` | `MaintenanceObligation` | `current` | `maintenance_obligation_memory` | `starter` | `unclassified` | `false` |
+| `maintenance_obligation` | `MaintenanceObligation` | `metadata` | `maintenance_obligation_memory` | `internal` | `collection_metadata` | `false` |
+| `maintenance_obligation` | `MaintenanceObligationReport` | `report_id` | `maintenance_obligation_memory` | `starter` | `evidence_or_decision` | `false` |
+| `maintenance_obligation` | `MaintenanceObligationReport` | `obligations` | `maintenance_obligation_memory` | `advanced` | `behavior_or_contract` | `true` |
+| `maintenance_obligation` | `MaintenanceObligationReport` | `summary` | `maintenance_obligation_memory` | `advanced` | `evidence_or_decision` | `false` |
+| `maintenance_scan` | `MaintenanceChangedArtifact` | `artifact_id` | `maintenance_scan_router` | `starter` | `unclassified` | `false` |
+| `maintenance_scan` | `MaintenanceChangedArtifact` | `artifact_kind` | `maintenance_scan_router` | `internal` | `unclassified` | `false` |
+| `maintenance_scan` | `MaintenanceChangedArtifact` | `path` | `maintenance_scan_router` | `starter` | `unclassified` | `false` |
+| `maintenance_scan` | `MaintenanceChangedArtifact` | `changed` | `maintenance_scan_router` | `internal` | `unclassified` | `false` |
+| `maintenance_scan` | `MaintenanceChangedArtifact` | `current` | `maintenance_scan_router` | `starter` | `unclassified` | `false` |
+| `maintenance_scan` | `MaintenanceChangedArtifact` | `description` | `maintenance_scan_router` | `internal` | `display_or_metadata` | `false` |
+| `maintenance_scan` | `MaintenanceChangedArtifact` | `metadata` | `maintenance_scan_router` | `internal` | `collection_metadata` | `false` |
+| `maintenance_scan` | `MaintenanceEvidence` | `evidence_id` | `maintenance_scan_router` | `starter` | `evidence_or_decision` | `false` |
+| `maintenance_scan` | `MaintenanceEvidence` | `route_id` | `maintenance_scan_router` | `starter` | `behavior_or_contract` | `true` |
+| `maintenance_scan` | `MaintenanceEvidence` | `status` | `maintenance_scan_router` | `starter` | `evidence_or_decision` | `false` |
+| `maintenance_scan` | `MaintenanceEvidence` | `current` | `maintenance_scan_router` | `starter` | `unclassified` | `false` |
+| `maintenance_scan` | `MaintenanceEvidence` | `covers_artifact_ids` | `maintenance_scan_router` | `internal` | `collection_metadata` | `false` |
+| `maintenance_scan` | `MaintenanceEvidence` | `covers_signal_ids` | `maintenance_scan_router` | `internal` | `collection_metadata` | `false` |
+| `maintenance_scan` | `MaintenanceEvidence` | `result_path` | `maintenance_scan_router` | `starter` | `evidence_or_decision` | `false` |
+| `maintenance_scan` | `MaintenanceEvidence` | `description` | `maintenance_scan_router` | `internal` | `display_or_metadata` | `false` |
+| `maintenance_scan` | `MaintenanceEvidence` | `metadata` | `maintenance_scan_router` | `internal` | `collection_metadata` | `false` |
+| `maintenance_scan` | `MaintenanceSignal` | `signal_id` | `maintenance_scan_router` | `starter` | `unclassified` | `false` |
+| `maintenance_scan` | `MaintenanceSignal` | `signal_type` | `maintenance_scan_router` | `internal` | `unclassified` | `false` |
+| `maintenance_scan` | `MaintenanceSignal` | `route_id` | `maintenance_scan_router` | `starter` | `behavior_or_contract` | `true` |
+| `maintenance_scan` | `MaintenanceSignal` | `strength` | `maintenance_scan_router` | `internal` | `unclassified` | `false` |
+| `maintenance_scan` | `MaintenanceSignal` | `artifact_ids` | `maintenance_scan_router` | `internal` | `collection_metadata` | `false` |
+| `maintenance_scan` | `MaintenanceSignal` | `required_input_kinds` | `maintenance_scan_router` | `advanced` | `behavior_or_contract` | `true` |
+| `maintenance_scan` | `MaintenanceSignal` | `proof_gap_codes` | `maintenance_scan_router` | `advanced` | `evidence_or_decision` | `false` |
+| `maintenance_scan` | `MaintenanceSignal` | `claim_effect` | `maintenance_scan_router` | `starter` | `behavior_or_contract` | `true` |
+| `maintenance_scan` | `MaintenanceSignal` | `suggested_commands` | `maintenance_scan_router` | `internal` | `collection_metadata` | `false` |
+| `maintenance_scan` | `MaintenanceSignal` | `source_obligation_ids` | `maintenance_scan_router` | `starter` | `behavior_or_contract` | `true` |
+| `maintenance_scan` | `MaintenanceSignal` | `description` | `maintenance_scan_router` | `internal` | `display_or_metadata` | `false` |
+| `maintenance_scan` | `MaintenanceSignal` | `metadata` | `maintenance_scan_router` | `internal` | `collection_metadata` | `false` |
+| `maintenance_scan` | `MaintenanceSkippedRoute` | `route_id` | `maintenance_scan_router` | `starter` | `behavior_or_contract` | `true` |
+| `maintenance_scan` | `MaintenanceSkippedRoute` | `reason` | `maintenance_scan_router` | `starter` | `evidence_or_decision` | `false` |
+| `maintenance_scan` | `MaintenanceSkippedRoute` | `accepted_scope` | `maintenance_scan_router` | `internal` | `unclassified` | `false` |
+| `maintenance_scan` | `MaintenanceSkippedRoute` | `consequence` | `maintenance_scan_router` | `internal` | `unclassified` | `false` |
+| `maintenance_scan` | `MaintenanceSkippedRoute` | `metadata` | `maintenance_scan_router` | `internal` | `collection_metadata` | `false` |
+| `maintenance_scan` | `MaintenanceAction` | `action_id` | `maintenance_scan_router` | `starter` | `behavior_or_contract` | `true` |
+| `maintenance_scan` | `MaintenanceAction` | `route_id` | `maintenance_scan_router` | `starter` | `behavior_or_contract` | `true` |
+| `maintenance_scan` | `MaintenanceAction` | `strength` | `maintenance_scan_router` | `internal` | `unclassified` | `false` |
+| `maintenance_scan` | `MaintenanceAction` | `reason_code` | `maintenance_scan_router` | `starter` | `evidence_or_decision` | `false` |
+| `maintenance_scan` | `MaintenanceAction` | `message` | `maintenance_scan_router` | `internal` | `display_or_metadata` | `false` |
+| `maintenance_scan` | `MaintenanceAction` | `artifact_ids` | `maintenance_scan_router` | `internal` | `collection_metadata` | `false` |
+| `maintenance_scan` | `MaintenanceAction` | `signal_ids` | `maintenance_scan_router` | `internal` | `collection_metadata` | `false` |
+| `maintenance_scan` | `MaintenanceAction` | `owner_evidence_ids` | `maintenance_scan_router` | `starter` | `evidence_or_decision` | `false` |
+| `maintenance_scan` | `MaintenanceAction` | `required_input_kinds` | `maintenance_scan_router` | `advanced` | `behavior_or_contract` | `true` |
+| `maintenance_scan` | `MaintenanceAction` | `proof_gap_codes` | `maintenance_scan_router` | `advanced` | `evidence_or_decision` | `false` |
+| `maintenance_scan` | `MaintenanceAction` | `claim_effect` | `maintenance_scan_router` | `starter` | `behavior_or_contract` | `true` |
+| `maintenance_scan` | `MaintenanceAction` | `suggested_commands` | `maintenance_scan_router` | `internal` | `collection_metadata` | `false` |
+| `maintenance_scan` | `MaintenanceAction` | `source_obligation_ids` | `maintenance_scan_router` | `starter` | `behavior_or_contract` | `true` |
+| `maintenance_scan` | `MaintenanceAction` | `resolved` | `maintenance_scan_router` | `internal` | `unclassified` | `false` |
+| `maintenance_scan` | `MaintenanceAction` | `metadata` | `maintenance_scan_router` | `internal` | `collection_metadata` | `false` |
+| `maintenance_scan` | `MaintenanceScanPlan` | `plan_id` | `maintenance_scan_router` | `starter` | `unclassified` | `false` |
+| `maintenance_scan` | `MaintenanceScanPlan` | `changed_artifacts` | `maintenance_scan_router` | `internal` | `collection_metadata` | `false` |
+| `maintenance_scan` | `MaintenanceScanPlan` | `evidence` | `maintenance_scan_router` | `starter` | `evidence_or_decision` | `false` |
+| `maintenance_scan` | `MaintenanceScanPlan` | `signals` | `maintenance_scan_router` | `internal` | `collection_metadata` | `false` |
+| `maintenance_scan` | `MaintenanceScanPlan` | `skipped_routes` | `maintenance_scan_router` | `advanced` | `behavior_or_contract` | `true` |
+| `maintenance_scan` | `MaintenanceScanPlan` | `prior_obligations` | `maintenance_scan_router` | `advanced` | `behavior_or_contract` | `true` |
+| `maintenance_scan` | `MaintenanceScanPlan` | `claim_scope` | `maintenance_scan_router` | `starter` | `unclassified` | `false` |
+| `maintenance_scan` | `MaintenanceScanPlan` | `allow_scoped_confidence` | `maintenance_scan_router` | `advanced` | `evidence_or_decision` | `false` |
+| `maintenance_scan` | `MaintenanceScanReport` | `ok` | `maintenance_scan_router` | `starter` | `evidence_or_decision` | `false` |
+| `maintenance_scan` | `MaintenanceScanReport` | `plan_id` | `maintenance_scan_router` | `starter` | `unclassified` | `false` |
+| `maintenance_scan` | `MaintenanceScanReport` | `decision` | `maintenance_scan_router` | `advanced` | `evidence_or_decision` | `false` |
+| `maintenance_scan` | `MaintenanceScanReport` | `confidence` | `maintenance_scan_router` | `advanced` | `evidence_or_decision` | `false` |
+| `maintenance_scan` | `MaintenanceScanReport` | `actions` | `maintenance_scan_router` | `advanced` | `behavior_or_contract` | `true` |
+| `maintenance_scan` | `MaintenanceScanReport` | `unresolved_required_action_ids` | `maintenance_scan_router` | `starter` | `behavior_or_contract` | `true` |
+| `maintenance_scan` | `MaintenanceScanReport` | `reopened_obligation_ids` | `maintenance_scan_router` | `starter` | `behavior_or_contract` | `true` |
+| `maintenance_scan` | `MaintenanceScanReport` | `visible_obligation_ids` | `maintenance_scan_router` | `starter` | `behavior_or_contract` | `true` |
+| `maintenance_scan` | `MaintenanceScanReport` | `obligations` | `maintenance_scan_router` | `advanced` | `behavior_or_contract` | `true` |
+| `maintenance_scan` | `MaintenanceScanReport` | `summary` | `maintenance_scan_router` | `advanced` | `evidence_or_decision` | `false` |
+| `minimize` | `ReductionStep` | `pass_index` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `minimize` | `ReductionStep` | `removed_start` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `minimize` | `ReductionStep` | `removed_length` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `minimize` | `ReductionStep` | `candidate_length` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `minimize` | `ReductionStep` | `sequence` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `minimize` | `MinimizedCounterexample` | `original_sequence` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `minimize` | `MinimizedCounterexample` | `minimized_sequence` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `minimize` | `MinimizedCounterexample` | `status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `minimize` | `MinimizedCounterexample` | `reason` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `minimize` | `MinimizedCounterexample` | `attempts` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `minimize` | `MinimizedCounterexample` | `passes` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `minimize` | `MinimizedCounterexample` | `reduction_steps` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `minimize` | `MinimizedCounterexample` | `violation_name` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `minimize` | `MinimizedCounterexample` | `original_result` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `minimize` | `MinimizedCounterexample` | `minimized_result` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `model_angle_deliberation` | `ModelAngleDeliberation` | `angle_id` | `model_angle_deliberation` | `starter` | `unclassified` | `false` |
+| `model_angle_deliberation` | `ModelAngleDeliberation` | `angle_name` | `model_angle_deliberation` | `internal` | `display_or_metadata` | `false` |
+| `model_angle_deliberation` | `ModelAngleDeliberation` | `trigger_observation` | `model_angle_deliberation` | `internal` | `unclassified` | `false` |
+| `model_angle_deliberation` | `ModelAngleDeliberation` | `current_model_sees` | `model_angle_deliberation` | `starter` | `unclassified` | `false` |
+| `model_angle_deliberation` | `ModelAngleDeliberation` | `current_model_misses` | `model_angle_deliberation` | `starter` | `unclassified` | `false` |
+| `model_angle_deliberation` | `ModelAngleDeliberation` | `failure_if_ignored` | `model_angle_deliberation` | `internal` | `unclassified` | `false` |
+| `model_angle_deliberation` | `ModelAngleDeliberation` | `candidate_action` | `model_angle_deliberation` | `starter` | `behavior_or_contract` | `true` |
+| `model_angle_deliberation` | `ModelAngleDeliberation` | `existing_model_ids` | `model_angle_deliberation` | `starter` | `collection_metadata` | `false` |
+| `model_angle_deliberation` | `ModelAngleDeliberation` | `proposed_model_boundary` | `model_angle_deliberation` | `starter` | `unclassified` | `false` |
+| `model_angle_deliberation` | `ModelAngleDeliberation` | `owner_route_hint` | `model_angle_deliberation` | `starter` | `behavior_or_contract` | `true` |
+| `model_angle_deliberation` | `ModelAngleDeliberation` | `required_before_broad_claim` | `model_angle_deliberation` | `starter` | `unclassified` | `false` |
+| `model_angle_deliberation` | `ModelAngleDeliberation` | `scoped_out_reason` | `model_angle_deliberation` | `starter` | `evidence_or_decision` | `false` |
+| `model_angle_deliberation` | `ModelAngleDeliberation` | `evidence_needed` | `model_angle_deliberation` | `starter` | `evidence_or_decision` | `false` |
+| `model_angle_deliberation` | `ModelAngleDeliberation` | `open_questions` | `model_angle_deliberation` | `internal` | `collection_metadata` | `false` |
+| `model_angle_deliberation` | `ModelAngleDeliberation` | `resolved` | `model_angle_deliberation` | `internal` | `unclassified` | `false` |
+| `model_angle_deliberation` | `ModelAngleDeliberation` | `current` | `model_angle_deliberation` | `starter` | `unclassified` | `false` |
+| `model_angle_deliberation` | `ModelAngleDeliberation` | `metadata` | `model_angle_deliberation` | `internal` | `collection_metadata` | `false` |
+| `model_angle_deliberation` | `ModelAngleFinding` | `code` | `model_angle_deliberation` | `starter` | `unclassified` | `false` |
+| `model_angle_deliberation` | `ModelAngleFinding` | `message` | `model_angle_deliberation` | `internal` | `display_or_metadata` | `false` |
+| `model_angle_deliberation` | `ModelAngleFinding` | `severity` | `model_angle_deliberation` | `internal` | `unclassified` | `false` |
+| `model_angle_deliberation` | `ModelAngleFinding` | `angle_id` | `model_angle_deliberation` | `starter` | `unclassified` | `false` |
+| `model_angle_deliberation` | `ModelAngleFinding` | `owner_route` | `model_angle_deliberation` | `starter` | `behavior_or_contract` | `true` |
+| `model_angle_deliberation` | `ModelAngleFinding` | `candidate_action` | `model_angle_deliberation` | `starter` | `behavior_or_contract` | `true` |
+| `model_angle_deliberation` | `ModelAngleFinding` | `metadata` | `model_angle_deliberation` | `internal` | `collection_metadata` | `false` |
+| `model_angle_deliberation` | `ModelAngleReviewReport` | `ok` | `model_angle_deliberation` | `starter` | `evidence_or_decision` | `false` |
+| `model_angle_deliberation` | `ModelAngleReviewReport` | `review_id` | `model_angle_deliberation` | `starter` | `unclassified` | `false` |
+| `model_angle_deliberation` | `ModelAngleReviewReport` | `decision` | `model_angle_deliberation` | `advanced` | `evidence_or_decision` | `false` |
+| `model_angle_deliberation` | `ModelAngleReviewReport` | `confidence` | `model_angle_deliberation` | `advanced` | `evidence_or_decision` | `false` |
+| `model_angle_deliberation` | `ModelAngleReviewReport` | `deliberations` | `model_angle_deliberation` | `internal` | `collection_metadata` | `false` |
+| `model_angle_deliberation` | `ModelAngleReviewReport` | `findings` | `model_angle_deliberation` | `starter` | `evidence_or_decision` | `false` |
+| `model_angle_deliberation` | `ModelAngleReviewReport` | `unresolved_angle_ids` | `model_angle_deliberation` | `internal` | `collection_metadata` | `false` |
+| `model_angle_deliberation` | `ModelAngleReviewReport` | `summary` | `model_angle_deliberation` | `advanced` | `evidence_or_decision` | `false` |
+| `model_freshness` | `ModelFreshnessRecord` | `model_id` | `model_impact_freshness` | `starter` | `unclassified` | `false` |
+| `model_freshness` | `ModelFreshnessRecord` | `model_path` | `model_impact_freshness` | `starter` | `unclassified` | `false` |
+| `model_freshness` | `ModelFreshnessRecord` | `dependency_artifact_ids` | `model_impact_freshness` | `internal` | `collection_metadata` | `false` |
+| `model_freshness` | `ModelFreshnessRecord` | `flowguard_semantic_ids` | `model_impact_freshness` | `internal` | `collection_metadata` | `false` |
+| `model_freshness` | `ModelFreshnessRecord` | `previous_evidence_id` | `model_impact_freshness` | `starter` | `evidence_or_decision` | `false` |
+| `model_freshness` | `ModelFreshnessRecord` | `last_verified_fingerprint` | `model_impact_freshness` | `internal` | `unclassified` | `false` |
+| `model_freshness` | `ModelFreshnessRecord` | `replacement_model_id` | `model_impact_freshness` | `advanced` | `compatibility_or_old_path` | `true` |
+| `model_freshness` | `ModelFreshnessRecord` | `metadata` | `model_impact_freshness` | `internal` | `collection_metadata` | `false` |
+| `model_freshness` | `UpgradeImpact` | `upgrade_id` | `model_impact_freshness` | `starter` | `unclassified` | `false` |
+| `model_freshness` | `UpgradeImpact` | `changed_artifact_ids` | `model_impact_freshness` | `internal` | `collection_metadata` | `false` |
+| `model_freshness` | `UpgradeImpact` | `changed_flowguard_semantic_ids` | `model_impact_freshness` | `internal` | `collection_metadata` | `false` |
+| `model_freshness` | `UpgradeImpact` | `description` | `model_impact_freshness` | `internal` | `display_or_metadata` | `false` |
+| `model_freshness` | `UpgradeImpact` | `metadata` | `model_impact_freshness` | `internal` | `collection_metadata` | `false` |
+| `model_freshness` | `ModelImpactAssessment` | `model_id` | `model_impact_freshness` | `starter` | `unclassified` | `false` |
+| `model_freshness` | `ModelImpactAssessment` | `classification` | `model_impact_freshness` | `internal` | `unclassified` | `false` |
+| `model_freshness` | `ModelImpactAssessment` | `rationale` | `model_impact_freshness` | `internal` | `unclassified` | `false` |
+| `model_freshness` | `ModelImpactAssessment` | `impacted_artifact_ids` | `model_impact_freshness` | `internal` | `collection_metadata` | `false` |
+| `model_freshness` | `ModelImpactAssessment` | `impacted_semantic_ids` | `model_impact_freshness` | `internal` | `collection_metadata` | `false` |
+| `model_freshness` | `ModelImpactAssessment` | `replacement_model_id` | `model_impact_freshness` | `advanced` | `compatibility_or_old_path` | `true` |
+| `model_freshness` | `ModelImpactAssessment` | `blocked_reason` | `model_impact_freshness` | `starter` | `evidence_or_decision` | `false` |
+| `model_freshness` | `ModelImpactAssessment` | `reviewer` | `model_impact_freshness` | `internal` | `unclassified` | `false` |
+| `model_freshness` | `ModelImpactAssessment` | `metadata` | `model_impact_freshness` | `internal` | `collection_metadata` | `false` |
+| `model_freshness` | `ModelReuseTicket` | `model_id` | `model_impact_freshness` | `starter` | `unclassified` | `false` |
+| `model_freshness` | `ModelReuseTicket` | `reason` | `model_impact_freshness` | `starter` | `evidence_or_decision` | `false` |
+| `model_freshness` | `ModelReuseTicket` | `previous_evidence_id` | `model_impact_freshness` | `starter` | `evidence_or_decision` | `false` |
+| `model_freshness` | `ModelReuseTicket` | `same_output_proof_id` | `model_impact_freshness` | `starter` | `behavior_or_contract` | `true` |
+| `model_freshness` | `ModelReuseTicket` | `output_fingerprint` | `model_impact_freshness` | `advanced` | `behavior_or_contract` | `true` |
+| `model_freshness` | `ModelReuseTicket` | `ticket_current` | `model_impact_freshness` | `starter` | `unclassified` | `false` |
+| `model_freshness` | `ModelReuseTicket` | `model_fingerprint_current` | `model_impact_freshness` | `starter` | `unclassified` | `false` |
+| `model_freshness` | `ModelReuseTicket` | `dependency_fingerprints_current` | `model_impact_freshness` | `starter` | `unclassified` | `false` |
+| `model_freshness` | `ModelReuseTicket` | `flowguard_semantics_current` | `model_impact_freshness` | `starter` | `unclassified` | `false` |
+| `model_freshness` | `ModelReuseTicket` | `previous_evidence_current` | `model_impact_freshness` | `starter` | `evidence_or_decision` | `false` |
+| `model_freshness` | `ModelReuseTicket` | `output_fingerprint_matches` | `model_impact_freshness` | `advanced` | `behavior_or_contract` | `true` |
+| `model_freshness` | `ModelReuseTicket` | `checked_by` | `model_impact_freshness` | `internal` | `unclassified` | `false` |
+| `model_freshness` | `ModelReuseTicket` | `checked_at` | `model_impact_freshness` | `internal` | `unclassified` | `false` |
+| `model_freshness` | `ModelReuseTicket` | `metadata` | `model_impact_freshness` | `internal` | `collection_metadata` | `false` |
+| `model_freshness` | `ModelRerunEvidence` | `model_id` | `model_impact_freshness` | `starter` | `unclassified` | `false` |
+| `model_freshness` | `ModelRerunEvidence` | `status` | `model_impact_freshness` | `starter` | `evidence_or_decision` | `false` |
+| `model_freshness` | `ModelRerunEvidence` | `current` | `model_impact_freshness` | `starter` | `unclassified` | `false` |
+| `model_freshness` | `ModelRerunEvidence` | `evidence_id` | `model_impact_freshness` | `starter` | `evidence_or_decision` | `false` |
+| `model_freshness` | `ModelRerunEvidence` | `command` | `model_impact_freshness` | `starter` | `unclassified` | `false` |
+| `model_freshness` | `ModelRerunEvidence` | `model_update_reviewed` | `model_impact_freshness` | `starter` | `unclassified` | `false` |
+| `model_freshness` | `ModelRerunEvidence` | `model_updated` | `model_impact_freshness` | `starter` | `unclassified` | `false` |
+| `model_freshness` | `ModelRerunEvidence` | `model_update_not_required_reason` | `model_impact_freshness` | `starter` | `evidence_or_decision` | `false` |
+| `model_freshness` | `ModelRerunEvidence` | `test_update_reviewed` | `model_impact_freshness` | `starter` | `unclassified` | `false` |
+| `model_freshness` | `ModelRerunEvidence` | `tests_updated` | `model_impact_freshness` | `internal` | `unclassified` | `false` |
+| `model_freshness` | `ModelRerunEvidence` | `test_update_not_required_reason` | `model_impact_freshness` | `starter` | `evidence_or_decision` | `false` |
+| `model_freshness` | `ModelRerunEvidence` | `output_changed` | `model_impact_freshness` | `advanced` | `behavior_or_contract` | `true` |
+| `model_freshness` | `ModelRerunEvidence` | `output_change_explanation` | `model_impact_freshness` | `advanced` | `behavior_or_contract` | `true` |
+| `model_freshness` | `ModelRerunEvidence` | `checked_at` | `model_impact_freshness` | `internal` | `unclassified` | `false` |
+| `model_freshness` | `ModelRerunEvidence` | `metadata` | `model_impact_freshness` | `internal` | `collection_metadata` | `false` |
+| `model_freshness` | `ModelImpactFreshnessPlan` | `plan_id` | `model_impact_freshness` | `starter` | `unclassified` | `false` |
+| `model_freshness` | `ModelImpactFreshnessPlan` | `records` | `model_impact_freshness` | `internal` | `collection_metadata` | `false` |
+| `model_freshness` | `ModelImpactFreshnessPlan` | `impact` | `model_impact_freshness` | `internal` | `unclassified` | `false` |
+| `model_freshness` | `ModelImpactFreshnessPlan` | `assessments` | `model_impact_freshness` | `internal` | `collection_metadata` | `false` |
+| `model_freshness` | `ModelImpactFreshnessPlan` | `reuse_tickets` | `model_impact_freshness` | `internal` | `collection_metadata` | `false` |
+| `model_freshness` | `ModelImpactFreshnessPlan` | `rerun_evidence` | `model_impact_freshness` | `starter` | `evidence_or_decision` | `false` |
+| `model_freshness` | `ModelImpactFreshnessPlan` | `require_explicit_classification` | `model_impact_freshness` | `internal` | `unclassified` | `false` |
+| `model_freshness` | `ModelImpactFreshnessPlan` | `metadata` | `model_impact_freshness` | `internal` | `collection_metadata` | `false` |
+| `model_freshness` | `ModelFreshnessFinding` | `code` | `model_impact_freshness` | `starter` | `unclassified` | `false` |
+| `model_freshness` | `ModelFreshnessFinding` | `message` | `model_impact_freshness` | `internal` | `display_or_metadata` | `false` |
+| `model_freshness` | `ModelFreshnessFinding` | `severity` | `model_impact_freshness` | `internal` | `unclassified` | `false` |
+| `model_freshness` | `ModelFreshnessFinding` | `model_id` | `model_impact_freshness` | `starter` | `unclassified` | `false` |
+| `model_freshness` | `ModelFreshnessFinding` | `metadata` | `model_impact_freshness` | `internal` | `collection_metadata` | `false` |
+| `model_freshness` | `ModelImpactFreshnessReport` | `ok` | `model_impact_freshness` | `starter` | `evidence_or_decision` | `false` |
+| `model_freshness` | `ModelImpactFreshnessReport` | `plan_id` | `model_impact_freshness` | `starter` | `unclassified` | `false` |
+| `model_freshness` | `ModelImpactFreshnessReport` | `decision` | `model_impact_freshness` | `advanced` | `evidence_or_decision` | `false` |
+| `model_freshness` | `ModelImpactFreshnessReport` | `findings` | `model_impact_freshness` | `starter` | `evidence_or_decision` | `false` |
+| `model_freshness` | `ModelImpactFreshnessReport` | `affected_model_ids` | `model_impact_freshness` | `starter` | `collection_metadata` | `false` |
+| `model_freshness` | `ModelImpactFreshnessReport` | `reused_model_ids` | `model_impact_freshness` | `starter` | `collection_metadata` | `false` |
+| `model_freshness` | `ModelImpactFreshnessReport` | `rerun_model_ids` | `model_impact_freshness` | `starter` | `collection_metadata` | `false` |
+| `model_freshness` | `ModelImpactFreshnessReport` | `deprecated_model_ids` | `model_impact_freshness` | `advanced` | `compatibility_or_old_path` | `true` |
+| `model_freshness` | `ModelImpactFreshnessReport` | `blocked_model_ids` | `model_impact_freshness` | `starter` | `collection_metadata` | `false` |
+| `model_freshness` | `ModelImpactFreshnessReport` | `unknown_model_ids` | `model_impact_freshness` | `starter` | `collection_metadata` | `false` |
+| `model_freshness` | `ModelImpactFreshnessReport` | `summary` | `model_impact_freshness` | `advanced` | `evidence_or_decision` | `false` |
+| `model_maturation` | `ModelMaturationSignal` | `signal_id` | `model_maturation_loop` | `starter` | `unclassified` | `false` |
+| `model_maturation` | `ModelMaturationSignal` | `signal_type` | `model_maturation_loop` | `internal` | `unclassified` | `false` |
+| `model_maturation` | `ModelMaturationSignal` | `source_route` | `model_maturation_loop` | `starter` | `behavior_or_contract` | `true` |
+| `model_maturation` | `ModelMaturationSignal` | `model_id` | `model_maturation_loop` | `starter` | `unclassified` | `false` |
+| `model_maturation` | `ModelMaturationSignal` | `risk_id` | `model_maturation_loop` | `starter` | `unclassified` | `false` |
+| `model_maturation` | `ModelMaturationSignal` | `evidence_id` | `model_maturation_loop` | `starter` | `evidence_or_decision` | `false` |
+| `model_maturation` | `ModelMaturationSignal` | `description` | `model_maturation_loop` | `internal` | `display_or_metadata` | `false` |
+| `model_maturation` | `ModelMaturationSignal` | `in_scope` | `model_maturation_loop` | `internal` | `unclassified` | `false` |
+| `model_maturation` | `ModelMaturationSignal` | `required` | `model_maturation_loop` | `internal` | `unclassified` | `false` |
+| `model_maturation` | `ModelMaturationSignal` | `resolved` | `model_maturation_loop` | `internal` | `unclassified` | `false` |
+| `model_maturation` | `ModelMaturationSignal` | `current` | `model_maturation_loop` | `starter` | `unclassified` | `false` |
+| `model_maturation` | `ModelMaturationSignal` | `suggested_actions` | `model_maturation_loop` | `advanced` | `behavior_or_contract` | `true` |
+| `model_maturation` | `ModelMaturationSignal` | `metadata` | `model_maturation_loop` | `internal` | `collection_metadata` | `false` |
+| `model_maturation` | `ModelMaturationFinding` | `code` | `model_maturation_loop` | `starter` | `unclassified` | `false` |
+| `model_maturation` | `ModelMaturationFinding` | `message` | `model_maturation_loop` | `internal` | `display_or_metadata` | `false` |
+| `model_maturation` | `ModelMaturationFinding` | `severity` | `model_maturation_loop` | `internal` | `unclassified` | `false` |
+| `model_maturation` | `ModelMaturationFinding` | `signal_id` | `model_maturation_loop` | `starter` | `unclassified` | `false` |
+| `model_maturation` | `ModelMaturationFinding` | `model_id` | `model_maturation_loop` | `starter` | `unclassified` | `false` |
+| `model_maturation` | `ModelMaturationFinding` | `risk_id` | `model_maturation_loop` | `starter` | `unclassified` | `false` |
+| `model_maturation` | `ModelMaturationFinding` | `action` | `model_maturation_loop` | `starter` | `behavior_or_contract` | `true` |
+| `model_maturation` | `ModelMaturationFinding` | `metadata` | `model_maturation_loop` | `internal` | `collection_metadata` | `false` |
+| `model_maturation` | `ModelMaturationPlan` | `plan_id` | `model_maturation_loop` | `starter` | `unclassified` | `false` |
+| `model_maturation` | `ModelMaturationPlan` | `model_id` | `model_maturation_loop` | `starter` | `unclassified` | `false` |
+| `model_maturation` | `ModelMaturationPlan` | `risk_id` | `model_maturation_loop` | `starter` | `unclassified` | `false` |
+| `model_maturation` | `ModelMaturationPlan` | `signals` | `model_maturation_loop` | `internal` | `collection_metadata` | `false` |
+| `model_maturation` | `ModelMaturationPlan` | `claim_scope` | `model_maturation_loop` | `starter` | `unclassified` | `false` |
+| `model_maturation` | `ModelMaturationPlan` | `require_full_closure` | `model_maturation_loop` | `internal` | `unclassified` | `false` |
+| `model_maturation` | `ModelMaturationPlan` | `allow_scoped_claim` | `model_maturation_loop` | `starter` | `unclassified` | `false` |
+| `model_maturation` | `ModelMaturationReport` | `ok` | `model_maturation_loop` | `starter` | `evidence_or_decision` | `false` |
+| `model_maturation` | `ModelMaturationReport` | `plan_id` | `model_maturation_loop` | `starter` | `unclassified` | `false` |
+| `model_maturation` | `ModelMaturationReport` | `decision` | `model_maturation_loop` | `advanced` | `evidence_or_decision` | `false` |
+| `model_maturation` | `ModelMaturationReport` | `confidence` | `model_maturation_loop` | `advanced` | `evidence_or_decision` | `false` |
+| `model_maturation` | `ModelMaturationReport` | `model_id` | `model_maturation_loop` | `starter` | `unclassified` | `false` |
+| `model_maturation` | `ModelMaturationReport` | `risk_id` | `model_maturation_loop` | `starter` | `unclassified` | `false` |
+| `model_maturation` | `ModelMaturationReport` | `recommended_actions` | `model_maturation_loop` | `advanced` | `behavior_or_contract` | `true` |
+| `model_maturation` | `ModelMaturationReport` | `findings` | `model_maturation_loop` | `starter` | `evidence_or_decision` | `false` |
+| `model_maturation` | `ModelMaturationReport` | `scoped_signal_ids` | `model_maturation_loop` | `internal` | `collection_metadata` | `false` |
+| `model_maturation` | `ModelMaturationReport` | `maintenance_obligations` | `model_maturation_loop` | `advanced` | `behavior_or_contract` | `true` |
+| `model_maturation` | `ModelMaturationReport` | `summary` | `model_maturation_loop` | `advanced` | `evidence_or_decision` | `false` |
+| `model_similarity` | `ModelSignature` | `model_id` | `model_similarity_consolidation` | `starter` | `unclassified` | `false` |
+| `model_similarity` | `ModelSignature` | `model_path` | `model_similarity_consolidation` | `starter` | `unclassified` | `false` |
+| `model_similarity` | `ModelSignature` | `workflow_family` | `model_similarity_consolidation` | `internal` | `unclassified` | `false` |
+| `model_similarity` | `ModelSignature` | `variant_id` | `model_similarity_consolidation` | `starter` | `unclassified` | `false` |
+| `model_similarity` | `ModelSignature` | `function_blocks` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSignature` | `inputs` | `model_similarity_consolidation` | `advanced` | `behavior_or_contract` | `true` |
+| `model_similarity` | `ModelSignature` | `outputs` | `model_similarity_consolidation` | `advanced` | `behavior_or_contract` | `true` |
+| `model_similarity` | `ModelSignature` | `state_owned` | `model_similarity_consolidation` | `advanced` | `behavior_or_contract` | `true` |
+| `model_similarity` | `ModelSignature` | `state_read` | `model_similarity_consolidation` | `advanced` | `behavior_or_contract` | `true` |
+| `model_similarity` | `ModelSignature` | `side_effects_owned` | `model_similarity_consolidation` | `advanced` | `behavior_or_contract` | `true` |
+| `model_similarity` | `ModelSignature` | `invariants` | `model_similarity_consolidation` | `advanced` | `behavior_or_contract` | `true` |
+| `model_similarity` | `ModelSignature` | `failure_modes` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSignature` | `contracts_in` | `model_similarity_consolidation` | `advanced` | `behavior_or_contract` | `true` |
+| `model_similarity` | `ModelSignature` | `contracts_out` | `model_similarity_consolidation` | `advanced` | `behavior_or_contract` | `true` |
+| `model_similarity` | `ModelSignature` | `public_entrypoints` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSignature` | `code_paths` | `model_similarity_consolidation` | `starter` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSignature` | `test_paths` | `model_similarity_consolidation` | `starter` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSignature` | `owned_public_behaviors` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSignature` | `shared_kernel_id` | `model_similarity_consolidation` | `starter` | `unclassified` | `false` |
+| `model_similarity` | `ModelSignature` | `adapter_ids` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSignature` | `maintenance_tags` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSignature` | `changed_refs` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSignature` | `parent_model_id` | `model_similarity_consolidation` | `starter` | `unclassified` | `false` |
+| `model_similarity` | `ModelSignature` | `child_model_ids` | `model_similarity_consolidation` | `starter` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSignature` | `evidence_ids` | `model_similarity_consolidation` | `starter` | `evidence_or_decision` | `false` |
+| `model_similarity` | `ModelSignature` | `evidence_current` | `model_similarity_consolidation` | `starter` | `evidence_or_decision` | `false` |
+| `model_similarity` | `ModelSignature` | `known_blindspots` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSignature` | `false_friend_model_ids` | `model_similarity_consolidation` | `starter` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSignature` | `metadata` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSimilarityEvidence` | `evidence_id` | `model_similarity_consolidation` | `starter` | `evidence_or_decision` | `false` |
+| `model_similarity` | `ModelSimilarityEvidence` | `relation_id` | `model_similarity_consolidation` | `starter` | `unclassified` | `false` |
+| `model_similarity` | `ModelSimilarityEvidence` | `evidence_type` | `model_similarity_consolidation` | `starter` | `evidence_or_decision` | `false` |
+| `model_similarity` | `ModelSimilarityEvidence` | `result_status` | `model_similarity_consolidation` | `starter` | `evidence_or_decision` | `false` |
+| `model_similarity` | `ModelSimilarityEvidence` | `current` | `model_similarity_consolidation` | `starter` | `unclassified` | `false` |
+| `model_similarity` | `ModelSimilarityEvidence` | `summary` | `model_similarity_consolidation` | `advanced` | `evidence_or_decision` | `false` |
+| `model_similarity` | `ModelSimilarityEvidence` | `metadata` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSimilarityRelation` | `relation_id` | `model_similarity_consolidation` | `starter` | `unclassified` | `false` |
+| `model_similarity` | `ModelSimilarityRelation` | `left_model_id` | `model_similarity_consolidation` | `starter` | `unclassified` | `false` |
+| `model_similarity` | `ModelSimilarityRelation` | `right_model_id` | `model_similarity_consolidation` | `starter` | `unclassified` | `false` |
+| `model_similarity` | `ModelSimilarityRelation` | `relation_type` | `model_similarity_consolidation` | `internal` | `unclassified` | `false` |
+| `model_similarity` | `ModelSimilarityRelation` | `confidence` | `model_similarity_consolidation` | `advanced` | `evidence_or_decision` | `false` |
+| `model_similarity` | `ModelSimilarityRelation` | `matched_elements` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSimilarityRelation` | `different_elements` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSimilarityRelation` | `risk_if_merged` | `model_similarity_consolidation` | `internal` | `unclassified` | `false` |
+| `model_similarity` | `ModelSimilarityRelation` | `risk_if_kept_separate` | `model_similarity_consolidation` | `internal` | `unclassified` | `false` |
+| `model_similarity` | `ModelSimilarityRelation` | `recommendation` | `model_similarity_consolidation` | `internal` | `unclassified` | `false` |
+| `model_similarity` | `ModelSimilarityRelation` | `required_next_routes` | `model_similarity_consolidation` | `advanced` | `behavior_or_contract` | `true` |
+| `model_similarity` | `ModelSimilarityRelation` | `required_evidence` | `model_similarity_consolidation` | `starter` | `evidence_or_decision` | `false` |
+| `model_similarity` | `ModelSimilarityRelation` | `evidence_refs` | `model_similarity_consolidation` | `starter` | `evidence_or_decision` | `false` |
+| `model_similarity` | `ModelSimilarityRelation` | `rationale` | `model_similarity_consolidation` | `internal` | `unclassified` | `false` |
+| `model_similarity` | `ModelSimilarityRelation` | `manual_review_required` | `model_similarity_consolidation` | `internal` | `unclassified` | `false` |
+| `model_similarity` | `ModelSimilarityRelation` | `metadata` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSimilarityPlan` | `plan_id` | `model_similarity_consolidation` | `starter` | `unclassified` | `false` |
+| `model_similarity` | `ModelSimilarityPlan` | `signatures` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSimilarityPlan` | `comparison_pairs` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSimilarityPlan` | `evidence` | `model_similarity_consolidation` | `starter` | `evidence_or_decision` | `false` |
+| `model_similarity` | `ModelSimilarityPlan` | `required_relation_ids` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSimilarityPlan` | `changed_model_ids` | `model_similarity_consolidation` | `starter` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSimilarityPlan` | `changed_code_paths` | `model_similarity_consolidation` | `starter` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSimilarityPlan` | `require_current_evidence` | `model_similarity_consolidation` | `starter` | `evidence_or_decision` | `false` |
+| `model_similarity` | `ModelSimilarityPlan` | `require_maintenance_test_paths` | `model_similarity_consolidation` | `starter` | `unclassified` | `false` |
+| `model_similarity` | `ModelSimilarityPlan` | `rationale` | `model_similarity_consolidation` | `internal` | `unclassified` | `false` |
+| `model_similarity` | `ModelSimilarityFinding` | `code` | `model_similarity_consolidation` | `starter` | `unclassified` | `false` |
+| `model_similarity` | `ModelSimilarityFinding` | `message` | `model_similarity_consolidation` | `internal` | `display_or_metadata` | `false` |
+| `model_similarity` | `ModelSimilarityFinding` | `severity` | `model_similarity_consolidation` | `internal` | `unclassified` | `false` |
+| `model_similarity` | `ModelSimilarityFinding` | `relation_id` | `model_similarity_consolidation` | `starter` | `unclassified` | `false` |
+| `model_similarity` | `ModelSimilarityFinding` | `model_id` | `model_similarity_consolidation` | `starter` | `unclassified` | `false` |
+| `model_similarity` | `ModelSimilarityFinding` | `item_id` | `model_similarity_consolidation` | `starter` | `unclassified` | `false` |
+| `model_similarity` | `ModelSimilarityFinding` | `metadata` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSimilarityMaintenanceGroup` | `group_id` | `model_similarity_consolidation` | `starter` | `unclassified` | `false` |
+| `model_similarity` | `ModelSimilarityMaintenanceGroup` | `member_model_ids` | `model_similarity_consolidation` | `starter` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSimilarityMaintenanceGroup` | `relation_ids` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSimilarityMaintenanceGroup` | `relation_types` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSimilarityMaintenanceGroup` | `shared_elements` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSimilarityMaintenanceGroup` | `variant_elements` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSimilarityMaintenanceGroup` | `code_paths` | `model_similarity_consolidation` | `starter` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSimilarityMaintenanceGroup` | `test_paths` | `model_similarity_consolidation` | `starter` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSimilarityMaintenanceGroup` | `shared_kernel_ids` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSimilarityMaintenanceGroup` | `adapter_ids` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSimilarityMaintenanceGroup` | `maintenance_tags` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSimilarityMaintenanceGroup` | `required_next_routes` | `model_similarity_consolidation` | `advanced` | `behavior_or_contract` | `true` |
+| `model_similarity` | `ModelSimilarityMaintenanceGroup` | `rationale` | `model_similarity_consolidation` | `internal` | `unclassified` | `false` |
+| `model_similarity` | `ModelSimilarityChangeImpact` | `impact_id` | `model_similarity_consolidation` | `starter` | `unclassified` | `false` |
+| `model_similarity` | `ModelSimilarityChangeImpact` | `changed_model_id` | `model_similarity_consolidation` | `starter` | `unclassified` | `false` |
+| `model_similarity` | `ModelSimilarityChangeImpact` | `maintenance_group_id` | `model_similarity_consolidation` | `starter` | `unclassified` | `false` |
+| `model_similarity` | `ModelSimilarityChangeImpact` | `impacted_model_ids` | `model_similarity_consolidation` | `starter` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSimilarityChangeImpact` | `impacted_code_paths` | `model_similarity_consolidation` | `starter` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSimilarityChangeImpact` | `impacted_test_paths` | `model_similarity_consolidation` | `starter` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSimilarityChangeImpact` | `relation_ids` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSimilarityChangeImpact` | `shared_elements` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSimilarityChangeImpact` | `variant_elements` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSimilarityChangeImpact` | `required_next_routes` | `model_similarity_consolidation` | `advanced` | `behavior_or_contract` | `true` |
+| `model_similarity` | `ModelSimilarityChangeImpact` | `rationale` | `model_similarity_consolidation` | `internal` | `unclassified` | `false` |
+| `model_similarity` | `ModelSimilarityTestObligation` | `obligation_id` | `model_similarity_consolidation` | `starter` | `behavior_or_contract` | `true` |
+| `model_similarity` | `ModelSimilarityTestObligation` | `maintenance_group_id` | `model_similarity_consolidation` | `starter` | `unclassified` | `false` |
+| `model_similarity` | `ModelSimilarityTestObligation` | `obligation_type` | `model_similarity_consolidation` | `starter` | `behavior_or_contract` | `true` |
+| `model_similarity` | `ModelSimilarityTestObligation` | `model_ids` | `model_similarity_consolidation` | `starter` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSimilarityTestObligation` | `behaviors` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSimilarityTestObligation` | `test_paths` | `model_similarity_consolidation` | `starter` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSimilarityTestObligation` | `relation_ids` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSimilarityTestObligation` | `rationale` | `model_similarity_consolidation` | `internal` | `unclassified` | `false` |
+| `model_similarity` | `ModelSimilarityCodeObligation` | `obligation_id` | `model_similarity_consolidation` | `starter` | `behavior_or_contract` | `true` |
+| `model_similarity` | `ModelSimilarityCodeObligation` | `maintenance_group_id` | `model_similarity_consolidation` | `starter` | `unclassified` | `false` |
+| `model_similarity` | `ModelSimilarityCodeObligation` | `obligation_type` | `model_similarity_consolidation` | `starter` | `behavior_or_contract` | `true` |
+| `model_similarity` | `ModelSimilarityCodeObligation` | `model_ids` | `model_similarity_consolidation` | `starter` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSimilarityCodeObligation` | `relation_ids` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSimilarityCodeObligation` | `shared_kernel_owner` | `model_similarity_consolidation` | `internal` | `unclassified` | `false` |
+| `model_similarity` | `ModelSimilarityCodeObligation` | `adapter_owners` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSimilarityCodeObligation` | `code_paths` | `model_similarity_consolidation` | `starter` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSimilarityCodeObligation` | `required_next_routes` | `model_similarity_consolidation` | `advanced` | `behavior_or_contract` | `true` |
+| `model_similarity` | `ModelSimilarityCodeObligation` | `rationale` | `model_similarity_consolidation` | `internal` | `unclassified` | `false` |
+| `model_similarity` | `SimilarityHandoff` | `relation_ids` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
+| `model_similarity` | `SimilarityHandoff` | `maintenance_group_ids` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
+| `model_similarity` | `SimilarityHandoff` | `change_impact_ids` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
+| `model_similarity` | `SimilarityHandoff` | `impacted_model_ids` | `model_similarity_consolidation` | `starter` | `collection_metadata` | `false` |
+| `model_similarity` | `SimilarityHandoff` | `test_obligation_ids` | `model_similarity_consolidation` | `starter` | `behavior_or_contract` | `true` |
+| `model_similarity` | `SimilarityHandoff` | `code_obligation_ids` | `model_similarity_consolidation` | `starter` | `behavior_or_contract` | `true` |
+| `model_similarity` | `SimilarityHandoff` | `same_family_relation_ids` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
+| `model_similarity` | `SimilarityHandoff` | `evidence_duplicate_relation_ids` | `model_similarity_consolidation` | `starter` | `evidence_or_decision` | `false` |
+| `model_similarity` | `SimilarityHandoff` | `false_friend_rationales` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
+| `model_similarity` | `SimilarityHandoff` | `unresolved_gaps` | `model_similarity_consolidation` | `advanced` | `evidence_or_decision` | `false` |
+| `model_similarity` | `SimilarityHandoff` | `recommended_next_routes` | `model_similarity_consolidation` | `advanced` | `behavior_or_contract` | `true` |
+| `model_similarity` | `SimilarityHandoff` | `evidence_current` | `model_similarity_consolidation` | `starter` | `evidence_or_decision` | `false` |
+| `model_similarity` | `SimilarityHandoff` | `source_report_id` | `model_similarity_consolidation` | `starter` | `evidence_or_decision` | `false` |
+| `model_similarity` | `SimilarityHandoff` | `metadata` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSimilarityReport` | `ok` | `model_similarity_consolidation` | `starter` | `evidence_or_decision` | `false` |
+| `model_similarity` | `ModelSimilarityReport` | `plan_id` | `model_similarity_consolidation` | `starter` | `unclassified` | `false` |
+| `model_similarity` | `ModelSimilarityReport` | `decision` | `model_similarity_consolidation` | `advanced` | `evidence_or_decision` | `false` |
+| `model_similarity` | `ModelSimilarityReport` | `relations` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSimilarityReport` | `maintenance_groups` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSimilarityReport` | `change_impacts` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSimilarityReport` | `test_obligations` | `model_similarity_consolidation` | `starter` | `behavior_or_contract` | `true` |
+| `model_similarity` | `ModelSimilarityReport` | `code_obligations` | `model_similarity_consolidation` | `starter` | `behavior_or_contract` | `true` |
+| `model_similarity` | `ModelSimilarityReport` | `findings` | `model_similarity_consolidation` | `starter` | `evidence_or_decision` | `false` |
+| `model_similarity` | `ModelSimilarityReport` | `recommended_next_routes` | `model_similarity_consolidation` | `advanced` | `behavior_or_contract` | `true` |
+| `model_similarity` | `ModelSimilarityReport` | `summary` | `model_similarity_consolidation` | `advanced` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `ModelObligation` | `obligation_id` | `model_test_alignment` | `starter` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `ModelObligation` | `obligation_type` | `model_test_alignment` | `starter` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `ModelObligation` | `description` | `model_test_alignment` | `internal` | `display_or_metadata` | `false` |
+| `model_test_alignment` | `ModelObligation` | `required` | `model_test_alignment` | `internal` | `unclassified` | `false` |
+| `model_test_alignment` | `ModelObligation` | `required_test_kinds` | `model_test_alignment` | `starter` | `collection_metadata` | `false` |
+| `model_test_alignment` | `ModelObligation` | `risk_level` | `model_test_alignment` | `internal` | `unclassified` | `false` |
+| `model_test_alignment` | `ModelObligation` | `allow_shared_evidence` | `model_test_alignment` | `starter` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `ModelObligation` | `allow_shared_implementation` | `model_test_alignment` | `internal` | `unclassified` | `false` |
+| `model_test_alignment` | `ModelObligation` | `external_inputs` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `ModelObligation` | `external_outputs` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `ModelObligation` | `state_reads` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `ModelObligation` | `state_writes` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `ModelObligation` | `side_effects` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `ModelObligation` | `error_paths` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `ModelObligation` | `exact_external_contract` | `model_test_alignment` | `starter` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `ModelObligation` | `model_miss_origin` | `model_test_alignment` | `starter` | `unclassified` | `false` |
+| `model_test_alignment` | `ModelObligation` | `requires_same_class_test_evidence` | `model_test_alignment` | `starter` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `ModelObligation` | `required_closure_evidence_roles` | `model_test_alignment` | `starter` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `ModelObligation` | `required_runtime_node_ids` | `model_test_alignment` | `internal` | `collection_metadata` | `false` |
+| `model_test_alignment` | `CodeContract` | `code_contract_id` | `model_test_alignment` | `starter` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `CodeContract` | `path` | `model_test_alignment` | `starter` | `unclassified` | `false` |
+| `model_test_alignment` | `CodeContract` | `symbol` | `model_test_alignment` | `internal` | `unclassified` | `false` |
+| `model_test_alignment` | `CodeContract` | `surface_type` | `model_test_alignment` | `internal` | `unclassified` | `false` |
+| `model_test_alignment` | `CodeContract` | `role` | `model_test_alignment` | `internal` | `unclassified` | `false` |
+| `model_test_alignment` | `CodeContract` | `implements_obligations` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `CodeContract` | `external_inputs` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `CodeContract` | `external_outputs` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `CodeContract` | `state_reads` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `CodeContract` | `state_writes` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `CodeContract` | `side_effects` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `CodeContract` | `error_paths` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `CodeContract` | `required` | `model_test_alignment` | `internal` | `unclassified` | `false` |
+| `model_test_alignment` | `PythonCodeContractEvidence` | `code_contract_id` | `model_test_alignment` | `starter` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `PythonCodeContractEvidence` | `path` | `model_test_alignment` | `starter` | `unclassified` | `false` |
+| `model_test_alignment` | `PythonCodeContractEvidence` | `symbol` | `model_test_alignment` | `internal` | `unclassified` | `false` |
+| `model_test_alignment` | `PythonCodeContractEvidence` | `found` | `model_test_alignment` | `internal` | `unclassified` | `false` |
+| `model_test_alignment` | `PythonCodeContractEvidence` | `parameters` | `model_test_alignment` | `internal` | `collection_metadata` | `false` |
+| `model_test_alignment` | `PythonCodeContractEvidence` | `returns_value` | `model_test_alignment` | `internal` | `unclassified` | `false` |
+| `model_test_alignment` | `PythonCodeContractEvidence` | `return_values` | `model_test_alignment` | `internal` | `collection_metadata` | `false` |
+| `model_test_alignment` | `PythonCodeContractEvidence` | `raised_errors` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `PythonCodeContractEvidence` | `state_reads` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `PythonCodeContractEvidence` | `state_writes` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `PythonCodeContractEvidence` | `side_effects` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `PythonCodeContractEvidence` | `calls` | `model_test_alignment` | `internal` | `collection_metadata` | `false` |
+| `model_test_alignment` | `PythonCodeContractEvidence` | `parse_error` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `PythonTestAssertionEvidence` | `evidence_id` | `model_test_alignment` | `starter` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `PythonTestAssertionEvidence` | `path` | `model_test_alignment` | `starter` | `unclassified` | `false` |
+| `model_test_alignment` | `PythonTestAssertionEvidence` | `test_name` | `model_test_alignment` | `starter` | `display_or_metadata` | `false` |
+| `model_test_alignment` | `PythonTestAssertionEvidence` | `found` | `model_test_alignment` | `internal` | `unclassified` | `false` |
+| `model_test_alignment` | `PythonTestAssertionEvidence` | `called_code_contracts` | `model_test_alignment` | `starter` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `PythonTestAssertionEvidence` | `assert_count` | `model_test_alignment` | `internal` | `unclassified` | `false` |
+| `model_test_alignment` | `PythonTestAssertionEvidence` | `assertion_scope` | `model_test_alignment` | `internal` | `unclassified` | `false` |
+| `model_test_alignment` | `PythonTestAssertionEvidence` | `calls` | `model_test_alignment` | `internal` | `collection_metadata` | `false` |
+| `model_test_alignment` | `PythonTestAssertionEvidence` | `parse_error` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `TestEvidence` | `evidence_id` | `model_test_alignment` | `starter` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `TestEvidence` | `test_name` | `model_test_alignment` | `starter` | `display_or_metadata` | `false` |
+| `model_test_alignment` | `TestEvidence` | `path` | `model_test_alignment` | `starter` | `unclassified` | `false` |
+| `model_test_alignment` | `TestEvidence` | `command` | `model_test_alignment` | `starter` | `unclassified` | `false` |
+| `model_test_alignment` | `TestEvidence` | `result_status` | `model_test_alignment` | `starter` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `TestEvidence` | `evidence_current` | `model_test_alignment` | `starter` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `TestEvidence` | `test_kind` | `model_test_alignment` | `starter` | `unclassified` | `false` |
+| `model_test_alignment` | `TestEvidence` | `covered_obligations` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `TestEvidence` | `covered_code_contracts` | `model_test_alignment` | `starter` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `TestEvidence` | `assertion_scope` | `model_test_alignment` | `internal` | `unclassified` | `false` |
+| `model_test_alignment` | `TestEvidence` | `evidence_role` | `model_test_alignment` | `starter` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `TestEvidence` | `evidence_target_id` | `model_test_alignment` | `starter` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `TestEvidence` | `proof_artifact` | `model_test_alignment` | `advanced` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `TestEvidence` | `result_reused` | `model_test_alignment` | `advanced` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `TestEvidence` | `reuse_ticket` | `model_test_alignment` | `internal` | `collection_metadata` | `false` |
+| `model_test_alignment` | `TestEvidence` | `stale_reasons` | `model_test_alignment` | `advanced` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `TestEvidence` | `overclaims_model_confidence` | `model_test_alignment` | `starter` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `TestEvidence` | `closure_evidence_role` | `model_test_alignment` | `starter` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `CodeBoundaryContract` | `boundary_id` | `model_test_alignment` | `starter` | `unclassified` | `false` |
+| `model_test_alignment` | `CodeBoundaryContract` | `code_contract_id` | `model_test_alignment` | `starter` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `CodeBoundaryContract` | `model_obligation_id` | `model_test_alignment` | `starter` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `CodeBoundaryContract` | `allowed_inputs` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `CodeBoundaryContract` | `rejected_inputs` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `CodeBoundaryContract` | `allowed_outputs` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `CodeBoundaryContract` | `allowed_state_writes` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `CodeBoundaryContract` | `allowed_side_effects` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `CodeBoundaryContract` | `allowed_error_paths` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `CodeBoundaryContract` | `exact` | `model_test_alignment` | `internal` | `unclassified` | `false` |
+| `model_test_alignment` | `CodeBoundaryContract` | `input_gate_required` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `CodeBoundaryContract` | `required` | `model_test_alignment` | `internal` | `unclassified` | `false` |
+| `model_test_alignment` | `CodeBoundaryContract` | `required_observation_ids` | `model_test_alignment` | `internal` | `collection_metadata` | `false` |
+| `model_test_alignment` | `CodeBoundaryObservation` | `observation_id` | `model_test_alignment` | `starter` | `unclassified` | `false` |
+| `model_test_alignment` | `CodeBoundaryObservation` | `boundary_id` | `model_test_alignment` | `starter` | `unclassified` | `false` |
+| `model_test_alignment` | `CodeBoundaryObservation` | `input_case` | `model_test_alignment` | `starter` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `CodeBoundaryObservation` | `accepted` | `model_test_alignment` | `internal` | `unclassified` | `false` |
+| `model_test_alignment` | `CodeBoundaryObservation` | `observed_output` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `CodeBoundaryObservation` | `observed_state_writes` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `CodeBoundaryObservation` | `observed_side_effects` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `CodeBoundaryObservation` | `observed_error_path` | `model_test_alignment` | `starter` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `CodeBoundaryObservation` | `result_status` | `model_test_alignment` | `starter` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `CodeBoundaryObservation` | `evidence_current` | `model_test_alignment` | `starter` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `CodeBoundaryObservation` | `evidence_id` | `model_test_alignment` | `starter` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `CodeBoundaryObservation` | `assertion_scope` | `model_test_alignment` | `internal` | `unclassified` | `false` |
+| `model_test_alignment` | `CodeBoundaryObservation` | `metadata` | `model_test_alignment` | `internal` | `collection_metadata` | `false` |
+| `model_test_alignment` | `CodeBoundaryFinding` | `code` | `model_test_alignment` | `starter` | `unclassified` | `false` |
+| `model_test_alignment` | `CodeBoundaryFinding` | `message` | `model_test_alignment` | `internal` | `display_or_metadata` | `false` |
+| `model_test_alignment` | `CodeBoundaryFinding` | `severity` | `model_test_alignment` | `internal` | `unclassified` | `false` |
+| `model_test_alignment` | `CodeBoundaryFinding` | `boundary_id` | `model_test_alignment` | `starter` | `unclassified` | `false` |
+| `model_test_alignment` | `CodeBoundaryFinding` | `observation_id` | `model_test_alignment` | `starter` | `unclassified` | `false` |
+| `model_test_alignment` | `CodeBoundaryFinding` | `code_contract_id` | `model_test_alignment` | `starter` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `CodeBoundaryFinding` | `metadata` | `model_test_alignment` | `internal` | `collection_metadata` | `false` |
+| `model_test_alignment` | `CodeBoundaryConformanceReport` | `ok` | `model_test_alignment` | `starter` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `CodeBoundaryConformanceReport` | `decision` | `model_test_alignment` | `advanced` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `CodeBoundaryConformanceReport` | `findings` | `model_test_alignment` | `starter` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `CodeBoundaryConformanceReport` | `checked_boundaries` | `model_test_alignment` | `internal` | `unclassified` | `false` |
+| `model_test_alignment` | `CodeBoundaryConformanceReport` | `checked_observations` | `model_test_alignment` | `internal` | `unclassified` | `false` |
+| `model_test_alignment` | `CodeBoundaryConformanceReport` | `summary` | `model_test_alignment` | `advanced` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `ModelTestAlignmentPlan` | `model_id` | `model_test_alignment` | `starter` | `unclassified` | `false` |
+| `model_test_alignment` | `ModelTestAlignmentPlan` | `obligations` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `ModelTestAlignmentPlan` | `code_contracts` | `model_test_alignment` | `starter` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `ModelTestAlignmentPlan` | `test_evidence` | `model_test_alignment` | `starter` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `ModelTestAlignmentPlan` | `obligation_families` | `model_test_alignment` | `starter` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `ModelTestAlignmentPlan` | `family_evidence` | `model_test_alignment` | `starter` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `ModelTestAlignmentPlan` | `boundary_contracts` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `ModelTestAlignmentPlan` | `boundary_observations` | `model_test_alignment` | `internal` | `collection_metadata` | `false` |
+| `model_test_alignment` | `ModelTestAlignmentPlan` | `runtime_node_contracts` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `ModelTestAlignmentPlan` | `runtime_node_observations` | `model_test_alignment` | `internal` | `collection_metadata` | `false` |
+| `model_test_alignment` | `ModelTestAlignmentPlan` | `runtime_path_runs` | `model_test_alignment` | `starter` | `collection_metadata` | `false` |
+| `model_test_alignment` | `ModelTestAlignmentPlan` | `field_lifecycle_reports` | `model_test_alignment` | `advanced` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `ModelTestAlignmentPlan` | `field_lifecycle_projections` | `model_test_alignment` | `internal` | `collection_metadata` | `false` |
+| `model_test_alignment` | `ModelTestAlignmentPlan` | `similarity_handoff` | `model_test_alignment` | `internal` | `collection_metadata` | `false` |
+| `model_test_alignment` | `ModelTestAlignmentPlan` | `require_proof_artifacts` | `model_test_alignment` | `advanced` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `ModelTestAlignmentPlan` | `require_runtime_path_evidence` | `model_test_alignment` | `starter` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `ModelTestAlignmentPlan` | `allow_orphan_tests` | `model_test_alignment` | `internal` | `unclassified` | `false` |
+| `model_test_alignment` | `ModelTestAlignmentPlan` | `allow_orphan_code_contracts` | `model_test_alignment` | `starter` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `ModelTestAlignmentFinding` | `code` | `model_test_alignment` | `starter` | `unclassified` | `false` |
+| `model_test_alignment` | `ModelTestAlignmentFinding` | `message` | `model_test_alignment` | `internal` | `display_or_metadata` | `false` |
+| `model_test_alignment` | `ModelTestAlignmentFinding` | `severity` | `model_test_alignment` | `internal` | `unclassified` | `false` |
+| `model_test_alignment` | `ModelTestAlignmentFinding` | `obligation_id` | `model_test_alignment` | `starter` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `ModelTestAlignmentFinding` | `evidence_id` | `model_test_alignment` | `starter` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `ModelTestAlignmentFinding` | `metadata` | `model_test_alignment` | `internal` | `collection_metadata` | `false` |
+| `model_test_alignment` | `ModelTestAlignmentFinding` | `code_contract_id` | `model_test_alignment` | `starter` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `ModelCodeTestBindingRow` | `model_obligation_id` | `model_test_alignment` | `starter` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `ModelCodeTestBindingRow` | `code_contract_id` | `model_test_alignment` | `starter` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `ModelCodeTestBindingRow` | `test_evidence_id` | `model_test_alignment` | `starter` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `ModelCodeTestBindingRow` | `status` | `model_test_alignment` | `starter` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `ModelCodeTestBindingRow` | `gaps` | `model_test_alignment` | `advanced` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `ModelTestAlignmentReport` | `ok` | `model_test_alignment` | `starter` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `ModelTestAlignmentReport` | `model_id` | `model_test_alignment` | `starter` | `unclassified` | `false` |
+| `model_test_alignment` | `ModelTestAlignmentReport` | `decision` | `model_test_alignment` | `advanced` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `ModelTestAlignmentReport` | `findings` | `model_test_alignment` | `starter` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `ModelTestAlignmentReport` | `binding_rows` | `model_test_alignment` | `internal` | `collection_metadata` | `false` |
+| `model_test_alignment` | `ModelTestAlignmentReport` | `summary` | `model_test_alignment` | `advanced` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `ContractSourceAuditFinding` | `code` | `model_test_alignment` | `starter` | `unclassified` | `false` |
+| `model_test_alignment` | `ContractSourceAuditFinding` | `message` | `model_test_alignment` | `internal` | `display_or_metadata` | `false` |
+| `model_test_alignment` | `ContractSourceAuditFinding` | `severity` | `model_test_alignment` | `internal` | `unclassified` | `false` |
+| `model_test_alignment` | `ContractSourceAuditFinding` | `code_contract_id` | `model_test_alignment` | `starter` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `ContractSourceAuditFinding` | `evidence_id` | `model_test_alignment` | `starter` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `ContractSourceAuditFinding` | `path` | `model_test_alignment` | `starter` | `unclassified` | `false` |
+| `model_test_alignment` | `ContractSourceAuditFinding` | `metadata` | `model_test_alignment` | `internal` | `collection_metadata` | `false` |
+| `model_test_alignment` | `ContractSourceAuditReport` | `ok` | `model_test_alignment` | `starter` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `ContractSourceAuditReport` | `decision` | `model_test_alignment` | `advanced` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `ContractSourceAuditReport` | `findings` | `model_test_alignment` | `starter` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `ContractSourceAuditReport` | `code_evidence` | `model_test_alignment` | `starter` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `ContractSourceAuditReport` | `test_evidence` | `model_test_alignment` | `starter` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `ContractSourceAuditReport` | `summary` | `model_test_alignment` | `advanced` | `evidence_or_decision` | `false` |
+| `obligation_family` | `ObligationFamilyMember` | `member_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `ObligationFamilyMember` | `description` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `obligation_family` | `ObligationFamilyMember` | `obligation_ids` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `obligation_family` | `ObligationFamilyMember` | `required` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `ObligationFamilyMember` | `exception_reason` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `obligation_family` | `ObligationFamilyMember` | `required_mechanisms` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `obligation_family` | `ObligationFamilyMember` | `allowed_provenance` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `obligation_family` | `ObligationFamily` | `family_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `ObligationFamily` | `description` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `obligation_family` | `ObligationFamily` | `members` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `obligation_family` | `ObligationFamily` | `required_mechanisms` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `obligation_family` | `ObligationFamily` | `allowed_provenance` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `obligation_family` | `ObligationFamily` | `required` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `ObligationFamily` | `require_external_evidence` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `obligation_family` | `ObligationFamily` | `require_proof_artifacts` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `obligation_family` | `ObligationFamily` | `allow_scoped_confidence` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `obligation_family` | `ObligationFamily` | `metadata` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `obligation_family` | `ObligationFamilyEvidence` | `evidence_id` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `obligation_family` | `ObligationFamilyEvidence` | `family_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `ObligationFamilyEvidence` | `member_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `ObligationFamilyEvidence` | `mechanism_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `ObligationFamilyEvidence` | `provenance` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `ObligationFamilyEvidence` | `result_status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `obligation_family` | `ObligationFamilyEvidence` | `current` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `ObligationFamilyEvidence` | `assertion_scope` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `ObligationFamilyEvidence` | `covered_obligations` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `obligation_family` | `ObligationFamilyEvidence` | `command` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `ObligationFamilyEvidence` | `summary` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `obligation_family` | `ObligationFamilyEvidence` | `proof_artifact` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `obligation_family` | `ObligationFamilyEvidence` | `stale_reasons` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `obligation_family` | `ObligationFamilyEvidence` | `metadata` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `obligation_family` | `FamilyBadCaseSeed` | `seed_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `FamilyBadCaseSeed` | `family_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `FamilyBadCaseSeed` | `source_member_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `FamilyBadCaseSeed` | `mechanism_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `FamilyBadCaseSeed` | `failure_mode` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `FamilyBadCaseSeed` | `description` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `obligation_family` | `FamilyBadCaseSeed` | `source_case_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `FamilyBadCaseSeed` | `exclude_member_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `obligation_family` | `FamilyBadCaseSeed` | `metadata` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `obligation_family` | `DerivedFamilyBadCase` | `case_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `DerivedFamilyBadCase` | `family_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `DerivedFamilyBadCase` | `member_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `DerivedFamilyBadCase` | `mechanism_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `DerivedFamilyBadCase` | `failure_mode` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `DerivedFamilyBadCase` | `source_member_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `DerivedFamilyBadCase` | `source_case_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `DerivedFamilyBadCase` | `description` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `obligation_family` | `DerivedFamilyBadCase` | `expected_status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `obligation_family` | `DerivedFamilyBadCase` | `metadata` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `obligation_family` | `AnalogousDefectCandidate` | `candidate_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `AnalogousDefectCandidate` | `family_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `AnalogousDefectCandidate` | `member_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `AnalogousDefectCandidate` | `mechanism_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `AnalogousDefectCandidate` | `failure_mode` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `AnalogousDefectCandidate` | `radius` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `AnalogousDefectCandidate` | `description` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `obligation_family` | `AnalogousDefectCandidate` | `disposition` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `AnalogousDefectCandidate` | `disposition_reason` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `obligation_family` | `AnalogousDefectCandidate` | `evidence_ids` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `obligation_family` | `AnalogousDefectCandidate` | `source` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `AnalogousDefectCandidate` | `metadata` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `obligation_family` | `AnalogousDefectScanFinding` | `code` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `AnalogousDefectScanFinding` | `message` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `obligation_family` | `AnalogousDefectScanFinding` | `severity` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `AnalogousDefectScanFinding` | `candidate_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `AnalogousDefectScanFinding` | `family_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `AnalogousDefectScanFinding` | `member_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `AnalogousDefectScanFinding` | `mechanism_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `AnalogousDefectScanFinding` | `metadata` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `obligation_family` | `AnalogousDefectScanReport` | `ok` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `obligation_family` | `AnalogousDefectScanReport` | `decision` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `obligation_family` | `AnalogousDefectScanReport` | `confidence` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `obligation_family` | `AnalogousDefectScanReport` | `seed` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `AnalogousDefectScanReport` | `candidates` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `obligation_family` | `AnalogousDefectScanReport` | `findings` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `obligation_family` | `AnalogousDefectScanReport` | `derived_bad_cases` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `obligation_family` | `AnalogousDefectScanReport` | `summary` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `obligation_family` | `ObligationFamilyCoverageCell` | `family_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `ObligationFamilyCoverageCell` | `member_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `ObligationFamilyCoverageCell` | `mechanism_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `ObligationFamilyCoverageCell` | `status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `obligation_family` | `ObligationFamilyCoverageCell` | `evidence_ids` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `obligation_family` | `ObligationFamilyCoverageCell` | `accepted_provenance` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `obligation_family` | `ObligationFamilyCoverageCell` | `scoped_reasons` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `obligation_family` | `ObligationFamilyParityFinding` | `code` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `ObligationFamilyParityFinding` | `message` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `obligation_family` | `ObligationFamilyParityFinding` | `severity` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `ObligationFamilyParityFinding` | `family_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `ObligationFamilyParityFinding` | `member_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `ObligationFamilyParityFinding` | `mechanism_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `obligation_family` | `ObligationFamilyParityFinding` | `evidence_id` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `obligation_family` | `ObligationFamilyParityFinding` | `metadata` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `obligation_family` | `ObligationFamilyParityReport` | `ok` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `obligation_family` | `ObligationFamilyParityReport` | `decision` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `obligation_family` | `ObligationFamilyParityReport` | `confidence` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `obligation_family` | `ObligationFamilyParityReport` | `findings` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `obligation_family` | `ObligationFamilyParityReport` | `coverage_matrix` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `obligation_family` | `ObligationFamilyParityReport` | `derived_bad_cases` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `obligation_family` | `ObligationFamilyParityReport` | `summary` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `plan` | `ScenarioMatrixConfig` | `enabled` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `plan` | `ScenarioMatrixConfig` | `max_scenarios` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `plan` | `ScenarioMatrixConfig` | `max_sequence_length` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `plan` | `ScenarioMatrixConfig` | `include_single_inputs` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `plan` | `ScenarioMatrixConfig` | `include_repeat_same` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `plan` | `ScenarioMatrixConfig` | `include_pairwise_orders` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `plan` | `ScenarioMatrixConfig` | `include_aba` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `plan` | `ScenarioMatrixConfig` | `include_challenge_patterns` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `plan` | `ScenarioMatrixConfig` | `include_model_derived_challenges` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `plan` | `ScenarioMatrixConfig` | `name_prefix` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `plan` | `ScenarioMatrixConfig` | `notes` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `plan` | `FlowGuardCheckPlan` | `workflow` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `plan` | `FlowGuardCheckPlan` | `initial_states` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `plan` | `FlowGuardCheckPlan` | `external_inputs` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `plan` | `FlowGuardCheckPlan` | `invariants` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `plan` | `FlowGuardCheckPlan` | `max_sequence_length` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `plan` | `FlowGuardCheckPlan` | `risk_profile` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `plan` | `FlowGuardCheckPlan` | `scenarios` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `plan` | `FlowGuardCheckPlan` | `contracts` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `plan` | `FlowGuardCheckPlan` | `step_contracts` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `plan` | `FlowGuardCheckPlan` | `progress_config` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `plan` | `FlowGuardCheckPlan` | `conformance_status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `plan` | `FlowGuardCheckPlan` | `conformance_report` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `plan` | `FlowGuardCheckPlan` | `scenario_matrix_config` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `plan` | `FlowGuardCheckPlan` | `assumption_card` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `plan` | `FlowGuardCheckPlan` | `state_closure_plan` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `plan` | `FlowGuardCheckPlan` | `topology_hazard_plan` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `plan` | `FlowGuardCheckPlan` | `usage_intent` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `plan` | `FlowGuardCheckPlan` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailSource` | `source_id` | `plan_detailing_compiler` | `starter` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailSource` | `source_kind` | `plan_detailing_compiler` | `internal` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailSource` | `current` | `plan_detailing_compiler` | `starter` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailSource` | `supports_surface_ids` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
+| `plan_detailing` | `PlanDetailSource` | `summary` | `plan_detailing_compiler` | `advanced` | `evidence_or_decision` | `false` |
+| `plan_detailing` | `PlanDetailSource` | `metadata` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
+| `plan_detailing` | `PlanDetailSurface` | `surface_id` | `plan_detailing_compiler` | `starter` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailSurface` | `surface_kind` | `plan_detailing_compiler` | `internal` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailSurface` | `description` | `plan_detailing_compiler` | `internal` | `display_or_metadata` | `false` |
+| `plan_detailing` | `PlanDetailSurface` | `in_scope` | `plan_detailing_compiler` | `internal` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailSurface` | `reviewed` | `plan_detailing_compiler` | `internal` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailSurface` | `included` | `plan_detailing_compiler` | `internal` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailSurface` | `source_ids` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
+| `plan_detailing` | `PlanDetailSurface` | `evidence_ids` | `plan_detailing_compiler` | `starter` | `evidence_or_decision` | `false` |
+| `plan_detailing` | `PlanDetailSurface` | `out_of_scope_reason` | `plan_detailing_compiler` | `starter` | `evidence_or_decision` | `false` |
+| `plan_detailing` | `PlanDetailSurface` | `omission_reason` | `plan_detailing_compiler` | `starter` | `evidence_or_decision` | `false` |
+| `plan_detailing` | `PlanDetailSurface` | `recurring` | `plan_detailing_compiler` | `internal` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailSurface` | `high_risk` | `plan_detailing_compiler` | `internal` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailSurface` | `observed_failure_ids` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
+| `plan_detailing` | `PlanDetailSurface` | `same_class_case_ids` | `plan_detailing_compiler` | `starter` | `collection_metadata` | `false` |
+| `plan_detailing` | `PlanDetailSurface` | `historical_holdout_ids` | `plan_detailing_compiler` | `advanced` | `compatibility_or_old_path` | `true` |
+| `plan_detailing` | `PlanDetailSurface` | `scoped_reasons` | `plan_detailing_compiler` | `advanced` | `evidence_or_decision` | `false` |
+| `plan_detailing` | `PlanDetailSurface` | `metadata` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
+| `plan_detailing` | `PlanDetailStateSurface` | `state_id` | `plan_detailing_compiler` | `starter` | `behavior_or_contract` | `true` |
+| `plan_detailing` | `PlanDetailStateSurface` | `owner` | `plan_detailing_compiler` | `internal` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailStateSurface` | `read_by_step_ids` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
+| `plan_detailing` | `PlanDetailStateSurface` | `written_by_step_ids` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
+| `plan_detailing` | `PlanDetailStateSurface` | `must_model` | `plan_detailing_compiler` | `starter` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailStateSurface` | `description` | `plan_detailing_compiler` | `internal` | `display_or_metadata` | `false` |
+| `plan_detailing` | `PlanDetailSideEffect` | `side_effect_id` | `plan_detailing_compiler` | `starter` | `behavior_or_contract` | `true` |
+| `plan_detailing` | `PlanDetailSideEffect` | `step_id` | `plan_detailing_compiler` | `starter` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailSideEffect` | `effect_kind` | `plan_detailing_compiler` | `advanced` | `behavior_or_contract` | `true` |
+| `plan_detailing` | `PlanDetailSideEffect` | `required_evidence_ids` | `plan_detailing_compiler` | `starter` | `evidence_or_decision` | `false` |
+| `plan_detailing` | `PlanDetailSideEffect` | `reversible` | `plan_detailing_compiler` | `internal` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailSideEffect` | `description` | `plan_detailing_compiler` | `internal` | `display_or_metadata` | `false` |
+| `plan_detailing` | `PlanDetailStep` | `step_id` | `plan_detailing_compiler` | `starter` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailStep` | `action` | `plan_detailing_compiler` | `starter` | `behavior_or_contract` | `true` |
+| `plan_detailing` | `PlanDetailStep` | `skill_name` | `plan_detailing_compiler` | `internal` | `display_or_metadata` | `false` |
+| `plan_detailing` | `PlanDetailStep` | `step_type` | `plan_detailing_compiler` | `internal` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailStep` | `order_after` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
+| `plan_detailing` | `PlanDetailStep` | `requires_receipts` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
+| `plan_detailing` | `PlanDetailStep` | `produces_receipts` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
+| `plan_detailing` | `PlanDetailStep` | `invalidates_receipts` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
+| `plan_detailing` | `PlanDetailStep` | `reads_artifacts` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
+| `plan_detailing` | `PlanDetailStep` | `writes_artifacts` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
+| `plan_detailing` | `PlanDetailStep` | `invalidates_artifacts` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
+| `plan_detailing` | `PlanDetailStep` | `required_evidence_ids` | `plan_detailing_compiler` | `starter` | `evidence_or_decision` | `false` |
+| `plan_detailing` | `PlanDetailStep` | `produced_evidence_ids` | `plan_detailing_compiler` | `starter` | `evidence_or_decision` | `false` |
+| `plan_detailing` | `PlanDetailStep` | `continue_evidence_ids` | `plan_detailing_compiler` | `starter` | `evidence_or_decision` | `false` |
+| `plan_detailing` | `PlanDetailStep` | `validation_required` | `plan_detailing_compiler` | `internal` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailStep` | `rework_step_id` | `plan_detailing_compiler` | `starter` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailStep` | `claim_labels` | `plan_detailing_compiler` | `starter` | `collection_metadata` | `false` |
+| `plan_detailing` | `PlanDetailStep` | `side_effect_ids` | `plan_detailing_compiler` | `advanced` | `behavior_or_contract` | `true` |
+| `plan_detailing` | `PlanDetailStep` | `description` | `plan_detailing_compiler` | `internal` | `display_or_metadata` | `false` |
+| `plan_detailing` | `PlanDetailValidation` | `validation_id` | `plan_detailing_compiler` | `starter` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailValidation` | `required_artifact_ids` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
+| `plan_detailing` | `PlanDetailValidation` | `required_evidence_kinds` | `plan_detailing_compiler` | `starter` | `evidence_or_decision` | `false` |
+| `plan_detailing` | `PlanDetailValidation` | `evidence_ids` | `plan_detailing_compiler` | `starter` | `evidence_or_decision` | `false` |
+| `plan_detailing` | `PlanDetailValidation` | `command` | `plan_detailing_compiler` | `starter` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailValidation` | `scope` | `plan_detailing_compiler` | `internal` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailValidation` | `release_required` | `plan_detailing_compiler` | `internal` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailValidation` | `description` | `plan_detailing_compiler` | `internal` | `display_or_metadata` | `false` |
+| `plan_detailing` | `PlanDetailEvidence` | `evidence_id` | `plan_detailing_compiler` | `starter` | `evidence_or_decision` | `false` |
+| `plan_detailing` | `PlanDetailEvidence` | `evidence_kind` | `plan_detailing_compiler` | `starter` | `evidence_or_decision` | `false` |
+| `plan_detailing` | `PlanDetailEvidence` | `status` | `plan_detailing_compiler` | `starter` | `evidence_or_decision` | `false` |
+| `plan_detailing` | `PlanDetailEvidence` | `produced_by_step_id` | `plan_detailing_compiler` | `starter` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailEvidence` | `covers_artifacts` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
+| `plan_detailing` | `PlanDetailEvidence` | `verifier_artifacts` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
+| `plan_detailing` | `PlanDetailEvidence` | `covered_versions` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
+| `plan_detailing` | `PlanDetailEvidence` | `validation_ids` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
+| `plan_detailing` | `PlanDetailEvidence` | `command` | `plan_detailing_compiler` | `starter` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailEvidence` | `result_path` | `plan_detailing_compiler` | `starter` | `evidence_or_decision` | `false` |
+| `plan_detailing` | `PlanDetailEvidence` | `description` | `plan_detailing_compiler` | `internal` | `display_or_metadata` | `false` |
+| `plan_detailing` | `PlanDetailFailureBranch` | `branch_id` | `plan_detailing_compiler` | `starter` | `behavior_or_contract` | `true` |
+| `plan_detailing` | `PlanDetailFailureBranch` | `trigger` | `plan_detailing_compiler` | `internal` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailFailureBranch` | `step_id` | `plan_detailing_compiler` | `starter` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailFailureBranch` | `rework_step_id` | `plan_detailing_compiler` | `starter` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailFailureBranch` | `expected_resolution` | `plan_detailing_compiler` | `internal` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailFailureBranch` | `evidence_ids` | `plan_detailing_compiler` | `starter` | `evidence_or_decision` | `false` |
+| `plan_detailing` | `PlanDetailFailureBranch` | `description` | `plan_detailing_compiler` | `internal` | `display_or_metadata` | `false` |
+| `plan_detailing` | `PlanDetailHumanQuestion` | `question_id` | `plan_detailing_compiler` | `starter` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailHumanQuestion` | `question` | `plan_detailing_compiler` | `internal` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailHumanQuestion` | `blocking` | `plan_detailing_compiler` | `internal` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailHumanQuestion` | `resolved` | `plan_detailing_compiler` | `internal` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailHumanQuestion` | `decision` | `plan_detailing_compiler` | `advanced` | `evidence_or_decision` | `false` |
+| `plan_detailing` | `PlanDetailFreshnessRule` | `rule_id` | `plan_detailing_compiler` | `starter` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailFreshnessRule` | `upstream_artifact_id` | `plan_detailing_compiler` | `starter` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailFreshnessRule` | `invalidates_artifact_ids` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
+| `plan_detailing` | `PlanDetailFreshnessRule` | `invalidates_evidence_kinds` | `plan_detailing_compiler` | `starter` | `evidence_or_decision` | `false` |
+| `plan_detailing` | `PlanDetailFreshnessRule` | `description` | `plan_detailing_compiler` | `internal` | `display_or_metadata` | `false` |
+| `plan_detailing` | `PlanDetail` | `plan_id` | `plan_detailing_compiler` | `starter` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetail` | `task_summary` | `plan_detailing_compiler` | `advanced` | `evidence_or_decision` | `false` |
+| `plan_detailing` | `PlanDetail` | `goal` | `plan_detailing_compiler` | `internal` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetail` | `assumptions` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
+| `plan_detailing` | `PlanDetail` | `sources` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
+| `plan_detailing` | `PlanDetail` | `surfaces` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
+| `plan_detailing` | `PlanDetail` | `artifacts` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
+| `plan_detailing` | `PlanDetail` | `state_surfaces` | `plan_detailing_compiler` | `advanced` | `behavior_or_contract` | `true` |
+| `plan_detailing` | `PlanDetail` | `side_effects` | `plan_detailing_compiler` | `advanced` | `behavior_or_contract` | `true` |
+| `plan_detailing` | `PlanDetail` | `steps` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
+| `plan_detailing` | `PlanDetail` | `validations` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
+| `plan_detailing` | `PlanDetail` | `evidence` | `plan_detailing_compiler` | `starter` | `evidence_or_decision` | `false` |
+| `plan_detailing` | `PlanDetail` | `failure_branches` | `plan_detailing_compiler` | `advanced` | `behavior_or_contract` | `true` |
+| `plan_detailing` | `PlanDetail` | `human_questions` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
+| `plan_detailing` | `PlanDetail` | `freshness_rules` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
+| `plan_detailing` | `PlanDetail` | `final_claim` | `plan_detailing_compiler` | `starter` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetail` | `final_evidence_ids` | `plan_detailing_compiler` | `starter` | `evidence_or_decision` | `false` |
+| `plan_detailing` | `PlanDetail` | `claim_labels` | `plan_detailing_compiler` | `starter` | `collection_metadata` | `false` |
+| `plan_detailing` | `PlanDetail` | `non_trivial` | `plan_detailing_compiler` | `internal` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetail` | `exploratory` | `plan_detailing_compiler` | `internal` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetail` | `allow_scoped_confidence` | `plan_detailing_compiler` | `advanced` | `evidence_or_decision` | `false` |
+| `plan_detailing` | `PlanDetail` | `metadata` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
+| `plan_detailing` | `PlanDetailFinding` | `code` | `plan_detailing_compiler` | `starter` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailFinding` | `message` | `plan_detailing_compiler` | `internal` | `display_or_metadata` | `false` |
+| `plan_detailing` | `PlanDetailFinding` | `severity` | `plan_detailing_compiler` | `internal` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailFinding` | `row_id` | `plan_detailing_compiler` | `starter` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailFinding` | `metadata` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
+| `plan_detailing` | `PlanDetailReviewReport` | `plan_id` | `plan_detailing_compiler` | `starter` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailReviewReport` | `status` | `plan_detailing_compiler` | `starter` | `evidence_or_decision` | `false` |
+| `plan_detailing` | `PlanDetailReviewReport` | `findings` | `plan_detailing_compiler` | `starter` | `evidence_or_decision` | `false` |
+| `plan_detailing` | `PlanDetailReviewReport` | `summary` | `plan_detailing_compiler` | `advanced` | `evidence_or_decision` | `false` |
+| `plan_intake` | `PlanSourceEvidence` | `source_id` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `PlanSourceEvidence` | `source_kind` | `plan_intake_claims` | `internal` | `unclassified` | `false` |
+| `plan_intake` | `PlanSourceEvidence` | `current` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `PlanSourceEvidence` | `supports_surface_ids` | `plan_intake_claims` | `internal` | `collection_metadata` | `false` |
+| `plan_intake` | `PlanSourceEvidence` | `summary` | `plan_intake_claims` | `advanced` | `evidence_or_decision` | `false` |
+| `plan_intake` | `PlanSourceEvidence` | `metadata` | `plan_intake_claims` | `internal` | `collection_metadata` | `false` |
+| `plan_intake` | `PlanIntakeRiskSurface` | `surface_id` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `PlanIntakeRiskSurface` | `surface_kind` | `plan_intake_claims` | `internal` | `unclassified` | `false` |
+| `plan_intake` | `PlanIntakeRiskSurface` | `description` | `plan_intake_claims` | `internal` | `display_or_metadata` | `false` |
+| `plan_intake` | `PlanIntakeRiskSurface` | `in_scope` | `plan_intake_claims` | `internal` | `unclassified` | `false` |
+| `plan_intake` | `PlanIntakeRiskSurface` | `included` | `plan_intake_claims` | `internal` | `unclassified` | `false` |
+| `plan_intake` | `PlanIntakeRiskSurface` | `reviewed` | `plan_intake_claims` | `internal` | `unclassified` | `false` |
+| `plan_intake` | `PlanIntakeRiskSurface` | `source_ids` | `plan_intake_claims` | `internal` | `collection_metadata` | `false` |
+| `plan_intake` | `PlanIntakeRiskSurface` | `evidence_ids` | `plan_intake_claims` | `starter` | `evidence_or_decision` | `false` |
+| `plan_intake` | `PlanIntakeRiskSurface` | `out_of_scope_reason` | `plan_intake_claims` | `starter` | `evidence_or_decision` | `false` |
+| `plan_intake` | `PlanIntakeRiskSurface` | `omission_reason` | `plan_intake_claims` | `starter` | `evidence_or_decision` | `false` |
+| `plan_intake` | `PlanIntakeRiskSurface` | `recurring` | `plan_intake_claims` | `internal` | `unclassified` | `false` |
+| `plan_intake` | `PlanIntakeRiskSurface` | `high_risk` | `plan_intake_claims` | `internal` | `unclassified` | `false` |
+| `plan_intake` | `PlanIntakeRiskSurface` | `observed_failure_ids` | `plan_intake_claims` | `internal` | `collection_metadata` | `false` |
+| `plan_intake` | `PlanIntakeRiskSurface` | `same_class_case_ids` | `plan_intake_claims` | `starter` | `collection_metadata` | `false` |
+| `plan_intake` | `PlanIntakeRiskSurface` | `historical_holdout_ids` | `plan_intake_claims` | `advanced` | `compatibility_or_old_path` | `true` |
+| `plan_intake` | `PlanIntakeRiskSurface` | `scoped_reasons` | `plan_intake_claims` | `advanced` | `evidence_or_decision` | `false` |
+| `plan_intake` | `PlanIntakeRiskSurface` | `metadata` | `plan_intake_claims` | `internal` | `collection_metadata` | `false` |
+| `plan_intake` | `PlanIntakeCompletenessPlan` | `plan_id` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `PlanIntakeCompletenessPlan` | `sources` | `plan_intake_claims` | `internal` | `collection_metadata` | `false` |
+| `plan_intake` | `PlanIntakeCompletenessPlan` | `surfaces` | `plan_intake_claims` | `internal` | `collection_metadata` | `false` |
+| `plan_intake` | `PlanIntakeCompletenessPlan` | `source_evidence_ids` | `plan_intake_claims` | `starter` | `evidence_or_decision` | `false` |
+| `plan_intake` | `PlanIntakeCompletenessPlan` | `source_evidence_current` | `plan_intake_claims` | `starter` | `evidence_or_decision` | `false` |
+| `plan_intake` | `PlanIntakeCompletenessPlan` | `risk_surfaces` | `plan_intake_claims` | `internal` | `collection_metadata` | `false` |
+| `plan_intake` | `PlanIntakeCompletenessPlan` | `required_surface_kinds` | `plan_intake_claims` | `internal` | `collection_metadata` | `false` |
+| `plan_intake` | `PlanIntakeCompletenessPlan` | `recurring_or_high_risk` | `plan_intake_claims` | `internal` | `unclassified` | `false` |
+| `plan_intake` | `PlanIntakeCompletenessPlan` | `happy_path_only` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `PlanIntakeCompletenessPlan` | `observed_failure_case_id` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `PlanIntakeCompletenessPlan` | `same_class_case_id` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `PlanIntakeCompletenessPlan` | `historical_holdout_case_id` | `plan_intake_claims` | `advanced` | `compatibility_or_old_path` | `true` |
+| `plan_intake` | `PlanIntakeCompletenessPlan` | `allow_scoped_confidence` | `plan_intake_claims` | `advanced` | `evidence_or_decision` | `false` |
+| `plan_intake` | `PlanIntakeFinding` | `code` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `PlanIntakeFinding` | `message` | `plan_intake_claims` | `internal` | `display_or_metadata` | `false` |
+| `plan_intake` | `PlanIntakeFinding` | `severity` | `plan_intake_claims` | `internal` | `unclassified` | `false` |
+| `plan_intake` | `PlanIntakeFinding` | `surface_id` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `PlanIntakeFinding` | `metadata` | `plan_intake_claims` | `internal` | `collection_metadata` | `false` |
+| `plan_intake` | `PlanIntakeCompletenessReport` | `ok` | `plan_intake_claims` | `starter` | `evidence_or_decision` | `false` |
+| `plan_intake` | `PlanIntakeCompletenessReport` | `plan_id` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `PlanIntakeCompletenessReport` | `decision` | `plan_intake_claims` | `advanced` | `evidence_or_decision` | `false` |
+| `plan_intake` | `PlanIntakeCompletenessReport` | `confidence` | `plan_intake_claims` | `advanced` | `evidence_or_decision` | `false` |
+| `plan_intake` | `PlanIntakeCompletenessReport` | `findings` | `plan_intake_claims` | `starter` | `evidence_or_decision` | `false` |
+| `plan_intake` | `PlanIntakeCompletenessReport` | `summary` | `plan_intake_claims` | `advanced` | `evidence_or_decision` | `false` |
+| `plan_intake` | `EvidenceAdapterMapping` | `mapping_id` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `EvidenceAdapterMapping` | `raw_artifact_id` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `EvidenceAdapterMapping` | `mapped_evidence_id` | `plan_intake_claims` | `starter` | `evidence_or_decision` | `false` |
+| `plan_intake` | `EvidenceAdapterMapping` | `raw_kind` | `plan_intake_claims` | `internal` | `unclassified` | `false` |
+| `plan_intake` | `EvidenceAdapterMapping` | `expected_classification` | `plan_intake_claims` | `internal` | `unclassified` | `false` |
+| `plan_intake` | `EvidenceAdapterMapping` | `mapped_classification` | `plan_intake_claims` | `internal` | `unclassified` | `false` |
+| `plan_intake` | `EvidenceAdapterMapping` | `raw_current` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `EvidenceAdapterMapping` | `mapped_current` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `EvidenceAdapterMapping` | `freshness_preserved` | `plan_intake_claims` | `internal` | `unclassified` | `false` |
+| `plan_intake` | `EvidenceAdapterMapping` | `scoped_reasons` | `plan_intake_claims` | `advanced` | `evidence_or_decision` | `false` |
+| `plan_intake` | `EvidenceAdapterMapping` | `metadata` | `plan_intake_claims` | `internal` | `collection_metadata` | `false` |
+| `plan_intake` | `EvidenceAdapterConformancePlan` | `adapter_id` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `EvidenceAdapterConformancePlan` | `mappings` | `plan_intake_claims` | `internal` | `collection_metadata` | `false` |
+| `plan_intake` | `EvidenceAdapterConformancePlan` | `allow_scoped_confidence` | `plan_intake_claims` | `advanced` | `evidence_or_decision` | `false` |
+| `plan_intake` | `EvidenceAdapterFinding` | `code` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `EvidenceAdapterFinding` | `message` | `plan_intake_claims` | `internal` | `display_or_metadata` | `false` |
+| `plan_intake` | `EvidenceAdapterFinding` | `severity` | `plan_intake_claims` | `internal` | `unclassified` | `false` |
+| `plan_intake` | `EvidenceAdapterFinding` | `mapping_id` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `EvidenceAdapterFinding` | `raw_artifact_id` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `EvidenceAdapterFinding` | `mapped_evidence_id` | `plan_intake_claims` | `starter` | `evidence_or_decision` | `false` |
+| `plan_intake` | `EvidenceAdapterFinding` | `metadata` | `plan_intake_claims` | `internal` | `collection_metadata` | `false` |
+| `plan_intake` | `EvidenceAdapterConformanceReport` | `ok` | `plan_intake_claims` | `starter` | `evidence_or_decision` | `false` |
+| `plan_intake` | `EvidenceAdapterConformanceReport` | `adapter_id` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `EvidenceAdapterConformanceReport` | `decision` | `plan_intake_claims` | `advanced` | `evidence_or_decision` | `false` |
+| `plan_intake` | `EvidenceAdapterConformanceReport` | `confidence` | `plan_intake_claims` | `advanced` | `evidence_or_decision` | `false` |
+| `plan_intake` | `EvidenceAdapterConformanceReport` | `findings` | `plan_intake_claims` | `starter` | `evidence_or_decision` | `false` |
+| `plan_intake` | `EvidenceAdapterConformanceReport` | `summary` | `plan_intake_claims` | `advanced` | `evidence_or_decision` | `false` |
+| `plan_intake` | `FalseNegativeCase` | `case_id` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `FalseNegativeCase` | `previous_claim_id` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `FalseNegativeCase` | `observed_failure_id` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `FalseNegativeCase` | `cause` | `plan_intake_claims` | `internal` | `unclassified` | `false` |
+| `plan_intake` | `FalseNegativeCase` | `would_have_failed_if` | `plan_intake_claims` | `internal` | `collection_metadata` | `false` |
+| `plan_intake` | `FalseNegativeCase` | `adapter_gap_ids` | `plan_intake_claims` | `advanced` | `evidence_or_decision` | `false` |
+| `plan_intake` | `FalseNegativeCase` | `generalized_case_id` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `FalseNegativeCase` | `new_model_obligation_id` | `plan_intake_claims` | `starter` | `behavior_or_contract` | `true` |
+| `plan_intake` | `FalseNegativeCase` | `new_plan_item_ids` | `plan_intake_claims` | `starter` | `collection_metadata` | `false` |
+| `plan_intake` | `FalseNegativeCase` | `closure_evidence_ids` | `plan_intake_claims` | `starter` | `evidence_or_decision` | `false` |
+| `plan_intake` | `FalseNegativeCase` | `repair_evidence_ids` | `plan_intake_claims` | `starter` | `evidence_or_decision` | `false` |
+| `plan_intake` | `FalseNegativeCase` | `scoped_reasons` | `plan_intake_claims` | `advanced` | `evidence_or_decision` | `false` |
+| `plan_intake` | `FalseNegativeCase` | `metadata` | `plan_intake_claims` | `internal` | `collection_metadata` | `false` |
+| `plan_intake` | `FalseNegativeBackpropagationPlan` | `plan_id` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `FalseNegativeBackpropagationPlan` | `cases` | `plan_intake_claims` | `internal` | `collection_metadata` | `false` |
+| `plan_intake` | `FalseNegativeBackpropagationPlan` | `recurring_or_high_risk` | `plan_intake_claims` | `internal` | `unclassified` | `false` |
+| `plan_intake` | `FalseNegativeBackpropagationPlan` | `allow_scoped_confidence` | `plan_intake_claims` | `advanced` | `evidence_or_decision` | `false` |
+| `plan_intake` | `FalseNegativeFinding` | `code` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `FalseNegativeFinding` | `message` | `plan_intake_claims` | `internal` | `display_or_metadata` | `false` |
+| `plan_intake` | `FalseNegativeFinding` | `severity` | `plan_intake_claims` | `internal` | `unclassified` | `false` |
+| `plan_intake` | `FalseNegativeFinding` | `case_id` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `FalseNegativeFinding` | `metadata` | `plan_intake_claims` | `internal` | `collection_metadata` | `false` |
+| `plan_intake` | `FalseNegativeBackpropagationReport` | `ok` | `plan_intake_claims` | `starter` | `evidence_or_decision` | `false` |
+| `plan_intake` | `FalseNegativeBackpropagationReport` | `plan_id` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `FalseNegativeBackpropagationReport` | `decision` | `plan_intake_claims` | `advanced` | `evidence_or_decision` | `false` |
+| `plan_intake` | `FalseNegativeBackpropagationReport` | `confidence` | `plan_intake_claims` | `advanced` | `evidence_or_decision` | `false` |
+| `plan_intake` | `FalseNegativeBackpropagationReport` | `findings` | `plan_intake_claims` | `starter` | `evidence_or_decision` | `false` |
+| `plan_intake` | `FalseNegativeBackpropagationReport` | `summary` | `plan_intake_claims` | `advanced` | `evidence_or_decision` | `false` |
+| `plan_intake` | `PlanMutationCase` | `mutation_id` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `PlanMutationCase` | `target_id` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `PlanMutationCase` | `mutation_kind` | `plan_intake_claims` | `internal` | `unclassified` | `false` |
+| `plan_intake` | `PlanMutationCase` | `expected_to_fail` | `plan_intake_claims` | `internal` | `unclassified` | `false` |
+| `plan_intake` | `PlanMutationCase` | `observed_ok` | `plan_intake_claims` | `starter` | `evidence_or_decision` | `false` |
+| `plan_intake` | `PlanMutationCase` | `observed_decision` | `plan_intake_claims` | `advanced` | `evidence_or_decision` | `false` |
+| `plan_intake` | `PlanMutationCase` | `evidence_id` | `plan_intake_claims` | `starter` | `evidence_or_decision` | `false` |
+| `plan_intake` | `PlanMutationCase` | `expected_result` | `plan_intake_claims` | `advanced` | `evidence_or_decision` | `false` |
+| `plan_intake` | `PlanMutationCase` | `observed_result` | `plan_intake_claims` | `advanced` | `evidence_or_decision` | `false` |
+| `plan_intake` | `PlanMutationCase` | `check_id` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `PlanMutationCase` | `current` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `PlanMutationCase` | `description` | `plan_intake_claims` | `internal` | `display_or_metadata` | `false` |
+| `plan_intake` | `PlanMutationCase` | `scoped_reasons` | `plan_intake_claims` | `advanced` | `evidence_or_decision` | `false` |
+| `plan_intake` | `PlanMutationCase` | `metadata` | `plan_intake_claims` | `internal` | `collection_metadata` | `false` |
+| `plan_intake` | `PlanMutationReviewPlan` | `review_id` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `PlanMutationReviewPlan` | `mutations` | `plan_intake_claims` | `internal` | `collection_metadata` | `false` |
+| `plan_intake` | `PlanMutationReviewPlan` | `allow_scoped_confidence` | `plan_intake_claims` | `advanced` | `evidence_or_decision` | `false` |
+| `plan_intake` | `PlanMutationFinding` | `code` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `PlanMutationFinding` | `message` | `plan_intake_claims` | `internal` | `display_or_metadata` | `false` |
+| `plan_intake` | `PlanMutationFinding` | `severity` | `plan_intake_claims` | `internal` | `unclassified` | `false` |
+| `plan_intake` | `PlanMutationFinding` | `mutation_id` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `PlanMutationFinding` | `metadata` | `plan_intake_claims` | `internal` | `collection_metadata` | `false` |
+| `plan_intake` | `PlanMutationReviewReport` | `ok` | `plan_intake_claims` | `starter` | `evidence_or_decision` | `false` |
+| `plan_intake` | `PlanMutationReviewReport` | `review_id` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `PlanMutationReviewReport` | `decision` | `plan_intake_claims` | `advanced` | `evidence_or_decision` | `false` |
+| `plan_intake` | `PlanMutationReviewReport` | `confidence` | `plan_intake_claims` | `advanced` | `evidence_or_decision` | `false` |
+| `plan_intake` | `PlanMutationReviewReport` | `findings` | `plan_intake_claims` | `starter` | `evidence_or_decision` | `false` |
+| `plan_intake` | `PlanMutationReviewReport` | `summary` | `plan_intake_claims` | `advanced` | `evidence_or_decision` | `false` |
+| `plan_intake` | `FlowGuardClaim` | `claim_id` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `FlowGuardClaim` | `claim_scope` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `FlowGuardClaim` | `result_status` | `plan_intake_claims` | `starter` | `evidence_or_decision` | `false` |
+| `plan_intake` | `FlowGuardClaim` | `confidence` | `plan_intake_claims` | `advanced` | `evidence_or_decision` | `false` |
+| `plan_intake` | `FlowGuardClaim` | `current` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `FlowGuardClaim` | `evidence_ids` | `plan_intake_claims` | `starter` | `evidence_or_decision` | `false` |
+| `plan_intake` | `FlowGuardClaim` | `supports_claim_ids` | `plan_intake_claims` | `starter` | `collection_metadata` | `false` |
+| `plan_intake` | `FlowGuardClaim` | `report_id` | `plan_intake_claims` | `starter` | `evidence_or_decision` | `false` |
+| `plan_intake` | `FlowGuardClaim` | `scoped_reasons` | `plan_intake_claims` | `advanced` | `evidence_or_decision` | `false` |
+| `plan_intake` | `FlowGuardClaim` | `metadata` | `plan_intake_claims` | `internal` | `collection_metadata` | `false` |
+| `plan_intake` | `FlowGuardClaimDependency` | `dependency_id` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `FlowGuardClaimDependency` | `claim_scope` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `FlowGuardClaimDependency` | `status` | `plan_intake_claims` | `starter` | `evidence_or_decision` | `false` |
+| `plan_intake` | `FlowGuardClaimDependency` | `current` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `FlowGuardClaimDependency` | `confidence` | `plan_intake_claims` | `advanced` | `evidence_or_decision` | `false` |
+| `plan_intake` | `FlowGuardClaimDependency` | `report_id` | `plan_intake_claims` | `starter` | `evidence_or_decision` | `false` |
+| `plan_intake` | `FlowGuardClaimDependency` | `evidence_id` | `plan_intake_claims` | `starter` | `evidence_or_decision` | `false` |
+| `plan_intake` | `FlowGuardClaimDependency` | `scoped_reasons` | `plan_intake_claims` | `advanced` | `evidence_or_decision` | `false` |
+| `plan_intake` | `FlowGuardClaimDependency` | `metadata` | `plan_intake_claims` | `internal` | `collection_metadata` | `false` |
+| `plan_intake` | `FlowGuardClaimChainPlan` | `claim_id` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `FlowGuardClaimChainPlan` | `target_scope` | `plan_intake_claims` | `internal` | `unclassified` | `false` |
+| `plan_intake` | `FlowGuardClaimChainPlan` | `dependencies` | `plan_intake_claims` | `internal` | `collection_metadata` | `false` |
+| `plan_intake` | `FlowGuardClaimChainPlan` | `claims` | `plan_intake_claims` | `internal` | `collection_metadata` | `false` |
+| `plan_intake` | `FlowGuardClaimChainPlan` | `target_claim_id` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `FlowGuardClaimChainPlan` | `required_scope` | `plan_intake_claims` | `internal` | `unclassified` | `false` |
+| `plan_intake` | `FlowGuardClaimChainPlan` | `allow_scoped_confidence` | `plan_intake_claims` | `advanced` | `evidence_or_decision` | `false` |
+| `plan_intake` | `FlowGuardClaimChainPlan` | `runtime_replay_required` | `plan_intake_claims` | `internal` | `unclassified` | `false` |
+| `plan_intake` | `FlowGuardClaimChainPlan` | `risk_evidence_required` | `plan_intake_claims` | `starter` | `evidence_or_decision` | `false` |
+| `plan_intake` | `FlowGuardClaimChainPlan` | `plan_intake_required` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `FlowGuardClaimChainPlan` | `adapter_conformance_required` | `plan_intake_claims` | `internal` | `unclassified` | `false` |
+| `plan_intake` | `FlowGuardClaimChainPlan` | `false_negative_backprop_required` | `plan_intake_claims` | `internal` | `unclassified` | `false` |
+| `plan_intake` | `FlowGuardClaimChainPlan` | `mutation_review_required` | `plan_intake_claims` | `internal` | `unclassified` | `false` |
+| `plan_intake` | `FlowGuardClaimChainPlan` | `require_false_negative_closure` | `plan_intake_claims` | `internal` | `unclassified` | `false` |
+| `plan_intake` | `FlowGuardClaimChainPlan` | `require_mutation_review` | `plan_intake_claims` | `internal` | `unclassified` | `false` |
+| `plan_intake` | `FlowGuardClaimChainFinding` | `code` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `FlowGuardClaimChainFinding` | `message` | `plan_intake_claims` | `internal` | `display_or_metadata` | `false` |
+| `plan_intake` | `FlowGuardClaimChainFinding` | `severity` | `plan_intake_claims` | `internal` | `unclassified` | `false` |
+| `plan_intake` | `FlowGuardClaimChainFinding` | `dependency_id` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `FlowGuardClaimChainFinding` | `claim_scope` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `FlowGuardClaimChainFinding` | `metadata` | `plan_intake_claims` | `internal` | `collection_metadata` | `false` |
+| `plan_intake` | `FlowGuardClaimChainReport` | `ok` | `plan_intake_claims` | `starter` | `evidence_or_decision` | `false` |
+| `plan_intake` | `FlowGuardClaimChainReport` | `claim_id` | `plan_intake_claims` | `starter` | `unclassified` | `false` |
+| `plan_intake` | `FlowGuardClaimChainReport` | `target_scope` | `plan_intake_claims` | `internal` | `unclassified` | `false` |
+| `plan_intake` | `FlowGuardClaimChainReport` | `decision` | `plan_intake_claims` | `advanced` | `evidence_or_decision` | `false` |
+| `plan_intake` | `FlowGuardClaimChainReport` | `confidence` | `plan_intake_claims` | `advanced` | `evidence_or_decision` | `false` |
+| `plan_intake` | `FlowGuardClaimChainReport` | `findings` | `plan_intake_claims` | `starter` | `evidence_or_decision` | `false` |
+| `plan_intake` | `FlowGuardClaimChainReport` | `summary` | `plan_intake_claims` | `advanced` | `evidence_or_decision` | `false` |
+| `progress` | `EventuallyProperty` | `name` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `progress` | `EventuallyProperty` | `trigger` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `progress` | `EventuallyProperty` | `target` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `progress` | `EventuallyProperty` | `description` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `progress` | `BoundedEventuallyProperty` | `max_steps` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `progress` | `ProgressFinding` | `name` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `progress` | `ProgressFinding` | `message` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `progress` | `ProgressFinding` | `states` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `progress` | `ProgressFinding` | `edges` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `progress` | `ProgressFinding` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `progress` | `ProgressCheckConfig` | `initial_states` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `progress` | `ProgressCheckConfig` | `transition_fn` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `progress` | `ProgressCheckConfig` | `is_terminal` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `progress` | `ProgressCheckConfig` | `is_success` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `progress` | `ProgressCheckConfig` | `ranking_fn` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `progress` | `ProgressCheckConfig` | `eventually` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `progress` | `ProgressCheckConfig` | `bounded_eventually` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `progress` | `ProgressCheckConfig` | `max_states` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `progress` | `ProgressCheckConfig` | `max_depth` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `progress` | `ProgressCheckReport` | `ok` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `progress` | `ProgressCheckReport` | `findings` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `progress` | `ProgressCheckReport` | `graph_summary` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `progress` | `ProgressCheckReport` | `reachable_states` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `progress` | `ProgressCheckReport` | `edges` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `progress` | `ProgressCheckReport` | `sccs` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `project_adoption` | `ProjectAdoptionFinding` | `severity` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `project_adoption` | `ProjectAdoptionFinding` | `category` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `project_adoption` | `ProjectAdoptionFinding` | `message` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `project_adoption` | `ProjectAdoptionFinding` | `recommendation` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `project_adoption` | `ProjectAdoptionFinding` | `file_path` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `project_adoption` | `ProjectAdoptionFinding` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `project_adoption` | `ProjectAdoptionReport` | `root` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `project_adoption` | `ProjectAdoptionReport` | `action` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `project_adoption` | `ProjectAdoptionReport` | `installed_package_version` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `project_adoption` | `ProjectAdoptionReport` | `schema_version` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `project_adoption` | `ProjectAdoptionReport` | `manifest_package_version` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `project_adoption` | `ProjectAdoptionReport` | `manifest_schema_version` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `project_adoption` | `ProjectAdoptionReport` | `findings` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `project_adoption` | `ProjectAdoptionReport` | `written_files` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `project_adoption` | `ProjectAdoptionReport` | `artifact_upgrade_report` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `proof_artifact` | `ProofArtifactRef` | `artifact_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `proof_artifact` | `ProofArtifactRef` | `producer_route` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `proof_artifact` | `ProofArtifactRef` | `command` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `proof_artifact` | `ProofArtifactRef` | `result_path` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `proof_artifact` | `ProofArtifactRef` | `result_status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `proof_artifact` | `ProofArtifactRef` | `exit_code` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `proof_artifact` | `ProofArtifactRef` | `started_at` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `proof_artifact` | `ProofArtifactRef` | `finished_at` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `proof_artifact` | `ProofArtifactRef` | `artifact_fingerprints` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `proof_artifact` | `ProofArtifactRef` | `covered_obligation_ids` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `proof_artifact` | `ProofArtifactRef` | `assertion_scope` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `proof_artifact` | `ProofArtifactRef` | `current` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `proof_artifact` | `ProofArtifactRef` | `route_evidence_current` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `proof_artifact` | `ProofArtifactRef` | `progress_only` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `proof_artifact` | `ProofArtifactRef` | `stale_reasons` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `proof_artifact` | `ProofArtifactRef` | `route_gap_codes` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `proof_artifact` | `ProofArtifactRef` | `metadata` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `recurring_model_miss` | `DefectFamilyEvidence` | `evidence_id` | `model_miss_review` | `starter` | `evidence_or_decision` | `false` |
+| `recurring_model_miss` | `DefectFamilyEvidence` | `result_status` | `model_miss_review` | `starter` | `evidence_or_decision` | `false` |
+| `recurring_model_miss` | `DefectFamilyEvidence` | `current` | `model_miss_review` | `starter` | `unclassified` | `false` |
+| `recurring_model_miss` | `DefectFamilyEvidence` | `assertion_scope` | `model_miss_review` | `internal` | `unclassified` | `false` |
+| `recurring_model_miss` | `DefectFamilyEvidence` | `producer_route` | `model_miss_review` | `starter` | `behavior_or_contract` | `true` |
+| `recurring_model_miss` | `DefectFamilyEvidence` | `command` | `model_miss_review` | `starter` | `unclassified` | `false` |
+| `recurring_model_miss` | `DefectFamilyEvidence` | `summary` | `model_miss_review` | `advanced` | `evidence_or_decision` | `false` |
+| `recurring_model_miss` | `DefectFamilyEvidence` | `proof_artifact` | `model_miss_review` | `advanced` | `evidence_or_decision` | `false` |
+| `recurring_model_miss` | `DefectFamilyEvidence` | `stale_reasons` | `model_miss_review` | `advanced` | `evidence_or_decision` | `false` |
+| `recurring_model_miss` | `DefectFamilyEvidence` | `route_gap_codes` | `model_miss_review` | `starter` | `behavior_or_contract` | `true` |
+| `recurring_model_miss` | `DefectFamilyEvidence` | `route_evidence_current` | `model_miss_review` | `starter` | `behavior_or_contract` | `true` |
+| `recurring_model_miss` | `DefectFamilyEvidence` | `metadata` | `model_miss_review` | `internal` | `collection_metadata` | `false` |
+| `recurring_model_miss` | `DefectFamilyCase` | `case_id` | `model_miss_review` | `starter` | `unclassified` | `false` |
+| `recurring_model_miss` | `DefectFamilyCase` | `role` | `model_miss_review` | `internal` | `unclassified` | `false` |
+| `recurring_model_miss` | `DefectFamilyCase` | `description` | `model_miss_review` | `internal` | `display_or_metadata` | `false` |
+| `recurring_model_miss` | `DefectFamilyCase` | `source` | `model_miss_review` | `internal` | `unclassified` | `false` |
+| `recurring_model_miss` | `DefectFamilyCase` | `metadata` | `model_miss_review` | `internal` | `collection_metadata` | `false` |
+| `recurring_model_miss` | `DefectFamilyGate` | `gate_id` | `model_miss_review` | `starter` | `unclassified` | `false` |
+| `recurring_model_miss` | `DefectFamilyGate` | `family_name` | `model_miss_review` | `internal` | `display_or_metadata` | `false` |
+| `recurring_model_miss` | `DefectFamilyGate` | `description` | `model_miss_review` | `internal` | `display_or_metadata` | `false` |
+| `recurring_model_miss` | `DefectFamilyGate` | `recurrence_count` | `model_miss_review` | `internal` | `unclassified` | `false` |
+| `recurring_model_miss` | `DefectFamilyGate` | `high_risk` | `model_miss_review` | `internal` | `unclassified` | `false` |
+| `recurring_model_miss` | `DefectFamilyGate` | `required` | `model_miss_review` | `internal` | `unclassified` | `false` |
+| `recurring_model_miss` | `DefectFamilyGate` | `promoted` | `model_miss_review` | `internal` | `unclassified` | `false` |
+| `recurring_model_miss` | `DefectFamilyGate` | `model_obligation_id` | `model_miss_review` | `starter` | `behavior_or_contract` | `true` |
+| `recurring_model_miss` | `DefectFamilyGate` | `authority_boundary` | `model_miss_review` | `internal` | `unclassified` | `false` |
+| `recurring_model_miss` | `DefectFamilyGate` | `cases` | `model_miss_review` | `internal` | `collection_metadata` | `false` |
+| `recurring_model_miss` | `DefectFamilyGate` | `observed_failure_case_id` | `model_miss_review` | `starter` | `unclassified` | `false` |
+| `recurring_model_miss` | `DefectFamilyGate` | `same_class_generalized_case_id` | `model_miss_review` | `starter` | `unclassified` | `false` |
+| `recurring_model_miss` | `DefectFamilyGate` | `historical_holdout_case_id` | `model_miss_review` | `advanced` | `compatibility_or_old_path` | `true` |
+| `recurring_model_miss` | `DefectFamilyGate` | `proof_evidence_ids` | `model_miss_review` | `starter` | `evidence_or_decision` | `false` |
+| `recurring_model_miss` | `DefectFamilyGate` | `legacy_path_dispositions` | `model_miss_review` | `advanced` | `compatibility_or_old_path` | `true` |
+| `recurring_model_miss` | `DefectFamilyGate` | `root_cause_field_ids` | `model_miss_review` | `internal` | `collection_metadata` | `false` |
+| `recurring_model_miss` | `DefectFamilyGate` | `same_class_field_ids` | `model_miss_review` | `internal` | `collection_metadata` | `false` |
+| `recurring_model_miss` | `DefectFamilyGate` | `old_field_ids` | `model_miss_review` | `advanced` | `compatibility_or_old_path` | `true` |
+| `recurring_model_miss` | `DefectFamilyGate` | `scoped_confidence_reasons` | `model_miss_review` | `advanced` | `evidence_or_decision` | `false` |
+| `recurring_model_miss` | `DefectFamilyGate` | `next_actions` | `model_miss_review` | `advanced` | `behavior_or_contract` | `true` |
+| `recurring_model_miss` | `DefectFamilyGate` | `metadata` | `model_miss_review` | `internal` | `collection_metadata` | `false` |
+| `recurring_model_miss` | `DefectFamilyGatePlan` | `plan_id` | `model_miss_review` | `starter` | `unclassified` | `false` |
+| `recurring_model_miss` | `DefectFamilyGatePlan` | `gates` | `model_miss_review` | `internal` | `collection_metadata` | `false` |
+| `recurring_model_miss` | `DefectFamilyGatePlan` | `proof_evidence` | `model_miss_review` | `starter` | `evidence_or_decision` | `false` |
+| `recurring_model_miss` | `DefectFamilyGatePlan` | `require_proof_artifacts` | `model_miss_review` | `advanced` | `evidence_or_decision` | `false` |
+| `recurring_model_miss` | `DefectFamilyGatePlan` | `require_legacy_path_dispositions` | `model_miss_review` | `advanced` | `compatibility_or_old_path` | `true` |
+| `recurring_model_miss` | `DefectFamilyGatePlan` | `allow_scoped_confidence` | `model_miss_review` | `advanced` | `evidence_or_decision` | `false` |
+| `recurring_model_miss` | `DefectFamilyGateFinding` | `code` | `model_miss_review` | `starter` | `unclassified` | `false` |
+| `recurring_model_miss` | `DefectFamilyGateFinding` | `message` | `model_miss_review` | `internal` | `display_or_metadata` | `false` |
+| `recurring_model_miss` | `DefectFamilyGateFinding` | `severity` | `model_miss_review` | `internal` | `unclassified` | `false` |
+| `recurring_model_miss` | `DefectFamilyGateFinding` | `gate_id` | `model_miss_review` | `starter` | `unclassified` | `false` |
+| `recurring_model_miss` | `DefectFamilyGateFinding` | `evidence_id` | `model_miss_review` | `starter` | `evidence_or_decision` | `false` |
+| `recurring_model_miss` | `DefectFamilyGateFinding` | `metadata` | `model_miss_review` | `internal` | `collection_metadata` | `false` |
+| `recurring_model_miss` | `DefectFamilyGateReport` | `ok` | `model_miss_review` | `starter` | `evidence_or_decision` | `false` |
+| `recurring_model_miss` | `DefectFamilyGateReport` | `plan_id` | `model_miss_review` | `starter` | `unclassified` | `false` |
+| `recurring_model_miss` | `DefectFamilyGateReport` | `decision` | `model_miss_review` | `advanced` | `evidence_or_decision` | `false` |
+| `recurring_model_miss` | `DefectFamilyGateReport` | `confidence` | `model_miss_review` | `advanced` | `evidence_or_decision` | `false` |
+| `recurring_model_miss` | `DefectFamilyGateReport` | `findings` | `model_miss_review` | `starter` | `evidence_or_decision` | `false` |
+| `recurring_model_miss` | `DefectFamilyGateReport` | `passed_gate_ids` | `model_miss_review` | `internal` | `collection_metadata` | `false` |
+| `recurring_model_miss` | `DefectFamilyGateReport` | `scoped_gate_ids` | `model_miss_review` | `internal` | `collection_metadata` | `false` |
+| `recurring_model_miss` | `DefectFamilyGateReport` | `blocked_gate_ids` | `model_miss_review` | `internal` | `collection_metadata` | `false` |
+| `recurring_model_miss` | `DefectFamilyGateReport` | `summary` | `model_miss_review` | `advanced` | `evidence_or_decision` | `false` |
+| `replay` | `ReplayObservation` | `function_name` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `replay` | `ReplayObservation` | `observed_output` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `replay` | `ReplayObservation` | `observed_state` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `replay` | `ReplayObservation` | `label` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `replay` | `ReplayObservation` | `reason` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `replay` | `ReplayObservation` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `report` | `DeadBranch` | `reason` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `report` | `DeadBranch` | `trace` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `report` | `DeadBranch` | `function_name` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `report` | `DeadBranch` | `function_input` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `report` | `DeadBranch` | `state` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `report` | `DeadBranch` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `report` | `ExceptionBranch` | `error_type` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `report` | `ExceptionBranch` | `message` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `report` | `ExceptionBranch` | `trace` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `report` | `ExceptionBranch` | `function_name` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `report` | `ExceptionBranch` | `function_input` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `report` | `ExceptionBranch` | `state` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `report` | `InvariantViolation` | `invariant_name` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `report` | `InvariantViolation` | `description` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `report` | `InvariantViolation` | `message` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `report` | `InvariantViolation` | `state` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `report` | `InvariantViolation` | `trace` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `report` | `InvariantViolation` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `report` | `ReachabilityFailure` | `name` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `report` | `ReachabilityFailure` | `description` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `report` | `ReachabilityFailure` | `message` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `report` | `CheckReport` | `ok` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `report` | `CheckReport` | `violations` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `report` | `CheckReport` | `traces` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `report` | `CheckReport` | `summary` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `report` | `CheckReport` | `dead_branches` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `report` | `CheckReport` | `exception_branches` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `report` | `CheckReport` | `reachability_failures` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `report` | `CheckReport` | `explored_sequences` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `report` | `CheckReport` | `assumption_card` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `review` | `OracleReviewResult` | `scenario_name` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `review` | `OracleReviewResult` | `expected_summary` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `review` | `OracleReviewResult` | `observed_summary` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `review` | `OracleReviewResult` | `status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `review` | `OracleReviewResult` | `evidence` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `review` | `OracleReviewResult` | `counterexample_trace` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `review` | `OracleReviewResult` | `scenario_run` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `review` | `OracleReviewResult` | `ok` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `review` | `OracleReviewResult` | `status_explanation` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `review` | `ScenarioReviewReport` | `ok` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `review` | `ScenarioReviewReport` | `total_scenarios` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `review` | `ScenarioReviewReport` | `passed` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `review` | `ScenarioReviewReport` | `expected_violations_observed` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `review` | `ScenarioReviewReport` | `unexpected_violations` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `review` | `ScenarioReviewReport` | `missing_expected_violations` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `review` | `ScenarioReviewReport` | `needs_human_review` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `review` | `ScenarioReviewReport` | `known_limitations` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `review` | `ScenarioReviewReport` | `oracle_mismatches` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `review` | `ScenarioReviewReport` | `results` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `risk` | `RiskIntent` | `failure_modes` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `risk` | `RiskIntent` | `protected_harms` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `risk` | `RiskIntent` | `must_model_state` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `risk` | `RiskIntent` | `adversarial_inputs` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `risk` | `RiskIntent` | `hard_invariants` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `risk` | `RiskIntent` | `blindspots` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `risk` | `SkippedCheck` | `name` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `risk` | `SkippedCheck` | `reason` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `risk` | `SkippedCheck` | `status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `risk` | `SkippedCheck` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `risk` | `RiskProfile` | `modeled_boundary` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `risk` | `RiskProfile` | `risk_classes` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `risk` | `RiskProfile` | `risk_intent` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `risk` | `RiskProfile` | `confidence_goal` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `risk` | `RiskProfile` | `skipped_checks` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `risk` | `RiskProfile` | `notes` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `risk` | `RiskProfile` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `risk_evidence_ledger` | `RiskEvidenceProof` | `evidence_id` | `risk_evidence_ledger` | `starter` | `evidence_or_decision` | `false` |
+| `risk_evidence_ledger` | `RiskEvidenceProof` | `proof_kind` | `risk_evidence_ledger` | `advanced` | `evidence_or_decision` | `false` |
+| `risk_evidence_ledger` | `RiskEvidenceProof` | `result_status` | `risk_evidence_ledger` | `starter` | `evidence_or_decision` | `false` |
+| `risk_evidence_ledger` | `RiskEvidenceProof` | `current` | `risk_evidence_ledger` | `starter` | `unclassified` | `false` |
+| `risk_evidence_ledger` | `RiskEvidenceProof` | `assertion_scope` | `risk_evidence_ledger` | `internal` | `unclassified` | `false` |
+| `risk_evidence_ledger` | `RiskEvidenceProof` | `producer_route` | `risk_evidence_ledger` | `starter` | `behavior_or_contract` | `true` |
+| `risk_evidence_ledger` | `RiskEvidenceProof` | `command` | `risk_evidence_ledger` | `starter` | `unclassified` | `false` |
+| `risk_evidence_ledger` | `RiskEvidenceProof` | `summary` | `risk_evidence_ledger` | `advanced` | `evidence_or_decision` | `false` |
+| `risk_evidence_ledger` | `RiskEvidenceProof` | `proof_artifact` | `risk_evidence_ledger` | `advanced` | `evidence_or_decision` | `false` |
+| `risk_evidence_ledger` | `RiskEvidenceProof` | `stale_reasons` | `risk_evidence_ledger` | `advanced` | `evidence_or_decision` | `false` |
+| `risk_evidence_ledger` | `RiskEvidenceProof` | `route_gap_codes` | `risk_evidence_ledger` | `starter` | `behavior_or_contract` | `true` |
+| `risk_evidence_ledger` | `RiskEvidenceProof` | `route_evidence_current` | `risk_evidence_ledger` | `starter` | `behavior_or_contract` | `true` |
+| `risk_evidence_ledger` | `RiskEvidenceProof` | `metadata` | `risk_evidence_ledger` | `internal` | `collection_metadata` | `false` |
+| `risk_evidence_ledger` | `RiskEvidenceGate` | `kind` | `risk_evidence_ledger` | `internal` | `unclassified` | `false` |
+| `risk_evidence_ledger` | `RiskEvidenceGate` | `evidence_id` | `risk_evidence_ledger` | `starter` | `evidence_or_decision` | `false` |
+| `risk_evidence_ledger` | `RiskEvidenceGate` | `required` | `risk_evidence_ledger` | `internal` | `unclassified` | `false` |
+| `risk_evidence_ledger` | `RiskEvidenceGate` | `current` | `risk_evidence_ledger` | `starter` | `unclassified` | `false` |
+| `risk_evidence_ledger` | `RiskEvidenceGate` | `confidence` | `risk_evidence_ledger` | `advanced` | `evidence_or_decision` | `false` |
+| `risk_evidence_ledger` | `RiskEvidenceGate` | `scoped_reasons` | `risk_evidence_ledger` | `advanced` | `evidence_or_decision` | `false` |
+| `risk_evidence_ledger` | `RiskEvidenceRow` | `risk_id` | `risk_evidence_ledger` | `starter` | `unclassified` | `false` |
+| `risk_evidence_ledger` | `RiskEvidenceRow` | `required` | `risk_evidence_ledger` | `internal` | `unclassified` | `false` |
+| `risk_evidence_ledger` | `RiskEvidenceRow` | `in_scope` | `risk_evidence_ledger` | `internal` | `unclassified` | `false` |
+| `risk_evidence_ledger` | `RiskEvidenceRow` | `out_of_scope_reason` | `risk_evidence_ledger` | `starter` | `evidence_or_decision` | `false` |
+| `risk_evidence_ledger` | `RiskEvidenceRow` | `model_obligation_id` | `risk_evidence_ledger` | `starter` | `behavior_or_contract` | `true` |
+| `risk_evidence_ledger` | `RiskEvidenceRow` | `code_contract_id` | `risk_evidence_ledger` | `starter` | `behavior_or_contract` | `true` |
+| `risk_evidence_ledger` | `RiskEvidenceRow` | `proof_evidence_ids` | `risk_evidence_ledger` | `starter` | `evidence_or_decision` | `false` |
+| `risk_evidence_ledger` | `RiskEvidenceRow` | `require_external_proof` | `risk_evidence_ledger` | `advanced` | `behavior_or_contract` | `true` |
+| `risk_evidence_ledger` | `RiskEvidenceRow` | `gates` | `risk_evidence_ledger` | `internal` | `collection_metadata` | `false` |
+| `risk_evidence_ledger` | `RiskEvidenceRow` | `maintenance_obligation_ids` | `risk_evidence_ledger` | `starter` | `behavior_or_contract` | `true` |
+| `risk_evidence_ledger` | `RiskEvidenceLedgerPlan` | `ledger_id` | `risk_evidence_ledger` | `starter` | `unclassified` | `false` |
+| `risk_evidence_ledger` | `RiskEvidenceLedgerPlan` | `rows` | `risk_evidence_ledger` | `internal` | `collection_metadata` | `false` |
+| `risk_evidence_ledger` | `RiskEvidenceLedgerPlan` | `proof_evidence` | `risk_evidence_ledger` | `starter` | `evidence_or_decision` | `false` |
+| `risk_evidence_ledger` | `RiskEvidenceLedgerPlan` | `maintenance_obligations` | `risk_evidence_ledger` | `advanced` | `behavior_or_contract` | `true` |
+| `risk_evidence_ledger` | `RiskEvidenceLedgerPlan` | `require_proof_artifacts` | `risk_evidence_ledger` | `advanced` | `evidence_or_decision` | `false` |
+| `risk_evidence_ledger` | `RiskEvidenceLedgerPlan` | `allow_scoped_confidence` | `risk_evidence_ledger` | `advanced` | `evidence_or_decision` | `false` |
+| `risk_evidence_ledger` | `RiskEvidenceFinding` | `code` | `risk_evidence_ledger` | `starter` | `unclassified` | `false` |
+| `risk_evidence_ledger` | `RiskEvidenceFinding` | `message` | `risk_evidence_ledger` | `internal` | `display_or_metadata` | `false` |
+| `risk_evidence_ledger` | `RiskEvidenceFinding` | `severity` | `risk_evidence_ledger` | `internal` | `unclassified` | `false` |
+| `risk_evidence_ledger` | `RiskEvidenceFinding` | `risk_id` | `risk_evidence_ledger` | `starter` | `unclassified` | `false` |
+| `risk_evidence_ledger` | `RiskEvidenceFinding` | `evidence_id` | `risk_evidence_ledger` | `starter` | `evidence_or_decision` | `false` |
+| `risk_evidence_ledger` | `RiskEvidenceFinding` | `metadata` | `risk_evidence_ledger` | `internal` | `collection_metadata` | `false` |
+| `risk_evidence_ledger` | `RiskEvidenceLedgerReport` | `ok` | `risk_evidence_ledger` | `starter` | `evidence_or_decision` | `false` |
+| `risk_evidence_ledger` | `RiskEvidenceLedgerReport` | `ledger_id` | `risk_evidence_ledger` | `starter` | `unclassified` | `false` |
+| `risk_evidence_ledger` | `RiskEvidenceLedgerReport` | `decision` | `risk_evidence_ledger` | `advanced` | `evidence_or_decision` | `false` |
+| `risk_evidence_ledger` | `RiskEvidenceLedgerReport` | `confidence` | `risk_evidence_ledger` | `advanced` | `evidence_or_decision` | `false` |
+| `risk_evidence_ledger` | `RiskEvidenceLedgerReport` | `findings` | `risk_evidence_ledger` | `starter` | `evidence_or_decision` | `false` |
+| `risk_evidence_ledger` | `RiskEvidenceLedgerReport` | `summary` | `risk_evidence_ledger` | `advanced` | `evidence_or_decision` | `false` |
+| `runtime_gateway` | `RuntimeStateSurface` | `surface_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_gateway` | `RuntimeStateSurface` | `description` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `runtime_gateway` | `RuntimeStateSurface` | `paths` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `runtime_gateway` | `RuntimeStateSurface` | `critical` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_gateway` | `RuntimeStateSurface` | `owner_gateway_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `runtime_gateway` | `RuntimeStateSurface` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_gateway` | `RuntimeGatewayContract` | `gateway_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_gateway` | `RuntimeGatewayContract` | `managed_surface_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `runtime_gateway` | `RuntimeGatewayContract` | `description` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `runtime_gateway` | `RuntimeGatewayContract` | `requires_atomic_commit` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_gateway` | `RuntimeGatewayContract` | `requires_replay_observation` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_gateway` | `RuntimeGatewayContract` | `requires_step_contract_binding` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `runtime_gateway` | `RuntimeGatewayContract` | `requires_code_boundary_binding` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_gateway` | `RuntimeGatewayContract` | `requires_runtime_path_binding` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_gateway` | `RuntimeGatewayContract` | `requires_proof_artifact` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `runtime_gateway` | `RuntimeGatewayContract` | `step_contract_ids` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `runtime_gateway` | `RuntimeGatewayContract` | `code_boundary_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `runtime_gateway` | `RuntimeGatewayContract` | `runtime_node_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `runtime_gateway` | `RuntimeGatewayContract` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_gateway` | `RuntimeWriteObservation` | `observation_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_gateway` | `RuntimeWriteObservation` | `surface_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_gateway` | `RuntimeWriteObservation` | `path` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_gateway` | `RuntimeWriteObservation` | `symbol` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_gateway` | `RuntimeWriteObservation` | `write_kind` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_gateway` | `RuntimeWriteObservation` | `gateway_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_gateway` | `RuntimeWriteObservation` | `action_id` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `runtime_gateway` | `RuntimeWriteObservation` | `step_contract_ids` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `runtime_gateway` | `RuntimeWriteObservation` | `code_boundary_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `runtime_gateway` | `RuntimeWriteObservation` | `runtime_node_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `runtime_gateway` | `RuntimeWriteObservation` | `proof_artifact_ids` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `runtime_gateway` | `RuntimeWriteObservation` | `current` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_gateway` | `RuntimeWriteObservation` | `result_status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `runtime_gateway` | `RuntimeWriteObservation` | `legacy_bypass_reason` | `core_or_internal` | `advanced` | `compatibility_or_old_path` | `true` |
+| `runtime_gateway` | `RuntimeWriteObservation` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_gateway` | `RuntimeGatewayAdoptionPlan` | `project_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_gateway` | `RuntimeGatewayAdoptionPlan` | `target_level` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_gateway` | `RuntimeGatewayAdoptionPlan` | `state_surfaces` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `runtime_gateway` | `RuntimeGatewayAdoptionPlan` | `gateways` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `runtime_gateway` | `RuntimeGatewayAdoptionPlan` | `write_observations` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `runtime_gateway` | `RuntimeGatewayAdoptionPlan` | `complete_inventory_evidence_ids` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `runtime_gateway` | `RuntimeGatewayAdoptionPlan` | `require_complete_inventory` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_gateway` | `RuntimeGatewayAdoptionPlan` | `require_observed_writer_for_critical_surfaces` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_gateway` | `RuntimeGatewayAdoptionPlan` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_gateway` | `RuntimeGatewayFinding` | `code` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_gateway` | `RuntimeGatewayFinding` | `message` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `runtime_gateway` | `RuntimeGatewayFinding` | `severity` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_gateway` | `RuntimeGatewayFinding` | `surface_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_gateway` | `RuntimeGatewayFinding` | `gateway_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_gateway` | `RuntimeGatewayFinding` | `observation_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_gateway` | `RuntimeGatewayFinding` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_gateway` | `RuntimeGatewayAdoptionReport` | `plan` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_gateway` | `RuntimeGatewayAdoptionReport` | `findings` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `runtime_gateway` | `RuntimeGatewayAdoptionReport` | `decision` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `runtime_gateway` | `RuntimeGatewayAdoptionReport` | `summary` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `runtime_path` | `RuntimeNodeContract` | `node_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_path` | `RuntimeNodeContract` | `model_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_path` | `RuntimeNodeContract` | `model_path` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_path` | `RuntimeNodeContract` | `child_model_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_path` | `RuntimeNodeContract` | `leaf_model_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_path` | `RuntimeNodeContract` | `model_obligation_id` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `runtime_path` | `RuntimeNodeContract` | `code_contract_id` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `runtime_path` | `RuntimeNodeContract` | `boundary_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_path` | `RuntimeNodeContract` | `input_case` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `runtime_path` | `RuntimeNodeContract` | `state_case` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `runtime_path` | `RuntimeNodeContract` | `required` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_path` | `RuntimeNodeContract` | `ordered` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_path` | `RuntimeNodeContract` | `sequence_index` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_path` | `RuntimeNodeContract` | `allowed_outputs` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `runtime_path` | `RuntimeNodeContract` | `allowed_next_states` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `runtime_path` | `RuntimeNodeContract` | `allowed_state_writes` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `runtime_path` | `RuntimeNodeContract` | `allowed_side_effects` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `runtime_path` | `RuntimeNodeContract` | `allowed_error_paths` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `runtime_path` | `RuntimeNodeContract` | `required_observation_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `runtime_path` | `RuntimeNodeContract` | `exact` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_path` | `RuntimeNodeContract` | `requires_gateway_binding` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_path` | `RuntimeNodeContract` | `metadata` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `runtime_path` | `RuntimeNodeObservation` | `observation_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_path` | `RuntimeNodeObservation` | `node_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_path` | `RuntimeNodeObservation` | `run_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_path` | `RuntimeNodeObservation` | `model_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_path` | `RuntimeNodeObservation` | `model_path` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_path` | `RuntimeNodeObservation` | `child_model_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_path` | `RuntimeNodeObservation` | `leaf_model_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_path` | `RuntimeNodeObservation` | `model_obligation_id` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `runtime_path` | `RuntimeNodeObservation` | `code_contract_id` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `runtime_path` | `RuntimeNodeObservation` | `boundary_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_path` | `RuntimeNodeObservation` | `input_case` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `runtime_path` | `RuntimeNodeObservation` | `state_case` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `runtime_path` | `RuntimeNodeObservation` | `sequence_index` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_path` | `RuntimeNodeObservation` | `accepted` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_path` | `RuntimeNodeObservation` | `observed_output` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `runtime_path` | `RuntimeNodeObservation` | `observed_next_state` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `runtime_path` | `RuntimeNodeObservation` | `observed_state_writes` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `runtime_path` | `RuntimeNodeObservation` | `observed_side_effects` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `runtime_path` | `RuntimeNodeObservation` | `observed_error_path` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `runtime_path` | `RuntimeNodeObservation` | `gateway_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_path` | `RuntimeNodeObservation` | `result_status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `runtime_path` | `RuntimeNodeObservation` | `evidence_current` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `runtime_path` | `RuntimeNodeObservation` | `evidence_id` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `runtime_path` | `RuntimeNodeObservation` | `assertion_scope` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_path` | `RuntimeNodeObservation` | `proof_artifact` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `runtime_path` | `RuntimeNodeObservation` | `progress_message` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `runtime_path` | `RuntimeNodeObservation` | `metadata` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `runtime_path` | `RuntimePathRun` | `run_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_path` | `RuntimePathRun` | `observations` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `runtime_path` | `RuntimePathRun` | `source_evidence_id` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `runtime_path` | `RuntimePathRun` | `result_status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `runtime_path` | `RuntimePathRun` | `current` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_path` | `RuntimePathRun` | `metadata` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `runtime_path` | `RuntimePathAlignmentPlan` | `plan_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_path` | `RuntimePathAlignmentPlan` | `model_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_path` | `RuntimePathAlignmentPlan` | `node_contracts` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `runtime_path` | `RuntimePathAlignmentPlan` | `observations` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `runtime_path` | `RuntimePathAlignmentPlan` | `runs` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `runtime_path` | `RuntimePathAlignmentPlan` | `require_exact_path` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_path` | `RuntimePathAlignmentPlan` | `require_proof_artifacts` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `runtime_path` | `RuntimePathAlignmentPlan` | `allow_uncontracted_nodes` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `runtime_path` | `RuntimePathAlignmentPlan` | `claim_scope` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_path` | `RuntimePathAlignmentPlan` | `metadata` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `runtime_path` | `RuntimePathFinding` | `code` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_path` | `RuntimePathFinding` | `message` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `runtime_path` | `RuntimePathFinding` | `severity` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_path` | `RuntimePathFinding` | `node_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_path` | `RuntimePathFinding` | `observation_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_path` | `RuntimePathFinding` | `evidence_id` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `runtime_path` | `RuntimePathFinding` | `metadata` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `runtime_path` | `RuntimePathAlignmentReport` | `ok` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `runtime_path` | `RuntimePathAlignmentReport` | `plan_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_path` | `RuntimePathAlignmentReport` | `decision` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `runtime_path` | `RuntimePathAlignmentReport` | `confidence` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `runtime_path` | `RuntimePathAlignmentReport` | `findings` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `runtime_path` | `RuntimePathAlignmentReport` | `checked_contracts` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `runtime_path` | `RuntimePathAlignmentReport` | `checked_observations` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `runtime_path` | `RuntimePathAlignmentReport` | `summary` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `scenario` | `OracleCheckResult` | `ok` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `scenario` | `OracleCheckResult` | `message` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `scenario` | `OracleCheckResult` | `evidence` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `scenario` | `OracleCheckResult` | `violation_name` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `scenario` | `OracleCheckResult` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `scenario` | `ScenarioExpectation` | `expected_status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `scenario` | `ScenarioExpectation` | `expected_violation_names` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `scenario` | `ScenarioExpectation` | `required_trace_labels` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `scenario` | `ScenarioExpectation` | `forbidden_trace_labels` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `scenario` | `ScenarioExpectation` | `required_evidence` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `scenario` | `ScenarioExpectation` | `custom_checks` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `scenario` | `ScenarioExpectation` | `summary` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `scenario` | `Scenario` | `name` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `scenario` | `Scenario` | `description` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `scenario` | `Scenario` | `initial_state` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `scenario` | `Scenario` | `external_input_sequence` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `scenario` | `Scenario` | `expected` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `scenario` | `Scenario` | `tags` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `scenario` | `Scenario` | `notes` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `scenario` | `Scenario` | `workflow` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `scenario` | `Scenario` | `invariants` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `scenario` | `ScenarioRun` | `scenario` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `scenario` | `ScenarioRun` | `model_report` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `scenario` | `ScenarioRun` | `traces` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `scenario` | `ScenarioRun` | `final_states` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `scenario` | `ScenarioRun` | `observed_status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `scenario` | `ScenarioRun` | `observed_violation_names` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `scenario` | `ScenarioRun` | `evidence` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `scenario` | `ScenarioRun` | `oracle_check_results` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `scenario` | `ScenarioRun` | `conformance_report` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `scenario_matrix` | `_StateEntry` | `state` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `scenario_matrix` | `_StateEntry` | `tags` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `scenario_matrix` | `_StateEntry` | `notes` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `scenario_matrix` | `_ScenarioPattern` | `kind` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `scenario_matrix` | `_ScenarioPattern` | `sequence` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `scenario_matrix` | `_ScenarioPattern` | `token` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `scenario_matrix` | `_ScenarioPattern` | `description` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `scenario_matrix` | `_ScenarioPattern` | `tags` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `scenario_matrix` | `_ScenarioPattern` | `notes` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `scenario_matrix` | `_ModelChallengeCandidate` | `kind` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `scenario_matrix` | `_ModelChallengeCandidate` | `sequence` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `scenario_matrix` | `_ModelChallengeCandidate` | `initial_state` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `scenario_matrix` | `_ModelChallengeCandidate` | `tags` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `scenario_matrix` | `_ModelChallengeCandidate` | `notes` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `scenario_matrix` | `_ModelChallengeCandidate` | `priority` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `schema` | `ArtifactEnvelope` | `artifact_type` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `schema` | `ArtifactEnvelope` | `payload` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `schema` | `ArtifactEnvelope` | `schema_version` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `schema` | `ArtifactEnvelope` | `created_by` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `schema` | `ArtifactEnvelope` | `model_name` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `schema` | `ArtifactEnvelope` | `scenario_name` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `schema` | `ArtifactEnvelope` | `trace_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `self_maintenance` | `RouteProfile` | `route_id` | `flowguard_self_maintenance` | `starter` | `behavior_or_contract` | `true` |
+| `self_maintenance` | `RouteProfile` | `trigger` | `flowguard_self_maintenance` | `internal` | `unclassified` | `false` |
+| `self_maintenance` | `RouteProfile` | `minimal_inputs` | `flowguard_self_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `self_maintenance` | `RouteProfile` | `outputs` | `flowguard_self_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `self_maintenance` | `RouteProfile` | `evidence_owner` | `flowguard_self_maintenance` | `starter` | `evidence_or_decision` | `false` |
+| `self_maintenance` | `RouteProfile` | `next_actions` | `flowguard_self_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `self_maintenance` | `RouteProfile` | `api_group` | `flowguard_self_maintenance` | `internal` | `unclassified` | `false` |
+| `self_maintenance` | `RouteProfile` | `template_factory` | `flowguard_self_maintenance` | `internal` | `unclassified` | `false` |
+| `self_maintenance` | `RouteProfile` | `skill_name` | `flowguard_self_maintenance` | `internal` | `display_or_metadata` | `false` |
+| `self_maintenance` | `RouteProfile` | `summary` | `flowguard_self_maintenance` | `advanced` | `evidence_or_decision` | `false` |
+| `self_maintenance` | `RouteProfile` | `metadata` | `flowguard_self_maintenance` | `internal` | `collection_metadata` | `false` |
+| `self_maintenance` | `AIMaintenanceProfile` | `profile_id` | `flowguard_self_maintenance` | `starter` | `unclassified` | `false` |
+| `self_maintenance` | `AIMaintenanceProfile` | `intent` | `flowguard_self_maintenance` | `internal` | `unclassified` | `false` |
+| `self_maintenance` | `AIMaintenanceProfile` | `first_route` | `flowguard_self_maintenance` | `starter` | `behavior_or_contract` | `true` |
+| `self_maintenance` | `AIMaintenanceProfile` | `minimal_inputs` | `flowguard_self_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `self_maintenance` | `AIMaintenanceProfile` | `expansion_routes` | `flowguard_self_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `self_maintenance` | `AIMaintenanceProfile` | `broad_claim_requires` | `flowguard_self_maintenance` | `starter` | `collection_metadata` | `false` |
+| `self_maintenance` | `AIMaintenanceProfile` | `flat_surface_warning` | `flowguard_self_maintenance` | `internal` | `unclassified` | `false` |
+| `self_maintenance` | `FieldLayerProfile` | `layer_id` | `flowguard_self_maintenance` | `starter` | `unclassified` | `false` |
+| `self_maintenance` | `FieldLayerProfile` | `field_kinds` | `flowguard_self_maintenance` | `internal` | `collection_metadata` | `false` |
+| `self_maintenance` | `FieldLayerProfile` | `first_read_exposure` | `flowguard_self_maintenance` | `internal` | `unclassified` | `false` |
+| `self_maintenance` | `FieldLayerProfile` | `owner_route` | `flowguard_self_maintenance` | `starter` | `behavior_or_contract` | `true` |
+| `self_maintenance` | `FieldLayerProfile` | `expansion_required_for` | `flowguard_self_maintenance` | `internal` | `collection_metadata` | `false` |
+| `self_maintenance` | `FieldLayerProfile` | `disposition_required` | `flowguard_self_maintenance` | `internal` | `unclassified` | `false` |
+| `self_maintenance` | `FieldLayerProfile` | `summary` | `flowguard_self_maintenance` | `advanced` | `evidence_or_decision` | `false` |
+| `self_maintenance` | `SelfMaintenanceChildReport` | `child_id` | `flowguard_self_maintenance` | `starter` | `unclassified` | `false` |
+| `self_maintenance` | `SelfMaintenanceChildReport` | `owner_guard` | `flowguard_self_maintenance` | `internal` | `unclassified` | `false` |
+| `self_maintenance` | `SelfMaintenanceChildReport` | `artifact_kind` | `flowguard_self_maintenance` | `internal` | `unclassified` | `false` |
+| `self_maintenance` | `SelfMaintenanceChildReport` | `closure_status` | `flowguard_self_maintenance` | `starter` | `evidence_or_decision` | `false` |
+| `self_maintenance` | `SelfMaintenanceChildReport` | `findings` | `flowguard_self_maintenance` | `starter` | `evidence_or_decision` | `false` |
+| `self_maintenance` | `SelfMaintenanceChildReport` | `missing_inputs` | `flowguard_self_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `self_maintenance` | `SelfMaintenanceChildReport` | `stale_evidence` | `flowguard_self_maintenance` | `starter` | `evidence_or_decision` | `false` |
+| `self_maintenance` | `SelfMaintenanceChildReport` | `skipped_checks` | `flowguard_self_maintenance` | `internal` | `collection_metadata` | `false` |
+| `self_maintenance` | `SelfMaintenanceChildReport` | `next_actions` | `flowguard_self_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `self_maintenance` | `SelfMaintenanceChildReport` | `safe_claim` | `flowguard_self_maintenance` | `starter` | `unclassified` | `false` |
+| `self_maintenance` | `SelfMaintenanceChildReport` | `unsafe_claim_boundary` | `flowguard_self_maintenance` | `starter` | `unclassified` | `false` |
+| `self_maintenance` | `SelfMaintenanceChildReport` | `current` | `flowguard_self_maintenance` | `starter` | `unclassified` | `false` |
+| `self_maintenance` | `SelfMaintenanceChildReport` | `metadata` | `flowguard_self_maintenance` | `internal` | `collection_metadata` | `false` |
+| `self_maintenance` | `SelfMaintenanceFinding` | `code` | `flowguard_self_maintenance` | `starter` | `unclassified` | `false` |
+| `self_maintenance` | `SelfMaintenanceFinding` | `message` | `flowguard_self_maintenance` | `internal` | `display_or_metadata` | `false` |
+| `self_maintenance` | `SelfMaintenanceFinding` | `severity` | `flowguard_self_maintenance` | `internal` | `unclassified` | `false` |
+| `self_maintenance` | `SelfMaintenanceFinding` | `owner_route` | `flowguard_self_maintenance` | `starter` | `behavior_or_contract` | `true` |
+| `self_maintenance` | `SelfMaintenanceFinding` | `child_id` | `flowguard_self_maintenance` | `starter` | `unclassified` | `false` |
+| `self_maintenance` | `SelfMaintenanceFinding` | `next_action` | `flowguard_self_maintenance` | `starter` | `behavior_or_contract` | `true` |
+| `self_maintenance` | `SelfMaintenanceFinding` | `metadata` | `flowguard_self_maintenance` | `internal` | `collection_metadata` | `false` |
+| `self_maintenance` | `SelfMaintenancePlan` | `plan_id` | `flowguard_self_maintenance` | `starter` | `unclassified` | `false` |
+| `self_maintenance` | `SelfMaintenancePlan` | `route_profiles` | `flowguard_self_maintenance` | `starter` | `behavior_or_contract` | `true` |
+| `self_maintenance` | `SelfMaintenancePlan` | `api_route_group_ids` | `flowguard_self_maintenance` | `starter` | `behavior_or_contract` | `true` |
+| `self_maintenance` | `SelfMaintenancePlan` | `ai_profiles` | `flowguard_self_maintenance` | `internal` | `collection_metadata` | `false` |
+| `self_maintenance` | `SelfMaintenancePlan` | `field_layers` | `flowguard_self_maintenance` | `internal` | `collection_metadata` | `false` |
+| `self_maintenance` | `SelfMaintenancePlan` | `child_reports` | `flowguard_self_maintenance` | `advanced` | `evidence_or_decision` | `false` |
+| `self_maintenance` | `SelfMaintenancePlan` | `broad_claim` | `flowguard_self_maintenance` | `starter` | `unclassified` | `false` |
+| `self_maintenance` | `SelfMaintenancePlan` | `allow_scoped_confidence` | `flowguard_self_maintenance` | `advanced` | `evidence_or_decision` | `false` |
+| `self_maintenance` | `SelfMaintenanceReport` | `ok` | `flowguard_self_maintenance` | `starter` | `evidence_or_decision` | `false` |
+| `self_maintenance` | `SelfMaintenanceReport` | `plan_id` | `flowguard_self_maintenance` | `starter` | `unclassified` | `false` |
+| `self_maintenance` | `SelfMaintenanceReport` | `decision` | `flowguard_self_maintenance` | `advanced` | `evidence_or_decision` | `false` |
+| `self_maintenance` | `SelfMaintenanceReport` | `confidence` | `flowguard_self_maintenance` | `advanced` | `evidence_or_decision` | `false` |
+| `self_maintenance` | `SelfMaintenanceReport` | `findings` | `flowguard_self_maintenance` | `starter` | `evidence_or_decision` | `false` |
+| `self_maintenance` | `SelfMaintenanceReport` | `route_profiles` | `flowguard_self_maintenance` | `starter` | `behavior_or_contract` | `true` |
+| `self_maintenance` | `SelfMaintenanceReport` | `child_reports` | `flowguard_self_maintenance` | `advanced` | `evidence_or_decision` | `false` |
+| `self_maintenance` | `SelfMaintenanceReport` | `summary` | `flowguard_self_maintenance` | `advanced` | `evidence_or_decision` | `false` |
+| `state_closure` | `StateClosureCase` | `case_id` | `state_closure` | `starter` | `unclassified` | `false` |
+| `state_closure` | `StateClosureCase` | `dimension_id` | `state_closure` | `starter` | `unclassified` | `false` |
+| `state_closure` | `StateClosureCase` | `case_kind` | `state_closure` | `starter` | `unclassified` | `false` |
+| `state_closure` | `StateClosureCase` | `value` | `state_closure` | `internal` | `unclassified` | `false` |
+| `state_closure` | `StateClosureCase` | `description` | `state_closure` | `internal` | `display_or_metadata` | `false` |
+| `state_closure` | `StateClosureCase` | `generated` | `state_closure` | `internal` | `unclassified` | `false` |
+| `state_closure` | `StateClosureCase` | `metadata` | `state_closure` | `internal` | `collection_metadata` | `false` |
+| `state_closure` | `StateClosureDimension` | `dimension_id` | `state_closure` | `starter` | `unclassified` | `false` |
+| `state_closure` | `StateClosureDimension` | `dimension_kind` | `state_closure` | `internal` | `unclassified` | `false` |
+| `state_closure` | `StateClosureDimension` | `policy` | `state_closure` | `internal` | `unclassified` | `false` |
+| `state_closure` | `StateClosureDimension` | `known_values` | `state_closure` | `internal` | `collection_metadata` | `false` |
+| `state_closure` | `StateClosureDimension` | `representative_unknowns` | `state_closure` | `internal` | `collection_metadata` | `false` |
+| `state_closure` | `StateClosureDimension` | `handling` | `state_closure` | `internal` | `unclassified` | `false` |
+| `state_closure` | `StateClosureDimension` | `side_effects_before_resolution` | `state_closure` | `advanced` | `behavior_or_contract` | `true` |
+| `state_closure` | `StateClosureDimension` | `required` | `state_closure` | `internal` | `unclassified` | `false` |
+| `state_closure` | `StateClosureDimension` | `description` | `state_closure` | `internal` | `display_or_metadata` | `false` |
+| `state_closure` | `StateClosureDimension` | `metadata` | `state_closure` | `internal` | `collection_metadata` | `false` |
+| `state_closure` | `StateClosureFinding` | `code` | `state_closure` | `starter` | `unclassified` | `false` |
+| `state_closure` | `StateClosureFinding` | `message` | `state_closure` | `internal` | `display_or_metadata` | `false` |
+| `state_closure` | `StateClosureFinding` | `severity` | `state_closure` | `internal` | `unclassified` | `false` |
+| `state_closure` | `StateClosureFinding` | `dimension_id` | `state_closure` | `starter` | `unclassified` | `false` |
+| `state_closure` | `StateClosureFinding` | `case_id` | `state_closure` | `starter` | `unclassified` | `false` |
+| `state_closure` | `StateClosureFinding` | `action` | `state_closure` | `starter` | `behavior_or_contract` | `true` |
+| `state_closure` | `StateClosureFinding` | `metadata` | `state_closure` | `internal` | `collection_metadata` | `false` |
+| `state_closure` | `StateClosurePlan` | `plan_id` | `state_closure` | `starter` | `unclassified` | `false` |
+| `state_closure` | `StateClosurePlan` | `dimensions` | `state_closure` | `internal` | `collection_metadata` | `false` |
+| `state_closure` | `StateClosurePlan` | `supplied_cases` | `state_closure` | `internal` | `collection_metadata` | `false` |
+| `state_closure` | `StateClosurePlan` | `claim_scope` | `state_closure` | `starter` | `unclassified` | `false` |
+| `state_closure` | `StateClosurePlan` | `allow_scoped_confidence` | `state_closure` | `advanced` | `evidence_or_decision` | `false` |
+| `state_closure` | `StateClosurePlan` | `notes` | `state_closure` | `internal` | `unclassified` | `false` |
+| `state_closure` | `StateClosureReport` | `ok` | `state_closure` | `starter` | `evidence_or_decision` | `false` |
+| `state_closure` | `StateClosureReport` | `plan_id` | `state_closure` | `starter` | `unclassified` | `false` |
+| `state_closure` | `StateClosureReport` | `decision` | `state_closure` | `advanced` | `evidence_or_decision` | `false` |
+| `state_closure` | `StateClosureReport` | `confidence` | `state_closure` | `advanced` | `evidence_or_decision` | `false` |
+| `state_closure` | `StateClosureReport` | `generated_cases` | `state_closure` | `internal` | `collection_metadata` | `false` |
+| `state_closure` | `StateClosureReport` | `findings` | `state_closure` | `starter` | `evidence_or_decision` | `false` |
+| `state_closure` | `StateClosureReport` | `unresolved_finding_ids` | `state_closure` | `starter` | `evidence_or_decision` | `false` |
+| `state_closure` | `StateClosureReport` | `summary` | `state_closure` | `advanced` | `evidence_or_decision` | `false` |
+| `step_contracts` | `WorkflowStepContract` | `step_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `step_contracts` | `WorkflowStepContract` | `completion_labels` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `step_contracts` | `WorkflowStepContract` | `requires_receipts` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `step_contracts` | `WorkflowStepContract` | `produces_receipts` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `step_contracts` | `WorkflowStepContract` | `invalidates_receipts` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `step_contracts` | `WorkflowStepContract` | `required_for_claims` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `step_contracts` | `WorkflowStepContract` | `skip_policy` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `step_contracts` | `WorkflowStepContract` | `description` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `step_contracts` | `WorkflowStepContract` | `evidence_kind` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `step_contracts` | `WorkflowStepContract` | `required_test_kinds` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `step_contracts` | `WorkflowStepContract` | `artifact_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `step_contracts` | `WorkflowStepContract` | `code_contract_ids` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `step_contracts` | `WorkflowStepContract` | `runtime_node_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `step_contracts` | `WorkflowStepContract` | `release_required` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `step_contracts` | `WorkflowStepContract` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `step_contracts` | `StepContractFinding` | `code` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `step_contracts` | `StepContractFinding` | `message` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `step_contracts` | `StepContractFinding` | `step_index` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `step_contracts` | `StepContractFinding` | `step_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `step_contracts` | `StepContractFinding` | `receipt_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `step_contracts` | `StepContractFinding` | `claim_label` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `step_contracts` | `StepContractFinding` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `step_contracts` | `StepContractReport` | `ok` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `step_contracts` | `StepContractReport` | `findings` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `step_contracts` | `StepContractReport` | `current_receipts` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `step_contracts` | `StepContractReport` | `stale_receipts` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `step_contracts` | `StepContractReport` | `skipped_step_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `step_contracts` | `StepContractReport` | `first_failed_step_index` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `step_contracts` | `StepContractReport` | `summary` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `structuremesh` | `StructurePartitionItem` | `item_id` | `structure_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `structuremesh` | `StructurePartitionItem` | `item_type` | `structure_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `structuremesh` | `StructurePartitionItem` | `owner_module_id` | `structure_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `structuremesh` | `StructurePartitionItem` | `ownership` | `structure_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `structuremesh` | `StructurePartitionItem` | `description` | `structure_mesh_maintenance` | `internal` | `display_or_metadata` | `false` |
+| `structuremesh` | `StructurePartitionItem` | `public_surface` | `structure_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `structuremesh` | `StructurePartitionItem` | `old_path` | `structure_mesh_maintenance` | `advanced` | `compatibility_or_old_path` | `true` |
+| `structuremesh` | `StructurePartitionItem` | `new_path` | `structure_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `structuremesh` | `PublicEntrypointEvidence` | `entrypoint_id` | `structure_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `structuremesh` | `PublicEntrypointEvidence` | `entrypoint_type` | `structure_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `structuremesh` | `PublicEntrypointEvidence` | `old_path` | `structure_mesh_maintenance` | `advanced` | `compatibility_or_old_path` | `true` |
+| `structuremesh` | `PublicEntrypointEvidence` | `new_path` | `structure_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `structuremesh` | `PublicEntrypointEvidence` | `compatibility_preserved` | `structure_mesh_maintenance` | `advanced` | `compatibility_or_old_path` | `true` |
+| `structuremesh` | `PublicEntrypointEvidence` | `facade_available` | `structure_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `structuremesh` | `PublicEntrypointEvidence` | `parity_evidence_current` | `structure_mesh_maintenance` | `starter` | `evidence_or_decision` | `false` |
+| `structuremesh` | `PublicEntrypointEvidence` | `parity_evidence_tier` | `structure_mesh_maintenance` | `starter` | `evidence_or_decision` | `false` |
+| `structuremesh` | `PublicEntrypointEvidence` | `release_required` | `structure_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `structuremesh` | `PublicEntrypointEvidence` | `evidence_path` | `structure_mesh_maintenance` | `starter` | `evidence_or_decision` | `false` |
+| `structuremesh` | `PublicEntrypointEvidence` | `not_ready_reason` | `structure_mesh_maintenance` | `starter` | `evidence_or_decision` | `false` |
+| `structuremesh` | `ModuleStructureEvidence` | `module_id` | `structure_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `structuremesh` | `ModuleStructureEvidence` | `path` | `structure_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `structuremesh` | `ModuleStructureEvidence` | `layer` | `structure_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `structuremesh` | `ModuleStructureEvidence` | `extracted_from` | `structure_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `structuremesh` | `ModuleStructureEvidence` | `owns_functions` | `structure_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `structuremesh` | `ModuleStructureEvidence` | `owns_state` | `structure_mesh_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `structuremesh` | `ModuleStructureEvidence` | `owns_side_effects` | `structure_mesh_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `structuremesh` | `ModuleStructureEvidence` | `owns_config` | `structure_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `structuremesh` | `ModuleStructureEvidence` | `behavior_contracts` | `structure_mesh_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `structuremesh` | `ModuleStructureEvidence` | `dependencies` | `structure_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `structuremesh` | `ModuleStructureEvidence` | `dependency_cycles` | `structure_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `structuremesh` | `ModuleStructureEvidence` | `facade_retained` | `structure_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `structuremesh` | `ModuleStructureEvidence` | `behavior_parity_current` | `structure_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `structuremesh` | `ModuleStructureEvidence` | `behavior_parity_tier` | `structure_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `structuremesh` | `ModuleStructureEvidence` | `config_defaults_changed` | `structure_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `structuremesh` | `ModuleStructureEvidence` | `release_required` | `structure_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `structuremesh` | `ModuleStructureEvidence` | `not_ready_reason` | `structure_mesh_maintenance` | `starter` | `evidence_or_decision` | `false` |
+| `structuremesh` | `StructureMeshPlan` | `parent_module_id` | `structure_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `structuremesh` | `StructureMeshPlan` | `partition_items` | `structure_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `structuremesh` | `StructureMeshPlan` | `child_modules` | `structure_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `structuremesh` | `StructureMeshPlan` | `public_entrypoints` | `structure_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `structuremesh` | `StructureMeshPlan` | `target_structure` | `structure_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `structuremesh` | `StructureMeshPlan` | `required_evidence_tier` | `structure_mesh_maintenance` | `starter` | `evidence_or_decision` | `false` |
+| `structuremesh` | `StructureMeshPlan` | `decision_scope` | `structure_mesh_maintenance` | `advanced` | `evidence_or_decision` | `false` |
+| `structuremesh` | `StructureMeshPlan` | `release_deferred_allowed` | `structure_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `structuremesh` | `StructureMeshPlan` | `allowed_shared_state` | `structure_mesh_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `structuremesh` | `StructureMeshPlan` | `allowed_shared_side_effects` | `structure_mesh_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `structuremesh` | `StructureMeshPlan` | `allowed_shared_config` | `structure_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `structuremesh` | `StructureMeshPlan` | `allowed_dependency_cycles` | `structure_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `structuremesh` | `StructureMeshFinding` | `code` | `structure_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `structuremesh` | `StructureMeshFinding` | `message` | `structure_mesh_maintenance` | `internal` | `display_or_metadata` | `false` |
+| `structuremesh` | `StructureMeshFinding` | `severity` | `structure_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `structuremesh` | `StructureMeshFinding` | `module_id` | `structure_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `structuremesh` | `StructureMeshFinding` | `item_id` | `structure_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `structuremesh` | `StructureMeshFinding` | `metadata` | `structure_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `structuremesh` | `StructureMeshReport` | `ok` | `structure_mesh_maintenance` | `starter` | `evidence_or_decision` | `false` |
+| `structuremesh` | `StructureMeshReport` | `parent_module_id` | `structure_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `structuremesh` | `StructureMeshReport` | `decision` | `structure_mesh_maintenance` | `advanced` | `evidence_or_decision` | `false` |
+| `structuremesh` | `StructureMeshReport` | `decision_scope` | `structure_mesh_maintenance` | `advanced` | `evidence_or_decision` | `false` |
+| `structuremesh` | `StructureMeshReport` | `findings` | `structure_mesh_maintenance` | `starter` | `evidence_or_decision` | `false` |
+| `structuremesh` | `StructureMeshReport` | `release_obligations` | `structure_mesh_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `structuremesh` | `StructureMeshReport` | `summary` | `structure_mesh_maintenance` | `advanced` | `evidence_or_decision` | `false` |
+| `summary_report` | `FlowGuardSection` | `name` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `summary_report` | `FlowGuardSection` | `status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `summary_report` | `FlowGuardSection` | `summary` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `summary_report` | `FlowGuardSection` | `findings` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `summary_report` | `FlowGuardSection` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `summary_report` | `FlowGuardFindingLedgerEntry` | `section_name` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `summary_report` | `FlowGuardFindingLedgerEntry` | `section_status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `summary_report` | `FlowGuardFindingLedgerEntry` | `severity` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `summary_report` | `FlowGuardFindingLedgerEntry` | `category` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `summary_report` | `FlowGuardFindingLedgerEntry` | `message` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `summary_report` | `FlowGuardFindingLedgerEntry` | `finding_index` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `summary_report` | `FlowGuardFindingLedgerEntry` | `section_summary` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `summary_report` | `FlowGuardFindingLedgerEntry` | `next_step` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `summary_report` | `FlowGuardFindingLedgerEntry` | `owner_route` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `summary_report` | `FlowGuardFindingLedgerEntry` | `action_kind` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `summary_report` | `FlowGuardFindingLedgerEntry` | `required_input_kinds` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `summary_report` | `FlowGuardFindingLedgerEntry` | `proof_gap_codes` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `summary_report` | `FlowGuardFindingLedgerEntry` | `claim_effect` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `summary_report` | `FlowGuardFindingLedgerEntry` | `suggested_commands` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `summary_report` | `FlowGuardFindingLedgerEntry` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `summary_report` | `FlowGuardFindingLedger` | `entries` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `summary_report` | `FlowGuardFindingLedger` | `summary` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `summary_report` | `FlowGuardSummaryReport` | `overall_status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `summary_report` | `FlowGuardSummaryReport` | `sections` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `summary_report` | `FlowGuardSummaryReport` | `summary` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `summary_report` | `FlowGuardSummaryReport` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `templates` | `TemplateFile` | `path` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `templates` | `TemplateFile` | `content` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `test_reuse` | `TestResultReuseTicket` | `evidence_id` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `test_reuse` | `TestResultReuseTicket` | `previous_evidence_id` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `test_reuse` | `TestResultReuseTicket` | `reason` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `test_reuse` | `TestResultReuseTicket` | `same_output_proof_id` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `test_reuse` | `TestResultReuseTicket` | `command_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `test_reuse` | `TestResultReuseTicket` | `test_source_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `test_reuse` | `TestResultReuseTicket` | `tested_artifact_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `test_reuse` | `TestResultReuseTicket` | `dependency_fingerprints` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `test_reuse` | `TestResultReuseTicket` | `environment_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `test_reuse` | `TestResultReuseTicket` | `result_fingerprint` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `test_reuse` | `TestResultReuseTicket` | `covered_obligation_ids` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `test_reuse` | `TestResultReuseTicket` | `ticket_current` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `test_reuse` | `TestResultReuseTicket` | `command_current` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `test_reuse` | `TestResultReuseTicket` | `test_source_current` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `test_reuse` | `TestResultReuseTicket` | `tested_artifacts_current` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `test_reuse` | `TestResultReuseTicket` | `dependencies_current` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `test_reuse` | `TestResultReuseTicket` | `environment_current` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `test_reuse` | `TestResultReuseTicket` | `previous_result_current` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `test_reuse` | `TestResultReuseTicket` | `result_fingerprint_matches` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `test_reuse` | `TestResultReuseTicket` | `coverage_scope_current` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `test_reuse` | `TestResultReuseTicket` | `metadata` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `testmesh` | `TestPartitionItem` | `item_id` | `test_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `testmesh` | `TestPartitionItem` | `item_type` | `test_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `testmesh` | `TestPartitionItem` | `owner_suite_id` | `test_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `testmesh` | `TestPartitionItem` | `ownership` | `test_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `testmesh` | `TestPartitionItem` | `description` | `test_mesh_maintenance` | `internal` | `display_or_metadata` | `false` |
+| `testmesh` | `TestPartitionItem` | `touched_paths` | `test_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `testmesh` | `TestSuiteEvidence` | `suite_id` | `test_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `testmesh` | `TestSuiteEvidence` | `command` | `test_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `testmesh` | `TestSuiteEvidence` | `layer` | `test_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `testmesh` | `TestSuiteEvidence` | `result_status` | `test_mesh_maintenance` | `starter` | `evidence_or_decision` | `false` |
+| `testmesh` | `TestSuiteEvidence` | `evidence_tier` | `test_mesh_maintenance` | `starter` | `evidence_or_decision` | `false` |
+| `testmesh` | `TestSuiteEvidence` | `evidence_current` | `test_mesh_maintenance` | `starter` | `evidence_or_decision` | `false` |
+| `testmesh` | `TestSuiteEvidence` | `test_count` | `test_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `testmesh` | `TestSuiteEvidence` | `selected_count` | `test_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `testmesh` | `TestSuiteEvidence` | `skipped_count` | `test_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `testmesh` | `TestSuiteEvidence` | `skipped_visible` | `test_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `testmesh` | `TestSuiteEvidence` | `timeout_seconds` | `test_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `testmesh` | `TestSuiteEvidence` | `duration_seconds` | `test_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `testmesh` | `TestSuiteEvidence` | `exit_code` | `test_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `testmesh` | `TestSuiteEvidence` | `result_path` | `test_mesh_maintenance` | `starter` | `evidence_or_decision` | `false` |
+| `testmesh` | `TestSuiteEvidence` | `log_root` | `test_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `testmesh` | `TestSuiteEvidence` | `background` | `test_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `testmesh` | `TestSuiteEvidence` | `has_exit_artifact` | `test_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `testmesh` | `TestSuiteEvidence` | `has_result_artifact` | `test_mesh_maintenance` | `advanced` | `evidence_or_decision` | `false` |
+| `testmesh` | `TestSuiteEvidence` | `progress_only` | `test_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `testmesh` | `TestSuiteEvidence` | `proof_artifact` | `test_mesh_maintenance` | `advanced` | `evidence_or_decision` | `false` |
+| `testmesh` | `TestSuiteEvidence` | `result_reused` | `test_mesh_maintenance` | `advanced` | `evidence_or_decision` | `false` |
+| `testmesh` | `TestSuiteEvidence` | `reuse_ticket` | `test_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `testmesh` | `TestSuiteEvidence` | `release_required` | `test_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `testmesh` | `TestSuiteEvidence` | `owns_state` | `test_mesh_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `testmesh` | `TestSuiteEvidence` | `owns_side_effects` | `test_mesh_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `testmesh` | `TestSuiteEvidence` | `owned_leaf_cell_ids` | `test_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `testmesh` | `TestSuiteEvidence` | `not_run_reason` | `test_mesh_maintenance` | `starter` | `evidence_or_decision` | `false` |
+| `testmesh` | `TestSuiteEvidence` | `stale_reasons` | `test_mesh_maintenance` | `advanced` | `evidence_or_decision` | `false` |
+| `testmesh` | `TestTargetSplitDerivation` | `source_model_id` | `test_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `testmesh` | `TestTargetSplitDerivation` | `target_suite_ids` | `test_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `testmesh` | `TestTargetSplitDerivation` | `covered_partition_item_ids` | `test_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `testmesh` | `TestTargetSplitDerivation` | `state_owner_fields` | `test_mesh_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `testmesh` | `TestTargetSplitDerivation` | `side_effect_owner_fields` | `test_mesh_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `testmesh` | `TestTargetSplitDerivation` | `source_model_path` | `test_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `testmesh` | `TestTargetSplitDerivation` | `rationale` | `test_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `testmesh` | `TestTargetSplitDerivation` | `derived_from_flowguard_model` | `test_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `testmesh` | `TestMeshPlan` | `parent_suite_id` | `test_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `testmesh` | `TestMeshPlan` | `partition_items` | `test_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `testmesh` | `TestMeshPlan` | `child_suites` | `test_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `testmesh` | `TestMeshPlan` | `target_split_derivation` | `test_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `testmesh` | `TestMeshPlan` | `required_leaf_cell_ids` | `test_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `testmesh` | `TestMeshPlan` | `required_evidence_tier` | `test_mesh_maintenance` | `starter` | `evidence_or_decision` | `false` |
+| `testmesh` | `TestMeshPlan` | `require_proof_artifacts` | `test_mesh_maintenance` | `advanced` | `evidence_or_decision` | `false` |
+| `testmesh` | `TestMeshPlan` | `decision_scope` | `test_mesh_maintenance` | `advanced` | `evidence_or_decision` | `false` |
+| `testmesh` | `TestMeshPlan` | `release_deferred_allowed` | `test_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `testmesh` | `TestMeshPlan` | `allowed_shared_state` | `test_mesh_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `testmesh` | `TestMeshPlan` | `allowed_shared_side_effects` | `test_mesh_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `testmesh` | `TestMeshFinding` | `code` | `test_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `testmesh` | `TestMeshFinding` | `message` | `test_mesh_maintenance` | `internal` | `display_or_metadata` | `false` |
+| `testmesh` | `TestMeshFinding` | `severity` | `test_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `testmesh` | `TestMeshFinding` | `suite_id` | `test_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `testmesh` | `TestMeshFinding` | `item_id` | `test_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `testmesh` | `TestMeshFinding` | `metadata` | `test_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
+| `testmesh` | `TestMeshReport` | `ok` | `test_mesh_maintenance` | `starter` | `evidence_or_decision` | `false` |
+| `testmesh` | `TestMeshReport` | `parent_suite_id` | `test_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `testmesh` | `TestMeshReport` | `decision` | `test_mesh_maintenance` | `advanced` | `evidence_or_decision` | `false` |
+| `testmesh` | `TestMeshReport` | `decision_scope` | `test_mesh_maintenance` | `advanced` | `evidence_or_decision` | `false` |
+| `testmesh` | `TestMeshReport` | `findings` | `test_mesh_maintenance` | `starter` | `evidence_or_decision` | `false` |
+| `testmesh` | `TestMeshReport` | `release_obligations` | `test_mesh_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `testmesh` | `TestMeshReport` | `summary` | `test_mesh_maintenance` | `advanced` | `evidence_or_decision` | `false` |
+| `topology_hazard` | `UsageIntent` | `intent_id` | `model_topology_hazard_review` | `starter` | `unclassified` | `false` |
+| `topology_hazard` | `UsageIntent` | `usage_modes` | `model_topology_hazard_review` | `internal` | `collection_metadata` | `false` |
+| `topology_hazard` | `UsageIntent` | `final_claim` | `model_topology_hazard_review` | `starter` | `unclassified` | `false` |
+| `topology_hazard` | `UsageIntent` | `goal` | `model_topology_hazard_review` | `internal` | `unclassified` | `false` |
+| `topology_hazard` | `UsageIntent` | `external_users_possible` | `model_topology_hazard_review` | `advanced` | `behavior_or_contract` | `true` |
+| `topology_hazard` | `UsageIntent` | `persistent_history_possible` | `model_topology_hazard_review` | `internal` | `unclassified` | `false` |
+| `topology_hazard` | `UsageIntent` | `compatibility_policy` | `model_topology_hazard_review` | `advanced` | `compatibility_or_old_path` | `true` |
+| `topology_hazard` | `UsageIntent` | `metadata` | `model_topology_hazard_review` | `internal` | `collection_metadata` | `false` |
+| `topology_hazard` | `TopologyNode` | `node_id` | `model_topology_hazard_review` | `starter` | `unclassified` | `false` |
+| `topology_hazard` | `TopologyNode` | `node_kind` | `model_topology_hazard_review` | `internal` | `unclassified` | `false` |
+| `topology_hazard` | `TopologyNode` | `label` | `model_topology_hazard_review` | `internal` | `display_or_metadata` | `false` |
+| `topology_hazard` | `TopologyNode` | `metadata` | `model_topology_hazard_review` | `internal` | `collection_metadata` | `false` |
+| `topology_hazard` | `TopologyEdge` | `edge_id` | `model_topology_hazard_review` | `starter` | `unclassified` | `false` |
+| `topology_hazard` | `TopologyEdge` | `edge_kind` | `model_topology_hazard_review` | `internal` | `unclassified` | `false` |
+| `topology_hazard` | `TopologyEdge` | `source_id` | `model_topology_hazard_review` | `starter` | `unclassified` | `false` |
+| `topology_hazard` | `TopologyEdge` | `target_id` | `model_topology_hazard_review` | `starter` | `unclassified` | `false` |
+| `topology_hazard` | `TopologyEdge` | `label` | `model_topology_hazard_review` | `internal` | `display_or_metadata` | `false` |
+| `topology_hazard` | `TopologyEdge` | `block_name` | `model_topology_hazard_review` | `internal` | `display_or_metadata` | `false` |
+| `topology_hazard` | `TopologyEdge` | `reads` | `model_topology_hazard_review` | `internal` | `collection_metadata` | `false` |
+| `topology_hazard` | `TopologyEdge` | `writes` | `model_topology_hazard_review` | `internal` | `collection_metadata` | `false` |
+| `topology_hazard` | `TopologyEdge` | `side_effects` | `model_topology_hazard_review` | `advanced` | `behavior_or_contract` | `true` |
+| `topology_hazard` | `TopologyEdge` | `repeatable` | `model_topology_hazard_review` | `internal` | `unclassified` | `false` |
+| `topology_hazard` | `TopologyEdge` | `metadata` | `model_topology_hazard_review` | `internal` | `collection_metadata` | `false` |
+| `topology_hazard` | `TopologyLandmark` | `landmark_id` | `model_topology_hazard_review` | `starter` | `unclassified` | `false` |
+| `topology_hazard` | `TopologyLandmark` | `landmark_type` | `model_topology_hazard_review` | `internal` | `unclassified` | `false` |
+| `topology_hazard` | `TopologyLandmark` | `anchor_ids` | `model_topology_hazard_review` | `internal` | `collection_metadata` | `false` |
+| `topology_hazard` | `TopologyLandmark` | `description` | `model_topology_hazard_review` | `internal` | `display_or_metadata` | `false` |
+| `topology_hazard` | `TopologyLandmark` | `metadata` | `model_topology_hazard_review` | `internal` | `collection_metadata` | `false` |
+| `topology_hazard` | `TopologyDigest` | `digest_id` | `model_topology_hazard_review` | `starter` | `unclassified` | `false` |
+| `topology_hazard` | `TopologyDigest` | `workflow_name` | `model_topology_hazard_review` | `internal` | `display_or_metadata` | `false` |
+| `topology_hazard` | `TopologyDigest` | `nodes` | `model_topology_hazard_review` | `internal` | `collection_metadata` | `false` |
+| `topology_hazard` | `TopologyDigest` | `edges` | `model_topology_hazard_review` | `internal` | `collection_metadata` | `false` |
+| `topology_hazard` | `TopologyDigest` | `landmarks` | `model_topology_hazard_review` | `internal` | `collection_metadata` | `false` |
+| `topology_hazard` | `TopologyDigest` | `usage_intent` | `model_topology_hazard_review` | `internal` | `unclassified` | `false` |
+| `topology_hazard` | `TopologyDigest` | `metadata` | `model_topology_hazard_review` | `internal` | `collection_metadata` | `false` |
+| `topology_hazard` | `TopologyHazardCandidate` | `hazard_id` | `model_topology_hazard_review` | `starter` | `unclassified` | `false` |
+| `topology_hazard` | `TopologyHazardCandidate` | `summary` | `model_topology_hazard_review` | `advanced` | `evidence_or_decision` | `false` |
+| `topology_hazard` | `TopologyHazardCandidate` | `rationale` | `model_topology_hazard_review` | `internal` | `unclassified` | `false` |
+| `topology_hazard` | `TopologyHazardCandidate` | `future_failure_mode` | `model_topology_hazard_review` | `internal` | `unclassified` | `false` |
+| `topology_hazard` | `TopologyHazardCandidate` | `topology_anchor_ids` | `model_topology_hazard_review` | `internal` | `collection_metadata` | `false` |
+| `topology_hazard` | `TopologyHazardCandidate` | `source_landmark_ids` | `model_topology_hazard_review` | `internal` | `collection_metadata` | `false` |
+| `topology_hazard` | `TopologyHazardCandidate` | `disposition` | `model_topology_hazard_review` | `internal` | `unclassified` | `false` |
+| `topology_hazard` | `TopologyHazardCandidate` | `required_routes` | `model_topology_hazard_review` | `advanced` | `behavior_or_contract` | `true` |
+| `topology_hazard` | `TopologyHazardCandidate` | `confidence_effect` | `model_topology_hazard_review` | `advanced` | `behavior_or_contract` | `true` |
+| `topology_hazard` | `TopologyHazardCandidate` | `severity` | `model_topology_hazard_review` | `internal` | `unclassified` | `false` |
+| `topology_hazard` | `TopologyHazardCandidate` | `handled` | `model_topology_hazard_review` | `internal` | `unclassified` | `false` |
+| `topology_hazard` | `TopologyHazardCandidate` | `scoped_reason` | `model_topology_hazard_review` | `starter` | `evidence_or_decision` | `false` |
+| `topology_hazard` | `TopologyHazardCandidate` | `model_obligation_id` | `model_topology_hazard_review` | `starter` | `behavior_or_contract` | `true` |
+| `topology_hazard` | `TopologyHazardCandidate` | `proof_evidence_ids` | `model_topology_hazard_review` | `starter` | `evidence_or_decision` | `false` |
+| `topology_hazard` | `TopologyHazardCandidate` | `metadata` | `model_topology_hazard_review` | `internal` | `collection_metadata` | `false` |
+| `topology_hazard` | `TopologyHazardFinding` | `code` | `model_topology_hazard_review` | `starter` | `unclassified` | `false` |
+| `topology_hazard` | `TopologyHazardFinding` | `message` | `model_topology_hazard_review` | `internal` | `display_or_metadata` | `false` |
+| `topology_hazard` | `TopologyHazardFinding` | `severity` | `model_topology_hazard_review` | `internal` | `unclassified` | `false` |
+| `topology_hazard` | `TopologyHazardFinding` | `hazard_id` | `model_topology_hazard_review` | `starter` | `unclassified` | `false` |
+| `topology_hazard` | `TopologyHazardFinding` | `anchor_ids` | `model_topology_hazard_review` | `internal` | `collection_metadata` | `false` |
+| `topology_hazard` | `TopologyHazardFinding` | `required_routes` | `model_topology_hazard_review` | `advanced` | `behavior_or_contract` | `true` |
+| `topology_hazard` | `TopologyHazardFinding` | `action` | `model_topology_hazard_review` | `starter` | `behavior_or_contract` | `true` |
+| `topology_hazard` | `TopologyHazardFinding` | `metadata` | `model_topology_hazard_review` | `internal` | `collection_metadata` | `false` |
+| `topology_hazard` | `TopologyHazardReviewPlan` | `plan_id` | `model_topology_hazard_review` | `starter` | `unclassified` | `false` |
+| `topology_hazard` | `TopologyHazardReviewPlan` | `digest` | `model_topology_hazard_review` | `internal` | `unclassified` | `false` |
+| `topology_hazard` | `TopologyHazardReviewPlan` | `candidates` | `model_topology_hazard_review` | `internal` | `collection_metadata` | `false` |
+| `topology_hazard` | `TopologyHazardReviewPlan` | `auto_generate_candidates` | `model_topology_hazard_review` | `internal` | `unclassified` | `false` |
+| `topology_hazard` | `TopologyHazardReviewPlan` | `allow_scoped_confidence` | `model_topology_hazard_review` | `advanced` | `evidence_or_decision` | `false` |
+| `topology_hazard` | `TopologyHazardReviewPlan` | `final_claim` | `model_topology_hazard_review` | `starter` | `unclassified` | `false` |
+| `topology_hazard` | `TopologyHazardReport` | `ok` | `model_topology_hazard_review` | `starter` | `evidence_or_decision` | `false` |
+| `topology_hazard` | `TopologyHazardReport` | `plan_id` | `model_topology_hazard_review` | `starter` | `unclassified` | `false` |
+| `topology_hazard` | `TopologyHazardReport` | `decision` | `model_topology_hazard_review` | `advanced` | `evidence_or_decision` | `false` |
+| `topology_hazard` | `TopologyHazardReport` | `confidence` | `model_topology_hazard_review` | `advanced` | `evidence_or_decision` | `false` |
+| `topology_hazard` | `TopologyHazardReport` | `digest` | `model_topology_hazard_review` | `internal` | `unclassified` | `false` |
+| `topology_hazard` | `TopologyHazardReport` | `candidates` | `model_topology_hazard_review` | `internal` | `collection_metadata` | `false` |
+| `topology_hazard` | `TopologyHazardReport` | `findings` | `model_topology_hazard_review` | `starter` | `evidence_or_decision` | `false` |
+| `topology_hazard` | `TopologyHazardReport` | `unresolved_hazard_ids` | `model_topology_hazard_review` | `internal` | `collection_metadata` | `false` |
+| `topology_hazard` | `TopologyHazardReport` | `summary` | `model_topology_hazard_review` | `advanced` | `evidence_or_decision` | `false` |
+| `trace` | `TraceStep` | `external_input` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `trace` | `TraceStep` | `function_name` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `trace` | `TraceStep` | `function_input` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `trace` | `TraceStep` | `function_output` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `trace` | `TraceStep` | `old_state` | `core_or_internal` | `advanced` | `compatibility_or_old_path` | `true` |
+| `trace` | `TraceStep` | `new_state` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `trace` | `TraceStep` | `label` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `trace` | `TraceStep` | `reason` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `trace` | `TraceStep` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `trace` | `Trace` | `steps` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `trace` | `Trace` | `initial_state` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `trace` | `Trace` | `external_inputs` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `trace` | `Trace` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `transition_coverage` | `TransitionCoverageCell` | `cell_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `transition_coverage` | `TransitionCoverageCell` | `source_state` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `transition_coverage` | `TransitionCoverageCell` | `trigger` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `transition_coverage` | `TransitionCoverageCell` | `target_state` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `transition_coverage` | `TransitionCoverageCell` | `expected_output` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `transition_coverage` | `TransitionCoverageCell` | `function_block` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `transition_coverage` | `TransitionCoverageCell` | `code_contract_id` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `transition_coverage` | `TransitionCoverageCell` | `runtime_node_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `transition_coverage` | `TransitionCoverageCell` | `risk_class` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `transition_coverage` | `TransitionCoverageCell` | `required_test_kinds` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `transition_coverage` | `TransitionCoverageCell` | `side_effects` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `transition_coverage` | `TransitionCoverageCell` | `rationale` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `transition_coverage` | `TransitionCoverageMatrix` | `matrix_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `transition_coverage` | `TransitionCoverageMatrix` | `model_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `transition_coverage` | `TransitionCoverageMatrix` | `source_route` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `transition_coverage` | `TransitionCoverageMatrix` | `cells` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `transition_coverage` | `TransitionCoverageMatrix` | `scoped_out_cell_reasons` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `transition_coverage` | `TransitionCoverageMatrix` | `rationale` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIControl` | `control_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIControl` | `label` | `ui_flow_structure` | `internal` | `display_or_metadata` | `false` |
+| `ui_structure` | `UIControl` | `control_type` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIControl` | `level` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIControl` | `placement_hint` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIControl` | `persistent` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIControl` | `destructive` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIControl` | `depends_on_states` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIControl` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIControl` | `function_key` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIControl` | `duplicate_group` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIControl` | `redundancy_rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIStateNode` | `state_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIStateNode` | `parent_state_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIStateNode` | `role` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIStateNode` | `visible_controls` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIStateNode` | `enabled_controls` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIStateNode` | `disabled_controls` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIStateNode` | `hidden_controls` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIStateNode` | `recovery_controls` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIStateNode` | `terminal` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIStateNode` | `failure` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIStateNode` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIStateNode` | `visible_displays` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UITransition` | `event_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UITransition` | `control_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UITransition` | `source_state_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UITransition` | `target_state_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UITransition` | `function_block` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UITransition` | `code_contract_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UITransition` | `runtime_node_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UITransition` | `output` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UITransition` | `side_effects` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UITransition` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIDisplayElement` | `display_id` | `ui_flow_structure` | `starter` | `display_or_metadata` | `false` |
+| `ui_structure` | `UIDisplayElement` | `semantic_key` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIDisplayElement` | `label` | `ui_flow_structure` | `internal` | `display_or_metadata` | `false` |
+| `ui_structure` | `UIDisplayElement` | `display_type` | `ui_flow_structure` | `internal` | `display_or_metadata` | `false` |
+| `ui_structure` | `UIDisplayElement` | `depends_on_states` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIDisplayElement` | `region_hint` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIDisplayElement` | `duplicate_group` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIDisplayElement` | `redundancy_rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIDisplayElement` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIInteractionModel` | `model_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIInteractionModel` | `initial_state_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIInteractionModel` | `states` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIInteractionModel` | `controls` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIInteractionModel` | `transitions` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIInteractionModel` | `displays` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIInteractionModel` | `source_product_model_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIInteractionModel` | `source_product_model_path` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIInteractionModel` | `validation_boundaries` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIInteractionModel` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIJourneyEntryPoint` | `entry_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIJourneyEntryPoint` | `control_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIJourneyEntryPoint` | `event_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIJourneyEntryPoint` | `label` | `ui_flow_structure` | `internal` | `display_or_metadata` | `false` |
+| `ui_structure` | `UIJourneyEntryPoint` | `source_state_ids` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIJourneyEntryPoint` | `required` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIJourneyEntryPoint` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIFeatureJourney` | `feature_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIFeatureJourney` | `label` | `ui_flow_structure` | `internal` | `display_or_metadata` | `false` |
+| `ui_structure` | `UIFeatureJourney` | `entry_point_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIFeatureJourney` | `required_state_ids` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIFeatureJourney` | `required_event_ids` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIFeatureJourney` | `success_terminal_state_ids` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIFeatureJourney` | `failure_state_ids` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIFeatureJourney` | `recovery_event_ids` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIFeatureJourney` | `cancel_event_ids` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIFeatureJourney` | `exit_event_ids` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIFeatureJourney` | `validation_boundaries` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIFeatureJourney` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UITerminalActionAllowance` | `state_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UITerminalActionAllowance` | `event_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UITerminalActionAllowance` | `purpose` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UITerminalActionAllowance` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIBlindspot` | `blindspot_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIBlindspot` | `feature_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIBlindspot` | `control_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIBlindspot` | `event_ids` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIBlindspot` | `reason` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIBlindspot` | `owner` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIBlindspot` | `validation_boundaries` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIBlindspot` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIJourneyCoverage` | `coverage_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIJourneyCoverage` | `source_interaction_model_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIJourneyCoverage` | `launch_state_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIJourneyCoverage` | `entry_points` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIJourneyCoverage` | `feature_journeys` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIJourneyCoverage` | `terminal_action_allowances` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIJourneyCoverage` | `residual_blindspots` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIJourneyCoverage` | `interaction_model_reviewed` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIJourneyCoverage` | `validation_boundaries` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIJourneyCoverage` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIFeatureContract` | `feature_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIFeatureContract` | `label` | `ui_flow_structure` | `internal` | `display_or_metadata` | `false` |
+| `ui_structure` | `UIFeatureContract` | `source_feature_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIFeatureContract` | `user_visible` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIFeatureContract` | `exposure` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIFeatureContract` | `journey_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIFeatureContract` | `entry_point_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIFeatureContract` | `required_control_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIFeatureContract` | `required_event_ids` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIFeatureContract` | `validation_boundaries` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIFeatureContract` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIImplementationStepEvidence` | `step_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIImplementationStepEvidence` | `event_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIImplementationStepEvidence` | `control_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIImplementationStepEvidence` | `source_state_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIImplementationStepEvidence` | `target_state_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIImplementationStepEvidence` | `method` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIImplementationStepEvidence` | `result` | `ui_flow_structure` | `advanced` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIImplementationStepEvidence` | `evidence_ref` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIImplementationStepEvidence` | `observed_state_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIImplementationStepEvidence` | `observed_output` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIImplementationStepEvidence` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIImplementationJourneyRun` | `run_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIImplementationJourneyRun` | `feature_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIImplementationJourneyRun` | `journey_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIImplementationJourneyRun` | `entry_point_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIImplementationJourneyRun` | `steps` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIImplementationJourneyRun` | `method` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIImplementationJourneyRun` | `result` | `ui_flow_structure` | `advanced` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIImplementationJourneyRun` | `evidence_ref` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIImplementationJourneyRun` | `model_revision` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIImplementationJourneyRun` | `validation_boundaries` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIImplementationJourneyRun` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIImplementationValidation` | `validation_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIImplementationValidation` | `source_feature_model_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIImplementationValidation` | `source_interaction_model_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIImplementationValidation` | `source_journey_coverage_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIImplementationValidation` | `implementation_target` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIImplementationValidation` | `current_model_revision` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIImplementationValidation` | `feature_contracts` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIImplementationValidation` | `journey_runs` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIImplementationValidation` | `pure_ui_control_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIImplementationValidation` | `pure_ui_event_ids` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIImplementationValidation` | `implementation_blindspots` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIImplementationValidation` | `journey_coverage_reviewed` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIImplementationValidation` | `validation_boundaries` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIImplementationValidation` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIRegionRecommendation` | `region_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIRegionRecommendation` | `level` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIRegionRecommendation` | `placement` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIRegionRecommendation` | `parent_region_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIRegionRecommendation` | `owns_states` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIRegionRecommendation` | `owns_controls` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIRegionRecommendation` | `owns_events` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIRegionRecommendation` | `stable_across_states` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIRegionRecommendation` | `validation_boundaries` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIRegionRecommendation` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIRegionRecommendation` | `owns_displays` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIStructureDerivation` | `derivation_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIStructureDerivation` | `source_interaction_model_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIStructureDerivation` | `parent_surface_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIStructureDerivation` | `target_regions` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIStructureDerivation` | `interaction_model_reviewed` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIStructureDerivation` | `state_region_map` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIStructureDerivation` | `control_region_map` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIStructureDerivation` | `event_region_map` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIStructureDerivation` | `display_region_map` | `ui_flow_structure` | `internal` | `display_or_metadata` | `false` |
+| `ui_structure` | `UIStructureDerivation` | `hierarchy_edges` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIStructureDerivation` | `persistent_control_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIStructureDerivation` | `contextual_control_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIStructureDerivation` | `overlay_region_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIStructureDerivation` | `stable_region_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIStructureDerivation` | `validation_boundaries` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIStructureDerivation` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UITypographyToken` | `token_id` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UITypographyToken` | `hierarchy_level` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UITypographyToken` | `text_roles` | `ui_flow_structure` | `internal` | `display_or_metadata` | `false` |
+| `ui_structure` | `UITypographyToken` | `scale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UITypographyToken` | `weight` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UITypographyToken` | `color_role` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UITypographyToken` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UITextElement` | `text_id` | `ui_flow_structure` | `starter` | `display_or_metadata` | `false` |
+| `ui_structure` | `UITextElement` | `role` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UITextElement` | `token_id` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UITextElement` | `semantic_key` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UITextElement` | `label` | `ui_flow_structure` | `internal` | `display_or_metadata` | `false` |
+| `ui_structure` | `UITextElement` | `region_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UITextElement` | `parent_text_id` | `ui_flow_structure` | `starter` | `display_or_metadata` | `false` |
+| `ui_structure` | `UITextElement` | `source_state_ids` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UITextElement` | `source_control_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UITextElement` | `source_display_id` | `ui_flow_structure` | `starter` | `display_or_metadata` | `false` |
+| `ui_structure` | `UITextElement` | `visible_in_states` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UITextElement` | `duplicate_group` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UITextElement` | `redundancy_rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UITextElement` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UITextHierarchyBlueprint` | `blueprint_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UITextHierarchyBlueprint` | `source_interaction_model_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UITextHierarchyBlueprint` | `source_structure_derivation_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UITextHierarchyBlueprint` | `parent_surface_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UITextHierarchyBlueprint` | `typography_tokens` | `ui_flow_structure` | `advanced` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UITextHierarchyBlueprint` | `text_elements` | `ui_flow_structure` | `internal` | `display_or_metadata` | `false` |
+| `ui_structure` | `UITextHierarchyBlueprint` | `structure_derivation_reviewed` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UITextHierarchyBlueprint` | `validation_boundaries` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UITextHierarchyBlueprint` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIFlowStructureFinding` | `code` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIFlowStructureFinding` | `message` | `ui_flow_structure` | `internal` | `display_or_metadata` | `false` |
+| `ui_structure` | `UIFlowStructureFinding` | `severity` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIFlowStructureFinding` | `item_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIFlowStructureFinding` | `metadata` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIInteractionModelReport` | `ok` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIInteractionModelReport` | `model_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIInteractionModelReport` | `findings` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIInteractionModelReport` | `summary` | `ui_flow_structure` | `advanced` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIJourneyCoverageReport` | `ok` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIJourneyCoverageReport` | `coverage_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIJourneyCoverageReport` | `findings` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIJourneyCoverageReport` | `reachable_state_ids` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIJourneyCoverageReport` | `summary` | `ui_flow_structure` | `advanced` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIImplementationValidationReport` | `ok` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIImplementationValidationReport` | `validation_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIImplementationValidationReport` | `findings` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIImplementationValidationReport` | `covered_feature_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIImplementationValidationReport` | `covered_event_ids` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIImplementationValidationReport` | `summary` | `ui_flow_structure` | `advanced` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIStructureDerivationReport` | `ok` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIStructureDerivationReport` | `derivation_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIStructureDerivationReport` | `findings` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIStructureDerivationReport` | `summary` | `ui_flow_structure` | `advanced` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UITextHierarchyReport` | `ok` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UITextHierarchyReport` | `blueprint_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UITextHierarchyReport` | `findings` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UITextHierarchyReport` | `summary` | `ui_flow_structure` | `advanced` | `evidence_or_decision` | `false` |
+| `workflow` | `WorkflowPath` | `current_input` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `workflow` | `WorkflowPath` | `state` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `workflow` | `WorkflowPath` | `trace` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `workflow` | `WorkflowRun` | `completed_paths` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `workflow` | `WorkflowRun` | `dead_branches` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `workflow` | `WorkflowRun` | `exception_branches` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `workflow` | `Workflow` | `blocks` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `workflow` | `Workflow` | `name` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |

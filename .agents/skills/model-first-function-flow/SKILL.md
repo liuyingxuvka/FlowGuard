@@ -32,6 +32,11 @@ This thin path is an entry path, not a completion shortcut. Complete claims need
 current evidence for the selected route, and missing/stale/skipped evidence
 means partial or scoped FlowGuard evidence.
 
+When package helpers are needed, read `AGENT_DEFAULT_API` first, then the
+selected `ROUTE_STARTER_API[route_id]`. Load `ROUTE_ADVANCED_API`, full helper
+indexes, or `*-full-template` scaffolds only after the route needs deep
+evidence.
+
 ## Hard Gates
 
 - Verify the real package before modeling: `python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"`.
@@ -58,7 +63,10 @@ means partial or scoped FlowGuard evidence.
 
 ## Route Map
 
-Pick the smallest named route that owns the actual risk. Helper APIs and template CLIs are package helpers, not independently triggerable Codex skills.
+Pick the smallest named route that owns the actual risk. Helper APIs and
+template CLIs are package helpers, not independently triggerable Codex skills.
+Default route template CLIs are compact; use full-template commands only when
+the row below calls for deep route evidence.
 
 | Trigger | Route | Entry |
 | --- | --- | --- |

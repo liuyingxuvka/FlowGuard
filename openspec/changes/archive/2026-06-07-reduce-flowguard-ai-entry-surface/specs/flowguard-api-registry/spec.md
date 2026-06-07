@@ -1,8 +1,5 @@
-# flowguard-api-registry Specification
-## Purpose
+## MODIFIED Requirements
 
-Define route-scoped API registry behavior for FlowGuard public helper grouping.
-## Requirements
 ### Requirement: Route-scoped API groups
 FlowGuard SHALL expose grouped helper registries that map stable route/group ids
 to public helper names while preserving existing flat API lists.
@@ -22,15 +19,6 @@ to public helper names while preserving existing flat API lists.
 - **THEN** each route starter group stays within the configured compact budget
 - **AND** broad flat groups are not embedded inside starter groups
 
-### Requirement: New helper routes use grouped discovery
-New FlowGuard route additions SHALL add grouped registry entries so future
-callers do not need to scan a single flat helper list.
-
-#### Scenario: Route addition records group ownership
-- **WHEN** a new route-specific helper family is added
-- **THEN** tests can assert the route group's required helper names without
-  duplicating a long flat-list check
-
 ### Requirement: Agent-default API surface
 FlowGuard SHALL expose a compact agent-default API group and route starter
 registry that name the minimal route-first entry points an AI agent should
@@ -42,4 +30,3 @@ inspect before expanding into full route or helper groups.
   available through `API_SURFACE`
 - **AND** the existing full public API groups remain available behind full
   surface names
-

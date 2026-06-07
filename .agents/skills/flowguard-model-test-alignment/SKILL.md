@@ -1,24 +1,26 @@
 ---
 name: flowguard-model-test-alignment
-description: Use when FlowGuard obligations, transition cells, tests, required code contracts, source audits, or code-boundary observations need direct comparison without ModelMesh, TestMesh, or StructureMesh.
+description: Use when FlowGuard obligations, transition cells, tests, code contracts, source audits, or code-boundary observations need direct comparison without ModelMesh, TestMesh, or StructureMesh.
 ---
 
 # FlowGuard Model-Test Alignment
 
-Standalone FlowGuard satellite skill for comparing model obligations,
-transition cells, tests, owner code contracts, source audits, code-boundary
-observations, and FieldLifecycleMesh projections.
-Consume Model Similarity handoffs when shared/variant tests matter.
+Standalone FlowGuard satellite skill for comparing obligations, transition
+cells, tests, owner code contracts, source audits, boundary observations, and
+FieldLifecycleMesh projections. Consume Model Similarity handoffs for
+shared/variant tests.
 
-Return to `model-first-function-flow` when the model obligations are not yet
-defined. Do not invoke TestMesh, ModelMesh, or StructureMesh from this route.
+Return to `model-first-function-flow` when obligations are undefined. Do not invoke TestMesh, ModelMesh, or StructureMesh from this route.
 
 ## First Read
 
 - Route id: `model_test_alignment`.
+- Default entry: `ROUTE_STARTER_API["model_test_alignment"]` and
+  `model-test-alignment-template`.
+- Full entry: `model-test-alignment-full-template` for source audit, boundary
+  conformance, state closure, transition matrices, or reused test evidence.
 - Core helpers: `review_model_test_alignment()`, `TransitionCoverageMatrix`,
-  `transition_coverage_to_model_obligations()`, `CodeContract`, and field
-  lifecycle projection helpers.
+  `transition_coverage_to_model_obligations()`, and `CodeContract`.
 - Similarity handoff: cite maintenance group ids plus shared/variant test
   obligation ids when claiming similar workflows are covered.
 - Reference: `references/model_test_alignment_protocol.md`.
@@ -29,16 +31,15 @@ defined. Do not invoke TestMesh, ModelMesh, or StructureMesh from this route.
 - Keep the AGENTS.md managed block/version record current for real projects.
 - Do not create a fake mini-framework.
 - Tests must cover declared obligations, not just helper/internal paths.
-- Full confidence requires each required model obligation to bind an owner
-  `CodeContract` and current external-contract test evidence for the same
-  obligation. Model+test-only evidence is blocked or scoped, not green.
+- Full confidence requires each obligation to bind an owner `CodeContract` and
+  current external-contract test evidence. Model+test-only evidence is scoped.
 - Transition coverage claims need cells plus evidence targets, or a scoped-out boundary.
 - Behavior-bearing fields need FieldLifecycleMesh projection or a scoped-out reason.
 - Reused test results need `result_reused=True`, current `TestResultReuseTicket`, and current `ProofArtifactRef`.
 - Source audit is conservative support, not semantic proof.
 - Open external boundaries must expose representative unknown/other cases or a
   current state-closure report; unresolved cases route to model maturation.
-- Missing evidence can become future maintenance obligations.
+- Missing evidence becomes a maintenance obligation.
 
 ## Minimum Workflow
 
@@ -52,7 +53,6 @@ defined. Do not invoke TestMesh, ModelMesh, or StructureMesh from this route.
 
 Show coverage from model obligations to code contracts to tests, boundary
 observations, missing inputs/outputs/state writes, and scoped gaps.
-When drawing the snapshot, edges mean covers, partially covers, observes, misses, or requires additional evidence.
 
 ## Non-Goals
 

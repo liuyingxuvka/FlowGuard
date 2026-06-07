@@ -1,9 +1,9 @@
 [flowguard]
 repository = "https://github.com/liuyingxuvka/FlowGuard"
-adopted_package_version = "0.41.7"
+adopted_package_version = "0.41.8"
 schema_version = "1.0"
-last_verified_at = "2026-06-07T19:21:46+00:00"
-last_verified_by = "simplify-flowguard-field-schema field cleanup"
+last_verified_at = "2026-06-07T21:00:00+00:00"
+last_verified_by = "reduce-flowguard-ai-entry-surface starter API and compact templates"
 agents_path = "AGENTS.md"
 
 [policy]
