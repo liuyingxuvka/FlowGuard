@@ -12,8 +12,9 @@ enough to proceed.
 
 - `PlanDetailSource`: current source evidence for the plan.
 - `PlanDetailSurface`: in-scope, scoped-out, recurring, or high-risk surfaces.
-- `PlanDetailArtifact`: requirements, models, code, tests, docs, reports, or
-  release artifacts the plan reads, writes, or validates.
+- `ProcessArtifact`: requirements, models, code, tests, docs, reports, or
+  release artifacts the plan reads, writes, or validates. PlanDetail reuses the
+  same artifact class as DevelopmentProcessFlow.
 - `PlanDetailStateSurface`: durable state or facts the model must see.
 - `PlanDetailSideEffect`: irreversible or external effects that need evidence
   gates.

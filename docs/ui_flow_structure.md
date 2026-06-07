@@ -83,7 +83,7 @@ The app-level journey coverage objects are:
   handling, validation, and rationale.
 - `UITerminalActionAllowance`: one allowed outgoing action from a terminal
   state, such as export, restart, close, recovery, cancel, or exit.
-- `UIResidualBlindspot`: one deliberately out-of-scope UI branch with feature,
+- `UIBlindspot`: one deliberately scoped or unverified UI branch with feature,
   control, or event scope plus a reason, owner, validation boundary, and
   rationale.
 - `UIJourneyCoverage`: the complete app-level launch-to-terminal coverage
@@ -101,9 +101,8 @@ The implementation validation objects are:
   of a modeled control/event/state transition.
 - `UIImplementationJourneyRun`: one real UI run of a modeled feature journey,
   with method, result, evidence reference, and model revision.
-- `UIImplementationBlindspot`: one intentionally unverified implementation
-  branch with feature/control/event scope, reason, owner, validation boundary,
-  and rationale.
+- `UIBlindspot`: the same canonical blindspot row is used for intentionally
+  unverified implementation branches.
 - `UIImplementationValidation`: the complete implementation evidence boundary
   connecting feature contracts, journey coverage, real UI runs, pure UI
   actions, model revision, and blindspots.
@@ -262,9 +261,9 @@ required cell ids to TestMesh while preserving those targets.
 from flowguard import (
     UIControl,
     UIDisplayElement,
+    UIBlindspot,
     UIFeatureContract,
     UIFeatureJourney,
-    UIImplementationBlindspot,
     UIImplementationJourneyRun,
     UIImplementationStepEvidence,
     UIImplementationValidation,
@@ -272,7 +271,6 @@ from flowguard import (
     UIJourneyCoverage,
     UIJourneyEntryPoint,
     UIRegionRecommendation,
-    UIResidualBlindspot,
     UIStateNode,
     UIStructureDerivation,
     UITextElement,
@@ -364,7 +362,7 @@ coverage = UIJourneyCoverage(
         ),
     ),
     residual_blindspots=(
-        UIResidualBlindspot(
+        UIBlindspot(
             "load_existing_project",
             feature_id="load_existing_project",
             reason="The short example only demonstrates import.",
@@ -372,7 +370,7 @@ coverage = UIJourneyCoverage(
             validation_boundaries=("full app journey review",),
             rationale="The omitted branch is visible instead of silently claimed.",
         ),
-        UIResidualBlindspot(
+        UIBlindspot(
             "settings_panel",
             feature_id="settings_panel",
             control_ids=("settings",),
@@ -443,7 +441,7 @@ implementation_validation = UIImplementationValidation(
         ),
     ),
     implementation_blindspots=(
-        UIImplementationBlindspot(
+        UIBlindspot(
             "settings_implementation",
             feature_id="settings_panel",
             control_ids=("settings",),

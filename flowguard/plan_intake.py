@@ -289,7 +289,6 @@ class PlanIntakeCompletenessPlan:
     plan_id: str
     sources: tuple[PlanSourceEvidence, ...] = ()
     surfaces: tuple[PlanIntakeRiskSurface, ...] = ()
-    source_evidence: tuple[PlanSourceEvidence, ...] = ()
     source_evidence_ids: tuple[str, ...] = ()
     source_evidence_current: bool = True
     risk_surfaces: tuple[PlanIntakeRiskSurface, ...] = ()
@@ -305,7 +304,6 @@ class PlanIntakeCompletenessPlan:
         object.__setattr__(self, "plan_id", str(self.plan_id))
         object.__setattr__(self, "sources", tuple(self.sources))
         object.__setattr__(self, "surfaces", tuple(self.surfaces))
-        object.__setattr__(self, "source_evidence", tuple(self.source_evidence))
         object.__setattr__(self, "source_evidence_ids", _as_tuple(self.source_evidence_ids))
         object.__setattr__(self, "risk_surfaces", tuple(self.risk_surfaces))
         object.__setattr__(self, "required_surface_kinds", _as_tuple(self.required_surface_kinds))
@@ -318,7 +316,6 @@ class PlanIntakeCompletenessPlan:
             "plan_id": self.plan_id,
             "sources": [source.to_dict() for source in self.sources],
             "surfaces": [surface.to_dict() for surface in self.surfaces],
-            "source_evidence": [source.to_dict() for source in self.source_evidence],
             "source_evidence_ids": list(self.source_evidence_ids),
             "source_evidence_current": self.source_evidence_current,
             "risk_surfaces": [surface.to_dict() for surface in self.risk_surfaces],
@@ -439,7 +436,7 @@ def review_plan_intake_completeness(plan: PlanIntakeCompletenessPlan) -> PlanInt
     """Review whether a FlowGuard-backed plan declared its important surfaces."""
 
     findings: list[PlanIntakeFinding] = []
-    sources = plan.sources + plan.source_evidence
+    sources = plan.sources
     surfaces = plan.surfaces + plan.risk_surfaces
     source_ids = tuple(dict.fromkeys(plan.source_evidence_ids + tuple(source.source_id for source in sources)))
     if not source_ids:
@@ -604,32 +601,23 @@ class EvidenceAdapterMapping:
     mapping_id: str
     raw_artifact_id: str = ""
     mapped_evidence_id: str = ""
-    mapped_evidence_ids: tuple[str, ...] = ()
     raw_kind: str = "test"
     expected_classification: str = RISK_PROOF_STATUS_PASSED
     mapped_classification: str = RISK_PROOF_STATUS_PASSED
     raw_current: bool = True
     mapped_current: bool = True
     freshness_preserved: bool = True
-    known_bad_fixture: bool = False
-    adapter_rejected_known_bad: bool = False
-    rejected: bool | None = None
     scoped_reasons: tuple[str, ...] = ()
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "mapping_id", str(self.mapping_id))
         raw_artifact_id = str(self.raw_artifact_id or self.mapping_id)
-        mapped_evidence_ids = _as_tuple(self.mapped_evidence_ids)
-        mapped_evidence_id = str(self.mapped_evidence_id or (mapped_evidence_ids[0] if mapped_evidence_ids else ""))
         object.__setattr__(self, "raw_artifact_id", raw_artifact_id)
-        object.__setattr__(self, "mapped_evidence_id", mapped_evidence_id)
-        object.__setattr__(self, "mapped_evidence_ids", mapped_evidence_ids)
+        object.__setattr__(self, "mapped_evidence_id", str(self.mapped_evidence_id))
         object.__setattr__(self, "raw_kind", str(self.raw_kind))
         object.__setattr__(self, "expected_classification", str(self.expected_classification))
         object.__setattr__(self, "mapped_classification", str(self.mapped_classification))
-        if self.rejected is not None:
-            object.__setattr__(self, "adapter_rejected_known_bad", bool(self.rejected))
         object.__setattr__(self, "scoped_reasons", _as_tuple(self.scoped_reasons))
         object.__setattr__(self, "metadata", dict(self.metadata))
 
@@ -641,16 +629,12 @@ class EvidenceAdapterMapping:
             "mapping_id": self.mapping_id,
             "raw_artifact_id": self.raw_artifact_id,
             "mapped_evidence_id": self.mapped_evidence_id,
-            "mapped_evidence_ids": list(self.mapped_evidence_ids),
             "raw_kind": self.raw_kind,
             "expected_classification": self.expected_classification,
             "mapped_classification": self.mapped_classification,
             "raw_current": self.raw_current,
             "mapped_current": self.mapped_current,
             "freshness_preserved": self.freshness_preserved,
-            "known_bad_fixture": self.known_bad_fixture,
-            "adapter_rejected_known_bad": self.adapter_rejected_known_bad,
-            "rejected": self.rejected,
             "scoped_reasons": list(self.scoped_reasons),
             "metadata": to_jsonable(dict(self.metadata)),
         }
@@ -809,21 +793,6 @@ def review_evidence_adapter_conformance(
             findings.append(_adapter_finding("missing_raw_artifact_id", "mapping has no raw artifact id", mapping))
         if not mapping.mapped_evidence_id:
             findings.append(_adapter_finding("missing_mapped_evidence_id", "mapping has no mapped FlowGuard evidence id", mapping))
-        if mapping.known_bad_fixture and not mapping.adapter_rejected_known_bad:
-            findings.append(
-                _adapter_finding(
-                    "known_bad_fixture_passed",
-                    "known-bad adapter fixture was not rejected",
-                    mapping,
-                )
-            )
-            findings.append(
-                _adapter_finding(
-                    "known_bad_fixture_not_rejected",
-                    "known-bad adapter fixture was not rejected",
-                    mapping,
-                )
-            )
         if mapping.expected_classification != mapping.mapped_classification:
             findings.append(
                 _adapter_finding(

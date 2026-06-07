@@ -45,16 +45,13 @@ whether the rows and later claim promotion were too narrow.
 ## Public API
 
 - `RiskEvidenceRow`: one user-meaningful risk and the model/code/evidence IDs
-  that should prove it. Rows can require a current `defect_family_id` when a
-  recurring or high-risk same-class model miss family must be closed before
-  full confidence. Rows can also require a current family parity gate when a
-  risk claims several sibling obligations are equivalently covered. After a
-  model miss, rows can require a current analogous defect scan so the final
-  claim cannot ignore same-shape sibling risks. Rows can also require a current
-  model-topology hazard review so future-use hazards inferred from model shape
-  are handled, scoped, or blocked before broad confidence. Rows can also name
-  remembered maintenance obligations so old route-owned gaps cannot disappear
-  when later work touches the same risk surface.
+  that should prove it. Route-specific checks live in `gates`, not in separate
+  flat fields per route.
+- `RiskEvidenceGate`: one optional gate such as `defect_family`,
+  `model_split`, `test_split`, `family`, `analogous_scan`,
+  `topology_hazard`, `model_angle_review`, `parent_model_evidence`, or
+  `maintenance_obligation`. A gate has one `kind`, one `evidence_id`, current
+  status, confidence, and scoped reasons.
 - `RiskEvidenceProof`: one test, replay, route report, or manual validation item.
   For full-confidence strict reviews, attach a `proof_artifact` instead of
   relying on the row's declared status alone.
@@ -78,10 +75,16 @@ whether the rows and later claim promotion were too narrow.
 ```python
 from flowguard import (
     OBLIGATION_STATUS_RESOLVED,
+    RISK_GATE_ANALOGOUS_SCAN,
+    RISK_GATE_DEFECT_FAMILY,
+    RISK_GATE_FAMILY,
+    RISK_GATE_MAINTENANCE_OBLIGATION,
+    RISK_GATE_TOPOLOGY_HAZARD,
     RISK_PROOF_SCOPE_INTERNAL_PATH,
     RISK_PROOF_STATUS_PASSED,
     MaintenanceObligation,
     ProofArtifactRef,
+    RiskEvidenceGate,
     RiskEvidenceLedgerPlan,
     RiskEvidenceProof,
     RiskEvidenceRow,
@@ -97,16 +100,13 @@ plan = RiskEvidenceLedgerPlan(
             model_obligation_id="model:dedupe-submit",
             code_contract_id="api:submit_order",
             proof_evidence_ids=("test:helper-dedupe",),
-            family_gate_id="family:submit-routing",
-            family_gate_required=True,
-            analogous_scan_id="analogous:submit-routing",
-            analogous_scan_required=True,
-            topology_hazard_id="topology:submit-routing",
-            topology_hazard_required=True,
-            maintenance_obligation_ids=("structure:submit-routing",),
-            maintenance_obligations_required=True,
-            defect_family_id="defect-family:duplicate-submit",
-            defect_family_gate_required=True,
+            gates=(
+                RiskEvidenceGate(RISK_GATE_FAMILY, "family:submit-routing"),
+                RiskEvidenceGate(RISK_GATE_ANALOGOUS_SCAN, "analogous:submit-routing"),
+                RiskEvidenceGate(RISK_GATE_TOPOLOGY_HAZARD, "topology:submit-routing"),
+                RiskEvidenceGate(RISK_GATE_MAINTENANCE_OBLIGATION, "structure:submit-routing"),
+                RiskEvidenceGate(RISK_GATE_DEFECT_FAMILY, "defect-family:duplicate-submit"),
+            ),
         ),
     ),
     proof_evidence=(

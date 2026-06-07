@@ -5,9 +5,9 @@ from __future__ import annotations
 DEVELOPMENT_PROCESS_FLOW_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header
 
 Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
-Purpose: Review a development lifecycle as a sibling process route, tracking artifact versions, automatic model/test split gates, and validation evidence freshness before done or release claims.
+Purpose: Review a development lifecycle as a sibling process route, tracking artifact versions and validation evidence freshness before done or release claims.
 Guards against: stale validation after code/test/model/requirement/field-lifecycle changes, oversized direct model evidence, slow or broad direct validation evidence, progress-only evidence, hidden skips, missing V-style validation pairs, peer writes, and release overclaims.
-Use before editing: Update this development process flow when changing development ordering, validation gates, automatic split triggers, release readiness, or evidence freshness policy.
+Use before editing: Update this development process flow when changing development ordering, validation gates, release readiness, or evidence freshness policy.
 Run: python .flowguard/development_process_flow/run_checks.py
 """
 
@@ -194,8 +194,8 @@ Use this scaffold to model a development lifecycle as a stateful process.
 - verifier changes, such as tests or model files changing after evidence was
   produced;
 - freshness rules that propagate upstream changes to downstream artifacts;
-- automatic ModelMesh/TestMesh split triggers for direct evidence that is
-  oversized, incomplete, slow, broad, progress-only, or release-only;
+- sibling AutoSplit, ModelMesh, or TestMesh evidence ids when split review is
+  relevant to the process claim;
 - whether done, release, archive, or publish claims have current evidence;
 - the minimum revalidation needed when evidence is stale or missing.
   Revalidation recommendations include the route that produced prior evidence,
@@ -219,10 +219,10 @@ supervise, replace, or repair those routes. If sibling evidence is failed,
 stale, skipped, missing, or progress-only, this route keeps that lifecycle gap
 visible for the current process claim.
 
-When direct model/test evidence reports state counts, pending budgeted states,
-long durations, broad obligation coverage, background progress-only status, or
-release-only scope, call `review_auto_mesh_splits()` and consume the resulting
-ModelMesh or TestMesh gate before claiming broad parent confidence.
+When direct model/test evidence is large, incomplete, slow, broad,
+progress-only, or release-only, run AutoSplit, ModelMesh, or TestMesh as its own
+route and consume that route's evidence id or proof artifact here. Do not copy
+AutoSplit metrics onto `ProcessEvidence`.
 
 Use this route when development ordering, artifact overwrite, verification
 freshness, or release readiness is the risk. It is not mandatory for every

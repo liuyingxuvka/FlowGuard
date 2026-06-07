@@ -395,8 +395,8 @@ class UITerminalActionAllowance:
 
 
 @dataclass(frozen=True)
-class UIResidualBlindspot:
-    """One intentionally out-of-scope UI branch with its validation boundary."""
+class UIBlindspot:
+    """One intentionally scoped or unverified UI branch with its validation boundary."""
 
     blindspot_id: str
     feature_id: str = ""
@@ -440,7 +440,7 @@ class UIJourneyCoverage:
     entry_points: tuple[UIJourneyEntryPoint, ...] = ()
     feature_journeys: tuple[UIFeatureJourney, ...] = ()
     terminal_action_allowances: tuple[UITerminalActionAllowance, ...] = ()
-    residual_blindspots: tuple[UIResidualBlindspot, ...] = ()
+    residual_blindspots: tuple[UIBlindspot, ...] = ()
     interaction_model_reviewed: bool = False
     validation_boundaries: tuple[str, ...] = ()
     rationale: str = ""
@@ -628,42 +628,6 @@ class UIImplementationJourneyRun:
 
 
 @dataclass(frozen=True)
-class UIImplementationBlindspot:
-    """One intentionally unverified implemented-UI branch."""
-
-    blindspot_id: str
-    feature_id: str = ""
-    control_ids: tuple[str, ...] = ()
-    event_ids: tuple[str, ...] = ()
-    reason: str = ""
-    owner: str = ""
-    validation_boundaries: tuple[str, ...] = ()
-    rationale: str = ""
-
-    def __post_init__(self) -> None:
-        object.__setattr__(self, "blindspot_id", str(self.blindspot_id))
-        object.__setattr__(self, "feature_id", str(self.feature_id))
-        object.__setattr__(self, "control_ids", _as_tuple(self.control_ids))
-        object.__setattr__(self, "event_ids", _as_tuple(self.event_ids))
-        object.__setattr__(self, "reason", str(self.reason))
-        object.__setattr__(self, "owner", str(self.owner))
-        object.__setattr__(self, "validation_boundaries", _as_tuple(self.validation_boundaries))
-        object.__setattr__(self, "rationale", str(self.rationale))
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "blindspot_id": self.blindspot_id,
-            "feature_id": self.feature_id,
-            "control_ids": list(self.control_ids),
-            "event_ids": list(self.event_ids),
-            "reason": self.reason,
-            "owner": self.owner,
-            "validation_boundaries": list(self.validation_boundaries),
-            "rationale": self.rationale,
-        }
-
-
-@dataclass(frozen=True)
 class UIImplementationValidation:
     """Real UI validation aligned to feature contracts and UI journeys."""
 
@@ -677,7 +641,7 @@ class UIImplementationValidation:
     journey_runs: tuple[UIImplementationJourneyRun, ...] = ()
     pure_ui_control_ids: tuple[str, ...] = ()
     pure_ui_event_ids: tuple[str, ...] = ()
-    implementation_blindspots: tuple[UIImplementationBlindspot, ...] = ()
+    implementation_blindspots: tuple[UIBlindspot, ...] = ()
     journey_coverage_reviewed: bool = False
     validation_boundaries: tuple[str, ...] = ()
     rationale: str = ""
@@ -3541,7 +3505,7 @@ __all__ = [
     "UIFeatureJourney",
     "UIFeatureContract",
     "UIFlowStructureFinding",
-    "UIImplementationBlindspot",
+    "UIBlindspot",
     "UIImplementationJourneyRun",
     "UIImplementationStepEvidence",
     "UIImplementationValidation",
@@ -3552,7 +3516,6 @@ __all__ = [
     "UIJourneyCoverageReport",
     "UIJourneyEntryPoint",
     "UIRegionRecommendation",
-    "UIResidualBlindspot",
     "UIStateNode",
     "UIStructureDerivation",
     "UIStructureDerivationReport",

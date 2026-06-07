@@ -33,8 +33,9 @@ structured enough to check"; PlanIntake owns the plan-valid claim.
 - `EvidenceAdapterMapping`, `EvidenceAdapterConformancePlan`,
   `EvidenceAdapterConformanceReport`, and
   `review_evidence_adapter_conformance(plan)`: checks that raw artifacts keep
-  identity, freshness, failure/stale/progress classifications, and known-bad
-  fixture rejection after adapter mapping.
+  identity, freshness, and failure/stale/progress classifications after
+  adapter mapping. Known-bad fixture rejection belongs in a dedicated negative
+  test or conformance scenario, not in every normal mapping row.
 - `FalseNegativeCase`, `FalseNegativeBackpropagationPlan`,
   `FalseNegativeBackpropagationReport`, and
   `review_false_negative_backpropagation(plan)`: checks that a post-green miss

@@ -18,7 +18,7 @@ path and fingerprint; a green status string without a concrete artifact remains
 only a declaration.
 
 For vague or short upstream plans, use the plan-detailing compiler before this
-route. `plan_detail_to_development_process(...)` converts `PlanDetailArtifact`,
+route. `plan_detail_to_development_process(...)` converts `ProcessArtifact`,
 ordered `PlanDetailStep`, `PlanDetailEvidence`, `PlanDetailValidation`, and
 `PlanDetailFreshnessRule` rows into the lifecycle shape below, including proof
 artifact references when a result path exists. DevelopmentProcessFlow then owns
@@ -186,12 +186,12 @@ missing an obligation, DevelopmentProcessFlow should also consume
 until the required model upgrade is resolved or explicitly out of scope.
 
 Before done, release, archive, publish, or production-confidence claims,
-DevelopmentProcessFlow should review direct model-code-test evidence freshness
-and run `review_auto_mesh_splits()` when size, pending states, slow duration,
-broad obligation coverage, background progress-only logs, or release-only scope
-could hide the need for ModelMesh or TestMesh. A required split or stale
-binding row keeps the lifecycle claim blocked or scoped until the owning route
-supplies current evidence.
+DevelopmentProcessFlow should review direct model-code-test evidence freshness.
+When size, pending states, slow duration, broad obligation coverage,
+background progress-only logs, or release-only scope could hide the need for
+ModelMesh or TestMesh, run AutoSplit/ModelMesh/TestMesh as its own route and
+consume that route's current evidence id or proof artifact here. Do not copy
+AutoSplit metrics onto `ProcessEvidence`.
 
 When a lifecycle claim depends on an AI-built plan, a project-specific evidence
 adapter, a post-green false-negative repair, or known-bad mutation probes,

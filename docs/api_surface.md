@@ -346,10 +346,10 @@ inventory.
 - optional UI Flow Structure helpers such as `UIInteractionModel`,
   `UIControl`, `UIDisplayElement`, `UIStateNode`, `UITransition`,
   `UIJourneyCoverage`, `UIJourneyEntryPoint`, `UIFeatureJourney`,
-  `UITerminalActionAllowance`, `UIResidualBlindspot`,
+  `UITerminalActionAllowance`, `UIBlindspot`,
   `UIJourneyCoverageReport`, `UIFeatureContract`,
   `UIImplementationJourneyRun`, `UIImplementationStepEvidence`,
-  `UIImplementationBlindspot`, `UIImplementationValidation`,
+  `UIImplementationValidation`,
   `UIImplementationValidationReport`,
   `UIStructureDerivation`, `UIRegionRecommendation`,
   `UITextHierarchyBlueprint`, `UITextElement`, `UITypographyToken`,
@@ -471,11 +471,10 @@ or replace executable validation evidence.
 Evidence APIs are used to keep FlowGuard itself honest:
 
 - evidence baseline reports;
-- lightweight evidence gate/detail helpers such as `EvidenceGate`,
-  `CommandEvidenceDetail`, `BackgroundEvidenceDetail`,
-  `MeshSplitEvidenceDetail`, `summarize_evidence_gates()`, and
-  `evidence_gates_from_process_like()` for grouping broad evidence fields
-  without hiding skipped, stale, not-run, or progress-only states;
+- lightweight evidence gates such as `EvidenceGate`,
+  `summarize_evidence_gates()`, and `evidence_gates_from_process_like()` for
+  grouping broad evidence fields without hiding skipped, stale, not-run, or
+  progress-only states;
 - benchmark scorecards and benchmark coverage audits;
 - problem corpus and executable corpus reports;
 - pytest/template helpers used by examples and framework validation;
@@ -557,8 +556,9 @@ ownership, direct-write bypasses, stale observations, and proof-artifact gaps
 stay visible. Send ambiguous or complex behavior to manual review and keep
 conformance replay for production-facing confidence. When direct
 model or validation evidence is oversized, incomplete, slow, broad,
-progress-only, or release-only, run `review_auto_mesh_splits()` and route the
-result to ModelMesh or TestMesh before claiming broad parent confidence. For
+progress-only, or release-only, run AutoSplit, ModelMesh, or TestMesh
+separately and consume that route evidence before claiming broad parent
+confidence. For
 large model or validation meshes, record the target split derivation from the
 FlowGuard source model before trusting parent/child ownership and evidence.
 After non-trivial FlowGuard-managed work, run or construct a maintenance scan

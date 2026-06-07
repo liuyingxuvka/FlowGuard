@@ -123,6 +123,10 @@ class PlanIntakeCompletenessTests(unittest.TestCase):
         self.assertEqual(RISK_CONFIDENCE_SCOPED, report.confidence)
         self.assertIn("scoped_out_surface", codes(report))
 
+    def test_source_evidence_alias_is_rejected(self):
+        with self.assertRaises(TypeError):
+            PlanIntakeCompletenessPlan("alias", source_evidence=())
+
 
 class EvidenceAdapterConformanceTests(unittest.TestCase):
     def test_adapter_mapping_preserves_identity_freshness_and_status(self):
@@ -162,24 +166,23 @@ class EvidenceAdapterConformanceTests(unittest.TestCase):
         self.assertIn("classification_loss", codes(report))
         self.assertIn("progress_or_stale_mapped_as_passing", codes(report))
 
-    def test_known_bad_fixture_must_be_rejected(self):
-        report = review_evidence_adapter_conformance(
-            EvidenceAdapterConformancePlan(
-                "adapter",
-                mappings=(
+    def test_duplicate_and_known_bad_adapter_fields_are_rejected(self):
+        removed_field_sets = (
+            {"mapped_evidence_ids": ("evidence:fixture",)},
+            {"known_bad_fixture": True},
+            {"adapter_rejected_known_bad": False},
+            {"rejected": False},
+        )
+
+        for kwargs in removed_field_sets:
+            with self.subTest(kwargs=kwargs):
+                with self.assertRaises(TypeError):
                     EvidenceAdapterMapping(
                         "map:known-bad",
                         "fixture:known-bad",
                         "evidence:fixture",
-                        known_bad_fixture=True,
-                        adapter_rejected_known_bad=False,
-                    ),
-                ),
-            )
-        )
-
-        self.assertFalse(report.ok)
-        self.assertIn("known_bad_fixture_passed", codes(report))
+                        **kwargs,
+                    )
 
 
 class FalseNegativeBackpropagationTests(unittest.TestCase):

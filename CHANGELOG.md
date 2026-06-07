@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.41.7 - 2026-06-07
+
+Breaking field-schema cleanup for thinner AI-authored route inputs.
+
+- Replaced route-specific `RiskEvidenceRow` gate columns with a compact
+  `RiskEvidenceGate` list and updated ledger checks, docs, templates, tests,
+  and local FlowGuard models to reject old field shapes.
+- Removed AutoSplit metric fields from `ProcessEvidence`; split review now
+  stays in AutoSplit, ModelMesh, or TestMesh evidence instead of being copied
+  into development-process rows.
+- Removed duplicate PlanIntake mapping/source evidence shapes and adapter
+  fixture flags from normal mapping rows.
+- Merged duplicate UI blindspot helper classes into `UIBlindspot` and reused
+  `ProcessArtifact` in PlanDetail instead of maintaining a duplicate
+  `PlanDetailArtifact` class.
+
 ## v0.41.6 - 2026-06-07
 
 FieldLifecycleMesh route-evidence handoff binding.

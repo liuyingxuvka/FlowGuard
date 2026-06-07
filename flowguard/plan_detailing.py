@@ -198,39 +198,6 @@ class PlanDetailSurface:
 
 
 @dataclass(frozen=True)
-class PlanDetailArtifact:
-    """One versioned artifact the plan reads, writes, validates, or invalidates."""
-
-    artifact_id: str
-    artifact_type: str = "code"
-    current_version: str = "1"
-    path: str = ""
-    owner: str = ""
-    upstream_artifact_ids: tuple[str, ...] = ()
-    description: str = ""
-
-    def __post_init__(self) -> None:
-        object.__setattr__(self, "artifact_id", str(self.artifact_id))
-        object.__setattr__(self, "artifact_type", str(self.artifact_type))
-        object.__setattr__(self, "current_version", str(self.current_version))
-        object.__setattr__(self, "path", str(self.path))
-        object.__setattr__(self, "owner", str(self.owner))
-        object.__setattr__(self, "upstream_artifact_ids", _as_tuple(self.upstream_artifact_ids))
-        object.__setattr__(self, "description", str(self.description))
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "artifact_id": self.artifact_id,
-            "artifact_type": self.artifact_type,
-            "current_version": self.current_version,
-            "path": self.path,
-            "owner": self.owner,
-            "upstream_artifact_ids": list(self.upstream_artifact_ids),
-            "description": self.description,
-        }
-
-
-@dataclass(frozen=True)
 class PlanDetailStateSurface:
     """One state field, durable fact, or side-effect surface the model must see."""
 
@@ -534,7 +501,7 @@ class PlanDetail:
     assumptions: tuple[str, ...] = ()
     sources: tuple[PlanDetailSource, ...] = ()
     surfaces: tuple[PlanDetailSurface, ...] = ()
-    artifacts: tuple[PlanDetailArtifact, ...] = ()
+    artifacts: tuple[ProcessArtifact, ...] = ()
     state_surfaces: tuple[PlanDetailStateSurface, ...] = ()
     side_effects: tuple[PlanDetailSideEffect, ...] = ()
     steps: tuple[PlanDetailStep, ...] = ()
@@ -989,18 +956,7 @@ def plan_detail_to_step_contracts(plan: PlanDetail) -> tuple[WorkflowStepContrac
 def plan_detail_to_development_process(plan: PlanDetail) -> DevelopmentProcessPlan:
     """Project plan-detail lifecycle rows into DevelopmentProcessFlow."""
 
-    artifacts = tuple(
-        ProcessArtifact(
-            artifact.artifact_id,
-            artifact.artifact_type,
-            artifact.current_version,
-            path=artifact.path,
-            owner=artifact.owner,
-            upstream_artifact_ids=artifact.upstream_artifact_ids,
-            description=artifact.description,
-        )
-        for artifact in plan.artifacts
-    )
+    artifacts = tuple(plan.artifacts)
     actions = tuple(
         ProcessAction(
             step.step_id,
@@ -1131,7 +1087,6 @@ __all__ = [
     "PLAN_DETAIL_STATUS_SCOPED",
     "PLAN_DETAIL_STATUSES",
     "PlanDetail",
-    "PlanDetailArtifact",
     "PlanDetailEvidence",
     "PlanDetailFailureBranch",
     "PlanDetailFinding",

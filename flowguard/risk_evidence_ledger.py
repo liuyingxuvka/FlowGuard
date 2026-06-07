@@ -47,6 +47,16 @@ RISK_CONFIDENCE_BLOCKED = "blocked"
 RISK_LEDGER_DECISION_FULL = "risk_evidence_full_confidence"
 RISK_LEDGER_DECISION_SCOPED = "risk_evidence_scoped_confidence"
 
+RISK_GATE_DEFECT_FAMILY = "defect_family"
+RISK_GATE_MODEL_SPLIT = "model_split"
+RISK_GATE_TEST_SPLIT = "test_split"
+RISK_GATE_FAMILY = "family"
+RISK_GATE_ANALOGOUS_SCAN = "analogous_scan"
+RISK_GATE_TOPOLOGY_HAZARD = "topology_hazard"
+RISK_GATE_MODEL_ANGLE_REVIEW = "model_angle_review"
+RISK_GATE_PARENT_MODEL_EVIDENCE = "parent_model_evidence"
+RISK_GATE_MAINTENANCE_OBLIGATION = "maintenance_obligation"
+
 PASSING_PROOF_STATUSES = {RISK_PROOF_STATUS_PASSED}
 NON_PASSING_PROOF_STATUSES = {
     RISK_PROOF_STATUS_FAILED,
@@ -124,152 +134,75 @@ class RiskEvidenceProof:
 
 
 @dataclass(frozen=True)
+class RiskEvidenceGate:
+    """One optional route-specific gate for a user-meaningful risk."""
+
+    kind: str = ""
+    evidence_id: str = ""
+    required: bool = True
+    current: bool = True
+    confidence: str = RISK_CONFIDENCE_FULL
+    scoped_reasons: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "kind", str(self.kind))
+        object.__setattr__(self, "evidence_id", str(self.evidence_id))
+        object.__setattr__(self, "confidence", str(self.confidence))
+        object.__setattr__(self, "scoped_reasons", _as_tuple(self.scoped_reasons))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "kind": self.kind,
+            "evidence_id": self.evidence_id,
+            "required": self.required,
+            "current": self.current,
+            "confidence": self.confidence,
+            "scoped_reasons": list(self.scoped_reasons),
+        }
+
+
+def _coerce_risk_gate(gate: RiskEvidenceGate | Mapping[str, Any]) -> RiskEvidenceGate:
+    if isinstance(gate, RiskEvidenceGate):
+        return gate
+    return RiskEvidenceGate(**dict(gate))
+
+
+@dataclass(frozen=True)
 class RiskEvidenceRow:
     """One user-meaningful risk and the evidence expected to support it."""
 
     risk_id: str
-    description: str = ""
     required: bool = True
     in_scope: bool = True
     out_of_scope_reason: str = ""
     model_obligation_id: str = ""
     code_contract_id: str = ""
-    code_contract_required: bool = False
     proof_evidence_ids: tuple[str, ...] = ()
     require_external_proof: bool = True
-    parent_model_evidence_required: bool = False
-    parent_model_evidence_current: bool = True
-    defect_family_id: str = ""
-    defect_family_gate_required: bool = False
-    defect_family_gate_current: bool = True
-    defect_family_gate_confidence: str = RISK_CONFIDENCE_FULL
-    defect_family_scoped_reasons: tuple[str, ...] = ()
-    model_split_gate_id: str = ""
-    model_split_gate_required: bool = False
-    model_split_gate_current: bool = True
-    model_split_gate_confidence: str = RISK_CONFIDENCE_FULL
-    model_split_scoped_reasons: tuple[str, ...] = ()
-    test_split_gate_id: str = ""
-    test_split_gate_required: bool = False
-    test_split_gate_current: bool = True
-    test_split_gate_confidence: str = RISK_CONFIDENCE_FULL
-    test_split_scoped_reasons: tuple[str, ...] = ()
-    family_gate_id: str = ""
-    family_gate_required: bool = False
-    family_gate_current: bool = True
-    family_gate_confidence: str = RISK_CONFIDENCE_FULL
-    family_gate_scoped_reasons: tuple[str, ...] = ()
-    analogous_scan_id: str = ""
-    analogous_scan_required: bool = False
-    analogous_scan_current: bool = True
-    analogous_scan_confidence: str = RISK_CONFIDENCE_FULL
-    analogous_scan_scoped_reasons: tuple[str, ...] = ()
-    topology_hazard_id: str = ""
-    topology_hazard_required: bool = False
-    topology_hazard_current: bool = True
-    topology_hazard_confidence: str = RISK_CONFIDENCE_FULL
-    topology_hazard_scoped_reasons: tuple[str, ...] = ()
-    model_angle_review_id: str = ""
-    model_angle_review_required: bool = False
-    model_angle_review_current: bool = True
-    model_angle_review_confidence: str = RISK_CONFIDENCE_FULL
-    model_angle_scoped_reasons: tuple[str, ...] = ()
+    gates: tuple[RiskEvidenceGate, ...] = ()
     maintenance_obligation_ids: tuple[str, ...] = ()
-    maintenance_obligations_required: bool = False
-    maintenance_obligation_scoped_reasons: tuple[str, ...] = ()
-    overclaims_full_confidence: bool = False
-    next_actions: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "risk_id", str(self.risk_id))
-        object.__setattr__(self, "description", str(self.description))
         object.__setattr__(self, "out_of_scope_reason", str(self.out_of_scope_reason))
         object.__setattr__(self, "model_obligation_id", str(self.model_obligation_id))
         object.__setattr__(self, "code_contract_id", str(self.code_contract_id))
         object.__setattr__(self, "proof_evidence_ids", _as_tuple(self.proof_evidence_ids))
-        object.__setattr__(self, "defect_family_id", str(self.defect_family_id))
-        object.__setattr__(self, "defect_family_gate_confidence", str(self.defect_family_gate_confidence))
-        object.__setattr__(self, "defect_family_scoped_reasons", _as_tuple(self.defect_family_scoped_reasons))
-        object.__setattr__(self, "model_split_gate_id", str(self.model_split_gate_id))
-        object.__setattr__(self, "model_split_gate_confidence", str(self.model_split_gate_confidence))
-        object.__setattr__(self, "model_split_scoped_reasons", _as_tuple(self.model_split_scoped_reasons))
-        object.__setattr__(self, "test_split_gate_id", str(self.test_split_gate_id))
-        object.__setattr__(self, "test_split_gate_confidence", str(self.test_split_gate_confidence))
-        object.__setattr__(self, "test_split_scoped_reasons", _as_tuple(self.test_split_scoped_reasons))
-        object.__setattr__(self, "family_gate_id", str(self.family_gate_id))
-        object.__setattr__(self, "family_gate_confidence", str(self.family_gate_confidence))
-        object.__setattr__(self, "family_gate_scoped_reasons", _as_tuple(self.family_gate_scoped_reasons))
-        object.__setattr__(self, "analogous_scan_id", str(self.analogous_scan_id))
-        object.__setattr__(self, "analogous_scan_confidence", str(self.analogous_scan_confidence))
-        object.__setattr__(self, "analogous_scan_scoped_reasons", _as_tuple(self.analogous_scan_scoped_reasons))
-        object.__setattr__(self, "topology_hazard_id", str(self.topology_hazard_id))
-        object.__setattr__(self, "topology_hazard_confidence", str(self.topology_hazard_confidence))
-        object.__setattr__(self, "topology_hazard_scoped_reasons", _as_tuple(self.topology_hazard_scoped_reasons))
-        object.__setattr__(self, "model_angle_review_id", str(self.model_angle_review_id))
-        object.__setattr__(self, "model_angle_review_confidence", str(self.model_angle_review_confidence))
-        object.__setattr__(self, "model_angle_scoped_reasons", _as_tuple(self.model_angle_scoped_reasons))
+        object.__setattr__(self, "gates", tuple(_coerce_risk_gate(gate) for gate in self.gates))
         object.__setattr__(self, "maintenance_obligation_ids", _as_tuple(self.maintenance_obligation_ids))
-        object.__setattr__(
-            self,
-            "maintenance_obligation_scoped_reasons",
-            _as_tuple(self.maintenance_obligation_scoped_reasons),
-        )
-        object.__setattr__(self, "next_actions", _as_tuple(self.next_actions))
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "risk_id": self.risk_id,
-            "description": self.description,
             "required": self.required,
             "in_scope": self.in_scope,
             "out_of_scope_reason": self.out_of_scope_reason,
             "model_obligation_id": self.model_obligation_id,
             "code_contract_id": self.code_contract_id,
-            "code_contract_required": self.code_contract_required,
             "proof_evidence_ids": list(self.proof_evidence_ids),
             "require_external_proof": self.require_external_proof,
-            "parent_model_evidence_required": self.parent_model_evidence_required,
-            "parent_model_evidence_current": self.parent_model_evidence_current,
-            "defect_family_id": self.defect_family_id,
-            "defect_family_gate_required": self.defect_family_gate_required,
-            "defect_family_gate_current": self.defect_family_gate_current,
-            "defect_family_gate_confidence": self.defect_family_gate_confidence,
-            "defect_family_scoped_reasons": list(self.defect_family_scoped_reasons),
-            "model_split_gate_id": self.model_split_gate_id,
-            "model_split_gate_required": self.model_split_gate_required,
-            "model_split_gate_current": self.model_split_gate_current,
-            "model_split_gate_confidence": self.model_split_gate_confidence,
-            "model_split_scoped_reasons": list(self.model_split_scoped_reasons),
-            "test_split_gate_id": self.test_split_gate_id,
-            "test_split_gate_required": self.test_split_gate_required,
-            "test_split_gate_current": self.test_split_gate_current,
-            "test_split_gate_confidence": self.test_split_gate_confidence,
-            "test_split_scoped_reasons": list(self.test_split_scoped_reasons),
-            "family_gate_id": self.family_gate_id,
-            "family_gate_required": self.family_gate_required,
-            "family_gate_current": self.family_gate_current,
-            "family_gate_confidence": self.family_gate_confidence,
-            "family_gate_scoped_reasons": list(self.family_gate_scoped_reasons),
-            "analogous_scan_id": self.analogous_scan_id,
-            "analogous_scan_required": self.analogous_scan_required,
-            "analogous_scan_current": self.analogous_scan_current,
-            "analogous_scan_confidence": self.analogous_scan_confidence,
-            "analogous_scan_scoped_reasons": list(self.analogous_scan_scoped_reasons),
-            "topology_hazard_id": self.topology_hazard_id,
-            "topology_hazard_required": self.topology_hazard_required,
-            "topology_hazard_current": self.topology_hazard_current,
-            "topology_hazard_confidence": self.topology_hazard_confidence,
-            "topology_hazard_scoped_reasons": list(self.topology_hazard_scoped_reasons),
-            "model_angle_review_id": self.model_angle_review_id,
-            "model_angle_review_required": self.model_angle_review_required,
-            "model_angle_review_current": self.model_angle_review_current,
-            "model_angle_review_confidence": self.model_angle_review_confidence,
-            "model_angle_scoped_reasons": list(self.model_angle_scoped_reasons),
+            "gates": [gate.to_dict() for gate in self.gates],
             "maintenance_obligation_ids": list(self.maintenance_obligation_ids),
-            "maintenance_obligations_required": self.maintenance_obligations_required,
-            "maintenance_obligation_scoped_reasons": list(self.maintenance_obligation_scoped_reasons),
-            "overclaims_full_confidence": self.overclaims_full_confidence,
-            "next_actions": list(self.next_actions),
         }
 
 
@@ -424,11 +357,13 @@ def _decision_for(findings: Sequence[RiskEvidenceFinding]) -> tuple[str, str, bo
         "duplicate_risk_id",
         "duplicate_evidence_id",
         "duplicate_maintenance_obligation_id",
+        "unknown_risk_gate_kind",
         "unknown_evidence_reference",
         "unknown_maintenance_obligation_reference",
         "missing_model_obligation",
         "missing_code_contract",
         "missing_maintenance_obligation",
+        "missing_parent_model_evidence",
         "maintenance_obligation_not_current",
         "open_maintenance_obligation",
         "missing_defect_family_gate",
@@ -440,6 +375,9 @@ def _decision_for(findings: Sequence[RiskEvidenceFinding]) -> tuple[str, str, bo
         "missing_analogous_scan",
         "analogous_scan_not_current",
         "analogous_scan_blocked",
+        "missing_topology_hazard_review",
+        "topology_hazard_review_not_current",
+        "topology_hazard_review_blocked",
         "missing_model_angle_review",
         "model_angle_review_not_current",
         "model_angle_review_blocked",
@@ -464,7 +402,6 @@ def _decision_for(findings: Sequence[RiskEvidenceFinding]) -> tuple[str, str, bo
         "test_split_gate_scoped_confidence",
         "maintenance_obligation_scoped_confidence",
         "maintenance_obligation_missing_resolution_evidence",
-        "proof_overclaims_full_confidence",
         "scoped_out_required_risk",
     )
     blocker_codes = {finding.code for finding in blockers}
@@ -472,6 +409,268 @@ def _decision_for(findings: Sequence[RiskEvidenceFinding]) -> tuple[str, str, bo
         if code in blocker_codes:
             return code, RISK_CONFIDENCE_BLOCKED, False
     return blockers[0].code, RISK_CONFIDENCE_BLOCKED, False
+
+
+GATE_CODE_MAP = {
+    RISK_GATE_DEFECT_FAMILY: (
+        "missing_defect_family_gate",
+        "defect_family_gate_not_current",
+        "defect_family_gate_blocked",
+        "defect_family_gate_scoped_confidence",
+        "required risk has no recurring defect-family gate owner",
+        "required defect-family gate evidence is stale or has not been rerun",
+        "required defect-family gate is blocked",
+        "defect-family gate remains explicitly scoped",
+    ),
+    RISK_GATE_FAMILY: (
+        "missing_family_gate",
+        "family_gate_not_current",
+        "family_gate_blocked",
+        "family_gate_scoped_confidence",
+        "required risk has no obligation-family parity gate owner",
+        "required obligation-family parity gate evidence is stale or has not been rerun",
+        "required obligation-family parity gate is blocked",
+        "obligation-family parity gate remains explicitly scoped",
+    ),
+    RISK_GATE_ANALOGOUS_SCAN: (
+        "missing_analogous_scan",
+        "analogous_scan_not_current",
+        "analogous_scan_blocked",
+        "analogous_scan_scoped_confidence",
+        "required risk has no analogous defect scan owner",
+        "required analogous defect scan evidence is stale or has not been rerun",
+        "required analogous defect scan is blocked",
+        "analogous defect scan remains explicitly scoped",
+    ),
+    RISK_GATE_TOPOLOGY_HAZARD: (
+        "missing_topology_hazard_review",
+        "topology_hazard_review_not_current",
+        "topology_hazard_review_blocked",
+        "topology_hazard_review_scoped_confidence",
+        "required risk has no model-topology hazard review owner",
+        "required model-topology hazard review evidence is stale or has not been rerun",
+        "required model-topology hazard review is blocked",
+        "model-topology hazard review remains explicitly scoped",
+    ),
+    RISK_GATE_MODEL_ANGLE_REVIEW: (
+        "missing_model_angle_review",
+        "model_angle_review_not_current",
+        "model_angle_review_blocked",
+        "model_angle_review_scoped_confidence",
+        "required risk has no model-angle deliberation review owner",
+        "required model-angle deliberation evidence is stale or has not been rerun",
+        "required model-angle deliberation review is blocked",
+        "model-angle deliberation remains explicitly scoped",
+    ),
+    RISK_GATE_MODEL_SPLIT: (
+        "missing_model_split_gate",
+        "model_split_gate_not_current",
+        "model_split_gate_blocked",
+        "model_split_gate_scoped_confidence",
+        "required risk has no current model split gate owner",
+        "required model split gate evidence is stale or missing",
+        "required model split gate is blocked",
+        "required model split gate remains explicitly scoped",
+    ),
+    RISK_GATE_TEST_SPLIT: (
+        "missing_test_split_gate",
+        "test_split_gate_not_current",
+        "test_split_gate_blocked",
+        "test_split_gate_scoped_confidence",
+        "required risk has no current test split gate owner",
+        "required test split gate evidence is stale or missing",
+        "required test split gate is blocked",
+        "required test split gate remains explicitly scoped",
+    ),
+    RISK_GATE_PARENT_MODEL_EVIDENCE: (
+        "missing_parent_model_evidence",
+        "parent_model_evidence_gap",
+        "parent_model_evidence_blocked",
+        "parent_model_evidence_scoped_confidence",
+        "required risk has no parent model evidence owner",
+        "child model evidence has not been consumed by current parent evidence",
+        "required parent model evidence is blocked",
+        "parent model evidence remains explicitly scoped",
+    ),
+}
+
+
+def _generic_gate_findings(
+    row: RiskEvidenceRow,
+    gate: RiskEvidenceGate,
+    *,
+    allow_scoped_confidence: bool,
+) -> list[RiskEvidenceFinding]:
+    codes = GATE_CODE_MAP.get(gate.kind)
+    if codes is None:
+        return [
+            _finding(
+                "unknown_risk_gate_kind",
+                f"risk gate kind {gate.kind!r} is not recognized",
+                risk_id=row.risk_id,
+                metadata={"gate": gate.to_dict()},
+            )
+        ]
+    missing_code, stale_code, blocked_code, scoped_code, missing_msg, stale_msg, blocked_msg, scoped_msg = codes
+    findings: list[RiskEvidenceFinding] = []
+    metadata = {"gate": gate.to_dict()}
+    if gate.required and not gate.evidence_id:
+        findings.append(_finding(missing_code, missing_msg, risk_id=row.risk_id, metadata=metadata))
+    if gate.required and gate.evidence_id and not gate.current:
+        findings.append(_finding(stale_code, stale_msg, risk_id=row.risk_id, metadata=metadata))
+    if gate.required and gate.evidence_id and gate.confidence == RISK_CONFIDENCE_BLOCKED:
+        findings.append(_finding(blocked_code, blocked_msg, risk_id=row.risk_id, metadata=metadata))
+    elif gate.required and gate.evidence_id and gate.confidence in {RISK_CONFIDENCE_SCOPED, RISK_CONFIDENCE_PARTIAL}:
+        severity = "warning" if allow_scoped_confidence else "blocker"
+        findings.append(_finding(scoped_code, scoped_msg, risk_id=row.risk_id, severity=severity, metadata=metadata))
+    if gate.scoped_reasons:
+        severity = "warning" if allow_scoped_confidence else "blocker"
+        findings.append(_finding(scoped_code, scoped_msg, risk_id=row.risk_id, severity=severity, metadata=metadata))
+    return findings
+
+
+def _maintenance_obligation_findings(
+    row: RiskEvidenceRow,
+    obligation_id: str,
+    obligation_by_id: Mapping[str, MaintenanceObligation],
+    allow_scoped_confidence: bool,
+) -> list[RiskEvidenceFinding]:
+    obligation = obligation_by_id.get(obligation_id)
+    if obligation is None:
+        return [
+            _finding(
+                "unknown_maintenance_obligation_reference",
+                f"risk references unknown maintenance obligation {obligation_id!r}",
+                risk_id=row.risk_id,
+                metadata={"obligation_id": obligation_id},
+            )
+        ]
+    findings: list[RiskEvidenceFinding] = []
+    if not obligation.current:
+        findings.append(
+            _finding(
+                "maintenance_obligation_not_current",
+                "referenced maintenance obligation memory is stale",
+                risk_id=row.risk_id,
+                metadata={"obligation": obligation.to_dict()},
+            )
+        )
+    if obligation.is_active():
+        findings.append(
+            _finding(
+                "open_maintenance_obligation",
+                "referenced maintenance obligation is still open",
+                risk_id=row.risk_id,
+                metadata={"obligation": obligation.to_dict()},
+            )
+        )
+    elif obligation.status == OBLIGATION_STATUS_SCOPED or obligation.scope_reason:
+        severity = "warning" if allow_scoped_confidence else "blocker"
+        findings.append(
+            _finding(
+                "maintenance_obligation_scoped_confidence",
+                "referenced maintenance obligation remains explicitly scoped",
+                risk_id=row.risk_id,
+                severity=severity,
+                metadata={"obligation": obligation.to_dict()},
+            )
+        )
+    elif not obligation.has_resolution_evidence():
+        findings.append(
+            _finding(
+                "maintenance_obligation_missing_resolution_evidence",
+                "referenced maintenance obligation has no resolution evidence",
+                risk_id=row.risk_id,
+                metadata={"obligation": obligation.to_dict()},
+            )
+        )
+    return findings
+
+
+def _maintenance_gate_findings(
+    row: RiskEvidenceRow,
+    gate: RiskEvidenceGate,
+    obligation_by_id: Mapping[str, MaintenanceObligation],
+    *,
+    allow_scoped_confidence: bool,
+) -> list[RiskEvidenceFinding]:
+    if gate.required and not gate.evidence_id:
+        return [
+            _finding(
+                "missing_maintenance_obligation",
+                "required risk has no remembered maintenance obligation owner",
+                risk_id=row.risk_id,
+                metadata={"gate": gate.to_dict()},
+            )
+        ]
+    findings: list[RiskEvidenceFinding] = []
+    if gate.evidence_id:
+        if gate.required and not gate.current:
+            findings.append(
+                _finding(
+                    "maintenance_obligation_not_current",
+                    "required maintenance obligation memory is stale or has not been rerun",
+                    risk_id=row.risk_id,
+                    metadata={"gate": gate.to_dict()},
+                )
+            )
+        if gate.required and gate.confidence == RISK_CONFIDENCE_BLOCKED:
+            findings.append(
+                _finding(
+                    "open_maintenance_obligation",
+                    "required maintenance obligation gate is blocked",
+                    risk_id=row.risk_id,
+                    metadata={"gate": gate.to_dict()},
+                )
+            )
+        elif gate.required and gate.confidence in {RISK_CONFIDENCE_SCOPED, RISK_CONFIDENCE_PARTIAL}:
+            severity = "warning" if allow_scoped_confidence else "blocker"
+            findings.append(
+                _finding(
+                    "maintenance_obligation_scoped_confidence",
+                    "maintenance obligation gate remains explicitly scoped",
+                    risk_id=row.risk_id,
+                    severity=severity,
+                    metadata={"gate": gate.to_dict()},
+                )
+            )
+        findings.extend(_maintenance_obligation_findings(row, gate.evidence_id, obligation_by_id, allow_scoped_confidence))
+    if gate.scoped_reasons:
+        severity = "warning" if allow_scoped_confidence else "blocker"
+        findings.append(
+            _finding(
+                "maintenance_obligation_scoped_confidence",
+                "maintenance obligation memory remains explicitly scoped",
+                risk_id=row.risk_id,
+                severity=severity,
+                metadata={"gate": gate.to_dict()},
+            )
+        )
+    return findings
+
+
+def _risk_gate_findings(
+    row: RiskEvidenceRow,
+    obligation_by_id: Mapping[str, MaintenanceObligation],
+    *,
+    allow_scoped_confidence: bool,
+) -> list[RiskEvidenceFinding]:
+    findings: list[RiskEvidenceFinding] = []
+    for gate in row.gates:
+        if gate.kind == RISK_GATE_MAINTENANCE_OBLIGATION:
+            findings.extend(
+                _maintenance_gate_findings(
+                    row,
+                    gate,
+                    obligation_by_id,
+                    allow_scoped_confidence=allow_scoped_confidence,
+                )
+            )
+        else:
+            findings.extend(_generic_gate_findings(row, gate, allow_scoped_confidence=allow_scoped_confidence))
+    for obligation_id in row.maintenance_obligation_ids:
+        findings.extend(_maintenance_obligation_findings(row, obligation_id, obligation_by_id, allow_scoped_confidence))
+    return findings
 
 
 def review_risk_evidence_ledger(plan: RiskEvidenceLedgerPlan) -> RiskEvidenceLedgerReport:
@@ -550,459 +749,13 @@ def review_risk_evidence_ledger(plan: RiskEvidenceLedgerPlan) -> RiskEvidenceLed
                 )
             )
 
-        if row.defect_family_gate_required and not row.defect_family_id:
-            findings.append(
-                _finding(
-                    "missing_defect_family_gate",
-                    "required risk has no recurring defect-family gate owner",
-                    risk_id=row.risk_id,
-                )
+        findings.extend(
+            _risk_gate_findings(
+                row,
+                obligation_by_id,
+                allow_scoped_confidence=plan.allow_scoped_confidence,
             )
-
-        if row.defect_family_gate_required and row.defect_family_id and not row.defect_family_gate_current:
-            findings.append(
-                _finding(
-                    "defect_family_gate_not_current",
-                    "required defect-family gate evidence is stale or has not been rerun",
-                    risk_id=row.risk_id,
-                    metadata={"defect_family_id": row.defect_family_id},
-                )
-            )
-
-        if row.defect_family_gate_required and row.defect_family_id:
-            if row.defect_family_gate_confidence == RISK_CONFIDENCE_BLOCKED:
-                findings.append(
-                    _finding(
-                        "defect_family_gate_blocked",
-                        "required defect-family gate is blocked",
-                        risk_id=row.risk_id,
-                        metadata={"defect_family_id": row.defect_family_id},
-                    )
-                )
-            elif row.defect_family_gate_confidence in {RISK_CONFIDENCE_SCOPED, RISK_CONFIDENCE_PARTIAL}:
-                severity = "warning" if plan.allow_scoped_confidence else "blocker"
-                findings.append(
-                    _finding(
-                        "defect_family_gate_scoped_confidence",
-                        "defect-family gate remains explicitly scoped",
-                        risk_id=row.risk_id,
-                        severity=severity,
-                        metadata={
-                            "defect_family_id": row.defect_family_id,
-                            "defect_family_gate_confidence": row.defect_family_gate_confidence,
-                        },
-                    )
-                )
-
-        if row.defect_family_scoped_reasons:
-            severity = "warning" if plan.allow_scoped_confidence else "blocker"
-            findings.append(
-                _finding(
-                    "defect_family_gate_scoped_confidence",
-                    "defect-family gate remains explicitly scoped",
-                    risk_id=row.risk_id,
-                    severity=severity,
-                    metadata={
-                        "defect_family_id": row.defect_family_id,
-                        "defect_family_scoped_reasons": list(row.defect_family_scoped_reasons),
-                    },
-                )
-            )
-
-        if row.family_gate_required and not row.family_gate_id:
-            findings.append(
-                _finding(
-                    "missing_family_gate",
-                    "required risk has no obligation-family parity gate owner",
-                    risk_id=row.risk_id,
-                )
-            )
-
-        if row.family_gate_required and row.family_gate_id and not row.family_gate_current:
-            findings.append(
-                _finding(
-                    "family_gate_not_current",
-                    "required obligation-family parity gate evidence is stale or has not been rerun",
-                    risk_id=row.risk_id,
-                    metadata={"family_gate_id": row.family_gate_id},
-                )
-            )
-
-        if row.family_gate_required and row.family_gate_id:
-            if row.family_gate_confidence == RISK_CONFIDENCE_BLOCKED:
-                findings.append(
-                    _finding(
-                        "family_gate_blocked",
-                        "required obligation-family parity gate is blocked",
-                        risk_id=row.risk_id,
-                        metadata={"family_gate_id": row.family_gate_id},
-                    )
-                )
-            elif row.family_gate_confidence in {RISK_CONFIDENCE_SCOPED, RISK_CONFIDENCE_PARTIAL}:
-                severity = "warning" if plan.allow_scoped_confidence else "blocker"
-                findings.append(
-                    _finding(
-                        "family_gate_scoped_confidence",
-                        "obligation-family parity gate remains explicitly scoped",
-                        risk_id=row.risk_id,
-                        severity=severity,
-                        metadata={
-                            "family_gate_id": row.family_gate_id,
-                            "family_gate_confidence": row.family_gate_confidence,
-                        },
-                    )
-                )
-
-        if row.family_gate_scoped_reasons:
-            severity = "warning" if plan.allow_scoped_confidence else "blocker"
-            findings.append(
-                _finding(
-                    "family_gate_scoped_confidence",
-                    "obligation-family parity gate remains explicitly scoped",
-                    risk_id=row.risk_id,
-                    severity=severity,
-                    metadata={
-                        "family_gate_id": row.family_gate_id,
-                        "family_gate_scoped_reasons": list(row.family_gate_scoped_reasons),
-                    },
-                )
-            )
-
-        if row.analogous_scan_required and not row.analogous_scan_id:
-            findings.append(
-                _finding(
-                    "missing_analogous_scan",
-                    "required risk has no analogous defect scan owner",
-                    risk_id=row.risk_id,
-                )
-            )
-
-        if row.analogous_scan_required and row.analogous_scan_id and not row.analogous_scan_current:
-            findings.append(
-                _finding(
-                    "analogous_scan_not_current",
-                    "required analogous defect scan evidence is stale or has not been rerun",
-                    risk_id=row.risk_id,
-                    metadata={"analogous_scan_id": row.analogous_scan_id},
-                )
-            )
-
-        if row.analogous_scan_required and row.analogous_scan_id:
-            if row.analogous_scan_confidence == RISK_CONFIDENCE_BLOCKED:
-                findings.append(
-                    _finding(
-                        "analogous_scan_blocked",
-                        "required analogous defect scan is blocked",
-                        risk_id=row.risk_id,
-                        metadata={"analogous_scan_id": row.analogous_scan_id},
-                    )
-                )
-            elif row.analogous_scan_confidence in {RISK_CONFIDENCE_SCOPED, RISK_CONFIDENCE_PARTIAL}:
-                severity = "warning" if plan.allow_scoped_confidence else "blocker"
-                findings.append(
-                    _finding(
-                        "analogous_scan_scoped_confidence",
-                        "analogous defect scan remains explicitly scoped",
-                        risk_id=row.risk_id,
-                        severity=severity,
-                        metadata={
-                            "analogous_scan_id": row.analogous_scan_id,
-                            "analogous_scan_confidence": row.analogous_scan_confidence,
-                        },
-                    )
-                )
-
-        if row.analogous_scan_scoped_reasons:
-            severity = "warning" if plan.allow_scoped_confidence else "blocker"
-            findings.append(
-                _finding(
-                    "analogous_scan_scoped_confidence",
-                    "analogous defect scan remains explicitly scoped",
-                    risk_id=row.risk_id,
-                    severity=severity,
-                    metadata={
-                        "analogous_scan_id": row.analogous_scan_id,
-                        "analogous_scan_scoped_reasons": list(row.analogous_scan_scoped_reasons),
-                    },
-                )
-            )
-
-        if row.topology_hazard_required and not row.topology_hazard_id:
-            findings.append(
-                _finding(
-                    "missing_topology_hazard_review",
-                    "required risk has no model-topology hazard review owner",
-                    risk_id=row.risk_id,
-                )
-            )
-
-        if row.topology_hazard_required and row.topology_hazard_id and not row.topology_hazard_current:
-            findings.append(
-                _finding(
-                    "topology_hazard_review_not_current",
-                    "required model-topology hazard review evidence is stale or has not been rerun",
-                    risk_id=row.risk_id,
-                    metadata={"topology_hazard_id": row.topology_hazard_id},
-                )
-            )
-
-        if row.topology_hazard_required and row.topology_hazard_id:
-            if row.topology_hazard_confidence == RISK_CONFIDENCE_BLOCKED:
-                findings.append(
-                    _finding(
-                        "topology_hazard_review_blocked",
-                        "required model-topology hazard review is blocked",
-                        risk_id=row.risk_id,
-                        metadata={"topology_hazard_id": row.topology_hazard_id},
-                    )
-                )
-            elif row.topology_hazard_confidence in {RISK_CONFIDENCE_SCOPED, RISK_CONFIDENCE_PARTIAL}:
-                severity = "warning" if plan.allow_scoped_confidence else "blocker"
-                findings.append(
-                    _finding(
-                        "topology_hazard_review_scoped_confidence",
-                        "model-topology hazard review remains explicitly scoped",
-                        risk_id=row.risk_id,
-                        severity=severity,
-                        metadata={
-                            "topology_hazard_id": row.topology_hazard_id,
-                            "topology_hazard_confidence": row.topology_hazard_confidence,
-                        },
-                    )
-                )
-
-        if row.topology_hazard_scoped_reasons:
-            severity = "warning" if plan.allow_scoped_confidence else "blocker"
-            findings.append(
-                _finding(
-                    "topology_hazard_review_scoped_confidence",
-                    "model-topology hazard review remains explicitly scoped",
-                    risk_id=row.risk_id,
-                    severity=severity,
-                    metadata={
-                        "topology_hazard_id": row.topology_hazard_id,
-                        "topology_hazard_scoped_reasons": list(row.topology_hazard_scoped_reasons),
-                    },
-                )
-            )
-
-        if row.model_angle_review_required and not row.model_angle_review_id:
-            findings.append(
-                _finding(
-                    "missing_model_angle_review",
-                    "required risk has no model-angle deliberation review owner",
-                    risk_id=row.risk_id,
-                )
-            )
-
-        if row.model_angle_review_required and row.model_angle_review_id and not row.model_angle_review_current:
-            findings.append(
-                _finding(
-                    "model_angle_review_not_current",
-                    "required model-angle deliberation evidence is stale or has not been rerun",
-                    risk_id=row.risk_id,
-                    metadata={"model_angle_review_id": row.model_angle_review_id},
-                )
-            )
-
-        if row.model_angle_review_required and row.model_angle_review_id:
-            if row.model_angle_review_confidence == RISK_CONFIDENCE_BLOCKED:
-                findings.append(
-                    _finding(
-                        "model_angle_review_blocked",
-                        "required model-angle deliberation review is blocked",
-                        risk_id=row.risk_id,
-                        metadata={"model_angle_review_id": row.model_angle_review_id},
-                    )
-                )
-            elif row.model_angle_review_confidence in {RISK_CONFIDENCE_SCOPED, RISK_CONFIDENCE_PARTIAL}:
-                severity = "warning" if plan.allow_scoped_confidence else "blocker"
-                findings.append(
-                    _finding(
-                        "model_angle_review_scoped_confidence",
-                        "model-angle deliberation remains explicitly scoped",
-                        risk_id=row.risk_id,
-                        severity=severity,
-                        metadata={
-                            "model_angle_review_id": row.model_angle_review_id,
-                            "model_angle_review_confidence": row.model_angle_review_confidence,
-                        },
-                    )
-                )
-
-        if row.model_angle_scoped_reasons:
-            severity = "warning" if plan.allow_scoped_confidence else "blocker"
-            findings.append(
-                _finding(
-                    "model_angle_review_scoped_confidence",
-                    "model-angle deliberation remains explicitly scoped",
-                    risk_id=row.risk_id,
-                    severity=severity,
-                    metadata={
-                        "model_angle_review_id": row.model_angle_review_id,
-                        "model_angle_scoped_reasons": list(row.model_angle_scoped_reasons),
-                    },
-                )
-            )
-
-        split_gate_specs = (
-            (
-                "model",
-                row.model_split_gate_required,
-                row.model_split_gate_id,
-                row.model_split_gate_current,
-                row.model_split_gate_confidence,
-                row.model_split_scoped_reasons,
-            ),
-            (
-                "test",
-                row.test_split_gate_required,
-                row.test_split_gate_id,
-                row.test_split_gate_current,
-                row.test_split_gate_confidence,
-                row.test_split_scoped_reasons,
-            ),
         )
-        for split_kind, required, gate_id, current, confidence, scoped_reasons in split_gate_specs:
-            if required and not gate_id:
-                findings.append(
-                    _finding(
-                        f"missing_{split_kind}_split_gate",
-                        f"required risk has no current {split_kind} split gate owner",
-                        risk_id=row.risk_id,
-                    )
-                )
-            if required and gate_id and not current:
-                findings.append(
-                    _finding(
-                        f"{split_kind}_split_gate_not_current",
-                        f"required {split_kind} split gate evidence is stale or missing",
-                        risk_id=row.risk_id,
-                        metadata={f"{split_kind}_split_gate_id": gate_id},
-                    )
-                )
-            if required and gate_id:
-                if confidence == RISK_CONFIDENCE_BLOCKED:
-                    findings.append(
-                        _finding(
-                            f"{split_kind}_split_gate_blocked",
-                            f"required {split_kind} split gate is blocked",
-                            risk_id=row.risk_id,
-                            metadata={f"{split_kind}_split_gate_id": gate_id},
-                        )
-                    )
-                elif confidence in {RISK_CONFIDENCE_SCOPED, RISK_CONFIDENCE_PARTIAL}:
-                    severity = "warning" if plan.allow_scoped_confidence else "blocker"
-                    findings.append(
-                        _finding(
-                            f"{split_kind}_split_gate_scoped_confidence",
-                            f"required {split_kind} split gate remains explicitly scoped",
-                            risk_id=row.risk_id,
-                            severity=severity,
-                            metadata={
-                                f"{split_kind}_split_gate_id": gate_id,
-                                f"{split_kind}_split_gate_confidence": confidence,
-                            },
-                        )
-                    )
-            if scoped_reasons:
-                severity = "warning" if plan.allow_scoped_confidence else "blocker"
-                findings.append(
-                    _finding(
-                        f"{split_kind}_split_gate_scoped_confidence",
-                        f"required {split_kind} split gate remains explicitly scoped",
-                        risk_id=row.risk_id,
-                        severity=severity,
-                        metadata={
-                            f"{split_kind}_split_gate_id": gate_id,
-                            f"{split_kind}_split_scoped_reasons": list(scoped_reasons),
-                        },
-                    )
-                )
-
-        if row.parent_model_evidence_required and not row.parent_model_evidence_current:
-            findings.append(
-                _finding(
-                    "parent_model_evidence_gap",
-                    "child model evidence has not been consumed by current parent evidence",
-                    risk_id=row.risk_id,
-                )
-            )
-
-        if row.maintenance_obligations_required and not row.maintenance_obligation_ids:
-            findings.append(
-                _finding(
-                    "missing_maintenance_obligation",
-                    "required risk has no remembered maintenance obligation owner",
-                    risk_id=row.risk_id,
-                )
-            )
-
-        for obligation_id in row.maintenance_obligation_ids:
-            obligation = obligation_by_id.get(obligation_id)
-            if obligation is None:
-                findings.append(
-                    _finding(
-                        "unknown_maintenance_obligation_reference",
-                        f"risk references unknown maintenance obligation {obligation_id!r}",
-                        risk_id=row.risk_id,
-                        metadata={"obligation_id": obligation_id},
-                    )
-                )
-                continue
-            if not obligation.current:
-                findings.append(
-                    _finding(
-                        "maintenance_obligation_not_current",
-                        "referenced maintenance obligation memory is stale",
-                        risk_id=row.risk_id,
-                        metadata={"obligation": obligation.to_dict()},
-                    )
-                )
-            if obligation.is_active():
-                findings.append(
-                    _finding(
-                        "open_maintenance_obligation",
-                        "referenced maintenance obligation is still open",
-                        risk_id=row.risk_id,
-                        metadata={"obligation": obligation.to_dict()},
-                    )
-                )
-            elif obligation.status == OBLIGATION_STATUS_SCOPED or obligation.scope_reason:
-                severity = "warning" if plan.allow_scoped_confidence else "blocker"
-                findings.append(
-                    _finding(
-                        "maintenance_obligation_scoped_confidence",
-                        "referenced maintenance obligation remains explicitly scoped",
-                        risk_id=row.risk_id,
-                        severity=severity,
-                        metadata={"obligation": obligation.to_dict()},
-                    )
-                )
-            elif not obligation.has_resolution_evidence():
-                findings.append(
-                    _finding(
-                        "maintenance_obligation_missing_resolution_evidence",
-                        "referenced maintenance obligation has no resolution evidence",
-                        risk_id=row.risk_id,
-                        metadata={"obligation": obligation.to_dict()},
-                    )
-                )
-
-        if row.maintenance_obligation_scoped_reasons:
-            severity = "warning" if plan.allow_scoped_confidence else "blocker"
-            findings.append(
-                _finding(
-                    "maintenance_obligation_scoped_confidence",
-                    "maintenance obligation memory remains explicitly scoped",
-                    risk_id=row.risk_id,
-                    severity=severity,
-                    metadata={
-                        "maintenance_obligation_ids": list(row.maintenance_obligation_ids),
-                        "maintenance_obligation_scoped_reasons": list(row.maintenance_obligation_scoped_reasons),
-                    },
-                )
-            )
 
         if row.required and not row.proof_evidence_ids:
             findings.append(
@@ -1097,14 +850,6 @@ def review_risk_evidence_ledger(plan: RiskEvidenceLedgerPlan) -> RiskEvidenceLed
                     risk_id=row.risk_id,
                 )
             )
-        if row.overclaims_full_confidence:
-            findings.append(
-                _finding(
-                    "proof_overclaims_full_confidence",
-                    "risk row claims broader confidence than its bound evidence proves",
-                    risk_id=row.risk_id,
-                )
-            )
 
     decision, confidence, ok = _decision_for(findings)
     return RiskEvidenceLedgerReport(
@@ -1125,6 +870,15 @@ __all__ = [
     "RISK_CONFIDENCE_SCOPED",
     "RISK_LEDGER_DECISION_FULL",
     "RISK_LEDGER_DECISION_SCOPED",
+    "RISK_GATE_ANALOGOUS_SCAN",
+    "RISK_GATE_DEFECT_FAMILY",
+    "RISK_GATE_FAMILY",
+    "RISK_GATE_MAINTENANCE_OBLIGATION",
+    "RISK_GATE_MODEL_ANGLE_REVIEW",
+    "RISK_GATE_MODEL_SPLIT",
+    "RISK_GATE_PARENT_MODEL_EVIDENCE",
+    "RISK_GATE_TEST_SPLIT",
+    "RISK_GATE_TOPOLOGY_HAZARD",
     "RISK_PROOF_KIND_MANUAL",
     "RISK_PROOF_KIND_REPLAY",
     "RISK_PROOF_KIND_ROUTE_REPORT",
@@ -1142,6 +896,7 @@ __all__ = [
     "RISK_PROOF_STATUS_SKIPPED",
     "RISK_PROOF_STATUS_STALE",
     "MaintenanceObligation",
+    "RiskEvidenceGate",
     "RiskEvidenceFinding",
     "RiskEvidenceLedgerPlan",
     "RiskEvidenceLedgerReport",

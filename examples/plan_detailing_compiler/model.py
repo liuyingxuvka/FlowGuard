@@ -18,7 +18,6 @@ from flowguard import (
     PLAN_DETAIL_CLAIM_FULL,
     PLAN_DETAIL_CLAIM_SCOPED,
     PlanDetail,
-    PlanDetailArtifact,
     PlanDetailEvidence,
     PlanDetailFailureBranch,
     PlanDetailHumanQuestion,
@@ -28,6 +27,7 @@ from flowguard import (
     PlanDetailStep,
     PlanDetailSurface,
     PlanDetailValidation,
+    ProcessArtifact,
     FunctionResult,
     Scenario,
     ScenarioExpectation,
@@ -80,10 +80,10 @@ GOOD_PLAN = PlanDetail(
         ),
     ),
     artifacts=(
-        PlanDetailArtifact("spec.plan-detailing", "requirement", "1"),
-        PlanDetailArtifact("model.plan-detailing", "model", "1"),
-        PlanDetailArtifact("code.plan-detailing", "code", "1"),
-        PlanDetailArtifact("tests.plan-detailing", "test", "1"),
+        ProcessArtifact("spec.plan-detailing", "requirement", "1"),
+        ProcessArtifact("model.plan-detailing", "model", "1"),
+        ProcessArtifact("code.plan-detailing", "code", "1"),
+        ProcessArtifact("tests.plan-detailing", "test", "1"),
     ),
     state_surfaces=(
         PlanDetailStateSurface(

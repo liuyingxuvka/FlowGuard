@@ -30,7 +30,6 @@ from __future__ import annotations
 from flowguard import (
     PLAN_DETAIL_CLAIM_FULL,
     PlanDetail,
-    PlanDetailArtifact,
     PlanDetailEvidence,
     PlanDetailFailureBranch,
     PlanDetailFreshnessRule,
@@ -40,6 +39,7 @@ from flowguard import (
     PlanDetailStep,
     PlanDetailSurface,
     PlanDetailValidation,
+    ProcessArtifact,
     plan_detail_to_development_process,
     plan_detail_to_plan_intake,
     plan_detail_to_step_contracts,
@@ -68,9 +68,9 @@ def detailed_plan() -> PlanDetail:
             ),
         ),
         artifacts=(
-            PlanDetailArtifact("requirements.checkout", "requirement", "1"),
-            PlanDetailArtifact("code.checkout", "code", "2", upstream_artifact_ids=("requirements.checkout",)),
-            PlanDetailArtifact("tests.checkout", "test", "1"),
+            ProcessArtifact("requirements.checkout", "requirement", "1"),
+            ProcessArtifact("code.checkout", "code", "2", upstream_artifact_ids=("requirements.checkout",)),
+            ProcessArtifact("tests.checkout", "test", "1"),
         ),
         state_surfaces=(
             PlanDetailStateSurface(

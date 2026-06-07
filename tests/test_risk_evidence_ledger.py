@@ -1,9 +1,20 @@
 import unittest
 
 from flowguard import (
+    OBLIGATION_STATUS_RESOLVED,
+    OBLIGATION_STATUS_SCOPED,
     RISK_CONFIDENCE_BLOCKED,
     RISK_CONFIDENCE_FULL,
     RISK_CONFIDENCE_SCOPED,
+    RISK_GATE_ANALOGOUS_SCAN,
+    RISK_GATE_DEFECT_FAMILY,
+    RISK_GATE_FAMILY,
+    RISK_GATE_MAINTENANCE_OBLIGATION,
+    RISK_GATE_MODEL_ANGLE_REVIEW,
+    RISK_GATE_MODEL_SPLIT,
+    RISK_GATE_PARENT_MODEL_EVIDENCE,
+    RISK_GATE_TEST_SPLIT,
+    RISK_GATE_TOPOLOGY_HAZARD,
     RISK_LEDGER_DECISION_FULL,
     RISK_LEDGER_DECISION_SCOPED,
     RISK_PROOF_SCOPE_INTERNAL_PATH,
@@ -12,10 +23,9 @@ from flowguard import (
     RISK_PROOF_STATUS_PROGRESS_ONLY,
     RISK_PROOF_STATUS_SKIPPED,
     RISK_PROOF_STATUS_STALE,
-    OBLIGATION_STATUS_RESOLVED,
-    OBLIGATION_STATUS_SCOPED,
     MaintenanceObligation,
     ProofArtifactRef,
+    RiskEvidenceGate,
     RiskEvidenceLedgerPlan,
     RiskEvidenceProof,
     RiskEvidenceRow,
@@ -40,6 +50,10 @@ def proof_artifact(artifact_id="artifact:e1", *covered):
         artifact_fingerprints={f"tmp/{artifact_id.replace(':', '_')}.json": "sha256:test"},
         covered_obligation_ids=covered or ("model:r1",),
     )
+
+
+def gate(kind, evidence_id="", **kwargs):
+    return RiskEvidenceGate(kind=kind, evidence_id=evidence_id, **kwargs)
 
 
 def row(risk_id="r1", **kwargs):
@@ -98,7 +112,16 @@ class RiskEvidenceLedgerTests(unittest.TestCase):
             plan(
                 rows=(
                     row("r1", proof_evidence_ids=("missing",)),
-                    row("r1", parent_model_evidence_required=True, parent_model_evidence_current=False),
+                    row(
+                        "r1",
+                        gates=(
+                            gate(
+                                RISK_GATE_PARENT_MODEL_EVIDENCE,
+                                "parent:checkout",
+                                current=False,
+                            ),
+                        ),
+                    ),
                 ),
                 proof_evidence=(proof("e1"), proof("e1")),
             )
@@ -110,6 +133,25 @@ class RiskEvidenceLedgerTests(unittest.TestCase):
         self.assertIn("duplicate_evidence_id", codes)
         self.assertIn("unknown_evidence_reference", codes)
         self.assertIn("parent_model_evidence_gap", codes)
+
+    def test_old_flat_gate_fields_are_rejected_instead_of_fallback_accepted(self):
+        for kwargs in (
+            {"overclaims_full_confidence": True},
+            {"defect_family_gate_required": True},
+            {"defect_family_id": "defect-family:duplicate-submit"},
+            {"family_gate_id": "family:submit"},
+            {"model_split_gate_required": True},
+            {"maintenance_obligations_required": True},
+        ):
+            with self.subTest(kwargs=kwargs):
+                with self.assertRaises(TypeError):
+                    row(**kwargs)
+
+    def test_unknown_gate_kind_blocks(self):
+        report = review_risk_evidence_ledger(plan(rows=(row(gates=(gate("old_field_name", "x"),)),)))
+
+        self.assertFalse(report.ok)
+        self.assertEqual("unknown_risk_gate_kind", report.decision)
 
     def test_stale_skipped_failed_and_progress_only_do_not_count_as_pass(self):
         for status in (
@@ -179,27 +221,13 @@ class RiskEvidenceLedgerTests(unittest.TestCase):
         self.assertFalse(report.ok)
         self.assertEqual("scoped_out_required_risk", report.decision)
 
-    def test_overclaim_blocks_full_confidence(self):
-        report = review_risk_evidence_ledger(plan(rows=(row(overclaims_full_confidence=True),)))
-
-        self.assertFalse(report.ok)
-        self.assertEqual("proof_overclaims_full_confidence", report.decision)
-
     def test_required_defect_family_gate_must_be_named_and_current(self):
-        missing = review_risk_evidence_ledger(plan(rows=(row(defect_family_gate_required=True),)))
+        missing = review_risk_evidence_ledger(plan(rows=(row(gates=(gate(RISK_GATE_DEFECT_FAMILY),)),)))
         self.assertFalse(missing.ok)
         self.assertEqual("missing_defect_family_gate", missing.decision)
 
         stale = review_risk_evidence_ledger(
-            plan(
-                rows=(
-                    row(
-                        defect_family_gate_required=True,
-                        defect_family_id="defect-family:duplicate-submit",
-                        defect_family_gate_current=False,
-                    ),
-                )
-            )
+            plan(rows=(row(gates=(gate(RISK_GATE_DEFECT_FAMILY, "defect-family:duplicate-submit", current=False),)),))
         )
         self.assertFalse(stale.ok)
         self.assertEqual("defect_family_gate_not_current", stale.decision)
@@ -209,9 +237,13 @@ class RiskEvidenceLedgerTests(unittest.TestCase):
             plan(
                 rows=(
                     row(
-                        defect_family_gate_required=True,
-                        defect_family_id="defect-family:duplicate-submit",
-                        defect_family_scoped_reasons=("release-only holdout deferred",),
+                        gates=(
+                            gate(
+                                RISK_GATE_DEFECT_FAMILY,
+                                "defect-family:duplicate-submit",
+                                scoped_reasons=("release-only holdout deferred",),
+                            ),
+                        ),
                     ),
                 )
             )
@@ -222,50 +254,34 @@ class RiskEvidenceLedgerTests(unittest.TestCase):
         self.assertEqual(RISK_CONFIDENCE_SCOPED, report.confidence)
         self.assertIn("defect_family_gate_scoped_confidence", finding_codes(report))
 
-    def test_required_family_gate_must_be_named_and_current(self):
-        missing = review_risk_evidence_ledger(plan(rows=(row(family_gate_required=True),)))
-        self.assertFalse(missing.ok)
-        self.assertEqual("missing_family_gate", missing.decision)
-
-        stale = review_risk_evidence_ledger(
-            plan(
-                rows=(
-                    row(
-                        family_gate_required=True,
-                        family_gate_id="family:packet-result",
-                        family_gate_current=False,
-                    ),
-                )
-            )
+    def test_family_analogous_topology_and_angle_gates_share_one_shape(self):
+        cases = (
+            (RISK_GATE_FAMILY, "family:packet-result", "missing_family_gate", "family_gate_not_current", "family_gate_blocked"),
+            (RISK_GATE_ANALOGOUS_SCAN, "analogous:packet-result", "missing_analogous_scan", "analogous_scan_not_current", "analogous_scan_blocked"),
+            (RISK_GATE_TOPOLOGY_HAZARD, "topology:future-use", "missing_topology_hazard_review", "topology_hazard_review_not_current", "topology_hazard_review_blocked"),
+            (RISK_GATE_MODEL_ANGLE_REVIEW, "model-angle:ai-route", "missing_model_angle_review", "model_angle_review_not_current", "model_angle_review_blocked"),
         )
-        self.assertFalse(stale.ok)
-        self.assertEqual("family_gate_not_current", stale.decision)
+        for kind, evidence_id, missing_code, stale_code, blocked_code in cases:
+            with self.subTest(kind=kind, mode="missing"):
+                missing = review_risk_evidence_ledger(plan(rows=(row(gates=(gate(kind),)),)))
+                self.assertFalse(missing.ok)
+                self.assertEqual(missing_code, missing.decision)
 
-        blocked = review_risk_evidence_ledger(
-            plan(
-                rows=(
-                    row(
-                        family_gate_required=True,
-                        family_gate_id="family:packet-result",
-                        family_gate_confidence=RISK_CONFIDENCE_BLOCKED,
-                    ),
+            with self.subTest(kind=kind, mode="stale"):
+                stale = review_risk_evidence_ledger(plan(rows=(row(gates=(gate(kind, evidence_id, current=False),)),)))
+                self.assertFalse(stale.ok)
+                self.assertEqual(stale_code, stale.decision)
+
+            with self.subTest(kind=kind, mode="blocked"):
+                blocked = review_risk_evidence_ledger(
+                    plan(rows=(row(gates=(gate(kind, evidence_id, confidence=RISK_CONFIDENCE_BLOCKED),)),))
                 )
-            )
-        )
-        self.assertFalse(blocked.ok)
-        self.assertEqual("family_gate_blocked", blocked.decision)
+                self.assertFalse(blocked.ok)
+                self.assertEqual(blocked_code, blocked.decision)
 
-    def test_scoped_family_gate_downgrades_final_confidence(self):
+    def test_scoped_route_gate_downgrades_final_confidence(self):
         report = review_risk_evidence_ledger(
-            plan(
-                rows=(
-                    row(
-                        family_gate_required=True,
-                        family_gate_id="family:packet-result",
-                        family_gate_scoped_reasons=("research sibling evidence deferred",),
-                    ),
-                )
-            )
+            plan(rows=(row(gates=(gate(RISK_GATE_FAMILY, "family:packet-result", confidence=RISK_CONFIDENCE_SCOPED),)),))
         )
 
         self.assertTrue(report.ok)
@@ -273,197 +289,35 @@ class RiskEvidenceLedgerTests(unittest.TestCase):
         self.assertEqual(RISK_CONFIDENCE_SCOPED, report.confidence)
         self.assertIn("family_gate_scoped_confidence", finding_codes(report))
 
-    def test_required_analogous_scan_must_be_named_current_and_unblocked(self):
-        missing = review_risk_evidence_ledger(plan(rows=(row(analogous_scan_required=True),)))
-        self.assertFalse(missing.ok)
-        self.assertEqual("missing_analogous_scan", missing.decision)
-
-        stale = review_risk_evidence_ledger(
-            plan(
-                rows=(
-                    row(
-                        analogous_scan_required=True,
-                        analogous_scan_id="analogous:packet-result",
-                        analogous_scan_current=False,
-                    ),
-                )
-            )
-        )
-        self.assertFalse(stale.ok)
-        self.assertEqual("analogous_scan_not_current", stale.decision)
-
-        blocked = review_risk_evidence_ledger(
-            plan(
-                rows=(
-                    row(
-                        analogous_scan_required=True,
-                        analogous_scan_id="analogous:packet-result",
-                        analogous_scan_confidence=RISK_CONFIDENCE_BLOCKED,
-                    ),
-                )
-            )
-        )
-        self.assertFalse(blocked.ok)
-        self.assertEqual("analogous_scan_blocked", blocked.decision)
-
-    def test_scoped_analogous_scan_downgrades_final_confidence(self):
-        report = review_risk_evidence_ledger(
-            plan(
-                rows=(
-                    row(
-                        analogous_scan_required=True,
-                        analogous_scan_id="analogous:packet-result",
-                        analogous_scan_scoped_reasons=("secondary radius tracked separately",),
-                    ),
-                )
-            )
-        )
-
-        self.assertTrue(report.ok)
-        self.assertEqual(RISK_LEDGER_DECISION_SCOPED, report.decision)
-        self.assertEqual(RISK_CONFIDENCE_SCOPED, report.confidence)
-        self.assertIn("analogous_scan_scoped_confidence", finding_codes(report))
-
-    def test_required_topology_hazard_review_must_be_named_current_and_unblocked(self):
-        missing = review_risk_evidence_ledger(plan(rows=(row(topology_hazard_required=True),)))
-        self.assertFalse(missing.ok)
-        self.assertEqual("missing_topology_hazard_review", missing.decision)
-
-        stale = review_risk_evidence_ledger(
-            plan(
-                rows=(
-                    row(
-                        topology_hazard_required=True,
-                        topology_hazard_id="topology:future-use",
-                        topology_hazard_current=False,
-                    ),
-                )
-            )
-        )
-        self.assertFalse(stale.ok)
-        self.assertEqual("topology_hazard_review_not_current", stale.decision)
-
-        blocked = review_risk_evidence_ledger(
-            plan(
-                rows=(
-                    row(
-                        topology_hazard_required=True,
-                        topology_hazard_id="topology:future-use",
-                        topology_hazard_confidence=RISK_CONFIDENCE_BLOCKED,
-                    ),
-                )
-            )
-        )
-        self.assertFalse(blocked.ok)
-        self.assertEqual("topology_hazard_review_blocked", blocked.decision)
-
-    def test_scoped_topology_hazard_review_downgrades_final_confidence(self):
-        report = review_risk_evidence_ledger(
-            plan(
-                rows=(
-                    row(
-                        topology_hazard_required=True,
-                        topology_hazard_id="topology:future-use",
-                        topology_hazard_confidence=RISK_CONFIDENCE_SCOPED,
-                    ),
-                )
-            )
-        )
-
-        self.assertTrue(report.ok)
-        self.assertEqual(RISK_LEDGER_DECISION_SCOPED, report.decision)
-        self.assertEqual(RISK_CONFIDENCE_SCOPED, report.confidence)
-        self.assertIn("topology_hazard_review_scoped_confidence", finding_codes(report))
-
-    def test_required_model_angle_review_must_be_named_current_and_unblocked(self):
-        missing = review_risk_evidence_ledger(plan(rows=(row(model_angle_review_required=True),)))
-        self.assertFalse(missing.ok)
-        self.assertEqual("missing_model_angle_review", missing.decision)
-
-        stale = review_risk_evidence_ledger(
-            plan(
-                rows=(
-                    row(
-                        model_angle_review_required=True,
-                        model_angle_review_id="model-angle:ai-route",
-                        model_angle_review_current=False,
-                    ),
-                )
-            )
-        )
-        self.assertFalse(stale.ok)
-        self.assertEqual("model_angle_review_not_current", stale.decision)
-
-        blocked = review_risk_evidence_ledger(
-            plan(
-                rows=(
-                    row(
-                        model_angle_review_required=True,
-                        model_angle_review_id="model-angle:ai-route",
-                        model_angle_review_confidence=RISK_CONFIDENCE_BLOCKED,
-                    ),
-                )
-            )
-        )
-        self.assertFalse(blocked.ok)
-        self.assertEqual("model_angle_review_blocked", blocked.decision)
-
-    def test_scoped_model_angle_review_downgrades_final_confidence(self):
-        report = review_risk_evidence_ledger(
-            plan(
-                rows=(
-                    row(
-                        model_angle_review_required=True,
-                        model_angle_review_id="model-angle:ai-route",
-                        model_angle_review_confidence=RISK_CONFIDENCE_SCOPED,
-                    ),
-                )
-            )
-        )
-
-        self.assertTrue(report.ok)
-        self.assertEqual(RISK_LEDGER_DECISION_SCOPED, report.decision)
-        self.assertEqual(RISK_CONFIDENCE_SCOPED, report.confidence)
-        self.assertIn("model_angle_review_scoped_confidence", finding_codes(report))
-
     def test_required_model_and_test_split_gates_are_final_confidence_inputs(self):
         missing = review_risk_evidence_ledger(
-            plan(rows=(row(model_split_gate_required=True, test_split_gate_required=True),))
+            plan(rows=(row(gates=(gate(RISK_GATE_MODEL_SPLIT), gate(RISK_GATE_TEST_SPLIT))),))
         )
         self.assertFalse(missing.ok)
         self.assertEqual("missing_model_split_gate", missing.decision)
 
         stale = review_risk_evidence_ledger(
-            plan(
-                rows=(
-                    row(
-                        model_split_gate_required=True,
-                        model_split_gate_id="modelmesh:search",
-                        model_split_gate_current=False,
-                    ),
-                )
-            )
+            plan(rows=(row(gates=(gate(RISK_GATE_MODEL_SPLIT, "modelmesh:search", current=False),)),))
         )
         self.assertFalse(stale.ok)
         self.assertEqual("model_split_gate_not_current", stale.decision)
 
     def test_scoped_test_split_gate_downgrades_final_confidence(self):
         report = review_risk_evidence_ledger(
-            plan(
-                rows=(
-                    row(
-                        test_split_gate_required=True,
-                        test_split_gate_id="testmesh:full",
-                        test_split_gate_confidence=RISK_CONFIDENCE_SCOPED,
-                    ),
-                )
-            )
+            plan(rows=(row(gates=(gate(RISK_GATE_TEST_SPLIT, "testmesh:full", confidence=RISK_CONFIDENCE_SCOPED),)),))
         )
 
         self.assertTrue(report.ok)
         self.assertEqual(RISK_LEDGER_DECISION_SCOPED, report.decision)
         self.assertEqual(RISK_CONFIDENCE_SCOPED, report.confidence)
         self.assertIn("test_split_gate_scoped_confidence", finding_codes(report))
+
+    def test_gate_dicts_are_coerced(self):
+        report = review_risk_evidence_ledger(
+            plan(rows=(row(gates=({"kind": RISK_GATE_FAMILY, "evidence_id": "family:submit"},)),))
+        )
+
+        self.assertTrue(report.ok, report.format_text())
 
     def test_strict_ledger_rejects_declaration_only_proof(self):
         report = review_risk_evidence_ledger(plan(require_proof_artifacts=True))
@@ -483,7 +337,7 @@ class RiskEvidenceLedgerTests(unittest.TestCase):
 
     def test_required_maintenance_obligation_must_be_named(self):
         report = review_risk_evidence_ledger(
-            plan(rows=(row(maintenance_obligations_required=True),))
+            plan(rows=(row(gates=(gate(RISK_GATE_MAINTENANCE_OBLIGATION),)),))
         )
 
         self.assertFalse(report.ok)
@@ -492,12 +346,7 @@ class RiskEvidenceLedgerTests(unittest.TestCase):
     def test_open_maintenance_obligation_blocks_full_confidence(self):
         report = review_risk_evidence_ledger(
             plan(
-                rows=(
-                    row(
-                        maintenance_obligations_required=True,
-                        maintenance_obligation_ids=("obligation:structure",),
-                    ),
-                ),
+                rows=(row(gates=(gate(RISK_GATE_MAINTENANCE_OBLIGATION, "obligation:structure"),)),),
                 maintenance_obligations=(obligation(),),
             )
         )
@@ -509,9 +358,7 @@ class RiskEvidenceLedgerTests(unittest.TestCase):
         report = review_risk_evidence_ledger(
             plan(
                 rows=(row(maintenance_obligation_ids=("obligation:structure",)),),
-                maintenance_obligations=(
-                    obligation(status=OBLIGATION_STATUS_RESOLVED),
-                ),
+                maintenance_obligations=(obligation(status=OBLIGATION_STATUS_RESOLVED),),
             )
         )
 
@@ -521,12 +368,7 @@ class RiskEvidenceLedgerTests(unittest.TestCase):
     def test_resolved_maintenance_obligation_with_evidence_allows_full_claim(self):
         report = review_risk_evidence_ledger(
             plan(
-                rows=(
-                    row(
-                        maintenance_obligations_required=True,
-                        maintenance_obligation_ids=("obligation:structure",),
-                    ),
-                ),
+                rows=(row(gates=(gate(RISK_GATE_MAINTENANCE_OBLIGATION, "obligation:structure"),)),),
                 maintenance_obligations=(
                     obligation(
                         status=OBLIGATION_STATUS_RESOLVED,
@@ -545,14 +387,12 @@ class RiskEvidenceLedgerTests(unittest.TestCase):
                 rows=(
                     row(
                         "bug:duplicate-submit",
-                        defect_family_gate_required=True,
-                        defect_family_id="defect-family:duplicate-submit",
-                        family_gate_required=True,
-                        family_gate_id="family:submit-repair",
-                        analogous_scan_required=True,
-                        analogous_scan_id="analogous:submit-repair",
-                        maintenance_obligations_required=True,
-                        maintenance_obligation_ids=("obligation:structure",),
+                        gates=(
+                            gate(RISK_GATE_DEFECT_FAMILY, "defect-family:duplicate-submit"),
+                            gate(RISK_GATE_FAMILY, "family:submit-repair"),
+                            gate(RISK_GATE_ANALOGOUS_SCAN, "analogous:submit-repair"),
+                            gate(RISK_GATE_MAINTENANCE_OBLIGATION, "obligation:structure"),
+                        ),
                     ),
                 ),
                 maintenance_obligations=(

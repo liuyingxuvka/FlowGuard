@@ -13,17 +13,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
-from .auto_split import (
-    AUTO_SPLIT_CONFIDENCE_BLOCKED,
-    AUTO_SPLIT_CONFIDENCE_FULL,
-    AUTO_SPLIT_ROUTE_MODEL_MESH,
-    AUTO_SPLIT_ROUTE_TEST_MESH,
-    AUTO_SPLIT_TARGET_MODEL,
-    AUTO_SPLIT_TARGET_TEST,
-    AutoSplitCandidate,
-    AutoSplitPlan,
-    review_auto_mesh_splits,
-)
 from .export import to_jsonable
 from .proof_artifact import ProofArtifactRef, coerce_proof_artifact_ref, proof_artifact_gap_codes
 
@@ -232,21 +221,6 @@ class ProcessEvidence:
     skipped_visible: bool = True
     release_required: bool = False
     stale_reasons: tuple[str, ...] = ()
-    estimated_state_count: int | None = None
-    observed_state_count: int | None = None
-    processed_state_count: int | None = None
-    pending_state_count: int = 0
-    duration_seconds: float | None = None
-    test_count: int = 0
-    selected_count: int = 0
-    covered_obligation_count: int = 0
-    separable_model_areas: bool = False
-    auto_split_gate_id: str = ""
-    auto_split_current: bool = False
-    auto_split_confidence: str = AUTO_SPLIT_CONFIDENCE_BLOCKED
-    auto_split_suggested_child_ids: tuple[str, ...] = ()
-    auto_split_partition_item_ids: tuple[str, ...] = ()
-    auto_split_scoped_reasons: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "evidence_id", str(self.evidence_id))
@@ -263,15 +237,6 @@ class ProcessEvidence:
         object.__setattr__(self, "proof_artifact", coerce_proof_artifact_ref(self.proof_artifact))
         object.__setattr__(self, "skipped_count", int(self.skipped_count))
         object.__setattr__(self, "stale_reasons", _as_tuple(self.stale_reasons))
-        object.__setattr__(self, "pending_state_count", int(self.pending_state_count))
-        object.__setattr__(self, "test_count", int(self.test_count))
-        object.__setattr__(self, "selected_count", int(self.selected_count))
-        object.__setattr__(self, "covered_obligation_count", int(self.covered_obligation_count))
-        object.__setattr__(self, "auto_split_gate_id", str(self.auto_split_gate_id))
-        object.__setattr__(self, "auto_split_confidence", str(self.auto_split_confidence))
-        object.__setattr__(self, "auto_split_suggested_child_ids", _as_tuple(self.auto_split_suggested_child_ids))
-        object.__setattr__(self, "auto_split_partition_item_ids", _as_tuple(self.auto_split_partition_item_ids))
-        object.__setattr__(self, "auto_split_scoped_reasons", _as_tuple(self.auto_split_scoped_reasons))
 
     def background_complete(self) -> bool:
         if not self.background:
@@ -303,21 +268,6 @@ class ProcessEvidence:
             "skipped_visible": self.skipped_visible,
             "release_required": self.release_required,
             "stale_reasons": list(self.stale_reasons),
-            "estimated_state_count": self.estimated_state_count,
-            "observed_state_count": self.observed_state_count,
-            "processed_state_count": self.processed_state_count,
-            "pending_state_count": self.pending_state_count,
-            "duration_seconds": self.duration_seconds,
-            "test_count": self.test_count,
-            "selected_count": self.selected_count,
-            "covered_obligation_count": self.covered_obligation_count,
-            "separable_model_areas": self.separable_model_areas,
-            "auto_split_gate_id": self.auto_split_gate_id,
-            "auto_split_current": self.auto_split_current,
-            "auto_split_confidence": self.auto_split_confidence,
-            "auto_split_suggested_child_ids": list(self.auto_split_suggested_child_ids),
-            "auto_split_partition_item_ids": list(self.auto_split_partition_item_ids),
-            "auto_split_scoped_reasons": list(self.auto_split_scoped_reasons),
         }
 
 
@@ -631,13 +581,6 @@ def _decision_for_findings(findings: Sequence[ProcessFlowFinding]) -> str:
         ("missing_v_model_validation_pair", "missing_validation_evidence"),
         ("missing_required_revalidation", "missing_revalidation"),
         ("release_claim_with_stale_evidence", "release_claim_blocked"),
-        ("auto_model_split_not_current", "model_mesh_split_required"),
-        ("auto_model_split_blocked", "model_mesh_split_required"),
-        ("auto_test_split_not_current", "test_mesh_split_required"),
-        ("auto_test_split_blocked", "test_mesh_split_required"),
-        ("missing_auto_split_target_derivation", "target_split_derivation_required"),
-        ("auto_model_split_scoped_confidence", "model_mesh_split_scoped"),
-        ("auto_test_split_scoped_confidence", "test_mesh_split_scoped"),
         ("progress_only_validation_claimed_complete", "validation_incomplete"),
         ("hidden_skipped_validation_claimed_pass", "validation_incomplete"),
         ("failed_validation_claimed_current", "validation_failed"),
@@ -927,69 +870,6 @@ def _evidence_quality_findings(evidence: ProcessEvidence, *, require_proof_artif
                     metadata=evidence.to_dict(),
                 )
             )
-    findings.extend(_auto_split_findings(evidence))
-    return findings
-
-
-def _auto_split_target_kind(evidence: ProcessEvidence) -> str:
-    model_markers = {"model", "model_group", "model_mesh", "scenario", "invariant", "loop", "progress"}
-    if evidence.evidence_kind in model_markers or "model" in evidence.evidence_kind:
-        return AUTO_SPLIT_TARGET_MODEL
-    return AUTO_SPLIT_TARGET_TEST
-
-
-def _auto_split_findings(evidence: ProcessEvidence) -> list[ProcessFlowFinding]:
-    candidate = AutoSplitCandidate(
-        evidence.evidence_id,
-        _auto_split_target_kind(evidence),
-        parent_id=evidence.evidence_id,
-        evidence_id=evidence.evidence_id,
-        source_model_id=evidence.evidence_id,
-        estimated_state_count=evidence.estimated_state_count,
-        observed_state_count=evidence.observed_state_count,
-        processed_state_count=evidence.processed_state_count,
-        pending_state_count=evidence.pending_state_count,
-        duration_seconds=evidence.duration_seconds,
-        test_count=evidence.test_count,
-        selected_count=evidence.selected_count,
-        covered_obligation_count=evidence.covered_obligation_count,
-        separable_areas=evidence.separable_model_areas,
-        background=evidence.background,
-        progress_only=evidence.progress_only,
-        release_only=evidence.release_required,
-        suggested_child_ids=evidence.auto_split_suggested_child_ids,
-        covered_partition_item_ids=evidence.auto_split_partition_item_ids,
-        split_gate_id=evidence.auto_split_gate_id,
-        split_review_current=evidence.auto_split_current,
-        split_confidence=evidence.auto_split_confidence or AUTO_SPLIT_CONFIDENCE_FULL,
-        scoped_reasons=evidence.auto_split_scoped_reasons,
-    )
-    report = review_auto_mesh_splits(AutoSplitPlan(f"process:{evidence.evidence_id}", candidates=(candidate,)))
-    findings: list[ProcessFlowFinding] = []
-    for finding in report.findings:
-        if finding.code == "duplicate_auto_split_candidate_id":
-            continue
-        if finding.code.startswith("auto_model") or (
-            finding.code == "missing_auto_split_target_derivation"
-            and finding.target_route == AUTO_SPLIT_ROUTE_MODEL_MESH
-        ):
-            message = f"evidence {evidence.evidence_id} requires ModelMesh split review: {finding.message}"
-        elif finding.code.startswith("auto_test") or (
-            finding.code == "missing_auto_split_target_derivation"
-            and finding.target_route == AUTO_SPLIT_ROUTE_TEST_MESH
-        ):
-            message = f"evidence {evidence.evidence_id} requires TestMesh split review: {finding.message}"
-        else:
-            message = finding.message
-        findings.append(
-            ProcessFlowFinding(
-                finding.code,
-                message,
-                severity=finding.severity,
-                evidence_id=evidence.evidence_id,
-                metadata=finding.to_dict(),
-            )
-        )
     return findings
 
 

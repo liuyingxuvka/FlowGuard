@@ -6,7 +6,7 @@ from flowguard import (
     UIDisplayElement,
     UIFeatureContract,
     UIFeatureJourney,
-    UIImplementationBlindspot,
+    UIBlindspot,
     UIImplementationJourneyRun,
     UIImplementationStepEvidence,
     UIImplementationValidation,
@@ -14,7 +14,6 @@ from flowguard import (
     UIJourneyCoverage,
     UIJourneyEntryPoint,
     UIRegionRecommendation,
-    UIResidualBlindspot,
     UIStateNode,
     UIStructureDerivation,
     UITextElement,
@@ -283,7 +282,7 @@ def journey_coverage(**kwargs) -> UIJourneyCoverage:
             ),
         ),
         "residual_blindspots": (
-            UIResidualBlindspot(
+            UIBlindspot(
                 "open_recent_project",
                 feature_id="open_recent_project",
                 reason="Recent-project history is a downstream shell integration in this template.",
@@ -412,7 +411,7 @@ def implementation_validation(**kwargs) -> UIImplementationValidation:
         "pure_ui_control_ids": ("cancel", "export"),
         "pure_ui_event_ids": ("click_exit_cancelled", "click_export"),
         "implementation_blindspots": (
-            UIImplementationBlindspot(
+            UIBlindspot(
                 "open_recent_project_impl",
                 feature_id="open_recent_project",
                 reason="Recent-project history requires shell state not present in the template.",
@@ -906,7 +905,7 @@ class UIJourneyCoverageTests(unittest.TestCase):
         coverage = journey_coverage(
             residual_blindspots=journey_coverage().residual_blindspots
             + (
-                UIResidualBlindspot(
+                UIBlindspot(
                     "help_center",
                     feature_id="help_center",
                     control_ids=("help",),
@@ -1002,7 +1001,7 @@ class UIJourneyCoverageTests(unittest.TestCase):
     def test_blindspot_without_validation_blocks(self):
         broken = journey_coverage(
             residual_blindspots=(
-                UIResidualBlindspot("open_recent_project", reason="deferred", rationale="deferred branch"),
+                UIBlindspot("open_recent_project", reason="deferred", rationale="deferred branch"),
             )
         )
 
@@ -1068,7 +1067,7 @@ class UIImplementationValidationTests(unittest.TestCase):
         coverage = journey_coverage(
             residual_blindspots=journey_coverage().residual_blindspots
             + (
-                UIResidualBlindspot(
+                UIBlindspot(
                     "help_center",
                     feature_id="help_center",
                     control_ids=("help",),
@@ -1169,7 +1168,7 @@ class UIImplementationValidationTests(unittest.TestCase):
             ),
             implementation_blindspots=implementation_validation().implementation_blindspots
             + (
-                UIImplementationBlindspot(
+                UIBlindspot(
                     "load_project_manual_followup",
                     feature_id="load_project",
                     reason="Native file picker cannot run in this browser check.",
@@ -1190,7 +1189,7 @@ class UIImplementationValidationTests(unittest.TestCase):
 
     def test_unscoped_implementation_blindspot_blocks(self):
         validation = implementation_validation(
-            implementation_blindspots=(UIImplementationBlindspot("mystery"),)
+            implementation_blindspots=(UIBlindspot("mystery"),)
         )
 
         report = review_ui_implementation_validation(

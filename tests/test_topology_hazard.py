@@ -9,6 +9,8 @@ from flowguard import (
     MAINTENANCE_ROUTE_MODEL_MATURATION,
     MAINTENANCE_SIGNAL_TOPOLOGY_HAZARD_GAP,
     RISK_CONFIDENCE_BLOCKED,
+    RISK_GATE_TOPOLOGY_HAZARD,
+    RiskEvidenceGate,
     RiskEvidenceLedgerPlan,
     RiskEvidenceRow,
     TOPOLOGY_COMPAT_UNKNOWN,
@@ -184,7 +186,7 @@ class TopologyHazardTests(unittest.TestCase):
                         "future-use-risk",
                         model_obligation_id="model:future-use",
                         proof_evidence_ids=("proof:ok",),
-                        topology_hazard_required=True,
+                        gates=(RiskEvidenceGate(RISK_GATE_TOPOLOGY_HAZARD),),
                     ),
                 ),
             )
@@ -201,9 +203,13 @@ class TopologyHazardTests(unittest.TestCase):
                         "future-use-risk",
                         model_obligation_id="model:future-use",
                         proof_evidence_ids=("proof:ok",),
-                        topology_hazard_required=True,
-                        topology_hazard_id="topology:review",
-                        topology_hazard_confidence=RISK_CONFIDENCE_BLOCKED,
+                        gates=(
+                            RiskEvidenceGate(
+                                RISK_GATE_TOPOLOGY_HAZARD,
+                                "topology:review",
+                                confidence=RISK_CONFIDENCE_BLOCKED,
+                            ),
+                        ),
                     ),
                 ),
             )

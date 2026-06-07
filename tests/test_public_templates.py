@@ -370,8 +370,8 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("sibling sub-protocol", combined)
         self.assertIn("does not inspect", combined)
         self.assertIn("does not make FlowGuard a task orchestrator", combined)
-        self.assertIn("review_auto_mesh_splits()", combined)
-        self.assertIn("automatic ModelMesh/TestMesh split triggers", combined)
+        self.assertIn("run AutoSplit, ModelMesh, or TestMesh as its own", combined)
+        self.assertIn("Do not copy\nAutoSplit metrics onto `ProcessEvidence`", combined)
         self.assertIn("producer_route=\"test_mesh_maintenance\"", combined)
         self.assertIn("FlowGuard Risk Purpose Header", combined)
 

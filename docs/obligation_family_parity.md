@@ -91,25 +91,16 @@ observed miss -> FamilyBadCaseSeed
 
 ## Risk Evidence Ledger
 
-`RiskEvidenceRow` can require a family gate with:
-
-- `family_gate_id`
-- `family_gate_required`
-- `family_gate_current`
-- `family_gate_confidence`
-- `family_gate_scoped_reasons`
+`RiskEvidenceRow` can require a family gate by adding
+`RiskEvidenceGate(RISK_GATE_FAMILY, "family:...")` to its `gates` list. The
+gate carries the evidence id, current flag, confidence, and scoped reasons.
 
 The ledger blocks missing, stale, or blocked family gates. A scoped family gate
 downgrades the final ledger decision unless scoped confidence is explicitly
 allowed.
 
-`RiskEvidenceRow` can also require an analogous defect scan with:
-
-- `analogous_scan_id`
-- `analogous_scan_required`
-- `analogous_scan_current`
-- `analogous_scan_confidence`
-- `analogous_scan_scoped_reasons`
+`RiskEvidenceRow` can also require an analogous defect scan with
+`RiskEvidenceGate(RISK_GATE_ANALOGOUS_SCAN, "analogous:...")`.
 
 This is the final-claim hook for the bug-repair case: if the same-shape risk
 radius is still unreviewed or blocked, the ledger cannot return full

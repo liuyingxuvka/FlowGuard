@@ -18,7 +18,7 @@ from flowguard import (
     UIDisplayElement,
     UIFeatureContract,
     UIFeatureJourney,
-    UIImplementationBlindspot,
+    UIBlindspot,
     UIImplementationJourneyRun,
     UIImplementationStepEvidence,
     UIImplementationValidation,
@@ -26,7 +26,6 @@ from flowguard import (
     UIJourneyCoverage,
     UIJourneyEntryPoint,
     UIRegionRecommendation,
-    UIResidualBlindspot,
     UIStateNode,
     UIStructureDerivation,
     UITextElement,
@@ -285,7 +284,7 @@ def journey_coverage() -> UIJourneyCoverage:
             ),
         ),
         residual_blindspots=(
-            UIResidualBlindspot(
+            UIBlindspot(
                 "open_recent_project",
                 feature_id="open_recent_project",
                 reason="Recent-project shell history is outside this starter template.",
@@ -293,7 +292,7 @@ def journey_coverage() -> UIJourneyCoverage:
                 validation_boundaries=("browser or desktop shell test",),
                 rationale="The template records the omitted branch instead of claiming full coverage for it.",
             ),
-            UIResidualBlindspot(
+            UIBlindspot(
                 "settings_panel",
                 feature_id="settings_panel",
                 control_ids=("settings",),
@@ -424,7 +423,7 @@ def implementation_validation() -> UIImplementationValidation:
         pure_ui_control_ids=("cancel", "export"),
         pure_ui_event_ids=("click_export", "click_exit_cancelled"),
         implementation_blindspots=(
-            UIImplementationBlindspot(
+            UIBlindspot(
                 "settings_panel_implementation",
                 feature_id="settings_panel",
                 control_ids=("settings",),
@@ -433,7 +432,7 @@ def implementation_validation() -> UIImplementationValidation:
                 validation_boundaries=("settings browser check",),
                 rationale="The persistent settings control is bounded instead of silently claimed.",
             ),
-            UIImplementationBlindspot(
+            UIBlindspot(
                 "open_recent_project_implementation",
                 feature_id="open_recent_project",
                 reason="Recent-project shell history is outside this starter template.",
@@ -742,7 +741,7 @@ def broken_journey_coverage() -> UIJourneyCoverage:
             ),
         ),
         residual_blindspots=(
-            UIResidualBlindspot("open_recent_project", reason="deferred", rationale="Broken because no validation boundary is named."),
+            UIBlindspot("open_recent_project", reason="deferred", rationale="Broken because no validation boundary is named."),
         ),
         validation_boundaries=("journey review",),
         rationale="Broken journey coverage demonstrates missing app-level branches.",
