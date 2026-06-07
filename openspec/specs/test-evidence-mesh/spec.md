@@ -115,3 +115,40 @@ current proof artifact.
   background exit/result artifacts
 - **THEN** TestMesh SHALL report incomplete background evidence rather than
   accepting the old result
+
+### Requirement: Self-maintenance validation mesh
+Test Evidence Mesh SHALL represent slow, large, release-only, stale, skipped, or background self-maintenance validations as parent/child evidence with freshness and result artifacts.
+
+#### Scenario: Full regression times out
+- **WHEN** full regression does not complete within the practical run window
+- **THEN** Test Evidence Mesh SHALL record the timeout as a scoped gap and preserve focused child evidence instead of claiming parent pass
+
+### Requirement: TestMesh leaf evidence preserves three-way targets
+
+TestMesh SHALL preserve model obligation and code contract targets for leaf
+test evidence instead of treating child-suite completion as semantic coverage.
+
+#### Scenario: Leaf cell evidence supports a parent gate
+- **WHEN** a child test suite owns a transition or matrix cell
+- **THEN** the parent confidence still depends on Model-Test Alignment proving
+  that the cell binds the model obligation, code contract, and test evidence.
+
+### Requirement: TestMesh consumes transition coverage leaf-cell requirements
+TestMesh SHALL accept required leaf-cell ids derived from transition coverage matrices and require child evidence for each required transition cell.
+
+#### Scenario: Child suite owns transition cell
+- **WHEN** a TestMesh child suite is marked as leaf matrix-cell evidence and owns a transition coverage cell id
+- **THEN** current passing child evidence can satisfy the parent required cell id
+
+#### Scenario: Missing transition cell evidence blocks parent confidence
+- **WHEN** a required transition coverage cell has no current passing child owner
+- **THEN** TestMesh SHALL block parent confidence with a missing leaf-cell evidence finding
+
+### Requirement: TestMesh does not decide transition semantics
+TestMesh SHALL track evidence hierarchy for transition coverage cells but SHALL NOT replace Model-Test Alignment for semantic obligation coverage.
+
+#### Scenario: Parent mesh is green but semantic claim remains scoped
+- **WHEN** TestMesh child evidence is current for required cell ids
+- **THEN** the mesh can support evidence freshness
+- **AND** Model-Test Alignment remains responsible for whether those cells cover the declared model obligations
+

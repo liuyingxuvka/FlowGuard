@@ -255,6 +255,7 @@ inventory.
 - optional FlowGuard self-maintenance helpers such as `RouteProfile`,
   `AIMaintenanceProfile`, `FieldLayerProfile`,
   `SelfMaintenanceChildReport`, `SelfMaintenancePlan`,
+  `default_flowguard_self_maintenance_plan()`,
   `default_flowguard_route_profiles()`,
   `default_ai_maintenance_profiles()`, `default_field_layer_profiles()`,
   `route_graph_completeness_findings()`, and

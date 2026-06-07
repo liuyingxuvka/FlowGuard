@@ -64,3 +64,96 @@ model, or create a new boundary without duplicating responsibility.
   reattachment, leaf boundary-matrix status, and layered proof evidence id
 - **AND** missing layered status MUST block the preflight from claiming that the
   existing boundary is fully understood
+
+### Requirement: Project inventory can build existing-model preflight input
+FlowGuard SHALL provide a project inventory helper that creates an
+`ExistingModelPreflight` object from a project root, task summary, optional
+changed paths, and optional downstream routes.
+
+#### Scenario: Existing model files are found
+- **WHEN** the project root contains FlowGuard model files or adoption records
+  that mention model ownership
+- **THEN** the helper SHALL return relevant `ModelContextHit` rows and record
+  the searched paths
+
+#### Scenario: No model is found
+- **WHEN** the project root has no relevant FlowGuard model inventory
+- **THEN** the helper SHALL return the existing `no_model_found` reuse decision
+  with a visible no-model-found reason rather than claiming model ownership
+
+#### Scenario: Helper output remains reviewable
+- **WHEN** the helper returns an `ExistingModelPreflight`
+- **THEN** callers SHALL be able to pass it to
+  `review_existing_model_preflight(...)` without converting to a separate
+  schema
+
+### Requirement: Self-maintenance preflight handoff
+Existing model preflight SHALL feed the self-maintenance mesh before new FlowGuard route boundaries are added.
+
+#### Scenario: Similar existing route exists
+- **WHEN** the preflight finds a similar existing model, route, or maintenance group
+- **THEN** it SHALL recommend reuse, extension, child model, or duplicate-boundary review before creating a new self-maintenance boundary
+
+### Requirement: Existing model preflight consumes model angle deliberation
+Existing Model Preflight SHALL consume model-angle deliberation rows when a
+task requires open-ended review of whether one model is enough.
+
+#### Scenario: Required deliberation is missing
+- **WHEN** a full preflight marks model-angle review as required
+- **AND** no deliberation rows are supplied
+- **THEN** preflight MUST report a blocking model-angle gap before broad confidence
+
+#### Scenario: Deliberation row has unresolved gap
+- **WHEN** a deliberation row reports an unresolved required angle, missing disposition rationale, or human-review question
+- **THEN** preflight MUST keep that gap visible and route downstream work without claiming the current model is sufficient
+
+#### Scenario: Deliberation supports continuation
+- **WHEN** each required model angle is reused, extended, created, scoped, deferred, or sent to human review with sufficient rationale
+- **THEN** preflight MAY continue with scoped or full confidence according to the row decisions and evidence
+
+### Requirement: Existing model preflight includes field ownership
+Existing model preflight SHALL include field lifecycle model ownership and
+field projection status when a task changes fields, schemas, flags, modes,
+payloads, persisted data, prompts, or configuration surfaces.
+
+#### Scenario: Existing field model is reused
+- **WHEN** a task touches fields already covered by a field lifecycle mesh
+- **THEN** preflight MUST report the existing field group owner and reuse or
+  extend decision before adding a parallel field model
+
+#### Scenario: No field model exists
+- **WHEN** a task changes behavior-bearing fields and no field lifecycle mesh
+  covers them
+- **THEN** preflight MUST report a field model gap and route the work to create
+  or extend field lifecycle coverage
+
+### Requirement: Similarity evidence in full preflight
+Full Existing Model Preflight SHALL be able to consume current model-similarity
+relations before deciding to reuse, extend, add a child model, create a family
+variant, extract a shared kernel, route to Architecture Reduction, or keep a
+new boundary separate.
+
+#### Scenario: Similarity relation supports reuse decision
+- **WHEN** a full preflight includes a current model-similarity relation that
+  recommends reuse or extension of an existing model boundary
+- **THEN** the preflight review may use that relation as reuse rationale while
+  preserving the downstream route requirements
+
+#### Scenario: Required similarity evidence is missing
+- **WHEN** a full preflight declares that model similarity review is required
+  for the boundary decision but does not include current similarity relation
+  evidence
+- **THEN** the preflight review reports a blocking similarity-evidence finding
+
+#### Scenario: False friend keeps boundaries separate
+- **WHEN** a full preflight includes a false-friend model-similarity relation
+- **THEN** the preflight may keep the proposed boundary separate only if the
+  false-friend rationale remains visible in the report
+
+#### Scenario: Similarity maintenance group preserves sibling review
+- **WHEN** a full preflight includes model-similarity relations for a changed
+  workflow that belongs to a maintenance group
+- **THEN** the preflight records the maintenance group ids, change-impact ids,
+  and impacted sibling model ids before claiming the existing boundary review
+  covered all similar workflows
+

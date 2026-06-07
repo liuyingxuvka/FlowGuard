@@ -178,3 +178,52 @@ implementation validation evidence and residual implementation blindspots.
   evidence is available for the implemented UI
 - **THEN** the route records that evidence in implementation validation instead
   of treating downstream QA prose as proof of model completeness
+
+### Requirement: UI text hierarchy handoff guides visual review
+The FlowGuard UI Flow Structure route SHALL hand off text hierarchy evidence to
+frontend, Figma, design-review, and design-iteration workflows with soft
+typography hygiene guidance instead of treating the semantic hierarchy as final
+visual styling.
+
+#### Scenario: Handoff names downstream typography hygiene
+- **WHEN** the route produces or references a UI text hierarchy blueprint before
+  frontend implementation or visual design
+- **THEN** the route guidance tells downstream workflows to preserve calm
+  hierarchy, reuse visual text treatments for similar text jobs, and explain
+  intentional visual differences
+
+#### Scenario: Implementation review checks hierarchy calm without hard caps
+- **WHEN** a running UI or screenshot is reviewed after a UI text hierarchy
+  blueprint exists
+- **THEN** the review may flag chaotic one-off text treatments as actionable
+  design findings while avoiding a fixed maximum font-size rule
+
+### Requirement: UI transitions bind visible events, code, and tests
+
+UI Flow Structure SHALL route broad UI transition confidence through model,
+code, and test bindings by default.
+
+#### Scenario: UI transition is claimed covered
+- **WHEN** a UI transition cell is used in a full confidence claim
+- **THEN** the claim identifies the visible event/control, code contract or
+  handler boundary, and runnable evidence for that transition.
+
+### Requirement: UI transitions project to transition coverage cells
+UI Flow Structure SHALL allow modeled UI transitions to be projected into transition coverage cells before runnable UI completion claims.
+
+#### Scenario: UI transition becomes coverage cell
+- **WHEN** a UI transition declares event id, source state, target state, output, and function block
+- **THEN** FlowGuard can project it to a transition coverage cell with a stable target id
+
+#### Scenario: Runnable UI evidence targets transition cells
+- **WHEN** implemented UI completion is claimed
+- **THEN** browser, desktop, or manual click-through evidence can be linked to projected transition cell ids
+- **AND** missing failure, recovery, cancel, or terminal transition evidence remains visible
+
+### Requirement: UI transition projection does not replace UI journey review
+Transition coverage projection SHALL support UI implementation evidence but SHALL NOT replace UI journey coverage, structure derivation, text hierarchy, or residual blindspot reporting.
+
+#### Scenario: Journey gap remains visible
+- **WHEN** transition cells are generated but the UI journey coverage still misses a reachable event
+- **THEN** the UI route reports the journey gap instead of accepting transition projection as complete UI coverage
+

@@ -129,3 +129,71 @@ Risk Evidence Ledger SHALL let a risk row require a current analogous defect sca
 - **THEN** the ledger reports scoped confidence
 - **AND** if scoped confidence is not allowed, the ledger blocks the claim.
 
+### Requirement: Self-maintenance final claim boundary
+Risk Evidence Ledger SHALL surface self-maintenance gaps, stale evidence, unsupported route claims, install sync gaps, shadow workspace gaps, and local git limitations before final broad confidence.
+
+#### Scenario: Install sync not verified
+- **WHEN** source changes are complete but editable install, import path, metadata version, feature availability, or shadow workspace sync is not verified
+- **THEN** the ledger SHALL block or scope the final release/install confidence claim
+
+### Requirement: Risk ledger consumes model-angle evidence
+Risk Evidence Ledger SHALL consume model-angle review evidence when a final
+claim relies on the agent having considered additional model angles.
+
+#### Scenario: Model-angle review is required but unnamed
+- **WHEN** a risk row requires model-angle review
+- **AND** no model-angle evidence id is named
+- **THEN** the ledger MUST report missing model-angle review before full confidence
+
+#### Scenario: Model-angle review is not current or not full
+- **WHEN** a named model-angle review is stale, scoped, partial, or blocked
+- **THEN** the ledger MUST keep the claim scoped or blocked rather than treating the review as full evidence
+
+### Requirement: Risk ledger consumes relevant open maintenance obligations
+Risk Evidence Ledger SHALL consider relevant unresolved maintenance obligations
+before granting broad done, release, publish, archive, production, or full
+confidence claims.
+
+#### Scenario: Relevant open obligation blocks or scopes full confidence
+- **WHEN** a risk ledger row or plan references an unresolved open obligation
+  for the same risk, model, code contract, proof evidence, public entrypoint, or
+  route boundary
+- **THEN** `review_risk_evidence_ledger(...)` MUST block or scope full
+  confidence according to the ledger scoped-confidence policy
+- **AND** the finding MUST identify the open obligation
+
+#### Scenario: Irrelevant obligation does not affect row
+- **WHEN** an open obligation is anchored to a different model, code contract,
+  public entrypoint, or out-of-scope artifact
+- **THEN** the ledger MUST NOT use that obligation to block the unrelated risk
+  row
+
+#### Scenario: Resolved obligation needs current proof
+- **WHEN** a ledger row relies on a resolved obligation
+- **THEN** the resolved obligation MUST have current owner-route evidence or an
+  explicit scoped disposition
+- **AND** stale, missing, declaration-only, or progress-only resolution evidence
+  MUST NOT support full confidence
+
+### Requirement: Risk ledger consumes topology hazard review evidence
+
+FlowGuard SHALL allow each final-risk row to require a current model-topology
+hazard review before broad done, release, publish, archive, or full-confidence
+claims.
+
+#### Scenario: Required topology hazard review is missing
+
+- **GIVEN** a `RiskEvidenceRow` marks topology hazard review as required
+- **WHEN** no topology hazard review id is present
+- **THEN** `review_risk_evidence_ledger(...)` MUST block the broad risk claim
+- **AND** it MUST report `missing_topology_hazard_review`.
+
+#### Scenario: Blocked or scoped topology hazard evidence remains visible
+
+- **GIVEN** a required topology hazard review id is present
+- **WHEN** the review is stale, blocked, or scoped
+- **THEN** the risk ledger MUST report the corresponding topology hazard
+  finding
+- **AND** full confidence MUST be blocked or downgraded according to ledger
+  scoped-confidence policy.
+

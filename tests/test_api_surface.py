@@ -95,7 +95,9 @@ class ApiSurfaceTests(unittest.TestCase):
         self.assertIn("AIMaintenanceProfile", flowguard.MODELING_HELPER_API)
         self.assertIn("FieldLayerProfile", flowguard.MODELING_HELPER_API)
         self.assertIn("SelfMaintenancePlan", flowguard.MODELING_HELPER_API)
+        self.assertIn("default_flowguard_self_maintenance_plan", flowguard.MODELING_HELPER_API)
         self.assertIn("review_flowguard_self_maintenance", flowguard.MODELING_HELPER_API)
+        self.assertNotIn("default_flowguard_self_maintenance_plan", flowguard.CORE_API)
         self.assertNotIn("review_flowguard_self_maintenance", flowguard.CORE_API)
         self.assertIn("UIInteractionModel", flowguard.MODELING_HELPER_API)
         self.assertIn("UIJourneyCoverage", flowguard.MODELING_HELPER_API)
@@ -344,6 +346,34 @@ class ApiSurfaceTests(unittest.TestCase):
                 ),
             )
         )
+        self.assertTrue(report.ok, report.format_text())
+        self.assertFalse(report.findings, report.format_text())
+
+    def test_default_self_maintenance_plan_folds_common_fields(self):
+        child_report = flowguard.SelfMaintenanceChildReport(
+            "route-graph",
+            "flowguard_self_maintenance",
+            "route_graph",
+            closure_status=flowguard.SELF_MAINTENANCE_STATUS_PASS,
+            current=True,
+            safe_claim="route profiles are discoverable",
+            unsafe_claim_boundary="does not prove route internals",
+        )
+
+        plan = flowguard.default_flowguard_self_maintenance_plan(
+            "default-self-maintenance-plan",
+            child_reports=(child_report,),
+        )
+
+        self.assertEqual(tuple(flowguard.FLOWGUARD_ROUTE_API), plan.api_route_group_ids)
+        self.assertEqual(
+            {profile.route_id for profile in flowguard.default_flowguard_route_profiles()},
+            {profile.route_id for profile in plan.route_profiles},
+        )
+        self.assertEqual(set(flowguard.FIELD_LAYERS), {layer.layer_id for layer in plan.field_layers})
+        self.assertTrue(plan.ai_profiles)
+        self.assertTrue(plan.broad_claim)
+        report = flowguard.review_flowguard_self_maintenance(plan)
         self.assertTrue(report.ok, report.format_text())
         self.assertFalse(report.findings, report.format_text())
 

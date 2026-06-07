@@ -39,6 +39,24 @@ cross-cutting work back to the kernel.
 - **THEN** it tells Codex to verify the real FlowGuard package before claiming
   FlowGuard adoption or route confidence
 
+### Requirement: Satellite skills remain discoverable route shells
+
+FlowGuard SHALL preserve direct satellite skills as concise route shells with
+standalone hard gates, trigger/skip criteria, minimum workflow, snapshot
+guidance, non-goals, and reference handoff.
+
+#### Scenario: Satellite skill count is not reduced by structure cleanup
+
+- **WHEN** implementation surfaces are simplified
+- **THEN** existing satellite skill names remain discoverable and their
+  `SKILL.md` files remain within prompt budgets
+
+#### Scenario: Hard gates remain visible
+
+- **WHEN** a satellite skill is read without deep reference files
+- **THEN** real-package verification, project adoption records, fake-framework
+  rejection, and route-specific evidence honesty remain visible
+
 ### Requirement: Global prompt guidance describes the new topology
 The reusable AGENTS snippet SHALL describe the FlowGuard architecture as one
 kernel plus seven directly invokable satellite skills, while keeping
@@ -103,3 +121,79 @@ surface checks.
 - **WHEN** the repository copy of the skill has changed
 - **THEN** the change is not reported as active installed behavior until the
   installed skill surface is synchronized or explicitly reported as unsynced
+
+### Requirement: Installed skill route alignment
+Installed FlowGuard Codex skill route maps SHALL stay aligned with the package route graph, including route ids, triggers, minimal workflow, hard gates, evidence boundaries, and downstream handoffs.
+
+#### Scenario: Package route graph adds a group
+- **WHEN** the package route graph adds or changes a route group
+- **THEN** installed skill guidance SHALL be updated or the mismatch SHALL be recorded as a scoped maintenance obligation
+
+### Requirement: Codex exposes a topology hazard satellite skill
+
+FlowGuard SHALL expose `flowguard-model-topology-hazard-review` as a direct
+Codex satellite skill while keeping the model-first kernel as the router for
+ambiguous or cross-route work.
+
+#### Scenario: Skill route is present and prompt-grounded
+
+- **WHEN** the Codex skill directories are inspected
+- **THEN** `flowguard-model-topology-hazard-review` MUST have a concise
+  `SKILL.md`, OpenAI agent metadata, a protocol reference, and a lazy-loaded
+  prompt template
+- **AND** the kernel route map MUST route model-shape future-use hazards to the
+  new satellite skill.
+
+### Requirement: Satellite reference protocols own detailed route guidance
+Each directly invokable FlowGuard satellite SHALL own its detailed protocol in
+the satellite `references/` directory when that route has a standalone skill.
+
+#### Scenario: Kernel reference duplicates are folded
+- **WHEN** the kernel reference directory includes a protocol whose detailed
+  route is owned by a standalone satellite
+- **THEN** the kernel copy is either absent or a compact handoff stub
+- **AND** the satellite reference remains reachable and substantive
+
+#### Scenario: Standalone satellite remains usable
+- **WHEN** a satellite skill is installed or copied independently
+- **THEN** its `SKILL.md` and satellite reference provide the route trigger,
+  hard gates, workflow checklist, validation boundary, and non-goals without
+  requiring the kernel's duplicate copy
+
+### Requirement: Plan detailing is exposed as a direct Codex satellite
+FlowGuard SHALL include `flowguard-plan-detailing-compiler` as a directly invokable Codex satellite skill.
+
+#### Scenario: Satellite is discoverable
+- **WHEN** the FlowGuard Codex skill topology is read
+- **THEN** plan detailing appears beside the existing direct satellites
+
+#### Scenario: Installed skill sync covers plan detailing
+- **WHEN** the repository skill is updated
+- **THEN** installed Codex skill synchronization checks include the plan-detailing satellite
+
+### Requirement: Satellite skills use concise route shells
+Each directly invokable FlowGuard satellite skill SHALL keep its `SKILL.md`
+first-read surface to a concise route shell while preserving standalone hard
+gates and a clear reference handoff.
+
+#### Scenario: Satellite route shell is inspected
+- **WHEN** a repository-managed satellite `SKILL.md` is read by an agent
+- **THEN** it contains the skill name, route trigger, skip/return guidance, hard
+  gates, a minimum workflow, validation/claim boundary notes, non-goals, and a
+  route-specific reference path without embedding the full protocol inline
+
+#### Scenario: Standalone use keeps hard gates
+- **WHEN** a satellite skill is copied or installed outside the FlowGuard repo
+- **THEN** it still tells the agent to use the real FlowGuard package, preserve
+  AGENTS/version adoption checks for real project use, keep skipped evidence
+  visible, and avoid fake mini-frameworks
+
+### Requirement: Installed satellite sync is content-aware
+Installed FlowGuard satellite skill synchronization SHALL verify repository and
+installed skill content rather than only checking that a directory exists.
+
+#### Scenario: Existing installed skill is refreshed
+- **WHEN** a repository-managed satellite skill already exists in the local
+  installed Codex skills directory
+- **THEN** synchronization refreshes changed content or reports an explicit
+  mismatch before local installed behavior is claimed

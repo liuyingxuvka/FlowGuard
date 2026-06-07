@@ -19,9 +19,12 @@ user intent
 ```
 
 `FLOWGUARD_ROUTE_API` remains the public route group registry.
-`default_flowguard_route_profiles()` is the compact explanation layer above the
-registry. It names the route trigger, minimal inputs, outputs, evidence owner,
-template, skill, and next route.
+`default_flowguard_self_maintenance_plan()` is the first-read helper: it fills
+route profiles, public API route group ids, AI entry profiles, and field layer
+defaults before review. `default_flowguard_route_profiles()` remains the
+compact explanation layer above the registry for specialist overrides. It names
+the route trigger, minimal inputs, outputs, evidence owner, template, skill,
+and next route.
 
 ## Field Layers
 

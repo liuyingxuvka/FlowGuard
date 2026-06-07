@@ -40,5 +40,5 @@
 - [x] 7.1 Run focused unit tests for summary report, maintenance scan, development process flow, existing-model preflight, API surface, and skill docs.
 - [x] 7.2 Run FlowGuard self-model checks and OpenSpec strict validation.
 - [x] 7.3 Run practical regression and project audit.
-- [ ] 7.4 Sync editable/local installed version and verify import path, metadata version, and feature availability.
-- [ ] 7.5 Check source/local git status without reverting peer-agent changes, and record final adoption evidence.
+- [x] 7.4 Sync editable/local installed version and verify import path, metadata version, and feature availability.
+- [x] 7.5 Check source/local git status without reverting peer-agent changes, and record final adoption evidence.

@@ -967,7 +967,10 @@ MAINTENANCE_SCAN_ROUTE_API = tuple(_maintenance_scan.__all__)
 MODEL_ANGLE_DELIBERATION_API = tuple(_model_angle_deliberation.__all__)
 MODEL_MISS_REVIEW_ROUTE_API = tuple(name for name in _recurring_model_miss.__all__ if name in globals())
 RISK_EVIDENCE_LEDGER_ROUTE_API = tuple(name for name in _risk_evidence_ledger.__all__ if name in globals())
-FLOWGUARD_SELF_MAINTENANCE_ROUTE_API = tuple(_self_maintenance.__all__)
+FLOWGUARD_SELF_MAINTENANCE_ROUTE_API = (
+    *tuple(_self_maintenance.__all__),
+    "default_flowguard_self_maintenance_plan",
+)
 STATE_CLOSURE_ROUTE_API = tuple(_state_closure.__all__)
 STRUCTURE_MESH_ROUTE_API = tuple(name for name in _structuremesh.__all__ if name in globals())
 TEST_MESH_ROUTE_API = tuple(name for name in _testmesh.__all__ if name in globals())
@@ -1972,6 +1975,48 @@ FLOWGUARD_ROUTE_API = {
     "state_closure": STATE_CLOSURE_ROUTE_API,
     "model_topology_hazard_review": TOPOLOGY_HAZARD_ROUTE_API,
 }
+
+
+def default_flowguard_self_maintenance_plan(
+    plan_id,
+    child_reports=(),
+    *,
+    route_profiles=None,
+    api_route_group_ids=None,
+    ai_profiles=None,
+    field_layers=None,
+    broad_claim=True,
+    allow_scoped_confidence=True,
+):
+    """Build the common FlowGuard self-maintenance plan with compact defaults."""
+
+    return SelfMaintenancePlan(
+        plan_id=plan_id,
+        route_profiles=(
+            default_flowguard_route_profiles()
+            if route_profiles is None
+            else tuple(route_profiles)
+        ),
+        api_route_group_ids=(
+            tuple(FLOWGUARD_ROUTE_API)
+            if api_route_group_ids is None
+            else tuple(api_route_group_ids)
+        ),
+        ai_profiles=(
+            default_ai_maintenance_profiles()
+            if ai_profiles is None
+            else tuple(ai_profiles)
+        ),
+        field_layers=(
+            default_field_layer_profiles()
+            if field_layers is None
+            else tuple(field_layers)
+        ),
+        child_reports=tuple(child_reports),
+        broad_claim=broad_claim,
+        allow_scoped_confidence=allow_scoped_confidence,
+    )
+
 
 API_SURFACE = {
     "core": CORE_API,

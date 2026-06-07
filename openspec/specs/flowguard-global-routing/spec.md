@@ -73,3 +73,155 @@ evidence to `flowguard-agent-workflow-rehearsal` before execution.
   command answer, or obvious low-risk single-skill task
 - **THEN** the guidance may skip `flowguard-agent-workflow-rehearsal` with a
   concrete reason
+
+### Requirement: Global routing preserves existing routes while adding handoff continuation
+Global FlowGuard routing SHALL preserve the existing direct satellite route
+map and SHALL treat SummaryReport-to-MaintenanceScan-to-specialist output as a
+continuation inside the existing route system, not a new parent route.
+
+#### Scenario: Existing route remains owner
+- **WHEN** a structured handoff recommends Model-Test Alignment,
+  DevelopmentProcessFlow, ModelMesh, TestMesh, StructureMesh, Model
+  Maturation, or AgentWorkflowRehearsal
+- **THEN** the recommended existing route SHALL remain the owner of validation
+  evidence and claim promotion
+
+#### Scenario: Handoff is not a session runner
+- **WHEN** the AI hot path describes the handoff sequence
+- **THEN** it SHALL NOT introduce a new top-level session runner or require
+  every task to pass through a parallel workflow
+
+### Requirement: Installed route groups
+FlowGuard global routing SHALL expose installed satellite routes as route groups with stable ids, trigger summaries, minimal inputs, primary outputs, evidence boundaries, and downstream handoffs.
+
+#### Scenario: Specialist route has public helpers
+- **WHEN** a specialist route exports public helpers, templates, docs, or installed skill guidance
+- **THEN** the route SHALL have a corresponding route discovery group unless it is explicitly scoped out with a reason
+
+### Requirement: Handoff continuity
+Route groups SHALL express how SummaryReport, MaintenanceScan, ExistingModelPreflight, FieldLifecycleMesh, Model-Test Alignment, StructureMesh, TestMesh, ModelMesh, DevelopmentProcessFlow, Risk Evidence Ledger, and Closure Contract hand off to one another.
+
+#### Scenario: Maintenance finding identifies a route owner
+- **WHEN** a finding or maintenance obligation names a route owner
+- **THEN** route discovery SHALL provide the minimal inputs and next-action path for that owner
+
+### Requirement: Global routing includes model-angle deliberation
+FlowGuard global routing SHALL expose model-angle deliberation as a lightweight
+preflight companion for open-ended model sufficiency review.
+
+#### Scenario: Route is selected
+- **WHEN** a task may need another model angle beyond the current model boundary
+- **THEN** routing guidance MUST point to model-angle deliberation before or during existing-model preflight
+
+#### Scenario: Specialist route owns follow-up
+- **WHEN** deliberation chooses a model update, child model, code boundary, freshness review, or human review
+- **THEN** routing guidance MUST hand off to the existing owner route rather than adding a parallel session runner
+
+### Requirement: Replacement defaults to disposition
+FlowGuard global routing SHALL treat feature replacement, route migration,
+field migration, prompt externalization, or compatibility cleanup as requiring
+old-path and old-field disposition unless explicit compatibility intent is
+declared.
+
+#### Scenario: Replacement has no compatibility intent
+- **WHEN** a user asks for a new path to replace old behavior
+- **AND** the user does not explicitly request compatibility preservation
+- **THEN** FlowGuard routing MUST require disposition evidence for old runtime
+  paths, old fields, old tests, old prompt/config surfaces, and old public
+  entrypoints before full done confidence
+
+#### Scenario: Compatibility is explicit
+- **WHEN** compatibility preservation is declared for a public API, old data,
+  old schema, or external integration
+- **THEN** FlowGuard routing MUST keep that compatibility surface visible and
+  route it through the owner route for parity, migration, or rejection evidence
+
+### Requirement: Global routing inherits open FlowGuard obligations
+Global FlowGuard guidance SHALL make normal FlowGuard work inherit relevant open
+maintenance obligations through existing routes instead of invoking a separate
+technical-debt scanner.
+
+#### Scenario: Existing obligation is part of route selection
+- **WHEN** a non-trivial coding, prompt, skill, test, process, release, archive,
+  or publish task touches a model, code path, test surface, or public entrypoint
+  with open FlowGuard obligations
+- **THEN** global routing MUST include those obligations in route selection
+- **AND** it MUST route to the existing owner route named by the obligation
+
+#### Scenario: No standalone technical-debt route
+- **WHEN** a task asks FlowGuard to reduce technical-debt risk naturally during
+  ordinary use
+- **THEN** global routing MUST use existing FlowGuard routes such as
+  maintenance scan, model maturation, Architecture Reduction, StructureMesh,
+  Model-Test Alignment, DevelopmentProcessFlow, and Risk Evidence Ledger
+- **AND** it MUST NOT require a separate technical-debt scanner route
+
+### Requirement: FlowGuard-managed projects use maintenance scan before broad claims
+Global FlowGuard routing SHALL present the maintenance scan as the thin default entry for FlowGuard-managed project work where changed artifacts may require model/code/test/structure upkeep.
+
+#### Scenario: Non-trivial project work enters maintenance scan
+- **WHEN** an agent works in a project with FlowGuard adoption records
+- **AND** the task changes behavior, models, tests, structure, workflow guidance, release assets, or evidence-bearing artifacts
+- **THEN** global routing MUST direct the agent to run or construct a maintenance scan before broad completion confidence
+- **AND** the scan MUST route any resulting required actions to the existing specialist FlowGuard routes
+
+#### Scenario: Tiny work can skip scan with reason
+- **WHEN** the task is a tiny copy edit, formatting-only change, direct command answer, or read-only explanation
+- **THEN** global routing MAY skip the maintenance scan with a concrete reason
+
+### Requirement: Global routing does not duplicate satellite internals
+Global FlowGuard routing SHALL name the selected route and hand off to the
+owning satellite or reference without duplicating satellite-specific workflow
+internals in multiple prompt surfaces.
+
+#### Scenario: Reusable AGENTS guidance stays compact
+- **WHEN** the reusable AGENTS snippet is read
+- **THEN** it contains the global routing decision, hard gates, thin default
+  path, and compact route table
+- **AND** it does not embed long helper inventories or route-specific prompt
+  templates
+
+#### Scenario: Route-specific detail is needed
+- **WHEN** the selected route needs detailed helper APIs, hazard lists,
+  examples, or prompt templates
+- **THEN** the guidance points to the owning satellite reference or docs page
+  instead of duplicating that detail in the global routing hot path
+
+### Requirement: Global routing recognizes rough-plan expansion
+FlowGuard global routing SHALL route non-trivial rough-plan expansion, plan completion, and "make this plan detailed" requests to the plan-detailing compiler.
+
+#### Scenario: Rough plan routes to plan detailing
+- **WHEN** a user asks to turn a vague idea or short plan into a detailed FlowGuard process plan
+- **THEN** global routing selects the plan-detailing compiler before downstream FlowGuard routes
+
+#### Scenario: Route still avoids trivial work
+- **WHEN** the task is a tiny copy edit, direct command answer, or formatting-only change
+- **THEN** global routing may skip plan detailing with a reason
+
+### Requirement: Global routing uses a compact canonical decision table
+Global FlowGuard guidance SHALL present one compact routing decision table for
+ordinary AI use and SHALL avoid repeating long helper inventories in the hot
+path.
+
+#### Scenario: Agent reads reusable AGENTS guidance
+- **WHEN** an agent reads `docs/agents_snippet.md`
+- **THEN** it first sees task-size triage, the FlowGuard routing decision,
+  thin default path, hard gates, and a compact route table before any reference
+  protocol detail
+
+#### Scenario: Detailed route content is needed
+- **WHEN** the selected route needs detailed protocol rules, helper API
+  inventories, examples, or evidence ledgers
+- **THEN** the guidance points to the matching skill reference or docs page
+  instead of duplicating the full content in the AGENTS hot path
+
+### Requirement: Duplicate route inventories are bounded
+FlowGuard prompt tests SHALL prevent the kernel, AGENTS snippet, and satellite
+skills from each carrying independent long-form route inventories.
+
+#### Scenario: Route inventory grows in multiple hot paths
+- **WHEN** tests detect duplicate long-form route/helper inventories across
+  first-read prompt surfaces
+- **THEN** they fail or require the extra detail to move behind the reference
+  handoff before done/release confidence is claimed
+

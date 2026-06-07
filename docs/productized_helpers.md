@@ -193,10 +193,13 @@ python .flowguard/model_angle_deliberation/run_checks.py
 
 ## FlowGuard Self-Maintenance Mesh
 
-Use `default_flowguard_route_profiles()`,
-`default_ai_maintenance_profiles()`, `default_field_layer_profiles()`, and
-`review_flowguard_self_maintenance(...)` when FlowGuard itself feels too heavy
-for AI agents to use directly. The helper keeps the first-read path thin:
+Use `default_flowguard_self_maintenance_plan(...)` when FlowGuard itself feels
+too heavy for AI agents to use directly. It fills the common route profiles,
+API route groups, AI entry profiles, and field layer defaults before
+`review_flowguard_self_maintenance(...)` runs. Specialist routes can still use
+`default_flowguard_route_profiles()`, `default_ai_maintenance_profiles()`, and
+`default_field_layer_profiles()` directly when they need to override fields.
+The default plan keeps the first-read path thin:
 
 - route profiles connect installed capabilities to trigger, minimal input,
   output, evidence owner, API group, template, skill, and next action;

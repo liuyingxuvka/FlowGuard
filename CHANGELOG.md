@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.41.2 - 2026-06-07
+
+Post-release maintenance hygiene.
+
+- Archived completed OpenSpec changes into the durable archive and kept the
+  active change list focused on current work.
+- Added a compact `default_flowguard_self_maintenance_plan()` helper so agents
+  can start FlowGuard self-maintenance with route, API, AI-entry, and field
+  defaults instead of manually filling the common plan fields.
+- Added a minimal GitHub Actions CI gate for install, project audit, OpenSpec
+  strict validation, the self-maintenance model, and focused unit tests.
+
 ## v0.41.1 - 2026-06-07
 
 FlowGuard self-maintenance optimization.

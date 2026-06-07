@@ -244,3 +244,64 @@ depends on real code following a modeled workflow path.
 - **WHEN** runtime path alignment is current but only scoped
 - **THEN** closure review SHALL NOT promote that evidence to full production or
   parent confidence
+
+### Requirement: Self-maintenance closure reports
+Closure Contract SHALL require self-maintenance child reports to include owner guard, artifact kind, closure status, findings, missing inputs, stale evidence, skipped checks, next actions, safe claim, and unsafe claim boundary.
+
+#### Scenario: Child report is partial
+- **WHEN** any self-maintenance child report is partial, blocked, downgraded, stale, or skipped
+- **THEN** Closure Contract SHALL preserve it as a maintenance obligation rather than converting it into pass evidence
+
+### Requirement: Closure consumes model-angle review evidence
+FlowGuard Closure Contract SHALL consume model-angle review evidence when broad
+confidence depends on an agent's open-ended model sufficiency review.
+
+#### Scenario: Required model-angle evidence is missing
+- **WHEN** closure requires model-angle review evidence
+- **AND** no current model-angle report or closure evidence row is supplied
+- **THEN** closure MUST block full FlowGuard confidence
+
+#### Scenario: Model-angle evidence is scoped or blocked
+- **WHEN** supplied model-angle evidence reports scoped, blocked, stale, or unresolved required angles
+- **THEN** closure MUST downgrade or block the broad claim according to that evidence
+
+### Requirement: Closure consumes field lifecycle and replacement evidence
+FlowGuard Closure Contract SHALL consume current field lifecycle, field
+projection, old-field disposition, old-path disposition, model-code-test
+alignment, bug repair, freshness, and risk evidence before reporting full done,
+release, publish, or production confidence for field or replacement work.
+
+#### Scenario: Field lifecycle evidence is missing
+- **WHEN** a broad completion claim depends on field-heavy behavior or feature
+  replacement
+- **AND** no current field lifecycle evidence is supplied
+- **THEN** closure review MUST block or scope the claim
+
+#### Scenario: Unknown disposition blocks full closure
+- **WHEN** an in-scope old path or old field has unknown disposition
+- **THEN** closure review MUST NOT return full confidence
+
+#### Scenario: Complete field replacement closure passes
+- **WHEN** field lifecycle evidence, behavior projections, owner code
+  contracts, external-contract tests, old path/field dispositions, process
+  freshness, and risk ledger evidence are all current and passing
+- **THEN** closure review MAY support full confidence for the field replacement
+  claim
+
+### Requirement: Closure contract consumes complete bug repair evidence
+The Closure Contract SHALL block or scope final confidence for a bug repair
+unless current evidence covers the observed failure, same-class bug class,
+model obligation, owner code contract, test evidence, stale-evidence review,
+old-path/fallback disposition when relevant, and final risk-ledger decision.
+
+#### Scenario: Complete bug repair closure passes
+- **WHEN** a bug repair has current model-miss review, model-code-test
+  alignment, freshness, compatibility/legacy-path, and risk-ledger evidence
+- **THEN** the Closure Contract may allow full confidence for the repaired
+  in-scope risk
+
+#### Scenario: Missing bug repair link scopes claim
+- **WHEN** a bug repair lacks current same-class proof, code-contract binding,
+  old-path disposition, or freshness evidence
+- **THEN** the final confidence claim remains scoped or blocked
+

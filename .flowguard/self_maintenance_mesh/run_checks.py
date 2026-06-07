@@ -6,13 +6,9 @@ from flowguard import (
     Explorer,
     SELF_MAINTENANCE_STATUS_PASS,
     SelfMaintenanceChildReport,
-    SelfMaintenancePlan,
-    default_ai_maintenance_profiles,
-    default_field_layer_profiles,
-    default_flowguard_route_profiles,
+    default_flowguard_self_maintenance_plan,
     review_flowguard_self_maintenance,
 )
-import flowguard
 import model
 
 
@@ -41,12 +37,8 @@ def run_workflow(name: str, workflow, *, expect_ok: bool) -> bool:
 
 def run_route_profile_review() -> bool:
     report = review_flowguard_self_maintenance(
-        SelfMaintenancePlan(
+        default_flowguard_self_maintenance_plan(
             "self-maintenance-route-profile-review",
-            route_profiles=default_flowguard_route_profiles(),
-            api_route_group_ids=tuple(flowguard.FLOWGUARD_ROUTE_API),
-            ai_profiles=default_ai_maintenance_profiles(),
-            field_layers=default_field_layer_profiles(),
             child_reports=(
                 SelfMaintenanceChildReport(
                     "route-graph",

@@ -265,3 +265,93 @@ evidence that can be invalidated by later writes.
   writes
 - **THEN** DevelopmentProcessFlow MAY treat the reused result as current
   validation evidence within the ticket's declared scope
+
+### Requirement: Revalidation recommendations expose AI rerun metadata
+DevelopmentProcessFlow SHALL include route, proof-artifact, freshness-gap, and
+claim-scope metadata in revalidation recommendations so AI agents can identify
+the minimum rerun or evidence-refresh action.
+
+#### Scenario: Stale evidence recommends concrete rerun
+- **WHEN** evidence is stale because a covered artifact or verifier artifact
+  changed
+- **THEN** the recommendation SHALL include the requirement id, evidence id,
+  command when known, artifact ids, freshness gap codes, and claim scopes that
+  remain blocked until rerun
+
+#### Scenario: Proof artifact is required
+- **WHEN** the lifecycle plan requires proof artifacts and a recommendation
+  concerns missing or stale evidence
+- **THEN** the recommendation SHALL mark that proof artifact evidence is
+  required before broad claim confidence can be promoted
+
+### Requirement: Self-maintenance invalidation tracking
+DevelopmentProcessFlow SHALL track edits to route graph, field lifecycle rows, structure facades, tests, installed skills, OpenSpec artifacts, adoption logs, install state, shadow workspace state, and local git state as evidence-invalidating actions.
+
+#### Scenario: Later write changes route graph
+- **WHEN** a route graph or public API grouping changes after validation
+- **THEN** DevelopmentProcessFlow SHALL require API surface, skill guidance, and affected route checks to be rerun before done confidence
+
+#### Scenario: Background validation is running
+- **WHEN** a long validation is still running in the background
+- **THEN** DevelopmentProcessFlow SHALL treat it as liveness only, not pass evidence
+
+### Requirement: Field lifecycle evidence participates in freshness
+DevelopmentProcessFlow SHALL treat field lifecycle meshes, field projections,
+replacement decisions, old-field dispositions, model-code-test binding rows,
+and bug repair closure rows as versioned artifacts that can stale validation
+evidence.
+
+#### Scenario: Field mesh changes after alignment
+- **WHEN** a field lifecycle artifact changes after Model-Test Alignment
+  evidence was produced
+- **THEN** DevelopmentProcessFlow MUST mark the alignment evidence stale and
+  recommend rerunning the owner route
+
+#### Scenario: Bug repair field evidence changes
+- **WHEN** a field root-cause record, same-class field case, owner code
+  contract, old-field disposition, or old-path disposition changes after bug
+  repair validation
+- **THEN** DevelopmentProcessFlow MUST report bug repair closure stale before
+  done or release confidence
+
+### Requirement: DevelopmentProcessFlow tracks bug repair freshness
+DevelopmentProcessFlow SHALL treat bug repair changes to model-miss
+classification, model obligations, owner code contracts, observed-regression
+tests, same-class tests, compatibility classifications, legacy path
+dispositions, and risk-ledger rows as freshness-sensitive artifacts.
+
+#### Scenario: Later repair edit stales earlier evidence
+- **WHEN** a bug repair changes the model, code contract, test evidence,
+  compatibility disposition, or legacy path disposition after validation
+- **THEN** DevelopmentProcessFlow marks the affected alignment, closure, and
+  risk evidence stale until the owning route reruns or refreshes evidence
+
+#### Scenario: Final claim consumes current repair evidence
+- **WHEN** a final done, release, archive, publish, or broad confidence claim
+  closes a bug repair
+- **THEN** DevelopmentProcessFlow requires current evidence ids from Model-Miss
+  Review, Model-Test Alignment, TestMesh/ModelMesh when relevant, legacy-path
+  disposition when relevant, and Risk Evidence Ledger / Closure Contract
+
+### Requirement: Model-code-test changes stale linked evidence
+
+DevelopmentProcessFlow SHALL treat model, code, and test edits as linked
+invalidations for full confidence.
+
+#### Scenario: One side of the binding changes
+- **WHEN** a model obligation, code contract, code source, or test evidence row
+  changes
+- **THEN** previously claimed three-way binding evidence for the affected row
+  becomes stale until the minimum revalidation plan refreshes it.
+
+### Requirement: DevelopmentProcessFlow consumes plan-detail lifecycle rows
+DevelopmentProcessFlow SHALL accept plan-detail projections as a lifecycle starting point for artifacts, actions, evidence, validation requirements, and freshness rules.
+
+#### Scenario: Plan-detail projection supplies lifecycle registry
+- **WHEN** plan-detail rows declare artifacts, ordered steps, produced evidence, required evidence, and validation requirements
+- **THEN** the projected DevelopmentProcessPlan uses those rows for ordinary freshness and claim review
+
+#### Scenario: Later action stale evidence remains blocked
+- **WHEN** a projected plan changes an artifact after validation evidence was produced
+- **THEN** DevelopmentProcessFlow reports the evidence as stale using the projected artifact and evidence ids
+

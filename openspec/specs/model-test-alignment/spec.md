@@ -306,3 +306,141 @@ test-result reuse ticket and a current proof artifact.
 - **THEN** Model-Test Alignment SHALL report the proof artifact gap before green
   alignment can be claimed
 
+### Requirement: Self-maintenance obligation binding
+Model-Test Alignment SHALL bind self-maintenance obligations to owner code contracts and current tests before broad claims are allowed.
+
+#### Scenario: Field projection changes
+- **WHEN** a field lifecycle projection changes
+- **THEN** Model-Test Alignment SHALL require corresponding model obligation, owner code contract, and test evidence rows to be current
+
+### Requirement: Model-Test Alignment consumes field projections
+Model-Test Alignment SHALL consume field lifecycle projections so
+behavior-bearing field obligations bind the same model obligation, owner code
+contract, and external-contract test evidence.
+
+#### Scenario: Field projection is fully aligned
+- **WHEN** a behavior-bearing field projection names a model obligation and
+  owner code contract
+- **AND** current passing external-contract test evidence covers the same
+  obligation and code contract
+- **THEN** Model-Test Alignment MAY count the field projection as covered
+
+#### Scenario: Field code owner is missing
+- **WHEN** a required field projection has no owner code contract
+- **THEN** Model-Test Alignment MUST report a missing field code contract
+  finding and MUST NOT return green alignment for that field obligation
+
+#### Scenario: Field test proves only an internal helper
+- **WHEN** test evidence covers a field projection only through an internal
+  helper path and not the external contract boundary
+- **THEN** Model-Test Alignment MUST keep the field obligation blocked or
+  scoped according to the existing assertion-scope rules
+
+### Requirement: Full confidence requires model-code-test binding by default
+
+Model-Test Alignment SHALL require required model obligations, owner code
+contracts, and current passing test evidence to bind together by default before
+reporting full green confidence.
+
+#### Scenario: Required obligation has code and test bound together
+- **WHEN** a required model obligation has an owner code contract
+- **AND** current passing test evidence covers both that obligation and that
+  owner code contract
+- **THEN** Model-Test Alignment can treat that row as locked.
+
+#### Scenario: Required obligation has no code owner
+- **WHEN** a required model obligation has no owner code contract
+- **THEN** Model-Test Alignment SHALL report a blocker.
+
+#### Scenario: Test covers model but not code
+- **WHEN** current passing test evidence covers a required model obligation
+- **AND** it does not cover a code contract implementing that obligation
+- **THEN** Model-Test Alignment SHALL report a blocker.
+
+#### Scenario: Test binds the wrong code contract
+- **WHEN** test evidence covers model obligation A
+- **AND** the evidence covers a code contract that does not implement A
+- **THEN** Model-Test Alignment SHALL report a blocker.
+
+### Requirement: No compatibility switch for model-test-only green
+
+FlowGuard SHALL NOT provide a compatibility switch that allows required
+model-test-only evidence to produce full Model-Test Alignment green confidence.
+
+#### Scenario: Model-test-only evidence is present
+- **WHEN** an obligation and test evidence are both present
+- **AND** no owner code contract is present
+- **THEN** the result is blocked or scoped, not full green.
+
+### Requirement: Binding report rows expose the lock state
+
+Model-Test Alignment SHALL expose model-code-test binding rows that identify the
+model obligation id, code contract id, test evidence id, status, and gap reasons.
+
+#### Scenario: Human reads alignment output
+- **WHEN** the alignment report is formatted or serialized
+- **THEN** each required model obligation has visible binding status.
+
+### Requirement: Model-Test Alignment consumes transition coverage obligations
+Model-Test Alignment SHALL support obligations generated from transition coverage cells and apply the same evidence freshness, status, required-kind, and target-id rules as hand-authored obligations.
+
+#### Scenario: Transition obligation has evidence
+- **WHEN** a transition-derived obligation has current passing test evidence of an allowed required kind
+- **THEN** Model-Test Alignment SHALL treat the transition obligation as covered
+
+#### Scenario: Transition obligation lacks evidence
+- **WHEN** a transition-derived obligation has no current passing test evidence
+- **THEN** Model-Test Alignment SHALL report missing test evidence for that transition obligation
+
+#### Scenario: Transition cell evidence names target
+- **WHEN** a test evidence row is marked as leaf matrix-cell or transition-cell evidence
+- **THEN** it MUST identify the target cell id before it can support the transition-derived obligation
+
+### Requirement: Transition coverage stays independent from TestMesh
+Model-Test Alignment SHALL evaluate transition-derived obligations directly for ordinary evidence and SHALL route large or slow evidence hierarchy to TestMesh instead of becoming a mesh route.
+
+#### Scenario: Ordinary transition coverage does not require TestMesh
+- **WHEN** the matrix is small and ordinary tests provide evidence
+- **THEN** Model-Test Alignment can review transition-derived obligations without requiring a TestMesh plan
+
+#### Scenario: Large transition coverage routes outward
+- **WHEN** the matrix is large, slow, layered, stale-prone, or release-only
+- **THEN** agents use TestMesh for child-suite evidence ownership while Model-Test Alignment keeps semantic obligations visible
+
+### Requirement: Model-test alignment treats unknown cases as boundary obligations
+
+FlowGuard SHALL guide model-test alignment users to include representative
+unknown/other cases when a model or code contract has an open external boundary.
+
+#### Scenario: Unknown boundary cases are visible in alignment guidance
+
+- **GIVEN** a model obligation or code boundary contract accepts finite inputs
+- **WHEN** an outside-enumeration input may occur
+- **THEN** model-test alignment guidance MUST ask for explicit unknown handling,
+  boundary observations, tests, or a state closure report
+- **AND** it MUST route unresolved unknown cases to model maturation rather than
+  treating them as optional human review.
+
+### Requirement: Similarity-driven family evidence
+Model-Test Alignment SHALL be able to consume same-family-variant and
+evidence-duplicate model-similarity relations when a broad same-class claim
+depends on sibling model obligations or shared mechanism evidence.
+
+#### Scenario: Family variant requires sibling evidence
+- **WHEN** a model-test alignment plan claims a same-class family and cites a
+  same-family-variant similarity relation
+- **THEN** the review requires current evidence for each in-scope family member
+  or a scoped/exempt rationale for members outside the current claim
+
+#### Scenario: Maintenance group requires shared and variant test obligations
+- **WHEN** a model-test alignment plan claims coverage for a similarity
+  maintenance group
+- **THEN** the plan records shared and variant test obligation ids or equivalent
+  obligation-family evidence before claiming the similar workflows are covered
+
+#### Scenario: Evidence duplicate cannot overclaim coverage
+- **WHEN** two model obligations cite the same evidence through an
+  evidence-duplicate similarity relation
+- **THEN** the review accepts the evidence only for obligations whose external
+  contract, mechanism, provenance, and freshness match the evidence scope
+

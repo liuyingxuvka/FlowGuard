@@ -86,7 +86,10 @@ FlowGuard SHALL treat architecture reduction as a review and handoff capability,
 FlowGuard SHALL let Architecture Reduction classify old aliases, alternate
 paths, migration branches, pass-through compatibility adapters, public facades,
 retired validation artifacts, and legacy rejection tests before contraction is
-claimed ready.
+claimed ready. Compatibility-only fields, aliases, wrappers, or guidance MAY be
+removed when the classification proves they are obsolete and not a current
+contract, safety classifier, public facade, runtime-authoritative archive, or
+negative legacy test without replacement evidence.
 
 #### Scenario: Boundary adapter is kept at the edge
 - **WHEN** a compatibility surface is classified as a boundary adapter
@@ -112,3 +115,63 @@ claimed ready.
 - **THEN** the report includes the surface classifications, recommendations,
   evidence references, and missing evidence so downstream routes can preserve
   the decision boundary
+
+#### Scenario: Obsolete compatibility field is removed
+- **WHEN** a field, alias, wrapper, or prompt instruction exists only to
+  preserve an old FlowGuard surface
+- **AND** the current route-first API or `SimilarityHandoff` covers the same
+  maintenance obligation
+- **AND** the surface is not a current contract, safety classifier, public
+  facade, runtime-authoritative archive, or unreplaced negative legacy test
+- **THEN** FlowGuard may remove the old surface instead of preserving parallel
+  compatibility paths
+
+#### Scenario: Safety classifier is not removed as compatibility bloat
+- **WHEN** a rule classifies current contracts, public facades,
+  runtime-authoritative archives, negative legacy tests, or unknown
+  compatibility surfaces before deletion
+- **THEN** the rule remains part of Architecture Reduction unless a newer
+  current guard provides equivalent protection and tests prove the handoff
+  boundary
+
+### Requirement: Architecture Reduction classifies old fields
+Architecture Reduction SHALL classify old fields, field aliases, compatibility
+field adapters, migration field branches, and retired field validation evidence
+before contraction or replacement cleanup is claimed ready.
+
+#### Scenario: Old field is a prune candidate
+- **WHEN** an old field exists only for a replaced behavior
+- **AND** current field lifecycle and model-code-test evidence prove the new
+  field covers the behavior
+- **THEN** Architecture Reduction MAY classify the old field as a prune
+  candidate subject to implementation and validation gates
+
+#### Scenario: Old field has runtime authority
+- **WHEN** an archive-only or compatibility field can still affect runtime
+  behavior
+- **THEN** Architecture Reduction MUST block removal readiness until runtime
+  authority is removed, delegated, migrated, or explicitly preserved with
+  evidence
+
+### Requirement: Similarity relation provenance
+Architecture Reduction SHALL be able to consume model-similarity relations as
+candidate provenance for duplicate-boundary, adapter-only, shared-kernel, and
+duplicate-validation contraction candidates.
+
+#### Scenario: Similarity relation feeds reduction candidate
+- **WHEN** an Architecture Reduction candidate cites a model-similarity
+  relation that identifies duplicate ownership or adapter-only difference
+- **THEN** the review includes the relation id as candidate provenance while
+  still requiring observable architecture contract coverage
+
+#### Scenario: Similarity code obligation feeds reduction candidate
+- **WHEN** an Architecture Reduction candidate is motivated by a
+  duplicate-boundary or adapter-only model-similarity obligation
+- **THEN** the candidate records the code obligation id as provenance while
+  Architecture Reduction still owns the contraction readiness decision
+
+#### Scenario: Similarity is not proof by itself
+- **WHEN** a reduction candidate only cites a similarity relation and lacks
+  safe equivalence, public facade, conformance, or validation-boundary evidence
+- **THEN** the review does not report the candidate as ready
+
