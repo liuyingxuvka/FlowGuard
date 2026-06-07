@@ -1,7 +1,7 @@
 # risk-evidence-ledger Specification
 
 ## Purpose
-TBD - created by archiving change add-risk-evidence-ledger. Update Purpose after archive.
+This capability defines FlowGuard's Risk Evidence Ledger behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: Risk evidence rows bind model, code, and proof evidence
 

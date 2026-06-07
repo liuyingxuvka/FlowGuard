@@ -1,7 +1,7 @@
 # test-result-reuse-proof Specification
 
 ## Purpose
-TBD - created by archiving change add-result-reuse-proof. Update Purpose after archive.
+This capability defines FlowGuard's Test Result Reuse Proof behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: Test result reuse ticket
 FlowGuard SHALL provide a public test-result reuse ticket that records why a

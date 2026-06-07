@@ -30,6 +30,25 @@ The sections below are escalation layers. They help when the task has a named
 UI, structure, testing, hierarchy, process, release, or evidence risk, but they
 are not prerequisites for valid FlowGuard use.
 
+## Agent-Default API
+
+`AGENT_DEFAULT_API` is the smallest public first-read surface for AI agents.
+It keeps the normal path short:
+
+- core modeling: `Workflow`, `Explorer`, `Invariant`, `FunctionResult`;
+- route selection: `FLOWGUARD_ROUTE_API`,
+  `default_flowguard_route_profiles()`;
+- FlowGuard self-maintenance:
+  `default_flowguard_self_maintenance_plan()`,
+  `review_flowguard_self_maintenance()`;
+- project and release gates: `audit_project_adoption()`,
+  `review_development_process_flow()`, `review_maintenance_scan()`;
+- escalation checks: `review_model_test_alignment()`,
+  `review_field_lifecycle()`, and `review_topology_hazards()`.
+
+Use this group before expanding to `FLOWGUARD_ROUTE_API` or the complete
+`MODELING_HELPER_API` inventory.
+
 ## Core API
 
 Core APIs are the stable objects needed to build and run a direct finite model:
@@ -80,7 +99,10 @@ For AI agents, route groups are the normal discovery surface:
   consume `SimilarityHandoff` when model similarity drives their work.
   `MODEL_TEST_ALIGNMENT_ROUTE_API` also exposes transition coverage matrix
   helpers for turning modeled transitions into direct test-evidence
-  obligations.
+  obligations. Python source-audit execution lives in
+  `flowguard.model_test_alignment_source`, while the original
+  `flowguard.model_test_alignment` and top-level `flowguard` imports remain
+  compatibility facades.
 - `MAINTENANCE_SCAN_ROUTE_API` is the thin router for FlowGuard-managed
   project work that needs to surface model/code/test drift, stale evidence,
   skipped candidate routes, or split/reduction pressure before a broad claim.

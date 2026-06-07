@@ -1,7 +1,7 @@
 # pre-implementation-model-hardening Specification
 
 ## Purpose
-TBD - created by archiving change harden-model-first-skill-gate. Update Purpose after archive.
+This capability defines FlowGuard's Pre Implementation Model Hardening behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: Complex changes use a model-hardening gate
 The model-first Skill SHALL require a pre-implementation model-hardening gate

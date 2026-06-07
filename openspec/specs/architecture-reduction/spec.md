@@ -1,7 +1,7 @@
 # architecture-reduction Specification
 
 ## Purpose
-TBD - created by archiving change add-architecture-reduction. Update Purpose after archive.
+This capability defines FlowGuard's Architecture Reduction behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: Observable architecture contract
 FlowGuard SHALL require an architecture reduction review to declare the source model, source code boundary, observable public entrypoints, observable outputs, observable state, observable side effects, validation boundaries, and rationale before reporting a reduction as ready.

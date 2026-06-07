@@ -1,7 +1,7 @@
 # model-similarity-consolidation Specification
 
 ## Purpose
-TBD - created by archiving change add-model-similarity-consolidation. Update Purpose after archive.
+This capability defines FlowGuard's Model Similarity Consolidation behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: Model signatures
 FlowGuard SHALL represent a comparable model signature with model identity,

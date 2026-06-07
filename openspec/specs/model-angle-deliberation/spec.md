@@ -1,7 +1,7 @@
 # model-angle-deliberation Specification
 
 ## Purpose
-TBD - created by archiving change add-model-angle-deliberation. Update Purpose after archive.
+This capability defines FlowGuard's Model Angle Deliberation behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: Agents record open-ended model angle deliberation
 FlowGuard SHALL provide a model-angle deliberation helper that records

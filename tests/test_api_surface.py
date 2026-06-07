@@ -12,19 +12,39 @@ class ApiSurfaceTests(unittest.TestCase):
     def test_api_surface_groups_are_exported(self):
         self.assertEqual(
             set(flowguard.API_SURFACE),
-            {"core", "modeling_helpers", "reporting_helpers", "evidence"},
+            {"agent_default", "core", "modeling_helpers", "reporting_helpers", "evidence"},
         )
 
-        grouped_names = []
+        canonical_grouped_names = []
         for group_name, names in flowguard.API_SURFACE.items():
             self.assertIsInstance(names, tuple, group_name)
             self.assertTrue(names, group_name)
             for name in names:
                 self.assertIn(name, flowguard.__all__, f"{group_name}:{name}")
                 self.assertTrue(hasattr(flowguard, name), f"{group_name}:{name}")
-                grouped_names.append(name)
+                if group_name != "agent_default":
+                    canonical_grouped_names.append(name)
 
-        self.assertEqual(len(grouped_names), len(set(grouped_names)))
+        self.assertEqual(len(canonical_grouped_names), len(set(canonical_grouped_names)))
+        public_first_read_names = set(canonical_grouped_names) | set(flowguard._PUBLIC_API_SUPPLEMENT)
+        self.assertTrue(set(flowguard.AGENT_DEFAULT_API).issubset(public_first_read_names))
+
+    def test_agent_default_api_is_compact_first_read_surface(self):
+        self.assertLess(len(flowguard.AGENT_DEFAULT_API), 20)
+        expected = {
+            "Workflow",
+            "Explorer",
+            "Invariant",
+            "FLOWGUARD_ROUTE_API",
+            "default_flowguard_self_maintenance_plan",
+            "audit_project_adoption",
+            "review_development_process_flow",
+            "review_maintenance_scan",
+            "review_model_test_alignment",
+            "review_field_lifecycle",
+        }
+        self.assertTrue(expected.issubset(set(flowguard.AGENT_DEFAULT_API)))
+        self.assertEqual(flowguard.AGENT_DEFAULT_API, flowguard.API_SURFACE["agent_default"])
 
     def test_core_group_keeps_minimal_path_visible(self):
         self.assertIn("Workflow", flowguard.CORE_API)
@@ -229,6 +249,16 @@ class ApiSurfaceTests(unittest.TestCase):
             self.assertIn(name, flowguard.__all__)
             self.assertTrue(hasattr(flowguard, name), name)
             self.assertNotIn(name, flowguard.CORE_API)
+
+    def test_model_test_alignment_source_audit_split_keeps_facade_imports(self):
+        from flowguard import model_test_alignment_source
+
+        self.assertTrue(hasattr(model_test_alignment_source, "audit_python_code_contracts"))
+        self.assertTrue(hasattr(model_test_alignment_source, "audit_python_test_assertions"))
+        self.assertTrue(hasattr(model_test_alignment_source, "review_python_contract_source_audit"))
+        self.assertTrue(hasattr(flowguard, "audit_python_code_contracts"))
+        self.assertTrue(hasattr(flowguard, "audit_python_test_assertions"))
+        self.assertTrue(hasattr(flowguard, "review_python_contract_source_audit"))
 
     def test_transition_coverage_api_is_public_model_test_alignment_helper(self):
         expected = (
@@ -468,6 +498,7 @@ class ApiSurfaceTests(unittest.TestCase):
     def test_public_all_is_derived_from_api_groups_and_supplement(self):
         expected_supplement = (
             "AGENT_WORKFLOW_REHEARSAL_ROUTE_API",
+            "AGENT_DEFAULT_API",
             "API_SURFACE",
             "ARCHITECTURE_REDUCTION_ROUTE_API",
             "CODE_STRUCTURE_RECOMMENDATION_ROUTE_API",

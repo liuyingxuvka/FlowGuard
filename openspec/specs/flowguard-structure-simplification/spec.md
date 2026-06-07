@@ -1,7 +1,7 @@
 # flowguard-structure-simplification Specification
 
 ## Purpose
-TBD - created by archiving change simplify-flowguard-structure. Update Purpose after archive.
+This capability defines FlowGuard's Flowguard Structure Simplification behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: CLI Template Registration Preservation
 FlowGuard SHALL reduce repeated template command registration without changing

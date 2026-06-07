@@ -1,7 +1,7 @@
 # maintenance-obligation-memory Specification
 
 ## Purpose
-TBD - created by archiving change extend-maintenance-obligation-memory. Update Purpose after archive.
+This capability defines FlowGuard's Maintenance Obligation Memory behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: FlowGuard records anchored open maintenance obligations
 FlowGuard SHALL represent unresolved route-owned maintenance work as anchored

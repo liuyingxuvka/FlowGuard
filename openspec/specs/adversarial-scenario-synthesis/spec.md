@@ -1,7 +1,7 @@
 # adversarial-scenario-synthesis Specification
 
 ## Purpose
-TBD - created by archiving change add-adversarial-scenario-synthesis. Update Purpose after archive.
+This capability defines FlowGuard's Adversarial Scenario Synthesis behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: Deterministic challenge scenario synthesis
 FlowGuard SHALL allow the existing scenario matrix builder to add bounded,

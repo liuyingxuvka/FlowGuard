@@ -1,7 +1,7 @@
 # hierarchical-model-mesh Specification
 
 ## Purpose
-TBD - created by archiving change add-hierarchical-model-mesh. Update Purpose after archive.
+This capability defines FlowGuard's Hierarchical Model Mesh behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: Parent partition maps
 FlowGuard SHALL allow a parent model boundary to declare coverage items for

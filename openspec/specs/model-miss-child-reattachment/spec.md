@@ -1,7 +1,7 @@
 # model-miss-child-reattachment Specification
 
 ## Purpose
-TBD - created by archiving change add-child-model-reattachment-gate. Update Purpose after archive.
+This capability defines FlowGuard's Model Miss Child Reattachment behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: Child model misses return through parent mesh
 The model-first Skill SHALL require a post-runtime model miss repaired inside a

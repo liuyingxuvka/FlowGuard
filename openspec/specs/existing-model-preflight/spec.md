@@ -1,7 +1,7 @@
 # existing-model-preflight Specification
 
 ## Purpose
-TBD - created by archiving change add-existing-model-preflight. Update Purpose after archive.
+This capability defines FlowGuard's Existing Model Preflight behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: Existing modeled system changes are grounded in current models
 FlowGuard guidance SHALL require Codex to ground non-trivial discussion,

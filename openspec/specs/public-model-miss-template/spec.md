@@ -1,7 +1,7 @@
 # public-model-miss-template Specification
 
 ## Purpose
-TBD - created by archiving change harden-model-miss-template-generalization. Update Purpose after archive.
+This capability defines FlowGuard's Public Model Miss Template behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: Template encodes observed and generalized bad cases
 The public `model-miss-template` SHALL generate a model-miss review artifact

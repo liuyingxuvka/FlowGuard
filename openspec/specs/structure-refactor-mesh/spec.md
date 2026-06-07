@@ -1,7 +1,7 @@
 # structure-refactor-mesh Specification
 
 ## Purpose
-TBD - created during OpenSpec archive normalization so historical
+This capability defines how FlowGuard splits or restructures large modules behind stable facades while preserving public entry points and validation evidence.
 StructureMesh deltas can be archived into a main spec.
 ## Requirements
 ### Requirement: model-first-function-flow routes structure decomposition
@@ -146,4 +146,15 @@ Structure Refactor Mesh SHALL govern internal self-maintenance module splits thr
 #### Scenario: Oversized route module is split
 - **WHEN** an oversized route module moves review internals into child helpers
 - **THEN** the original public entrypoint SHALL remain available until parity evidence supports any contraction
+
+### Requirement: Behavior-preserving module responsibility split
+FlowGuard large-module reduction SHALL split coherent responsibilities behind stable public entry points and verify old public imports still work.
+
+#### Scenario: Source-audit responsibility is split
+- **WHEN** source-audit helpers are moved from an oversized module into a dedicated module
+- **THEN** the original public import path, public API export, and existing tests continue to pass
+
+#### Scenario: Future large-module split is planned
+- **WHEN** another oversized module is selected for split
+- **THEN** StructureMesh evidence identifies the responsibility boundary, facade compatibility, cycle risk, and validation required before release
 

@@ -1,7 +1,7 @@
 # runtime-gateway-adoption Specification
 
 ## Purpose
-TBD - created by archiving change require-runtime-gateway-adoption. Update Purpose after archive.
+This capability defines FlowGuard's Runtime Gateway Adoption behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: Adoption levels are explicit
 

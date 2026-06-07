@@ -1,7 +1,7 @@
 # contract-audit-evidence Specification
 
 ## Purpose
-TBD - created by archiving change add-contract-audit-evidence. Update Purpose after archive.
+This capability defines FlowGuard's Contract Audit Evidence behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: Conservative Python code contract audit
 The system SHALL provide a conservative Python source audit layer that can read

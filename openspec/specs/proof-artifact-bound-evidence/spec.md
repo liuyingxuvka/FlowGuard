@@ -1,7 +1,7 @@
 # proof-artifact-bound-evidence Specification
 
 ## Purpose
-TBD - created by archiving change require-proof-artifact-bound-evidence. Update Purpose after archive.
+This capability defines FlowGuard's Proof Artifact Bound Evidence behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: Proof artifact reference
 FlowGuard SHALL provide a shared proof artifact reference that records the

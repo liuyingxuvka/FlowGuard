@@ -1,7 +1,6 @@
 # long-check-observability Specification
-
 ## Purpose
-TBD - created by archiving change standardize-long-check-observability. Update Purpose after archive.
+This capability defines how FlowGuard keeps long-running validation visible, bounded, and evidence-backed instead of treating background progress as completion.
 ## Requirements
 ### Requirement: Background checks record durable evidence
 FlowGuard skill guidance SHALL require long-running background checks to record durable stdout, stderr, combined output, exit status, and metadata artifacts by default.
@@ -46,3 +45,25 @@ progress output reuse for model and test regressions.
   artifacts
 - **THEN** the long-check report SHALL treat it as liveness evidence only, not
   completion evidence
+
+### Requirement: Aggregate local model regression runner
+FlowGuard SHALL provide a tracked command that discovers present `.flowguard/**/run_checks.py` files, runs them, and reports every runner's status before returning a failing exit code for any failed runner.
+
+#### Scenario: One local runner fails
+- **WHEN** the aggregate model regression command encounters a runner with non-zero exit status
+- **THEN** the command reports the failed runner path and exits non-zero
+
+#### Scenario: All local runners pass
+- **WHEN** every discovered local runner exits zero
+- **THEN** the command reports the runner count and exits zero
+
+### Requirement: Deep validation lane
+FlowGuard CI SHALL keep fast push validation separate from deep manual or scheduled validation that can run full unit tests and aggregate model regressions without slowing ordinary pushes.
+
+#### Scenario: Push validation
+- **WHEN** a commit is pushed to `main`
+- **THEN** the fast validation lane runs install, project audit, OpenSpec strict validation, self-maintenance model checks, and focused tests
+
+#### Scenario: Manual deep validation
+- **WHEN** a maintainer runs the workflow manually with deep validation enabled
+- **THEN** the deep lane runs full unit tests and aggregate model regressions

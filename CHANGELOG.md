@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.41.4 - 2026-06-07
+
+Complete FlowGuard maintenance hardening.
+
+- Added `AGENT_DEFAULT_API` as a compact first-read surface for agents while
+  preserving the full route and helper API registry.
+- Added tracked maintenance helpers for aggregate local `.flowguard` model
+  regression and no-delete shadow workspace synchronization.
+- Added a generated field lifecycle inventory so field reduction can start
+  from ownership and lifecycle clues instead of text-search deletion.
+- Split Model-Test Alignment Python source-audit execution into a dedicated
+  module while preserving the original public imports.
+- Split GitHub CI into fast push checks and scheduled/manual deep checks that
+  include full unit and aggregate model regression.
+
 ## v0.41.3 - 2026-06-07
 
 GitHub CI portability fix.

@@ -1,7 +1,7 @@
 # flowguard-ai-entry-simplification Specification
 
 ## Purpose
-TBD - created by archiving change simplify-flowguard-ai-entry. Update Purpose after archive.
+This capability defines FlowGuard's Flowguard Ai Entry Simplification behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: FlowGuard exposes a thin default AI entry path
 

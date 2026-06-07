@@ -1,7 +1,7 @@
 # auto-model-test-mesh-split-derivation Specification
 
 ## Purpose
-TBD - created by archiving change auto-derive-model-test-mesh-splits. Update Purpose after archive.
+This capability defines FlowGuard's Auto Model Test Mesh Split Derivation behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: Automatic split diagnostics
 FlowGuard SHALL provide an executable helper that reviews model and validation

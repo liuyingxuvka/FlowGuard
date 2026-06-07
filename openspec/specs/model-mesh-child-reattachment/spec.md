@@ -1,7 +1,7 @@
 # model-mesh-child-reattachment Specification
 
 ## Purpose
-TBD - created by archiving change add-child-model-reattachment-gate. Update Purpose after archive.
+This capability defines FlowGuard's Model Mesh Child Reattachment behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: ModelMesh child reattachment contract
 ModelMesh SHALL allow a parent model boundary to declare a child reattachment

@@ -999,6 +999,23 @@ CORE_API = (
     "enumerate_input_sequences",
 )
 
+AGENT_DEFAULT_API = (
+    "Workflow",
+    "Explorer",
+    "Invariant",
+    "FunctionResult",
+    "FLOWGUARD_ROUTE_API",
+    "default_flowguard_route_profiles",
+    "default_flowguard_self_maintenance_plan",
+    "review_flowguard_self_maintenance",
+    "audit_project_adoption",
+    "review_development_process_flow",
+    "review_maintenance_scan",
+    "review_model_test_alignment",
+    "review_field_lifecycle",
+    "review_topology_hazards",
+)
+
 MODELING_HELPER_API = (
     "all_items_have_source",
     "at_most_once_by",
@@ -2019,6 +2036,7 @@ def default_flowguard_self_maintenance_plan(
 
 
 API_SURFACE = {
+    "agent_default": AGENT_DEFAULT_API,
     "core": CORE_API,
     "modeling_helpers": MODELING_HELPER_API,
     "reporting_helpers": REPORTING_HELPER_API,
@@ -2027,6 +2045,7 @@ API_SURFACE = {
 
 _PUBLIC_API_SUPPLEMENT = (
     "AGENT_WORKFLOW_REHEARSAL_ROUTE_API",
+    "AGENT_DEFAULT_API",
     "API_SURFACE",
     "ARCHITECTURE_REDUCTION_ROUTE_API",
     "CODE_STRUCTURE_RECOMMENDATION_ROUTE_API",

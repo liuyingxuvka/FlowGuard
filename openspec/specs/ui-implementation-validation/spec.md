@@ -1,7 +1,7 @@
 # ui-implementation-validation Specification
 
 ## Purpose
-TBD - created by archiving change add-ui-implementation-validation. Update Purpose after archive.
+This capability defines FlowGuard's Ui Implementation Validation behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: UI implementation validation is explicit
 The system SHALL provide a UI implementation validation surface that

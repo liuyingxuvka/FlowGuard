@@ -1,7 +1,7 @@
 # user-facing-model-diagrams Specification
 
 ## Purpose
-TBD - created by archiving change add-user-facing-model-diagrams. Update Purpose after archive.
+This capability defines FlowGuard's User Facing Model Diagrams behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: Lightweight Diagram Guidance
 FlowGuard skills SHALL allow agents to use a user-facing Mermaid diagram or

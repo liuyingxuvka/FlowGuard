@@ -1,7 +1,7 @@
 # flowguard-agent-workflow-rehearsal Specification
 
 ## Purpose
-TBD - created by archiving change add-flowguard-agent-workflow-rehearsal. Update Purpose after archive.
+This capability defines FlowGuard's Flowguard Agent Workflow Rehearsal behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: Rehearsal begins with current skill inventory
 The system SHALL create a fresh `SkillInventorySnapshot` at the start of every

@@ -1,7 +1,7 @@
 # layered-boundary-proof Specification
 
 ## Purpose
-TBD - created by archiving change add-layered-boundary-proof. Update Purpose after archive.
+This capability defines FlowGuard's Layered Boundary Proof behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: Parent Coverage
 FlowGuard SHALL require a layered proof to identify every parent responsibility

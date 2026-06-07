@@ -1,7 +1,7 @@
 # model-mesh-closure-model Specification
 
 ## Purpose
-TBD - created by archiving change add-model-mesh-closure-model. Update Purpose after archive.
+This capability defines FlowGuard's Model Mesh Closure Model behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: Mesh closure meta-model
 ModelMesh SHALL support an executable FlowGuard-style closure model that

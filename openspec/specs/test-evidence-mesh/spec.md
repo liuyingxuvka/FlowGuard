@@ -1,7 +1,7 @@
 # test-evidence-mesh Specification
 
 ## Purpose
-TBD - created by archiving change add-test-evidence-mesh. Update Purpose after archive.
+This capability defines FlowGuard's Test Evidence Mesh behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: Test partition ownership
 FlowGuard SHALL allow projects to declare test partition items for behavior,

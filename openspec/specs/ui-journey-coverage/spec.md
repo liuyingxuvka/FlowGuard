@@ -1,7 +1,7 @@
 # ui-journey-coverage Specification
 
 ## Purpose
-TBD - created by archiving change add-ui-journey-coverage. Update Purpose after archive.
+This capability defines FlowGuard's Ui Journey Coverage behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: App-level UI journey coverage is explicit
 The system SHALL provide a UI journey coverage surface that distinguishes

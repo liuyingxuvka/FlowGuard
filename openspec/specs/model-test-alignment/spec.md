@@ -1,7 +1,7 @@
 # model-test-alignment Specification
 
 ## Purpose
-TBD - created by archiving change add-model-test-alignment. Update Purpose after archive.
+This capability defines how FlowGuard aligns model obligations, owner code contracts, and test evidence before granting implementation or release confidence.
 ## Requirements
 ### Requirement: Review model obligations against test evidence
 FlowGuard SHALL provide a standalone model-test alignment helper that accepts explicit model obligations and plain test evidence, then reports whether every required model obligation has current acceptable test evidence.

@@ -1,7 +1,7 @@
 # test-mesh-target-split-derivation Specification
 
 ## Purpose
-TBD - created by archiving change add-mesh-target-split-derivation. Update Purpose after archive.
+This capability defines FlowGuard's Test Mesh Target Split Derivation behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: TestMesh target split derivation
 TestMesh SHALL require a parent validation boundary to include target split

@@ -1,7 +1,7 @@
 # maintenance-scan-router Specification
 
 ## Purpose
-TBD - created by archiving change upgrade-ai-agent-route-handoffs. Update Purpose after archive.
+This capability defines FlowGuard's Maintenance Scan Router behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: Summary reports produce maintenance scan inputs
 FlowGuard SHALL provide a helper that converts a `FlowGuardSummaryReport` and

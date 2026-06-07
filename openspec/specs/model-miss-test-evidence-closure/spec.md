@@ -1,7 +1,7 @@
 # model-miss-test-evidence-closure Specification
 
 ## Purpose
-TBD - created by archiving change require-same-class-test-evidence. Update Purpose after archive.
+This capability defines FlowGuard's Model Miss Test Evidence Closure behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: Model miss closure requires same-class test evidence
 FlowGuard SHALL block full closure for an in-scope post-runtime model miss

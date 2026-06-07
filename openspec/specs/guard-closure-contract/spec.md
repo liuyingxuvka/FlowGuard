@@ -1,7 +1,7 @@
 # guard-closure-contract Specification
 
 ## Purpose
-TBD - created by archiving change add-guard-closure-contract. Update Purpose after archive.
+This capability defines FlowGuard's Guard Closure Contract behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: Child Guard closure reports are machine-readable
 FlowGuard SHALL require child Guard closure reports to expose owner, artifact kind, closure status, findings, missing inputs, stale evidence, skipped checks, next actions, safe claim, and unsafe claim boundary before using them for broad confidence.

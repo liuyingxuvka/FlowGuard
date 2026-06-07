@@ -1,7 +1,7 @@
 # model-impact-freshness-gate Specification
 
 ## Purpose
-TBD - created by archiving change add-model-impact-freshness-gate. Update Purpose after archive.
+This capability defines FlowGuard's Model Impact Freshness Gate behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: Model Impact Classification
 

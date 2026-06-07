@@ -1,7 +1,7 @@
 # runtime-path-evidence Specification
 
 ## Purpose
-TBD - created by archiving change add-runtime-path-evidence. Update Purpose after archive.
+This capability defines FlowGuard's Runtime Path Evidence behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: Runtime path evidence rows
 FlowGuard SHALL provide structured runtime path evidence rows for expected

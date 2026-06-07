@@ -1,7 +1,7 @@
 # flowguard-skill-kernel Specification
 
 ## Purpose
-TBD - created by archiving change modularize-flowguard-skill-kernel. Update Purpose after archive.
+This capability defines FlowGuard's Flowguard Skill Kernel behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: Skill Kernel remains compact and route-oriented
 The `model-first-function-flow` Skill SHALL keep its main `SKILL.md` focused on

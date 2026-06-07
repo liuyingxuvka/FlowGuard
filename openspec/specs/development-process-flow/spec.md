@@ -1,7 +1,7 @@
 # development-process-flow Specification
 
 ## Purpose
-TBD - created during OpenSpec archive normalization so historical
+This capability defines how FlowGuard orders staged edits, validation, install sync, shadow sync, release evidence, and done claims so later work cannot reuse stale proof.
 DevelopmentProcessFlow deltas can be archived into a main spec.
 ## Requirements
 ### Requirement: model-first-function-flow routes development lifecycle review

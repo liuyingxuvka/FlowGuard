@@ -1,7 +1,7 @@
 # flowguard-model-visibility Specification
 
 ## Purpose
-TBD - created by archiving change strengthen-user-facing-model-visibility. Update Purpose after archive.
+This capability defines FlowGuard's Flowguard Model Visibility behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: Non-trivial FlowGuard work defaults to user-visible model snapshots
 FlowGuard guidance SHALL direct agents to show a user-facing Mermaid model

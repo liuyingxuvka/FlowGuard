@@ -1,7 +1,7 @@
 # legacy-path-disposition Specification
 
 ## Purpose
-TBD - created by archiving change require-proof-artifact-bound-evidence. Update Purpose after archive.
+This capability defines FlowGuard's Legacy Path Disposition behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: Legacy path disposition
 FlowGuard SHALL represent the disposition of old or alternate paths during

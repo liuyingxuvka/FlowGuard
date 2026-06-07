@@ -1,7 +1,7 @@
 # flowguard-codex-skill-satellites Specification
 
 ## Purpose
-TBD - created by archiving change split-flowguard-codex-skills. Update Purpose after archive.
+This capability defines FlowGuard's Flowguard Codex Skill Satellites behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: Kernel remains the canonical FlowGuard entrypoint
 The repository SHALL keep `model-first-function-flow` as the canonical

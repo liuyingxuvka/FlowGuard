@@ -1,7 +1,7 @@
 # ui-text-hierarchy-blueprint Specification
 
 ## Purpose
-TBD - created by archiving change add-ui-text-hierarchy. Update Purpose after archive.
+This capability defines FlowGuard's Ui Text Hierarchy Blueprint behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: UI text inventory is explicit
 The system SHALL provide a UI Text Hierarchy Blueprint surface that inventories

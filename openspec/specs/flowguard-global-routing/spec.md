@@ -1,7 +1,7 @@
 # flowguard-global-routing Specification
 
 ## Purpose
-TBD - created by archiving change standardize-flowguard-global-routing. Update Purpose after archive.
+This capability defines FlowGuard's Flowguard Global Routing behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: Global routing prefers direct FlowGuard satellite skills
 The global Codex FlowGuard guidance SHALL first check whether a direct

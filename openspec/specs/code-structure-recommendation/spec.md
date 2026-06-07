@@ -1,7 +1,7 @@
 # code-structure-recommendation Specification
 
 ## Purpose
-TBD - created by archiving change add-code-structure-recommendation. Update Purpose after archive.
+This capability defines FlowGuard's Code Structure Recommendation behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: Code structure recommendation is a parallel route
 FlowGuard SHALL provide a code structure recommendation route that can be used

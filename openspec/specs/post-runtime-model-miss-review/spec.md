@@ -1,7 +1,7 @@
 # post-runtime-model-miss-review Specification
 
 ## Purpose
-TBD - created by archiving change simplify-model-miss-review. Update Purpose after archive.
+This capability defines FlowGuard's Post Runtime Model Miss Review behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: Model misses use five practical categories
 The model-first Skill SHALL classify post-runtime model misses using the five

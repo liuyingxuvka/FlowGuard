@@ -1,7 +1,7 @@
 # model-maturation-loop Specification
 
 ## Purpose
-TBD - created during OpenSpec archive normalization so historical model
+This capability defines FlowGuard's Model Maturation Loop behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 maturation deltas can be archived into a main spec.
 ## Requirements
 ### Requirement: Complete FlowGuard Use Requires Current Maturation Decision

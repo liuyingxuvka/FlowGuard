@@ -1,7 +1,7 @@
 # artifact-schema-upgrade Specification
 
 ## Purpose
-TBD - created by archiving change enforce-latest-schema-upgrade-policy. Update Purpose after archive.
+This capability defines FlowGuard's Artifact Schema Upgrade behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: Latest-schema artifact upgrade
 FlowGuard SHALL provide a deterministic upgrade review for older FlowGuard

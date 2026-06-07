@@ -1,7 +1,7 @@
 # model-boundary-diff-propagation Specification
 
 ## Purpose
-TBD - created by archiving change propagate-model-boundary-diffs. Update Purpose after archive.
+This capability defines FlowGuard's Model Boundary Diff Propagation behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: Boundary diff capture
 FlowGuard SHALL represent a child model boundary change as a semantic diff that

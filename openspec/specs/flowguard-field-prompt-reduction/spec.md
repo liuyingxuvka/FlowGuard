@@ -1,7 +1,7 @@
 # flowguard-field-prompt-reduction Specification
 
 ## Purpose
-TBD - created by archiving change reduce-flowguard-field-prompts. Update Purpose after archive.
+This capability defines FlowGuard's Flowguard Field Prompt Reduction behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: AI-facing field prompts are grouped
 

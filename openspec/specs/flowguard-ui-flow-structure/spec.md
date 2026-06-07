@@ -1,7 +1,7 @@
 # flowguard-ui-flow-structure Specification
 
 ## Purpose
-TBD - created by archiving change add-ui-flow-structure. Update Purpose after archive.
+This capability defines FlowGuard's Flowguard Ui Flow Structure behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: UI interaction model is created before UI structure derivation
 The system SHALL provide a UI interaction model surface that represents the UI

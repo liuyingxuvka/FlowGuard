@@ -1,7 +1,7 @@
 # budgeted-model-groups Specification
 
 ## Purpose
-TBD - created by archiving change add-budgeted-model-groups. Update Purpose after archive.
+This capability defines FlowGuard's Budgeted Model Groups behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: Sharded Model Group Execution
 FlowGuard SHALL provide a graph-style model-group runner that processes a large

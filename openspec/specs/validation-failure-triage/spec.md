@@ -1,7 +1,7 @@
 # validation-failure-triage Specification
 
 ## Purpose
-TBD - created by archiving change add-validation-failure-triage. Update Purpose after archive.
+This capability defines FlowGuard's Validation Failure Triage behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: Development validation failures are triaged before continuation
 

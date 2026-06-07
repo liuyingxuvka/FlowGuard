@@ -1,7 +1,7 @@
 # project-adoption-version-gate Specification
 
 ## Purpose
-TBD - created by archiving change add-project-adoption-version-gate. Update Purpose after archive.
+This capability defines how FlowGuard projects verify installed package version, schema version, managed project records, and upgrade readiness before claiming FlowGuard confidence.
 ## Requirements
 ### Requirement: Project adoption writes durable local rules
 FlowGuard SHALL provide a project adoption helper that writes or updates a
@@ -104,4 +104,15 @@ validation, self-maintenance model checks, and focused unit tests.
 - **THEN** CI runs editable install, project audit, OpenSpec strict validation,
   self-maintenance model checks, and focused unit tests before a release claim
   relies on the branch
+
+### Requirement: Shadow workspace sync helper
+FlowGuard SHALL provide a tracked shadow sync helper that can copy complete source sets into a shadow workspace, optionally refresh editable install metadata, and verify import path, package version, schema version, and a named helper in the target workspace.
+
+#### Scenario: Shadow verification succeeds
+- **WHEN** the shadow sync helper runs with verification enabled after copying source sets
+- **THEN** it reports the target import path, metadata version, schema version, and helper availability
+
+#### Scenario: Shadow verification fails
+- **WHEN** the target workspace import path, package version, schema version, or helper availability does not match expectations
+- **THEN** the helper exits non-zero and reports the mismatched field
 

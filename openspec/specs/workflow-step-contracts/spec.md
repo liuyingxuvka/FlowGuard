@@ -1,7 +1,7 @@
 # workflow-step-contracts Specification
 
 ## Purpose
-TBD - created by archiving change add-workflow-step-contracts. Update Purpose after archive.
+This capability defines FlowGuard's Workflow Step Contracts behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: Workflow step contracts
 FlowGuard SHALL provide a public workflow step contract data model that declares a required workflow step's identity, completion labels, prerequisite receipts, produced receipts, invalidated receipts, claim labels that require the step, skip policy, and optional code/test binding metadata.

@@ -1,7 +1,7 @@
 # model-first-function-flow Specification
 
 ## Purpose
-TBD - created during OpenSpec archive normalization so historical FlowGuard
+This capability defines FlowGuard's default model-first route for turning ordinary behavior, state, and workflow questions into executable function-flow checks before implementation.
 kernel deltas can be archived into a main spec.
 ## Requirements
 ### Requirement: model-first-function-flow exposes code structure recommendation

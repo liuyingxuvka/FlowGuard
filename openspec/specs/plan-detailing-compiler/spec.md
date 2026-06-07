@@ -1,7 +1,7 @@
 # plan-detailing-compiler Specification
 
 ## Purpose
-TBD - created by archiving change add-plan-detailing-compiler. Update Purpose after archive.
+This capability defines FlowGuard's Plan Detailing Compiler behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: Rough plans are represented as structured detail rows
 FlowGuard SHALL provide public data structures for a rough plan's goal, assumptions, scope, source evidence, risk surfaces, artifacts, state surfaces, side effects, ordered steps, receipts, validation requirements, failure branches, rework gates, human-review questions, and final claim boundary.

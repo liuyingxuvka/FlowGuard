@@ -1,7 +1,7 @@
 # transition-coverage-matrix Specification
 
 ## Purpose
-TBD - created by archiving change enforce-default-three-way-binding. Update Purpose after archive.
+This capability defines FlowGuard's Transition Coverage Matrix behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: Transition cells can bind code contracts
 

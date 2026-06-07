@@ -1,7 +1,7 @@
 # flowguard-self-maintenance-mesh Specification
 
 ## Purpose
-TBD - created by archiving change optimize-flowguard-self-maintenance. Update Purpose after archive.
+This capability defines how FlowGuard uses its own route, API, field, test, install, shadow, and git evidence to maintain FlowGuard itself without overclaiming completion.
 ## Requirements
 ### Requirement: Self-maintenance parent mesh
 FlowGuard SHALL provide a parent self-maintenance model that coordinates route graph completeness, field layering, structure governance, validation evidence, install/shadow sync, and final closure evidence without replacing the specialist route checks.
