@@ -1,9 +1,9 @@
 [flowguard]
 repository = "https://github.com/liuyingxuvka/FlowGuard"
-adopted_package_version = "0.41.5"
+adopted_package_version = "0.41.6"
 schema_version = "1.0"
-last_verified_at = "2026-06-07T17:59:24+00:00"
-last_verified_by = "FlowGuard deep CI portability repair"
+last_verified_at = "2026-06-07T18:19:31+00:00"
+last_verified_by = "FieldLifecycleMesh route-evidence handoff binding"
 agents_path = "AGENTS.md"
 
 [policy]

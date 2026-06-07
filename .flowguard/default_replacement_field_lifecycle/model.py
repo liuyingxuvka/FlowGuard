@@ -3,9 +3,9 @@
 FlowGuard Risk Purpose Header
 Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
 Purpose: ensure replacement work cannot claim full completion until field
-inventory, behavior projection, old path/field disposition, model-code-test
-binding, same-class bug repair evidence, freshness, and closure evidence are
-current.
+inventory, behavior projection, minimal field evidence route refs, old
+path/field disposition, model-code-test binding, same-class bug repair
+evidence, freshness, and closure evidence are current.
 Modeled block shape: Input x State -> Set(Output x State).
 Run: python .flowguard/default_replacement_field_lifecycle/run_checks.py
 """
@@ -33,6 +33,7 @@ class LifecycleState:
     fields_discovered: bool = False
     all_fields_accounted: bool = False
     behavior_fields_projected: bool = False
+    field_evidence_route_bound: bool = False
     old_paths_disposed: bool = False
     old_fields_disposed: bool = False
     model_code_test_aligned: bool = False
@@ -48,6 +49,7 @@ class LifecycleState:
             self.fields_discovered
             and self.all_fields_accounted
             and self.behavior_fields_projected
+            and self.field_evidence_route_bound
             and self.old_paths_disposed
             and self.old_fields_disposed
             and self.model_code_test_aligned
@@ -65,6 +67,7 @@ class CorrectReplacementFieldLifecycle:
         "fields_discovered",
         "all_fields_accounted",
         "behavior_fields_projected",
+        "field_evidence_route_bound",
         "old_paths_disposed",
         "old_fields_disposed",
         "model_code_test_aligned",
@@ -81,8 +84,9 @@ class CorrectReplacementFieldLifecycle:
     output_description = "replacement lifecycle state or final claim"
     idempotency = (
         "Full claims require field inventory, behavior projection, old path and "
-        "old field disposition, model-code-test alignment, bug repair closure, "
-        "freshness, and closure review."
+        "old field disposition, minimal field evidence route refs, "
+        "model-code-test alignment, bug repair closure, freshness, and "
+        "closure review."
     )
 
     def apply(self, input_obj: LifecycleAction, state: LifecycleState) -> Iterable[FunctionResult]:
@@ -104,6 +108,7 @@ class CorrectReplacementFieldLifecycle:
                 replace(
                     state,
                     behavior_fields_projected=True,
+                    field_evidence_route_bound=True,
                     old_paths_disposed=True,
                     old_fields_disposed=True,
                     final_claim="none",
@@ -182,6 +187,46 @@ class BrokenMissingProjection(CorrectReplacementFieldLifecycle):
         yield from super().apply(input_obj, state)
 
 
+class BrokenMissingFieldEvidenceRoute(CorrectReplacementFieldLifecycle):
+    name = "BrokenMissingFieldEvidenceRoute"
+    idempotency = "Broken variant treats projection as enough without gate/test/replay route refs."
+
+    def apply(self, input_obj: LifecycleAction, state: LifecycleState) -> Iterable[FunctionResult]:
+        if input_obj.action_type == "project_and_dispose":
+            yield FunctionResult(
+                LifecycleOutput("field_projection_without_route_refs"),
+                replace(
+                    state,
+                    behavior_fields_projected=True,
+                    field_evidence_route_bound=False,
+                    old_paths_disposed=True,
+                    old_fields_disposed=True,
+                    final_claim="none",
+                ),
+                label="field_projection_without_route_refs",
+            )
+            return
+        if input_obj.action_type == "claim_full_done":
+            claim = (
+                "full"
+                if state.all_fields_accounted
+                and state.behavior_fields_projected
+                and state.old_paths_disposed
+                and state.old_fields_disposed
+                and state.model_code_test_aligned
+                and state.freshness_current
+                and state.closure_review_passed
+                else "blocked"
+            )
+            yield FunctionResult(
+                LifecycleOutput(f"claim_{claim}"),
+                replace(state, final_claim=claim),
+                label=f"claim_{claim}",
+            )
+            return
+        yield from super().apply(input_obj, state)
+
+
 class BrokenUnknownOldFieldDisposition(CorrectReplacementFieldLifecycle):
     name = "BrokenUnknownOldFieldDisposition"
     idempotency = "Broken variant lets old fields remain unknown when old paths are disposed."
@@ -193,6 +238,7 @@ class BrokenUnknownOldFieldDisposition(CorrectReplacementFieldLifecycle):
                 replace(
                     state,
                     behavior_fields_projected=True,
+                    field_evidence_route_bound=True,
                     old_paths_disposed=True,
                     old_fields_disposed=False,
                     final_claim="none",
@@ -291,7 +337,7 @@ def no_full_claim_without_complete_loop(state: LifecycleState, trace) -> Invaria
     del trace
     if state.final_claim == "full" and not state.ready_for_full_claim():
         return InvariantResult.fail(
-            "full replacement claim accepted before field inventory, behavior projection, old path/field disposition, model-code-test alignment, same-class bug repair, freshness, and closure evidence"
+            "full replacement claim accepted before field inventory, behavior projection, field evidence route refs, old path/field disposition, model-code-test alignment, same-class bug repair, freshness, and closure evidence"
         )
     return InvariantResult.pass_()
 
@@ -299,7 +345,7 @@ def no_full_claim_without_complete_loop(state: LifecycleState, trace) -> Invaria
 INVARIANTS = (
     Invariant(
         "no_full_claim_without_complete_loop",
-        "Replacement and field lifecycle completion requires the whole model-code-test-field-repair loop.",
+        "Replacement and field lifecycle completion requires the whole model-code-test-field-route-repair loop.",
         no_full_claim_without_complete_loop,
     ),
 )
@@ -327,6 +373,7 @@ def build_broken_workflows() -> tuple[Workflow, ...]:
     return (
         Workflow((BrokenMissingFieldAccounting(),), name="field_lifecycle_missing_field_accounting"),
         Workflow((BrokenMissingProjection(),), name="field_lifecycle_missing_projection"),
+        Workflow((BrokenMissingFieldEvidenceRoute(),), name="field_lifecycle_missing_evidence_route"),
         Workflow((BrokenUnknownOldFieldDisposition(),), name="field_lifecycle_unknown_old_field_disposition"),
         Workflow((BrokenStaleAlignment(),), name="field_lifecycle_stale_alignment"),
         Workflow((BrokenPointFixOnlyBugRepair(),), name="field_lifecycle_point_fix_only_bug_repair"),

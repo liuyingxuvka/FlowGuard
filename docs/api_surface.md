@@ -250,7 +250,8 @@ inventory.
   `field_lifecycle_to_model_obligations()`, and
   `field_lifecycle_to_code_contracts()` for keeping field ownership,
   reader/writer maps, lifecycle state, behavior projection, scoped-out
-  reasons, and old-field disposition visible before code or done claims.
+  reasons, old-field disposition, and broad-claim gate/test/replay route refs
+  visible before code or done claims.
 - optional obligation-family parity helpers such as `ObligationFamily`,
   `ObligationFamilyMember`, `ObligationFamilyEvidence`,
   `FamilyBadCaseSeed`, `derive_same_class_bad_cases()`, and

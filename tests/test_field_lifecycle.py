@@ -18,6 +18,28 @@ class FieldLifecycleTests(unittest.TestCase):
             rationale="mode controls routing",
         )
 
+    def _projection_with_route_refs(self) -> flowguard.FieldProjection:
+        return flowguard.FieldProjection(
+            "projection:mode",
+            "field:mode",
+            model_obligation_id="field:mode:obligation",
+            code_contract_id="contract:mode",
+            external_inputs=("mode",),
+            external_outputs=("mode applied",),
+            state_reads=("mode",),
+            state_writes=("mode",),
+            required_test_kinds=(
+                flowguard.TEST_KIND_NEGATIVE_PATH,
+                flowguard.TEST_KIND_REPLAY,
+            ),
+            evidence_refs=(
+                "gate:checkout-mode-boundary",
+                "test:missing-mode-rejected",
+                "replay:mode-runtime-path",
+            ),
+            rationale="mode controls routing",
+        )
+
     def test_complete_field_lifecycle_passes_and_projects(self):
         plan = flowguard.FieldLifecyclePlan(
             "checkout-fields",
@@ -96,6 +118,75 @@ class FieldLifecycleTests(unittest.TestCase):
 
         self.assertFalse(report.ok)
         self.assertIn("behavior_field_projection_missing", {finding.code for finding in report.findings})
+
+    def test_bounded_behavior_projection_does_not_require_route_refs(self):
+        report = flowguard.review_field_lifecycle(
+            flowguard.FieldLifecyclePlan(
+                "checkout-fields",
+                discovered_field_ids=("field:mode",),
+                fields=(
+                    flowguard.FieldLifecycleRow(
+                        "field:mode",
+                        role=flowguard.FIELD_ROLE_ROUTING,
+                        behavior_impacts=(flowguard.FIELD_IMPACT_ROUTING,),
+                        projection=self._projection(),
+                    ),
+                ),
+            )
+        )
+
+        self.assertTrue(report.ok, report.format_text())
+
+    def test_full_behavior_projection_requires_gate_test_and_replay_refs(self):
+        report = flowguard.review_field_lifecycle(
+            flowguard.FieldLifecyclePlan(
+                "checkout-fields",
+                discovered_field_ids=("field:mode",),
+                claim_scope="full",
+                fields=(
+                    flowguard.FieldLifecycleRow(
+                        "field:mode",
+                        role=flowguard.FIELD_ROLE_ROUTING,
+                        behavior_impacts=(flowguard.FIELD_IMPACT_REPLAY,),
+                        projection=flowguard.FieldProjection(
+                            "projection:mode",
+                            "field:mode",
+                            model_obligation_id="field:mode:obligation",
+                            code_contract_id="contract:mode",
+                            required_test_kinds=(
+                                flowguard.TEST_KIND_NEGATIVE_PATH,
+                                flowguard.TEST_KIND_REPLAY,
+                            ),
+                        ),
+                    ),
+                ),
+            )
+        )
+
+        codes = {finding.code for finding in report.findings}
+        self.assertFalse(report.ok)
+        self.assertIn("field_gate_evidence_missing", codes)
+        self.assertIn("field_negative_test_evidence_missing", codes)
+        self.assertIn("field_replay_evidence_missing", codes)
+
+    def test_full_behavior_projection_accepts_minimal_route_refs(self):
+        report = flowguard.review_field_lifecycle(
+            flowguard.FieldLifecyclePlan(
+                "checkout-fields",
+                discovered_field_ids=("field:mode",),
+                claim_scope="full",
+                fields=(
+                    flowguard.FieldLifecycleRow(
+                        "field:mode",
+                        role=flowguard.FIELD_ROLE_ROUTING,
+                        behavior_impacts=(flowguard.FIELD_IMPACT_REPLAY,),
+                        projection=self._projection_with_route_refs(),
+                    ),
+                ),
+            )
+        )
+
+        self.assertTrue(report.ok, report.format_text())
 
     def test_old_field_unknown_disposition_blocks(self):
         report = flowguard.review_field_lifecycle(

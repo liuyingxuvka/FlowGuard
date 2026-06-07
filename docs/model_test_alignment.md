@@ -224,6 +224,13 @@ For field-bearing changes, supply FieldLifecycleMesh reports or projections to
 owner code contracts through `FieldProjection`; they still need current test
 evidence. Old or replacement fields must have closing field lifecycle
 disposition evidence before the alignment can support full confidence.
+When a FieldLifecycleMesh plan claims full, runtime, release, production, or
+closure confidence, behavior field projections should also carry minimal route
+refs in `FieldProjection.evidence_refs`: `gate:` for the boundary or runtime
+gate, `test:` for negative or failure-path proof, and `replay:` for replay
+evidence. Those refs make the field route auditable, but Model-Test Alignment
+still owns current passing test evidence and binding to the owner code
+contract.
 
 ## Findings
 

@@ -14,7 +14,9 @@ state, branch, or feature.
 - old-field disposition: deleted, blocked, migrated, delegated,
   same-contract repaired, explicitly preserved, or scoped out with reason;
 - model obligation, code contract, and required test kinds for fields that
-  affect behavior.
+  affect behavior;
+- minimal `gate:`, `test:`, and `replay:` evidence refs for broad behavior
+  field claims.
 
 ## Parent And Child Shape
 
@@ -37,6 +39,33 @@ Replacing a feature, field, alias, wrapper, or fallback does not mean keeping
 the old path. Unless compatibility is explicitly required, the old surface must
 be deleted, blocked, migrated, delegated, same-contract repaired, or scoped out
 with a reason and evidence.
+
+## Minimal Field Route Refs
+
+For bounded design work, a field row and projection can stay lightweight. For a
+full, runtime, production, release, or closure claim, a behavior-bearing field
+projection should point to the evidence route that proves the field is not just
+listed in a dictionary.
+
+Use existing `FieldProjection.evidence_refs`:
+
+```python
+FieldProjection(
+    "projection:checkout_mode",
+    "field:checkout_mode",
+    model_obligation_id="obligation:checkout_mode_routes",
+    code_contract_id="contract:checkout_mode_router",
+    required_test_kinds=("negative_path", "replay"),
+    evidence_refs=(
+        "gate:checkout-mode-boundary",
+        "test:missing-checkout-mode-rejected",
+        "replay:checkout-mode-runtime-path",
+    ),
+)
+```
+
+These references are handoffs. They do not replace Model-Test Alignment,
+Runtime Gateway Adoption, conformance replay, or Closure Contract evidence.
 
 ## Route Handoffs
 

@@ -22,6 +22,8 @@ from flowguard import (
     FIELD_ROLE_ROUTING,
     TEST_KIND_FAILURE_PATH,
     TEST_KIND_HAPPY_PATH,
+    TEST_KIND_NEGATIVE_PATH,
+    TEST_KIND_REPLAY,
     FieldLifecycleGroup,
     FieldLifecyclePlan,
     FieldLifecycleRow,
@@ -42,8 +44,18 @@ def route_projection(field_id: str, obligation_id: str, contract_id: str) -> Fie
         external_outputs=("route selected",),
         state_reads=("checkout_mode",),
         state_writes=("checkout_mode",),
-        required_test_kinds=(TEST_KIND_HAPPY_PATH, TEST_KIND_FAILURE_PATH),
-        rationale="checkout_mode controls routing, so it must be visible to the behavior model, owner code contract, and tests",
+        required_test_kinds=(
+            TEST_KIND_HAPPY_PATH,
+            TEST_KIND_FAILURE_PATH,
+            TEST_KIND_NEGATIVE_PATH,
+            TEST_KIND_REPLAY,
+        ),
+        evidence_refs=(
+            "gate:checkout-mode-boundary",
+            "test:missing-checkout-mode-rejected",
+            "replay:checkout-mode-runtime-path",
+        ),
+        rationale="checkout_mode controls routing, so broad claims need a model obligation, owner code contract, gate ref, negative test ref, and replay ref",
     )
 
 
@@ -51,6 +63,7 @@ def complete_field_lifecycle() -> FieldLifecyclePlan:
     return FieldLifecyclePlan(
         "checkout-field-lifecycle",
         discovered_field_ids=("field:checkout_mode", "field:label", "field:old_mode"),
+        claim_scope="full",
         groups=(
             FieldLifecycleGroup(
                 "checkout-payload",
@@ -114,6 +127,7 @@ def broken_field_lifecycle() -> FieldLifecyclePlan:
     return FieldLifecyclePlan(
         "checkout-field-lifecycle-broken",
         discovered_field_ids=("field:checkout_mode", "field:label", "field:old_mode"),
+        claim_scope="full",
         groups=(
             FieldLifecycleGroup(
                 "checkout-payload",
@@ -184,6 +198,10 @@ prompt/config fields, payload columns, persisted attributes, or migration keys.
 - Leaf rows account every discovered field in scope.
 - Behavior-bearing fields project into model obligations and owner code
   contracts so Model-Test Alignment can demand real test evidence.
+- Broad behavior-bearing field claims keep a minimal route trail in
+  `FieldProjection.evidence_refs`: use `gate:` for the runtime or boundary
+  gate, `test:` for the negative or failure-path proof, and `replay:` for
+  representative runtime or conformance replay evidence.
 - Non-behavior fields stay accounted with a scoped-out reason instead of
   silently disappearing.
 - Old, replaced, deprecated, alias, fallback, or compatibility fields need a
@@ -204,6 +222,10 @@ projections to Model-Test Alignment, field reader/writer/owner maps to Code
 Structure Recommendation, old-field disposition to Legacy Path Disposition and
 Architecture Reduction, bug root-cause fields to Model-Miss Review, and changed
 field artifacts to DevelopmentProcessFlow and Closure Contract.
+
+Field route refs are handoff labels, not proof by themselves. Model-Test
+Alignment, Runtime Gateway Adoption, replay, and Closure Contract still own the
+current passing evidence.
 """
 
 __all__ = [

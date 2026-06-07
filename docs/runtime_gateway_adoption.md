@@ -115,6 +115,12 @@ Code-boundary conformance alone does not prove runtime gateway adoption. It
 shows a boundary observation stayed within a declared behavior surface; it does
 not prove every critical write path was inventoried and mediated.
 
+FieldLifecycleMesh can point behavior-bearing fields to gateway or boundary
+evidence with `gate:` refs in `FieldProjection.evidence_refs`. Treat those refs
+as route labels. A `gate:` ref does not prove runtime-gateway adoption unless
+the corresponding Runtime Gateway Adoption report has current inventory,
+mediated write observations, runtime path, replay, and proof evidence.
+
 ## Boundary
 
 This helper is not a perfect source scanner. A target project must provide the

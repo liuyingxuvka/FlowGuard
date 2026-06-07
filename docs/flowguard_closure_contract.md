@@ -72,7 +72,8 @@ Use the gates that match the claim:
 - Field lifecycle: behavior-bearing fields are projected into model
   obligations and code contracts, display-only fields are scoped out with
   reasons, and old/replaced/deprecated fields have closing disposition
-  evidence.
+  evidence. Broad field claims also need minimal route refs for the relevant
+  gate, negative/failure proof, and replay evidence.
 - Obligation-family parity: when related obligations share one confidence
   claim, each sibling has the required mechanism evidence from allowed
   provenance sources, or the family gap stays visible.

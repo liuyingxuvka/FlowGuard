@@ -14,7 +14,14 @@ from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
 from .export import to_jsonable
-from .model_test_alignment import CodeContract, ModelObligation, TEST_KIND_HAPPY_PATH
+from .model_test_alignment import (
+    CodeContract,
+    ModelObligation,
+    TEST_KIND_FAILURE_PATH,
+    TEST_KIND_HAPPY_PATH,
+    TEST_KIND_NEGATIVE_PATH,
+    TEST_KIND_REPLAY,
+)
 
 
 FIELD_ROLE_STATE = "state"
@@ -125,6 +132,26 @@ FIELD_ROUTE_DEVELOPMENT_PROCESS_FLOW = "development_process_flow"
 FIELD_ROUTE_CLOSURE_CONTRACT = "flowguard_closure_contract"
 FIELD_ROUTE_MODEL_MESH = "model_mesh"
 FIELD_ROUTE_TEST_MESH = "test_mesh"
+FIELD_ROUTE_RUNTIME_GATEWAY = "runtime_gateway_adoption"
+
+FIELD_EVIDENCE_REF_GATE = "gate"
+FIELD_EVIDENCE_REF_TEST = "test"
+FIELD_EVIDENCE_REF_REPLAY = "replay"
+FIELD_EVIDENCE_REF_KINDS = (
+    FIELD_EVIDENCE_REF_GATE,
+    FIELD_EVIDENCE_REF_TEST,
+    FIELD_EVIDENCE_REF_REPLAY,
+)
+
+BROAD_FIELD_CLAIM_SCOPES = (
+    "full",
+    "runtime",
+    "runtime_gateway",
+    "production",
+    "release",
+    "closure",
+    "broad",
+)
 
 
 def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
@@ -144,6 +171,34 @@ def _unique(values: Sequence[str]) -> tuple[str, ...]:
             result.append(text)
             seen.add(text)
     return tuple(result)
+
+
+def _field_claim_scope_requires_route_refs(claim_scope: str) -> bool:
+    normalized = str(claim_scope).strip().lower().replace("-", "_").replace(" ", "_")
+    return normalized in BROAD_FIELD_CLAIM_SCOPES
+
+
+def _evidence_ref_kind(ref: str) -> str:
+    prefix = str(ref).split(":", 1)[0].strip().lower()
+    if prefix in {"gate", "boundary", "runtime_gate", "runtime_gateway"}:
+        return FIELD_EVIDENCE_REF_GATE
+    if prefix in {"test", "negative_test", "failure_test"}:
+        return FIELD_EVIDENCE_REF_TEST
+    if prefix in {"replay", "runtime_replay", "conformance_replay"}:
+        return FIELD_EVIDENCE_REF_REPLAY
+    return ""
+
+
+def _evidence_ref_kinds(refs: Sequence[str]) -> set[str]:
+    return {kind for kind in (_evidence_ref_kind(ref) for ref in refs) if kind}
+
+
+def _projection_requires_negative_test_ref(projection: "FieldProjection") -> bool:
+    return bool({TEST_KIND_FAILURE_PATH, TEST_KIND_NEGATIVE_PATH} & set(projection.required_test_kinds))
+
+
+def _projection_requires_replay_ref(row: "FieldLifecycleRow", projection: "FieldProjection") -> bool:
+    return TEST_KIND_REPLAY in projection.required_test_kinds or FIELD_IMPACT_REPLAY in row.behavior_impacts
 
 
 @dataclass(frozen=True)
@@ -506,6 +561,7 @@ def review_field_lifecycle(plan: FieldLifecyclePlan) -> FieldLifecycleReport:
     findings: list[FieldLifecycleFinding] = []
     rows_by_id = {row.field_id: row for row in plan.fields}
     group_ids = {group.group_id for group in plan.groups}
+    broad_claim = _field_claim_scope_requires_route_refs(plan.claim_scope)
 
     for field_id in plan.discovered_field_ids:
         if field_id not in rows_by_id:
@@ -601,6 +657,50 @@ def review_field_lifecycle(plan: FieldLifecyclePlan) -> FieldLifecycleReport:
                             metadata=row.projection.to_dict(),
                         )
                     )
+                if broad_claim:
+                    evidence_kinds = _evidence_ref_kinds(row.projection.evidence_refs)
+                    if FIELD_EVIDENCE_REF_GATE not in evidence_kinds:
+                        findings.append(
+                            FieldLifecycleFinding(
+                                "field_gate_evidence_missing",
+                                "broad behavior field projection has no gate evidence reference",
+                                FIELD_FINDING_BLOCKER,
+                                field_id=row.field_id,
+                                owner_route=FIELD_ROUTE_RUNTIME_GATEWAY,
+                                action="add a gate:, boundary:, or runtime_gateway: evidence ref or narrow the claim scope",
+                                metadata=row.projection.to_dict(),
+                            )
+                        )
+                    if (
+                        _projection_requires_negative_test_ref(row.projection)
+                        and FIELD_EVIDENCE_REF_TEST not in evidence_kinds
+                    ):
+                        findings.append(
+                            FieldLifecycleFinding(
+                                "field_negative_test_evidence_missing",
+                                "broad behavior field projection requires failure or negative test evidence but has no test evidence reference",
+                                FIELD_FINDING_BLOCKER,
+                                field_id=row.field_id,
+                                owner_route=FIELD_ROUTE_MODEL_TEST_ALIGNMENT,
+                                action="add a test:, negative_test:, or failure_test: evidence ref or narrow the claim scope",
+                                metadata=row.projection.to_dict(),
+                            )
+                        )
+                    if (
+                        _projection_requires_replay_ref(row, row.projection)
+                        and FIELD_EVIDENCE_REF_REPLAY not in evidence_kinds
+                    ):
+                        findings.append(
+                            FieldLifecycleFinding(
+                                "field_replay_evidence_missing",
+                                "broad behavior field projection requires replay evidence but has no replay evidence reference",
+                                FIELD_FINDING_BLOCKER,
+                                field_id=row.field_id,
+                                owner_route=FIELD_ROUTE_MODEL_TEST_ALIGNMENT,
+                                action="add a replay: or conformance_replay: evidence ref or narrow the claim scope",
+                                metadata=row.projection.to_dict(),
+                            )
+                        )
         elif not row.scoped_out_reason and row.role in {
             FIELD_ROLE_PRESENTATION,
             FIELD_ROLE_METADATA,
@@ -703,6 +803,10 @@ __all__ = [
     "FIELD_DISPOSITION_SAME_CONTRACT_REPAIRED",
     "FIELD_DISPOSITION_UNKNOWN",
     "FIELD_DISPOSITIONS",
+    "FIELD_EVIDENCE_REF_GATE",
+    "FIELD_EVIDENCE_REF_KINDS",
+    "FIELD_EVIDENCE_REF_REPLAY",
+    "FIELD_EVIDENCE_REF_TEST",
     "FIELD_FINDING_BLOCKER",
     "FIELD_FINDING_GAP",
     "FIELD_FINDING_INFO",
@@ -742,6 +846,7 @@ __all__ = [
     "FIELD_ROUTE_MODEL_MESH",
     "FIELD_ROUTE_MODEL_MISS_REVIEW",
     "FIELD_ROUTE_MODEL_TEST_ALIGNMENT",
+    "FIELD_ROUTE_RUNTIME_GATEWAY",
     "FIELD_ROUTE_TEST_MESH",
     "PASSING_FIELD_DISPOSITIONS",
     "FieldLifecycleFinding",

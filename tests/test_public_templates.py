@@ -437,6 +437,10 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("field_lifecycle_to_code_contracts", combined)
         self.assertIn("Model-Test Alignment", combined)
         self.assertIn("DevelopmentProcessFlow", combined)
+        self.assertIn("gate:", combined)
+        self.assertIn("test:", combined)
+        self.assertIn("replay:", combined)
+        self.assertIn("Field route refs are handoff labels", combined)
 
     def test_model_similarity_consolidation_template_executes(self):
         output = self.run_written_template(

@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.41.6 - 2026-06-07
+
+FieldLifecycleMesh route-evidence handoff binding.
+
+- Added minimal `gate:`, `test:`, and `replay:` evidence-route checks for
+  broad behavior-bearing field lifecycle claims while keeping bounded plans
+  backward compatible.
+- Updated the default replacement field-lifecycle model so full replacement
+  claims require a route-bound field projection before disposal can close.
+- Updated public templates, docs, tests, and installed skill guidance to make
+  field models behave like route tracking instead of a field dictionary.
+
 ## v0.41.5 - 2026-06-07
 
 Deep CI portability repair after v0.41.4.
