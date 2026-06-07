@@ -63,6 +63,31 @@ class ArtifactUpgradeTests(unittest.TestCase):
             self.assertEqual((artifact.relative_to(root).as_posix(),), report.changed_files)
             self.assertEqual(flowguard.SCHEMA_VERSION, json.loads(artifact.read_text(encoding="utf-8"))["schema_version"])
 
+    def test_scan_ignores_project_tmp_not_system_tmp_root(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            artifact = root / ".flowguard" / "old_report.json"
+            artifact.parent.mkdir()
+            artifact.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "0.1",
+                        "artifact_type": "flowguard_test_report",
+                        "payload": {"ok": True},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            ignored = root / "tmp" / "old_report.json"
+            ignored.parent.mkdir()
+            ignored.write_text(artifact.read_text(encoding="utf-8"), encoding="utf-8")
+
+            report = review_artifact_upgrades(root)
+
+            self.assertTrue(report.ok, report.format_text())
+            self.assertEqual(1, report.upgraded_count)
+            self.assertEqual((".flowguard/old_report.json",), tuple(item.path for item in report.items))
+
     def test_known_alias_is_replaced_but_unknown_script_blocks(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

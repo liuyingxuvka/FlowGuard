@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.41.3 - 2026-06-07
+
+GitHub CI portability fix.
+
+- Fixed artifact upgrade scanning so repository-relative ignored folders such
+  as `tmp` are skipped without accidentally skipping Linux system temp roots.
+- Kept public template privacy checks focused on real private markers while
+  avoiding GitHub Actions' generic `runner` home directory false positive.
+- Added regression coverage for the temp-root scan behavior exposed by CI.
+
 ## v0.41.2 - 2026-06-07
 
 Post-release maintenance hygiene.

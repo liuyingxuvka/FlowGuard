@@ -14,7 +14,7 @@ Project FlowGuard record:
 - Human log: `docs/flowguard_adoption_log.md`
 
 Current adoption record:
-- FlowGuard package version: `0.41.2`
+- FlowGuard package version: `0.41.3`
 - FlowGuard schema version: `1.0`
 
 Before non-trivial work:

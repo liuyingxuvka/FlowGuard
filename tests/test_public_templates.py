@@ -569,14 +569,16 @@ class PublicTemplateTests(unittest.TestCase):
                 self.assertEqual(template_name, report["template"])
 
     def test_public_templates_do_not_contain_local_project_markers(self):
-        private_markers = (
+        home_name = Path.home().name
+        private_markers = [
             "C:\\Users",
-            Path.home().name,
             "FlowGuardProjectAutopilot",
             "FlowPilot",
             "Cockpit",
             "heartbeat",
-        )
+        ]
+        if home_name.lower() not in {"runner", "root"}:
+            private_markers.append(home_name)
         for factory in PUBLIC_TEMPLATE_FACTORIES + (project_adoption_template_files,):
             with self.subTest(factory=factory.__name__):
                 for file in factory():

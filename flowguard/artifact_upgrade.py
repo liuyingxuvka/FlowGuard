@@ -230,27 +230,33 @@ def _candidate_paths(
             resolved = Path(path)
             if not resolved.is_absolute():
                 resolved = root_path / resolved
-            if resolved.is_file() and _is_scannable(resolved):
+            if resolved.is_file() and _is_scannable(resolved, root_path=root_path):
                 yield resolved
             elif resolved.is_dir():
-                yield from _walk_scannable(resolved)
+                yield from _walk_scannable(resolved, root_path=root_path)
         return
     for name in include_dirs:
         directory = root_path / name
         if directory.is_dir():
-            yield from _walk_scannable(directory)
+            yield from _walk_scannable(directory, root_path=root_path)
 
 
-def _walk_scannable(directory: Path):
+def _walk_scannable(directory: Path, *, root_path: Path):
     for path in sorted(directory.rglob("*")):
-        if path.is_file() and _is_scannable(path):
+        if path.is_file() and _is_scannable(path, root_path=root_path):
             yield path
 
 
-def _is_scannable(path: Path) -> bool:
+def _is_scannable(path: Path, *, root_path: Path | None = None) -> bool:
     if path.suffix.lower() not in _SCAN_SUFFIXES:
         return False
-    return not any(part in _IGNORED_PARTS for part in path.parts)
+    parts = path.parts
+    if root_path is not None:
+        try:
+            parts = path.resolve().relative_to(root_path).parts
+        except ValueError:
+            parts = path.parts
+    return not any(part in _IGNORED_PARTS for part in parts)
 
 
 def _review_path(path: Path, *, root_path: Path, apply: bool) -> ArtifactUpgradeItem | None:
