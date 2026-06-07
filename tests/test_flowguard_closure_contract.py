@@ -57,8 +57,11 @@ class FlowGuardClosureContractModelTests(unittest.TestCase):
         )
 
     def test_closure_contract_model_runner_succeeds(self):
+        runner = ROOT / ".flowguard" / "flowguard_closure_contract" / "run_checks.py"
+        if not runner.exists():
+            self.skipTest("local .flowguard closure-contract runner is not tracked in this checkout")
         completed = subprocess.run(
-            [sys.executable, ".flowguard/flowguard_closure_contract/run_checks.py"],
+            [sys.executable, str(runner)],
             cwd=ROOT,
             check=False,
             capture_output=True,

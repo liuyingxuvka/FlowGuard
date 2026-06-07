@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.41.5 - 2026-06-07
+
+Deep CI portability repair after v0.41.4.
+
+- Fixed the shadow workspace sync helper so ignored project directories are
+  evaluated relative to the source set instead of treating Linux system `/tmp`
+  as a project `tmp` directory.
+- Made the local closure-contract model-runner test skip gracefully when a
+  GitHub checkout does not include ignored local `.flowguard` model artifacts.
+- Kept the v0.41.4 maintenance hardening release intact and superseded it with
+  this clean patch release instead of moving a public tag.
+
 ## v0.41.4 - 2026-06-07
 
 Complete FlowGuard maintenance hardening.

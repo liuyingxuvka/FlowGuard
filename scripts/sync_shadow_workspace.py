@@ -69,12 +69,13 @@ def _should_skip(path: Path) -> bool:
 
 def _iter_files(path: Path) -> Iterable[Path]:
     if path.is_file():
-        if not _should_skip(path):
+        if not _should_skip(Path(path.name)):
             yield path
         return
     if path.is_dir():
         for child in sorted(path.rglob("*")):
-            if child.is_file() and not _should_skip(child):
+            relative_child = child.relative_to(path)
+            if child.is_file() and not _should_skip(relative_child):
                 yield child
 
 
