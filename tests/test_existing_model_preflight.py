@@ -6,7 +6,9 @@ from flowguard import (
     DuplicateBoundaryRisk,
     ExistingModelPreflight,
     ExistingOwnershipSnapshot,
+    MODEL_ANGLE_ACTION_EXTEND_EXISTING,
     ModelContextHit,
+    ModelAngleDeliberation,
     REUSE_DECISION_ADD_CHILD_MODEL,
     REUSE_DECISION_EXTEND_EXISTING,
     REUSE_DECISION_NO_MODEL_FOUND,
@@ -83,6 +85,82 @@ class ExistingModelPreflightTests(unittest.TestCase):
 
         self.assertTrue(report.ok, report.format_text())
         self.assertEqual("full_existing_model_preflight_can_continue", report.decision)
+
+    def test_full_preflight_consumes_resolved_model_angle_review(self):
+        preflight = ExistingModelPreflight(
+            "router-model-angle",
+            "Extend AI route behavior",
+            mode="full",
+            model_search_performed=True,
+            search_paths=(".flowguard/router",),
+            relevant_models=(model_hit(),),
+            ownership_snapshot=ExistingOwnershipSnapshot(
+                function_block_owners=(("RouteTask", "router-flow"),),
+                state_owners=(("pending_tasks", "router-flow"),),
+            ),
+            reuse_decision=REUSE_DECISION_EXTEND_EXISTING,
+            downstream_routes=("model_maturation_loop",),
+            rationale="The router model owns the behavior, but the candidate angle was reviewed.",
+            model_angle_review_required=True,
+            model_angle_deliberations=(
+                ModelAngleDeliberation(
+                    "angle:ai-routing",
+                    "AI route imagination",
+                    current_model_sees="Existing preflight sees route ownership.",
+                    current_model_misses="It may miss whether a new model angle is needed.",
+                    failure_if_ignored="The agent can stay inside a too-narrow route.",
+                    candidate_action=MODEL_ANGLE_ACTION_EXTEND_EXISTING,
+                    existing_model_ids=("existing_model_preflight",),
+                    proposed_model_boundary="Add open-ended candidate model-angle rows.",
+                    resolved=True,
+                ),
+            ),
+        )
+
+        report = review_existing_model_preflight(preflight)
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual("full_existing_model_preflight_can_continue", report.decision)
+
+    def test_full_preflight_blocks_unresolved_model_angle_review(self):
+        preflight = ExistingModelPreflight(
+            "router-model-angle-open",
+            "Extend AI route behavior",
+            mode="full",
+            model_search_performed=True,
+            search_paths=(".flowguard/router",),
+            relevant_models=(model_hit(),),
+            ownership_snapshot=ExistingOwnershipSnapshot(
+                function_block_owners=(("RouteTask", "router-flow"),),
+                state_owners=(("pending_tasks", "router-flow"),),
+            ),
+            reuse_decision=REUSE_DECISION_EXTEND_EXISTING,
+            downstream_routes=("model_maturation_loop",),
+            rationale="The router model owns the behavior, but a candidate angle remains open.",
+            model_angle_review_required=True,
+            model_angle_deliberations=(
+                ModelAngleDeliberation(
+                    "angle:ai-routing",
+                    "AI route imagination",
+                    current_model_sees="Existing preflight sees route ownership.",
+                    current_model_misses="It may miss whether a new model angle is needed.",
+                    failure_if_ignored="The agent can stay inside a too-narrow route.",
+                    candidate_action=MODEL_ANGLE_ACTION_EXTEND_EXISTING,
+                    existing_model_ids=("existing_model_preflight",),
+                    proposed_model_boundary="Add open-ended candidate model-angle rows.",
+                    resolved=False,
+                ),
+            ),
+        )
+
+        report = review_existing_model_preflight(preflight)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("model_angle_review_blocked", report.decision)
+        self.assertIn(
+            "model_angle_unresolved_required_model_angle",
+            {finding.code for finding in report.findings},
+        )
 
     def test_behavior_field_requires_field_lifecycle_ownership(self):
         preflight = ExistingModelPreflight(

@@ -47,6 +47,10 @@ means partial or scoped FlowGuard evidence.
 - Broad confidence needs model obligation ids, owner code contract ids, and current external-contract test evidence bound to the same behavior; model+test-only rows are scoped/blocked.
 - Broad transition-test claims need a transition matrix projected to MTA code/test rows or TestMesh, or an explicit scoped-out reason.
 - After `run_model_first_checks()`, read structured ledger owner routes and maintenance obligations before manually inferring the next route.
+- Before trusting that one existing route/model is enough, record model-angle
+  deliberation when a task may need a missing viewpoint: what the current model
+  sees, what it misses, what fails if ignored, and whether to reuse, extend,
+  add child model, create a new model, scope/defer, or ask for human review.
 - For non-trivial FlowGuard work, show a route-specific Mermaid snapshot once the route/model is stable; diagrams explain, not validate.
 - Before broad done/release/publish confidence, use Risk Evidence Ledger or equivalent and keep remembered maintenance obligations, automatic state-closure, and topology-hazard gaps visible.
 - Guard-family children must return closure reports with `owner_guard`, `artifact_kind`, `closure_status`, `findings`, `missing_inputs`, `stale_evidence`, `skipped_checks`, `next_actions`, `safe_claim`, and `unsafe_claim_boundary`; validate them with `assets/guard_closure_contract.py` before broad confidence.
@@ -61,6 +65,7 @@ Pick the smallest named route that owns the actual risk. Helper APIs and templat
 | Older adopted project, old FlowGuard artifact, old model/test evidence, obsolete API aliases | `artifact_schema_upgrade` | `artifact-upgrade` or `project-upgrade` |
 | Changed artifacts, open maintenance obligations, stale evidence, skipped routes, split/reduction pressure | `maintenance_scan_router` | `maintenance-scan-template` |
 | Existing modeled system, ownership lookup, duplicate-boundary risk | `existing_model_preflight` | `flowguard-existing-model-preflight` |
+| Current route/model may be too narrow or a new model angle may be needed | `model_angle_deliberation` | `model-angle-template` or `review_model_angle_deliberations()` |
 | Field additions, removals, renames, migrations, replacements, prompt/config fields, payload/schema keys, old-field disposition | `field_lifecycle_mesh` | `flowguard-field-lifecycle-mesh` |
 | Similar features, A/B workflow drift, sibling tests, shared-kernel/adapter suspicion | `model_similarity_consolidation` | `docs/model_similarity_consolidation.md` |
 | Rough idea/short plan needs detailed scope, state, evidence, receipts, rework | `plan_detailing_compiler` | `flowguard-plan-detailing-compiler` |

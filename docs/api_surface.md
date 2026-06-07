@@ -81,6 +81,11 @@ For AI agents, route groups are the normal discovery surface:
 - `MAINTENANCE_OBLIGATION_MEMORY_API` is the shared memory object used by
   summary reports, maintenance scan, model maturation, and risk ledger so
   unresolved route-owned gaps can be inherited without a separate debt scan.
+- `MODEL_ANGLE_DELIBERATION_API` is the open-ended pre-route review for asking
+  what model angle the current boundary may miss before an agent trusts a
+  fixed route. It records the candidate angle, what the current model sees and
+  misses, the failure if ignored, and whether to reuse, extend, split, create,
+  scope, defer, or ask for human review.
 - `FIELD_LIFECYCLE_MESH_API` is the field-governance layer for changes where
   fields carry behavior, routing, permissions, schema, replay, migration, or
   external-contract meaning. High-level models project important fields into
@@ -227,6 +232,14 @@ inventory.
   ModelMesh, code-boundary, and freshness signals into explicit model-upgrade
   actions, scoped-claim decisions, and maintenance obligations before a broad
   FlowGuard claim is made.
+- optional model-angle deliberation helpers such as
+  `ModelAngleDeliberation`, `ModelAngleReviewReport`, and
+  `review_model_angle_deliberations()` for preserving open-ended AI reasoning
+  before one route is trusted. Rows are not limited to known FlowGuard routes:
+  they may name any meaningful missing angle, then hand that angle to the
+  owner route that can produce evidence. Existing Model Preflight, Maintenance
+  Scan, Risk Evidence Ledger, and Closure Contract can consume unresolved
+  model-angle gaps before broad confidence.
 - optional conservative Python source-audit helpers such as
   `PythonCodeContractEvidence`, `PythonTestAssertionEvidence`,
   `ContractSourceAuditReport`, `audit_python_code_contracts()`,
@@ -329,8 +342,9 @@ Reporting helpers help an AI agent explain what was checked and what was not:
   `RiskEvidenceLedgerReport`, and `review_risk_evidence_ledger()` for the final
   confidence ledger that connects user risks to FlowGuard model obligations,
   optional public code contracts, obligation-family gates, analogous defect
-  scans, recurring defect-family gates, model/test split gates, remembered
-  maintenance obligations, and current proof evidence
+  scans, recurring defect-family gates, model/test split gates, model-angle
+  deliberation evidence, remembered maintenance obligations, and current proof
+  evidence
 - `MaintenanceObligation`, `MaintenanceObligationReport`, and
   `build_maintenance_obligation_report()` for preserving unresolved
   route-owned gaps as future scan/ledger inputs without making them a separate
@@ -421,6 +435,7 @@ Evidence APIs are used to keep FlowGuard itself honest:
 - public template writers, including `model_test_alignment_template_files()`,
   `code_structure_recommendation_template_files()`,
   `existing_model_preflight_template_files()`,
+  `model_angle_deliberation_template_files()`,
   `field_lifecycle_template_files()`,
   `model_similarity_consolidation_template_files()`,
   `plan_detailing_template_files()`,
@@ -446,7 +461,8 @@ The package exports lightweight grouping constants:
   `TEMPLATE_STRUCTURE_API`, `EVIDENCE_FIELD_STRUCTURE_API`,
   `MODEL_SIMILARITY_ROUTE_API`, `ARCHITECTURE_REDUCTION_ROUTE_API`,
   `CODE_STRUCTURE_RECOMMENDATION_ROUTE_API`,
-  `MODEL_TEST_ALIGNMENT_ROUTE_API`, `MAINTENANCE_OBLIGATION_MEMORY_API`,
+  `MODEL_TEST_ALIGNMENT_ROUTE_API`, `MODEL_ANGLE_DELIBERATION_API`,
+  `MAINTENANCE_OBLIGATION_MEMORY_API`,
   `MAINTENANCE_SCAN_ROUTE_API`, and `PLAN_DETAILING_ROUTE_API`
 - `CORE_API`
 - `REPORTING_HELPER_API`
@@ -464,7 +480,11 @@ real risk, reduce repetitive code, or improve reporting honesty. Keep skipped
 checks visible. In an existing modeled system, use Existing Model Preflight to
 look up current model responsibilities, FunctionBlocks, state owners,
 side-effect owners, and public entrypoints before proposing new ownership or a
-parallel workflow. When model obligations and tests both exist, use Model-Test
+parallel workflow. Before trusting that one existing route is enough, record
+model-angle deliberation when the task may need a different viewpoint: what the
+current model sees, what it misses, what fails if ignored, and whether the
+answer is reuse, extend, child model, new model, scoped/deferred, or human
+review. When model obligations and tests both exist, use Model-Test
 Alignment to compare them directly before claiming coverage agreement; when
 code contracts are supplied, also bind each model obligation to the external
 code surface and require tests to prove that external contract rather than only

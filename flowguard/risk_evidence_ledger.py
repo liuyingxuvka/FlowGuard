@@ -169,6 +169,11 @@ class RiskEvidenceRow:
     topology_hazard_current: bool = True
     topology_hazard_confidence: str = RISK_CONFIDENCE_FULL
     topology_hazard_scoped_reasons: tuple[str, ...] = ()
+    model_angle_review_id: str = ""
+    model_angle_review_required: bool = False
+    model_angle_review_current: bool = True
+    model_angle_review_confidence: str = RISK_CONFIDENCE_FULL
+    model_angle_scoped_reasons: tuple[str, ...] = ()
     maintenance_obligation_ids: tuple[str, ...] = ()
     maintenance_obligations_required: bool = False
     maintenance_obligation_scoped_reasons: tuple[str, ...] = ()
@@ -200,6 +205,9 @@ class RiskEvidenceRow:
         object.__setattr__(self, "topology_hazard_id", str(self.topology_hazard_id))
         object.__setattr__(self, "topology_hazard_confidence", str(self.topology_hazard_confidence))
         object.__setattr__(self, "topology_hazard_scoped_reasons", _as_tuple(self.topology_hazard_scoped_reasons))
+        object.__setattr__(self, "model_angle_review_id", str(self.model_angle_review_id))
+        object.__setattr__(self, "model_angle_review_confidence", str(self.model_angle_review_confidence))
+        object.__setattr__(self, "model_angle_scoped_reasons", _as_tuple(self.model_angle_scoped_reasons))
         object.__setattr__(self, "maintenance_obligation_ids", _as_tuple(self.maintenance_obligation_ids))
         object.__setattr__(
             self,
@@ -252,6 +260,11 @@ class RiskEvidenceRow:
             "topology_hazard_current": self.topology_hazard_current,
             "topology_hazard_confidence": self.topology_hazard_confidence,
             "topology_hazard_scoped_reasons": list(self.topology_hazard_scoped_reasons),
+            "model_angle_review_id": self.model_angle_review_id,
+            "model_angle_review_required": self.model_angle_review_required,
+            "model_angle_review_current": self.model_angle_review_current,
+            "model_angle_review_confidence": self.model_angle_review_confidence,
+            "model_angle_scoped_reasons": list(self.model_angle_scoped_reasons),
             "maintenance_obligation_ids": list(self.maintenance_obligation_ids),
             "maintenance_obligations_required": self.maintenance_obligations_required,
             "maintenance_obligation_scoped_reasons": list(self.maintenance_obligation_scoped_reasons),
@@ -427,6 +440,9 @@ def _decision_for(findings: Sequence[RiskEvidenceFinding]) -> tuple[str, str, bo
         "missing_analogous_scan",
         "analogous_scan_not_current",
         "analogous_scan_blocked",
+        "missing_model_angle_review",
+        "model_angle_review_not_current",
+        "model_angle_review_blocked",
         "missing_model_split_gate",
         "model_split_gate_not_current",
         "model_split_gate_blocked",
@@ -443,6 +459,7 @@ def _decision_for(findings: Sequence[RiskEvidenceFinding]) -> tuple[str, str, bo
         "defect_family_gate_scoped_confidence",
         "family_gate_scoped_confidence",
         "analogous_scan_scoped_confidence",
+        "model_angle_review_scoped_confidence",
         "model_split_gate_scoped_confidence",
         "test_split_gate_scoped_confidence",
         "maintenance_obligation_scoped_confidence",
@@ -765,6 +782,65 @@ def review_risk_evidence_ledger(plan: RiskEvidenceLedgerPlan) -> RiskEvidenceLed
                     metadata={
                         "topology_hazard_id": row.topology_hazard_id,
                         "topology_hazard_scoped_reasons": list(row.topology_hazard_scoped_reasons),
+                    },
+                )
+            )
+
+        if row.model_angle_review_required and not row.model_angle_review_id:
+            findings.append(
+                _finding(
+                    "missing_model_angle_review",
+                    "required risk has no model-angle deliberation review owner",
+                    risk_id=row.risk_id,
+                )
+            )
+
+        if row.model_angle_review_required and row.model_angle_review_id and not row.model_angle_review_current:
+            findings.append(
+                _finding(
+                    "model_angle_review_not_current",
+                    "required model-angle deliberation evidence is stale or has not been rerun",
+                    risk_id=row.risk_id,
+                    metadata={"model_angle_review_id": row.model_angle_review_id},
+                )
+            )
+
+        if row.model_angle_review_required and row.model_angle_review_id:
+            if row.model_angle_review_confidence == RISK_CONFIDENCE_BLOCKED:
+                findings.append(
+                    _finding(
+                        "model_angle_review_blocked",
+                        "required model-angle deliberation review is blocked",
+                        risk_id=row.risk_id,
+                        metadata={"model_angle_review_id": row.model_angle_review_id},
+                    )
+                )
+            elif row.model_angle_review_confidence in {RISK_CONFIDENCE_SCOPED, RISK_CONFIDENCE_PARTIAL}:
+                severity = "warning" if plan.allow_scoped_confidence else "blocker"
+                findings.append(
+                    _finding(
+                        "model_angle_review_scoped_confidence",
+                        "model-angle deliberation remains explicitly scoped",
+                        risk_id=row.risk_id,
+                        severity=severity,
+                        metadata={
+                            "model_angle_review_id": row.model_angle_review_id,
+                            "model_angle_review_confidence": row.model_angle_review_confidence,
+                        },
+                    )
+                )
+
+        if row.model_angle_scoped_reasons:
+            severity = "warning" if plan.allow_scoped_confidence else "blocker"
+            findings.append(
+                _finding(
+                    "model_angle_review_scoped_confidence",
+                    "model-angle deliberation remains explicitly scoped",
+                    risk_id=row.risk_id,
+                    severity=severity,
+                    metadata={
+                        "model_angle_review_id": row.model_angle_review_id,
+                        "model_angle_scoped_reasons": list(row.model_angle_scoped_reasons),
                     },
                 )
             )

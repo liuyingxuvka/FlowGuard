@@ -161,6 +161,36 @@ result can support Model-Test Alignment or TestMesh only when the ticket and
 matching `ProofArtifactRef` prove unchanged command, test source, tested
 artifact, dependencies, environment, result fingerprint, and covered scope.
 
+## Model Angle Deliberation
+
+Use `review_model_angle_deliberations(...)` before an agent trusts one model
+boundary or one route choice in an existing modeled system. This is the answer
+to a common AI failure mode: the agent follows the provided route list but does
+not ask whether the current situation needs a different model viewpoint.
+
+Each `ModelAngleDeliberation` row is intentionally free-form:
+
+- `angle_name`: the possible viewpoint in plain language;
+- `current_model_sees`: what the current model already covers;
+- `current_model_misses`: what might still be invisible;
+- `failure_if_ignored`: what can go wrong if that angle is skipped;
+- `candidate_action`: reuse, extend, add child model, create new model, scope
+  out, defer, or ask for human review;
+- `owner_route_hint`: the route that should produce real evidence.
+
+Known FlowGuard routes are hints, not the full imagination space. The angle can
+be about fields, lifecycle, installation sync, release evidence, user policy,
+runtime topology, AI workflow ordering, or another domain-specific surface.
+The review only preserves the decision; the owning route still supplies the
+actual model, test, replay, or closure evidence.
+
+Use the template with:
+
+```powershell
+python -m flowguard model-angle-template --output .
+python .flowguard/model_angle_deliberation/run_checks.py
+```
+
 ## AI Route Handoff Reports
 
 `FlowGuardSummaryReport` includes a finding ledger and maintenance obligations.
@@ -366,6 +396,7 @@ python -m flowguard model-miss-template --output .
 python -m flowguard model-test-alignment-template --output .
 python -m flowguard development-process-flow-template --output .
 python -m flowguard maintenance-scan-template --output .
+python -m flowguard model-angle-template --output .
 ```
 
 The project adoption template writes the target-project AGENTS block,
@@ -389,7 +420,9 @@ and minimum revalidation before safe continuation, done, or release claims.
 The maintenance scan template shows how to summarize changed artifacts,
 remembered maintenance obligations, skipped candidate routes, stale evidence,
 and structure/reduction signals into required or suggested owner-route actions
-before a broad FlowGuard claim.
+before a broad FlowGuard claim. The model-angle template shows how to record
+open-ended missing-viewpoint reasoning before trusting a single model boundary
+or route decision.
 
 These are scaffolds, not reusable business logic. Rename every state field,
 input, output, invariant, and blindspot to match the target project before
@@ -416,7 +449,7 @@ The scaffold writes:
 - `docs/flowguard_maintenance_scan.md`
 
 The helper is intentionally thin. It turns model/code/test drift, remembered
-open obligations, state-closure gaps, stale evidence, skipped candidate routes,
+open obligations, state-closure gaps, model-angle gaps, stale evidence, skipped candidate routes,
 reducible branches, large modules, mesh pressure, and slow or broad validation
 into owner-route actions such as
 Model-Test Alignment, DevelopmentProcessFlow, Architecture Reduction,

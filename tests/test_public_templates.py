@@ -13,6 +13,7 @@ from flowguard.templates import (
     existing_model_preflight_template_files,
     field_lifecycle_template_files,
     layered_boundary_proof_template_files,
+    model_angle_deliberation_template_files,
     model_miss_review_template_files,
     model_similarity_consolidation_template_files,
     model_test_alignment_template_files,
@@ -41,6 +42,7 @@ PUBLIC_TEMPLATE_FACTORIES = (
     model_test_alignment_template_files,
     code_structure_recommendation_template_files,
     existing_model_preflight_template_files,
+    model_angle_deliberation_template_files,
     field_lifecycle_template_files,
     model_similarity_consolidation_template_files,
     risk_evidence_ledger_template_files,
@@ -65,6 +67,7 @@ TEMPLATE_CLI_COMMANDS = {
     "runtime-path-evidence-template": "runtime_path_evidence",
     "code-structure-recommendation-template": "code_structure_recommendation",
     "existing-model-preflight-template": "existing_model_preflight",
+    "model-angle-template": "model_angle_deliberation",
     "field-lifecycle-template": "field_lifecycle",
     "model-similarity-template": "model_similarity_consolidation",
     "risk-evidence-ledger-template": "risk_evidence_ledger",
@@ -402,6 +405,15 @@ class PublicTemplateTests(unittest.TestCase):
         )
         self.assertIn("flowguard existing model preflight", output)
         self.assertIn("duplicate_boundary_risk_unresolved", output)
+
+    def test_model_angle_deliberation_template_executes(self):
+        output = self.run_written_template(
+            model_angle_deliberation_template_files(),
+            (".flowguard", "model_angle_deliberation"),
+        )
+        self.assertIn("flowguard model-angle deliberation", output)
+        self.assertIn("unresolved_required_model_angle", output)
+        self.assertIn("template checks passed", output)
 
     def test_field_lifecycle_template_executes(self):
         output = self.run_written_template(

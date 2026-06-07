@@ -15,6 +15,12 @@ import re
 from typing import Any, Mapping, Sequence
 
 from .export import to_jsonable
+from .model_angle_deliberation import (
+    MODEL_ANGLE_CONFIDENCE_BLOCKED,
+    MODEL_ANGLE_CONFIDENCE_SCOPED,
+    ModelAngleDeliberation,
+    review_model_angle_deliberations,
+)
 from .model_similarity import SimilarityHandoff, normalize_similarity_handoff
 
 
@@ -238,6 +244,9 @@ class ExistingModelPreflight:
     field_lifecycle_required: bool = False
     field_lifecycle_model_ids: tuple[str, ...] = ()
     field_lifecycle_gap_ids: tuple[str, ...] = ()
+    model_angle_review_required: bool = False
+    model_angle_deliberations: tuple[ModelAngleDeliberation | Mapping[str, Any], ...] = ()
+    model_angle_gap_ids: tuple[str, ...] = ()
     similarity_review_required: bool = False
     similarity_handoff: SimilarityHandoff | Mapping[str, Any] | None = None
     skip_reason: str = ""
@@ -258,6 +267,18 @@ class ExistingModelPreflight:
         object.__setattr__(self, "field_lifecycle_required", bool(self.field_lifecycle_required))
         object.__setattr__(self, "field_lifecycle_model_ids", _as_tuple(self.field_lifecycle_model_ids))
         object.__setattr__(self, "field_lifecycle_gap_ids", _as_tuple(self.field_lifecycle_gap_ids))
+        object.__setattr__(self, "model_angle_review_required", bool(self.model_angle_review_required))
+        object.__setattr__(
+            self,
+            "model_angle_deliberations",
+            tuple(
+                item
+                if isinstance(item, ModelAngleDeliberation)
+                else ModelAngleDeliberation(**item)
+                for item in self.model_angle_deliberations
+            ),
+        )
+        object.__setattr__(self, "model_angle_gap_ids", _as_tuple(self.model_angle_gap_ids))
         object.__setattr__(self, "similarity_handoff", normalize_similarity_handoff(self.similarity_handoff))
         object.__setattr__(self, "skip_reason", str(self.skip_reason))
 
@@ -283,6 +304,9 @@ class ExistingModelPreflight:
             "field_lifecycle_required": self.field_lifecycle_required,
             "field_lifecycle_model_ids": list(self.field_lifecycle_model_ids),
             "field_lifecycle_gap_ids": list(self.field_lifecycle_gap_ids),
+            "model_angle_review_required": self.model_angle_review_required,
+            "model_angle_deliberations": [item.to_dict() for item in self.model_angle_deliberations],
+            "model_angle_gap_ids": list(self.model_angle_gap_ids),
             "similarity_review_required": self.similarity_review_required,
             "similarity_handoff": self.similarity_handoff.to_dict()
             if self.similarity_handoff
@@ -424,6 +448,8 @@ def _decision_for_findings(
             return "field_lifecycle_ownership_required"
         if "field_lifecycle_gap_unresolved" in codes:
             return "field_lifecycle_gap_blocked"
+        if any(code.startswith("model_angle_") for code in codes):
+            return "model_angle_review_blocked"
         if "duplicate_boundary_risk_unresolved" in codes:
             return "duplicate_boundary_risk_blocked"
         if "new_boundary_without_rationale" in codes:
@@ -778,6 +804,50 @@ def review_existing_model_preflight(
                 "existing field lifecycle preflight found an unresolved field model gap",
                 item_id=gap_id,
                 metadata={"field_lifecycle_gap_ids": list(preflight.field_lifecycle_gap_ids)},
+            )
+        )
+
+    model_angle_required = preflight.model_angle_review_required or bool(
+        preflight.model_angle_deliberations or preflight.model_angle_gap_ids
+    )
+    if model_angle_required:
+        model_angle_report = review_model_angle_deliberations(
+            f"{preflight.preflight_id}:model-angle",
+            preflight.model_angle_deliberations,
+            require_review=preflight.model_angle_review_required,
+            broad_claim=preflight.mode == PREFLIGHT_MODE_FULL,
+            allow_scoped_confidence=True,
+        )
+        for finding in model_angle_report.findings:
+            severity = "warning"
+            if finding.severity == "blocker" or model_angle_report.confidence == MODEL_ANGLE_CONFIDENCE_BLOCKED:
+                severity = "blocker"
+            elif model_angle_report.confidence == MODEL_ANGLE_CONFIDENCE_SCOPED:
+                severity = "warning"
+            findings.append(
+                ExistingModelPreflightFinding(
+                    f"model_angle_{finding.code}",
+                    finding.message,
+                    severity=severity,
+                    model_id=",".join(
+                        item.angle_id
+                        for item in preflight.model_angle_deliberations
+                        if item.angle_id == finding.angle_id
+                    ),
+                    item_id=finding.angle_id,
+                    metadata={
+                        "model_angle_finding": finding.to_dict(),
+                        "model_angle_report": model_angle_report.to_dict(),
+                    },
+                )
+            )
+    for gap_id in preflight.model_angle_gap_ids:
+        findings.append(
+            ExistingModelPreflightFinding(
+                "model_angle_gap_unresolved",
+                "existing-model preflight found an unresolved model-angle gap",
+                item_id=gap_id,
+                metadata={"model_angle_gap_ids": list(preflight.model_angle_gap_ids)},
             )
         )
 

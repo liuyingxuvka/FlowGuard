@@ -5,14 +5,11 @@ description: Use before non-trivial discussion, analysis, proposal, feature work
 
 # FlowGuard Existing Model Preflight
 
-Standalone FlowGuard satellite skill for grounding work in current model
-ownership before adding or changing a boundary. Use it before non-trivial work
-in an existing modeled system, especially prompt, skill, UI, test, process,
-feature, bug, or refactor changes.
-If a requested change resembles another existing workflow, use Model
-Similarity Consolidation as part of this preflight and record the maintenance
-group, impacted siblings, and false-friend rationale before selecting reuse,
-extension, child model, or new boundary.
+Standalone FlowGuard satellite skill for grounding non-trivial work in current
+model ownership before adding or changing a boundary. Use it for existing
+prompt, skill, UI, test, process, feature, bug, or refactor surfaces. If the
+change resembles another workflow, include Model Similarity Consolidation before
+selecting reuse, extension, child model, or new boundary.
 
 Return to `model-first-function-flow` when the FlowGuard route is unclear. Pair
 this preflight with the downstream route that owns the actual work.
@@ -24,6 +21,8 @@ this preflight with the downstream route that owns the actual work.
   `ExistingOwnershipSnapshot`, `DuplicateBoundaryRisk`,
   `existing_model_preflight_from_project()`,
   `review_existing_model_preflight()`.
+- Model-angle companion: `ModelAngleDeliberation` and
+  `review_model_angle_deliberations()` when the owner model may be too narrow.
 - Similarity handoff: cite relation ids, maintenance group ids, change-impact
   ids, and impacted sibling model ids when A/B/C workflows may drift.
 - Reference: `references/existing_model_preflight_protocol.md`.
@@ -37,10 +36,8 @@ this preflight with the downstream route that owns the actual work.
 - Prefer existing modeled responsibilities and field lifecycle ownership over
   parallel ownership.
 - Keep stale, skipped, missing, and no-model-found evidence visible.
-- Treat older FlowGuard model artifacts as upgrade-boundary inputs. Run
-  `project-upgrade` or `artifact-upgrade` when the project record is older than
-  the installed package; do not trust old-shape models as current evidence until
-  they are upgraded or explicitly blocked.
+- Treat older model artifacts as upgrade-boundary inputs; run `project-upgrade`
+  or `artifact-upgrade` before trusting old-shape evidence.
 
 ## Minimum Workflow
 
@@ -49,12 +46,14 @@ this preflight with the downstream route that owns the actual work.
    lifecycle owners.
 3. Classify old-shape models as upgraded, blocked, or current before reuse.
 4. Decide reuse, extend, add child model, new boundary, or no model found.
-5. Route duplicate-boundary shrinkage to Architecture Reduction.
+5. Record model-angle deliberation for missing-viewpoint risk; unresolved
+   required angles block full preflight.
+6. Route duplicate-boundary shrinkage to Architecture Reduction.
 
 ## Snapshot
 
-Show existing model boundaries, field lifecycle owners or gaps, reuse decision,
-duplicate-boundary risks, and downstream route.
+Show existing model boundaries, field lifecycle owners/gaps, model-angle gaps,
+reuse decision, duplicate-boundary risks, and downstream route.
 
 ## Non-Goals
 

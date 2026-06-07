@@ -57,6 +57,11 @@ from .template_text.model_miss_review import (
     MODEL_MISS_REVIEW_RUN_CHECKS_TEMPLATE,
     MODEL_MISS_REVIEW_NOTES_TEMPLATE,
 )
+from .template_text.model_angle_deliberation import (
+    MODEL_ANGLE_DELIBERATION_MODEL_TEMPLATE,
+    MODEL_ANGLE_DELIBERATION_RUN_CHECKS_TEMPLATE,
+    MODEL_ANGLE_DELIBERATION_NOTES_TEMPLATE,
+)
 from .template_text.model_similarity_consolidation import (
     MODEL_SIMILARITY_CONSOLIDATION_MODEL_TEMPLATE,
     MODEL_SIMILARITY_CONSOLIDATION_RUN_CHECKS_TEMPLATE,
@@ -242,6 +247,14 @@ def existing_model_preflight_template_files() -> tuple[TemplateFile, ...]:
     )
 
 
+def model_angle_deliberation_template_files() -> tuple[TemplateFile, ...]:
+    return (
+        TemplateFile(".flowguard/model_angle_deliberation/model.py", MODEL_ANGLE_DELIBERATION_MODEL_TEMPLATE),
+        TemplateFile(".flowguard/model_angle_deliberation/run_checks.py", MODEL_ANGLE_DELIBERATION_RUN_CHECKS_TEMPLATE),
+        TemplateFile("docs/flowguard_model_angle_deliberation.md", MODEL_ANGLE_DELIBERATION_NOTES_TEMPLATE),
+    )
+
+
 def field_lifecycle_template_files() -> tuple[TemplateFile, ...]:
     return (
         TemplateFile(".flowguard/field_lifecycle/model.py", FIELD_LIFECYCLE_MODEL_TEMPLATE),
@@ -366,6 +379,9 @@ __all__ = [
     "MAINTENANCE_WORKFLOW_RUN_CHECKS_TEMPLATE",
     "MAINTENANCE_SCAN_NOTES_TEMPLATE",
     "MAINTENANCE_SCAN_RUN_TEMPLATE",
+    "MODEL_ANGLE_DELIBERATION_MODEL_TEMPLATE",
+    "MODEL_ANGLE_DELIBERATION_NOTES_TEMPLATE",
+    "MODEL_ANGLE_DELIBERATION_RUN_CHECKS_TEMPLATE",
     "MODEL_MISS_REVIEW_MODEL_TEMPLATE",
     "MODEL_MISS_REVIEW_NOTES_TEMPLATE",
     "MODEL_MISS_REVIEW_RUN_CHECKS_TEMPLATE",
@@ -407,6 +423,7 @@ __all__ = [
     "layered_boundary_proof_template_files",
     "maintenance_workflow_template_files",
     "maintenance_scan_template_files",
+    "model_angle_deliberation_template_files",
     "model_miss_review_template_files",
     "model_similarity_consolidation_template_files",
     "model_test_alignment_template_files",

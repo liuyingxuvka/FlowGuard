@@ -86,6 +86,11 @@ class ApiSurfaceTests(unittest.TestCase):
         self.assertIn("review_code_structure_recommendation", flowguard.MODELING_HELPER_API)
         self.assertIn("existing_model_preflight_from_project", flowguard.MODELING_HELPER_API)
         self.assertNotIn("existing_model_preflight_from_project", flowguard.CORE_API)
+        self.assertIn("ModelAngleDeliberation", flowguard.MODELING_HELPER_API)
+        self.assertIn("ModelAngleReviewReport", flowguard.MODELING_HELPER_API)
+        self.assertIn("review_model_angle_deliberations", flowguard.MODELING_HELPER_API)
+        self.assertIn("model_angle_deliberation_template_files", flowguard.EVIDENCE_API)
+        self.assertNotIn("review_model_angle_deliberations", flowguard.CORE_API)
         self.assertIn("UIInteractionModel", flowguard.MODELING_HELPER_API)
         self.assertIn("UIJourneyCoverage", flowguard.MODELING_HELPER_API)
         self.assertIn("UIJourneyCoverageReport", flowguard.MODELING_HELPER_API)
@@ -253,6 +258,7 @@ class ApiSurfaceTests(unittest.TestCase):
             "plan_detailing_compiler",
             "maintenance_obligation_memory",
             "maintenance_scan_router",
+            "model_angle_deliberation",
             "state_closure",
             "model_topology_hazard_review",
         }
@@ -341,6 +347,7 @@ class ApiSurfaceTests(unittest.TestCase):
             "FIELD_LIFECYCLE_MESH_API",
             "MAINTENANCE_OBLIGATION_MEMORY_API",
             "MAINTENANCE_SCAN_ROUTE_API",
+            "MODEL_ANGLE_DELIBERATION_API",
             "MODEL_SIMILARITY_ROUTE_API",
             "MODEL_TEST_ALIGNMENT_ROUTE_API",
             "MODEL_IMPACT_FRESHNESS_API",

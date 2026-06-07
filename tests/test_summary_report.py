@@ -147,6 +147,23 @@ class SummaryReportTests(unittest.TestCase):
         self.assertIn("scenario_or_invariant", model_gap.required_input_kinds)
         self.assertIn("owner_route", model_gap.to_dict())
 
+    def test_model_angle_gap_gets_dedicated_owner_route(self):
+        ledger = build_finding_ledger(
+            (
+                FlowGuardSection(
+                    "model_angle_review",
+                    "pass_with_gaps",
+                    "model_angle unresolved_required_model_angle",
+                ),
+            )
+        )
+
+        entry = ledger.entries[0]
+        self.assertEqual("model_angle_gap", entry.category)
+        self.assertEqual("model_maturation_loop", entry.owner_route)
+        self.assertEqual("review_model_angle", entry.action_kind)
+        self.assertIn("model-angle deliberation", entry.next_step)
+
 
 if __name__ == "__main__":
     unittest.main()

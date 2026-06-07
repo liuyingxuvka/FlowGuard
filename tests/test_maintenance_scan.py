@@ -23,6 +23,7 @@ from flowguard import (
     MAINTENANCE_SCAN_DECISION_SCOPED,
     MAINTENANCE_SCAN_DECISION_SUGGESTED,
     MAINTENANCE_SIGNAL_LARGE_MODULE,
+    MAINTENANCE_SIGNAL_MODEL_ANGLE_GAP,
     MAINTENANCE_SIGNAL_REDUCIBLE_BRANCH,
     MAINTENANCE_SIGNAL_STATE_CLOSURE_GAP,
     FlowGuardSection,
@@ -165,6 +166,24 @@ class MaintenanceScanTests(unittest.TestCase):
                         "unknown-state",
                         MAINTENANCE_SIGNAL_STATE_CLOSURE_GAP,
                         description="Runner found an automatic state/input closure confidence gap.",
+                    ),
+                ),
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertEqual(MAINTENANCE_SCAN_DECISION_REQUIRED, report.decision)
+        self.assertIn(MAINTENANCE_ROUTE_MODEL_MATURATION, routes(report))
+
+    def test_model_angle_gap_routes_to_model_maturation(self):
+        report = review_maintenance_scan(
+            MaintenanceScanPlan(
+                "model-angle",
+                signals=(
+                    MaintenanceSignal(
+                        "angle-open",
+                        MAINTENANCE_SIGNAL_MODEL_ANGLE_GAP,
+                        description="Model-angle deliberation found an unresolved candidate model boundary.",
                     ),
                 ),
             )

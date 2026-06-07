@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.41.0 - 2026-06-07
+
+Open-ended model-angle deliberation.
+
+- Added `ModelAngleDeliberation`, `ModelAngleReviewReport`, and
+  `review_model_angle_deliberations()` so agents must record what a current
+  model sees, what it misses, what fails if ignored, and whether to reuse,
+  extend, add a child model, create a new model, scope/defer, or ask for human
+  review.
+- Connected unresolved model-angle gaps to Existing Model Preflight,
+  Maintenance Scan, Risk Evidence Ledger, and Closure Contract so broad
+  confidence cannot hide a missing model viewpoint.
+- Added `model-angle-template`, API/docs/skill guidance, OpenSpec coverage,
+  focused tests, and FlowGuard self-model evidence for the new route.
+
 ## v0.40.12 - 2026-06-07
 
 Guard-family closure contract upgrade.

@@ -375,6 +375,57 @@ class RiskEvidenceLedgerTests(unittest.TestCase):
         self.assertEqual(RISK_CONFIDENCE_SCOPED, report.confidence)
         self.assertIn("topology_hazard_review_scoped_confidence", finding_codes(report))
 
+    def test_required_model_angle_review_must_be_named_current_and_unblocked(self):
+        missing = review_risk_evidence_ledger(plan(rows=(row(model_angle_review_required=True),)))
+        self.assertFalse(missing.ok)
+        self.assertEqual("missing_model_angle_review", missing.decision)
+
+        stale = review_risk_evidence_ledger(
+            plan(
+                rows=(
+                    row(
+                        model_angle_review_required=True,
+                        model_angle_review_id="model-angle:ai-route",
+                        model_angle_review_current=False,
+                    ),
+                )
+            )
+        )
+        self.assertFalse(stale.ok)
+        self.assertEqual("model_angle_review_not_current", stale.decision)
+
+        blocked = review_risk_evidence_ledger(
+            plan(
+                rows=(
+                    row(
+                        model_angle_review_required=True,
+                        model_angle_review_id="model-angle:ai-route",
+                        model_angle_review_confidence=RISK_CONFIDENCE_BLOCKED,
+                    ),
+                )
+            )
+        )
+        self.assertFalse(blocked.ok)
+        self.assertEqual("model_angle_review_blocked", blocked.decision)
+
+    def test_scoped_model_angle_review_downgrades_final_confidence(self):
+        report = review_risk_evidence_ledger(
+            plan(
+                rows=(
+                    row(
+                        model_angle_review_required=True,
+                        model_angle_review_id="model-angle:ai-route",
+                        model_angle_review_confidence=RISK_CONFIDENCE_SCOPED,
+                    ),
+                )
+            )
+        )
+
+        self.assertTrue(report.ok)
+        self.assertEqual(RISK_LEDGER_DECISION_SCOPED, report.decision)
+        self.assertEqual(RISK_CONFIDENCE_SCOPED, report.confidence)
+        self.assertIn("model_angle_review_scoped_confidence", finding_codes(report))
+
     def test_required_model_and_test_split_gates_are_final_confidence_inputs(self):
         missing = review_risk_evidence_ledger(
             plan(rows=(row(model_split_gate_required=True, test_split_gate_required=True),))

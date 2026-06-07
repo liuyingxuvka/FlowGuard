@@ -327,6 +327,8 @@ def _ledger_category(section: FlowGuardSection, message: str) -> str:
         return "blocked_check"
     if "missing_invariant" in text or "missing_scenario" in text or "missing_progress" in text:
         return "model_coverage_gap"
+    if "model_angle" in text or "model-angle" in text:
+        return "model_angle_gap"
     if "state_closure" in text or "topology_hazard" in text:
         return "model_coverage_gap"
     if section.status == "failed" or "violation" in text or "exception" in text:
@@ -339,6 +341,8 @@ def _ledger_category(section: FlowGuardSection, message: str) -> str:
 def _ledger_next_step(section: FlowGuardSection, category: str) -> str:
     if section.status == "failed":
         return "Inspect the counterexample or violation, then decide whether to fix the real system, adjust the check flow, or extend the model."
+    if category == "model_angle_gap":
+        return "Run model-angle deliberation and route unresolved angles to the owning FlowGuard model route before broad confidence."
     if category == "model_coverage_gap":
         return "Extend the model, invariant set, scenario oracle, or progress configuration before treating this as covered."
     if category == "conformance_gap":
@@ -356,6 +360,8 @@ def _ledger_owner_route(section: FlowGuardSection, category: str) -> str:
     text = f"{section.name} {category}".lower()
     if "human_review" in text:
         return "agent_workflow_rehearsal"
+    if category == "model_angle_gap":
+        return "model_maturation_loop"
     if "model_test" in text or "alignment" in text:
         return "model_test_alignment"
     if "conformance" in text:
@@ -370,6 +376,8 @@ def _ledger_owner_route(section: FlowGuardSection, category: str) -> str:
 def _ledger_action_kind(section: FlowGuardSection, category: str) -> str:
     if section.status == "failed":
         return "inspect_failure"
+    if category == "model_angle_gap":
+        return "review_model_angle"
     if category == "model_coverage_gap":
         return "extend_model_coverage"
     if category == "conformance_gap":

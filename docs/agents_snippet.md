@@ -44,6 +44,11 @@ This is the entry path, not a completion shortcut. Complete FlowGuard use needs 
 - Reused test results need current `TestResultReuseTicket` and
   `ProofArtifactRef`; old `passed` output is not current evidence by itself.
 - After `run_model_first_checks()`, read structured ledger routes and obligations before manual route inference.
+- Before trusting that one existing route or model is enough, record
+  model-angle deliberation when the task may need a missing viewpoint: what the
+  current model sees, what it misses, what fails if ignored, and whether to
+  reuse, extend, add child model, create a new model, scope/defer, or ask for
+  human review.
 - For non-trivial FlowGuard work, show a route-specific Mermaid snapshot once the route/model is stable; diagrams explain and do not validate.
 - Before full done/release/publish confidence, connect risks, obligations, maintenance obligations, code/test evidence, proof artifacts, automatic state-closure gaps, and topology-hazard gaps through Risk Evidence Ledger or equivalent.
 - After non-trivial work, use `maintenance_scan_router` for SummaryReport gaps, changed artifacts, open obligations, skipped routes, stale evidence, state/topology gaps, or split/reduction signals.
@@ -57,6 +62,7 @@ This is the entry path, not a completion shortcut. Complete FlowGuard use needs 
 | Changed artifacts, open maintenance obligations, stale evidence, skipped routes, split/reduction pressure after project work | `maintenance_scan_router` | `review_maintenance_scan()` or `maintenance-scan-template` |
 | Older adopted project, old FlowGuard artifact, old model/test evidence, obsolete API aliases | `artifact_schema_upgrade` | `artifact-upgrade` or `project-upgrade` |
 | Existing modeled system, ownership lookup, duplicate-boundary risk | `existing_model_preflight` | `flowguard-existing-model-preflight` |
+| Current route/model may be too narrow or a new model angle may be needed | `model_angle_deliberation` | `model-angle-template` or `review_model_angle_deliberations()` |
 | Field lifecycle, behavior-bearing field projection, old/replaced/deprecated field disposition | `field_lifecycle_mesh` | `flowguard-field-lifecycle-mesh` |
 | Similar features, A/B workflow drift, sibling tests, shared-kernel/adapter suspicion | `model_similarity_consolidation` | `model-first-function-flow` reference |
 | Rough idea/short plan needs detailed scope, state, evidence, receipts, rework | `plan_detailing_compiler` | `flowguard-plan-detailing-compiler` |
@@ -84,7 +90,8 @@ Use the matching satellite `references/*.md` file after selecting a route.
 Package helpers such as `review_model_test_alignment()`,
 `review_development_process_flow()`, `review_test_mesh()`,
 `review_structure_mesh()`, `review_architecture_reduction()`,
-`review_existing_model_preflight()`, `review_model_similarity_consolidation()`,
+`review_existing_model_preflight()`, `review_model_angle_deliberations()`,
+`review_model_similarity_consolidation()`,
 `review_plan_detail()`, `review_agent_workflow_rehearsal()`, templates, and
 starter CLIs are helpers, not separate Codex skills.
 

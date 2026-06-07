@@ -28,6 +28,7 @@ CLOSURE_REPORT_RUNTIME_GATEWAY = "runtime_gateway_adoption"
 CLOSURE_REPORT_RISK_LEDGER = "risk_evidence_ledger"
 CLOSURE_REPORT_MODEL_FRESHNESS = "model_impact_freshness"
 CLOSURE_REPORT_MODEL_MATURATION = "model_maturation"
+CLOSURE_REPORT_MODEL_ANGLE = "model_angle_deliberation"
 CLOSURE_REPORT_MODEL_TEST_ALIGNMENT = "model_test_alignment"
 CLOSURE_REPORT_FIELD_LIFECYCLE = "field_lifecycle_mesh"
 CLOSURE_REPORT_RUNTIME_PATH_ALIGNMENT = "runtime_path_alignment"
@@ -39,6 +40,7 @@ CLOSURE_REPORT_KINDS = (
     CLOSURE_REPORT_RISK_LEDGER,
     CLOSURE_REPORT_MODEL_FRESHNESS,
     CLOSURE_REPORT_MODEL_MATURATION,
+    CLOSURE_REPORT_MODEL_ANGLE,
     CLOSURE_REPORT_MODEL_TEST_ALIGNMENT,
     CLOSURE_REPORT_FIELD_LIFECYCLE,
     CLOSURE_REPORT_RUNTIME_PATH_ALIGNMENT,
@@ -381,6 +383,7 @@ class FlowGuardClosureContractPlan:
     same_class_miss_closures: tuple[SameClassMissClosure, ...] = ()
     runtime_gateway_closures: tuple[RuntimeGatewayInventoryClosure, ...] = ()
     field_lifecycle_reports: tuple[Any, ...] = ()
+    model_angle_reports: tuple[Any, ...] = ()
     evidence_reports: tuple[ClosureEvidenceReport, ...] = ()
     require_runtime_trace_mapping: bool = True
     require_artifact_freshness: bool = True
@@ -388,6 +391,7 @@ class FlowGuardClosureContractPlan:
     require_same_class_miss_closure: bool = True
     require_runtime_gateway_closure: bool = True
     require_field_lifecycle: bool = False
+    require_model_angle_review: bool = False
     require_runtime_path_alignment: bool = False
     require_risk_ledger: bool = True
     allow_scoped_confidence: bool = True
@@ -405,6 +409,7 @@ class FlowGuardClosureContractPlan:
         object.__setattr__(self, "same_class_miss_closures", tuple(self.same_class_miss_closures))
         object.__setattr__(self, "runtime_gateway_closures", tuple(self.runtime_gateway_closures))
         object.__setattr__(self, "field_lifecycle_reports", tuple(self.field_lifecycle_reports))
+        object.__setattr__(self, "model_angle_reports", tuple(self.model_angle_reports))
         object.__setattr__(self, "evidence_reports", tuple(self.evidence_reports))
         object.__setattr__(self, "require_runtime_trace_mapping", bool(self.require_runtime_trace_mapping))
         object.__setattr__(self, "require_artifact_freshness", bool(self.require_artifact_freshness))
@@ -412,6 +417,7 @@ class FlowGuardClosureContractPlan:
         object.__setattr__(self, "require_same_class_miss_closure", bool(self.require_same_class_miss_closure))
         object.__setattr__(self, "require_runtime_gateway_closure", bool(self.require_runtime_gateway_closure))
         object.__setattr__(self, "require_field_lifecycle", bool(self.require_field_lifecycle))
+        object.__setattr__(self, "require_model_angle_review", bool(self.require_model_angle_review))
         object.__setattr__(self, "require_runtime_path_alignment", bool(self.require_runtime_path_alignment))
         object.__setattr__(self, "require_risk_ledger", bool(self.require_risk_ledger))
         object.__setattr__(self, "allow_scoped_confidence", bool(self.allow_scoped_confidence))
@@ -427,6 +433,7 @@ class FlowGuardClosureContractPlan:
             "same_class_miss_closures": [item.to_dict() for item in self.same_class_miss_closures],
             "runtime_gateway_closures": [item.to_dict() for item in self.runtime_gateway_closures],
             "field_lifecycle_reports": [_to_dict_or_value(item) for item in self.field_lifecycle_reports],
+            "model_angle_reports": [_to_dict_or_value(item) for item in self.model_angle_reports],
             "evidence_reports": [item.to_dict() for item in self.evidence_reports],
             "require_runtime_trace_mapping": self.require_runtime_trace_mapping,
             "require_artifact_freshness": self.require_artifact_freshness,
@@ -434,6 +441,7 @@ class FlowGuardClosureContractPlan:
             "require_same_class_miss_closure": self.require_same_class_miss_closure,
             "require_runtime_gateway_closure": self.require_runtime_gateway_closure,
             "require_field_lifecycle": self.require_field_lifecycle,
+            "require_model_angle_review": self.require_model_angle_review,
             "require_runtime_path_alignment": self.require_runtime_path_alignment,
             "require_risk_ledger": self.require_risk_ledger,
             "allow_scoped_confidence": self.allow_scoped_confidence,
@@ -604,6 +612,23 @@ def review_flowguard_closure_contract(
                 "Field Lifecycle Mesh evidence does not support full confidence",
                 field_lifecycle_evidence_reports[0].report_id,
                 {"field_lifecycle_reports": [report.to_dict() for report in field_lifecycle_evidence_reports]},
+                severity=severity,
+            )
+        )
+
+    model_angle_evidence_reports = reports_by_kind.get(CLOSURE_REPORT_MODEL_ANGLE, [])
+    if plan.require_model_angle_review and not plan.model_angle_reports and not model_angle_evidence_reports:
+        findings.append(_finding("missing_model_angle_review", "no model-angle deliberation report was supplied"))
+    for model_angle_report in plan.model_angle_reports:
+        findings.extend(_review_model_angle_report(model_angle_report, plan.allow_scoped_confidence))
+    if model_angle_evidence_reports and not any(report.supports_full_confidence() for report in model_angle_evidence_reports):
+        severity = "warning" if plan.allow_scoped_confidence else "blocker"
+        findings.append(
+            _finding(
+                "model_angle_evidence_not_full_confidence",
+                "model-angle deliberation evidence does not support full confidence",
+                model_angle_evidence_reports[0].report_id,
+                {"model_angle_reports": [report.to_dict() for report in model_angle_evidence_reports]},
                 severity=severity,
             )
         )
@@ -795,6 +820,7 @@ def _summary(
         f"misses={len(plan.same_class_miss_closures)} "
         f"gateways={len(plan.runtime_gateway_closures)} "
         f"field_lifecycle={len(plan.field_lifecycle_reports)} "
+        f"model_angle={len(plan.model_angle_reports)} "
         f"reports={len(plan.evidence_reports)} "
         f"blockers={blockers} warnings={warnings}"
     )
@@ -849,6 +875,58 @@ def _review_field_lifecycle_report(
     return tuple(findings)
 
 
+def _review_model_angle_report(
+    report: Any,
+    allow_scoped: bool,
+) -> tuple[FlowGuardClosureFinding, ...]:
+    findings: list[FlowGuardClosureFinding] = []
+    report_id = str(getattr(report, "review_id", "") or getattr(report, "report_id", "") or "")
+    metadata = _to_dict_or_value(report)
+    ok = bool(getattr(report, "ok", False))
+    confidence = str(getattr(report, "confidence", "") or "")
+    decision = str(getattr(report, "decision", "") or "")
+    unresolved = tuple(getattr(report, "unresolved_angle_ids", ()) or ())
+    if not ok:
+        findings.append(
+            _finding(
+                "model_angle_report_blocked",
+                "model-angle deliberation report is blocked",
+                report_id,
+                metadata,
+            )
+        )
+    if confidence != CLOSURE_CONFIDENCE_FULL:
+        severity = "warning" if allow_scoped and confidence == CLOSURE_CONFIDENCE_SCOPED else "blocker"
+        findings.append(
+            _finding(
+                "model_angle_not_full_confidence",
+                "model-angle deliberation report does not support full confidence",
+                report_id,
+                metadata,
+                severity=severity,
+            )
+        )
+    if unresolved:
+        findings.append(
+            _finding(
+                "model_angle_unresolved",
+                "model-angle deliberation has unresolved required angles",
+                report_id,
+                metadata,
+            )
+        )
+    if not decision:
+        findings.append(
+            _finding(
+                "model_angle_missing_decision",
+                "model-angle deliberation report lacks a decision",
+                report_id,
+                metadata,
+            )
+        )
+    return tuple(findings)
+
+
 __all__ = [
     "CLOSURE_CONFIDENCE_BLOCKED",
     "CLOSURE_CONFIDENCE_FULL",
@@ -862,6 +940,7 @@ __all__ = [
     "CLOSURE_REPORT_FIELD_LIFECYCLE",
     "CLOSURE_REPORT_KINDS",
     "CLOSURE_REPORT_MODEL_FRESHNESS",
+    "CLOSURE_REPORT_MODEL_ANGLE",
     "CLOSURE_REPORT_MODEL_MATURATION",
     "CLOSURE_REPORT_MODEL_TEST_ALIGNMENT",
     "CLOSURE_REPORT_RUNTIME_PATH_ALIGNMENT",

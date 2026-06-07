@@ -234,6 +234,12 @@ FILE_TEMPLATE_COMMANDS: tuple[FileTemplateCommand, ...] = (
         "existing_model_preflight_template_files",
     ),
     FileTemplateCommand(
+        "model-angle-template",
+        "Print or write the open-ended model-angle deliberation template.",
+        "model_angle_deliberation",
+        "model_angle_deliberation_template_files",
+    ),
+    FileTemplateCommand(
         "field-lifecycle-template",
         "Print or write the FieldLifecycleMesh field coverage and replacement disposition template.",
         "field_lifecycle",

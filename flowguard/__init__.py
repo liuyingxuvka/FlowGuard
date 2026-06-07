@@ -653,6 +653,7 @@ from . import closure_contract as _closure_contract
 from . import field_lifecycle as _field_lifecycle
 from . import maintenance_obligation as _maintenance_obligation
 from . import maintenance_scan as _maintenance_scan
+from . import model_angle_deliberation as _model_angle_deliberation
 from . import plan_intake as _plan_intake
 from . import state_closure as _state_closure
 from . import topology_hazard as _topology_hazard
@@ -662,6 +663,7 @@ from .closure_contract import *  # noqa: F403
 from .field_lifecycle import *  # noqa: F403
 from .maintenance_obligation import *  # noqa: F403
 from .maintenance_scan import *  # noqa: F403
+from .model_angle_deliberation import *  # noqa: F403
 from .plan_intake import *  # noqa: F403
 from .state_closure import *  # noqa: F403
 from .topology_hazard import *  # noqa: F403
@@ -922,6 +924,7 @@ from .templates import (
     layered_boundary_proof_template_files,
     maintenance_scan_template_files,
     maintenance_workflow_template_files,
+    model_angle_deliberation_template_files,
     model_miss_review_template_files,
     model_similarity_consolidation_template_files,
     model_test_alignment_template_files,
@@ -946,6 +949,7 @@ FLOWGUARD_CLOSURE_CONTRACT_API = tuple(_closure_contract.__all__)
 FIELD_LIFECYCLE_MESH_API = tuple(_field_lifecycle.__all__)
 MAINTENANCE_OBLIGATION_MEMORY_API = tuple(_maintenance_obligation.__all__)
 MAINTENANCE_SCAN_ROUTE_API = tuple(_maintenance_scan.__all__)
+MODEL_ANGLE_DELIBERATION_API = tuple(_model_angle_deliberation.__all__)
 STATE_CLOSURE_ROUTE_API = tuple(_state_closure.__all__)
 TOPOLOGY_HAZARD_ROUTE_API = tuple(_topology_hazard.__all__)
 MODEL_IMPACT_FRESHNESS_API = tuple(_model_freshness.__all__)
@@ -1000,6 +1004,7 @@ MODELING_HELPER_API = (
     "scenario_status_explanation",
     "scenario_status_ok",
     "ScenarioMatrixBuilder",
+    *MODEL_ANGLE_DELIBERATION_API,
     "CachePack",
     "DeduplicationPack",
     "RetryPack",
@@ -1791,6 +1796,7 @@ EVIDENCE_API = (
     "layered_boundary_proof_template_files",
     "maintenance_scan_template_files",
     "maintenance_workflow_template_files",
+    "model_angle_deliberation_template_files",
     "model_miss_review_template_files",
     "model_similarity_consolidation_template_files",
     "model_test_alignment_template_files",
@@ -1826,6 +1832,7 @@ TEMPLATE_STRUCTURE_API = (
     "layered_boundary_proof_template_files",
     "closure_contract_template_files",
     "maintenance_scan_template_files",
+    "model_angle_deliberation_template_files",
     "ui_flow_structure_template_files",
     "development_process_flow_template_files",
     "workflow_step_contracts_template_files",
@@ -1928,6 +1935,7 @@ FLOWGUARD_ROUTE_API = {
     "plan_detailing_compiler": PLAN_DETAILING_ROUTE_API,
     "maintenance_obligation_memory": MAINTENANCE_OBLIGATION_MEMORY_API,
     "maintenance_scan_router": MAINTENANCE_SCAN_ROUTE_API,
+    "model_angle_deliberation": MODEL_ANGLE_DELIBERATION_API,
     "state_closure": STATE_CLOSURE_ROUTE_API,
     "model_topology_hazard_review": TOPOLOGY_HAZARD_ROUTE_API,
 }
@@ -1951,6 +1959,7 @@ _PUBLIC_API_SUPPLEMENT = (
     "FIELD_LIFECYCLE_MESH_API",
     "MAINTENANCE_OBLIGATION_MEMORY_API",
     "MAINTENANCE_SCAN_ROUTE_API",
+    "MODEL_ANGLE_DELIBERATION_API",
     "MODEL_SIMILARITY_ROUTE_API",
     "MODEL_TEST_ALIGNMENT_ROUTE_API",
     "MODEL_IMPACT_FRESHNESS_API",
