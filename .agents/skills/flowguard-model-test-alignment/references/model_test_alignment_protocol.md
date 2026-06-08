@@ -66,6 +66,17 @@ evidence rows. Each runtime node observation must name `model_id`,
 contract when known. Anonymous logs or helper-only progress messages are not
 model-test alignment evidence.
 
+When the claim covers import/export files, generated artifacts, or AI work
+packages, add artifact payload validation before trusting the claim. Use
+`ArtifactPayloadContract`, `ArtifactPayloadCase`, `ArtifactPayloadEvidence`,
+and `review_artifact_payload_validation()`. Each payload surface should have a
+small synthetic pack with accepted and rejected cases where relevant, expected
+outputs, error paths, state writes, side effects, and round-trip requirements.
+Current external payload evidence must name the contract id, case id, method,
+result, observed output/error/state/side-effect fields, and evidence reference.
+Manual payload checks are allowed only as structured case evidence; prose-only
+manual review is scoped or blocked.
+
 When a Model Topology Hazard Review names an anchored future-use hazard with a
 model/test disposition, treat the hazard id as a model obligation source. Bind
 current tests or code-boundary observations to that hazard, or return the gap
@@ -114,6 +125,9 @@ Create or update a model-test alignment review when:
 - declared code boundaries need runtime observation evidence showing allowed
   inputs, rejected inputs, outputs, errors, state writes, and side effects
   stayed inside the model-declared boundary.
+- artifact payload surfaces such as import/export files, generated reports,
+  saved projects, archives, or AI work packages need synthetic accepted/rejected
+  case evidence before a user-visible payload claim is trusted.
 - topology-anchored future-use hazards need ordinary test, boundary, or
   evidence rows before they can support broad confidence.
 
@@ -138,6 +152,15 @@ Use grouped field families instead of a blank for every possible detail.
 - field lifecycle source when generated from FieldLifecycleMesh: field id,
   projection id, behavior impact, old-field disposition if relevant, and owner
   route.
+
+`ArtifactPayloadContract` rows should capture:
+
+- identity: payload contract id, model obligation id, owner code contract id,
+  payload surface, and payload kind;
+- cases: required accepted/rejected synthetic payload ids, expected status,
+  output, error path, state writes, side effects, and round-trip requirement;
+- evidence: current external case result, method, evidence reference, observed
+  result fields, and stale/scoped reason when coverage is incomplete.
 
 `CodeContract` rows are required for required model obligations in the current
 confidence claim. Capture:

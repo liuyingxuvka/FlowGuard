@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.42.0 - 2026-06-08
+
+Validation evidence gate upgrade for UI and artifact payload claims.
+
+- Added Model-Test Alignment artifact payload helpers for file import/export,
+  generated artifact, save/load, and AI work-package validation cases.
+- Integrated payload contracts/evidence into `ModelTestAlignmentPlan` and the
+  public API surface so missing, stale, internal-only, manual prose-only, or
+  mismatched payload evidence blocks broad alignment claims.
+- Added Risk Evidence Ledger gates for UI implementation evidence and artifact
+  payload validation before done/release/full-confidence claims.
+- Strengthened UI, Model-Test Alignment, TestMesh, DevelopmentProcessFlow,
+  PlanDetailing, AgentWorkflowRehearsal, kernel guidance, docs, and templates
+  so runnable UI claims require reachable control click-through evidence and
+  payload/work-package claims require synthetic payload packs.
+
 ## v0.41.8 - 2026-06-07
 
 AI-entry surface reduction for thinner default FlowGuard authoring.

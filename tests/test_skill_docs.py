@@ -132,6 +132,7 @@ class SkillDocsTests(unittest.TestCase):
                 "SkillInventorySnapshot",
                 "candidate skills",
                 "continue/rework gates",
+                "artifact payload packs",
             ),
             "flowguard-architecture-reduction": (
                 "ObservableArchitectureContract",
@@ -147,6 +148,7 @@ class SkillDocsTests(unittest.TestCase):
                 "artifact versions",
                 "minimum revalidation",
                 "review_auto_mesh_splits",
+                "payload schemas",
             ),
             "flowguard-existing-model-preflight": (
                 "existing model boundaries",
@@ -172,6 +174,7 @@ class SkillDocsTests(unittest.TestCase):
             ),
             "flowguard-model-test-alignment": (
                 "CodeContract",
+                "ArtifactPayloadContract",
                 "Full confidence requires",
                 "coverage",
                 "Do not invoke TestMesh",
@@ -185,6 +188,7 @@ class SkillDocsTests(unittest.TestCase):
                 "PlanDetail",
                 "review_plan_detail()",
                 "step receipts",
+                "synthetic payload packs",
             ),
             "flowguard-structure-mesh": (
                 "public entrypoints",
@@ -195,11 +199,13 @@ class SkillDocsTests(unittest.TestCase):
                 "child test scripts",
                 "validation mesh diagram",
                 "parent/child test hierarchy",
+                "artifact-payload matrices",
             ),
             "flowguard-ui-flow-structure": (
                 "UI event x UI state",
                 "UI state diagram",
                 "residual blindspots",
+                "reachable enabled action",
             ),
         }
 
@@ -254,11 +260,22 @@ class SkillDocsTests(unittest.TestCase):
 
         self.assertIn("calm typography guidance", skill)
         self.assertIn("calm visual handoff guidance", openai_yaml)
+        self.assertIn("Visible surface", skill)
+        self.assertIn("screenshot", skill)
+        self.assertIn("DOM text", skill)
+        self.assertIn("evidence kind", skill)
         self.assertIn("semantic hierarchy levels are not a command", protocol)
         self.assertIn("similar jobs", protocol)
         self.assertIn("one-off visual text style", protocol)
+        self.assertIn("Visible Surface Review", protocol)
+        self.assertIn("disabled control is visible without a reason", protocol)
+        self.assertIn("screenshot", protocol)
+        self.assertIn("DOM text", protocol)
+        self.assertIn("evidence kind", protocol)
         self.assertNotIn("maximum font-size", protocol.lower())
         self.assertNotIn("font size limit", protocol.lower())
+        self.assertNotIn("screenshot ban", protocol.lower())
+        self.assertNotIn("screenshots are forbidden", protocol.lower())
 
     def test_kernel_satellite_reference_handoffs_are_compact(self):
         for kernel_reference, (skill_name, satellite_reference) in KERNEL_HANDOFFS.items():

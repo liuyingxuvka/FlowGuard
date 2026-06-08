@@ -20,6 +20,9 @@ Use this route when:
 - skipping a candidate skill could change the safety or evidence boundary;
 - staged validation, background checks, install sync, release/publish actions,
   or other side effects need continue and rework gates;
+- UI click-through, file/artifact payload validation, AI work-package
+  validation, manual review, or installed-skill sync can change the final
+  evidence claim;
 - a final done/release/publish/full-confidence claim depends on evidence from
   multiple routes.
 
@@ -60,6 +63,9 @@ Build an `AgentWorkflowPlan` with:
   effect failures;
 - compensating checks for weak, missing, manual-only, or external-only
   validation guidance;
+- explicit evidence surfaces for UI action coverage, artifact payload packs,
+  AI work packages, manual checks, installed-skill sync, and long checks when
+  the task touches them;
 - final evidence claim: none, scoped, full, or blocked.
 
 If the work starts from a rough idea or short plan, build `PlanDetail` rows
@@ -91,6 +97,10 @@ Keep these hazards visible:
 - `rework_gate_missing`;
 - `selected_skill_has_weak_validation_guidance`;
 - `full_claim_missing_final_evidence`;
+- `ui_action_coverage_skill_skipped`;
+- `artifact_payload_validation_skill_skipped`;
+- `manual_review_boundary_missing`;
+- `installed_skill_sync_missing`;
 - `trivial_task_overtriggers_skills`.
 
 ## Completion Standard

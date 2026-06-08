@@ -36,6 +36,10 @@ Create or update a DevelopmentProcessFlow review when:
   artifacts changed after evidence was produced;
 - a model or UI transition changed after transition coverage matrices, MTA
   obligations, or TestMesh required cell evidence were produced;
+- a visible UI action map, click-through run, pure-UI classification, or manual
+  UI boundary changed after implementation evidence was produced;
+- a payload schema, fixture, import/export behavior, generated artifact, or AI
+  work-package format changed after synthetic payload evidence was produced;
 - a field lifecycle mesh, field projection, replacement disposition, or
   bug-repair closure artifact changed after alignment, process, or closure
   evidence was produced;
@@ -71,6 +75,9 @@ Use grouped process rows instead of separate blanks for every lifecycle field.
 - validation evidence: evidence id, kind, producer route, status, command or
   result path, covered artifact versions, verifier artifacts, and validation
   requirement ids;
+- UI/payload evidence when relevant: action-map revision, clicked control ids,
+  payload contract ids, synthetic case ids, work-package fixture ids, and
+  manual/native-dialog boundaries;
 - evidence caveats: skipped visibility, background final artifacts,
   release-required flags, stale reasons, and proof artifact when a final claim
   depends on the row;
@@ -106,6 +113,12 @@ Use these triage classes:
   coverage matrix, Model-Test Alignment obligations, or TestMesh required cell
   ids were generated. Regenerate the matrix and rerun the owning evidence
   route.
+- `ui_action_evidence_stale`: reachable controls, modeled UI events,
+  pure-UI classifications, or native/manual boundaries changed after UI
+  implementation validation. Rerun UI Flow Structure implementation evidence.
+- `artifact_payload_evidence_stale`: a payload schema, fixture, generated
+  artifact, or AI work-package shape changed after payload validation. Rebuild
+  synthetic payload packs and rerun Model-Test Alignment or TestMesh.
 - `topology_hazard_gap`: a locally green model topology still has anchored
   future-use hazards. Hand off to Model Topology Hazard Review and keep the
   lifecycle claim scoped or blocked until current route evidence is consumed.

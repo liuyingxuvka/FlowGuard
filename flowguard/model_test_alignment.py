@@ -87,6 +87,15 @@ TEST_ASSERTION_SCOPE_INTERNAL_PATH = "internal_path"
 TEST_ASSERTION_SCOPE_MIXED = "mixed"
 TEST_ASSERTION_SCOPE_UNKNOWN = "unknown"
 
+ARTIFACT_PAYLOAD_STATUS_ACCEPTED = "accepted"
+ARTIFACT_PAYLOAD_STATUS_REJECTED = "rejected"
+
+ARTIFACT_PAYLOAD_METHOD_AUTOMATED_TEST = "automated_test"
+ARTIFACT_PAYLOAD_METHOD_BROWSER = "browser"
+ARTIFACT_PAYLOAD_METHOD_DESKTOP = "desktop"
+ARTIFACT_PAYLOAD_METHOD_MANUAL = "manual"
+ARTIFACT_PAYLOAD_METHOD_REPLAY = "replay"
+
 CODE_CONTRACT_ROLE_OWNER = "owner"
 CODE_CONTRACT_ROLE_HELPER = "helper"
 CODE_CONTRACT_ROLE_ADAPTER = "adapter"
@@ -606,6 +615,277 @@ class CodeBoundaryConformanceReport:
 
 
 @dataclass(frozen=True)
+class ArtifactPayloadCase:
+    """One synthetic or real payload case required for an artifact-like surface."""
+
+    case_id: str
+    description: str = ""
+    expected_status: str = ARTIFACT_PAYLOAD_STATUS_ACCEPTED
+    required: bool = True
+    expected_output: str = ""
+    expected_error_path: str = ""
+    expected_state_writes: tuple[str, ...] = ()
+    expected_side_effects: tuple[str, ...] = ()
+    round_trip_required: bool = False
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "case_id", str(self.case_id))
+        object.__setattr__(self, "description", str(self.description))
+        object.__setattr__(self, "expected_status", str(self.expected_status))
+        object.__setattr__(self, "expected_output", str(self.expected_output))
+        object.__setattr__(self, "expected_error_path", str(self.expected_error_path))
+        object.__setattr__(self, "expected_state_writes", _as_tuple(self.expected_state_writes))
+        object.__setattr__(self, "expected_side_effects", _as_tuple(self.expected_side_effects))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "case_id": self.case_id,
+            "description": self.description,
+            "expected_status": self.expected_status,
+            "required": self.required,
+            "expected_output": self.expected_output,
+            "expected_error_path": self.expected_error_path,
+            "expected_state_writes": list(self.expected_state_writes),
+            "expected_side_effects": list(self.expected_side_effects),
+            "round_trip_required": self.round_trip_required,
+        }
+
+
+def _coerce_payload_case(case: ArtifactPayloadCase | Mapping[str, Any]) -> ArtifactPayloadCase:
+    if isinstance(case, ArtifactPayloadCase):
+        return case
+    return ArtifactPayloadCase(**dict(case))
+
+
+@dataclass(frozen=True)
+class ArtifactPayloadContract:
+    """Validation contract for import/export files, generated packs, or AI work packages."""
+
+    payload_contract_id: str
+    model_obligation_id: str = ""
+    code_contract_id: str = ""
+    payload_surface: str = ""
+    payload_kind: str = ""
+    cases: tuple[ArtifactPayloadCase, ...] = ()
+    required: bool = True
+    exact: bool = True
+    allow_scoped_cases: bool = False
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "payload_contract_id", str(self.payload_contract_id))
+        object.__setattr__(self, "model_obligation_id", str(self.model_obligation_id))
+        object.__setattr__(self, "code_contract_id", str(self.code_contract_id))
+        object.__setattr__(self, "payload_surface", str(self.payload_surface))
+        object.__setattr__(self, "payload_kind", str(self.payload_kind))
+        object.__setattr__(self, "cases", tuple(_coerce_payload_case(case) for case in self.cases))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "payload_contract_id": self.payload_contract_id,
+            "model_obligation_id": self.model_obligation_id,
+            "code_contract_id": self.code_contract_id,
+            "payload_surface": self.payload_surface,
+            "payload_kind": self.payload_kind,
+            "cases": [case.to_dict() for case in self.cases],
+            "required": self.required,
+            "exact": self.exact,
+            "allow_scoped_cases": self.allow_scoped_cases,
+        }
+
+
+@dataclass(frozen=True)
+class ArtifactPayloadEvidence:
+    """Observed result for one artifact payload case."""
+
+    evidence_id: str
+    payload_contract_id: str
+    case_id: str = ""
+    method: str = ARTIFACT_PAYLOAD_METHOD_AUTOMATED_TEST
+    result_status: str = TEST_STATUS_PASSED
+    evidence_current: bool = True
+    assertion_scope: str = TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT
+    observed_status: str = ""
+    observed_output: str = ""
+    observed_error_path: str = ""
+    observed_state_writes: tuple[str, ...] = ()
+    observed_side_effects: tuple[str, ...] = ()
+    round_trip_ok: bool = False
+    evidence_ref: str = ""
+    proof_artifact: ProofArtifactRef | Mapping[str, Any] | None = None
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "evidence_id", str(self.evidence_id))
+        object.__setattr__(self, "payload_contract_id", str(self.payload_contract_id))
+        object.__setattr__(self, "case_id", str(self.case_id))
+        object.__setattr__(self, "method", str(self.method))
+        object.__setattr__(self, "result_status", str(self.result_status))
+        object.__setattr__(self, "assertion_scope", str(self.assertion_scope))
+        object.__setattr__(self, "observed_status", str(self.observed_status))
+        object.__setattr__(self, "observed_output", str(self.observed_output))
+        object.__setattr__(self, "observed_error_path", str(self.observed_error_path))
+        object.__setattr__(self, "observed_state_writes", _as_tuple(self.observed_state_writes))
+        object.__setattr__(self, "observed_side_effects", _as_tuple(self.observed_side_effects))
+        object.__setattr__(self, "evidence_ref", str(self.evidence_ref))
+        object.__setattr__(self, "proof_artifact", coerce_proof_artifact_ref(self.proof_artifact))
+        object.__setattr__(self, "metadata", dict(self.metadata))
+
+    def has_current_pass(self) -> bool:
+        return self.result_status in PASSING_STATUSES and self.evidence_current
+
+    def has_external_payload_assertion(self) -> bool:
+        return self.assertion_scope in {
+            TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
+            TEST_ASSERTION_SCOPE_MIXED,
+        }
+
+    def has_current_external_pass(self) -> bool:
+        return self.has_current_pass() and self.has_external_payload_assertion()
+
+    def has_structured_manual_record(self) -> bool:
+        if self.method != ARTIFACT_PAYLOAD_METHOD_MANUAL:
+            return True
+        has_observation = any(
+            (
+                self.observed_status,
+                self.observed_output,
+                self.observed_error_path,
+                self.observed_state_writes,
+                self.observed_side_effects,
+            )
+        )
+        return bool(self.evidence_ref or self.proof_artifact) and bool(self.case_id) and has_observation
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "evidence_id": self.evidence_id,
+            "payload_contract_id": self.payload_contract_id,
+            "case_id": self.case_id,
+            "method": self.method,
+            "result_status": self.result_status,
+            "evidence_current": self.evidence_current,
+            "assertion_scope": self.assertion_scope,
+            "observed_status": self.observed_status,
+            "observed_output": self.observed_output,
+            "observed_error_path": self.observed_error_path,
+            "observed_state_writes": list(self.observed_state_writes),
+            "observed_side_effects": list(self.observed_side_effects),
+            "round_trip_ok": self.round_trip_ok,
+            "evidence_ref": self.evidence_ref,
+            "proof_artifact": self.proof_artifact.to_dict() if self.proof_artifact else None,
+            "metadata": to_jsonable(dict(self.metadata)),
+        }
+
+
+@dataclass(frozen=True)
+class ArtifactPayloadFinding:
+    """One artifact payload contract, case, or evidence gap."""
+
+    code: str
+    message: str
+    severity: str = "blocker"
+    payload_contract_id: str = ""
+    case_id: str = ""
+    evidence_id: str = ""
+    model_obligation_id: str = ""
+    code_contract_id: str = ""
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "code", str(self.code))
+        object.__setattr__(self, "message", str(self.message))
+        object.__setattr__(self, "severity", str(self.severity))
+        object.__setattr__(self, "payload_contract_id", str(self.payload_contract_id))
+        object.__setattr__(self, "case_id", str(self.case_id))
+        object.__setattr__(self, "evidence_id", str(self.evidence_id))
+        object.__setattr__(self, "model_obligation_id", str(self.model_obligation_id))
+        object.__setattr__(self, "code_contract_id", str(self.code_contract_id))
+        object.__setattr__(self, "metadata", dict(self.metadata))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "code": self.code,
+            "message": self.message,
+            "severity": self.severity,
+            "payload_contract_id": self.payload_contract_id,
+            "case_id": self.case_id,
+            "evidence_id": self.evidence_id,
+            "model_obligation_id": self.model_obligation_id,
+            "code_contract_id": self.code_contract_id,
+            "metadata": to_jsonable(dict(self.metadata)),
+        }
+
+
+@dataclass(frozen=True)
+class ArtifactPayloadValidationReport:
+    """Structured result of checking artifact payload evidence against contracts."""
+
+    ok: bool
+    decision: str
+    findings: tuple[ArtifactPayloadFinding, ...] = ()
+    checked_contracts: int = 0
+    checked_cases: int = 0
+    checked_evidence: int = 0
+    summary: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "decision", str(self.decision))
+        object.__setattr__(self, "findings", tuple(self.findings))
+        if not self.summary:
+            status = "OK" if self.ok else "BLOCKED"
+            object.__setattr__(
+                self,
+                "summary",
+                (
+                    f"{status}: artifact_payload_validation "
+                    f"contracts={self.checked_contracts} "
+                    f"cases={self.checked_cases} "
+                    f"evidence={self.checked_evidence} "
+                    f"findings={len(self.findings)}"
+                ),
+            )
+
+    def blocker_count(self) -> int:
+        return sum(1 for finding in self.findings if finding.severity == "blocker")
+
+    def format_text(self, max_findings: int = 10) -> str:
+        lines = [
+            "=== flowguard artifact payload validation ===",
+            f"status: {'OK' if self.ok else 'BLOCKED'}",
+            f"decision: {self.decision}",
+            f"contracts: {self.checked_contracts}",
+            f"cases: {self.checked_cases}",
+            f"evidence: {self.checked_evidence}",
+            f"findings: {len(self.findings)}",
+        ]
+        for finding in self.findings[:max_findings]:
+            lines.extend(
+                [
+                    "",
+                    f"finding: {finding.code}",
+                    f"severity: {finding.severity}",
+                    f"payload_contract: {finding.payload_contract_id or '(none)'}",
+                    f"case: {finding.case_id or '(none)'}",
+                    f"code_contract: {finding.code_contract_id or '(none)'}",
+                    f"evidence: {finding.evidence_id or '(none)'}",
+                    f"message: {finding.message}",
+                ]
+            )
+        return "\n".join(lines)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "ok": self.ok,
+            "decision": self.decision,
+            "findings": [finding.to_dict() for finding in self.findings],
+            "checked_contracts": self.checked_contracts,
+            "checked_cases": self.checked_cases,
+            "checked_evidence": self.checked_evidence,
+            "summary": self.summary,
+        }
+
+
+@dataclass(frozen=True)
 class ModelTestAlignmentPlan:
     """A direct model-obligation, code-contract, and test-evidence review plan."""
 
@@ -617,6 +897,8 @@ class ModelTestAlignmentPlan:
     family_evidence: tuple[ObligationFamilyEvidence, ...] = ()
     boundary_contracts: tuple[CodeBoundaryContract, ...] = ()
     boundary_observations: tuple[CodeBoundaryObservation, ...] = ()
+    payload_contracts: tuple[ArtifactPayloadContract, ...] = ()
+    payload_evidence: tuple[ArtifactPayloadEvidence, ...] = ()
     runtime_node_contracts: tuple[RuntimeNodeContract, ...] = ()
     runtime_node_observations: tuple[RuntimeNodeObservation, ...] = ()
     runtime_path_runs: tuple[RuntimePathRun, ...] = ()
@@ -637,6 +919,26 @@ class ModelTestAlignmentPlan:
         object.__setattr__(self, "family_evidence", tuple(self.family_evidence))
         object.__setattr__(self, "boundary_contracts", tuple(self.boundary_contracts))
         object.__setattr__(self, "boundary_observations", tuple(self.boundary_observations))
+        object.__setattr__(
+            self,
+            "payload_contracts",
+            tuple(
+                contract
+                if isinstance(contract, ArtifactPayloadContract)
+                else ArtifactPayloadContract(**contract)
+                for contract in self.payload_contracts
+            ),
+        )
+        object.__setattr__(
+            self,
+            "payload_evidence",
+            tuple(
+                evidence
+                if isinstance(evidence, ArtifactPayloadEvidence)
+                else ArtifactPayloadEvidence(**evidence)
+                for evidence in self.payload_evidence
+            ),
+        )
         object.__setattr__(
             self,
             "runtime_node_contracts",
@@ -676,6 +978,8 @@ class ModelTestAlignmentPlan:
             "family_evidence": [evidence.to_dict() for evidence in self.family_evidence],
             "boundary_contracts": [contract.to_dict() for contract in self.boundary_contracts],
             "boundary_observations": [observation.to_dict() for observation in self.boundary_observations],
+            "payload_contracts": [contract.to_dict() for contract in self.payload_contracts],
+            "payload_evidence": [evidence.to_dict() for evidence in self.payload_evidence],
             "runtime_node_contracts": [contract.to_dict() for contract in self.runtime_node_contracts],
             "runtime_node_observations": [
                 observation.to_dict() for observation in self.runtime_node_observations
@@ -957,6 +1261,24 @@ def _decision_for_findings(findings: Sequence[ModelTestAlignmentFinding]) -> str
         ("boundary_observation_not_passing", "code_boundary_conformance_failed"),
         ("boundary_observation_stale", "code_boundary_conformance_failed"),
         ("boundary_observation_internal_path_only", "code_boundary_conformance_failed"),
+        ("duplicate_artifact_payload_contract", "artifact_payload_validation_failed"),
+        ("duplicate_artifact_payload_case", "artifact_payload_validation_failed"),
+        ("unknown_artifact_payload_obligation_reference", "artifact_payload_validation_failed"),
+        ("unknown_artifact_payload_code_contract_reference", "artifact_payload_validation_failed"),
+        ("unknown_artifact_payload_contract_reference", "artifact_payload_validation_failed"),
+        ("unknown_artifact_payload_case_reference", "artifact_payload_validation_failed"),
+        ("artifact_payload_contract_missing_cases", "artifact_payload_validation_failed"),
+        ("artifact_payload_missing_case_evidence", "artifact_payload_validation_failed"),
+        ("artifact_payload_evidence_not_passing", "artifact_payload_validation_failed"),
+        ("artifact_payload_evidence_stale", "artifact_payload_validation_failed"),
+        ("artifact_payload_evidence_internal_path_only", "artifact_payload_validation_failed"),
+        ("artifact_payload_manual_evidence_unstructured", "artifact_payload_validation_failed"),
+        ("artifact_payload_status_mismatch", "artifact_payload_validation_failed"),
+        ("artifact_payload_output_mismatch", "artifact_payload_validation_failed"),
+        ("artifact_payload_error_path_mismatch", "artifact_payload_validation_failed"),
+        ("artifact_payload_state_write_mismatch", "artifact_payload_validation_failed"),
+        ("artifact_payload_side_effect_mismatch", "artifact_payload_validation_failed"),
+        ("artifact_payload_round_trip_missing", "artifact_payload_validation_failed"),
         ("missing_runtime_path_contracts", "runtime_path_alignment_failed"),
         ("runtime_node_missing_observation", "runtime_path_alignment_failed"),
         ("runtime_node_observation_not_current_pass", "runtime_path_alignment_failed"),
@@ -1370,6 +1692,468 @@ def _boundary_findings_as_alignment_findings(
                 "boundary_id": finding.boundary_id,
                 "boundary_report_decision": report.decision,
                 "boundary_finding": finding.to_dict(),
+            },
+        )
+        for finding in report.findings
+    ]
+
+
+def _artifact_payload_decision_for_findings(findings: Sequence[ArtifactPayloadFinding]) -> str:
+    blockers = tuple(finding for finding in findings if finding.severity == "blocker")
+    if not blockers:
+        return "artifact_payload_validation_green"
+    priority = (
+        "duplicate_artifact_payload_contract",
+        "duplicate_artifact_payload_case",
+        "unknown_artifact_payload_obligation_reference",
+        "unknown_artifact_payload_code_contract_reference",
+        "unknown_artifact_payload_contract_reference",
+        "unknown_artifact_payload_case_reference",
+        "artifact_payload_contract_missing_cases",
+        "artifact_payload_missing_case_evidence",
+        "artifact_payload_evidence_not_passing",
+        "artifact_payload_evidence_stale",
+        "artifact_payload_evidence_internal_path_only",
+        "artifact_payload_manual_evidence_unstructured",
+        "artifact_payload_status_mismatch",
+        "artifact_payload_output_mismatch",
+        "artifact_payload_error_path_mismatch",
+        "artifact_payload_state_write_mismatch",
+        "artifact_payload_side_effect_mismatch",
+        "artifact_payload_round_trip_missing",
+    )
+    codes = {finding.code for finding in blockers}
+    for code in priority:
+        if code in codes:
+            return code
+    return "artifact_payload_validation_blocked"
+
+
+def _payload_finding(
+    code: str,
+    message: str,
+    *,
+    contract: ArtifactPayloadContract | None = None,
+    case: ArtifactPayloadCase | None = None,
+    evidence: ArtifactPayloadEvidence | None = None,
+    severity: str = "blocker",
+    metadata: Mapping[str, Any] | None = None,
+) -> ArtifactPayloadFinding:
+    payload_contract_id = ""
+    model_obligation_id = ""
+    code_contract_id = ""
+    if contract is not None:
+        payload_contract_id = contract.payload_contract_id
+        model_obligation_id = contract.model_obligation_id
+        code_contract_id = contract.code_contract_id
+    if evidence is not None and not payload_contract_id:
+        payload_contract_id = evidence.payload_contract_id
+    case_id = case.case_id if case is not None else ""
+    if evidence is not None and not case_id:
+        case_id = evidence.case_id
+    return ArtifactPayloadFinding(
+        code,
+        message,
+        severity=severity,
+        payload_contract_id=payload_contract_id,
+        case_id=case_id,
+        evidence_id=evidence.evidence_id if evidence is not None else "",
+        model_obligation_id=model_obligation_id,
+        code_contract_id=code_contract_id,
+        metadata=metadata or {},
+    )
+
+
+def _artifact_payload_contract_index(
+    payload_contracts: Sequence[ArtifactPayloadContract],
+) -> tuple[dict[str, ArtifactPayloadContract], list[ArtifactPayloadFinding]]:
+    contracts_by_id: dict[str, ArtifactPayloadContract] = {}
+    findings: list[ArtifactPayloadFinding] = []
+    for contract in payload_contracts:
+        if contract.payload_contract_id in contracts_by_id:
+            findings.append(
+                _payload_finding(
+                    "duplicate_artifact_payload_contract",
+                    f"artifact payload contract {contract.payload_contract_id} is declared more than once",
+                    contract=contract,
+                    metadata=contract.to_dict(),
+                )
+            )
+            continue
+        contracts_by_id[contract.payload_contract_id] = contract
+    return contracts_by_id, findings
+
+
+def _artifact_payload_case_index(
+    contract: ArtifactPayloadContract,
+) -> tuple[dict[str, ArtifactPayloadCase], list[ArtifactPayloadFinding]]:
+    cases_by_id: dict[str, ArtifactPayloadCase] = {}
+    findings: list[ArtifactPayloadFinding] = []
+    for case in contract.cases:
+        if case.case_id in cases_by_id:
+            findings.append(
+                _payload_finding(
+                    "duplicate_artifact_payload_case",
+                    f"artifact payload contract {contract.payload_contract_id} declares case {case.case_id} more than once",
+                    contract=contract,
+                    case=case,
+                    metadata={"contract": contract.to_dict(), "case": case.to_dict()},
+                )
+            )
+            continue
+        cases_by_id[case.case_id] = case
+    return cases_by_id, findings
+
+
+def _artifact_payload_evidence_by_contract(
+    payload_evidence: Sequence[ArtifactPayloadEvidence],
+) -> dict[str, list[ArtifactPayloadEvidence]]:
+    result: dict[str, list[ArtifactPayloadEvidence]] = {}
+    for evidence in payload_evidence:
+        result.setdefault(evidence.payload_contract_id, []).append(evidence)
+    return result
+
+
+def _artifact_payload_status_findings(
+    evidence: ArtifactPayloadEvidence,
+    contract: ArtifactPayloadContract | None,
+) -> list[ArtifactPayloadFinding]:
+    findings: list[ArtifactPayloadFinding] = []
+    if evidence.result_status in NON_PASSING_STATUSES:
+        findings.append(
+            _payload_finding(
+                "artifact_payload_evidence_not_passing",
+                f"artifact payload evidence {evidence.evidence_id} status is {evidence.result_status}",
+                contract=contract,
+                evidence=evidence,
+                metadata=evidence.to_dict(),
+            )
+        )
+    if evidence.result_status not in PASSING_STATUSES | NON_PASSING_STATUSES:
+        findings.append(
+            _payload_finding(
+                "artifact_payload_evidence_not_passing",
+                f"artifact payload evidence {evidence.evidence_id} has unknown status {evidence.result_status}",
+                contract=contract,
+                evidence=evidence,
+                metadata=evidence.to_dict(),
+            )
+        )
+    if not evidence.evidence_current:
+        findings.append(
+            _payload_finding(
+                "artifact_payload_evidence_stale",
+                f"artifact payload evidence {evidence.evidence_id} is stale",
+                contract=contract,
+                evidence=evidence,
+                metadata=evidence.to_dict(),
+            )
+        )
+    if not evidence.has_external_payload_assertion():
+        findings.append(
+            _payload_finding(
+                "artifact_payload_evidence_internal_path_only",
+                f"artifact payload evidence {evidence.evidence_id} does not prove the user-visible payload contract",
+                contract=contract,
+                evidence=evidence,
+                metadata=evidence.to_dict(),
+            )
+        )
+    if not evidence.has_structured_manual_record():
+        findings.append(
+            _payload_finding(
+                "artifact_payload_manual_evidence_unstructured",
+                f"manual artifact payload evidence {evidence.evidence_id} lacks a structured case observation and evidence reference",
+                contract=contract,
+                evidence=evidence,
+                metadata=evidence.to_dict(),
+            )
+        )
+    return findings
+
+
+def _payload_sequence_mismatch_finding(
+    *,
+    code: str,
+    field_name: str,
+    expected: Sequence[str],
+    observed: Sequence[str],
+    contract: ArtifactPayloadContract,
+    case: ArtifactPayloadCase,
+    evidence: ArtifactPayloadEvidence,
+) -> ArtifactPayloadFinding:
+    return _payload_finding(
+        code,
+        f"artifact payload evidence {evidence.evidence_id} has mismatched {field_name}",
+        contract=contract,
+        case=case,
+        evidence=evidence,
+        metadata={
+            "field": field_name,
+            "expected": list(expected),
+            "observed": list(observed),
+            "contract": contract.to_dict(),
+            "case": case.to_dict(),
+            "evidence": evidence.to_dict(),
+        },
+    )
+
+
+def _artifact_payload_behavior_findings(
+    contract: ArtifactPayloadContract,
+    case: ArtifactPayloadCase,
+    evidence: ArtifactPayloadEvidence,
+) -> list[ArtifactPayloadFinding]:
+    findings: list[ArtifactPayloadFinding] = []
+    if case.expected_status and evidence.observed_status != case.expected_status:
+        findings.append(
+            _payload_finding(
+                "artifact_payload_status_mismatch",
+                f"artifact payload evidence {evidence.evidence_id} observed status {evidence.observed_status!r}, expected {case.expected_status!r}",
+                contract=contract,
+                case=case,
+                evidence=evidence,
+                metadata={"contract": contract.to_dict(), "case": case.to_dict(), "evidence": evidence.to_dict()},
+            )
+        )
+    if case.expected_output and evidence.observed_output != case.expected_output:
+        findings.append(
+            _payload_finding(
+                "artifact_payload_output_mismatch",
+                f"artifact payload evidence {evidence.evidence_id} observed output {evidence.observed_output!r}, expected {case.expected_output!r}",
+                contract=contract,
+                case=case,
+                evidence=evidence,
+                metadata={"contract": contract.to_dict(), "case": case.to_dict(), "evidence": evidence.to_dict()},
+            )
+        )
+    elif contract.exact and evidence.observed_output and not case.expected_output:
+        findings.append(
+            _payload_finding(
+                "artifact_payload_output_mismatch",
+                f"artifact payload evidence {evidence.evidence_id} produced undeclared output",
+                contract=contract,
+                case=case,
+                evidence=evidence,
+                metadata={"contract": contract.to_dict(), "case": case.to_dict(), "evidence": evidence.to_dict()},
+            )
+        )
+    if case.expected_error_path and evidence.observed_error_path != case.expected_error_path:
+        findings.append(
+            _payload_finding(
+                "artifact_payload_error_path_mismatch",
+                f"artifact payload evidence {evidence.evidence_id} observed error path {evidence.observed_error_path!r}, expected {case.expected_error_path!r}",
+                contract=contract,
+                case=case,
+                evidence=evidence,
+                metadata={"contract": contract.to_dict(), "case": case.to_dict(), "evidence": evidence.to_dict()},
+            )
+        )
+    elif contract.exact and evidence.observed_error_path and not case.expected_error_path:
+        findings.append(
+            _payload_finding(
+                "artifact_payload_error_path_mismatch",
+                f"artifact payload evidence {evidence.evidence_id} produced undeclared error path",
+                contract=contract,
+                case=case,
+                evidence=evidence,
+                metadata={"contract": contract.to_dict(), "case": case.to_dict(), "evidence": evidence.to_dict()},
+            )
+        )
+    expected_writes = _tuple_set(case.expected_state_writes)
+    observed_writes = _tuple_set(evidence.observed_state_writes)
+    if expected_writes - observed_writes or (contract.exact and observed_writes - expected_writes):
+        findings.append(
+            _payload_sequence_mismatch_finding(
+                code="artifact_payload_state_write_mismatch",
+                field_name="state writes",
+                expected=sorted(expected_writes),
+                observed=sorted(observed_writes),
+                contract=contract,
+                case=case,
+                evidence=evidence,
+            )
+        )
+    expected_side_effects = _tuple_set(case.expected_side_effects)
+    observed_side_effects = _tuple_set(evidence.observed_side_effects)
+    if expected_side_effects - observed_side_effects or (contract.exact and observed_side_effects - expected_side_effects):
+        findings.append(
+            _payload_sequence_mismatch_finding(
+                code="artifact_payload_side_effect_mismatch",
+                field_name="side effects",
+                expected=sorted(expected_side_effects),
+                observed=sorted(observed_side_effects),
+                contract=contract,
+                case=case,
+                evidence=evidence,
+            )
+        )
+    if case.round_trip_required and not evidence.round_trip_ok:
+        findings.append(
+            _payload_finding(
+                "artifact_payload_round_trip_missing",
+                f"artifact payload evidence {evidence.evidence_id} does not prove required round-trip behavior",
+                contract=contract,
+                case=case,
+                evidence=evidence,
+                metadata={"contract": contract.to_dict(), "case": case.to_dict(), "evidence": evidence.to_dict()},
+            )
+        )
+    return findings
+
+
+def _artifact_payload_required_case_findings(
+    contract: ArtifactPayloadContract,
+    cases_by_id: Mapping[str, ArtifactPayloadCase],
+    evidence_items: Sequence[ArtifactPayloadEvidence],
+) -> list[ArtifactPayloadFinding]:
+    findings: list[ArtifactPayloadFinding] = []
+    if contract.required and not contract.cases:
+        findings.append(
+            _payload_finding(
+                "artifact_payload_contract_missing_cases",
+                f"artifact payload contract {contract.payload_contract_id} declares no payload cases",
+                contract=contract,
+                metadata=contract.to_dict(),
+            )
+        )
+        return findings
+
+    current_external_passes = tuple(
+        evidence
+        for evidence in evidence_items
+        if evidence.has_current_external_pass()
+    )
+    current_case_ids = {evidence.case_id for evidence in current_external_passes}
+    for case in cases_by_id.values():
+        if not case.required:
+            continue
+        if case.case_id not in current_case_ids:
+            severity = "warning" if contract.allow_scoped_cases else "blocker"
+            findings.append(
+                _payload_finding(
+                    "artifact_payload_missing_case_evidence",
+                    f"artifact payload case {case.case_id} has no current external passing evidence",
+                    contract=contract,
+                    case=case,
+                    severity=severity,
+                    metadata={"contract": contract.to_dict(), "case": case.to_dict()},
+                )
+            )
+    return findings
+
+
+def review_artifact_payload_validation(
+    payload_contracts: Sequence[ArtifactPayloadContract],
+    payload_evidence: Sequence[ArtifactPayloadEvidence],
+    code_contracts: Sequence[CodeContract] = (),
+    model_obligations: Sequence[ModelObligation] = (),
+) -> ArtifactPayloadValidationReport:
+    """Review import/export or AI-work-package payload evidence against declared cases."""
+
+    contracts_by_id, findings = _artifact_payload_contract_index(payload_contracts)
+    evidence_by_contract = _artifact_payload_evidence_by_contract(payload_evidence)
+    code_contracts_by_id = {contract.code_contract_id: contract for contract in code_contracts}
+    obligations_by_id = {obligation.obligation_id: obligation for obligation in model_obligations}
+    checked_cases = 0
+    case_index_by_contract: dict[str, dict[str, ArtifactPayloadCase]] = {}
+
+    for contract in contracts_by_id.values():
+        cases_by_id, case_findings = _artifact_payload_case_index(contract)
+        checked_cases += len(contract.cases)
+        case_index_by_contract[contract.payload_contract_id] = cases_by_id
+        findings.extend(case_findings)
+        if (
+            obligations_by_id
+            and contract.model_obligation_id
+            and contract.model_obligation_id not in obligations_by_id
+        ):
+            findings.append(
+                _payload_finding(
+                    "unknown_artifact_payload_obligation_reference",
+                    f"artifact payload contract {contract.payload_contract_id} references unknown model obligation {contract.model_obligation_id}",
+                    contract=contract,
+                    metadata=contract.to_dict(),
+                )
+            )
+        if (
+            code_contracts_by_id
+            and contract.code_contract_id
+            and contract.code_contract_id not in code_contracts_by_id
+        ):
+            findings.append(
+                _payload_finding(
+                    "unknown_artifact_payload_code_contract_reference",
+                    f"artifact payload contract {contract.payload_contract_id} references unknown code contract {contract.code_contract_id}",
+                    contract=contract,
+                    metadata=contract.to_dict(),
+                )
+            )
+        findings.extend(
+            _artifact_payload_required_case_findings(
+                contract,
+                cases_by_id,
+                evidence_by_contract.get(contract.payload_contract_id, ()),
+            )
+        )
+
+    for evidence in payload_evidence:
+        contract = contracts_by_id.get(evidence.payload_contract_id)
+        if contract is None:
+            findings.append(
+                _payload_finding(
+                    "unknown_artifact_payload_contract_reference",
+                    f"artifact payload evidence {evidence.evidence_id} references unknown contract {evidence.payload_contract_id}",
+                    evidence=evidence,
+                    metadata=evidence.to_dict(),
+                )
+            )
+            continue
+        cases_by_id = case_index_by_contract.get(contract.payload_contract_id, {})
+        case = cases_by_id.get(evidence.case_id)
+        if case is None:
+            findings.append(
+                _payload_finding(
+                    "unknown_artifact_payload_case_reference",
+                    f"artifact payload evidence {evidence.evidence_id} references unknown case {evidence.case_id}",
+                    contract=contract,
+                    evidence=evidence,
+                    metadata={"contract": contract.to_dict(), "evidence": evidence.to_dict()},
+                )
+            )
+            findings.extend(_artifact_payload_status_findings(evidence, contract))
+            continue
+        findings.extend(_artifact_payload_status_findings(evidence, contract))
+        if evidence.has_current_external_pass():
+            findings.extend(_artifact_payload_behavior_findings(contract, case, evidence))
+
+    blockers = tuple(finding for finding in findings if finding.severity == "blocker")
+    return ArtifactPayloadValidationReport(
+        ok=not blockers,
+        decision=_artifact_payload_decision_for_findings(findings),
+        findings=tuple(findings),
+        checked_contracts=len(tuple(payload_contracts)),
+        checked_cases=checked_cases,
+        checked_evidence=len(tuple(payload_evidence)),
+    )
+
+
+def _artifact_payload_findings_as_alignment_findings(
+    report: ArtifactPayloadValidationReport,
+) -> list[ModelTestAlignmentFinding]:
+    return [
+        ModelTestAlignmentFinding(
+            finding.code,
+            finding.message,
+            severity=finding.severity,
+            obligation_id=finding.model_obligation_id,
+            evidence_id=finding.evidence_id,
+            code_contract_id=finding.code_contract_id,
+            metadata={
+                "payload_contract_id": finding.payload_contract_id,
+                "payload_case_id": finding.case_id,
+                "artifact_payload_report_decision": report.decision,
+                "artifact_payload_finding": finding.to_dict(),
             },
         )
         for finding in report.findings
@@ -2264,6 +3048,14 @@ def review_model_test_alignment(plan: ModelTestAlignmentPlan) -> ModelTestAlignm
             plan.code_contracts,
         )
         findings.extend(_boundary_findings_as_alignment_findings(boundary_report))
+    if plan.payload_contracts or plan.payload_evidence:
+        payload_report = review_artifact_payload_validation(
+            plan.payload_contracts,
+            plan.payload_evidence,
+            plan.code_contracts,
+            plan.obligations,
+        )
+        findings.extend(_artifact_payload_findings_as_alignment_findings(payload_report))
     runtime_path_contracts = _runtime_path_contracts_for_plan(plan)
     if (
         plan.require_runtime_path_evidence
@@ -2385,6 +3177,18 @@ def review_python_contract_source_audit(
 
 
 __all__ = [
+    "ARTIFACT_PAYLOAD_METHOD_AUTOMATED_TEST",
+    "ARTIFACT_PAYLOAD_METHOD_BROWSER",
+    "ARTIFACT_PAYLOAD_METHOD_DESKTOP",
+    "ARTIFACT_PAYLOAD_METHOD_MANUAL",
+    "ARTIFACT_PAYLOAD_METHOD_REPLAY",
+    "ARTIFACT_PAYLOAD_STATUS_ACCEPTED",
+    "ARTIFACT_PAYLOAD_STATUS_REJECTED",
+    "ArtifactPayloadCase",
+    "ArtifactPayloadContract",
+    "ArtifactPayloadEvidence",
+    "ArtifactPayloadFinding",
+    "ArtifactPayloadValidationReport",
     "CODE_CONTRACT_ROLE_ADAPTER",
     "CODE_CONTRACT_ROLE_FACADE",
     "CODE_CONTRACT_ROLE_HELPER",
@@ -2432,6 +3236,7 @@ __all__ = [
     "TEST_STATUS_TIMEOUT",
     "audit_python_code_contracts",
     "audit_python_test_assertions",
+    "review_artifact_payload_validation",
     "review_code_boundary_conformance",
     "review_python_contract_source_audit",
     "review_model_test_alignment",

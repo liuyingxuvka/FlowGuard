@@ -51,6 +51,11 @@ evidence.
 - Reused test results need current `TestResultReuseTicket` and `ProofArtifactRef`; old `passed` output is not current evidence by itself.
 - Broad confidence needs model obligation ids, owner code contract ids, and current external-contract test evidence bound to the same behavior; model+test-only rows are scoped/blocked.
 - Broad transition-test claims need a transition matrix projected to MTA code/test rows or TestMesh, or an explicit scoped-out reason.
+- Complete runnable UI claims need reachable enabled controls clicked or scoped
+  as pure UI/deferred blindspots with structured evidence.
+- File import/export, generated artifact, and AI work-package claims need
+  synthetic payload cases plus current external evidence; prose-only manual
+  checks are scoped/blocked.
 - After `run_model_first_checks()`, read structured ledger owner routes and maintenance obligations before manually inferring the next route.
 - Before trusting that one existing route/model is enough, record model-angle
   deliberation when a task may need a missing viewpoint: what the current model
@@ -84,7 +89,7 @@ the row below calls for deep route evidence.
 | Pre-code module/function/block ownership recommendation | `code_structure_recommendation` | `flowguard-code-structure-recommendation` |
 | UI controls, screens, journeys, display/text ownership, runnable UI evidence | `ui_flow_structure` | `flowguard-ui-flow-structure` |
 | Locally green model topology implies future-use hazards before broad confidence | `model_topology_hazard_review` | `flowguard-model-topology-hazard-review` |
-| Model obligations or transition coverage versus code/test/boundary rows | `model_test_alignment` | `flowguard-model-test-alignment` |
+| Model obligations, transition coverage, files/work packages, or code/test/boundary rows | `model_test_alignment` | `flowguard-model-test-alignment` |
 | Three or more models, oversized model, stale child evidence, parent/child mesh | `model_mesh_maintenance` | `flowguard-model-mesh` |
 | Large/slow/stale/release-only tests or parent/child test hierarchy | `test_mesh_maintenance` | `flowguard-test-mesh` |
 | Large script/module/package/API split, facade or public entrypoint parity | `structure_mesh_maintenance` | `flowguard-structure-mesh` |

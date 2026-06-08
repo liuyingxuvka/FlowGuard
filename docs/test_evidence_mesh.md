@@ -56,6 +56,9 @@ layered plan:
   regressions that are too large for a direct Model-Test Alignment row set.
 - a transition coverage matrix is too large, slow, UI/browser-heavy, or
   release-only to prove with one flat direct evidence row set.
+- an import/export, generated artifact, save/load, or AI work-package payload
+  matrix is too large, slow, manual-heavy, or release-only to prove with one
+  flat direct evidence row set.
 
 Automatic split diagnostics provide the trigger before a broad test result is
 accepted as enough. When direct validation evidence reports slow duration,
@@ -116,6 +119,8 @@ Each child suite or child test script reports a `TestSuiteEvidence` summary:
   artifact, dependency, environment, result fingerprint, and coverage scope are
   still current;
 - owned state and side effects;
+- owned artifact payload contract ids and case ids when the child suite proves
+  synthetic file or work-package cases for downstream Model-Test Alignment;
 - not-run and stale reasons.
 
 Progress output is not completion evidence. A background suite is complete only
@@ -153,6 +158,12 @@ they actually prove. TestMesh checks evidence freshness and ownership for the
 cells; Model-Test Alignment still owns whether those cells bind the declared
 transition obligations, owner code contracts, and current external-contract
 test evidence.
+
+Artifact payload matrices can also feed this surface. Child suites can own
+required payload case ids and result artifacts, but TestMesh only checks
+partition ownership and evidence freshness. Model-Test Alignment still owns
+whether each observed payload status, output, error path, state write, side
+effect, and round-trip result matches the `ArtifactPayloadContract`.
 
 ## Routine Versus Release
 

@@ -257,6 +257,9 @@ models include behavior-bearing fields, while child/leaf field rows account all
 discovered fields and record owner, readers, writers, projection, lifecycle,
 and old-field disposition.
 
+UI runnable claims and file/work-package claims need current UI click-through
+or artifact-payload evidence gates before broad done/release confidence.
+
 After non-trivial FlowGuard-managed work, run or record a maintenance scan when
 changed artifacts, skipped routes, stale evidence, or split/reduction signals
 may require an owning route such as Model-Test Alignment,

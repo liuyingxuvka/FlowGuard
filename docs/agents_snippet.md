@@ -50,7 +50,7 @@ This is the entry path, not a completion shortcut. Complete FlowGuard use needs 
   reuse, extend, add child model, create a new model, scope/defer, or ask for
   human review.
 - For non-trivial FlowGuard work, show a route-specific Mermaid snapshot once the route/model is stable; diagrams explain and do not validate.
-- Before full done/release/publish confidence, connect risks, obligations, maintenance obligations, code/test evidence, proof artifacts, automatic state-closure gaps, and topology-hazard gaps through Risk Evidence Ledger or equivalent.
+- Before full done/release/publish confidence, connect risks, obligations, UI click-through gates, artifact-payload gates, code/test evidence, proof artifacts, automatic state-closure gaps, and topology-hazard gaps through Risk Evidence Ledger or equivalent.
 - After non-trivial work, use `maintenance_scan_router` for SummaryReport gaps, changed artifacts, open obligations, skipped routes, stale evidence, state/topology gaps, or split/reduction signals.
 - Finish real project use with adoption evidence: trigger, model/risk,
   commands, findings, skipped gaps, validation results, and next actions.
@@ -71,9 +71,9 @@ This is the entry path, not a completion shortcut. Complete FlowGuard use needs 
 | Ordinary behavior/state modeling, Risk Intent, state inventory | `core_modeling` | `model-first-function-flow` |
 | Existing code/prompt flow should shrink without behavior loss | `architecture_reduction` | `flowguard-architecture-reduction` |
 | Pre-code module/function/block ownership recommendation | `code_structure_recommendation` | `flowguard-code-structure-recommendation` |
-| UI controls, screens, journeys, display/text ownership, runnable UI evidence | `ui_flow_structure` | `flowguard-ui-flow-structure` |
+| UI controls, screens, journeys, visible surface, display/text ownership, runnable UI click-through evidence | `ui_flow_structure` | `flowguard-ui-flow-structure` |
 | Locally green model topology implies future-use hazards before broad confidence | `model_topology_hazard_review` | `flowguard-model-topology-hazard-review` |
-| Model obligations versus tests, code contracts, or boundary observations | `model_test_alignment` | `flowguard-model-test-alignment` |
+| Model obligations versus tests, code contracts, boundary observations, or artifact payload cases | `model_test_alignment` | `flowguard-model-test-alignment` |
 | Three or more models, oversized model, stale child evidence, parent/child mesh | `model_mesh_maintenance` | `flowguard-model-mesh` |
 | Large/slow/stale/release-only tests or parent/child test hierarchy | `test_mesh_maintenance` | `flowguard-test-mesh` |
 | Large script/module/package/API split, facade or public entrypoint parity | `structure_mesh_maintenance` | `flowguard-structure-mesh` |

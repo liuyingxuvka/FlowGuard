@@ -954,6 +954,385 @@ class UITextHierarchyBlueprint:
 
 
 @dataclass(frozen=True)
+class UIVisibleSurfaceItem:
+    """One user-facing text/control/status item visible on a UI surface."""
+
+    item_id: str
+    item_kind: str = "text"
+    text: str = ""
+    state_ids: tuple[str, ...] = ()
+    region_id: str = ""
+    owner_control_id: str = ""
+    owner_display_id: str = ""
+    purpose: str = ""
+    disabled_reason: str = ""
+    priority: str = "secondary"
+    placeholder: bool = False
+    presents_as_functionality: bool = False
+    internal_term_rationale: str = ""
+    redundancy_rationale: str = ""
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "item_id", str(self.item_id))
+        object.__setattr__(self, "item_kind", str(self.item_kind))
+        object.__setattr__(self, "text", str(self.text))
+        object.__setattr__(self, "state_ids", _as_tuple(self.state_ids))
+        object.__setattr__(self, "region_id", str(self.region_id))
+        object.__setattr__(self, "owner_control_id", str(self.owner_control_id))
+        object.__setattr__(self, "owner_display_id", str(self.owner_display_id))
+        object.__setattr__(self, "purpose", str(self.purpose))
+        object.__setattr__(self, "disabled_reason", str(self.disabled_reason))
+        object.__setattr__(self, "priority", str(self.priority))
+        object.__setattr__(self, "placeholder", bool(self.placeholder))
+        object.__setattr__(self, "presents_as_functionality", bool(self.presents_as_functionality))
+        object.__setattr__(self, "internal_term_rationale", str(self.internal_term_rationale))
+        object.__setattr__(self, "redundancy_rationale", str(self.redundancy_rationale))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "item_id": self.item_id,
+            "item_kind": self.item_kind,
+            "text": self.text,
+            "state_ids": list(self.state_ids),
+            "region_id": self.region_id,
+            "owner_control_id": self.owner_control_id,
+            "owner_display_id": self.owner_display_id,
+            "purpose": self.purpose,
+            "disabled_reason": self.disabled_reason,
+            "priority": self.priority,
+            "placeholder": self.placeholder,
+            "presents_as_functionality": self.presents_as_functionality,
+            "internal_term_rationale": self.internal_term_rationale,
+            "redundancy_rationale": self.redundancy_rationale,
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class UIVisibleSurface:
+    """Visible UI surface inventory before visual design or implementation claims."""
+
+    surface_id: str
+    source_interaction_model_id: str = ""
+    items: tuple[UIVisibleSurfaceItem, ...] = ()
+    validation_boundaries: tuple[str, ...] = ()
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "surface_id", str(self.surface_id))
+        object.__setattr__(self, "source_interaction_model_id", str(self.source_interaction_model_id))
+        object.__setattr__(self, "items", tuple(self.items))
+        object.__setattr__(self, "validation_boundaries", _as_tuple(self.validation_boundaries))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def item_ids(self) -> tuple[str, ...]:
+        return tuple(item.item_id for item in self.items)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "surface_id": self.surface_id,
+            "source_interaction_model_id": self.source_interaction_model_id,
+            "items": [item.to_dict() for item in self.items],
+            "validation_boundaries": list(self.validation_boundaries),
+            "rationale": self.rationale,
+        }
+
+
+SUPPORTED_UI_EVIDENCE_KINDS = (
+    "screenshot",
+    "browser_click",
+    "desktop_click",
+    "dom_text",
+    "computed_style",
+    "geometry",
+    "accessibility",
+    "aria",
+    "runtime_trace",
+    "log",
+    "test_result",
+    "manual_observation",
+)
+
+
+@dataclass(frozen=True)
+class UIRenderEvidence:
+    """One render or implementation evidence record for a visible UI target."""
+
+    evidence_id: str
+    evidence_kind: str
+    evidence_target: str
+    source_interaction_model_id: str = ""
+    implementation_target: str = ""
+    result: str = "passed"
+    evidence_ref: str = ""
+    model_revision: str = ""
+    observed_state_id: str = ""
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "evidence_id", str(self.evidence_id))
+        object.__setattr__(self, "evidence_kind", str(self.evidence_kind))
+        object.__setattr__(self, "evidence_target", str(self.evidence_target))
+        object.__setattr__(self, "source_interaction_model_id", str(self.source_interaction_model_id))
+        object.__setattr__(self, "implementation_target", str(self.implementation_target))
+        object.__setattr__(self, "result", str(self.result))
+        object.__setattr__(self, "evidence_ref", str(self.evidence_ref))
+        object.__setattr__(self, "model_revision", str(self.model_revision))
+        object.__setattr__(self, "observed_state_id", str(self.observed_state_id))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "evidence_id": self.evidence_id,
+            "evidence_kind": self.evidence_kind,
+            "evidence_target": self.evidence_target,
+            "source_interaction_model_id": self.source_interaction_model_id,
+            "implementation_target": self.implementation_target,
+            "result": self.result,
+            "evidence_ref": self.evidence_ref,
+            "model_revision": self.model_revision,
+            "observed_state_id": self.observed_state_id,
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class UIRenderEvidenceSet:
+    """Render evidence boundary for implemented/runnable UI claims."""
+
+    evidence_set_id: str
+    source_interaction_model_id: str = ""
+    implementation_target: str = ""
+    current_model_revision: str = ""
+    evidence: tuple[UIRenderEvidence, ...] = ()
+    validation_boundaries: tuple[str, ...] = ()
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "evidence_set_id", str(self.evidence_set_id))
+        object.__setattr__(self, "source_interaction_model_id", str(self.source_interaction_model_id))
+        object.__setattr__(self, "implementation_target", str(self.implementation_target))
+        object.__setattr__(self, "current_model_revision", str(self.current_model_revision))
+        object.__setattr__(self, "evidence", tuple(self.evidence))
+        object.__setattr__(self, "validation_boundaries", _as_tuple(self.validation_boundaries))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def evidence_ids(self) -> tuple[str, ...]:
+        return tuple(item.evidence_id for item in self.evidence)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "evidence_set_id": self.evidence_set_id,
+            "source_interaction_model_id": self.source_interaction_model_id,
+            "implementation_target": self.implementation_target,
+            "current_model_revision": self.current_model_revision,
+            "evidence": [item.to_dict() for item in self.evidence],
+            "validation_boundaries": list(self.validation_boundaries),
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class UIGeometryLayoutEvidence:
+    """One universal geometry/layout evidence row for a UI item or surface."""
+
+    evidence_id: str
+    target_id: str
+    viewport: str = ""
+    text_overflow: bool = False
+    control_overlap: bool = False
+    out_of_bounds: bool = False
+    focus_reachable: bool = True
+    keyboard_reachable: bool = True
+    scroll_owner: str = ""
+    result: str = "passed"
+    evidence_ref: str = ""
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "evidence_id", str(self.evidence_id))
+        object.__setattr__(self, "target_id", str(self.target_id))
+        object.__setattr__(self, "viewport", str(self.viewport))
+        object.__setattr__(self, "text_overflow", bool(self.text_overflow))
+        object.__setattr__(self, "control_overlap", bool(self.control_overlap))
+        object.__setattr__(self, "out_of_bounds", bool(self.out_of_bounds))
+        object.__setattr__(self, "focus_reachable", bool(self.focus_reachable))
+        object.__setattr__(self, "keyboard_reachable", bool(self.keyboard_reachable))
+        object.__setattr__(self, "scroll_owner", str(self.scroll_owner))
+        object.__setattr__(self, "result", str(self.result))
+        object.__setattr__(self, "evidence_ref", str(self.evidence_ref))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "evidence_id": self.evidence_id,
+            "target_id": self.target_id,
+            "viewport": self.viewport,
+            "text_overflow": self.text_overflow,
+            "control_overlap": self.control_overlap,
+            "out_of_bounds": self.out_of_bounds,
+            "focus_reachable": self.focus_reachable,
+            "keyboard_reachable": self.keyboard_reachable,
+            "scroll_owner": self.scroll_owner,
+            "result": self.result,
+            "evidence_ref": self.evidence_ref,
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class UIGeometryLayoutEvidenceSet:
+    """Geometry/layout evidence boundary for universal UI layout risks."""
+
+    geometry_id: str
+    source_interaction_model_id: str = ""
+    entries: tuple[UIGeometryLayoutEvidence, ...] = ()
+    validation_boundaries: tuple[str, ...] = ()
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "geometry_id", str(self.geometry_id))
+        object.__setattr__(self, "source_interaction_model_id", str(self.source_interaction_model_id))
+        object.__setattr__(self, "entries", tuple(self.entries))
+        object.__setattr__(self, "validation_boundaries", _as_tuple(self.validation_boundaries))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def entry_ids(self) -> tuple[str, ...]:
+        return tuple(entry.evidence_id for entry in self.entries)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "geometry_id": self.geometry_id,
+            "source_interaction_model_id": self.source_interaction_model_id,
+            "entries": [entry.to_dict() for entry in self.entries],
+            "validation_boundaries": list(self.validation_boundaries),
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class UIHotPathAction:
+    """Immediate UI feedback expected after a direct user interaction."""
+
+    action_id: str
+    event_id: str = ""
+    feedback_target_id: str = ""
+    feedback_description: str = ""
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "action_id", str(self.action_id))
+        object.__setattr__(self, "event_id", str(self.event_id))
+        object.__setattr__(self, "feedback_target_id", str(self.feedback_target_id))
+        object.__setattr__(self, "feedback_description", str(self.feedback_description))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "action_id": self.action_id,
+            "event_id": self.event_id,
+            "feedback_target_id": self.feedback_target_id,
+            "feedback_description": self.feedback_description,
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class UIColdPathWork:
+    """Deferred UI work that must not stale-overwrite newer state."""
+
+    work_id: str
+    trigger_event_id: str = ""
+    result_target_id: str = ""
+    stale_guard: str = ""
+    cancellation_rule: str = ""
+    coalescing_rule: str = ""
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "work_id", str(self.work_id))
+        object.__setattr__(self, "trigger_event_id", str(self.trigger_event_id))
+        object.__setattr__(self, "result_target_id", str(self.result_target_id))
+        object.__setattr__(self, "stale_guard", str(self.stale_guard))
+        object.__setattr__(self, "cancellation_rule", str(self.cancellation_rule))
+        object.__setattr__(self, "coalescing_rule", str(self.coalescing_rule))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def has_stale_protection(self) -> bool:
+        return bool(self.stale_guard or self.cancellation_rule or self.coalescing_rule)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "work_id": self.work_id,
+            "trigger_event_id": self.trigger_event_id,
+            "result_target_id": self.result_target_id,
+            "stale_guard": self.stale_guard,
+            "cancellation_rule": self.cancellation_rule,
+            "coalescing_rule": self.coalescing_rule,
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class UIStableRegionRule:
+    """A UI region that should remain stable across unrelated input changes."""
+
+    region_id: str
+    preservation_rule: str = ""
+    unrelated_input_ids: tuple[str, ...] = ()
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "region_id", str(self.region_id))
+        object.__setattr__(self, "preservation_rule", str(self.preservation_rule))
+        object.__setattr__(self, "unrelated_input_ids", _as_tuple(self.unrelated_input_ids))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "region_id": self.region_id,
+            "preservation_rule": self.preservation_rule,
+            "unrelated_input_ids": list(self.unrelated_input_ids),
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class UIResponsivenessContract:
+    """Hot/cold path contract for UI responsiveness-sensitive interactions."""
+
+    contract_id: str
+    source_interaction_model_id: str = ""
+    hot_path_actions: tuple[UIHotPathAction, ...] = ()
+    cold_path_work: tuple[UIColdPathWork, ...] = ()
+    stable_region_rules: tuple[UIStableRegionRule, ...] = ()
+    validation_boundaries: tuple[str, ...] = ()
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "contract_id", str(self.contract_id))
+        object.__setattr__(self, "source_interaction_model_id", str(self.source_interaction_model_id))
+        object.__setattr__(self, "hot_path_actions", tuple(self.hot_path_actions))
+        object.__setattr__(self, "cold_path_work", tuple(self.cold_path_work))
+        object.__setattr__(self, "stable_region_rules", tuple(self.stable_region_rules))
+        object.__setattr__(self, "validation_boundaries", _as_tuple(self.validation_boundaries))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "contract_id": self.contract_id,
+            "source_interaction_model_id": self.source_interaction_model_id,
+            "hot_path_actions": [action.to_dict() for action in self.hot_path_actions],
+            "cold_path_work": [work.to_dict() for work in self.cold_path_work],
+            "stable_region_rules": [rule.to_dict() for rule in self.stable_region_rules],
+            "validation_boundaries": list(self.validation_boundaries),
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
 class UIFlowStructureFinding:
     """One finding from reviewing a UI interaction model or structure derivation."""
 
@@ -1247,6 +1626,226 @@ class UITextHierarchyReport:
         }
 
 
+@dataclass(frozen=True)
+class UIVisibleSurfaceReport:
+    """Structured review result for a visible UI surface inventory."""
+
+    ok: bool
+    surface_id: str
+    findings: tuple[UIFlowStructureFinding, ...] = ()
+    summary: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "surface_id", str(self.surface_id))
+        object.__setattr__(self, "findings", tuple(self.findings))
+        if not self.summary:
+            status = "OK" if self.ok else "BLOCKED"
+            object.__setattr__(
+                self,
+                "summary",
+                f"{status}: ui_visible_surface={self.surface_id} findings={len(self.findings)}",
+            )
+
+    def blocker_count(self) -> int:
+        return sum(1 for finding in self.findings if finding.severity == "blocker")
+
+    def format_text(self, max_findings: int = 10) -> str:
+        lines = [
+            "=== flowguard UI visible surface review ===",
+            f"status: {'OK' if self.ok else 'BLOCKED'}",
+            f"surface: {self.surface_id}",
+            f"findings: {len(self.findings)}",
+        ]
+        for finding in self.findings[:max_findings]:
+            lines.extend(
+                [
+                    "",
+                    f"finding: {finding.code}",
+                    f"severity: {finding.severity}",
+                    f"item: {finding.item_id or '(none)'}",
+                    f"message: {finding.message}",
+                ]
+            )
+        return "\n".join(lines)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "ok": self.ok,
+            "surface_id": self.surface_id,
+            "findings": [finding.to_dict() for finding in self.findings],
+            "summary": self.summary,
+        }
+
+
+@dataclass(frozen=True)
+class UIRenderEvidenceReport:
+    """Structured review result for UI render evidence kinds."""
+
+    ok: bool
+    evidence_set_id: str
+    findings: tuple[UIFlowStructureFinding, ...] = ()
+    evidence_kinds: tuple[str, ...] = ()
+    summary: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "evidence_set_id", str(self.evidence_set_id))
+        object.__setattr__(self, "findings", tuple(self.findings))
+        object.__setattr__(self, "evidence_kinds", _as_tuple(self.evidence_kinds))
+        if not self.summary:
+            status = "OK" if self.ok else "BLOCKED"
+            object.__setattr__(
+                self,
+                "summary",
+                f"{status}: ui_render_evidence={self.evidence_set_id} findings={len(self.findings)}",
+            )
+
+    def blocker_count(self) -> int:
+        return sum(1 for finding in self.findings if finding.severity == "blocker")
+
+    def format_text(self, max_findings: int = 10) -> str:
+        lines = [
+            "=== flowguard UI render evidence review ===",
+            f"status: {'OK' if self.ok else 'BLOCKED'}",
+            f"evidence_set: {self.evidence_set_id}",
+            f"evidence_kinds: {', '.join(self.evidence_kinds) if self.evidence_kinds else '(none)'}",
+            f"findings: {len(self.findings)}",
+        ]
+        for finding in self.findings[:max_findings]:
+            lines.extend(
+                [
+                    "",
+                    f"finding: {finding.code}",
+                    f"severity: {finding.severity}",
+                    f"item: {finding.item_id or '(none)'}",
+                    f"message: {finding.message}",
+                ]
+            )
+        return "\n".join(lines)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "ok": self.ok,
+            "evidence_set_id": self.evidence_set_id,
+            "evidence_kinds": list(self.evidence_kinds),
+            "findings": [finding.to_dict() for finding in self.findings],
+            "summary": self.summary,
+        }
+
+
+@dataclass(frozen=True)
+class UIGeometryLayoutEvidenceReport:
+    """Structured review result for universal UI geometry/layout evidence."""
+
+    ok: bool
+    geometry_id: str
+    findings: tuple[UIFlowStructureFinding, ...] = ()
+    checked_targets: tuple[str, ...] = ()
+    summary: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "geometry_id", str(self.geometry_id))
+        object.__setattr__(self, "findings", tuple(self.findings))
+        object.__setattr__(self, "checked_targets", _as_tuple(self.checked_targets))
+        if not self.summary:
+            status = "OK" if self.ok else "BLOCKED"
+            object.__setattr__(
+                self,
+                "summary",
+                f"{status}: ui_geometry_layout={self.geometry_id} findings={len(self.findings)}",
+            )
+
+    def blocker_count(self) -> int:
+        return sum(1 for finding in self.findings if finding.severity == "blocker")
+
+    def format_text(self, max_findings: int = 10) -> str:
+        lines = [
+            "=== flowguard UI geometry layout evidence review ===",
+            f"status: {'OK' if self.ok else 'BLOCKED'}",
+            f"geometry: {self.geometry_id}",
+            f"checked_targets: {len(self.checked_targets)}",
+            f"findings: {len(self.findings)}",
+        ]
+        for finding in self.findings[:max_findings]:
+            lines.extend(
+                [
+                    "",
+                    f"finding: {finding.code}",
+                    f"severity: {finding.severity}",
+                    f"item: {finding.item_id or '(none)'}",
+                    f"message: {finding.message}",
+                ]
+            )
+        return "\n".join(lines)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "ok": self.ok,
+            "geometry_id": self.geometry_id,
+            "checked_targets": list(self.checked_targets),
+            "findings": [finding.to_dict() for finding in self.findings],
+            "summary": self.summary,
+        }
+
+
+@dataclass(frozen=True)
+class UIResponsivenessContractReport:
+    """Structured review result for UI hot/cold path responsiveness."""
+
+    ok: bool
+    contract_id: str
+    findings: tuple[UIFlowStructureFinding, ...] = ()
+    hot_path_ids: tuple[str, ...] = ()
+    cold_path_ids: tuple[str, ...] = ()
+    summary: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "contract_id", str(self.contract_id))
+        object.__setattr__(self, "findings", tuple(self.findings))
+        object.__setattr__(self, "hot_path_ids", _as_tuple(self.hot_path_ids))
+        object.__setattr__(self, "cold_path_ids", _as_tuple(self.cold_path_ids))
+        if not self.summary:
+            status = "OK" if self.ok else "BLOCKED"
+            object.__setattr__(
+                self,
+                "summary",
+                f"{status}: ui_responsiveness={self.contract_id} findings={len(self.findings)}",
+            )
+
+    def blocker_count(self) -> int:
+        return sum(1 for finding in self.findings if finding.severity == "blocker")
+
+    def format_text(self, max_findings: int = 10) -> str:
+        lines = [
+            "=== flowguard UI responsiveness contract review ===",
+            f"status: {'OK' if self.ok else 'BLOCKED'}",
+            f"contract: {self.contract_id}",
+            f"hot_paths: {len(self.hot_path_ids)}",
+            f"cold_paths: {len(self.cold_path_ids)}",
+            f"findings: {len(self.findings)}",
+        ]
+        for finding in self.findings[:max_findings]:
+            lines.extend(
+                [
+                    "",
+                    f"finding: {finding.code}",
+                    f"severity: {finding.severity}",
+                    f"item: {finding.item_id or '(none)'}",
+                    f"message: {finding.message}",
+                ]
+            )
+        return "\n".join(lines)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "ok": self.ok,
+            "contract_id": self.contract_id,
+            "hot_path_ids": list(self.hot_path_ids),
+            "cold_path_ids": list(self.cold_path_ids),
+            "findings": [finding.to_dict() for finding in self.findings],
+            "summary": self.summary,
+        }
+
+
 def _blocker_findings(findings: Sequence[UIFlowStructureFinding]) -> tuple[UIFlowStructureFinding, ...]:
     return tuple(finding for finding in findings if finding.severity == "blocker")
 
@@ -1368,6 +1967,30 @@ _ROLE_MIN_HIERARCHY_LEVEL = {
     "help_text": 5,
     "caption": 6,
 }
+_INTERNAL_VISIBLE_TERMS = (
+    "mock",
+    "backend",
+    "hydration",
+    "debug route",
+    "dataset id",
+    "render strategy",
+    "api route",
+)
+_STATE_MESSAGE_ITEM_KINDS = {"empty", "loading", "pending", "error", "success", "status"}
+_VISIBLE_HELPER_KINDS = {"helper", "helper_copy", "help_text"}
+_PASSED_UI_RESULTS = {"passed", "pass", "ok"}
+
+
+def _norm_text(value: str) -> str:
+    return " ".join(str(value).strip().lower().split())
+
+
+def _text_contains_internal_term(value: str) -> str:
+    normalized = _norm_text(value)
+    for term in _INTERNAL_VISIBLE_TERMS:
+        if term in normalized:
+            return term
+    return ""
 
 
 def _scoped_groups_by_key(text_elements: Sequence[UITextElement], key_name: str) -> dict[tuple[str, str, str], list[UITextElement]]:
@@ -1384,6 +2007,605 @@ def _scoped_groups_by_key(text_elements: Sequence[UITextElement], key_name: str)
         for state_id in text.state_scope():
             groups.setdefault((text.region_id, state_id, value), []).append(text)
     return groups
+
+
+def review_ui_visible_surface(
+    surface: UIVisibleSurface,
+    *,
+    interaction_model: UIInteractionModel | None = None,
+) -> UIVisibleSurfaceReport:
+    """Review user-facing visible UI surface inventory."""
+
+    findings: list[UIFlowStructureFinding] = []
+    known_states = set(interaction_model.state_ids()) if interaction_model is not None else set()
+    known_controls = set(interaction_model.control_ids()) if interaction_model is not None else set()
+    known_displays = set(interaction_model.display_ids()) if interaction_model is not None else set()
+    controls_by_id = interaction_model.controls_by_id() if interaction_model is not None else {}
+
+    if not surface.surface_id:
+        findings.append(UIFlowStructureFinding("missing_visible_surface_id", "UI visible surface has no id"))
+    if interaction_model is not None:
+        if not surface.source_interaction_model_id:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_visible_surface_source_model",
+                    "UI visible surface has no source interaction model id",
+                )
+            )
+        elif surface.source_interaction_model_id != interaction_model.model_id:
+            findings.append(
+                UIFlowStructureFinding(
+                    "visible_surface_model_mismatch",
+                    "UI visible surface does not reference the supplied interaction model",
+                    metadata={
+                        "surface_source": surface.source_interaction_model_id,
+                        "interaction_model": interaction_model.model_id,
+                    },
+                )
+            )
+    if not surface.items:
+        findings.append(UIFlowStructureFinding("missing_visible_surface_items", "UI visible surface has no items"))
+    if not surface.validation_boundaries:
+        findings.append(
+            UIFlowStructureFinding("missing_visible_surface_validation", "UI visible surface has no validation boundaries")
+        )
+    if not surface.rationale:
+        findings.append(UIFlowStructureFinding("missing_visible_surface_rationale", "UI visible surface has no rationale"))
+
+    findings.extend(_duplicate_values(surface.item_ids(), code="duplicate_visible_surface_item_id", noun="visible surface item"))
+
+    primary_state_messages: dict[str, list[UIVisibleSurfaceItem]] = {}
+    for item in surface.items:
+        if not item.item_id:
+            findings.append(UIFlowStructureFinding("missing_visible_surface_item_id", "visible surface item has no id"))
+        if not item.item_kind:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_visible_surface_item_kind",
+                    f"visible surface item {item.item_id} has no kind",
+                    item_id=item.item_id,
+                )
+            )
+        if not item.text and item.item_kind not in {"control", "region", "surface"}:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_visible_surface_text",
+                    f"visible surface item {item.item_id} has no visible text",
+                    item_id=item.item_id,
+                )
+            )
+        if not (item.state_ids or item.region_id or item.owner_control_id or item.owner_display_id):
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_visible_surface_owner",
+                    f"visible surface item {item.item_id} has no state, region, control, or display owner",
+                    item_id=item.item_id,
+                )
+            )
+        if not item.purpose:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_visible_surface_purpose",
+                    f"visible surface item {item.item_id} has no user-facing purpose",
+                    item_id=item.item_id,
+                )
+            )
+        if not item.rationale:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_visible_surface_item_rationale",
+                    f"visible surface item {item.item_id} has no rationale",
+                    item_id=item.item_id,
+                )
+            )
+        for state_id in item.state_ids:
+            if interaction_model is not None and state_id not in known_states:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "visible_surface_state_not_registered",
+                        f"visible surface item {item.item_id} references unknown state {state_id}",
+                        item_id=item.item_id,
+                    )
+                )
+        if interaction_model is not None and item.owner_control_id and item.owner_control_id not in known_controls:
+            findings.append(
+                UIFlowStructureFinding(
+                    "visible_surface_control_not_registered",
+                    f"visible surface item {item.item_id} references unknown control {item.owner_control_id}",
+                    item_id=item.item_id,
+                )
+            )
+        if interaction_model is not None and item.owner_display_id and item.owner_display_id not in known_displays:
+            findings.append(
+                UIFlowStructureFinding(
+                    "visible_surface_display_not_registered",
+                    f"visible surface item {item.item_id} references unknown display {item.owner_display_id}",
+                    item_id=item.item_id,
+                )
+            )
+        internal_term = _text_contains_internal_term(item.text)
+        if internal_term and not item.internal_term_rationale:
+            findings.append(
+                UIFlowStructureFinding(
+                    "visible_internal_terminology",
+                    f"visible surface item {item.item_id} exposes internal term '{internal_term}' without a user-facing rationale",
+                    item_id=item.item_id,
+                    metadata={"term": internal_term},
+                )
+            )
+        if item.item_kind == "disabled_control" and not item.disabled_reason:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_disabled_reason",
+                    f"disabled visible control {item.item_id} has no user-understandable reason",
+                    item_id=item.item_id,
+                )
+            )
+        if (item.placeholder or item.item_kind == "placeholder") and item.presents_as_functionality:
+            findings.append(
+                UIFlowStructureFinding(
+                    "placeholder_presented_as_functionality",
+                    f"placeholder item {item.item_id} is presented as completed product functionality",
+                    item_id=item.item_id,
+                )
+            )
+        if item.item_kind in _VISIBLE_HELPER_KINDS and item.owner_control_id:
+            control = controls_by_id.get(item.owner_control_id)
+            if control is not None and _norm_text(item.text) == _norm_text(control.label) and not item.redundancy_rationale:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "low_value_repeated_helper_copy",
+                        f"helper copy {item.item_id} repeats control label {item.owner_control_id} without added user value",
+                        item_id=item.item_id,
+                    )
+                )
+        if item.item_kind in _STATE_MESSAGE_ITEM_KINDS and item.priority == "primary":
+            for state_id in item.state_ids or ("*",):
+                primary_state_messages.setdefault(state_id, []).append(item)
+
+    for state_id, items in sorted(primary_state_messages.items()):
+        if len(items) > 1 and not _redundancy_justified(items):
+            findings.append(
+                UIFlowStructureFinding(
+                    "competing_primary_state_messages",
+                    f"state {state_id} has multiple primary state messages without a dominance or redundancy rationale",
+                    item_id=state_id,
+                    metadata={"item_ids": [item.item_id for item in items]},
+                )
+            )
+
+    blockers = _blocker_findings(findings)
+    return UIVisibleSurfaceReport(ok=not blockers, surface_id=surface.surface_id, findings=tuple(findings))
+
+
+def review_ui_render_evidence(
+    evidence_set: UIRenderEvidenceSet,
+    *,
+    interaction_model: UIInteractionModel | None = None,
+) -> UIRenderEvidenceReport:
+    """Review render/implementation evidence kinds for a runnable UI claim."""
+
+    findings: list[UIFlowStructureFinding] = []
+    supported_kinds = set(SUPPORTED_UI_EVIDENCE_KINDS)
+
+    if not evidence_set.evidence_set_id:
+        findings.append(UIFlowStructureFinding("missing_render_evidence_set_id", "UI render evidence set has no id"))
+    if interaction_model is not None:
+        if not evidence_set.source_interaction_model_id:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_render_evidence_source_model",
+                    "UI render evidence set has no source interaction model id",
+                )
+            )
+        elif evidence_set.source_interaction_model_id != interaction_model.model_id:
+            findings.append(
+                UIFlowStructureFinding(
+                    "render_evidence_model_mismatch",
+                    "UI render evidence set does not reference the supplied interaction model",
+                )
+            )
+    if not evidence_set.implementation_target:
+        findings.append(
+            UIFlowStructureFinding("missing_render_implementation_target", "UI render evidence has no implementation target")
+        )
+    if not evidence_set.current_model_revision:
+        findings.append(
+            UIFlowStructureFinding("missing_render_current_revision", "UI render evidence has no current model or implementation revision")
+        )
+    if not evidence_set.evidence:
+        findings.append(UIFlowStructureFinding("missing_render_evidence", "UI render evidence set has no evidence rows"))
+    if not evidence_set.validation_boundaries:
+        findings.append(
+            UIFlowStructureFinding("missing_render_validation_boundary", "UI render evidence set has no validation boundaries")
+        )
+    if not evidence_set.rationale:
+        findings.append(UIFlowStructureFinding("missing_render_evidence_rationale", "UI render evidence set has no rationale"))
+
+    findings.extend(_duplicate_values(evidence_set.evidence_ids(), code="duplicate_render_evidence_id", noun="render evidence"))
+
+    for evidence in evidence_set.evidence:
+        if not evidence.evidence_id:
+            findings.append(UIFlowStructureFinding("missing_render_evidence_id", "render evidence row has no id"))
+        if not evidence.evidence_kind:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_render_evidence_kind",
+                    f"render evidence {evidence.evidence_id} has no evidence kind",
+                    item_id=evidence.evidence_id,
+                )
+            )
+        elif evidence.evidence_kind not in supported_kinds:
+            findings.append(
+                UIFlowStructureFinding(
+                    "unknown_render_evidence_kind",
+                    f"render evidence {evidence.evidence_id} uses unknown evidence kind {evidence.evidence_kind}",
+                    item_id=evidence.evidence_id,
+                    metadata={"supported_kinds": sorted(supported_kinds)},
+                )
+            )
+        if not evidence.evidence_target:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_render_evidence_target",
+                    f"render evidence {evidence.evidence_id} has no evidence target",
+                    item_id=evidence.evidence_id,
+                )
+            )
+        if not evidence.evidence_ref:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_render_evidence_ref",
+                    f"render evidence {evidence.evidence_id} has no evidence reference",
+                    item_id=evidence.evidence_id,
+                )
+            )
+        if evidence.result.lower() not in _PASSED_UI_RESULTS:
+            findings.append(
+                UIFlowStructureFinding(
+                    "render_evidence_not_passed",
+                    f"render evidence {evidence.evidence_id} result is {evidence.result}",
+                    item_id=evidence.evidence_id,
+                )
+            )
+        if not evidence.model_revision:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_render_evidence_revision",
+                    f"render evidence {evidence.evidence_id} has no model or implementation revision",
+                    item_id=evidence.evidence_id,
+                )
+            )
+        elif evidence_set.current_model_revision and evidence.model_revision != evidence_set.current_model_revision:
+            findings.append(
+                UIFlowStructureFinding(
+                    "stale_render_evidence",
+                    f"render evidence {evidence.evidence_id} references stale revision {evidence.model_revision}",
+                    item_id=evidence.evidence_id,
+                    metadata={
+                        "evidence_revision": evidence.model_revision,
+                        "current_revision": evidence_set.current_model_revision,
+                    },
+                )
+            )
+        if evidence.source_interaction_model_id and evidence_set.source_interaction_model_id and (
+            evidence.source_interaction_model_id != evidence_set.source_interaction_model_id
+        ):
+            findings.append(
+                UIFlowStructureFinding(
+                    "render_evidence_source_model_mismatch",
+                    f"render evidence {evidence.evidence_id} references a different interaction model",
+                    item_id=evidence.evidence_id,
+                )
+            )
+        if not evidence.rationale:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_render_evidence_rationale",
+                    f"render evidence {evidence.evidence_id} has no rationale",
+                    item_id=evidence.evidence_id,
+                )
+            )
+
+    blockers = _blocker_findings(findings)
+    evidence_kinds = tuple(dict.fromkeys(evidence.evidence_kind for evidence in evidence_set.evidence if evidence.evidence_kind))
+    return UIRenderEvidenceReport(
+        ok=not blockers,
+        evidence_set_id=evidence_set.evidence_set_id,
+        findings=tuple(findings),
+        evidence_kinds=evidence_kinds,
+    )
+
+
+def review_ui_geometry_layout_evidence(
+    geometry: UIGeometryLayoutEvidenceSet,
+    *,
+    interaction_model: UIInteractionModel | None = None,
+) -> UIGeometryLayoutEvidenceReport:
+    """Review universal UI geometry/layout evidence."""
+
+    findings: list[UIFlowStructureFinding] = []
+
+    if not geometry.geometry_id:
+        findings.append(UIFlowStructureFinding("missing_geometry_evidence_id", "UI geometry evidence set has no id"))
+    if interaction_model is not None:
+        if not geometry.source_interaction_model_id:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_geometry_source_model",
+                    "UI geometry evidence set has no source interaction model id",
+                )
+            )
+        elif geometry.source_interaction_model_id != interaction_model.model_id:
+            findings.append(
+                UIFlowStructureFinding(
+                    "geometry_model_mismatch",
+                    "UI geometry evidence set does not reference the supplied interaction model",
+                )
+            )
+    if not geometry.entries:
+        findings.append(UIFlowStructureFinding("missing_geometry_entries", "UI geometry evidence set has no entries"))
+    if not geometry.validation_boundaries:
+        findings.append(
+            UIFlowStructureFinding("missing_geometry_validation_boundary", "UI geometry evidence set has no validation boundaries")
+        )
+    if not geometry.rationale:
+        findings.append(UIFlowStructureFinding("missing_geometry_rationale", "UI geometry evidence set has no rationale"))
+
+    findings.extend(_duplicate_values(geometry.entry_ids(), code="duplicate_geometry_evidence_id", noun="geometry evidence"))
+
+    for entry in geometry.entries:
+        if not entry.evidence_id:
+            findings.append(UIFlowStructureFinding("missing_geometry_entry_id", "geometry evidence row has no id"))
+        if not entry.target_id:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_geometry_target",
+                    f"geometry evidence {entry.evidence_id} has no target",
+                    item_id=entry.evidence_id,
+                )
+            )
+        if not entry.viewport:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_geometry_viewport",
+                    f"geometry evidence {entry.evidence_id} has no viewport or container boundary",
+                    item_id=entry.evidence_id,
+                )
+            )
+        if not entry.evidence_ref:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_geometry_evidence_ref",
+                    f"geometry evidence {entry.evidence_id} has no evidence reference",
+                    item_id=entry.evidence_id,
+                )
+            )
+        if entry.result.lower() not in _PASSED_UI_RESULTS:
+            findings.append(
+                UIFlowStructureFinding(
+                    "geometry_evidence_not_passed",
+                    f"geometry evidence {entry.evidence_id} result is {entry.result}",
+                    item_id=entry.evidence_id,
+                )
+            )
+        if entry.text_overflow:
+            findings.append(
+                UIFlowStructureFinding(
+                    "geometry_text_overflow",
+                    f"geometry evidence {entry.evidence_id} reports text overflow",
+                    item_id=entry.target_id,
+                )
+            )
+        if entry.control_overlap:
+            findings.append(
+                UIFlowStructureFinding(
+                    "geometry_control_overlap",
+                    f"geometry evidence {entry.evidence_id} reports overlapping controls",
+                    item_id=entry.target_id,
+                )
+            )
+        if entry.out_of_bounds:
+            findings.append(
+                UIFlowStructureFinding(
+                    "geometry_out_of_bounds",
+                    f"geometry evidence {entry.evidence_id} reports out-of-bounds UI",
+                    item_id=entry.target_id,
+                )
+            )
+        if not entry.focus_reachable:
+            findings.append(
+                UIFlowStructureFinding(
+                    "geometry_focus_not_reachable",
+                    f"geometry evidence {entry.evidence_id} reports unreachable focus",
+                    item_id=entry.target_id,
+                )
+            )
+        if not entry.keyboard_reachable:
+            findings.append(
+                UIFlowStructureFinding(
+                    "geometry_keyboard_not_reachable",
+                    f"geometry evidence {entry.evidence_id} reports unreachable keyboard path",
+                    item_id=entry.target_id,
+                )
+            )
+        if not entry.scroll_owner:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_geometry_scroll_owner",
+                    f"geometry evidence {entry.evidence_id} has no scroll owner",
+                    item_id=entry.target_id,
+                )
+            )
+        if not entry.rationale:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_geometry_entry_rationale",
+                    f"geometry evidence {entry.evidence_id} has no rationale",
+                    item_id=entry.evidence_id,
+                )
+            )
+
+    blockers = _blocker_findings(findings)
+    checked_targets = tuple(dict.fromkeys(entry.target_id for entry in geometry.entries if entry.target_id))
+    return UIGeometryLayoutEvidenceReport(
+        ok=not blockers,
+        geometry_id=geometry.geometry_id,
+        findings=tuple(findings),
+        checked_targets=checked_targets,
+    )
+
+
+def review_ui_responsiveness_contract(
+    contract: UIResponsivenessContract,
+    *,
+    interaction_model: UIInteractionModel | None = None,
+) -> UIResponsivenessContractReport:
+    """Review hot-path feedback, cold-path stale guards, and stable regions."""
+
+    findings: list[UIFlowStructureFinding] = []
+    known_events = set(interaction_model.transition_event_ids()) if interaction_model is not None else set()
+
+    if not contract.contract_id:
+        findings.append(UIFlowStructureFinding("missing_responsiveness_contract_id", "UI responsiveness contract has no id"))
+    if interaction_model is not None:
+        if not contract.source_interaction_model_id:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_responsiveness_source_model",
+                    "UI responsiveness contract has no source interaction model id",
+                )
+            )
+        elif contract.source_interaction_model_id != interaction_model.model_id:
+            findings.append(
+                UIFlowStructureFinding(
+                    "responsiveness_model_mismatch",
+                    "UI responsiveness contract does not reference the supplied interaction model",
+                )
+            )
+    if not (contract.hot_path_actions or contract.cold_path_work or contract.stable_region_rules):
+        findings.append(
+            UIFlowStructureFinding(
+                "missing_responsiveness_entries",
+                "UI responsiveness contract has no hot path, cold path, or stable region entries",
+            )
+        )
+    if not contract.validation_boundaries:
+        findings.append(
+            UIFlowStructureFinding("missing_responsiveness_validation", "UI responsiveness contract has no validation boundaries")
+        )
+    if not contract.rationale:
+        findings.append(
+            UIFlowStructureFinding("missing_responsiveness_rationale", "UI responsiveness contract has no rationale")
+        )
+
+    findings.extend(
+        _duplicate_values(
+            tuple(action.action_id for action in contract.hot_path_actions),
+            code="duplicate_hot_path_action_id",
+            noun="hot path action",
+        )
+    )
+    findings.extend(
+        _duplicate_values(
+            tuple(work.work_id for work in contract.cold_path_work),
+            code="duplicate_cold_path_work_id",
+            noun="cold path work",
+        )
+    )
+
+    for action in contract.hot_path_actions:
+        if not action.action_id:
+            findings.append(UIFlowStructureFinding("missing_hot_path_action_id", "hot path action has no id"))
+        if interaction_model is not None and action.event_id and action.event_id not in known_events:
+            findings.append(
+                UIFlowStructureFinding(
+                    "hot_path_event_not_registered",
+                    f"hot path action {action.action_id} references unknown event {action.event_id}",
+                    item_id=action.action_id,
+                )
+            )
+        if not (action.feedback_target_id or action.feedback_description):
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_hot_path_feedback",
+                    f"hot path action {action.action_id} has no immediate feedback target or description",
+                    item_id=action.action_id,
+                )
+            )
+        if not action.rationale:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_hot_path_rationale",
+                    f"hot path action {action.action_id} has no rationale",
+                    item_id=action.action_id,
+                )
+            )
+
+    for work in contract.cold_path_work:
+        if not work.work_id:
+            findings.append(UIFlowStructureFinding("missing_cold_path_work_id", "cold path work has no id"))
+        if interaction_model is not None and work.trigger_event_id and work.trigger_event_id not in known_events:
+            findings.append(
+                UIFlowStructureFinding(
+                    "cold_path_event_not_registered",
+                    f"cold path work {work.work_id} references unknown event {work.trigger_event_id}",
+                    item_id=work.work_id,
+                )
+            )
+        if not work.result_target_id:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_cold_path_result_target",
+                    f"cold path work {work.work_id} has no result target",
+                    item_id=work.work_id,
+                )
+            )
+        if not work.has_stale_protection():
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_cold_path_stale_guard",
+                    f"cold path work {work.work_id} has no stale guard, cancellation rule, or coalescing rule",
+                    item_id=work.work_id,
+                )
+            )
+        if not work.rationale:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_cold_path_rationale",
+                    f"cold path work {work.work_id} has no rationale",
+                    item_id=work.work_id,
+                )
+            )
+
+    for rule in contract.stable_region_rules:
+        if not rule.region_id:
+            findings.append(UIFlowStructureFinding("missing_stable_region_id", "stable region rule has no region id"))
+        if not rule.preservation_rule:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_stable_region_preservation",
+                    f"stable region {rule.region_id} has no preservation rule",
+                    item_id=rule.region_id,
+                )
+            )
+        if not rule.rationale:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_stable_region_rationale",
+                    f"stable region {rule.region_id} has no rationale",
+                    item_id=rule.region_id,
+                )
+            )
+
+    blockers = _blocker_findings(findings)
+    return UIResponsivenessContractReport(
+        ok=not blockers,
+        contract_id=contract.contract_id,
+        findings=tuple(findings),
+        hot_path_ids=tuple(action.action_id for action in contract.hot_path_actions),
+        cold_path_ids=tuple(work.work_id for work in contract.cold_path_work),
+    )
 
 
 def review_ui_interaction_model(model: UIInteractionModel) -> UIInteractionModelReport:
@@ -3505,7 +4727,12 @@ __all__ = [
     "UIFeatureJourney",
     "UIFeatureContract",
     "UIFlowStructureFinding",
+    "UIGeometryLayoutEvidence",
+    "UIGeometryLayoutEvidenceReport",
+    "UIGeometryLayoutEvidenceSet",
+    "UIHotPathAction",
     "UIBlindspot",
+    "UIColdPathWork",
     "UIImplementationJourneyRun",
     "UIImplementationStepEvidence",
     "UIImplementationValidation",
@@ -3516,6 +4743,12 @@ __all__ = [
     "UIJourneyCoverageReport",
     "UIJourneyEntryPoint",
     "UIRegionRecommendation",
+    "UIRenderEvidence",
+    "UIRenderEvidenceReport",
+    "UIRenderEvidenceSet",
+    "UIResponsivenessContract",
+    "UIResponsivenessContractReport",
+    "UIStableRegionRule",
     "UIStateNode",
     "UIStructureDerivation",
     "UIStructureDerivationReport",
@@ -3525,9 +4758,17 @@ __all__ = [
     "UITypographyToken",
     "UITerminalActionAllowance",
     "UITransition",
+    "UIVisibleSurface",
+    "UIVisibleSurfaceItem",
+    "UIVisibleSurfaceReport",
+    "SUPPORTED_UI_EVIDENCE_KINDS",
+    "review_ui_geometry_layout_evidence",
     "review_ui_implementation_validation",
     "review_ui_interaction_model",
     "review_ui_journey_coverage",
+    "review_ui_render_evidence",
+    "review_ui_responsiveness_contract",
     "review_ui_structure_derivation",
     "review_ui_text_hierarchy",
+    "review_ui_visible_surface",
 ]

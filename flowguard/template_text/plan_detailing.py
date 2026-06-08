@@ -14,6 +14,7 @@ behavior modeling, implementation, validation, or done claims.
 Guards against:
 - happy-path-only plans being treated as complete;
 - missing state, artifact, side-effect, validation, rework, or evidence detail;
+- missing UI action coverage, synthetic payload packs, or AI work-package cases;
 - irreversible side effects without evidence gates;
 - full completion claims without current final evidence.
 

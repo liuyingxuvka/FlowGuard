@@ -2,6 +2,12 @@ import unittest
 
 import flowguard
 from flowguard import (
+    ARTIFACT_PAYLOAD_METHOD_MANUAL,
+    ARTIFACT_PAYLOAD_STATUS_ACCEPTED,
+    ARTIFACT_PAYLOAD_STATUS_REJECTED,
+    ArtifactPayloadCase,
+    ArtifactPayloadContract,
+    ArtifactPayloadEvidence,
     ModelObligation,
     ModelTestAlignmentPlan,
     ObligationFamily,
@@ -20,6 +26,7 @@ from flowguard import (
     ProofArtifactRef,
     RuntimeNodeContract,
     RuntimeNodeObservation,
+    review_artifact_payload_validation,
     review_model_test_alignment,
 )
 
@@ -1199,6 +1206,133 @@ def test_submit_order():
         report = review_model_test_alignment(plan)
 
         self.assertTrue(report.ok, report.format_text())
+
+    def test_artifact_payload_cases_are_required_for_file_like_contracts(self):
+        payload_contract = ArtifactPayloadContract(
+            "payload:checkout-export",
+            model_obligation_id="accept_valid_order",
+            code_contract_id="checkout.accept_valid_order",
+            payload_surface="checkout export",
+            payload_kind="json_file",
+            cases=(
+                ArtifactPayloadCase(
+                    "valid-order-json",
+                    expected_status=ARTIFACT_PAYLOAD_STATUS_ACCEPTED,
+                    expected_output="checkout.json",
+                    expected_state_writes=("export_path",),
+                    round_trip_required=True,
+                ),
+                ArtifactPayloadCase(
+                    "invalid-order-json",
+                    expected_status=ARTIFACT_PAYLOAD_STATUS_REJECTED,
+                    expected_error_path="schema_error",
+                ),
+            ),
+        )
+        base_kwargs = {
+            "model_id": "checkout",
+            "obligations": (obligation("accept_valid_order"),),
+            "code_contracts": (owner_contract("accept_valid_order"),),
+            "test_evidence": (bound_evidence("test_accept_valid_order", "accept_valid_order"),),
+            "payload_contracts": (payload_contract,),
+        }
+
+        missing = review_model_test_alignment(ModelTestAlignmentPlan(**base_kwargs))
+
+        self.assertFalse(missing.ok)
+        self.assertEqual("artifact_payload_validation_failed", missing.decision)
+        self.assertIn("artifact_payload_missing_case_evidence", finding_codes(missing))
+
+        passing = review_model_test_alignment(
+            ModelTestAlignmentPlan(
+                **base_kwargs,
+                payload_evidence=(
+                    ArtifactPayloadEvidence(
+                        "payload:valid",
+                        "payload:checkout-export",
+                        case_id="valid-order-json",
+                        observed_status=ARTIFACT_PAYLOAD_STATUS_ACCEPTED,
+                        observed_output="checkout.json",
+                        observed_state_writes=("export_path",),
+                        round_trip_ok=True,
+                    ),
+                    ArtifactPayloadEvidence(
+                        "payload:invalid",
+                        "payload:checkout-export",
+                        case_id="invalid-order-json",
+                        observed_status=ARTIFACT_PAYLOAD_STATUS_REJECTED,
+                        observed_error_path="schema_error",
+                    ),
+                ),
+            )
+        )
+
+        self.assertTrue(passing.ok, passing.format_text())
+        self.assertEqual("model_test_alignment_green", passing.decision)
+        self.assertEqual(
+            ["payload:checkout-export"],
+            [
+                item["payload_contract_id"]
+                for item in ModelTestAlignmentPlan(**base_kwargs).to_dict()["payload_contracts"]
+            ],
+        )
+
+    def test_artifact_payload_validation_rejects_weak_manual_and_internal_evidence(self):
+        contract = ArtifactPayloadContract(
+            "payload:ai-work-pack",
+            model_obligation_id="accept_valid_order",
+            code_contract_id="checkout.accept_valid_order",
+            payload_surface="AI work package",
+            payload_kind="zip",
+            cases=(
+                ArtifactPayloadCase(
+                    "full-work-pack",
+                    expected_status=ARTIFACT_PAYLOAD_STATUS_ACCEPTED,
+                    expected_output="work-pack.zip",
+                    expected_side_effects=("contains_manifest",),
+                    round_trip_required=True,
+                ),
+            ),
+        )
+
+        report = review_artifact_payload_validation(
+            (contract,),
+            (
+                ArtifactPayloadEvidence(
+                    "payload:manual-note",
+                    "payload:ai-work-pack",
+                    case_id="full-work-pack",
+                    method=ARTIFACT_PAYLOAD_METHOD_MANUAL,
+                    observed_status=ARTIFACT_PAYLOAD_STATUS_ACCEPTED,
+                ),
+                ArtifactPayloadEvidence(
+                    "payload:internal",
+                    "payload:ai-work-pack",
+                    case_id="full-work-pack",
+                    assertion_scope=flowguard.TEST_ASSERTION_SCOPE_INTERNAL_PATH,
+                    observed_status=ARTIFACT_PAYLOAD_STATUS_ACCEPTED,
+                    observed_output="work-pack.zip",
+                ),
+                ArtifactPayloadEvidence(
+                    "payload:mismatch",
+                    "payload:ai-work-pack",
+                    case_id="full-work-pack",
+                    observed_status=ARTIFACT_PAYLOAD_STATUS_ACCEPTED,
+                    observed_output="partial.zip",
+                    observed_side_effects=("missing_manifest",),
+                ),
+            ),
+            code_contracts=(owner_contract("accept_valid_order"),),
+            model_obligations=(obligation("accept_valid_order"),),
+        )
+
+        codes = finding_codes(report)
+        self.assertFalse(report.ok)
+        self.assertIn("artifact_payload_manual_evidence_unstructured", codes)
+        self.assertIn("artifact_payload_evidence_internal_path_only", codes)
+        self.assertIn("artifact_payload_output_mismatch", codes)
+        self.assertIn("artifact_payload_side_effect_mismatch", codes)
+        self.assertIn("artifact_payload_round_trip_missing", codes)
 
 
 if __name__ == "__main__":

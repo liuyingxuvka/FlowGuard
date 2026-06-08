@@ -31,6 +31,9 @@ Return to `model-first-function-flow` for ordinary small test evidence.
 - Transition coverage matrices that are large, slow, UI/browser-heavy, or
   release-only can feed required leaf-cell ids; every required cell needs a
   current child owner.
+- Large artifact-payload matrices for import/export files or AI work packages
+  can feed required child case ids; TestMesh owns freshness and partition
+  evidence, while Model-Test Alignment owns payload semantics.
 - TestMesh preserves leaf ownership and freshness, but Model-Test Alignment
   still owns whether a required cell binds the model obligation, owner code
   contract, and external-contract test evidence.
@@ -40,8 +43,7 @@ Return to `model-first-function-flow` for ordinary small test evidence.
 1. Identify parent suite/check and partition items.
 2. Derive target child suites or child test scripts from the model risk.
 3. Include required transition/leaf cell ids when the parent claim depends on a
-   transition coverage matrix, and preserve model obligation and code contract
-   target ids for downstream Model-Test Alignment.
+   transition or payload matrix, and preserve model/code/payload target ids.
 4. Attach result status, evidence tier, result path, freshness, and reused
    result proof when old test output is reused.
 5. Scope or block parent confidence when child evidence is stale or missing.

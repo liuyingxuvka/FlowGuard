@@ -37,6 +37,14 @@ downstream alignment. It does not decide the semantic transition obligation;
 Model-Test Alignment still proves that model obligation, owner code contract,
 and external-contract test evidence bind the same behavior.
 
+Artifact payload matrices can feed TestMesh the same way. When import/export,
+generated artifact, or AI work-package validation has many accepted/rejected
+payload cases, TestMesh owns child-suite partitioning, result artifacts,
+background completion, and freshness for those case ids. It preserves payload
+contract ids and case ids for downstream Model-Test Alignment, which still
+decides whether observed output, error path, state writes, side effects, and
+round-trip behavior match the payload contract.
+
 ## Trigger
 
 Create or update a TestMesh when:
@@ -57,6 +65,8 @@ Create or update a TestMesh when:
   confidence.
 - a transition coverage matrix is too large, slow, browser/manual-heavy, or
   release-only for direct flat evidence rows.
+- an artifact payload matrix for file import/export or AI work packages is too
+  large, slow, browser/manual-heavy, or release-only for direct flat evidence.
 
 When DevelopmentProcessFlow classifies a failed or blocked validation as
 `test_too_thick`, slow/layered validation, stale/skipped/progress-only
@@ -104,7 +114,7 @@ or side-effect owners are blockers unless the overlap is explicitly allowed.
 For each child suite or child test script, record grouped evidence:
 
 - identity: suite id, command, layer, and owned leaf matrix cell ids when the
-  layer is `leaf_matrix_cell` or `leaf_boundary_matrix`;
+  layer is `leaf_matrix_cell`, `leaf_boundary_matrix`, or `artifact_payload`;
 - result summary: status, evidence tier, freshness or stale reason, selected
   and skipped counts, duration, timeout, exit code, and result path;
 - visibility caveats: skipped visibility, not-run reason, background log root,
@@ -112,6 +122,8 @@ For each child suite or child test script, record grouped evidence:
   ticket when an old result is reused;
 - ownership summary: owned state, side effects, partition items, and release
   scope.
+- payload ownership summary when applicable: payload contract ids, required
+  case ids, result artifact path, and downstream Model-Test Alignment owner.
 
 Progress output is liveness evidence only. It is not completion evidence.
 An old `passed` result is not reusable parent evidence unless

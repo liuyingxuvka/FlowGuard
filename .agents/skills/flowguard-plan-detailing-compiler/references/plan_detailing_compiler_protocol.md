@@ -22,6 +22,13 @@ plan and does not prove the implementation.
   validation flags, and rework targets.
 - `PlanDetailValidation`: validation obligations with evidence kinds, artifact
   ids, evidence ids, and commands.
+- UI/action validation rows when a plan has visible controls: reachable
+  enabled control ids, expected click-through method, pure-UI classifications,
+  and manual/native-dialog boundaries.
+- Artifact payload rows when a plan imports, exports, saves, loads, generates,
+  or consumes files/work packages: payload contract ids, synthetic accepted and
+  rejected case ids, expected outputs/errors/state writes, fixture location,
+  and downstream owner route.
 - `PlanDetailEvidence`: expected or current evidence rows.
 - `PlanDetailFailureBranch`: failure, retry, blocked, or rework branch.
 - `PlanDetailHumanQuestion`: unresolved decisions that block or scope claims.
@@ -36,6 +43,8 @@ plan and does not prove the implementation.
 - `missing_state_or_side_effect_surfaces`
 - `missing_steps`
 - `missing_validations`
+- `missing_ui_action_coverage`
+- `missing_artifact_payload_pack`
 - `missing_failure_branches`
 - `rework_gate_missing`
 - `continue_gate_missing_evidence`
@@ -55,6 +64,8 @@ After `review_plan_detail()`:
    completion claims.
 4. Use `plan_detail_to_agent_workflow_plan()` when the work involves multiple
    installed skills or external actions.
+5. Send UI controls to UI Flow Structure and payload packs to Model-Test
+   Alignment or TestMesh before any broad implementation claim.
 
 ## Confidence Boundary
 

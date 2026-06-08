@@ -2,12 +2,17 @@
 
 UI Flow Structure is FlowGuard's helper layer for model-first interface
 planning. It first models the UI's interaction behavior, then reviews
-launch-to-terminal journey coverage when complete app-level UI coverage is
-claimed, then derives the UI structure from that model, then derives a UI text
-hierarchy blueprint from the reviewed structure. When someone claims the
-running UI has been implemented or is complete, a final implementation
-validation layer aligns user-visible feature contracts, the reviewed UI journey
-coverage, and browser, desktop, or manual click-through evidence.
+the user-visible surface, then reviews launch-to-terminal journey coverage when
+complete app-level UI coverage is claimed, then derives the UI structure from
+that model, then derives a UI text hierarchy blueprint from the reviewed
+structure. When someone claims the running UI has been implemented or is
+complete, implementation validation aligns user-visible feature contracts, the
+reviewed UI journey coverage, and evidence kinds such as screenshot, browser
+click-through, DOM text, geometry, accessibility/ARIA, runtime trace, test
+result, or manual observation. A complete runnable UI claim must account for
+every reachable enabled actionable control: click it through, classify it as a
+pure UI action, or record a scoped blindspot with owner and validation
+boundary.
 
 This route is for workflow-heavy interfaces where button placement, menu
 levels, panels, overlays, persistent controls, and state-dependent actions need
@@ -18,6 +23,8 @@ why the repetition is intentional.
 The final blueprint stage keeps headings, labels, action text, status
 messages, helper text, and error/recovery copy slots tied to modeled UI states
 and owned regions before visual design or frontend implementation begins.
+Visible-surface review keeps controls, status text, helper copy, placeholders,
+metadata, and disabled reasons owned by user-facing state or control purpose.
 
 ## Use Cases
 
@@ -38,6 +45,13 @@ Use it when:
   clutter;
 - two buttons or menu items appear to trigger the same function at the same
   hierarchy level and need an explicit reason to remain separate;
+- helper copy, placeholders, metadata, status text, or disabled reasons need to
+  be checked for user-facing purpose instead of leaking implementation terms;
+- implemented UI claims need to name what kind of evidence supports the claim,
+  including screenshots when screenshots are the right evidence;
+- layout or responsiveness confidence depends on overflow, overlap, viewport
+  bounds, focus/keyboard reachability, scroll ownership, immediate feedback, or
+  stale-result guards;
 - headings, labels, action text, status messages, helper text, empty/error
   states, validation text, or recovery copy slots need to follow the modeled
   interaction and region hierarchy instead of being invented as late visual
@@ -47,6 +61,8 @@ Use it when:
   project, cancel, recover, export, and exit.
 - an agent claims the implemented or runnable UI has actually been opened and
   verified through browser, desktop, or manual click-through evidence.
+- a file picker, save dialog, permission prompt, native dialog, or manual-only
+  UI branch needs structured event/result evidence instead of a prose note.
 
 Skip it for tiny visual-only edits with no behavior, state, navigation, or
 control-availability impact.
@@ -98,7 +114,8 @@ The implementation validation objects are:
 - `UIFeatureContract`: one user-visible feature from the functional model that
   should map to UI journeys, controls, and events.
 - `UIImplementationStepEvidence`: one browser, desktop, or manual observation
-  of a modeled control/event/state transition.
+  of a modeled control/event/state transition. Use one step row for each
+  reachable enabled control that is part of the implementation claim.
 - `UIImplementationJourneyRun`: one real UI run of a modeled feature journey,
   with method, result, evidence reference, and model revision.
 - `UIBlindspot`: the same canonical blindspot row is used for intentionally
@@ -110,6 +127,44 @@ The implementation validation objects are:
 - `review_ui_implementation_validation(validation, interaction_model=..., journey_coverage=...)`:
   checks whether real UI evidence covers the feature and journey obligations
   before an implemented/runnable UI completion claim is accepted.
+
+The visible-surface objects are:
+
+- `UIVisibleSurfaceItem`: one user-facing item, such as control text, helper
+  copy, placeholder text, metadata, status text, or disabled reason.
+- `UIVisibleSurface`: the complete visible-surface inventory for a UI boundary.
+- `UIVisibleSurfaceReport`: structured review output.
+- `review_ui_visible_surface(surface, interaction_model=...)`: checks that
+  visible items have an owner, user-facing purpose, disabled reasons where
+  needed, no unhandled internal terminology, and no competing primary state
+  messages.
+
+The render/evidence-kind objects are:
+
+- `UIRenderEvidence`: one render or implementation evidence row with an
+  evidence kind such as screenshot, browser click-through, DOM text, computed
+  style, geometry, accessibility/ARIA, runtime trace, log, test result, or
+  manual observation.
+- `UIRenderEvidenceSet`: the render evidence boundary for a runnable UI claim.
+- `UIRenderEvidenceReport`: structured review output.
+- `review_ui_render_evidence(evidence_set, interaction_model=...)`: checks
+  evidence kind, target, reference, result, source model, and revision freshness.
+
+The geometry and responsiveness objects are:
+
+- `UIGeometryLayoutEvidence`: one universal layout evidence row for overflow,
+  overlap, bounds, focus reachability, keyboard reachability, and scroll owner.
+- `UIGeometryLayoutEvidenceSet`: the geometry/layout evidence boundary.
+- `UIGeometryLayoutEvidenceReport`: structured review output.
+- `review_ui_geometry_layout_evidence(geometry, interaction_model=...)`: checks
+  universal layout evidence for the declared target.
+- `UIHotPathAction`, `UIColdPathWork`, and `UIStableRegionRule`: hot feedback,
+  deferred work, and stable-region preservation rows.
+- `UIResponsivenessContract`: the hot/cold path responsiveness boundary.
+- `UIResponsivenessContractReport`: structured review output.
+- `review_ui_responsiveness_contract(contract, interaction_model=...)`: checks
+  immediate feedback, stale-result protection, cancellation/coalescing, and
+  stable-region preservation.
 
 The structure derivation objects are:
 
@@ -139,22 +194,26 @@ The text hierarchy blueprint objects are:
   checks whether text roles and tokens follow the reviewed UI model and
   structure.
 
-## Five-Stage Workflow
+## UI Flow Workflow
 
 ```text
 product/workflow intent
 -> UI interaction model
 -> review UI controls, states, transitions, availability, failures
+-> visible surface review
+-> review helper copy, status text, placeholders, metadata, disabled reasons
 -> UI journey coverage when claiming complete app-level UI coverage
 -> review launch entry points, feature paths, terminal/recovery behavior, blindspots
 -> UI structure derivation
 -> review regions, menu levels, displays, overlays, stable placement, hierarchy
 -> UI text hierarchy blueprint
 -> review headings, labels, action text, status/helper/error/recovery slots
+-> render evidence kinds, geometry, and responsiveness when claimed
+-> review screenshot/DOM/click/geometry/accessibility/runtime/test/manual evidence, layout, hot/cold paths
 -> transition coverage matrix when claiming model-to-code-to-test coverage
 -> project UI transitions to Model-Test Alignment obligations, code contracts, or TestMesh cells
 -> UI implementation validation when claiming the running UI is complete
--> review feature contracts, real journey runs, step evidence, model freshness, blindspots
+-> review feature contracts, every reachable enabled control, real journey runs, step evidence, model freshness, blindspots
 -> handoff to Figma, frontend implementation, browser checks, copy/design, or design review
 ```
 
@@ -164,7 +223,18 @@ The first stage models the UI as:
 UI event x UI state -> Set(UI output x UI state)
 ```
 
-The second stage is optional for local/component-only UI work, but required for
+The visible-surface stage checks:
+
+- controls, helper copy, status text, placeholders, metadata, and disabled
+  reasons have an owner and a user-facing purpose;
+- disabled controls explain availability in terms the user can understand;
+- placeholder text is guidance, not proof that a feature is complete;
+- implementation-facing terms such as mock, backend, hydration, debug route,
+  dataset id, or render strategy do not leak to users without a clear reason;
+- one state does not show multiple competing primary empty/loading/pending/error
+  or success messages.
+
+The journey stage is optional for local/component-only UI work, but required for
 complete app-level UI claims. It checks:
 
 - the launch state exists and is registered;
@@ -180,7 +250,7 @@ complete app-level UI claims. It checks:
 - terminal states do not expose unclassified forward-only actions;
 - residual blindspots name their reason, owner, and validation boundary.
 
-The third stage derives placement and hierarchy from that reviewed flow:
+The structure stage derives placement and hierarchy from that reviewed flow:
 
 - first-level persistent controls stay in stable global areas such as top
   toolbars, app shells, menu bars, or primary navigation;
@@ -193,7 +263,7 @@ The third stage derives placement and hierarchy from that reviewed flow:
 - destructive controls are structurally separated from ordinary primary
   progression.
 
-The fourth stage derives text ownership and priority from the reviewed
+The text hierarchy stage derives text ownership and priority from the reviewed
 structure:
 
 - page or surface titles name the parent workflow or surface;
@@ -231,7 +301,8 @@ primary focus, region scanning, local control, warning, helper text, quiet
 metadata, or intentional brand expression. Excessive one-off text treatments
 are a design smell to review and consolidate, not a fixed numeric failure.
 
-The fifth stage is only for implemented/runnable UI claims. It checks:
+The evidence and implementation stages are only for implemented/runnable UI
+claims. They check:
 
 - every user-visible feature contract has a UI journey, entry point, event, or
   implementation blindspot;
@@ -242,6 +313,12 @@ The fifth stage is only for implemented/runnable UI claims. It checks:
 - success evidence also covers modeled failure, recovery, cancel, and exit
   branches;
 - each run records the model or implementation revision it validates;
+- each render evidence row declares an evidence kind, including screenshot when
+  screenshot evidence is used;
+- geometry/layout claims have current evidence for overflow, overlap, bounds,
+  focus/keyboard reachability, and scroll ownership;
+- responsiveness claims have immediate hot-path feedback and stale-result
+  protection for deferred work;
 - skipped or hard-to-automate branches are recorded as implementation
   blindspots with scope, owner, and validation boundary.
 
@@ -582,11 +659,12 @@ python -m flowguard ui-flow-structure-template --output .
 UI Flow Structure does not choose the visual style and does not implement
 frontend code. Journey coverage is model evidence for the declared UI boundary,
 not browser, frontend, accessibility, or production conformance. Implementation
-validation records browser, desktop, or manual click-through evidence after a
-running UI exists; it still does not replace accessibility testing, visual
-review, production telemetry, or release conformance. Together, the route
-produces structure/text contracts and an optional implementation evidence
-boundary that frontend, Figma, browser, copy, and design-review workflows can
+validation records browser, desktop, screenshot, DOM, geometry, accessibility,
+runtime, test, or manual observation evidence after a running UI exists; it
+still does not replace accessibility testing, visual review, production
+telemetry, or release conformance. Together, the route produces visible-surface,
+structure/text, geometry/responsiveness, and optional implementation evidence
+boundaries that frontend, Figma, browser, copy, and design-review workflows can
 use.
 
 Use Code Structure Recommendation when the question is how to split

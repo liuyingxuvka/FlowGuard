@@ -6,8 +6,8 @@ DEVELOPMENT_PROCESS_FLOW_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header
 
 Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
 Purpose: Review a development lifecycle as a sibling process route, tracking artifact versions and validation evidence freshness before done or release claims.
-Guards against: stale validation after code/test/model/requirement/field-lifecycle changes, oversized direct model evidence, slow or broad direct validation evidence, progress-only evidence, hidden skips, missing V-style validation pairs, peer writes, and release overclaims.
-Use before editing: Update this development process flow when changing development ordering, validation gates, release readiness, or evidence freshness policy.
+Guards against: stale validation after code/test/model/requirement/UI-action/payload-schema/field-lifecycle changes, oversized direct model evidence, slow or broad direct validation evidence, progress-only evidence, hidden skips, missing V-style validation pairs, peer writes, and release overclaims.
+Use before editing: Update this development process flow when changing development ordering, UI click-through or payload-pack validation gates, release readiness, or evidence freshness policy.
 Run: python .flowguard/development_process_flow/run_checks.py
 """
 
@@ -191,6 +191,7 @@ Use this scaffold to model a development lifecycle as a stateful process.
   dispositions, bug-repair closure rows, and sibling route report artifacts;
 - ordered development actions that read, write, invalidate, or claim evidence;
 - validation evidence and the exact artifact versions it covers;
+- UI action-map and artifact-payload pack revisions when evidence covers them;
 - verifier changes, such as tests or model files changing after evidence was
   produced;
 - freshness rules that propagate upstream changes to downstream artifacts;

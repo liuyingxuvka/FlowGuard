@@ -1,4 +1,4 @@
 interface:
   display_name: "FlowGuard UI Flow"
-  short_description: "Model UI flows before deriving structure and text hierarchy"
-  default_prompt: "Use $flowguard-ui-flow-structure to model UI interactions first, derive stable menu, region, and control hierarchy, then produce a UI text hierarchy blueprint with calm visual handoff guidance."
+  short_description: "Model UI flows before deriving visible surface and structure"
+  default_prompt: "Use $flowguard-ui-flow-structure to model UI interactions first, review user-visible surface and evidence kinds, require reachable enabled controls to be clicked or scoped, derive stable menu/region/control hierarchy, then produce a UI text hierarchy blueprint with calm visual handoff guidance."

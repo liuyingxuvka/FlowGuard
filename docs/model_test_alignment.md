@@ -94,6 +94,23 @@ It also does not prove that every critical state writer in a target project is
 mediated by a FlowGuard-backed runtime gateway. Use Runtime Gateway Adoption
 for that claim.
 
+## Artifact Payload Validation
+
+When a model-backed feature loads, saves, imports, exports, generates, or
+consumes a file-like payload or AI work package, add payload validation rows
+before trusting the user-facing claim. Use `ArtifactPayloadContract`,
+`ArtifactPayloadCase`, `ArtifactPayloadEvidence`, and
+`review_artifact_payload_validation()`, or include `payload_contracts` and
+`payload_evidence` in `ModelTestAlignmentPlan`.
+
+Each payload contract should name the model obligation, owner code contract,
+payload surface, payload kind, and a small synthetic pack of accepted and
+rejected cases. Evidence should record the case id, method, current status,
+external assertion scope, observed status/output/error path/state writes/side
+effects, round-trip result when required, and evidence reference. Manual checks
+must still be structured case evidence; prose-only manual review is scoped or
+blocked.
+
 ## Conservative Source Audit
 
 When real Python source and tests are available, add a conservative source
@@ -170,6 +187,15 @@ For a lowest-level FlowGuard leaf, these boundary rows should be complete
 enough to populate the layered proof leaf matrix: every finite input/state
 cell has declared outputs, next states, state writes, side effects, error
 paths, evidence ids, and freshness status.
+
+List artifact payload rows when the behavior has file/work-package surfaces:
+
+- payload contract id, model obligation id, owner code contract id, payload
+  surface, and payload kind;
+- required case ids, expected accepted/rejected status, expected output, error
+  path, state writes, side effects, and round-trip requirement;
+- current evidence id, method, assertion scope, observed status/output/error,
+  observed state writes and side effects, evidence reference, and stale reason.
 
 When real code path confidence matters, add runtime path rows as well:
 `RuntimeNodeContract`, `RuntimeNodeObservation`, or recorder-produced

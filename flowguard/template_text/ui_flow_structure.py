@@ -15,9 +15,13 @@ from __future__ import annotations
 
 from flowguard import (
     UIControl,
+    UIColdPathWork,
     UIDisplayElement,
     UIFeatureContract,
     UIFeatureJourney,
+    UIGeometryLayoutEvidence,
+    UIGeometryLayoutEvidenceSet,
+    UIHotPathAction,
     UIBlindspot,
     UIImplementationJourneyRun,
     UIImplementationStepEvidence,
@@ -26,6 +30,10 @@ from flowguard import (
     UIJourneyCoverage,
     UIJourneyEntryPoint,
     UIRegionRecommendation,
+    UIRenderEvidence,
+    UIRenderEvidenceSet,
+    UIResponsivenessContract,
+    UIStableRegionRule,
     UIStateNode,
     UIStructureDerivation,
     UITextElement,
@@ -33,14 +41,20 @@ from flowguard import (
     UITypographyToken,
     UITerminalActionAllowance,
     UITransition,
+    UIVisibleSurface,
+    UIVisibleSurfaceItem,
     transition_coverage_to_model_obligations,
     transition_coverage_to_required_leaf_cell_ids,
     ui_interaction_model_to_transition_coverage,
+    review_ui_geometry_layout_evidence,
     review_ui_implementation_validation,
     review_ui_interaction_model,
     review_ui_journey_coverage,
+    review_ui_render_evidence,
+    review_ui_responsiveness_contract,
     review_ui_structure_derivation,
     review_ui_text_hierarchy,
+    review_ui_visible_surface,
 )
 
 
@@ -447,6 +461,136 @@ def implementation_validation() -> UIImplementationValidation:
     )
 
 
+def visible_surface() -> UIVisibleSurface:
+    return UIVisibleSurface(
+        "project-workbench-visible-surface",
+        source_interaction_model_id="project-workbench-ui-flow",
+        items=(
+            UIVisibleSurfaceItem(
+                "run_disabled_reason",
+                "disabled_control",
+                "Run is available after a project is loaded.",
+                state_ids=("launch",),
+                owner_control_id="run",
+                purpose="Explains why the main action is temporarily unavailable.",
+                disabled_reason="Load or create a project first.",
+                rationale="The disabled state is user-facing and actionable.",
+            ),
+            UIVisibleSurfaceItem(
+                "running_status",
+                "status",
+                "Running project analysis",
+                state_ids=("running",),
+                owner_display_id="status_line",
+                purpose="Confirms that the previous click started work.",
+                priority="primary",
+                rationale="The status owns the running state message.",
+            ),
+            UIVisibleSurfaceItem(
+                "result_helper",
+                "helper",
+                "Review the summary, then export when ready.",
+                state_ids=("result_ready",),
+                owner_control_id="export",
+                purpose="Guides the next available action without repeating the button label.",
+                rationale="The helper copy is local to the result-ready task.",
+            ),
+        ),
+        validation_boundaries=("visible text inventory", "disabled reason review"),
+        rationale="Visible surface items are owned by modeled UI states and controls before visual design.",
+    )
+
+
+def render_evidence() -> UIRenderEvidenceSet:
+    return UIRenderEvidenceSet(
+        "project-workbench-render-evidence",
+        source_interaction_model_id="project-workbench-ui-flow",
+        implementation_target="local browser build",
+        current_model_revision="template-ui-rev-1",
+        evidence=(
+            UIRenderEvidence(
+                "launch_screenshot",
+                "screenshot",
+                "launch screen",
+                source_interaction_model_id="project-workbench-ui-flow",
+                implementation_target="local browser build",
+                evidence_ref="evidence://screenshot/launch",
+                model_revision="template-ui-rev-1",
+                observed_state_id="launch",
+                rationale="Screenshot verifies visible launch surface against the modeled controls.",
+            ),
+            UIRenderEvidence(
+                "result_dom_text",
+                "dom_text",
+                "result summary",
+                source_interaction_model_id="project-workbench-ui-flow",
+                implementation_target="local browser build",
+                evidence_ref="evidence://dom/result-summary",
+                model_revision="template-ui-rev-1",
+                observed_state_id="result_ready",
+                rationale="DOM text verifies that the result state exposes the expected summary.",
+            ),
+        ),
+        validation_boundaries=("screenshot review", "DOM text check"),
+        rationale="Screenshots and DOM checks are normal complementary evidence kinds.",
+    )
+
+
+def geometry_evidence() -> UIGeometryLayoutEvidenceSet:
+    return UIGeometryLayoutEvidenceSet(
+        "project-workbench-geometry",
+        source_interaction_model_id="project-workbench-ui-flow",
+        entries=(
+            UIGeometryLayoutEvidence(
+                "launch_toolbar_bounds",
+                "launch-toolbar",
+                viewport="1280x800",
+                scroll_owner="page",
+                evidence_ref="evidence://geometry/launch-toolbar",
+                rationale="Toolbar controls fit in the viewport and remain keyboard reachable.",
+            ),
+        ),
+        validation_boundaries=("desktop geometry smoke",),
+        rationale="Universal layout evidence checks overflow, overlap, bounds, focus, and scroll ownership.",
+    )
+
+
+def responsiveness_contract() -> UIResponsivenessContract:
+    return UIResponsivenessContract(
+        "project-workbench-responsiveness",
+        source_interaction_model_id="project-workbench-ui-flow",
+        hot_path_actions=(
+            UIHotPathAction(
+                "click_run_feedback",
+                event_id="click_run",
+                feedback_target_id="status_line",
+                feedback_description="Status changes immediately when Run is clicked.",
+                rationale="The hot path confirms the click before cold analysis completes.",
+            ),
+        ),
+        cold_path_work=(
+            UIColdPathWork(
+                "analysis_refresh",
+                trigger_event_id="click_run",
+                result_target_id="result_table",
+                stale_guard="ignore result unless run generation matches current state",
+                cancellation_rule="cancel button stops pending run",
+                rationale="Cold analysis cannot overwrite a newer run or cancelled state.",
+            ),
+        ),
+        stable_region_rules=(
+            UIStableRegionRule(
+                "global-toolbar",
+                preservation_rule="settings and exit remain in the same toolbar while work runs",
+                unrelated_input_ids=("typing_filter",),
+                rationale="Global controls should not drift during local edits.",
+            ),
+        ),
+        validation_boundaries=("interaction trace", "state generation guard"),
+        rationale="Responsiveness separates immediate feedback from deferred work.",
+    )
+
+
 def structure_derivation() -> UIStructureDerivation:
     return UIStructureDerivation(
         "project-workbench-ui-structure",
@@ -782,6 +926,137 @@ def broken_implementation_validation() -> UIImplementationValidation:
     )
 
 
+def broken_visible_surface() -> UIVisibleSurface:
+    return UIVisibleSurface(
+        "broken-visible-surface",
+        source_interaction_model_id="project-workbench-ui-flow",
+        items=(
+            UIVisibleSurfaceItem(
+                "debug_status",
+                "status",
+                "Hydration mock backend route pending",
+                state_ids=("running",),
+                owner_display_id="status_line",
+                purpose="",
+                priority="primary",
+                rationale="Broken because internal implementation terms leak into visible UI.",
+            ),
+            UIVisibleSurfaceItem(
+                "disabled_export",
+                "disabled_control",
+                "Export",
+                state_ids=("launch",),
+                owner_control_id="export",
+                purpose="Shows unavailable export action.",
+                rationale="Broken because the disabled reason is missing.",
+            ),
+            UIVisibleSurfaceItem(
+                "loading_one",
+                "loading",
+                "Loading project",
+                state_ids=("running",),
+                owner_display_id="status_line",
+                purpose="Primary loading message.",
+                priority="primary",
+                rationale="First primary message.",
+            ),
+            UIVisibleSurfaceItem(
+                "loading_two",
+                "pending",
+                "Still preparing results",
+                state_ids=("running",),
+                owner_display_id="status_line",
+                purpose="Second competing primary message.",
+                priority="primary",
+                rationale="Broken because it competes with the first message.",
+            ),
+        ),
+        validation_boundaries=("visible text inventory",),
+        rationale="Broken visible surface demonstrates internal terms, disabled reason gaps, and competing state messages.",
+    )
+
+
+def broken_render_evidence() -> UIRenderEvidenceSet:
+    return UIRenderEvidenceSet(
+        "broken-render-evidence",
+        source_interaction_model_id="project-workbench-ui-flow",
+        implementation_target="local browser build",
+        current_model_revision="template-ui-rev-1",
+        evidence=(
+            UIRenderEvidence(
+                "unknown_render_probe",
+                "pixel_magic",
+                "launch screen",
+                evidence_ref="evidence://render/unknown",
+                model_revision="old-rev",
+                rationale="Broken because the evidence kind is unknown and stale.",
+            ),
+            UIRenderEvidence(
+                "missing_kind",
+                "",
+                "result summary",
+                model_revision="template-ui-rev-1",
+                rationale="Broken because the evidence kind and reference are missing.",
+            ),
+        ),
+        validation_boundaries=("render check",),
+        rationale="Broken render evidence demonstrates missing and unknown evidence kinds.",
+    )
+
+
+def broken_geometry_evidence() -> UIGeometryLayoutEvidenceSet:
+    return UIGeometryLayoutEvidenceSet(
+        "broken-geometry",
+        source_interaction_model_id="project-workbench-ui-flow",
+        entries=(
+            UIGeometryLayoutEvidence(
+                "result_bounds",
+                "result-panel",
+                viewport="375x667",
+                text_overflow=True,
+                control_overlap=True,
+                out_of_bounds=True,
+                focus_reachable=False,
+                keyboard_reachable=False,
+                evidence_ref="evidence://geometry/result-panel",
+                rationale="Broken geometry evidence reports universal layout failures.",
+            ),
+        ),
+        validation_boundaries=("mobile geometry smoke",),
+        rationale="Broken geometry evidence demonstrates overflow, overlap, bounds, and reachability failures.",
+    )
+
+
+def broken_responsiveness_contract() -> UIResponsivenessContract:
+    return UIResponsivenessContract(
+        "broken-responsiveness",
+        source_interaction_model_id="project-workbench-ui-flow",
+        hot_path_actions=(
+            UIHotPathAction(
+                "click_run_no_feedback",
+                event_id="click_run",
+                rationale="Broken because there is no immediate feedback target.",
+            ),
+        ),
+        cold_path_work=(
+            UIColdPathWork(
+                "analysis_refresh_no_guard",
+                trigger_event_id="click_run",
+                result_target_id="result_table",
+                rationale="Broken because old cold results can overwrite newer state.",
+            ),
+        ),
+        stable_region_rules=(
+            UIStableRegionRule(
+                "global-toolbar",
+                rationale="Broken because no preservation rule is declared.",
+            ),
+        ),
+        validation_boundaries=("interaction trace",),
+        rationale="Broken responsiveness contract demonstrates hot feedback and stale guard gaps.",
+    )
+
+
 def broken_text_hierarchy() -> UITextHierarchyBlueprint:
     return UITextHierarchyBlueprint(
         "broken-text-hierarchy",
@@ -845,6 +1120,10 @@ def run_checks():
         interaction_model=model,
         structure_derivation=structure,
     )
+    visible_surface_report = review_ui_visible_surface(visible_surface(), interaction_model=model)
+    render_evidence_report = review_ui_render_evidence(render_evidence(), interaction_model=model)
+    geometry_report = review_ui_geometry_layout_evidence(geometry_evidence(), interaction_model=model)
+    responsiveness_report = review_ui_responsiveness_contract(responsiveness_contract(), interaction_model=model)
     broken_model_report = review_ui_interaction_model(broken_interaction_model())
     broken_journey_report = review_ui_journey_coverage(broken_journey_coverage(), interaction_model=model)
     broken_implementation_report = review_ui_implementation_validation(
@@ -861,17 +1140,29 @@ def run_checks():
         interaction_model=model,
         structure_derivation=structure,
     )
+    broken_visible_surface_report = review_ui_visible_surface(broken_visible_surface(), interaction_model=model)
+    broken_render_evidence_report = review_ui_render_evidence(broken_render_evidence(), interaction_model=model)
+    broken_geometry_report = review_ui_geometry_layout_evidence(broken_geometry_evidence(), interaction_model=model)
+    broken_responsiveness_report = review_ui_responsiveness_contract(broken_responsiveness_contract(), interaction_model=model)
     return (
         model_report,
         journey_report,
         implementation_report,
         structure_report,
         text_report,
+        visible_surface_report,
+        render_evidence_report,
+        geometry_report,
+        responsiveness_report,
         broken_model_report,
         broken_journey_report,
         broken_implementation_report,
         broken_structure_report,
         broken_text_report,
+        broken_visible_surface_report,
+        broken_render_evidence_report,
+        broken_geometry_report,
+        broken_responsiveness_report,
     )
 '''
 
@@ -889,11 +1180,19 @@ def main() -> int:
         implementation_report,
         structure_report,
         text_report,
+        visible_surface_report,
+        render_evidence_report,
+        geometry_report,
+        responsiveness_report,
         broken_model,
         broken_journey,
         broken_implementation,
         broken_structure,
         broken_text,
+        broken_visible_surface,
+        broken_render_evidence,
+        broken_geometry,
+        broken_responsiveness,
     ) = run_checks()
     print(model_report.format_text())
     print()
@@ -905,6 +1204,14 @@ def main() -> int:
     print()
     print(text_report.format_text())
     print()
+    print(visible_surface_report.format_text())
+    print()
+    print(render_evidence_report.format_text())
+    print()
+    print(geometry_report.format_text())
+    print()
+    print(responsiveness_report.format_text())
+    print()
     print(broken_model.format_text(max_findings=5))
     print()
     print(broken_journey.format_text(max_findings=5))
@@ -914,17 +1221,33 @@ def main() -> int:
     print(broken_structure.format_text(max_findings=5))
     print()
     print(broken_text.format_text(max_findings=5))
+    print()
+    print(broken_visible_surface.format_text(max_findings=10))
+    print()
+    print(broken_render_evidence.format_text(max_findings=10))
+    print()
+    print(broken_geometry.format_text(max_findings=10))
+    print()
+    print(broken_responsiveness.format_text(max_findings=10))
     return 0 if (
         model_report.ok
         and journey_report.ok
         and implementation_report.ok
         and structure_report.ok
         and text_report.ok
+        and visible_surface_report.ok
+        and render_evidence_report.ok
+        and geometry_report.ok
+        and responsiveness_report.ok
         and not broken_model.ok
         and not broken_journey.ok
         and not broken_implementation.ok
         and not broken_structure.ok
         and not broken_text.ok
+        and not broken_visible_surface.ok
+        and not broken_render_evidence.ok
+        and not broken_geometry.ok
+        and not broken_responsiveness.ok
     ) else 1
 
 
@@ -956,6 +1279,18 @@ itself needs a model-first interaction flow.
   or complete: user-visible feature contracts, mapped journeys,
   browser/desktop/manual journey runs, step evidence, model revision, pure UI
   actions, and residual implementation blindspots;
+- every reachable enabled button, menu item, tab, input, picker, or dialog
+  action is clicked, classified as pure UI, or scoped as a blindspot;
+- visible-surface review for user-facing controls, status text, helper copy,
+  placeholders, metadata, and disabled-state reasons;
+- render evidence kinds such as screenshot, browser click-through, DOM text,
+  computed style, geometry, accessibility/ARIA, runtime trace/log, test result,
+  or manual observation;
+- geometry/layout evidence for universal UI risks such as text overflow,
+  overlapping controls, viewport bounds, focus reachability, keyboard
+  reachability, and scroll ownership;
+- responsiveness contracts that separate hot-path feedback from cold-path work,
+  stale-result guards, cancellation/coalescing, and stable region preservation;
 - review findings when a control has no modeled event, a failure state has no
   recovery path, a destructive control is too prominent, or a persistent
   control is not assigned to a stable global region;
@@ -966,6 +1301,15 @@ itself needs a model-first interaction flow.
 - implementation validation findings when a feature has no UI path, a visible
   control has no functional owner, a journey lacks click-through evidence,
   branch evidence is missing, or the recorded evidence is stale;
+- manual/native dialog findings when the evidence is only prose instead of a
+  structured event, result, evidence reference, and scoped boundary;
+- visible-surface findings when internal implementation terms leak to users,
+  disabled controls lack a user-understandable reason, placeholders are treated
+  as product functionality, helper copy repeats labels without value, or one
+  state has competing primary empty/loading/error/status messages;
+- render/geometry/responsiveness findings when evidence lacks a kind, evidence
+  is stale, layout evidence reports overflow or overlap, hot-path feedback is
+  missing, or cold-path work can overwrite newer state;
 - redundancy findings when the same page/state shows the same semantic
   information twice or exposes multiple same-level controls for one function
   without an explicit rationale;
@@ -976,7 +1320,8 @@ itself needs a model-first interaction flow.
 UI Flow Structure does not choose final brand styling or implement frontend
 code. Use the derived structure and text hierarchy contract as input to Figma,
 frontend implementation, browser checks, and design implementation review; feed
-real click-through results back as implementation validation before claiming
+real click-through, screenshot, DOM, geometry, accessibility, runtime, test, or
+manual observation evidence back as implementation validation before claiming
 the running UI is complete.
 
 The text hierarchy contract is semantic. Do not translate every hierarchy
@@ -998,7 +1343,7 @@ Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
 Purpose: compact UI flow structure model for one screen, three controls, two
 transitions, one journey, and one implementation validation gate.
 Guards against: shipping a UI whose visible controls, journeys,
-implementation evidence, structure derivation, or text hierarchy are not
+visible surface, evidence kind, structure derivation, or text hierarchy are not
 modeled.
 Use before editing: frontend work where UI state, controls, navigation,
 validation, or visible text hierarchy affect behavior.
@@ -1019,6 +1364,8 @@ class UICompactPlan:
     transitions: tuple[tuple[str, str, str], ...]
     journey_entry_points: tuple[str, ...]
     implementation_run_ids: tuple[str, ...]
+    visible_surface_items: tuple[tuple[str, str, str], ...]
+    evidence_kinds: tuple[str, ...]
     source_interaction_model_reviewed: bool
     text_roles: dict[str, str]
 
@@ -1052,8 +1399,24 @@ def review_journey(plan: UICompactPlan) -> UICompactReport:
 
 
 def review_implementation(plan: UICompactPlan) -> UICompactReport:
-    findings = () if plan.implementation_run_ids else ("missing_implementation_run_for_journey",)
-    return UICompactReport("flowguard UI implementation validation", not findings, findings)
+    findings: list[str] = []
+    if not plan.implementation_run_ids:
+        findings.append("missing_implementation_run_for_journey")
+    if not plan.evidence_kinds:
+        findings.append("missing_render_evidence_kind")
+    return UICompactReport("flowguard UI implementation validation", not findings, tuple(findings))
+
+
+def review_visible_surface(plan: UICompactPlan) -> UICompactReport:
+    findings: list[str] = []
+    if not plan.visible_surface_items:
+        findings.append("missing_visible_surface_items")
+    for item_id, item_kind, text in plan.visible_surface_items:
+        if "mock" in text.lower() or "backend" in text.lower():
+            findings.append("visible_internal_terminology")
+        if item_kind == "disabled_control" and "because" not in text.lower():
+            findings.append("missing_disabled_reason")
+    return UICompactReport("flowguard UI visible surface", not findings, tuple(findings))
 
 
 def review_structure(plan: UICompactPlan) -> UICompactReport:
@@ -1076,6 +1439,8 @@ def correct_plan() -> UICompactPlan:
         transitions=(("empty", "add", "editing"), ("editing", "submit", "submitted")),
         journey_entry_points=("launch:add-submit",),
         implementation_run_ids=("browser:ui-flow-smoke",),
+        visible_surface_items=(("submit_disabled", "disabled_control", "Submit is disabled because nothing has been added."),),
+        evidence_kinds=("screenshot",),
         source_interaction_model_reviewed=True,
         text_roles={"title": "surface-title", "section": "region-heading", "body": "standard-text", "hint": "supporting-text", "button": "standard-text"},
     )
@@ -1089,6 +1454,8 @@ def broken_plan() -> UICompactPlan:
         transitions=(),
         journey_entry_points=(),
         implementation_run_ids=(),
+        visible_surface_items=(("debug", "status", "mock backend route pending"), ("submit", "disabled_control", "Submit"),),
+        evidence_kinds=(),
         source_interaction_model_reviewed=False,
         text_roles={"button": "surface-title"},
     )
@@ -1101,11 +1468,13 @@ def run_checks():
         review_interaction_model(good),
         review_journey(good),
         review_implementation(good),
+        review_visible_surface(good),
         review_structure(good),
         review_text(good),
         review_interaction_model(bad),
         review_journey(bad),
         review_implementation(bad),
+        review_visible_surface(bad),
         review_structure(bad),
         review_text(bad),
     )
@@ -1121,8 +1490,8 @@ def main() -> int:
     for report in reports:
         print(report.format_text())
         print()
-    good = reports[:5]
-    broken = reports[5:]
+    good = reports[:6]
+    broken = reports[6:]
     return 0 if all(report.ok for report in good) and all(not report.ok for report in broken) else 1
 
 
@@ -1134,7 +1503,7 @@ UI_FLOW_STRUCTURE_NOTES_TEMPLATE = """# FlowGuard UI Flow Structure Notes
 
 This compact default scaffold covers the first useful UI model: three states,
 three visible controls, two transitions, one journey, one implementation run,
-and one text hierarchy check.
+one visible-surface check, one evidence kind, and one text hierarchy check.
 
 The text hierarchy contract is semantic. Use stable roles such as
 `"surface-title"`, `"region-heading"`, `"standard-text"`, and
@@ -1144,8 +1513,9 @@ state-critical purpose.
 
 Escalate to `ui-flow-structure-full-template` when the work needs complete
 journey coverage, region derivation, overlays, redundancy analysis, full text
-hierarchy blueprints, browser click-through evidence, or implementation
-validation for many feature paths.
+hierarchy blueprints, browser click-through evidence, screenshot/DOM/geometry
+evidence, responsiveness contracts, or implementation validation for many
+feature paths.
 """
 
 __all__ = [

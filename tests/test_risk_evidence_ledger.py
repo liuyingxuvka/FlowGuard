@@ -7,6 +7,7 @@ from flowguard import (
     RISK_CONFIDENCE_FULL,
     RISK_CONFIDENCE_SCOPED,
     RISK_GATE_ANALOGOUS_SCAN,
+    RISK_GATE_ARTIFACT_PAYLOAD,
     RISK_GATE_DEFECT_FAMILY,
     RISK_GATE_FAMILY,
     RISK_GATE_MAINTENANCE_OBLIGATION,
@@ -15,6 +16,7 @@ from flowguard import (
     RISK_GATE_PARENT_MODEL_EVIDENCE,
     RISK_GATE_TEST_SPLIT,
     RISK_GATE_TOPOLOGY_HAZARD,
+    RISK_GATE_UI_IMPLEMENTATION,
     RISK_LEDGER_DECISION_FULL,
     RISK_LEDGER_DECISION_SCOPED,
     RISK_PROOF_SCOPE_INTERNAL_PATH,
@@ -301,6 +303,41 @@ class RiskEvidenceLedgerTests(unittest.TestCase):
         )
         self.assertFalse(stale.ok)
         self.assertEqual("model_split_gate_not_current", stale.decision)
+
+    def test_ui_and_artifact_payload_gates_are_final_confidence_inputs(self):
+        cases = (
+            (
+                RISK_GATE_UI_IMPLEMENTATION,
+                "ui:click-through",
+                "missing_ui_implementation_gate",
+                "ui_implementation_gate_not_current",
+                "ui_implementation_gate_blocked",
+            ),
+            (
+                RISK_GATE_ARTIFACT_PAYLOAD,
+                "payload:synthetic-pack",
+                "missing_artifact_payload_gate",
+                "artifact_payload_gate_not_current",
+                "artifact_payload_gate_blocked",
+            ),
+        )
+        for kind, evidence_id, missing_code, stale_code, blocked_code in cases:
+            with self.subTest(kind=kind, mode="missing"):
+                missing = review_risk_evidence_ledger(plan(rows=(row(gates=(gate(kind),)),)))
+                self.assertFalse(missing.ok)
+                self.assertEqual(missing_code, missing.decision)
+
+            with self.subTest(kind=kind, mode="stale"):
+                stale = review_risk_evidence_ledger(plan(rows=(row(gates=(gate(kind, evidence_id, current=False),)),)))
+                self.assertFalse(stale.ok)
+                self.assertEqual(stale_code, stale.decision)
+
+            with self.subTest(kind=kind, mode="blocked"):
+                blocked = review_risk_evidence_ledger(
+                    plan(rows=(row(gates=(gate(kind, evidence_id, confidence=RISK_CONFIDENCE_BLOCKED),)),))
+                )
+                self.assertFalse(blocked.ok)
+                self.assertEqual(blocked_code, blocked.decision)
 
     def test_scoped_test_split_gate_downgrades_final_confidence(self):
         report = review_risk_evidence_ledger(

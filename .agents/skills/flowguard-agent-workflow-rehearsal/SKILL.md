@@ -29,13 +29,15 @@ unclear. Use this skill before execution; it does not execute the workflow.
 - Do not create a fake mini-framework.
 - Skipped candidate skills require reason, consequence, and accepted scope.
 - Weak validation guidance needs a compensating check before broad confidence.
+- UI click-through, artifact payload packs, manual review, and installed-skill
+  sync are explicit evidence surfaces when they affect the task.
 
 ## Minimum Workflow
 
 1. Capture a fresh current-machine skill/tool/plugin inventory.
 2. Mark required and candidate skills for the task.
-3. Rehearse selected skills, skipped candidates, order, side effects, and
-   continue/rework gates.
+3. Rehearse selected skills, skipped candidates, order, evidence surfaces,
+   side effects, and continue/rework gates.
 4. Treat blocked or scoped findings as claim boundaries.
 
 ## Snapshot

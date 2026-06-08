@@ -1,12 +1,12 @@
 # UI Flow Structure Protocol
 
 Use this route when UI design needs a model-first interaction structure before
-visual design or frontend implementation. The route has four model/design
+visual design or frontend implementation. The route has five model/design
 stages for complete app-level UI claims: build or review a UI interaction
-model, review launch-to-terminal journey coverage, derive UI structure from
-that model, then derive a UI text hierarchy blueprint from the reviewed
-structure. It has a fifth implementation-evidence stage only when the agent
-claims the running UI is implemented, runnable, or complete. Local
+model, review visible UI surface, review launch-to-terminal journey coverage,
+derive UI structure from that model, then derive a UI text hierarchy blueprint
+from the reviewed structure. It has a later implementation-evidence stage only
+when the agent claims the running UI is implemented, runnable, or complete. Local
 component-only UI work may skip journey coverage with an explicit scope reason.
 When a UI transition-test coverage claim is made, project the reviewed
 `UIInteractionModel.transitions` into a transition coverage matrix before
@@ -26,6 +26,9 @@ Use UI Flow Structure when:
   child-level, contextual, local, destructive, terminal, or recovery actions;
 - the UI needs parent/child topology, menu levels, stable toolbar placement,
   overlay hierarchy, or stage-dependent controls derived from behavior;
+- visible controls, status text, helper copy, placeholders, metadata, or
+  disabled-state reasons need to stay user-facing and owned by state/control
+  purpose before visual design;
 - the UI may show the same information or expose the same function in multiple
   places, and the agent needs to distinguish useful redundancy from clutter,
   conflict, or same-level duplication;
@@ -68,6 +71,15 @@ Collect the lightest fit-for-risk UI evidence:
 - browser, desktop automation, or manual click-through evidence, including
   model revision/fingerprint and step-level event/state observations, when
   implementation completion is claimed;
+- render or implementation evidence kinds such as screenshot, browser
+  click-through, DOM text, computed style, geometry, accessibility/ARIA,
+  runtime trace/log, test result, or manual observation;
+- geometry/layout observations for overflow, overlap, bounds, focus,
+  keyboard reachability, and scroll ownership when layout confidence is in
+  scope;
+- hot-path feedback, cold-path work, stale-result guards,
+  cancellation/coalescing, and stable-region rules when responsiveness is in
+  scope;
 - transition coverage matrix ids or scoped-out reasons when claiming tests
   cover the modeled UI transitions;
 - downstream validation boundaries such as scenario review, browser checks,
@@ -109,7 +121,33 @@ Known-bad hazards:
 - two same-level buttons trigger the same modeled function without explaining
   why both must exist.
 
-## Stage 2: UI Journey Coverage
+## Stage 2: Visible Surface Review
+
+Review what the user actually sees before treating the structure or visual
+design as ready. Use `UIVisibleSurface`, `UIVisibleSurfaceItem`, and
+`review_ui_visible_surface(...)` when the package API is available.
+
+The visible surface should include:
+
+- controls, helper copy, status text, placeholders, metadata, and
+  disabled-state reasons that are visible in each modeled state;
+- the state, region, control, or display owner for each visible item;
+- user-facing purpose and rationale for helper/status/metadata text;
+- user-understandable disabled reasons for disabled controls;
+- a rationale when implementation-facing terms are intentionally visible to
+  users.
+
+Known-bad hazards:
+
+- visible implementation terms such as mock, backend, hydration, debug route,
+  dataset id, or render strategy leak to users without a user-facing reason;
+- a disabled control is visible without a reason the user can understand;
+- placeholder text is presented as completed product functionality;
+- helper copy repeats a nearby label or button without adding user value;
+- one state exposes multiple primary empty/loading/pending/error/success/status
+  messages that compete with each other.
+
+## Stage 3: UI Journey Coverage
 
 For complete app-level UI claims, review launch-to-terminal coverage after the
 interaction model passes and before structure derivation. Use
@@ -150,7 +188,7 @@ Known-bad hazards:
 - a terminal state exposes an outgoing action with no allowed terminal purpose;
 - a residual blindspot lacks reason, owner, rationale, or validation boundary.
 
-## Stage 3: Structure Derivation
+## Stage 4: Structure Derivation
 
 After the UI interaction model is reviewed, and after journey coverage passes
 when required, derive the interface structure:
@@ -197,7 +235,7 @@ Known-bad hazards:
 - overlay controls are not represented as blocking or scoped child regions;
 - validation boundaries are missing.
 
-## Stage 4: UI Text Hierarchy Blueprint
+## Stage 5: UI Text Hierarchy Blueprint
 
 After the UI structure derivation is reviewed, derive the text hierarchy
 blueprint with `UITextHierarchyBlueprint`, `UITextElement`,
@@ -205,6 +243,13 @@ blueprint with `UITextHierarchyBlueprint`, `UITextElement`,
 available. This is not final copywriting, brand voice, final font choice, or
 visual polish. It is the model-derived ownership, priority, and semantic
 typography-token map for UI text slots:
+
+The blueprint should keep helper copy, placeholder text, status text,
+empty/loading/error messages, metadata labels, and disabled reasons tied to an
+owning state, region, control, or display purpose. It should keep helper copy
+below the main task unless escalation is justified, avoid treating placeholder
+text as completed feature proof, and require user value when helper copy
+repeats a nearby label.
 
 - root page or surface title and its owning parent surface;
 - region headings and section labels for each derived region;
@@ -269,7 +314,7 @@ Known-bad hazards:
 - downstream copy/design work receives only prose, not state/control/display
   maps for the text slots.
 
-## Stage 5: UI Implementation Validation
+## Stage 6: UI Implementation Validation
 
 Use this stage only when the route claims a running UI has been implemented,
 is runnable, or is complete. Model, journey coverage, structure derivation, and
@@ -280,6 +325,8 @@ Use `UIFeatureContract`, `UIImplementationValidation`,
 `UIImplementationJourneyRun`, `UIImplementationStepEvidence`,
 `UIImplementationBlindspot`, and
 `review_ui_implementation_validation(...)` when the package API is available.
+Use `UIRenderEvidenceSet`, `UIRenderEvidence`, and
+`review_ui_render_evidence(...)` when the route needs evidence-kind review.
 
 The validation should include:
 
@@ -289,9 +336,19 @@ The validation should include:
 - feature contracts for every user-visible feature that should have a UI path;
 - mappings from feature contracts to UI journeys, entry points, controls, and
   events;
+- every reachable enabled actionable control from the visible surface map:
+  buttons, menus, tabs, icon buttons, toggles, inputs, file pickers, dialogs,
+  context menus, and destructive/recovery controls must have run evidence,
+  pure-UI classification, or an implementation blindspot;
 - browser, desktop automation, or manual journey runs with step-level event,
   control, source-state, target-state, result, evidence reference, and observed
   state data;
+- native file pickers, save dialogs, permission prompts, and manual-only UI
+  branches need structured event/result/evidence-reference rows and a scoped
+  boundary; a prose note such as "checked manually" is not pass evidence;
+- render evidence with declared evidence kinds such as screenshot, browser
+  click-through, DOM text, computed style, geometry, accessibility/ARIA,
+  runtime trace/log, test result, or manual observation;
 - pure UI control/event classifications for actions such as close, cancel,
   expand, collapse, or export side effects when they are not product features;
 - implementation blindspots with feature/control/event scope, reason, owner,
@@ -301,16 +358,49 @@ Known-bad hazards:
 
 - an implemented/runnable UI claim has no implementation validation;
 - a user-visible feature has no UI journey, entry point, event, or blindspot;
+- a reachable enabled button, menu item, icon button, input, tab, toggle,
+  picker, or dialog action is never clicked and is not scoped as pure UI or a
+  blindspot;
 - a reachable actionable control or modeled event has no feature owner, pure UI
   classification, run evidence, or blindspot;
 - a modeled feature journey has no passed browser, desktop, or manual run;
+- manual/native-dialog evidence has no structured step row, observed result,
+  evidence reference, or boundary;
 - success evidence omits modeled failure, recovery, cancel, or exit events;
 - evidence is failed, skipped, not run, stale, or lacks a model revision;
+- render evidence lacks an evidence kind, uses an unknown kind, lacks an
+  evidence reference, or is stale for the current model revision;
 - a step references unknown controls, events, source states, or target states;
 - an implementation blindspot lacks scope, reason, owner, validation boundary,
   or rationale.
 
-## Stage 6: Transition Coverage Projection
+## Stage 7: Geometry And Responsiveness Evidence
+
+Use this stage when layout or responsiveness confidence is in scope. Use
+`UIGeometryLayoutEvidenceSet`, `UIGeometryLayoutEvidence`, and
+`review_ui_geometry_layout_evidence(...)` for geometry/layout evidence. Use
+`UIResponsivenessContract`, `UIHotPathAction`, `UIColdPathWork`,
+`UIStableRegionRule`, and `review_ui_responsiveness_contract(...)` for
+hot/cold path evidence.
+
+Geometry evidence should cover text overflow, control overlap, viewport or
+container bounds, focus reachability, keyboard reachability, and scroll owner.
+Responsiveness contracts should name immediate hot-path feedback, deferred
+cold-path work, stale-result guards or cancellation/coalescing rules, and
+stable regions that must not drift across unrelated input changes.
+
+Known-bad hazards:
+
+- text overflows its container or controls overlap;
+- dialogs, popovers, menus, or panels exceed the declared viewport/container;
+- focus or keyboard paths are unreachable;
+- scroll ownership is unclear;
+- a hot-path click has no immediate feedback target;
+- cold-path work can overwrite a newer state because no stale guard,
+  cancellation rule, or coalescing rule exists;
+- a stable region has no preservation rule.
+
+## Stage 8: Transition Coverage Projection
 
 Use this stage when the claim says tests cover modeled UI transitions. Project
 the reviewed interaction model with `ui_interaction_model_to_transition_coverage(...)`.
@@ -338,6 +428,8 @@ Produce a UI structure contract with:
 - parent UI surface id;
 - UI states, controls, transitions, and availability matrix;
 - visible information elements and semantic keys for each state;
+- visible-surface inventory with helper copy, status text, placeholders,
+  metadata, disabled reasons, owners, and user-facing purpose;
 - target regions and placements;
 - hierarchy level for each region or control;
 - stable placement rules;
@@ -352,8 +444,12 @@ Produce a UI structure contract with:
   and error copy slots, semantic display labels, text ownership maps, priority
   levels, and rationale for repeated text.
 - implementation evidence boundary: feature contracts, journey runs, step
-  evidence, model revision, pure UI actions, residual implementation
-  blindspots, and remaining manual/browser validation boundaries.
+  evidence, render evidence kinds, model revision, pure UI actions, residual
+  implementation blindspots, and remaining manual/browser validation
+  boundaries.
+- geometry and responsiveness evidence when claimed: overflow/overlap/bounds,
+  focus and keyboard reachability, scroll owner, hot-path feedback, cold-path
+  stale guards, and stable-region preservation.
 - transition coverage boundary when model-code-test coverage is claimed:
   projected cell ids, owner code contract ids, runtime node ids, required test
   kinds, evidence targets, and scoped-out cells with reasons.
@@ -380,6 +476,9 @@ The route is complete when:
 - the UI interaction model has initial state, states, controls, transitions,
   displayed information, failure/recovery behavior, terminal behavior,
   availability, duplicate/redundancy review, validation, and rationale;
+- visible surface has user-facing owners and purposes for controls, helper
+  copy, status text, placeholders, metadata, and disabled reasons, with
+  internal implementation terms kept out of the UI unless explicitly justified;
 - complete app-level UI claims have journey coverage with launch state, entry
   points, feature journeys, reachable success terminals, failure recovery/cancel
   handling, terminal action allowances, residual blindspots, validation, and
@@ -393,13 +492,18 @@ The route is complete when:
   ownership, priority levels, and rationale for repeated text;
 - implemented/runnable UI claims have implementation validation that aligns
   user-visible feature contracts, reviewed UI journeys, real click-through
-  evidence, model revision/freshness, pure UI actions, and residual
+  evidence, screenshot/DOM/geometry/accessibility/runtime/test/manual evidence
+  kinds when used, model revision/freshness, pure UI actions, and residual
   implementation blindspots;
+- layout or responsiveness claims have geometry evidence and hot/cold path
+  contracts for the declared boundary;
 - known-bad layout-only, missing-journey-coverage, missing-entry,
   unreachable-feature-path, missing-success-terminal, unhandled-failure,
   terminal-forward-action, visible-control-without-event,
   uncovered-reachable-event, unmodeled-control, missing-recovery,
   unstable-global, repeated-information, duplicate-control, wrong-level,
-  unowned-text, missing-implementation-run, stale-implementation-evidence, and
-  implementation-control-without-feature-owner hazards are rejected or
-  explicitly out of scope.
+  unowned-text, visible-internal-terminology, missing-disabled-reason,
+  missing-render-evidence-kind, geometry-overflow/overlap, missing-hot-feedback,
+  missing-cold-path-stale-guard, missing-implementation-run,
+  stale-implementation-evidence, and implementation-control-without-feature-owner
+  hazards are rejected or explicitly out of scope.

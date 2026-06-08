@@ -5,8 +5,8 @@ from __future__ import annotations
 RISK_EVIDENCE_LEDGER_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header
 
 Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
-Purpose: Review whether a final FlowGuard confidence claim is backed by model obligations, public code contracts, recurring defect-family gates, model/test split gates, and current evidence.
-Guards against: coarse models hiding untested internal branches, oversized direct model evidence bypassing ModelMesh, slow or broad validation bypassing TestMesh, recurring same-class misses hiding behind local point fixes, tests covering only helper paths, skipped or stale evidence being treated as pass, and background progress being counted as final proof.
+Purpose: Review whether a final FlowGuard confidence claim is backed by model obligations, public code contracts, UI/payload gates, recurring defect-family gates, model/test split gates, and current evidence.
+Guards against: coarse models hiding untested internal branches, skipped UI click-through or file/work-package payload evidence, oversized direct model evidence bypassing ModelMesh, slow or broad validation bypassing TestMesh, recurring same-class misses hiding behind local point fixes, tests covering only helper paths, skipped or stale evidence being treated as pass, and background progress being counted as final proof.
 Use before editing: Run this before claiming done, release-ready, or fully validated after model/test/code changes.
 Run: python .flowguard/risk_evidence_ledger/run_checks.py
 """
@@ -15,9 +15,11 @@ from __future__ import annotations
 
 from flowguard import (
     OBLIGATION_STATUS_RESOLVED,
+    RISK_GATE_ARTIFACT_PAYLOAD,
     RISK_GATE_DEFECT_FAMILY,
     RISK_GATE_MAINTENANCE_OBLIGATION,
     RISK_GATE_MODEL_SPLIT,
+    RISK_GATE_UI_IMPLEMENTATION,
     RISK_PROOF_SCOPE_INTERNAL_PATH,
     RISK_PROOF_STATUS_PASSED,
     RISK_PROOF_STATUS_PROGRESS_ONLY,
@@ -43,6 +45,8 @@ def correct_ledger() -> RiskEvidenceLedgerPlan:
                 proof_evidence_ids=("test:duplicate-submit",),
                 gates=(
                     RiskEvidenceGate(RISK_GATE_DEFECT_FAMILY, "defect-family:duplicate-submit"),
+                    RiskEvidenceGate(RISK_GATE_UI_IMPLEMENTATION, "ui:duplicate-submit-clickthrough"),
+                    RiskEvidenceGate(RISK_GATE_ARTIFACT_PAYLOAD, "payload:checkout-export-pack"),
                     RiskEvidenceGate(RISK_GATE_MAINTENANCE_OBLIGATION, "structure:submit-routing"),
                 ),
             ),
@@ -193,6 +197,30 @@ def broken_missing_model_split_gate_ledger() -> RiskEvidenceLedgerPlan:
     )
 
 
+def broken_missing_artifact_payload_gate_ledger() -> RiskEvidenceLedgerPlan:
+    return RiskEvidenceLedgerPlan(
+        "missing-artifact-payload-gate",
+        rows=(
+            RiskEvidenceRow(
+                "checkout_export",
+                model_obligation_id="model:export-checkout",
+                code_contract_id="api:export_checkout",
+                proof_evidence_ids=("test:checkout-export",),
+                gates=(RiskEvidenceGate(RISK_GATE_ARTIFACT_PAYLOAD),),
+            ),
+        ),
+        proof_evidence=(
+            RiskEvidenceProof(
+                "test:checkout-export",
+                result_status=RISK_PROOF_STATUS_PASSED,
+                producer_route="model_test_alignment",
+                command="python -m unittest tests.test_checkout_export",
+                summary="unit test passed, but no synthetic payload pack gate was consumed",
+            ),
+        ),
+    )
+
+
 def broken_open_maintenance_obligation_ledger() -> RiskEvidenceLedgerPlan:
     return RiskEvidenceLedgerPlan(
         "open-maintenance-obligation",
@@ -232,6 +260,7 @@ def run_checks():
         review_risk_evidence_ledger(broken_progress_only_ledger()),
         review_risk_evidence_ledger(broken_missing_defect_family_gate_ledger()),
         review_risk_evidence_ledger(broken_missing_model_split_gate_ledger()),
+        review_risk_evidence_ledger(broken_missing_artifact_payload_gate_ledger()),
         review_risk_evidence_ledger(broken_open_maintenance_obligation_ledger()),
     )
 '''
@@ -244,7 +273,15 @@ from model import run_checks
 
 
 def main() -> int:
-    correct, internal_only, progress_only, missing_defect_family, missing_model_split, open_obligation = run_checks()
+    (
+        correct,
+        internal_only,
+        progress_only,
+        missing_defect_family,
+        missing_model_split,
+        missing_artifact_payload,
+        open_obligation,
+    ) = run_checks()
     print(correct.format_text())
     print()
     print(internal_only.format_text(max_findings=5))
@@ -254,6 +291,8 @@ def main() -> int:
     print(missing_defect_family.format_text(max_findings=5))
     print()
     print(missing_model_split.format_text(max_findings=5))
+    print()
+    print(missing_artifact_payload.format_text(max_findings=5))
     print()
     print(open_obligation.format_text(max_findings=5))
     expected_blockers = (
@@ -265,6 +304,8 @@ def main() -> int:
         and missing_defect_family.decision == "missing_defect_family_gate"
         and not missing_model_split.ok
         and missing_model_split.decision == "missing_model_split_gate"
+        and not missing_artifact_payload.ok
+        and missing_artifact_payload.decision == "missing_artifact_payload_gate"
         and not open_obligation.ok
         and open_obligation.decision == "open_maintenance_obligation"
     )

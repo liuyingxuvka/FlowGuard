@@ -14,7 +14,7 @@ The ledger does not make FlowGuard models deeper. It connects the coarse model
 to ordinary evidence:
 
 ```text
-user risk -> topology hazard review -> model obligation -> remembered maintenance obligation -> public code contract -> obligation-family gate -> analogous scan -> defect-family gate -> current proof evidence
+user risk -> UI/payload gates -> topology hazard review -> model obligation -> remembered maintenance obligation -> public code contract -> obligation-family gate -> analogous scan -> defect-family gate -> current proof evidence
 ```
 
 If any link is missing, stale, skipped, progress-only, or internal-path-only, the
@@ -49,9 +49,10 @@ whether the rows and later claim promotion were too narrow.
   flat fields per route.
 - `RiskEvidenceGate`: one optional gate such as `defect_family`,
   `model_split`, `test_split`, `family`, `analogous_scan`,
-  `topology_hazard`, `model_angle_review`, `parent_model_evidence`, or
-  `maintenance_obligation`. A gate has one `kind`, one `evidence_id`, current
-  status, confidence, and scoped reasons.
+  `ui_implementation`, `artifact_payload`, `topology_hazard`,
+  `model_angle_review`, `parent_model_evidence`, or `maintenance_obligation`.
+  A gate has one `kind`, one `evidence_id`, current status, confidence, and
+  scoped reasons.
 - `RiskEvidenceProof`: one test, replay, route report, or manual validation item.
   For full-confidence strict reviews, attach a `proof_artifact` instead of
   relying on the row's declared status alone.
@@ -76,10 +77,12 @@ whether the rows and later claim promotion were too narrow.
 from flowguard import (
     OBLIGATION_STATUS_RESOLVED,
     RISK_GATE_ANALOGOUS_SCAN,
+    RISK_GATE_ARTIFACT_PAYLOAD,
     RISK_GATE_DEFECT_FAMILY,
     RISK_GATE_FAMILY,
     RISK_GATE_MAINTENANCE_OBLIGATION,
     RISK_GATE_TOPOLOGY_HAZARD,
+    RISK_GATE_UI_IMPLEMENTATION,
     RISK_PROOF_SCOPE_INTERNAL_PATH,
     RISK_PROOF_STATUS_PASSED,
     MaintenanceObligation,
@@ -104,6 +107,8 @@ plan = RiskEvidenceLedgerPlan(
                 RiskEvidenceGate(RISK_GATE_FAMILY, "family:submit-routing"),
                 RiskEvidenceGate(RISK_GATE_ANALOGOUS_SCAN, "analogous:submit-routing"),
                 RiskEvidenceGate(RISK_GATE_TOPOLOGY_HAZARD, "topology:submit-routing"),
+                RiskEvidenceGate(RISK_GATE_UI_IMPLEMENTATION, "ui:submit-clickthrough"),
+                RiskEvidenceGate(RISK_GATE_ARTIFACT_PAYLOAD, "payload:submit-export"),
                 RiskEvidenceGate(RISK_GATE_MAINTENANCE_OBLIGATION, "structure:submit-routing"),
                 RiskEvidenceGate(RISK_GATE_DEFECT_FAMILY, "defect-family:duplicate-submit"),
             ),
@@ -155,6 +160,10 @@ public submit behavior.
   `family_gate_not_current`, `family_gate_blocked`,
   `missing_analogous_scan`, `analogous_scan_not_current`,
   `analogous_scan_blocked`,
+  `missing_ui_implementation_gate`, `ui_implementation_gate_not_current`,
+  `ui_implementation_gate_blocked`,
+  `missing_artifact_payload_gate`, `artifact_payload_gate_not_current`,
+  `artifact_payload_gate_blocked`,
   `missing_topology_hazard_review`,
   `topology_hazard_review_not_current`,
   `topology_hazard_review_blocked`,

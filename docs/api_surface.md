@@ -270,6 +270,12 @@ inventory.
   Field lifecycle reports and projections can be supplied directly to
   `ModelTestAlignmentPlan`, where behavior-bearing fields become model
   obligations and code contracts that still require current test evidence.
+  `ArtifactPayloadContract`, `ArtifactPayloadCase`,
+  `ArtifactPayloadEvidence`, and `review_artifact_payload_validation()` add the
+  same evidence gate for import/export files, generated artifacts, saved/load
+  payloads, and AI work packages: current external case evidence must prove
+  expected status, output, error path, state writes, side effects, and
+  round-trip behavior before broad payload claims are green.
 - field lifecycle helpers such as `FieldLifecyclePlan`,
   `FieldLifecycleGroup`, `FieldLifecycleRow`, `FieldProjection`,
   `FieldLifecycleReport`, `review_field_lifecycle()`,
@@ -377,18 +383,30 @@ inventory.
   `UIImplementationJourneyRun`, `UIImplementationStepEvidence`,
   `UIImplementationValidation`,
   `UIImplementationValidationReport`,
+  `UIVisibleSurface`, `UIVisibleSurfaceItem`, `UIVisibleSurfaceReport`,
+  `UIRenderEvidence`, `UIRenderEvidenceSet`, `UIRenderEvidenceReport`,
+  `UIGeometryLayoutEvidence`, `UIGeometryLayoutEvidenceSet`,
+  `UIGeometryLayoutEvidenceReport`, `UIHotPathAction`, `UIColdPathWork`,
+  `UIStableRegionRule`, `UIResponsivenessContract`,
+  `UIResponsivenessContractReport`,
   `UIStructureDerivation`, `UIRegionRecommendation`,
   `UITextHierarchyBlueprint`, `UITextElement`, `UITypographyToken`,
   `review_ui_interaction_model()`, `review_ui_journey_coverage()`,
   `review_ui_implementation_validation()`,
+  `review_ui_visible_surface()`, `review_ui_render_evidence()`,
+  `review_ui_geometry_layout_evidence()`,
+  `review_ui_responsiveness_contract()`,
   `review_ui_structure_derivation()`, and `review_ui_text_hierarchy()` for
   modeling UI interactions first, proving launch-to-terminal journey coverage
   and reachable visible-control/event coverage when complete app UI is claimed,
+  reviewing visible controls/helper/status/placeholder/metadata surface,
   validating implemented/runnable UI claims against feature contracts and real
-  browser/manual click-through evidence, deriving parent/child UI topology, menu
-  levels, stable placement, overlays, control hierarchy, information-display
-  ownership, and then deriving semantic text hierarchy tokens with calm visual
-  handoff guidance before visual design or frontend implementation.
+  screenshot/browser/manual/DOM/geometry/accessibility/runtime/test evidence,
+  checking universal geometry and responsiveness contracts, deriving
+  parent/child UI topology, menu levels, stable placement, overlays, control
+  hierarchy, information-display ownership, and then deriving semantic text
+  hierarchy tokens with calm visual handoff guidance before visual design or
+  frontend implementation.
 - optional DevelopmentProcessFlow helpers such as `ProcessArtifact`,
   `ProcessAction`, `ProcessEvidence`, `ValidationRequirement`,
   `DevelopmentProcessPlan`, `review_development_process_flow()`, and
@@ -415,9 +433,9 @@ Reporting helpers help an AI agent explain what was checked and what was not:
   `RiskEvidenceLedgerReport`, and `review_risk_evidence_ledger()` for the final
   confidence ledger that connects user risks to FlowGuard model obligations,
   optional public code contracts, obligation-family gates, analogous defect
-  scans, recurring defect-family gates, model/test split gates, model-angle
-  deliberation evidence, remembered maintenance obligations, and current proof
-  evidence
+  scans, recurring defect-family gates, model/test split gates, UI
+  implementation gates, artifact-payload gates, model-angle deliberation
+  evidence, remembered maintenance obligations, and current proof evidence
 - `MaintenanceObligation`, `MaintenanceObligationReport`, and
   `build_maintenance_obligation_report()` for preserving unresolved
   route-owned gaps as future scan/ledger inputs without making them a separate
@@ -626,8 +644,9 @@ when the claim is complete app-level UI coverage, require UI journey coverage
 from launch entry points through declared success, recovery, cancel, exit, and
 residual blindspot boundaries before structure or visual handoff. When the
 claim is implemented/runnable UI completion, require implementation validation
-that aligns feature contracts, reviewed journeys, real click-through evidence,
-model revision, and residual implementation blindspots. Use
+that aligns feature contracts, reviewed journeys, every reachable enabled
+control's real click-through evidence or scoped blindspot, model revision, and
+residual implementation blindspots. Use
 DevelopmentProcessFlow when staged development or modification work has
 validation, or when lifecycle ordering, artifact overwrite, verifier changes,
 peer writes, or evidence freshness determine whether the agent can safely

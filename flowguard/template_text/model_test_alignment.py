@@ -47,6 +47,7 @@ as generic support.
 from __future__ import annotations
 
 from flowguard import (
+    ArtifactPayloadContract,
     CodeBoundaryContract,
     CodeBoundaryObservation,
     CodeContract,
@@ -678,9 +679,10 @@ MODEL_TEST_ALIGNMENT_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header.
 
 Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
 Purpose: compact alignment of one model obligation, one owner code contract,
-one required test, and one replay/negative evidence item.
+one required test, one replay/negative item, and one payload case.
 Guards against: claiming model coverage when the owner code contract, plain
-test evidence, same-class or negative check, or replay evidence is missing.
+test evidence, same-class or negative check, replay evidence, or fake
+file/work-package payload evidence is missing.
 Use before editing: field, state, input/output, side-effect, or runtime-shape
 changes whose model obligations need direct code/test binding.
 Run: python .flowguard/model_test_alignment/run_checks.py
@@ -707,6 +709,9 @@ class CompactAlignmentPlan:
     same_class_or_negative_test_present: bool
     replay_evidence_id: str
     replay_status: str
+    payload_contract_id: str
+    payload_case_id: str
+    payload_status: str
 
 
 @dataclass(frozen=True)
@@ -739,6 +744,10 @@ def review_compact_alignment(plan: CompactAlignmentPlan) -> CompactAlignmentRepo
         findings.append("missing_same_class_test_evidence")
     if not plan.replay_evidence_id or plan.replay_status not in PASSING_STATUSES:
         findings.append("missing_replay_evidence")
+    if not plan.payload_contract_id or not plan.payload_case_id:
+        findings.append("missing_artifact_payload_pack")
+    if plan.payload_status not in PASSING_STATUSES:
+        findings.append("artifact_payload_evidence_not_passing")
     return CompactAlignmentReport(plan.plan_id, not findings, tuple(findings))
 
 
@@ -754,6 +763,9 @@ def aligned_plan() -> CompactAlignmentPlan:
         same_class_or_negative_test_present=True,
         replay_evidence_id="replay:runtime-shape-missing-field",
         replay_status="passed",
+        payload_contract_id="payload:request-json",
+        payload_case_id="case:missing-field-json",
+        payload_status="passed",
     )
 
 
@@ -769,6 +781,9 @@ def broken_plan() -> CompactAlignmentPlan:
         same_class_or_negative_test_present=False,
         replay_evidence_id="",
         replay_status="not_run",
+        payload_contract_id="",
+        payload_case_id="",
+        payload_status="not_run",
     )
 
 
@@ -789,8 +804,8 @@ def main() -> int:
     print()
     print(broken.format_text())
     print()
-    print("plain model obligations -> owner code external contracts -> plain test evidence -> replay evidence")
-    print("escalate to model-test-alignment-full-template for code-boundary conformance, source audit, state closure evidence, TestResultReuseTicket, or TransitionCoverageMatrix")
+    print("plain model obligations -> owner code external contracts -> plain test evidence -> replay evidence -> artifact payload pack")
+    print("escalate to model-test-alignment-full-template for code-boundary conformance, source audit, ArtifactPayloadContract, state closure evidence, TestResultReuseTicket, or TransitionCoverageMatrix")
     return 0 if aligned.ok and not broken.ok else 1
 
 
@@ -802,12 +817,13 @@ MODEL_TEST_ALIGNMENT_NOTES_TEMPLATE = """# FlowGuard Model-Test Alignment Notes
 
 This compact default compares one model obligation with its owner code external
 contract (`CodeContract` in the full API), passing test evidence, same-class or
-negative evidence, and replay evidence. It is the right first scaffold when the
-goal is to prove a field, state, input/output, or side-effect obligation is
-actually guarded by runtime code and tests.
+negative evidence, replay evidence, and a small fake file/work-package payload
+pack. It is the right first scaffold when the goal is to prove a field, state,
+input/output, side-effect, or payload obligation is actually guarded by runtime
+code and tests.
 
 Escalate to `model-test-alignment-full-template` when the claim needs
-code-boundary conformance rows, conservative Python source audit,
+code-boundary conformance rows, artifact payload contracts, conservative Python source audit,
 state-closure evidence for unknown/old-schema cases, reused test-result
 tickets, transition coverage matrices, FieldLifecycleMesh projections, or
 large TestMesh/StructureMesh handoffs.

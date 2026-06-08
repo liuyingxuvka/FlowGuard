@@ -185,6 +185,33 @@ class ApiSurfaceTests(unittest.TestCase):
         self.assertIn("UITextElement", flowguard.MODELING_HELPER_API)
         self.assertIn("UITextHierarchyReport", flowguard.MODELING_HELPER_API)
         self.assertIn("UITypographyToken", flowguard.MODELING_HELPER_API)
+        new_ui_surface_helpers = (
+            "SUPPORTED_UI_EVIDENCE_KINDS",
+            "UIVisibleSurface",
+            "UIVisibleSurfaceItem",
+            "UIVisibleSurfaceReport",
+            "UIRenderEvidence",
+            "UIRenderEvidenceSet",
+            "UIRenderEvidenceReport",
+            "UIGeometryLayoutEvidence",
+            "UIGeometryLayoutEvidenceSet",
+            "UIGeometryLayoutEvidenceReport",
+            "UIHotPathAction",
+            "UIColdPathWork",
+            "UIStableRegionRule",
+            "UIResponsivenessContract",
+            "UIResponsivenessContractReport",
+            "review_ui_visible_surface",
+            "review_ui_render_evidence",
+            "review_ui_geometry_layout_evidence",
+            "review_ui_responsiveness_contract",
+        )
+        for name in new_ui_surface_helpers:
+            self.assertIn(name, flowguard.MODELING_HELPER_API)
+            self.assertIn(name, flowguard.UI_FLOW_STRUCTURE_ROUTE_API)
+            self.assertIn(name, flowguard.__all__)
+            self.assertTrue(hasattr(flowguard, name), name)
+            self.assertNotIn(name, flowguard.CORE_API)
         self.assertIn("review_ui_interaction_model", flowguard.MODELING_HELPER_API)
         self.assertIn("review_ui_journey_coverage", flowguard.MODELING_HELPER_API)
         self.assertIn("review_ui_implementation_validation", flowguard.MODELING_HELPER_API)
@@ -257,6 +284,18 @@ class ApiSurfaceTests(unittest.TestCase):
 
     def test_model_test_alignment_code_contract_api_is_public_helper(self):
         expected = (
+            "ARTIFACT_PAYLOAD_METHOD_AUTOMATED_TEST",
+            "ARTIFACT_PAYLOAD_METHOD_BROWSER",
+            "ARTIFACT_PAYLOAD_METHOD_DESKTOP",
+            "ARTIFACT_PAYLOAD_METHOD_MANUAL",
+            "ARTIFACT_PAYLOAD_METHOD_REPLAY",
+            "ARTIFACT_PAYLOAD_STATUS_ACCEPTED",
+            "ARTIFACT_PAYLOAD_STATUS_REJECTED",
+            "ArtifactPayloadCase",
+            "ArtifactPayloadContract",
+            "ArtifactPayloadEvidence",
+            "ArtifactPayloadFinding",
+            "ArtifactPayloadValidationReport",
             "CodeBoundaryConformanceReport",
             "CodeBoundaryContract",
             "CodeBoundaryFinding",
@@ -287,6 +326,7 @@ class ApiSurfaceTests(unittest.TestCase):
             "ContractSourceAuditReport",
             "audit_python_code_contracts",
             "audit_python_test_assertions",
+            "review_artifact_payload_validation",
             "review_code_boundary_conformance",
             "review_python_contract_source_audit",
         )

@@ -6,8 +6,8 @@ TEST_MESH_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header
 
 Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
 Purpose: Review whether a parent test gate can trust child suites/scripts as owned validation regions.
-Guards against: flat test splits, stale child suites, hidden skips, progress-only background runs, duplicate ownership, missing transition matrix-cell evidence, and release checks blocking routine confidence.
-Use before editing: Update this TestMesh when changing validation layout, test partitions, transition coverage matrices, child test scripts, slow regression gates, or background evidence contracts.
+Guards against: flat test splits, stale child suites, hidden skips, progress-only background runs, duplicate ownership, missing transition or artifact-payload matrix evidence, and release checks blocking routine confidence.
+Use before editing: Update this TestMesh when changing validation layout, test partitions, transition or artifact payload matrices, child test scripts, slow regression gates, or background evidence contracts.
 Run: python .flowguard/test_mesh/run_checks.py
 """
 
@@ -201,6 +201,9 @@ Use this scaffold to keep a project's validation hierarchy explicit.
   parent;
 - whether transition coverage matrix cells have current child evidence when
   the matrix is too large or slow for direct Model-Test Alignment rows;
+- whether artifact payload case ids have current child evidence when a
+  file/work-package payload matrix is too large or slow for direct Model-Test
+  Alignment rows;
 - whether background logs include final exit/result artifacts;
 - whether skipped, timed-out, not-run, or release-only checks remain visible.
 
@@ -213,8 +216,8 @@ The target child-suite layout should be recorded as a model-derived split
 before parent confidence is claimed. A partition map by itself is not enough.
 
 TestMesh does not run your tests. Project adapters should run pytest, unittest,
-Playwright, simulation runners, or shell commands, then feed structured evidence
-into the TestMesh model.
+Playwright, simulation runners, payload-fixture checks, or shell commands, then
+feed structured evidence into the TestMesh model.
 """
 
 __all__ = [

@@ -30,6 +30,8 @@ It references sibling route evidence ids, not sibling internals.
   `TestResultReuseTicket` plus `ProofArtifactRef`.
 - Model transition changes stale transition matrices, generated MTA obligations,
   and TestMesh required cells unless refreshed.
+- UI action maps, payload schemas, fake file/work-package packs, and validation
+  prompts stale their evidence when changed.
 - Model-code-test binding rows stale when linked obligations, owner contracts,
   source, test evidence, transition cells, or proof artifacts change. Rerun MTA
   before done/release confidence.
@@ -44,8 +46,8 @@ It references sibling route evidence ids, not sibling internals.
 3. Identify later actions that stale evidence.
 4. Regenerate transition coverage and model-code-test bindings when transitions,
    owners, or tests changed.
-5. Include field lifecycle, projection, replacement, and bug-closure artifacts
-   when field-bearing work changed them.
+5. Include field lifecycle, payload, UI action, replacement, and bug-closure
+   artifacts when those surfaces changed.
 6. Derive the minimum revalidation plan.
 7. Triage failures before continuing or claiming done.
 

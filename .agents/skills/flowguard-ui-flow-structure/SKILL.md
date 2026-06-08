@@ -1,59 +1,46 @@
 ---
 name: flowguard-ui-flow-structure
-description: Use when UI interaction behavior should be modeled first, then used to derive topology, regions, menus, stable placement, event/display ownership, duplicate controls/info, overlays, recovery actions, and text hierarchy before frontend work.
+description: Use for UI interaction behavior, visible surface, structure, text hierarchy, and implementation evidence before frontend work.
 ---
 
 # FlowGuard UI Flow Structure
 
-Standalone FlowGuard satellite skill for UI interaction behavior and
-model-derived screen/control/text structure. Use it when UI state, controls,
-journeys, overlays, or recovery paths are the risk.
-
-Return to `model-first-function-flow` when the task is not UI behavior/state.
+Standalone FlowGuard satellite skill for UI state, controls, visible text, journeys, overlays, recovery, structure, and runnable evidence. Return to `model-first-function-flow` when not UI work.
 
 ## First Read
 
 - Route id: `ui_flow_structure`.
-- Default entry: `ROUTE_STARTER_API["ui_flow_structure"]` and
-  `ui-flow-structure-template`.
-- Full entry: `ui-flow-structure-full-template` for full journeys, regions,
-  text blueprints, or many runnable validation paths.
-- Model shape: UI event x UI state -> visible controls, displays, overlays,
-  navigation, and recovery.
-- Core helpers: `UIDisplayElement`, `UIJourneyCoverage`,
-  `UIImplementationValidation`, `UITextHierarchyBlueprint`,
-  `review_ui_interaction_model()`,
-  `ui_interaction_model_to_transition_coverage()`.
+- Starter: `ROUTE_STARTER_API["ui_flow_structure"]` and `ui-flow-structure-template`.
+- Full: `ui-flow-structure-full-template` for journeys, regions, text blueprints, or many validation paths.
+- Shape: UI event x UI state -> visible controls, displays, overlays, navigation, recovery.
+- Helpers: `UIInteractionModel`, `UIVisibleSurface`, `UIJourneyCoverage`, `UIImplementationValidation`, `UIRenderEvidenceSet`, `UIGeometryLayoutEvidenceSet`, `UITextHierarchyBlueprint`.
 - Reference: `references/ui_flow_structure_protocol.md`.
 
 ## Hard Gates
 
 - Verify the real package before claiming FlowGuard use.
-- For real target-project work, keep the AGENTS.md managed block/version record
-  current or record why it was not updated.
+- Keep AGENTS.md managed records current, or say why not.
 - Do not create a fake mini-framework.
-- Visible-control branches, recovery/cancel paths, and residual blindspots must
-  stay explicit.
-- Running UI completion needs click-through or browser evidence.
-- Broad transition-test claims need projected cells with code contract/runtime
-  owners, then Model-Test Alignment or TestMesh evidence.
+- Visible branches, recovery/cancel paths, and residual blindspots stay explicit.
+- Runnable claims need each reachable enabled action clicked or classified as pure UI/deferred with a blindspot reason.
+- Visible surface keeps controls, status text, helper copy, placeholders, metadata, and disabled reasons user-facing and owned.
+- Completion needs a declared evidence kind: screenshot, browser click-through, DOM text, geometry, accessibility, runtime trace, test result, or manual observation.
+- Native dialogs/file pickers/manual observations need event, result, evidence ref, and boundary.
+- Broad transition-test claims need projected cells with code/runtime owners, then Model-Test Alignment or TestMesh evidence.
 
 ## Minimum Workflow
 
-1. Model UI states, events, controls, displays, overlays, and transitions.
-2. Derive persistent menus, contextual regions, local controls, and text slots.
-3. Check duplicate controls/information and overlapping same-level controls.
-4. Hand off text hierarchy with calm typography guidance: reuse treatments for
-   similar text jobs and explain visible differences.
-5. Project UI transitions into transition coverage cells when claiming
-   transition-test coverage; carry code contract/runtime node ids for each
-   handler that owns the transition.
-6. Add journey coverage and implementation validation when claiming runnable UI.
+1. Model UI states, events, controls, displays, overlays, transitions.
+2. Review Visible surface: labels, helpers, status, placeholders, disabled reasons, metadata, internal-term leaks.
+3. Derive persistent menus, contextual regions, local controls, and text slots.
+4. Check duplicate controls/information and overlapping same-level controls.
+5. Hand off text hierarchy with calm typography guidance: reuse treatments for similar jobs and explain visible differences.
+6. Project UI transitions into coverage cells when claiming transition-test coverage; carry owner ids.
+7. Add journey coverage, evidence kinds, geometry/layout evidence, and implementation validation for runnable UI.
 
 ## Snapshot
 
-Show a UI state diagram with visible controls, regions, displays, recovery
-paths, text ownership, and residual blindspots.
+Show a UI state diagram with visible controls, visible surface, regions, displays, recovery paths, text ownership, evidence kinds, and residual blindspots.
 
 ## Non-Goals
 

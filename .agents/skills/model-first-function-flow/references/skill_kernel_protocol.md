@@ -60,9 +60,9 @@ to the kernel instead of taking ownership of unclear work.
 | `architecture_reduction` | behavior-preserving code contraction candidates, observable architecture contracts, and target StructureMesh handoff |
 | `ui_flow_structure` | UI interaction model, app-level journey coverage, implemented/runnable UI click-through evidence alignment, reachable visible-control branches, state/control/event/display transitions, parent/child UI topology, menu levels, overlays, stable placements, UI text hierarchy blueprint, and intentional redundancy |
 | `model_topology_hazard_review` | topology digest, usage intent, anchored future-use hazards, required owner routes, and scoped or blocked confidence before broad claims |
-| `model_test_alignment` | direct comparison of model obligations, transition coverage obligations, owner code contracts, code-boundary observations, obligation-family parity, and ordinary test evidence |
+| `model_test_alignment` | direct comparison of model obligations, transition coverage obligations, owner code contracts, code-boundary observations, artifact payload cases, obligation-family parity, and ordinary test evidence |
 | `model_maturation_loop` | converts post-code, post-miss, alignment, mesh, boundary, and freshness signals into model-upgrade or scoped-claim decisions |
-| `risk_evidence_ledger` | final risk-to-model-to-code-to-family-gates-to-evidence confidence boundary for done/release/publish/full-confidence claims |
+| `risk_evidence_ledger` | final risk-to-model-to-code-to-family/UI/payload-gates-to-evidence confidence boundary for done/release/publish/full-confidence claims |
 | `model_mesh_maintenance` | parent/child model hierarchy, child reattachment, whole-flow mesh closure, and oversized-model governance |
 | `test_mesh_maintenance` | parent/child test hierarchy plus validation evidence |
 | `structure_mesh_maintenance` | parent/child script/module structure split evidence |
@@ -145,6 +145,10 @@ sub-skills.
   aligns feature contracts with browser/desktop/manual click-through evidence
   when implemented/runnable UI completion is claimed; it
   does not replace visual design, final copywriting, or code-structure routes.
+- Keep artifact payload validation in Model-Test Alignment: file import/export,
+  generated artifact, save/load, and AI work-package claims need synthetic
+  accepted/rejected payload cases plus current external evidence; large payload
+  matrices can route freshness and child ownership through TestMesh.
 - Keep Model Topology Hazard Review grounded in model shape. Unanchored AI
   concerns are observations only; anchored hazards must route to the owning
   sibling evidence path before broad confidence.

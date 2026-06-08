@@ -2,10 +2,15 @@ import unittest
 from dataclasses import replace
 
 from flowguard import (
+    SUPPORTED_UI_EVIDENCE_KINDS,
+    UIColdPathWork,
     UIControl,
     UIDisplayElement,
     UIFeatureContract,
     UIFeatureJourney,
+    UIGeometryLayoutEvidence,
+    UIGeometryLayoutEvidenceSet,
+    UIHotPathAction,
     UIBlindspot,
     UIImplementationJourneyRun,
     UIImplementationStepEvidence,
@@ -14,6 +19,10 @@ from flowguard import (
     UIJourneyCoverage,
     UIJourneyEntryPoint,
     UIRegionRecommendation,
+    UIRenderEvidence,
+    UIRenderEvidenceSet,
+    UIResponsivenessContract,
+    UIStableRegionRule,
     UIStateNode,
     UIStructureDerivation,
     UITextElement,
@@ -21,11 +30,17 @@ from flowguard import (
     UITypographyToken,
     UITerminalActionAllowance,
     UITransition,
+    UIVisibleSurface,
+    UIVisibleSurfaceItem,
+    review_ui_geometry_layout_evidence,
     review_ui_implementation_validation,
     review_ui_interaction_model,
     review_ui_journey_coverage,
+    review_ui_render_evidence,
+    review_ui_responsiveness_contract,
     review_ui_structure_derivation,
     review_ui_text_hierarchy,
+    review_ui_visible_surface,
 )
 
 
@@ -642,6 +657,355 @@ def text_hierarchy() -> UITextHierarchyBlueprint:
         validation_boundaries=("design token review", "browser text hierarchy review"),
         rationale="Text roles and tokens are derived from the reviewed UI structure, not chosen ad hoc.",
     )
+
+
+def finding_codes(report) -> set[str]:
+    return {finding.code for finding in report.findings}
+
+
+def visible_surface(**kwargs) -> UIVisibleSurface:
+    defaults = {
+        "source_interaction_model_id": "import-run-ui-flow",
+        "items": (
+            UIVisibleSurfaceItem(
+                "surface_title",
+                item_kind="title",
+                text="Import runner",
+                state_ids=("empty",),
+                region_id="primary-workspace",
+                purpose="Names the current workspace",
+                rationale="The title orients the user without exposing implementation details.",
+            ),
+            UIVisibleSurfaceItem(
+                "import_button",
+                item_kind="control",
+                text="Import",
+                state_ids=("empty",),
+                owner_control_id="import",
+                purpose="Starts file selection",
+                rationale="Primary enabled action for the empty state.",
+            ),
+            UIVisibleSurfaceItem(
+                "run_disabled",
+                item_kind="disabled_control",
+                text="Run",
+                state_ids=("empty",),
+                owner_control_id="run",
+                purpose="Shows the next action before input is available",
+                disabled_reason="Choose a file before running.",
+                rationale="The disabled reason is understandable to a user.",
+            ),
+            UIVisibleSurfaceItem(
+                "running_status",
+                item_kind="status",
+                text="Running analysis",
+                state_ids=("running",),
+                priority="primary",
+                purpose="Confirms the run is in progress",
+                rationale="The status is the single primary message while work runs.",
+            ),
+        ),
+        "validation_boundaries": ("visible copy review",),
+        "rationale": "Visible UI surface review keeps product wording and control states user-facing.",
+    }
+    defaults.update(kwargs)
+    return UIVisibleSurface("import-run-visible-surface", **defaults)
+
+
+def render_evidence(**kwargs) -> UIRenderEvidenceSet:
+    defaults = {
+        "source_interaction_model_id": "import-run-ui-flow",
+        "implementation_target": "local browser build",
+        "current_model_revision": "ui-rev-1",
+        "evidence": (
+            UIRenderEvidence(
+                "result_screenshot",
+                "screenshot",
+                "result_ready surface",
+                source_interaction_model_id="import-run-ui-flow",
+                implementation_target="local browser build",
+                result="passed",
+                evidence_ref="evidence://screenshots/result-ready.png",
+                model_revision="ui-rev-1",
+                observed_state_id="result_ready",
+                rationale="Screenshot evidence is valid when available and allowed by the environment.",
+            ),
+            UIRenderEvidence(
+                "summary_dom_text",
+                "dom_text",
+                "summary_card",
+                source_interaction_model_id="import-run-ui-flow",
+                implementation_target="local browser build",
+                result="passed",
+                evidence_ref="evidence://dom/summary-card.txt",
+                model_revision="ui-rev-1",
+                observed_state_id="result_ready",
+                rationale="DOM text evidence verifies the visible summary copy.",
+            ),
+        ),
+        "validation_boundaries": ("browser evidence review",),
+        "rationale": "Runnable UI claims name the evidence kind and reference.",
+    }
+    defaults.update(kwargs)
+    return UIRenderEvidenceSet("import-run-render-evidence", **defaults)
+
+
+def geometry_evidence(**kwargs) -> UIGeometryLayoutEvidenceSet:
+    defaults = {
+        "source_interaction_model_id": "import-run-ui-flow",
+        "entries": (
+            UIGeometryLayoutEvidence(
+                "result_table_geometry",
+                "result_table",
+                viewport="desktop 1280x720",
+                scroll_owner="primary-workspace",
+                result="passed",
+                evidence_ref="evidence://geometry/result-table.json",
+                rationale="The table fits the viewport without overlap and remains keyboard reachable.",
+            ),
+        ),
+        "validation_boundaries": ("geometry bounds review",),
+        "rationale": "Universal geometry checks cover overflow, overlap, viewport, scroll, focus, and keyboard reachability.",
+    }
+    defaults.update(kwargs)
+    return UIGeometryLayoutEvidenceSet("import-run-geometry", **defaults)
+
+
+def responsiveness_contract(**kwargs) -> UIResponsivenessContract:
+    defaults = {
+        "source_interaction_model_id": "import-run-ui-flow",
+        "hot_path_actions": (
+            UIHotPathAction(
+                "run_click_feedback",
+                event_id="click_run",
+                feedback_target_id="running_status",
+                feedback_description="The run button immediately changes to a running state.",
+                rationale="Direct clicks need immediate feedback before slower work completes.",
+            ),
+        ),
+        "cold_path_work": (
+            UIColdPathWork(
+                "run_summary_refresh",
+                trigger_event_id="click_run",
+                result_target_id="summary_card",
+                stale_guard="Only apply the result when the run id matches the latest click.",
+                cancellation_rule="Cancel ignores late result updates.",
+                rationale="Slow summary refresh must not overwrite newer state.",
+            ),
+        ),
+        "stable_region_rules": (
+            UIStableRegionRule(
+                "top-toolbar",
+                preservation_rule="Keep toolbar placement stable while input rows or results change.",
+                unrelated_input_ids=("result_filter",),
+                rationale="Global navigation should not be rewritten by unrelated content changes.",
+            ),
+        ),
+        "validation_boundaries": ("interaction trace review",),
+        "rationale": "Responsiveness contract separates immediate feedback from deferred work.",
+    }
+    defaults.update(kwargs)
+    return UIResponsivenessContract("import-run-responsiveness", **defaults)
+
+
+class UIVisibleSurfaceEvidenceTests(unittest.TestCase):
+    def test_visible_surface_can_continue_with_user_facing_copy(self):
+        report = review_ui_visible_surface(visible_surface(), interaction_model=ui_model())
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual(0, report.blocker_count())
+
+    def test_visible_surface_blocks_internal_terms_missing_reasons_and_competing_messages(self):
+        surface = visible_surface(
+            items=(
+                UIVisibleSurfaceItem(
+                    "debug_status",
+                    item_kind="status",
+                    text="Hydration uses mock backend route",
+                    state_ids=("running",),
+                    priority="primary",
+                    purpose="Shows progress",
+                    rationale="bad internal copy",
+                ),
+                UIVisibleSurfaceItem(
+                    "pending_status",
+                    item_kind="pending",
+                    text="Still working",
+                    state_ids=("running",),
+                    priority="primary",
+                    purpose="Shows progress",
+                    rationale="competes with the primary status",
+                ),
+                UIVisibleSurfaceItem(
+                    "disabled_export",
+                    item_kind="disabled_control",
+                    text="Export",
+                    state_ids=("empty",),
+                    owner_control_id="export",
+                    purpose="Shows export action",
+                    rationale="missing disabled reason",
+                ),
+                UIVisibleSurfaceItem(
+                    "future_panel",
+                    item_kind="placeholder",
+                    text="Forecast dashboard",
+                    state_ids=("result_ready",),
+                    placeholder=True,
+                    presents_as_functionality=True,
+                    purpose="Advertises a future panel",
+                    rationale="bad placeholder",
+                ),
+                UIVisibleSurfaceItem(
+                    "import_helper",
+                    item_kind="helper",
+                    text="Import",
+                    state_ids=("empty",),
+                    owner_control_id="import",
+                    purpose="Repeats the button label",
+                    rationale="low value helper",
+                ),
+            ),
+        )
+
+        report = review_ui_visible_surface(surface, interaction_model=ui_model())
+        codes = finding_codes(report)
+
+        self.assertFalse(report.ok)
+        self.assertIn("visible_internal_terminology", codes)
+        self.assertIn("missing_disabled_reason", codes)
+        self.assertIn("placeholder_presented_as_functionality", codes)
+        self.assertIn("low_value_repeated_helper_copy", codes)
+        self.assertIn("competing_primary_state_messages", codes)
+
+    def test_render_evidence_accepts_screenshot_and_dom_evidence(self):
+        report = review_ui_render_evidence(render_evidence(), interaction_model=ui_model())
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertIn("screenshot", SUPPORTED_UI_EVIDENCE_KINDS)
+        self.assertIn("screenshot", report.evidence_kinds)
+        self.assertIn("dom_text", report.evidence_kinds)
+
+    def test_render_evidence_blocks_missing_unknown_and_stale_rows(self):
+        evidence_set = render_evidence(
+            evidence=(
+                UIRenderEvidence(
+                    "missing_kind",
+                    "",
+                    "result_ready surface",
+                    evidence_ref="evidence://render/missing-kind",
+                    model_revision="ui-rev-1",
+                    rationale="missing kind",
+                ),
+                UIRenderEvidence(
+                    "unknown_kind",
+                    "screen_capture_required",
+                    "result_ready surface",
+                    evidence_ref="evidence://render/unknown",
+                    model_revision="ui-rev-1",
+                    rationale="unknown kind",
+                ),
+                UIRenderEvidence(
+                    "stale_dom",
+                    "dom_text",
+                    "summary_card",
+                    evidence_ref="evidence://render/stale",
+                    model_revision="old-ui-rev",
+                    rationale="stale evidence",
+                ),
+                UIRenderEvidence(
+                    "missing_ref",
+                    "screenshot",
+                    "result_ready surface",
+                    model_revision="ui-rev-1",
+                    rationale="missing reference",
+                ),
+            ),
+        )
+
+        report = review_ui_render_evidence(evidence_set, interaction_model=ui_model())
+        codes = finding_codes(report)
+
+        self.assertFalse(report.ok)
+        self.assertIn("missing_render_evidence_kind", codes)
+        self.assertIn("unknown_render_evidence_kind", codes)
+        self.assertIn("stale_render_evidence", codes)
+        self.assertIn("missing_render_evidence_ref", codes)
+
+    def test_geometry_evidence_can_continue_with_bounds_and_reachability(self):
+        report = review_ui_geometry_layout_evidence(geometry_evidence(), interaction_model=ui_model())
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual(("result_table",), report.checked_targets)
+
+    def test_geometry_evidence_blocks_overflow_overlap_bounds_and_reachability(self):
+        geometry = geometry_evidence(
+            entries=(
+                UIGeometryLayoutEvidence(
+                    "bad_geometry",
+                    "run_button",
+                    viewport="mobile 390x844",
+                    text_overflow=True,
+                    control_overlap=True,
+                    out_of_bounds=True,
+                    focus_reachable=False,
+                    keyboard_reachable=False,
+                    result="passed",
+                    evidence_ref="evidence://geometry/bad.json",
+                    rationale="bad geometry",
+                ),
+            )
+        )
+
+        report = review_ui_geometry_layout_evidence(geometry, interaction_model=ui_model())
+        codes = finding_codes(report)
+
+        self.assertFalse(report.ok)
+        self.assertIn("geometry_text_overflow", codes)
+        self.assertIn("geometry_control_overlap", codes)
+        self.assertIn("geometry_out_of_bounds", codes)
+        self.assertIn("geometry_focus_not_reachable", codes)
+        self.assertIn("geometry_keyboard_not_reachable", codes)
+        self.assertIn("missing_geometry_scroll_owner", codes)
+
+    def test_responsiveness_contract_can_continue_with_hot_cold_and_stable_rules(self):
+        report = review_ui_responsiveness_contract(responsiveness_contract(), interaction_model=ui_model())
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual(("run_click_feedback",), report.hot_path_ids)
+        self.assertEqual(("run_summary_refresh",), report.cold_path_ids)
+
+    def test_responsiveness_contract_blocks_missing_feedback_stale_guard_and_preservation(self):
+        contract = responsiveness_contract(
+            hot_path_actions=(
+                UIHotPathAction(
+                    "no_feedback",
+                    event_id="click_run",
+                    rationale="missing feedback target and description",
+                ),
+            ),
+            cold_path_work=(
+                UIColdPathWork(
+                    "no_stale_guard",
+                    trigger_event_id="click_run",
+                    result_target_id="summary_card",
+                    rationale="missing stale protection",
+                ),
+            ),
+            stable_region_rules=(
+                UIStableRegionRule(
+                    "top-toolbar",
+                    rationale="missing preservation rule",
+                ),
+            ),
+        )
+
+        report = review_ui_responsiveness_contract(contract, interaction_model=ui_model())
+        codes = finding_codes(report)
+
+        self.assertFalse(report.ok)
+        self.assertIn("missing_hot_path_feedback", codes)
+        self.assertIn("missing_cold_path_stale_guard", codes)
+        self.assertIn("missing_stable_region_preservation", codes)
 
 
 class UIInteractionModelTests(unittest.TestCase):

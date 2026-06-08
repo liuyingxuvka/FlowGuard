@@ -56,6 +56,8 @@ RISK_GATE_TOPOLOGY_HAZARD = "topology_hazard"
 RISK_GATE_MODEL_ANGLE_REVIEW = "model_angle_review"
 RISK_GATE_PARENT_MODEL_EVIDENCE = "parent_model_evidence"
 RISK_GATE_MAINTENANCE_OBLIGATION = "maintenance_obligation"
+RISK_GATE_UI_IMPLEMENTATION = "ui_implementation"
+RISK_GATE_ARTIFACT_PAYLOAD = "artifact_payload"
 
 PASSING_PROOF_STATUSES = {RISK_PROOF_STATUS_PASSED}
 NON_PASSING_PROOF_STATUSES = {
@@ -387,6 +389,12 @@ def _decision_for(findings: Sequence[RiskEvidenceFinding]) -> tuple[str, str, bo
         "missing_test_split_gate",
         "test_split_gate_not_current",
         "test_split_gate_blocked",
+        "missing_ui_implementation_gate",
+        "ui_implementation_gate_not_current",
+        "ui_implementation_gate_blocked",
+        "missing_artifact_payload_gate",
+        "artifact_payload_gate_not_current",
+        "artifact_payload_gate_blocked",
         "missing_proof_evidence",
         "parent_model_evidence_gap",
         "route_gap_visible",
@@ -400,6 +408,8 @@ def _decision_for(findings: Sequence[RiskEvidenceFinding]) -> tuple[str, str, bo
         "model_angle_review_scoped_confidence",
         "model_split_gate_scoped_confidence",
         "test_split_gate_scoped_confidence",
+        "ui_implementation_gate_scoped_confidence",
+        "artifact_payload_gate_scoped_confidence",
         "maintenance_obligation_scoped_confidence",
         "maintenance_obligation_missing_resolution_evidence",
         "scoped_out_required_risk",
@@ -481,6 +491,26 @@ GATE_CODE_MAP = {
         "required test split gate evidence is stale or missing",
         "required test split gate is blocked",
         "required test split gate remains explicitly scoped",
+    ),
+    RISK_GATE_UI_IMPLEMENTATION: (
+        "missing_ui_implementation_gate",
+        "ui_implementation_gate_not_current",
+        "ui_implementation_gate_blocked",
+        "ui_implementation_gate_scoped_confidence",
+        "required risk has no runnable UI implementation evidence gate",
+        "required UI implementation evidence is stale or missing",
+        "required UI implementation evidence gate is blocked",
+        "required UI implementation evidence remains explicitly scoped",
+    ),
+    RISK_GATE_ARTIFACT_PAYLOAD: (
+        "missing_artifact_payload_gate",
+        "artifact_payload_gate_not_current",
+        "artifact_payload_gate_blocked",
+        "artifact_payload_gate_scoped_confidence",
+        "required risk has no artifact payload validation evidence gate",
+        "required artifact payload validation evidence is stale or missing",
+        "required artifact payload validation evidence gate is blocked",
+        "required artifact payload validation evidence remains explicitly scoped",
     ),
     RISK_GATE_PARENT_MODEL_EVIDENCE: (
         "missing_parent_model_evidence",
@@ -871,6 +901,7 @@ __all__ = [
     "RISK_LEDGER_DECISION_FULL",
     "RISK_LEDGER_DECISION_SCOPED",
     "RISK_GATE_ANALOGOUS_SCAN",
+    "RISK_GATE_ARTIFACT_PAYLOAD",
     "RISK_GATE_DEFECT_FAMILY",
     "RISK_GATE_FAMILY",
     "RISK_GATE_MAINTENANCE_OBLIGATION",
@@ -879,6 +910,7 @@ __all__ = [
     "RISK_GATE_PARENT_MODEL_EVIDENCE",
     "RISK_GATE_TEST_SPLIT",
     "RISK_GATE_TOPOLOGY_HAZARD",
+    "RISK_GATE_UI_IMPLEMENTATION",
     "RISK_PROOF_KIND_MANUAL",
     "RISK_PROOF_KIND_REPLAY",
     "RISK_PROOF_KIND_ROUTE_REPORT",

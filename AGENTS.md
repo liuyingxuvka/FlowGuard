@@ -14,7 +14,7 @@ Project FlowGuard record:
 - Human log: `docs/flowguard_adoption_log.md`
 
 Current adoption record:
-- FlowGuard package version: `0.41.8`
+- FlowGuard package version: `0.42.0`
 - FlowGuard schema version: `1.0`
 
 Before non-trivial work:
@@ -52,6 +52,9 @@ discovered fields and record owner, readers, writers, projection, lifecycle,
 and old-field disposition. For full/runtime/release/production field claims,
 behavior projections should also include minimal `gate:`, `test:`, and
 `replay:` evidence refs.
+
+UI runnable claims and file/work-package claims need current UI click-through
+or artifact-payload evidence gates before broad done/release confidence.
 
 After non-trivial FlowGuard-managed work, run or record a maintenance scan when
 changed artifacts, skipped routes, stale evidence, or split/reduction signals

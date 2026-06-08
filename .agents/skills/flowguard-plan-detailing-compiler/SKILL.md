@@ -36,12 +36,14 @@ AgentWorkflowRehearsal after plan-detail rows exist.
 - Plan-detail pass means the plan may proceed; it is not implementation,
   release, or production proof.
 - Full claims require current final evidence ids and no scoped detail gaps.
+- Plans with UI, import/export files, generated artifacts, or AI work packages
+  must expose action coverage, synthetic payload packs, and manual review gates.
 
 ## Minimum Workflow
 
 1. Capture rough task, goal, assumptions, scope, sources, and risk surfaces.
-2. List artifacts, state surfaces, side effects, steps, receipts, validation,
-   failure/rework branches, human-review questions, and claim boundary.
+2. List artifacts, UI actions, payload/work-package surfaces, state surfaces,
+   side effects, steps, receipts, validation, failures, human questions, and claim boundary.
 3. Run `review_plan_detail()`.
 4. Project passing/scoped rows to PlanIntake, WorkflowStepContracts,
    DevelopmentProcessFlow, and AgentWorkflowRehearsal as needed.

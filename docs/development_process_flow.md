@@ -99,6 +99,10 @@ while the current artifact is `code.checkout@4`.
   projection, replacement disposition, bug-repair closure, or direct
   invalidation;
 - verifier changes after validation, such as tests or model files changing;
+- UI action-map, visible-control, click-through, pure-UI classification, or
+  manual/native-dialog boundary changes after implementation evidence;
+- payload schema, fixture, import/export behavior, generated artifact, or AI
+  work-package format changes after synthetic payload evidence;
 - explicit upstream freshness rules, such as requirement changes invalidating
   downstream code and validation evidence;
 - model-miss repair changes that invalidate earlier alignment evidence, such
@@ -154,6 +158,13 @@ replacement disposition rows, and bug-repair closure rows as first-class
 process artifacts. Evidence that covered those artifacts before a later write
 must be rerun or refreshed before done, release, archive, or publish
 confidence.
+
+UI implementation validation and artifact payload validation are freshness
+sensitive. If a reachable enabled control, modeled UI event, file format,
+generated artifact, or AI work-package schema changes after evidence was
+captured, rerun UI Flow Structure implementation evidence, Model-Test
+Alignment payload validation, or TestMesh payload child evidence before a done
+or release claim consumes the old evidence.
 
 For final completion claims, DevelopmentProcessFlow should reference the Risk
 Evidence Ledger decision as one evidence boundary. If the ledger reports
