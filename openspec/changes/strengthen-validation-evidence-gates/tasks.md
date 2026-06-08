@@ -20,15 +20,15 @@
 
 ## 4. Tests And Regression
 
-- [ ] 4.1 Add focused unit tests for artifact payload validation success, missing case, stale/non-passing evidence, output mismatch, and alignment integration.
-- [ ] 4.2 Add focused tests for risk ledger gate constants and skill/template guidance coverage.
-- [ ] 4.3 Run focused tests, public template execution tests, skill-doc tests, OpenSpec validation, and FlowGuard rollout checks.
-- [ ] 4.4 Run or record broad regression evidence and fix discovered failures.
+- [x] 4.1 Add focused unit tests for artifact payload validation success, missing case, stale/non-passing evidence, output mismatch, and alignment integration.
+- [x] 4.2 Add focused tests for risk ledger gate constants and skill/template guidance coverage.
+- [x] 4.3 Run focused tests, public template execution tests, skill-doc tests, OpenSpec validation, and FlowGuard rollout checks.
+- [x] 4.4 Run or record broad regression evidence and fix discovered failures.
 
 ## 5. Version, Install, And Repository Sync
 
-- [ ] 5.1 Bump package version and changelog/README release notes for the validation gate upgrade.
-- [ ] 5.2 Refresh editable/local install and verify imported package path, version, and new helper symbols.
-- [ ] 5.3 Sync repository-managed skills to installed Codex skills and verify installed content includes validation gate guidance.
-- [ ] 5.4 Locate and sync the local git source repository or explicitly record if the active workspace has no git repository available.
-- [ ] 5.5 Record FlowGuard adoption evidence and KB postflight observation for the completed upgrade.
+- [x] 5.1 Bump package version and changelog/README release notes for the validation gate upgrade.
+- [x] 5.2 Refresh editable/local install and verify imported package path, version, and new helper symbols.
+- [x] 5.3 Sync repository-managed skills to installed Codex skills and verify installed content includes validation gate guidance.
+- [x] 5.4 Locate and sync the local git source repository or explicitly record if the active workspace has no git repository available.
+- [x] 5.5 Record FlowGuard adoption evidence and KB postflight observation for the completed upgrade.
