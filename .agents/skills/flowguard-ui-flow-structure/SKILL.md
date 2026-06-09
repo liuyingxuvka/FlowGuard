@@ -40,7 +40,7 @@ Standalone FlowGuard satellite skill for UI state, controls, visible text, journ
 
 ## Snapshot
 
-Show a UI state diagram with visible controls, visible surface, regions, displays, recovery paths, text ownership, evidence kinds, and residual blindspots.
+Show a UI state diagram with visible controls, visible surface, regions, displays, recovery paths, text ownership, evidence kinds, and residual blindspots; edges mean reachable controls and interaction transitions.
 
 ## Non-Goals
 

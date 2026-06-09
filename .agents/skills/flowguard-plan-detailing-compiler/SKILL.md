@@ -5,11 +5,7 @@ description: Use when a rough idea, vague request, short plan, or AI-generated w
 
 # FlowGuard Plan Detailing Compiler
 
-Standalone FlowGuard satellite skill for turning rough plans into structured
-FlowGuard-ready detail rows. Use it before behavior modeling when the task is
-non-trivial but the plan lacks explicit scope, state, artifacts, side effects,
-receipts, validation, failure branches, rework gates, human-review questions,
-or final evidence boundaries.
+Standalone FlowGuard satellite skill for turning rough plans into FlowGuard-ready detail rows. Use it when a non-trivial plan lacks scope, state, artifacts, side effects, receipts, validation, failure branches, rework gates, human-review questions, or final evidence boundaries.
 
 Return to `model-first-function-flow` when the FlowGuard route itself is
 unclear. Use DevelopmentProcessFlow, PlanIntake, WorkflowStepContracts, and
@@ -38,12 +34,12 @@ AgentWorkflowRehearsal after plan-detail rows exist.
 - Full claims require current final evidence ids and no scoped detail gaps.
 - Plans with UI, import/export files, generated artifacts, or AI work packages
   must expose action coverage, synthetic payload packs, and manual review gates.
+- Source-backed writing plans must expose quality gates: parent/child structure, same-level progression, method depth, figure/table treatment, citation/footnote verification, AI-style density, source/trace handoff, final prose, and revision-report evidence.
 
 ## Minimum Workflow
 
 1. Capture rough task, goal, assumptions, scope, sources, and risk surfaces.
-2. List artifacts, UI actions, payload/work-package surfaces, state surfaces,
-   side effects, steps, receipts, validation, failures, human questions, and claim boundary.
+2. List artifacts, UI actions, payload/work-package surfaces, writing quality gates, state surfaces, side effects, steps, receipts, validation, failures, human questions, and claim boundary.
 3. Run `review_plan_detail()`.
 4. Project passing/scoped rows to PlanIntake, WorkflowStepContracts,
    DevelopmentProcessFlow, and AgentWorkflowRehearsal as needed.

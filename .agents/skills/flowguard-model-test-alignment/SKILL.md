@@ -5,7 +5,7 @@ description: Use when FlowGuard obligations, tests, code contracts, or source au
 
 # FlowGuard Model-Test Alignment
 
-Standalone FlowGuard satellite skill for obligations, tests, owner `CodeContract`s, source audits, boundary observations, payload evidence, and FieldLifecycleMesh projections. Consume Model Similarity handoffs.
+Standalone FlowGuard satellite skill for obligations, tests, owner `CodeContract`s, source audits, payload evidence, and FieldLifecycleMesh projections.
 
 Return to `model-first-function-flow` when obligations are undefined. Do not invoke TestMesh, ModelMesh, or StructureMesh from this route.
 
@@ -24,7 +24,7 @@ Return to `model-first-function-flow` when obligations are undefined. Do not inv
 - Keep AGENTS.md managed records current for real projects.
 - Do not create a fake mini-framework.
 - Tests cover declared obligations, not just helper/internal paths.
-- Full confidence requires each obligation to bind an owner `CodeContract` and current external-contract test evidence; model+test evidence is scoped.
+- Full confidence requires each obligation to bind an owner `CodeContract` and current external-contract test evidence.
 - Transition coverage claims need cells plus evidence targets, or a scoped-out boundary.
 - Behavior-bearing fields need FieldLifecycleMesh projection or a scoped-out reason.
 - Reused results need `result_reused=True`, current `TestResultReuseTicket`, and current `ProofArtifactRef`.
@@ -44,7 +44,7 @@ Return to `model-first-function-flow` when obligations are undefined. Do not inv
 
 ## Snapshot
 
-Show coverage from model obligations to code contracts to tests, boundary observations, missing I/O/state writes, and scoped gaps.
+Show coverage from model obligations to code contracts to tests, boundary observations, missing I/O/state writes, and scoped gaps; edges mean covers, partially covers, misses, or stales.
 
 ## Non-Goals
 

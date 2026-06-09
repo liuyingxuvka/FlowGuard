@@ -61,7 +61,7 @@ evidence.
   deliberation when a task may need a missing viewpoint: what the current model
   sees, what it misses, what fails if ignored, and whether to reuse, extend,
   add child model, create a new model, scope/defer, or ask for human review.
-- For non-trivial FlowGuard work, show a route-specific Mermaid snapshot once the route/model is stable; diagrams explain, not validate.
+- FlowGuard diagram intent gate: for non-trivial work, show a route-specific Mermaid snapshot once stable; diagrams explain, not validate. Do not flatten these into a generic flowchart or imply truth without LogicGuard.
 - Before broad done/release/publish confidence, use Risk Evidence Ledger or equivalent and keep remembered maintenance obligations, automatic state-closure, and topology-hazard gaps visible.
 - Guard-family children must return closure reports with `owner_guard`, `artifact_kind`, `closure_status`, `findings`, `missing_inputs`, `stale_evidence`, `skipped_checks`, `next_actions`, `safe_claim`, and `unsafe_claim_boundary`; validate them with `assets/guard_closure_contract.py` before broad confidence.
 - Treat child `partial`, `blocked`, `downgraded`, stale, skipped, or hard-finding reports as FlowGuard maintenance obligations, not passed final claims.

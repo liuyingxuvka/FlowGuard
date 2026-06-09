@@ -14,7 +14,7 @@ Project FlowGuard record:
 - Human log: `docs/flowguard_adoption_log.md`
 
 Current adoption record:
-- FlowGuard package version: `0.42.0`
+- FlowGuard package version: `0.43.0`
 - FlowGuard schema version: `1.0`
 
 Before non-trivial work:
@@ -49,9 +49,7 @@ scope it out with a concrete reason.
 Field-bearing work should use or update FieldLifecycleMesh: high-level behavior
 models include behavior-bearing fields, while child/leaf field rows account all
 discovered fields and record owner, readers, writers, projection, lifecycle,
-and old-field disposition. For full/runtime/release/production field claims,
-behavior projections should also include minimal `gate:`, `test:`, and
-`replay:` evidence refs.
+and old-field disposition.
 
 UI runnable claims and file/work-package claims need current UI click-through
 or artifact-payload evidence gates before broad done/release confidence.

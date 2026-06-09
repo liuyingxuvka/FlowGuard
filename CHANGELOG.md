@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.43.0 - 2026-06-09
+
+Writing quality-gate process upgrade.
+
+- Added DevelopmentProcessFlow guidance for thesis and source-backed writing
+  quality-gate evidence, including literature/technology progression,
+  method-depth, figure/table treatment, citation/footnote support,
+  source/trace handoff, AI-style integration, final prose, and revision-report
+  freshness.
+- Updated PlanDetailing and AgentWorkflowRehearsal skills so large writing
+  plans and multi-skill workflows expose these quality gates before execution
+  or done/release confidence.
+- Updated public release metadata for the new process-surface guidance.
+
 ## v0.42.0 - 2026-06-08
 
 Validation evidence gate upgrade for UI and artifact payload claims.

@@ -1,6 +1,6 @@
 ---
 name: flowguard-agent-workflow-rehearsal
-description: Use when a non-trivial task may require multiple installed Codex skills, tools, plugins, external actions, staged validation, unclear skill ordering, skipped skill consequences, continue/rework gates, or cross-skill evidence claims. Start with a fresh current-machine SkillInventorySnapshot for this invocation, then rehearse the selected skills, skipped candidate skills, order, validation gaps, side effects, and final evidence claim before execution.
+description: Use when a non-trivial task may require multiple installed Codex skills, tools, plugins, external actions, staged validation, unclear skill ordering, skipped skill consequences, continue/rework gates, writing-quality gates, or cross-skill evidence claims. Start with a fresh current-machine SkillInventorySnapshot for this invocation, then rehearse the selected skills, skipped candidate skills, order, validation gaps, side effects, and final evidence claim before execution.
 ---
 
 # FlowGuard Agent Workflow Rehearsal
@@ -31,13 +31,19 @@ unclear. Use this skill before execution; it does not execute the workflow.
 - Weak validation guidance needs a compensating check before broad confidence.
 - UI click-through, artifact payload packs, manual review, and installed-skill
   sync are explicit evidence surfaces when they affect the task.
+- For thesis, dissertation, paper, literature review, or source-backed writing
+  workflows, selected skills and skipped candidates must account for
+  parent/child structure, same-level progression, method depth, figure/table
+  treatment, citation/footnote verification, source/trace handoff, AI-style
+  integration, and final DOCX/report validation when those surfaces are in
+  scope.
 
 ## Minimum Workflow
 
 1. Capture a fresh current-machine skill/tool/plugin inventory.
 2. Mark required and candidate skills for the task.
-3. Rehearse selected skills, skipped candidates, order, evidence surfaces,
-   side effects, and continue/rework gates.
+3. Rehearse selected skills, skipped candidates, order, writing-quality
+   surfaces, evidence surfaces, side effects, and continue/rework gates.
 4. Treat blocked or scoped findings as claim boundaries.
 
 ## Snapshot

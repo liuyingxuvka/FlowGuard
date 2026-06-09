@@ -40,6 +40,11 @@ Create or update a DevelopmentProcessFlow review when:
   UI boundary changed after implementation evidence was produced;
 - a payload schema, fixture, import/export behavior, generated artifact, or AI
   work-package format changed after synthetic payload evidence was produced;
+- a thesis, dissertation, paper, report, literature review, or source-backed
+  writing workflow changed after literature/technology progression,
+  method-depth, figure/table treatment, citation/footnote support,
+  source/trace handoff, AI-style integration, or final prose evidence was
+  produced;
 - a field lifecycle mesh, field projection, replacement disposition, or
   bug-repair closure artifact changed after alignment, process, or closure
   evidence was produced;
@@ -78,6 +83,10 @@ Use grouped process rows instead of separate blanks for every lifecycle field.
 - UI/payload evidence when relevant: action-map revision, clicked control ids,
   payload contract ids, synthetic case ids, work-package fixture ids, and
   manual/native-dialog boundaries;
+- writing quality-gate evidence when relevant: structural contribution rows,
+  literature/technology progression rows, method-depth rows, figure/table
+  rows, citation/footnote matrix, source/trace handoff ids, AI-style
+  integration report, final prose fingerprint, and revision-report fingerprint;
 - evidence caveats: skipped visibility, background final artifacts,
   release-required flags, stale reasons, and proof artifact when a final claim
   depends on the row;
@@ -119,6 +128,11 @@ Use these triage classes:
 - `artifact_payload_evidence_stale`: a payload schema, fixture, generated
   artifact, or AI work-package shape changed after payload validation. Rebuild
   synthetic payload packs and rerun Model-Test Alignment or TestMesh.
+- `writing_quality_gate_evidence_stale`: a source-backed writing artifact,
+  final prose, source registry, figure/table set, method section, or revision
+  report changed after quality-gate evidence was produced. Rerun the owning
+  LogicGuard, SourceGuard, TraceGuard, Documents, or upper-level workflow
+  evidence before broad done/release confidence.
 - `topology_hazard_gap`: a locally green model topology still has anchored
   future-use hazards. Hand off to Model Topology Hazard Review and keep the
   lifecycle claim scoped or blocked until current route evidence is consumed.
@@ -192,6 +206,7 @@ Keep these findings visible:
 - `final_claim_missing_risk_evidence_ledger`;
 - `final_claim_uses_blocked_risk_evidence`;
 - `open_maintenance_obligation_claimed_done`.
+- `writing_quality_gate_missing_or_stale`;
 
 ## Prompt Template
 
