@@ -63,9 +63,9 @@ Build an `AgentWorkflowPlan` with:
   effect failures;
 - compensating checks for weak, missing, manual-only, or external-only
   validation guidance;
-- explicit evidence surfaces for UI action coverage, artifact payload packs,
-  AI work packages, manual checks, installed-skill sync, and long checks when
-  the task touches them;
+- explicit evidence surfaces for UI action coverage, synthetic payload cases
+  that exercise real file/artifact/AI work-package surfaces, manual checks,
+  installed-skill sync, and long checks when the task touches them;
 - final evidence claim: none, scoped, full, or blocked.
 
 If the work starts from a rough idea or short plan, build `PlanDetail` rows
@@ -77,27 +77,6 @@ scope into AgentWorkflowRehearsal.
 Use `review_agent_workflow_rehearsal(...)` when the FlowGuard package helper is
 available. If only manual review is possible, preserve the same statuses:
 `pass`, `needs_revision`, `scoped`, or `blocked`.
-
-## Completion Ledger
-
-Every non-trivial rehearsal report should expose a compact completion ledger:
-
-- `planned_steps`: ordered step ids from the proposed workflow;
-- `completed_steps`: execution-complete step ids when a caller explicitly
-  models completed handoff work; normally empty because rehearsal is
-  pre-execution;
-- `blocked_steps`: step ids attached to blocked findings;
-- `skipped_steps`: candidate skills skipped by the plan;
-- `required_rechecks`: finding codes, severity, skill, and step that must be
-  repaired or scoped before stronger claims;
-- `handoff_points`: produced, continue, or final evidence ids that downstream
-  routes should consume;
-- `final_claim_boundary`: plain-language statement of what the rehearsal result
-  allows and what downstream evidence is still required.
-
-Do not treat a populated ledger as execution proof. It is a map for the next
-route: what can start, what must be repaired, which evidence gets handed off,
-and why a broad done/release/publish claim is still blocked or scoped.
 
 ## Required Findings
 

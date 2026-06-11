@@ -26,8 +26,9 @@ plan and does not prove the implementation.
   enabled control ids, expected click-through method, pure-UI classifications,
   and manual/native-dialog boundaries.
 - Artifact payload rows when a plan imports, exports, saves, loads, generates,
-  or consumes files/work packages: payload contract ids, synthetic accepted and
-  rejected case ids, expected outputs/errors/state writes, fixture location,
+  or consumes files/work packages: real payload surface ids, payload contract
+  ids, synthetic accepted and rejected case ids, expected
+  outputs/errors/state writes, fixture location, expected execution proof refs,
   and downstream owner route.
 - `PlanDetailEvidence`: expected or current evidence rows.
 - `PlanDetailFailureBranch`: failure, retry, blocked, or rework branch.
@@ -64,8 +65,8 @@ After `review_plan_detail()`:
    completion claims.
 4. Use `plan_detail_to_agent_workflow_plan()` when the work involves multiple
    installed skills or external actions.
-5. Send UI controls to UI Flow Structure and payload packs to Model-Test
-   Alignment or TestMesh before any broad implementation claim.
+5. Send UI controls to UI Flow Structure and real-surface payload case evidence
+   to Model-Test Alignment or TestMesh before any broad implementation claim.
 
 ## Confidence Boundary
 

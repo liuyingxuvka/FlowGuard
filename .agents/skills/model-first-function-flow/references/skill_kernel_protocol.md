@@ -147,8 +147,9 @@ sub-skills.
   does not replace visual design, final copywriting, or code-structure routes.
 - Keep artifact payload validation in Model-Test Alignment: file import/export,
   generated artifact, save/load, and AI work-package claims need synthetic
-  accepted/rejected payload cases plus current external evidence; large payload
-  matrices can route freshness and child ownership through TestMesh.
+  accepted/rejected payload cases that exercise the real payload surface plus
+  current external evidence refs or proof artifacts; large payload matrices can
+  route freshness and child ownership through TestMesh.
 - Keep Model Topology Hazard Review grounded in model shape. Unanchored AI
   concerns are observations only; anchored hazards must route to the owning
   sibling evidence path before broad confidence.

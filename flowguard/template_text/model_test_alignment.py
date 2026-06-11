@@ -47,7 +47,9 @@ as generic support.
 from __future__ import annotations
 
 from flowguard import (
+    ArtifactPayloadCase,
     ArtifactPayloadContract,
+    ArtifactPayloadEvidence,
     CodeBoundaryContract,
     CodeBoundaryObservation,
     CodeContract,
@@ -345,6 +347,38 @@ def aligned_plan() -> ModelTestAlignmentPlan:
                 accepted=False,
                 observed_output="RejectedInvalidInput",
                 observed_error_path="invalid_input",
+            ),
+        ),
+        payload_contracts=(
+            ArtifactPayloadContract(
+                "payload:checkout-export",
+                model_obligation_id="accept_valid_order",
+                code_contract_id="checkout_accept_order",
+                payload_surface="real payload surface: checkout export",
+                payload_kind="json_file",
+                cases=(
+                    ArtifactPayloadCase(
+                        "valid-order-json",
+                        expected_output="checkout.json",
+                        expected_state_writes=("export_path",),
+                        round_trip_required=True,
+                    ),
+                ),
+            ),
+        ),
+        payload_evidence=(
+            ArtifactPayloadEvidence(
+                "payload:checkout-export-valid-order",
+                "payload:checkout-export",
+                case_id="valid-order-json",
+                observed_status="accepted",
+                observed_output="checkout.json",
+                observed_state_writes=("export_path",),
+                round_trip_ok=True,
+                proof_artifact=proof_artifact(
+                    "payload_checkout_export_valid_order",
+                    "accept_valid_order",
+                ),
             ),
         ),
     )
@@ -712,6 +746,7 @@ class CompactAlignmentPlan:
     payload_contract_id: str
     payload_case_id: str
     payload_status: str
+    payload_evidence_ref: str
 
 
 @dataclass(frozen=True)
@@ -748,6 +783,8 @@ def review_compact_alignment(plan: CompactAlignmentPlan) -> CompactAlignmentRepo
         findings.append("missing_artifact_payload_pack")
     if plan.payload_status not in PASSING_STATUSES:
         findings.append("artifact_payload_evidence_not_passing")
+    if not plan.payload_evidence_ref:
+        findings.append("missing_artifact_payload_execution_proof")
     return CompactAlignmentReport(plan.plan_id, not findings, tuple(findings))
 
 
@@ -766,6 +803,7 @@ def aligned_plan() -> CompactAlignmentPlan:
         payload_contract_id="payload:request-json",
         payload_case_id="case:missing-field-json",
         payload_status="passed",
+        payload_evidence_ref="test://parser/real-request-json-missing-field",
     )
 
 
@@ -784,6 +822,7 @@ def broken_plan() -> CompactAlignmentPlan:
         payload_contract_id="",
         payload_case_id="",
         payload_status="not_run",
+        payload_evidence_ref="",
     )
 
 
@@ -804,7 +843,7 @@ def main() -> int:
     print()
     print(broken.format_text())
     print()
-    print("plain model obligations -> owner code external contracts -> plain test evidence -> replay evidence -> artifact payload pack")
+    print("plain model obligations -> owner code external contracts -> plain test evidence -> replay evidence -> synthetic payload case on real surface")
     print("escalate to model-test-alignment-full-template for code-boundary conformance, source audit, ArtifactPayloadContract, state closure evidence, TestResultReuseTicket, or TransitionCoverageMatrix")
     return 0 if aligned.ok and not broken.ok else 1
 
@@ -817,10 +856,10 @@ MODEL_TEST_ALIGNMENT_NOTES_TEMPLATE = """# FlowGuard Model-Test Alignment Notes
 
 This compact default compares one model obligation with its owner code external
 contract (`CodeContract` in the full API), passing test evidence, same-class or
-negative evidence, replay evidence, and a small fake file/work-package payload
-pack. It is the right first scaffold when the goal is to prove a field, state,
-input/output, side-effect, or payload obligation is actually guarded by runtime
-code and tests.
+negative evidence, replay evidence, and a synthetic payload case that exercises
+the real payload surface. It is the right first scaffold when the goal is to
+prove a field, state, input/output, side-effect, or payload obligation is
+actually guarded by runtime code and tests.
 
 Escalate to `model-test-alignment-full-template` when the claim needs
 code-boundary conformance rows, artifact payload contracts, conservative Python source audit,

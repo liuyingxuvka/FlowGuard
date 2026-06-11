@@ -163,7 +163,8 @@ Artifact payload matrices can also feed this surface. Child suites can own
 required payload case ids and result artifacts, but TestMesh only checks
 partition ownership and evidence freshness. Model-Test Alignment still owns
 whether each observed payload status, output, error path, state write, side
-effect, and round-trip result matches the `ArtifactPayloadContract`.
+effect, and round-trip result from the real payload surface matches the
+`ArtifactPayloadContract`.
 
 ## Routine Versus Release
 

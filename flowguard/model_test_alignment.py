@@ -1273,6 +1273,16 @@ def _decision_for_findings(findings: Sequence[ModelTestAlignmentFinding]) -> str
         ("artifact_payload_evidence_stale", "artifact_payload_validation_failed"),
         ("artifact_payload_evidence_internal_path_only", "artifact_payload_validation_failed"),
         ("artifact_payload_manual_evidence_unstructured", "artifact_payload_validation_failed"),
+        ("artifact_payload_evidence_missing_execution_proof", "artifact_payload_validation_failed"),
+        ("artifact_payload_proof_artifact_status_mismatch", "artifact_payload_validation_failed"),
+        ("artifact_payload_proof_artifact_not_passing", "artifact_payload_validation_failed"),
+        ("artifact_payload_proof_artifact_nonzero_exit", "artifact_payload_validation_failed"),
+        ("artifact_payload_stale_proof_artifact", "artifact_payload_validation_failed"),
+        ("artifact_payload_progress_only_proof_artifact", "artifact_payload_validation_failed"),
+        ("artifact_payload_proof_artifact_route_gap_visible", "artifact_payload_validation_failed"),
+        ("artifact_payload_proof_artifact_missing_result_path", "artifact_payload_validation_failed"),
+        ("artifact_payload_proof_artifact_missing_obligation", "artifact_payload_validation_failed"),
+        ("artifact_payload_proof_artifact_internal_path_only", "artifact_payload_validation_failed"),
         ("artifact_payload_status_mismatch", "artifact_payload_validation_failed"),
         ("artifact_payload_output_mismatch", "artifact_payload_validation_failed"),
         ("artifact_payload_error_path_mismatch", "artifact_payload_validation_failed"),
@@ -1715,6 +1725,16 @@ def _artifact_payload_decision_for_findings(findings: Sequence[ArtifactPayloadFi
         "artifact_payload_evidence_stale",
         "artifact_payload_evidence_internal_path_only",
         "artifact_payload_manual_evidence_unstructured",
+        "artifact_payload_evidence_missing_execution_proof",
+        "artifact_payload_proof_artifact_status_mismatch",
+        "artifact_payload_proof_artifact_not_passing",
+        "artifact_payload_proof_artifact_nonzero_exit",
+        "artifact_payload_stale_proof_artifact",
+        "artifact_payload_progress_only_proof_artifact",
+        "artifact_payload_proof_artifact_route_gap_visible",
+        "artifact_payload_proof_artifact_missing_result_path",
+        "artifact_payload_proof_artifact_missing_obligation",
+        "artifact_payload_proof_artifact_internal_path_only",
         "artifact_payload_status_mismatch",
         "artifact_payload_output_mismatch",
         "artifact_payload_error_path_mismatch",
@@ -1869,6 +1889,37 @@ def _artifact_payload_status_findings(
                 metadata=evidence.to_dict(),
             )
         )
+    if evidence.has_current_external_pass():
+        if not evidence.evidence_ref and evidence.proof_artifact is None:
+            findings.append(
+                _payload_finding(
+                    "artifact_payload_evidence_missing_execution_proof",
+                    f"artifact payload evidence {evidence.evidence_id} lacks a concrete execution proof for the real payload surface",
+                    contract=contract,
+                    evidence=evidence,
+                    metadata=evidence.to_dict(),
+                )
+            )
+        if evidence.proof_artifact is not None:
+            required_obligations = ()
+            if contract is not None and contract.model_obligation_id:
+                required_obligations = (contract.model_obligation_id,)
+            for code, message in proof_artifact_gap_codes(
+                evidence.proof_artifact,
+                declared_status=evidence.result_status,
+                required_obligation_ids=required_obligations,
+                require_result_path=True,
+                require_external_scope=True,
+            ):
+                findings.append(
+                    _payload_finding(
+                        f"artifact_payload_{code}",
+                        message,
+                        contract=contract,
+                        evidence=evidence,
+                        metadata=evidence.to_dict(),
+                    )
+                )
     return findings
 
 

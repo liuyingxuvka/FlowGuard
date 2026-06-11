@@ -72,8 +72,10 @@ packages, add artifact payload validation before trusting the claim. Use
 and `review_artifact_payload_validation()`. Each payload surface should have a
 small synthetic pack with accepted and rejected cases where relevant, expected
 outputs, error paths, state writes, side effects, and round-trip requirements.
-Current external payload evidence must name the contract id, case id, method,
-result, observed output/error/state/side-effect fields, and evidence reference.
+Those synthetic cases are inputs to the real payload surface, not standalone
+payload-only paths. Current external payload evidence must name the
+contract id, case id, method, result, observed output/error/state/side-effect
+fields, and an evidence reference or proof artifact for the real surface run.
 Manual payload checks are allowed only as structured case evidence; prose-only
 manual review is scoped or blocked.
 
@@ -127,7 +129,8 @@ Create or update a model-test alignment review when:
   stayed inside the model-declared boundary.
 - artifact payload surfaces such as import/export files, generated reports,
   saved projects, archives, or AI work packages need synthetic accepted/rejected
-  case evidence before a user-visible payload claim is trusted.
+  cases that are executed through the real payload surface before a
+  user-visible payload claim is trusted.
 - topology-anchored future-use hazards need ordinary test, boundary, or
   evidence rows before they can support broad confidence.
 
@@ -159,8 +162,9 @@ Use grouped field families instead of a blank for every possible detail.
   payload surface, and payload kind;
 - cases: required accepted/rejected synthetic payload ids, expected status,
   output, error path, state writes, side effects, and round-trip requirement;
-- evidence: current external case result, method, evidence reference, observed
-  result fields, and stale/scoped reason when coverage is incomplete.
+- evidence: current external case result, method, evidence reference or proof
+  artifact for the real surface run, observed result fields, and stale/scoped
+  reason when coverage is incomplete.
 
 `CodeContract` rows are required for required model obligations in the current
 confidence claim. Capture:

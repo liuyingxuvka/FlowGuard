@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.43.2 - 2026-06-11
+
+Artifact payload real-flow evidence tightening.
+
+- Tightened Model-Test Alignment artifact payload validation so current
+  external passing payload evidence must include an execution proof reference
+  or proof artifact for the real payload surface.
+- Updated FlowGuard skills, protocols, docs, and templates to describe
+  synthetic payload cases as inputs for real import/export/save/load/generate
+  or AI work-package surfaces, not standalone payload-only paths.
+- Added regression coverage for declaration-only payload evidence and refreshed
+  local sync guidance for repository, Gate, and installed Codex skill surfaces.
+
 ## v0.43.1 - 2026-06-11
 
 Agent workflow rehearsal completion ledger upgrade.

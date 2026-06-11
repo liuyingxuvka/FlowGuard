@@ -1255,6 +1255,7 @@ def test_submit_order():
                         observed_output="checkout.json",
                         observed_state_writes=("export_path",),
                         round_trip_ok=True,
+                        evidence_ref="test://checkout/export-valid-order-json",
                     ),
                     ArtifactPayloadEvidence(
                         "payload:invalid",
@@ -1262,6 +1263,7 @@ def test_submit_order():
                         case_id="invalid-order-json",
                         observed_status=ARTIFACT_PAYLOAD_STATUS_REJECTED,
                         observed_error_path="schema_error",
+                        evidence_ref="test://checkout/export-invalid-order-json",
                     ),
                 ),
             )
@@ -1333,6 +1335,61 @@ def test_submit_order():
         self.assertIn("artifact_payload_output_mismatch", codes)
         self.assertIn("artifact_payload_side_effect_mismatch", codes)
         self.assertIn("artifact_payload_round_trip_missing", codes)
+
+    def test_artifact_payload_validation_requires_real_execution_proof(self):
+        contract = ArtifactPayloadContract(
+            "payload:checkout-export",
+            model_obligation_id="accept_valid_order",
+            code_contract_id="checkout.accept_valid_order",
+            payload_surface="checkout export",
+            payload_kind="json_file",
+            cases=(
+                ArtifactPayloadCase(
+                    "valid-order-json",
+                    expected_status=ARTIFACT_PAYLOAD_STATUS_ACCEPTED,
+                    expected_output="checkout.json",
+                    round_trip_required=True,
+                ),
+            ),
+        )
+
+        no_proof = review_artifact_payload_validation(
+            (contract,),
+            (
+                ArtifactPayloadEvidence(
+                    "payload:declared-only",
+                    "payload:checkout-export",
+                    case_id="valid-order-json",
+                    observed_status=ARTIFACT_PAYLOAD_STATUS_ACCEPTED,
+                    observed_output="checkout.json",
+                    round_trip_ok=True,
+                ),
+            ),
+            code_contracts=(owner_contract("accept_valid_order"),),
+            model_obligations=(obligation("accept_valid_order"),),
+        )
+
+        self.assertFalse(no_proof.ok)
+        self.assertIn("artifact_payload_evidence_missing_execution_proof", finding_codes(no_proof))
+
+        with_proof = review_artifact_payload_validation(
+            (contract,),
+            (
+                ArtifactPayloadEvidence(
+                    "payload:real-flow",
+                    "payload:checkout-export",
+                    case_id="valid-order-json",
+                    observed_status=ARTIFACT_PAYLOAD_STATUS_ACCEPTED,
+                    observed_output="checkout.json",
+                    round_trip_ok=True,
+                    proof_artifact=proof_artifact("artifact:checkout-export", "accept_valid_order"),
+                ),
+            ),
+            code_contracts=(owner_contract("accept_valid_order"),),
+            model_obligations=(obligation("accept_valid_order"),),
+        )
+
+        self.assertTrue(with_proof.ok, with_proof.format_text())
 
 
 if __name__ == "__main__":

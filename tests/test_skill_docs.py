@@ -132,7 +132,7 @@ class SkillDocsTests(unittest.TestCase):
                 "SkillInventorySnapshot",
                 "candidate skills",
                 "continue/rework gates",
-                "artifact payload packs",
+                "real-surface artifact payload proof",
             ),
             "flowguard-architecture-reduction": (
                 "ObservableArchitectureContract",
@@ -188,7 +188,7 @@ class SkillDocsTests(unittest.TestCase):
                 "PlanDetail",
                 "review_plan_detail()",
                 "step receipts",
-                "synthetic payload packs",
+                "synthetic payload cases for the real surface",
             ),
             "flowguard-structure-mesh": (
                 "public entrypoints",
@@ -229,6 +229,8 @@ class SkillDocsTests(unittest.TestCase):
                 self.assertGreater(len(reference), 200)
                 for phrase in route_expectations[skill_name]:
                     self.assertIn(phrase, text)
+                combined = f"{text}\n{reference}"
+                self.assertNotIn("fake file/work-package", combined)
 
     def test_model_test_alignment_skill_does_not_teach_optional_code_contracts(self):
         checked = (

@@ -191,7 +191,8 @@ Use this scaffold to model a development lifecycle as a stateful process.
   dispositions, bug-repair closure rows, and sibling route report artifacts;
 - ordered development actions that read, write, invalidate, or claim evidence;
 - validation evidence and the exact artifact versions it covers;
-- UI action-map and artifact-payload pack revisions when evidence covers them;
+- UI action-map and real-surface artifact-payload case revisions when evidence
+  covers them;
 - verifier changes, such as tests or model files changing after evidence was
   produced;
 - freshness rules that propagate upstream changes to downstream artifacts;

@@ -6,7 +6,7 @@ RISK_EVIDENCE_LEDGER_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header
 
 Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
 Purpose: Review whether a final FlowGuard confidence claim is backed by model obligations, public code contracts, UI/payload gates, recurring defect-family gates, model/test split gates, and current evidence.
-Guards against: coarse models hiding untested internal branches, skipped UI click-through or file/work-package payload evidence, oversized direct model evidence bypassing ModelMesh, slow or broad validation bypassing TestMesh, recurring same-class misses hiding behind local point fixes, tests covering only helper paths, skipped or stale evidence being treated as pass, and background progress being counted as final proof.
+Guards against: coarse models hiding untested internal branches, skipped UI click-through or file/work-package payload evidence for real surfaces, oversized direct model evidence bypassing ModelMesh, slow or broad validation bypassing TestMesh, recurring same-class misses hiding behind local point fixes, tests covering only helper paths, skipped or stale evidence being treated as pass, and background progress being counted as final proof.
 Use before editing: Run this before claiming done, release-ready, or fully validated after model/test/code changes.
 Run: python .flowguard/risk_evidence_ledger/run_checks.py
 """
@@ -215,7 +215,7 @@ def broken_missing_artifact_payload_gate_ledger() -> RiskEvidenceLedgerPlan:
                 result_status=RISK_PROOF_STATUS_PASSED,
                 producer_route="model_test_alignment",
                 command="python -m unittest tests.test_checkout_export",
-                summary="unit test passed, but no synthetic payload pack gate was consumed",
+                summary="unit test passed, but no real-surface payload proof gate was consumed",
             ),
         ),
     )

@@ -274,8 +274,10 @@ inventory.
   `ArtifactPayloadEvidence`, and `review_artifact_payload_validation()` add the
   same evidence gate for import/export files, generated artifacts, saved/load
   payloads, and AI work packages: current external case evidence must prove
-  expected status, output, error path, state writes, side effects, and
-  round-trip behavior before broad payload claims are green.
+  that synthetic payload cases exercised the real payload surface, with an
+  evidence reference or proof artifact for expected status, output, error path,
+  state writes, side effects, and round-trip behavior before broad payload
+  claims are green.
 - field lifecycle helpers such as `FieldLifecyclePlan`,
   `FieldLifecycleGroup`, `FieldLifecycleRow`, `FieldProjection`,
   `FieldLifecycleReport`, `review_field_lifecycle()`,

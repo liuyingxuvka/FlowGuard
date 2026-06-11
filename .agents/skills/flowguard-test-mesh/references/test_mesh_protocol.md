@@ -40,10 +40,11 @@ and external-contract test evidence bind the same behavior.
 Artifact payload matrices can feed TestMesh the same way. When import/export,
 generated artifact, or AI work-package validation has many accepted/rejected
 payload cases, TestMesh owns child-suite partitioning, result artifacts,
-background completion, and freshness for those case ids. It preserves payload
-contract ids and case ids for downstream Model-Test Alignment, which still
-decides whether observed output, error path, state writes, side effects, and
-round-trip behavior match the payload contract.
+background completion, execution proof refs, and freshness for those case ids.
+It preserves payload contract ids and case ids for downstream Model-Test
+Alignment, which still decides whether the real surface's observed output,
+error path, state writes, side effects, and round-trip behavior match the
+payload contract.
 
 ## Trigger
 

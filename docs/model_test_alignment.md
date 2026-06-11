@@ -105,11 +105,13 @@ before trusting the user-facing claim. Use `ArtifactPayloadContract`,
 
 Each payload contract should name the model obligation, owner code contract,
 payload surface, payload kind, and a small synthetic pack of accepted and
-rejected cases. Evidence should record the case id, method, current status,
-external assertion scope, observed status/output/error path/state writes/side
-effects, round-trip result when required, and evidence reference. Manual checks
-must still be structured case evidence; prose-only manual review is scoped or
-blocked.
+rejected cases. The synthetic cases are test inputs for the real payload
+surface; they are not standalone payload-only paths. Evidence should
+record the case id, method, current status, external assertion scope, observed
+status/output/error path/state writes/side effects, round-trip result when
+required, and an `evidence_ref` or `proof_artifact` that points to the real
+surface run. Manual checks must still be structured case evidence; prose-only
+manual review is scoped or blocked.
 
 ## Conservative Source Audit
 
@@ -195,7 +197,8 @@ List artifact payload rows when the behavior has file/work-package surfaces:
 - required case ids, expected accepted/rejected status, expected output, error
   path, state writes, side effects, and round-trip requirement;
 - current evidence id, method, assertion scope, observed status/output/error,
-  observed state writes and side effects, evidence reference, and stale reason.
+  observed state writes and side effects, evidence reference or proof artifact
+  for the real surface run, and stale reason.
 
 When real code path confidence matters, add runtime path rows as well:
 `RuntimeNodeContract`, `RuntimeNodeObservation`, or recorder-produced
