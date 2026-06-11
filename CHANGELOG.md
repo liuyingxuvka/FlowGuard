@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.43.1 - 2026-06-11
+
+Agent workflow rehearsal completion ledger upgrade.
+
+- Added `planned_steps`, `completed_steps`, `blocked_steps`, `skipped_steps`,
+  `required_rechecks`, `handoff_points`, and `final_claim_boundary` to
+  `AgentWorkflowRehearsalReport`.
+- Updated the AgentWorkflowRehearsal skill and protocol so multi-skill plans
+  expose what is planned, what is blocked, what was skipped, which evidence is
+  handed off, and why rehearsal is not execution proof.
+- Added focused regression coverage for the new report fields.
+
 ## v0.43.0 - 2026-06-09
 
 Writing quality-gate process upgrade.

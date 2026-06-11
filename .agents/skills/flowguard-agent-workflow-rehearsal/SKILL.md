@@ -44,12 +44,15 @@ unclear. Use this skill before execution; it does not execute the workflow.
 2. Mark required and candidate skills for the task.
 3. Rehearse selected skills, skipped candidates, order, writing-quality
    surfaces, evidence surfaces, side effects, and continue/rework gates.
-4. Treat blocked or scoped findings as claim boundaries.
+4. Read ledger fields: planned/completed/blocked/skipped steps, rechecks,
+   handoffs, and final claim boundary.
+5. Treat blocked or scoped findings as claim boundaries.
 
 ## Snapshot
 
 For non-trivial use, show candidate skills, selected skills, skipped skills,
-continue/rework gates, side effects, validation gaps, and final claim boundary.
+continue/rework gates, side effects, validation gaps, ledger rows, and final
+claim boundary.
 
 ## Non-Goals
 

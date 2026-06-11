@@ -67,6 +67,19 @@ class FlowguardAgentWorkflowRehearsalTests(unittest.TestCase):
                 codes = {finding.code for finding in report.findings}
                 self.assertIn(expected_code, codes)
 
+    def test_completion_ledger_fields_are_populated(self):
+        report = review_agent_workflow_rehearsal(GOOD_PLAN)
+        data = report.to_dict()
+        self.assertEqual(["kb", "process", "release"], data["planned_steps"])
+        self.assertEqual([], data["completed_steps"])
+        self.assertEqual([], data["blocked_steps"])
+        self.assertTrue(data["handoff_points"])
+        self.assertIn("downstream route evidence", data["final_claim_boundary"])
+
+        blocked = review_agent_workflow_rehearsal(WRONG_ORDER_PLAN)
+        self.assertIn("release", blocked.blocked_steps)
+        self.assertTrue(blocked.required_rechecks)
+
     def test_rehearsal_script_succeeds(self):
         completed = subprocess.run(
             [sys.executable, "examples/flowguard_agent_workflow_rehearsal/run_review.py"],

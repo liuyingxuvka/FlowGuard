@@ -362,6 +362,13 @@ class AgentWorkflowRehearsalReport:
     findings: tuple[AgentWorkflowRehearsalFinding, ...] = ()
     selected_skills: tuple[str, ...] = ()
     skipped_skills: tuple[str, ...] = ()
+    planned_steps: tuple[str, ...] = ()
+    completed_steps: tuple[str, ...] = ()
+    blocked_steps: tuple[str, ...] = ()
+    skipped_steps: tuple[str, ...] = ()
+    required_rechecks: tuple[Mapping[str, Any], ...] = ()
+    handoff_points: tuple[Mapping[str, Any], ...] = ()
+    final_claim_boundary: str = ""
 
     @property
     def ok(self) -> bool:
@@ -375,6 +382,10 @@ class AgentWorkflowRehearsalReport:
             f"inventory_snapshot_id: {self.inventory_snapshot_id}",
             f"selected_skills: {', '.join(self.selected_skills) if self.selected_skills else '(none)'}",
             f"skipped_skills: {', '.join(self.skipped_skills) if self.skipped_skills else '(none)'}",
+            f"planned_steps: {', '.join(self.planned_steps) if self.planned_steps else '(none)'}",
+            f"blocked_steps: {', '.join(self.blocked_steps) if self.blocked_steps else '(none)'}",
+            f"required_rechecks: {len(self.required_rechecks)}",
+            f"final_claim_boundary: {self.final_claim_boundary or '(not recorded)'}",
             f"findings: {len(self.findings)}",
         ]
         for finding in self.findings[:max_findings]:
@@ -397,6 +408,13 @@ class AgentWorkflowRehearsalReport:
             "findings": [finding.to_dict() for finding in self.findings],
             "selected_skills": list(self.selected_skills),
             "skipped_skills": list(self.skipped_skills),
+            "planned_steps": list(self.planned_steps),
+            "completed_steps": list(self.completed_steps),
+            "blocked_steps": list(self.blocked_steps),
+            "skipped_steps": list(self.skipped_steps),
+            "required_rechecks": [dict(item) for item in self.required_rechecks],
+            "handoff_points": [dict(item) for item in self.handoff_points],
+            "final_claim_boundary": self.final_claim_boundary,
         }
 
     def to_json(self, *, indent: int = 2) -> str:
@@ -423,6 +441,55 @@ def _status_from_findings(findings: Sequence[AgentWorkflowRehearsalFinding]) -> 
     if _has_scoped_finding(findings):
         return REHEARSAL_STATUS_SCOPED
     return REHEARSAL_STATUS_PASS
+
+
+def _final_claim_boundary(plan: AgentWorkflowPlan, status: str) -> str:
+    if status == REHEARSAL_STATUS_BLOCKED:
+        return "Do not start execution until blocked rehearsal findings are repaired."
+    if status == REHEARSAL_STATUS_NEEDS_REVISION:
+        return "Revise selected skills, order, gates, or evidence before execution."
+    if status == REHEARSAL_STATUS_SCOPED:
+        return "Execution may proceed only with a scoped final claim until named gaps are closed."
+    if plan.final_claim == FINAL_CLAIM_FULL:
+        return "The plan may proceed, but done/release/publish confidence still requires current downstream route evidence."
+    return "The plan may proceed within the declared scoped claim boundary."
+
+
+def _required_rechecks(findings: Sequence[AgentWorkflowRehearsalFinding]) -> tuple[Mapping[str, Any], ...]:
+    return tuple(
+        {
+            "code": finding.code,
+            "severity": finding.severity,
+            "skill_name": finding.skill_name,
+            "step_id": finding.step_id,
+        }
+        for finding in findings
+        if finding.severity != FINDING_SEVERITY_INFO
+    )
+
+
+def _handoff_points(plan: AgentWorkflowPlan) -> tuple[Mapping[str, Any], ...]:
+    points: list[Mapping[str, Any]] = []
+    for step in plan.steps:
+        if step.produced_evidence_ids or step.continue_evidence_ids:
+            points.append(
+                {
+                    "step_id": step.step_id,
+                    "skill_name": step.skill_name,
+                    "produced_evidence_ids": list(step.produced_evidence_ids),
+                    "continue_evidence_ids": list(step.continue_evidence_ids),
+                }
+            )
+    if plan.final_evidence_ids:
+        points.append(
+            {
+                "step_id": "__final_claim__",
+                "skill_name": "",
+                "produced_evidence_ids": list(plan.final_evidence_ids),
+                "continue_evidence_ids": [],
+            }
+        )
+    return tuple(points)
 
 
 def review_agent_workflow_rehearsal(plan: AgentWorkflowPlan) -> AgentWorkflowRehearsalReport:
@@ -661,6 +728,15 @@ def review_agent_workflow_rehearsal(plan: AgentWorkflowPlan) -> AgentWorkflowReh
         )
 
     status = _status_from_findings(findings)
+    blocked_steps = tuple(
+        sorted(
+            {
+                finding.step_id
+                for finding in findings
+                if finding.step_id and finding.severity == FINDING_SEVERITY_BLOCKED
+            }
+        )
+    )
     return AgentWorkflowRehearsalReport(
         plan_id=plan.plan_id,
         status=status,
@@ -668,6 +744,13 @@ def review_agent_workflow_rehearsal(plan: AgentWorkflowPlan) -> AgentWorkflowReh
         findings=tuple(findings),
         selected_skills=tuple(sorted(selected)),
         skipped_skills=tuple(sorted(skipped)),
+        planned_steps=tuple(step.step_id for step in plan.steps),
+        completed_steps=(),
+        blocked_steps=blocked_steps,
+        skipped_steps=tuple(sorted(skip.skill_name for skip in plan.skipped_candidate_skills)),
+        required_rechecks=_required_rechecks(findings),
+        handoff_points=_handoff_points(plan),
+        final_claim_boundary=_final_claim_boundary(plan, status),
     )
 
 
