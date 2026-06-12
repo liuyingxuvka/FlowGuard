@@ -11,6 +11,7 @@ from .minimize import minimize_report_counterexample
 from .plan import FlowGuardCheckPlan, ScenarioMatrixConfig
 from .progress import check_progress
 from .review import review_scenarios
+from .risk_templates import MinimumModelContract, TemplateReuseReview, review_minimum_model_contract
 from .scenario import run_exact_sequence
 from .scenario_matrix import ScenarioMatrixBuilder
 from .scenario_matrix import synthesize_challenge_scenarios_from_report
@@ -68,6 +69,7 @@ def run_model_first_checks(plan: FlowGuardCheckPlan) -> FlowGuardSummaryReport:
     if plan.assumption_card is not None:
         artifacts["assumption_card"] = plan.assumption_card
         _append_assumption_card_section(sections, plan.assumption_card)
+    _append_minimum_model_section(sections, artifacts, plan)
     skipped_steps = tuple(
         f"{item.name}: {item.status}; {item.reason}"
         for item in risk_profile.skipped_checks
@@ -85,6 +87,8 @@ def run_model_first_checks(plan: FlowGuardCheckPlan) -> FlowGuardSummaryReport:
         declared_risk_classes=risk_classes,
         skipped_steps=skipped_steps,
         risk_profile=risk_profile,
+        template_reuse_review=plan.template_reuse_review,
+        minimum_model_contract=plan.minimum_model_contract,
     )
     artifacts["audit_report"] = audit_report
     sections.append(section_from_audit_report(audit_report))
@@ -255,6 +259,63 @@ def _append_assumption_card_section(
                 "always_show_findings": True,
             },
         )
+    )
+
+
+def _append_minimum_model_section(
+    sections: list[FlowGuardSection],
+    artifacts: dict[str, Any],
+    plan: FlowGuardCheckPlan,
+) -> None:
+    if (
+        plan.minimum_model_contract is None
+        and plan.template_reuse_review is None
+        and plan.risk_profile is None
+    ):
+        return
+    contract = plan.minimum_model_contract or _contract_from_risk_profile(plan.risk_profile)
+    template_reuse_review = plan.template_reuse_review or _template_reuse_from_risk_profile(plan.risk_profile)
+    report = review_minimum_model_contract(
+        contract,
+        template_reuse_review=template_reuse_review,
+    )
+    artifacts["minimum_model_review"] = report
+    sections.append(
+        FlowGuardSection(
+            name="minimum_model_review",
+            status=report.status,
+            summary=report.summary,
+            findings=report.findings,
+            metadata={"report": report, "always_show_findings": bool(report.findings)},
+        )
+    )
+
+
+def _contract_from_risk_profile(risk_profile: Any) -> MinimumModelContract | None:
+    intent = getattr(risk_profile, "risk_intent", None)
+    if intent is None:
+        return None
+    return MinimumModelContract(
+        protected_error_classes=getattr(intent, "protected_error_classes", ()),
+        modeled_state=getattr(intent, "must_model_state", ()),
+        modeled_side_effects=getattr(intent, "must_model_side_effects", ()),
+        completion_evidence=getattr(intent, "completion_evidence", ()),
+        known_bad_cases=getattr(intent, "known_bad_cases", ()),
+    )
+
+
+def _template_reuse_from_risk_profile(risk_profile: Any) -> TemplateReuseReview | None:
+    intent = getattr(risk_profile, "risk_intent", None)
+    if intent is None:
+        return None
+    used_template_ids = getattr(intent, "used_template_ids", ())
+    no_match_reason = getattr(intent, "template_no_match_reason", "")
+    if not used_template_ids and not no_match_reason:
+        return None
+    return TemplateReuseReview(
+        used_template_ids=used_template_ids,
+        no_match_reason=no_match_reason,
+        searched_layers=("public", "local"),
     )
 
 

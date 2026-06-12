@@ -9,6 +9,7 @@ from typing import Any, Iterable, Sequence
 from .core import FrozenMetadata, block_name, freeze_metadata
 from .export import to_jsonable
 from .risk import RiskProfile
+from .risk_templates import MinimumModelContract, TemplateReuseReview, review_minimum_model_contract
 
 
 FINDING_SEVERITIES = ("error", "warning", "suggestion")
@@ -236,6 +237,8 @@ def audit_model(
     declared_risk_classes: Iterable[str] | None = None,
     skipped_steps: Iterable[str] | None = None,
     risk_profile: RiskProfile | dict[str, Any] | None = None,
+    template_reuse_review: TemplateReuseReview | dict[str, Any] | None = None,
+    minimum_model_contract: MinimumModelContract | dict[str, Any] | None = None,
 ) -> ModelQualityAuditReport:
     """Audit obvious model-quality gaps without blocking model execution.
 
@@ -272,6 +275,45 @@ def audit_model(
                     "risk_profile_warning",
                     warning,
                     recommendation,
+                    {"modeled_boundary": profile.modeled_boundary},
+                )
+            )
+        contract = _coerce_minimum_model_contract(minimum_model_contract)
+        if contract is None:
+            contract = _minimum_contract_from_risk_profile(profile)
+        reuse_review = _coerce_template_reuse_review(template_reuse_review)
+        if reuse_review is None and profile.risk_intent is not None:
+            reuse_review = TemplateReuseReview(
+                used_template_ids=profile.risk_intent.used_template_ids,
+                no_match_reason=profile.risk_intent.template_no_match_reason,
+                searched_layers=("public", "local")
+                if profile.risk_intent.used_template_ids or profile.risk_intent.template_no_match_reason
+                else (),
+            )
+        minimum_review = review_minimum_model_contract(
+            contract,
+            template_reuse_review=reuse_review,
+        )
+        for code in minimum_review.findings:
+            findings.append(
+                _finding(
+                    "warning",
+                    code,
+                    f"minimum valuable model gap: {code}",
+                    "Name the protected error, modeled state/side effects, completion evidence, known-bad case, and template reuse result before broad confidence.",
+                    {"modeled_boundary": profile.modeled_boundary},
+                )
+            )
+        if {
+            "missing_completion_evidence",
+            "missing_known_bad_case",
+        }.issubset(set(minimum_review.findings)):
+            findings.append(
+                _finding(
+                    "warning",
+                    "success_path_only_model",
+                    "model intent lacks both completion evidence and a known-bad case, so it may only cover the success path",
+                    "Add a representative bad implementation or mark the claim scoped.",
                     {"modeled_boundary": profile.modeled_boundary},
                 )
             )
@@ -565,6 +607,39 @@ def _coerce_risk_profile(value: RiskProfile | dict[str, Any] | None) -> RiskProf
     if isinstance(value, dict):
         return RiskProfile.from_dict(value)
     raise TypeError("risk_profile must be a RiskProfile, dict, or None")
+
+
+def _coerce_template_reuse_review(
+    value: TemplateReuseReview | dict[str, Any] | None,
+) -> TemplateReuseReview | None:
+    if value is None or isinstance(value, TemplateReuseReview):
+        return value
+    if isinstance(value, dict):
+        return TemplateReuseReview.from_dict(value)
+    raise TypeError("template_reuse_review must be a TemplateReuseReview, dict, or None")
+
+
+def _coerce_minimum_model_contract(
+    value: MinimumModelContract | dict[str, Any] | None,
+) -> MinimumModelContract | None:
+    if value is None or isinstance(value, MinimumModelContract):
+        return value
+    if isinstance(value, dict):
+        return MinimumModelContract.from_dict(value)
+    raise TypeError("minimum_model_contract must be a MinimumModelContract, dict, or None")
+
+
+def _minimum_contract_from_risk_profile(profile: RiskProfile) -> MinimumModelContract | None:
+    intent = profile.risk_intent
+    if intent is None:
+        return None
+    return MinimumModelContract(
+        protected_error_classes=intent.protected_error_classes,
+        modeled_state=intent.must_model_state,
+        modeled_side_effects=intent.must_model_side_effects,
+        completion_evidence=intent.completion_evidence,
+        known_bad_cases=intent.known_bad_cases,
+    )
 
 
 __all__ = [

@@ -93,6 +93,11 @@ from .template_text.risk_intent_check_plan import (
     RISK_INTENT_CHECK_PLAN_RUN_CHECKS_TEMPLATE,
     RISK_INTENT_CHECK_PLAN_NOTES_TEMPLATE,
 )
+from .template_text.risk_template_library import (
+    RISK_TEMPLATE_LIBRARY_MODEL_TEMPLATE,
+    RISK_TEMPLATE_LIBRARY_RUN_CHECKS_TEMPLATE,
+    RISK_TEMPLATE_LIBRARY_NOTES_TEMPLATE,
+)
 from .template_text.runtime_path_evidence import (
     RUNTIME_PATH_EVIDENCE_MODEL_TEMPLATE,
     RUNTIME_PATH_EVIDENCE_RUN_CHECKS_TEMPLATE,
@@ -162,6 +167,14 @@ def risk_intent_template_files() -> tuple[TemplateFile, ...]:
         TemplateFile(".flowguard/risk_intent_check_plan/model.py", RISK_INTENT_CHECK_PLAN_MODEL_TEMPLATE),
         TemplateFile(".flowguard/risk_intent_check_plan/run_checks.py", RISK_INTENT_CHECK_PLAN_RUN_CHECKS_TEMPLATE),
         TemplateFile("docs/flowguard_risk_intent_check_plan.md", RISK_INTENT_CHECK_PLAN_NOTES_TEMPLATE),
+    )
+
+
+def risk_template_library_template_files() -> tuple[TemplateFile, ...]:
+    return (
+        TemplateFile(".flowguard/risk_template_library/model.py", RISK_TEMPLATE_LIBRARY_MODEL_TEMPLATE),
+        TemplateFile(".flowguard/risk_template_library/run_checks.py", RISK_TEMPLATE_LIBRARY_RUN_CHECKS_TEMPLATE),
+        TemplateFile("docs/flowguard_risk_template_library.md", RISK_TEMPLATE_LIBRARY_NOTES_TEMPLATE),
     )
 
 
@@ -434,6 +447,9 @@ __all__ = [
     "RISK_INTENT_CHECK_PLAN_MODEL_TEMPLATE",
     "RISK_INTENT_CHECK_PLAN_NOTES_TEMPLATE",
     "RISK_INTENT_CHECK_PLAN_RUN_CHECKS_TEMPLATE",
+    "RISK_TEMPLATE_LIBRARY_MODEL_TEMPLATE",
+    "RISK_TEMPLATE_LIBRARY_NOTES_TEMPLATE",
+    "RISK_TEMPLATE_LIBRARY_RUN_CHECKS_TEMPLATE",
     "RISK_EVIDENCE_LEDGER_MODEL_TEMPLATE",
     "RISK_EVIDENCE_LEDGER_NOTES_TEMPLATE",
     "RISK_EVIDENCE_LEDGER_RUN_CHECKS_TEMPLATE",
@@ -476,6 +492,7 @@ __all__ = [
     "project_adoption_template_files",
     "risk_evidence_ledger_template_files",
     "risk_intent_template_files",
+    "risk_template_library_template_files",
     "runtime_path_evidence_template_files",
     "structure_mesh_template_files",
     "test_mesh_template_files",

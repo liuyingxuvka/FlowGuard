@@ -36,10 +36,15 @@ SKIPPED_CHECK_STATUSES = (
 
 RISK_INTENT_FIELDS = (
     "failure_modes",
+    "protected_error_classes",
     "protected_harms",
     "must_model_state",
+    "must_model_side_effects",
+    "completion_evidence",
     "adversarial_inputs",
     "hard_invariants",
+    "known_bad_cases",
+    "used_template_ids",
     "blindspots",
 )
 
@@ -49,37 +54,61 @@ class RiskIntent:
     """A compact declaration of the accidents a model is meant to expose."""
 
     failure_modes: tuple[str, ...] = ()
+    protected_error_classes: tuple[str, ...] = ()
     protected_harms: tuple[str, ...] = ()
     must_model_state: tuple[str, ...] = ()
+    must_model_side_effects: tuple[str, ...] = ()
+    completion_evidence: tuple[str, ...] = ()
     adversarial_inputs: tuple[str, ...] = ()
     hard_invariants: tuple[str, ...] = ()
+    known_bad_cases: tuple[str, ...] = ()
+    used_template_ids: tuple[str, ...] = ()
+    template_no_match_reason: str = ""
     blindspots: tuple[str, ...] = ()
 
     def __init__(
         self,
         *,
         failure_modes: Iterable[str] | str = (),
+        protected_error_classes: Iterable[str] | str = (),
         protected_harms: Iterable[str] | str = (),
         must_model_state: Iterable[str] | str = (),
+        must_model_side_effects: Iterable[str] | str = (),
+        completion_evidence: Iterable[str] | str = (),
         adversarial_inputs: Iterable[str] | str = (),
         hard_invariants: Iterable[str] | str = (),
+        known_bad_cases: Iterable[str] | str = (),
+        used_template_ids: Iterable[str] | str = (),
+        template_no_match_reason: str = "",
         blindspots: Iterable[str] | str = (),
     ) -> None:
         object.__setattr__(self, "failure_modes", _normalize_text_items(failure_modes))
+        object.__setattr__(self, "protected_error_classes", _normalize_text_items(protected_error_classes))
         object.__setattr__(self, "protected_harms", _normalize_text_items(protected_harms))
         object.__setattr__(self, "must_model_state", _normalize_text_items(must_model_state))
+        object.__setattr__(self, "must_model_side_effects", _normalize_text_items(must_model_side_effects))
+        object.__setattr__(self, "completion_evidence", _normalize_text_items(completion_evidence))
         object.__setattr__(self, "adversarial_inputs", _normalize_text_items(adversarial_inputs))
         object.__setattr__(self, "hard_invariants", _normalize_text_items(hard_invariants))
+        object.__setattr__(self, "known_bad_cases", _normalize_text_items(known_bad_cases))
+        object.__setattr__(self, "used_template_ids", _normalize_text_items(used_template_ids))
+        object.__setattr__(self, "template_no_match_reason", str(template_no_match_reason or ""))
         object.__setattr__(self, "blindspots", _normalize_text_items(blindspots))
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "RiskIntent":
         return cls(
             failure_modes=data.get("failure_modes", ()),
+            protected_error_classes=data.get("protected_error_classes", ()),
             protected_harms=data.get("protected_harms", ()),
             must_model_state=data.get("must_model_state", ()),
+            must_model_side_effects=data.get("must_model_side_effects", ()),
+            completion_evidence=data.get("completion_evidence", ()),
             adversarial_inputs=data.get("adversarial_inputs", ()),
             hard_invariants=data.get("hard_invariants", ()),
+            known_bad_cases=data.get("known_bad_cases", ()),
+            used_template_ids=data.get("used_template_ids", ()),
+            template_no_match_reason=str(data.get("template_no_match_reason", "")),
             blindspots=data.get("blindspots", ()),
         )
 
@@ -113,6 +142,7 @@ class RiskIntent:
         for field_name in RISK_INTENT_FIELDS:
             values = getattr(self, field_name)
             lines.append(f"{field_name}: {', '.join(values) if values else '(none)'}")
+        lines.append(f"template_no_match_reason: {self.template_no_match_reason or '(none)'}")
         if self.validation_warnings:
             lines.append("warnings:")
             for warning in self.validation_warnings:
@@ -122,10 +152,16 @@ class RiskIntent:
     def to_dict(self) -> dict[str, Any]:
         return {
             "failure_modes": list(self.failure_modes),
+            "protected_error_classes": list(self.protected_error_classes),
             "protected_harms": list(self.protected_harms),
             "must_model_state": list(self.must_model_state),
+            "must_model_side_effects": list(self.must_model_side_effects),
+            "completion_evidence": list(self.completion_evidence),
             "adversarial_inputs": list(self.adversarial_inputs),
             "hard_invariants": list(self.hard_invariants),
+            "known_bad_cases": list(self.known_bad_cases),
+            "used_template_ids": list(self.used_template_ids),
+            "template_no_match_reason": self.template_no_match_reason,
             "blindspots": list(self.blindspots),
             "validation_warnings": list(self.validation_warnings),
         }

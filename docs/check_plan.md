@@ -27,10 +27,15 @@ risk_profile = RiskProfile(
     risk_classes=("deduplication", "idempotency"),
     risk_intent=RiskIntent(
         failure_modes=("duplicate job record", "retry creates second side effect"),
+        protected_error_classes=("duplicate_side_effect",),
         protected_harms=("downstream workflow acts on the same job twice",),
         must_model_state=("records", "side_effect_log"),
+        must_model_side_effects=("record_write", "notification_send"),
+        completion_evidence=("record_id", "side_effect_receipt"),
         adversarial_inputs=("same job repeated", "retry after partial progress"),
         hard_invariants=("one record per job", "one side effect per job"),
+        known_bad_cases=("retry_writes_second_record",),
+        used_template_ids=("side_effect_at_most_once",),
         blindspots=("real database isolation is checked by conformance replay"),
     ),
     confidence_goal="model_level",
@@ -56,11 +61,13 @@ Unknown risk classes are allowed. They appear as warnings because the audit
 heuristics only know the standard classes.
 
 The `risk_intent` field can be omitted for direct or minimal plans, but agents
-should treat a missing or thin Risk Intent Brief as a pre-modeling gap. It
-should explain the failure modes, protected harms, state and side effects that
-must be visible, adversarial inputs to simulate, hard invariants, and known
-blindspots. Direct `Explorer(...)` usage can keep the same brief in comments,
-model notes, or the adoption log instead of using `RiskProfile`.
+should treat a missing or thin Risk Intent Brief as a pre-modeling gap. A
+minimum valuable brief explains the failure modes, protected error classes,
+protected harms, state and side effects that must be visible, completion
+evidence, adversarial inputs to simulate, known-bad cases, used public/local
+template ids or a no-match reason, hard invariants, and blindspots. Direct
+`Explorer(...)` usage can keep the same brief in comments, model notes, or the
+adoption log instead of using `RiskProfile`.
 
 Confidence goals:
 

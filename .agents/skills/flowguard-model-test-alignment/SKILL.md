@@ -33,6 +33,7 @@ Return to `model-first-function-flow` when obligations are undefined. Do not inv
 - Source audit is conservative support, not semantic proof.
 - Open external boundaries need unknown/other cases or current state-closure; unresolved cases route to model maturation.
 - Missing evidence becomes a maintenance obligation.
+- For new/deepened obligations, search templates first and harvest reusable gaps afterward.
 
 ## Minimum Workflow
 

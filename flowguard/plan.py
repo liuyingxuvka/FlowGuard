@@ -9,6 +9,7 @@ from typing import Any, Iterable, Mapping, Sequence
 from .core import FrozenMetadata, freeze_metadata
 from .export import to_jsonable
 from .risk import RiskProfile
+from .risk_templates import MinimumModelContract, TemplateReuseReview
 
 
 @dataclass(frozen=True)
@@ -80,6 +81,8 @@ class FlowGuardCheckPlan:
     state_closure_plan: Any = None
     topology_hazard_plan: Any = None
     usage_intent: Any = None
+    template_reuse_review: TemplateReuseReview | None = None
+    minimum_model_contract: MinimumModelContract | None = None
     metadata: FrozenMetadata = field(default_factory=tuple, compare=False)
 
     def __init__(
@@ -102,6 +105,8 @@ class FlowGuardCheckPlan:
         state_closure_plan: Any = None,
         topology_hazard_plan: Any = None,
         usage_intent: Any = None,
+        template_reuse_review: TemplateReuseReview | Mapping[str, Any] | None = None,
+        minimum_model_contract: MinimumModelContract | Mapping[str, Any] | None = None,
         metadata: Mapping[str, Any] | Iterable[tuple[str, Any]] | None = None,
     ) -> None:
         object.__setattr__(self, "workflow", workflow)
@@ -125,6 +130,8 @@ class FlowGuardCheckPlan:
         object.__setattr__(self, "state_closure_plan", state_closure_plan)
         object.__setattr__(self, "topology_hazard_plan", topology_hazard_plan)
         object.__setattr__(self, "usage_intent", usage_intent)
+        object.__setattr__(self, "template_reuse_review", _coerce_template_reuse_review(template_reuse_review))
+        object.__setattr__(self, "minimum_model_contract", _coerce_minimum_model_contract(minimum_model_contract))
         object.__setattr__(self, "metadata", freeze_metadata(metadata))
 
     def format_text(self) -> str:
@@ -143,6 +150,8 @@ class FlowGuardCheckPlan:
             f"assumption_card: {'provided' if self.assumption_card is not None else 'not_provided'}",
             f"state_closure_plan: {'provided' if self.state_closure_plan is not None else 'auto'}",
             f"topology_hazard_plan: {'provided' if self.topology_hazard_plan is not None else 'auto'}",
+            f"template_reuse_review: {'provided' if self.template_reuse_review is not None else 'not_provided'}",
+            f"minimum_model_contract: {'provided' if self.minimum_model_contract is not None else 'not_provided'}",
         ]
         if self.risk_profile is not None:
             lines.append(f"risk_profile: {self.risk_profile.modeled_boundary}")
@@ -184,6 +193,16 @@ class FlowGuardCheckPlan:
             "state_closure_plan": to_jsonable(self.state_closure_plan),
             "topology_hazard_plan": to_jsonable(self.topology_hazard_plan),
             "usage_intent": to_jsonable(self.usage_intent),
+            "template_reuse_review": (
+                self.template_reuse_review.to_dict()
+                if self.template_reuse_review is not None
+                else None
+            ),
+            "minimum_model_contract": (
+                self.minimum_model_contract.to_dict()
+                if self.minimum_model_contract is not None
+                else None
+            ),
             "metadata": to_jsonable(self.metadata),
         }
 
@@ -207,6 +226,26 @@ def _coerce_scenario_matrix_config(
     if isinstance(value, Mapping):
         return ScenarioMatrixConfig.from_dict(value)
     raise TypeError("scenario_matrix_config must be a ScenarioMatrixConfig, mapping, or None")
+
+
+def _coerce_template_reuse_review(
+    value: TemplateReuseReview | Mapping[str, Any] | None,
+) -> TemplateReuseReview | None:
+    if value is None or isinstance(value, TemplateReuseReview):
+        return value
+    if isinstance(value, Mapping):
+        return TemplateReuseReview.from_dict(value)
+    raise TypeError("template_reuse_review must be a TemplateReuseReview, mapping, or None")
+
+
+def _coerce_minimum_model_contract(
+    value: MinimumModelContract | Mapping[str, Any] | None,
+) -> MinimumModelContract | None:
+    if value is None or isinstance(value, MinimumModelContract):
+        return value
+    if isinstance(value, Mapping):
+        return MinimumModelContract.from_dict(value)
+    raise TypeError("minimum_model_contract must be a MinimumModelContract, mapping, or None")
 
 
 def _assumption_card_to_jsonable(value: Any) -> Any:

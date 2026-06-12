@@ -387,6 +387,7 @@ class ApiSurfaceTests(unittest.TestCase):
             "maintenance_obligation_memory",
             "maintenance_scan_router",
             "model_angle_deliberation",
+            "risk_template_library",
             "ui_flow_structure",
             "model_mesh_maintenance",
             "test_mesh_maintenance",
@@ -410,6 +411,11 @@ class ApiSurfaceTests(unittest.TestCase):
 
         for name in flowguard.EVIDENCE_FIELD_STRUCTURE_API:
             self.assertIn(name, flowguard.EVIDENCE_API)
+        for name in flowguard.RISK_TEMPLATE_LIBRARY_API:
+            self.assertIn(name, flowguard.MODELING_HELPER_API)
+            self.assertIn(name, flowguard.__all__)
+            self.assertTrue(hasattr(flowguard, name), name)
+            self.assertNotIn(name, flowguard.CORE_API)
 
     def test_route_profiles_cover_public_route_api(self):
         profiles = flowguard.default_flowguard_route_profiles()
@@ -421,6 +427,7 @@ class ApiSurfaceTests(unittest.TestCase):
             "evidence_field_structure",
             "existing_model_preflight",
             "model_angle_deliberation",
+            "risk_template_library",
             "maintenance_scan_router",
             "maintenance_obligation_memory",
             "field_lifecycle_mesh",
@@ -610,6 +617,7 @@ class ApiSurfaceTests(unittest.TestCase):
             "PLAN_DETAILING_ROUTE_API",
             "PLAN_INTAKE_ADVANCED_API",
             "RISK_EVIDENCE_LEDGER_ROUTE_API",
+            "RISK_TEMPLATE_LIBRARY_API",
             "ROUTE_ADVANCED_API",
             "ROUTE_STARTER_API",
             "PLAN_INTAKE_STARTER_API",

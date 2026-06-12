@@ -157,7 +157,7 @@ technical-debt scanner.
 - **AND** it MUST NOT require a separate technical-debt scanner route
 
 ### Requirement: FlowGuard-managed projects use maintenance scan before broad claims
-Global FlowGuard routing SHALL present the maintenance scan as the thin default entry for FlowGuard-managed project work where changed artifacts may require model/code/test/structure upkeep.
+Global FlowGuard routing SHALL present the maintenance scan as the compact default guardrail for FlowGuard-managed project work where changed artifacts may require model/code/test/structure upkeep.
 
 #### Scenario: Non-trivial project work enters maintenance scan
 - **WHEN** an agent works in a project with FlowGuard adoption records
@@ -176,8 +176,8 @@ internals in multiple prompt surfaces.
 
 #### Scenario: Reusable AGENTS guidance stays compact
 - **WHEN** the reusable AGENTS snippet is read
-- **THEN** it contains the global routing decision, hard gates, thin default
-  path, and compact route table
+- **THEN** it contains the global routing decision, hard gates, minimum
+  valuable path, and compact route table
 - **AND** it does not embed long helper inventories or route-specific prompt
   templates
 
@@ -206,8 +206,8 @@ path.
 #### Scenario: Agent reads reusable AGENTS guidance
 - **WHEN** an agent reads `docs/agents_snippet.md`
 - **THEN** it first sees task-size triage, the FlowGuard routing decision,
-  thin default path, hard gates, and a compact route table before any reference
-  protocol detail
+  minimum valuable path, hard gates, and a compact route table before any
+  reference protocol detail
 
 #### Scenario: Detailed route content is needed
 - **WHEN** the selected route needs detailed protocol rules, helper API

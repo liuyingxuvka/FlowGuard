@@ -25,6 +25,7 @@ the model, code contract, tests, or final claim is too narrow. Return to
 - Root cause, model obligation, owner code contract, observed test, and same-class test must bind to the same repaired behavior before broad closure.
 - Old, fallback, compatibility, alternate paths, and field misses need disposition/projection instead of accidental reachability.
 - A later green runtime check does not close a miss without same-class evidence.
+- Search public/local risk templates before deepening the model; harvest useful generalized miss patterns afterward.
 
 ## Minimum Workflow
 

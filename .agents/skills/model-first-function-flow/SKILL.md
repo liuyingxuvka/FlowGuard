@@ -15,20 +15,23 @@ core model work before narrowing.
 
 Decision: `use_flowguard`, `skip_with_reason`, or `needs_human_review`.
 
-Use FlowGuard when order, state, ownership, retries, side effects, validation freshness, release/process steps, UI interaction state, model-test evidence, or module boundaries can change whether the result is safe.
-Use plan detailing first when a non-trivial rough idea or short plan lacks explicit scope, state, artifacts, evidence, or rework.
+Use FlowGuard when order, state, ownership, retries, side effects, validation freshness, release/process steps, UI state, model-test evidence, or module boundaries can change safety. Use plan detailing first when a rough plan lacks scope, state, artifacts, evidence, or rework.
 
 Skip only tiny copy edits, formatting-only changes, direct command answers, or read-only explanation with no behavior/state/process impact. If the boundary is unclear, narrow it or mark `needs_human_review`.
 
-## Thin Default Path
+## Minimum Valuable Model
 
 ```text
-risky boundary -> Input x State -> Set(Output x State)
--> one invariant or scenario -> run checks
--> inspect counterexample -> escalate only if a named risk requires it
+risky boundary -> protected error class -> public/local template search
+-> Input x State -> Set(Output x State)
+-> state + side effects + completion evidence + known-bad case
+-> run checks -> inspect counterexample -> harvest reusable local candidate when useful
 ```
 
-This thin path is an entry path, not a completion shortcut. Complete claims need
+The default entry is compact, but it must have teeth. A new or deepened model
+needs to say what real error it prevents, which public/local template it reused
+or why none matched, what completion evidence proves the work, and which
+representative bad implementation would fail. Complete claims still need
 current evidence for the selected route, and missing/stale/skipped evidence
 means partial or scoped FlowGuard evidence.
 
@@ -51,17 +54,10 @@ evidence.
 - Reused test results need current `TestResultReuseTicket` and `ProofArtifactRef`; old `passed` output is not current evidence by itself.
 - Broad confidence needs model obligation ids, owner code contract ids, and current external-contract test evidence bound to the same behavior; model+test-only rows are scoped/blocked.
 - Broad transition-test claims need a transition matrix projected to MTA code/test rows or TestMesh, or an explicit scoped-out reason.
-- Complete runnable UI claims need reachable enabled controls clicked or scoped
-  as pure UI/deferred blindspots with structured evidence.
-- File import/export, generated artifact, and AI work-package claims need
-  synthetic payload cases that exercise the real payload surface plus current
-  external evidence refs or proof artifacts; prose-only manual checks are
-  scoped/blocked.
+- Complete runnable UI claims need reachable enabled controls clicked or scoped as pure UI/deferred blindspots with structured evidence.
+- File import/export, generated artifact, and AI work-package claims need synthetic payload cases for the real payload surface plus current external evidence refs or proof artifacts; prose-only manual checks are scoped/blocked.
 - After `run_model_first_checks()`, read structured ledger owner routes and maintenance obligations before manually inferring the next route.
-- Before trusting that one existing route/model is enough, record model-angle
-  deliberation when a task may need a missing viewpoint: what the current model
-  sees, what it misses, what fails if ignored, and whether to reuse, extend,
-  add child model, create a new model, scope/defer, or ask for human review.
+- Before trusting one route/model, record model-angle deliberation when a task may need a missing viewpoint: what it sees, misses, what fails if ignored, and whether to reuse, extend, add child model, create new model, scope/defer, or ask.
 - For non-trivial FlowGuard work, show a route-specific Mermaid snapshot once the route/model is stable; diagrams explain, not validate.
 - Before broad done/release/publish confidence, use Risk Evidence Ledger or equivalent and keep remembered maintenance obligations, automatic state-closure, and topology-hazard gaps visible.
 - Guard-family children must return closure reports with `owner_guard`, `artifact_kind`, `closure_status`, `findings`, `missing_inputs`, `stale_evidence`, `skipped_checks`, `next_actions`, `safe_claim`, and `unsafe_claim_boundary`; validate them with `assets/guard_closure_contract.py` before broad confidence.
@@ -83,6 +79,7 @@ the row below calls for deep route evidence.
 | Current route/model may be too narrow or a new model angle may be needed | `model_angle_deliberation` | `model-angle-template` or `review_model_angle_deliberations()` |
 | Field additions, removals, renames, migrations, replacements, prompt/config fields, payload/schema keys, old-field disposition | `field_lifecycle_mesh` | `flowguard-field-lifecycle-mesh` |
 | Similar features, A/B workflow drift, sibling tests, shared-kernel/adapter suspicion | `model_similarity_consolidation` | `docs/model_similarity_consolidation.md` |
+| New/deepened model should reuse or harvest public/local risk templates | `risk_template_library` | `risk-template-search`, `risk-template-harvest`, or `risk-template-library-template` |
 | Rough idea/short plan needs detailed scope, state, evidence, receipts, rework | `plan_detailing_compiler` | `flowguard-plan-detailing-compiler` |
 | Multi-skill/tool/plugin planning, skipped skill consequences, rework gates | `agent_workflow_rehearsal` | `flowguard-agent-workflow-rehearsal` |
 | Ordinary behavior/state modeling, Risk Intent, state inventory | `core_modeling` | `references/modeling_protocol.md` |
@@ -112,8 +109,9 @@ Use `behavior_flow` for software/UI/release/process state, `argument_flow` for c
 ## Minimal Workflow
 
 1. Decide applicability/lens, verify the package/adoption record for real project work, and model the risky finite-state boundary.
-2. Make at least one representative bad path fail before trusting the pass.
-3. Inspect counterexamples, revise model/code/tests/process, derive transition/code-contract obligations for broad claims, run route-specific validation, and record evidence.
+2. Search public/local risk templates before new or deepened modeling, then record used template ids or a no-match reason.
+3. Make at least one representative bad path fail before trusting the pass.
+4. Inspect counterexamples, revise model/code/tests/process, harvest reusable local template candidates when useful, derive transition/code-contract obligations for broad claims, run route-specific validation, and record evidence.
 
 ## Reference Map
 

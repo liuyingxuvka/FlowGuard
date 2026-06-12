@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.44.0 - 2026-06-12
+
+Minimum valuable model entry and risk-template reuse.
+
+- Added packaged public risk templates plus a portable per-machine local risk
+  template library with search, review, merge, and harvest helpers.
+- Raised the default AI model-first entry from a thin starter to a minimum
+  valuable model that names protected errors, state/side effects, completion
+  evidence, and known-bad cases.
+- Updated RiskIntent, CheckPlan, audit, runner, model similarity, CLI,
+  templates, skills, docs, and OpenSpec coverage so template reuse and local
+  candidate absorption become part of normal model creation.
+
 ## v0.43.3 - 2026-06-12
 
 UI real-surface validation hardening.

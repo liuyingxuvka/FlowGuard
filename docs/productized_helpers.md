@@ -415,6 +415,7 @@ project:
 python -m flowguard project-template --output .
 python -m flowguard project-adoption-template --output .
 python -m flowguard risk-intent-template --output .
+python -m flowguard risk-template-library-template --output .
 python -m flowguard plan-detailing-template --output .
 python -m flowguard model-miss-template --output .
 python -m flowguard model-test-alignment-template --output .
@@ -426,10 +427,13 @@ python -m flowguard model-angle-template --output .
 The project adoption template writes the target-project AGENTS block,
 `.flowguard/project.toml`, and starter adoption notes with the FlowGuard GitHub
 URL and version policy. The basic project template demonstrates validation,
-rejection, duplicate input, and source-trace invariants. The Risk Intent
-template shows how to bind a
-`RiskIntent`, `RiskProfile`, and `FlowGuardCheckPlan` before running
-`run_model_first_checks(...)`. The plan-detailing template shows how to turn a
+rejection, duplicate input, source-trace invariants, completion evidence, and a
+known-bad variant that must fail. The Risk Intent template shows how to bind a
+`RiskIntent`, `RiskProfile`, template reuse review, minimum model contract, and
+`FlowGuardCheckPlan` before running `run_model_first_checks(...)`. The risk
+template library template shows how to search packaged public templates,
+reference the per-machine local template library, and prepare a local candidate
+without hard-coding a developer path. The plan-detailing template shows how to turn a
 rough plan into explicit PlanDetail rows and broken variants before projecting
 to PlanIntake, WorkflowStepContracts, and DevelopmentProcessFlow. The
 model-miss template models the feedback loop

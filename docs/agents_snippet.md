@@ -18,15 +18,16 @@ For coding, repository, process, prompt, skill, documentation, release, archive,
 - Use `skip_with_reason` only for tiny copy edits, formatting-only changes, direct command answers, read-only explanation, or work with no behavior/state/process/release impact.
 - Use `needs_human_review` when the risk boundary cannot be narrowed safely.
 
-### Thin Default Path
+### Minimum Valuable Model
 
 ```text
-risky boundary -> Input x State -> Set(Output x State)
--> one invariant or scenario -> run checks
--> inspect counterexample -> escalate only if a named risk requires it
+risky boundary -> protected error class -> public/local template search
+-> Input x State -> Set(Output x State)
+-> state + side effects + completion evidence + known-bad case
+-> run checks -> inspect counterexample -> harvest reusable local candidate when useful
 ```
 
-This is the entry path, not a completion shortcut. Complete FlowGuard use needs current evidence for the selected route; skipped, stale, deferred, progress-only, or not-run checks are not passes.
+This is still compact, but it must have teeth. A new or deepened model names the real error it prevents, records used public/local template ids or a no-match reason, models completion evidence, and includes a representative bad case. Complete FlowGuard use needs current evidence for the selected route; skipped, stale, deferred, progress-only, or not-run checks are not passes.
 
 ### Hard Gates
 
@@ -64,6 +65,7 @@ This is the entry path, not a completion shortcut. Complete FlowGuard use needs 
 | Current route/model may be too narrow or a new model angle may be needed | `model_angle_deliberation` | `model-angle-template` or `review_model_angle_deliberations()` |
 | Field lifecycle, behavior-bearing field projection, old/replaced/deprecated field disposition | `field_lifecycle_mesh` | `flowguard-field-lifecycle-mesh` |
 | Similar features, A/B workflow drift, sibling tests, shared-kernel/adapter suspicion | `model_similarity_consolidation` | `model-first-function-flow` reference |
+| New/deepened model should reuse or harvest public/local risk templates | `risk_template_library` | `risk-template-search`, `risk-template-harvest`, or `risk-template-library-template` |
 | Rough idea/short plan needs detailed scope, state, evidence, receipts, rework | `plan_detailing_compiler` | `flowguard-plan-detailing-compiler` |
 | Multi-skill/tool/plugin planning, skipped skill consequences, rework gates | `agent_workflow_rehearsal` | `flowguard-agent-workflow-rehearsal` |
 | Ordinary behavior/state modeling, Risk Intent, state inventory | `core_modeling` | `model-first-function-flow` |

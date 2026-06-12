@@ -24,6 +24,7 @@ from flowguard.templates import (
     project_template_files,
     risk_evidence_ledger_template_files,
     risk_intent_template_files,
+    risk_template_library_template_files,
     runtime_path_evidence_template_files,
     structure_mesh_template_files,
     test_mesh_template_files,
@@ -40,6 +41,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PUBLIC_TEMPLATE_FACTORIES = (
     project_template_files,
     risk_intent_template_files,
+    risk_template_library_template_files,
     plan_detailing_template_files,
     model_miss_review_template_files,
     model_test_alignment_template_files,
@@ -64,6 +66,7 @@ TEMPLATE_CLI_COMMANDS = {
     "project-template": "project",
     "project-adoption-template": "project_adoption",
     "risk-intent-template": "risk_intent_check_plan",
+    "risk-template-library-template": "risk_template_library",
     "plan-detailing-template": "plan_detailing",
     "model-miss-template": "model_miss_review",
     "model-miss-full-template": "model_miss_review_full",
@@ -124,7 +127,9 @@ class PublicTemplateTests(unittest.TestCase):
         output = self.run_written_template(project_template_files(), ())
         self.assertIn("status: OK", output)
         self.assertIn("stored", output)
+        self.assertIn("completed_with_evidence", output)
         self.assertIn("rejected_duplicate", output)
+        self.assertIn("known_bad_without_evidence_rejected: yes", output)
 
     def test_template_text_is_route_scoped_behind_public_facade(self):
         template_text_root = ROOT / "flowguard" / "template_text"
@@ -143,6 +148,16 @@ class PublicTemplateTests(unittest.TestCase):
         )
         self.assertIn("flowguard summary", output)
         self.assertIn("risk_intent", output)
+
+    def test_risk_template_library_template_executes(self):
+        output = self.run_written_template(
+            risk_template_library_template_files(),
+            (".flowguard", "risk_template_library"),
+        )
+        self.assertIn("flowguard risk template search", output)
+        self.assertIn("completion_requires_evidence", output)
+        self.assertIn("flowguard minimum valuable model review", output)
+        self.assertIn("flowguard risk template harvest", output)
 
     def test_plan_detailing_template_executes(self):
         output = self.run_written_template(
@@ -608,6 +623,61 @@ class PublicTemplateTests(unittest.TestCase):
                 report = json.loads(written.stdout)
                 self.assertEqual("flowguard_template_write", report["artifact_type"])
                 self.assertEqual(template_name, report["template"])
+
+    def test_risk_template_cli_searches_and_harvests(self):
+        search = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "flowguard",
+                "risk-template-search",
+                "completion evidence",
+                "--no-local",
+                "--json",
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(0, search.returncode, search.stderr)
+        search_report = json.loads(search.stdout)
+        self.assertEqual(["public"], search_report["searched_layers"])
+        self.assertEqual("completion_requires_evidence", search_report["matches"][0]["template"]["template_id"])
+
+        harvest = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "flowguard",
+                "risk-template-harvest",
+                "--template-id",
+                "cli_sample",
+                "--title",
+                "CLI sample",
+                "--summary",
+                "CLI sample.",
+                "--protected-error-class",
+                "premature_completion",
+                "--required-state",
+                "completed",
+                "--required-evidence",
+                "completion_receipt",
+                "--known-bad-case",
+                "ack_only",
+                "--no-write",
+                "--json",
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(0, harvest.returncode, harvest.stderr)
+        harvest_report = json.loads(harvest.stdout)
+        self.assertTrue(harvest_report["ok"])
+        self.assertEqual("candidate_ready", harvest_report["status"])
+        self.assertEqual("", harvest_report["path"])
 
     def test_public_templates_do_not_contain_local_project_markers(self):
         home_name = Path.home().name

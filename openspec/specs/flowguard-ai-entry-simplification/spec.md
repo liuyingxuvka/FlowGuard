@@ -3,12 +3,15 @@
 ## Purpose
 This capability defines FlowGuard's Flowguard Ai Entry Simplification behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
-### Requirement: FlowGuard exposes a thin default AI entry path
+### Requirement: FlowGuard exposes a compact minimum valuable AI entry path
 
-FlowGuard guidance SHALL present the smallest useful workflow before advanced
-routes or helper inventories. The default AI entry path SHALL also tell agents
-that old FlowGuard artifacts, models, tests, and guidance should be upgraded or
-blocked at the boundary, not preserved as long-lived runtime compatibility.
+FlowGuard guidance SHALL present the smallest valuable workflow before advanced
+routes or helper inventories. The default AI entry path SHALL require enough
+model teeth to expose the protected error class, template reuse/no-match
+evidence, modeled state and side effects, completion evidence, and a known-bad
+case. It SHALL also tell agents that old FlowGuard artifacts, models, tests,
+and guidance should be upgraded or blocked at the boundary, not preserved as
+long-lived runtime compatibility.
 
 #### Scenario: Agent starts ordinary risky work
 
@@ -16,10 +19,11 @@ blocked at the boundary, not preserved as long-lived runtime compatibility.
   matter
 - **WHEN** an agent reads the kernel, AGENTS snippet, README, or API surface
   guidance
-- **THEN** it sees a compact default path before the advanced route map:
-  identify the risky boundary, model `Input x State -> Set(Output x State)`,
-  add one invariant or scenario, run the check, inspect counterexamples, and
-  escalate only when a named risk requires it
+- **THEN** it sees a compact minimum valuable path before the advanced route
+  map: identify the risky boundary and protected error, search public/local
+  templates, model `Input x State -> Set(Output x State)`, include state,
+  side effects, completion evidence, and a known-bad case, run the check,
+  inspect counterexamples, and escalate only when a named risk requires it
 
 #### Scenario: Tiny or read-only work stays lightweight
 
@@ -70,7 +74,8 @@ internal maintenance and release-hardening machinery.
 
 - **GIVEN** a user wants to try FlowGuard on a project
 - **WHEN** they read public-facing docs
-- **THEN** the docs explain that ordinary use starts with the thin default path
+- **THEN** the docs explain that ordinary use starts with the compact minimum
+  valuable path
 - **AND** internal maintenance suites, benchmark/problem corpus runs, and deep
   release evidence are not presented as mandatory first steps
 
@@ -271,7 +276,8 @@ of adding a second similarity-maintenance capability.
 
 ### Requirement: Hot-path prompt budgets are enforced
 FlowGuard AI guidance SHALL enforce explicit size budgets for first-read prompt
-surfaces so the thin default path remains operational rather than aspirational.
+surfaces so the minimum valuable path remains operational rather than
+aspirational.
 
 #### Scenario: Skill docs tests inspect first-read surfaces
 - **WHEN** repository skill documentation tests run
@@ -296,4 +302,3 @@ scoped out.
   API/template tests, broader regression, editable install verification, shadow
   workspace verification, formal repository sync verification, and local git
   status or commit/tag evidence
-

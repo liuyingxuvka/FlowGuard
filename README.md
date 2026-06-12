@@ -16,7 +16,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.43.3` | `1.0` | Python standard library only | MIT |
+| `v0.44.0` | `1.0` | Python standard library only | MIT |
 
 English lead content comes first; a Chinese mirror follows below.
 
@@ -70,16 +70,20 @@ That small shape is enough to expose many large-project problems:
 
 FlowGuard explores finite traces inside the declared model and checks invariants, scenarios, progress properties, conformance expectations, evidence freshness, and closure boundaries. When a check fails, the important output is the counterexample path: the concrete state sequence that shows why the current plan should not continue unchanged.
 
-## Start Small
+## Start With Minimum Value
 
-Most useful FlowGuard work can start thin:
+Most useful FlowGuard work should start compact, but the first model still
+needs teeth:
 
 ```text
 choose one risky boundary
--> name Input, State, Output, side effects, and owners
--> write one invariant or scenario
+-> name the protected error class
+-> search public/local risk templates or record why none match
+-> name Input, State, Output, side effects, completion evidence, and owners
+-> write one invariant or scenario plus one known-bad case
 -> run the check
 -> inspect the counterexample
+-> harvest a reusable local template candidate when the pattern is useful
 -> fix the model, plan, code, tests, UI, or claim
 ```
 
@@ -148,6 +152,8 @@ Useful template entry points:
 ```powershell
 python -m flowguard project-template
 python -m flowguard project-adoption-template
+python -m flowguard risk-template-library-template
+python -m flowguard risk-template-search "completion evidence"
 python -m flowguard plan-detailing-template
 python -m flowguard model-test-alignment-template
 python -m flowguard existing-model-preflight-template
@@ -447,6 +453,8 @@ python -m flowguard project-upgrade --root <target-project>
 ```powershell
 python -m flowguard project-template
 python -m flowguard project-adoption-template
+python -m flowguard risk-template-library-template
+python -m flowguard risk-template-search "completion evidence"
 python -m flowguard plan-detailing-template
 python -m flowguard model-test-alignment-template
 python -m flowguard existing-model-preflight-template

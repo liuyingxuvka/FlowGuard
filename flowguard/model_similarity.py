@@ -136,6 +136,10 @@ class ModelSignature:
     child_model_ids: tuple[str, ...] = ()
     evidence_ids: tuple[str, ...] = ()
     evidence_current: bool = True
+    risk_template_ids: tuple[str, ...] = ()
+    known_bad_case_ids: tuple[str, ...] = ()
+    evidence_gate_ids: tuple[str, ...] = ()
+    maturity_level: str = ""
     known_blindspots: tuple[str, ...] = ()
     false_friend_model_ids: tuple[str, ...] = ()
     metadata: Mapping[str, Any] = field(default_factory=dict)
@@ -166,6 +170,10 @@ class ModelSignature:
         object.__setattr__(self, "parent_model_id", str(self.parent_model_id))
         object.__setattr__(self, "child_model_ids", _as_tuple(self.child_model_ids))
         object.__setattr__(self, "evidence_ids", _as_tuple(self.evidence_ids))
+        object.__setattr__(self, "risk_template_ids", _as_tuple(self.risk_template_ids))
+        object.__setattr__(self, "known_bad_case_ids", _as_tuple(self.known_bad_case_ids))
+        object.__setattr__(self, "evidence_gate_ids", _as_tuple(self.evidence_gate_ids))
+        object.__setattr__(self, "maturity_level", str(self.maturity_level))
         object.__setattr__(self, "known_blindspots", _as_tuple(self.known_blindspots))
         object.__setattr__(self, "false_friend_model_ids", _as_tuple(self.false_friend_model_ids))
         object.__setattr__(self, "metadata", dict(self.metadata))
@@ -182,6 +190,9 @@ class ModelSignature:
             + self.failure_modes
             + self.contracts_in
             + self.contracts_out
+            + self.risk_template_ids
+            + self.known_bad_case_ids
+            + self.evidence_gate_ids
             + self.public_entrypoints
             + self.owned_public_behaviors
         )
@@ -217,6 +228,10 @@ class ModelSignature:
             "child_model_ids": list(self.child_model_ids),
             "evidence_ids": list(self.evidence_ids),
             "evidence_current": self.evidence_current,
+            "risk_template_ids": list(self.risk_template_ids),
+            "known_bad_case_ids": list(self.known_bad_case_ids),
+            "evidence_gate_ids": list(self.evidence_gate_ids),
+            "maturity_level": self.maturity_level,
             "known_blindspots": list(self.known_blindspots),
             "false_friend_model_ids": list(self.false_friend_model_ids),
             "metadata": to_jsonable(dict(self.metadata)),
@@ -381,6 +396,10 @@ def model_signature_minimal(
     invariants: Sequence[str] = (),
     failure_modes: Sequence[str] = (),
     evidence_ids: Sequence[str] = (),
+    risk_template_ids: Sequence[str] = (),
+    known_bad_case_ids: Sequence[str] = (),
+    evidence_gate_ids: Sequence[str] = (),
+    maturity_level: str = "",
     model_path: str = "",
     metadata: Mapping[str, Any] | None = None,
 ) -> ModelSignature:
@@ -399,6 +418,10 @@ def model_signature_minimal(
         invariants=tuple(invariants),
         failure_modes=tuple(failure_modes),
         evidence_ids=tuple(evidence_ids),
+        risk_template_ids=tuple(risk_template_ids),
+        known_bad_case_ids=tuple(known_bad_case_ids),
+        evidence_gate_ids=tuple(evidence_gate_ids),
+        maturity_level=maturity_level,
         metadata=dict(metadata or {}),
     )
 
@@ -419,6 +442,10 @@ def model_signature_maintenance(
     maintenance_tags: Sequence[str] = (),
     changed_refs: Sequence[str] = (),
     evidence_ids: Sequence[str] = (),
+    risk_template_ids: Sequence[str] = (),
+    known_bad_case_ids: Sequence[str] = (),
+    evidence_gate_ids: Sequence[str] = (),
+    maturity_level: str = "",
     false_friend_model_ids: Sequence[str] = (),
     metadata: Mapping[str, Any] | None = None,
 ) -> ModelSignature:
@@ -439,6 +466,10 @@ def model_signature_maintenance(
         maintenance_tags=tuple(maintenance_tags),
         changed_refs=tuple(changed_refs),
         evidence_ids=tuple(evidence_ids),
+        risk_template_ids=tuple(risk_template_ids),
+        known_bad_case_ids=tuple(known_bad_case_ids),
+        evidence_gate_ids=tuple(evidence_gate_ids),
+        maturity_level=maturity_level,
         false_friend_model_ids=tuple(false_friend_model_ids),
         metadata=dict(metadata or {}),
     )
@@ -692,6 +723,9 @@ class SimilarityHandoff:
     impacted_model_ids: tuple[str, ...] = ()
     test_obligation_ids: tuple[str, ...] = ()
     code_obligation_ids: tuple[str, ...] = ()
+    risk_template_ids: tuple[str, ...] = ()
+    known_bad_case_ids: tuple[str, ...] = ()
+    evidence_gate_ids: tuple[str, ...] = ()
     same_family_relation_ids: tuple[str, ...] = ()
     evidence_duplicate_relation_ids: tuple[str, ...] = ()
     false_friend_rationales: tuple[str, ...] = ()
@@ -718,6 +752,9 @@ class SimilarityHandoff:
         object.__setattr__(self, "impacted_model_ids", _as_tuple(self.impacted_model_ids))
         object.__setattr__(self, "test_obligation_ids", _as_tuple(self.test_obligation_ids))
         object.__setattr__(self, "code_obligation_ids", _as_tuple(self.code_obligation_ids))
+        object.__setattr__(self, "risk_template_ids", _as_tuple(self.risk_template_ids))
+        object.__setattr__(self, "known_bad_case_ids", _as_tuple(self.known_bad_case_ids))
+        object.__setattr__(self, "evidence_gate_ids", _as_tuple(self.evidence_gate_ids))
         object.__setattr__(self, "same_family_relation_ids", _unique(same_family))
         object.__setattr__(self, "evidence_duplicate_relation_ids", _unique(evidence_duplicate))
         object.__setattr__(self, "false_friend_rationales", _unique(false_friend))
@@ -737,6 +774,9 @@ class SimilarityHandoff:
             "impacted_model_ids": list(self.impacted_model_ids),
             "test_obligation_ids": list(self.test_obligation_ids),
             "code_obligation_ids": list(self.code_obligation_ids),
+            "risk_template_ids": list(self.risk_template_ids),
+            "known_bad_case_ids": list(self.known_bad_case_ids),
+            "evidence_gate_ids": list(self.evidence_gate_ids),
             "same_family_relation_ids": list(self.same_family_relation_ids),
             "evidence_duplicate_relation_ids": list(self.evidence_duplicate_relation_ids),
             "false_friend_rationales": list(self.false_friend_rationales),
@@ -774,6 +814,9 @@ class ModelSimilarityReport:
     code_obligations: tuple[ModelSimilarityCodeObligation, ...] = ()
     findings: tuple[ModelSimilarityFinding, ...] = ()
     recommended_next_routes: tuple[str, ...] = ()
+    risk_template_ids: tuple[str, ...] = ()
+    known_bad_case_ids: tuple[str, ...] = ()
+    evidence_gate_ids: tuple[str, ...] = ()
     summary: str = ""
 
     def __post_init__(self) -> None:
@@ -785,6 +828,9 @@ class ModelSimilarityReport:
         object.__setattr__(self, "code_obligations", tuple(self.code_obligations))
         object.__setattr__(self, "findings", tuple(self.findings))
         object.__setattr__(self, "recommended_next_routes", _as_tuple(self.recommended_next_routes))
+        object.__setattr__(self, "risk_template_ids", _as_tuple(self.risk_template_ids))
+        object.__setattr__(self, "known_bad_case_ids", _as_tuple(self.known_bad_case_ids))
+        object.__setattr__(self, "evidence_gate_ids", _as_tuple(self.evidence_gate_ids))
         if not self.summary:
             object.__setattr__(
                 self,
@@ -896,6 +942,9 @@ class ModelSimilarityReport:
             "code_obligations": [obligation.to_dict() for obligation in self.code_obligations],
             "findings": [finding.to_dict() for finding in self.findings],
             "recommended_next_routes": list(self.recommended_next_routes),
+            "risk_template_ids": list(self.risk_template_ids),
+            "known_bad_case_ids": list(self.known_bad_case_ids),
+            "evidence_gate_ids": list(self.evidence_gate_ids),
             "summary": self.summary,
         }
 
@@ -922,6 +971,9 @@ class ModelSimilarityReport:
             ),
             test_obligation_ids=tuple(obligation.obligation_id for obligation in self.test_obligations),
             code_obligation_ids=tuple(obligation.obligation_id for obligation in self.code_obligations),
+            risk_template_ids=self.risk_template_ids,
+            known_bad_case_ids=self.known_bad_case_ids,
+            evidence_gate_ids=self.evidence_gate_ids,
             same_family_relation_ids=tuple(
                 relation.relation_id
                 for relation in self.relations
@@ -1724,6 +1776,21 @@ def review_model_similarity_consolidation(plan: ModelSimilarityPlan) -> ModelSim
     )
     decision = _decision_for(relations, findings)
     blockers = _blocker_findings(findings)
+    risk_template_ids = _unique(
+        item
+        for signature in signatures_by_id.values()
+        for item in signature.risk_template_ids
+    )
+    known_bad_case_ids = _unique(
+        item
+        for signature in signatures_by_id.values()
+        for item in signature.known_bad_case_ids
+    )
+    evidence_gate_ids = _unique(
+        item
+        for signature in signatures_by_id.values()
+        for item in signature.evidence_gate_ids
+    )
     return ModelSimilarityReport(
         ok=not blockers,
         plan_id=plan.plan_id,
@@ -1735,6 +1802,9 @@ def review_model_similarity_consolidation(plan: ModelSimilarityPlan) -> ModelSim
         code_obligations=code_obligations,
         findings=tuple(findings),
         recommended_next_routes=recommended_routes,
+        risk_template_ids=risk_template_ids,
+        known_bad_case_ids=known_bad_case_ids,
+        evidence_gate_ids=evidence_gate_ids,
     )
 
 

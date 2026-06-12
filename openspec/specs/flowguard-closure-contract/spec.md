@@ -49,22 +49,22 @@ require current Runtime Gateway Adoption evidence.
 - **THEN** FlowGuard SHALL allow the claim to remain scoped to that lower level
 - **AND** it SHALL NOT describe the runtime as protected by FlowGuard
 
-### Requirement: Thin Entry Path Does Not Replace Closure
+### Requirement: Minimum Valuable Entry Path Does Not Replace Closure
 
-The lightweight model-first path SHALL remain an entry path and SHALL NOT be
-described as sufficient for broad completion claims by itself.
+The compact minimum valuable model-first path SHALL remain an entry path and
+SHALL NOT be described as sufficient for broad completion claims by itself.
 
 #### Scenario: Small local risk stays small
 
 - **GIVEN** a small task only claims a bounded model-level decision
-- **WHEN** the thin path runs one fit-for-risk model and evidence remains
+- **WHEN** the minimum valuable path runs one fit-for-risk model and evidence remains
   inside that local claim
 - **THEN** the report may stay bounded without invoking unrelated framework
   suites
 
 #### Scenario: Broad claim escalates
 
-- **GIVEN** a task starts with the thin path
+- **GIVEN** a task starts with the minimum valuable path
 - **AND** the final statement would claim real code, tests, release readiness,
   parent/child model confidence, or production confidence
 - **WHEN** the claim is made
@@ -304,4 +304,3 @@ old-path/fallback disposition when relevant, and final risk-ledger decision.
 - **WHEN** a bug repair lacks current same-class proof, code-contract binding,
   old-path disposition, or freshness evidence
 - **THEN** the final confidence claim remains scoped or blocked
-

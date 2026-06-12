@@ -713,6 +713,7 @@ from . import model_angle_deliberation as _model_angle_deliberation
 from . import plan_intake as _plan_intake
 from . import recurring_model_miss as _recurring_model_miss
 from . import risk_evidence_ledger as _risk_evidence_ledger
+from . import risk_templates as _risk_templates
 from . import self_maintenance as _self_maintenance
 from . import state_closure as _state_closure
 from . import structuremesh as _structuremesh
@@ -870,6 +871,27 @@ from .review import (
     scenario_status_ok,
 )
 from .risk import RISK_INTENT_FIELDS, RiskIntent, RiskProfile, SkippedCheck
+from .risk_templates import (
+    TEMPLATE_LIBRARY_ENV_VAR,
+    MinimumModelContract,
+    MinimumModelReviewReport,
+    RISK_TEMPLATE_SOURCES,
+    RISK_TEMPLATE_STATUSES,
+    RiskTemplate,
+    RiskTemplateHarvestReport,
+    RiskTemplateMatch,
+    RiskTemplateSearchReport,
+    TemplateReuseReview,
+    builtin_risk_templates,
+    default_local_template_library_root,
+    harvest_risk_template_candidate,
+    load_local_risk_templates,
+    merge_risk_templates,
+    review_minimum_model_contract,
+    review_template_reuse,
+    search_risk_templates,
+    write_local_risk_template,
+)
 from .risk_evidence_ledger import (
     NON_PASSING_PROOF_STATUSES,
     PASSING_PROOF_STATUSES,
@@ -1034,6 +1056,7 @@ from .templates import (
     project_template_files,
     risk_evidence_ledger_template_files,
     risk_intent_template_files,
+    risk_template_library_template_files,
     runtime_path_evidence_template_files,
     structure_mesh_template_files,
     test_mesh_template_files,
@@ -1069,6 +1092,7 @@ MAINTENANCE_SCAN_ROUTE_API = tuple(_maintenance_scan.__all__)
 MODEL_ANGLE_DELIBERATION_API = tuple(_model_angle_deliberation.__all__)
 MODEL_MISS_REVIEW_ROUTE_API = tuple(name for name in _recurring_model_miss.__all__ if name in globals())
 RISK_EVIDENCE_LEDGER_ROUTE_API = tuple(name for name in _risk_evidence_ledger.__all__ if name in globals())
+RISK_TEMPLATE_LIBRARY_API = tuple(_risk_templates.__all__)
 FLOWGUARD_SELF_MAINTENANCE_ROUTE_API = (
     *tuple(_self_maintenance.__all__),
     "default_flowguard_self_maintenance_plan",
@@ -1143,6 +1167,7 @@ MODELING_HELPER_API = (
     "require_label_order",
     "require_reachable",
     "state_invariant",
+    *RISK_TEMPLATE_LIBRARY_API,
     "MinimizedCounterexample",
     "ReductionStep",
     "minimize_failing_sequence",
@@ -2043,6 +2068,7 @@ EVIDENCE_API = (
     "project_template_files",
     "risk_evidence_ledger_template_files",
     "risk_intent_template_files",
+    "risk_template_library_template_files",
     "runtime_path_evidence_template_files",
     "structure_mesh_template_files",
     "test_mesh_template_files",
@@ -2059,6 +2085,7 @@ TEMPLATE_STRUCTURE_API = (
     "project_template_files",
     "project_adoption_template_files",
     "risk_intent_template_files",
+    "risk_template_library_template_files",
     "model_miss_review_template_files",
     "model_miss_review_full_template_files",
     "model_test_alignment_template_files",
@@ -2190,6 +2217,7 @@ FLOWGUARD_ROUTE_API = {
     "maintenance_obligation_memory": MAINTENANCE_OBLIGATION_MEMORY_API,
     "maintenance_scan_router": MAINTENANCE_SCAN_ROUTE_API,
     "model_angle_deliberation": MODEL_ANGLE_DELIBERATION_API,
+    "risk_template_library": RISK_TEMPLATE_LIBRARY_API,
     "ui_flow_structure": UI_FLOW_STRUCTURE_ROUTE_API,
     "model_mesh_maintenance": MODEL_MESH_ROUTE_API,
     "test_mesh_maintenance": TEST_MESH_ROUTE_API,
@@ -2295,6 +2323,14 @@ ROUTE_STARTER_API = {
         "ModelAngleReviewReport",
         "review_model_angle_deliberations",
         "model_angle_deliberation_template_files",
+    ),
+    "risk_template_library": (
+        "RiskTemplate",
+        "TemplateReuseReview",
+        "MinimumModelContract",
+        "search_risk_templates",
+        "review_minimum_model_contract",
+        "harvest_risk_template_candidate",
     ),
     "ui_flow_structure": (
         "UIInteractionModel",
@@ -2449,6 +2485,7 @@ _PUBLIC_API_SUPPLEMENT = (
     "PLAN_DETAILING_ROUTE_API",
     "PLAN_INTAKE_ADVANCED_API",
     "RISK_EVIDENCE_LEDGER_ROUTE_API",
+    "RISK_TEMPLATE_LIBRARY_API",
     "ROUTE_ADVANCED_API",
     "ROUTE_STARTER_API",
     "PLAN_INTAKE_STARTER_API",

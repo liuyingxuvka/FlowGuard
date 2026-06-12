@@ -24,6 +24,8 @@ This is the surface that belongs in a future public GitHub release:
 - UI Text Hierarchy Blueprint helpers for the `v0.16.0` public UI text route;
 - `AGENTS.md` snippet;
 - lightweight adoption log support;
+- packaged public risk templates and a portable per-machine local risk template
+  library;
 - small examples such as `job_matching` and `looping_workflow`;
 - thin wrappers that preserve the Python API reports.
 
@@ -39,21 +41,28 @@ define a small function-flow model
 -> consume the closure contract before broad completion claims
 ```
 
-For AI agents, the first screen of the method should be even thinner:
+For AI agents, the first screen of the method should be a minimum valuable
+model:
 
 ```text
-risky boundary -> Input x State -> Set(Output x State)
--> one invariant or scenario -> run checks
--> inspect counterexample -> escalate only if a named risk requires it
+risky boundary -> protected error class -> public/local template search
+-> Input x State -> Set(Output x State)
+-> state + side effects + completion evidence + known-bad case
+-> run checks -> inspect counterexample
 ```
 
-That thin path is the entry shape, not a completion shortcut. Complete
-FlowGuard use requires the closure contract for the claim being made. Users
-should not need to understand FlowGuard's internal KB, private pilots, daily
-review process, or full benchmark-maintenance machinery before they can use the
-tool, but broad done/release/publish/production-confidence claims still need the
-current intake, model, alignment, model maturation, freshness, ledger, and
-claim-chain support that their boundary requires.
+That entry remains compact, but it must have teeth. The model should prevent or
+expose one real error, record used public/local template ids or a no-match
+reason, and include completion evidence plus a known-bad case. Public templates
+ship with FlowGuard for every installed computer. Local templates are
+per-machine reusable risk cards under a portable user data root, not a required
+project-level template library. Complete FlowGuard use requires the closure
+contract for the claim being made. Users should not need to understand
+FlowGuard's internal KB, private pilots, daily review process, or full
+benchmark-maintenance machinery before they can use the tool, but broad
+done/release/publish/production-confidence claims still need the current intake,
+model, alignment, model maturation, freshness, ledger, and claim-chain support
+that their boundary requires.
 
 ## Internal Maintenance System
 

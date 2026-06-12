@@ -36,9 +36,11 @@ from flowguard import (
     FunctionResult,
     Invariant,
     InvariantResult,
+    MinimumModelContract,
     RiskIntent,
     RiskProfile,
     SkippedCheck,
+    TemplateReuseReview,
     Workflow,
     run_model_first_checks,
 )
@@ -101,10 +103,15 @@ def risk_profile() -> RiskProfile:
         risk_classes=("deduplication", "idempotency", "side_effect"),
         risk_intent=RiskIntent(
             failure_modes=("duplicate acceptance after retry", "invalid item accepted"),
+            protected_error_classes=("duplicate_side_effect", "invalid_completion"),
             protected_harms=("downstream workflow acts on the same item twice",),
             must_model_state=("accepted_ids",),
+            must_model_side_effects=("acceptance_record_write",),
+            completion_evidence=("accepted_id_recorded",),
             adversarial_inputs=("same item repeated", "invalid item request"),
             hard_invariants=("one acceptance per item",),
+            known_bad_cases=("retry_accepts_same_item_twice",),
+            used_template_ids=("side_effect_at_most_once",),
             blindspots=("real storage isolation requires a conformance replay adapter"),
         ),
         confidence_goal="model_level",
@@ -133,6 +140,18 @@ def build_check_plan() -> FlowGuardCheckPlan:
         ),
         max_sequence_length=2,
         risk_profile=risk_profile(),
+        template_reuse_review=TemplateReuseReview(
+            used_template_ids=("side_effect_at_most_once",),
+            searched_layers=("public", "local"),
+            match_template_ids=("side_effect_at_most_once",),
+        ),
+        minimum_model_contract=MinimumModelContract(
+            protected_error_classes=("duplicate_side_effect", "invalid_completion"),
+            modeled_state=("accepted_ids",),
+            modeled_side_effects=("acceptance_record_write",),
+            completion_evidence=("accepted_id_recorded",),
+            known_bad_cases=("retry_accepts_same_item_twice",),
+        ),
     )
 
 
@@ -175,8 +194,12 @@ Use this scaffold when the main risk should be named before modeling.
 Record:
 
 - failure modes;
+- protected error classes;
 - protected harms;
 - state and side effects that must be visible;
+- completion evidence;
+- known-bad cases that should fail on broken models;
+- public/local template ids used, or a no-match reason;
 - adversarial inputs or retries;
 - hard invariants;
 - blindspots.

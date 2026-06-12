@@ -13,7 +13,8 @@ Models a sample validate-and-store workflow before related production changes.
 Guards against:
 - duplicate item storage when the same input is repeated;
 - invalid inputs being stored as accepted records;
-- stored outputs that cannot be traced to an Accepted output.
+- stored outputs that cannot be traced to an Accepted output;
+- completed outputs that do not have durable completion evidence.
 
 Use before editing:
 validation, deduplication, storage, retry, or state-transition logic.
@@ -55,9 +56,16 @@ class Stored:
 
 
 @dataclass(frozen=True)
+class Completed:
+    item_id: str
+
+
+@dataclass(frozen=True)
 class State:
     seen_ids: tuple[str, ...] = ()
     stored_ids: tuple[str, ...] = ()
+    evidence_ids: tuple[str, ...] = ()
+    completed_ids: tuple[str, ...] = ()
 
 
 class ValidateInput:
@@ -115,9 +123,50 @@ class StoreAccepted:
         )
 
 
+class RecordCompletionEvidence:
+    name = "RecordCompletionEvidence"
+    reads = ("stored_ids", "evidence_ids", "completed_ids")
+    writes = ("evidence_ids", "completed_ids")
+    accepted_input_type = Stored
+    input_description = "Stored"
+    output_description = "Completed"
+    idempotency = "Completion is recorded once only after storage evidence exists."
+
+    def apply(self, input_obj: Stored, state: State) -> Iterable[FunctionResult]:
+        if input_obj.item_id not in state.stored_ids:
+            return
+        if input_obj.item_id in state.completed_ids:
+            yield FunctionResult(
+                output=Completed(input_obj.item_id),
+                new_state=state,
+                label="already_completed",
+            )
+            return
+        yield FunctionResult(
+            output=Completed(input_obj.item_id),
+            new_state=replace(
+                state,
+                evidence_ids=state.evidence_ids + (input_obj.item_id,),
+                completed_ids=state.completed_ids + (input_obj.item_id,),
+            ),
+            label="completed_with_evidence",
+        )
+
+
+class BrokenCompleteWithoutEvidence(RecordCompletionEvidence):
+    name = "BrokenCompleteWithoutEvidence"
+
+    def apply(self, input_obj: Stored, state: State) -> Iterable[FunctionResult]:
+        yield FunctionResult(
+            output=Completed(input_obj.item_id),
+            new_state=replace(state, completed_ids=state.completed_ids + (input_obj.item_id,)),
+            label="completed_without_evidence",
+        )
+
+
 def terminal_predicate(current_output, state, trace) -> bool:
     del state, trace
-    return isinstance(current_output, Rejected)
+    return isinstance(current_output, (Rejected, Completed))
 
 
 def no_duplicate_stores(state: State, trace) -> InvariantResult:
@@ -145,6 +194,14 @@ def every_store_was_accepted(state: State, trace) -> InvariantResult:
     return InvariantResult.pass_()
 
 
+def completion_requires_evidence(state: State, trace) -> InvariantResult:
+    del trace
+    missing = tuple(item_id for item_id in state.completed_ids if item_id not in state.evidence_ids)
+    if missing:
+        return InvariantResult.fail(f"completed without evidence: {missing!r}")
+    return InvariantResult.pass_()
+
+
 INVARIANTS = (
     Invariant(
         name="no_duplicate_stores",
@@ -155,6 +212,12 @@ INVARIANTS = (
         name="every_store_was_accepted",
         description="Stored outputs must be traceable to Accepted outputs",
         predicate=every_store_was_accepted,
+    ),
+    Invariant(
+        name="completion_requires_evidence",
+        description="Completed outputs must have durable completion evidence",
+        predicate=completion_requires_evidence,
+        metadata={"property_classes": ("completion_evidence", "known_bad_case")},
     ),
 )
 
@@ -172,7 +235,11 @@ def initial_state() -> State:
 
 
 def build_workflow() -> Workflow:
-    return Workflow((ValidateInput(), StoreAccepted()), name="model_template")
+    return Workflow((ValidateInput(), StoreAccepted(), RecordCompletionEvidence()), name="model_template")
+
+
+def broken_workflow() -> Workflow:
+    return Workflow((ValidateInput(), StoreAccepted(), BrokenCompleteWithoutEvidence()), name="model_template_broken")
 
 
 __all__ = [
@@ -180,17 +247,19 @@ __all__ = [
     "INVARIANTS",
     "MAX_SEQUENCE_LENGTH",
     "Accepted",
+    "Completed",
     "Input",
     "Rejected",
     "State",
     "Stored",
+    "broken_workflow",
     "build_workflow",
     "initial_state",
     "terminal_predicate",
 ]
 '''
 
-RUN_CHECKS_TEMPLATE = '''"""Run the minimal model_template checks."""
+RUN_CHECKS_TEMPLATE = '''"""Run the minimum valuable model_template checks."""
 
 from __future__ import annotations
 
@@ -198,20 +267,26 @@ from flowguard import Explorer
 import model
 
 
-def main() -> int:
-    report = Explorer(
-        workflow=model.build_workflow(),
+def run(workflow):
+    return Explorer(
+        workflow=workflow,
         initial_states=(model.initial_state(),),
         external_inputs=model.EXTERNAL_INPUTS,
         invariants=model.INVARIANTS,
         max_sequence_length=model.MAX_SEQUENCE_LENGTH,
         terminal_predicate=model.terminal_predicate,
-        required_labels=("stored", "rejected_duplicate"),
+        required_labels=("stored", "completed_with_evidence", "rejected_duplicate"),
     ).explore()
+
+
+def main() -> int:
+    report = run(model.build_workflow())
+    broken = run(model.broken_workflow())
     print(report.format_text())
+    print(f"known_bad_without_evidence_rejected: {'yes' if not broken.ok else 'no'}")
     labels = sorted({label for trace in report.traces for label in trace.labels})
     print("labels: " + ",".join(labels))
-    return 0 if report.ok else 1
+    return 0 if report.ok and not broken.ok else 1
 
 
 if __name__ == "__main__":

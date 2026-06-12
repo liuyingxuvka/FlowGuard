@@ -143,6 +143,10 @@ For AI agents, route groups are the normal discovery surface:
   fixed route. It records the candidate angle, what the current model sees and
   misses, the failure if ignored, and whether to reuse, extend, split, create,
   scope, defer, or ask for human review.
+- `RISK_TEMPLATE_LIBRARY_API` is the public/local reusable risk-template route
+  for searching packaged templates, using a portable per-machine local library,
+  reviewing template reuse, and harvesting local candidate templates from
+  minimum valuable models.
 - `FIELD_LIFECYCLE_MESH_API` is the field-governance layer for changes where
   fields carry behavior, routing, permissions, schema, replay, migration, or
   external-contract meaning. High-level models project important fields into
@@ -171,8 +175,10 @@ inventory.
   `cache_matches_source`, `require_label_order`, and `forbid_label_after`;
 - state write inventory guidance for fields named by invariants;
 - public starter templates for basic models, Risk Intent check plans,
-  model-miss reviews, closure-contract reviews, and recurring maintenance
-  workflows;
+  risk-template library use, model-miss reviews, closure-contract reviews, and
+  recurring maintenance workflows;
+- risk template helpers such as `search_risk_templates()`,
+  `review_minimum_model_contract()`, and `harvest_risk_template_candidate()`;
 - scenario review and `ScenarioMatrixBuilder`;
 - deterministic counterexample minimization;
 - optional domain packs such as `DeduplicationPack`, `CachePack`, `RetryPack`,

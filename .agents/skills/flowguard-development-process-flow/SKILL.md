@@ -9,14 +9,13 @@ Standalone FlowGuard satellite skill for lifecycle order and evidence freshness.
 Use when plan, edit, test, fix, install, shadow sync, archive, release, or
 publish confidence depends on current artifact/evidence versions.
 
-Return to `model-first-function-flow` when the basic FlowGuard route is unclear.
-It references sibling route evidence ids, not sibling internals.
+Return to `model-first-function-flow` when the FlowGuard route is unclear; cite sibling evidence ids, not internals.
 
 ## First Read
 
 - Route id: `development_process_flow`.
 - Core helpers: `review_development_process_flow()`, `derive_revalidation_plan()`, `review_auto_mesh_splits()`.
-- Revalidation output includes route, proof, freshness gap, and blocked claims.
+- Revalidation output includes route, proof, freshness gap, blocked claims.
 - Reference: `references/development_process_flow_protocol.md`.
 
 ## Hard Gates
@@ -26,11 +25,12 @@ It references sibling route evidence ids, not sibling internals.
 - UI tasks need explicit completion evidence type; background or planned UI evidence does not satisfy `[x]`, done, release, or archive.
 - Later writes can stale model/test reuse; reused output needs current `TestResultReuseTicket` plus `ProofArtifactRef`.
 - Model transition changes stale transition matrices, generated MTA obligations, and TestMesh required cells unless refreshed.
-- UI inventory, functional chains, MATLAB callbacks, done-claim reviews, payload schemas/surfaces/cases, and validation prompts stale evidence when changed.
-- Model-code-test binding rows stale when linked obligations, owner contracts, source, tests, transition cells, or proof artifacts change.
+- UI chains, MATLAB callbacks, done reviews, payload schemas/surfaces/cases, and validation prompts stale evidence when changed.
+- Model-code-test rows stale when linked obligations, owners, tests, transition cells, or proof artifacts change.
 - Field lifecycle/projection/replacement rows stale evidence when changed.
 - Route graph/profile/docs/installed-skill rows stale AI-entry evidence when changed.
-- Later writes can stale evidence or reopen obligations; preserve peer-agent changes.
+- New/deepened process models search templates first; harvest reusable candidates after validation.
+- Later writes can stale evidence or reopen obligations; preserve peer changes.
 
 ## Minimum Workflow
 

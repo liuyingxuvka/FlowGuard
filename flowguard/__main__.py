@@ -180,6 +180,12 @@ FILE_TEMPLATE_COMMANDS: tuple[FileTemplateCommand, ...] = (
         "risk_intent_template_files",
     ),
     FileTemplateCommand(
+        "risk-template-library-template",
+        "Print or write the public/local risk template library scaffold.",
+        "risk_template_library",
+        "risk_template_library_template_files",
+    ),
+    FileTemplateCommand(
         "plan-detailing-template",
         "Print or write the rough-plan to detailed FlowGuard plan template.",
         "plan_detailing",
@@ -394,6 +400,44 @@ def _run_artifact_upgrade_command(args: argparse.Namespace) -> int:
     return 0 if report.ok else 1
 
 
+def _run_risk_template_search_command(args: argparse.Namespace) -> int:
+    from .risk_templates import search_risk_templates
+
+    report = search_risk_templates(
+        args.query or "",
+        workflow_families=tuple(args.workflow_family or ()),
+        protected_error_classes=tuple(args.protected_error_class or ()),
+        include_public=not args.no_public,
+        include_local=not args.no_local,
+        local_root=args.local_root,
+        max_results=args.max_results,
+    )
+    print(json.dumps(report.to_dict(), indent=2, sort_keys=True) if args.json else report.format_text())
+    return 0 if report.ok else 1
+
+
+def _run_risk_template_harvest_command(args: argparse.Namespace) -> int:
+    from .risk_templates import harvest_risk_template_candidate
+
+    report = harvest_risk_template_candidate(
+        template_id=args.template_id,
+        title=args.title,
+        summary=args.summary,
+        workflow_families=tuple(args.workflow_family or ()),
+        protected_error_classes=tuple(args.protected_error_class or ()),
+        required_state=tuple(args.required_state or ()),
+        required_side_effects=tuple(args.required_side_effect or ()),
+        required_evidence=tuple(args.required_evidence or ()),
+        known_bad_cases=tuple(args.known_bad_case or ()),
+        merge_keys=tuple(args.merge_key or ()),
+        local_root=args.local_root,
+        write=not args.no_write,
+        overwrite=args.force,
+    )
+    print(json.dumps(report.to_dict(), indent=2, sort_keys=True) if args.json else report.format_text())
+    return 0 if report.ok else 1
+
+
 COMMANDS: dict[str, Callable[[], int]] = {
     "adoption-template": _run_adoption_template,
     "benchmark": _run_benchmark,
@@ -502,6 +546,44 @@ def _add_artifact_upgrade_parser(subparsers: argparse._SubParsersAction[argparse
     parser.set_defaults(handler=_run_artifact_upgrade_command)
 
 
+def _add_risk_template_search_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
+    parser = subparsers.add_parser(
+        "risk-template-search",
+        help="Search packaged public and per-machine local risk templates.",
+    )
+    parser.add_argument("query", nargs="?", default="", help="Search query for the modeled risk.")
+    parser.add_argument("--workflow-family", action="append", default=[], help="Workflow family hint.")
+    parser.add_argument("--protected-error-class", action="append", default=[], help="Protected error class hint.")
+    parser.add_argument("--local-root", default=None, help="Override local template library root.")
+    parser.add_argument("--max-results", type=int, default=8)
+    parser.add_argument("--no-public", action="store_true", help="Do not search packaged public templates.")
+    parser.add_argument("--no-local", action="store_true", help="Do not search per-machine local templates.")
+    parser.add_argument("--json", action="store_true", help="Print the report as JSON.")
+    parser.set_defaults(handler=_run_risk_template_search_command)
+
+
+def _add_risk_template_harvest_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
+    parser = subparsers.add_parser(
+        "risk-template-harvest",
+        help="Write a reusable local risk template candidate.",
+    )
+    parser.add_argument("--template-id", required=True)
+    parser.add_argument("--title", required=True)
+    parser.add_argument("--summary", default="")
+    parser.add_argument("--workflow-family", action="append", default=[])
+    parser.add_argument("--protected-error-class", action="append", default=[])
+    parser.add_argument("--required-state", action="append", default=[])
+    parser.add_argument("--required-side-effect", action="append", default=[])
+    parser.add_argument("--required-evidence", action="append", default=[])
+    parser.add_argument("--known-bad-case", action="append", default=[])
+    parser.add_argument("--merge-key", action="append", default=[])
+    parser.add_argument("--local-root", default=None, help="Override local template library root.")
+    parser.add_argument("--no-write", action="store_true", help="Validate the candidate without writing it.")
+    parser.add_argument("--force", action="store_true", help="Overwrite an existing local template file.")
+    parser.add_argument("--json", action="store_true", help="Print the report as JSON.")
+    parser.set_defaults(handler=_run_risk_template_harvest_command)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m flowguard",
@@ -512,6 +594,8 @@ def main(argv: list[str] | None = None) -> int:
     for command in FILE_TEMPLATE_COMMANDS:
         _add_file_template_parser(subparsers, command)
     _add_artifact_upgrade_parser(subparsers)
+    _add_risk_template_search_parser(subparsers)
+    _add_risk_template_harvest_parser(subparsers)
     _add_project_adoption_parser(
         subparsers,
         "project-audit",

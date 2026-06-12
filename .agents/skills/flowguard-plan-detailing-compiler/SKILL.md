@@ -36,6 +36,7 @@ AgentWorkflowRehearsal after plan-detail rows exist.
 - Plan-detail pass means the plan may proceed; it is not implementation,
   release, or production proof.
 - Full claims require current final evidence ids and no scoped detail gaps.
+- If the plan creates/deepens a model, search public/local risk templates before modeling and harvest useful local candidates after validation.
 - Plans with UI, import/export files, generated artifacts, or AI work packages
   must expose action coverage, synthetic payload cases for the real surface,
   execution proof refs, and manual review gates.

@@ -13,7 +13,7 @@ Standalone FlowGuard satellite skill for UI states, controls, visible text, jour
 - Starter: `ROUTE_STARTER_API["ui_flow_structure"]` and `ui-flow-structure-template`.
 - Full: `ui-flow-structure-full-template` for journeys, regions, text blueprints, or many validation paths.
 - Shape: UI event x UI state -> visible controls, displays, overlays, navigation, recovery.
-- Helpers: `UIObservedSurfaceInventory`, `UIInteractionModel`, `UIVisibleSurface`, `UIControlFunctionalChainSet`, `MATLABBaselineCallbackGate`, `UIJourneyCoverage`, `UIImplementationValidation`, `UIRenderEvidenceSet`, `UIGeometryLayoutEvidenceSet`, `UITextHierarchyBlueprint`.
+- Helpers: `UIObservedSurfaceInventory`, `UIInteractionModel`, `UIVisibleSurface`, `UIJourneyCoverage`, `UIImplementationValidation`, `UIRenderEvidenceSet`, `UIGeometryLayoutEvidenceSet`, `UITextHierarchyBlueprint`.
 - Reference: `references/ui_flow_structure_protocol.md`.
 
 ## Hard Gates
@@ -25,6 +25,7 @@ Standalone FlowGuard satellite skill for UI states, controls, visible text, jour
 - UI complete/runnable/button-wired claims need `UIImplementationValidation`; screenshot, DOM text, native, and manual checks need evidence kind, event, result, ref, and boundary.
 - Visible branches, recovery/cancel paths, visible-surface ownership, evidence kinds, and residual blindspots stay explicit.
 - Broad transition-test claims need projected cells with code/runtime owners, then Model-Test Alignment or TestMesh evidence.
+- New/deepened UI models search templates first and harvest reusable UI risks after evidence.
 
 ## Minimum Workflow
 

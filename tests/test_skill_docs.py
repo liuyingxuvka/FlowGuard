@@ -109,7 +109,7 @@ class SkillDocsTests(unittest.TestCase):
         for phrase in expected:
             self.assertIn(phrase, text)
 
-        self.assertLess(text.index("## Thin Default Path"), text.index("## Route Map"))
+        self.assertLess(text.index("## Minimum Valuable Model"), text.index("## Route Map"))
         for skill_name in SATELLITE_SKILLS:
             self.assertIn(skill_name, text)
 
@@ -389,7 +389,7 @@ class SkillDocsTests(unittest.TestCase):
         text = self.read(ROOT / "docs" / "agents_snippet.md")
 
         expected = (
-            "Thin Default Path",
+            "Minimum Valuable Model",
             "Hard Gates",
             "Route Map",
             "Reference Handoff",
@@ -402,13 +402,14 @@ class SkillDocsTests(unittest.TestCase):
             "project-adopt",
             "project-upgrade",
             "Risk Evidence Ledger",
+            "public/local risk templates",
             "Package helpers",
             "not separate Codex skills",
         )
         for phrase in expected:
             self.assertIn(phrase, text)
 
-        self.assertLess(text.index("### Thin Default Path"), text.index("### Route Map"))
+        self.assertLess(text.index("### Minimum Valuable Model"), text.index("### Route Map"))
         for skill_name in SATELLITE_SKILLS:
             self.assertIn(skill_name, text)
 

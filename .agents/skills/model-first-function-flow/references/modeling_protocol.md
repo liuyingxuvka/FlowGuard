@@ -150,7 +150,7 @@ Kernel-side files such as
 are handoff stubs only. They preserve legacy reference paths, but the detailed
 protocol lives with the satellite skill.
 
-## 0.5 Write A Risk Intent Brief
+## 0.5 Write A Minimum Valuable Risk Intent
 
 Before defining state or function blocks, write the short brief that tells the
 model what accidents it is meant to expose. This is the agent's own preflight;
@@ -160,14 +160,28 @@ protected harm cannot be inferred safely.
 Answer these questions before creating or editing the model:
 
 - Which failure modes are we trying to prevent?
+- Which protected error class should this model make impossible or visible?
+- Which public packaged or local per-machine risk templates match this risk?
+  Record used template ids, or record a no-match reason.
 - What protected harms would happen if those failures slipped through?
 - Which state fields, side effects, confirmations, durable records, or external
   commitments must be modeled or the failure would be invisible?
+- Which completion evidence proves the workflow is actually done?
 - Which adversarial inputs, repeated inputs, retries, partial successes,
   ordering changes, concurrent actions, or exception branches must be simulated?
+- Which representative known-bad implementation or trace should fail?
 - Which hard invariants must never be weakened merely to pass checks?
 - What blindspots remain because the model is intentionally smaller than the
   real workflow?
+
+The first/default model should be a minimum valuable model, not a happy-path
+stub. It can stay small, but it needs state, side effects or completion
+evidence, and at least one known-bad case unless the claim is explicitly scoped.
+Search packaged public templates and the per-machine local template library
+before generating a new or materially deepened model. When the finished model
+contains a reusable protected error class, completion evidence, and known-bad
+case, save or report a local template candidate instead of keeping that lesson
+only in the current project.
 
 When using the optional runner path, put the brief into `RiskProfile` through a
 `RiskIntent` or equivalent `risk_intent` mapping. Direct `Explorer(...)` usage
@@ -689,8 +703,10 @@ Recommended low-friction agent flow:
 
 ## Completion Checklist
 
-- A Risk Intent Brief names failure modes, protected harms, model-critical
-  state and side effects, adversarial inputs, hard invariants, and blindspots.
+- A minimum valuable Risk Intent names failure modes, protected error classes,
+  protected harms, model-critical state and side effects, completion evidence,
+  adversarial inputs, known-bad cases, hard invariants, used public/local
+  templates or a no-match reason, and blindspots.
 - If no model existed before FlowGuard applied, an AI-created model script now
   captures the relevant customer risk instead of waiting for a preexisting
   script.

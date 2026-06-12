@@ -419,6 +419,16 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             "model_angle_deliberation_template_files",
         ),
         RouteProfile(
+            "risk_template_library",
+            "New or deepened models need reusable public/local risk templates and local harvest candidates.",
+            ("risk query", "public templates", "local template root"),
+            ("template matches", "reuse review", "candidate harvest report"),
+            "risk_template_library",
+            ("model_maturation_loop", "model_similarity_consolidation", "development_process_flow"),
+            "risk_template_library",
+            "risk_template_library_template_files",
+        ),
+        RouteProfile(
             "maintenance_scan_router",
             "Changed artifacts, skipped routes, stale evidence, or summary gaps need owner-route actions.",
             ("changed artifacts", "signals", "prior obligations"),
