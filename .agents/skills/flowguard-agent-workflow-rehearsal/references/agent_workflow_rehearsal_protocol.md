@@ -66,6 +66,9 @@ Build an `AgentWorkflowPlan` with:
 - explicit evidence surfaces for UI action coverage, synthetic payload cases
   that exercise real file/artifact/AI work-package surfaces, manual checks,
   installed-skill sync, and long checks when the task touches them;
+- for UI full claims, `ui_evidence_roles` must include separate evidence for
+  `ui_inventory`, `ui_baseline_semantics`, and
+  `ui_implementation_validation`;
 - final evidence claim: none, scoped, full, or blocked.
 
 If the work starts from a rough idea or short plan, build `PlanDetail` rows
@@ -97,6 +100,7 @@ Keep these hazards visible:
 - `rework_gate_missing`;
 - `selected_skill_has_weak_validation_guidance`;
 - `full_claim_missing_final_evidence`;
+- `ui_agent_role_evidence_missing`;
 - `ui_action_coverage_skill_skipped`;
 - `artifact_payload_validation_skill_skipped`;
 - `manual_review_boundary_missing`;
@@ -114,13 +118,17 @@ A rehearsal can return `pass` only when:
 - meaningful validation steps have rework gates;
 - weak validation guidance has compensating checks or a scoped claim;
 - the final evidence claim does not exceed planned downstream validation.
+- UI full claims include separate real-surface inventory, baseline semantics,
+  and implementation-validation evidence roles. These may be produced by
+  separate agents, but each role needs an evidence id or boundary before the
+  main agent can claim full confidence.
 
 Return `needs_revision` when the plan can likely be fixed by adding route
 coverage, order dependencies, skip consequences, or gates. Return `scoped` when
 execution can proceed but the claim boundary must stay limited. Return
 `blocked` when the plan relies on stale inventory, skips a required skill
 without a supported boundary, performs unsafe side effects, or claims full
-confidence without final evidence.
+confidence without final evidence or without the required UI evidence roles.
 
 For final done/release/publish/full-confidence claims, the Risk Evidence Ledger
 or owning FlowGuard route must still consume current downstream evidence.

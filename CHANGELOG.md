@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.43.3 - 2026-06-12
+
+UI real-surface validation hardening.
+
+- Added observed real UI inventory, enabled-control functional chain, MATLAB
+  baseline callback semantics, and UI model-miss review helpers.
+- Added PlanDetailing, DevelopmentProcessFlow, RiskEvidenceLedger,
+  ClosureContract, and AgentWorkflowRehearsal gates so UI completion requires
+  typed current evidence and final done-claim review.
+- Updated OpenSpec specs, FlowGuard skills, docs, templates, and API surface so
+  labels, routes, planned evidence, and API existence cannot stand in for real
+  UI click-through behavior.
+
 ## v0.43.2 - 2026-06-11
 
 Artifact payload real-flow evidence tightening.

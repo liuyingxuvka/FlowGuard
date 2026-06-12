@@ -14,6 +14,10 @@ failure.
 
 Guards against:
 - finalizing after a runtime issue without classifying the model miss;
+- treating a user-observed UI failure after a green claim as a local
+  button-only cleanup instead of a model miss;
+- claiming UI repair from label/API proof without preserving same-class
+  controls, click evidence, backpropagation, and code owner;
 - validating a fix before backpropagating the root cause into the prior
   plan/model/test gap;
 - validating a fix before representing the observed issue in the model;

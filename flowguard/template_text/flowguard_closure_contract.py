@@ -21,6 +21,9 @@ Guards against:
 - critical runtime writes without gateway inventory evidence.
 - field lifecycle, field projection, or replacement disposition evidence that
   is missing or stale before a broad confidence claim.
+- UI complete/runnable/button-wired claims that lack a UI done-claim review,
+  observed real-surface inventory, functional-chain evidence, or native-dialog
+  blindspot boundary.
 
 Use before editing:
 final confidence reports, runtime gateway adoption, release closure, or route
@@ -40,6 +43,7 @@ from flowguard import (
     CLOSURE_REPORT_FIELD_LIFECYCLE,
     CLOSURE_REPORT_RISK_LEDGER,
     CLOSURE_REPORT_RUNTIME_GATEWAY,
+    CLOSURE_REPORT_UI_DONE_CLAIM,
     MODEL_QUALITY_HIDDEN_STATE,
     ArtifactInvalidation,
     ClosureEvidenceReport,
@@ -112,8 +116,10 @@ def correct_closure_plan():
             evidence_report("report:field-lifecycle", CLOSURE_REPORT_FIELD_LIFECYCLE),
             evidence_report("report:runtime-gateway", CLOSURE_REPORT_RUNTIME_GATEWAY),
             evidence_report("report:risk-ledger", CLOSURE_REPORT_RISK_LEDGER),
+            evidence_report("report:ui-done-claim", CLOSURE_REPORT_UI_DONE_CLAIM),
         ),
         require_field_lifecycle=True,
+        require_ui_done_claim_review=True,
     )
 
 

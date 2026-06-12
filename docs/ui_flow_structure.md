@@ -1,18 +1,22 @@
 # UI Flow Structure
 
 UI Flow Structure is FlowGuard's helper layer for model-first interface
-planning. It first models the UI's interaction behavior, then reviews
-the user-visible surface, then reviews launch-to-terminal journey coverage when
-complete app-level UI coverage is claimed, then derives the UI structure from
-that model, then derives a UI text hierarchy blueprint from the reviewed
-structure. When someone claims the running UI has been implemented or is
-complete, implementation validation aligns user-visible feature contracts, the
-reviewed UI journey coverage, and evidence kinds such as screenshot, browser
-click-through, DOM text, geometry, accessibility/ARIA, runtime trace, test
-result, or manual observation. A complete runnable UI claim must account for
-every reachable enabled actionable control: click it through, classify it as a
-pure UI action, or record a scoped blindspot with owner and validation
-boundary.
+planning. For an existing or runnable UI, it first inventories the real visible
+surface: buttons, inputs, dropdowns, tables, displayed fields, status text,
+dialogs, menus, panels, and regions. Every observed item must map to a
+`UIControl`, `UIDisplayElement`, or `UIVisibleSurfaceItem`, or be recorded as a
+blindspot with owner and validation boundary. It then models the UI's
+interaction behavior, reviews the user-visible surface, reviews
+launch-to-terminal journey coverage when complete app-level UI coverage is
+claimed, derives the UI structure from that model, and derives a UI text
+hierarchy blueprint from the reviewed structure. When someone claims the
+running UI has been implemented or is complete, implementation validation
+aligns user-visible feature contracts, the reviewed UI journey coverage, and
+evidence kinds such as screenshot, browser click-through, DOM text, geometry,
+accessibility/ARIA, runtime trace, test result, or manual observation. A
+complete runnable UI claim must account for every reachable enabled actionable
+control: prove the functional chain, click it through, classify it as a pure UI
+action, or record a scoped blindspot with owner and validation boundary.
 
 This route is for workflow-heavy interfaces where button placement, menu
 levels, panels, overlays, persistent controls, and state-dependent actions need
@@ -49,6 +53,14 @@ Use it when:
   be checked for user-facing purpose instead of leaking implementation terms;
 - implemented UI claims need to name what kind of evidence supports the claim,
   including screenshots when screenshots are the right evidence;
+- runnable/existing UI work needs a real-surface inventory before the model can
+  be called complete;
+- enabled buttons or controls need a functional chain from visible control to
+  UI event, code owner, backend/local function, UI state update, and click/test
+  evidence;
+- MATLAB migrations need callback semantics for `uigetfile`, `uigetdir`,
+  `winopen`, no-callback buttons, select, cancel, chosen path, load result, and
+  error branches;
 - layout or responsiveness confidence depends on overflow, overlap, viewport
   bounds, focus/keyboard reachability, scroll ownership, immediate feedback, or
   stale-result guards;
@@ -89,6 +101,24 @@ The UI interaction model objects are:
 - `ui_interaction_model_to_transition_coverage(model)`: projects modeled UI
   transitions into transition coverage cells that Model-Test Alignment and
   TestMesh evidence can target.
+
+The observed real-surface and functional-chain objects are:
+
+- `UIObservedSurfaceItem`: one real visible item observed in the running UI.
+- `UIObservedSurfaceInventory`: the observed visible item inventory for a UI
+  boundary.
+- `review_ui_observed_surface_inventory(inventory)`: blocks model completion
+  when observed visible items are unmapped or enabled controls are blindspots.
+- `UIControlFunctionalChain`: one enabled control's chain from visible control
+  through UI event, code owner, backend/local function, UI state update, and
+  click/test evidence.
+- `UIControlFunctionalChainSet`: the functional-chain evidence boundary.
+- `review_ui_control_functional_chains(chain_set)`: rejects API-only or
+  label-only evidence for enabled controls.
+- `MATLABCallbackSemantics`, `MATLABBaselineCallbackGate`, and
+  `review_matlab_baseline_callback_gate(...)`: preserve MATLAB picker,
+  directory picker, shell-open, cancel, selected-path, load-result, error, and
+  no-callback semantics during migration.
 
 The app-level journey coverage objects are:
 

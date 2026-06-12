@@ -38,6 +38,9 @@ Build a `FlowGuardClosureContractPlan` with:
   old-field disposition are in scope.
 - `ClosureEvidenceReport` rows for the Risk Evidence Ledger and route reports
   that the final claim consumes.
+- For UI full claims, a `ClosureEvidenceReport` with
+  `report_kind="ui_done_claim_review"` when
+  `require_ui_done_claim_review=True`.
 
 The report returns `flowguard_closure_full_confidence`,
 `flowguard_closure_scoped_confidence`, or `flowguard_closure_blocked`. A scoped
@@ -98,6 +101,11 @@ Use the gates that match the claim:
 - Risk Evidence Ledger: user risks connect to model obligations, owner code
   contracts, model-code-test binding rows, obligation-family gates, analogous
   defect scans, defect-family gates, split gates, and current proof evidence.
+- UI Done Claim: when the final statement says a UI is complete, runnable, or
+  wired, the closure package includes current observed real-surface inventory,
+  enabled-control functional chains, MATLAB callback semantics when applicable,
+  implementation validation, native-dialog/manual blindspots, and no
+  `planned:*` evidence standing in for observation.
 - Typed claim chain: broad claims consume the right support type instead of
   promoting plan-only, model-only, or test-only evidence into production
   confidence.
@@ -108,6 +116,11 @@ If a required gate is missing, stale, skipped, progress-only, release-only,
 internal-path-only, a direct runtime write can bypass the declared gateway, or
 the gate is explicitly scoped out, report the result as partial or scoped
 FlowGuard evidence. Do not say FlowGuard is complete for that claim.
+
+For UI work, if manual signoff is still missing, a native dialog was only
+planned but not observed, any evidence is still `planned`, or the UI model does
+not cover a real visible item, the final answer should say the base repair is
+complete but release/full UI confidence is not complete.
 
 If a later runtime, test, replay, log, manual validation failure, or
 non-trivial bug report appears after a green FlowGuard result, treat it as a

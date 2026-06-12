@@ -39,16 +39,14 @@ This is the entry path, not a completion shortcut. Complete FlowGuard use needs 
 - Do not create a fake mini-framework or replace executable modeling with prose.
 - Represent each modeled block as `Input x State -> Set(Output x State)`.
 - Preserve user and peer-agent changes; later writes can stale earlier evidence.
-- Long background checks are liveness only until final output and exit/status
-  artifacts exist.
-- Reused test results need current `TestResultReuseTicket` and
-  `ProofArtifactRef`; old `passed` output is not current evidence by itself.
+- Long background checks are liveness only until final output and exit/status artifacts exist.
+- For existing/runnable UI, first inventory real visible items and map each to `UIControl`, `UIDisplayElement`, `UIVisibleSurfaceItem`, or blindspot.
+- Every reachable enabled UI control needs a visible-control -> event -> code owner -> backend/local function -> UI state update -> click/test evidence chain; API existence or label matching is not enough.
+- MATLAB UI migrations need `uigetfile`, `uigetdir`, `winopen`, no-callback, select/cancel/path/result/error semantics.
+- UI done/runnable/button-wired claims need current `UIImplementationValidation` and UI done-claim review; planned/background/artifact-only evidence is not release completion.
+- Reused test results need current `TestResultReuseTicket` and `ProofArtifactRef`; old `passed` output is not current evidence by itself.
 - After `run_model_first_checks()`, read structured ledger routes and obligations before manual route inference.
-- Before trusting that one existing route or model is enough, record
-  model-angle deliberation when the task may need a missing viewpoint: what the
-  current model sees, what it misses, what fails if ignored, and whether to
-  reuse, extend, add child model, create a new model, scope/defer, or ask for
-  human review.
+- Before trusting that one existing route or model is enough, record model-angle deliberation when the task may need a missing viewpoint.
 - For non-trivial FlowGuard work, show a route-specific Mermaid snapshot once the route/model is stable; diagrams explain and do not validate.
 - Before full done/release/publish confidence, connect risks, obligations, UI click-through gates, artifact-payload gates, code/test evidence, proof artifacts, automatic state-closure gaps, and topology-hazard gaps through Risk Evidence Ledger or equivalent.
 - After non-trivial work, use `maintenance_scan_router` for SummaryReport gaps, changed artifacts, open obligations, skipped routes, stale evidence, state/topology gaps, or split/reduction signals.
@@ -71,7 +69,7 @@ This is the entry path, not a completion shortcut. Complete FlowGuard use needs 
 | Ordinary behavior/state modeling, Risk Intent, state inventory | `core_modeling` | `model-first-function-flow` |
 | Existing code/prompt flow should shrink without behavior loss | `architecture_reduction` | `flowguard-architecture-reduction` |
 | Pre-code module/function/block ownership recommendation | `code_structure_recommendation` | `flowguard-code-structure-recommendation` |
-| UI controls, screens, journeys, visible surface, display/text ownership, runnable UI click-through evidence | `ui_flow_structure` | `flowguard-ui-flow-structure` |
+| UI controls, real visible surface inventory, enabled-control functional chains, MATLAB callback semantics, screens, journeys, display/text ownership, runnable UI click-through evidence | `ui_flow_structure` | `flowguard-ui-flow-structure` |
 | Locally green model topology implies future-use hazards before broad confidence | `model_topology_hazard_review` | `flowguard-model-topology-hazard-review` |
 | Model obligations versus tests, code contracts, boundary observations, or artifact payload cases | `model_test_alignment` | `flowguard-model-test-alignment` |
 | Three or more models, oversized model, stale child evidence, parent/child mesh | `model_mesh_maintenance` | `flowguard-model-mesh` |

@@ -80,6 +80,14 @@ Use grouped process rows instead of separate blanks for every lifecycle field.
   real payload surface ids, payload contract ids, synthetic case ids,
   execution proof refs, work-package fixture ids, and manual/native-dialog
   boundaries;
+- UI task completion evidence type when relevant: `ui_model_coverage`,
+  `ui_static_test`, `ui_runtime_click`, `ui_browser_dom_geometry`,
+  `ui_desktop_manual_observation`, `ui_native_dialog_blindspot`,
+  `ui_observed_inventory`, `ui_functional_chain`,
+  `ui_implementation_validation`, or `ui_done_claim_review`;
+- UI lifecycle artifacts when relevant: observed real-surface inventory,
+  enabled-control functional chain, MATLAB callback gate, and UI done-claim
+  review;
 - evidence caveats: skipped visibility, background final artifacts,
   release-required flags, stale reasons, and proof artifact when a final claim
   depends on the row;
@@ -118,6 +126,10 @@ Use these triage classes:
 - `ui_action_evidence_stale`: reachable controls, modeled UI events,
   pure-UI classifications, or native/manual boundaries changed after UI
   implementation validation. Rerun UI Flow Structure implementation evidence.
+- `ui_real_surface_evidence_stale`: observed visible items, enabled controls,
+  status text, tables, displayed fields, or native dialog boundaries changed
+  after observed-inventory, functional-chain, MATLAB callback, or done-claim
+  evidence. Rerun the UI Flow Structure hard gates before completion.
 - `artifact_payload_evidence_stale`: a payload schema, fixture, real payload
   surface, generated artifact, or AI work-package shape changed after payload
   validation. Rebuild synthetic payload cases, rerun the real surface, and
@@ -252,8 +264,14 @@ A DevelopmentProcessFlow review can support a lifecycle claim only when:
 - upstream changes have explicit freshness rules or are reported as ambiguous;
 - skipped, failed, timeout, not-run, running, stale, and progress-only evidence
   remain visible and do not satisfy current validation;
+- OpenSpec or task-list checkboxes for UI work carry a current evidence type;
+  artifact completion, planned evidence, background liveness, or a checked box
+  is not release completion by itself;
 - done, release, archive, and publish claims have current passing evidence for
   the requested scope;
+- UI done/release claims consume current observed-inventory, functional-chain,
+  MATLAB callback semantics when applicable, `UIImplementationValidation`, and
+  UI done-claim review evidence;
 - broad done, release, archive, publish, framework-sync, or final-confidence
   claims use proof-artifact-bound evidence: each consumed validation row has a
   current `ProofArtifactRef` with result path, fingerprint, passing status,

@@ -51,11 +51,20 @@ PROCESS_ARTIFACT_DOC = "doc"
 PROCESS_ARTIFACT_RELEASE = "release"
 PROCESS_ARTIFACT_REPORT = "report"
 PROCESS_ARTIFACT_ADAPTER = "adapter"
+PROCESS_ARTIFACT_UI_OBSERVED_INVENTORY = "ui_observed_inventory"
+PROCESS_ARTIFACT_UI_FUNCTIONAL_CHAIN = "ui_functional_chain"
+PROCESS_ARTIFACT_MATLAB_CALLBACK_GATE = "matlab_callback_gate"
+PROCESS_ARTIFACT_UI_DONE_CLAIM = "ui_done_claim"
 
 PROCESS_EVIDENCE_FIELD_LIFECYCLE = "field_lifecycle_mesh"
 PROCESS_EVIDENCE_FIELD_PROJECTION = "field_projection"
 PROCESS_EVIDENCE_MODEL_MISS_REVIEW = "model_miss_review"
 PROCESS_EVIDENCE_BUG_REPAIR_CLOSURE = "bug_repair_closure"
+PROCESS_EVIDENCE_UI_OBSERVED_INVENTORY = "ui_observed_inventory"
+PROCESS_EVIDENCE_UI_FUNCTIONAL_CHAIN = "ui_functional_chain"
+PROCESS_EVIDENCE_MATLAB_CALLBACK_GATE = "matlab_callback_gate"
+PROCESS_EVIDENCE_UI_IMPLEMENTATION_VALIDATION = "ui_implementation_validation"
+PROCESS_EVIDENCE_UI_DONE_CLAIM_REVIEW = "ui_done_claim_review"
 
 
 def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
@@ -737,6 +746,14 @@ def _stale_code_for_artifact(artifact: ProcessArtifact | None, evidence: Process
         return "replacement_disposition_changed_after_closure_pass"
     if artifact.artifact_type == PROCESS_ARTIFACT_BUG_REPAIR_CLOSURE:
         return "bug_repair_closure_changed_after_review_pass"
+    if artifact.artifact_type == PROCESS_ARTIFACT_UI_OBSERVED_INVENTORY:
+        return "ui_observed_inventory_changed_after_evidence"
+    if artifact.artifact_type == PROCESS_ARTIFACT_UI_FUNCTIONAL_CHAIN:
+        return "ui_functional_chain_changed_after_evidence"
+    if artifact.artifact_type == PROCESS_ARTIFACT_MATLAB_CALLBACK_GATE:
+        return "matlab_callback_gate_changed_after_evidence"
+    if artifact.artifact_type == PROCESS_ARTIFACT_UI_DONE_CLAIM:
+        return "ui_done_claim_changed_after_review_pass"
     return "stale_evidence_after_artifact_change"
 
 
@@ -1131,18 +1148,27 @@ __all__ = [
     "PROCESS_ARTIFACT_REPORT",
     "PROCESS_ARTIFACT_REQUIREMENT",
     "PROCESS_ARTIFACT_TEST",
+    "PROCESS_ARTIFACT_MATLAB_CALLBACK_GATE",
+    "PROCESS_ARTIFACT_UI_DONE_CLAIM",
+    "PROCESS_ARTIFACT_UI_FUNCTIONAL_CHAIN",
+    "PROCESS_ARTIFACT_UI_OBSERVED_INVENTORY",
     "PROCESS_CLAIM_ACTIONS",
     "PROCESS_EVIDENCE_ERROR",
     "PROCESS_EVIDENCE_FAILED",
     "PROCESS_EVIDENCE_BUG_REPAIR_CLOSURE",
     "PROCESS_EVIDENCE_FIELD_LIFECYCLE",
     "PROCESS_EVIDENCE_FIELD_PROJECTION",
+    "PROCESS_EVIDENCE_MATLAB_CALLBACK_GATE",
     "PROCESS_EVIDENCE_MODEL_MISS_REVIEW",
     "PROCESS_EVIDENCE_NOT_RUN",
     "PROCESS_EVIDENCE_PASSED",
     "PROCESS_EVIDENCE_RUNNING",
     "PROCESS_EVIDENCE_SKIPPED",
     "PROCESS_EVIDENCE_TIMEOUT",
+    "PROCESS_EVIDENCE_UI_DONE_CLAIM_REVIEW",
+    "PROCESS_EVIDENCE_UI_FUNCTIONAL_CHAIN",
+    "PROCESS_EVIDENCE_UI_IMPLEMENTATION_VALIDATION",
+    "PROCESS_EVIDENCE_UI_OBSERVED_INVENTORY",
     "PROCESS_SCOPE_RELEASE",
     "PROCESS_SCOPE_ROUTINE",
     "ActionEffect",

@@ -37,6 +37,18 @@ DEFECT_FAMILY_DECISION_BLOCKED = "defect_family_gate_blocked"
 DEFECT_CASE_ROLE_OBSERVED_FAILURE = "observed_failure"
 DEFECT_CASE_ROLE_SAME_CLASS_GENERALIZED = "same_class_generalized"
 DEFECT_CASE_ROLE_HISTORICAL_HOLDOUT = "historical_holdout"
+UI_MODEL_MISS_EVIDENCE_OVERCLAIMED = "evidence_overclaimed"
+UI_MODEL_MISS_BOUNDARY_MISSING = "boundary_missing"
+UI_MODEL_MISS_STATE_TOO_COARSE = "state_too_coarse"
+UI_MODEL_MISS_INPUT_BRANCH_MISSING = "input_branch_missing"
+UI_MODEL_MISS_CODE_BOUNDARY_MISMATCH = "code_boundary_mismatch"
+UI_MODEL_MISS_TYPES = (
+    UI_MODEL_MISS_EVIDENCE_OVERCLAIMED,
+    UI_MODEL_MISS_BOUNDARY_MISSING,
+    UI_MODEL_MISS_STATE_TOO_COARSE,
+    UI_MODEL_MISS_INPUT_BRANCH_MISSING,
+    UI_MODEL_MISS_CODE_BOUNDARY_MISMATCH,
+)
 
 PASSING_DEFECT_FAMILY_STATUSES = {RISK_PROOF_STATUS_PASSED}
 NON_PASSING_DEFECT_FAMILY_STATUSES = {
@@ -352,6 +364,264 @@ class DefectFamilyGateReport:
             "blocked_gate_ids": list(self.blocked_gate_ids),
             "summary": self.summary,
         }
+
+
+@dataclass(frozen=True)
+class UIModelMissRecord:
+    """User-observed UI failure after prior green FlowGuard evidence."""
+
+    miss_id: str
+    previous_claim_id: str = ""
+    previous_green_reason: str = ""
+    observed_failure: str = ""
+    observed_failure_evidence_ref: str = ""
+    miss_type: str = UI_MODEL_MISS_EVIDENCE_OVERCLAIMED
+    affected_control_ids: tuple[str, ...] = ()
+    affected_field_ids: tuple[str, ...] = ()
+    same_class_control_ids: tuple[str, ...] = ()
+    same_class_field_ids: tuple[str, ...] = ()
+    required_test_ids: tuple[str, ...] = ()
+    required_implementation_evidence_ids: tuple[str, ...] = ()
+    root_cause_backpropagation: str = ""
+    code_owner: str = ""
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "miss_id", str(self.miss_id))
+        object.__setattr__(self, "previous_claim_id", str(self.previous_claim_id))
+        object.__setattr__(self, "previous_green_reason", str(self.previous_green_reason))
+        object.__setattr__(self, "observed_failure", str(self.observed_failure))
+        object.__setattr__(self, "observed_failure_evidence_ref", str(self.observed_failure_evidence_ref))
+        object.__setattr__(self, "miss_type", str(self.miss_type))
+        object.__setattr__(self, "affected_control_ids", _as_tuple(self.affected_control_ids))
+        object.__setattr__(self, "affected_field_ids", _as_tuple(self.affected_field_ids))
+        object.__setattr__(self, "same_class_control_ids", _as_tuple(self.same_class_control_ids))
+        object.__setattr__(self, "same_class_field_ids", _as_tuple(self.same_class_field_ids))
+        object.__setattr__(self, "required_test_ids", _as_tuple(self.required_test_ids))
+        object.__setattr__(
+            self,
+            "required_implementation_evidence_ids",
+            _as_tuple(self.required_implementation_evidence_ids),
+        )
+        object.__setattr__(self, "root_cause_backpropagation", str(self.root_cause_backpropagation))
+        object.__setattr__(self, "code_owner", str(self.code_owner))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def has_same_class_scope(self) -> bool:
+        return bool(self.same_class_control_ids or self.same_class_field_ids)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "miss_id": self.miss_id,
+            "previous_claim_id": self.previous_claim_id,
+            "previous_green_reason": self.previous_green_reason,
+            "observed_failure": self.observed_failure,
+            "observed_failure_evidence_ref": self.observed_failure_evidence_ref,
+            "miss_type": self.miss_type,
+            "affected_control_ids": list(self.affected_control_ids),
+            "affected_field_ids": list(self.affected_field_ids),
+            "same_class_control_ids": list(self.same_class_control_ids),
+            "same_class_field_ids": list(self.same_class_field_ids),
+            "required_test_ids": list(self.required_test_ids),
+            "required_implementation_evidence_ids": list(self.required_implementation_evidence_ids),
+            "root_cause_backpropagation": self.root_cause_backpropagation,
+            "code_owner": self.code_owner,
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class UIModelMissReviewPlan:
+    """Review plan for UI-specific model misses after green evidence."""
+
+    plan_id: str
+    ui_misses: tuple[UIModelMissRecord, ...] = ()
+    require_same_class_evidence: bool = True
+    allow_scoped_confidence: bool = True
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "plan_id", str(self.plan_id))
+        object.__setattr__(self, "ui_misses", tuple(self.ui_misses))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "plan_id": self.plan_id,
+            "ui_misses": [miss.to_dict() for miss in self.ui_misses],
+            "require_same_class_evidence": self.require_same_class_evidence,
+            "allow_scoped_confidence": self.allow_scoped_confidence,
+        }
+
+
+@dataclass(frozen=True)
+class UIModelMissFinding:
+    """One UI model-miss review gap."""
+
+    code: str
+    message: str
+    severity: str = "blocker"
+    miss_id: str = ""
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "code", str(self.code))
+        object.__setattr__(self, "message", str(self.message))
+        object.__setattr__(self, "severity", str(self.severity))
+        object.__setattr__(self, "miss_id", str(self.miss_id))
+        object.__setattr__(self, "metadata", dict(self.metadata))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "code": self.code,
+            "message": self.message,
+            "severity": self.severity,
+            "miss_id": self.miss_id,
+            "metadata": to_jsonable(dict(self.metadata)),
+        }
+
+
+@dataclass(frozen=True)
+class UIModelMissReviewReport:
+    """Structured review result for UI model-miss records."""
+
+    ok: bool
+    plan_id: str
+    findings: tuple[UIModelMissFinding, ...] = ()
+    summary: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "plan_id", str(self.plan_id))
+        object.__setattr__(self, "findings", tuple(self.findings))
+        if not self.summary:
+            status = "OK" if self.ok else "BLOCKED"
+            object.__setattr__(
+                self,
+                "summary",
+                f"{status}: ui_model_miss_review={self.plan_id} findings={len(self.findings)}",
+            )
+
+    def blocker_count(self) -> int:
+        return sum(1 for finding in self.findings if finding.severity == "blocker")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "ok": self.ok,
+            "plan_id": self.plan_id,
+            "findings": [finding.to_dict() for finding in self.findings],
+            "summary": self.summary,
+        }
+
+
+def review_ui_model_misses(plan: UIModelMissReviewPlan) -> UIModelMissReviewReport:
+    """Review UI failures that escaped after prior green FlowGuard evidence."""
+
+    findings: list[UIModelMissFinding] = []
+    if not plan.plan_id:
+        findings.append(UIModelMissFinding("missing_ui_model_miss_plan_id", "UI model miss review has no plan id"))
+    if not plan.ui_misses:
+        findings.append(UIModelMissFinding("missing_ui_model_miss_records", "UI model miss review has no miss records"))
+
+    seen: set[str] = set()
+    for miss in plan.ui_misses:
+        if miss.miss_id in seen:
+            findings.append(
+                UIModelMissFinding(
+                    "duplicate_ui_model_miss_id",
+                    f"UI model miss {miss.miss_id} is declared more than once",
+                    miss_id=miss.miss_id,
+                )
+            )
+        seen.add(miss.miss_id)
+        if not miss.previous_claim_id:
+            findings.append(
+                UIModelMissFinding(
+                    "ui_model_miss_missing_previous_claim",
+                    "UI model miss must preserve the previous green claim id",
+                    miss_id=miss.miss_id,
+                )
+            )
+        if not miss.previous_green_reason:
+            findings.append(
+                UIModelMissFinding(
+                    "ui_model_miss_missing_previous_green_reason",
+                    "UI model miss must record why previous evidence looked green",
+                    miss_id=miss.miss_id,
+                )
+            )
+        if not miss.observed_failure:
+            findings.append(
+                UIModelMissFinding(
+                    "ui_model_miss_missing_observed_failure",
+                    "UI model miss must record the user-observed failure",
+                    miss_id=miss.miss_id,
+                )
+            )
+        if not miss.observed_failure_evidence_ref:
+            findings.append(
+                UIModelMissFinding(
+                    "ui_model_miss_missing_observed_evidence",
+                    "UI model miss must preserve observed failure evidence",
+                    miss_id=miss.miss_id,
+                )
+            )
+        if miss.miss_type not in UI_MODEL_MISS_TYPES:
+            findings.append(
+                UIModelMissFinding(
+                    "ui_model_miss_unknown_type",
+                    f"UI model miss type {miss.miss_type!r} is not recognized",
+                    miss_id=miss.miss_id,
+                )
+            )
+        if not (miss.affected_control_ids or miss.affected_field_ids):
+            findings.append(
+                UIModelMissFinding(
+                    "ui_model_miss_missing_affected_surface",
+                    "UI model miss must identify affected controls or fields",
+                    miss_id=miss.miss_id,
+                )
+            )
+        if plan.require_same_class_evidence and not miss.has_same_class_scope():
+            findings.append(
+                UIModelMissFinding(
+                    "ui_model_miss_missing_same_class_scan",
+                    "UI model miss must identify same-class controls or fields before broad closure",
+                    miss_id=miss.miss_id,
+                )
+            )
+        if plan.require_same_class_evidence and not (miss.required_test_ids or miss.required_implementation_evidence_ids):
+            findings.append(
+                UIModelMissFinding(
+                    "ui_model_miss_missing_same_class_evidence",
+                    "UI model miss must name same-class tests or implementation evidence",
+                    miss_id=miss.miss_id,
+                )
+            )
+        if not miss.root_cause_backpropagation:
+            findings.append(
+                UIModelMissFinding(
+                    "ui_model_miss_missing_backpropagation",
+                    "UI model miss must backpropagate the root cause into model/test/validation gaps",
+                    miss_id=miss.miss_id,
+                )
+            )
+        if not miss.code_owner:
+            findings.append(
+                UIModelMissFinding(
+                    "ui_model_miss_missing_code_owner",
+                    "UI model miss must bind the repaired behavior to a code owner",
+                    miss_id=miss.miss_id,
+                )
+            )
+        if not miss.rationale:
+            findings.append(
+                UIModelMissFinding(
+                    "ui_model_miss_missing_rationale",
+                    "UI model miss must include rationale",
+                    miss_id=miss.miss_id,
+                )
+            )
+
+    blockers = tuple(finding for finding in findings if finding.severity == "blocker")
+    return UIModelMissReviewReport(ok=not blockers, plan_id=plan.plan_id, findings=tuple(findings))
 
 
 def _finding(
@@ -711,6 +981,12 @@ __all__ = [
     "DEFECT_FAMILY_DECISION_BLOCKED",
     "DEFECT_FAMILY_DECISION_FULL",
     "DEFECT_FAMILY_DECISION_SCOPED",
+    "UI_MODEL_MISS_BOUNDARY_MISSING",
+    "UI_MODEL_MISS_CODE_BOUNDARY_MISMATCH",
+    "UI_MODEL_MISS_EVIDENCE_OVERCLAIMED",
+    "UI_MODEL_MISS_INPUT_BRANCH_MISSING",
+    "UI_MODEL_MISS_STATE_TOO_COARSE",
+    "UI_MODEL_MISS_TYPES",
     "DefectFamilyCase",
     "DefectFamilyEvidence",
     "DefectFamilyFinding",
@@ -720,5 +996,10 @@ __all__ = [
     "DefectFamilyGateReport",
     "NON_PASSING_DEFECT_FAMILY_STATUSES",
     "PASSING_DEFECT_FAMILY_STATUSES",
+    "UIModelMissFinding",
+    "UIModelMissRecord",
+    "UIModelMissReviewPlan",
+    "UIModelMissReviewReport",
     "review_defect_family_gates",
+    "review_ui_model_misses",
 ]

@@ -1340,13 +1340,12 @@ UI_FLOW_STRUCTURE_FULL_NOTES_TEMPLATE = UI_FLOW_STRUCTURE_NOTES_TEMPLATE
 UI_FLOW_STRUCTURE_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header.
 
 Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
-Purpose: compact UI flow structure model for one screen, three controls, two
-transitions, one journey, and one implementation validation gate.
-Guards against: shipping a UI whose visible controls, journeys,
-visible surface, evidence kind, structure derivation, or text hierarchy are not
-modeled.
-Use before editing: frontend work where UI state, controls, navigation,
-validation, or visible text hierarchy affect behavior.
+Purpose: compact UI model for real surface inventory, functional chains,
+two transitions, one journey, and implementation validation.
+Guards against: claiming UI completion without real visible items,
+functional chains, journey evidence, visible surface, or text hierarchy.
+Use before editing: frontend work where controls, state, navigation,
+validation, callbacks, or visible text affect behavior.
 Run: python .flowguard/ui_flow_structure/run_checks.py
 Modeled block shape: Input x State -> Set(Output x State).
 """
@@ -1364,6 +1363,10 @@ class UICompactPlan:
     transitions: tuple[tuple[str, str, str], ...]
     journey_entry_points: tuple[str, ...]
     implementation_run_ids: tuple[str, ...]
+    observed_item_mappings: tuple[tuple[str, str], ...]
+    functional_chains: tuple[tuple[str, str, str, str, str], ...]
+    matlab_callback_branches: tuple[str, ...]
+    ui_done_claim_reviewed: bool
     visible_surface_items: tuple[tuple[str, str, str], ...]
     evidence_kinds: tuple[str, ...]
     source_interaction_model_reviewed: bool
@@ -1382,53 +1385,66 @@ class UICompactReport:
         return "\\n".join(lines)
 
 
+def report(label: str, findings: list[str] | tuple[str, ...]) -> UICompactReport:
+    return UICompactReport(label, not findings, tuple(findings))
+
+
 def review_interaction_model(plan: UICompactPlan) -> UICompactReport:
-    findings: list[str] = []
-    if len(plan.states) < 3:
-        findings.append("missing_state_availability_matrix")
-    if len(plan.controls) < 3:
-        findings.append("visible_control_without_modeled_event")
-    if len(plan.transitions) < 2:
-        findings.append("modeled_event_missing_transition")
-    return UICompactReport("flowguard UI interaction model", not findings, tuple(findings))
+    findings = []
+    findings += ["missing_state_availability_matrix"] if len(plan.states) < 3 else []
+    findings += ["visible_control_without_modeled_event"] if len(plan.controls) < 3 else []
+    findings += ["modeled_event_missing_transition"] if len(plan.transitions) < 2 else []
+    return report("flowguard UI interaction model", findings)
+
+
+def review_observed_inventory(plan: UICompactPlan) -> UICompactReport:
+    mapped_ids = {item_id for item_id, _modeled_id in plan.observed_item_mappings}
+    findings = ["observed_visible_item_unmapped" for control_id in plan.controls if control_id not in mapped_ids]
+    return report("flowguard UI observed real surface", findings)
 
 
 def review_journey(plan: UICompactPlan) -> UICompactReport:
     findings = () if plan.journey_entry_points else ("feature_entry_point_not_declared",)
-    return UICompactReport("flowguard UI journey coverage", not findings, findings)
+    return report("flowguard UI journey coverage", findings)
 
 
 def review_implementation(plan: UICompactPlan) -> UICompactReport:
-    findings: list[str] = []
-    if not plan.implementation_run_ids:
-        findings.append("missing_implementation_run_for_journey")
-    if not plan.evidence_kinds:
-        findings.append("missing_render_evidence_kind")
-    return UICompactReport("flowguard UI implementation validation", not findings, tuple(findings))
+    findings = []
+    findings += ["missing_implementation_run_for_journey"] if not plan.implementation_run_ids else []
+    findings += ["missing_render_evidence_kind"] if not plan.evidence_kinds else []
+    findings += ["ui_done_claim_review_missing"] if not plan.ui_done_claim_reviewed else []
+    return report("flowguard UI implementation validation", findings)
+
+
+def review_functional_chains(plan: UICompactPlan) -> UICompactReport:
+    covered_controls = {chain[0] for chain in plan.functional_chains}
+    findings = ["enabled_control_missing_functional_chain" for control_id in plan.controls if control_id not in covered_controls]
+    findings += ["functional_chain_incomplete" for _control_id, event_id, owner, function_name, state_update in plan.functional_chains if not all((event_id, owner, function_name, state_update))]
+    return report("flowguard UI functional chains", findings)
+
+
+def review_matlab_callback_gate(plan: UICompactPlan) -> UICompactReport:
+    required = {"select", "cancel", "chosen_path", "load_result", "error_path"}
+    findings = tuple("matlab_callback_branch_missing" for _ in required - set(plan.matlab_callback_branches))
+    return report("flowguard MATLAB callback semantics", findings)
 
 
 def review_visible_surface(plan: UICompactPlan) -> UICompactReport:
-    findings: list[str] = []
-    if not plan.visible_surface_items:
-        findings.append("missing_visible_surface_items")
+    findings = ["missing_visible_surface_items"] if not plan.visible_surface_items else []
     for item_id, item_kind, text in plan.visible_surface_items:
-        if "mock" in text.lower() or "backend" in text.lower():
-            findings.append("visible_internal_terminology")
-        if item_kind == "disabled_control" and "because" not in text.lower():
-            findings.append("missing_disabled_reason")
-    return UICompactReport("flowguard UI visible surface", not findings, tuple(findings))
+        findings += ["visible_internal_terminology"] if "mock" in text.lower() or "backend" in text.lower() else []
+        findings += ["missing_disabled_reason"] if item_kind == "disabled_control" and "because" not in text.lower() else []
+    return report("flowguard UI visible surface", findings)
 
 
 def review_structure(plan: UICompactPlan) -> UICompactReport:
     findings = () if plan.source_interaction_model_reviewed else ("source_interaction_model_not_reviewed",)
-    return UICompactReport("flowguard UI structure derivation", not findings, findings)
+    return report("flowguard UI structure derivation", findings)
 
 
 def review_text(plan: UICompactPlan) -> UICompactReport:
-    findings: list[str] = []
-    if plan.text_roles.get("button") in {"surface-title", "region-heading"}:
-        findings.append("text_role_too_prominent")
-    return UICompactReport("flowguard UI text hierarchy", not findings, tuple(findings))
+    findings = ["text_role_too_prominent"] if plan.text_roles.get("button") in {"surface-title", "region-heading"} else []
+    return report("flowguard UI text hierarchy", findings)
 
 
 def correct_plan() -> UICompactPlan:
@@ -1439,6 +1455,10 @@ def correct_plan() -> UICompactPlan:
         transitions=(("empty", "add", "editing"), ("editing", "submit", "submitted")),
         journey_entry_points=("launch:add-submit",),
         implementation_run_ids=("browser:ui-flow-smoke",),
+        observed_item_mappings=(("add", "control:add"), ("submit", "control:submit"), ("reset", "control:reset")),
+        functional_chains=(("add", "click_add", "ui.add_item", "add_item", "editing"), ("submit", "click_submit", "ui.submit", "submit_item", "submitted"), ("reset", "click_reset", "ui.reset", "reset_item", "empty")),
+        matlab_callback_branches=("select", "cancel", "chosen_path", "load_result", "error_path"),
+        ui_done_claim_reviewed=True,
         visible_surface_items=(("submit_disabled", "disabled_control", "Submit is disabled because nothing has been added."),),
         evidence_kinds=("screenshot",),
         source_interaction_model_reviewed=True,
@@ -1454,6 +1474,10 @@ def broken_plan() -> UICompactPlan:
         transitions=(),
         journey_entry_points=(),
         implementation_run_ids=(),
+        observed_item_mappings=(),
+        functional_chains=(),
+        matlab_callback_branches=("select",),
+        ui_done_claim_reviewed=False,
         visible_surface_items=(("debug", "status", "mock backend route pending"), ("submit", "disabled_control", "Submit"),),
         evidence_kinds=(),
         source_interaction_model_reviewed=False,
@@ -1464,20 +1488,13 @@ def broken_plan() -> UICompactPlan:
 def run_checks():
     good = correct_plan()
     bad = broken_plan()
-    return (
-        review_interaction_model(good),
-        review_journey(good),
-        review_implementation(good),
-        review_visible_surface(good),
-        review_structure(good),
-        review_text(good),
-        review_interaction_model(bad),
-        review_journey(bad),
-        review_implementation(bad),
-        review_visible_surface(bad),
-        review_structure(bad),
-        review_text(bad),
+    reviewers = (
+        review_interaction_model, review_observed_inventory, review_journey,
+        review_functional_chains, review_matlab_callback_gate,
+        review_implementation, review_visible_surface, review_structure,
+        review_text,
     )
+    return tuple(reviewer(good) for reviewer in reviewers) + tuple(reviewer(bad) for reviewer in reviewers)
 '''
 
 UI_FLOW_STRUCTURE_RUN_CHECKS_TEMPLATE = '''"""Run the compact UI Flow Structure template checks."""
@@ -1490,8 +1507,8 @@ def main() -> int:
     for report in reports:
         print(report.format_text())
         print()
-    good = reports[:6]
-    broken = reports[6:]
+    good = reports[:9]
+    broken = reports[9:]
     return 0 if all(report.ok for report in good) and all(not report.ok for report in broken) else 1
 
 
@@ -1501,9 +1518,11 @@ if __name__ == "__main__":
 
 UI_FLOW_STRUCTURE_NOTES_TEMPLATE = """# FlowGuard UI Flow Structure Notes
 
-This compact default scaffold covers the first useful UI model: three states,
-three visible controls, two transitions, one journey, one implementation run,
-one visible-surface check, one evidence kind, and one text hierarchy check.
+This compact default scaffold covers the first useful UI model: real visible
+surface inventory, three states, three visible controls, enabled-control
+functional chains, MATLAB callback semantics when relevant, two transitions,
+one journey, one implementation run, one visible-surface check, one evidence
+kind, one UI done-claim review, and one text hierarchy check.
 
 The text hierarchy contract is semantic. Use stable roles such as
 `"surface-title"`, `"region-heading"`, `"standard-text"`, and

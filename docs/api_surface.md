@@ -379,6 +379,9 @@ inventory.
   model ids, and unresolved field lifecycle gaps before downstream work starts.
 - optional UI Flow Structure helpers such as `UIInteractionModel`,
   `UIControl`, `UIDisplayElement`, `UIStateNode`, `UITransition`,
+  `UIObservedSurfaceItem`, `UIObservedSurfaceInventory`,
+  `UIControlFunctionalChain`, `UIControlFunctionalChainSet`,
+  `MATLABCallbackSemantics`, `MATLABBaselineCallbackGate`,
   `UIJourneyCoverage`, `UIJourneyEntryPoint`, `UIFeatureJourney`,
   `UITerminalActionAllowance`, `UIBlindspot`,
   `UIJourneyCoverageReport`, `UIFeatureContract`,
@@ -393,14 +396,18 @@ inventory.
   `UIResponsivenessContractReport`,
   `UIStructureDerivation`, `UIRegionRecommendation`,
   `UITextHierarchyBlueprint`, `UITextElement`, `UITypographyToken`,
+  `review_ui_observed_surface_inventory()`,
+  `review_ui_control_functional_chains()`,
+  `review_matlab_baseline_callback_gate()`,
   `review_ui_interaction_model()`, `review_ui_journey_coverage()`,
   `review_ui_implementation_validation()`,
   `review_ui_visible_surface()`, `review_ui_render_evidence()`,
   `review_ui_geometry_layout_evidence()`,
   `review_ui_responsiveness_contract()`,
   `review_ui_structure_derivation()`, and `review_ui_text_hierarchy()` for
-  modeling UI interactions first, proving launch-to-terminal journey coverage
-  and reachable visible-control/event coverage when complete app UI is claimed,
+  inventorying the real visible UI first, modeling UI interactions, proving
+  enabled-control functional chains, preserving MATLAB callback semantics,
+  proving launch-to-terminal journey coverage and reachable visible-control/event coverage when complete app UI is claimed,
   reviewing visible controls/helper/status/placeholder/metadata surface,
   validating implemented/runnable UI claims against feature contracts and real
   screenshot/browser/manual/DOM/geometry/accessibility/runtime/test evidence,
@@ -436,7 +443,8 @@ Reporting helpers help an AI agent explain what was checked and what was not:
   confidence ledger that connects user risks to FlowGuard model obligations,
   optional public code contracts, obligation-family gates, analogous defect
   scans, recurring defect-family gates, model/test split gates, UI
-  implementation gates, artifact-payload gates, model-angle deliberation
+  implementation, real-surface, functional-chain, MATLAB callback, and
+  done-claim gates, artifact-payload gates, model-angle deliberation
   evidence, remembered maintenance obligations, and current proof evidence
 - `MaintenanceObligation`, `MaintenanceObligationReport`, and
   `build_maintenance_obligation_report()` for preserving unresolved

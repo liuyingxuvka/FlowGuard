@@ -6,16 +6,23 @@ from flowguard import (
     PROCESS_ARTIFACT_FIELD_LIFECYCLE,
     PROCESS_ARTIFACT_FIELD_PROJECTION,
     PROCESS_ARTIFACT_MODEL,
+    PROCESS_ARTIFACT_MATLAB_CALLBACK_GATE,
     PROCESS_ARTIFACT_REPLACEMENT_DISPOSITION,
     PROCESS_ARTIFACT_REQUIREMENT,
     PROCESS_ARTIFACT_TEST,
+    PROCESS_ARTIFACT_UI_DONE_CLAIM,
+    PROCESS_ARTIFACT_UI_FUNCTIONAL_CHAIN,
+    PROCESS_ARTIFACT_UI_OBSERVED_INVENTORY,
     PROCESS_EVIDENCE_BUG_REPAIR_CLOSURE,
     PROCESS_EVIDENCE_FIELD_LIFECYCLE,
     PROCESS_EVIDENCE_FIELD_PROJECTION,
     PROCESS_EVIDENCE_FAILED,
+    PROCESS_EVIDENCE_MATLAB_CALLBACK_GATE,
     PROCESS_EVIDENCE_MODEL_MISS_REVIEW,
     PROCESS_EVIDENCE_NOT_RUN,
     PROCESS_EVIDENCE_PASSED,
+    PROCESS_EVIDENCE_RUNNING,
+    PROCESS_EVIDENCE_UI_IMPLEMENTATION_VALIDATION,
     PROCESS_SCOPE_RELEASE,
     PROCESS_SCOPE_ROUTINE,
     DevelopmentProcessPlan,
@@ -145,6 +152,62 @@ class DevelopmentProcessFlowTests(unittest.TestCase):
         self.assertEqual("development_process_flow", recommendations[0].producer_route)
         self.assertIn("stale_evidence_after_artifact_change", recommendations[0].freshness_gap_codes)
         self.assertIn(PROCESS_SCOPE_RELEASE, recommendations[0].blocks_claim_scopes)
+
+    def test_ui_lifecycle_evidence_cannot_be_running_for_done_claim(self):
+        plan = DevelopmentProcessPlan(
+            "ui-lifecycle",
+            artifacts=(
+                ProcessArtifact("ui.inventory", PROCESS_ARTIFACT_UI_OBSERVED_INVENTORY, "1"),
+                ProcessArtifact("ui.chain", PROCESS_ARTIFACT_UI_FUNCTIONAL_CHAIN, "1"),
+                ProcessArtifact("ui.matlab", PROCESS_ARTIFACT_MATLAB_CALLBACK_GATE, "1"),
+                ProcessArtifact("ui.done", PROCESS_ARTIFACT_UI_DONE_CLAIM, "1"),
+            ),
+            actions=(
+                ProcessAction("validate-ui", produced_evidence_ids=("ui-click-running",)),
+                ProcessAction(
+                    "claim-done",
+                    action_type="claim_done",
+                    required_validation_ids=("ui-implementation-current",),
+                ),
+            ),
+            evidence=(
+                ProcessEvidence(
+                    "ui-click-running",
+                    evidence_kind=PROCESS_EVIDENCE_UI_IMPLEMENTATION_VALIDATION,
+                    status=PROCESS_EVIDENCE_RUNNING,
+                    covers_artifacts=("ui.done",),
+                    covered_versions={"ui.done": "1"},
+                    validation_requirement_ids=("ui-implementation-current",),
+                    produced_by_action_id="validate-ui",
+                    background=True,
+                    has_exit_artifact=False,
+                    has_result_artifact=False,
+                ),
+                ProcessEvidence(
+                    "ui-callback-pass",
+                    evidence_kind=PROCESS_EVIDENCE_MATLAB_CALLBACK_GATE,
+                    status=PROCESS_EVIDENCE_PASSED,
+                    covers_artifacts=("ui.matlab",),
+                    covered_versions={"ui.matlab": "1"},
+                ),
+            ),
+            validation_requirements=(
+                ValidationRequirement(
+                    "ui-implementation-current",
+                    required_artifact_ids=("ui.done",),
+                    required_evidence_kinds=(PROCESS_EVIDENCE_UI_IMPLEMENTATION_VALIDATION,),
+                    evidence_ids=("ui-click-running",),
+                ),
+            ),
+        )
+
+        report = review_development_process_flow(plan)
+        codes = {finding.code for finding in report.findings}
+
+        self.assertFalse(report.ok)
+        self.assertIn("validation_evidence_not_current", codes)
+        self.assertIn("progress_only_validation_claimed_complete", codes)
+        self.assertIn("missing_required_revalidation", codes)
 
     def test_test_verifier_change_after_test_pass_is_stale(self):
         plan = DevelopmentProcessPlan(

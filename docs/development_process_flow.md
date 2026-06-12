@@ -101,6 +101,8 @@ while the current artifact is `code.checkout@4`.
 - verifier changes after validation, such as tests or model files changing;
 - UI action-map, visible-control, click-through, pure-UI classification, or
   manual/native-dialog boundary changes after implementation evidence;
+- UI observed inventory, enabled-control functional chain, MATLAB callback
+  gate, or UI done-claim review changes after evidence was produced;
 - payload schema, fixture, real import/export/save/load/generate behavior,
   generated artifact, or AI work-package format changes after synthetic payload
   evidence;
@@ -116,6 +118,10 @@ while the current artifact is `code.checkout@4`.
 - ambiguous freshness policy for declared upstream/downstream artifacts;
 - progress-only background evidence, hidden skipped validation, failed
   evidence, and not-run evidence;
+- UI task checkboxes without current evidence type, such as model coverage,
+  static test, runtime click, browser DOM/geometry, desktop/manual
+  observation, native-dialog blindspot, observed inventory, functional chain,
+  implementation validation, or done-claim review;
 - final done, archive, publish, or release claims that have no current Risk
   Evidence Ledger decision;
 - FlowGuard framework upgrade claims that have no current model-impact
@@ -166,6 +172,10 @@ surface, file format, generated artifact, or AI work-package schema changes
 after evidence was captured, rerun UI Flow Structure implementation evidence,
 Model-Test Alignment payload validation, or TestMesh payload child evidence
 before a done or release claim consumes the old evidence.
+OpenSpec artifact completion is not release completion for UI work. A checked
+task must name a current evidence type, and a broad done/release claim must
+consume observed-inventory, functional-chain, MATLAB callback semantics when
+applicable, `UIImplementationValidation`, and UI done-claim review evidence.
 
 For final completion claims, DevelopmentProcessFlow should reference the Risk
 Evidence Ledger decision as one evidence boundary. If the ledger reports

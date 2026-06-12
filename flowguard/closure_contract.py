@@ -34,6 +34,7 @@ CLOSURE_REPORT_FIELD_LIFECYCLE = "field_lifecycle_mesh"
 CLOSURE_REPORT_RUNTIME_PATH_ALIGNMENT = "runtime_path_alignment"
 CLOSURE_REPORT_DEFECT_FAMILY = "defect_family_gate"
 CLOSURE_REPORT_CONFORMANCE_REPLAY = "conformance_replay"
+CLOSURE_REPORT_UI_DONE_CLAIM = "ui_done_claim_review"
 
 CLOSURE_REPORT_KINDS = (
     CLOSURE_REPORT_RUNTIME_GATEWAY,
@@ -46,6 +47,7 @@ CLOSURE_REPORT_KINDS = (
     CLOSURE_REPORT_RUNTIME_PATH_ALIGNMENT,
     CLOSURE_REPORT_DEFECT_FAMILY,
     CLOSURE_REPORT_CONFORMANCE_REPLAY,
+    CLOSURE_REPORT_UI_DONE_CLAIM,
 )
 
 CLOSURE_RESULT_PASSED = "passed"
@@ -394,6 +396,7 @@ class FlowGuardClosureContractPlan:
     require_model_angle_review: bool = False
     require_runtime_path_alignment: bool = False
     require_risk_ledger: bool = True
+    require_ui_done_claim_review: bool = False
     allow_scoped_confidence: bool = True
     metadata: FrozenMetadata = field(default_factory=tuple, compare=False)
 
@@ -420,6 +423,7 @@ class FlowGuardClosureContractPlan:
         object.__setattr__(self, "require_model_angle_review", bool(self.require_model_angle_review))
         object.__setattr__(self, "require_runtime_path_alignment", bool(self.require_runtime_path_alignment))
         object.__setattr__(self, "require_risk_ledger", bool(self.require_risk_ledger))
+        object.__setattr__(self, "require_ui_done_claim_review", bool(self.require_ui_done_claim_review))
         object.__setattr__(self, "allow_scoped_confidence", bool(self.allow_scoped_confidence))
         object.__setattr__(self, "metadata", _metadata(self.metadata))
 
@@ -444,6 +448,7 @@ class FlowGuardClosureContractPlan:
             "require_model_angle_review": self.require_model_angle_review,
             "require_runtime_path_alignment": self.require_runtime_path_alignment,
             "require_risk_ledger": self.require_risk_ledger,
+            "require_ui_done_claim_review": self.require_ui_done_claim_review,
             "allow_scoped_confidence": self.allow_scoped_confidence,
             "metadata": to_jsonable(self.metadata),
         }
@@ -661,6 +666,27 @@ def review_flowguard_closure_contract(
                     "Risk Evidence Ledger does not support full confidence",
                     risk_reports[0].report_id,
                     {"risk_reports": [report.to_dict() for report in risk_reports]},
+                    severity=severity,
+                )
+            )
+
+    if plan.require_ui_done_claim_review:
+        ui_done_reports = reports_by_kind.get(CLOSURE_REPORT_UI_DONE_CLAIM, [])
+        if not ui_done_reports:
+            findings.append(
+                _finding(
+                    "missing_ui_done_claim_review",
+                    "no UI Done Claim review report was supplied",
+                )
+            )
+        elif not any(report.supports_full_confidence() for report in ui_done_reports):
+            severity = "warning" if plan.allow_scoped_confidence else "blocker"
+            findings.append(
+                _finding(
+                    "ui_done_claim_review_not_full_confidence",
+                    "UI Done Claim review does not support full confidence",
+                    ui_done_reports[0].report_id,
+                    {"ui_done_claim_reports": [report.to_dict() for report in ui_done_reports]},
                     severity=severity,
                 )
             )
@@ -946,6 +972,7 @@ __all__ = [
     "CLOSURE_REPORT_RUNTIME_PATH_ALIGNMENT",
     "CLOSURE_REPORT_RISK_LEDGER",
     "CLOSURE_REPORT_RUNTIME_GATEWAY",
+    "CLOSURE_REPORT_UI_DONE_CLAIM",
     "CLOSURE_RESULT_ERROR",
     "CLOSURE_RESULT_FAILED",
     "CLOSURE_RESULT_NOT_RUN",

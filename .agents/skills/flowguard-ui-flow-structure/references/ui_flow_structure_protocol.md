@@ -41,6 +41,9 @@ Use UI Flow Structure when:
   export, and exit.
 - the agent wants to claim the implemented/runnable UI has been opened and
   verified through browser, desktop, or manual click-through evidence.
+- the UI already exists or can run, and the agent needs to account the real
+  visible buttons, inputs, dropdowns, tables, displayed fields, status text,
+  dialogs, and regions before claiming the model covers it.
 
 Skip with a reason when the request is a tiny visual-only edit with no
 behavior, state, navigation, or control-availability impact.
@@ -54,6 +57,9 @@ Collect the lightest fit-for-risk UI evidence:
 - initial UI state;
 - controls, buttons, inputs, menus, panels, dialogs, drawers, inspectors, and
   overlays;
+- an observed real-surface inventory from the running page/window when
+  available, including each visible item id, kind, label/text, enabled state,
+  region, and evidence reference;
 - user events and system events;
 - visible output for each event;
 - information displays, charts, summary cards, labels, status text, tables, and
@@ -84,6 +90,28 @@ Collect the lightest fit-for-risk UI evidence:
   cover the modeled UI transitions;
 - downstream validation boundaries such as scenario review, browser checks,
   implementation tests, Figma review, or design implementation review.
+
+## Stage 0: Observed Real-Surface Inventory
+
+For existing, migrated, or runnable UI, the observed real surface is the first
+hard gate. Before declaring UI modeling complete, automatically list the actual
+visible UI items: buttons, inputs, dropdowns, tables, displayed fields, status
+text, helper copy, dialogs, menus, toolbars, panels, and visible regions.
+
+Use `UIObservedSurfaceInventory`, `UIObservedSurfaceItem`, and
+`review_ui_observed_surface_inventory(...)` when the package API is available.
+
+The inventory must map every observed visible item to a modeled `UIControl`,
+`UIDisplayElement`, or `UIVisibleSurfaceItem`, or record a blindspot with an
+owner, reason, and validation boundary. Enabled actionable items without a
+model mapping block UI model completion.
+
+Known-bad hazards:
+
+- the model lists intended controls but never counts the real page/window;
+- a visible button, picker, input, table, field, or status text is not mapped;
+- an enabled visible control is treated as covered because its label matches;
+- a blindspot has no owner, reason, or follow-up validation boundary.
 
 ## Stage 1: UI Interaction Model
 
@@ -327,6 +355,10 @@ Use `UIFeatureContract`, `UIImplementationValidation`,
 `review_ui_implementation_validation(...)` when the package API is available.
 Use `UIRenderEvidenceSet`, `UIRenderEvidence`, and
 `review_ui_render_evidence(...)` when the route needs evidence-kind review.
+Use `UIControlFunctionalChainSet`,
+`review_ui_control_functional_chains(...)`, `MATLABBaselineCallbackGate`, and
+`review_matlab_baseline_callback_gate(...)` when enabled controls or MATLAB
+migration semantics are in scope.
 
 The validation should include:
 
@@ -340,6 +372,14 @@ The validation should include:
   buttons, menus, tabs, icon buttons, toggles, inputs, file pickers, dialogs,
   context menus, and destructive/recovery controls must have run evidence,
   pure-UI classification, or an implementation blindspot;
+- every enabled control that is not pure UI must have this functional chain:
+  visible control -> UI event -> code owner -> backend/local function -> UI
+  state update -> click/test evidence;
+- API existence, route existence, and label matching are insufficient unless
+  the click evidence shows the functional chain updates the UI state;
+- MATLAB migrations must preserve callback semantics for `uigetfile`,
+  `uigetdir`, `winopen`, and buttons with no callback, including select,
+  cancel, chosen path, load result, open/shell effect, and error path branches;
 - browser, desktop automation, or manual journey runs with step-level event,
   control, source-state, target-state, result, evidence reference, and observed
   state data;
@@ -361,6 +401,9 @@ Known-bad hazards:
 - a reachable enabled button, menu item, icon button, input, tab, toggle,
   picker, or dialog action is never clicked and is not scoped as pure UI or a
   blindspot;
+- an enabled control has only an API or label proof and no functional chain;
+- MATLAB picker/open/no-callback behavior models success but omits cancel,
+  error, selected-path, or no-op disposition;
 - a reachable actionable control or modeled event has no feature owner, pure UI
   classification, run evidence, or blindspot;
 - a modeled feature journey has no passed browser, desktop, or manual run;

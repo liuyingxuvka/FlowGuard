@@ -52,6 +52,102 @@ class PlanDetailingTests(unittest.TestCase):
                 found = {finding.code for finding in flowguard.review_plan_detail(plan).findings}
                 self.assertTrue(codes.issubset(found), found)
 
+    def ui_plan(self, *, evidence_kind="ui_runtime_click", evidence_status="passed"):
+        return flowguard.PlanDetail(
+            "plan:ui",
+            task_summary="UI button implementation",
+            goal="claim the UI button is implemented",
+            sources=(flowguard.PlanDetailSource("source:real-page", source_kind="browser_observation"),),
+            surfaces=(
+                flowguard.PlanDetailSurface(
+                    "surface:ui-button",
+                    surface_kind="ui_control",
+                    source_ids=("source:real-page",),
+                ),
+            ),
+            artifacts=(flowguard.ProcessArtifact("artifact:ui-code", path="app/ui.py"),),
+            state_surfaces=(
+                flowguard.PlanDetailStateSurface(
+                    "state:ui-result",
+                    owner="ui",
+                    read_by_step_ids=("step:validate-ui",),
+                    written_by_step_ids=("step:validate-ui",),
+                ),
+            ),
+            steps=(
+                flowguard.PlanDetailStep(
+                    "step:implement-ui",
+                    action="wire UI button",
+                    writes_artifacts=("artifact:ui-code",),
+                    produces_receipts=("receipt:ui-implemented",),
+                ),
+                flowguard.PlanDetailStep(
+                    "step:validate-ui",
+                    action="click UI button and observe state",
+                    skill_name="flowguard-ui-flow-structure",
+                    step_type="validation",
+                    order_after=("step:implement-ui",),
+                    reads_artifacts=("artifact:ui-code",),
+                    required_evidence_ids=("evidence:ui-click",),
+                    produced_evidence_ids=("evidence:ui-click",),
+                    continue_evidence_ids=("evidence:ui-click",),
+                    validation_required=True,
+                    rework_step_id="step:implement-ui",
+                    produces_receipts=("receipt:ui-validated",),
+                    claim_labels=("done_claimed",),
+                ),
+            ),
+            validations=(
+                flowguard.PlanDetailValidation(
+                    "validation:ui-click",
+                    required_artifact_ids=("artifact:ui-code",),
+                    required_evidence_kinds=("ui_runtime_click",),
+                    evidence_ids=("evidence:ui-click",),
+                    command="click button and observe result",
+                ),
+            ),
+            evidence=(
+                flowguard.PlanDetailEvidence(
+                    "evidence:ui-click",
+                    evidence_kind=evidence_kind,
+                    status=evidence_status,
+                    produced_by_step_id="step:validate-ui",
+                    covers_artifacts=("artifact:ui-code",),
+                    validation_ids=("validation:ui-click",),
+                    result_path="tmp/ui-click.json",
+                ),
+            ),
+            failure_branches=(
+                flowguard.PlanDetailFailureBranch(
+                    "branch:ui-click-fails",
+                    trigger="button click does not update visible state",
+                    step_id="step:validate-ui",
+                    rework_step_id="step:implement-ui",
+                ),
+            ),
+            final_claim=flowguard.PLAN_DETAIL_CLAIM_FULL,
+            final_evidence_ids=("evidence:ui-click",),
+        )
+
+    def test_ui_task_checkbox_needs_current_ui_evidence_type(self):
+        report = flowguard.review_plan_detail(self.ui_plan())
+
+        self.assertEqual(flowguard.PLAN_DETAIL_STATUS_PASS, report.status, report.format_text())
+
+    def test_ui_task_rejects_generic_or_planned_evidence(self):
+        generic = flowguard.review_plan_detail(self.ui_plan(evidence_kind="test"))
+        generic_codes = {finding.code for finding in generic.findings}
+        self.assertEqual(flowguard.PLAN_DETAIL_STATUS_BLOCKED, generic.status, generic.format_text())
+        self.assertIn("ui_task_missing_evidence_type", generic_codes)
+        self.assertIn("ui_validation_evidence_type_mismatch", generic_codes)
+
+        planned = flowguard.review_plan_detail(self.ui_plan(evidence_status="planned"))
+        planned_codes = {finding.code for finding in planned.findings}
+        self.assertEqual(flowguard.PLAN_DETAIL_STATUS_BLOCKED, planned.status, planned.format_text())
+        self.assertIn("ui_task_evidence_not_current", planned_codes)
+        self.assertIn("ui_validation_evidence_not_current", planned_codes)
+        self.assertIn("ui_evidence_status_not_passing", planned_codes)
+
     def test_projection_helpers_feed_existing_routes(self):
         intake = flowguard.plan_detail_to_plan_intake(GOOD_PLAN)
         contracts = flowguard.plan_detail_to_step_contracts(GOOD_PLAN)

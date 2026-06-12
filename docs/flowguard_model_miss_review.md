@@ -15,6 +15,13 @@ issue after a FlowGuard pass.
   invariant weak, a replay skipped, or the issue outside the modeled scope?
 - Was a behavior-bearing field omitted, under-modeled, wrongly scoped out, or
   left without reader/writer/owner visibility?
+- Was the failure found by a user opening or clicking the UI after a green
+  claim? If yes, record it as a UI model miss rather than a local button fix.
+- Which prior UI model or evidence row went green, and was it green only
+  because a label matched, an API route existed, or a planned click was
+  overclaimed?
+- Which affected controls/fields and same-class controls/fields now need
+  same-class click or implementation evidence?
 - How is the issue now represented: scenario, invariant, replay adapter,
   representative trace, or explicit out-of-scope boundary?
 - What same-class generalized bad case prevents a point-fix-only repair, and is
@@ -53,6 +60,10 @@ root-cause backpropagation when there was a prior claim, owner code contract
 binding, same-class test evidence, legacy path disposition for reachable old
 paths, and recurring families need a defect-family gate or an explicit
 scoped-confidence boundary.
+For UI misses, full closure also needs `review_ui_model_misses(...)` evidence:
+previous claim, previous green reason, observed failure, affected
+controls/fields, same-class controls/fields, same-class tests or click
+evidence, root-cause backpropagation, and code owner.
 When the root cause is a field, full closure also needs same-class field cases,
 field lifecycle projection into Model-Test Alignment, and old-field
 disposition for any legacy field left in or near the repaired path.

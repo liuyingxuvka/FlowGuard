@@ -1040,6 +1040,388 @@ class UIVisibleSurface:
         }
 
 
+OBSERVED_UI_ITEM_KINDS = (
+    "button",
+    "icon_button",
+    "input",
+    "select",
+    "dropdown",
+    "checkbox",
+    "toggle",
+    "tab",
+    "table",
+    "display_field",
+    "status_text",
+    "native_dialog_trigger",
+    "command",
+    "menu_item",
+    "link",
+    "text",
+)
+
+OBSERVED_UI_ACTIONABLE_KINDS = (
+    "button",
+    "icon_button",
+    "input",
+    "select",
+    "dropdown",
+    "checkbox",
+    "toggle",
+    "tab",
+    "native_dialog_trigger",
+    "command",
+    "menu_item",
+    "link",
+)
+
+FUNCTIONAL_CHAIN_EVIDENCE_KINDS = (
+    "browser_click",
+    "desktop_click",
+    "runtime_trace",
+    "log",
+    "test_result",
+    "manual_observation",
+)
+
+MATLAB_CALLBACK_KINDS = (
+    "uigetfile",
+    "uigetdir",
+    "winopen",
+    "no_callback",
+    "ordinary_callback",
+)
+
+MATLAB_CALLBACK_REQUIRED_BRANCHES = {
+    "uigetfile": ("choose", "cancel", "path_selected", "load_result", "error_path"),
+    "uigetdir": ("choose", "cancel", "path_selected", "load_result", "error_path"),
+    "winopen": ("trigger", "opened", "error_path"),
+    "no_callback": ("visible_disposition",),
+    "ordinary_callback": ("trigger", "success", "error_path"),
+}
+
+MATLAB_NO_CALLBACK_DISPOSITIONS = ("disabled", "non_functional", "replacement_chain", "out_of_scope")
+
+
+@dataclass(frozen=True)
+class UIObservedSurfaceItem:
+    """One item observed on the real rendered UI before model completion is claimed."""
+
+    item_id: str
+    item_kind: str
+    label: str = ""
+    state_id: str = ""
+    region_id: str = ""
+    selector: str = ""
+    visible: bool = True
+    enabled: bool = False
+    mapped_control_id: str = ""
+    mapped_display_id: str = ""
+    mapped_visible_item_id: str = ""
+    blindspot_id: str = ""
+    evidence_ref: str = ""
+    evidence_kind: str = "manual_observation"
+    observed_value: str = ""
+    options: tuple[str, ...] = ()
+    table_columns: tuple[str, ...] = ()
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "item_id", str(self.item_id))
+        object.__setattr__(self, "item_kind", str(self.item_kind))
+        object.__setattr__(self, "label", str(self.label))
+        object.__setattr__(self, "state_id", str(self.state_id))
+        object.__setattr__(self, "region_id", str(self.region_id))
+        object.__setattr__(self, "selector", str(self.selector))
+        object.__setattr__(self, "visible", bool(self.visible))
+        object.__setattr__(self, "enabled", bool(self.enabled))
+        object.__setattr__(self, "mapped_control_id", str(self.mapped_control_id))
+        object.__setattr__(self, "mapped_display_id", str(self.mapped_display_id))
+        object.__setattr__(self, "mapped_visible_item_id", str(self.mapped_visible_item_id))
+        object.__setattr__(self, "blindspot_id", str(self.blindspot_id))
+        object.__setattr__(self, "evidence_ref", str(self.evidence_ref))
+        object.__setattr__(self, "evidence_kind", str(self.evidence_kind))
+        object.__setattr__(self, "observed_value", str(self.observed_value))
+        object.__setattr__(self, "options", _as_tuple(self.options))
+        object.__setattr__(self, "table_columns", _as_tuple(self.table_columns))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def owner_ids(self) -> tuple[str, ...]:
+        return tuple(
+            owner
+            for owner in (
+                self.mapped_control_id,
+                self.mapped_display_id,
+                self.mapped_visible_item_id,
+                self.blindspot_id,
+            )
+            if owner
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "item_id": self.item_id,
+            "item_kind": self.item_kind,
+            "label": self.label,
+            "state_id": self.state_id,
+            "region_id": self.region_id,
+            "selector": self.selector,
+            "visible": self.visible,
+            "enabled": self.enabled,
+            "mapped_control_id": self.mapped_control_id,
+            "mapped_display_id": self.mapped_display_id,
+            "mapped_visible_item_id": self.mapped_visible_item_id,
+            "blindspot_id": self.blindspot_id,
+            "evidence_ref": self.evidence_ref,
+            "evidence_kind": self.evidence_kind,
+            "observed_value": self.observed_value,
+            "options": list(self.options),
+            "table_columns": list(self.table_columns),
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class UIObservedSurfaceInventory:
+    """Observed real UI inventory for an existing, migrated, or runnable UI target."""
+
+    inventory_id: str
+    observation_target: str
+    current_revision: str
+    observation_method: str = ""
+    source_interaction_model_id: str = ""
+    source_visible_surface_id: str = ""
+    evidence_ref: str = ""
+    items: tuple[UIObservedSurfaceItem, ...] = ()
+    scoped_blindspots: tuple[UIBlindspot, ...] = ()
+    validation_boundaries: tuple[str, ...] = ()
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "inventory_id", str(self.inventory_id))
+        object.__setattr__(self, "observation_target", str(self.observation_target))
+        object.__setattr__(self, "current_revision", str(self.current_revision))
+        object.__setattr__(self, "observation_method", str(self.observation_method))
+        object.__setattr__(self, "source_interaction_model_id", str(self.source_interaction_model_id))
+        object.__setattr__(self, "source_visible_surface_id", str(self.source_visible_surface_id))
+        object.__setattr__(self, "evidence_ref", str(self.evidence_ref))
+        object.__setattr__(self, "items", tuple(self.items))
+        object.__setattr__(self, "scoped_blindspots", tuple(self.scoped_blindspots))
+        object.__setattr__(self, "validation_boundaries", _as_tuple(self.validation_boundaries))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def item_ids(self) -> tuple[str, ...]:
+        return tuple(item.item_id for item in self.items)
+
+    def blindspot_ids(self) -> tuple[str, ...]:
+        return tuple(blindspot.blindspot_id for blindspot in self.scoped_blindspots)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "inventory_id": self.inventory_id,
+            "observation_target": self.observation_target,
+            "current_revision": self.current_revision,
+            "observation_method": self.observation_method,
+            "source_interaction_model_id": self.source_interaction_model_id,
+            "source_visible_surface_id": self.source_visible_surface_id,
+            "evidence_ref": self.evidence_ref,
+            "items": [item.to_dict() for item in self.items],
+            "scoped_blindspots": [blindspot.to_dict() for blindspot in self.scoped_blindspots],
+            "validation_boundaries": list(self.validation_boundaries),
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class UIControlFunctionalChain:
+    """Click-to-effect proof for one enabled actionable UI control."""
+
+    chain_id: str
+    control_id: str
+    event_id: str
+    code_owner: str
+    function_ref: str
+    function_kind: str = "local"
+    observed_state_id: str = ""
+    observed_display_id: str = ""
+    observed_output: str = ""
+    evidence_ref: str = ""
+    evidence_kind: str = "browser_click"
+    result: str = "passed"
+    current_revision: str = ""
+    native_boundary: str = ""
+    manual_boundary: str = ""
+    blindspot_id: str = ""
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "chain_id", str(self.chain_id))
+        object.__setattr__(self, "control_id", str(self.control_id))
+        object.__setattr__(self, "event_id", str(self.event_id))
+        object.__setattr__(self, "code_owner", str(self.code_owner))
+        object.__setattr__(self, "function_ref", str(self.function_ref))
+        object.__setattr__(self, "function_kind", str(self.function_kind))
+        object.__setattr__(self, "observed_state_id", str(self.observed_state_id))
+        object.__setattr__(self, "observed_display_id", str(self.observed_display_id))
+        object.__setattr__(self, "observed_output", str(self.observed_output))
+        object.__setattr__(self, "evidence_ref", str(self.evidence_ref))
+        object.__setattr__(self, "evidence_kind", str(self.evidence_kind))
+        object.__setattr__(self, "result", str(self.result))
+        object.__setattr__(self, "current_revision", str(self.current_revision))
+        object.__setattr__(self, "native_boundary", str(self.native_boundary))
+        object.__setattr__(self, "manual_boundary", str(self.manual_boundary))
+        object.__setattr__(self, "blindspot_id", str(self.blindspot_id))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def has_observed_ui_effect(self) -> bool:
+        return bool(self.observed_state_id or self.observed_display_id or self.observed_output)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "chain_id": self.chain_id,
+            "control_id": self.control_id,
+            "event_id": self.event_id,
+            "code_owner": self.code_owner,
+            "function_ref": self.function_ref,
+            "function_kind": self.function_kind,
+            "observed_state_id": self.observed_state_id,
+            "observed_display_id": self.observed_display_id,
+            "observed_output": self.observed_output,
+            "evidence_ref": self.evidence_ref,
+            "evidence_kind": self.evidence_kind,
+            "result": self.result,
+            "current_revision": self.current_revision,
+            "native_boundary": self.native_boundary,
+            "manual_boundary": self.manual_boundary,
+            "blindspot_id": self.blindspot_id,
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class UIControlFunctionalChainSet:
+    """Functional-chain evidence for enabled controls in an observed UI inventory."""
+
+    chain_set_id: str
+    source_inventory_id: str = ""
+    source_interaction_model_id: str = ""
+    source_implementation_validation_id: str = ""
+    current_revision: str = ""
+    chains: tuple[UIControlFunctionalChain, ...] = ()
+    validation_boundaries: tuple[str, ...] = ()
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "chain_set_id", str(self.chain_set_id))
+        object.__setattr__(self, "source_inventory_id", str(self.source_inventory_id))
+        object.__setattr__(self, "source_interaction_model_id", str(self.source_interaction_model_id))
+        object.__setattr__(self, "source_implementation_validation_id", str(self.source_implementation_validation_id))
+        object.__setattr__(self, "current_revision", str(self.current_revision))
+        object.__setattr__(self, "chains", tuple(self.chains))
+        object.__setattr__(self, "validation_boundaries", _as_tuple(self.validation_boundaries))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def chain_ids(self) -> tuple[str, ...]:
+        return tuple(chain.chain_id for chain in self.chains)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "chain_set_id": self.chain_set_id,
+            "source_inventory_id": self.source_inventory_id,
+            "source_interaction_model_id": self.source_interaction_model_id,
+            "source_implementation_validation_id": self.source_implementation_validation_id,
+            "current_revision": self.current_revision,
+            "chains": [chain.to_dict() for chain in self.chains],
+            "validation_boundaries": list(self.validation_boundaries),
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class MATLABCallbackSemantics:
+    """Baseline callback semantics for MATLAB-to-UI migration parity."""
+
+    semantic_id: str
+    control_id: str
+    callback_kind: str
+    baseline_callback: str = ""
+    required_branches: tuple[str, ...] = ()
+    covered_branches: tuple[str, ...] = ()
+    evidence_ref: str = ""
+    result: str = "passed"
+    native_boundary: str = ""
+    manual_boundary: str = ""
+    migration_disposition: str = ""
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "semantic_id", str(self.semantic_id))
+        object.__setattr__(self, "control_id", str(self.control_id))
+        object.__setattr__(self, "callback_kind", str(self.callback_kind))
+        object.__setattr__(self, "baseline_callback", str(self.baseline_callback))
+        object.__setattr__(self, "required_branches", _as_tuple(self.required_branches))
+        object.__setattr__(self, "covered_branches", _as_tuple(self.covered_branches))
+        object.__setattr__(self, "evidence_ref", str(self.evidence_ref))
+        object.__setattr__(self, "result", str(self.result))
+        object.__setattr__(self, "native_boundary", str(self.native_boundary))
+        object.__setattr__(self, "manual_boundary", str(self.manual_boundary))
+        object.__setattr__(self, "migration_disposition", str(self.migration_disposition))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def expected_branches(self) -> tuple[str, ...]:
+        if self.required_branches:
+            return self.required_branches
+        return MATLAB_CALLBACK_REQUIRED_BRANCHES.get(self.callback_kind, ())
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "semantic_id": self.semantic_id,
+            "control_id": self.control_id,
+            "callback_kind": self.callback_kind,
+            "baseline_callback": self.baseline_callback,
+            "required_branches": list(self.required_branches),
+            "covered_branches": list(self.covered_branches),
+            "evidence_ref": self.evidence_ref,
+            "result": self.result,
+            "native_boundary": self.native_boundary,
+            "manual_boundary": self.manual_boundary,
+            "migration_disposition": self.migration_disposition,
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class MATLABBaselineCallbackGate:
+    """MATLAB callback semantics gate for migration UI parity claims."""
+
+    gate_id: str
+    source_baseline_ref: str
+    target_ui_revision: str
+    callbacks: tuple[MATLABCallbackSemantics, ...] = ()
+    validation_boundaries: tuple[str, ...] = ()
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "gate_id", str(self.gate_id))
+        object.__setattr__(self, "source_baseline_ref", str(self.source_baseline_ref))
+        object.__setattr__(self, "target_ui_revision", str(self.target_ui_revision))
+        object.__setattr__(self, "callbacks", tuple(self.callbacks))
+        object.__setattr__(self, "validation_boundaries", _as_tuple(self.validation_boundaries))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def semantic_ids(self) -> tuple[str, ...]:
+        return tuple(callback.semantic_id for callback in self.callbacks)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "gate_id": self.gate_id,
+            "source_baseline_ref": self.source_baseline_ref,
+            "target_ui_revision": self.target_ui_revision,
+            "callbacks": [callback.to_dict() for callback in self.callbacks],
+            "validation_boundaries": list(self.validation_boundaries),
+            "rationale": self.rationale,
+        }
+
+
 SUPPORTED_UI_EVIDENCE_KINDS = (
     "screenshot",
     "browser_click",
@@ -1678,6 +2060,179 @@ class UIVisibleSurfaceReport:
 
 
 @dataclass(frozen=True)
+class UIObservedSurfaceInventoryReport:
+    """Structured review result for observed real UI inventory coverage."""
+
+    ok: bool
+    inventory_id: str
+    findings: tuple[UIFlowStructureFinding, ...] = ()
+    observed_item_ids: tuple[str, ...] = ()
+    mapped_item_ids: tuple[str, ...] = ()
+    summary: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "inventory_id", str(self.inventory_id))
+        object.__setattr__(self, "findings", tuple(self.findings))
+        object.__setattr__(self, "observed_item_ids", _as_tuple(self.observed_item_ids))
+        object.__setattr__(self, "mapped_item_ids", _as_tuple(self.mapped_item_ids))
+        if not self.summary:
+            status = "OK" if self.ok else "BLOCKED"
+            object.__setattr__(
+                self,
+                "summary",
+                f"{status}: ui_observed_surface_inventory={self.inventory_id} findings={len(self.findings)}",
+            )
+
+    def blocker_count(self) -> int:
+        return sum(1 for finding in self.findings if finding.severity == "blocker")
+
+    def format_text(self, max_findings: int = 10) -> str:
+        lines = [
+            "=== flowguard UI observed surface inventory review ===",
+            f"status: {'OK' if self.ok else 'BLOCKED'}",
+            f"inventory: {self.inventory_id}",
+            f"observed_items: {len(self.observed_item_ids)}",
+            f"mapped_items: {len(self.mapped_item_ids)}",
+            f"findings: {len(self.findings)}",
+        ]
+        for finding in self.findings[:max_findings]:
+            lines.extend(
+                [
+                    "",
+                    f"finding: {finding.code}",
+                    f"severity: {finding.severity}",
+                    f"item: {finding.item_id or '(none)'}",
+                    f"message: {finding.message}",
+                ]
+            )
+        return "\n".join(lines)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "ok": self.ok,
+            "inventory_id": self.inventory_id,
+            "observed_item_ids": list(self.observed_item_ids),
+            "mapped_item_ids": list(self.mapped_item_ids),
+            "findings": [finding.to_dict() for finding in self.findings],
+            "summary": self.summary,
+        }
+
+
+@dataclass(frozen=True)
+class UIControlFunctionalChainReport:
+    """Structured review result for enabled-control click-to-effect chains."""
+
+    ok: bool
+    chain_set_id: str
+    findings: tuple[UIFlowStructureFinding, ...] = ()
+    covered_control_ids: tuple[str, ...] = ()
+    covered_event_ids: tuple[str, ...] = ()
+    summary: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "chain_set_id", str(self.chain_set_id))
+        object.__setattr__(self, "findings", tuple(self.findings))
+        object.__setattr__(self, "covered_control_ids", _as_tuple(self.covered_control_ids))
+        object.__setattr__(self, "covered_event_ids", _as_tuple(self.covered_event_ids))
+        if not self.summary:
+            status = "OK" if self.ok else "BLOCKED"
+            object.__setattr__(
+                self,
+                "summary",
+                f"{status}: ui_control_functional_chains={self.chain_set_id} findings={len(self.findings)}",
+            )
+
+    def blocker_count(self) -> int:
+        return sum(1 for finding in self.findings if finding.severity == "blocker")
+
+    def format_text(self, max_findings: int = 10) -> str:
+        lines = [
+            "=== flowguard UI control functional chain review ===",
+            f"status: {'OK' if self.ok else 'BLOCKED'}",
+            f"chain_set: {self.chain_set_id}",
+            f"covered_controls: {len(self.covered_control_ids)}",
+            f"covered_events: {len(self.covered_event_ids)}",
+            f"findings: {len(self.findings)}",
+        ]
+        for finding in self.findings[:max_findings]:
+            lines.extend(
+                [
+                    "",
+                    f"finding: {finding.code}",
+                    f"severity: {finding.severity}",
+                    f"item: {finding.item_id or '(none)'}",
+                    f"message: {finding.message}",
+                ]
+            )
+        return "\n".join(lines)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "ok": self.ok,
+            "chain_set_id": self.chain_set_id,
+            "covered_control_ids": list(self.covered_control_ids),
+            "covered_event_ids": list(self.covered_event_ids),
+            "findings": [finding.to_dict() for finding in self.findings],
+            "summary": self.summary,
+        }
+
+
+@dataclass(frozen=True)
+class MATLABBaselineCallbackGateReport:
+    """Structured review result for MATLAB baseline callback semantics."""
+
+    ok: bool
+    gate_id: str
+    findings: tuple[UIFlowStructureFinding, ...] = ()
+    covered_callback_ids: tuple[str, ...] = ()
+    summary: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "gate_id", str(self.gate_id))
+        object.__setattr__(self, "findings", tuple(self.findings))
+        object.__setattr__(self, "covered_callback_ids", _as_tuple(self.covered_callback_ids))
+        if not self.summary:
+            status = "OK" if self.ok else "BLOCKED"
+            object.__setattr__(
+                self,
+                "summary",
+                f"{status}: matlab_baseline_callback_gate={self.gate_id} findings={len(self.findings)}",
+            )
+
+    def blocker_count(self) -> int:
+        return sum(1 for finding in self.findings if finding.severity == "blocker")
+
+    def format_text(self, max_findings: int = 10) -> str:
+        lines = [
+            "=== flowguard MATLAB baseline callback semantics review ===",
+            f"status: {'OK' if self.ok else 'BLOCKED'}",
+            f"gate: {self.gate_id}",
+            f"covered_callbacks: {len(self.covered_callback_ids)}",
+            f"findings: {len(self.findings)}",
+        ]
+        for finding in self.findings[:max_findings]:
+            lines.extend(
+                [
+                    "",
+                    f"finding: {finding.code}",
+                    f"severity: {finding.severity}",
+                    f"item: {finding.item_id or '(none)'}",
+                    f"message: {finding.message}",
+                ]
+            )
+        return "\n".join(lines)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "ok": self.ok,
+            "gate_id": self.gate_id,
+            "covered_callback_ids": list(self.covered_callback_ids),
+            "findings": [finding.to_dict() for finding in self.findings],
+            "summary": self.summary,
+        }
+
+
+@dataclass(frozen=True)
 class UIRenderEvidenceReport:
     """Structured review result for UI render evidence kinds."""
 
@@ -2176,6 +2731,619 @@ def review_ui_visible_surface(
 
     blockers = _blocker_findings(findings)
     return UIVisibleSurfaceReport(ok=not blockers, surface_id=surface.surface_id, findings=tuple(findings))
+
+
+def review_ui_observed_surface_inventory(
+    inventory: UIObservedSurfaceInventory,
+    *,
+    interaction_model: UIInteractionModel | None = None,
+    visible_surface: UIVisibleSurface | None = None,
+) -> UIObservedSurfaceInventoryReport:
+    """Review real rendered UI inventory before a UI model is called complete."""
+
+    findings: list[UIFlowStructureFinding] = []
+    known_controls = set(interaction_model.control_ids()) if interaction_model is not None else set()
+    known_displays = set(interaction_model.display_ids()) if interaction_model is not None else set()
+    known_states = set(interaction_model.state_ids()) if interaction_model is not None else set()
+    visible_item_ids = set(visible_surface.item_ids()) if visible_surface is not None else set()
+    blindspot_ids = set(inventory.blindspot_ids())
+
+    if not inventory.inventory_id:
+        findings.append(UIFlowStructureFinding("missing_observed_inventory_id", "observed UI inventory has no id"))
+    if not inventory.observation_target:
+        findings.append(UIFlowStructureFinding("missing_observation_target", "observed UI inventory has no target"))
+    if not inventory.current_revision:
+        findings.append(UIFlowStructureFinding("missing_observation_revision", "observed UI inventory has no current revision"))
+    if not inventory.observation_method:
+        findings.append(UIFlowStructureFinding("missing_observation_method", "observed UI inventory has no observation method"))
+    if not inventory.evidence_ref:
+        findings.append(UIFlowStructureFinding("missing_observation_evidence_ref", "observed UI inventory has no evidence reference"))
+    if not inventory.items:
+        findings.append(UIFlowStructureFinding("missing_observed_items", "observed UI inventory has no real visible items"))
+    if not inventory.validation_boundaries:
+        findings.append(UIFlowStructureFinding("missing_observed_inventory_validation", "observed UI inventory has no validation boundaries"))
+    if not inventory.rationale:
+        findings.append(UIFlowStructureFinding("missing_observed_inventory_rationale", "observed UI inventory has no rationale"))
+    if interaction_model is not None:
+        if not inventory.source_interaction_model_id:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_observed_inventory_source_model",
+                    "observed UI inventory has no source interaction model id",
+                )
+            )
+        elif inventory.source_interaction_model_id != interaction_model.model_id:
+            findings.append(
+                UIFlowStructureFinding(
+                    "observed_inventory_model_mismatch",
+                    "observed UI inventory does not reference the supplied interaction model",
+                    metadata={
+                        "inventory_source": inventory.source_interaction_model_id,
+                        "interaction_model": interaction_model.model_id,
+                    },
+                )
+            )
+    if visible_surface is not None:
+        if not inventory.source_visible_surface_id:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_observed_inventory_visible_surface",
+                    "observed UI inventory has no source visible surface id",
+                )
+            )
+        elif inventory.source_visible_surface_id != visible_surface.surface_id:
+            findings.append(
+                UIFlowStructureFinding(
+                    "observed_inventory_visible_surface_mismatch",
+                    "observed UI inventory does not reference the supplied visible surface",
+                    metadata={
+                        "inventory_source": inventory.source_visible_surface_id,
+                        "visible_surface": visible_surface.surface_id,
+                    },
+                )
+            )
+
+    findings.extend(_duplicate_values(inventory.item_ids(), code="duplicate_observed_item_id", noun="observed UI item"))
+    findings.extend(_duplicate_values(inventory.blindspot_ids(), code="duplicate_observed_blindspot_id", noun="observed UI blindspot"))
+
+    for blindspot in inventory.scoped_blindspots:
+        if not blindspot.blindspot_id:
+            findings.append(UIFlowStructureFinding("missing_observed_blindspot_id", "observed UI blindspot has no id"))
+        if not blindspot.reason:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_observed_blindspot_reason",
+                    f"observed UI blindspot {blindspot.blindspot_id} has no reason",
+                    item_id=blindspot.blindspot_id,
+                )
+            )
+        if not blindspot.owner:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_observed_blindspot_owner",
+                    f"observed UI blindspot {blindspot.blindspot_id} has no owner",
+                    item_id=blindspot.blindspot_id,
+                )
+            )
+        if not blindspot.validation_boundaries:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_observed_blindspot_validation",
+                    f"observed UI blindspot {blindspot.blindspot_id} has no validation boundary",
+                    item_id=blindspot.blindspot_id,
+                )
+            )
+        if not blindspot.rationale:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_observed_blindspot_rationale",
+                    f"observed UI blindspot {blindspot.blindspot_id} has no rationale",
+                    item_id=blindspot.blindspot_id,
+                )
+            )
+
+    observed_item_ids: list[str] = []
+    mapped_item_ids: list[str] = []
+    supported_kinds = set(SUPPORTED_UI_EVIDENCE_KINDS)
+    for item in inventory.items:
+        if item.visible:
+            observed_item_ids.append(item.item_id)
+        if item.owner_ids():
+            mapped_item_ids.append(item.item_id)
+        if not item.item_id:
+            findings.append(UIFlowStructureFinding("missing_observed_item_id", "observed UI item has no id"))
+        if not item.item_kind:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_observed_item_kind",
+                    f"observed UI item {item.item_id} has no kind",
+                    item_id=item.item_id,
+                )
+            )
+        elif item.item_kind not in OBSERVED_UI_ITEM_KINDS:
+            findings.append(
+                UIFlowStructureFinding(
+                    "unknown_observed_item_kind",
+                    f"observed UI item {item.item_id} uses unknown kind {item.item_kind}",
+                    item_id=item.item_id,
+                    metadata={"supported_kinds": list(OBSERVED_UI_ITEM_KINDS)},
+                )
+            )
+        if item.visible and not (item.label or item.observed_value or item.table_columns):
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_observed_item_label",
+                    f"observed UI item {item.item_id} has no visible label, value, or columns",
+                    item_id=item.item_id,
+                )
+            )
+        if item.state_id and interaction_model is not None and item.state_id not in known_states:
+            findings.append(
+                UIFlowStructureFinding(
+                    "observed_item_state_not_registered",
+                    f"observed UI item {item.item_id} references unknown state {item.state_id}",
+                    item_id=item.item_id,
+                )
+            )
+        if item.mapped_control_id and interaction_model is not None and item.mapped_control_id not in known_controls:
+            findings.append(
+                UIFlowStructureFinding(
+                    "observed_item_control_not_registered",
+                    f"observed UI item {item.item_id} maps to unknown control {item.mapped_control_id}",
+                    item_id=item.item_id,
+                )
+            )
+        if item.mapped_display_id and interaction_model is not None and item.mapped_display_id not in known_displays:
+            findings.append(
+                UIFlowStructureFinding(
+                    "observed_item_display_not_registered",
+                    f"observed UI item {item.item_id} maps to unknown display {item.mapped_display_id}",
+                    item_id=item.item_id,
+                )
+            )
+        if item.mapped_visible_item_id and visible_surface is not None and item.mapped_visible_item_id not in visible_item_ids:
+            findings.append(
+                UIFlowStructureFinding(
+                    "observed_item_visible_surface_not_registered",
+                    f"observed UI item {item.item_id} maps to unknown visible surface item {item.mapped_visible_item_id}",
+                    item_id=item.item_id,
+                )
+            )
+        if item.blindspot_id and item.blindspot_id not in blindspot_ids:
+            findings.append(
+                UIFlowStructureFinding(
+                    "observed_item_blindspot_not_registered",
+                    f"observed UI item {item.item_id} maps to unknown blindspot {item.blindspot_id}",
+                    item_id=item.item_id,
+                )
+            )
+        if item.visible and not item.owner_ids():
+            findings.append(
+                UIFlowStructureFinding(
+                    "observed_visible_item_unmapped",
+                    f"observed visible item {item.item_id} is not mapped to a UIControl, UIDisplayElement, UIVisibleSurfaceItem, or blindspot",
+                    item_id=item.item_id,
+                    metadata={"item_kind": item.item_kind},
+                )
+            )
+        if item.enabled and item.item_kind in OBSERVED_UI_ACTIONABLE_KINDS and not (item.mapped_control_id or item.blindspot_id):
+            findings.append(
+                UIFlowStructureFinding(
+                    "observed_enabled_control_without_model_owner",
+                    f"observed enabled control {item.item_id} has no mapped UIControl or scoped blindspot",
+                    item_id=item.item_id,
+                    metadata={"item_kind": item.item_kind},
+                )
+            )
+        if not item.evidence_ref:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_observed_item_evidence_ref",
+                    f"observed UI item {item.item_id} has no evidence reference",
+                    item_id=item.item_id,
+                )
+            )
+        if item.evidence_kind and item.evidence_kind not in supported_kinds:
+            findings.append(
+                UIFlowStructureFinding(
+                    "unknown_observed_item_evidence_kind",
+                    f"observed UI item {item.item_id} uses unknown evidence kind {item.evidence_kind}",
+                    item_id=item.item_id,
+                )
+            )
+        if not item.rationale:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_observed_item_rationale",
+                    f"observed UI item {item.item_id} has no rationale",
+                    item_id=item.item_id,
+                )
+            )
+
+    blockers = _blocker_findings(findings)
+    return UIObservedSurfaceInventoryReport(
+        ok=not blockers,
+        inventory_id=inventory.inventory_id,
+        findings=tuple(findings),
+        observed_item_ids=tuple(observed_item_ids),
+        mapped_item_ids=tuple(mapped_item_ids),
+    )
+
+
+def review_ui_control_functional_chains(
+    chain_set: UIControlFunctionalChainSet,
+    *,
+    observed_inventory: UIObservedSurfaceInventory,
+    interaction_model: UIInteractionModel | None = None,
+) -> UIControlFunctionalChainReport:
+    """Review enabled-control proof from real click to code owner and UI result."""
+
+    findings: list[UIFlowStructureFinding] = []
+    known_controls = set(interaction_model.control_ids()) if interaction_model is not None else set()
+    known_events = set(interaction_model.transition_event_ids()) if interaction_model is not None else set()
+    known_states = set(interaction_model.state_ids()) if interaction_model is not None else set()
+    known_displays = set(interaction_model.display_ids()) if interaction_model is not None else set()
+    transitions_by_event = _transitions_by_event(interaction_model) if interaction_model is not None else {}
+    observed_enabled_controls = {
+        item.mapped_control_id: item
+        for item in observed_inventory.items
+        if item.visible and item.enabled and item.item_kind in OBSERVED_UI_ACTIONABLE_KINDS and item.mapped_control_id
+    }
+    observed_blindspot_controls = {
+        item.mapped_control_id
+        for item in observed_inventory.items
+        if item.visible and item.enabled and item.item_kind in OBSERVED_UI_ACTIONABLE_KINDS and item.blindspot_id
+    }
+    chain_by_control = {chain.control_id: chain for chain in chain_set.chains if chain.control_id}
+    covered_control_ids: list[str] = []
+    covered_event_ids: list[str] = []
+
+    if not chain_set.chain_set_id:
+        findings.append(UIFlowStructureFinding("missing_functional_chain_set_id", "functional chain set has no id"))
+    if not chain_set.source_inventory_id:
+        findings.append(UIFlowStructureFinding("missing_functional_chain_inventory", "functional chain set has no source inventory id"))
+    elif chain_set.source_inventory_id != observed_inventory.inventory_id:
+        findings.append(
+            UIFlowStructureFinding(
+                "functional_chain_inventory_mismatch",
+                "functional chain set does not reference the supplied observed inventory",
+                metadata={"chain_inventory": chain_set.source_inventory_id, "inventory": observed_inventory.inventory_id},
+            )
+        )
+    if interaction_model is not None:
+        if not chain_set.source_interaction_model_id:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_functional_chain_source_model",
+                    "functional chain set has no source interaction model id",
+                )
+            )
+        elif chain_set.source_interaction_model_id != interaction_model.model_id:
+            findings.append(
+                UIFlowStructureFinding(
+                    "functional_chain_model_mismatch",
+                    "functional chain set does not reference the supplied interaction model",
+                )
+            )
+    if not chain_set.current_revision:
+        findings.append(UIFlowStructureFinding("missing_functional_chain_revision", "functional chain set has no current revision"))
+    if not chain_set.chains:
+        findings.append(UIFlowStructureFinding("missing_functional_chains", "functional chain set has no chains"))
+    if not chain_set.validation_boundaries:
+        findings.append(UIFlowStructureFinding("missing_functional_chain_validation", "functional chain set has no validation boundaries"))
+    if not chain_set.rationale:
+        findings.append(UIFlowStructureFinding("missing_functional_chain_set_rationale", "functional chain set has no rationale"))
+
+    findings.extend(_duplicate_values(chain_set.chain_ids(), code="duplicate_functional_chain_id", noun="functional chain"))
+
+    for control_id, item in sorted(observed_enabled_controls.items()):
+        if control_id in observed_blindspot_controls:
+            continue
+        if control_id not in chain_by_control:
+            findings.append(
+                UIFlowStructureFinding(
+                    "enabled_control_missing_functional_chain",
+                    f"observed enabled control {control_id} from item {item.item_id} has no click-to-effect functional chain",
+                    item_id=control_id,
+                    metadata={"observed_item_id": item.item_id},
+                )
+            )
+
+    for chain in chain_set.chains:
+        if chain.control_id:
+            covered_control_ids.append(chain.control_id)
+        if chain.event_id:
+            covered_event_ids.append(chain.event_id)
+        if not chain.chain_id:
+            findings.append(UIFlowStructureFinding("missing_functional_chain_id", "functional chain has no id"))
+        if not chain.control_id:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_functional_chain_control",
+                    f"functional chain {chain.chain_id} has no control id",
+                    item_id=chain.chain_id,
+                )
+            )
+        elif interaction_model is not None and chain.control_id not in known_controls:
+            findings.append(
+                UIFlowStructureFinding(
+                    "functional_chain_control_not_registered",
+                    f"functional chain {chain.chain_id} references unknown control {chain.control_id}",
+                    item_id=chain.chain_id,
+                )
+            )
+        if not chain.event_id:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_functional_chain_event",
+                    f"functional chain {chain.chain_id} has no event id",
+                    item_id=chain.chain_id,
+                )
+            )
+        elif interaction_model is not None and chain.event_id not in known_events:
+            findings.append(
+                UIFlowStructureFinding(
+                    "functional_chain_event_not_registered",
+                    f"functional chain {chain.chain_id} references unknown event {chain.event_id}",
+                    item_id=chain.chain_id,
+                )
+            )
+        event = transitions_by_event.get(chain.event_id)
+        if event is not None and chain.control_id and chain.control_id != event.control_id:
+            findings.append(
+                UIFlowStructureFinding(
+                    "functional_chain_event_control_mismatch",
+                    f"functional chain {chain.chain_id} control {chain.control_id} does not own event {chain.event_id}",
+                    item_id=chain.chain_id,
+                )
+            )
+        if not chain.code_owner:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_functional_chain_code_owner",
+                    f"functional chain {chain.chain_id} has no code owner",
+                    item_id=chain.chain_id,
+                )
+            )
+        if not chain.function_ref:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_functional_chain_function_ref",
+                    f"functional chain {chain.chain_id} has no backend, local, native, or handler function reference",
+                    item_id=chain.chain_id,
+                )
+            )
+        if not chain.has_observed_ui_effect():
+            findings.append(
+                UIFlowStructureFinding(
+                    "functional_chain_missing_ui_state_update",
+                    f"functional chain {chain.chain_id} has no observed UI state, display, or output update",
+                    item_id=chain.chain_id,
+                )
+            )
+            if chain.function_kind in {"api", "backend", "local"} and chain.function_ref:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "functional_chain_api_only",
+                        f"functional chain {chain.chain_id} cites a function/API but no observed UI effect",
+                        item_id=chain.chain_id,
+                    )
+                )
+        if chain.evidence_kind in {"dom_text", "accessibility", "aria", "computed_style"}:
+            findings.append(
+                UIFlowStructureFinding(
+                    "functional_chain_label_only_evidence",
+                    f"functional chain {chain.chain_id} uses render/label evidence rather than click-to-effect evidence",
+                    item_id=chain.chain_id,
+                )
+            )
+        elif chain.evidence_kind and chain.evidence_kind not in FUNCTIONAL_CHAIN_EVIDENCE_KINDS:
+            findings.append(
+                UIFlowStructureFinding(
+                    "unknown_functional_chain_evidence_kind",
+                    f"functional chain {chain.chain_id} uses unsupported evidence kind {chain.evidence_kind}",
+                    item_id=chain.chain_id,
+                )
+            )
+        if not chain.evidence_ref:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_functional_chain_evidence_ref",
+                    f"functional chain {chain.chain_id} has no evidence reference",
+                    item_id=chain.chain_id,
+                )
+            )
+        if chain.result.lower() not in _PASSED_UI_RESULTS:
+            findings.append(
+                UIFlowStructureFinding(
+                    "functional_chain_not_passed",
+                    f"functional chain {chain.chain_id} result is {chain.result}, not passed",
+                    item_id=chain.chain_id,
+                )
+            )
+        if not chain.current_revision:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_functional_chain_current_revision",
+                    f"functional chain {chain.chain_id} has no current revision",
+                    item_id=chain.chain_id,
+                )
+            )
+        elif chain_set.current_revision and chain.current_revision != chain_set.current_revision:
+            findings.append(
+                UIFlowStructureFinding(
+                    "stale_functional_chain_evidence",
+                    f"functional chain {chain.chain_id} validates {chain.current_revision}, not current {chain_set.current_revision}",
+                    item_id=chain.chain_id,
+                )
+            )
+        if chain.observed_state_id and interaction_model is not None and chain.observed_state_id not in known_states:
+            findings.append(
+                UIFlowStructureFinding(
+                    "functional_chain_observed_state_not_registered",
+                    f"functional chain {chain.chain_id} observed unknown state {chain.observed_state_id}",
+                    item_id=chain.chain_id,
+                )
+            )
+        if chain.observed_display_id and interaction_model is not None and chain.observed_display_id not in known_displays:
+            findings.append(
+                UIFlowStructureFinding(
+                    "functional_chain_observed_display_not_registered",
+                    f"functional chain {chain.chain_id} observed unknown display {chain.observed_display_id}",
+                    item_id=chain.chain_id,
+                )
+            )
+        if chain.function_kind == "native" and not (chain.native_boundary or chain.manual_boundary):
+            findings.append(
+                UIFlowStructureFinding(
+                    "native_functional_chain_missing_boundary",
+                    f"native functional chain {chain.chain_id} has no native/manual boundary",
+                    item_id=chain.chain_id,
+                )
+            )
+        if not chain.rationale:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_functional_chain_rationale",
+                    f"functional chain {chain.chain_id} has no rationale",
+                    item_id=chain.chain_id,
+                )
+            )
+
+    blockers = _blocker_findings(findings)
+    return UIControlFunctionalChainReport(
+        ok=not blockers,
+        chain_set_id=chain_set.chain_set_id,
+        findings=tuple(findings),
+        covered_control_ids=tuple(sorted(set(covered_control_ids))),
+        covered_event_ids=tuple(sorted(set(covered_event_ids))),
+    )
+
+
+def review_matlab_baseline_callback_gate(
+    gate: MATLABBaselineCallbackGate,
+    *,
+    interaction_model: UIInteractionModel | None = None,
+) -> MATLABBaselineCallbackGateReport:
+    """Review MATLAB callback semantics for migration parity claims."""
+
+    findings: list[UIFlowStructureFinding] = []
+    known_controls = set(interaction_model.control_ids()) if interaction_model is not None else set()
+    covered_callback_ids: list[str] = []
+
+    if not gate.gate_id:
+        findings.append(UIFlowStructureFinding("missing_matlab_callback_gate_id", "MATLAB callback gate has no id"))
+    if not gate.source_baseline_ref:
+        findings.append(UIFlowStructureFinding("missing_matlab_baseline_ref", "MATLAB callback gate has no source baseline reference"))
+    if not gate.target_ui_revision:
+        findings.append(UIFlowStructureFinding("missing_matlab_target_revision", "MATLAB callback gate has no target UI revision"))
+    if not gate.callbacks:
+        findings.append(UIFlowStructureFinding("missing_matlab_callback_semantics", "MATLAB callback gate has no callback semantics rows"))
+    if not gate.validation_boundaries:
+        findings.append(UIFlowStructureFinding("missing_matlab_callback_validation", "MATLAB callback gate has no validation boundaries"))
+    if not gate.rationale:
+        findings.append(UIFlowStructureFinding("missing_matlab_callback_gate_rationale", "MATLAB callback gate has no rationale"))
+
+    findings.extend(_duplicate_values(gate.semantic_ids(), code="duplicate_matlab_callback_semantic_id", noun="MATLAB callback semantic"))
+
+    for callback in gate.callbacks:
+        if callback.semantic_id:
+            covered_callback_ids.append(callback.semantic_id)
+        if not callback.semantic_id:
+            findings.append(UIFlowStructureFinding("missing_matlab_callback_semantic_id", "MATLAB callback semantic has no id"))
+        if not callback.control_id:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_matlab_callback_control",
+                    f"MATLAB callback semantic {callback.semantic_id} has no control id",
+                    item_id=callback.semantic_id,
+                )
+            )
+        elif interaction_model is not None and callback.control_id not in known_controls:
+            findings.append(
+                UIFlowStructureFinding(
+                    "matlab_callback_control_not_registered",
+                    f"MATLAB callback semantic {callback.semantic_id} references unknown control {callback.control_id}",
+                    item_id=callback.semantic_id,
+                )
+            )
+        if not callback.callback_kind:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_matlab_callback_kind",
+                    f"MATLAB callback semantic {callback.semantic_id} has no callback kind",
+                    item_id=callback.semantic_id,
+                )
+            )
+        elif callback.callback_kind not in MATLAB_CALLBACK_KINDS:
+            findings.append(
+                UIFlowStructureFinding(
+                    "unknown_matlab_callback_kind",
+                    f"MATLAB callback semantic {callback.semantic_id} uses unknown callback kind {callback.callback_kind}",
+                    item_id=callback.semantic_id,
+                )
+            )
+        expected = set(callback.expected_branches())
+        covered = set(callback.covered_branches)
+        missing = sorted(expected - covered)
+        if missing:
+            findings.append(
+                UIFlowStructureFinding(
+                    "matlab_callback_missing_branch_semantics",
+                    f"MATLAB callback semantic {callback.semantic_id} is missing branches: {', '.join(missing)}",
+                    item_id=callback.semantic_id,
+                    metadata={"missing_branches": missing},
+                )
+            )
+        if callback.callback_kind in {"uigetfile", "uigetdir", "winopen"} and not (callback.native_boundary or callback.manual_boundary):
+            findings.append(
+                UIFlowStructureFinding(
+                    "matlab_native_callback_missing_boundary",
+                    f"MATLAB callback semantic {callback.semantic_id} has no native/manual boundary",
+                    item_id=callback.semantic_id,
+                )
+            )
+        if callback.callback_kind == "no_callback" and callback.migration_disposition not in MATLAB_NO_CALLBACK_DISPOSITIONS:
+            findings.append(
+                UIFlowStructureFinding(
+                    "matlab_no_callback_missing_disposition",
+                    f"MATLAB no-callback control {callback.semantic_id} has no migration disposition",
+                    item_id=callback.semantic_id,
+                    metadata={"allowed_dispositions": list(MATLAB_NO_CALLBACK_DISPOSITIONS)},
+                )
+            )
+        if not callback.evidence_ref:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_matlab_callback_evidence_ref",
+                    f"MATLAB callback semantic {callback.semantic_id} has no evidence reference",
+                    item_id=callback.semantic_id,
+                )
+            )
+        if callback.result.lower() not in _PASSED_UI_RESULTS:
+            findings.append(
+                UIFlowStructureFinding(
+                    "matlab_callback_not_passed",
+                    f"MATLAB callback semantic {callback.semantic_id} result is {callback.result}, not passed",
+                    item_id=callback.semantic_id,
+                )
+            )
+        if not callback.rationale:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_matlab_callback_rationale",
+                    f"MATLAB callback semantic {callback.semantic_id} has no rationale",
+                    item_id=callback.semantic_id,
+                )
+            )
+
+    blockers = _blocker_findings(findings)
+    return MATLABBaselineCallbackGateReport(
+        ok=not blockers,
+        gate_id=gate.gate_id,
+        findings=tuple(findings),
+        covered_callback_ids=tuple(sorted(set(covered_callback_ids))),
+    )
 
 
 def review_ui_render_evidence(
@@ -4727,6 +5895,12 @@ __all__ = [
     "UIFeatureJourney",
     "UIFeatureContract",
     "UIFlowStructureFinding",
+    "UIObservedSurfaceInventory",
+    "UIObservedSurfaceInventoryReport",
+    "UIObservedSurfaceItem",
+    "UIControlFunctionalChain",
+    "UIControlFunctionalChainReport",
+    "UIControlFunctionalChainSet",
     "UIGeometryLayoutEvidence",
     "UIGeometryLayoutEvidenceReport",
     "UIGeometryLayoutEvidenceSet",
@@ -4742,6 +5916,15 @@ __all__ = [
     "UIJourneyCoverage",
     "UIJourneyCoverageReport",
     "UIJourneyEntryPoint",
+    "MATLABBaselineCallbackGate",
+    "MATLABBaselineCallbackGateReport",
+    "MATLABCallbackSemantics",
+    "MATLAB_CALLBACK_KINDS",
+    "MATLAB_CALLBACK_REQUIRED_BRANCHES",
+    "MATLAB_NO_CALLBACK_DISPOSITIONS",
+    "FUNCTIONAL_CHAIN_EVIDENCE_KINDS",
+    "OBSERVED_UI_ACTIONABLE_KINDS",
+    "OBSERVED_UI_ITEM_KINDS",
     "UIRegionRecommendation",
     "UIRenderEvidence",
     "UIRenderEvidenceReport",
@@ -4762,10 +5945,13 @@ __all__ = [
     "UIVisibleSurfaceItem",
     "UIVisibleSurfaceReport",
     "SUPPORTED_UI_EVIDENCE_KINDS",
+    "review_matlab_baseline_callback_gate",
+    "review_ui_control_functional_chains",
     "review_ui_geometry_layout_evidence",
     "review_ui_implementation_validation",
     "review_ui_interaction_model",
     "review_ui_journey_coverage",
+    "review_ui_observed_surface_inventory",
     "review_ui_render_evidence",
     "review_ui_responsiveness_contract",
     "review_ui_structure_derivation",

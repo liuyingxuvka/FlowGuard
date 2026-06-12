@@ -78,6 +78,16 @@ SIDE_EFFECT_STEP_TYPES = {
     "migration",
 }
 
+UI_EVIDENCE_ROLE_INVENTORY = "ui_inventory"
+UI_EVIDENCE_ROLE_BASELINE_SEMANTICS = "ui_baseline_semantics"
+UI_EVIDENCE_ROLE_IMPLEMENTATION_VALIDATION = "ui_implementation_validation"
+
+UI_AGENT_EVIDENCE_ROLES = (
+    UI_EVIDENCE_ROLE_INVENTORY,
+    UI_EVIDENCE_ROLE_BASELINE_SEMANTICS,
+    UI_EVIDENCE_ROLE_IMPLEMENTATION_VALIDATION,
+)
+
 
 def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
     if values is None:
@@ -284,6 +294,7 @@ class AgentWorkflowPlan:
     final_claim: str = FINAL_CLAIM_SCOPED
     final_evidence_ids: tuple[str, ...] = ()
     risk_flags: tuple[str, ...] = ()
+    ui_evidence_roles: tuple[str, ...] = ()
     task_trivial: bool = False
 
     def __post_init__(self) -> None:
@@ -298,6 +309,7 @@ class AgentWorkflowPlan:
         object.__setattr__(self, "final_claim", final_claim)
         object.__setattr__(self, "final_evidence_ids", _as_tuple(self.final_evidence_ids))
         object.__setattr__(self, "risk_flags", _as_tuple(self.risk_flags))
+        object.__setattr__(self, "ui_evidence_roles", _as_tuple(self.ui_evidence_roles))
 
     def selected_skill_set(self) -> set[str]:
         return set(self.selected_skill_names)
@@ -319,6 +331,7 @@ class AgentWorkflowPlan:
             "final_claim": self.final_claim,
             "final_evidence_ids": list(self.final_evidence_ids),
             "risk_flags": list(self.risk_flags),
+            "ui_evidence_roles": list(self.ui_evidence_roles),
             "task_trivial": self.task_trivial,
         }
 
@@ -362,13 +375,6 @@ class AgentWorkflowRehearsalReport:
     findings: tuple[AgentWorkflowRehearsalFinding, ...] = ()
     selected_skills: tuple[str, ...] = ()
     skipped_skills: tuple[str, ...] = ()
-    planned_steps: tuple[str, ...] = ()
-    completed_steps: tuple[str, ...] = ()
-    blocked_steps: tuple[str, ...] = ()
-    skipped_steps: tuple[str, ...] = ()
-    required_rechecks: tuple[Mapping[str, Any], ...] = ()
-    handoff_points: tuple[Mapping[str, Any], ...] = ()
-    final_claim_boundary: str = ""
 
     @property
     def ok(self) -> bool:
@@ -382,10 +388,6 @@ class AgentWorkflowRehearsalReport:
             f"inventory_snapshot_id: {self.inventory_snapshot_id}",
             f"selected_skills: {', '.join(self.selected_skills) if self.selected_skills else '(none)'}",
             f"skipped_skills: {', '.join(self.skipped_skills) if self.skipped_skills else '(none)'}",
-            f"planned_steps: {', '.join(self.planned_steps) if self.planned_steps else '(none)'}",
-            f"blocked_steps: {', '.join(self.blocked_steps) if self.blocked_steps else '(none)'}",
-            f"required_rechecks: {len(self.required_rechecks)}",
-            f"final_claim_boundary: {self.final_claim_boundary or '(not recorded)'}",
             f"findings: {len(self.findings)}",
         ]
         for finding in self.findings[:max_findings]:
@@ -408,13 +410,6 @@ class AgentWorkflowRehearsalReport:
             "findings": [finding.to_dict() for finding in self.findings],
             "selected_skills": list(self.selected_skills),
             "skipped_skills": list(self.skipped_skills),
-            "planned_steps": list(self.planned_steps),
-            "completed_steps": list(self.completed_steps),
-            "blocked_steps": list(self.blocked_steps),
-            "skipped_steps": list(self.skipped_steps),
-            "required_rechecks": [dict(item) for item in self.required_rechecks],
-            "handoff_points": [dict(item) for item in self.handoff_points],
-            "final_claim_boundary": self.final_claim_boundary,
         }
 
     def to_json(self, *, indent: int = 2) -> str:
@@ -443,53 +438,17 @@ def _status_from_findings(findings: Sequence[AgentWorkflowRehearsalFinding]) -> 
     return REHEARSAL_STATUS_PASS
 
 
-def _final_claim_boundary(plan: AgentWorkflowPlan, status: str) -> str:
-    if status == REHEARSAL_STATUS_BLOCKED:
-        return "Do not start execution until blocked rehearsal findings are repaired."
-    if status == REHEARSAL_STATUS_NEEDS_REVISION:
-        return "Revise selected skills, order, gates, or evidence before execution."
-    if status == REHEARSAL_STATUS_SCOPED:
-        return "Execution may proceed only with a scoped final claim until named gaps are closed."
-    if plan.final_claim == FINAL_CLAIM_FULL:
-        return "The plan may proceed, but done/release/publish confidence still requires current downstream route evidence."
-    return "The plan may proceed within the declared scoped claim boundary."
-
-
-def _required_rechecks(findings: Sequence[AgentWorkflowRehearsalFinding]) -> tuple[Mapping[str, Any], ...]:
-    return tuple(
-        {
-            "code": finding.code,
-            "severity": finding.severity,
-            "skill_name": finding.skill_name,
-            "step_id": finding.step_id,
-        }
-        for finding in findings
-        if finding.severity != FINDING_SEVERITY_INFO
-    )
-
-
-def _handoff_points(plan: AgentWorkflowPlan) -> tuple[Mapping[str, Any], ...]:
-    points: list[Mapping[str, Any]] = []
-    for step in plan.steps:
-        if step.produced_evidence_ids or step.continue_evidence_ids:
-            points.append(
-                {
-                    "step_id": step.step_id,
-                    "skill_name": step.skill_name,
-                    "produced_evidence_ids": list(step.produced_evidence_ids),
-                    "continue_evidence_ids": list(step.continue_evidence_ids),
-                }
-            )
-    if plan.final_evidence_ids:
-        points.append(
-            {
-                "step_id": "__final_claim__",
-                "skill_name": "",
-                "produced_evidence_ids": list(plan.final_evidence_ids),
-                "continue_evidence_ids": [],
-            }
+def _is_ui_workflow(plan: AgentWorkflowPlan) -> bool:
+    haystack = " ".join(
+        (
+            plan.task_summary,
+            " ".join(plan.risk_flags),
+            " ".join(plan.selected_skill_names),
+            " ".join(step.skill_name for step in plan.steps),
+            " ".join(step.action for step in plan.steps),
         )
-    return tuple(points)
+    ).lower()
+    return any(token in haystack for token in ("ui", "frontend", "button", "visible", "flowguard-ui-flow-structure"))
 
 
 def review_agent_workflow_rehearsal(plan: AgentWorkflowPlan) -> AgentWorkflowRehearsalReport:
@@ -716,6 +675,22 @@ def review_agent_workflow_rehearsal(plan: AgentWorkflowPlan) -> AgentWorkflowReh
             )
         )
 
+    if plan.final_claim == FINAL_CLAIM_FULL and _is_ui_workflow(plan):
+        missing_roles = sorted(set(UI_AGENT_EVIDENCE_ROLES) - set(plan.ui_evidence_roles))
+        if missing_roles:
+            findings.append(
+                AgentWorkflowRehearsalFinding(
+                    "ui_agent_role_evidence_missing",
+                    "Full UI confidence needs separate inventory, baseline-semantics, and implementation-validation evidence roles.",
+                    FINDING_SEVERITY_BLOCKED,
+                    metadata={
+                        "required_roles": list(UI_AGENT_EVIDENCE_ROLES),
+                        "provided_roles": list(plan.ui_evidence_roles),
+                        "missing_roles": missing_roles,
+                    },
+                )
+            )
+
     if plan.final_claim == FINAL_CLAIM_FULL and any(
         finding.severity == FINDING_SEVERITY_SCOPED for finding in findings
     ):
@@ -728,15 +703,6 @@ def review_agent_workflow_rehearsal(plan: AgentWorkflowPlan) -> AgentWorkflowReh
         )
 
     status = _status_from_findings(findings)
-    blocked_steps = tuple(
-        sorted(
-            {
-                finding.step_id
-                for finding in findings
-                if finding.step_id and finding.severity == FINDING_SEVERITY_BLOCKED
-            }
-        )
-    )
     return AgentWorkflowRehearsalReport(
         plan_id=plan.plan_id,
         status=status,
@@ -744,13 +710,6 @@ def review_agent_workflow_rehearsal(plan: AgentWorkflowPlan) -> AgentWorkflowReh
         findings=tuple(findings),
         selected_skills=tuple(sorted(selected)),
         skipped_skills=tuple(sorted(skipped)),
-        planned_steps=tuple(step.step_id for step in plan.steps),
-        completed_steps=(),
-        blocked_steps=blocked_steps,
-        skipped_steps=tuple(sorted(skip.skill_name for skip in plan.skipped_candidate_skills)),
-        required_rechecks=_required_rechecks(findings),
-        handoff_points=_handoff_points(plan),
-        final_claim_boundary=_final_claim_boundary(plan, status),
     )
 
 
@@ -774,6 +733,10 @@ __all__ = [
     "REHEARSAL_STATUS_SCOPED",
     "REHEARSAL_STATUSES",
     "SIDE_EFFECT_STEP_TYPES",
+    "UI_AGENT_EVIDENCE_ROLES",
+    "UI_EVIDENCE_ROLE_BASELINE_SEMANTICS",
+    "UI_EVIDENCE_ROLE_IMPLEMENTATION_VALIDATION",
+    "UI_EVIDENCE_ROLE_INVENTORY",
     "SkillCapability",
     "SkillInventorySnapshot",
     "SkippedSkill",

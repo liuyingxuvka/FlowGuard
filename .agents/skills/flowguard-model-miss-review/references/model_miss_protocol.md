@@ -8,6 +8,12 @@ FlowGuard passing is provisional until the modeled change or process is checked
 against production-facing evidence. A later green runtime check by itself does
 not close a known model miss unless the miss has been reviewed.
 
+If a user opens a UI after a green FlowGuard claim and the visible behavior is
+wrong, treat the episode as a model miss. Typical UI miss types are
+`evidence_overclaimed` when the prior proof only showed a label or API route,
+and `boundary_missing` when the prior model did not account for the visible
+control, field, callback branch, or UI state update.
+
 For bug repair work inside an existing modeled system, run Existing Model
 Preflight first so the fix extends the current model boundary instead of
 creating a parallel one.
@@ -33,56 +39,62 @@ creating a parallel one.
    needed, then update FieldLifecycleMesh so projection and disposition gaps are
    explicit.
 6. Add one same-class generalized bad case when practical.
-7. Add current test evidence for the observed regression and for the
+7. For UI misses, run `review_ui_model_misses(...)` with a record of the prior
+   green claim, why it looked green, the user-observed failure, affected
+   controls/fields, same-class controls/fields, same-class tests or click
+   evidence, root-cause backpropagation, and code owner. Select/Open txt/Load
+   table/Load File style failures should be reviewed as a same-class UI family
+   before closure.
+8. Add current test evidence for the observed regression and for the
    same-class generalized case. A point regression is necessary but does not
    close an in-scope miss by itself.
-8. Bind the repaired obligation to the owner code contract that actually
+9. Bind the repaired obligation to the owner code contract that actually
    implements the behavior. Helper-only, adapter-only, or internal-path tests
    cannot close a public bug class by themselves.
-9. Run Model-Test Alignment on the repaired model obligation, owner code
+10. Run Model-Test Alignment on the repaired model obligation, owner code
    contracts, and the observed/same-class test evidence. If the
    same-class validation is too large, slow, layered, stale-prone,
    background, or release-only, route that hierarchy to TestMesh and report
    scoped confidence until current child evidence exists.
-10. If the repair adds, replaces, bypasses, or preserves an old/fallback/legacy
+11. If the repair adds, replaces, bypasses, or preserves an old/fallback/legacy
    path or old/replaced/deprecated field, route the compatibility surface
    through Architecture Reduction when appropriate and record a
    LegacyPathDisposition or field disposition: deleted, blocked, migrated,
    delegated to a repaired contract or replacement field, same-contract
    repaired, or explicitly out of scope with a reason. `unknown` blocks broad
    closure.
-11. If sibling obligations share the same family-level claim, run
+12. If sibling obligations share the same family-level claim, run
    obligation-family parity so every sibling has required mechanism evidence
    from allowed provenance.
-12. Run an analogous defect scan for same-family siblings and caller-supplied
+13. Run an analogous defect scan for same-family siblings and caller-supplied
    related surfaces. Open must-scan candidates block broad closure; should-scan
    candidates must be covered, assigned to a separate change, or excluded with
    a concrete reason.
-13. If the same-class miss recurs, or if a high-risk first miss would make a
+14. If the same-class miss recurs, or if a high-risk first miss would make a
    local point fix overclaim full confidence, promote it to a defect-family gate
    with a model obligation, authority boundary, observed failure, same-class
    generalized case, historical holdout, and current proof evidence. The gate
    is FlowGuard evidence for the existing Model-Miss/Risk Evidence Ledger
    chain, not a new downstream app skill.
-14. Rerun the relevant model checks and confirm the old weakness is now visible,
+15. Rerun the relevant model checks and confirm the old weakness is now visible,
    or deliberately mark the generalized case out of scope.
-15. Validate the repair with the refined model plus the strongest practical
+16. Validate the repair with the refined model plus the strongest practical
    production-facing evidence.
-16. If the repair changed a child model under a parent ModelMesh, rerun the
+17. If the repair changed a child model under a parent ModelMesh, rerun the
    affected parent child-reattachment gate. The parent must consume the current
    child evidence id and confirm the child's inputs, outputs, state ownership,
    side-effect ownership, and outgoing guarantees still fit the parent flow.
-17. If the miss shows that real code accepted an unmodeled input, emitted an
+18. If the miss shows that real code accepted an unmodeled input, emitted an
     extra output/error/state write/side effect, or failed a declared leaf cell,
     update the leaf boundary matrix and rerun layered proof. Do not close the
     miss with only a new ordinary test when the model boundary itself overflowed.
-18. Run `review_model_maturation_loop(...)` over the miss classification,
+19. Run `review_model_maturation_loop(...)` over the miss classification,
     alignment result, mesh/layered proof result, code-boundary observations, and
     freshness rows. Resolve or explicitly scope any state, branch, invariant,
     same-class, obligation, child reattachment, or evidence-refresh action.
-19. Run DevelopmentProcessFlow over the changed plan/model/code/test/docs
+20. Run DevelopmentProcessFlow over the changed plan/model/code/test/docs
     artifacts so later edits do not stale the repair evidence.
-20. Record `Miss type`, `Root cause backpropagation`, `Generalized case`, field
+21. Record `Miss type`, `Root cause backpropagation`, `Generalized case`, field
     lifecycle/projection/disposition evidence when fields are involved, owner
     code contract, observed-regression test evidence, same-class test evidence,
     family parity result, analogous scan result, legacy path disposition,

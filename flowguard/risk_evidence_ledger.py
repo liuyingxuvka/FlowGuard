@@ -57,6 +57,10 @@ RISK_GATE_MODEL_ANGLE_REVIEW = "model_angle_review"
 RISK_GATE_PARENT_MODEL_EVIDENCE = "parent_model_evidence"
 RISK_GATE_MAINTENANCE_OBLIGATION = "maintenance_obligation"
 RISK_GATE_UI_IMPLEMENTATION = "ui_implementation"
+RISK_GATE_UI_REAL_SURFACE = "ui_real_surface"
+RISK_GATE_UI_FUNCTIONAL_CHAIN = "ui_functional_chain"
+RISK_GATE_UI_DONE_CLAIM = "ui_done_claim"
+RISK_GATE_MATLAB_CALLBACK_SEMANTICS = "matlab_callback_semantics"
 RISK_GATE_ARTIFACT_PAYLOAD = "artifact_payload"
 
 PASSING_PROOF_STATUSES = {RISK_PROOF_STATUS_PASSED}
@@ -502,6 +506,46 @@ GATE_CODE_MAP = {
         "required UI implementation evidence gate is blocked",
         "required UI implementation evidence remains explicitly scoped",
     ),
+    RISK_GATE_UI_REAL_SURFACE: (
+        "missing_ui_real_surface_gate",
+        "ui_real_surface_gate_not_current",
+        "ui_real_surface_gate_blocked",
+        "ui_real_surface_gate_scoped_confidence",
+        "required risk has no observed real UI surface inventory gate",
+        "required observed real UI surface evidence is stale or missing",
+        "required observed real UI surface gate is blocked",
+        "required observed real UI surface evidence remains explicitly scoped",
+    ),
+    RISK_GATE_UI_FUNCTIONAL_CHAIN: (
+        "missing_ui_functional_chain_gate",
+        "ui_functional_chain_gate_not_current",
+        "ui_functional_chain_gate_blocked",
+        "ui_functional_chain_gate_scoped_confidence",
+        "required risk has no enabled-control functional-chain gate",
+        "required enabled-control functional-chain evidence is stale or missing",
+        "required enabled-control functional-chain gate is blocked",
+        "required enabled-control functional-chain evidence remains explicitly scoped",
+    ),
+    RISK_GATE_UI_DONE_CLAIM: (
+        "missing_ui_done_claim_gate",
+        "ui_done_claim_gate_not_current",
+        "ui_done_claim_gate_blocked",
+        "ui_done_claim_gate_scoped_confidence",
+        "required risk has no final UI done-claim review gate",
+        "required final UI done-claim evidence is stale or missing",
+        "required final UI done-claim gate is blocked",
+        "required final UI done-claim evidence remains explicitly scoped",
+    ),
+    RISK_GATE_MATLAB_CALLBACK_SEMANTICS: (
+        "missing_matlab_callback_semantics_gate",
+        "matlab_callback_semantics_gate_not_current",
+        "matlab_callback_semantics_gate_blocked",
+        "matlab_callback_semantics_gate_scoped_confidence",
+        "required risk has no MATLAB baseline callback semantics gate",
+        "required MATLAB baseline callback semantics evidence is stale or missing",
+        "required MATLAB baseline callback semantics gate is blocked",
+        "required MATLAB baseline callback semantics evidence remains explicitly scoped",
+    ),
     RISK_GATE_ARTIFACT_PAYLOAD: (
         "missing_artifact_payload_gate",
         "artifact_payload_gate_not_current",
@@ -910,7 +954,11 @@ __all__ = [
     "RISK_GATE_PARENT_MODEL_EVIDENCE",
     "RISK_GATE_TEST_SPLIT",
     "RISK_GATE_TOPOLOGY_HAZARD",
+    "RISK_GATE_MATLAB_CALLBACK_SEMANTICS",
+    "RISK_GATE_UI_DONE_CLAIM",
+    "RISK_GATE_UI_FUNCTIONAL_CHAIN",
     "RISK_GATE_UI_IMPLEMENTATION",
+    "RISK_GATE_UI_REAL_SURFACE",
     "RISK_PROOF_KIND_MANUAL",
     "RISK_PROOF_KIND_REPLAY",
     "RISK_PROOF_KIND_ROUTE_REPORT",

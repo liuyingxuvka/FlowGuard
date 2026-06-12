@@ -2,9 +2,13 @@ import unittest
 from dataclasses import replace
 
 from flowguard import (
+    MATLABBaselineCallbackGate,
+    MATLABCallbackSemantics,
     SUPPORTED_UI_EVIDENCE_KINDS,
     UIColdPathWork,
     UIControl,
+    UIControlFunctionalChain,
+    UIControlFunctionalChainSet,
     UIDisplayElement,
     UIFeatureContract,
     UIFeatureJourney,
@@ -18,6 +22,8 @@ from flowguard import (
     UIInteractionModel,
     UIJourneyCoverage,
     UIJourneyEntryPoint,
+    UIObservedSurfaceInventory,
+    UIObservedSurfaceItem,
     UIRegionRecommendation,
     UIRenderEvidence,
     UIRenderEvidenceSet,
@@ -32,10 +38,13 @@ from flowguard import (
     UITransition,
     UIVisibleSurface,
     UIVisibleSurfaceItem,
+    review_matlab_baseline_callback_gate,
+    review_ui_control_functional_chains,
     review_ui_geometry_layout_evidence,
     review_ui_implementation_validation,
     review_ui_interaction_model,
     review_ui_journey_coverage,
+    review_ui_observed_surface_inventory,
     review_ui_render_evidence,
     review_ui_responsiveness_contract,
     review_ui_structure_derivation,
@@ -712,6 +721,138 @@ def visible_surface(**kwargs) -> UIVisibleSurface:
     return UIVisibleSurface("import-run-visible-surface", **defaults)
 
 
+def observed_inventory(**kwargs) -> UIObservedSurfaceInventory:
+    defaults = {
+        "observation_target": "local browser build",
+        "current_revision": "ui-rev-1",
+        "observation_method": "browser_click",
+        "source_interaction_model_id": "import-run-ui-flow",
+        "source_visible_surface_id": "import-run-visible-surface",
+        "evidence_ref": "evidence://browser/inventory.json",
+        "items": (
+            UIObservedSurfaceItem(
+                "observed_import_button",
+                "button",
+                label="Import",
+                state_id="empty",
+                region_id="primary-workspace",
+                selector="#import",
+                enabled=True,
+                mapped_control_id="import",
+                mapped_visible_item_id="import_button",
+                evidence_ref="evidence://browser/import-button.json",
+                evidence_kind="browser_click",
+                rationale="The real enabled button maps to the modeled import control.",
+            ),
+            UIObservedSurfaceItem(
+                "observed_run_disabled",
+                "button",
+                label="Run",
+                state_id="empty",
+                region_id="primary-workspace",
+                selector="#run",
+                enabled=False,
+                mapped_control_id="run",
+                mapped_visible_item_id="run_disabled",
+                evidence_ref="evidence://browser/run-disabled.json",
+                evidence_kind="dom_text",
+                rationale="The disabled run button is visible and mapped to the modeled control.",
+            ),
+            UIObservedSurfaceItem(
+                "observed_status",
+                "status_text",
+                label="Running analysis",
+                state_id="running",
+                region_id="primary-workspace",
+                mapped_visible_item_id="running_status",
+                evidence_ref="evidence://browser/status.json",
+                evidence_kind="dom_text",
+                rationale="The visible status maps to the visible surface item.",
+            ),
+            UIObservedSurfaceItem(
+                "observed_result_table",
+                "table",
+                label="Results",
+                state_id="result_ready",
+                region_id="primary-workspace",
+                mapped_display_id="result_table",
+                evidence_ref="evidence://browser/result-table.json",
+                evidence_kind="dom_text",
+                table_columns=("Run", "Score"),
+                rationale="The real table maps to the modeled display element.",
+            ),
+        ),
+        "validation_boundaries": ("browser DOM inventory",),
+        "rationale": "Observed inventory accounts the real rendered controls and displays before UI completion.",
+    }
+    defaults.update(kwargs)
+    return UIObservedSurfaceInventory("import-run-observed-inventory", **defaults)
+
+
+def functional_chain_set(**kwargs) -> UIControlFunctionalChainSet:
+    defaults = {
+        "source_inventory_id": "import-run-observed-inventory",
+        "source_interaction_model_id": "import-run-ui-flow",
+        "source_implementation_validation_id": "import-run-implementation",
+        "current_revision": "ui-rev-1",
+        "chains": (
+                UIControlFunctionalChain(
+                    "import_chain",
+                    "import",
+                    "click_import",
+                    "ui.handlers.import_file",
+                    "ImportFile",
+                function_kind="local",
+                observed_state_id="file_loaded",
+                observed_output="selected path appears and run becomes enabled",
+                evidence_ref="evidence://browser/import-click.json",
+                evidence_kind="browser_click",
+                current_revision="ui-rev-1",
+                rationale="Clicking Import reaches the local file-load owner and updates UI state.",
+            ),
+        ),
+        "validation_boundaries": ("browser click-through",),
+        "rationale": "Enabled controls prove click-to-owner-to-UI-effect behavior.",
+    }
+    defaults.update(kwargs)
+    return UIControlFunctionalChainSet("import-run-functional-chains", **defaults)
+
+
+def matlab_callback_gate(**kwargs) -> MATLABBaselineCallbackGate:
+    defaults = {
+        "source_baseline_ref": "matlab://legacy/import_runner.m",
+        "target_ui_revision": "ui-rev-1",
+        "callbacks": (
+            MATLABCallbackSemantics(
+                "select_file_callback",
+                "import",
+                "uigetfile",
+                baseline_callback="uigetfile('*.txt')",
+                covered_branches=("choose", "cancel", "path_selected", "load_result", "error_path"),
+                evidence_ref="evidence://matlab/select-file.json",
+                native_boundary="native file picker observed by manual browser-shell run",
+                manual_boundary="manual observation recorded choose and cancel outcomes",
+                rationale="MATLAB file picker parity includes choose, cancel, path, load result, and error.",
+            ),
+            MATLABCallbackSemantics(
+                "open_results_callback",
+                "export",
+                "winopen",
+                baseline_callback="winopen(outputDir)",
+                covered_branches=("trigger", "opened", "error_path"),
+                evidence_ref="evidence://matlab/winopen.json",
+                native_boundary="OS shell open observed manually",
+                manual_boundary="manual observation records open/error boundary",
+                rationale="Native shell open is represented as a bounded external action.",
+            ),
+        ),
+        "validation_boundaries": ("MATLAB callback audit", "desktop shell observation"),
+        "rationale": "Migration parity covers interaction semantics, not only matching control names.",
+    }
+    defaults.update(kwargs)
+    return MATLABBaselineCallbackGate("matlab-callback-gate", **defaults)
+
+
 def render_evidence(**kwargs) -> UIRenderEvidenceSet:
     defaults = {
         "source_interaction_model_id": "import-run-ui-flow",
@@ -876,6 +1017,124 @@ class UIVisibleSurfaceEvidenceTests(unittest.TestCase):
         self.assertIn("placeholder_presented_as_functionality", codes)
         self.assertIn("low_value_repeated_helper_copy", codes)
         self.assertIn("competing_primary_state_messages", codes)
+
+    def test_observed_inventory_maps_real_visible_items_to_model_owners(self):
+        report = review_ui_observed_surface_inventory(
+            observed_inventory(),
+            interaction_model=ui_model(),
+            visible_surface=visible_surface(),
+        )
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual(4, len(report.observed_item_ids))
+        self.assertEqual(4, len(report.mapped_item_ids))
+
+    def test_observed_inventory_blocks_unmapped_real_visible_controls(self):
+        inventory = observed_inventory(
+            items=(
+                UIObservedSurfaceItem(
+                    "observed_load_file",
+                    "button",
+                    label="Load File",
+                    state_id="empty",
+                    selector="#load-file",
+                    enabled=True,
+                    evidence_ref="evidence://browser/load-file.json",
+                    evidence_kind="browser_click",
+                    rationale="This real enabled button is visible but not modeled.",
+                ),
+            )
+        )
+
+        report = review_ui_observed_surface_inventory(
+            inventory,
+            interaction_model=ui_model(),
+            visible_surface=visible_surface(),
+        )
+        codes = finding_codes(report)
+
+        self.assertFalse(report.ok)
+        self.assertIn("observed_visible_item_unmapped", codes)
+        self.assertIn("observed_enabled_control_without_model_owner", codes)
+
+    def test_functional_chain_requires_click_to_owner_and_ui_state_update(self):
+        report = review_ui_control_functional_chains(
+            functional_chain_set(),
+            observed_inventory=observed_inventory(),
+            interaction_model=ui_model(),
+        )
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual(("import",), report.covered_control_ids)
+        self.assertEqual(("click_import",), report.covered_event_ids)
+
+    def test_functional_chain_blocks_api_only_and_label_only_evidence(self):
+        chain_set = functional_chain_set(
+            chains=(
+                UIControlFunctionalChain(
+                    "api_only",
+                    "import",
+                    "click_import",
+                    "api.handlers.import_file",
+                    "/api/import-file",
+                    function_kind="api",
+                    evidence_ref="evidence://api/import-route.json",
+                    evidence_kind="dom_text",
+                    current_revision="ui-rev-1",
+                    rationale="This proves only the label/API path, not UI effect.",
+                ),
+            )
+        )
+
+        report = review_ui_control_functional_chains(
+            chain_set,
+            observed_inventory=observed_inventory(),
+            interaction_model=ui_model(),
+        )
+        codes = finding_codes(report)
+
+        self.assertFalse(report.ok)
+        self.assertIn("functional_chain_missing_ui_state_update", codes)
+        self.assertIn("functional_chain_api_only", codes)
+        self.assertIn("functional_chain_label_only_evidence", codes)
+
+    def test_matlab_callback_gate_covers_picker_and_native_shell_semantics(self):
+        report = review_matlab_baseline_callback_gate(matlab_callback_gate(), interaction_model=ui_model())
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual(("open_results_callback", "select_file_callback"), report.covered_callback_ids)
+
+    def test_matlab_callback_gate_blocks_success_only_and_no_callback_without_disposition(self):
+        gate = matlab_callback_gate(
+            callbacks=(
+                MATLABCallbackSemantics(
+                    "select_file_success_only",
+                    "import",
+                    "uigetfile",
+                    baseline_callback="uigetfile('*.txt')",
+                    covered_branches=("choose", "path_selected", "load_result"),
+                    evidence_ref="evidence://matlab/success-only.json",
+                    native_boundary="native file picker observed manually",
+                    rationale="Missing cancel and error branches should block parity.",
+                ),
+                MATLABCallbackSemantics(
+                    "unused_button",
+                    "settings",
+                    "no_callback",
+                    baseline_callback="",
+                    covered_branches=(),
+                    evidence_ref="evidence://matlab/no-callback.json",
+                    rationale="Visible no-callback button needs disposition.",
+                ),
+            )
+        )
+
+        report = review_matlab_baseline_callback_gate(gate, interaction_model=ui_model())
+        codes = finding_codes(report)
+
+        self.assertFalse(report.ok)
+        self.assertIn("matlab_callback_missing_branch_semantics", codes)
+        self.assertIn("matlab_no_callback_missing_disposition", codes)
 
     def test_render_evidence_accepts_screenshot_and_dom_evidence(self):
         report = review_ui_render_evidence(render_evidence(), interaction_model=ui_model())

@@ -16,6 +16,10 @@ Guards against:
 - missing state, artifact, side-effect, validation, rework, or evidence detail;
 - missing UI action coverage, synthetic payload cases for real payload surfaces,
   or AI work-package cases;
+- UI task checkboxes that lack current evidence kind such as
+  ui_observed_inventory, ui_functional_chain, ui_runtime_click,
+  ui_browser_dom_geometry, ui_desktop_manual_observation, or
+  ui_done_claim_review;
 - irreversible side effects without evidence gates;
 - full completion claims without current final evidence.
 

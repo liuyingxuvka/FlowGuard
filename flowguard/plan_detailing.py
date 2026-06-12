@@ -66,6 +66,31 @@ PLAN_DETAIL_CLAIMS = (
     PLAN_DETAIL_CLAIM_BLOCKED,
 )
 
+PLAN_DETAIL_UI_EVIDENCE_KINDS = (
+    "ui_model_coverage",
+    "ui_static_test",
+    "ui_runtime_click",
+    "ui_browser_dom_geometry",
+    "ui_desktop_manual_observation",
+    "ui_native_dialog_blindspot",
+    "ui_observed_inventory",
+    "ui_functional_chain",
+    "ui_implementation_validation",
+    "ui_done_claim_review",
+)
+
+PLAN_DETAIL_PASSING_EVIDENCE_STATUSES = {"passed", "pass", "ok"}
+PLAN_DETAIL_NON_PASSING_EVIDENCE_STATUSES = {
+    "planned",
+    "not_run",
+    "running",
+    "progress_only",
+    "skipped",
+    "stale",
+    "failed",
+    "error",
+}
+
 
 def _as_tuple(values: Sequence[str] | str | None) -> tuple[str, ...]:
     if values is None:
@@ -105,6 +130,23 @@ def _severity_for_claim(plan: "PlanDetail", *, scoped_ok: bool = False) -> str:
     if scoped_ok or plan.exploratory:
         return PLAN_DETAIL_SEVERITY_SCOPED
     return PLAN_DETAIL_SEVERITY_NEEDS_REVISION
+
+
+def _is_ui_plan_step(step: "PlanDetailStep") -> bool:
+    haystack = " ".join(
+        (
+            step.step_type,
+            step.skill_name,
+            step.action,
+            step.description,
+            " ".join(step.claim_labels),
+        )
+    ).lower()
+    return "ui" in haystack or "button" in haystack or "visible" in haystack or "click" in haystack
+
+
+def _is_ui_evidence_kind(kind: str) -> bool:
+    return str(kind).startswith("ui_") or str(kind) in PLAN_DETAIL_UI_EVIDENCE_KINDS
 
 
 @dataclass(frozen=True)
@@ -673,6 +715,7 @@ def review_plan_detail(plan: PlanDetail) -> PlanDetailReviewReport:
     findings: list[PlanDetailFinding] = []
     step_ids = set(plan.step_ids())
     evidence_ids = set(plan.evidence_ids())
+    evidence_by_id = {evidence.evidence_id: evidence for evidence in plan.evidence}
     artifact_ids = {artifact.artifact_id for artifact in plan.artifacts}
     receipt_ids = {receipt for step in plan.steps for receipt in step.completion_receipts()}
     receipt_ids.update(receipt for step in plan.steps for receipt in step.requires_receipts)
@@ -775,6 +818,43 @@ def review_plan_detail(plan: PlanDetail) -> PlanDetailReviewReport:
             )
         if step.claim_labels and not step.produces_receipts:
             findings.append(_finding("claim_step_missing_receipt", "claim-gated step should produce an explicit receipt", row_id=step.step_id))
+        if _is_ui_plan_step(step) and (step.validation_required or step.claim_labels):
+            referenced_evidence_ids = tuple(
+                dict.fromkeys(step.required_evidence_ids + step.produced_evidence_ids + step.continue_evidence_ids)
+            )
+            if not referenced_evidence_ids:
+                findings.append(
+                    _finding(
+                        "ui_task_missing_evidence_id",
+                        "UI task rows need evidence ids before they can support UI completion claims",
+                        severity=_severity_for_claim(plan),
+                        row_id=step.step_id,
+                    )
+                )
+            for evidence_id in referenced_evidence_ids:
+                evidence = evidence_by_id.get(evidence_id)
+                if evidence is None:
+                    continue
+                if not _is_ui_evidence_kind(evidence.evidence_kind):
+                    findings.append(
+                        _finding(
+                            "ui_task_missing_evidence_type",
+                            "UI task evidence must declare a UI evidence type",
+                            severity=_severity_for_claim(plan),
+                            row_id=step.step_id,
+                            metadata={"evidence_id": evidence_id, "evidence_kind": evidence.evidence_kind},
+                        )
+                    )
+                if evidence.status not in PLAN_DETAIL_PASSING_EVIDENCE_STATUSES:
+                    findings.append(
+                        _finding(
+                            "ui_task_evidence_not_current",
+                            "UI task evidence must be current passing evidence, not planned/not-run/running/skipped/stale/progress-only evidence",
+                            severity=_severity_for_claim(plan),
+                            row_id=step.step_id,
+                            metadata={"evidence_id": evidence_id, "status": evidence.status},
+                        )
+                    )
         seen_steps.add(step.step_id)
 
     if plan.non_trivial and not plan.validations:
@@ -798,6 +878,30 @@ def review_plan_detail(plan: PlanDetail) -> PlanDetailReviewReport:
             findings.append(_finding("validation_missing_evidence_kind", "validation needs required evidence kinds", row_id=validation.validation_id))
         if not validation.evidence_ids:
             findings.append(_finding("validation_missing_evidence_id", "validation needs evidence ids", row_id=validation.validation_id))
+        if any(_is_ui_evidence_kind(kind) for kind in validation.required_evidence_kinds):
+            for evidence_id in validation.evidence_ids:
+                evidence = evidence_by_id.get(evidence_id)
+                if evidence is None:
+                    continue
+                if not _is_ui_evidence_kind(evidence.evidence_kind):
+                    findings.append(
+                        _finding(
+                            "ui_validation_evidence_type_mismatch",
+                            "UI validation references evidence without a UI evidence type",
+                            row_id=validation.validation_id,
+                            metadata={"evidence_id": evidence_id, "evidence_kind": evidence.evidence_kind},
+                        )
+                    )
+                if evidence.status not in PLAN_DETAIL_PASSING_EVIDENCE_STATUSES:
+                    findings.append(
+                        _finding(
+                            "ui_validation_evidence_not_current",
+                            "UI validation evidence is not current passing evidence",
+                            severity=_severity_for_claim(plan),
+                            row_id=validation.validation_id,
+                            metadata={"evidence_id": evidence_id, "status": evidence.status},
+                        )
+                    )
 
     for evidence in plan.evidence:
         unknown_evidence_artifacts = sorted(set(evidence.covers_artifacts + evidence.verifier_artifacts) - artifact_ids)
@@ -809,6 +913,16 @@ def review_plan_detail(plan: PlanDetail) -> PlanDetailReviewReport:
                     severity=PLAN_DETAIL_SEVERITY_BLOCKED,
                     row_id=evidence.evidence_id,
                     metadata={"unknown_artifacts": unknown_evidence_artifacts},
+                )
+            )
+        if _is_ui_evidence_kind(evidence.evidence_kind) and evidence.status not in PLAN_DETAIL_PASSING_EVIDENCE_STATUSES:
+            findings.append(
+                _finding(
+                    "ui_evidence_status_not_passing",
+                    "UI evidence rows cannot support completion while planned, not-run, running, skipped, stale, progress-only, failed, or errored",
+                    severity=_severity_for_claim(plan),
+                    row_id=evidence.evidence_id,
+                    metadata={"evidence_kind": evidence.evidence_kind, "status": evidence.status},
                 )
             )
 
@@ -1077,6 +1191,8 @@ __all__ = [
     "PLAN_DETAIL_CLAIM_NONE",
     "PLAN_DETAIL_CLAIM_SCOPED",
     "PLAN_DETAIL_CLAIMS",
+    "PLAN_DETAIL_NON_PASSING_EVIDENCE_STATUSES",
+    "PLAN_DETAIL_PASSING_EVIDENCE_STATUSES",
     "PLAN_DETAIL_SEVERITY_BLOCKED",
     "PLAN_DETAIL_SEVERITY_INFO",
     "PLAN_DETAIL_SEVERITY_NEEDS_REVISION",
@@ -1086,6 +1202,7 @@ __all__ = [
     "PLAN_DETAIL_STATUS_PASS",
     "PLAN_DETAIL_STATUS_SCOPED",
     "PLAN_DETAIL_STATUSES",
+    "PLAN_DETAIL_UI_EVIDENCE_KINDS",
     "PlanDetail",
     "PlanDetailEvidence",
     "PlanDetailFailureBranch",
