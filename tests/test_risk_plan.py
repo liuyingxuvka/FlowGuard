@@ -114,6 +114,10 @@ class RiskPlanTests(unittest.TestCase):
                 "used_template_ids": ("side_effect_at_most_once",),
                 "searched_layers": ("public", "local"),
             },
+            template_harvest_review={
+                "disposition": "duplicate_linked",
+                "linked_template_ids": ("side_effect_at_most_once",),
+            },
             minimum_model_contract={
                 "protected_error_classes": ("duplicate_side_effect",),
                 "modeled_state": ("records",),
@@ -127,9 +131,15 @@ class RiskPlanTests(unittest.TestCase):
         self.assertEqual("tiny flow", plan.risk_profile.modeled_boundary)
         self.assertIsInstance(plan.scenario_matrix_config, ScenarioMatrixConfig)
         self.assertEqual(("side_effect_at_most_once",), plan.template_reuse_review.used_template_ids)
+        self.assertEqual("duplicate_linked", plan.template_harvest_review.disposition)
         self.assertEqual(("retry_writes_twice",), plan.minimum_model_contract.known_bad_cases)
         self.assertIn("workflow: tiny", plan.format_text())
+        self.assertIn("template_harvest_review: provided", plan.format_text())
         self.assertEqual("tiny", plan.to_dict()["workflow"])
+        self.assertEqual(
+            ["side_effect_at_most_once"],
+            plan.to_dict()["template_harvest_review"]["linked_template_ids"],
+        )
 
 
 if __name__ == "__main__":

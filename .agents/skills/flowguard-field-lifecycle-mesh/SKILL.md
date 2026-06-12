@@ -38,6 +38,7 @@ when their evidence is needed.
 - Explicit preservation requires compatibility intent and current evidence.
 - Field inventory is not proof. Behavior claims still need model obligations,
   owner code contracts, tests, freshness, and closure evidence.
+- New/deepened models need template harvest closure before broad claims.
 
 ## Minimum Workflow
 

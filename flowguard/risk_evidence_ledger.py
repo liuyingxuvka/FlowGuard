@@ -60,6 +60,7 @@ RISK_GATE_UI_IMPLEMENTATION = "ui_implementation"
 RISK_GATE_UI_REAL_SURFACE = "ui_real_surface"
 RISK_GATE_UI_FUNCTIONAL_CHAIN = "ui_functional_chain"
 RISK_GATE_UI_DONE_CLAIM = "ui_done_claim"
+RISK_GATE_UI_HUMAN_OPERABILITY = "ui_human_operability"
 RISK_GATE_MATLAB_CALLBACK_SEMANTICS = "matlab_callback_semantics"
 RISK_GATE_ARTIFACT_PAYLOAD = "artifact_payload"
 
@@ -536,6 +537,16 @@ GATE_CODE_MAP = {
         "required final UI done-claim gate is blocked",
         "required final UI done-claim evidence remains explicitly scoped",
     ),
+    RISK_GATE_UI_HUMAN_OPERABILITY: (
+        "missing_ui_human_operability_gate",
+        "ui_human_operability_gate_not_current",
+        "ui_human_operability_gate_blocked",
+        "ui_human_operability_gate_scoped_confidence",
+        "required risk has no UI human-operability evidence gate",
+        "required UI human-operability evidence is stale or missing",
+        "required UI human-operability gate is blocked",
+        "required UI human-operability evidence remains explicitly scoped",
+    ),
     RISK_GATE_MATLAB_CALLBACK_SEMANTICS: (
         "missing_matlab_callback_semantics_gate",
         "matlab_callback_semantics_gate_not_current",
@@ -957,6 +968,7 @@ __all__ = [
     "RISK_GATE_MATLAB_CALLBACK_SEMANTICS",
     "RISK_GATE_UI_DONE_CLAIM",
     "RISK_GATE_UI_FUNCTIONAL_CHAIN",
+    "RISK_GATE_UI_HUMAN_OPERABILITY",
     "RISK_GATE_UI_IMPLEMENTATION",
     "RISK_GATE_UI_REAL_SURFACE",
     "RISK_PROOF_KIND_MANUAL",

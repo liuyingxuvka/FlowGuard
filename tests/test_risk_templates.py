@@ -9,6 +9,7 @@ from flowguard.risk_templates import (
     TEMPLATE_LIBRARY_ENV_VAR,
     MinimumModelContract,
     RiskTemplate,
+    TemplateHarvestReview,
     TemplateReuseReview,
     builtin_risk_templates,
     default_local_template_library_root,
@@ -16,6 +17,7 @@ from flowguard.risk_templates import (
     load_local_risk_templates,
     merge_risk_templates,
     review_minimum_model_contract,
+    review_template_harvest_closure,
     search_risk_templates,
     write_local_risk_template,
 )
@@ -122,6 +124,46 @@ class RiskTemplateTests(unittest.TestCase):
 
         self.assertEqual("pass", report.status)
         self.assertFalse(report.findings)
+
+    def test_template_harvest_review_passes_for_written_candidate(self):
+        report = review_template_harvest_closure(
+            TemplateHarvestReview(
+                disposition="written",
+                written_template_ids=("completion-proof",),
+            )
+        )
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual("pass", report.status)
+
+    def test_template_harvest_review_passes_for_duplicate_link(self):
+        report = review_template_harvest_closure(
+            TemplateHarvestReview(
+                disposition="duplicate_linked",
+                linked_template_ids=("completion_requires_evidence",),
+            )
+        )
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual("pass", report.status)
+
+    def test_template_harvest_review_blocks_vague_skip(self):
+        report = review_template_harvest_closure(
+            TemplateHarvestReview(
+                disposition="not_harvestable",
+                not_harvestable_reason="not_useful",
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertEqual("blocked", report.status)
+        self.assertIn("unsupported_not_harvestable_reason", report.findings)
+
+    def test_template_harvest_review_blocks_missing_template_id(self):
+        report = review_template_harvest_closure(TemplateHarvestReview(disposition="merged"))
+
+        self.assertFalse(report.ok)
+        self.assertIn("missing_harvest_template_id", report.findings)
 
     def test_merge_keeps_known_bad_cases_and_sources(self):
         left = RiskTemplate(

@@ -19,6 +19,7 @@ from flowguard import (
     RISK_GATE_MATLAB_CALLBACK_SEMANTICS,
     RISK_GATE_UI_DONE_CLAIM,
     RISK_GATE_UI_FUNCTIONAL_CHAIN,
+    RISK_GATE_UI_HUMAN_OPERABILITY,
     RISK_GATE_UI_IMPLEMENTATION,
     RISK_GATE_UI_REAL_SURFACE,
     RISK_LEDGER_DECISION_FULL,
@@ -337,6 +338,13 @@ class RiskEvidenceLedgerTests(unittest.TestCase):
                 "missing_ui_done_claim_gate",
                 "ui_done_claim_gate_not_current",
                 "ui_done_claim_gate_blocked",
+            ),
+            (
+                RISK_GATE_UI_HUMAN_OPERABILITY,
+                "ui:human-operability",
+                "missing_ui_human_operability_gate",
+                "ui_human_operability_gate_not_current",
+                "ui_human_operability_gate_blocked",
             ),
             (
                 RISK_GATE_MATLAB_CALLBACK_SEMANTICS,

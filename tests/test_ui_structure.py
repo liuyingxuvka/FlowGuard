@@ -19,6 +19,9 @@ from flowguard import (
     UIImplementationJourneyRun,
     UIImplementationStepEvidence,
     UIImplementationValidation,
+    UIHumanOperabilityAssessment,
+    UIHumanWalkthroughScenario,
+    UIHumanWalkthroughStep,
     UIInteractionModel,
     UIJourneyCoverage,
     UIJourneyEntryPoint,
@@ -30,14 +33,22 @@ from flowguard import (
     UIResponsivenessContract,
     UIStableRegionRule,
     UIStateNode,
+    UIActionGrammar,
+    UIAffordanceContract,
+    UIDialogWindowContract,
+    UIKeyboardFocusContract,
+    UIRegionSemanticMap,
     UIStructureDerivation,
     UITextElement,
     UITextHierarchyBlueprint,
     UITypographyToken,
     UITerminalActionAllowance,
     UITransition,
+    UIUserTaskCoverageLedger,
+    UIUserTaskFrame,
     UIVisibleSurface,
     UIVisibleSurfaceItem,
+    review_ui_human_operability,
     review_matlab_baseline_callback_gate,
     review_ui_control_functional_chains,
     review_ui_geometry_layout_evidence,
@@ -851,6 +862,156 @@ def matlab_callback_gate(**kwargs) -> MATLABBaselineCallbackGate:
     }
     defaults.update(kwargs)
     return MATLABBaselineCallbackGate("matlab-callback-gate", **defaults)
+
+
+def task_frame(**kwargs) -> UIUserTaskFrame:
+    defaults = {
+        "user_goal": "Choose a txt file so it can be loaded into the table",
+        "source_feature_ids": ("file_select",),
+        "entry_state_ids": ("empty",),
+        "main_path_event_ids": ("click_import",),
+        "cancel_event_ids": ("click_cancel",),
+        "error_state_ids": ("failed",),
+        "success_state_ids": ("file_loaded",),
+        "required_control_ids": ("import",),
+        "required_dialog_ids": ("file-picker-dialog",),
+        "required_feedback_item_ids": ("import_button",),
+        "keyboard_contract_id": "select-file-keyboard",
+        "cancel_behavior": "Cancel keeps the previous path and returns focus to Import.",
+        "error_behavior": "Unreadable files move to the failed state with retry guidance.",
+        "evidence_refs": ("evidence://walkthrough/select-file.json",),
+        "rationale": "The task connects file selection capability to the visible Import path.",
+    }
+    defaults.update(kwargs)
+    return UIUserTaskFrame("select_file", **defaults)
+
+
+def task_coverage_ledger(**kwargs) -> UIUserTaskCoverageLedger:
+    defaults = {
+        "source_function_model_id": "import-run-product-flow",
+        "source_interaction_model_id": "import-run-ui-flow",
+        "feature_ids": ("file_select",),
+        "task_frames": (task_frame(),),
+        "feature_task_links": (("file_select", "select_file"),),
+        "task_control_links": (("select_file", "import"),),
+        "task_functional_chain_links": (("select_file", "import_chain"),),
+        "primary_control_ids": ("import",),
+        "validation_boundaries": ("task coverage review",),
+        "rationale": "All in-scope user-visible file selection capability maps to a task and UI control.",
+    }
+    defaults.update(kwargs)
+    return UIUserTaskCoverageLedger("import-run-task-coverage", **defaults)
+
+
+def human_operability_assessment(**kwargs) -> UIHumanOperabilityAssessment:
+    defaults = {
+        "task_coverage": task_coverage_ledger(),
+        "source_interaction_model_id": "import-run-ui-flow",
+        "current_revision": "ui-rev-1",
+        "region_maps": (
+            UIRegionSemanticMap(
+                "file-input-region-map",
+                "primary-workspace",
+                "input",
+                task_ids=("select_file",),
+                control_ids=("import",),
+                allowed_item_kinds=("control", "status"),
+                rationale="The region owns selecting the file before running work.",
+            ),
+        ),
+        "affordance_contracts": (
+            UIAffordanceContract(
+                "import-affordance",
+                "import_button",
+                "button",
+                "opens_dialog",
+                task_id="select_file",
+                control_id="import",
+                visual_cues=("button_shape", "primary_label"),
+                interaction_cues=("click", "enter"),
+                expected_user_action="Click Import or press Enter when it has focus.",
+                expected_result="Native file picker opens and returns selected path or cancel state.",
+                evidence_ref="evidence://affordance/import.json",
+                rationale="The visible button cue matches the actionable dialog-opening role.",
+            ),
+        ),
+        "action_grammars": (
+            UIActionGrammar(
+                "select-file-action",
+                "select_file",
+                "choose file",
+                source_state_ids=("empty",),
+                primary_control_id="import",
+                expected_next_state_id="file_loaded",
+                expected_feedback_item_ids=("import_button",),
+                rationale="One primary action owns the choose-file intent.",
+            ),
+        ),
+        "dialog_contracts": (
+            UIDialogWindowContract(
+                "file-picker-dialog",
+                "select_file",
+                "import",
+                "native_file_picker",
+                success_return="Selected file path is shown and the UI reaches file_loaded.",
+                cancel_return="Cancel keeps the previous state and no stale path is shown.",
+                error_return="Invalid or unreadable selection reaches failed with recovery guidance.",
+                focus_return_target_id="import",
+                feedback_item_ids=("import_button",),
+                native_boundary="Windows file picker boundary recorded by manual observation.",
+                manual_boundary="Manual evidence records choose and cancel outcomes.",
+                evidence_ref="evidence://dialog/file-picker.json",
+                rationale="The native dialog is not treated as complete until return semantics are clear.",
+            ),
+        ),
+        "keyboard_contracts": (
+            UIKeyboardFocusContract(
+                "select-file-keyboard",
+                "select_file",
+                state_id="empty",
+                tab_order_control_ids=("import", "run", "settings"),
+                default_enter_control_id="import",
+                escape_behavior="Esc closes the file picker or leaves empty state unchanged.",
+                focus_return_rules=(("native_file_picker", "import"),),
+                disabled_skip_policy="Disabled Run is skipped until file_loaded.",
+                error_focus_target_id="import",
+                evidence_ref="evidence://keyboard/select-file.json",
+                rationale="Keyboard operation follows the same file-selection task grammar.",
+            ),
+        ),
+        "walkthroughs": (
+            UIHumanWalkthroughScenario(
+                "first-time-select-file",
+                "select_file",
+                steps=(
+                    UIHumanWalkthroughStep(
+                        "see-import",
+                        "Import button is visible in the empty state.",
+                        "Click Import.",
+                        "File picker opens.",
+                        "File picker opened.",
+                        "evidence://walkthrough/step-see-import.json",
+                        rationale="The first step exposes the next action without AI explanation.",
+                    ),
+                    UIHumanWalkthroughStep(
+                        "choose-file",
+                        "Native file picker is open.",
+                        "Choose a txt file.",
+                        "Path is accepted and file_loaded state appears.",
+                        "file_loaded state appeared.",
+                        "evidence://walkthrough/step-choose-file.json",
+                        rationale="The return path makes the task outcome visible.",
+                    ),
+                ),
+                evidence_ref="evidence://walkthrough/select-file.json",
+                rationale="A first-time user can complete the select-file task.",
+            ),
+        ),
+        "validation_boundaries": ("human operability review",),
+        "rationale": "Human-operability evidence connects feature, task, UI controls, dialog, keyboard, and walkthrough.",
+    }
+    defaults.update(kwargs)
+    return UIHumanOperabilityAssessment("import-run-human-operability", **defaults)
 
 
 def render_evidence(**kwargs) -> UIRenderEvidenceSet:
@@ -2110,6 +2271,100 @@ class UITextHierarchyTests(unittest.TestCase):
         )
 
         self.assertTrue(report.ok, report.format_text())
+
+
+class UIHumanOperabilityTests(unittest.TestCase):
+    def review(self, assessment: UIHumanOperabilityAssessment):
+        return review_ui_human_operability(
+            assessment,
+            interaction_model=ui_model(),
+            visible_surface=visible_surface(),
+            functional_chains=functional_chain_set(),
+        )
+
+    def test_complete_human_operability_can_continue(self):
+        report = self.review(human_operability_assessment())
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual(("file_select",), report.covered_feature_ids)
+        self.assertEqual(("select_file",), report.covered_task_ids)
+
+    def test_uncovered_feature_blocks(self):
+        ledger = task_coverage_ledger(feature_ids=("file_select", "export_result"))
+        report = self.review(human_operability_assessment(task_coverage=ledger))
+
+        self.assertFalse(report.ok)
+        self.assertIn("feature_without_user_task", finding_codes(report))
+
+    def test_orphan_primary_control_blocks(self):
+        ledger = task_coverage_ledger(primary_control_ids=("import", "run"))
+        report = self.review(human_operability_assessment(task_coverage=ledger))
+
+        self.assertFalse(report.ok)
+        self.assertIn("orphan_primary_control", finding_codes(report))
+
+    def test_affordance_role_mismatch_blocks(self):
+        broken = replace(
+            human_operability_assessment().affordance_contracts[0],
+            actual_role="readonly",
+            mismatch_disposition="",
+        )
+        report = self.review(human_operability_assessment(affordance_contracts=(broken,)))
+
+        self.assertFalse(report.ok)
+        self.assertIn("affordance_role_mismatch", finding_codes(report))
+
+    def test_duplicate_primary_action_blocks(self):
+        duplicate = UIActionGrammar(
+            "select-file-action-duplicate",
+            "select_file",
+            "choose file",
+            source_state_ids=("empty",),
+            primary_control_id="settings",
+            expected_next_state_id="file_loaded",
+            expected_feedback_item_ids=("import_button",),
+            rationale="This wrongly makes settings another primary choose-file action.",
+        )
+        assessment = human_operability_assessment(
+            action_grammars=human_operability_assessment().action_grammars + (duplicate,)
+        )
+
+        report = self.review(assessment)
+
+        self.assertFalse(report.ok)
+        self.assertIn("duplicate_primary_action", finding_codes(report))
+
+    def test_dialog_and_keyboard_gaps_block(self):
+        broken_dialog = replace(human_operability_assessment().dialog_contracts[0], cancel_return="", focus_return_target_id="")
+        broken_keyboard = replace(human_operability_assessment().keyboard_contracts[0], escape_behavior="", focus_return_rules=())
+        report = self.review(
+            human_operability_assessment(
+                dialog_contracts=(broken_dialog,),
+                keyboard_contracts=(broken_keyboard,),
+            )
+        )
+
+        codes = finding_codes(report)
+        self.assertFalse(report.ok)
+        self.assertIn("dialog_missing_cancel_return", codes)
+        self.assertIn("dialog_missing_focus_return", codes)
+        self.assertIn("keyboard_missing_escape_behavior", codes)
+        self.assertIn("keyboard_missing_focus_return", codes)
+
+    def test_walkthrough_confusion_blocks(self):
+        confused_step = replace(
+            human_operability_assessment().walkthroughs[0].steps[0],
+            confusion=True,
+            mitigation="",
+        )
+        confused_walkthrough = replace(
+            human_operability_assessment().walkthroughs[0],
+            steps=(confused_step,) + human_operability_assessment().walkthroughs[0].steps[1:],
+        )
+        report = self.review(human_operability_assessment(walkthroughs=(confused_walkthrough,)))
+
+        self.assertFalse(report.ok)
+        self.assertIn("walkthrough_step_confusion_unmitigated", finding_codes(report))
 
 
 if __name__ == "__main__":

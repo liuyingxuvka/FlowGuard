@@ -30,9 +30,11 @@ from __future__ import annotations
 
 from flowguard import (
     MinimumModelContract,
+    TemplateHarvestReview,
     TemplateReuseReview,
     harvest_risk_template_candidate,
     review_minimum_model_contract,
+    review_template_harvest_closure,
     search_risk_templates,
 )
 
@@ -82,6 +84,17 @@ def candidate_harvest(write=False):
     )
 
 
+def harvest_closure_review():
+    search = search_public_templates()
+    linked = (search.matches[0].template.template_id,) if search.matches else ()
+    review = TemplateHarvestReview(
+        disposition="duplicate_linked" if linked else "not_harvestable",
+        linked_template_ids=linked,
+        not_harvestable_reason="" if linked else "no_new_pattern",
+    )
+    return review, review_template_harvest_closure(review)
+
+
 def run_checks():
     return (
         search_public_templates(),
@@ -90,6 +103,7 @@ def run_checks():
             template_reuse_review=template_reuse_review(),
         ),
         candidate_harvest(write=False),
+        *harvest_closure_review(),
     )
 '''
 
@@ -99,13 +113,17 @@ from model import run_checks
 
 
 def main() -> int:
-    search, review, harvest = run_checks()
+    search, review, harvest, harvest_review, closure = run_checks()
     print(search.format_text())
     print()
     print(review.format_text())
     print()
     print(harvest.format_text())
-    return 0 if search.matches and review.ok and review.status == "pass" and harvest.ok else 1
+    print()
+    print(harvest_review.format_text())
+    print()
+    print(closure.format_text())
+    return 0 if search.matches and review.ok and review.status == "pass" and harvest.ok and closure.ok else 1
 
 
 if __name__ == "__main__":
@@ -114,8 +132,9 @@ if __name__ == "__main__":
 
 RISK_TEMPLATE_LIBRARY_NOTES_TEMPLATE = """# FlowGuard Risk Template Library Notes
 
-Use this scaffold when a model should reuse public/package templates and, when
-useful, save a per-machine local candidate template.
+Use this scaffold when a model should reuse public/package templates and close
+the harvest loop by writing, merging, linking, or explicitly not harvesting a
+per-machine local candidate template.
 
 Default layers:
 

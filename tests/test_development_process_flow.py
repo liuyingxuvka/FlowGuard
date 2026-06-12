@@ -12,6 +12,7 @@ from flowguard import (
     PROCESS_ARTIFACT_TEST,
     PROCESS_ARTIFACT_UI_DONE_CLAIM,
     PROCESS_ARTIFACT_UI_FUNCTIONAL_CHAIN,
+    PROCESS_ARTIFACT_UI_HUMAN_OPERABILITY,
     PROCESS_ARTIFACT_UI_OBSERVED_INVENTORY,
     PROCESS_EVIDENCE_BUG_REPAIR_CLOSURE,
     PROCESS_EVIDENCE_FIELD_LIFECYCLE,
@@ -23,6 +24,7 @@ from flowguard import (
     PROCESS_EVIDENCE_PASSED,
     PROCESS_EVIDENCE_RUNNING,
     PROCESS_EVIDENCE_UI_IMPLEMENTATION_VALIDATION,
+    PROCESS_EVIDENCE_UI_HUMAN_OPERABILITY,
     PROCESS_SCOPE_RELEASE,
     PROCESS_SCOPE_ROUTINE,
     DevelopmentProcessPlan,
@@ -208,6 +210,31 @@ class DevelopmentProcessFlowTests(unittest.TestCase):
         self.assertIn("validation_evidence_not_current", codes)
         self.assertIn("progress_only_validation_claimed_complete", codes)
         self.assertIn("missing_required_revalidation", codes)
+
+    def test_ui_human_operability_change_stales_operability_evidence(self):
+        plan = DevelopmentProcessPlan(
+            "ui-human-operability-lifecycle",
+            artifacts=(ProcessArtifact("ui.human", PROCESS_ARTIFACT_UI_HUMAN_OPERABILITY, "2"),),
+            actions=(
+                ProcessAction("review-human-operability", produced_evidence_ids=("ui-human-pass",)),
+                ProcessAction("edit-action-grammar", writes_artifacts=("ui.human",)),
+                ProcessAction("claim-done", action_type="claim_done"),
+            ),
+            evidence=(
+                ProcessEvidence(
+                    "ui-human-pass",
+                    evidence_kind=PROCESS_EVIDENCE_UI_HUMAN_OPERABILITY,
+                    status=PROCESS_EVIDENCE_PASSED,
+                    covers_artifacts=("ui.human",),
+                    covered_versions={"ui.human": "1"},
+                    produced_by_action_id="review-human-operability",
+                ),
+            ),
+        )
+
+        report = review_development_process_flow(plan)
+        self.assertFalse(report.ok)
+        self.assertIn("ui_human_operability_changed_after_evidence", {finding.code for finding in report.findings})
 
     def test_test_verifier_change_after_test_pass_is_stale(self):
         plan = DevelopmentProcessPlan(

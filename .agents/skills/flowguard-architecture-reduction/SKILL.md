@@ -40,6 +40,7 @@ DevelopmentProcessFlow as needed.
   old/replaced field aliases are cleanup candidates unless classification
   proves they are current contracts, safety classifiers, public facades,
   preserved compatibility fields, archives, or negative legacy tests.
+- Reduction models need template-harvest closure.
 
 ## Minimum Workflow
 

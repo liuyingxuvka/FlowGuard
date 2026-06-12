@@ -11,7 +11,13 @@ from .minimize import minimize_report_counterexample
 from .plan import FlowGuardCheckPlan, ScenarioMatrixConfig
 from .progress import check_progress
 from .review import review_scenarios
-from .risk_templates import MinimumModelContract, TemplateReuseReview, review_minimum_model_contract
+from .risk_templates import (
+    MinimumModelContract,
+    TemplateHarvestReview,
+    TemplateReuseReview,
+    review_minimum_model_contract,
+    review_template_harvest_closure,
+)
 from .scenario import run_exact_sequence
 from .scenario_matrix import ScenarioMatrixBuilder
 from .scenario_matrix import synthesize_challenge_scenarios_from_report
@@ -88,6 +94,7 @@ def run_model_first_checks(plan: FlowGuardCheckPlan) -> FlowGuardSummaryReport:
         skipped_steps=skipped_steps,
         risk_profile=risk_profile,
         template_reuse_review=plan.template_reuse_review,
+        template_harvest_review=plan.template_harvest_review,
         minimum_model_contract=plan.minimum_model_contract,
     )
     artifacts["audit_report"] = audit_report
@@ -270,6 +277,7 @@ def _append_minimum_model_section(
     if (
         plan.minimum_model_contract is None
         and plan.template_reuse_review is None
+        and plan.template_harvest_review is None
         and plan.risk_profile is None
     ):
         return
@@ -283,6 +291,25 @@ def _append_minimum_model_section(
     sections.append(
         FlowGuardSection(
             name="minimum_model_review",
+            status=report.status,
+            summary=report.summary,
+            findings=report.findings,
+            metadata={"report": report, "always_show_findings": bool(report.findings)},
+        )
+    )
+    _append_template_harvest_section(sections, artifacts, plan.template_harvest_review)
+
+
+def _append_template_harvest_section(
+    sections: list[FlowGuardSection],
+    artifacts: dict[str, Any],
+    review: TemplateHarvestReview | None,
+) -> None:
+    report = review_template_harvest_closure(review)
+    artifacts["template_harvest_review"] = report
+    sections.append(
+        FlowGuardSection(
+            name="template_harvest_review",
             status=report.status,
             summary=report.summary,
             findings=report.findings,

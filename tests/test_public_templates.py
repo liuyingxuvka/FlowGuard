@@ -158,6 +158,7 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("completion_requires_evidence", output)
         self.assertIn("flowguard minimum valuable model review", output)
         self.assertIn("flowguard risk template harvest", output)
+        self.assertIn("flowguard template harvest closure", output)
 
     def test_plan_detailing_template_executes(self):
         output = self.run_written_template(
@@ -338,11 +339,14 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("flowguard UI interaction model", output)
         self.assertIn("flowguard UI journey coverage", output)
         self.assertIn("flowguard UI implementation validation", output)
+        self.assertIn("flowguard UI human operability", output)
         self.assertIn("flowguard UI structure derivation", output)
         self.assertIn("flowguard UI text hierarchy", output)
         self.assertIn("flowguard UI visible surface", output)
         self.assertIn("missing_state_availability_matrix", output)
         self.assertIn("feature_entry_point_not_declared", output)
+        self.assertIn("feature_without_user_task", output)
+        self.assertIn("missing_human_walkthrough", output)
         self.assertIn("missing_implementation_run_for_journey", output)
         self.assertIn("source_interaction_model_not_reviewed", output)
         self.assertIn("text_role_too_prominent", output)
@@ -361,7 +365,7 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("The text hierarchy contract is semantic", combined)
         self.assertIn("similar text jobs should usually reuse visual treatments", combined)
         self.assertIn("ui-flow-structure-full-template", combined)
-        self.assertLessEqual(next(file for file in files if file.path.endswith("model.py")).content.count("\n"), 160)
+        self.assertLessEqual(next(file for file in files if file.path.endswith("model.py")).content.count("\n"), 175)
         self.assertNotIn('scale=f"level-{level}"', combined)
 
     def test_ui_flow_structure_full_template_keeps_deep_route_material(self):
@@ -370,6 +374,8 @@ class PublicTemplateTests(unittest.TestCase):
 
         self.assertIn("UIJourneyCoverage", combined)
         self.assertIn("UIImplementationValidation", combined)
+        self.assertIn("UIHumanOperabilityAssessment", combined)
+        self.assertIn("review_ui_human_operability", combined)
         self.assertIn("every reachable enabled", combined)
         self.assertIn("UIStructureDerivation", combined)
         self.assertIn("UITextHierarchyBlueprint", combined)
@@ -678,6 +684,28 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertTrue(harvest_report["ok"])
         self.assertEqual("candidate_ready", harvest_report["status"])
         self.assertEqual("", harvest_report["path"])
+
+        closure = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "flowguard",
+                "risk-template-harvest-review",
+                "--disposition",
+                "duplicate_linked",
+                "--linked-template-id",
+                "completion_requires_evidence",
+                "--json",
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(0, closure.returncode, closure.stderr)
+        closure_report = json.loads(closure.stdout)
+        self.assertEqual("duplicate_linked", closure_report["review"]["disposition"])
+        self.assertTrue(closure_report["report"]["ok"])
 
     def test_public_templates_do_not_contain_local_project_markers(self):
         home_name = Path.home().name

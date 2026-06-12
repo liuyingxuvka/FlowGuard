@@ -5,9 +5,9 @@ description: Use for staged development, modification, release, archive, or publ
 
 # FlowGuard Development Process Flow
 
-Standalone FlowGuard satellite skill for lifecycle order and evidence freshness.
-Use when plan, edit, test, fix, install, shadow sync, archive, release, or
-publish confidence depends on current artifact/evidence versions.
+Standalone FlowGuard satellite skill for lifecycle order and evidence freshness
+when plan, edit, test, fix, install, shadow sync, archive, release, or publish
+confidence depends on current artifact/evidence versions.
 
 Return to `model-first-function-flow` when the FlowGuard route is unclear; cite sibling evidence ids, not internals.
 
@@ -15,7 +15,7 @@ Return to `model-first-function-flow` when the FlowGuard route is unclear; cite 
 
 - Route id: `development_process_flow`.
 - Core helpers: `review_development_process_flow()`, `derive_revalidation_plan()`, `review_auto_mesh_splits()`.
-- Revalidation output includes route, proof, freshness gap, blocked claims.
+- Revalidation output includes route, proof, freshness gap, blocked claim.
 - Reference: `references/development_process_flow_protocol.md`.
 
 ## Hard Gates
@@ -25,11 +25,11 @@ Return to `model-first-function-flow` when the FlowGuard route is unclear; cite 
 - UI tasks need explicit completion evidence type; background or planned UI evidence does not satisfy `[x]`, done, release, or archive.
 - Later writes can stale model/test reuse; reused output needs current `TestResultReuseTicket` plus `ProofArtifactRef`.
 - Model transition changes stale transition matrices, generated MTA obligations, and TestMesh required cells unless refreshed.
-- UI chains, MATLAB callbacks, done reviews, payload schemas/surfaces/cases, and validation prompts stale evidence when changed.
+- UI chains, human-operability, MATLAB callbacks, done reviews, payload schemas/surfaces/cases, and prompts stale evidence when changed.
 - Model-code-test rows stale when linked obligations, owners, tests, transition cells, or proof artifacts change.
 - Field lifecycle/projection/replacement rows stale evidence when changed.
 - Route graph/profile/docs/installed-skill rows stale AI-entry evidence when changed.
-- New/deepened process models search templates first; harvest reusable candidates after validation.
+- New/deepened process models need template harvest closure before broad claims.
 - Later writes can stale evidence or reopen obligations; preserve peer changes.
 
 ## Minimum Workflow
@@ -39,7 +39,7 @@ Return to `model-first-function-flow` when the FlowGuard route is unclear; cite 
 3. Identify later actions that stale evidence.
 4. Regenerate transition coverage and model-code-test bindings when transitions,
    owners, or tests changed.
-5. Include field lifecycle, payload, UI inventory/functional-chain/MATLAB/done-claim, replacement, and bug-closure artifacts when changed.
+5. Include field lifecycle, payload, UI inventory/functional-chain/human-operability/MATLAB/done-claim, replacement, and bug-closure artifacts when changed.
 6. Derive the minimum revalidation plan.
 7. Triage failures before continuing or claiming done.
 

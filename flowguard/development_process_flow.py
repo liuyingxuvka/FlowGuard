@@ -55,6 +55,7 @@ PROCESS_ARTIFACT_UI_OBSERVED_INVENTORY = "ui_observed_inventory"
 PROCESS_ARTIFACT_UI_FUNCTIONAL_CHAIN = "ui_functional_chain"
 PROCESS_ARTIFACT_MATLAB_CALLBACK_GATE = "matlab_callback_gate"
 PROCESS_ARTIFACT_UI_DONE_CLAIM = "ui_done_claim"
+PROCESS_ARTIFACT_UI_HUMAN_OPERABILITY = "ui_human_operability"
 
 PROCESS_EVIDENCE_FIELD_LIFECYCLE = "field_lifecycle_mesh"
 PROCESS_EVIDENCE_FIELD_PROJECTION = "field_projection"
@@ -65,6 +66,13 @@ PROCESS_EVIDENCE_UI_FUNCTIONAL_CHAIN = "ui_functional_chain"
 PROCESS_EVIDENCE_MATLAB_CALLBACK_GATE = "matlab_callback_gate"
 PROCESS_EVIDENCE_UI_IMPLEMENTATION_VALIDATION = "ui_implementation_validation"
 PROCESS_EVIDENCE_UI_DONE_CLAIM_REVIEW = "ui_done_claim_review"
+PROCESS_EVIDENCE_UI_HUMAN_OPERABILITY = "ui_human_operability"
+PROCESS_EVIDENCE_UI_TASK_COVERAGE = "ui_task_coverage"
+PROCESS_EVIDENCE_UI_AFFORDANCE_REVIEW = "ui_affordance_review"
+PROCESS_EVIDENCE_UI_ACTION_GRAMMAR = "ui_action_grammar"
+PROCESS_EVIDENCE_UI_DIALOG_RETURN = "ui_dialog_return"
+PROCESS_EVIDENCE_UI_KEYBOARD_FOCUS = "ui_keyboard_focus"
+PROCESS_EVIDENCE_UI_HUMAN_WALKTHROUGH = "ui_human_walkthrough"
 
 
 def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
@@ -754,6 +762,8 @@ def _stale_code_for_artifact(artifact: ProcessArtifact | None, evidence: Process
         return "matlab_callback_gate_changed_after_evidence"
     if artifact.artifact_type == PROCESS_ARTIFACT_UI_DONE_CLAIM:
         return "ui_done_claim_changed_after_review_pass"
+    if artifact.artifact_type == PROCESS_ARTIFACT_UI_HUMAN_OPERABILITY:
+        return "ui_human_operability_changed_after_evidence"
     return "stale_evidence_after_artifact_change"
 
 
@@ -1151,6 +1161,7 @@ __all__ = [
     "PROCESS_ARTIFACT_MATLAB_CALLBACK_GATE",
     "PROCESS_ARTIFACT_UI_DONE_CLAIM",
     "PROCESS_ARTIFACT_UI_FUNCTIONAL_CHAIN",
+    "PROCESS_ARTIFACT_UI_HUMAN_OPERABILITY",
     "PROCESS_ARTIFACT_UI_OBSERVED_INVENTORY",
     "PROCESS_CLAIM_ACTIONS",
     "PROCESS_EVIDENCE_ERROR",
@@ -1166,9 +1177,16 @@ __all__ = [
     "PROCESS_EVIDENCE_SKIPPED",
     "PROCESS_EVIDENCE_TIMEOUT",
     "PROCESS_EVIDENCE_UI_DONE_CLAIM_REVIEW",
+    "PROCESS_EVIDENCE_UI_ACTION_GRAMMAR",
+    "PROCESS_EVIDENCE_UI_AFFORDANCE_REVIEW",
+    "PROCESS_EVIDENCE_UI_DIALOG_RETURN",
     "PROCESS_EVIDENCE_UI_FUNCTIONAL_CHAIN",
+    "PROCESS_EVIDENCE_UI_HUMAN_OPERABILITY",
+    "PROCESS_EVIDENCE_UI_HUMAN_WALKTHROUGH",
     "PROCESS_EVIDENCE_UI_IMPLEMENTATION_VALIDATION",
+    "PROCESS_EVIDENCE_UI_KEYBOARD_FOCUS",
     "PROCESS_EVIDENCE_UI_OBSERVED_INVENTORY",
+    "PROCESS_EVIDENCE_UI_TASK_COVERAGE",
     "PROCESS_SCOPE_RELEASE",
     "PROCESS_SCOPE_ROUTINE",
     "ActionEffect",

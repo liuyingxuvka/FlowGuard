@@ -5,6 +5,7 @@ from flowguard import FunctionResult, InvariantResult, Workflow, assumption_card
 from flowguard.checks import no_duplicate_values
 from flowguard.plan import FlowGuardCheckPlan
 from flowguard.risk import RiskProfile, SkippedCheck
+from flowguard.risk_templates import TemplateHarvestReview
 from flowguard.runner import run_model_first_checks
 
 
@@ -86,6 +87,10 @@ class RunnerTests(unittest.TestCase):
                 risk_classes=("deduplication",),
                 skipped_checks=(SkippedCheck("conformance_replay", "no production adapter yet"),),
             ),
+            template_harvest_review=TemplateHarvestReview(
+                disposition="duplicate_linked",
+                linked_template_ids=("side_effect_at_most_once",),
+            ),
             scenario_matrix_config={"max_scenarios": 4},
         )
 
@@ -93,6 +98,7 @@ class RunnerTests(unittest.TestCase):
         sections = {section.name: section for section in summary.sections}
 
         self.assertEqual("pass_with_gaps", summary.overall_status)
+        self.assertEqual("pass", sections["template_harvest_review"].status)
         self.assertEqual("pass", sections["model_check"].status)
         self.assertEqual("pass_with_gaps", sections["scenario_matrix"].status)
         self.assertIn("auto-generated", sections["scenario_matrix"].summary)
@@ -123,6 +129,10 @@ class RunnerTests(unittest.TestCase):
             ),
             max_sequence_length=2,
             risk_profile={"modeled_boundary": "broken recording", "risk_classes": ("deduplication",)},
+            template_harvest_review={
+                "disposition": "duplicate_linked",
+                "linked_template_ids": ("side_effect_at_most_once",),
+            },
             scenario_matrix_config={"enabled": False},
         )
 
@@ -147,6 +157,10 @@ class RunnerTests(unittest.TestCase):
                 risk_classes=("conformance",),
                 confidence_goal="production_conformance",
             ),
+            template_harvest_review=TemplateHarvestReview(
+                disposition="not_harvestable",
+                not_harvestable_reason="no_new_pattern",
+            ),
             conformance_status="skipped_with_reason",
         )
 
@@ -162,6 +176,22 @@ class RunnerTests(unittest.TestCase):
         self.assertTrue(ledger.entries)
         self.assertIn("conformance_gap", {entry.category for entry in ledger.entries})
         self.assertIn("finding_ledger", summary.to_dict())
+
+    def test_run_model_first_checks_blocks_missing_template_harvest_closure(self):
+        plan = FlowGuardCheckPlan(
+            workflow=Workflow((IdempotentRecord(),), name="recording"),
+            initial_states=(State(),),
+            external_inputs=("job_1",),
+            max_sequence_length=1,
+            risk_profile=RiskProfile(modeled_boundary="recording", risk_classes=("deduplication",)),
+        )
+
+        summary = run_model_first_checks(plan)
+        sections = {section.name: section for section in summary.sections}
+
+        self.assertEqual("blocked", summary.overall_status)
+        self.assertEqual("blocked", sections["template_harvest_review"].status)
+        self.assertIn("missing_template_harvest_review", sections["template_harvest_review"].findings)
 
     def test_run_model_first_checks_propagates_assumption_card_to_model_report(self):
         card = make_runner_assumption_card()

@@ -13,19 +13,19 @@ the model, code contract, tests, or final claim is too narrow. Return to
 
 - Route id: `model_miss_review`.
 - Entry: `ROUTE_STARTER_API["model_miss_review"]`, `model-miss-template`, or `model-miss-full-template`.
-- Core concepts: observed failure, same-class bad case, `boundary_missing`, root-cause backpropagation, owner code contract, old-path/field disposition, defect-family gate, maturation.
+- Concepts: observed failure, same-class bad case, `boundary_missing`, root-cause backpropagation, owner code contract, old-path/field disposition, defect-family gate, maturation.
 - Reference: `references/model_miss_protocol.md`.
 
 ## Hard Gates
 
 - Verify the real package, keep AGENTS.md managed records current, and do not create a fake mini-framework.
 - A user-observed UI failure after a green claim is a model miss, not a local button-only cleanup.
-- UI misses preserve previous claim/reason, real failure, affected controls/fields, same-class controls/fields, tests/evidence, backpropagation, and code owner.
+- UI misses preserve previous claim/reason, real failure, affected controls/fields, same-class controls/fields, task-flow, affordance/action/dialog/focus gaps, tests/evidence, backpropagation, and code owner.
 - The observed bug instance and bug-class responsibility are separate.
 - Root cause, model obligation, owner code contract, observed test, and same-class test must bind to the same repaired behavior before broad closure.
 - Old, fallback, compatibility, alternate paths, and field misses need disposition/projection instead of accidental reachability.
 - A later green runtime check does not close a miss without same-class evidence.
-- Search public/local risk templates before deepening the model; harvest useful generalized miss patterns afterward.
+- Deepened miss models need template harvest closure before broad claims.
 
 ## Minimum Workflow
 

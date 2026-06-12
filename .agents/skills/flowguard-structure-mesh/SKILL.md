@@ -29,6 +29,7 @@ needs derivation.
 - Existing public entrypoints need facade/parity evidence.
 - Stale parity or facade gaps should remain maintenance obligations for later scans.
 - Dependency cycles and config boundaries must stay visible.
+- New/deepened models need template harvest closure before broad claims.
 
 ## Minimum Workflow
 

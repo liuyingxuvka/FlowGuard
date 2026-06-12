@@ -103,8 +103,9 @@ Use the gates that match the claim:
   defect scans, defect-family gates, split gates, and current proof evidence.
 - UI Done Claim: when the final statement says a UI is complete, runnable, or
   wired, the closure package includes current observed real-surface inventory,
-  enabled-control functional chains, MATLAB callback semantics when applicable,
-  implementation validation, native-dialog/manual blindspots, and no
+  enabled-control functional chains, human-operability review, MATLAB callback
+  semantics when applicable, implementation validation, native-dialog/manual
+  blindspots, and no
   `planned:*` evidence standing in for observation.
 - Typed claim chain: broad claims consume the right support type instead of
   promoting plan-only, model-only, or test-only evidence into production

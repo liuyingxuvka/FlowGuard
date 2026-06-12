@@ -21,13 +21,13 @@ For coding, repository, process, prompt, skill, documentation, release, archive,
 ### Minimum Valuable Model
 
 ```text
-risky boundary -> protected error class -> public/local template search
+risky boundary -> protected error class -> public/local risk template search
 -> Input x State -> Set(Output x State)
 -> state + side effects + completion evidence + known-bad case
--> run checks -> inspect counterexample -> harvest reusable local candidate when useful
+-> run checks -> inspect counterexample -> record template harvest closure
 ```
 
-This is still compact, but it must have teeth. A new or deepened model names the real error it prevents, records used public/local template ids or a no-match reason, models completion evidence, and includes a representative bad case. Complete FlowGuard use needs current evidence for the selected route; skipped, stale, deferred, progress-only, or not-run checks are not passes.
+This is still compact, but it must have teeth. A new or deepened model names the real error it prevents, records used public/local template ids or a no-match reason, models completion evidence, includes a representative bad case, and closes template harvest as written, merged, duplicate-linked, or accepted not-harvestable. Complete FlowGuard use needs current evidence for the selected route; skipped, stale, deferred, progress-only, or not-run checks are not passes.
 
 ### Hard Gates
 
@@ -43,16 +43,17 @@ This is still compact, but it must have teeth. A new or deepened model names the
 - Long background checks are liveness only until final output and exit/status artifacts exist.
 - For existing/runnable UI, first inventory real visible items and map each to `UIControl`, `UIDisplayElement`, `UIVisibleSurfaceItem`, or blindspot.
 - Every reachable enabled UI control needs a visible-control -> event -> code owner -> backend/local function -> UI state update -> click/test evidence chain; API existence or label matching is not enough.
+- Every supported UI task needs task coverage plus human-operability evidence: primary control, feedback, cancel/error, affordance, dialog/window return, keyboard/focus, and walkthrough.
 - MATLAB UI migrations need `uigetfile`, `uigetdir`, `winopen`, no-callback, select/cancel/path/result/error semantics.
 - UI done/runnable/button-wired claims need current `UIImplementationValidation` and UI done-claim review; planned/background/artifact-only evidence is not release completion.
 - Reused test results need current `TestResultReuseTicket` and `ProofArtifactRef`; old `passed` output is not current evidence by itself.
 - After `run_model_first_checks()`, read structured ledger routes and obligations before manual route inference.
+- New/deepened models need template harvest closure before broad claims: written, merged, duplicate-linked, or accepted not-harvestable.
 - Before trusting that one existing route or model is enough, record model-angle deliberation when the task may need a missing viewpoint.
 - For non-trivial FlowGuard work, show a route-specific Mermaid snapshot once the route/model is stable; diagrams explain and do not validate.
 - Before full done/release/publish confidence, connect risks, obligations, UI click-through gates, artifact-payload gates, code/test evidence, proof artifacts, automatic state-closure gaps, and topology-hazard gaps through Risk Evidence Ledger or equivalent.
 - After non-trivial work, use `maintenance_scan_router` for SummaryReport gaps, changed artifacts, open obligations, skipped routes, stale evidence, state/topology gaps, or split/reduction signals.
-- Finish real project use with adoption evidence: trigger, model/risk,
-  commands, findings, skipped gaps, validation results, and next actions.
+- Finish real project use with adoption evidence: trigger, model/risk, commands, findings, skipped gaps, validation results, and next actions.
 
 ### Route Map
 
@@ -65,7 +66,7 @@ This is still compact, but it must have teeth. A new or deepened model names the
 | Current route/model may be too narrow or a new model angle may be needed | `model_angle_deliberation` | `model-angle-template` or `review_model_angle_deliberations()` |
 | Field lifecycle, behavior-bearing field projection, old/replaced/deprecated field disposition | `field_lifecycle_mesh` | `flowguard-field-lifecycle-mesh` |
 | Similar features, A/B workflow drift, sibling tests, shared-kernel/adapter suspicion | `model_similarity_consolidation` | `model-first-function-flow` reference |
-| New/deepened model should reuse or harvest public/local risk templates | `risk_template_library` | `risk-template-search`, `risk-template-harvest`, or `risk-template-library-template` |
+| New/deepened model must reuse/search and close public/local template harvest | `risk_template_library` | `risk-template-search`, `risk-template-harvest`, `risk-template-harvest-review`, or `risk-template-library-template` |
 | Rough idea/short plan needs detailed scope, state, evidence, receipts, rework | `plan_detailing_compiler` | `flowguard-plan-detailing-compiler` |
 | Multi-skill/tool/plugin planning, skipped skill consequences, rework gates | `agent_workflow_rehearsal` | `flowguard-agent-workflow-rehearsal` |
 | Ordinary behavior/state modeling, Risk Intent, state inventory | `core_modeling` | `model-first-function-flow` |
@@ -103,7 +104,5 @@ which sibling models/code/tests must be checked, which tests are shared versus
 variant-specific, and whether shared-kernel/adapter work or false-friend
 separation applies.
 
-Do not require ordinary project work to run FlowGuard's internal framework
-evidence suites. Use those only for FlowGuard upgrades, benchmark claims, or
-broad capability claims.
+Do not require ordinary project work to run FlowGuard's internal framework evidence suites; reserve them for FlowGuard upgrades, benchmark claims, or broad capability claims.
 ```

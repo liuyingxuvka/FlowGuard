@@ -50,7 +50,7 @@ whether the rows and later claim promotion were too narrow.
 - `RiskEvidenceGate`: one optional gate such as `defect_family`,
   `model_split`, `test_split`, `family`, `analogous_scan`,
   `ui_implementation`, `ui_real_surface`, `ui_functional_chain`,
-  `ui_done_claim`, `matlab_callback_semantics`, `artifact_payload`,
+  `ui_human_operability`, `ui_done_claim`, `matlab_callback_semantics`, `artifact_payload`,
   `topology_hazard`, `model_angle_review`, `parent_model_evidence`, or
   `maintenance_obligation`.
   A gate has one `kind`, one `evidence_id`, current status, confidence, and
@@ -87,6 +87,7 @@ from flowguard import (
     RISK_GATE_MATLAB_CALLBACK_SEMANTICS,
     RISK_GATE_UI_DONE_CLAIM,
     RISK_GATE_UI_FUNCTIONAL_CHAIN,
+    RISK_GATE_UI_HUMAN_OPERABILITY,
     RISK_GATE_UI_IMPLEMENTATION,
     RISK_GATE_UI_REAL_SURFACE,
     RISK_PROOF_SCOPE_INTERNAL_PATH,
@@ -116,6 +117,7 @@ plan = RiskEvidenceLedgerPlan(
                 RiskEvidenceGate(RISK_GATE_UI_IMPLEMENTATION, "ui:submit-clickthrough"),
                 RiskEvidenceGate(RISK_GATE_UI_REAL_SURFACE, "ui:observed-inventory"),
                 RiskEvidenceGate(RISK_GATE_UI_FUNCTIONAL_CHAIN, "ui:submit-functional-chain"),
+                RiskEvidenceGate(RISK_GATE_UI_HUMAN_OPERABILITY, "ui:submit-human-operability"),
                 RiskEvidenceGate(RISK_GATE_UI_DONE_CLAIM, "ui:done-claim-review"),
                 RiskEvidenceGate(RISK_GATE_MATLAB_CALLBACK_SEMANTICS, "ui:matlab-callbacks"),
                 RiskEvidenceGate(RISK_GATE_ARTIFACT_PAYLOAD, "payload:submit-export"),

@@ -32,6 +32,7 @@ TestMesh for test hierarchy and StructureMesh for code hierarchy.
 - Older child or parent model artifacts must be upgraded to the current
   FlowGuard shape, replaced, or explicitly blocked before they count as current
   mesh evidence.
+- New/deepened child or parent models need template harvest closure before broad claims.
 
 ## Minimum Workflow
 

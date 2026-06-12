@@ -8,15 +8,20 @@ dialogs, menus, panels, and regions. Every observed item must map to a
 blindspot with owner and validation boundary. It then models the UI's
 interaction behavior, reviews the user-visible surface, reviews
 launch-to-terminal journey coverage when complete app-level UI coverage is
-claimed, derives the UI structure from that model, and derives a UI text
-hierarchy blueprint from the reviewed structure. When someone claims the
-running UI has been implemented or is complete, implementation validation
-aligns user-visible feature contracts, the reviewed UI journey coverage, and
-evidence kinds such as screenshot, browser click-through, DOM text, geometry,
-accessibility/ARIA, runtime trace, test result, or manual observation. A
-complete runnable UI claim must account for every reachable enabled actionable
-control: prove the functional chain, click it through, classify it as a pure UI
-action, or record a scoped blindspot with owner and validation boundary.
+claimed, derives the UI structure from that model, derives a UI text hierarchy
+blueprint from the reviewed structure, and validates human-operability. Human
+operability means each user-visible feature is covered by a user task frame,
+primary controls are owned by those tasks, the screen's action grammar is clear,
+native/dialog return semantics are explicit, keyboard/focus behavior is known,
+and a walkthrough shows whether a person can complete the task without hidden
+AI explanation. When someone claims the running UI has been implemented or is
+complete, implementation validation aligns user-visible feature contracts, the
+reviewed UI journey coverage, and evidence kinds such as screenshot, browser
+click-through, DOM text, geometry, accessibility/ARIA, runtime trace, test
+result, or manual observation. A complete runnable UI claim must account for
+every reachable enabled actionable control: prove the functional chain, click
+it through, classify it as a pure UI action, or record a scoped blindspot with
+owner and validation boundary.
 
 This route is for workflow-heavy interfaces where button placement, menu
 levels, panels, overlays, persistent controls, and state-dependent actions need
@@ -58,6 +63,12 @@ Use it when:
 - enabled buttons or controls need a functional chain from visible control to
   UI event, code owner, backend/local function, UI state update, and click/test
   evidence;
+- user-visible features need task-flow coverage rather than one small happy
+  path; every supported task must connect to the function model, UI journey,
+  primary controls, functional chains, feedback, cancel/error behavior,
+  keyboard/focus rules, and walkthrough evidence;
+- UI that looks clickable, editable, selectable, or read-only needs an
+  affordance contract so visual cues match actual behavior;
 - MATLAB migrations need callback semantics for `uigetfile`, `uigetdir`,
   `winopen`, no-callback buttons, select, cancel, chosen path, load result, and
   error branches;
@@ -119,6 +130,39 @@ The observed real-surface and functional-chain objects are:
   `review_matlab_baseline_callback_gate(...)`: preserve MATLAB picker,
   directory picker, shell-open, cancel, selected-path, load-result, error, and
   no-callback semantics during migration.
+
+The human-operability objects are:
+
+- `UIUserTaskFrame`: one human task that connects a user goal to source
+  features, entry states, main/alternate/cancel/error paths, required controls,
+  required feedback, keyboard contract, and evidence references.
+- `UIUserTaskCoverageLedger`: the coverage ledger from user-visible features to
+  task frames, UI journeys, controls, functional chains, primary controls, and
+  scoped-out tasks or features.
+- `UIRegionSemanticMap`: the intended role of a region, such as input, action,
+  result, status, recovery, navigation, or dialog, with the tasks, controls,
+  displays, and status items it owns.
+- `UIAffordanceContract`: perceived role versus actual behavior for a visible
+  item, so something that looks clickable, editable, selectable, or read-only
+  cannot contradict what it actually does without a disposition.
+- `UIActionGrammar`: the user intent, source states, primary control,
+  alternatives, conflicts, preconditions, expected next state, and feedback for
+  one semantic action.
+- `UIDialogWindowContract`: native picker, save dialog, OS shell, custom modal,
+  popover, or drawer return semantics, including success, cancel, error, focus
+  return, feedback, native/manual boundary, and evidence reference.
+- `UIKeyboardFocusContract`: tab order, default Enter behavior, Escape behavior,
+  focus return, disabled-control skip policy, error focus target, and evidence.
+- `UIHumanWalkthroughStep` and `UIHumanWalkthroughScenario`: observed
+  human/persona task walkthrough evidence with visible prompt, user action,
+  expected feedback, actual feedback, confusion, mitigation, and evidence.
+- `UIHumanOperabilityAssessment`: the aggregate validation package for task
+  coverage, region semantics, affordance, action grammar, dialog/window,
+  keyboard/focus, and walkthrough evidence.
+- `UIHumanOperabilityReport` and `review_ui_human_operability(...)`: the
+  checker that blocks human-operable UI confidence when a feature has no task,
+  a primary control is orphaned, action cues conflict, dialog/focus returns are
+  missing, or walkthrough confusion is unresolved.
 
 The app-level journey coverage objects are:
 
@@ -238,6 +282,8 @@ product/workflow intent
 -> review regions, menu levels, displays, overlays, stable placement, hierarchy
 -> UI text hierarchy blueprint
 -> review headings, labels, action text, status/helper/error/recovery slots
+-> human-operability validation
+-> review user task coverage, region semantics, affordance, action grammar, dialog/window returns, keyboard/focus, walkthrough confusion
 -> render evidence kinds, geometry, and responsiveness when claimed
 -> review screenshot/DOM/click/geometry/accessibility/runtime/test/manual evidence, layout, hot/cold paths
 -> transition coverage matrix when claiming model-to-code-to-test coverage
@@ -330,6 +376,30 @@ weight, color role, spacing, or placement should have a clear job, such as
 primary focus, region scanning, local control, warning, helper text, quiet
 metadata, or intentional brand expression. Excessive one-off text treatments
 are a design smell to review and consolidate, not a fixed numeric failure.
+
+The human-operability stage checks whether the modeled UI can be understood and
+operated as a task system:
+
+- every supported user-visible feature has at least one in-scope
+  `UIUserTaskFrame`, or is explicitly scoped out with a validation boundary;
+- every supported task connects to source features, UI entry state, main path,
+  success state, visible feedback, cancel behavior, error behavior, primary
+  controls, functional chains, and keyboard/focus contract;
+- each primary control is owned by a task, and duplicate primary actions for
+  the same intent/state need a duplicate policy;
+- region roles match what a user sees: input regions own inputs, status/result
+  regions do not silently own unrelated action controls, and navigation or
+  recovery regions stay semantically clear;
+- each visible affordance's perceived role matches the actual role, or the
+  mismatch has a disposition such as clarify, restyle, disable, label as
+  read-only, or scoped;
+- native file pickers, directory pickers, save dialogs, OS shell opens, custom
+  modals, popovers, and drawers define success, cancel, error, focus return,
+  feedback, native/manual boundary, and evidence;
+- keyboard operation has tab order, Enter behavior, Escape behavior,
+  disabled-control skip policy, focus return, and error focus;
+- each in-scope task has a passing walkthrough, and any confusion note has a
+  mitigation before human-operable UI confidence is claimed.
 
 The evidence and implementation stages are only for implemented/runnable UI
 claims. They check:

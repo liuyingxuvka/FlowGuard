@@ -212,6 +212,33 @@ class ApiSurfaceTests(unittest.TestCase):
             self.assertIn(name, flowguard.__all__)
             self.assertTrue(hasattr(flowguard, name), name)
             self.assertNotIn(name, flowguard.CORE_API)
+        new_ui_human_operability_helpers = (
+            "UI_HUMAN_OPERABILITY_EVIDENCE_KINDS",
+            "UI_PERCEIVED_ACTIONABLE_ROLES",
+            "UI_ACTUAL_ACTIONABLE_ROLES",
+            "UI_ACTUAL_NON_ACTIONABLE_ROLES",
+            "UI_AFFORDANCE_MISMATCH_DISPOSITIONS",
+            "UI_REGION_ROLES",
+            "UI_DIALOG_TYPES",
+            "UIUserTaskFrame",
+            "UIUserTaskCoverageLedger",
+            "UIRegionSemanticMap",
+            "UIAffordanceContract",
+            "UIActionGrammar",
+            "UIDialogWindowContract",
+            "UIKeyboardFocusContract",
+            "UIHumanWalkthroughStep",
+            "UIHumanWalkthroughScenario",
+            "UIHumanOperabilityAssessment",
+            "UIHumanOperabilityReport",
+            "review_ui_human_operability",
+        )
+        for name in new_ui_human_operability_helpers:
+            self.assertIn(name, flowguard.MODELING_HELPER_API)
+            self.assertIn(name, flowguard.UI_FLOW_STRUCTURE_ROUTE_API)
+            self.assertIn(name, flowguard.__all__)
+            self.assertTrue(hasattr(flowguard, name), name)
+            self.assertNotIn(name, flowguard.CORE_API)
         self.assertIn("review_ui_interaction_model", flowguard.MODELING_HELPER_API)
         self.assertIn("review_ui_journey_coverage", flowguard.MODELING_HELPER_API)
         self.assertIn("review_ui_implementation_validation", flowguard.MODELING_HELPER_API)
@@ -416,6 +443,9 @@ class ApiSurfaceTests(unittest.TestCase):
             self.assertIn(name, flowguard.__all__)
             self.assertTrue(hasattr(flowguard, name), name)
             self.assertNotIn(name, flowguard.CORE_API)
+        for name in ("TemplateHarvestReview", "review_template_harvest_closure"):
+            self.assertIn(name, flowguard.RISK_TEMPLATE_LIBRARY_API)
+            self.assertIn(name, flowguard.ROUTE_STARTER_API["risk_template_library"])
 
     def test_route_profiles_cover_public_route_api(self):
         profiles = flowguard.default_flowguard_route_profiles()

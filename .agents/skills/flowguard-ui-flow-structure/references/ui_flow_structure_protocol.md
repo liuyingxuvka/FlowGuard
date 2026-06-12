@@ -44,6 +44,10 @@ Use UI Flow Structure when:
 - the UI already exists or can run, and the agent needs to account the real
   visible buttons, inputs, dropdowns, tables, displayed fields, status text,
   dialogs, and regions before claiming the model covers it.
+- the UI may technically be wired but still confusing to a human, so supported
+  user-visible features must be covered by task frames, primary controls,
+  action grammar, region semantics, dialog/window return semantics,
+  keyboard/focus rules, and walkthrough evidence.
 
 Skip with a reason when the request is a tiny visual-only edit with no
 behavior, state, navigation, or control-availability impact.
@@ -74,6 +78,12 @@ Collect the lightest fit-for-risk UI evidence:
   error, recovery, validation, and success text when available;
 - user-visible feature contracts from the product or functional model when an
   implemented/runnable UI claim is made;
+- user task inventory: every supported feature, every task a user can perform,
+  task-to-feature links, UI path links, primary controls, required feedback,
+  cancel/error behavior, keyboard/focus expectations, and scoped-out tasks;
+- affordance, action grammar, region semantic, dialog/window return,
+  keyboard/focus, and human walkthrough observations when human-operable UI
+  confidence is claimed;
 - browser, desktop automation, or manual click-through evidence, including
   model revision/fingerprint and step-level event/state observations, when
   implementation completion is claimed;
@@ -342,7 +352,60 @@ Known-bad hazards:
 - downstream copy/design work receives only prose, not state/control/display
   maps for the text slots.
 
-## Stage 6: UI Implementation Validation
+## Stage 6: Human-Operability Validation
+
+Before implementation validation, require a human-operability review when the
+claim says the UI is usable, human-operable, release-ready, or understandable.
+Use `UIUserTaskFrame`, `UIUserTaskCoverageLedger`,
+`UIRegionSemanticMap`, `UIAffordanceContract`, `UIActionGrammar`,
+`UIDialogWindowContract`, `UIKeyboardFocusContract`,
+`UIHumanWalkthroughScenario`, `UIHumanWalkthroughStep`,
+`UIHumanOperabilityAssessment`, and `review_ui_human_operability(...)` when the
+package API is available.
+
+The human-operability package should include:
+
+- all supported user-visible features from the functional/product model, not a
+  single convenient task sample;
+- user task frames for every task the UI promises to support, with user goal,
+  source feature, entry state, main/alternate/cancel/error paths, success
+  state, visible feedback, required controls/displays/dialogs, keyboard
+  contract, evidence refs, and rationale;
+- links from feature -> task -> UI journey/control/functional chain, plus
+  scoped-out feature/task rows with owner and validation boundary;
+- primary control ownership for each task, so a prominent button cannot float
+  outside the task model;
+- region semantic maps for input, action, result, status, recovery,
+  navigation, and dialog areas;
+- affordance contracts for visible items that look clickable, editable,
+  selectable, read-only, status-only, or decorative;
+- action grammar for each semantic intent, including primary action,
+  alternate actions, conflicts, preconditions, next state, feedback, and
+  duplicate policy;
+- dialog/window contracts for native file pickers, directory pickers, save
+  dialogs, OS shell opens, custom modals, popovers, and drawers, including
+  success, cancel, error, focus return, feedback, native/manual boundary, and
+  evidence;
+- keyboard/focus contracts for Tab order, Enter, Escape, disabled-control skip,
+  focus return, and error focus;
+- human walkthroughs that record visible prompt, user action, expected
+  feedback, actual feedback, evidence ref, confusion, and mitigation.
+
+Known-bad hazards:
+
+- task coverage only models one happy path while other supported features still
+  have buttons, fields, or journeys;
+- a primary button has no owning user task;
+- a visible item looks selectable/clickable but is actually read-only, status,
+  display, or decorative without a disposition;
+- two controls are both primary for the same user intent in the same state;
+- native dialog success is modeled but cancel, error, selected path, focus
+  return, or feedback is missing;
+- keyboard users cannot reach the same task, return focus after dialog, or
+  recover from errors;
+- walkthrough evidence records confusion but no mitigation.
+
+## Stage 7: UI Implementation Validation
 
 Use this stage only when the route claims a running UI has been implemented,
 is runnable, or is complete. Model, journey coverage, structure derivation, and
@@ -417,7 +480,7 @@ Known-bad hazards:
 - an implementation blindspot lacks scope, reason, owner, validation boundary,
   or rationale.
 
-## Stage 7: Geometry And Responsiveness Evidence
+## Stage 8: Geometry And Responsiveness Evidence
 
 Use this stage when layout or responsiveness confidence is in scope. Use
 `UIGeometryLayoutEvidenceSet`, `UIGeometryLayoutEvidence`, and
@@ -443,7 +506,7 @@ Known-bad hazards:
   cancellation rule, or coalescing rule exists;
 - a stable region has no preservation rule.
 
-## Stage 8: Transition Coverage Projection
+## Stage 9: Transition Coverage Projection
 
 Use this stage when the claim says tests cover modeled UI transitions. Project
 the reviewed interaction model with `ui_interaction_model_to_transition_coverage(...)`.
@@ -486,6 +549,10 @@ Produce a UI structure contract with:
   action text slots, state/status messages, helper/validation text, recovery
   and error copy slots, semantic display labels, text ownership maps, priority
   levels, and rationale for repeated text.
+- human-operability boundary: supported feature inventory, user task coverage
+  ledger, primary control ownership, region semantic map, affordance contracts,
+  action grammar, dialog/window return semantics, keyboard/focus contracts,
+  walkthrough results, confusion mitigations, and scoped-out tasks/features.
 - implementation evidence boundary: feature contracts, journey runs, step
   evidence, render evidence kinds, model revision, pure UI actions, residual
   implementation blindspots, and remaining manual/browser validation
@@ -533,6 +600,11 @@ The route is complete when:
   control labels, action text slots, status/state messages, helper/validation
   text, error/recovery copy slots, semantic display labels, state/control/text
   ownership, priority levels, and rationale for repeated text;
+- human-operability validation covers every supported user-visible task and
+  links function model features to task frames, UI journeys, primary controls,
+  functional chains, feedback, cancel/error behavior, region semantics,
+  affordance, action grammar, dialog/window returns, keyboard/focus, and
+  walkthrough evidence;
 - implemented/runnable UI claims have implementation validation that aligns
   user-visible feature contracts, reviewed UI journeys, real click-through
   evidence, screenshot/DOM/geometry/accessibility/runtime/test/manual evidence

@@ -16,6 +16,16 @@ from .export import to_jsonable
 TEMPLATE_LIBRARY_ENV_VAR = "FLOWGUARD_TEMPLATE_LIBRARY_ROOT"
 RISK_TEMPLATE_STATUSES = ("trusted", "candidate", "rejected")
 RISK_TEMPLATE_SOURCES = ("public", "local", "merged")
+TEMPLATE_HARVEST_DISPOSITIONS = ("written", "merged", "duplicate_linked", "not_harvestable")
+TEMPLATE_HARVEST_WITH_TEMPLATE_ID = ("written", "merged", "duplicate_linked")
+NOT_HARVESTABLE_REASONS = (
+    "not_reusable_project_specific",
+    "no_new_pattern",
+    "missing_known_bad_case",
+    "missing_completion_evidence",
+    "write_blocked",
+    "human_deferred",
+)
 
 
 def _normalize_text_items(values: Iterable[str] | str | None) -> tuple[str, ...]:
@@ -398,6 +408,74 @@ class RiskTemplateHarvestReport:
         return "\n".join(lines)
 
 
+@dataclass(frozen=True)
+class TemplateHarvestReview:
+    """Final closure row for the local template harvest step."""
+
+    disposition: str
+    written_template_ids: tuple[str, ...] = ()
+    merged_template_ids: tuple[str, ...] = ()
+    linked_template_ids: tuple[str, ...] = ()
+    not_harvestable_reason: str = ""
+    local_root: str = ""
+    findings: tuple[str, ...] = ()
+    metadata: FrozenMetadata = field(default_factory=tuple, compare=False)
+
+    def __post_init__(self) -> None:
+        disposition = str(self.disposition or "").strip().lower().replace("-", "_")
+        object.__setattr__(self, "disposition", disposition)
+        object.__setattr__(self, "written_template_ids", _unique(_normalize_text_items(self.written_template_ids)))
+        object.__setattr__(self, "merged_template_ids", _unique(_normalize_text_items(self.merged_template_ids)))
+        object.__setattr__(self, "linked_template_ids", _unique(_normalize_text_items(self.linked_template_ids)))
+        object.__setattr__(self, "not_harvestable_reason", str(self.not_harvestable_reason or "").strip().lower())
+        object.__setattr__(self, "local_root", str(self.local_root or ""))
+        object.__setattr__(self, "findings", _unique(_normalize_text_items(self.findings)))
+        object.__setattr__(self, "metadata", freeze_metadata(self.metadata))
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "TemplateHarvestReview":
+        return cls(
+            disposition=str(data.get("disposition", "")),
+            written_template_ids=data.get("written_template_ids", ()),
+            merged_template_ids=data.get("merged_template_ids", ()),
+            linked_template_ids=data.get("linked_template_ids", ()),
+            not_harvestable_reason=str(data.get("not_harvestable_reason", data.get("reason", ""))),
+            local_root=str(data.get("local_root", "")),
+            findings=data.get("findings", ()),
+            metadata=data.get("metadata"),
+        )
+
+    @property
+    def template_ids(self) -> tuple[str, ...]:
+        return _unique((*self.written_template_ids, *self.merged_template_ids, *self.linked_template_ids))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "disposition": self.disposition,
+            "written_template_ids": list(self.written_template_ids),
+            "merged_template_ids": list(self.merged_template_ids),
+            "linked_template_ids": list(self.linked_template_ids),
+            "not_harvestable_reason": self.not_harvestable_reason,
+            "local_root": self.local_root,
+            "findings": list(self.findings),
+            "metadata": to_jsonable(self.metadata),
+        }
+
+    def format_text(self) -> str:
+        lines = [
+            "=== flowguard template harvest closure ===",
+            f"disposition: {self.disposition or '(missing)'}",
+            f"templates: {', '.join(self.template_ids) or '(none)'}",
+        ]
+        if self.not_harvestable_reason:
+            lines.append(f"not_harvestable_reason: {self.not_harvestable_reason}")
+        if self.local_root:
+            lines.append(f"local_root: {self.local_root}")
+        for finding in self.findings:
+            lines.append(f"- {finding}")
+        return "\n".join(lines)
+
+
 def builtin_risk_templates() -> tuple[RiskTemplate, ...]:
     """Return packaged public templates available on every installed machine."""
 
@@ -640,6 +718,47 @@ def review_minimum_model_contract(
     )
 
 
+def review_template_harvest_closure(
+    review: TemplateHarvestReview | Mapping[str, Any] | None,
+) -> MinimumModelReviewReport:
+    """Review whether new/deepened model work closed the template harvest loop."""
+
+    if review is None:
+        return MinimumModelReviewReport(
+            ok=False,
+            status="blocked",
+            findings=("missing_template_harvest_review",),
+            summary="template harvest closure was not provided",
+        )
+    normalized = review if isinstance(review, TemplateHarvestReview) else TemplateHarvestReview.from_dict(review)
+    findings: list[str] = list(normalized.findings)
+    disposition = normalized.disposition
+    if not disposition:
+        findings.append("missing_template_harvest_disposition")
+    elif disposition not in TEMPLATE_HARVEST_DISPOSITIONS:
+        findings.append("invalid_template_harvest_disposition")
+    elif disposition in TEMPLATE_HARVEST_WITH_TEMPLATE_ID:
+        expected_ids = {
+            "written": normalized.written_template_ids,
+            "merged": normalized.merged_template_ids,
+            "duplicate_linked": normalized.linked_template_ids,
+        }[disposition]
+        if not expected_ids:
+            findings.append("missing_harvest_template_id")
+    elif disposition == "not_harvestable":
+        if not normalized.not_harvestable_reason:
+            findings.append("missing_not_harvestable_reason")
+        elif normalized.not_harvestable_reason not in NOT_HARVESTABLE_REASONS:
+            findings.append("unsupported_not_harvestable_reason")
+    unique_findings = _unique(findings)
+    return MinimumModelReviewReport(
+        ok=not unique_findings,
+        status="pass" if not unique_findings else "blocked",
+        findings=unique_findings,
+        summary=f"harvest_disposition={disposition or '(missing)'}",
+    )
+
+
 def merge_risk_templates(
     templates: Sequence[RiskTemplate],
     *,
@@ -741,6 +860,7 @@ def harvest_risk_template_candidate(
 __all__ = [
     "MinimumModelContract",
     "MinimumModelReviewReport",
+    "NOT_HARVESTABLE_REASONS",
     "RISK_TEMPLATE_SOURCES",
     "RISK_TEMPLATE_STATUSES",
     "RiskTemplate",
@@ -748,12 +868,16 @@ __all__ = [
     "RiskTemplateMatch",
     "RiskTemplateSearchReport",
     "TEMPLATE_LIBRARY_ENV_VAR",
+    "TEMPLATE_HARVEST_DISPOSITIONS",
+    "TEMPLATE_HARVEST_WITH_TEMPLATE_ID",
+    "TemplateHarvestReview",
     "TemplateReuseReview",
     "builtin_risk_templates",
     "default_local_template_library_root",
     "harvest_risk_template_candidate",
     "load_local_risk_templates",
     "merge_risk_templates",
+    "review_template_harvest_closure",
     "review_minimum_model_contract",
     "review_template_reuse",
     "search_risk_templates",

@@ -37,6 +37,7 @@ Return to `model-first-function-flow` for ordinary small test evidence.
 - TestMesh preserves leaf ownership and freshness, but Model-Test Alignment
   still owns whether a required cell binds the model obligation, owner code
   contract, and external-contract test evidence.
+- New/deepened model-derived test meshes need template harvest closure before broad claims.
 
 ## Minimum Workflow
 

@@ -23,6 +23,8 @@ SATELLITE_SKILLS = {
     "flowguard-ui-flow-structure": "ui_flow_structure_protocol.md",
 }
 
+TEMPLATE_HARVEST_SKILLS = SATELLITE_SKILLS.keys() - {"flowguard-existing-model-preflight"}
+
 KERNEL_HANDOFFS = {
     "model_test_alignment_protocol.md": (
         "flowguard-model-test-alignment",
@@ -99,6 +101,7 @@ class SkillDocsTests(unittest.TestCase):
             "AGENTS.md managed",
             "fake mini-framework",
             "Risk Evidence Ledger",
+            "template harvest closure",
             "Route Map",
             "Reference Map",
             "behavior_flow",
@@ -188,7 +191,7 @@ class SkillDocsTests(unittest.TestCase):
                 "PlanDetail",
                 "review_plan_detail()",
                 "step receipts",
-                "synthetic payload cases for the real surface",
+                "payload cases for the real surface",
             ),
             "flowguard-structure-mesh": (
                 "public entrypoints",
@@ -204,7 +207,7 @@ class SkillDocsTests(unittest.TestCase):
             "flowguard-ui-flow-structure": (
                 "UI event x UI state",
                 "UI state diagram",
-                "residual blindspots",
+                "blindspots",
                 "reachable enabled action",
             ),
         }
@@ -222,6 +225,8 @@ class SkillDocsTests(unittest.TestCase):
                 self.assertIn("real package", text)
                 self.assertIn("AGENTS.md managed", text)
                 self.assertIn("fake mini-framework", text)
+                if skill_name in TEMPLATE_HARVEST_SKILLS:
+                    self.assertIn("harvest closure", text.replace("-harvest", " harvest"))
                 self.assertIn("Reference:", text)
                 self.assertIn("Non-Goals", text)
                 self.assertIn(reference_name, text)
@@ -402,7 +407,9 @@ class SkillDocsTests(unittest.TestCase):
             "project-adopt",
             "project-upgrade",
             "Risk Evidence Ledger",
-            "public/local risk templates",
+            "public/local risk template",
+            "template harvest closure",
+            "risk-template-harvest-review",
             "Package helpers",
             "not separate Codex skills",
         )

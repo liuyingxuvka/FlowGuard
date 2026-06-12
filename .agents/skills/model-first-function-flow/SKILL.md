@@ -22,10 +22,10 @@ Skip only tiny copy edits, formatting-only changes, direct command answers, or r
 ## Minimum Valuable Model
 
 ```text
-risky boundary -> protected error class -> public/local template search
+risky boundary -> protected error class -> public/local risk template search
 -> Input x State -> Set(Output x State)
 -> state + side effects + completion evidence + known-bad case
--> run checks -> inspect counterexample -> harvest reusable local candidate when useful
+-> run checks -> inspect counterexample -> record template harvest closure
 ```
 
 The default entry is compact, but it must have teeth. A new or deepened model
@@ -56,6 +56,7 @@ evidence.
 - Broad transition-test claims need a transition matrix projected to MTA code/test rows or TestMesh, or an explicit scoped-out reason.
 - Complete runnable UI claims need reachable enabled controls clicked or scoped as pure UI/deferred blindspots with structured evidence.
 - File import/export, generated artifact, and AI work-package claims need synthetic payload cases for the real payload surface plus current external evidence refs or proof artifacts; prose-only manual checks are scoped/blocked.
+- New/deepened models need template harvest closure before broad claims: written, merged, duplicate-linked, or accepted not-harvestable.
 - After `run_model_first_checks()`, read structured ledger owner routes and maintenance obligations before manually inferring the next route.
 - Before trusting one route/model, record model-angle deliberation when a task may need a missing viewpoint: what it sees, misses, what fails if ignored, and whether to reuse, extend, add child model, create new model, scope/defer, or ask.
 - For non-trivial FlowGuard work, show a route-specific Mermaid snapshot once the route/model is stable; diagrams explain, not validate.
@@ -79,7 +80,7 @@ the row below calls for deep route evidence.
 | Current route/model may be too narrow or a new model angle may be needed | `model_angle_deliberation` | `model-angle-template` or `review_model_angle_deliberations()` |
 | Field additions, removals, renames, migrations, replacements, prompt/config fields, payload/schema keys, old-field disposition | `field_lifecycle_mesh` | `flowguard-field-lifecycle-mesh` |
 | Similar features, A/B workflow drift, sibling tests, shared-kernel/adapter suspicion | `model_similarity_consolidation` | `docs/model_similarity_consolidation.md` |
-| New/deepened model should reuse or harvest public/local risk templates | `risk_template_library` | `risk-template-search`, `risk-template-harvest`, or `risk-template-library-template` |
+| New/deepened model must reuse/search and close public/local template harvest | `risk_template_library` | `risk-template-search`, `risk-template-harvest`, `risk-template-harvest-review`, or `risk-template-library-template` |
 | Rough idea/short plan needs detailed scope, state, evidence, receipts, rework | `plan_detailing_compiler` | `flowguard-plan-detailing-compiler` |
 | Multi-skill/tool/plugin planning, skipped skill consequences, rework gates | `agent_workflow_rehearsal` | `flowguard-agent-workflow-rehearsal` |
 | Ordinary behavior/state modeling, Risk Intent, state inventory | `core_modeling` | `references/modeling_protocol.md` |
@@ -111,7 +112,7 @@ Use `behavior_flow` for software/UI/release/process state, `argument_flow` for c
 1. Decide applicability/lens, verify the package/adoption record for real project work, and model the risky finite-state boundary.
 2. Search public/local risk templates before new or deepened modeling, then record used template ids or a no-match reason.
 3. Make at least one representative bad path fail before trusting the pass.
-4. Inspect counterexamples, revise model/code/tests/process, harvest reusable local template candidates when useful, derive transition/code-contract obligations for broad claims, run route-specific validation, and record evidence.
+4. Inspect counterexamples, revise model/code/tests/process, record template harvest closure, derive transition/code-contract obligations for broad claims, run route-specific validation, and record evidence.
 
 ## Reference Map
 

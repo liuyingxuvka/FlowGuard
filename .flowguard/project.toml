@@ -1,8 +1,8 @@
 [flowguard]
 repository = "https://github.com/liuyingxuvka/FlowGuard"
-adopted_package_version = "0.44.0"
+adopted_package_version = "0.46.0"
 schema_version = "1.0"
-last_verified_at = "2026-06-12T18:40:59+00:00"
+last_verified_at = "2026-06-12T19:46:34+00:00"
 last_verified_by = "FlowGuard project-upgrade"
 agents_path = "AGENTS.md"
 

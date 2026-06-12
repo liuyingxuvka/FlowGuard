@@ -145,8 +145,8 @@ For AI agents, route groups are the normal discovery surface:
   scope, defer, or ask for human review.
 - `RISK_TEMPLATE_LIBRARY_API` is the public/local reusable risk-template route
   for searching packaged templates, using a portable per-machine local library,
-  reviewing template reuse, and harvesting local candidate templates from
-  minimum valuable models.
+  reviewing template reuse, harvesting local candidate templates from minimum
+  valuable models, and closing template harvest before complete model claims.
 - `FIELD_LIFECYCLE_MESH_API` is the field-governance layer for changes where
   fields carry behavior, routing, permissions, schema, replay, migration, or
   external-contract meaning. High-level models project important fields into
@@ -178,7 +178,8 @@ inventory.
   risk-template library use, model-miss reviews, closure-contract reviews, and
   recurring maintenance workflows;
 - risk template helpers such as `search_risk_templates()`,
-  `review_minimum_model_contract()`, and `harvest_risk_template_candidate()`;
+  `review_minimum_model_contract()`, `harvest_risk_template_candidate()`,
+  `TemplateHarvestReview`, and `review_template_harvest_closure()`;
 - scenario review and `ScenarioMatrixBuilder`;
 - deterministic counterexample minimization;
 - optional domain packs such as `DeduplicationPack`, `CachePack`, `RetryPack`,
@@ -394,6 +395,11 @@ inventory.
   `UIImplementationJourneyRun`, `UIImplementationStepEvidence`,
   `UIImplementationValidation`,
   `UIImplementationValidationReport`,
+  `UIUserTaskFrame`, `UIUserTaskCoverageLedger`,
+  `UIRegionSemanticMap`, `UIAffordanceContract`, `UIActionGrammar`,
+  `UIDialogWindowContract`, `UIKeyboardFocusContract`,
+  `UIHumanWalkthroughStep`, `UIHumanWalkthroughScenario`,
+  `UIHumanOperabilityAssessment`, `UIHumanOperabilityReport`,
   `UIVisibleSurface`, `UIVisibleSurfaceItem`, `UIVisibleSurfaceReport`,
   `UIRenderEvidence`, `UIRenderEvidenceSet`, `UIRenderEvidenceReport`,
   `UIGeometryLayoutEvidence`, `UIGeometryLayoutEvidenceSet`,
@@ -406,6 +412,7 @@ inventory.
   `review_ui_control_functional_chains()`,
   `review_matlab_baseline_callback_gate()`,
   `review_ui_interaction_model()`, `review_ui_journey_coverage()`,
+  `review_ui_human_operability()`,
   `review_ui_implementation_validation()`,
   `review_ui_visible_surface()`, `review_ui_render_evidence()`,
   `review_ui_geometry_layout_evidence()`,
@@ -414,6 +421,9 @@ inventory.
   inventorying the real visible UI first, modeling UI interactions, proving
   enabled-control functional chains, preserving MATLAB callback semantics,
   proving launch-to-terminal journey coverage and reachable visible-control/event coverage when complete app UI is claimed,
+  validating task coverage, region semantics, affordance, action grammar,
+  native/dialog returns, keyboard/focus, and human walkthroughs before
+  human-operable UI confidence is claimed,
   reviewing visible controls/helper/status/placeholder/metadata surface,
   validating implemented/runnable UI claims against feature contracts and real
   screenshot/browser/manual/DOM/geometry/accessibility/runtime/test evidence,

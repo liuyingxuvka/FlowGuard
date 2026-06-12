@@ -36,6 +36,7 @@ StructureMesh when refactoring existing large code or public APIs.
 - Do not create a fake mini-framework.
 - Do not invent modules before model responsibilities are named.
 - Public facades and validation boundaries must stay explicit.
+- New/deepened models need template harvest closure before broad claims.
 
 ## Minimum Workflow
 

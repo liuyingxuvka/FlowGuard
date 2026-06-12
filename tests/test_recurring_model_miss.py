@@ -18,6 +18,7 @@ from flowguard import (
     ProofArtifactRef,
     UI_MODEL_MISS_BOUNDARY_MISSING,
     UI_MODEL_MISS_EVIDENCE_OVERCLAIMED,
+    UI_MODEL_MISS_AFFORDANCE_MISMATCH,
     UIModelMissRecord,
     UIModelMissReviewPlan,
     review_defect_family_gates,
@@ -273,6 +274,16 @@ class RecurringModelMissTests(unittest.TestCase):
 
         self.assertTrue(report.ok, report.summary)
         self.assertEqual(0, report.blocker_count())
+
+    def test_human_operability_confusion_is_a_ui_model_miss_type(self):
+        report = review_ui_model_misses(
+            UIModelMissReviewPlan(
+                "ui-affordance-miss-plan",
+                ui_misses=(ui_miss(miss_type=UI_MODEL_MISS_AFFORDANCE_MISMATCH),),
+            )
+        )
+
+        self.assertTrue(report.ok, report.summary)
 
     def test_ui_model_miss_rejects_local_button_only_fix(self):
         report = review_ui_model_misses(

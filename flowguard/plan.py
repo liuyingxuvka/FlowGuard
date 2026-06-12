@@ -9,7 +9,7 @@ from typing import Any, Iterable, Mapping, Sequence
 from .core import FrozenMetadata, freeze_metadata
 from .export import to_jsonable
 from .risk import RiskProfile
-from .risk_templates import MinimumModelContract, TemplateReuseReview
+from .risk_templates import MinimumModelContract, TemplateHarvestReview, TemplateReuseReview
 
 
 @dataclass(frozen=True)
@@ -82,6 +82,7 @@ class FlowGuardCheckPlan:
     topology_hazard_plan: Any = None
     usage_intent: Any = None
     template_reuse_review: TemplateReuseReview | None = None
+    template_harvest_review: TemplateHarvestReview | None = None
     minimum_model_contract: MinimumModelContract | None = None
     metadata: FrozenMetadata = field(default_factory=tuple, compare=False)
 
@@ -106,6 +107,7 @@ class FlowGuardCheckPlan:
         topology_hazard_plan: Any = None,
         usage_intent: Any = None,
         template_reuse_review: TemplateReuseReview | Mapping[str, Any] | None = None,
+        template_harvest_review: TemplateHarvestReview | Mapping[str, Any] | None = None,
         minimum_model_contract: MinimumModelContract | Mapping[str, Any] | None = None,
         metadata: Mapping[str, Any] | Iterable[tuple[str, Any]] | None = None,
     ) -> None:
@@ -131,6 +133,7 @@ class FlowGuardCheckPlan:
         object.__setattr__(self, "topology_hazard_plan", topology_hazard_plan)
         object.__setattr__(self, "usage_intent", usage_intent)
         object.__setattr__(self, "template_reuse_review", _coerce_template_reuse_review(template_reuse_review))
+        object.__setattr__(self, "template_harvest_review", _coerce_template_harvest_review(template_harvest_review))
         object.__setattr__(self, "minimum_model_contract", _coerce_minimum_model_contract(minimum_model_contract))
         object.__setattr__(self, "metadata", freeze_metadata(metadata))
 
@@ -151,6 +154,7 @@ class FlowGuardCheckPlan:
             f"state_closure_plan: {'provided' if self.state_closure_plan is not None else 'auto'}",
             f"topology_hazard_plan: {'provided' if self.topology_hazard_plan is not None else 'auto'}",
             f"template_reuse_review: {'provided' if self.template_reuse_review is not None else 'not_provided'}",
+            f"template_harvest_review: {'provided' if self.template_harvest_review is not None else 'not_provided'}",
             f"minimum_model_contract: {'provided' if self.minimum_model_contract is not None else 'not_provided'}",
         ]
         if self.risk_profile is not None:
@@ -198,6 +202,11 @@ class FlowGuardCheckPlan:
                 if self.template_reuse_review is not None
                 else None
             ),
+            "template_harvest_review": (
+                self.template_harvest_review.to_dict()
+                if self.template_harvest_review is not None
+                else None
+            ),
             "minimum_model_contract": (
                 self.minimum_model_contract.to_dict()
                 if self.minimum_model_contract is not None
@@ -236,6 +245,16 @@ def _coerce_template_reuse_review(
     if isinstance(value, Mapping):
         return TemplateReuseReview.from_dict(value)
     raise TypeError("template_reuse_review must be a TemplateReuseReview, mapping, or None")
+
+
+def _coerce_template_harvest_review(
+    value: TemplateHarvestReview | Mapping[str, Any] | None,
+) -> TemplateHarvestReview | None:
+    if value is None or isinstance(value, TemplateHarvestReview):
+        return value
+    if isinstance(value, Mapping):
+        return TemplateHarvestReview.from_dict(value)
+    raise TypeError("template_harvest_review must be a TemplateHarvestReview, mapping, or None")
 
 
 def _coerce_minimum_model_contract(

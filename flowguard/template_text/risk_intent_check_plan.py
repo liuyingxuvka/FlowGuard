@@ -40,6 +40,7 @@ from flowguard import (
     RiskIntent,
     RiskProfile,
     SkippedCheck,
+    TemplateHarvestReview,
     TemplateReuseReview,
     Workflow,
     run_model_first_checks,
@@ -145,6 +146,10 @@ def build_check_plan() -> FlowGuardCheckPlan:
             searched_layers=("public", "local"),
             match_template_ids=("side_effect_at_most_once",),
         ),
+        template_harvest_review=TemplateHarvestReview(
+            disposition="duplicate_linked",
+            linked_template_ids=("side_effect_at_most_once",),
+        ),
         minimum_model_contract=MinimumModelContract(
             protected_error_classes=("duplicate_side_effect", "invalid_completion"),
             modeled_state=("accepted_ids",),
@@ -200,6 +205,7 @@ Record:
 - completion evidence;
 - known-bad cases that should fail on broken models;
 - public/local template ids used, or a no-match reason;
+- template harvest closure: written, merged, duplicate-linked, or an accepted not-harvestable reason;
 - adversarial inputs or retries;
 - hard invariants;
 - blindspots.

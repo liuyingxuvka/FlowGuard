@@ -429,10 +429,12 @@ The project adoption template writes the target-project AGENTS block,
 URL and version policy. The basic project template demonstrates validation,
 rejection, duplicate input, source-trace invariants, completion evidence, and a
 known-bad variant that must fail. The Risk Intent template shows how to bind a
-`RiskIntent`, `RiskProfile`, template reuse review, minimum model contract, and
-`FlowGuardCheckPlan` before running `run_model_first_checks(...)`. The risk
+`RiskIntent`, `RiskProfile`, template reuse review, minimum model contract,
+template harvest closure, and `FlowGuardCheckPlan` before running
+`run_model_first_checks(...)`. The risk
 template library template shows how to search packaged public templates,
-reference the per-machine local template library, and prepare a local candidate
+reference the per-machine local template library, prepare a local candidate,
+and close harvest as written, merged, duplicate-linked, or not-harvestable
 without hard-coding a developer path. The plan-detailing template shows how to turn a
 rough plan into explicit PlanDetail rows and broken variants before projecting
 to PlanIntake, WorkflowStepContracts, and DevelopmentProcessFlow. The

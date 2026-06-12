@@ -13,6 +13,7 @@ from flowguard import (
     RiskProfile,
     Scenario,
     ScenarioExpectation,
+    TemplateHarvestReview,
     Workflow,
     review_scenarios,
     run_model_first_checks,
@@ -405,6 +406,10 @@ def run_runner_self_check_summary():
                     "status": "not_feasible",
                 },
             ),
+        ),
+        template_harvest_review=TemplateHarvestReview(
+            disposition="not_harvestable",
+            not_harvestable_reason="not_reusable_project_specific",
         ),
         scenario_matrix_config={"max_scenarios": 4},
     )

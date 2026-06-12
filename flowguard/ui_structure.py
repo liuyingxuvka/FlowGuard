@@ -1422,6 +1422,567 @@ class MATLABBaselineCallbackGate:
         }
 
 
+UI_HUMAN_OPERABILITY_EVIDENCE_KINDS = (
+    "task_coverage",
+    "affordance_review",
+    "action_grammar",
+    "dialog_return",
+    "keyboard_focus",
+    "human_walkthrough",
+    "manual_observation",
+    "browser_click",
+    "desktop_click",
+    "test_result",
+)
+
+UI_PERCEIVED_ACTIONABLE_ROLES = (
+    "button",
+    "icon_button",
+    "input",
+    "select",
+    "dropdown",
+    "checkbox",
+    "toggle",
+    "tab",
+    "link",
+    "menu_item",
+)
+
+UI_ACTUAL_ACTIONABLE_ROLES = (
+    "actionable",
+    "editable",
+    "selectable",
+    "navigates",
+    "opens_dialog",
+)
+
+UI_ACTUAL_NON_ACTIONABLE_ROLES = (
+    "readonly",
+    "status",
+    "display",
+    "container",
+    "title",
+    "decorative",
+)
+
+UI_AFFORDANCE_MISMATCH_DISPOSITIONS = (
+    "clarify",
+    "restyle",
+    "disable",
+    "label_as_readonly",
+    "scoped",
+)
+
+UI_REGION_ROLES = (
+    "input",
+    "action",
+    "result",
+    "status",
+    "recovery",
+    "navigation",
+    "dialog",
+    "mixed",
+)
+
+UI_DIALOG_TYPES = (
+    "native_file_picker",
+    "native_dir_picker",
+    "save_dialog",
+    "os_shell",
+    "custom_modal",
+    "popover",
+    "drawer",
+)
+
+
+@dataclass(frozen=True)
+class UIUserTaskFrame:
+    """One user task that bridges functional capability and UI path."""
+
+    task_id: str
+    user_goal: str
+    source_feature_ids: tuple[str, ...] = ()
+    entry_state_ids: tuple[str, ...] = ()
+    main_path_event_ids: tuple[str, ...] = ()
+    alternate_path_event_ids: tuple[str, ...] = ()
+    cancel_event_ids: tuple[str, ...] = ()
+    error_state_ids: tuple[str, ...] = ()
+    success_state_ids: tuple[str, ...] = ()
+    required_control_ids: tuple[str, ...] = ()
+    required_display_ids: tuple[str, ...] = ()
+    required_dialog_ids: tuple[str, ...] = ()
+    required_feedback_item_ids: tuple[str, ...] = ()
+    keyboard_contract_id: str = ""
+    cancel_behavior: str = ""
+    error_behavior: str = ""
+    evidence_refs: tuple[str, ...] = ()
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "task_id", str(self.task_id))
+        object.__setattr__(self, "user_goal", str(self.user_goal))
+        object.__setattr__(self, "source_feature_ids", _as_tuple(self.source_feature_ids))
+        object.__setattr__(self, "entry_state_ids", _as_tuple(self.entry_state_ids))
+        object.__setattr__(self, "main_path_event_ids", _as_tuple(self.main_path_event_ids))
+        object.__setattr__(self, "alternate_path_event_ids", _as_tuple(self.alternate_path_event_ids))
+        object.__setattr__(self, "cancel_event_ids", _as_tuple(self.cancel_event_ids))
+        object.__setattr__(self, "error_state_ids", _as_tuple(self.error_state_ids))
+        object.__setattr__(self, "success_state_ids", _as_tuple(self.success_state_ids))
+        object.__setattr__(self, "required_control_ids", _as_tuple(self.required_control_ids))
+        object.__setattr__(self, "required_display_ids", _as_tuple(self.required_display_ids))
+        object.__setattr__(self, "required_dialog_ids", _as_tuple(self.required_dialog_ids))
+        object.__setattr__(self, "required_feedback_item_ids", _as_tuple(self.required_feedback_item_ids))
+        object.__setattr__(self, "keyboard_contract_id", str(self.keyboard_contract_id))
+        object.__setattr__(self, "cancel_behavior", str(self.cancel_behavior))
+        object.__setattr__(self, "error_behavior", str(self.error_behavior))
+        object.__setattr__(self, "evidence_refs", _as_tuple(self.evidence_refs))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "task_id": self.task_id,
+            "user_goal": self.user_goal,
+            "source_feature_ids": list(self.source_feature_ids),
+            "entry_state_ids": list(self.entry_state_ids),
+            "main_path_event_ids": list(self.main_path_event_ids),
+            "alternate_path_event_ids": list(self.alternate_path_event_ids),
+            "cancel_event_ids": list(self.cancel_event_ids),
+            "error_state_ids": list(self.error_state_ids),
+            "success_state_ids": list(self.success_state_ids),
+            "required_control_ids": list(self.required_control_ids),
+            "required_display_ids": list(self.required_display_ids),
+            "required_dialog_ids": list(self.required_dialog_ids),
+            "required_feedback_item_ids": list(self.required_feedback_item_ids),
+            "keyboard_contract_id": self.keyboard_contract_id,
+            "cancel_behavior": self.cancel_behavior,
+            "error_behavior": self.error_behavior,
+            "evidence_refs": list(self.evidence_refs),
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class UIUserTaskCoverageLedger:
+    """Ledger mapping feature capability to user tasks, UI paths, and evidence."""
+
+    ledger_id: str
+    source_function_model_id: str = ""
+    source_interaction_model_id: str = ""
+    feature_ids: tuple[str, ...] = ()
+    task_frames: tuple[UIUserTaskFrame, ...] = ()
+    feature_task_links: tuple[tuple[str, str], ...] = ()
+    task_journey_links: tuple[tuple[str, str], ...] = ()
+    task_control_links: tuple[tuple[str, str], ...] = ()
+    task_functional_chain_links: tuple[tuple[str, str], ...] = ()
+    primary_control_ids: tuple[str, ...] = ()
+    out_of_scope_feature_ids: tuple[str, ...] = ()
+    out_of_scope_task_ids: tuple[str, ...] = ()
+    validation_boundaries: tuple[str, ...] = ()
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "ledger_id", str(self.ledger_id))
+        object.__setattr__(self, "source_function_model_id", str(self.source_function_model_id))
+        object.__setattr__(self, "source_interaction_model_id", str(self.source_interaction_model_id))
+        object.__setattr__(self, "feature_ids", _as_tuple(self.feature_ids))
+        object.__setattr__(self, "task_frames", tuple(self.task_frames))
+        object.__setattr__(self, "feature_task_links", _as_pairs(self.feature_task_links))
+        object.__setattr__(self, "task_journey_links", _as_pairs(self.task_journey_links))
+        object.__setattr__(self, "task_control_links", _as_pairs(self.task_control_links))
+        object.__setattr__(self, "task_functional_chain_links", _as_pairs(self.task_functional_chain_links))
+        object.__setattr__(self, "primary_control_ids", _as_tuple(self.primary_control_ids))
+        object.__setattr__(self, "out_of_scope_feature_ids", _as_tuple(self.out_of_scope_feature_ids))
+        object.__setattr__(self, "out_of_scope_task_ids", _as_tuple(self.out_of_scope_task_ids))
+        object.__setattr__(self, "validation_boundaries", _as_tuple(self.validation_boundaries))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def task_ids(self) -> tuple[str, ...]:
+        return tuple(task.task_id for task in self.task_frames)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "ledger_id": self.ledger_id,
+            "source_function_model_id": self.source_function_model_id,
+            "source_interaction_model_id": self.source_interaction_model_id,
+            "feature_ids": list(self.feature_ids),
+            "task_frames": [task.to_dict() for task in self.task_frames],
+            "feature_task_links": [list(pair) for pair in self.feature_task_links],
+            "task_journey_links": [list(pair) for pair in self.task_journey_links],
+            "task_control_links": [list(pair) for pair in self.task_control_links],
+            "task_functional_chain_links": [list(pair) for pair in self.task_functional_chain_links],
+            "primary_control_ids": list(self.primary_control_ids),
+            "out_of_scope_feature_ids": list(self.out_of_scope_feature_ids),
+            "out_of_scope_task_ids": list(self.out_of_scope_task_ids),
+            "validation_boundaries": list(self.validation_boundaries),
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class UIRegionSemanticMap:
+    """Semantic ownership for a UI region used by human task paths."""
+
+    map_id: str
+    region_id: str
+    region_role: str
+    task_ids: tuple[str, ...] = ()
+    control_ids: tuple[str, ...] = ()
+    display_ids: tuple[str, ...] = ()
+    status_item_ids: tuple[str, ...] = ()
+    allowed_item_kinds: tuple[str, ...] = ()
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "map_id", str(self.map_id))
+        object.__setattr__(self, "region_id", str(self.region_id))
+        object.__setattr__(self, "region_role", str(self.region_role))
+        object.__setattr__(self, "task_ids", _as_tuple(self.task_ids))
+        object.__setattr__(self, "control_ids", _as_tuple(self.control_ids))
+        object.__setattr__(self, "display_ids", _as_tuple(self.display_ids))
+        object.__setattr__(self, "status_item_ids", _as_tuple(self.status_item_ids))
+        object.__setattr__(self, "allowed_item_kinds", _as_tuple(self.allowed_item_kinds))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "map_id": self.map_id,
+            "region_id": self.region_id,
+            "region_role": self.region_role,
+            "task_ids": list(self.task_ids),
+            "control_ids": list(self.control_ids),
+            "display_ids": list(self.display_ids),
+            "status_item_ids": list(self.status_item_ids),
+            "allowed_item_kinds": list(self.allowed_item_kinds),
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class UIAffordanceContract:
+    """Perceived role versus actual UI role for one visible item."""
+
+    contract_id: str
+    visible_item_id: str
+    perceived_role: str
+    actual_role: str
+    task_id: str = ""
+    control_id: str = ""
+    visual_cues: tuple[str, ...] = ()
+    interaction_cues: tuple[str, ...] = ()
+    expected_user_action: str = ""
+    expected_result: str = ""
+    mismatch_disposition: str = ""
+    evidence_ref: str = ""
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "contract_id", str(self.contract_id))
+        object.__setattr__(self, "visible_item_id", str(self.visible_item_id))
+        object.__setattr__(self, "perceived_role", str(self.perceived_role))
+        object.__setattr__(self, "actual_role", str(self.actual_role))
+        object.__setattr__(self, "task_id", str(self.task_id))
+        object.__setattr__(self, "control_id", str(self.control_id))
+        object.__setattr__(self, "visual_cues", _as_tuple(self.visual_cues))
+        object.__setattr__(self, "interaction_cues", _as_tuple(self.interaction_cues))
+        object.__setattr__(self, "expected_user_action", str(self.expected_user_action))
+        object.__setattr__(self, "expected_result", str(self.expected_result))
+        object.__setattr__(self, "mismatch_disposition", str(self.mismatch_disposition))
+        object.__setattr__(self, "evidence_ref", str(self.evidence_ref))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "contract_id": self.contract_id,
+            "visible_item_id": self.visible_item_id,
+            "perceived_role": self.perceived_role,
+            "actual_role": self.actual_role,
+            "task_id": self.task_id,
+            "control_id": self.control_id,
+            "visual_cues": list(self.visual_cues),
+            "interaction_cues": list(self.interaction_cues),
+            "expected_user_action": self.expected_user_action,
+            "expected_result": self.expected_result,
+            "mismatch_disposition": self.mismatch_disposition,
+            "evidence_ref": self.evidence_ref,
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class UIActionGrammar:
+    """One semantic user action and its primary/alternate controls."""
+
+    action_id: str
+    task_id: str
+    user_intent: str
+    source_state_ids: tuple[str, ...] = ()
+    primary_control_id: str = ""
+    alternate_control_ids: tuple[str, ...] = ()
+    conflicting_control_ids: tuple[str, ...] = ()
+    preconditions: tuple[str, ...] = ()
+    expected_next_state_id: str = ""
+    expected_feedback_item_ids: tuple[str, ...] = ()
+    duplicate_policy: str = ""
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "action_id", str(self.action_id))
+        object.__setattr__(self, "task_id", str(self.task_id))
+        object.__setattr__(self, "user_intent", str(self.user_intent))
+        object.__setattr__(self, "source_state_ids", _as_tuple(self.source_state_ids))
+        object.__setattr__(self, "primary_control_id", str(self.primary_control_id))
+        object.__setattr__(self, "alternate_control_ids", _as_tuple(self.alternate_control_ids))
+        object.__setattr__(self, "conflicting_control_ids", _as_tuple(self.conflicting_control_ids))
+        object.__setattr__(self, "preconditions", _as_tuple(self.preconditions))
+        object.__setattr__(self, "expected_next_state_id", str(self.expected_next_state_id))
+        object.__setattr__(self, "expected_feedback_item_ids", _as_tuple(self.expected_feedback_item_ids))
+        object.__setattr__(self, "duplicate_policy", str(self.duplicate_policy))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "action_id": self.action_id,
+            "task_id": self.task_id,
+            "user_intent": self.user_intent,
+            "source_state_ids": list(self.source_state_ids),
+            "primary_control_id": self.primary_control_id,
+            "alternate_control_ids": list(self.alternate_control_ids),
+            "conflicting_control_ids": list(self.conflicting_control_ids),
+            "preconditions": list(self.preconditions),
+            "expected_next_state_id": self.expected_next_state_id,
+            "expected_feedback_item_ids": list(self.expected_feedback_item_ids),
+            "duplicate_policy": self.duplicate_policy,
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class UIDialogWindowContract:
+    """Dialog, native picker, or OS window return semantics."""
+
+    contract_id: str
+    task_id: str
+    trigger_control_id: str
+    dialog_type: str
+    modal: bool = True
+    success_return: str = ""
+    cancel_return: str = ""
+    error_return: str = ""
+    focus_return_target_id: str = ""
+    feedback_item_ids: tuple[str, ...] = ()
+    native_boundary: str = ""
+    manual_boundary: str = ""
+    evidence_ref: str = ""
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "contract_id", str(self.contract_id))
+        object.__setattr__(self, "task_id", str(self.task_id))
+        object.__setattr__(self, "trigger_control_id", str(self.trigger_control_id))
+        object.__setattr__(self, "dialog_type", str(self.dialog_type))
+        object.__setattr__(self, "modal", bool(self.modal))
+        object.__setattr__(self, "success_return", str(self.success_return))
+        object.__setattr__(self, "cancel_return", str(self.cancel_return))
+        object.__setattr__(self, "error_return", str(self.error_return))
+        object.__setattr__(self, "focus_return_target_id", str(self.focus_return_target_id))
+        object.__setattr__(self, "feedback_item_ids", _as_tuple(self.feedback_item_ids))
+        object.__setattr__(self, "native_boundary", str(self.native_boundary))
+        object.__setattr__(self, "manual_boundary", str(self.manual_boundary))
+        object.__setattr__(self, "evidence_ref", str(self.evidence_ref))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "contract_id": self.contract_id,
+            "task_id": self.task_id,
+            "trigger_control_id": self.trigger_control_id,
+            "dialog_type": self.dialog_type,
+            "modal": self.modal,
+            "success_return": self.success_return,
+            "cancel_return": self.cancel_return,
+            "error_return": self.error_return,
+            "focus_return_target_id": self.focus_return_target_id,
+            "feedback_item_ids": list(self.feedback_item_ids),
+            "native_boundary": self.native_boundary,
+            "manual_boundary": self.manual_boundary,
+            "evidence_ref": self.evidence_ref,
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class UIKeyboardFocusContract:
+    """Keyboard and focus behavior for a task path."""
+
+    contract_id: str
+    task_id: str
+    state_id: str = ""
+    tab_order_control_ids: tuple[str, ...] = ()
+    default_enter_control_id: str = ""
+    escape_behavior: str = ""
+    focus_return_rules: tuple[tuple[str, str], ...] = ()
+    disabled_skip_policy: str = ""
+    error_focus_target_id: str = ""
+    evidence_ref: str = ""
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "contract_id", str(self.contract_id))
+        object.__setattr__(self, "task_id", str(self.task_id))
+        object.__setattr__(self, "state_id", str(self.state_id))
+        object.__setattr__(self, "tab_order_control_ids", _as_tuple(self.tab_order_control_ids))
+        object.__setattr__(self, "default_enter_control_id", str(self.default_enter_control_id))
+        object.__setattr__(self, "escape_behavior", str(self.escape_behavior))
+        object.__setattr__(self, "focus_return_rules", _as_pairs(self.focus_return_rules))
+        object.__setattr__(self, "disabled_skip_policy", str(self.disabled_skip_policy))
+        object.__setattr__(self, "error_focus_target_id", str(self.error_focus_target_id))
+        object.__setattr__(self, "evidence_ref", str(self.evidence_ref))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "contract_id": self.contract_id,
+            "task_id": self.task_id,
+            "state_id": self.state_id,
+            "tab_order_control_ids": list(self.tab_order_control_ids),
+            "default_enter_control_id": self.default_enter_control_id,
+            "escape_behavior": self.escape_behavior,
+            "focus_return_rules": [list(pair) for pair in self.focus_return_rules],
+            "disabled_skip_policy": self.disabled_skip_policy,
+            "error_focus_target_id": self.error_focus_target_id,
+            "evidence_ref": self.evidence_ref,
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class UIHumanWalkthroughStep:
+    """One structured human walkthrough step."""
+
+    step_id: str
+    visible_prompt: str
+    user_action: str
+    expected_feedback: str
+    actual_feedback: str
+    evidence_ref: str
+    confusion: bool = False
+    mitigation: str = ""
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "step_id", str(self.step_id))
+        object.__setattr__(self, "visible_prompt", str(self.visible_prompt))
+        object.__setattr__(self, "user_action", str(self.user_action))
+        object.__setattr__(self, "expected_feedback", str(self.expected_feedback))
+        object.__setattr__(self, "actual_feedback", str(self.actual_feedback))
+        object.__setattr__(self, "evidence_ref", str(self.evidence_ref))
+        object.__setattr__(self, "confusion", bool(self.confusion))
+        object.__setattr__(self, "mitigation", str(self.mitigation))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "step_id": self.step_id,
+            "visible_prompt": self.visible_prompt,
+            "user_action": self.user_action,
+            "expected_feedback": self.expected_feedback,
+            "actual_feedback": self.actual_feedback,
+            "evidence_ref": self.evidence_ref,
+            "confusion": self.confusion,
+            "mitigation": self.mitigation,
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class UIHumanWalkthroughScenario:
+    """Human walkthrough evidence for one task and persona."""
+
+    scenario_id: str
+    task_id: str
+    persona: str = "first_time"
+    steps: tuple[UIHumanWalkthroughStep, ...] = ()
+    evidence_ref: str = ""
+    result: str = "passed"
+    confusion_notes: tuple[str, ...] = ()
+    mitigation: str = ""
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "scenario_id", str(self.scenario_id))
+        object.__setattr__(self, "task_id", str(self.task_id))
+        object.__setattr__(self, "persona", str(self.persona))
+        object.__setattr__(self, "steps", tuple(self.steps))
+        object.__setattr__(self, "evidence_ref", str(self.evidence_ref))
+        object.__setattr__(self, "result", str(self.result))
+        object.__setattr__(self, "confusion_notes", _as_tuple(self.confusion_notes))
+        object.__setattr__(self, "mitigation", str(self.mitigation))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def step_ids(self) -> tuple[str, ...]:
+        return tuple(step.step_id for step in self.steps)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "scenario_id": self.scenario_id,
+            "task_id": self.task_id,
+            "persona": self.persona,
+            "steps": [step.to_dict() for step in self.steps],
+            "evidence_ref": self.evidence_ref,
+            "result": self.result,
+            "confusion_notes": list(self.confusion_notes),
+            "mitigation": self.mitigation,
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class UIHumanOperabilityAssessment:
+    """Aggregate human-operability evidence for a UI target revision."""
+
+    assessment_id: str
+    task_coverage: UIUserTaskCoverageLedger
+    source_interaction_model_id: str = ""
+    current_revision: str = ""
+    region_maps: tuple[UIRegionSemanticMap, ...] = ()
+    affordance_contracts: tuple[UIAffordanceContract, ...] = ()
+    action_grammars: tuple[UIActionGrammar, ...] = ()
+    dialog_contracts: tuple[UIDialogWindowContract, ...] = ()
+    keyboard_contracts: tuple[UIKeyboardFocusContract, ...] = ()
+    walkthroughs: tuple[UIHumanWalkthroughScenario, ...] = ()
+    validation_boundaries: tuple[str, ...] = ()
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "assessment_id", str(self.assessment_id))
+        object.__setattr__(self, "source_interaction_model_id", str(self.source_interaction_model_id))
+        object.__setattr__(self, "current_revision", str(self.current_revision))
+        object.__setattr__(self, "region_maps", tuple(self.region_maps))
+        object.__setattr__(self, "affordance_contracts", tuple(self.affordance_contracts))
+        object.__setattr__(self, "action_grammars", tuple(self.action_grammars))
+        object.__setattr__(self, "dialog_contracts", tuple(self.dialog_contracts))
+        object.__setattr__(self, "keyboard_contracts", tuple(self.keyboard_contracts))
+        object.__setattr__(self, "walkthroughs", tuple(self.walkthroughs))
+        object.__setattr__(self, "validation_boundaries", _as_tuple(self.validation_boundaries))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "assessment_id": self.assessment_id,
+            "task_coverage": self.task_coverage.to_dict(),
+            "source_interaction_model_id": self.source_interaction_model_id,
+            "current_revision": self.current_revision,
+            "region_maps": [item.to_dict() for item in self.region_maps],
+            "affordance_contracts": [item.to_dict() for item in self.affordance_contracts],
+            "action_grammars": [item.to_dict() for item in self.action_grammars],
+            "dialog_contracts": [item.to_dict() for item in self.dialog_contracts],
+            "keyboard_contracts": [item.to_dict() for item in self.keyboard_contracts],
+            "walkthroughs": [item.to_dict() for item in self.walkthroughs],
+            "validation_boundaries": list(self.validation_boundaries),
+            "rationale": self.rationale,
+        }
+
+
 SUPPORTED_UI_EVIDENCE_KINDS = (
     "screenshot",
     "browser_click",
@@ -2227,6 +2788,65 @@ class MATLABBaselineCallbackGateReport:
             "ok": self.ok,
             "gate_id": self.gate_id,
             "covered_callback_ids": list(self.covered_callback_ids),
+            "findings": [finding.to_dict() for finding in self.findings],
+            "summary": self.summary,
+        }
+
+
+@dataclass(frozen=True)
+class UIHumanOperabilityReport:
+    """Structured review result for human-operable UI task coverage."""
+
+    ok: bool
+    assessment_id: str
+    findings: tuple[UIFlowStructureFinding, ...] = ()
+    covered_task_ids: tuple[str, ...] = ()
+    covered_feature_ids: tuple[str, ...] = ()
+    summary: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "assessment_id", str(self.assessment_id))
+        object.__setattr__(self, "findings", tuple(self.findings))
+        object.__setattr__(self, "covered_task_ids", _as_tuple(self.covered_task_ids))
+        object.__setattr__(self, "covered_feature_ids", _as_tuple(self.covered_feature_ids))
+        if not self.summary:
+            status = "OK" if self.ok else "BLOCKED"
+            object.__setattr__(
+                self,
+                "summary",
+                f"{status}: ui_human_operability={self.assessment_id} findings={len(self.findings)}",
+            )
+
+    def blocker_count(self) -> int:
+        return sum(1 for finding in self.findings if finding.severity == "blocker")
+
+    def format_text(self, max_findings: int = 10) -> str:
+        lines = [
+            "=== flowguard UI human-operability review ===",
+            f"status: {'OK' if self.ok else 'BLOCKED'}",
+            f"assessment: {self.assessment_id}",
+            f"covered_tasks: {len(self.covered_task_ids)}",
+            f"covered_features: {len(self.covered_feature_ids)}",
+            f"findings: {len(self.findings)}",
+        ]
+        for finding in self.findings[:max_findings]:
+            lines.extend(
+                [
+                    "",
+                    f"finding: {finding.code}",
+                    f"severity: {finding.severity}",
+                    f"item: {finding.item_id or '(none)'}",
+                    f"message: {finding.message}",
+                ]
+            )
+        return "\n".join(lines)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "ok": self.ok,
+            "assessment_id": self.assessment_id,
+            "covered_task_ids": list(self.covered_task_ids),
+            "covered_feature_ids": list(self.covered_feature_ids),
             "findings": [finding.to_dict() for finding in self.findings],
             "summary": self.summary,
         }
@@ -3343,6 +3963,355 @@ def review_matlab_baseline_callback_gate(
         gate_id=gate.gate_id,
         findings=tuple(findings),
         covered_callback_ids=tuple(sorted(set(covered_callback_ids))),
+    )
+
+
+def review_ui_human_operability(
+    assessment: UIHumanOperabilityAssessment,
+    *,
+    interaction_model: UIInteractionModel | None = None,
+    visible_surface: UIVisibleSurface | None = None,
+    journey_coverage: UIJourneyCoverage | None = None,
+    functional_chains: UIControlFunctionalChainSet | None = None,
+) -> UIHumanOperabilityReport:
+    """Review whether a UI is understandable and operable for user tasks."""
+
+    findings: list[UIFlowStructureFinding] = []
+    ledger = assessment.task_coverage
+    task_ids = set(ledger.task_ids())
+    feature_ids = set(ledger.feature_ids)
+    scoped_feature_ids = set(ledger.out_of_scope_feature_ids)
+    scoped_task_ids = set(ledger.out_of_scope_task_ids)
+    in_scope_task_ids = task_ids - scoped_task_ids
+    known_controls = set(interaction_model.control_ids()) if interaction_model is not None else set()
+    known_events = set(interaction_model.transition_event_ids()) if interaction_model is not None else set()
+    known_states = set(interaction_model.state_ids()) if interaction_model is not None else set()
+    known_displays = set(interaction_model.display_ids()) if interaction_model is not None else set()
+    known_visible_items = set(visible_surface.item_ids()) if visible_surface is not None else set()
+    known_journeys = set(journey_coverage.feature_ids()) if journey_coverage is not None else set()
+    known_chains = set(functional_chains.chain_ids()) if functional_chains is not None else set()
+    feature_to_tasks: dict[str, set[str]] = {}
+    task_to_controls: dict[str, set[str]] = {}
+    task_to_journeys: dict[str, set[str]] = {}
+    task_to_chains: dict[str, set[str]] = {}
+
+    for feature_id, task_id in ledger.feature_task_links:
+        feature_to_tasks.setdefault(feature_id, set()).add(task_id)
+    for task_id, control_id in ledger.task_control_links:
+        task_to_controls.setdefault(task_id, set()).add(control_id)
+    for task_id, journey_id in ledger.task_journey_links:
+        task_to_journeys.setdefault(task_id, set()).add(journey_id)
+    for task_id, chain_id in ledger.task_functional_chain_links:
+        task_to_chains.setdefault(task_id, set()).add(chain_id)
+
+    if not assessment.assessment_id:
+        findings.append(UIFlowStructureFinding("missing_human_operability_assessment_id", "UI human-operability assessment has no id"))
+    if not assessment.current_revision:
+        findings.append(UIFlowStructureFinding("missing_human_operability_revision", "UI human-operability assessment has no current revision"))
+    if not assessment.validation_boundaries:
+        findings.append(UIFlowStructureFinding("missing_human_operability_validation", "UI human-operability assessment has no validation boundaries"))
+    if not assessment.rationale:
+        findings.append(UIFlowStructureFinding("missing_human_operability_rationale", "UI human-operability assessment has no rationale"))
+    if not ledger.ledger_id:
+        findings.append(UIFlowStructureFinding("missing_user_task_coverage_ledger_id", "user task coverage ledger has no id"))
+    if not ledger.feature_ids:
+        findings.append(UIFlowStructureFinding("missing_user_visible_feature_inventory", "user task coverage ledger has no feature inventory"))
+    if not ledger.task_frames:
+        findings.append(UIFlowStructureFinding("missing_user_task_frames", "user task coverage ledger has no task frames"))
+    if not ledger.validation_boundaries:
+        findings.append(UIFlowStructureFinding("missing_user_task_coverage_validation", "user task coverage ledger has no validation boundaries"))
+    if not ledger.rationale:
+        findings.append(UIFlowStructureFinding("missing_user_task_coverage_rationale", "user task coverage ledger has no rationale"))
+
+    findings.extend(_duplicate_values(ledger.feature_ids, code="duplicate_user_visible_feature_id", noun="user-visible feature"))
+    findings.extend(_duplicate_values(ledger.task_ids(), code="duplicate_user_task_id", noun="user task"))
+    findings.extend(_duplicate_values(ledger.primary_control_ids, code="duplicate_primary_control_id", noun="primary control"))
+
+    for feature_id in sorted(feature_ids - scoped_feature_ids):
+        linked_tasks = feature_to_tasks.get(feature_id, set()) - scoped_task_ids
+        if not linked_tasks:
+            findings.append(
+                UIFlowStructureFinding(
+                    "feature_without_user_task",
+                    f"user-visible feature {feature_id} has no in-scope user task",
+                    item_id=feature_id,
+                )
+            )
+
+    for feature_id, task_id in ledger.feature_task_links:
+        if feature_id not in feature_ids:
+            findings.append(
+                UIFlowStructureFinding(
+                    "feature_task_link_unknown_feature",
+                    f"feature-task link references unknown feature {feature_id}",
+                    item_id=feature_id,
+                )
+            )
+        if task_id not in task_ids:
+            findings.append(
+                UIFlowStructureFinding(
+                    "feature_task_link_unknown_task",
+                    f"feature-task link references unknown task {task_id}",
+                    item_id=task_id,
+                )
+            )
+
+    for task_id, control_id in ledger.task_control_links:
+        if task_id not in task_ids:
+            findings.append(UIFlowStructureFinding("task_control_link_unknown_task", f"task-control link references unknown task {task_id}", item_id=task_id))
+        if interaction_model is not None and control_id not in known_controls:
+            findings.append(UIFlowStructureFinding("task_control_link_unknown_control", f"task-control link references unknown control {control_id}", item_id=control_id))
+    for task_id, journey_id in ledger.task_journey_links:
+        if task_id not in task_ids:
+            findings.append(UIFlowStructureFinding("task_journey_link_unknown_task", f"task-journey link references unknown task {task_id}", item_id=task_id))
+        if journey_coverage is not None and journey_id not in known_journeys:
+            findings.append(UIFlowStructureFinding("task_journey_link_unknown_journey", f"task-journey link references unknown journey {journey_id}", item_id=journey_id))
+    for task_id, chain_id in ledger.task_functional_chain_links:
+        if task_id not in task_ids:
+            findings.append(UIFlowStructureFinding("task_functional_chain_link_unknown_task", f"task-chain link references unknown task {task_id}", item_id=task_id))
+        if functional_chains is not None and chain_id not in known_chains:
+            findings.append(UIFlowStructureFinding("task_functional_chain_link_unknown_chain", f"task-chain link references unknown functional chain {chain_id}", item_id=chain_id))
+
+    for task in ledger.task_frames:
+        if task.task_id in scoped_task_ids:
+            continue
+        if not task.task_id:
+            findings.append(UIFlowStructureFinding("missing_user_task_id", "user task frame has no id"))
+        if not task.user_goal:
+            findings.append(UIFlowStructureFinding("missing_user_task_goal", f"user task {task.task_id} has no user goal", item_id=task.task_id))
+        if not task.source_feature_ids:
+            findings.append(UIFlowStructureFinding("user_task_without_feature", f"user task {task.task_id} has no source feature id", item_id=task.task_id))
+        for feature_id in task.source_feature_ids:
+            if feature_id not in feature_ids:
+                findings.append(UIFlowStructureFinding("user_task_unknown_feature", f"user task {task.task_id} references unknown feature {feature_id}", item_id=task.task_id))
+        if not task.entry_state_ids:
+            findings.append(UIFlowStructureFinding("user_task_missing_entry_state", f"user task {task.task_id} has no entry state", item_id=task.task_id))
+        if not task.main_path_event_ids:
+            findings.append(UIFlowStructureFinding("user_task_missing_main_path", f"user task {task.task_id} has no main path events", item_id=task.task_id))
+        if not task.success_state_ids:
+            findings.append(UIFlowStructureFinding("user_task_missing_success_state", f"user task {task.task_id} has no success state", item_id=task.task_id))
+        if not task.required_feedback_item_ids:
+            findings.append(UIFlowStructureFinding("user_task_missing_feedback", f"user task {task.task_id} has no required visible feedback", item_id=task.task_id))
+        if not (task.cancel_event_ids or task.cancel_behavior):
+            findings.append(UIFlowStructureFinding("user_task_missing_cancel_path", f"user task {task.task_id} has no cancel path or cancel behavior", item_id=task.task_id))
+        if not (task.error_state_ids or task.error_behavior):
+            findings.append(UIFlowStructureFinding("user_task_missing_error_path", f"user task {task.task_id} has no error path or error behavior", item_id=task.task_id))
+        if task.task_id not in task_to_controls and task.task_id not in task_to_journeys:
+            findings.append(UIFlowStructureFinding("user_task_without_ui_path", f"user task {task.task_id} has no UI journey or control path", item_id=task.task_id))
+        if not task.keyboard_contract_id:
+            findings.append(UIFlowStructureFinding("user_task_without_keyboard_focus_contract", f"user task {task.task_id} has no keyboard/focus contract", item_id=task.task_id))
+        if not task.rationale:
+            findings.append(UIFlowStructureFinding("missing_user_task_rationale", f"user task {task.task_id} has no rationale", item_id=task.task_id))
+        for state_id in task.entry_state_ids + task.success_state_ids + task.error_state_ids:
+            if interaction_model is not None and state_id not in known_states:
+                findings.append(UIFlowStructureFinding("user_task_state_not_registered", f"user task {task.task_id} references unknown state {state_id}", item_id=task.task_id))
+        for event_id in task.main_path_event_ids + task.alternate_path_event_ids + task.cancel_event_ids:
+            if interaction_model is not None and event_id not in known_events:
+                findings.append(UIFlowStructureFinding("user_task_event_not_registered", f"user task {task.task_id} references unknown event {event_id}", item_id=task.task_id))
+        for control_id in task.required_control_ids:
+            if interaction_model is not None and control_id not in known_controls:
+                findings.append(UIFlowStructureFinding("user_task_control_not_registered", f"user task {task.task_id} references unknown control {control_id}", item_id=task.task_id))
+        for display_id in task.required_display_ids:
+            if interaction_model is not None and display_id not in known_displays:
+                findings.append(UIFlowStructureFinding("user_task_display_not_registered", f"user task {task.task_id} references unknown display {display_id}", item_id=task.task_id))
+
+    linked_control_ids = {control_id for controls in task_to_controls.values() for control_id in controls}
+    for control_id in ledger.primary_control_ids:
+        if control_id not in linked_control_ids:
+            findings.append(
+                UIFlowStructureFinding(
+                    "orphan_primary_control",
+                    f"primary control {control_id} is not owned by any user task",
+                    item_id=control_id,
+                )
+            )
+        if interaction_model is not None and control_id not in known_controls:
+            findings.append(UIFlowStructureFinding("primary_control_not_registered", f"primary control {control_id} is not registered", item_id=control_id))
+
+    findings.extend(_duplicate_values(tuple(item.map_id for item in assessment.region_maps), code="duplicate_region_semantic_map_id", noun="region semantic map"))
+    for region in assessment.region_maps:
+        if not region.map_id:
+            findings.append(UIFlowStructureFinding("missing_region_semantic_map_id", "region semantic map has no id"))
+        if not region.region_id:
+            findings.append(UIFlowStructureFinding("missing_region_id", f"region semantic map {region.map_id} has no region id", item_id=region.map_id))
+        if region.region_role not in UI_REGION_ROLES:
+            findings.append(UIFlowStructureFinding("unknown_region_role", f"region {region.region_id} uses unknown role {region.region_role}", item_id=region.region_id))
+        if not (region.task_ids or region.control_ids or region.display_ids or region.status_item_ids):
+            findings.append(UIFlowStructureFinding("region_semantics_without_owned_items", f"region {region.region_id} has no owned tasks, controls, displays, or status items", item_id=region.region_id))
+        if region.region_role in {"status", "result"} and region.control_ids and "control" not in region.allowed_item_kinds:
+            findings.append(UIFlowStructureFinding("region_role_conflict", f"{region.region_role} region {region.region_id} owns controls without allowing controls", item_id=region.region_id))
+        if not region.rationale:
+            findings.append(UIFlowStructureFinding("missing_region_semantic_rationale", f"region {region.region_id} has no rationale", item_id=region.region_id))
+        for task_id in region.task_ids:
+            if task_id not in task_ids:
+                findings.append(UIFlowStructureFinding("region_task_not_registered", f"region {region.region_id} references unknown task {task_id}", item_id=region.region_id))
+        for control_id in region.control_ids:
+            if interaction_model is not None and control_id not in known_controls:
+                findings.append(UIFlowStructureFinding("region_control_not_registered", f"region {region.region_id} references unknown control {control_id}", item_id=region.region_id))
+        for display_id in region.display_ids:
+            if interaction_model is not None and display_id not in known_displays:
+                findings.append(UIFlowStructureFinding("region_display_not_registered", f"region {region.region_id} references unknown display {display_id}", item_id=region.region_id))
+
+    findings.extend(_duplicate_values(tuple(item.contract_id for item in assessment.affordance_contracts), code="duplicate_affordance_contract_id", noun="affordance contract"))
+    for affordance in assessment.affordance_contracts:
+        perceived_actionable = affordance.perceived_role in UI_PERCEIVED_ACTIONABLE_ROLES
+        actual_actionable = affordance.actual_role in UI_ACTUAL_ACTIONABLE_ROLES
+        actual_non_actionable = affordance.actual_role in UI_ACTUAL_NON_ACTIONABLE_ROLES
+        if not affordance.contract_id:
+            findings.append(UIFlowStructureFinding("missing_affordance_contract_id", "affordance contract has no id"))
+        if not affordance.visible_item_id:
+            findings.append(UIFlowStructureFinding("missing_affordance_visible_item", f"affordance {affordance.contract_id} has no visible item id", item_id=affordance.contract_id))
+        elif visible_surface is not None and affordance.visible_item_id not in known_visible_items:
+            findings.append(UIFlowStructureFinding("affordance_visible_item_not_registered", f"affordance {affordance.contract_id} references unknown visible item {affordance.visible_item_id}", item_id=affordance.contract_id))
+        if affordance.task_id and affordance.task_id not in task_ids:
+            findings.append(UIFlowStructureFinding("affordance_task_not_registered", f"affordance {affordance.contract_id} references unknown task {affordance.task_id}", item_id=affordance.contract_id))
+        if affordance.control_id and interaction_model is not None and affordance.control_id not in known_controls:
+            findings.append(UIFlowStructureFinding("affordance_control_not_registered", f"affordance {affordance.contract_id} references unknown control {affordance.control_id}", item_id=affordance.contract_id))
+        if actual_actionable and not affordance.visual_cues:
+            findings.append(UIFlowStructureFinding("actionable_item_missing_visual_cue", f"actionable item {affordance.visible_item_id} has no visual cue", item_id=affordance.visible_item_id))
+        if actual_actionable and not affordance.expected_user_action:
+            findings.append(UIFlowStructureFinding("actionable_item_missing_expected_action", f"actionable item {affordance.visible_item_id} has no expected user action", item_id=affordance.visible_item_id))
+        if actual_actionable and not affordance.expected_result:
+            findings.append(UIFlowStructureFinding("actionable_item_missing_expected_result", f"actionable item {affordance.visible_item_id} has no expected result", item_id=affordance.visible_item_id))
+        if actual_actionable and not perceived_actionable:
+            findings.append(UIFlowStructureFinding("clickable_item_not_visually_actionable", f"item {affordance.visible_item_id} is actionable but not perceived as actionable", item_id=affordance.visible_item_id))
+        if perceived_actionable and actual_non_actionable and affordance.mismatch_disposition not in UI_AFFORDANCE_MISMATCH_DISPOSITIONS:
+            findings.append(UIFlowStructureFinding("affordance_role_mismatch", f"item {affordance.visible_item_id} looks actionable but actual role is {affordance.actual_role}", item_id=affordance.visible_item_id))
+        if not affordance.rationale:
+            findings.append(UIFlowStructureFinding("missing_affordance_rationale", f"affordance {affordance.contract_id} has no rationale", item_id=affordance.contract_id))
+
+    grammar_groups: dict[tuple[str, str, str], set[str]] = {}
+    findings.extend(_duplicate_values(tuple(item.action_id for item in assessment.action_grammars), code="duplicate_action_grammar_id", noun="action grammar"))
+    for grammar in assessment.action_grammars:
+        if not grammar.action_id:
+            findings.append(UIFlowStructureFinding("missing_action_grammar_id", "action grammar has no id"))
+        if grammar.task_id not in task_ids:
+            findings.append(UIFlowStructureFinding("action_grammar_task_not_registered", f"action grammar {grammar.action_id} references unknown task {grammar.task_id}", item_id=grammar.action_id))
+        if not grammar.user_intent:
+            findings.append(UIFlowStructureFinding("missing_action_grammar_user_intent", f"action grammar {grammar.action_id} has no user intent", item_id=grammar.action_id))
+        if not grammar.primary_control_id:
+            findings.append(UIFlowStructureFinding("missing_action_grammar_primary_control", f"action grammar {grammar.action_id} has no primary control", item_id=grammar.action_id))
+        elif interaction_model is not None and grammar.primary_control_id not in known_controls:
+            findings.append(UIFlowStructureFinding("action_grammar_primary_control_not_registered", f"action grammar {grammar.action_id} references unknown primary control {grammar.primary_control_id}", item_id=grammar.action_id))
+        if grammar.conflicting_control_ids and not grammar.duplicate_policy:
+            findings.append(UIFlowStructureFinding("action_grammar_conflict", f"action grammar {grammar.action_id} has conflicting controls without duplicate policy", item_id=grammar.action_id))
+        if not grammar.expected_feedback_item_ids:
+            findings.append(UIFlowStructureFinding("action_grammar_missing_feedback", f"action grammar {grammar.action_id} has no expected feedback item", item_id=grammar.action_id))
+        if not grammar.rationale:
+            findings.append(UIFlowStructureFinding("missing_action_grammar_rationale", f"action grammar {grammar.action_id} has no rationale", item_id=grammar.action_id))
+        for state_id in grammar.source_state_ids or ("",):
+            grammar_groups.setdefault((grammar.task_id, state_id, grammar.user_intent), set()).add(grammar.primary_control_id)
+        for control_id in grammar.alternate_control_ids + grammar.conflicting_control_ids:
+            if interaction_model is not None and control_id not in known_controls:
+                findings.append(UIFlowStructureFinding("action_grammar_control_not_registered", f"action grammar {grammar.action_id} references unknown control {control_id}", item_id=grammar.action_id))
+    for (task_id, state_id, user_intent), primary_ids in sorted(grammar_groups.items()):
+        primary_ids.discard("")
+        if len(primary_ids) > 1:
+            findings.append(
+                UIFlowStructureFinding(
+                    "duplicate_primary_action",
+                    f"task {task_id} has multiple primary controls for {user_intent} in state {state_id or '(any)'}",
+                    item_id=task_id,
+                    metadata={"primary_control_ids": sorted(primary_ids)},
+                )
+            )
+
+    findings.extend(_duplicate_values(tuple(item.contract_id for item in assessment.dialog_contracts), code="duplicate_dialog_window_contract_id", noun="dialog/window contract"))
+    for dialog in assessment.dialog_contracts:
+        if dialog.task_id not in task_ids:
+            findings.append(UIFlowStructureFinding("dialog_task_not_registered", f"dialog contract {dialog.contract_id} references unknown task {dialog.task_id}", item_id=dialog.contract_id))
+        if dialog.dialog_type not in UI_DIALOG_TYPES:
+            findings.append(UIFlowStructureFinding("unknown_dialog_type", f"dialog contract {dialog.contract_id} uses unknown dialog type {dialog.dialog_type}", item_id=dialog.contract_id))
+        if not dialog.trigger_control_id:
+            findings.append(UIFlowStructureFinding("dialog_missing_trigger_control", f"dialog contract {dialog.contract_id} has no trigger control", item_id=dialog.contract_id))
+        elif interaction_model is not None and dialog.trigger_control_id not in known_controls:
+            findings.append(UIFlowStructureFinding("dialog_trigger_control_not_registered", f"dialog contract {dialog.contract_id} references unknown trigger control {dialog.trigger_control_id}", item_id=dialog.contract_id))
+        if not dialog.success_return:
+            findings.append(UIFlowStructureFinding("dialog_missing_success_return", f"dialog contract {dialog.contract_id} has no success return", item_id=dialog.contract_id))
+        if not dialog.cancel_return:
+            findings.append(UIFlowStructureFinding("dialog_missing_cancel_return", f"dialog contract {dialog.contract_id} has no cancel return", item_id=dialog.contract_id))
+        if not dialog.error_return:
+            findings.append(UIFlowStructureFinding("dialog_missing_error_return", f"dialog contract {dialog.contract_id} has no error return", item_id=dialog.contract_id))
+        if not dialog.focus_return_target_id:
+            findings.append(UIFlowStructureFinding("dialog_missing_focus_return", f"dialog contract {dialog.contract_id} has no focus return target", item_id=dialog.contract_id))
+        if not dialog.feedback_item_ids:
+            findings.append(UIFlowStructureFinding("dialog_missing_feedback", f"dialog contract {dialog.contract_id} has no feedback item", item_id=dialog.contract_id))
+        if dialog.dialog_type.startswith("native_") and not (dialog.native_boundary or dialog.manual_boundary):
+            findings.append(UIFlowStructureFinding("native_dialog_missing_boundary", f"native dialog contract {dialog.contract_id} has no native/manual boundary", item_id=dialog.contract_id))
+        if not dialog.evidence_ref:
+            findings.append(UIFlowStructureFinding("dialog_missing_evidence_ref", f"dialog contract {dialog.contract_id} has no evidence reference", item_id=dialog.contract_id))
+        if not dialog.rationale:
+            findings.append(UIFlowStructureFinding("missing_dialog_rationale", f"dialog contract {dialog.contract_id} has no rationale", item_id=dialog.contract_id))
+
+    keyboard_by_id = {item.contract_id: item for item in assessment.keyboard_contracts}
+    findings.extend(_duplicate_values(tuple(keyboard_by_id), code="duplicate_keyboard_focus_contract_id", noun="keyboard/focus contract"))
+    for task in ledger.task_frames:
+        if task.task_id in scoped_task_ids:
+            continue
+        if task.keyboard_contract_id and task.keyboard_contract_id not in keyboard_by_id:
+            findings.append(UIFlowStructureFinding("task_keyboard_contract_not_registered", f"user task {task.task_id} references unknown keyboard/focus contract {task.keyboard_contract_id}", item_id=task.task_id))
+    for keyboard in assessment.keyboard_contracts:
+        if keyboard.task_id not in task_ids:
+            findings.append(UIFlowStructureFinding("keyboard_task_not_registered", f"keyboard contract {keyboard.contract_id} references unknown task {keyboard.task_id}", item_id=keyboard.contract_id))
+        if keyboard.state_id and interaction_model is not None and keyboard.state_id not in known_states:
+            findings.append(UIFlowStructureFinding("keyboard_state_not_registered", f"keyboard contract {keyboard.contract_id} references unknown state {keyboard.state_id}", item_id=keyboard.contract_id))
+        if not keyboard.tab_order_control_ids:
+            findings.append(UIFlowStructureFinding("keyboard_missing_tab_order", f"keyboard contract {keyboard.contract_id} has no Tab order", item_id=keyboard.contract_id))
+        if not keyboard.default_enter_control_id:
+            findings.append(UIFlowStructureFinding("keyboard_missing_enter_behavior", f"keyboard contract {keyboard.contract_id} has no default Enter behavior", item_id=keyboard.contract_id))
+        if not keyboard.escape_behavior:
+            findings.append(UIFlowStructureFinding("keyboard_missing_escape_behavior", f"keyboard contract {keyboard.contract_id} has no Escape behavior", item_id=keyboard.contract_id))
+        if not keyboard.focus_return_rules:
+            findings.append(UIFlowStructureFinding("keyboard_missing_focus_return", f"keyboard contract {keyboard.contract_id} has no focus return rules", item_id=keyboard.contract_id))
+        if not keyboard.disabled_skip_policy:
+            findings.append(UIFlowStructureFinding("keyboard_missing_disabled_skip_policy", f"keyboard contract {keyboard.contract_id} has no disabled-control skip policy", item_id=keyboard.contract_id))
+        if not keyboard.evidence_ref:
+            findings.append(UIFlowStructureFinding("keyboard_missing_evidence_ref", f"keyboard contract {keyboard.contract_id} has no evidence reference", item_id=keyboard.contract_id))
+        if not keyboard.rationale:
+            findings.append(UIFlowStructureFinding("missing_keyboard_rationale", f"keyboard contract {keyboard.contract_id} has no rationale", item_id=keyboard.contract_id))
+        for control_id in keyboard.tab_order_control_ids + (keyboard.default_enter_control_id, keyboard.error_focus_target_id):
+            if control_id and interaction_model is not None and control_id not in known_controls:
+                findings.append(UIFlowStructureFinding("keyboard_control_not_registered", f"keyboard contract {keyboard.contract_id} references unknown control {control_id}", item_id=keyboard.contract_id))
+
+    walkthrough_task_ids = {item.task_id for item in assessment.walkthroughs if item.result.lower() in _PASSED_UI_RESULTS}
+    for task_id in sorted(in_scope_task_ids - walkthrough_task_ids):
+        findings.append(UIFlowStructureFinding("user_task_without_walkthrough", f"user task {task_id} has no passing human walkthrough", item_id=task_id))
+    findings.extend(_duplicate_values(tuple(item.scenario_id for item in assessment.walkthroughs), code="duplicate_walkthrough_scenario_id", noun="walkthrough scenario"))
+    for scenario in assessment.walkthroughs:
+        if scenario.task_id not in task_ids:
+            findings.append(UIFlowStructureFinding("walkthrough_task_not_registered", f"walkthrough {scenario.scenario_id} references unknown task {scenario.task_id}", item_id=scenario.scenario_id))
+        if not scenario.steps:
+            findings.append(UIFlowStructureFinding("walkthrough_missing_steps", f"walkthrough {scenario.scenario_id} has no steps", item_id=scenario.scenario_id))
+        if not scenario.evidence_ref:
+            findings.append(UIFlowStructureFinding("walkthrough_missing_evidence_ref", f"walkthrough {scenario.scenario_id} has no evidence reference", item_id=scenario.scenario_id))
+        if scenario.result.lower() not in _PASSED_UI_RESULTS:
+            findings.append(UIFlowStructureFinding("walkthrough_not_passed", f"walkthrough {scenario.scenario_id} result is {scenario.result}, not passed", item_id=scenario.scenario_id))
+        if scenario.confusion_notes and not scenario.mitigation:
+            findings.append(UIFlowStructureFinding("walkthrough_confusion_unmitigated", f"walkthrough {scenario.scenario_id} has confusion notes without mitigation", item_id=scenario.scenario_id))
+        if not scenario.rationale:
+            findings.append(UIFlowStructureFinding("missing_walkthrough_rationale", f"walkthrough {scenario.scenario_id} has no rationale", item_id=scenario.scenario_id))
+        findings.extend(_duplicate_values(scenario.step_ids(), code="duplicate_walkthrough_step_id", noun="walkthrough step"))
+        for step in scenario.steps:
+            if not step.visible_prompt:
+                findings.append(UIFlowStructureFinding("walkthrough_missing_visible_prompt", f"walkthrough step {step.step_id} has no visible prompt", item_id=step.step_id))
+            if not step.user_action:
+                findings.append(UIFlowStructureFinding("walkthrough_missing_user_action", f"walkthrough step {step.step_id} has no user action", item_id=step.step_id))
+            if not step.expected_feedback:
+                findings.append(UIFlowStructureFinding("walkthrough_missing_expected_feedback", f"walkthrough step {step.step_id} has no expected feedback", item_id=step.step_id))
+            if not step.actual_feedback:
+                findings.append(UIFlowStructureFinding("walkthrough_missing_actual_feedback", f"walkthrough step {step.step_id} has no actual feedback", item_id=step.step_id))
+            if not step.evidence_ref:
+                findings.append(UIFlowStructureFinding("walkthrough_step_missing_evidence_ref", f"walkthrough step {step.step_id} has no evidence reference", item_id=step.step_id))
+            if step.confusion and not step.mitigation:
+                findings.append(UIFlowStructureFinding("walkthrough_step_confusion_unmitigated", f"walkthrough step {step.step_id} reports confusion without mitigation", item_id=step.step_id))
+
+    blockers = _blocker_findings(findings)
+    return UIHumanOperabilityReport(
+        ok=not blockers,
+        assessment_id=assessment.assessment_id,
+        findings=tuple(findings),
+        covered_task_ids=tuple(sorted(task_ids)),
+        covered_feature_ids=tuple(sorted(feature_ids)),
     )
 
 
@@ -5925,7 +6894,22 @@ __all__ = [
     "FUNCTIONAL_CHAIN_EVIDENCE_KINDS",
     "OBSERVED_UI_ACTIONABLE_KINDS",
     "OBSERVED_UI_ITEM_KINDS",
+    "UI_ACTUAL_ACTIONABLE_ROLES",
+    "UI_ACTUAL_NON_ACTIONABLE_ROLES",
+    "UIAffordanceContract",
+    "UIActionGrammar",
+    "UI_AFFORDANCE_MISMATCH_DISPOSITIONS",
+    "UIDialogWindowContract",
+    "UI_DIALOG_TYPES",
+    "UIHumanOperabilityAssessment",
+    "UIHumanOperabilityReport",
+    "UIHumanWalkthroughScenario",
+    "UIHumanWalkthroughStep",
+    "UIKeyboardFocusContract",
+    "UI_PERCEIVED_ACTIONABLE_ROLES",
     "UIRegionRecommendation",
+    "UIRegionSemanticMap",
+    "UI_REGION_ROLES",
     "UIRenderEvidence",
     "UIRenderEvidenceReport",
     "UIRenderEvidenceSet",
@@ -5941,13 +6925,17 @@ __all__ = [
     "UITypographyToken",
     "UITerminalActionAllowance",
     "UITransition",
+    "UIUserTaskCoverageLedger",
+    "UIUserTaskFrame",
     "UIVisibleSurface",
     "UIVisibleSurfaceItem",
     "UIVisibleSurfaceReport",
+    "UI_HUMAN_OPERABILITY_EVIDENCE_KINDS",
     "SUPPORTED_UI_EVIDENCE_KINDS",
     "review_matlab_baseline_callback_gate",
     "review_ui_control_functional_chains",
     "review_ui_geometry_layout_evidence",
+    "review_ui_human_operability",
     "review_ui_implementation_validation",
     "review_ui_interaction_model",
     "review_ui_journey_coverage",

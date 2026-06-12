@@ -11,6 +11,7 @@ from flowguard import (
     CLOSURE_REPORT_RISK_LEDGER,
     CLOSURE_REPORT_RUNTIME_GATEWAY,
     CLOSURE_REPORT_UI_DONE_CLAIM,
+    CLOSURE_REPORT_UI_HUMAN_OPERABILITY,
     MODEL_QUALITY_HIDDEN_STATE,
     ArtifactInvalidation,
     ClosureEvidenceReport,
@@ -298,6 +299,29 @@ class FlowGuardClosureContractTests(unittest.TestCase):
                         "report:ui-done-claim",
                         report_kind=CLOSURE_REPORT_UI_DONE_CLAIM,
                         decision="ui_done_claim_full_confidence",
+                    ),
+                ),
+            )
+        )
+        self.assertTrue(full.ok, full.format_text())
+        self.assertEqual(CLOSURE_DECISION_FULL, full.decision)
+
+    def test_required_ui_human_operability_review_is_final_confidence_input(self):
+        missing = review_flowguard_closure_contract(
+            green_plan(require_ui_human_operability_review=True)
+        )
+        self.assertFalse(missing.ok)
+        self.assertIn("missing_ui_human_operability_review", finding_codes(missing))
+
+        full = review_flowguard_closure_contract(
+            green_plan(
+                require_ui_human_operability_review=True,
+                evidence_reports=green_plan().evidence_reports
+                + (
+                    evidence_report(
+                        "report:ui-human-operability",
+                        report_kind=CLOSURE_REPORT_UI_HUMAN_OPERABILITY,
+                        decision="ui_human_operability_full_confidence",
                     ),
                 ),
             )

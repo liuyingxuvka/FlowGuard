@@ -438,6 +438,27 @@ def _run_risk_template_harvest_command(args: argparse.Namespace) -> int:
     return 0 if report.ok else 1
 
 
+def _run_risk_template_harvest_review_command(args: argparse.Namespace) -> int:
+    from .risk_templates import TemplateHarvestReview, review_template_harvest_closure
+
+    review = TemplateHarvestReview(
+        disposition=args.disposition,
+        written_template_ids=tuple(args.written_template_id or ()),
+        merged_template_ids=tuple(args.merged_template_id or ()),
+        linked_template_ids=tuple(args.linked_template_id or ()),
+        not_harvestable_reason=args.not_harvestable_reason,
+        local_root=args.local_root or "",
+        findings=tuple(args.finding or ()),
+    )
+    report = review_template_harvest_closure(review)
+    payload = {
+        "review": review.to_dict(),
+        "report": report.to_dict(),
+    }
+    print(json.dumps(payload, indent=2, sort_keys=True) if args.json else "\n".join((review.format_text(), report.format_text())))
+    return 0 if report.ok else 1
+
+
 COMMANDS: dict[str, Callable[[], int]] = {
     "adoption-template": _run_adoption_template,
     "benchmark": _run_benchmark,
@@ -584,6 +605,26 @@ def _add_risk_template_harvest_parser(subparsers: argparse._SubParsersAction[arg
     parser.set_defaults(handler=_run_risk_template_harvest_command)
 
 
+def _add_risk_template_harvest_review_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
+    parser = subparsers.add_parser(
+        "risk-template-harvest-review",
+        help="Review required template harvest closure after model creation or deepening.",
+    )
+    parser.add_argument(
+        "--disposition",
+        required=True,
+        choices=("written", "merged", "duplicate_linked", "not_harvestable"),
+    )
+    parser.add_argument("--written-template-id", action="append", default=[])
+    parser.add_argument("--merged-template-id", action="append", default=[])
+    parser.add_argument("--linked-template-id", action="append", default=[])
+    parser.add_argument("--not-harvestable-reason", default="")
+    parser.add_argument("--local-root", default="")
+    parser.add_argument("--finding", action="append", default=[])
+    parser.add_argument("--json", action="store_true", help="Print the report as JSON.")
+    parser.set_defaults(handler=_run_risk_template_harvest_review_command)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m flowguard",
@@ -596,6 +637,7 @@ def main(argv: list[str] | None = None) -> int:
     _add_artifact_upgrade_parser(subparsers)
     _add_risk_template_search_parser(subparsers)
     _add_risk_template_harvest_parser(subparsers)
+    _add_risk_template_harvest_review_parser(subparsers)
     _add_project_adoption_parser(
         subparsers,
         "project-audit",

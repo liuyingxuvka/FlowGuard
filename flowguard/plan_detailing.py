@@ -77,6 +77,13 @@ PLAN_DETAIL_UI_EVIDENCE_KINDS = (
     "ui_functional_chain",
     "ui_implementation_validation",
     "ui_done_claim_review",
+    "ui_human_operability",
+    "ui_task_coverage",
+    "ui_affordance_review",
+    "ui_action_grammar",
+    "ui_dialog_return",
+    "ui_keyboard_focus",
+    "ui_human_walkthrough",
 )
 
 PLAN_DETAIL_PASSING_EVIDENCE_STATUSES = {"passed", "pass", "ok"}

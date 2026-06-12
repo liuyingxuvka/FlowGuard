@@ -1,5 +1,34 @@
 # Changelog
 
+## v0.46.0 - 2026-06-12
+
+Mandatory template harvest closure.
+
+- Added `TemplateHarvestReview`, accepted harvest dispositions, not-harvestable
+  reasons, and `review_template_harvest_closure(...)`.
+- Extended check plans, audit, runner summaries, CLI, public API exports, and
+  starter templates so new or materially deepened models must close template
+  harvest as written, merged, duplicate-linked, or accepted not-harvestable.
+- Updated FlowGuard skills, AGENTS snippet, modeling protocol, README, API docs,
+  OpenSpec coverage, and self-model evidence so template absorption is a hard
+  completion gate rather than optional "when useful" guidance.
+
+## v0.45.0 - 2026-06-12
+
+UI human-operability gate.
+
+- Added user task coverage, region semantics, affordance contracts, action
+  grammar, dialog/window return contracts, keyboard/focus contracts, human
+  walkthroughs, and `review_ui_human_operability(...)`.
+- Extended UI Flow Structure, Model Miss Review, PlanDetailing,
+  DevelopmentProcessFlow, RiskEvidenceLedger, ClosureContract, and
+  AgentWorkflowRehearsal so broad UI done/release confidence requires
+  human-operability evidence, not only labels, routes, or click wiring.
+- Updated public templates, API docs, UI docs, README, OpenSpec artifacts, and
+  skill guidance so supported UI tasks must connect to function model features,
+  UI journeys, primary controls, functional chains, feedback, cancel/error,
+  keyboard/focus, native dialogs, and walkthrough evidence.
+
 ## v0.44.0 - 2026-06-12
 
 Minimum valuable model entry and risk-template reuse.

@@ -163,6 +163,9 @@ Answer these questions before creating or editing the model:
 - Which protected error class should this model make impossible or visible?
 - Which public packaged or local per-machine risk templates match this risk?
   Record used template ids, or record a no-match reason.
+- How will this model record template harvest closure after validation: write a local
+  candidate, merge an existing template, duplicate-link an existing template,
+  or record an accepted not-harvestable reason?
 - What protected harms would happen if those failures slipped through?
 - Which state fields, side effects, confirmations, durable records, or external
   commitments must be modeled or the failure would be invisible?
@@ -178,10 +181,10 @@ The first/default model should be a minimum valuable model, not a happy-path
 stub. It can stay small, but it needs state, side effects or completion
 evidence, and at least one known-bad case unless the claim is explicitly scoped.
 Search packaged public templates and the per-machine local template library
-before generating a new or materially deepened model. When the finished model
-contains a reusable protected error class, completion evidence, and known-bad
-case, save or report a local template candidate instead of keeping that lesson
-only in the current project.
+before generating a new or materially deepened model. Before a complete claim,
+record template harvest closure: write a local candidate, merge an existing template,
+duplicate-link an existing template, or record an accepted not-harvestable
+reason. Missing closure means the model is not fully done.
 
 When using the optional runner path, put the brief into `RiskProfile` through a
 `RiskIntent` or equivalent `risk_intent` mapping. Direct `Explorer(...)` usage

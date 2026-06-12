@@ -1275,6 +1275,10 @@ itself needs a model-first interaction flow.
   section titles, panel titles, labels, button text, status text, captions,
   semantic text keys, typography tokens, parent/child text priority, and
   redundancy rationale;
+- human-operability validation with `UIHumanOperabilityAssessment` and
+  `review_ui_human_operability`: task coverage, primary controls, affordance,
+  action grammar, region semantics, dialog/window returns, keyboard/focus,
+  walkthrough evidence, and confusion mitigation;
 - implementation validation when the route claims a running UI is implemented
   or complete: user-visible feature contracts, mapped journeys,
   browser/desktop/manual journey runs, step evidence, model revision, pure UI
@@ -1365,6 +1369,8 @@ class UICompactPlan:
     implementation_run_ids: tuple[str, ...]
     observed_item_mappings: tuple[tuple[str, str], ...]
     functional_chains: tuple[tuple[str, str, str, str, str], ...]
+    user_tasks: tuple[tuple[str, str, str], ...]
+    human_operability_evidence: tuple[str, ...]
     matlab_callback_branches: tuple[str, ...]
     ui_done_claim_reviewed: bool
     visible_surface_items: tuple[tuple[str, str, str], ...]
@@ -1429,6 +1435,15 @@ def review_matlab_callback_gate(plan: UICompactPlan) -> UICompactReport:
     return report("flowguard MATLAB callback semantics", findings)
 
 
+def review_human_operability(plan: UICompactPlan) -> UICompactReport:
+    features = {task[0] for task in plan.user_tasks}
+    controls = {task[1] for task in plan.user_tasks}
+    findings = ["feature_without_user_task"] if not features else []
+    findings += ["orphan_primary_control" for control_id in plan.controls if control_id not in controls]
+    findings += ["missing_human_walkthrough"] if "walkthrough" not in plan.human_operability_evidence else []
+    return report("flowguard UI human operability", findings)
+
+
 def review_visible_surface(plan: UICompactPlan) -> UICompactReport:
     findings = ["missing_visible_surface_items"] if not plan.visible_surface_items else []
     for item_id, item_kind, text in plan.visible_surface_items:
@@ -1457,6 +1472,8 @@ def correct_plan() -> UICompactPlan:
         implementation_run_ids=("browser:ui-flow-smoke",),
         observed_item_mappings=(("add", "control:add"), ("submit", "control:submit"), ("reset", "control:reset")),
         functional_chains=(("add", "click_add", "ui.add_item", "add_item", "editing"), ("submit", "click_submit", "ui.submit", "submit_item", "submitted"), ("reset", "click_reset", "ui.reset", "reset_item", "empty")),
+        user_tasks=(("create_item", "add", "walkthrough:add-submit"), ("submit_item", "submit", "walkthrough:add-submit"), ("reset_item", "reset", "walkthrough:reset")),
+        human_operability_evidence=("task_coverage", "affordance_review", "action_grammar", "dialog_return", "keyboard_focus", "walkthrough"),
         matlab_callback_branches=("select", "cancel", "chosen_path", "load_result", "error_path"),
         ui_done_claim_reviewed=True,
         visible_surface_items=(("submit_disabled", "disabled_control", "Submit is disabled because nothing has been added."),),
@@ -1476,6 +1493,8 @@ def broken_plan() -> UICompactPlan:
         implementation_run_ids=(),
         observed_item_mappings=(),
         functional_chains=(),
+        user_tasks=(),
+        human_operability_evidence=("task_coverage",),
         matlab_callback_branches=("select",),
         ui_done_claim_reviewed=False,
         visible_surface_items=(("debug", "status", "mock backend route pending"), ("submit", "disabled_control", "Submit"),),
@@ -1491,6 +1510,7 @@ def run_checks():
     reviewers = (
         review_interaction_model, review_observed_inventory, review_journey,
         review_functional_chains, review_matlab_callback_gate,
+        review_human_operability,
         review_implementation, review_visible_surface, review_structure,
         review_text,
     )
@@ -1507,8 +1527,8 @@ def main() -> int:
     for report in reports:
         print(report.format_text())
         print()
-    good = reports[:9]
-    broken = reports[9:]
+    good = reports[:10]
+    broken = reports[10:]
     return 0 if all(report.ok for report in good) and all(not report.ok for report in broken) else 1
 
 
@@ -1521,8 +1541,9 @@ UI_FLOW_STRUCTURE_NOTES_TEMPLATE = """# FlowGuard UI Flow Structure Notes
 This compact default scaffold covers the first useful UI model: real visible
 surface inventory, three states, three visible controls, enabled-control
 functional chains, MATLAB callback semantics when relevant, two transitions,
-one journey, one implementation run, one visible-surface check, one evidence
-kind, one UI done-claim review, and one text hierarchy check.
+one journey, task coverage plus human-operability, one implementation run, one
+visible-surface check, one evidence kind, one UI done-claim review, and one text
+hierarchy check.
 
 The text hierarchy contract is semantic. Use stable roles such as
 `"surface-title"`, `"region-heading"`, `"standard-text"`, and

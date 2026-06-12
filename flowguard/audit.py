@@ -9,7 +9,13 @@ from typing import Any, Iterable, Sequence
 from .core import FrozenMetadata, block_name, freeze_metadata
 from .export import to_jsonable
 from .risk import RiskProfile
-from .risk_templates import MinimumModelContract, TemplateReuseReview, review_minimum_model_contract
+from .risk_templates import (
+    MinimumModelContract,
+    TemplateHarvestReview,
+    TemplateReuseReview,
+    review_minimum_model_contract,
+    review_template_harvest_closure,
+)
 
 
 FINDING_SEVERITIES = ("error", "warning", "suggestion")
@@ -238,6 +244,7 @@ def audit_model(
     skipped_steps: Iterable[str] | None = None,
     risk_profile: RiskProfile | dict[str, Any] | None = None,
     template_reuse_review: TemplateReuseReview | dict[str, Any] | None = None,
+    template_harvest_review: TemplateHarvestReview | dict[str, Any] | None = None,
     minimum_model_contract: MinimumModelContract | dict[str, Any] | None = None,
 ) -> ModelQualityAuditReport:
     """Audit obvious model-quality gaps without blocking model execution.
@@ -301,6 +308,19 @@ def audit_model(
                     code,
                     f"minimum valuable model gap: {code}",
                     "Name the protected error, modeled state/side effects, completion evidence, known-bad case, and template reuse result before broad confidence.",
+                    {"modeled_boundary": profile.modeled_boundary},
+                )
+            )
+        harvest_review = review_template_harvest_closure(
+            _coerce_template_harvest_review(template_harvest_review)
+        )
+        for code in harvest_review.findings:
+            findings.append(
+                _finding(
+                    "warning",
+                    code,
+                    f"template harvest closure gap: {code}",
+                    "After new or deepened modeling, record harvest closure as written, merged, duplicate-linked, or not-harvestable with an accepted reason.",
                     {"modeled_boundary": profile.modeled_boundary},
                 )
             )
@@ -617,6 +637,16 @@ def _coerce_template_reuse_review(
     if isinstance(value, dict):
         return TemplateReuseReview.from_dict(value)
     raise TypeError("template_reuse_review must be a TemplateReuseReview, dict, or None")
+
+
+def _coerce_template_harvest_review(
+    value: TemplateHarvestReview | dict[str, Any] | None,
+) -> TemplateHarvestReview | None:
+    if value is None or isinstance(value, TemplateHarvestReview):
+        return value
+    if isinstance(value, dict):
+        return TemplateHarvestReview.from_dict(value)
+    raise TypeError("template_harvest_review must be a TemplateHarvestReview, dict, or None")
 
 
 def _coerce_minimum_model_contract(

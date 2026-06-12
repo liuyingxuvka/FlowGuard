@@ -1,13 +1,13 @@
 ---
 name: flowguard-agent-workflow-rehearsal
-description: Use when a non-trivial task may require multiple installed Codex skills, tools, plugins, external actions, staged validation, unclear skill ordering, skipped skill consequences, continue/rework gates, or cross-skill evidence claims. Start with a fresh current-machine SkillInventorySnapshot for this invocation, then rehearse the selected skills, skipped candidate skills, order, validation gaps, side effects, and final evidence claim before execution.
+description: Use when a non-trivial task may require multiple Codex skills, tools, plugins, external actions, staged validation, unclear skill order, skipped-skill consequences, continue/rework gates, or cross-skill evidence claims. Start with a fresh current-machine SkillInventorySnapshot, then rehearse selected/skipped skills, order, gaps, side effects, and final claim before execution.
 ---
 
 # FlowGuard Agent Workflow Rehearsal
 
-Standalone FlowGuard satellite skill for multi-skill/tool workflow planning
-before execution. Use it when skill order, skipped skills, side effects,
-continue/rework gates, or completion evidence can change the outcome.
+Standalone FlowGuard satellite skill for multi-skill/tool workflow planning.
+Use it when skill order, skipped skills, side effects, continue/rework gates,
+or completion evidence can change the outcome.
 
 Return to `model-first-function-flow` when the FlowGuard route itself is
 unclear. Use this skill before execution; it does not execute the workflow.
@@ -29,14 +29,14 @@ unclear. Use this skill before execution; it does not execute the workflow.
 - Do not create a fake mini-framework.
 - Skipped candidate skills require reason, consequence, and accepted scope.
 - Weak validation guidance needs a compensating check before broad confidence.
-- UI click-through, real-surface artifact payload proof, manual review, and
-  installed-skill sync are explicit evidence surfaces when they affect the task.
+- UI click-through, real-surface artifact payload proof, manual review, and installed-skill sync are explicit evidence surfaces when relevant.
 - Full UI claims need separate evidence roles in `ui_evidence_roles`:
   `ui_inventory`, `ui_baseline_semantics`, and
-  `ui_implementation_validation`. Missing one blocks full confidence.
+  `ui_human_operability`, `ui_implementation_validation`. Missing one blocks full confidence.
 - Multi-agent UI work should split evidence roles instead of sending every
-  agent into code: UI inventory, baseline semantics, and implementation
-  validation can be separate workstreams.
+  agent into code: inventory, baseline semantics, and implementation
+  validation plus human-operability can be separate workstreams.
+- Workflow models need template-harvest closure.
 
 ## Minimum Workflow
 
@@ -44,8 +44,8 @@ unclear. Use this skill before execution; it does not execute the workflow.
 2. Mark required and candidate skills for the task.
 3. Rehearse selected skills, skipped candidates, order, evidence surfaces,
    side effects, and continue/rework gates.
-4. For UI work, assign and record the inventory, baseline-semantics, and
-   implementation-validation evidence roles before a full claim.
+4. For UI work, assign and record inventory, baseline-semantics,
+   human-operability, and implementation-validation evidence roles before a full claim.
 5. Treat blocked or scoped findings as claim boundaries.
 
 ## Snapshot

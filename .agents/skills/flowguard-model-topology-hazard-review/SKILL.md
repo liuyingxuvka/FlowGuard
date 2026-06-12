@@ -24,6 +24,7 @@ Reference: `references/topology_hazard_protocol.md`.
 - Do not create a fake mini-framework.
 - Read topology before naming hazards; this is not a fixed risk checklist.
 - Unanchored AI concerns are observations only; anchored scoped hazards can become maintenance obligations.
+- Hazard models need template-harvest closure.
 
 ## Inputs
 
@@ -60,6 +61,5 @@ as candidates with anchors, rationale, future failure mode, disposition,
 required route, and confidence effect.
 ## Non-Goals
 
-- Do not replace Model Maturation, Model-Test Alignment, Risk Evidence Ledger,
-  DevelopmentProcessFlow, or Architecture Reduction.
+- Do not replace Model Maturation, Model-Test Alignment, Risk Evidence Ledger, DevelopmentProcessFlow, or Architecture Reduction.
 - Do not run LLM calls inside the Python package helper.

@@ -22,6 +22,9 @@ issue after a FlowGuard pass.
   overclaimed?
 - Which affected controls/fields and same-class controls/fields now need
   same-class click or implementation evidence?
+- Did the user fail because the UI was confusing rather than technically
+  unwired? If yes, preserve task-flow, affordance, action grammar, dialog
+  return, keyboard/focus, walkthrough, and same-class task evidence.
 - How is the issue now represented: scenario, invariant, replay adapter,
   representative trace, or explicit out-of-scope boundary?
 - What same-class generalized bad case prevents a point-fix-only repair, and is
@@ -63,7 +66,8 @@ scoped-confidence boundary.
 For UI misses, full closure also needs `review_ui_model_misses(...)` evidence:
 previous claim, previous green reason, observed failure, affected
 controls/fields, same-class controls/fields, same-class tests or click
-evidence, root-cause backpropagation, and code owner.
+evidence, task-flow and human-operability gaps, root-cause backpropagation, and
+code owner.
 When the root cause is a field, full closure also needs same-class field cases,
 field lifecycle projection into Model-Test Alignment, and old-field
 disposition for any legacy field left in or near the repaired path.

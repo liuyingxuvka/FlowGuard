@@ -35,6 +35,7 @@ CLOSURE_REPORT_RUNTIME_PATH_ALIGNMENT = "runtime_path_alignment"
 CLOSURE_REPORT_DEFECT_FAMILY = "defect_family_gate"
 CLOSURE_REPORT_CONFORMANCE_REPLAY = "conformance_replay"
 CLOSURE_REPORT_UI_DONE_CLAIM = "ui_done_claim_review"
+CLOSURE_REPORT_UI_HUMAN_OPERABILITY = "ui_human_operability_review"
 
 CLOSURE_REPORT_KINDS = (
     CLOSURE_REPORT_RUNTIME_GATEWAY,
@@ -48,6 +49,7 @@ CLOSURE_REPORT_KINDS = (
     CLOSURE_REPORT_DEFECT_FAMILY,
     CLOSURE_REPORT_CONFORMANCE_REPLAY,
     CLOSURE_REPORT_UI_DONE_CLAIM,
+    CLOSURE_REPORT_UI_HUMAN_OPERABILITY,
 )
 
 CLOSURE_RESULT_PASSED = "passed"
@@ -397,6 +399,7 @@ class FlowGuardClosureContractPlan:
     require_runtime_path_alignment: bool = False
     require_risk_ledger: bool = True
     require_ui_done_claim_review: bool = False
+    require_ui_human_operability_review: bool = False
     allow_scoped_confidence: bool = True
     metadata: FrozenMetadata = field(default_factory=tuple, compare=False)
 
@@ -424,6 +427,11 @@ class FlowGuardClosureContractPlan:
         object.__setattr__(self, "require_runtime_path_alignment", bool(self.require_runtime_path_alignment))
         object.__setattr__(self, "require_risk_ledger", bool(self.require_risk_ledger))
         object.__setattr__(self, "require_ui_done_claim_review", bool(self.require_ui_done_claim_review))
+        object.__setattr__(
+            self,
+            "require_ui_human_operability_review",
+            bool(self.require_ui_human_operability_review),
+        )
         object.__setattr__(self, "allow_scoped_confidence", bool(self.allow_scoped_confidence))
         object.__setattr__(self, "metadata", _metadata(self.metadata))
 
@@ -449,6 +457,7 @@ class FlowGuardClosureContractPlan:
             "require_runtime_path_alignment": self.require_runtime_path_alignment,
             "require_risk_ledger": self.require_risk_ledger,
             "require_ui_done_claim_review": self.require_ui_done_claim_review,
+            "require_ui_human_operability_review": self.require_ui_human_operability_review,
             "allow_scoped_confidence": self.allow_scoped_confidence,
             "metadata": to_jsonable(self.metadata),
         }
@@ -687,6 +696,27 @@ def review_flowguard_closure_contract(
                     "UI Done Claim review does not support full confidence",
                     ui_done_reports[0].report_id,
                     {"ui_done_claim_reports": [report.to_dict() for report in ui_done_reports]},
+                    severity=severity,
+                )
+            )
+
+    if plan.require_ui_human_operability_review:
+        ui_human_reports = reports_by_kind.get(CLOSURE_REPORT_UI_HUMAN_OPERABILITY, [])
+        if not ui_human_reports:
+            findings.append(
+                _finding(
+                    "missing_ui_human_operability_review",
+                    "no UI human-operability review report was supplied",
+                )
+            )
+        elif not any(report.supports_full_confidence() for report in ui_human_reports):
+            severity = "warning" if plan.allow_scoped_confidence else "blocker"
+            findings.append(
+                _finding(
+                    "ui_human_operability_review_not_full_confidence",
+                    "UI human-operability review does not support full confidence",
+                    ui_human_reports[0].report_id,
+                    {"ui_human_operability_reports": [report.to_dict() for report in ui_human_reports]},
                     severity=severity,
                 )
             )
@@ -973,6 +1003,7 @@ __all__ = [
     "CLOSURE_REPORT_RISK_LEDGER",
     "CLOSURE_REPORT_RUNTIME_GATEWAY",
     "CLOSURE_REPORT_UI_DONE_CLAIM",
+    "CLOSURE_REPORT_UI_HUMAN_OPERABILITY",
     "CLOSURE_RESULT_ERROR",
     "CLOSURE_RESULT_FAILED",
     "CLOSURE_RESULT_NOT_RUN",
