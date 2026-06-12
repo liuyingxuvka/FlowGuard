@@ -97,24 +97,13 @@ AgentWorkflowRehearsal SHALL treat a plan-detail record as the structured workfl
 - **WHEN** a projected workflow step lacks required evidence, continue evidence, or rework target
 - **THEN** AgentWorkflowRehearsal reports the same gate finding as for a hand-written AgentWorkflowPlan
 
-### Requirement: Agent workflow rehearsal reports completion ledger
-The system SHALL include a compact completion ledger in
-`AgentWorkflowRehearsalReport` so agents can see planned steps, completed
-handoff steps, blocked steps, skipped steps, required rechecks, handoff points,
-and final claim boundary without inferring them from prose.
+### Requirement: Multi-agent UI workflows include human-operability role evidence
+AgentWorkflowRehearsal SHALL require a human-operability evidence role for
+multi-agent UI workflows that claim complete, usable, or release-ready UI
+confidence.
 
-#### Scenario: Rehearsal report is produced
-- **WHEN** the system reviews an `AgentWorkflowPlan`
-- **THEN** the report includes `planned_steps`, `completed_steps`,
-  `blocked_steps`, `skipped_steps`, `required_rechecks`, `handoff_points`, and
-  `final_claim_boundary`
-
-#### Scenario: Blocked finding names a step
-- **WHEN** a blocked finding references a workflow step
-- **THEN** that step id appears in `blocked_steps`
-
-#### Scenario: Rehearsal passes before execution
-- **WHEN** the rehearsal status is `pass`
-- **THEN** `final_claim_boundary` states that the plan may proceed but downstream
-  route evidence is still required for done, release, or publish claims
+#### Scenario: Human-operability role is missing
+- **WHEN** a multi-agent UI workflow claims broad UI confidence
+- **AND** role evidence lacks `ui_human_operability`
+- **THEN** rehearsal blocks the broad claim or records it as scoped
 
