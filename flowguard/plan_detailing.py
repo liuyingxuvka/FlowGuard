@@ -79,6 +79,7 @@ PLAN_DETAIL_UI_EVIDENCE_KINDS = (
     "ui_source_interaction",
     "ui_observed_source_alignment",
     "ui_observed_inventory",
+    "ui_functional_capability_coverage",
     "ui_functional_chain",
     "ui_implementation_validation",
     "ui_done_claim_review",
@@ -868,6 +869,26 @@ def review_plan_detail(plan: PlanDetail) -> PlanDetailReviewReport:
                         )
                     )
         seen_steps.add(step.step_id)
+
+    ui_completion_step_present = any(
+        _is_ui_plan_step(step) and (step.validation_required or step.claim_labels)
+        for step in plan.steps
+    )
+    if ui_completion_step_present and plan.final_claim == PLAN_DETAIL_CLAIM_FULL:
+        ui_evidence_kinds = {evidence.evidence_kind for evidence in plan.evidence}
+        ui_evidence_kinds.update(
+            kind
+            for validation in plan.validations
+            for kind in validation.required_evidence_kinds
+        )
+        if "ui_functional_capability_coverage" not in ui_evidence_kinds:
+            findings.append(
+                _finding(
+                    "ui_plan_missing_capability_evidence_type",
+                    "full UI implementation plans need functional capability inventory, output contract, and capability binding evidence",
+                    severity=_severity_for_claim(plan),
+                )
+            )
 
     if plan.non_trivial and not plan.validations:
         findings.append(_finding("missing_validations", "non-trivial plan detail needs validation requirements", severity=_severity_for_claim(plan)))

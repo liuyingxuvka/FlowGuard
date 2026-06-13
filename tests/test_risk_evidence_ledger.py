@@ -18,6 +18,7 @@ from flowguard import (
     RISK_GATE_TOPOLOGY_HAZARD,
     RISK_GATE_UI_SOURCE_BASELINE_INTERACTION,
     RISK_GATE_UI_DONE_CLAIM,
+    RISK_GATE_UI_FUNCTIONAL_CAPABILITY_COVERAGE,
     RISK_GATE_UI_FUNCTIONAL_CHAIN,
     RISK_GATE_UI_HUMAN_OPERABILITY,
     RISK_GATE_UI_IMPLEMENTATION,
@@ -331,6 +332,13 @@ class RiskEvidenceLedgerTests(unittest.TestCase):
                 "missing_ui_functional_chain_gate",
                 "ui_functional_chain_gate_not_current",
                 "ui_functional_chain_gate_blocked",
+            ),
+            (
+                RISK_GATE_UI_FUNCTIONAL_CAPABILITY_COVERAGE,
+                "ui:functional-capability-coverage",
+                "missing_ui_functional_capability_coverage_gate",
+                "ui_functional_capability_coverage_gate_not_current",
+                "ui_functional_capability_coverage_gate_blocked",
             ),
             (
                 RISK_GATE_UI_DONE_CLAIM,

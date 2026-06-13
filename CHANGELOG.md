@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.47.2 - 2026-06-13
+
+UI functional capability coverage.
+
+- Added UI functional capability inventories, capability/output contracts,
+  capability bindings, and coverage review so required user-visible UI
+  functions cannot disappear before broad UI completion claims.
+- Wired capability coverage into implementation validation, human-operability,
+  PlanDetailing, Model-Miss Review, DevelopmentProcessFlow, RiskEvidenceLedger,
+  AgentWorkflowRehearsal, and ClosureContract without creating a parallel UI
+  route.
+- Updated UI skills, public templates, docs, API/field inventory, OpenSpec
+  artifacts, and regression tests so greenfield, source-based, and mixed UI
+  work use the same generic capability layer.
+
 ## v0.47.1 - 2026-06-13
 
 Plan discussion handoff hardening.

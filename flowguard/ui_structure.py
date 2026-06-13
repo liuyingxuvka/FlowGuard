@@ -487,6 +487,262 @@ class UIJourneyCoverage:
 
 
 @dataclass(frozen=True)
+class UIFunctionalCapability:
+    """One user-visible UI capability that should be accounted before broad UI claims."""
+
+    capability_id: str
+    label: str = ""
+    capability_kind: str = "other"
+    required: bool = True
+    user_visible: bool = True
+    source_refs: tuple[str, ...] = ()
+    prerequisite_capability_ids: tuple[str, ...] = ()
+    expected_input_ids: tuple[str, ...] = ()
+    expected_output_ids: tuple[str, ...] = ()
+    owner: str = ""
+    scoped_reason: str = ""
+    validation_boundaries: tuple[str, ...] = ()
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "capability_id", str(self.capability_id))
+        object.__setattr__(self, "label", str(self.label))
+        object.__setattr__(self, "capability_kind", str(self.capability_kind))
+        object.__setattr__(self, "required", bool(self.required))
+        object.__setattr__(self, "user_visible", bool(self.user_visible))
+        object.__setattr__(self, "source_refs", _as_tuple(self.source_refs))
+        object.__setattr__(
+            self,
+            "prerequisite_capability_ids",
+            _as_tuple(self.prerequisite_capability_ids),
+        )
+        object.__setattr__(self, "expected_input_ids", _as_tuple(self.expected_input_ids))
+        object.__setattr__(self, "expected_output_ids", _as_tuple(self.expected_output_ids))
+        object.__setattr__(self, "owner", str(self.owner))
+        object.__setattr__(self, "scoped_reason", str(self.scoped_reason))
+        object.__setattr__(self, "validation_boundaries", _as_tuple(self.validation_boundaries))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "capability_id": self.capability_id,
+            "label": self.label,
+            "capability_kind": self.capability_kind,
+            "required": self.required,
+            "user_visible": self.user_visible,
+            "source_refs": list(self.source_refs),
+            "prerequisite_capability_ids": list(self.prerequisite_capability_ids),
+            "expected_input_ids": list(self.expected_input_ids),
+            "expected_output_ids": list(self.expected_output_ids),
+            "owner": self.owner,
+            "scoped_reason": self.scoped_reason,
+            "validation_boundaries": list(self.validation_boundaries),
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class UIFunctionalCapabilityInventory:
+    """Inventory of user-visible UI capabilities for a target UI boundary."""
+
+    inventory_id: str
+    source_product_model_id: str = ""
+    source_authority_refs: tuple[str, ...] = ()
+    current_revision: str = ""
+    capabilities: tuple[UIFunctionalCapability, ...] = ()
+    scoped_out_capability_ids: tuple[str, ...] = ()
+    validation_boundaries: tuple[str, ...] = ()
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "inventory_id", str(self.inventory_id))
+        object.__setattr__(self, "source_product_model_id", str(self.source_product_model_id))
+        object.__setattr__(self, "source_authority_refs", _as_tuple(self.source_authority_refs))
+        object.__setattr__(self, "current_revision", str(self.current_revision))
+        object.__setattr__(self, "capabilities", tuple(self.capabilities))
+        object.__setattr__(self, "scoped_out_capability_ids", _as_tuple(self.scoped_out_capability_ids))
+        object.__setattr__(self, "validation_boundaries", _as_tuple(self.validation_boundaries))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def capability_ids(self) -> tuple[str, ...]:
+        return tuple(capability.capability_id for capability in self.capabilities)
+
+    def scoped_capability_ids(self) -> tuple[str, ...]:
+        scoped = set(self.scoped_out_capability_ids)
+        scoped.update(
+            capability.capability_id
+            for capability in self.capabilities
+            if capability.scoped_reason
+        )
+        return tuple(sorted(scoped))
+
+    def required_capability_ids(self) -> tuple[str, ...]:
+        scoped = set(self.scoped_capability_ids())
+        return tuple(
+            capability.capability_id
+            for capability in self.capabilities
+            if capability.required
+            and capability.user_visible
+            and capability.capability_id not in scoped
+        )
+
+    def capabilities_by_id(self) -> dict[str, UIFunctionalCapability]:
+        return {
+            capability.capability_id: capability
+            for capability in self.capabilities
+            if capability.capability_id
+        }
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "inventory_id": self.inventory_id,
+            "source_product_model_id": self.source_product_model_id,
+            "source_authority_refs": list(self.source_authority_refs),
+            "current_revision": self.current_revision,
+            "capabilities": [capability.to_dict() for capability in self.capabilities],
+            "scoped_out_capability_ids": list(self.scoped_out_capability_ids),
+            "validation_boundaries": list(self.validation_boundaries),
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class UICapabilityOutputContract:
+    """Expected output semantics for a result-producing UI capability."""
+
+    output_contract_id: str
+    capability_id: str
+    output_kind: str = "display"
+    required_display_ids: tuple[str, ...] = ()
+    required_state_ids: tuple[str, ...] = ()
+    required_data_refs: tuple[str, ...] = ()
+    assertion: str = ""
+    evidence_kind: str = ""
+    evidence_ref: str = ""
+    result: str = "passed"
+    current_revision: str = ""
+    validation_boundaries: tuple[str, ...] = ()
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "output_contract_id", str(self.output_contract_id))
+        object.__setattr__(self, "capability_id", str(self.capability_id))
+        object.__setattr__(self, "output_kind", str(self.output_kind))
+        object.__setattr__(self, "required_display_ids", _as_tuple(self.required_display_ids))
+        object.__setattr__(self, "required_state_ids", _as_tuple(self.required_state_ids))
+        object.__setattr__(self, "required_data_refs", _as_tuple(self.required_data_refs))
+        object.__setattr__(self, "assertion", str(self.assertion))
+        object.__setattr__(self, "evidence_kind", str(self.evidence_kind))
+        object.__setattr__(self, "evidence_ref", str(self.evidence_ref))
+        object.__setattr__(self, "result", str(self.result))
+        object.__setattr__(self, "current_revision", str(self.current_revision))
+        object.__setattr__(self, "validation_boundaries", _as_tuple(self.validation_boundaries))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "output_contract_id": self.output_contract_id,
+            "capability_id": self.capability_id,
+            "output_kind": self.output_kind,
+            "required_display_ids": list(self.required_display_ids),
+            "required_state_ids": list(self.required_state_ids),
+            "required_data_refs": list(self.required_data_refs),
+            "assertion": self.assertion,
+            "evidence_kind": self.evidence_kind,
+            "evidence_ref": self.evidence_ref,
+            "result": self.result,
+            "current_revision": self.current_revision,
+            "validation_boundaries": list(self.validation_boundaries),
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class UICapabilityCoverageBinding:
+    """Binding from a capability to the existing UI feature/task/journey/evidence route."""
+
+    binding_id: str
+    capability_id: str
+    feature_ids: tuple[str, ...] = ()
+    task_ids: tuple[str, ...] = ()
+    journey_ids: tuple[str, ...] = ()
+    control_ids: tuple[str, ...] = ()
+    event_ids: tuple[str, ...] = ()
+    functional_chain_ids: tuple[str, ...] = ()
+    code_owner: str = ""
+    code_contract_ids: tuple[str, ...] = ()
+    test_evidence_ids: tuple[str, ...] = ()
+    output_contract_ids: tuple[str, ...] = ()
+    implementation_run_ids: tuple[str, ...] = ()
+    evidence_ref: str = ""
+    result: str = "passed"
+    current_revision: str = ""
+    validation_boundaries: tuple[str, ...] = ()
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "binding_id", str(self.binding_id))
+        object.__setattr__(self, "capability_id", str(self.capability_id))
+        object.__setattr__(self, "feature_ids", _as_tuple(self.feature_ids))
+        object.__setattr__(self, "task_ids", _as_tuple(self.task_ids))
+        object.__setattr__(self, "journey_ids", _as_tuple(self.journey_ids))
+        object.__setattr__(self, "control_ids", _as_tuple(self.control_ids))
+        object.__setattr__(self, "event_ids", _as_tuple(self.event_ids))
+        object.__setattr__(self, "functional_chain_ids", _as_tuple(self.functional_chain_ids))
+        object.__setattr__(self, "code_owner", str(self.code_owner))
+        object.__setattr__(self, "code_contract_ids", _as_tuple(self.code_contract_ids))
+        object.__setattr__(self, "test_evidence_ids", _as_tuple(self.test_evidence_ids))
+        object.__setattr__(self, "output_contract_ids", _as_tuple(self.output_contract_ids))
+        object.__setattr__(self, "implementation_run_ids", _as_tuple(self.implementation_run_ids))
+        object.__setattr__(self, "evidence_ref", str(self.evidence_ref))
+        object.__setattr__(self, "result", str(self.result))
+        object.__setattr__(self, "current_revision", str(self.current_revision))
+        object.__setattr__(self, "validation_boundaries", _as_tuple(self.validation_boundaries))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def has_ui_path(self) -> bool:
+        return bool(self.journey_ids or self.control_ids or self.event_ids)
+
+    def has_implementation_owner(self) -> bool:
+        return bool(
+            self.code_owner
+            or self.code_contract_ids
+            or self.functional_chain_ids
+            or self.implementation_run_ids
+        )
+
+    def has_evidence(self) -> bool:
+        return bool(
+            self.evidence_ref
+            or self.test_evidence_ids
+            or self.functional_chain_ids
+            or self.implementation_run_ids
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "binding_id": self.binding_id,
+            "capability_id": self.capability_id,
+            "feature_ids": list(self.feature_ids),
+            "task_ids": list(self.task_ids),
+            "journey_ids": list(self.journey_ids),
+            "control_ids": list(self.control_ids),
+            "event_ids": list(self.event_ids),
+            "functional_chain_ids": list(self.functional_chain_ids),
+            "code_owner": self.code_owner,
+            "code_contract_ids": list(self.code_contract_ids),
+            "test_evidence_ids": list(self.test_evidence_ids),
+            "output_contract_ids": list(self.output_contract_ids),
+            "implementation_run_ids": list(self.implementation_run_ids),
+            "evidence_ref": self.evidence_ref,
+            "result": self.result,
+            "current_revision": self.current_revision,
+            "validation_boundaries": list(self.validation_boundaries),
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
 class UIFeatureContract:
     """One user-visible feature contract that should align with UI journeys."""
 
@@ -495,10 +751,14 @@ class UIFeatureContract:
     source_feature_id: str = ""
     user_visible: bool = True
     exposure: str = "ui"
+    capability_ids: tuple[str, ...] = ()
     journey_ids: tuple[str, ...] = ()
     entry_point_ids: tuple[str, ...] = ()
     required_control_ids: tuple[str, ...] = ()
     required_event_ids: tuple[str, ...] = ()
+    output_contract_ids: tuple[str, ...] = ()
+    required_code_contract_ids: tuple[str, ...] = ()
+    required_test_evidence_ids: tuple[str, ...] = ()
     validation_boundaries: tuple[str, ...] = ()
     rationale: str = ""
 
@@ -508,10 +768,14 @@ class UIFeatureContract:
         object.__setattr__(self, "source_feature_id", str(self.source_feature_id))
         object.__setattr__(self, "user_visible", bool(self.user_visible))
         object.__setattr__(self, "exposure", str(self.exposure))
+        object.__setattr__(self, "capability_ids", _as_tuple(self.capability_ids))
         object.__setattr__(self, "journey_ids", _as_tuple(self.journey_ids))
         object.__setattr__(self, "entry_point_ids", _as_tuple(self.entry_point_ids))
         object.__setattr__(self, "required_control_ids", _as_tuple(self.required_control_ids))
         object.__setattr__(self, "required_event_ids", _as_tuple(self.required_event_ids))
+        object.__setattr__(self, "output_contract_ids", _as_tuple(self.output_contract_ids))
+        object.__setattr__(self, "required_code_contract_ids", _as_tuple(self.required_code_contract_ids))
+        object.__setattr__(self, "required_test_evidence_ids", _as_tuple(self.required_test_evidence_ids))
         object.__setattr__(self, "validation_boundaries", _as_tuple(self.validation_boundaries))
         object.__setattr__(self, "rationale", str(self.rationale))
 
@@ -522,10 +786,14 @@ class UIFeatureContract:
             "source_feature_id": self.source_feature_id,
             "user_visible": self.user_visible,
             "exposure": self.exposure,
+            "capability_ids": list(self.capability_ids),
             "journey_ids": list(self.journey_ids),
             "entry_point_ids": list(self.entry_point_ids),
             "required_control_ids": list(self.required_control_ids),
             "required_event_ids": list(self.required_event_ids),
+            "output_contract_ids": list(self.output_contract_ids),
+            "required_code_contract_ids": list(self.required_code_contract_ids),
+            "required_test_evidence_ids": list(self.required_test_evidence_ids),
             "validation_boundaries": list(self.validation_boundaries),
             "rationale": self.rationale,
         }
@@ -637,11 +905,15 @@ class UIImplementationValidation:
     source_journey_coverage_id: str
     implementation_target: str = ""
     current_model_revision: str = ""
+    source_capability_inventory_id: str = ""
     feature_contracts: tuple[UIFeatureContract, ...] = ()
     journey_runs: tuple[UIImplementationJourneyRun, ...] = ()
+    capability_bindings: tuple[UICapabilityCoverageBinding, ...] = ()
+    output_contracts: tuple[UICapabilityOutputContract, ...] = ()
     pure_ui_control_ids: tuple[str, ...] = ()
     pure_ui_event_ids: tuple[str, ...] = ()
     implementation_blindspots: tuple[UIBlindspot, ...] = ()
+    capability_coverage_reviewed: bool = False
     journey_coverage_reviewed: bool = False
     validation_boundaries: tuple[str, ...] = ()
     rationale: str = ""
@@ -653,11 +925,15 @@ class UIImplementationValidation:
         object.__setattr__(self, "source_journey_coverage_id", str(self.source_journey_coverage_id))
         object.__setattr__(self, "implementation_target", str(self.implementation_target))
         object.__setattr__(self, "current_model_revision", str(self.current_model_revision))
+        object.__setattr__(self, "source_capability_inventory_id", str(self.source_capability_inventory_id))
         object.__setattr__(self, "feature_contracts", tuple(self.feature_contracts))
         object.__setattr__(self, "journey_runs", tuple(self.journey_runs))
+        object.__setattr__(self, "capability_bindings", tuple(self.capability_bindings))
+        object.__setattr__(self, "output_contracts", tuple(self.output_contracts))
         object.__setattr__(self, "pure_ui_control_ids", _as_tuple(self.pure_ui_control_ids))
         object.__setattr__(self, "pure_ui_event_ids", _as_tuple(self.pure_ui_event_ids))
         object.__setattr__(self, "implementation_blindspots", tuple(self.implementation_blindspots))
+        object.__setattr__(self, "capability_coverage_reviewed", bool(self.capability_coverage_reviewed))
         object.__setattr__(self, "journey_coverage_reviewed", bool(self.journey_coverage_reviewed))
         object.__setattr__(self, "validation_boundaries", _as_tuple(self.validation_boundaries))
         object.__setattr__(self, "rationale", str(self.rationale))
@@ -667,6 +943,12 @@ class UIImplementationValidation:
 
     def run_ids(self) -> tuple[str, ...]:
         return tuple(run.run_id for run in self.journey_runs)
+
+    def capability_binding_ids(self) -> tuple[str, ...]:
+        return tuple(binding.binding_id for binding in self.capability_bindings)
+
+    def output_contract_ids(self) -> tuple[str, ...]:
+        return tuple(contract.output_contract_id for contract in self.output_contracts)
 
     def blindspot_ids(self) -> tuple[str, ...]:
         return tuple(blindspot.blindspot_id for blindspot in self.implementation_blindspots)
@@ -679,13 +961,17 @@ class UIImplementationValidation:
             "source_journey_coverage_id": self.source_journey_coverage_id,
             "implementation_target": self.implementation_target,
             "current_model_revision": self.current_model_revision,
+            "source_capability_inventory_id": self.source_capability_inventory_id,
             "feature_contracts": [contract.to_dict() for contract in self.feature_contracts],
             "journey_runs": [run.to_dict() for run in self.journey_runs],
+            "capability_bindings": [binding.to_dict() for binding in self.capability_bindings],
+            "output_contracts": [contract.to_dict() for contract in self.output_contracts],
             "pure_ui_control_ids": list(self.pure_ui_control_ids),
             "pure_ui_event_ids": list(self.pure_ui_event_ids),
             "implementation_blindspots": [
                 blindspot.to_dict() for blindspot in self.implementation_blindspots
             ],
+            "capability_coverage_reviewed": self.capability_coverage_reviewed,
             "journey_coverage_reviewed": self.journey_coverage_reviewed,
             "validation_boundaries": list(self.validation_boundaries),
             "rationale": self.rationale,
@@ -1081,6 +1367,41 @@ FUNCTIONAL_CHAIN_EVIDENCE_KINDS = (
     "log",
     "test_result",
     "manual_observation",
+)
+
+UI_CAPABILITY_KINDS = (
+    "load",
+    "plot",
+    "chart",
+    "table",
+    "export",
+    "save",
+    "open",
+    "generate",
+    "refresh",
+    "delete",
+    "configure",
+    "navigate",
+    "command",
+    "other",
+)
+
+UI_CAPABILITY_OUTPUT_KINDS = (
+    "state",
+    "display",
+    "chart",
+    "table",
+    "file",
+    "artifact",
+    "status",
+    "data",
+    "external_effect",
+    "none",
+    "other",
+)
+
+UI_CAPABILITY_RESULT_OUTPUT_KINDS = tuple(
+    kind for kind in UI_CAPABILITY_OUTPUT_KINDS if kind != "none"
 )
 
 UI_WORK_MODES = ("greenfield", "source_based", "mixed")
@@ -1888,13 +2209,16 @@ class UIUserTaskCoverageLedger:
     ledger_id: str
     source_function_model_id: str = ""
     source_interaction_model_id: str = ""
+    source_capability_inventory_id: str = ""
     feature_ids: tuple[str, ...] = ()
     task_frames: tuple[UIUserTaskFrame, ...] = ()
+    capability_task_links: tuple[tuple[str, str], ...] = ()
     feature_task_links: tuple[tuple[str, str], ...] = ()
     task_journey_links: tuple[tuple[str, str], ...] = ()
     task_control_links: tuple[tuple[str, str], ...] = ()
     task_functional_chain_links: tuple[tuple[str, str], ...] = ()
     primary_control_ids: tuple[str, ...] = ()
+    out_of_scope_capability_ids: tuple[str, ...] = ()
     out_of_scope_feature_ids: tuple[str, ...] = ()
     out_of_scope_task_ids: tuple[str, ...] = ()
     validation_boundaries: tuple[str, ...] = ()
@@ -1904,13 +2228,16 @@ class UIUserTaskCoverageLedger:
         object.__setattr__(self, "ledger_id", str(self.ledger_id))
         object.__setattr__(self, "source_function_model_id", str(self.source_function_model_id))
         object.__setattr__(self, "source_interaction_model_id", str(self.source_interaction_model_id))
+        object.__setattr__(self, "source_capability_inventory_id", str(self.source_capability_inventory_id))
         object.__setattr__(self, "feature_ids", _as_tuple(self.feature_ids))
         object.__setattr__(self, "task_frames", tuple(self.task_frames))
+        object.__setattr__(self, "capability_task_links", _as_pairs(self.capability_task_links))
         object.__setattr__(self, "feature_task_links", _as_pairs(self.feature_task_links))
         object.__setattr__(self, "task_journey_links", _as_pairs(self.task_journey_links))
         object.__setattr__(self, "task_control_links", _as_pairs(self.task_control_links))
         object.__setattr__(self, "task_functional_chain_links", _as_pairs(self.task_functional_chain_links))
         object.__setattr__(self, "primary_control_ids", _as_tuple(self.primary_control_ids))
+        object.__setattr__(self, "out_of_scope_capability_ids", _as_tuple(self.out_of_scope_capability_ids))
         object.__setattr__(self, "out_of_scope_feature_ids", _as_tuple(self.out_of_scope_feature_ids))
         object.__setattr__(self, "out_of_scope_task_ids", _as_tuple(self.out_of_scope_task_ids))
         object.__setattr__(self, "validation_boundaries", _as_tuple(self.validation_boundaries))
@@ -1924,13 +2251,16 @@ class UIUserTaskCoverageLedger:
             "ledger_id": self.ledger_id,
             "source_function_model_id": self.source_function_model_id,
             "source_interaction_model_id": self.source_interaction_model_id,
+            "source_capability_inventory_id": self.source_capability_inventory_id,
             "feature_ids": list(self.feature_ids),
             "task_frames": [task.to_dict() for task in self.task_frames],
+            "capability_task_links": [list(pair) for pair in self.capability_task_links],
             "feature_task_links": [list(pair) for pair in self.feature_task_links],
             "task_journey_links": [list(pair) for pair in self.task_journey_links],
             "task_control_links": [list(pair) for pair in self.task_control_links],
             "task_functional_chain_links": [list(pair) for pair in self.task_functional_chain_links],
             "primary_control_ids": list(self.primary_control_ids),
+            "out_of_scope_capability_ids": list(self.out_of_scope_capability_ids),
             "out_of_scope_feature_ids": list(self.out_of_scope_feature_ids),
             "out_of_scope_task_ids": list(self.out_of_scope_task_ids),
             "validation_boundaries": list(self.validation_boundaries),
@@ -2782,6 +3112,69 @@ class UIImplementationValidationReport:
             "validation_id": self.validation_id,
             "covered_feature_ids": list(self.covered_feature_ids),
             "covered_event_ids": list(self.covered_event_ids),
+            "findings": [finding.to_dict() for finding in self.findings],
+            "summary": self.summary,
+        }
+
+
+@dataclass(frozen=True)
+class UIFunctionalCapabilityCoverageReport:
+    """Structured review result for UI functional capability coverage."""
+
+    ok: bool
+    inventory_id: str
+    findings: tuple[UIFlowStructureFinding, ...] = ()
+    covered_capability_ids: tuple[str, ...] = ()
+    scoped_capability_ids: tuple[str, ...] = ()
+    output_contract_ids: tuple[str, ...] = ()
+    summary: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "inventory_id", str(self.inventory_id))
+        object.__setattr__(self, "findings", tuple(self.findings))
+        object.__setattr__(self, "covered_capability_ids", _as_tuple(self.covered_capability_ids))
+        object.__setattr__(self, "scoped_capability_ids", _as_tuple(self.scoped_capability_ids))
+        object.__setattr__(self, "output_contract_ids", _as_tuple(self.output_contract_ids))
+        if not self.summary:
+            status = "OK" if self.ok else "BLOCKED"
+            object.__setattr__(
+                self,
+                "summary",
+                f"{status}: ui_functional_capability_coverage={self.inventory_id} findings={len(self.findings)}",
+            )
+
+    def blocker_count(self) -> int:
+        return sum(1 for finding in self.findings if finding.severity == "blocker")
+
+    def format_text(self, max_findings: int = 10) -> str:
+        lines = [
+            "=== flowguard UI functional capability coverage review ===",
+            f"status: {'OK' if self.ok else 'BLOCKED'}",
+            f"inventory: {self.inventory_id}",
+            f"covered_capabilities: {len(self.covered_capability_ids)}",
+            f"scoped_capabilities: {len(self.scoped_capability_ids)}",
+            f"output_contracts: {len(self.output_contract_ids)}",
+            f"findings: {len(self.findings)}",
+        ]
+        for finding in self.findings[:max_findings]:
+            lines.extend(
+                [
+                    "",
+                    f"finding: {finding.code}",
+                    f"severity: {finding.severity}",
+                    f"item: {finding.item_id or '(none)'}",
+                    f"message: {finding.message}",
+                ]
+            )
+        return "\n".join(lines)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "ok": self.ok,
+            "inventory_id": self.inventory_id,
+            "covered_capability_ids": list(self.covered_capability_ids),
+            "scoped_capability_ids": list(self.scoped_capability_ids),
+            "output_contract_ids": list(self.output_contract_ids),
             "findings": [finding.to_dict() for finding in self.findings],
             "summary": self.summary,
         }
@@ -4503,6 +4896,261 @@ def review_ui_source_baseline_alignment(
     )
 
 
+def review_ui_functional_capability_coverage(
+    inventory: UIFunctionalCapabilityInventory,
+    *,
+    feature_contracts: Sequence[UIFeatureContract] = (),
+    task_coverage: UIUserTaskCoverageLedger | None = None,
+    journey_coverage: UIJourneyCoverage | None = None,
+    interaction_model: UIInteractionModel | None = None,
+    functional_chains: UIControlFunctionalChainSet | None = None,
+    implementation_validation: UIImplementationValidation | None = None,
+    output_contracts: Sequence[UICapabilityOutputContract] = (),
+    capability_bindings: Sequence[UICapabilityCoverageBinding] = (),
+    current_revision: str = "",
+) -> UIFunctionalCapabilityCoverageReport:
+    """Review user-visible capability coverage against existing UI route evidence."""
+
+    findings: list[UIFlowStructureFinding] = []
+    capabilities_by_id = inventory.capabilities_by_id()
+    capability_ids = set(inventory.capability_ids())
+    scoped_ids = set(inventory.scoped_capability_ids())
+    required_ids = set(inventory.required_capability_ids())
+    supplied_output_contracts = tuple(output_contracts)
+    supplied_capability_bindings = tuple(capability_bindings)
+    if implementation_validation is not None:
+        supplied_output_contracts = implementation_validation.output_contracts + supplied_output_contracts
+        supplied_capability_bindings = implementation_validation.capability_bindings + supplied_capability_bindings
+        if implementation_validation.feature_contracts:
+            feature_contracts = implementation_validation.feature_contracts
+        if not current_revision:
+            current_revision = implementation_validation.current_model_revision
+
+    feature_ids = {contract.feature_id for contract in feature_contracts if contract.feature_id}
+    feature_capability_links = {
+        capability_id
+        for contract in feature_contracts
+        for capability_id in contract.capability_ids
+    }
+    task_ids = set(task_coverage.task_ids()) if task_coverage is not None else set()
+    journey_ids = set(journey_coverage.feature_ids()) if journey_coverage is not None else set()
+    control_ids = set(interaction_model.control_ids()) if interaction_model is not None else set()
+    event_ids = set(interaction_model.transition_event_ids()) if interaction_model is not None else set()
+    state_ids = set(interaction_model.state_ids()) if interaction_model is not None else set()
+    display_ids = set(interaction_model.display_ids()) if interaction_model is not None else set()
+    chain_ids = set(functional_chains.chain_ids()) if functional_chains is not None else set()
+    run_ids = set(implementation_validation.run_ids()) if implementation_validation is not None else set()
+    output_by_id = {
+        contract.output_contract_id: contract
+        for contract in supplied_output_contracts
+        if contract.output_contract_id
+    }
+    outputs_by_capability: dict[str, list[UICapabilityOutputContract]] = {}
+    for contract in supplied_output_contracts:
+        if contract.capability_id:
+            outputs_by_capability.setdefault(contract.capability_id, []).append(contract)
+    bindings_by_capability: dict[str, list[UICapabilityCoverageBinding]] = {}
+    for binding in supplied_capability_bindings:
+        if binding.capability_id:
+            bindings_by_capability.setdefault(binding.capability_id, []).append(binding)
+
+    if not inventory.inventory_id:
+        findings.append(UIFlowStructureFinding("missing_capability_inventory_id", "UI capability inventory has no id"))
+    if not inventory.current_revision:
+        findings.append(UIFlowStructureFinding("missing_capability_inventory_revision", "UI capability inventory has no current revision"))
+    elif current_revision and inventory.current_revision != current_revision:
+        findings.append(
+            UIFlowStructureFinding(
+                "capability_inventory_revision_mismatch",
+                "UI capability inventory revision does not match the current implementation/model revision",
+                metadata={"inventory_revision": inventory.current_revision, "current_revision": current_revision},
+            )
+        )
+    if not inventory.capabilities:
+        findings.append(UIFlowStructureFinding("missing_functional_capabilities", "UI capability inventory has no capabilities"))
+    if not inventory.validation_boundaries:
+        findings.append(UIFlowStructureFinding("missing_capability_inventory_validation", "UI capability inventory has no validation boundaries"))
+    if not inventory.rationale:
+        findings.append(UIFlowStructureFinding("missing_capability_inventory_rationale", "UI capability inventory has no rationale"))
+    findings.extend(_duplicate_values(inventory.capability_ids(), code="duplicate_ui_capability_id", noun="UI capability"))
+
+    for scoped_id in sorted(scoped_ids):
+        capability = capabilities_by_id.get(scoped_id)
+        if capability is None:
+            findings.append(
+                UIFlowStructureFinding(
+                    "scoped_capability_not_in_inventory",
+                    f"scoped-out capability {scoped_id} is not present in the capability inventory",
+                    item_id=scoped_id,
+                )
+            )
+            continue
+        if not capability.scoped_reason:
+            findings.append(UIFlowStructureFinding("scoped_capability_missing_reason", f"scoped capability {scoped_id} has no scoped reason", item_id=scoped_id))
+        if not capability.owner:
+            findings.append(UIFlowStructureFinding("scoped_capability_missing_owner", f"scoped capability {scoped_id} has no owner", item_id=scoped_id))
+        if not capability.validation_boundaries:
+            findings.append(UIFlowStructureFinding("scoped_capability_missing_validation", f"scoped capability {scoped_id} has no validation boundary", item_id=scoped_id))
+        if not capability.rationale:
+            findings.append(UIFlowStructureFinding("scoped_capability_missing_rationale", f"scoped capability {scoped_id} has no rationale", item_id=scoped_id))
+
+    for capability in inventory.capabilities:
+        if not capability.capability_id:
+            findings.append(UIFlowStructureFinding("missing_ui_capability_id", "UI capability row has no id"))
+            continue
+        if not capability.label:
+            findings.append(UIFlowStructureFinding("missing_ui_capability_label", f"UI capability {capability.capability_id} has no user-visible label", item_id=capability.capability_id))
+        if capability.capability_kind not in UI_CAPABILITY_KINDS:
+            findings.append(
+                UIFlowStructureFinding(
+                    "unknown_ui_capability_kind",
+                    f"UI capability {capability.capability_id} uses unknown kind {capability.capability_kind}",
+                    item_id=capability.capability_id,
+                    metadata={"supported_kinds": list(UI_CAPABILITY_KINDS)},
+                )
+            )
+        if not capability.validation_boundaries:
+            findings.append(UIFlowStructureFinding("missing_ui_capability_validation", f"UI capability {capability.capability_id} has no validation boundary", item_id=capability.capability_id))
+        if not capability.rationale:
+            findings.append(UIFlowStructureFinding("missing_ui_capability_rationale", f"UI capability {capability.capability_id} has no rationale", item_id=capability.capability_id))
+        for prerequisite_id in capability.prerequisite_capability_ids:
+            if prerequisite_id not in capability_ids:
+                findings.append(UIFlowStructureFinding("capability_prerequisite_unknown", f"UI capability {capability.capability_id} references unknown prerequisite {prerequisite_id}", item_id=capability.capability_id))
+
+    findings.extend(
+        _duplicate_values(
+            tuple(contract.output_contract_id for contract in supplied_output_contracts),
+            code="duplicate_capability_output_contract_id",
+            noun="capability output contract",
+        )
+    )
+    for contract in supplied_output_contracts:
+        if not contract.output_contract_id:
+            findings.append(UIFlowStructureFinding("missing_capability_output_contract_id", "capability output contract has no id"))
+            continue
+        if not contract.capability_id:
+            findings.append(UIFlowStructureFinding("capability_output_contract_missing_capability", f"output contract {contract.output_contract_id} has no capability id", item_id=contract.output_contract_id))
+        elif contract.capability_id not in capability_ids:
+            findings.append(UIFlowStructureFinding("capability_output_contract_unknown_capability", f"output contract {contract.output_contract_id} references unknown capability {contract.capability_id}", item_id=contract.output_contract_id))
+        if contract.output_kind not in UI_CAPABILITY_OUTPUT_KINDS:
+            findings.append(UIFlowStructureFinding("unknown_capability_output_kind", f"output contract {contract.output_contract_id} uses unknown output kind {contract.output_kind}", item_id=contract.output_contract_id))
+        if contract.output_kind in UI_CAPABILITY_RESULT_OUTPUT_KINDS:
+            if not (contract.required_display_ids or contract.required_state_ids or contract.required_data_refs):
+                findings.append(UIFlowStructureFinding("capability_output_missing_target", f"output contract {contract.output_contract_id} has no display, state, or data target", item_id=contract.output_contract_id))
+            if not contract.assertion:
+                findings.append(UIFlowStructureFinding("capability_output_missing_assertion", f"output contract {contract.output_contract_id} has no result assertion", item_id=contract.output_contract_id))
+        for display_id in contract.required_display_ids:
+            if interaction_model is not None and display_id not in display_ids:
+                findings.append(UIFlowStructureFinding("capability_output_display_not_registered", f"output contract {contract.output_contract_id} references unknown display {display_id}", item_id=contract.output_contract_id))
+        for state_id in contract.required_state_ids:
+            if interaction_model is not None and state_id not in state_ids:
+                findings.append(UIFlowStructureFinding("capability_output_state_not_registered", f"output contract {contract.output_contract_id} references unknown state {state_id}", item_id=contract.output_contract_id))
+        if contract.evidence_kind and contract.evidence_kind not in SUPPORTED_UI_EVIDENCE_KINDS:
+            findings.append(UIFlowStructureFinding("unknown_capability_output_evidence_kind", f"output contract {contract.output_contract_id} uses unsupported evidence kind {contract.evidence_kind}", item_id=contract.output_contract_id))
+        if not (contract.evidence_ref or contract.validation_boundaries):
+            findings.append(UIFlowStructureFinding("capability_output_missing_evidence_boundary", f"output contract {contract.output_contract_id} has no evidence ref or validation boundary", item_id=contract.output_contract_id))
+        if contract.result.lower() not in _PASSED_UI_RESULTS:
+            findings.append(UIFlowStructureFinding("capability_output_not_passed", f"output contract {contract.output_contract_id} result is {contract.result}, not passed", item_id=contract.output_contract_id))
+        if current_revision and contract.current_revision and contract.current_revision != current_revision:
+            findings.append(UIFlowStructureFinding("capability_output_stale", f"output contract {contract.output_contract_id} does not match current revision", item_id=contract.output_contract_id, metadata={"output_revision": contract.current_revision, "current_revision": current_revision}))
+        if not contract.rationale:
+            findings.append(UIFlowStructureFinding("capability_output_missing_rationale", f"output contract {contract.output_contract_id} has no rationale", item_id=contract.output_contract_id))
+
+    findings.extend(
+        _duplicate_values(
+            tuple(binding.binding_id for binding in supplied_capability_bindings),
+            code="duplicate_capability_binding_id",
+            noun="capability binding",
+        )
+    )
+    for binding in supplied_capability_bindings:
+        if not binding.binding_id:
+            findings.append(UIFlowStructureFinding("missing_capability_binding_id", "capability binding has no id"))
+        if not binding.capability_id:
+            findings.append(UIFlowStructureFinding("capability_binding_missing_capability", f"capability binding {binding.binding_id} has no capability id", item_id=binding.binding_id))
+            continue
+        if binding.capability_id not in capability_ids:
+            findings.append(UIFlowStructureFinding("capability_binding_unknown_capability", f"capability binding {binding.binding_id} references unknown capability {binding.capability_id}", item_id=binding.binding_id))
+        if binding.result.lower() not in _PASSED_UI_RESULTS:
+            findings.append(UIFlowStructureFinding("capability_binding_not_passed", f"capability binding {binding.binding_id} result is {binding.result}, not passed", item_id=binding.binding_id))
+        if current_revision and binding.current_revision and binding.current_revision != current_revision:
+            findings.append(UIFlowStructureFinding("capability_binding_stale", f"capability binding {binding.binding_id} does not match current revision", item_id=binding.binding_id, metadata={"binding_revision": binding.current_revision, "current_revision": current_revision}))
+        if not binding.validation_boundaries:
+            findings.append(UIFlowStructureFinding("capability_binding_missing_validation", f"capability binding {binding.binding_id} has no validation boundary", item_id=binding.binding_id))
+        if not binding.rationale:
+            findings.append(UIFlowStructureFinding("capability_binding_missing_rationale", f"capability binding {binding.binding_id} has no rationale", item_id=binding.binding_id))
+        if not binding.has_evidence():
+            findings.append(UIFlowStructureFinding("capability_binding_missing_evidence", f"capability binding {binding.binding_id} has no evidence ref, test evidence, functional chain, or run id", item_id=binding.binding_id))
+        for feature_id in binding.feature_ids:
+            if feature_contracts and feature_id not in feature_ids:
+                findings.append(UIFlowStructureFinding("capability_binding_unknown_feature", f"capability binding {binding.binding_id} references unknown feature {feature_id}", item_id=binding.binding_id))
+        for task_id in binding.task_ids:
+            if task_coverage is not None and task_id not in task_ids:
+                findings.append(UIFlowStructureFinding("capability_binding_unknown_task", f"capability binding {binding.binding_id} references unknown task {task_id}", item_id=binding.binding_id))
+        for journey_id in binding.journey_ids:
+            if journey_coverage is not None and journey_id not in journey_ids:
+                findings.append(UIFlowStructureFinding("capability_binding_unknown_journey", f"capability binding {binding.binding_id} references unknown journey {journey_id}", item_id=binding.binding_id))
+        for control_id in binding.control_ids:
+            if interaction_model is not None and control_id not in control_ids:
+                findings.append(UIFlowStructureFinding("capability_binding_unknown_control", f"capability binding {binding.binding_id} references unknown control {control_id}", item_id=binding.binding_id))
+        for event_id in binding.event_ids:
+            if interaction_model is not None and event_id not in event_ids:
+                findings.append(UIFlowStructureFinding("capability_binding_unknown_event", f"capability binding {binding.binding_id} references unknown event {event_id}", item_id=binding.binding_id))
+        for chain_id in binding.functional_chain_ids:
+            if functional_chains is not None and chain_id not in chain_ids:
+                findings.append(UIFlowStructureFinding("capability_binding_unknown_functional_chain", f"capability binding {binding.binding_id} references unknown functional chain {chain_id}", item_id=binding.binding_id))
+        for run_id in binding.implementation_run_ids:
+            if implementation_validation is not None and run_id not in run_ids:
+                findings.append(UIFlowStructureFinding("capability_binding_unknown_implementation_run", f"capability binding {binding.binding_id} references unknown implementation run {run_id}", item_id=binding.binding_id))
+        for output_id in binding.output_contract_ids:
+            if output_id not in output_by_id:
+                findings.append(UIFlowStructureFinding("capability_binding_unknown_output_contract", f"capability binding {binding.binding_id} references unknown output contract {output_id}", item_id=binding.binding_id))
+
+    covered_ids = {
+        binding.capability_id
+        for binding in supplied_capability_bindings
+        if binding.capability_id
+        and binding.result.lower() in _PASSED_UI_RESULTS
+        and (not current_revision or not binding.current_revision or binding.current_revision == current_revision)
+    }
+    result_capability_kinds = {"load", "plot", "chart", "table", "export", "save", "open", "generate", "refresh", "delete"}
+    for capability_id in sorted(required_ids):
+        capability = capabilities_by_id[capability_id]
+        bindings = bindings_by_capability.get(capability_id, [])
+        capability_outputs = outputs_by_capability.get(capability_id, [])
+        if not bindings:
+            findings.append(UIFlowStructureFinding("capability_missing_binding", f"required UI capability {capability_id} has no feature/task/UI/evidence binding", item_id=capability_id))
+        if feature_contracts and capability_id not in feature_capability_links:
+            findings.append(UIFlowStructureFinding("capability_missing_feature_contract", f"required UI capability {capability_id} has no feature contract link", item_id=capability_id))
+        if task_coverage is not None:
+            linked_tasks = {task_id for cap_id, task_id in task_coverage.capability_task_links if cap_id == capability_id}
+            linked_tasks.update(task_id for binding in bindings for task_id in binding.task_ids)
+            linked_tasks.difference_update(task_coverage.out_of_scope_task_ids)
+            if not linked_tasks and capability_id not in task_coverage.out_of_scope_capability_ids:
+                findings.append(UIFlowStructureFinding("capability_missing_user_task", f"required UI capability {capability_id} has no in-scope user task", item_id=capability_id))
+        if (interaction_model is not None or journey_coverage is not None) and not any(binding.has_ui_path() for binding in bindings):
+            findings.append(UIFlowStructureFinding("capability_missing_ui_path", f"required UI capability {capability_id} has no journey, control, or event binding", item_id=capability_id))
+        if (implementation_validation is not None or functional_chains is not None) and not any(binding.has_implementation_owner() for binding in bindings):
+            findings.append(UIFlowStructureFinding("capability_missing_implementation_owner", f"required UI capability {capability_id} has no code owner, code contract, functional chain, or run binding", item_id=capability_id))
+        if (capability.expected_output_ids or capability.capability_kind in result_capability_kinds) and not (
+            capability_outputs or any(binding.output_contract_ids for binding in bindings)
+        ):
+            findings.append(UIFlowStructureFinding("capability_missing_output_contract", f"required UI capability {capability_id} has no output contract", item_id=capability_id))
+        for prerequisite_id in capability.prerequisite_capability_ids:
+            if prerequisite_id in scoped_ids or prerequisite_id not in covered_ids:
+                findings.append(UIFlowStructureFinding("capability_prerequisite_not_covered", f"UI capability {capability_id} depends on prerequisite {prerequisite_id} that is not fully covered", item_id=capability_id, metadata={"prerequisite_id": prerequisite_id}))
+
+    blockers = _blocker_findings(findings)
+    return UIFunctionalCapabilityCoverageReport(
+        ok=not blockers,
+        inventory_id=inventory.inventory_id,
+        findings=tuple(findings),
+        covered_capability_ids=tuple(sorted(covered_ids)),
+        scoped_capability_ids=tuple(sorted(scoped_ids)),
+        output_contract_ids=tuple(sorted(output_by_id)),
+    )
+
+
 def review_ui_human_operability(
     assessment: UIHumanOperabilityAssessment,
     *,
@@ -4510,6 +5158,8 @@ def review_ui_human_operability(
     visible_surface: UIVisibleSurface | None = None,
     journey_coverage: UIJourneyCoverage | None = None,
     functional_chains: UIControlFunctionalChainSet | None = None,
+    capability_inventory: UIFunctionalCapabilityInventory | None = None,
+    capability_coverage: UIFunctionalCapabilityCoverageReport | None = None,
 ) -> UIHumanOperabilityReport:
     """Review whether a UI is understandable and operable for user tasks."""
 
@@ -4527,11 +5177,17 @@ def review_ui_human_operability(
     known_visible_items = set(visible_surface.item_ids()) if visible_surface is not None else set()
     known_journeys = set(journey_coverage.feature_ids()) if journey_coverage is not None else set()
     known_chains = set(functional_chains.chain_ids()) if functional_chains is not None else set()
+    known_capabilities = set(capability_inventory.capability_ids()) if capability_inventory is not None else set()
+    required_capability_ids = set(capability_inventory.required_capability_ids()) if capability_inventory is not None else set()
+    scoped_capability_ids = set(ledger.out_of_scope_capability_ids)
     feature_to_tasks: dict[str, set[str]] = {}
+    capability_to_tasks: dict[str, set[str]] = {}
     task_to_controls: dict[str, set[str]] = {}
     task_to_journeys: dict[str, set[str]] = {}
     task_to_chains: dict[str, set[str]] = {}
 
+    for capability_id, task_id in ledger.capability_task_links:
+        capability_to_tasks.setdefault(capability_id, set()).add(task_id)
     for feature_id, task_id in ledger.feature_task_links:
         feature_to_tasks.setdefault(feature_id, set()).add(task_id)
     for task_id, control_id in ledger.task_control_links:
@@ -4563,6 +5219,61 @@ def review_ui_human_operability(
     findings.extend(_duplicate_values(ledger.feature_ids, code="duplicate_user_visible_feature_id", noun="user-visible feature"))
     findings.extend(_duplicate_values(ledger.task_ids(), code="duplicate_user_task_id", noun="user task"))
     findings.extend(_duplicate_values(ledger.primary_control_ids, code="duplicate_primary_control_id", noun="primary control"))
+
+    if capability_inventory is not None:
+        if not ledger.source_capability_inventory_id:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_user_task_capability_inventory",
+                    "user task coverage ledger has no source capability inventory id",
+                )
+            )
+        elif ledger.source_capability_inventory_id != capability_inventory.inventory_id:
+            findings.append(
+                UIFlowStructureFinding(
+                    "user_task_capability_inventory_mismatch",
+                    "user task coverage ledger does not reference the supplied capability inventory",
+                    metadata={
+                        "ledger_source": ledger.source_capability_inventory_id,
+                        "capability_inventory": capability_inventory.inventory_id,
+                    },
+                )
+            )
+        for capability_id, task_id in ledger.capability_task_links:
+            if capability_id not in known_capabilities:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "capability_task_link_unknown_capability",
+                        f"capability-task link references unknown capability {capability_id}",
+                        item_id=capability_id,
+                    )
+                )
+            if task_id not in task_ids:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "capability_task_link_unknown_task",
+                        f"capability-task link references unknown task {task_id}",
+                        item_id=task_id,
+                    )
+                )
+        for capability_id in sorted(required_capability_ids - scoped_capability_ids):
+            linked_tasks = capability_to_tasks.get(capability_id, set()) - scoped_task_ids
+            if not linked_tasks:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "capability_without_user_task",
+                        f"required UI capability {capability_id} has no in-scope user task",
+                        item_id=capability_id,
+                    )
+                )
+    if capability_coverage is not None and not capability_coverage.ok:
+        findings.append(
+            UIFlowStructureFinding(
+                "human_operability_capability_coverage_not_passing",
+                "human-operability cannot support full UI confidence while capability coverage is blocked",
+                metadata={"capability_coverage": capability_coverage.to_dict()},
+            )
+        )
 
     for feature_id in sorted(feature_ids - scoped_feature_ids):
         linked_tasks = feature_to_tasks.get(feature_id, set()) - scoped_task_ids
@@ -6077,6 +6788,8 @@ def review_ui_implementation_validation(
     *,
     interaction_model: UIInteractionModel,
     journey_coverage: UIJourneyCoverage,
+    capability_inventory: UIFunctionalCapabilityInventory | None = None,
+    capability_coverage: UIFunctionalCapabilityCoverageReport | None = None,
 ) -> UIImplementationValidationReport:
     """Review real UI evidence against feature contracts and UI journey coverage."""
 
@@ -6180,6 +6893,58 @@ def review_ui_implementation_validation(
                 },
             )
         )
+    if capability_inventory is not None or validation.source_capability_inventory_id:
+        if not validation.source_capability_inventory_id:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_source_capability_inventory",
+                    "UI implementation validation has no source capability inventory id",
+                )
+            )
+        elif capability_inventory is not None and validation.source_capability_inventory_id != capability_inventory.inventory_id:
+            findings.append(
+                UIFlowStructureFinding(
+                    "implementation_capability_inventory_mismatch",
+                    "UI implementation validation does not reference the supplied capability inventory",
+                    metadata={
+                        "validation_source": validation.source_capability_inventory_id,
+                        "capability_inventory": capability_inventory.inventory_id,
+                    },
+                )
+            )
+        if not validation.capability_coverage_reviewed:
+            findings.append(
+                UIFlowStructureFinding(
+                    "capability_coverage_not_reviewed_for_implementation",
+                    "Implementation validation was reviewed before capability coverage was marked reviewed",
+                )
+            )
+        if capability_coverage is None:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_implementation_capability_coverage",
+                    "UI implementation validation has no current capability coverage report",
+                )
+            )
+        elif not capability_coverage.ok:
+            findings.append(
+                UIFlowStructureFinding(
+                    "implementation_capability_coverage_not_passing",
+                    "UI implementation validation cannot support full runnable confidence while capability coverage is blocked",
+                    metadata={"capability_coverage": capability_coverage.to_dict()},
+                )
+            )
+        elif capability_inventory is not None and capability_coverage.inventory_id != capability_inventory.inventory_id:
+            findings.append(
+                UIFlowStructureFinding(
+                    "implementation_capability_coverage_inventory_mismatch",
+                    "UI implementation validation capability coverage report targets a different inventory",
+                    metadata={
+                        "coverage_inventory": capability_coverage.inventory_id,
+                        "capability_inventory": capability_inventory.inventory_id,
+                    },
+                )
+            )
     if journey_coverage.source_interaction_model_id != interaction_model.model_id:
         findings.append(
             UIFlowStructureFinding(
@@ -7400,6 +8165,9 @@ __all__ = [
     "UIDisplayElement",
     "UIFeatureJourney",
     "UIFeatureContract",
+    "UIFunctionalCapability",
+    "UIFunctionalCapabilityCoverageReport",
+    "UIFunctionalCapabilityInventory",
     "UIFlowStructureFinding",
     "UIObservedSurfaceInventory",
     "UIObservedSurfaceInventoryReport",
@@ -7407,6 +8175,8 @@ __all__ = [
     "UIControlFunctionalChain",
     "UIControlFunctionalChainReport",
     "UIControlFunctionalChainSet",
+    "UICapabilityCoverageBinding",
+    "UICapabilityOutputContract",
     "UIGeometryLayoutEvidence",
     "UIGeometryLayoutEvidenceReport",
     "UIGeometryLayoutEvidenceSet",
@@ -7439,6 +8209,9 @@ __all__ = [
     "UI_SOURCE_TARGET_DISPOSITIONS",
     "UI_SOURCE_TYPES",
     "UI_WORK_MODES",
+    "UI_CAPABILITY_KINDS",
+    "UI_CAPABILITY_OUTPUT_KINDS",
+    "UI_CAPABILITY_RESULT_OUTPUT_KINDS",
     "FUNCTIONAL_CHAIN_EVIDENCE_KINDS",
     "OBSERVED_UI_ACTIONABLE_KINDS",
     "OBSERVED_UI_ITEM_KINDS",
@@ -7483,6 +8256,7 @@ __all__ = [
     "review_ui_source_baseline_alignment",
     "review_ui_source_baseline_interactions",
     "review_ui_control_functional_chains",
+    "review_ui_functional_capability_coverage",
     "review_ui_geometry_layout_evidence",
     "review_ui_human_operability",
     "review_ui_implementation_validation",

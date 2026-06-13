@@ -11,9 +11,9 @@ not close a known model miss unless the miss has been reviewed.
 If a user opens a UI after a green FlowGuard claim and the visible behavior is
 wrong, treat the episode as a model miss. Typical UI miss types are
 `evidence_overclaimed` when the prior proof only showed a label or API route,
-and `boundary_missing` when the prior model did not account for the visible
-control, field, source-interaction branch, task flow, human-operability rule, or UI state
-update.
+and `boundary_missing` when the prior model did not account for the promised
+capability, visible control, field, source-interaction branch, task flow,
+human-operability rule, or UI state update.
 
 For bug repair work inside an existing modeled system, run Existing Model
 Preflight first so the fix extends the current model boundary instead of
@@ -42,10 +42,14 @@ creating a parallel one.
 6. Add one same-class generalized bad case when practical.
 7. For UI misses, run `review_ui_model_misses(...)` with a record of the prior
    green claim, why it looked green, the user-observed failure, affected
-   controls/fields, same-class controls/fields, same-class tests or click
-   evidence, task-flow/human-operability gaps, root-cause backpropagation, and
-   code owner. Select/Open txt/Load table/Load File style failures should be
-   reviewed as a same-class UI family before closure.
+   capabilities/controls/fields, same-class capabilities/controls/fields,
+   same-class tests or click evidence, task-flow/human-operability gaps,
+   root-cause backpropagation, and code owner. Missing promised UI
+   capabilities must be listed in `missing_promised_capability_ids`, also
+   listed as affected capabilities, and classified as `boundary_missing` or
+   `evidence_overclaimed`. Same-shape missing load, render, plot, refresh,
+   export, save, open, configure, delete, or generated-output functions should
+   be reviewed as a same-class UI family before closure.
 8. Add current test evidence for the observed regression and for the
    same-class generalized case. A point regression is necessary but does not
    close an in-scope miss by itself.

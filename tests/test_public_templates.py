@@ -230,11 +230,12 @@ class PublicTemplateTests(unittest.TestCase):
             (".flowguard", "model_miss_review"),
         )
         self.assertIn("correct_model_miss_review: PASS", output)
-        self.assertIn("expected violations observed: 4", output)
+        self.assertIn("expected violations observed: 5", output)
         self.assertIn("root_cause_backpropagated", output)
         self.assertIn("same_class_test_evidence_added", output)
         self.assertIn("owner_code_contract_bound", output)
         self.assertIn("replay_or_negative_check_added", output)
+        self.assertIn("ui_promised_capability_miss_not_classified", output)
 
     def test_model_miss_review_template_is_compact_but_preserves_gates(self):
         files = model_miss_review_template_files()
@@ -249,6 +250,8 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("validate_without_root_cause_backpropagation", combined)
         self.assertIn("point_fix_only_without_same_class_test", combined)
         self.assertIn("validate_without_owner_code_contract", combined)
+        self.assertIn("ui_promised_capability_missing_after_green_claim", combined)
+        self.assertIn("missing_same_class_ui_capability_scan", combined)
         self.assertLessEqual(next(file for file in files if file.path.endswith("model.py")).content.count("\n"), 140)
 
     def test_model_miss_full_template_keeps_deep_review_material(self):
@@ -379,6 +382,7 @@ class PublicTemplateTests(unittest.TestCase):
         )
         self.assertIn("flowguard UI interaction model", output)
         self.assertIn("flowguard UI journey coverage", output)
+        self.assertIn("flowguard UI functional capability coverage", output)
         self.assertIn("flowguard UI implementation validation", output)
         self.assertIn("flowguard UI human operability", output)
         self.assertIn("flowguard UI structure derivation", output)
@@ -386,6 +390,8 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("flowguard UI visible surface", output)
         self.assertIn("missing_state_availability_matrix", output)
         self.assertIn("feature_entry_point_not_declared", output)
+        self.assertIn("required_capability_missing_binding", output)
+        self.assertIn("result_capability_missing_output_contract", output)
         self.assertIn("feature_without_user_task", output)
         self.assertIn("missing_human_walkthrough", output)
         self.assertIn("missing_implementation_run_for_journey", output)
@@ -406,7 +412,7 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("The text hierarchy contract is semantic", combined)
         self.assertIn("similar text jobs should usually reuse visual treatments", combined)
         self.assertIn("ui-flow-structure-full-template", combined)
-        self.assertLessEqual(next(file for file in files if file.path.endswith("model.py")).content.count("\n"), 175)
+        self.assertLessEqual(next(file for file in files if file.path.endswith("model.py")).content.count("\n"), 205)
         self.assertNotIn('scale=f"level-{level}"', combined)
 
     def test_ui_flow_structure_full_template_keeps_deep_route_material(self):
@@ -421,6 +427,8 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("UIStructureDerivation", combined)
         self.assertIn("UITextHierarchyBlueprint", combined)
         self.assertIn("UIFeatureContract", combined)
+        self.assertIn("UIFunctionalCapabilityInventory", combined)
+        self.assertIn("review_ui_functional_capability_coverage", combined)
         self.assertIn("UIVisibleSurface", combined)
         self.assertIn("UIRenderEvidenceSet", combined)
         self.assertIn("UIGeometryLayoutEvidenceSet", combined)
@@ -468,7 +476,7 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("does not inspect", combined)
         self.assertIn("does not make FlowGuard a task orchestrator", combined)
         self.assertIn("run AutoSplit, ModelMesh, or TestMesh as its own", combined)
-        self.assertIn("UI action-map and real-surface artifact-payload case", combined)
+        self.assertIn("UI observed inventory, functional capability coverage", combined)
         self.assertIn("Do not copy\nAutoSplit metrics onto `ProcessEvidence`", combined)
         self.assertIn("producer_route=\"test_mesh_maintenance\"", combined)
         self.assertIn("FlowGuard Risk Purpose Header", combined)

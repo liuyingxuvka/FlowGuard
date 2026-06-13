@@ -19,6 +19,7 @@ from flowguard import (
     UI_MODEL_MISS_BOUNDARY_MISSING,
     UI_MODEL_MISS_EVIDENCE_OVERCLAIMED,
     UI_MODEL_MISS_AFFORDANCE_MISMATCH,
+    UI_MODEL_MISS_PROMISED_CAPABILITY_TYPES,
     UIModelMissRecord,
     UIModelMissReviewPlan,
     review_defect_family_gates,
@@ -284,6 +285,52 @@ class RecurringModelMissTests(unittest.TestCase):
         )
 
         self.assertTrue(report.ok, report.summary)
+
+    def test_missing_promised_ui_capability_can_close_with_capability_scope(self):
+        report = review_ui_model_misses(
+            UIModelMissReviewPlan(
+                "ui-capability-miss-plan",
+                ui_misses=(
+                    ui_miss(
+                        miss_type=UI_MODEL_MISS_BOUNDARY_MISSING,
+                        missing_promised_capability_ids=("capability:plot-result",),
+                        affected_capability_ids=("capability:plot-result",),
+                        affected_control_ids=(),
+                        same_class_capability_ids=("capability:load-result", "capability:export-result"),
+                        same_class_control_ids=(),
+                        required_test_ids=("test:plot-result-visible",),
+                        required_implementation_evidence_ids=("evidence:plot-click-visible-result",),
+                        code_owner="ui.plot_result",
+                    ),
+                ),
+            )
+        )
+
+        self.assertTrue(report.ok, report.summary)
+        self.assertIn(UI_MODEL_MISS_BOUNDARY_MISSING, UI_MODEL_MISS_PROMISED_CAPABILITY_TYPES)
+        self.assertIn(UI_MODEL_MISS_EVIDENCE_OVERCLAIMED, UI_MODEL_MISS_PROMISED_CAPABILITY_TYPES)
+
+    def test_missing_promised_ui_capability_rejects_wrong_classification(self):
+        report = review_ui_model_misses(
+            UIModelMissReviewPlan(
+                "ui-capability-miss-plan",
+                ui_misses=(
+                    ui_miss(
+                        miss_type=UI_MODEL_MISS_AFFORDANCE_MISMATCH,
+                        missing_promised_capability_ids=("capability:plot-result",),
+                        affected_capability_ids=("capability:load-result",),
+                        affected_control_ids=(),
+                        same_class_capability_ids=("capability:load-result",),
+                        same_class_control_ids=(),
+                    ),
+                ),
+            )
+        )
+
+        codes = set(finding_codes(report))
+        self.assertFalse(report.ok)
+        self.assertIn("ui_model_miss_missing_capability_not_affected", codes)
+        self.assertIn("ui_model_miss_missing_capability_misclassified", codes)
 
     def test_ui_model_miss_rejects_local_button_only_fix(self):
         report = review_ui_model_misses(

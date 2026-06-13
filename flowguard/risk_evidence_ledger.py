@@ -59,6 +59,7 @@ RISK_GATE_MAINTENANCE_OBLIGATION = "maintenance_obligation"
 RISK_GATE_UI_IMPLEMENTATION = "ui_implementation"
 RISK_GATE_UI_REAL_SURFACE = "ui_real_surface"
 RISK_GATE_UI_FUNCTIONAL_CHAIN = "ui_functional_chain"
+RISK_GATE_UI_FUNCTIONAL_CAPABILITY_COVERAGE = "ui_functional_capability_coverage"
 RISK_GATE_UI_DONE_CLAIM = "ui_done_claim"
 RISK_GATE_UI_HUMAN_OPERABILITY = "ui_human_operability"
 RISK_GATE_UI_SOURCE_BASELINE_INTERACTION = "ui_source_baseline_interaction"
@@ -527,6 +528,16 @@ GATE_CODE_MAP = {
         "required enabled-control functional-chain gate is blocked",
         "required enabled-control functional-chain evidence remains explicitly scoped",
     ),
+    RISK_GATE_UI_FUNCTIONAL_CAPABILITY_COVERAGE: (
+        "missing_ui_functional_capability_coverage_gate",
+        "ui_functional_capability_coverage_gate_not_current",
+        "ui_functional_capability_coverage_gate_blocked",
+        "ui_functional_capability_coverage_gate_scoped_confidence",
+        "required risk has no UI functional capability coverage gate",
+        "required UI functional capability coverage evidence is stale or missing",
+        "required UI functional capability coverage gate is blocked",
+        "required UI functional capability coverage evidence remains explicitly scoped",
+    ),
     RISK_GATE_UI_DONE_CLAIM: (
         "missing_ui_done_claim_gate",
         "ui_done_claim_gate_not_current",
@@ -967,6 +978,7 @@ __all__ = [
     "RISK_GATE_TOPOLOGY_HAZARD",
     "RISK_GATE_UI_SOURCE_BASELINE_INTERACTION",
     "RISK_GATE_UI_DONE_CLAIM",
+    "RISK_GATE_UI_FUNCTIONAL_CAPABILITY_COVERAGE",
     "RISK_GATE_UI_FUNCTIONAL_CHAIN",
     "RISK_GATE_UI_HUMAN_OPERABILITY",
     "RISK_GATE_UI_IMPLEMENTATION",

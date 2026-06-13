@@ -392,6 +392,9 @@ inventory.
   `UISourceTargetMapping`, `UISourceTargetMappingRow`,
   `UIObservedSourceAlignment`, `UISourceInteractionSemantics`,
   `UISourceBaselineInteractionGate`,
+  `UIFunctionalCapability`, `UIFunctionalCapabilityInventory`,
+  `UICapabilityOutputContract`, `UICapabilityCoverageBinding`,
+  `UIFunctionalCapabilityCoverageReport`,
   `UIJourneyCoverage`, `UIJourneyEntryPoint`, `UIFeatureJourney`,
   `UITerminalActionAllowance`, `UIBlindspot`,
   `UIJourneyCoverageReport`, `UIFeatureContract`,
@@ -415,6 +418,7 @@ inventory.
   `review_ui_control_functional_chains()`,
   `review_ui_source_baseline_alignment()`,
   `review_ui_source_baseline_interactions()`,
+  `review_ui_functional_capability_coverage()`,
   `review_ui_interaction_model()`, `review_ui_journey_coverage()`,
   `review_ui_human_operability()`,
   `review_ui_implementation_validation()`,
@@ -425,6 +429,8 @@ inventory.
   inventorying the real visible UI first, modeling UI interactions, proving
   enabled-control functional chains, aligning source-baseline interactions when
   work is source-based or mixed,
+  accounting required user-visible capabilities and result/output contracts
+  before broad UI completion claims,
   proving launch-to-terminal journey coverage and reachable visible-control/event coverage when complete app UI is claimed,
   validating task coverage, region semantics, affordance, action grammar,
   native/dialog returns, keyboard/focus, and human walkthroughs before

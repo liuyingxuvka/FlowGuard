@@ -5,8 +5,8 @@ from __future__ import annotations
 RISK_EVIDENCE_LEDGER_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header
 
 Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
-Purpose: Review whether a final FlowGuard confidence claim is backed by model obligations, public code contracts, UI real-surface/functional-chain/done-claim gates, payload gates, recurring defect-family gates, model/test split gates, and current evidence.
-Guards against: coarse models hiding untested internal branches, skipped UI inventory, functional-chain, source-baseline interaction, click-through, or file/work-package payload evidence for real surfaces, oversized direct model evidence bypassing ModelMesh, slow or broad validation bypassing TestMesh, recurring same-class misses hiding behind local point fixes, tests covering only helper paths, skipped or stale evidence being treated as pass, and background progress being counted as final proof.
+Purpose: Review whether a final FlowGuard confidence claim is backed by model obligations, public code contracts, UI real-surface/functional-capability/functional-chain/done-claim gates, payload gates, recurring defect-family gates, model/test split gates, and current evidence.
+Guards against: coarse models hiding untested internal branches, skipped UI inventory, functional capability coverage, functional-chain, source-baseline interaction, click-through, or file/work-package payload evidence for real surfaces, oversized direct model evidence bypassing ModelMesh, slow or broad validation bypassing TestMesh, recurring same-class misses hiding behind local point fixes, tests covering only helper paths, skipped or stale evidence being treated as pass, and background progress being counted as final proof.
 Use before editing: Run this before claiming done, release-ready, or fully validated after model/test/code changes.
 Run: python .flowguard/risk_evidence_ledger/run_checks.py
 """
@@ -21,6 +21,7 @@ from flowguard import (
     RISK_GATE_UI_SOURCE_BASELINE_INTERACTION,
     RISK_GATE_MODEL_SPLIT,
     RISK_GATE_UI_DONE_CLAIM,
+    RISK_GATE_UI_FUNCTIONAL_CAPABILITY_COVERAGE,
     RISK_GATE_UI_FUNCTIONAL_CHAIN,
     RISK_GATE_UI_IMPLEMENTATION,
     RISK_GATE_UI_REAL_SURFACE,
@@ -51,6 +52,7 @@ def correct_ledger() -> RiskEvidenceLedgerPlan:
                     RiskEvidenceGate(RISK_GATE_DEFECT_FAMILY, "defect-family:duplicate-submit"),
                     RiskEvidenceGate(RISK_GATE_UI_IMPLEMENTATION, "ui:duplicate-submit-clickthrough"),
                     RiskEvidenceGate(RISK_GATE_UI_REAL_SURFACE, "ui:checkout-observed-inventory"),
+                    RiskEvidenceGate(RISK_GATE_UI_FUNCTIONAL_CAPABILITY_COVERAGE, "ui:checkout-capability-coverage"),
                     RiskEvidenceGate(RISK_GATE_UI_FUNCTIONAL_CHAIN, "ui:duplicate-submit-chain"),
                     RiskEvidenceGate(RISK_GATE_UI_DONE_CLAIM, "ui:checkout-done-claim"),
                     RiskEvidenceGate(RISK_GATE_UI_SOURCE_BASELINE_INTERACTION, "ui:source-baseline-interactions"),
@@ -337,6 +339,9 @@ Use this scaffold before final confidence claims.
   confidence is claimed;
 - each remembered maintenance obligation is resolved by owner-route evidence,
   explicitly scoped, or still blocks full confidence;
+- UI release claims can require separate real-surface, functional capability
+  coverage, functional-chain, implementation, source-baseline, and done-claim
+  gates;
 - each risk has current proof evidence from tests, replay, route reports, or manual validation;
 - internal-path-only tests, stale evidence, skipped checks, and progress-only background runs are visible;
 - scoped-out risks have explicit reasons and cannot be silently counted as fully proven.

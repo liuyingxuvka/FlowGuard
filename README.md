@@ -16,7 +16,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.47.1` | `1.0` | Python standard library only | MIT |
+| `v0.47.2` | `1.0` | Python standard library only | MIT |
 
 English lead content comes first; a Chinese mirror follows below.
 
@@ -94,7 +94,7 @@ Only escalate when the risk boundary demands it: UI topology, code structure, te
 | Work type | What FlowGuard helps design | What it checks |
 | --- | --- | --- |
 | Development process | staged route, legal next actions, validation gates, stale-evidence reset, peer-write invalidation, done and release readiness | skipped gates, stale validation, progress-only evidence, invalid completion claims |
-| UI flow | persistent regions, contextual panels, visible controls, visible surface, user task coverage, human-operability, overlays, recovery paths, display ownership, duplicate-control rules | launch-to-terminal journeys, unavailable controls, missing disabled reasons, orphan primary controls, confusing affordance, missing recovery, duplicate actions, evidence-kind gaps |
+| UI flow | persistent regions, contextual panels, visible controls, functional capability coverage, visible surface, user task coverage, human-operability, overlays, recovery paths, display ownership, duplicate-control rules | missing required UI functions, launch-to-terminal journeys, unavailable controls, missing disabled reasons, orphan primary controls, confusing affordance, missing recovery, duplicate actions, evidence-kind gaps |
 | Code structure | module split, facade boundary, state owner, side-effect owner, config owner, validation owner | ownership leaks, dependency cycles, facade drift, config drift, missing parity evidence |
 | Architecture reduction | observable contract, duplicate implementation candidates, safe target action | whether handlers, adapters, branches, modules, or validation layers can shrink without changing observable behavior |
 | Test strategy | routine and release test layers, parent/child suites, timeout boundaries, stale and hidden evidence rules | skipped tests, release-only evidence, broad/slow direct checks, stale passes, wrong-provenance evidence |
@@ -260,7 +260,7 @@ FlowGuard has one kernel and several peer satellite skills. Use the smallest rou
 | `flowguard-plan-detailing-compiler` | a rough idea or short plan needs explicit scope, state, side effects, evidence, receipts, rework, and claim boundaries |
 | `flowguard-existing-model-preflight` | existing modeled-system work should first identify model ownership, reuse/extend decisions, and duplicate-boundary risk |
 | `flowguard-development-process-flow` | staged development, archive, publish, release, or done confidence depends on current validation evidence |
-| `flowguard-ui-flow-structure` | UI controls, visible surface, task coverage, human-operability, launch-to-terminal journeys, overlays, recovery paths, information ownership, and runnable evidence kinds need modeling |
+| `flowguard-ui-flow-structure` | UI controls, visible surface, required functional capabilities, task coverage, human-operability, launch-to-terminal journeys, overlays, recovery paths, information ownership, and runnable evidence kinds need modeling |
 | `flowguard-code-structure-recommendation` | a function-flow model should derive module, facade, state-owner, side-effect, config, and validation boundaries |
 | `flowguard-structure-mesh` | a script, package, command, public API, or refactor split needs facade compatibility and parity evidence |
 | `flowguard-test-mesh` | validation is layered, slow, stale, skipped, release-only, or split across child suites |
@@ -492,7 +492,7 @@ FlowGuard 有一个 kernel 和多个同级 satellite skill。选择真正拥有�
 | `flowguard-plan-detailing-compiler` | 粗想法或短计划需要明确 scope、state、side effect、evidence、receipt、rework 和 claim boundary |
 | `flowguard-existing-model-preflight` | 已有模型系统里的工作要先找到 model owner、复用/扩展判断和重复 boundary 风险 |
 | `flowguard-development-process-flow` | staged development、archive、publish、release 或 done confidence 取决于当前验证证据 |
-| `flowguard-ui-flow-structure` | UI control、可见表面、任务覆盖、人类可操作性、launch-to-terminal journey、overlay、恢复路径、信息 ownership 和 runnable evidence kind 需要建模 |
+| `flowguard-ui-flow-structure` | UI control、可见表面、必需功能能力、任务覆盖、人类可操作性、launch-to-terminal journey、overlay、恢复路径、信息 ownership 和 runnable evidence kind 需要建模 |
 | `flowguard-code-structure-recommendation` | function-flow 模型要推导 module、facade、state-owner、side-effect、config 和 validation boundary |
 | `flowguard-structure-mesh` | 脚本、包、命令、公开 API 或 refactor 拆分需要 facade compatibility 和 parity evidence |
 | `flowguard-test-mesh` | 验证分层、很慢、过期、被 skip、只在 release 跑，或分布在 child suite |

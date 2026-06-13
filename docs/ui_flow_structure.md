@@ -9,7 +9,12 @@ observed-source alignment. For an existing or runnable UI, it first inventories
 the real visible surface: buttons, inputs, dropdowns, tables, displayed fields,
 status text, dialogs, menus, panels, and regions. Every observed item must map
 to a `UIControl`, `UIDisplayElement`, or `UIVisibleSurfaceItem`, or be recorded
-as a blindspot with owner and validation boundary. It then models the UI's
+as a blindspot with owner and validation boundary. Before broad UI completion
+claims, it also accounts the user-visible functional capabilities the UI is
+supposed to provide. Each required capability must bind to existing feature
+contracts, user tasks, journeys, controls/events, code or functional-chain
+owners, expected outputs, and current evidence, or be explicitly scoped out
+with an owner, reason, validation boundary, and rationale. It then models the UI's
 interaction behavior, reviews the user-visible surface, reviews
 launch-to-terminal journey coverage when complete app-level UI coverage is
 claimed, derives the UI structure from that model, derives a UI text hierarchy
@@ -64,6 +69,10 @@ Use it when:
   including screenshots when screenshots are the right evidence;
 - runnable/existing UI work needs a real-surface inventory before the model can
   be called complete;
+- non-trivial UI work or UI completion claims need a functional capability
+  inventory so required user-visible functions such as load, plot, render,
+  refresh, export, save, delete, search, or generate cannot disappear before
+  the visible-control model is built;
 - enabled buttons or controls need a functional chain from visible control to
   UI event, code owner, backend/local function, UI state update, and click/test
   evidence;
@@ -130,6 +139,14 @@ The observed real-surface and functional-chain objects are:
 - `UIControlFunctionalChainSet`: the functional-chain evidence boundary.
 - `review_ui_control_functional_chains(chain_set)`: rejects API-only or
   label-only evidence for enabled controls.
+- `UIFunctionalCapability`, `UIFunctionalCapabilityInventory`,
+  `UICapabilityOutputContract`, `UICapabilityCoverageBinding`, and
+  `review_ui_functional_capability_coverage(...)`: account the UI's required
+  user-visible functions and bind each one to feature contracts, tasks,
+  journeys, visible controls/events, functional chains or code owners, output
+  contracts, implementation runs, and current evidence. Result-producing
+  capabilities need explicit output contracts for displays, state changes, data
+  artifacts, files, status changes, or generated/rendered output.
 - `UIWorkModeDeclaration`, `UISourceBaseline`, `UISourceBaselineItem`,
   `UISourceTargetMapping`, `UISourceTargetMappingRow`,
   `UIObservedSourceAlignment`, and `review_ui_source_baseline_alignment(...)`:

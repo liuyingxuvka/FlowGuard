@@ -61,6 +61,10 @@ UI_MODEL_MISS_TYPES = (
     UI_MODEL_MISS_REGION_SEMANTICS_CONFLICT,
     UI_MODEL_MISS_HUMAN_WALKTHROUGH_FAILED,
 )
+UI_MODEL_MISS_PROMISED_CAPABILITY_TYPES = (
+    UI_MODEL_MISS_EVIDENCE_OVERCLAIMED,
+    UI_MODEL_MISS_BOUNDARY_MISSING,
+)
 
 PASSING_DEFECT_FAMILY_STATUSES = {RISK_PROOF_STATUS_PASSED}
 NON_PASSING_DEFECT_FAMILY_STATUSES = {
@@ -388,8 +392,11 @@ class UIModelMissRecord:
     observed_failure: str = ""
     observed_failure_evidence_ref: str = ""
     miss_type: str = UI_MODEL_MISS_EVIDENCE_OVERCLAIMED
+    missing_promised_capability_ids: tuple[str, ...] = ()
+    affected_capability_ids: tuple[str, ...] = ()
     affected_control_ids: tuple[str, ...] = ()
     affected_field_ids: tuple[str, ...] = ()
+    same_class_capability_ids: tuple[str, ...] = ()
     same_class_control_ids: tuple[str, ...] = ()
     same_class_field_ids: tuple[str, ...] = ()
     required_test_ids: tuple[str, ...] = ()
@@ -405,8 +412,15 @@ class UIModelMissRecord:
         object.__setattr__(self, "observed_failure", str(self.observed_failure))
         object.__setattr__(self, "observed_failure_evidence_ref", str(self.observed_failure_evidence_ref))
         object.__setattr__(self, "miss_type", str(self.miss_type))
+        object.__setattr__(
+            self,
+            "missing_promised_capability_ids",
+            _as_tuple(self.missing_promised_capability_ids),
+        )
+        object.__setattr__(self, "affected_capability_ids", _as_tuple(self.affected_capability_ids))
         object.__setattr__(self, "affected_control_ids", _as_tuple(self.affected_control_ids))
         object.__setattr__(self, "affected_field_ids", _as_tuple(self.affected_field_ids))
+        object.__setattr__(self, "same_class_capability_ids", _as_tuple(self.same_class_capability_ids))
         object.__setattr__(self, "same_class_control_ids", _as_tuple(self.same_class_control_ids))
         object.__setattr__(self, "same_class_field_ids", _as_tuple(self.same_class_field_ids))
         object.__setattr__(self, "required_test_ids", _as_tuple(self.required_test_ids))
@@ -420,7 +434,7 @@ class UIModelMissRecord:
         object.__setattr__(self, "rationale", str(self.rationale))
 
     def has_same_class_scope(self) -> bool:
-        return bool(self.same_class_control_ids or self.same_class_field_ids)
+        return bool(self.same_class_capability_ids or self.same_class_control_ids or self.same_class_field_ids)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -430,8 +444,11 @@ class UIModelMissRecord:
             "observed_failure": self.observed_failure,
             "observed_failure_evidence_ref": self.observed_failure_evidence_ref,
             "miss_type": self.miss_type,
+            "missing_promised_capability_ids": list(self.missing_promised_capability_ids),
+            "affected_capability_ids": list(self.affected_capability_ids),
             "affected_control_ids": list(self.affected_control_ids),
             "affected_field_ids": list(self.affected_field_ids),
+            "same_class_capability_ids": list(self.same_class_capability_ids),
             "same_class_control_ids": list(self.same_class_control_ids),
             "same_class_field_ids": list(self.same_class_field_ids),
             "required_test_ids": list(self.required_test_ids),
@@ -583,19 +600,57 @@ def review_ui_model_misses(plan: UIModelMissReviewPlan) -> UIModelMissReviewRepo
                     miss_id=miss.miss_id,
                 )
             )
-        if not (miss.affected_control_ids or miss.affected_field_ids):
+        if not (miss.affected_capability_ids or miss.affected_control_ids or miss.affected_field_ids):
             findings.append(
                 UIModelMissFinding(
                     "ui_model_miss_missing_affected_surface",
-                    "UI model miss must identify affected controls or fields",
+                    "UI model miss must identify affected capabilities, controls, or fields",
                     miss_id=miss.miss_id,
                 )
             )
+        if miss.missing_promised_capability_ids:
+            duplicate_capabilities = sorted(
+                {
+                    capability_id
+                    for capability_id in miss.missing_promised_capability_ids
+                    if miss.missing_promised_capability_ids.count(capability_id) > 1
+                }
+            )
+            if duplicate_capabilities:
+                findings.append(
+                    UIModelMissFinding(
+                        "ui_model_miss_duplicate_missing_capability",
+                        "UI model miss lists the same missing promised capability more than once",
+                        miss_id=miss.miss_id,
+                        metadata={"capability_ids": duplicate_capabilities},
+                    )
+                )
+            if not set(miss.missing_promised_capability_ids).issubset(set(miss.affected_capability_ids)):
+                findings.append(
+                    UIModelMissFinding(
+                        "ui_model_miss_missing_capability_not_affected",
+                        "Missing promised UI capabilities must also be listed as affected capabilities",
+                        miss_id=miss.miss_id,
+                        metadata={"capability_ids": list(miss.missing_promised_capability_ids)},
+                    )
+                )
+            if miss.miss_type not in UI_MODEL_MISS_PROMISED_CAPABILITY_TYPES:
+                findings.append(
+                    UIModelMissFinding(
+                        "ui_model_miss_missing_capability_misclassified",
+                        "Missing promised UI capabilities must be classified as boundary_missing or evidence_overclaimed",
+                        miss_id=miss.miss_id,
+                        metadata={
+                            "capability_ids": list(miss.missing_promised_capability_ids),
+                            "miss_type": miss.miss_type,
+                        },
+                    )
+                )
         if plan.require_same_class_evidence and not miss.has_same_class_scope():
             findings.append(
                 UIModelMissFinding(
                     "ui_model_miss_missing_same_class_scan",
-                    "UI model miss must identify same-class controls or fields before broad closure",
+                    "UI model miss must identify same-class capabilities, controls, or fields before broad closure",
                     miss_id=miss.miss_id,
                 )
             )
@@ -1002,6 +1057,7 @@ __all__ = [
     "UI_MODEL_MISS_HUMAN_WALKTHROUGH_FAILED",
     "UI_MODEL_MISS_INPUT_BRANCH_MISSING",
     "UI_MODEL_MISS_KEYBOARD_FOCUS_MISSING",
+    "UI_MODEL_MISS_PROMISED_CAPABILITY_TYPES",
     "UI_MODEL_MISS_REGION_SEMANTICS_CONFLICT",
     "UI_MODEL_MISS_STATE_TOO_COARSE",
     "UI_MODEL_MISS_TYPES",

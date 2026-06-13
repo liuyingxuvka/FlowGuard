@@ -52,7 +52,38 @@ class PlanDetailingTests(unittest.TestCase):
                 found = {finding.code for finding in flowguard.review_plan_detail(plan).findings}
                 self.assertTrue(codes.issubset(found), found)
 
-    def ui_plan(self, *, evidence_kind="ui_runtime_click", evidence_status="passed"):
+    def ui_plan(self, *, evidence_kind="ui_runtime_click", evidence_status="passed", include_capability=True):
+        step_evidence_ids = ("evidence:ui-click",)
+        validation_evidence_ids = ("evidence:ui-click",)
+        final_evidence_ids = ("evidence:ui-click",)
+        required_evidence_kinds = ("ui_runtime_click",)
+        evidence_rows = (
+            flowguard.PlanDetailEvidence(
+                "evidence:ui-click",
+                evidence_kind=evidence_kind,
+                status=evidence_status,
+                produced_by_step_id="step:validate-ui",
+                covers_artifacts=("artifact:ui-code",),
+                validation_ids=("validation:ui-click",),
+                result_path="tmp/ui-click.json",
+            ),
+        )
+        if include_capability:
+            step_evidence_ids += ("evidence:ui-capability",)
+            validation_evidence_ids += ("evidence:ui-capability",)
+            final_evidence_ids += ("evidence:ui-capability",)
+            required_evidence_kinds += ("ui_functional_capability_coverage",)
+            evidence_rows += (
+                flowguard.PlanDetailEvidence(
+                    "evidence:ui-capability",
+                    evidence_kind="ui_functional_capability_coverage",
+                    status="passed",
+                    produced_by_step_id="step:validate-ui",
+                    covers_artifacts=("artifact:ui-code",),
+                    validation_ids=("validation:ui-click",),
+                    result_path="tmp/ui-capability.json",
+                ),
+            )
         return flowguard.PlanDetail(
             "plan:ui",
             task_summary="UI button implementation",
@@ -88,9 +119,9 @@ class PlanDetailingTests(unittest.TestCase):
                     step_type="validation",
                     order_after=("step:implement-ui",),
                     reads_artifacts=("artifact:ui-code",),
-                    required_evidence_ids=("evidence:ui-click",),
-                    produced_evidence_ids=("evidence:ui-click",),
-                    continue_evidence_ids=("evidence:ui-click",),
+                    required_evidence_ids=step_evidence_ids,
+                    produced_evidence_ids=step_evidence_ids,
+                    continue_evidence_ids=step_evidence_ids,
                     validation_required=True,
                     rework_step_id="step:implement-ui",
                     produces_receipts=("receipt:ui-validated",),
@@ -101,22 +132,12 @@ class PlanDetailingTests(unittest.TestCase):
                 flowguard.PlanDetailValidation(
                     "validation:ui-click",
                     required_artifact_ids=("artifact:ui-code",),
-                    required_evidence_kinds=("ui_runtime_click",),
-                    evidence_ids=("evidence:ui-click",),
+                    required_evidence_kinds=required_evidence_kinds,
+                    evidence_ids=validation_evidence_ids,
                     command="click button and observe result",
                 ),
             ),
-            evidence=(
-                flowguard.PlanDetailEvidence(
-                    "evidence:ui-click",
-                    evidence_kind=evidence_kind,
-                    status=evidence_status,
-                    produced_by_step_id="step:validate-ui",
-                    covers_artifacts=("artifact:ui-code",),
-                    validation_ids=("validation:ui-click",),
-                    result_path="tmp/ui-click.json",
-                ),
-            ),
+            evidence=evidence_rows,
             failure_branches=(
                 flowguard.PlanDetailFailureBranch(
                     "branch:ui-click-fails",
@@ -126,7 +147,7 @@ class PlanDetailingTests(unittest.TestCase):
                 ),
             ),
             final_claim=flowguard.PLAN_DETAIL_CLAIM_FULL,
-            final_evidence_ids=("evidence:ui-click",),
+            final_evidence_ids=final_evidence_ids,
         )
 
     def test_ui_task_checkbox_needs_current_ui_evidence_type(self):
@@ -143,6 +164,12 @@ class PlanDetailingTests(unittest.TestCase):
         report = flowguard.review_plan_detail(self.ui_plan(evidence_kind="ui_observed_source_alignment"))
 
         self.assertEqual(flowguard.PLAN_DETAIL_STATUS_PASS, report.status, report.format_text())
+
+    def test_full_ui_plan_requires_capability_coverage_evidence_type(self):
+        report = flowguard.review_plan_detail(self.ui_plan(include_capability=False))
+
+        self.assertEqual(flowguard.PLAN_DETAIL_STATUS_BLOCKED, report.status, report.format_text())
+        self.assertIn("ui_plan_missing_capability_evidence_type", {finding.code for finding in report.findings})
 
     def test_ui_task_rejects_generic_or_planned_evidence(self):
         generic = flowguard.review_plan_detail(self.ui_plan(evidence_kind="test"))

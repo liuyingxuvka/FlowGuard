@@ -17,9 +17,9 @@ Guards against:
 - missing UI action coverage, synthetic payload cases for real payload surfaces,
   or AI work-package cases;
 - UI task checkboxes that lack current evidence kind such as
-  ui_observed_inventory, ui_functional_chain, ui_runtime_click,
-  ui_browser_dom_geometry, ui_desktop_manual_observation, or
-  ui_done_claim_review;
+  ui_observed_inventory, ui_functional_capability_coverage,
+  ui_functional_chain, ui_runtime_click, ui_browser_dom_geometry,
+  ui_desktop_manual_observation, or ui_done_claim_review;
 - irreversible side effects without evidence gates;
 - full completion claims without current final evidence.
 
@@ -305,6 +305,9 @@ plan. The detail rows are the bridge between prose and FlowGuard checks.
 - state and side-effect surfaces that the behavior model must see;
 - ordered steps with receipts and evidence gates;
 - validation requirements and expected evidence ids;
+- for UI completion plans, explicit evidence kind
+  `ui_functional_capability_coverage` plus the capability inventory, output
+  contracts, implementation bindings, and scoped omissions it covers;
 - failure/retry/rework branches;
 - human-review questions;
 - final claim boundary.

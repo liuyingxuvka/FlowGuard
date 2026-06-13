@@ -910,8 +910,8 @@ MODEL_MISS_REVIEW_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header.
 Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
 Purpose: compact model-miss repair review for one observed runtime/test miss.
 Guards against: validating a point fix without root-cause model repair,
-same-class test evidence, owner code contract binding, or replay/negative
-evidence.
+same-class test evidence, owner code contract binding, replay/negative
+evidence, or UI promised-capability classification after a green claim.
 Use before editing: non-trivial bug repairs after runtime, tests, replay, or
 manual validation reveals a FlowGuard model miss.
 Run: python .flowguard/model_miss_review/run_checks.py
@@ -935,6 +935,9 @@ class MissRepairPlan:
     replay_or_negative_check_added: bool
     fix_validated_after_refinement: bool
     completed: bool = False
+    ui_capability_miss_observed: bool = False
+    missing_promised_ui_capability_classified: bool = True
+    same_class_ui_capability_scan_added: bool = True
 
 
 @dataclass(frozen=True)
@@ -960,6 +963,11 @@ def review_compact_model_miss(plan: MissRepairPlan) -> MissRepairReport:
         findings.append("missing_owner_code_contract")
     if not plan.replay_or_negative_check_added:
         findings.append("missing_replay_or_negative_check")
+    if plan.ui_capability_miss_observed:
+        if not plan.missing_promised_ui_capability_classified:
+            findings.append("ui_promised_capability_miss_not_classified")
+        if not plan.same_class_ui_capability_scan_added:
+            findings.append("missing_same_class_ui_capability_scan")
     if plan.fix_validated_after_refinement and findings:
         findings.append("fix_validation_requires_root_cause_backpropagation")
     if plan.completed and (findings or not plan.fix_validated_after_refinement):
@@ -988,6 +996,21 @@ def broken_plans() -> tuple[MissRepairPlan, ...]:
         MissRepairPlan("point_fix_only_without_same_class_test", True, True, True, True, False, True, True, True, True),
         MissRepairPlan("validate_without_owner_code_contract", True, True, True, True, True, False, True, True, True),
         MissRepairPlan("validate_without_replay_or_negative_check", True, True, True, True, True, True, False, True, True),
+        MissRepairPlan(
+            "ui_promised_capability_missing_after_green_claim",
+            True,
+            True,
+            True,
+            True,
+            True,
+            True,
+            True,
+            True,
+            True,
+            ui_capability_miss_observed=True,
+            missing_promised_ui_capability_classified=False,
+            same_class_ui_capability_scan_added=False,
+        ),
     )
 
 
@@ -1032,6 +1055,10 @@ Default closure needs:
 - owner code contract binding through Model-Test Alignment;
 - replay or negative check evidence;
 - validation after the refined model/checks.
+- for UI misses where a promised function is absent, classify it as
+  `boundary_missing` or `evidence_overclaimed`, record the affected capability
+  ids, scan same-class capabilities/controls/fields, and add current
+  implementation or test evidence before closure.
 
 Escalate to `model-miss-full-template` when the repair needs generalized bad
 case modeling, known-bug holdout evidence, legacy path or old-field disposition,

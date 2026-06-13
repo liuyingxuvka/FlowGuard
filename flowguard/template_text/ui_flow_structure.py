@@ -16,9 +16,13 @@ from __future__ import annotations
 from flowguard import (
     UIControl,
     UIColdPathWork,
+    UICapabilityCoverageBinding,
+    UICapabilityOutputContract,
     UIDisplayElement,
     UIFeatureContract,
     UIFeatureJourney,
+    UIFunctionalCapability,
+    UIFunctionalCapabilityInventory,
     UIGeometryLayoutEvidence,
     UIGeometryLayoutEvidenceSet,
     UIHotPathAction,
@@ -47,6 +51,7 @@ from flowguard import (
     transition_coverage_to_required_leaf_cell_ids,
     ui_interaction_model_to_transition_coverage,
     review_ui_geometry_layout_evidence,
+    review_ui_functional_capability_coverage,
     review_ui_implementation_validation,
     review_ui_interaction_model,
     review_ui_journey_coverage,
@@ -187,6 +192,14 @@ def interaction_model() -> UIInteractionModel:
         ),
         displays=(
             UIDisplayElement(
+                "status_line",
+                "workflow_status",
+                label="Workflow status",
+                display_type="status",
+                depends_on_states=("loaded", "running", "failed"),
+                rationale="The status line owns transient workflow feedback before result-ready output appears.",
+            ),
+            UIDisplayElement(
                 "summary_card",
                 "run_summary",
                 label="Run summary",
@@ -321,13 +334,155 @@ def journey_coverage() -> UIJourneyCoverage:
     )
 
 
+def capability_inventory() -> UIFunctionalCapabilityInventory:
+    return UIFunctionalCapabilityInventory(
+        "project-workbench-capabilities",
+        source_product_model_id="project-workbench-product-flow",
+        current_revision="template-ui-rev-1",
+        capabilities=(
+            UIFunctionalCapability(
+                "capability:new_project",
+                label="Create a project",
+                capability_kind="generate",
+                expected_output_ids=("output:project-loaded", "output:result-ready"),
+                owner="ui.project.create",
+                validation_boundaries=("journey coverage", "browser click-through"),
+                rationale="A user must be able to create a project, run it, and see a result.",
+            ),
+            UIFunctionalCapability(
+                "capability:load_project",
+                label="Load an existing project",
+                capability_kind="load",
+                expected_output_ids=("output:project-loaded", "output:result-ready"),
+                owner="ui.project.load",
+                validation_boundaries=("journey coverage", "browser click-through"),
+                rationale="A user must be able to load a project, run it, and see a result.",
+            ),
+            UIFunctionalCapability(
+                "capability:exit_app",
+                label="Exit the app",
+                capability_kind="navigate",
+                expected_output_ids=("output:exited",),
+                owner="ui.app.exit",
+                validation_boundaries=("journey coverage", "browser click-through"),
+                rationale="The app-level terminal action is modeled as a user-visible capability.",
+            ),
+        ),
+        validation_boundaries=("product task inventory", "journey coverage"),
+        rationale="Required user-visible functions are accounted before UI completion is claimed.",
+    )
+
+
+def capability_output_contracts() -> tuple[UICapabilityOutputContract, ...]:
+    return (
+        UICapabilityOutputContract(
+            "output:new_project_result_ready",
+            "capability:new_project",
+            output_kind="state",
+            required_state_ids=("loaded", "result_ready"),
+            assertion="Creating and running a project reaches a visible result-ready state.",
+            evidence_kind="browser_click",
+            evidence_ref="evidence://browser/new_project",
+            current_revision="template-ui-rev-1",
+            validation_boundaries=("browser click-through",),
+            rationale="The capability is not complete unless the loaded/result states are observed.",
+        ),
+        UICapabilityOutputContract(
+            "output:load_project_result_ready",
+            "capability:load_project",
+            output_kind="state",
+            required_state_ids=("loaded", "result_ready"),
+            assertion="Loading and running a project reaches a visible result-ready state.",
+            evidence_kind="browser_click",
+            evidence_ref="evidence://browser/load_project",
+            current_revision="template-ui-rev-1",
+            validation_boundaries=("browser click-through",),
+            rationale="The capability is not complete unless the loaded/result states are observed.",
+        ),
+        UICapabilityOutputContract(
+            "output:exit_app",
+            "capability:exit_app",
+            output_kind="state",
+            required_state_ids=("exited",),
+            assertion="Exit reaches the modeled exited state.",
+            evidence_kind="browser_click",
+            evidence_ref="evidence://browser/exit_app",
+            current_revision="template-ui-rev-1",
+            validation_boundaries=("browser click-through",),
+            rationale="Exit is modeled as terminal state evidence, not just a visible label.",
+        ),
+    )
+
+
+def capability_bindings() -> tuple[UICapabilityCoverageBinding, ...]:
+    return (
+        UICapabilityCoverageBinding(
+            "binding:new_project",
+            "capability:new_project",
+            feature_ids=("new_project",),
+            task_ids=("task:new_project",),
+            journey_ids=("new_project",),
+            control_ids=("new_project", "create_project", "run"),
+            event_ids=("click_new_project", "create_project_success", "click_run", "run_success"),
+            functional_chain_ids=("chain:new_project", "chain:run"),
+            code_owner="ui.project.create",
+            output_contract_ids=("output:new_project_result_ready",),
+            implementation_run_ids=("new_project_implementation_run",),
+            evidence_ref="evidence://browser/new_project",
+            current_revision="template-ui-rev-1",
+            validation_boundaries=("feature contract", "browser click-through"),
+            rationale="Capability coverage binds the task to visible controls, modeled events, code ownership, and output evidence.",
+        ),
+        UICapabilityCoverageBinding(
+            "binding:load_project",
+            "capability:load_project",
+            feature_ids=("load_project",),
+            task_ids=("task:load_project",),
+            journey_ids=("load_project",),
+            control_ids=("load_project", "choose_file", "run"),
+            event_ids=("click_load_project", "load_project_success", "click_run", "run_success"),
+            functional_chain_ids=("chain:load_project", "chain:run"),
+            code_owner="ui.project.load",
+            output_contract_ids=("output:load_project_result_ready",),
+            implementation_run_ids=("load_project_implementation_run",),
+            evidence_ref="evidence://browser/load_project",
+            current_revision="template-ui-rev-1",
+            validation_boundaries=("feature contract", "browser click-through"),
+            rationale="Capability coverage proves load behavior beyond the presence of a Load button.",
+        ),
+        UICapabilityCoverageBinding(
+            "binding:exit_app",
+            "capability:exit_app",
+            feature_ids=("exit_app",),
+            task_ids=("task:exit_app",),
+            journey_ids=("exit_app",),
+            control_ids=("exit",),
+            event_ids=("click_exit",),
+            functional_chain_ids=("chain:exit_app",),
+            code_owner="ui.app.exit",
+            output_contract_ids=("output:exit_app",),
+            implementation_run_ids=("exit_app_implementation_run",),
+            evidence_ref="evidence://browser/exit_app",
+            current_revision="template-ui-rev-1",
+            validation_boundaries=("feature contract", "browser click-through"),
+            rationale="Capability coverage records the terminal app-level action explicitly.",
+        ),
+    )
+
+
 def feature_contract(feature_id: str, controls: tuple[str, ...], events: tuple[str, ...]) -> UIFeatureContract:
     return UIFeatureContract(
         feature_id,
         label=feature_id.replace("_", " ").title(),
+        capability_ids=(f"capability:{feature_id}",),
         journey_ids=(feature_id,),
         required_control_ids=controls,
         required_event_ids=events,
+        output_contract_ids=(
+            "output:new_project_result_ready" if feature_id == "new_project"
+            else "output:load_project_result_ready" if feature_id == "load_project"
+            else "output:exit_app"
+        ,),
         validation_boundaries=("functional model review",),
         rationale=f"{feature_id} is user-visible functionality that must align with a UI journey and implementation evidence.",
     )
@@ -371,6 +526,7 @@ def implementation_validation() -> UIImplementationValidation:
         source_journey_coverage_id="project-workbench-journey-coverage",
         implementation_target="local browser build",
         current_model_revision="template-ui-rev-1",
+        source_capability_inventory_id="project-workbench-capabilities",
         feature_contracts=(
             feature_contract(
                 "new_project",
@@ -434,6 +590,8 @@ def implementation_validation() -> UIImplementationValidation:
                 step("click_exit", "exit", "launch", "exited"),
             ),
         ),
+        capability_bindings=capability_bindings(),
+        output_contracts=capability_output_contracts(),
         pure_ui_control_ids=("cancel", "export"),
         pure_ui_event_ids=("click_export", "click_exit_cancelled"),
         implementation_blindspots=(
@@ -455,6 +613,7 @@ def implementation_validation() -> UIImplementationValidation:
                 rationale="The omitted branch remains visible for downstream validation.",
             ),
         ),
+        capability_coverage_reviewed=True,
         journey_coverage_reviewed=True,
         validation_boundaries=("browser click-through", "manual fallback for native dialogs"),
         rationale="Implemented UI evidence is generated from feature contracts and the reviewed journey coverage.",
@@ -1109,10 +1268,20 @@ def run_checks():
     structure = structure_derivation()
     model_report = review_ui_interaction_model(model)
     journey_report = review_ui_journey_coverage(journey_coverage(), interaction_model=model)
+    capability_report = review_ui_functional_capability_coverage(
+        capability_inventory(),
+        current_revision="template-ui-rev-1",
+        interaction_model=model,
+        journey_coverage=journey_coverage(),
+        implementation_validation=implementation_validation(),
+        task_coverage=None,
+    )
     implementation_report = review_ui_implementation_validation(
         implementation_validation(),
         interaction_model=model,
         journey_coverage=journey_coverage(),
+        capability_inventory=capability_inventory(),
+        capability_coverage=capability_report,
     )
     structure_report = review_ui_structure_derivation(structure, interaction_model=model)
     text_report = review_ui_text_hierarchy(
@@ -1130,6 +1299,8 @@ def run_checks():
         broken_implementation_validation(),
         interaction_model=model,
         journey_coverage=journey_coverage(),
+        capability_inventory=capability_inventory(),
+        capability_coverage=capability_report,
     )
     broken_structure_report = review_ui_structure_derivation(
         broken_structure_derivation(),
@@ -1147,6 +1318,7 @@ def run_checks():
     return (
         model_report,
         journey_report,
+        capability_report,
         implementation_report,
         structure_report,
         text_report,
@@ -1177,6 +1349,7 @@ def main() -> int:
     (
         model_report,
         journey_report,
+        capability_report,
         implementation_report,
         structure_report,
         text_report,
@@ -1197,6 +1370,8 @@ def main() -> int:
     print(model_report.format_text())
     print()
     print(journey_report.format_text())
+    print()
+    print(capability_report.format_text())
     print()
     print(implementation_report.format_text())
     print()
@@ -1232,6 +1407,7 @@ def main() -> int:
     return 0 if (
         model_report.ok
         and journey_report.ok
+        and capability_report.ok
         and implementation_report.ok
         and structure_report.ok
         and text_report.ok
@@ -1268,6 +1444,9 @@ itself needs a model-first interaction flow.
   launch state, entry points, feature journeys, terminal actions,
   failure/recovery handling, reachable visible/enabled control branches, and
   residual blindspots;
+- functional capability coverage: required user-visible capabilities, scoped
+  omissions, feature/task/journey/control/event bindings, function owners, and
+  output contracts for result-producing actions;
 - a structure derivation from that model: parent/child UI nodes, first-level
   persistent menus, second-level contextual regions, third-level local actions,
   overlays, stable layout positions, and validation boundaries;
@@ -1282,7 +1461,8 @@ itself needs a model-first interaction flow.
 - implementation validation when the route claims a running UI is implemented
   or complete: user-visible feature contracts, mapped journeys,
   browser/desktop/manual journey runs, step evidence, model revision, pure UI
-  actions, and residual implementation blindspots;
+  actions, capability bindings, output contracts, and residual implementation
+  blindspots;
 - every reachable enabled button, menu item, tab, input, picker, or dialog
   action is clicked, classified as pure UI, or scoped as a blindspot;
 - visible-surface review for user-facing controls, status text, helper copy,
@@ -1368,6 +1548,9 @@ class UICompactPlan:
     journey_entry_points: tuple[str, ...]
     implementation_run_ids: tuple[str, ...]
     observed_item_mappings: tuple[tuple[str, str], ...]
+    capabilities: tuple[tuple[str, str, str], ...]
+    capability_bindings: tuple[tuple[str, str, str, str, str], ...]
+    capability_output_contracts: tuple[tuple[str, str, str], ...]
     functional_chains: tuple[tuple[str, str, str, str, str], ...]
     user_tasks: tuple[tuple[str, str, str], ...]
     human_operability_evidence: tuple[str, ...]
@@ -1414,10 +1597,25 @@ def review_journey(plan: UICompactPlan) -> UICompactReport:
     return report("flowguard UI journey coverage", findings)
 
 
+def review_capability_coverage(plan: UICompactPlan) -> UICompactReport:
+    capability_ids = {capability_id for capability_id, _label, required in plan.capabilities if required == "required"}
+    bound_capabilities = {capability_id for capability_id, _feature_id, _task_id, _control_id, _owner in plan.capability_bindings}
+    output_capabilities = {capability_id for capability_id, _output_kind, _assertion in plan.capability_output_contracts}
+    findings = ["required_capability_missing_binding" for capability_id in sorted(capability_ids - bound_capabilities)]
+    findings += ["result_capability_missing_output_contract" for capability_id in sorted(capability_ids - output_capabilities)]
+    findings += [
+        "capability_binding_incomplete"
+        for _capability_id, feature_id, task_id, control_id, owner in plan.capability_bindings
+        if not all((feature_id, task_id, control_id, owner))
+    ]
+    return report("flowguard UI functional capability coverage", findings)
+
+
 def review_implementation(plan: UICompactPlan) -> UICompactReport:
     findings = []
     findings += ["missing_implementation_run_for_journey"] if not plan.implementation_run_ids else []
     findings += ["missing_render_evidence_kind"] if not plan.evidence_kinds else []
+    findings += ["missing_capability_coverage_evidence_kind"] if "ui_functional_capability_coverage" not in plan.evidence_kinds else []
     findings += ["ui_done_claim_review_missing"] if not plan.ui_done_claim_reviewed else []
     return report("flowguard UI implementation validation", findings)
 
@@ -1471,13 +1669,16 @@ def correct_plan() -> UICompactPlan:
         journey_entry_points=("launch:add-submit",),
         implementation_run_ids=("browser:ui-flow-smoke",),
         observed_item_mappings=(("add", "control:add"), ("submit", "control:submit"), ("reset", "control:reset")),
+        capabilities=(("capability:create_item", "Create item", "required"), ("capability:submit_item", "Submit item", "required"), ("capability:reset_item", "Reset item", "required")),
+        capability_bindings=(("capability:create_item", "create_item", "create_item", "add", "ui.add_item"), ("capability:submit_item", "submit_item", "submit_item", "submit", "ui.submit"), ("capability:reset_item", "reset_item", "reset_item", "reset", "ui.reset")),
+        capability_output_contracts=(("capability:create_item", "state", "editing state is visible"), ("capability:submit_item", "status", "submitted state is visible"), ("capability:reset_item", "state", "empty state is restored")),
         functional_chains=(("add", "click_add", "ui.add_item", "add_item", "editing"), ("submit", "click_submit", "ui.submit", "submit_item", "submitted"), ("reset", "click_reset", "ui.reset", "reset_item", "empty")),
         user_tasks=(("create_item", "add", "walkthrough:add-submit"), ("submit_item", "submit", "walkthrough:add-submit"), ("reset_item", "reset", "walkthrough:reset")),
         human_operability_evidence=("task_coverage", "affordance_review", "action_grammar", "dialog_return", "keyboard_focus", "walkthrough"),
         source_interaction_branches=("trigger", "confirm", "cancel", "value_selected", "success_feedback", "error_path"),
         ui_done_claim_reviewed=True,
         visible_surface_items=(("submit_disabled", "disabled_control", "Submit is disabled because nothing has been added."),),
-        evidence_kinds=("screenshot",),
+        evidence_kinds=("screenshot", "ui_functional_capability_coverage"),
         source_interaction_model_reviewed=True,
         text_roles={"title": "surface-title", "section": "region-heading", "body": "standard-text", "hint": "supporting-text", "button": "standard-text"},
     )
@@ -1492,6 +1693,9 @@ def broken_plan() -> UICompactPlan:
         journey_entry_points=(),
         implementation_run_ids=(),
         observed_item_mappings=(),
+        capabilities=(("capability:submit_item", "Submit item", "required"),),
+        capability_bindings=(),
+        capability_output_contracts=(),
         functional_chains=(),
         user_tasks=(),
         human_operability_evidence=("task_coverage",),
@@ -1509,6 +1713,7 @@ def run_checks():
     bad = broken_plan()
     reviewers = (
         review_interaction_model, review_observed_inventory, review_journey,
+        review_capability_coverage,
         review_functional_chains, review_ui_source_baseline_gate,
         review_human_operability,
         review_implementation, review_visible_surface, review_structure,
@@ -1527,8 +1732,8 @@ def main() -> int:
     for report in reports:
         print(report.format_text())
         print()
-    good = reports[:10]
-    broken = reports[10:]
+    good = reports[:11]
+    broken = reports[11:]
     return 0 if all(report.ok for report in good) and all(not report.ok for report in broken) else 1
 
 
@@ -1539,11 +1744,12 @@ if __name__ == "__main__":
 UI_FLOW_STRUCTURE_NOTES_TEMPLATE = """# FlowGuard UI Flow Structure Notes
 
 This compact default scaffold covers the first useful UI model: real visible
-surface inventory, three states, three visible controls, enabled-control
-functional chains, source-baseline interaction semantics when relevant, two
-transitions, one journey, task coverage plus human-operability, one
-implementation run, one visible-surface check, one evidence kind, one UI
-done-claim review, and one text hierarchy check. For greenfield UI work,
+surface inventory, three states, three visible controls, a required functional
+capability inventory with output contracts, enabled-control functional chains,
+source-baseline interaction semantics when relevant, two transitions, one
+journey, task coverage plus human-operability, one implementation run, one
+visible-surface check, capability evidence kind, one UI done-claim review, and
+one text hierarchy check. For greenfield UI work,
 source-baseline interaction branches are not required; use user tasks, observed
 surface inventory, functional chains, and implementation validation as the
 hard evidence path.

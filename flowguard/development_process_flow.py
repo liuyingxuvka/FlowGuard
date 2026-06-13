@@ -53,6 +53,7 @@ PROCESS_ARTIFACT_REPORT = "report"
 PROCESS_ARTIFACT_ADAPTER = "adapter"
 PROCESS_ARTIFACT_UI_OBSERVED_INVENTORY = "ui_observed_inventory"
 PROCESS_ARTIFACT_UI_FUNCTIONAL_CHAIN = "ui_functional_chain"
+PROCESS_ARTIFACT_UI_FUNCTIONAL_CAPABILITY_COVERAGE = "ui_functional_capability_coverage"
 PROCESS_ARTIFACT_UI_SOURCE_BASELINE_GATE = "ui_source_baseline_gate"
 PROCESS_ARTIFACT_UI_DONE_CLAIM = "ui_done_claim"
 PROCESS_ARTIFACT_UI_HUMAN_OPERABILITY = "ui_human_operability"
@@ -63,6 +64,7 @@ PROCESS_EVIDENCE_MODEL_MISS_REVIEW = "model_miss_review"
 PROCESS_EVIDENCE_BUG_REPAIR_CLOSURE = "bug_repair_closure"
 PROCESS_EVIDENCE_UI_OBSERVED_INVENTORY = "ui_observed_inventory"
 PROCESS_EVIDENCE_UI_FUNCTIONAL_CHAIN = "ui_functional_chain"
+PROCESS_EVIDENCE_UI_FUNCTIONAL_CAPABILITY_COVERAGE = "ui_functional_capability_coverage"
 PROCESS_EVIDENCE_UI_SOURCE_BASELINE_GATE = "ui_source_baseline_gate"
 PROCESS_EVIDENCE_UI_IMPLEMENTATION_VALIDATION = "ui_implementation_validation"
 PROCESS_EVIDENCE_UI_DONE_CLAIM_REVIEW = "ui_done_claim_review"
@@ -758,6 +760,8 @@ def _stale_code_for_artifact(artifact: ProcessArtifact | None, evidence: Process
         return "ui_observed_inventory_changed_after_evidence"
     if artifact.artifact_type == PROCESS_ARTIFACT_UI_FUNCTIONAL_CHAIN:
         return "ui_functional_chain_changed_after_evidence"
+    if artifact.artifact_type == PROCESS_ARTIFACT_UI_FUNCTIONAL_CAPABILITY_COVERAGE:
+        return "ui_functional_capability_coverage_changed_after_evidence"
     if artifact.artifact_type == PROCESS_ARTIFACT_UI_SOURCE_BASELINE_GATE:
         return "ui_source_baseline_gate_changed_after_evidence"
     if artifact.artifact_type == PROCESS_ARTIFACT_UI_DONE_CLAIM:
@@ -1160,6 +1164,7 @@ __all__ = [
     "PROCESS_ARTIFACT_TEST",
     "PROCESS_ARTIFACT_UI_SOURCE_BASELINE_GATE",
     "PROCESS_ARTIFACT_UI_DONE_CLAIM",
+    "PROCESS_ARTIFACT_UI_FUNCTIONAL_CAPABILITY_COVERAGE",
     "PROCESS_ARTIFACT_UI_FUNCTIONAL_CHAIN",
     "PROCESS_ARTIFACT_UI_HUMAN_OPERABILITY",
     "PROCESS_ARTIFACT_UI_OBSERVED_INVENTORY",
@@ -1180,6 +1185,7 @@ __all__ = [
     "PROCESS_EVIDENCE_UI_ACTION_GRAMMAR",
     "PROCESS_EVIDENCE_UI_AFFORDANCE_REVIEW",
     "PROCESS_EVIDENCE_UI_DIALOG_RETURN",
+    "PROCESS_EVIDENCE_UI_FUNCTIONAL_CAPABILITY_COVERAGE",
     "PROCESS_EVIDENCE_UI_FUNCTIONAL_CHAIN",
     "PROCESS_EVIDENCE_UI_HUMAN_OPERABILITY",
     "PROCESS_EVIDENCE_UI_HUMAN_WALKTHROUGH",

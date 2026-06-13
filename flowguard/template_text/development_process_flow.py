@@ -6,8 +6,8 @@ DEVELOPMENT_PROCESS_FLOW_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header
 
 Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
 Purpose: Review a development lifecycle as a sibling process route, tracking artifact versions and validation evidence freshness before done or release claims.
-Guards against: stale validation after code/test/model/requirement/UI observed inventory/UI functional chain/UI source-baseline interaction/UI done-claim/payload-schema/field-lifecycle changes, oversized direct model evidence, slow or broad direct validation evidence, progress-only evidence, hidden skips, missing V-style validation pairs, peer writes, and release overclaims.
-Use before editing: Update this development process flow when changing development ordering, UI click-through, observed-inventory, functional-chain, source-baseline interaction, done-claim, payload-pack validation gates, release readiness, or evidence freshness policy.
+Guards against: stale validation after code/test/model/requirement/UI observed inventory/UI functional capability coverage/UI functional chain/UI source-baseline interaction/UI done-claim/payload-schema/field-lifecycle changes, oversized direct model evidence, slow or broad direct validation evidence, progress-only evidence, hidden skips, missing V-style validation pairs, peer writes, and release overclaims.
+Use before editing: Update this development process flow when changing development ordering, UI click-through, observed-inventory, functional capability coverage, functional-chain, source-baseline interaction, done-claim, payload-pack validation gates, release readiness, or evidence freshness policy.
 Run: python .flowguard/development_process_flow/run_checks.py
 """
 
@@ -24,6 +24,7 @@ from flowguard import (
     PROCESS_ARTIFACT_REQUIREMENT,
     PROCESS_ARTIFACT_TEST,
     PROCESS_ARTIFACT_UI_DONE_CLAIM,
+    PROCESS_ARTIFACT_UI_FUNCTIONAL_CAPABILITY_COVERAGE,
     PROCESS_ARTIFACT_UI_FUNCTIONAL_CHAIN,
     PROCESS_ARTIFACT_UI_OBSERVED_INVENTORY,
     PROCESS_EVIDENCE_BUG_REPAIR_CLOSURE,
@@ -33,6 +34,7 @@ from flowguard import (
     PROCESS_EVIDENCE_MODEL_MISS_REVIEW,
     PROCESS_EVIDENCE_PASSED,
     PROCESS_EVIDENCE_UI_DONE_CLAIM_REVIEW,
+    PROCESS_EVIDENCE_UI_FUNCTIONAL_CAPABILITY_COVERAGE,
     PROCESS_EVIDENCE_UI_FUNCTIONAL_CHAIN,
     PROCESS_EVIDENCE_UI_IMPLEMENTATION_VALIDATION,
     PROCESS_EVIDENCE_UI_OBSERVED_INVENTORY,
@@ -200,8 +202,9 @@ Use this scaffold to model a development lifecycle as a stateful process.
   dispositions, bug-repair closure rows, and sibling route report artifacts;
 - ordered development actions that read, write, invalidate, or claim evidence;
 - validation evidence and the exact artifact versions it covers;
-- UI action-map and real-surface artifact-payload case revisions when evidence
-  covers them;
+- UI observed inventory, functional capability coverage, functional-chain,
+  source-baseline, done-claim, and real-surface artifact-payload case revisions
+  when evidence covers them;
 - verifier changes, such as tests or model files changing after evidence was
   produced;
 - freshness rules that propagate upstream changes to downstream artifacts;
@@ -220,6 +223,13 @@ them with `PROCESS_EVIDENCE_FIELD_LIFECYCLE`,
 `PROCESS_EVIDENCE_FIELD_PROJECTION`, `PROCESS_EVIDENCE_MODEL_MISS_REVIEW`, or
 `PROCESS_EVIDENCE_BUG_REPAIR_CLOSURE` evidence so later done/release claims can
 see when field evidence became stale.
+
+For UI work that claims user-visible functions are implemented or runnable,
+track capability inventories or output-contract/binding rows with
+`PROCESS_ARTIFACT_UI_FUNCTIONAL_CAPABILITY_COVERAGE` and pair them with
+`PROCESS_EVIDENCE_UI_FUNCTIONAL_CAPABILITY_COVERAGE`. A later UI model,
+feature-contract, task, output, or implementation change should stale that
+evidence before release confidence.
 
 ## Sibling Route Boundary
 

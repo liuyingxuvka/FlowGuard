@@ -239,6 +239,23 @@ class ApiSurfaceTests(unittest.TestCase):
             self.assertIn(name, flowguard.__all__)
             self.assertTrue(hasattr(flowguard, name), name)
             self.assertNotIn(name, flowguard.CORE_API)
+        new_ui_capability_helpers = (
+            "UI_CAPABILITY_KINDS",
+            "UI_CAPABILITY_OUTPUT_KINDS",
+            "UI_CAPABILITY_RESULT_OUTPUT_KINDS",
+            "UIFunctionalCapability",
+            "UIFunctionalCapabilityInventory",
+            "UICapabilityOutputContract",
+            "UICapabilityCoverageBinding",
+            "UIFunctionalCapabilityCoverageReport",
+            "review_ui_functional_capability_coverage",
+        )
+        for name in new_ui_capability_helpers:
+            self.assertIn(name, flowguard.MODELING_HELPER_API)
+            self.assertIn(name, flowguard.UI_FLOW_STRUCTURE_ROUTE_API)
+            self.assertIn(name, flowguard.__all__)
+            self.assertTrue(hasattr(flowguard, name), name)
+            self.assertNotIn(name, flowguard.CORE_API)
         new_ui_human_operability_helpers = (
             "UI_HUMAN_OPERABILITY_EVIDENCE_KINDS",
             "UI_PERCEIVED_ACTIONABLE_ROLES",

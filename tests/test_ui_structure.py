@@ -9,9 +9,13 @@ from flowguard import (
     UIControl,
     UIControlFunctionalChain,
     UIControlFunctionalChainSet,
+    UICapabilityCoverageBinding,
+    UICapabilityOutputContract,
     UIDisplayElement,
     UIFeatureContract,
     UIFeatureJourney,
+    UIFunctionalCapability,
+    UIFunctionalCapabilityInventory,
     UIGeometryLayoutEvidence,
     UIGeometryLayoutEvidenceSet,
     UIHotPathAction,
@@ -53,6 +57,7 @@ from flowguard import (
     UIUserTaskFrame,
     UIVisibleSurface,
     UIVisibleSurfaceItem,
+    review_ui_functional_capability_coverage,
     review_ui_human_operability,
     review_ui_source_baseline_alignment,
     review_ui_source_baseline_interactions,
@@ -833,6 +838,68 @@ def functional_chain_set(**kwargs) -> UIControlFunctionalChainSet:
     }
     defaults.update(kwargs)
     return UIControlFunctionalChainSet("import-run-functional-chains", **defaults)
+
+
+def capability_inventory(**kwargs) -> UIFunctionalCapabilityInventory:
+    defaults = {
+        "source_product_model_id": "import-run-product-flow",
+        "source_authority_refs": ("product://import-run",),
+        "current_revision": "ui-rev-1",
+        "capabilities": (
+            UIFunctionalCapability(
+                "load_file",
+                label="Load file",
+                capability_kind="load",
+                expected_output_ids=("load_file_output",),
+                owner="import workflow",
+                validation_boundaries=("capability review",),
+                rationale="The UI must let the user load a file before work can run.",
+            ),
+        ),
+        "validation_boundaries": ("capability inventory review",),
+        "rationale": "The UI capability inventory accounts required user-visible functions before UI completion.",
+    }
+    defaults.update(kwargs)
+    return UIFunctionalCapabilityInventory("import-run-capabilities", **defaults)
+
+
+def capability_output_contract(**kwargs) -> UICapabilityOutputContract:
+    output_contract_id = kwargs.pop("output_contract_id", "load-file-output")
+    defaults = {
+        "capability_id": "load_file",
+        "output_kind": "state",
+        "required_state_ids": ("file_loaded",),
+        "assertion": "After file load, the selected path is reflected and file_loaded state is reached.",
+        "evidence_kind": "browser_click",
+        "evidence_ref": "evidence://browser/import-click.json",
+        "result": "passed",
+        "current_revision": "ui-rev-1",
+        "validation_boundaries": ("browser click-through",),
+        "rationale": "The output contract proves result semantics, not just a visible container.",
+    }
+    defaults.update(kwargs)
+    return UICapabilityOutputContract(output_contract_id, **defaults)
+
+
+def capability_binding(**kwargs) -> UICapabilityCoverageBinding:
+    binding_id = kwargs.pop("binding_id", "load-file-binding")
+    defaults = {
+        "capability_id": "load_file",
+        "feature_ids": ("file_select",),
+        "task_ids": ("select_file",),
+        "control_ids": ("import",),
+        "event_ids": ("click_import",),
+        "functional_chain_ids": ("import_chain",),
+        "code_owner": "ImportFile",
+        "output_contract_ids": ("load-file-output",),
+        "evidence_ref": "evidence://browser/import-click.json",
+        "result": "passed",
+        "current_revision": "ui-rev-1",
+        "validation_boundaries": ("browser click-through",),
+        "rationale": "The load capability is bound through feature, task, UI control, code owner, output, and evidence.",
+    }
+    defaults.update(kwargs)
+    return UICapabilityCoverageBinding(binding_id, **defaults)
 
 
 def ui_source_baseline_gate(**kwargs) -> UISourceBaselineInteractionGate:
@@ -1975,6 +2042,173 @@ class UIJourneyCoverageTests(unittest.TestCase):
         self.assertIn("missing_blindspot_validation", [finding.code for finding in report.findings])
 
 
+class UIFunctionalCapabilityCoverageTests(unittest.TestCase):
+    def review(self, **kwargs):
+        defaults = {
+            "feature_contracts": (
+                feature_contract(
+                    "file_select",
+                    capability_ids=("load_file",),
+                    output_contract_ids=("load-file-output",),
+                    required_control_ids=("import",),
+                    required_event_ids=("click_import",),
+                ),
+            ),
+            "task_coverage": task_coverage_ledger(
+                source_capability_inventory_id="import-run-capabilities",
+                capability_task_links=(("load_file", "select_file"),),
+            ),
+            "interaction_model": ui_model(),
+            "functional_chains": functional_chain_set(),
+            "output_contracts": (capability_output_contract(),),
+            "capability_bindings": (capability_binding(),),
+            "current_revision": "ui-rev-1",
+        }
+        defaults.update(kwargs)
+        return review_ui_functional_capability_coverage(capability_inventory(), **defaults)
+
+    def test_complete_functional_capability_coverage_can_continue(self):
+        report = self.review()
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual(("load_file",), report.covered_capability_ids)
+        self.assertEqual(("load-file-output",), report.output_contract_ids)
+
+    def test_required_capability_without_task_ui_path_owner_or_output_blocks(self):
+        report = self.review(
+            task_coverage=task_coverage_ledger(
+                source_capability_inventory_id="import-run-capabilities",
+                capability_task_links=(),
+            ),
+            output_contracts=(),
+            capability_bindings=(),
+        )
+
+        codes = finding_codes(report)
+        self.assertFalse(report.ok)
+        self.assertIn("capability_missing_binding", codes)
+        self.assertIn("capability_missing_user_task", codes)
+        self.assertIn("capability_missing_ui_path", codes)
+        self.assertIn("capability_missing_implementation_owner", codes)
+        self.assertIn("capability_missing_output_contract", codes)
+
+    def test_result_container_without_output_semantics_blocks(self):
+        report = self.review(
+            output_contracts=(
+                capability_output_contract(
+                    required_state_ids=(),
+                    required_display_ids=(),
+                    required_data_refs=(),
+                    assertion="",
+                ),
+            )
+        )
+
+        codes = finding_codes(report)
+        self.assertFalse(report.ok)
+        self.assertIn("capability_output_missing_target", codes)
+        self.assertIn("capability_output_missing_assertion", codes)
+
+    def test_dependency_gap_blocks_dependent_capability_confidence(self):
+        inventory = capability_inventory(
+            capabilities=(
+                UIFunctionalCapability(
+                    "load_file",
+                    label="Load file",
+                    capability_kind="load",
+                    expected_output_ids=("load_file_output",),
+                    owner="import workflow",
+                    validation_boundaries=("capability review",),
+                    rationale="Load is required before plotting.",
+                ),
+                UIFunctionalCapability(
+                    "plot_results",
+                    label="Plot results",
+                    capability_kind="plot",
+                    prerequisite_capability_ids=("load_file",),
+                    expected_output_ids=("plot_output",),
+                    owner="plot workflow",
+                    validation_boundaries=("capability review",),
+                    rationale="Plotting depends on loaded data.",
+                ),
+            )
+        )
+        report = review_ui_functional_capability_coverage(
+            inventory,
+            feature_contracts=(
+                feature_contract("plot_results", capability_ids=("plot_results",)),
+            ),
+            interaction_model=ui_model(),
+            output_contracts=(
+                capability_output_contract(
+                    output_contract_id="plot-output",
+                    capability_id="plot_results",
+                    output_kind="chart",
+                    required_display_ids=("result_table",),
+                    assertion="Plot updates from loaded results.",
+                ),
+            ),
+            capability_bindings=(
+                capability_binding(
+                    binding_id="plot-binding",
+                    capability_id="plot_results",
+                    feature_ids=("plot_results",),
+                    control_ids=("run",),
+                    event_ids=("click_run",),
+                    functional_chain_ids=(),
+                    code_owner="PlotResults",
+                    output_contract_ids=("plot-output",),
+                ),
+            ),
+            current_revision="ui-rev-1",
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("capability_prerequisite_not_covered", finding_codes(report))
+
+    def test_unbounded_scoped_capability_blocks(self):
+        inventory = capability_inventory(
+            capabilities=(
+                UIFunctionalCapability(
+                    "deferred_export",
+                    label="Export",
+                    capability_kind="export",
+                    required=True,
+                    scoped_reason="",
+                    owner="",
+                    validation_boundaries=(),
+                    rationale="",
+                ),
+            ),
+            scoped_out_capability_ids=("deferred_export",),
+        )
+
+        report = review_ui_functional_capability_coverage(inventory, current_revision="ui-rev-1")
+
+        codes = finding_codes(report)
+        self.assertFalse(report.ok)
+        self.assertIn("scoped_capability_missing_reason", codes)
+        self.assertIn("scoped_capability_missing_owner", codes)
+        self.assertIn("scoped_capability_missing_validation", codes)
+
+    def test_failed_or_stale_binding_and_output_blocks(self):
+        report = self.review(
+            output_contracts=(
+                capability_output_contract(result="failed", current_revision="old-rev"),
+            ),
+            capability_bindings=(
+                capability_binding(result="skipped", current_revision="old-rev"),
+            ),
+        )
+
+        codes = finding_codes(report)
+        self.assertFalse(report.ok)
+        self.assertIn("capability_output_not_passed", codes)
+        self.assertIn("capability_output_stale", codes)
+        self.assertIn("capability_binding_not_passed", codes)
+        self.assertIn("capability_binding_stale", codes)
+
+
 class UIImplementationValidationTests(unittest.TestCase):
     def test_complete_implementation_validation_can_continue(self):
         model = app_ui_model()
@@ -1989,6 +2223,119 @@ class UIImplementationValidationTests(unittest.TestCase):
         self.assertTrue(report.ok, report.format_text())
         self.assertIn("new_project", report.covered_feature_ids)
         self.assertIn("click_load_project", report.covered_event_ids)
+
+    def test_complete_implementation_requires_capability_coverage_when_inventory_is_supplied(self):
+        inventory = UIFunctionalCapabilityInventory(
+            "project-app-capabilities",
+            current_revision="ui-rev-1",
+            capabilities=(
+                UIFunctionalCapability(
+                    "new_project_capability",
+                    label="Create new project",
+                    capability_kind="generate",
+                    expected_output_ids=("new-project-output",),
+                    owner="project app",
+                    validation_boundaries=("capability review",),
+                    rationale="Creating a project is a user-visible UI capability.",
+                ),
+            ),
+            validation_boundaries=("capability inventory review",),
+            rationale="The app-level capability inventory is required for full runnable UI confidence.",
+        )
+
+        report = review_ui_implementation_validation(
+            implementation_validation(),
+            interaction_model=app_ui_model(),
+            journey_coverage=journey_coverage(),
+            capability_inventory=inventory,
+        )
+
+        codes = finding_codes(report)
+        self.assertFalse(report.ok)
+        self.assertIn("missing_source_capability_inventory", codes)
+        self.assertIn("capability_coverage_not_reviewed_for_implementation", codes)
+        self.assertIn("missing_implementation_capability_coverage", codes)
+
+    def test_complete_implementation_accepts_current_capability_coverage(self):
+        inventory = UIFunctionalCapabilityInventory(
+            "project-app-capabilities",
+            current_revision="ui-rev-1",
+            capabilities=(
+                UIFunctionalCapability(
+                    "new_project_capability",
+                    label="Create new project",
+                    capability_kind="generate",
+                    expected_output_ids=("new-project-output",),
+                    owner="project app",
+                    validation_boundaries=("capability review",),
+                    rationale="Creating a project is a user-visible UI capability.",
+                ),
+            ),
+            validation_boundaries=("capability inventory review",),
+            rationale="The app-level capability inventory is required for full runnable UI confidence.",
+        )
+        base_validation = implementation_validation()
+        feature_contracts = (
+            replace(
+                base_validation.feature_contracts[0],
+                capability_ids=("new_project_capability",),
+                output_contract_ids=("new-project-output",),
+            ),
+        ) + base_validation.feature_contracts[1:]
+        validation = implementation_validation(
+            source_capability_inventory_id="project-app-capabilities",
+            feature_contracts=feature_contracts,
+            capability_bindings=(
+                UICapabilityCoverageBinding(
+                    "new-project-capability-binding",
+                    "new_project_capability",
+                    feature_ids=("new_project",),
+                    journey_ids=("new_project",),
+                    control_ids=("new_project", "create_project"),
+                    event_ids=("click_new_project", "create_project_success"),
+                    code_owner="ProjectCreation",
+                    output_contract_ids=("new-project-output",),
+                    implementation_run_ids=("new_project_run",),
+                    evidence_ref="evidence://new_project",
+                    current_revision="ui-rev-1",
+                    validation_boundaries=("browser click-through",),
+                    rationale="The new-project capability is bound to the feature journey and implementation run.",
+                ),
+            ),
+            output_contracts=(
+                UICapabilityOutputContract(
+                    "new-project-output",
+                    "new_project_capability",
+                    output_kind="state",
+                    required_state_ids=("workbench_ready",),
+                    assertion="Creating a project reaches the workbench-ready state.",
+                    evidence_kind="browser_click",
+                    evidence_ref="evidence://new_project",
+                    current_revision="ui-rev-1",
+                    validation_boundaries=("browser click-through",),
+                    rationale="The output contract proves the state result of the project creation capability.",
+                ),
+            ),
+            capability_coverage_reviewed=True,
+        )
+        capability_report = review_ui_functional_capability_coverage(
+            inventory,
+            implementation_validation=validation,
+            journey_coverage=journey_coverage(),
+            interaction_model=app_ui_model(),
+            current_revision="ui-rev-1",
+        )
+        self.assertTrue(capability_report.ok, capability_report.format_text())
+
+        report = review_ui_implementation_validation(
+            validation,
+            interaction_model=app_ui_model(),
+            journey_coverage=journey_coverage(),
+            capability_inventory=inventory,
+            capability_coverage=capability_report,
+        )
+
+        self.assertTrue(report.ok, report.format_text())
 
     def test_user_visible_feature_without_ui_path_blocks(self):
         validation = implementation_validation(

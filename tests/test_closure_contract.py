@@ -13,6 +13,7 @@ from flowguard import (
     CLOSURE_REPORT_UI_SOURCE_BASELINE_ALIGNMENT,
     CLOSURE_REPORT_UI_DONE_CLAIM,
     CLOSURE_REPORT_UI_HUMAN_OPERABILITY,
+    CLOSURE_REPORT_UI_FUNCTIONAL_CAPABILITY_COVERAGE,
     MODEL_QUALITY_HIDDEN_STATE,
     ArtifactInvalidation,
     ClosureEvidenceReport,
@@ -346,6 +347,47 @@ class FlowGuardClosureContractTests(unittest.TestCase):
                         "report:ui-human-operability",
                         report_kind=CLOSURE_REPORT_UI_HUMAN_OPERABILITY,
                         decision="ui_human_operability_full_confidence",
+                    ),
+                ),
+            )
+        )
+        self.assertTrue(full.ok, full.format_text())
+        self.assertEqual(CLOSURE_DECISION_FULL, full.decision)
+
+    def test_required_ui_functional_capability_coverage_is_final_confidence_input(self):
+        missing = review_flowguard_closure_contract(
+            green_plan(require_ui_functional_capability_coverage=True)
+        )
+        self.assertFalse(missing.ok)
+        self.assertIn("missing_ui_functional_capability_coverage", finding_codes(missing))
+
+        scoped = review_flowguard_closure_contract(
+            green_plan(
+                require_ui_functional_capability_coverage=True,
+                evidence_reports=green_plan().evidence_reports
+                + (
+                    evidence_report(
+                        "report:ui-functional-capability",
+                        report_kind=CLOSURE_REPORT_UI_FUNCTIONAL_CAPABILITY_COVERAGE,
+                        decision="ui_functional_capability_scoped_confidence",
+                        confidence=CLOSURE_CONFIDENCE_SCOPED,
+                    ),
+                ),
+            )
+        )
+        self.assertTrue(scoped.ok, scoped.format_text())
+        self.assertEqual(CLOSURE_DECISION_SCOPED, scoped.decision)
+        self.assertIn("ui_functional_capability_coverage_not_full_confidence", finding_codes(scoped))
+
+        full = review_flowguard_closure_contract(
+            green_plan(
+                require_ui_functional_capability_coverage=True,
+                evidence_reports=green_plan().evidence_reports
+                + (
+                    evidence_report(
+                        "report:ui-functional-capability",
+                        report_kind=CLOSURE_REPORT_UI_FUNCTIONAL_CAPABILITY_COVERAGE,
+                        decision="ui_functional_capability_full_confidence",
                     ),
                 ),
             )

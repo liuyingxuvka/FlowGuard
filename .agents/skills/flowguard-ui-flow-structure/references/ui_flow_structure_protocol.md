@@ -7,8 +7,9 @@ grounded in user tasks, target UI intent, observed UI, functional chains, and
 implementation evidence. Source-based and mixed work must also build a source
 baseline, target mapping, approved-difference ledger, and observed-source
 alignment. After work-mode routing, the route has model/design stages for
-complete app-level UI claims: build or review a UI interaction model, review
-visible UI surface, review launch-to-terminal journey coverage, derive UI
+complete app-level UI claims: account required user-visible functional
+capabilities, build or review a UI interaction model, review visible UI
+surface, review launch-to-terminal journey coverage, derive UI
 structure from that model, then derive a UI text hierarchy blueprint from the
 reviewed structure. It has a later implementation-evidence stage only when the
 agent claims the running UI is implemented, runnable, or complete. Local
@@ -49,6 +50,10 @@ Use UI Flow Structure when:
 - the UI already exists or can run, and the agent needs to account the real
   visible buttons, inputs, dropdowns, tables, displayed fields, status text,
   dialogs, and regions before claiming the model covers it.
+- the UI is supposed to provide user-visible functions such as load, plot,
+  render, refresh, export, save, delete, search, configure, generate, or open,
+  and those functions must be checked before the visual/control model can be
+  called complete.
 - the UI may technically be wired but still confusing to a human, so supported
   user-visible features must be covered by task frames, primary controls,
   action grammar, region semantics, dialog/window return semantics,
@@ -64,6 +69,9 @@ Collect the lightest fit-for-risk UI evidence:
 - UI work mode: `greenfield`, `source_based`, or `mixed`, including which
   scope ids are greenfield and which are source-based;
 - product goal and user workflow;
+- required user-visible capability inventory from the product goal, user task
+  list, source authority, or accepted scope; for greenfield work this comes
+  from intended user tasks, not from a source baseline;
 - source authority inventory when work is source-based or mixed, such as an
   existing app, prototype, design file, screenshot, product spec, customer
   workflow, manual observation, runtime observation, or other declared source;
@@ -90,6 +98,8 @@ Collect the lightest fit-for-risk UI evidence:
   error, recovery, validation, and success text when available;
 - user-visible feature contracts from the product or functional model when an
   implemented/runnable UI claim is made;
+- capability-to-feature/task/journey/control/event/function/evidence bindings,
+  plus output contracts for result-producing capabilities;
 - user task inventory: every supported feature, every task a user can perform,
   task-to-feature links, UI path links, primary controls, required feedback,
   cancel/error behavior, keyboard/focus expectations, and scoped-out tasks;
@@ -134,6 +144,46 @@ Known-bad hazards:
 - a visible button, picker, input, table, field, or status text is not mapped;
 - an enabled visible control is treated as covered because its label matches;
 - a blindspot has no owner, reason, or follow-up validation boundary.
+
+## Stage 0A: Functional Capability Coverage
+
+For non-trivial UI work, or whenever an agent claims the UI is implemented,
+runnable, complete, button-wired, or covers user-visible functionality, build a
+`UIFunctionalCapabilityInventory` before broad UI confidence. This applies to
+greenfield, source-based, and mixed UI work. Source-based work may populate the
+inventory from a declared source authority; greenfield work populates it from
+accepted user tasks and product scope.
+
+Use `UIFunctionalCapabilityInventory`, `UIFunctionalCapability`,
+`UICapabilityOutputContract`, `UICapabilityCoverageBinding`, and
+`review_ui_functional_capability_coverage(...)` when the package API is
+available.
+
+Each required user-visible capability must map to:
+
+- a `UIFeatureContract`;
+- a `UIUserTaskFrame` or task ledger entry;
+- a UI journey, visible control, or modeled event;
+- a functional chain, code owner, code contract, implementation run, or test
+  evidence;
+- an output contract when the capability produces visible/result state such as
+  a chart, table, file, generated artifact, saved item, refreshed list, status
+  update, navigation result, or deletion result.
+
+If a capability is intentionally out of scope, deferred, blocked, manual-only,
+or pure UI-only, the row must state owner, reason, validation boundary, and
+rationale. Empty scoped-out lists do not satisfy completeness.
+
+Known-bad hazards:
+
+- the UI has a button inventory but no inventory of what functions the user
+  actually needs to perform;
+- a result-producing capability only proves that a button or API route exists;
+- a chart/table/file/status result is visible as a container but has no output
+  assertion or evidence;
+- a greenfield UI invents a small task list and silently omits other accepted
+  user functions;
+- a source-based UI preserves labels while losing source workflow semantics.
 
 ## Stage 1: UI Interaction Model
 

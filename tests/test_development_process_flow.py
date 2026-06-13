@@ -11,6 +11,7 @@ from flowguard import (
     PROCESS_ARTIFACT_REQUIREMENT,
     PROCESS_ARTIFACT_TEST,
     PROCESS_ARTIFACT_UI_DONE_CLAIM,
+    PROCESS_ARTIFACT_UI_FUNCTIONAL_CAPABILITY_COVERAGE,
     PROCESS_ARTIFACT_UI_FUNCTIONAL_CHAIN,
     PROCESS_ARTIFACT_UI_HUMAN_OPERABILITY,
     PROCESS_ARTIFACT_UI_OBSERVED_INVENTORY,
@@ -19,6 +20,7 @@ from flowguard import (
     PROCESS_EVIDENCE_FIELD_PROJECTION,
     PROCESS_EVIDENCE_FAILED,
     PROCESS_EVIDENCE_UI_SOURCE_BASELINE_GATE,
+    PROCESS_EVIDENCE_UI_FUNCTIONAL_CAPABILITY_COVERAGE,
     PROCESS_EVIDENCE_MODEL_MISS_REVIEW,
     PROCESS_EVIDENCE_NOT_RUN,
     PROCESS_EVIDENCE_PASSED,
@@ -235,6 +237,31 @@ class DevelopmentProcessFlowTests(unittest.TestCase):
         report = review_development_process_flow(plan)
         self.assertFalse(report.ok)
         self.assertIn("ui_human_operability_changed_after_evidence", {finding.code for finding in report.findings})
+
+    def test_ui_functional_capability_change_stales_capability_evidence(self):
+        plan = DevelopmentProcessPlan(
+            "ui-capability-lifecycle",
+            artifacts=(ProcessArtifact("ui.capabilities", PROCESS_ARTIFACT_UI_FUNCTIONAL_CAPABILITY_COVERAGE, "2"),),
+            actions=(
+                ProcessAction("review-capability-coverage", produced_evidence_ids=("ui-capability-pass",)),
+                ProcessAction("edit-output-contract", writes_artifacts=("ui.capabilities",)),
+                ProcessAction("claim-done", action_type="claim_done"),
+            ),
+            evidence=(
+                ProcessEvidence(
+                    "ui-capability-pass",
+                    evidence_kind=PROCESS_EVIDENCE_UI_FUNCTIONAL_CAPABILITY_COVERAGE,
+                    status=PROCESS_EVIDENCE_PASSED,
+                    covers_artifacts=("ui.capabilities",),
+                    covered_versions={"ui.capabilities": "1"},
+                    produced_by_action_id="review-capability-coverage",
+                ),
+            ),
+        )
+
+        report = review_development_process_flow(plan)
+        self.assertFalse(report.ok)
+        self.assertIn("ui_functional_capability_coverage_changed_after_evidence", {finding.code for finding in report.findings})
 
     def test_test_verifier_change_after_test_pass_is_stale(self):
         plan = DevelopmentProcessPlan(

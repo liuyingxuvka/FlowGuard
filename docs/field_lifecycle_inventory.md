@@ -4,52 +4,52 @@ Generated inventory of FlowGuard dataclass fields. It is a maintenance
 aid, not deletion authority: behavior-bearing, compatibility-looking,
 and evidence-bearing fields still need route-owned proof before edits.
 
-- Field rows: `3226`
-- Modules: `68`
+- Field rows: `3841`
+- Modules: `69`
 
 ## Lifecycle Layers
 
 | Layer | Fields |
 | --- | ---: |
-| `behavior_or_contract` | 470 |
-| `collection_metadata` | 630 |
-| `compatibility_or_old_path` | 36 |
-| `display_or_metadata` | 177 |
-| `evidence_or_decision` | 652 |
-| `unclassified` | 1261 |
+| `behavior_or_contract` | 562 |
+| `collection_metadata` | 759 |
+| `compatibility_or_old_path` | 39 |
+| `display_or_metadata` | 193 |
+| `evidence_or_decision` | 772 |
+| `unclassified` | 1516 |
 
 ## AI Surface Tiers
 
 | Tier | Fields |
 | --- | ---: |
-| `advanced` | 385 |
-| `internal` | 1977 |
-| `starter` | 864 |
+| `advanced` | 446 |
+| `internal` | 2291 |
+| `starter` | 1104 |
 
 ## Route Owners
 
 | Route Owner | Fields |
 | --- | ---: |
-| `core_or_internal` | 1123 |
-| `ui_flow_structure` | 226 |
+| `core_or_internal` | 1183 |
+| `ui_flow_structure` | 676 |
+| `model_test_alignment` | 212 |
 | `plan_intake_claims` | 177 |
-| `model_test_alignment` | 160 |
 | `model_mesh_maintenance` | 147 |
-| `model_similarity_consolidation` | 136 |
+| `model_similarity_consolidation` | 146 |
 | `plan_detailing_compiler` | 121 |
 | `development_process_flow` | 95 |
-| `flowguard_closure_contract` | 90 |
+| `flowguard_closure_contract` | 94 |
+| `model_miss_review` | 90 |
 | `model_impact_freshness` | 75 |
 | `model_topology_hazard_review` | 73 |
 | `architecture_reduction` | 71 |
+| `agent_workflow_rehearsal` | 69 |
 | `existing_model_preflight` | 68 |
 | `maintenance_scan_router` | 66 |
 | `test_mesh_maintenance` | 66 |
 | `field_lifecycle_mesh` | 65 |
-| `agent_workflow_rehearsal` | 61 |
 | `flowguard_self_maintenance` | 61 |
 | `structure_mesh_maintenance` | 61 |
-| `model_miss_review` | 59 |
 | `risk_evidence_ledger` | 47 |
 | `code_structure_recommendation` | 44 |
 | `model_maturation_loop` | 39 |
@@ -61,31 +61,32 @@ and evidence-bearing fields still need route-owned proof before edits.
 
 | Module | Fields |
 | --- | ---: |
-| `ui_structure` | 226 |
+| `ui_structure` | 676 |
+| `model_test_alignment` | 212 |
 | `plan_intake` | 177 |
-| `model_test_alignment` | 160 |
 | `hierarchy` | 147 |
-| `model_similarity` | 136 |
+| `model_similarity` | 146 |
 | `plan_detailing` | 121 |
 | `layered_proof` | 103 |
 | `obligation_family` | 100 |
 | `development_process_flow` | 95 |
-| `closure_contract` | 90 |
+| `closure_contract` | 94 |
+| `recurring_model_miss` | 90 |
 | `runtime_path` | 80 |
 | `model_freshness` | 75 |
 | `topology_hazard` | 73 |
 | `architecture_reduction` | 71 |
+| `agent_workflow_rehearsal` | 69 |
 | `existing_model_preflight` | 68 |
 | `maintenance_scan` | 66 |
 | `testmesh` | 66 |
 | `field_lifecycle` | 65 |
-| `agent_workflow_rehearsal` | 61 |
 | `self_maintenance` | 61 |
 | `structuremesh` | 61 |
-| `recurring_model_miss` | 59 |
 | `runtime_gateway` | 54 |
 | `auto_split` | 52 |
 | `budgeted` | 52 |
+| `risk_templates` | 51 |
 | `corpus` | 48 |
 | `executable` | 48 |
 | `risk_evidence_ledger` | 47 |
@@ -93,15 +94,16 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `model_maturation` | 39 |
 | `state_closure` | 38 |
 | `model_angle_deliberation` | 32 |
+| `plan` | 32 |
 | `report` | 30 |
 | `scenario` | 30 |
-| `plan` | 29 |
 | `step_contracts` | 29 |
 | `loop` | 28 |
 | `summary_report` | 26 |
 | `maintenance_obligation` | 25 |
 | `progress` | 25 |
 | `adoption` | 23 |
+| `risk` | 23 |
 | `contract` | 22 |
 | `test_reuse` | 21 |
 | `coverage` | 19 |
@@ -110,7 +112,6 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `transition_coverage` | 18 |
 | `baseline` | 17 |
 | `proof_artifact` | 17 |
-| `risk` | 17 |
 | `assumptions` | 16 |
 | `conformance` | 16 |
 | `minimize` | 15 |
@@ -219,6 +220,7 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `agent_workflow_rehearsal` | `AgentWorkflowPlan` | `final_claim` | `agent_workflow_rehearsal` | `starter` | `unclassified` | `false` |
 | `agent_workflow_rehearsal` | `AgentWorkflowPlan` | `final_evidence_ids` | `agent_workflow_rehearsal` | `starter` | `evidence_or_decision` | `false` |
 | `agent_workflow_rehearsal` | `AgentWorkflowPlan` | `risk_flags` | `agent_workflow_rehearsal` | `internal` | `collection_metadata` | `false` |
+| `agent_workflow_rehearsal` | `AgentWorkflowPlan` | `ui_evidence_roles` | `agent_workflow_rehearsal` | `starter` | `evidence_or_decision` | `false` |
 | `agent_workflow_rehearsal` | `AgentWorkflowPlan` | `task_trivial` | `agent_workflow_rehearsal` | `internal` | `unclassified` | `false` |
 | `agent_workflow_rehearsal` | `AgentWorkflowRehearsalFinding` | `code` | `agent_workflow_rehearsal` | `starter` | `unclassified` | `false` |
 | `agent_workflow_rehearsal` | `AgentWorkflowRehearsalFinding` | `message` | `agent_workflow_rehearsal` | `internal` | `display_or_metadata` | `false` |
@@ -232,6 +234,13 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `agent_workflow_rehearsal` | `AgentWorkflowRehearsalReport` | `findings` | `agent_workflow_rehearsal` | `starter` | `evidence_or_decision` | `false` |
 | `agent_workflow_rehearsal` | `AgentWorkflowRehearsalReport` | `selected_skills` | `agent_workflow_rehearsal` | `internal` | `collection_metadata` | `false` |
 | `agent_workflow_rehearsal` | `AgentWorkflowRehearsalReport` | `skipped_skills` | `agent_workflow_rehearsal` | `internal` | `collection_metadata` | `false` |
+| `agent_workflow_rehearsal` | `AgentWorkflowRehearsalReport` | `planned_steps` | `agent_workflow_rehearsal` | `internal` | `collection_metadata` | `false` |
+| `agent_workflow_rehearsal` | `AgentWorkflowRehearsalReport` | `completed_steps` | `agent_workflow_rehearsal` | `internal` | `collection_metadata` | `false` |
+| `agent_workflow_rehearsal` | `AgentWorkflowRehearsalReport` | `blocked_steps` | `agent_workflow_rehearsal` | `internal` | `collection_metadata` | `false` |
+| `agent_workflow_rehearsal` | `AgentWorkflowRehearsalReport` | `skipped_steps` | `agent_workflow_rehearsal` | `internal` | `collection_metadata` | `false` |
+| `agent_workflow_rehearsal` | `AgentWorkflowRehearsalReport` | `required_rechecks` | `agent_workflow_rehearsal` | `internal` | `collection_metadata` | `false` |
+| `agent_workflow_rehearsal` | `AgentWorkflowRehearsalReport` | `handoff_points` | `agent_workflow_rehearsal` | `internal` | `collection_metadata` | `false` |
+| `agent_workflow_rehearsal` | `AgentWorkflowRehearsalReport` | `final_claim_boundary` | `agent_workflow_rehearsal` | `starter` | `unclassified` | `false` |
 | `architecture_reduction` | `ObservableArchitectureContract` | `source_model_id` | `architecture_reduction` | `starter` | `unclassified` | `false` |
 | `architecture_reduction` | `ObservableArchitectureContract` | `source_code_boundary_id` | `architecture_reduction` | `starter` | `unclassified` | `false` |
 | `architecture_reduction` | `ObservableArchitectureContract` | `public_entrypoints` | `architecture_reduction` | `internal` | `collection_metadata` | `false` |
@@ -551,6 +560,10 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `closure_contract` | `FlowGuardClosureContractPlan` | `require_model_angle_review` | `flowguard_closure_contract` | `starter` | `unclassified` | `false` |
 | `closure_contract` | `FlowGuardClosureContractPlan` | `require_runtime_path_alignment` | `flowguard_closure_contract` | `starter` | `unclassified` | `false` |
 | `closure_contract` | `FlowGuardClosureContractPlan` | `require_risk_ledger` | `flowguard_closure_contract` | `internal` | `unclassified` | `false` |
+| `closure_contract` | `FlowGuardClosureContractPlan` | `require_ui_source_baseline_alignment` | `flowguard_closure_contract` | `internal` | `unclassified` | `false` |
+| `closure_contract` | `FlowGuardClosureContractPlan` | `require_ui_done_claim_review` | `flowguard_closure_contract` | `starter` | `unclassified` | `false` |
+| `closure_contract` | `FlowGuardClosureContractPlan` | `require_ui_human_operability_review` | `flowguard_closure_contract` | `internal` | `unclassified` | `false` |
+| `closure_contract` | `FlowGuardClosureContractPlan` | `require_ui_functional_capability_coverage` | `flowguard_closure_contract` | `internal` | `unclassified` | `false` |
 | `closure_contract` | `FlowGuardClosureContractPlan` | `allow_scoped_confidence` | `flowguard_closure_contract` | `advanced` | `evidence_or_decision` | `false` |
 | `closure_contract` | `FlowGuardClosureContractPlan` | `metadata` | `flowguard_closure_contract` | `internal` | `unclassified` | `false` |
 | `closure_contract` | `FlowGuardClosureFinding` | `code` | `flowguard_closure_contract` | `starter` | `unclassified` | `false` |
@@ -1600,6 +1613,10 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `model_similarity` | `ModelSignature` | `child_model_ids` | `model_similarity_consolidation` | `starter` | `collection_metadata` | `false` |
 | `model_similarity` | `ModelSignature` | `evidence_ids` | `model_similarity_consolidation` | `starter` | `evidence_or_decision` | `false` |
 | `model_similarity` | `ModelSignature` | `evidence_current` | `model_similarity_consolidation` | `starter` | `evidence_or_decision` | `false` |
+| `model_similarity` | `ModelSignature` | `risk_template_ids` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSignature` | `known_bad_case_ids` | `model_similarity_consolidation` | `starter` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSignature` | `evidence_gate_ids` | `model_similarity_consolidation` | `starter` | `evidence_or_decision` | `false` |
+| `model_similarity` | `ModelSignature` | `maturity_level` | `model_similarity_consolidation` | `internal` | `unclassified` | `false` |
 | `model_similarity` | `ModelSignature` | `known_blindspots` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
 | `model_similarity` | `ModelSignature` | `false_friend_model_ids` | `model_similarity_consolidation` | `starter` | `collection_metadata` | `false` |
 | `model_similarity` | `ModelSignature` | `metadata` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
@@ -1691,6 +1708,9 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `model_similarity` | `SimilarityHandoff` | `impacted_model_ids` | `model_similarity_consolidation` | `starter` | `collection_metadata` | `false` |
 | `model_similarity` | `SimilarityHandoff` | `test_obligation_ids` | `model_similarity_consolidation` | `starter` | `behavior_or_contract` | `true` |
 | `model_similarity` | `SimilarityHandoff` | `code_obligation_ids` | `model_similarity_consolidation` | `starter` | `behavior_or_contract` | `true` |
+| `model_similarity` | `SimilarityHandoff` | `risk_template_ids` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
+| `model_similarity` | `SimilarityHandoff` | `known_bad_case_ids` | `model_similarity_consolidation` | `starter` | `collection_metadata` | `false` |
+| `model_similarity` | `SimilarityHandoff` | `evidence_gate_ids` | `model_similarity_consolidation` | `starter` | `evidence_or_decision` | `false` |
 | `model_similarity` | `SimilarityHandoff` | `same_family_relation_ids` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
 | `model_similarity` | `SimilarityHandoff` | `evidence_duplicate_relation_ids` | `model_similarity_consolidation` | `starter` | `evidence_or_decision` | `false` |
 | `model_similarity` | `SimilarityHandoff` | `false_friend_rationales` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
@@ -1709,6 +1729,9 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `model_similarity` | `ModelSimilarityReport` | `code_obligations` | `model_similarity_consolidation` | `starter` | `behavior_or_contract` | `true` |
 | `model_similarity` | `ModelSimilarityReport` | `findings` | `model_similarity_consolidation` | `starter` | `evidence_or_decision` | `false` |
 | `model_similarity` | `ModelSimilarityReport` | `recommended_next_routes` | `model_similarity_consolidation` | `advanced` | `behavior_or_contract` | `true` |
+| `model_similarity` | `ModelSimilarityReport` | `risk_template_ids` | `model_similarity_consolidation` | `internal` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSimilarityReport` | `known_bad_case_ids` | `model_similarity_consolidation` | `starter` | `collection_metadata` | `false` |
+| `model_similarity` | `ModelSimilarityReport` | `evidence_gate_ids` | `model_similarity_consolidation` | `starter` | `evidence_or_decision` | `false` |
 | `model_similarity` | `ModelSimilarityReport` | `summary` | `model_similarity_consolidation` | `advanced` | `evidence_or_decision` | `false` |
 | `model_test_alignment` | `ModelObligation` | `obligation_id` | `model_test_alignment` | `starter` | `behavior_or_contract` | `true` |
 | `model_test_alignment` | `ModelObligation` | `obligation_type` | `model_test_alignment` | `starter` | `behavior_or_contract` | `true` |
@@ -1821,6 +1844,56 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `model_test_alignment` | `CodeBoundaryConformanceReport` | `checked_boundaries` | `model_test_alignment` | `internal` | `unclassified` | `false` |
 | `model_test_alignment` | `CodeBoundaryConformanceReport` | `checked_observations` | `model_test_alignment` | `internal` | `unclassified` | `false` |
 | `model_test_alignment` | `CodeBoundaryConformanceReport` | `summary` | `model_test_alignment` | `advanced` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `ArtifactPayloadCase` | `case_id` | `model_test_alignment` | `starter` | `unclassified` | `false` |
+| `model_test_alignment` | `ArtifactPayloadCase` | `description` | `model_test_alignment` | `internal` | `display_or_metadata` | `false` |
+| `model_test_alignment` | `ArtifactPayloadCase` | `expected_status` | `model_test_alignment` | `starter` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `ArtifactPayloadCase` | `required` | `model_test_alignment` | `internal` | `unclassified` | `false` |
+| `model_test_alignment` | `ArtifactPayloadCase` | `expected_output` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `ArtifactPayloadCase` | `expected_error_path` | `model_test_alignment` | `starter` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `ArtifactPayloadCase` | `expected_state_writes` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `ArtifactPayloadCase` | `expected_side_effects` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `ArtifactPayloadCase` | `round_trip_required` | `model_test_alignment` | `internal` | `unclassified` | `false` |
+| `model_test_alignment` | `ArtifactPayloadContract` | `payload_contract_id` | `model_test_alignment` | `starter` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `ArtifactPayloadContract` | `model_obligation_id` | `model_test_alignment` | `starter` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `ArtifactPayloadContract` | `code_contract_id` | `model_test_alignment` | `starter` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `ArtifactPayloadContract` | `payload_surface` | `model_test_alignment` | `internal` | `unclassified` | `false` |
+| `model_test_alignment` | `ArtifactPayloadContract` | `payload_kind` | `model_test_alignment` | `internal` | `unclassified` | `false` |
+| `model_test_alignment` | `ArtifactPayloadContract` | `cases` | `model_test_alignment` | `internal` | `collection_metadata` | `false` |
+| `model_test_alignment` | `ArtifactPayloadContract` | `required` | `model_test_alignment` | `internal` | `unclassified` | `false` |
+| `model_test_alignment` | `ArtifactPayloadContract` | `exact` | `model_test_alignment` | `internal` | `unclassified` | `false` |
+| `model_test_alignment` | `ArtifactPayloadContract` | `allow_scoped_cases` | `model_test_alignment` | `internal` | `unclassified` | `false` |
+| `model_test_alignment` | `ArtifactPayloadEvidence` | `evidence_id` | `model_test_alignment` | `starter` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `ArtifactPayloadEvidence` | `payload_contract_id` | `model_test_alignment` | `starter` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `ArtifactPayloadEvidence` | `case_id` | `model_test_alignment` | `starter` | `unclassified` | `false` |
+| `model_test_alignment` | `ArtifactPayloadEvidence` | `method` | `model_test_alignment` | `internal` | `unclassified` | `false` |
+| `model_test_alignment` | `ArtifactPayloadEvidence` | `result_status` | `model_test_alignment` | `starter` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `ArtifactPayloadEvidence` | `evidence_current` | `model_test_alignment` | `starter` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `ArtifactPayloadEvidence` | `assertion_scope` | `model_test_alignment` | `internal` | `unclassified` | `false` |
+| `model_test_alignment` | `ArtifactPayloadEvidence` | `observed_status` | `model_test_alignment` | `starter` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `ArtifactPayloadEvidence` | `observed_output` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `ArtifactPayloadEvidence` | `observed_error_path` | `model_test_alignment` | `starter` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `ArtifactPayloadEvidence` | `observed_state_writes` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `ArtifactPayloadEvidence` | `observed_side_effects` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `ArtifactPayloadEvidence` | `round_trip_ok` | `model_test_alignment` | `starter` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `ArtifactPayloadEvidence` | `evidence_ref` | `model_test_alignment` | `starter` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `ArtifactPayloadEvidence` | `proof_artifact` | `model_test_alignment` | `advanced` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `ArtifactPayloadEvidence` | `metadata` | `model_test_alignment` | `internal` | `collection_metadata` | `false` |
+| `model_test_alignment` | `ArtifactPayloadFinding` | `code` | `model_test_alignment` | `starter` | `unclassified` | `false` |
+| `model_test_alignment` | `ArtifactPayloadFinding` | `message` | `model_test_alignment` | `internal` | `display_or_metadata` | `false` |
+| `model_test_alignment` | `ArtifactPayloadFinding` | `severity` | `model_test_alignment` | `internal` | `unclassified` | `false` |
+| `model_test_alignment` | `ArtifactPayloadFinding` | `payload_contract_id` | `model_test_alignment` | `starter` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `ArtifactPayloadFinding` | `case_id` | `model_test_alignment` | `starter` | `unclassified` | `false` |
+| `model_test_alignment` | `ArtifactPayloadFinding` | `evidence_id` | `model_test_alignment` | `starter` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `ArtifactPayloadFinding` | `model_obligation_id` | `model_test_alignment` | `starter` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `ArtifactPayloadFinding` | `code_contract_id` | `model_test_alignment` | `starter` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `ArtifactPayloadFinding` | `metadata` | `model_test_alignment` | `internal` | `collection_metadata` | `false` |
+| `model_test_alignment` | `ArtifactPayloadValidationReport` | `ok` | `model_test_alignment` | `starter` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `ArtifactPayloadValidationReport` | `decision` | `model_test_alignment` | `advanced` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `ArtifactPayloadValidationReport` | `findings` | `model_test_alignment` | `starter` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `ArtifactPayloadValidationReport` | `checked_contracts` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `ArtifactPayloadValidationReport` | `checked_cases` | `model_test_alignment` | `internal` | `unclassified` | `false` |
+| `model_test_alignment` | `ArtifactPayloadValidationReport` | `checked_evidence` | `model_test_alignment` | `starter` | `evidence_or_decision` | `false` |
+| `model_test_alignment` | `ArtifactPayloadValidationReport` | `summary` | `model_test_alignment` | `advanced` | `evidence_or_decision` | `false` |
 | `model_test_alignment` | `ModelTestAlignmentPlan` | `model_id` | `model_test_alignment` | `starter` | `unclassified` | `false` |
 | `model_test_alignment` | `ModelTestAlignmentPlan` | `obligations` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
 | `model_test_alignment` | `ModelTestAlignmentPlan` | `code_contracts` | `model_test_alignment` | `starter` | `behavior_or_contract` | `true` |
@@ -1829,6 +1902,8 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `model_test_alignment` | `ModelTestAlignmentPlan` | `family_evidence` | `model_test_alignment` | `starter` | `evidence_or_decision` | `false` |
 | `model_test_alignment` | `ModelTestAlignmentPlan` | `boundary_contracts` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
 | `model_test_alignment` | `ModelTestAlignmentPlan` | `boundary_observations` | `model_test_alignment` | `internal` | `collection_metadata` | `false` |
+| `model_test_alignment` | `ModelTestAlignmentPlan` | `payload_contracts` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
+| `model_test_alignment` | `ModelTestAlignmentPlan` | `payload_evidence` | `model_test_alignment` | `starter` | `evidence_or_decision` | `false` |
 | `model_test_alignment` | `ModelTestAlignmentPlan` | `runtime_node_contracts` | `model_test_alignment` | `advanced` | `behavior_or_contract` | `true` |
 | `model_test_alignment` | `ModelTestAlignmentPlan` | `runtime_node_observations` | `model_test_alignment` | `internal` | `collection_metadata` | `false` |
 | `model_test_alignment` | `ModelTestAlignmentPlan` | `runtime_path_runs` | `model_test_alignment` | `starter` | `collection_metadata` | `false` |
@@ -1998,6 +2073,9 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `plan` | `FlowGuardCheckPlan` | `state_closure_plan` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
 | `plan` | `FlowGuardCheckPlan` | `topology_hazard_plan` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `plan` | `FlowGuardCheckPlan` | `usage_intent` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `plan` | `FlowGuardCheckPlan` | `template_reuse_review` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `plan` | `FlowGuardCheckPlan` | `template_harvest_review` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `plan` | `FlowGuardCheckPlan` | `minimum_model_contract` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
 | `plan` | `FlowGuardCheckPlan` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `plan_detailing` | `PlanDetailSource` | `source_id` | `plan_detailing_compiler` | `starter` | `unclassified` | `false` |
 | `plan_detailing` | `PlanDetailSource` | `source_kind` | `plan_detailing_compiler` | `internal` | `unclassified` | `false` |
@@ -2413,6 +2491,37 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `recurring_model_miss` | `DefectFamilyGateReport` | `scoped_gate_ids` | `model_miss_review` | `internal` | `collection_metadata` | `false` |
 | `recurring_model_miss` | `DefectFamilyGateReport` | `blocked_gate_ids` | `model_miss_review` | `internal` | `collection_metadata` | `false` |
 | `recurring_model_miss` | `DefectFamilyGateReport` | `summary` | `model_miss_review` | `advanced` | `evidence_or_decision` | `false` |
+| `recurring_model_miss` | `UIModelMissRecord` | `miss_id` | `model_miss_review` | `starter` | `unclassified` | `false` |
+| `recurring_model_miss` | `UIModelMissRecord` | `previous_claim_id` | `model_miss_review` | `starter` | `unclassified` | `false` |
+| `recurring_model_miss` | `UIModelMissRecord` | `previous_green_reason` | `model_miss_review` | `starter` | `evidence_or_decision` | `false` |
+| `recurring_model_miss` | `UIModelMissRecord` | `observed_failure` | `model_miss_review` | `internal` | `unclassified` | `false` |
+| `recurring_model_miss` | `UIModelMissRecord` | `observed_failure_evidence_ref` | `model_miss_review` | `starter` | `evidence_or_decision` | `false` |
+| `recurring_model_miss` | `UIModelMissRecord` | `miss_type` | `model_miss_review` | `internal` | `unclassified` | `false` |
+| `recurring_model_miss` | `UIModelMissRecord` | `missing_promised_capability_ids` | `model_miss_review` | `internal` | `collection_metadata` | `false` |
+| `recurring_model_miss` | `UIModelMissRecord` | `affected_capability_ids` | `model_miss_review` | `internal` | `collection_metadata` | `false` |
+| `recurring_model_miss` | `UIModelMissRecord` | `affected_control_ids` | `model_miss_review` | `internal` | `collection_metadata` | `false` |
+| `recurring_model_miss` | `UIModelMissRecord` | `affected_field_ids` | `model_miss_review` | `internal` | `collection_metadata` | `false` |
+| `recurring_model_miss` | `UIModelMissRecord` | `same_class_capability_ids` | `model_miss_review` | `internal` | `collection_metadata` | `false` |
+| `recurring_model_miss` | `UIModelMissRecord` | `same_class_control_ids` | `model_miss_review` | `internal` | `collection_metadata` | `false` |
+| `recurring_model_miss` | `UIModelMissRecord` | `same_class_field_ids` | `model_miss_review` | `internal` | `collection_metadata` | `false` |
+| `recurring_model_miss` | `UIModelMissRecord` | `required_test_ids` | `model_miss_review` | `starter` | `collection_metadata` | `false` |
+| `recurring_model_miss` | `UIModelMissRecord` | `required_implementation_evidence_ids` | `model_miss_review` | `starter` | `evidence_or_decision` | `false` |
+| `recurring_model_miss` | `UIModelMissRecord` | `root_cause_backpropagation` | `model_miss_review` | `internal` | `unclassified` | `false` |
+| `recurring_model_miss` | `UIModelMissRecord` | `code_owner` | `model_miss_review` | `starter` | `unclassified` | `false` |
+| `recurring_model_miss` | `UIModelMissRecord` | `rationale` | `model_miss_review` | `internal` | `unclassified` | `false` |
+| `recurring_model_miss` | `UIModelMissReviewPlan` | `plan_id` | `model_miss_review` | `starter` | `unclassified` | `false` |
+| `recurring_model_miss` | `UIModelMissReviewPlan` | `ui_misses` | `model_miss_review` | `internal` | `collection_metadata` | `false` |
+| `recurring_model_miss` | `UIModelMissReviewPlan` | `require_same_class_evidence` | `model_miss_review` | `starter` | `evidence_or_decision` | `false` |
+| `recurring_model_miss` | `UIModelMissReviewPlan` | `allow_scoped_confidence` | `model_miss_review` | `advanced` | `evidence_or_decision` | `false` |
+| `recurring_model_miss` | `UIModelMissFinding` | `code` | `model_miss_review` | `starter` | `unclassified` | `false` |
+| `recurring_model_miss` | `UIModelMissFinding` | `message` | `model_miss_review` | `internal` | `display_or_metadata` | `false` |
+| `recurring_model_miss` | `UIModelMissFinding` | `severity` | `model_miss_review` | `internal` | `unclassified` | `false` |
+| `recurring_model_miss` | `UIModelMissFinding` | `miss_id` | `model_miss_review` | `starter` | `unclassified` | `false` |
+| `recurring_model_miss` | `UIModelMissFinding` | `metadata` | `model_miss_review` | `internal` | `collection_metadata` | `false` |
+| `recurring_model_miss` | `UIModelMissReviewReport` | `ok` | `model_miss_review` | `starter` | `evidence_or_decision` | `false` |
+| `recurring_model_miss` | `UIModelMissReviewReport` | `plan_id` | `model_miss_review` | `starter` | `unclassified` | `false` |
+| `recurring_model_miss` | `UIModelMissReviewReport` | `findings` | `model_miss_review` | `starter` | `evidence_or_decision` | `false` |
+| `recurring_model_miss` | `UIModelMissReviewReport` | `summary` | `model_miss_review` | `advanced` | `evidence_or_decision` | `false` |
 | `replay` | `ReplayObservation` | `function_name` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
 | `replay` | `ReplayObservation` | `observed_output` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
 | `replay` | `ReplayObservation` | `observed_state` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
@@ -2469,10 +2578,16 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `review` | `ScenarioReviewReport` | `oracle_mismatches` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `review` | `ScenarioReviewReport` | `results` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
 | `risk` | `RiskIntent` | `failure_modes` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `risk` | `RiskIntent` | `protected_error_classes` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
 | `risk` | `RiskIntent` | `protected_harms` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
 | `risk` | `RiskIntent` | `must_model_state` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `risk` | `RiskIntent` | `must_model_side_effects` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `risk` | `RiskIntent` | `completion_evidence` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
 | `risk` | `RiskIntent` | `adversarial_inputs` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
 | `risk` | `RiskIntent` | `hard_invariants` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `risk` | `RiskIntent` | `known_bad_cases` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `risk` | `RiskIntent` | `used_template_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `risk` | `RiskIntent` | `template_no_match_reason` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
 | `risk` | `RiskIntent` | `blindspots` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
 | `risk` | `SkippedCheck` | `name` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
 | `risk` | `SkippedCheck` | `reason` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
@@ -2532,6 +2647,57 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `risk_evidence_ledger` | `RiskEvidenceLedgerReport` | `confidence` | `risk_evidence_ledger` | `advanced` | `evidence_or_decision` | `false` |
 | `risk_evidence_ledger` | `RiskEvidenceLedgerReport` | `findings` | `risk_evidence_ledger` | `starter` | `evidence_or_decision` | `false` |
 | `risk_evidence_ledger` | `RiskEvidenceLedgerReport` | `summary` | `risk_evidence_ledger` | `advanced` | `evidence_or_decision` | `false` |
+| `risk_templates` | `RiskTemplate` | `template_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `risk_templates` | `RiskTemplate` | `title` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `risk_templates` | `RiskTemplate` | `summary` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `risk_templates` | `RiskTemplate` | `workflow_families` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `risk_templates` | `RiskTemplate` | `protected_error_classes` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `risk_templates` | `RiskTemplate` | `required_state` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `risk_templates` | `RiskTemplate` | `required_side_effects` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `risk_templates` | `RiskTemplate` | `required_evidence` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `risk_templates` | `RiskTemplate` | `known_bad_cases` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `risk_templates` | `RiskTemplate` | `merge_keys` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `risk_templates` | `RiskTemplate` | `source` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `risk_templates` | `RiskTemplate` | `status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `risk_templates` | `RiskTemplate` | `source_template_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `risk_templates` | `RiskTemplate` | `false_friend_rationales` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `risk_templates` | `RiskTemplate` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `risk_templates` | `RiskTemplateMatch` | `template` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `risk_templates` | `RiskTemplateMatch` | `score` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `risk_templates` | `RiskTemplateMatch` | `matched_terms` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `risk_templates` | `RiskTemplateMatch` | `layer` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `risk_templates` | `RiskTemplateSearchReport` | `query` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `risk_templates` | `RiskTemplateSearchReport` | `matches` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `risk_templates` | `RiskTemplateSearchReport` | `searched_layers` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `risk_templates` | `RiskTemplateSearchReport` | `local_root` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `risk_templates` | `RiskTemplateSearchReport` | `findings` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `risk_templates` | `TemplateReuseReview` | `used_template_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `risk_templates` | `TemplateReuseReview` | `no_match_reason` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `risk_templates` | `TemplateReuseReview` | `searched_layers` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `risk_templates` | `TemplateReuseReview` | `match_template_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `risk_templates` | `TemplateReuseReview` | `findings` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `risk_templates` | `MinimumModelContract` | `protected_error_classes` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `risk_templates` | `MinimumModelContract` | `modeled_state` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `risk_templates` | `MinimumModelContract` | `modeled_side_effects` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `risk_templates` | `MinimumModelContract` | `completion_evidence` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `risk_templates` | `MinimumModelContract` | `known_bad_cases` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `risk_templates` | `MinimumModelReviewReport` | `ok` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `risk_templates` | `MinimumModelReviewReport` | `status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `risk_templates` | `MinimumModelReviewReport` | `findings` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `risk_templates` | `MinimumModelReviewReport` | `summary` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `risk_templates` | `RiskTemplateHarvestReport` | `ok` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `risk_templates` | `RiskTemplateHarvestReport` | `status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `risk_templates` | `RiskTemplateHarvestReport` | `findings` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `risk_templates` | `RiskTemplateHarvestReport` | `template` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `risk_templates` | `RiskTemplateHarvestReport` | `path` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `risk_templates` | `TemplateHarvestReview` | `disposition` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `risk_templates` | `TemplateHarvestReview` | `written_template_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `risk_templates` | `TemplateHarvestReview` | `merged_template_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `risk_templates` | `TemplateHarvestReview` | `linked_template_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `risk_templates` | `TemplateHarvestReview` | `not_harvestable_reason` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `risk_templates` | `TemplateHarvestReview` | `local_root` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `risk_templates` | `TemplateHarvestReview` | `findings` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `risk_templates` | `TemplateHarvestReview` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `runtime_gateway` | `RuntimeStateSurface` | `surface_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `runtime_gateway` | `RuntimeStateSurface` | `description` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
 | `runtime_gateway` | `RuntimeStateSurface` | `paths` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
@@ -3220,15 +3386,71 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `ui_structure` | `UIJourneyCoverage` | `interaction_model_reviewed` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
 | `ui_structure` | `UIJourneyCoverage` | `validation_boundaries` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
 | `ui_structure` | `UIJourneyCoverage` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIFunctionalCapability` | `capability_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIFunctionalCapability` | `label` | `ui_flow_structure` | `internal` | `display_or_metadata` | `false` |
+| `ui_structure` | `UIFunctionalCapability` | `capability_kind` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIFunctionalCapability` | `required` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIFunctionalCapability` | `user_visible` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIFunctionalCapability` | `source_refs` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIFunctionalCapability` | `prerequisite_capability_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIFunctionalCapability` | `expected_input_ids` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIFunctionalCapability` | `expected_output_ids` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIFunctionalCapability` | `owner` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIFunctionalCapability` | `scoped_reason` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIFunctionalCapability` | `validation_boundaries` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIFunctionalCapability` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIFunctionalCapabilityInventory` | `inventory_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIFunctionalCapabilityInventory` | `source_product_model_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIFunctionalCapabilityInventory` | `source_authority_refs` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIFunctionalCapabilityInventory` | `current_revision` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIFunctionalCapabilityInventory` | `capabilities` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIFunctionalCapabilityInventory` | `scoped_out_capability_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIFunctionalCapabilityInventory` | `validation_boundaries` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIFunctionalCapabilityInventory` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UICapabilityOutputContract` | `output_contract_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UICapabilityOutputContract` | `capability_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UICapabilityOutputContract` | `output_kind` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UICapabilityOutputContract` | `required_display_ids` | `ui_flow_structure` | `internal` | `display_or_metadata` | `false` |
+| `ui_structure` | `UICapabilityOutputContract` | `required_state_ids` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UICapabilityOutputContract` | `required_data_refs` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UICapabilityOutputContract` | `assertion` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UICapabilityOutputContract` | `evidence_kind` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UICapabilityOutputContract` | `evidence_ref` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UICapabilityOutputContract` | `result` | `ui_flow_structure` | `advanced` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UICapabilityOutputContract` | `current_revision` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UICapabilityOutputContract` | `validation_boundaries` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UICapabilityOutputContract` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UICapabilityCoverageBinding` | `binding_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UICapabilityCoverageBinding` | `capability_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UICapabilityCoverageBinding` | `feature_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UICapabilityCoverageBinding` | `task_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UICapabilityCoverageBinding` | `journey_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UICapabilityCoverageBinding` | `control_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UICapabilityCoverageBinding` | `event_ids` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UICapabilityCoverageBinding` | `functional_chain_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UICapabilityCoverageBinding` | `code_owner` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UICapabilityCoverageBinding` | `code_contract_ids` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UICapabilityCoverageBinding` | `test_evidence_ids` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UICapabilityCoverageBinding` | `output_contract_ids` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UICapabilityCoverageBinding` | `implementation_run_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UICapabilityCoverageBinding` | `evidence_ref` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UICapabilityCoverageBinding` | `result` | `ui_flow_structure` | `advanced` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UICapabilityCoverageBinding` | `current_revision` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UICapabilityCoverageBinding` | `validation_boundaries` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UICapabilityCoverageBinding` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
 | `ui_structure` | `UIFeatureContract` | `feature_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
 | `ui_structure` | `UIFeatureContract` | `label` | `ui_flow_structure` | `internal` | `display_or_metadata` | `false` |
 | `ui_structure` | `UIFeatureContract` | `source_feature_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
 | `ui_structure` | `UIFeatureContract` | `user_visible` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
 | `ui_structure` | `UIFeatureContract` | `exposure` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIFeatureContract` | `capability_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
 | `ui_structure` | `UIFeatureContract` | `journey_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
 | `ui_structure` | `UIFeatureContract` | `entry_point_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
 | `ui_structure` | `UIFeatureContract` | `required_control_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
 | `ui_structure` | `UIFeatureContract` | `required_event_ids` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIFeatureContract` | `output_contract_ids` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIFeatureContract` | `required_code_contract_ids` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIFeatureContract` | `required_test_evidence_ids` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
 | `ui_structure` | `UIFeatureContract` | `validation_boundaries` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
 | `ui_structure` | `UIFeatureContract` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
 | `ui_structure` | `UIImplementationStepEvidence` | `step_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
@@ -3259,11 +3481,15 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `ui_structure` | `UIImplementationValidation` | `source_journey_coverage_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
 | `ui_structure` | `UIImplementationValidation` | `implementation_target` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
 | `ui_structure` | `UIImplementationValidation` | `current_model_revision` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIImplementationValidation` | `source_capability_inventory_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
 | `ui_structure` | `UIImplementationValidation` | `feature_contracts` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
 | `ui_structure` | `UIImplementationValidation` | `journey_runs` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIImplementationValidation` | `capability_bindings` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIImplementationValidation` | `output_contracts` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
 | `ui_structure` | `UIImplementationValidation` | `pure_ui_control_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
 | `ui_structure` | `UIImplementationValidation` | `pure_ui_event_ids` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
 | `ui_structure` | `UIImplementationValidation` | `implementation_blindspots` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIImplementationValidation` | `capability_coverage_reviewed` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
 | `ui_structure` | `UIImplementationValidation` | `journey_coverage_reviewed` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
 | `ui_structure` | `UIImplementationValidation` | `validation_boundaries` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
 | `ui_structure` | `UIImplementationValidation` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
@@ -3324,6 +3550,338 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `ui_structure` | `UITextHierarchyBlueprint` | `structure_derivation_reviewed` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
 | `ui_structure` | `UITextHierarchyBlueprint` | `validation_boundaries` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
 | `ui_structure` | `UITextHierarchyBlueprint` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIVisibleSurfaceItem` | `item_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIVisibleSurfaceItem` | `item_kind` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIVisibleSurfaceItem` | `text` | `ui_flow_structure` | `internal` | `display_or_metadata` | `false` |
+| `ui_structure` | `UIVisibleSurfaceItem` | `state_ids` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIVisibleSurfaceItem` | `region_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIVisibleSurfaceItem` | `owner_control_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIVisibleSurfaceItem` | `owner_display_id` | `ui_flow_structure` | `starter` | `display_or_metadata` | `false` |
+| `ui_structure` | `UIVisibleSurfaceItem` | `purpose` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIVisibleSurfaceItem` | `disabled_reason` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIVisibleSurfaceItem` | `priority` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIVisibleSurfaceItem` | `placeholder` | `ui_flow_structure` | `advanced` | `compatibility_or_old_path` | `true` |
+| `ui_structure` | `UIVisibleSurfaceItem` | `presents_as_functionality` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIVisibleSurfaceItem` | `internal_term_rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIVisibleSurfaceItem` | `redundancy_rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIVisibleSurfaceItem` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIVisibleSurface` | `surface_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIVisibleSurface` | `source_interaction_model_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIVisibleSurface` | `items` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIVisibleSurface` | `validation_boundaries` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIVisibleSurface` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIWorkModeDeclaration` | `declaration_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIWorkModeDeclaration` | `work_mode` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIWorkModeDeclaration` | `greenfield_scope_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIWorkModeDeclaration` | `source_scope_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIWorkModeDeclaration` | `evidence_ref` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIWorkModeDeclaration` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UISourceBaselineItem` | `item_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UISourceBaselineItem` | `item_kind` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UISourceBaselineItem` | `label` | `ui_flow_structure` | `internal` | `display_or_metadata` | `false` |
+| `ui_structure` | `UISourceBaselineItem` | `source_surface_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UISourceBaselineItem` | `source_region_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UISourceBaselineItem` | `source_task_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UISourceBaselineItem` | `interaction_ids` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UISourceBaselineItem` | `evidence_ref` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UISourceBaselineItem` | `scoped_out` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UISourceBaselineItem` | `scoped_reason` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UISourceBaselineItem` | `owner` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UISourceBaselineItem` | `validation_boundary` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UISourceBaselineItem` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UISourceBaseline` | `baseline_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UISourceBaseline` | `work_mode` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UISourceBaseline` | `source_type` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UISourceBaseline` | `source_ref` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UISourceBaseline` | `current_revision` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UISourceBaseline` | `items` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UISourceBaseline` | `validation_boundaries` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UISourceBaseline` | `evidence_ref` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UISourceBaseline` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIObservedSurfaceItem` | `item_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIObservedSurfaceItem` | `item_kind` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIObservedSurfaceItem` | `label` | `ui_flow_structure` | `internal` | `display_or_metadata` | `false` |
+| `ui_structure` | `UIObservedSurfaceItem` | `state_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIObservedSurfaceItem` | `region_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIObservedSurfaceItem` | `selector` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIObservedSurfaceItem` | `visible` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIObservedSurfaceItem` | `enabled` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIObservedSurfaceItem` | `mapped_control_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIObservedSurfaceItem` | `mapped_display_id` | `ui_flow_structure` | `starter` | `display_or_metadata` | `false` |
+| `ui_structure` | `UIObservedSurfaceItem` | `mapped_visible_item_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIObservedSurfaceItem` | `blindspot_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIObservedSurfaceItem` | `evidence_ref` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIObservedSurfaceItem` | `evidence_kind` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIObservedSurfaceItem` | `observed_value` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIObservedSurfaceItem` | `options` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIObservedSurfaceItem` | `table_columns` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIObservedSurfaceItem` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIObservedSurfaceInventory` | `inventory_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIObservedSurfaceInventory` | `observation_target` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIObservedSurfaceInventory` | `current_revision` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIObservedSurfaceInventory` | `observation_method` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIObservedSurfaceInventory` | `source_interaction_model_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIObservedSurfaceInventory` | `source_visible_surface_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIObservedSurfaceInventory` | `evidence_ref` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIObservedSurfaceInventory` | `items` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIObservedSurfaceInventory` | `scoped_blindspots` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIObservedSurfaceInventory` | `validation_boundaries` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIObservedSurfaceInventory` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIControlFunctionalChain` | `chain_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIControlFunctionalChain` | `control_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIControlFunctionalChain` | `event_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIControlFunctionalChain` | `code_owner` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIControlFunctionalChain` | `function_ref` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIControlFunctionalChain` | `function_kind` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIControlFunctionalChain` | `observed_state_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIControlFunctionalChain` | `observed_display_id` | `ui_flow_structure` | `starter` | `display_or_metadata` | `false` |
+| `ui_structure` | `UIControlFunctionalChain` | `observed_output` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIControlFunctionalChain` | `evidence_ref` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIControlFunctionalChain` | `evidence_kind` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIControlFunctionalChain` | `result` | `ui_flow_structure` | `advanced` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIControlFunctionalChain` | `current_revision` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIControlFunctionalChain` | `native_boundary` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIControlFunctionalChain` | `manual_boundary` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIControlFunctionalChain` | `blindspot_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIControlFunctionalChain` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIControlFunctionalChainSet` | `chain_set_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIControlFunctionalChainSet` | `source_inventory_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIControlFunctionalChainSet` | `source_interaction_model_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIControlFunctionalChainSet` | `source_implementation_validation_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIControlFunctionalChainSet` | `current_revision` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIControlFunctionalChainSet` | `chains` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIControlFunctionalChainSet` | `validation_boundaries` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIControlFunctionalChainSet` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UISourceInteractionSemantics` | `interaction_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UISourceInteractionSemantics` | `source_item_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UISourceInteractionSemantics` | `interaction_kind` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UISourceInteractionSemantics` | `target_control_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UISourceInteractionSemantics` | `source_behavior_ref` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UISourceInteractionSemantics` | `required_branches` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UISourceInteractionSemantics` | `covered_branches` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UISourceInteractionSemantics` | `evidence_ref` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UISourceInteractionSemantics` | `result` | `ui_flow_structure` | `advanced` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UISourceInteractionSemantics` | `native_boundary` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UISourceInteractionSemantics` | `manual_boundary` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UISourceInteractionSemantics` | `target_disposition` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UISourceInteractionSemantics` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UISourceBaselineInteractionGate` | `gate_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UISourceBaselineInteractionGate` | `source_baseline_ref` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UISourceBaselineInteractionGate` | `target_ui_revision` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UISourceBaselineInteractionGate` | `interactions` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UISourceBaselineInteractionGate` | `validation_boundaries` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UISourceBaselineInteractionGate` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UISourceTargetMappingRow` | `mapping_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UISourceTargetMappingRow` | `source_item_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UISourceTargetMappingRow` | `target_item_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UISourceTargetMappingRow` | `target_control_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UISourceTargetMappingRow` | `target_region_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UISourceTargetMappingRow` | `target_task_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UISourceTargetMappingRow` | `disposition` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UISourceTargetMappingRow` | `approval_ref` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UISourceTargetMappingRow` | `evidence_ref` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UISourceTargetMappingRow` | `validation_boundary` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UISourceTargetMappingRow` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UISourceTargetMapping` | `mapping_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UISourceTargetMapping` | `work_mode` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UISourceTargetMapping` | `source_baseline_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UISourceTargetMapping` | `target_ui_revision` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UISourceTargetMapping` | `mappings` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UISourceTargetMapping` | `validation_boundaries` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UISourceTargetMapping` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIObservedSourceAlignment` | `alignment_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIObservedSourceAlignment` | `work_mode` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIObservedSourceAlignment` | `source_baseline_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIObservedSourceAlignment` | `target_mapping_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIObservedSourceAlignment` | `observed_inventory_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIObservedSourceAlignment` | `current_revision` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIObservedSourceAlignment` | `aligned_source_item_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIObservedSourceAlignment` | `observed_target_item_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIObservedSourceAlignment` | `approved_difference_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIObservedSourceAlignment` | `validation_boundaries` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIObservedSourceAlignment` | `evidence_ref` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIObservedSourceAlignment` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIUserTaskFrame` | `task_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIUserTaskFrame` | `user_goal` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIUserTaskFrame` | `source_feature_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIUserTaskFrame` | `entry_state_ids` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIUserTaskFrame` | `main_path_event_ids` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIUserTaskFrame` | `alternate_path_event_ids` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIUserTaskFrame` | `cancel_event_ids` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIUserTaskFrame` | `error_state_ids` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIUserTaskFrame` | `success_state_ids` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIUserTaskFrame` | `required_control_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIUserTaskFrame` | `required_display_ids` | `ui_flow_structure` | `internal` | `display_or_metadata` | `false` |
+| `ui_structure` | `UIUserTaskFrame` | `required_dialog_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIUserTaskFrame` | `required_feedback_item_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIUserTaskFrame` | `keyboard_contract_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIUserTaskFrame` | `cancel_behavior` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIUserTaskFrame` | `error_behavior` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIUserTaskFrame` | `evidence_refs` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIUserTaskFrame` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIUserTaskCoverageLedger` | `ledger_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIUserTaskCoverageLedger` | `source_function_model_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIUserTaskCoverageLedger` | `source_interaction_model_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIUserTaskCoverageLedger` | `source_capability_inventory_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIUserTaskCoverageLedger` | `feature_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIUserTaskCoverageLedger` | `task_frames` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIUserTaskCoverageLedger` | `capability_task_links` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIUserTaskCoverageLedger` | `feature_task_links` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIUserTaskCoverageLedger` | `task_journey_links` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIUserTaskCoverageLedger` | `task_control_links` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIUserTaskCoverageLedger` | `task_functional_chain_links` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIUserTaskCoverageLedger` | `primary_control_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIUserTaskCoverageLedger` | `out_of_scope_capability_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIUserTaskCoverageLedger` | `out_of_scope_feature_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIUserTaskCoverageLedger` | `out_of_scope_task_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIUserTaskCoverageLedger` | `validation_boundaries` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIUserTaskCoverageLedger` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIRegionSemanticMap` | `map_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIRegionSemanticMap` | `region_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIRegionSemanticMap` | `region_role` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIRegionSemanticMap` | `task_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIRegionSemanticMap` | `control_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIRegionSemanticMap` | `display_ids` | `ui_flow_structure` | `internal` | `display_or_metadata` | `false` |
+| `ui_structure` | `UIRegionSemanticMap` | `status_item_ids` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIRegionSemanticMap` | `allowed_item_kinds` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIRegionSemanticMap` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIAffordanceContract` | `contract_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIAffordanceContract` | `visible_item_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIAffordanceContract` | `perceived_role` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIAffordanceContract` | `actual_role` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIAffordanceContract` | `task_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIAffordanceContract` | `control_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIAffordanceContract` | `visual_cues` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIAffordanceContract` | `interaction_cues` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIAffordanceContract` | `expected_user_action` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIAffordanceContract` | `expected_result` | `ui_flow_structure` | `advanced` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIAffordanceContract` | `mismatch_disposition` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIAffordanceContract` | `evidence_ref` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIAffordanceContract` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIActionGrammar` | `action_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIActionGrammar` | `task_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIActionGrammar` | `user_intent` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIActionGrammar` | `source_state_ids` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIActionGrammar` | `primary_control_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIActionGrammar` | `alternate_control_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIActionGrammar` | `conflicting_control_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIActionGrammar` | `preconditions` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIActionGrammar` | `expected_next_state_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIActionGrammar` | `expected_feedback_item_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIActionGrammar` | `duplicate_policy` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIActionGrammar` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIDialogWindowContract` | `contract_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIDialogWindowContract` | `task_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIDialogWindowContract` | `trigger_control_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIDialogWindowContract` | `dialog_type` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIDialogWindowContract` | `modal` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIDialogWindowContract` | `success_return` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIDialogWindowContract` | `cancel_return` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIDialogWindowContract` | `error_return` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIDialogWindowContract` | `focus_return_target_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIDialogWindowContract` | `feedback_item_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIDialogWindowContract` | `native_boundary` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIDialogWindowContract` | `manual_boundary` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIDialogWindowContract` | `evidence_ref` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIDialogWindowContract` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIKeyboardFocusContract` | `contract_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIKeyboardFocusContract` | `task_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIKeyboardFocusContract` | `state_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIKeyboardFocusContract` | `tab_order_control_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIKeyboardFocusContract` | `default_enter_control_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIKeyboardFocusContract` | `escape_behavior` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIKeyboardFocusContract` | `focus_return_rules` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIKeyboardFocusContract` | `disabled_skip_policy` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIKeyboardFocusContract` | `error_focus_target_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIKeyboardFocusContract` | `evidence_ref` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIKeyboardFocusContract` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIHumanWalkthroughStep` | `step_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIHumanWalkthroughStep` | `visible_prompt` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIHumanWalkthroughStep` | `user_action` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIHumanWalkthroughStep` | `expected_feedback` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIHumanWalkthroughStep` | `actual_feedback` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIHumanWalkthroughStep` | `evidence_ref` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIHumanWalkthroughStep` | `confusion` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIHumanWalkthroughStep` | `mitigation` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIHumanWalkthroughStep` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIHumanWalkthroughScenario` | `scenario_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIHumanWalkthroughScenario` | `task_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIHumanWalkthroughScenario` | `persona` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIHumanWalkthroughScenario` | `steps` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIHumanWalkthroughScenario` | `evidence_ref` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIHumanWalkthroughScenario` | `result` | `ui_flow_structure` | `advanced` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIHumanWalkthroughScenario` | `confusion_notes` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIHumanWalkthroughScenario` | `mitigation` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIHumanWalkthroughScenario` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIHumanOperabilityAssessment` | `assessment_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIHumanOperabilityAssessment` | `task_coverage` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIHumanOperabilityAssessment` | `source_interaction_model_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIHumanOperabilityAssessment` | `current_revision` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIHumanOperabilityAssessment` | `region_maps` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIHumanOperabilityAssessment` | `affordance_contracts` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIHumanOperabilityAssessment` | `action_grammars` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIHumanOperabilityAssessment` | `dialog_contracts` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIHumanOperabilityAssessment` | `keyboard_contracts` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIHumanOperabilityAssessment` | `walkthroughs` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIHumanOperabilityAssessment` | `validation_boundaries` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIHumanOperabilityAssessment` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIRenderEvidence` | `evidence_id` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIRenderEvidence` | `evidence_kind` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIRenderEvidence` | `evidence_target` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIRenderEvidence` | `source_interaction_model_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIRenderEvidence` | `implementation_target` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIRenderEvidence` | `result` | `ui_flow_structure` | `advanced` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIRenderEvidence` | `evidence_ref` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIRenderEvidence` | `model_revision` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIRenderEvidence` | `observed_state_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIRenderEvidence` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIRenderEvidenceSet` | `evidence_set_id` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIRenderEvidenceSet` | `source_interaction_model_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIRenderEvidenceSet` | `implementation_target` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIRenderEvidenceSet` | `current_model_revision` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIRenderEvidenceSet` | `evidence` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIRenderEvidenceSet` | `validation_boundaries` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIRenderEvidenceSet` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIGeometryLayoutEvidence` | `evidence_id` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIGeometryLayoutEvidence` | `target_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIGeometryLayoutEvidence` | `viewport` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIGeometryLayoutEvidence` | `text_overflow` | `ui_flow_structure` | `internal` | `display_or_metadata` | `false` |
+| `ui_structure` | `UIGeometryLayoutEvidence` | `control_overlap` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIGeometryLayoutEvidence` | `out_of_bounds` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIGeometryLayoutEvidence` | `focus_reachable` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIGeometryLayoutEvidence` | `keyboard_reachable` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIGeometryLayoutEvidence` | `scroll_owner` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIGeometryLayoutEvidence` | `result` | `ui_flow_structure` | `advanced` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIGeometryLayoutEvidence` | `evidence_ref` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIGeometryLayoutEvidence` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIGeometryLayoutEvidenceSet` | `geometry_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIGeometryLayoutEvidenceSet` | `source_interaction_model_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIGeometryLayoutEvidenceSet` | `entries` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIGeometryLayoutEvidenceSet` | `validation_boundaries` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIGeometryLayoutEvidenceSet` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIHotPathAction` | `action_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIHotPathAction` | `event_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIHotPathAction` | `feedback_target_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIHotPathAction` | `feedback_description` | `ui_flow_structure` | `internal` | `display_or_metadata` | `false` |
+| `ui_structure` | `UIHotPathAction` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIColdPathWork` | `work_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIColdPathWork` | `trigger_event_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIColdPathWork` | `result_target_id` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIColdPathWork` | `stale_guard` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIColdPathWork` | `cancellation_rule` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIColdPathWork` | `coalescing_rule` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIColdPathWork` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIStableRegionRule` | `region_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIStableRegionRule` | `preservation_rule` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIStableRegionRule` | `unrelated_input_ids` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIStableRegionRule` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIResponsivenessContract` | `contract_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIResponsivenessContract` | `source_interaction_model_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIResponsivenessContract` | `hot_path_actions` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIResponsivenessContract` | `cold_path_work` | `ui_flow_structure` | `advanced` | `compatibility_or_old_path` | `true` |
+| `ui_structure` | `UIResponsivenessContract` | `stable_region_rules` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIResponsivenessContract` | `validation_boundaries` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIResponsivenessContract` | `rationale` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
 | `ui_structure` | `UIFlowStructureFinding` | `code` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
 | `ui_structure` | `UIFlowStructureFinding` | `message` | `ui_flow_structure` | `internal` | `display_or_metadata` | `false` |
 | `ui_structure` | `UIFlowStructureFinding` | `severity` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
@@ -3344,6 +3902,13 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `ui_structure` | `UIImplementationValidationReport` | `covered_feature_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
 | `ui_structure` | `UIImplementationValidationReport` | `covered_event_ids` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
 | `ui_structure` | `UIImplementationValidationReport` | `summary` | `ui_flow_structure` | `advanced` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIFunctionalCapabilityCoverageReport` | `ok` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIFunctionalCapabilityCoverageReport` | `inventory_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIFunctionalCapabilityCoverageReport` | `findings` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIFunctionalCapabilityCoverageReport` | `covered_capability_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIFunctionalCapabilityCoverageReport` | `scoped_capability_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIFunctionalCapabilityCoverageReport` | `output_contract_ids` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIFunctionalCapabilityCoverageReport` | `summary` | `ui_flow_structure` | `advanced` | `evidence_or_decision` | `false` |
 | `ui_structure` | `UIStructureDerivationReport` | `ok` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
 | `ui_structure` | `UIStructureDerivationReport` | `derivation_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
 | `ui_structure` | `UIStructureDerivationReport` | `findings` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
@@ -3352,6 +3917,57 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `ui_structure` | `UITextHierarchyReport` | `blueprint_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
 | `ui_structure` | `UITextHierarchyReport` | `findings` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
 | `ui_structure` | `UITextHierarchyReport` | `summary` | `ui_flow_structure` | `advanced` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIVisibleSurfaceReport` | `ok` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIVisibleSurfaceReport` | `surface_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIVisibleSurfaceReport` | `findings` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIVisibleSurfaceReport` | `summary` | `ui_flow_structure` | `advanced` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIObservedSurfaceInventoryReport` | `ok` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIObservedSurfaceInventoryReport` | `inventory_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIObservedSurfaceInventoryReport` | `findings` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIObservedSurfaceInventoryReport` | `observed_item_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIObservedSurfaceInventoryReport` | `mapped_item_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIObservedSurfaceInventoryReport` | `summary` | `ui_flow_structure` | `advanced` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIControlFunctionalChainReport` | `ok` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIControlFunctionalChainReport` | `chain_set_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIControlFunctionalChainReport` | `findings` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIControlFunctionalChainReport` | `covered_control_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIControlFunctionalChainReport` | `covered_event_ids` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIControlFunctionalChainReport` | `summary` | `ui_flow_structure` | `advanced` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UISourceBaselineInteractionReport` | `ok` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UISourceBaselineInteractionReport` | `gate_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UISourceBaselineInteractionReport` | `findings` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UISourceBaselineInteractionReport` | `covered_interaction_ids` | `ui_flow_structure` | `advanced` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UISourceBaselineInteractionReport` | `summary` | `ui_flow_structure` | `advanced` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UISourceBaselineAlignmentReport` | `ok` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UISourceBaselineAlignmentReport` | `baseline_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UISourceBaselineAlignmentReport` | `mapping_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UISourceBaselineAlignmentReport` | `alignment_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UISourceBaselineAlignmentReport` | `findings` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UISourceBaselineAlignmentReport` | `covered_source_item_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UISourceBaselineAlignmentReport` | `approved_difference_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UISourceBaselineAlignmentReport` | `summary` | `ui_flow_structure` | `advanced` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIHumanOperabilityReport` | `ok` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIHumanOperabilityReport` | `assessment_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIHumanOperabilityReport` | `findings` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIHumanOperabilityReport` | `covered_task_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIHumanOperabilityReport` | `covered_feature_ids` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIHumanOperabilityReport` | `summary` | `ui_flow_structure` | `advanced` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIRenderEvidenceReport` | `ok` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIRenderEvidenceReport` | `evidence_set_id` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIRenderEvidenceReport` | `findings` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIRenderEvidenceReport` | `evidence_kinds` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIRenderEvidenceReport` | `summary` | `ui_flow_structure` | `advanced` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIGeometryLayoutEvidenceReport` | `ok` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIGeometryLayoutEvidenceReport` | `geometry_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
+| `ui_structure` | `UIGeometryLayoutEvidenceReport` | `findings` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIGeometryLayoutEvidenceReport` | `checked_targets` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
+| `ui_structure` | `UIGeometryLayoutEvidenceReport` | `summary` | `ui_flow_structure` | `advanced` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIResponsivenessContractReport` | `ok` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIResponsivenessContractReport` | `contract_id` | `ui_flow_structure` | `starter` | `behavior_or_contract` | `true` |
+| `ui_structure` | `UIResponsivenessContractReport` | `findings` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIResponsivenessContractReport` | `hot_path_ids` | `ui_flow_structure` | `starter` | `collection_metadata` | `false` |
+| `ui_structure` | `UIResponsivenessContractReport` | `cold_path_ids` | `ui_flow_structure` | `advanced` | `compatibility_or_old_path` | `true` |
+| `ui_structure` | `UIResponsivenessContractReport` | `summary` | `ui_flow_structure` | `advanced` | `evidence_or_decision` | `false` |
 | `workflow` | `WorkflowPath` | `current_input` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
 | `workflow` | `WorkflowPath` | `state` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
 | `workflow` | `WorkflowPath` | `trace` | `core_or_internal` | `internal` | `unclassified` | `false` |
