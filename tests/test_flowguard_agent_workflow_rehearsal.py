@@ -57,6 +57,37 @@ class FlowguardAgentWorkflowRehearsalTests(unittest.TestCase):
                 report = review_agent_workflow_rehearsal(plan)
                 self.assertEqual(expected_status, report.status, report.format_text())
 
+    def test_completion_ledger_exposes_passing_handoff_points(self):
+        report = review_agent_workflow_rehearsal(GOOD_PLAN)
+        expected_steps = tuple(step.step_id for step in GOOD_PLAN.steps)
+
+        self.assertEqual(expected_steps, report.planned_steps)
+        self.assertEqual(expected_steps, report.completed_steps)
+        self.assertEqual((), report.blocked_steps)
+        self.assertEqual((), report.skipped_steps)
+        self.assertEqual((), report.required_rechecks)
+        self.assertEqual(GOOD_PLAN.final_claim, report.final_claim_boundary)
+        for evidence_id in ("kb-hits", "process-evidence", "release-evidence"):
+            self.assertIn(evidence_id, report.handoff_points)
+
+        data = report.to_dict()
+        self.assertEqual(list(expected_steps), data["planned_steps"])
+        self.assertEqual(GOOD_PLAN.final_claim, data["final_claim_boundary"])
+        text = report.format_text()
+        self.assertIn("planned_steps:", text)
+        self.assertIn("handoff_points:", text)
+
+    def test_completion_ledger_exposes_blocked_and_skipped_items(self):
+        report = review_agent_workflow_rehearsal(MISSING_REQUIRED_SKILL_PLAN)
+
+        self.assertIn("skill:frontend-design", report.blocked_steps)
+        self.assertIn("skill:frontend-design", report.skipped_steps)
+        self.assertTrue(
+            any(recheck.endswith(":required_candidate_skill_skipped") for recheck in report.required_rechecks),
+            report.to_json(),
+        )
+        self.assertEqual(MISSING_REQUIRED_SKILL_PLAN.final_claim, report.final_claim_boundary)
+
     def test_rehearsal_findings_cover_key_hazards(self):
         expected_codes = {
             STALE_SNAPSHOT_PLAN: "stale_or_cached_skill_inventory",

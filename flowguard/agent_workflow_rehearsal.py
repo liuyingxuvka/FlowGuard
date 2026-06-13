@@ -377,6 +377,13 @@ class AgentWorkflowRehearsalReport:
     findings: tuple[AgentWorkflowRehearsalFinding, ...] = ()
     selected_skills: tuple[str, ...] = ()
     skipped_skills: tuple[str, ...] = ()
+    planned_steps: tuple[str, ...] = ()
+    completed_steps: tuple[str, ...] = ()
+    blocked_steps: tuple[str, ...] = ()
+    skipped_steps: tuple[str, ...] = ()
+    required_rechecks: tuple[str, ...] = ()
+    handoff_points: tuple[str, ...] = ()
+    final_claim_boundary: str = FINAL_CLAIM_NONE
 
     @property
     def ok(self) -> bool:
@@ -390,6 +397,13 @@ class AgentWorkflowRehearsalReport:
             f"inventory_snapshot_id: {self.inventory_snapshot_id}",
             f"selected_skills: {', '.join(self.selected_skills) if self.selected_skills else '(none)'}",
             f"skipped_skills: {', '.join(self.skipped_skills) if self.skipped_skills else '(none)'}",
+            f"planned_steps: {', '.join(self.planned_steps) if self.planned_steps else '(none)'}",
+            f"completed_steps: {', '.join(self.completed_steps) if self.completed_steps else '(none)'}",
+            f"blocked_steps: {', '.join(self.blocked_steps) if self.blocked_steps else '(none)'}",
+            f"skipped_steps: {', '.join(self.skipped_steps) if self.skipped_steps else '(none)'}",
+            f"required_rechecks: {', '.join(self.required_rechecks) if self.required_rechecks else '(none)'}",
+            f"handoff_points: {', '.join(self.handoff_points) if self.handoff_points else '(none)'}",
+            f"final_claim_boundary: {self.final_claim_boundary}",
             f"findings: {len(self.findings)}",
         ]
         for finding in self.findings[:max_findings]:
@@ -412,6 +426,13 @@ class AgentWorkflowRehearsalReport:
             "findings": [finding.to_dict() for finding in self.findings],
             "selected_skills": list(self.selected_skills),
             "skipped_skills": list(self.skipped_skills),
+            "planned_steps": list(self.planned_steps),
+            "completed_steps": list(self.completed_steps),
+            "blocked_steps": list(self.blocked_steps),
+            "skipped_steps": list(self.skipped_steps),
+            "required_rechecks": list(self.required_rechecks),
+            "handoff_points": list(self.handoff_points),
+            "final_claim_boundary": self.final_claim_boundary,
         }
 
     def to_json(self, *, indent: int = 2) -> str:
@@ -438,6 +459,60 @@ def _status_from_findings(findings: Sequence[AgentWorkflowRehearsalFinding]) -> 
     if _has_scoped_finding(findings):
         return REHEARSAL_STATUS_SCOPED
     return REHEARSAL_STATUS_PASS
+
+
+def _finding_anchor(finding: AgentWorkflowRehearsalFinding) -> str:
+    if finding.step_id:
+        return finding.step_id
+    if finding.skill_name:
+        return f"skill:{finding.skill_name}"
+    return f"finding:{finding.code}"
+
+
+def _derive_completion_ledger(plan: AgentWorkflowPlan, findings: Sequence[AgentWorkflowRehearsalFinding]) -> dict[str, Any]:
+    planned_steps = tuple(step.step_id for step in plan.steps)
+    problem_step_ids = {
+        finding.step_id
+        for finding in findings
+        if finding.step_id and finding.severity != FINDING_SEVERITY_INFO
+    }
+    blocked_steps = tuple(
+        sorted(
+            {
+                _finding_anchor(finding)
+                for finding in findings
+                if finding.severity == FINDING_SEVERITY_BLOCKED
+            }
+        )
+    )
+    required_rechecks = tuple(
+        sorted(
+            f"{_finding_anchor(finding)}:{finding.code}"
+            for finding in findings
+            if finding.severity != FINDING_SEVERITY_INFO
+        )
+    )
+    completed_steps = tuple(step_id for step_id in planned_steps if step_id not in problem_step_ids)
+    skipped_steps = tuple(sorted(f"skill:{skip.skill_name}" for skip in plan.skipped_candidate_skills))
+    handoff_points = tuple(
+        sorted(
+            {
+                evidence_id
+                for step in plan.steps
+                for evidence_id in step.produced_evidence_ids + step.continue_evidence_ids
+            }
+            | set(plan.final_evidence_ids)
+        )
+    )
+    return {
+        "planned_steps": planned_steps,
+        "completed_steps": completed_steps,
+        "blocked_steps": blocked_steps,
+        "skipped_steps": skipped_steps,
+        "required_rechecks": required_rechecks,
+        "handoff_points": handoff_points,
+        "final_claim_boundary": plan.final_claim,
+    }
 
 
 def _is_ui_workflow(plan: AgentWorkflowPlan) -> bool:
@@ -683,7 +758,7 @@ def review_agent_workflow_rehearsal(plan: AgentWorkflowPlan) -> AgentWorkflowReh
             findings.append(
                 AgentWorkflowRehearsalFinding(
                     "ui_agent_role_evidence_missing",
-                    "Full UI confidence needs separate inventory, baseline-semantics, and implementation-validation evidence roles.",
+                    "Full UI confidence needs separate inventory, source-baseline, implementation-validation, and human-operability evidence roles.",
                     FINDING_SEVERITY_BLOCKED,
                     metadata={
                         "required_roles": list(UI_AGENT_EVIDENCE_ROLES),
@@ -705,6 +780,7 @@ def review_agent_workflow_rehearsal(plan: AgentWorkflowPlan) -> AgentWorkflowReh
         )
 
     status = _status_from_findings(findings)
+    ledger = _derive_completion_ledger(plan, findings)
     return AgentWorkflowRehearsalReport(
         plan_id=plan.plan_id,
         status=status,
@@ -712,6 +788,13 @@ def review_agent_workflow_rehearsal(plan: AgentWorkflowPlan) -> AgentWorkflowReh
         findings=tuple(findings),
         selected_skills=tuple(sorted(selected)),
         skipped_skills=tuple(sorted(skipped)),
+        planned_steps=ledger["planned_steps"],
+        completed_steps=ledger["completed_steps"],
+        blocked_steps=ledger["blocked_steps"],
+        skipped_steps=ledger["skipped_steps"],
+        required_rechecks=ledger["required_rechecks"],
+        handoff_points=ledger["handoff_points"],
+        final_claim_boundary=ledger["final_claim_boundary"],
     )
 
 

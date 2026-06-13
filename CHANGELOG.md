@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.47.1 - 2026-06-13
+
+Plan discussion handoff hardening.
+
+- Promoted PlanDetailing as the direct FlowGuard route for non-trivial plan,
+  acceptance, rough-outline, and AI-generated workflow discussions before
+  execution routes consume the plan.
+- Added AgentWorkflowRehearsal completion-ledger report fields for planned,
+  completed, blocked, skipped, required-recheck, handoff, and final-claim
+  boundaries.
+- Updated skill routing docs, public templates, OpenSpec coverage, API/field
+  docs, and regression tests so long prose plans no longer count as completion
+  or release evidence.
+
 ## v0.47.0 - 2026-06-13
 
 Generic UI source-baseline validation.
