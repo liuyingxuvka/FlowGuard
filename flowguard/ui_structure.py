@@ -1083,23 +1083,202 @@ FUNCTIONAL_CHAIN_EVIDENCE_KINDS = (
     "manual_observation",
 )
 
-MATLAB_CALLBACK_KINDS = (
-    "uigetfile",
-    "uigetdir",
-    "winopen",
-    "no_callback",
-    "ordinary_callback",
+UI_WORK_MODES = ("greenfield", "source_based", "mixed")
+
+UI_SOURCE_TYPES = (
+    "legacy_app",
+    "prototype",
+    "design_file",
+    "screenshot",
+    "product_spec",
+    "customer_workflow",
+    "manual_observation",
+    "runtime_observation",
+    "other",
 )
 
-MATLAB_CALLBACK_REQUIRED_BRANCHES = {
-    "uigetfile": ("choose", "cancel", "path_selected", "load_result", "error_path"),
-    "uigetdir": ("choose", "cancel", "path_selected", "load_result", "error_path"),
-    "winopen": ("trigger", "opened", "error_path"),
-    "no_callback": ("visible_disposition",),
-    "ordinary_callback": ("trigger", "success", "error_path"),
+UI_SOURCE_INTERACTION_KINDS = (
+    "file_picker",
+    "directory_picker",
+    "external_open",
+    "save_dialog",
+    "custom_dialog",
+    "no_handler",
+    "navigation",
+    "command",
+)
+
+UI_SOURCE_INTERACTION_REQUIRED_BRANCHES = {
+    "file_picker": ("trigger", "confirm", "cancel", "value_selected", "success_feedback", "error_path"),
+    "directory_picker": ("trigger", "confirm", "cancel", "value_selected", "success_feedback", "error_path"),
+    "save_dialog": ("trigger", "confirm", "cancel", "value_selected", "success_feedback", "error_path"),
+    "external_open": ("trigger", "opened", "error_path"),
+    "custom_dialog": ("trigger", "confirm", "cancel", "success_feedback", "error_path"),
+    "no_handler": ("visible_disposition",),
+    "navigation": ("trigger", "target_reached", "back_or_cancel", "error_path"),
+    "command": ("trigger", "success_feedback", "error_path"),
 }
 
-MATLAB_NO_CALLBACK_DISPOSITIONS = ("disabled", "non_functional", "replacement_chain", "out_of_scope")
+UI_SOURCE_NO_HANDLER_DISPOSITIONS = (
+    "disabled",
+    "hidden",
+    "read_only",
+    "replacement_chain",
+    "documented_non_action",
+    "out_of_scope",
+)
+
+UI_SOURCE_TARGET_DISPOSITIONS = (
+    "preserve",
+    "move",
+    "rename",
+    "merge",
+    "split",
+    "replace",
+    "hide",
+    "delete",
+    "defer",
+    "new",
+    "out_of_scope",
+)
+
+UI_SOURCE_CHANGED_DISPOSITIONS = (
+    "move",
+    "rename",
+    "merge",
+    "split",
+    "replace",
+    "hide",
+    "delete",
+    "defer",
+    "new",
+)
+
+
+@dataclass(frozen=True)
+class UIWorkModeDeclaration:
+    """Declares whether UI work is greenfield, source-based, or mixed."""
+
+    declaration_id: str
+    work_mode: str
+    greenfield_scope_ids: tuple[str, ...] = ()
+    source_scope_ids: tuple[str, ...] = ()
+    evidence_ref: str = ""
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "declaration_id", str(self.declaration_id))
+        object.__setattr__(self, "work_mode", str(self.work_mode))
+        object.__setattr__(self, "greenfield_scope_ids", _as_tuple(self.greenfield_scope_ids))
+        object.__setattr__(self, "source_scope_ids", _as_tuple(self.source_scope_ids))
+        object.__setattr__(self, "evidence_ref", str(self.evidence_ref))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "declaration_id": self.declaration_id,
+            "work_mode": self.work_mode,
+            "greenfield_scope_ids": list(self.greenfield_scope_ids),
+            "source_scope_ids": list(self.source_scope_ids),
+            "evidence_ref": self.evidence_ref,
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class UISourceBaselineItem:
+    """One authoritative source item for source-based UI work."""
+
+    item_id: str
+    item_kind: str
+    label: str = ""
+    source_surface_id: str = ""
+    source_region_id: str = ""
+    source_task_ids: tuple[str, ...] = ()
+    interaction_ids: tuple[str, ...] = ()
+    evidence_ref: str = ""
+    scoped_out: bool = False
+    scoped_reason: str = ""
+    owner: str = ""
+    validation_boundary: str = ""
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "item_id", str(self.item_id))
+        object.__setattr__(self, "item_kind", str(self.item_kind))
+        object.__setattr__(self, "label", str(self.label))
+        object.__setattr__(self, "source_surface_id", str(self.source_surface_id))
+        object.__setattr__(self, "source_region_id", str(self.source_region_id))
+        object.__setattr__(self, "source_task_ids", _as_tuple(self.source_task_ids))
+        object.__setattr__(self, "interaction_ids", _as_tuple(self.interaction_ids))
+        object.__setattr__(self, "evidence_ref", str(self.evidence_ref))
+        object.__setattr__(self, "scoped_out", bool(self.scoped_out))
+        object.__setattr__(self, "scoped_reason", str(self.scoped_reason))
+        object.__setattr__(self, "owner", str(self.owner))
+        object.__setattr__(self, "validation_boundary", str(self.validation_boundary))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "item_id": self.item_id,
+            "item_kind": self.item_kind,
+            "label": self.label,
+            "source_surface_id": self.source_surface_id,
+            "source_region_id": self.source_region_id,
+            "source_task_ids": list(self.source_task_ids),
+            "interaction_ids": list(self.interaction_ids),
+            "evidence_ref": self.evidence_ref,
+            "scoped_out": self.scoped_out,
+            "scoped_reason": self.scoped_reason,
+            "owner": self.owner,
+            "validation_boundary": self.validation_boundary,
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class UISourceBaseline:
+    """Authoritative UI source inventory for source-based or mixed work."""
+
+    baseline_id: str
+    work_mode: str
+    source_type: str = ""
+    source_ref: str = ""
+    current_revision: str = ""
+    items: tuple[UISourceBaselineItem, ...] = ()
+    validation_boundaries: tuple[str, ...] = ()
+    evidence_ref: str = ""
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "baseline_id", str(self.baseline_id))
+        object.__setattr__(self, "work_mode", str(self.work_mode))
+        object.__setattr__(self, "source_type", str(self.source_type))
+        object.__setattr__(self, "source_ref", str(self.source_ref))
+        object.__setattr__(self, "current_revision", str(self.current_revision))
+        object.__setattr__(self, "items", tuple(self.items))
+        object.__setattr__(self, "validation_boundaries", _as_tuple(self.validation_boundaries))
+        object.__setattr__(self, "evidence_ref", str(self.evidence_ref))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def item_ids(self) -> tuple[str, ...]:
+        return tuple(item.item_id for item in self.items)
+
+    def in_scope_item_ids(self) -> tuple[str, ...]:
+        return tuple(item.item_id for item in self.items if not item.scoped_out)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "baseline_id": self.baseline_id,
+            "work_mode": self.work_mode,
+            "source_type": self.source_type,
+            "source_ref": self.source_ref,
+            "current_revision": self.current_revision,
+            "items": [item.to_dict() for item in self.items],
+            "validation_boundaries": list(self.validation_boundaries),
+            "evidence_ref": self.evidence_ref,
+            "rationale": self.rationale,
+        }
 
 
 @dataclass(frozen=True)
@@ -1337,66 +1516,69 @@ class UIControlFunctionalChainSet:
 
 
 @dataclass(frozen=True)
-class MATLABCallbackSemantics:
-    """Baseline callback semantics for MATLAB-to-UI migration parity."""
+class UISourceInteractionSemantics:
+    """Source interaction semantics for source-based UI parity."""
 
-    semantic_id: str
-    control_id: str
-    callback_kind: str
-    baseline_callback: str = ""
+    interaction_id: str
+    source_item_id: str
+    interaction_kind: str
+    target_control_id: str = ""
+    source_behavior_ref: str = ""
     required_branches: tuple[str, ...] = ()
     covered_branches: tuple[str, ...] = ()
     evidence_ref: str = ""
     result: str = "passed"
     native_boundary: str = ""
     manual_boundary: str = ""
-    migration_disposition: str = ""
+    target_disposition: str = ""
     rationale: str = ""
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "semantic_id", str(self.semantic_id))
-        object.__setattr__(self, "control_id", str(self.control_id))
-        object.__setattr__(self, "callback_kind", str(self.callback_kind))
-        object.__setattr__(self, "baseline_callback", str(self.baseline_callback))
+        object.__setattr__(self, "interaction_id", str(self.interaction_id))
+        object.__setattr__(self, "source_item_id", str(self.source_item_id))
+        object.__setattr__(self, "interaction_kind", str(self.interaction_kind))
+        object.__setattr__(self, "target_control_id", str(self.target_control_id))
+        object.__setattr__(self, "source_behavior_ref", str(self.source_behavior_ref))
         object.__setattr__(self, "required_branches", _as_tuple(self.required_branches))
         object.__setattr__(self, "covered_branches", _as_tuple(self.covered_branches))
         object.__setattr__(self, "evidence_ref", str(self.evidence_ref))
         object.__setattr__(self, "result", str(self.result))
         object.__setattr__(self, "native_boundary", str(self.native_boundary))
         object.__setattr__(self, "manual_boundary", str(self.manual_boundary))
-        object.__setattr__(self, "migration_disposition", str(self.migration_disposition))
+        object.__setattr__(self, "target_disposition", str(self.target_disposition))
         object.__setattr__(self, "rationale", str(self.rationale))
 
     def expected_branches(self) -> tuple[str, ...]:
         if self.required_branches:
             return self.required_branches
-        return MATLAB_CALLBACK_REQUIRED_BRANCHES.get(self.callback_kind, ())
+        return UI_SOURCE_INTERACTION_REQUIRED_BRANCHES.get(self.interaction_kind, ())
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "semantic_id": self.semantic_id,
-            "control_id": self.control_id,
-            "callback_kind": self.callback_kind,
-            "baseline_callback": self.baseline_callback,
+            "interaction_id": self.interaction_id,
+            "source_item_id": self.source_item_id,
+            "interaction_kind": self.interaction_kind,
+            "target_control_id": self.target_control_id,
+            "source_behavior_ref": self.source_behavior_ref,
             "required_branches": list(self.required_branches),
             "covered_branches": list(self.covered_branches),
             "evidence_ref": self.evidence_ref,
             "result": self.result,
             "native_boundary": self.native_boundary,
             "manual_boundary": self.manual_boundary,
-            "migration_disposition": self.migration_disposition,
+            "target_disposition": self.target_disposition,
             "rationale": self.rationale,
         }
 
 
 @dataclass(frozen=True)
-class MATLABBaselineCallbackGate:
-    """MATLAB callback semantics gate for migration UI parity claims."""
+class UISourceBaselineInteractionGate:
+    """Generic source interaction semantics gate for source-based UI claims."""
 
     gate_id: str
     source_baseline_ref: str
     target_ui_revision: str
-    callbacks: tuple[MATLABCallbackSemantics, ...] = ()
+    interactions: tuple[UISourceInteractionSemantics, ...] = ()
     validation_boundaries: tuple[str, ...] = ()
     rationale: str = ""
 
@@ -1404,20 +1586,158 @@ class MATLABBaselineCallbackGate:
         object.__setattr__(self, "gate_id", str(self.gate_id))
         object.__setattr__(self, "source_baseline_ref", str(self.source_baseline_ref))
         object.__setattr__(self, "target_ui_revision", str(self.target_ui_revision))
-        object.__setattr__(self, "callbacks", tuple(self.callbacks))
+        object.__setattr__(self, "interactions", tuple(self.interactions))
         object.__setattr__(self, "validation_boundaries", _as_tuple(self.validation_boundaries))
         object.__setattr__(self, "rationale", str(self.rationale))
 
-    def semantic_ids(self) -> tuple[str, ...]:
-        return tuple(callback.semantic_id for callback in self.callbacks)
+    def interaction_ids(self) -> tuple[str, ...]:
+        return tuple(interaction.interaction_id for interaction in self.interactions)
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "gate_id": self.gate_id,
             "source_baseline_ref": self.source_baseline_ref,
             "target_ui_revision": self.target_ui_revision,
-            "callbacks": [callback.to_dict() for callback in self.callbacks],
+            "interactions": [interaction.to_dict() for interaction in self.interactions],
             "validation_boundaries": list(self.validation_boundaries),
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class UISourceTargetMappingRow:
+    """One source-to-target UI mapping or approved difference."""
+
+    mapping_id: str
+    source_item_id: str = ""
+    target_item_id: str = ""
+    target_control_id: str = ""
+    target_region_id: str = ""
+    target_task_id: str = ""
+    disposition: str = "preserve"
+    approval_ref: str = ""
+    evidence_ref: str = ""
+    validation_boundary: str = ""
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "mapping_id", str(self.mapping_id))
+        object.__setattr__(self, "source_item_id", str(self.source_item_id))
+        object.__setattr__(self, "target_item_id", str(self.target_item_id))
+        object.__setattr__(self, "target_control_id", str(self.target_control_id))
+        object.__setattr__(self, "target_region_id", str(self.target_region_id))
+        object.__setattr__(self, "target_task_id", str(self.target_task_id))
+        object.__setattr__(self, "disposition", str(self.disposition))
+        object.__setattr__(self, "approval_ref", str(self.approval_ref))
+        object.__setattr__(self, "evidence_ref", str(self.evidence_ref))
+        object.__setattr__(self, "validation_boundary", str(self.validation_boundary))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def target_ids(self) -> tuple[str, ...]:
+        return tuple(item for item in (self.target_item_id, self.target_control_id, self.target_region_id, self.target_task_id) if item)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "mapping_id": self.mapping_id,
+            "source_item_id": self.source_item_id,
+            "target_item_id": self.target_item_id,
+            "target_control_id": self.target_control_id,
+            "target_region_id": self.target_region_id,
+            "target_task_id": self.target_task_id,
+            "disposition": self.disposition,
+            "approval_ref": self.approval_ref,
+            "evidence_ref": self.evidence_ref,
+            "validation_boundary": self.validation_boundary,
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class UISourceTargetMapping:
+    """Complete source-to-target mapping ledger for a UI boundary."""
+
+    mapping_id: str
+    work_mode: str
+    source_baseline_id: str = ""
+    target_ui_revision: str = ""
+    mappings: tuple[UISourceTargetMappingRow, ...] = ()
+    validation_boundaries: tuple[str, ...] = ()
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "mapping_id", str(self.mapping_id))
+        object.__setattr__(self, "work_mode", str(self.work_mode))
+        object.__setattr__(self, "source_baseline_id", str(self.source_baseline_id))
+        object.__setattr__(self, "target_ui_revision", str(self.target_ui_revision))
+        object.__setattr__(self, "mappings", tuple(self.mappings))
+        object.__setattr__(self, "validation_boundaries", _as_tuple(self.validation_boundaries))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def mapping_ids(self) -> tuple[str, ...]:
+        return tuple(row.mapping_id for row in self.mappings)
+
+    def source_item_ids(self) -> tuple[str, ...]:
+        return tuple(row.source_item_id for row in self.mappings if row.source_item_id)
+
+    def target_item_ids(self) -> tuple[str, ...]:
+        return tuple(target for row in self.mappings for target in row.target_ids())
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "mapping_id": self.mapping_id,
+            "work_mode": self.work_mode,
+            "source_baseline_id": self.source_baseline_id,
+            "target_ui_revision": self.target_ui_revision,
+            "mappings": [row.to_dict() for row in self.mappings],
+            "validation_boundaries": list(self.validation_boundaries),
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class UIObservedSourceAlignment:
+    """Observed UI alignment against source baseline and target mapping."""
+
+    alignment_id: str
+    work_mode: str
+    source_baseline_id: str = ""
+    target_mapping_id: str = ""
+    observed_inventory_id: str = ""
+    current_revision: str = ""
+    aligned_source_item_ids: tuple[str, ...] = ()
+    observed_target_item_ids: tuple[str, ...] = ()
+    approved_difference_ids: tuple[str, ...] = ()
+    validation_boundaries: tuple[str, ...] = ()
+    evidence_ref: str = ""
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "alignment_id", str(self.alignment_id))
+        object.__setattr__(self, "work_mode", str(self.work_mode))
+        object.__setattr__(self, "source_baseline_id", str(self.source_baseline_id))
+        object.__setattr__(self, "target_mapping_id", str(self.target_mapping_id))
+        object.__setattr__(self, "observed_inventory_id", str(self.observed_inventory_id))
+        object.__setattr__(self, "current_revision", str(self.current_revision))
+        object.__setattr__(self, "aligned_source_item_ids", _as_tuple(self.aligned_source_item_ids))
+        object.__setattr__(self, "observed_target_item_ids", _as_tuple(self.observed_target_item_ids))
+        object.__setattr__(self, "approved_difference_ids", _as_tuple(self.approved_difference_ids))
+        object.__setattr__(self, "validation_boundaries", _as_tuple(self.validation_boundaries))
+        object.__setattr__(self, "evidence_ref", str(self.evidence_ref))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "alignment_id": self.alignment_id,
+            "work_mode": self.work_mode,
+            "source_baseline_id": self.source_baseline_id,
+            "target_mapping_id": self.target_mapping_id,
+            "observed_inventory_id": self.observed_inventory_id,
+            "current_revision": self.current_revision,
+            "aligned_source_item_ids": list(self.aligned_source_item_ids),
+            "observed_target_item_ids": list(self.observed_target_item_ids),
+            "approved_difference_ids": list(self.approved_difference_ids),
+            "validation_boundaries": list(self.validation_boundaries),
+            "evidence_ref": self.evidence_ref,
             "rationale": self.rationale,
         }
 
@@ -2739,25 +3059,25 @@ class UIControlFunctionalChainReport:
 
 
 @dataclass(frozen=True)
-class MATLABBaselineCallbackGateReport:
-    """Structured review result for MATLAB baseline callback semantics."""
+class UISourceBaselineInteractionReport:
+    """Structured review result for source-baseline interaction semantics."""
 
     ok: bool
     gate_id: str
     findings: tuple[UIFlowStructureFinding, ...] = ()
-    covered_callback_ids: tuple[str, ...] = ()
+    covered_interaction_ids: tuple[str, ...] = ()
     summary: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "gate_id", str(self.gate_id))
         object.__setattr__(self, "findings", tuple(self.findings))
-        object.__setattr__(self, "covered_callback_ids", _as_tuple(self.covered_callback_ids))
+        object.__setattr__(self, "covered_interaction_ids", _as_tuple(self.covered_interaction_ids))
         if not self.summary:
             status = "OK" if self.ok else "BLOCKED"
             object.__setattr__(
                 self,
                 "summary",
-                f"{status}: matlab_baseline_callback_gate={self.gate_id} findings={len(self.findings)}",
+                f"{status}: ui_source_baseline_interactions={self.gate_id} findings={len(self.findings)}",
             )
 
     def blocker_count(self) -> int:
@@ -2765,10 +3085,10 @@ class MATLABBaselineCallbackGateReport:
 
     def format_text(self, max_findings: int = 10) -> str:
         lines = [
-            "=== flowguard MATLAB baseline callback semantics review ===",
+            "=== flowguard UI source-baseline interaction review ===",
             f"status: {'OK' if self.ok else 'BLOCKED'}",
             f"gate: {self.gate_id}",
-            f"covered_callbacks: {len(self.covered_callback_ids)}",
+            f"covered_interactions: {len(self.covered_interaction_ids)}",
             f"findings: {len(self.findings)}",
         ]
         for finding in self.findings[:max_findings]:
@@ -2787,7 +3107,74 @@ class MATLABBaselineCallbackGateReport:
         return {
             "ok": self.ok,
             "gate_id": self.gate_id,
-            "covered_callback_ids": list(self.covered_callback_ids),
+            "covered_interaction_ids": list(self.covered_interaction_ids),
+            "findings": [finding.to_dict() for finding in self.findings],
+            "summary": self.summary,
+        }
+
+
+@dataclass(frozen=True)
+class UISourceBaselineAlignmentReport:
+    """Structured review result for source-baseline mapping and observed alignment."""
+
+    ok: bool
+    baseline_id: str
+    mapping_id: str = ""
+    alignment_id: str = ""
+    findings: tuple[UIFlowStructureFinding, ...] = ()
+    covered_source_item_ids: tuple[str, ...] = ()
+    approved_difference_ids: tuple[str, ...] = ()
+    summary: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "baseline_id", str(self.baseline_id))
+        object.__setattr__(self, "mapping_id", str(self.mapping_id))
+        object.__setattr__(self, "alignment_id", str(self.alignment_id))
+        object.__setattr__(self, "findings", tuple(self.findings))
+        object.__setattr__(self, "covered_source_item_ids", _as_tuple(self.covered_source_item_ids))
+        object.__setattr__(self, "approved_difference_ids", _as_tuple(self.approved_difference_ids))
+        if not self.summary:
+            status = "OK" if self.ok else "BLOCKED"
+            object.__setattr__(
+                self,
+                "summary",
+                f"{status}: ui_source_baseline_alignment={self.baseline_id} findings={len(self.findings)}",
+            )
+
+    def blocker_count(self) -> int:
+        return sum(1 for finding in self.findings if finding.severity == "blocker")
+
+    def format_text(self, max_findings: int = 10) -> str:
+        lines = [
+            "=== flowguard UI source-baseline alignment review ===",
+            f"status: {'OK' if self.ok else 'BLOCKED'}",
+            f"baseline: {self.baseline_id}",
+            f"mapping: {self.mapping_id or '(none)'}",
+            f"alignment: {self.alignment_id or '(none)'}",
+            f"covered_source_items: {len(self.covered_source_item_ids)}",
+            f"approved_differences: {len(self.approved_difference_ids)}",
+            f"findings: {len(self.findings)}",
+        ]
+        for finding in self.findings[:max_findings]:
+            lines.extend(
+                [
+                    "",
+                    f"finding: {finding.code}",
+                    f"severity: {finding.severity}",
+                    f"item: {finding.item_id or '(none)'}",
+                    f"message: {finding.message}",
+                ]
+            )
+        return "\n".join(lines)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "ok": self.ok,
+            "baseline_id": self.baseline_id,
+            "mapping_id": self.mapping_id,
+            "alignment_id": self.alignment_id,
+            "covered_source_item_ids": list(self.covered_source_item_ids),
+            "approved_difference_ids": list(self.approved_difference_ids),
             "findings": [finding.to_dict() for finding in self.findings],
             "summary": self.summary,
         }
@@ -3840,129 +4227,279 @@ def review_ui_control_functional_chains(
     )
 
 
-def review_matlab_baseline_callback_gate(
-    gate: MATLABBaselineCallbackGate,
+def review_ui_source_baseline_interactions(
+    gate: UISourceBaselineInteractionGate,
     *,
     interaction_model: UIInteractionModel | None = None,
-) -> MATLABBaselineCallbackGateReport:
-    """Review MATLAB callback semantics for migration parity claims."""
+) -> UISourceBaselineInteractionReport:
+    """Review source interaction semantics for source-based UI claims."""
 
     findings: list[UIFlowStructureFinding] = []
     known_controls = set(interaction_model.control_ids()) if interaction_model is not None else set()
-    covered_callback_ids: list[str] = []
+    covered_interaction_ids: list[str] = []
 
     if not gate.gate_id:
-        findings.append(UIFlowStructureFinding("missing_matlab_callback_gate_id", "MATLAB callback gate has no id"))
+        findings.append(UIFlowStructureFinding("missing_ui_source_baseline_gate_id", "UI source-baseline interaction gate has no id"))
     if not gate.source_baseline_ref:
-        findings.append(UIFlowStructureFinding("missing_matlab_baseline_ref", "MATLAB callback gate has no source baseline reference"))
+        findings.append(UIFlowStructureFinding("missing_ui_source_baseline_ref", "UI source-baseline interaction gate has no source baseline reference"))
     if not gate.target_ui_revision:
-        findings.append(UIFlowStructureFinding("missing_matlab_target_revision", "MATLAB callback gate has no target UI revision"))
-    if not gate.callbacks:
-        findings.append(UIFlowStructureFinding("missing_matlab_callback_semantics", "MATLAB callback gate has no callback semantics rows"))
+        findings.append(UIFlowStructureFinding("missing_ui_source_target_revision", "UI source-baseline interaction gate has no target UI revision"))
+    if not gate.interactions:
+        findings.append(UIFlowStructureFinding("missing_ui_source_baseline_interaction", "UI source-baseline interaction gate has no interaction rows"))
     if not gate.validation_boundaries:
-        findings.append(UIFlowStructureFinding("missing_matlab_callback_validation", "MATLAB callback gate has no validation boundaries"))
+        findings.append(UIFlowStructureFinding("missing_ui_source_baseline_validation", "UI source-baseline interaction gate has no validation boundaries"))
     if not gate.rationale:
-        findings.append(UIFlowStructureFinding("missing_matlab_callback_gate_rationale", "MATLAB callback gate has no rationale"))
+        findings.append(UIFlowStructureFinding("missing_ui_source_baseline_gate_rationale", "UI source-baseline interaction gate has no rationale"))
 
-    findings.extend(_duplicate_values(gate.semantic_ids(), code="duplicate_matlab_callback_semantic_id", noun="MATLAB callback semantic"))
+    findings.extend(_duplicate_values(gate.interaction_ids(), code="duplicate_ui_source_interaction_id", noun="source interaction"))
 
-    for callback in gate.callbacks:
-        if callback.semantic_id:
-            covered_callback_ids.append(callback.semantic_id)
-        if not callback.semantic_id:
-            findings.append(UIFlowStructureFinding("missing_matlab_callback_semantic_id", "MATLAB callback semantic has no id"))
-        if not callback.control_id:
+    for interaction in gate.interactions:
+        if interaction.interaction_id:
+            covered_interaction_ids.append(interaction.interaction_id)
+        if not interaction.interaction_id:
+            findings.append(UIFlowStructureFinding("missing_ui_source_interaction_id", "source interaction has no id"))
+        if not interaction.source_item_id:
             findings.append(
                 UIFlowStructureFinding(
-                    "missing_matlab_callback_control",
-                    f"MATLAB callback semantic {callback.semantic_id} has no control id",
-                    item_id=callback.semantic_id,
+                    "missing_ui_source_interaction_item",
+                    f"source interaction {interaction.interaction_id} has no source item id",
+                    item_id=interaction.interaction_id,
                 )
             )
-        elif interaction_model is not None and callback.control_id not in known_controls:
+        if interaction.target_control_id and interaction_model is not None and interaction.target_control_id not in known_controls:
             findings.append(
                 UIFlowStructureFinding(
-                    "matlab_callback_control_not_registered",
-                    f"MATLAB callback semantic {callback.semantic_id} references unknown control {callback.control_id}",
-                    item_id=callback.semantic_id,
+                    "ui_source_target_control_not_registered",
+                    f"source interaction {interaction.interaction_id} references unknown target control {interaction.target_control_id}",
+                    item_id=interaction.interaction_id,
                 )
             )
-        if not callback.callback_kind:
+        if not interaction.interaction_kind:
             findings.append(
                 UIFlowStructureFinding(
-                    "missing_matlab_callback_kind",
-                    f"MATLAB callback semantic {callback.semantic_id} has no callback kind",
-                    item_id=callback.semantic_id,
+                    "missing_ui_source_interaction_kind",
+                    f"source interaction {interaction.interaction_id} has no interaction kind",
+                    item_id=interaction.interaction_id,
                 )
             )
-        elif callback.callback_kind not in MATLAB_CALLBACK_KINDS:
+        elif interaction.interaction_kind not in UI_SOURCE_INTERACTION_KINDS:
             findings.append(
                 UIFlowStructureFinding(
-                    "unknown_matlab_callback_kind",
-                    f"MATLAB callback semantic {callback.semantic_id} uses unknown callback kind {callback.callback_kind}",
-                    item_id=callback.semantic_id,
+                    "unknown_ui_source_interaction_kind",
+                    f"source interaction {interaction.interaction_id} uses unknown interaction kind {interaction.interaction_kind}",
+                    item_id=interaction.interaction_id,
                 )
             )
-        expected = set(callback.expected_branches())
-        covered = set(callback.covered_branches)
+        expected = set(interaction.expected_branches())
+        covered = set(interaction.covered_branches)
         missing = sorted(expected - covered)
         if missing:
             findings.append(
                 UIFlowStructureFinding(
-                    "matlab_callback_missing_branch_semantics",
-                    f"MATLAB callback semantic {callback.semantic_id} is missing branches: {', '.join(missing)}",
-                    item_id=callback.semantic_id,
+                    "ui_source_interaction_missing_branch_semantics",
+                    f"source interaction {interaction.interaction_id} is missing branches: {', '.join(missing)}",
+                    item_id=interaction.interaction_id,
                     metadata={"missing_branches": missing},
                 )
             )
-        if callback.callback_kind in {"uigetfile", "uigetdir", "winopen"} and not (callback.native_boundary or callback.manual_boundary):
+        if interaction.interaction_kind in {"file_picker", "directory_picker", "external_open", "save_dialog", "custom_dialog"} and not (
+            interaction.native_boundary or interaction.manual_boundary
+        ):
             findings.append(
                 UIFlowStructureFinding(
-                    "matlab_native_callback_missing_boundary",
-                    f"MATLAB callback semantic {callback.semantic_id} has no native/manual boundary",
-                    item_id=callback.semantic_id,
+                    "ui_source_external_interaction_missing_boundary",
+                    f"source interaction {interaction.interaction_id} has no native/manual boundary",
+                    item_id=interaction.interaction_id,
                 )
             )
-        if callback.callback_kind == "no_callback" and callback.migration_disposition not in MATLAB_NO_CALLBACK_DISPOSITIONS:
+        if interaction.interaction_kind == "no_handler" and interaction.target_disposition not in UI_SOURCE_NO_HANDLER_DISPOSITIONS:
             findings.append(
                 UIFlowStructureFinding(
-                    "matlab_no_callback_missing_disposition",
-                    f"MATLAB no-callback control {callback.semantic_id} has no migration disposition",
-                    item_id=callback.semantic_id,
-                    metadata={"allowed_dispositions": list(MATLAB_NO_CALLBACK_DISPOSITIONS)},
+                    "ui_source_no_handler_missing_disposition",
+                    f"source no-handler item {interaction.interaction_id} has no target disposition",
+                    item_id=interaction.interaction_id,
+                    metadata={"allowed_dispositions": list(UI_SOURCE_NO_HANDLER_DISPOSITIONS)},
                 )
             )
-        if not callback.evidence_ref:
+        if not interaction.evidence_ref:
             findings.append(
                 UIFlowStructureFinding(
-                    "missing_matlab_callback_evidence_ref",
-                    f"MATLAB callback semantic {callback.semantic_id} has no evidence reference",
-                    item_id=callback.semantic_id,
+                    "missing_ui_source_interaction_evidence_ref",
+                    f"source interaction {interaction.interaction_id} has no evidence reference",
+                    item_id=interaction.interaction_id,
                 )
             )
-        if callback.result.lower() not in _PASSED_UI_RESULTS:
+        if interaction.result.lower() not in _PASSED_UI_RESULTS:
             findings.append(
                 UIFlowStructureFinding(
-                    "matlab_callback_not_passed",
-                    f"MATLAB callback semantic {callback.semantic_id} result is {callback.result}, not passed",
-                    item_id=callback.semantic_id,
+                    "ui_source_interaction_not_passed",
+                    f"source interaction {interaction.interaction_id} result is {interaction.result}, not passed",
+                    item_id=interaction.interaction_id,
                 )
             )
-        if not callback.rationale:
+        if not interaction.rationale:
             findings.append(
                 UIFlowStructureFinding(
-                    "missing_matlab_callback_rationale",
-                    f"MATLAB callback semantic {callback.semantic_id} has no rationale",
-                    item_id=callback.semantic_id,
+                    "missing_ui_source_interaction_rationale",
+                    f"source interaction {interaction.interaction_id} has no rationale",
+                    item_id=interaction.interaction_id,
                 )
             )
 
     blockers = _blocker_findings(findings)
-    return MATLABBaselineCallbackGateReport(
+    return UISourceBaselineInteractionReport(
         ok=not blockers,
         gate_id=gate.gate_id,
         findings=tuple(findings),
-        covered_callback_ids=tuple(sorted(set(covered_callback_ids))),
+        covered_interaction_ids=tuple(sorted(set(covered_interaction_ids))),
+    )
+
+
+def review_ui_source_baseline_alignment(
+    baseline: UISourceBaseline,
+    mapping: UISourceTargetMapping | None = None,
+    alignment: UIObservedSourceAlignment | None = None,
+    *,
+    observed_inventory: UIObservedSurfaceInventory | None = None,
+) -> UISourceBaselineAlignmentReport:
+    """Review source-baseline coverage, target mapping, and observed-source alignment."""
+
+    findings: list[UIFlowStructureFinding] = []
+    source_required = baseline.work_mode in {"source_based", "mixed"}
+    source_item_ids = set(baseline.item_ids())
+    in_scope_source_item_ids = set(baseline.in_scope_item_ids())
+    mapped_source_ids: set[str] = set()
+    approved_difference_ids: list[str] = []
+
+    if not baseline.baseline_id:
+        findings.append(UIFlowStructureFinding("missing_ui_source_baseline_id", "UI source baseline has no id"))
+    if baseline.work_mode not in UI_WORK_MODES:
+        findings.append(UIFlowStructureFinding("unknown_ui_work_mode", f"UI source baseline uses unknown work mode {baseline.work_mode}", item_id=baseline.baseline_id))
+    if baseline.work_mode == "greenfield":
+        findings.append(UIFlowStructureFinding("greenfield_source_baseline_unnecessary", "greenfield UI should not require a source baseline", item_id=baseline.baseline_id, severity="info"))
+    if source_required and not baseline.source_type:
+        findings.append(UIFlowStructureFinding("missing_ui_source_type", "UI source baseline has no source type", item_id=baseline.baseline_id))
+    elif baseline.source_type and baseline.source_type not in UI_SOURCE_TYPES:
+        findings.append(UIFlowStructureFinding("unknown_ui_source_type", f"UI source baseline uses unknown source type {baseline.source_type}", item_id=baseline.baseline_id))
+    if source_required and not baseline.source_ref:
+        findings.append(UIFlowStructureFinding("missing_ui_source_ref", "UI source baseline has no source reference", item_id=baseline.baseline_id))
+    if source_required and not baseline.current_revision:
+        findings.append(UIFlowStructureFinding("missing_ui_source_revision", "UI source baseline has no current revision", item_id=baseline.baseline_id))
+    if not baseline.items and source_required:
+        findings.append(UIFlowStructureFinding("missing_ui_source_items", "source-based UI baseline has no source items", item_id=baseline.baseline_id))
+    if not baseline.validation_boundaries:
+        findings.append(UIFlowStructureFinding("missing_ui_source_validation", "UI source baseline has no validation boundaries", item_id=baseline.baseline_id))
+    if not baseline.evidence_ref:
+        findings.append(UIFlowStructureFinding("missing_ui_source_evidence_ref", "UI source baseline has no evidence reference", item_id=baseline.baseline_id))
+    if not baseline.rationale:
+        findings.append(UIFlowStructureFinding("missing_ui_source_rationale", "UI source baseline has no rationale", item_id=baseline.baseline_id))
+
+    findings.extend(_duplicate_values(baseline.item_ids(), code="duplicate_ui_source_item_id", noun="source item"))
+    for item in baseline.items:
+        if not item.item_id:
+            findings.append(UIFlowStructureFinding("missing_ui_source_item_id", "source item has no id"))
+        if not item.item_kind:
+            findings.append(UIFlowStructureFinding("missing_ui_source_item_kind", f"source item {item.item_id} has no kind", item_id=item.item_id))
+        if item.scoped_out:
+            if not (item.scoped_reason and item.owner and item.validation_boundary):
+                findings.append(UIFlowStructureFinding("ui_source_item_scoped_without_boundary", f"source item {item.item_id} is scoped out without reason, owner, and validation boundary", item_id=item.item_id))
+        else:
+            if not item.evidence_ref:
+                findings.append(UIFlowStructureFinding("missing_ui_source_item_evidence_ref", f"source item {item.item_id} has no evidence reference", item_id=item.item_id))
+            if not item.rationale:
+                findings.append(UIFlowStructureFinding("missing_ui_source_item_rationale", f"source item {item.item_id} has no rationale", item_id=item.item_id))
+
+    if baseline.work_mode in {"source_based", "mixed"} and mapping is None:
+        findings.append(UIFlowStructureFinding("missing_ui_source_target_mapping", "source-based UI has no source-to-target mapping", item_id=baseline.baseline_id))
+
+    mapping_id = mapping.mapping_id if mapping else ""
+    if mapping is not None:
+        if not mapping.mapping_id:
+            findings.append(UIFlowStructureFinding("missing_ui_source_mapping_id", "source-to-target mapping has no id"))
+        if mapping.work_mode not in UI_WORK_MODES:
+            findings.append(UIFlowStructureFinding("unknown_ui_source_mapping_work_mode", f"source-to-target mapping uses unknown work mode {mapping.work_mode}", item_id=mapping.mapping_id))
+        if mapping.work_mode in {"source_based", "mixed"} and mapping.source_baseline_id != baseline.baseline_id:
+            findings.append(UIFlowStructureFinding("ui_source_mapping_baseline_mismatch", f"mapping {mapping.mapping_id} targets {mapping.source_baseline_id}, not {baseline.baseline_id}", item_id=mapping.mapping_id))
+        if not mapping.target_ui_revision:
+            findings.append(UIFlowStructureFinding("missing_ui_source_mapping_target_revision", f"mapping {mapping.mapping_id} has no target UI revision", item_id=mapping.mapping_id))
+        if not mapping.validation_boundaries:
+            findings.append(UIFlowStructureFinding("missing_ui_source_mapping_validation", f"mapping {mapping.mapping_id} has no validation boundaries", item_id=mapping.mapping_id))
+        if not mapping.rationale:
+            findings.append(UIFlowStructureFinding("missing_ui_source_mapping_rationale", f"mapping {mapping.mapping_id} has no rationale", item_id=mapping.mapping_id))
+        findings.extend(_duplicate_values(mapping.mapping_ids(), code="duplicate_ui_source_mapping_id", noun="source mapping"))
+        for row in mapping.mappings:
+            if row.source_item_id:
+                mapped_source_ids.add(row.source_item_id)
+                if row.source_item_id not in source_item_ids:
+                    findings.append(UIFlowStructureFinding("ui_source_mapping_unknown_source_item", f"mapping {row.mapping_id} references unknown source item {row.source_item_id}", item_id=row.mapping_id))
+            if row.disposition not in UI_SOURCE_TARGET_DISPOSITIONS:
+                findings.append(UIFlowStructureFinding("unknown_ui_source_disposition", f"mapping {row.mapping_id} uses unknown disposition {row.disposition}", item_id=row.mapping_id))
+            if row.disposition != "new" and not row.source_item_id:
+                findings.append(UIFlowStructureFinding("ui_source_mapping_missing_source_item", f"mapping {row.mapping_id} has no source item id", item_id=row.mapping_id))
+            if row.disposition in {"preserve", "move", "rename", "merge", "split", "replace", "new"} and not row.target_ids():
+                findings.append(UIFlowStructureFinding("ui_source_mapping_missing_target", f"mapping {row.mapping_id} has no target item, control, region, or task", item_id=row.mapping_id))
+            if row.disposition in UI_SOURCE_CHANGED_DISPOSITIONS:
+                approved_difference_ids.append(row.mapping_id)
+                if not (row.rationale and (row.approval_ref or row.evidence_ref) and row.validation_boundary):
+                    findings.append(UIFlowStructureFinding("ui_source_difference_unapproved", f"mapping {row.mapping_id} changes source behavior without rationale, approval/evidence, and boundary", item_id=row.mapping_id))
+            elif not row.rationale:
+                findings.append(UIFlowStructureFinding("missing_ui_source_mapping_rationale", f"mapping {row.mapping_id} has no rationale", item_id=row.mapping_id))
+
+        missing_mapped = sorted(in_scope_source_item_ids - mapped_source_ids)
+        for source_item_id in missing_mapped:
+            findings.append(UIFlowStructureFinding("ui_source_item_unmapped_to_target", f"source item {source_item_id} has no target mapping or disposition", item_id=source_item_id))
+
+    alignment_id = alignment.alignment_id if alignment else ""
+    if baseline.work_mode in {"source_based", "mixed"} and alignment is None:
+        findings.append(UIFlowStructureFinding("missing_ui_observed_source_alignment", "source-based UI has no observed-source alignment evidence", item_id=baseline.baseline_id))
+
+    if alignment is not None:
+        if not alignment.alignment_id:
+            findings.append(UIFlowStructureFinding("missing_ui_observed_source_alignment_id", "observed-source alignment has no id"))
+        if alignment.work_mode not in UI_WORK_MODES:
+            findings.append(UIFlowStructureFinding("unknown_ui_observed_source_work_mode", f"observed-source alignment uses unknown work mode {alignment.work_mode}", item_id=alignment.alignment_id))
+        if alignment.work_mode in {"source_based", "mixed"} and alignment.source_baseline_id != baseline.baseline_id:
+            findings.append(UIFlowStructureFinding("ui_observed_source_baseline_mismatch", f"alignment {alignment.alignment_id} targets {alignment.source_baseline_id}, not {baseline.baseline_id}", item_id=alignment.alignment_id))
+        if mapping is not None and alignment.target_mapping_id != mapping.mapping_id:
+            findings.append(UIFlowStructureFinding("ui_observed_source_mapping_mismatch", f"alignment {alignment.alignment_id} targets mapping {alignment.target_mapping_id}, not {mapping.mapping_id}", item_id=alignment.alignment_id))
+        if observed_inventory is not None and alignment.observed_inventory_id != observed_inventory.inventory_id:
+            findings.append(UIFlowStructureFinding("ui_observed_source_inventory_mismatch", f"alignment {alignment.alignment_id} targets inventory {alignment.observed_inventory_id}, not {observed_inventory.inventory_id}", item_id=alignment.alignment_id))
+        if not alignment.current_revision:
+            findings.append(UIFlowStructureFinding("missing_ui_observed_source_revision", f"alignment {alignment.alignment_id} has no current revision", item_id=alignment.alignment_id))
+        if not alignment.validation_boundaries:
+            findings.append(UIFlowStructureFinding("missing_ui_observed_source_validation", f"alignment {alignment.alignment_id} has no validation boundaries", item_id=alignment.alignment_id))
+        if not alignment.evidence_ref:
+            findings.append(UIFlowStructureFinding("missing_ui_observed_source_evidence_ref", f"alignment {alignment.alignment_id} has no evidence reference", item_id=alignment.alignment_id))
+        if not alignment.rationale:
+            findings.append(UIFlowStructureFinding("missing_ui_observed_source_rationale", f"alignment {alignment.alignment_id} has no rationale", item_id=alignment.alignment_id))
+        for source_item_id in alignment.aligned_source_item_ids:
+            if source_item_id not in source_item_ids:
+                findings.append(UIFlowStructureFinding("ui_observed_alignment_unknown_source_item", f"alignment references unknown source item {source_item_id}", item_id=source_item_id))
+        for mapping_row_id in alignment.approved_difference_ids:
+            if mapping is not None and mapping_row_id not in set(mapping.mapping_ids()):
+                findings.append(UIFlowStructureFinding("ui_observed_alignment_unknown_difference", f"alignment references unknown approved difference {mapping_row_id}", item_id=mapping_row_id))
+        approved_difference_source_ids: set[str] = set()
+        if mapping is not None:
+            approved_difference_source_ids = {
+                row.source_item_id
+                for row in mapping.mappings
+                if row.mapping_id in set(alignment.approved_difference_ids) and row.source_item_id
+            }
+        missing_alignment = sorted(
+            in_scope_source_item_ids - set(alignment.aligned_source_item_ids) - approved_difference_source_ids
+        )
+        for source_item_id in missing_alignment:
+            findings.append(UIFlowStructureFinding("ui_source_item_missing_observed_alignment", f"source item {source_item_id} is neither observed aligned nor covered by an approved difference", item_id=source_item_id))
+
+    blockers = _blocker_findings(findings)
+    return UISourceBaselineAlignmentReport(
+        ok=not blockers,
+        baseline_id=baseline.baseline_id,
+        mapping_id=mapping_id,
+        alignment_id=alignment_id,
+        findings=tuple(findings),
+        covered_source_item_ids=tuple(sorted(mapped_source_ids or in_scope_source_item_ids)),
+        approved_difference_ids=tuple(sorted(set(approved_difference_ids))),
     )
 
 
@@ -6885,12 +7422,23 @@ __all__ = [
     "UIJourneyCoverage",
     "UIJourneyCoverageReport",
     "UIJourneyEntryPoint",
-    "MATLABBaselineCallbackGate",
-    "MATLABBaselineCallbackGateReport",
-    "MATLABCallbackSemantics",
-    "MATLAB_CALLBACK_KINDS",
-    "MATLAB_CALLBACK_REQUIRED_BRANCHES",
-    "MATLAB_NO_CALLBACK_DISPOSITIONS",
+    "UIObservedSourceAlignment",
+    "UISourceBaseline",
+    "UISourceBaselineAlignmentReport",
+    "UISourceBaselineItem",
+    "UISourceBaselineInteractionGate",
+    "UISourceBaselineInteractionReport",
+    "UISourceInteractionSemantics",
+    "UISourceTargetMapping",
+    "UISourceTargetMappingRow",
+    "UIWorkModeDeclaration",
+    "UI_SOURCE_CHANGED_DISPOSITIONS",
+    "UI_SOURCE_INTERACTION_KINDS",
+    "UI_SOURCE_INTERACTION_REQUIRED_BRANCHES",
+    "UI_SOURCE_NO_HANDLER_DISPOSITIONS",
+    "UI_SOURCE_TARGET_DISPOSITIONS",
+    "UI_SOURCE_TYPES",
+    "UI_WORK_MODES",
     "FUNCTIONAL_CHAIN_EVIDENCE_KINDS",
     "OBSERVED_UI_ACTIONABLE_KINDS",
     "OBSERVED_UI_ITEM_KINDS",
@@ -6932,7 +7480,8 @@ __all__ = [
     "UIVisibleSurfaceReport",
     "UI_HUMAN_OPERABILITY_EVIDENCE_KINDS",
     "SUPPORTED_UI_EVIDENCE_KINDS",
-    "review_matlab_baseline_callback_gate",
+    "review_ui_source_baseline_alignment",
+    "review_ui_source_baseline_interactions",
     "review_ui_control_functional_chains",
     "review_ui_geometry_layout_evidence",
     "review_ui_human_operability",

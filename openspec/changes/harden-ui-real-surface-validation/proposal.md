@@ -3,7 +3,7 @@
 FlowGuard's UI route already models visible surfaces and implementation
 validation, but agents can still overclaim UI completion when the real rendered
 page was never inventoried, when a button only has a label or API endpoint, or
-when native MATLAB-style callback semantics were not exercised. This change
+when native source-interaction semantics were not exercised. This change
 locks the final mile: every real visible UI item must be accounted for, every
 enabled action must prove a real function chain, and final done claims must
 stay scoped when implementation evidence is missing, planned, stale, or manual
@@ -19,9 +19,10 @@ only.
 - Add an enabled-control functional chain gate:
   visible control -> UI event -> code owner -> backend/local/native function ->
   observed UI state/display update -> evidence.
-- Add a MATLAB baseline callback semantics gate for `uigetfile`, `uigetdir`,
-  `winopen`, no-callback buttons, choose/cancel/path/error/load-result
-  branches, and migration parity claims.
+- Add a generic source-baseline interaction semantics gate for native pickers,
+  external opens, save/custom dialogs, no-handler controls,
+  trigger/confirm/cancel/value/result/error branches, and source-based parity
+  claims.
 - Treat user-observed UI mismatch after green FlowGuard evidence as a Model Miss
   with previous-claim backpropagation, same-class scan, and same-class tests.
 - Require OpenSpec/UI task completion to name evidence type and evidence status;
@@ -30,7 +31,8 @@ only.
   native dialogs, manual signoff, planned evidence, missing implementation
   validation, or unmapped visible items remain.
 - Add multi-agent UI evidence roles to workflow rehearsal: UI inventory,
-  baseline semantics, and implementation validation evidence packets.
+  source-baseline mapping/alignment, and implementation validation evidence
+  packets.
 - Sync repository skill guidance, public templates, docs, tests, editable
   install, shadow workspace, and local Git surfaces before release confidence.
 
@@ -45,8 +47,8 @@ only.
 ### Modified Capabilities
 
 - `flowguard-ui-flow-structure`: require observed real-surface inventory as the
-  first hard gate for existing/runnable UI claims and add MATLAB baseline
-  callback semantics for migration parity.
+  first hard gate for existing/runnable UI claims and add generic
+  source-baseline interaction semantics for source-based parity.
 - `ui-implementation-validation`: require enabled controls to prove a real
   functional chain and implementation validation before runnable/complete UI
   claims.
@@ -63,8 +65,9 @@ only.
 - `flowguard-closure-contract`: block full done/release claims when planned
   evidence, missing manual signoff, native-dialog blindspots, unmapped visible
   items, or missing implementation validation remain.
-- `flowguard-agent-workflow-rehearsal`: model UI inventory, baseline semantics,
-  and implementation validation as distinct role evidence packets.
+- `flowguard-agent-workflow-rehearsal`: model UI inventory, source-baseline
+  mapping/alignment, and implementation validation as distinct role evidence
+  packets.
 - `flowguard-codex-skill-satellites`: align installed and repository Codex
   skill prompts with the new first-gate and final-claim wording.
 

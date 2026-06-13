@@ -31,11 +31,12 @@ unclear. Use this skill before execution; it does not execute the workflow.
 - Weak validation guidance needs a compensating check before broad confidence.
 - UI click-through, real-surface artifact payload proof, manual review, and installed-skill sync are explicit evidence surfaces when relevant.
 - Full UI claims need separate evidence roles in `ui_evidence_roles`:
-  `ui_inventory`, `ui_baseline_semantics`, and
+  `ui_inventory`, `ui_source_baseline`, and
   `ui_human_operability`, `ui_implementation_validation`. Missing one blocks full confidence.
 - Multi-agent UI work should split evidence roles instead of sending every
-  agent into code: inventory, baseline semantics, and implementation
-  validation plus human-operability can be separate workstreams.
+  agent into code: visible-surface inventory, source-baseline mapping/alignment
+  when applicable, implementation validation, and human-operability can be
+  separate workstreams.
 - Workflow models need template-harvest closure.
 
 ## Minimum Workflow
@@ -44,7 +45,7 @@ unclear. Use this skill before execution; it does not execute the workflow.
 2. Mark required and candidate skills for the task.
 3. Rehearse selected skills, skipped candidates, order, evidence surfaces,
    side effects, and continue/rework gates.
-4. For UI work, assign and record inventory, baseline-semantics,
+4. For UI work, assign and record inventory, source-baseline,
    human-operability, and implementation-validation evidence roles before a full claim.
 5. Treat blocked or scoped findings as claim boundaries.
 

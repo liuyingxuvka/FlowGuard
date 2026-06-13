@@ -3,7 +3,7 @@
 ### Requirement: Final UI confidence consumes real-surface and implementation evidence
 Risk Evidence Ledger SHALL require broad UI done, release, or full-confidence
 claims to consume current observed-surface inventory, UI implementation
-validation, functional-chain, MATLAB baseline semantics when relevant, and
+validation, functional-chain, source-baseline interaction evidence when relevant, and
 final done-claim review evidence.
 
 #### Scenario: Ledger has current UI evidence

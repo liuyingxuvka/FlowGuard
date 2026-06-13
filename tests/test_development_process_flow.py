@@ -6,7 +6,7 @@ from flowguard import (
     PROCESS_ARTIFACT_FIELD_LIFECYCLE,
     PROCESS_ARTIFACT_FIELD_PROJECTION,
     PROCESS_ARTIFACT_MODEL,
-    PROCESS_ARTIFACT_MATLAB_CALLBACK_GATE,
+    PROCESS_ARTIFACT_UI_SOURCE_BASELINE_GATE,
     PROCESS_ARTIFACT_REPLACEMENT_DISPOSITION,
     PROCESS_ARTIFACT_REQUIREMENT,
     PROCESS_ARTIFACT_TEST,
@@ -18,7 +18,7 @@ from flowguard import (
     PROCESS_EVIDENCE_FIELD_LIFECYCLE,
     PROCESS_EVIDENCE_FIELD_PROJECTION,
     PROCESS_EVIDENCE_FAILED,
-    PROCESS_EVIDENCE_MATLAB_CALLBACK_GATE,
+    PROCESS_EVIDENCE_UI_SOURCE_BASELINE_GATE,
     PROCESS_EVIDENCE_MODEL_MISS_REVIEW,
     PROCESS_EVIDENCE_NOT_RUN,
     PROCESS_EVIDENCE_PASSED,
@@ -161,7 +161,7 @@ class DevelopmentProcessFlowTests(unittest.TestCase):
             artifacts=(
                 ProcessArtifact("ui.inventory", PROCESS_ARTIFACT_UI_OBSERVED_INVENTORY, "1"),
                 ProcessArtifact("ui.chain", PROCESS_ARTIFACT_UI_FUNCTIONAL_CHAIN, "1"),
-                ProcessArtifact("ui.matlab", PROCESS_ARTIFACT_MATLAB_CALLBACK_GATE, "1"),
+                ProcessArtifact("ui.source_baseline", PROCESS_ARTIFACT_UI_SOURCE_BASELINE_GATE, "1"),
                 ProcessArtifact("ui.done", PROCESS_ARTIFACT_UI_DONE_CLAIM, "1"),
             ),
             actions=(
@@ -186,11 +186,11 @@ class DevelopmentProcessFlowTests(unittest.TestCase):
                     has_result_artifact=False,
                 ),
                 ProcessEvidence(
-                    "ui-callback-pass",
-                    evidence_kind=PROCESS_EVIDENCE_MATLAB_CALLBACK_GATE,
+                    "ui-source-baseline-pass",
+                    evidence_kind=PROCESS_EVIDENCE_UI_SOURCE_BASELINE_GATE,
                     status=PROCESS_EVIDENCE_PASSED,
-                    covers_artifacts=("ui.matlab",),
-                    covered_versions={"ui.matlab": "1"},
+                    covers_artifacts=("ui.source_baseline",),
+                    covered_versions={"ui.source_baseline": "1"},
                 ),
             ),
             validation_requirements=(

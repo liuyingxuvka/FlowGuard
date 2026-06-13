@@ -20,7 +20,7 @@ from flowguard import (
     REHEARSAL_STATUS_NEEDS_REVISION,
     REHEARSAL_STATUS_PASS,
     REHEARSAL_STATUS_SCOPED,
-    UI_EVIDENCE_ROLE_BASELINE_SEMANTICS,
+    UI_EVIDENCE_ROLE_SOURCE_BASELINE,
     UI_EVIDENCE_ROLE_HUMAN_OPERABILITY,
     UI_EVIDENCE_ROLE_IMPLEMENTATION_VALIDATION,
     UI_EVIDENCE_ROLE_INVENTORY,
@@ -88,7 +88,7 @@ class FlowguardAgentWorkflowRehearsalTests(unittest.TestCase):
         self.assertEqual(REHEARSAL_STATUS_BLOCKED, report.status, report.format_text())
         self.assertIn("ui_agent_role_evidence_missing", {finding.code for finding in report.findings})
 
-    def test_full_ui_claim_passes_with_inventory_semantics_click_and_human_roles(self):
+    def test_full_ui_claim_passes_with_inventory_source_baseline_click_and_human_roles(self):
         complete_roles = replace(
             GOOD_PLAN,
             plan_id="ui-full-complete-role-evidence",
@@ -98,7 +98,7 @@ class FlowguardAgentWorkflowRehearsalTests(unittest.TestCase):
             risk_flags=("ui",),
             ui_evidence_roles=(
                 UI_EVIDENCE_ROLE_INVENTORY,
-                UI_EVIDENCE_ROLE_BASELINE_SEMANTICS,
+                UI_EVIDENCE_ROLE_SOURCE_BASELINE,
                 UI_EVIDENCE_ROLE_IMPLEMENTATION_VALIDATION,
                 UI_EVIDENCE_ROLE_HUMAN_OPERABILITY,
             ),

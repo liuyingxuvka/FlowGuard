@@ -44,7 +44,7 @@ This is still compact, but it must have teeth. A new or deepened model names the
 - For existing/runnable UI, first inventory real visible items and map each to `UIControl`, `UIDisplayElement`, `UIVisibleSurfaceItem`, or blindspot.
 - Every reachable enabled UI control needs a visible-control -> event -> code owner -> backend/local function -> UI state update -> click/test evidence chain; API existence or label matching is not enough.
 - Every supported UI task needs task coverage plus human-operability evidence: primary control, feedback, cancel/error, affordance, dialog/window return, keyboard/focus, and walkthrough.
-- MATLAB UI migrations need `uigetfile`, `uigetdir`, `winopen`, no-callback, select/cancel/path/result/error semantics.
+- Source-based UI work needs generic source-baseline interaction semantics for native pickers, external opens, save/custom dialogs, no-handler controls, trigger/confirm/cancel/value/result/error branches. Greenfield UI should use user-task, visible-surface, functional-chain, and implementation evidence without inventing a source baseline.
 - UI done/runnable/button-wired claims need current `UIImplementationValidation` and UI done-claim review; planned/background/artifact-only evidence is not release completion.
 - Reused test results need current `TestResultReuseTicket` and `ProofArtifactRef`; old `passed` output is not current evidence by itself.
 - After `run_model_first_checks()`, read structured ledger routes and obligations before manual route inference.
@@ -72,7 +72,7 @@ This is still compact, but it must have teeth. A new or deepened model names the
 | Ordinary behavior/state modeling, Risk Intent, state inventory | `core_modeling` | `model-first-function-flow` |
 | Existing code/prompt flow should shrink without behavior loss | `architecture_reduction` | `flowguard-architecture-reduction` |
 | Pre-code module/function/block ownership recommendation | `code_structure_recommendation` | `flowguard-code-structure-recommendation` |
-| UI controls, real visible surface inventory, enabled-control functional chains, MATLAB callback semantics, screens, journeys, display/text ownership, runnable UI click-through evidence | `ui_flow_structure` | `flowguard-ui-flow-structure` |
+| UI controls, real visible surface inventory, enabled-control functional chains, source-baseline interaction semantics when applicable, screens, journeys, display/text ownership, runnable UI click-through evidence | `ui_flow_structure` | `flowguard-ui-flow-structure` |
 | Locally green model topology implies future-use hazards before broad confidence | `model_topology_hazard_review` | `flowguard-model-topology-hazard-review` |
 | Model obligations versus tests, code contracts, boundary observations, or artifact payload cases | `model_test_alignment` | `flowguard-model-test-alignment` |
 | Three or more models, oversized model, stale child evidence, parent/child mesh | `model_mesh_maintenance` | `flowguard-model-mesh` |

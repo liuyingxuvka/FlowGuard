@@ -6,8 +6,8 @@ DEVELOPMENT_PROCESS_FLOW_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header
 
 Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
 Purpose: Review a development lifecycle as a sibling process route, tracking artifact versions and validation evidence freshness before done or release claims.
-Guards against: stale validation after code/test/model/requirement/UI observed inventory/UI functional chain/MATLAB callback/UI done-claim/payload-schema/field-lifecycle changes, oversized direct model evidence, slow or broad direct validation evidence, progress-only evidence, hidden skips, missing V-style validation pairs, peer writes, and release overclaims.
-Use before editing: Update this development process flow when changing development ordering, UI click-through, observed-inventory, functional-chain, MATLAB callback, done-claim, payload-pack validation gates, release readiness, or evidence freshness policy.
+Guards against: stale validation after code/test/model/requirement/UI observed inventory/UI functional chain/UI source-baseline interaction/UI done-claim/payload-schema/field-lifecycle changes, oversized direct model evidence, slow or broad direct validation evidence, progress-only evidence, hidden skips, missing V-style validation pairs, peer writes, and release overclaims.
+Use before editing: Update this development process flow when changing development ordering, UI click-through, observed-inventory, functional-chain, source-baseline interaction, done-claim, payload-pack validation gates, release readiness, or evidence freshness policy.
 Run: python .flowguard/development_process_flow/run_checks.py
 """
 
@@ -18,7 +18,7 @@ from flowguard import (
     PROCESS_ARTIFACT_BUG_REPAIR_CLOSURE,
     PROCESS_ARTIFACT_FIELD_LIFECYCLE,
     PROCESS_ARTIFACT_FIELD_PROJECTION,
-    PROCESS_ARTIFACT_MATLAB_CALLBACK_GATE,
+    PROCESS_ARTIFACT_UI_SOURCE_BASELINE_GATE,
     PROCESS_ARTIFACT_MODEL,
     PROCESS_ARTIFACT_REPLACEMENT_DISPOSITION,
     PROCESS_ARTIFACT_REQUIREMENT,
@@ -29,7 +29,7 @@ from flowguard import (
     PROCESS_EVIDENCE_BUG_REPAIR_CLOSURE,
     PROCESS_EVIDENCE_FIELD_LIFECYCLE,
     PROCESS_EVIDENCE_FIELD_PROJECTION,
-    PROCESS_EVIDENCE_MATLAB_CALLBACK_GATE,
+    PROCESS_EVIDENCE_UI_SOURCE_BASELINE_GATE,
     PROCESS_EVIDENCE_MODEL_MISS_REVIEW,
     PROCESS_EVIDENCE_PASSED,
     PROCESS_EVIDENCE_UI_DONE_CLAIM_REVIEW,

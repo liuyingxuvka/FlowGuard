@@ -3,13 +3,13 @@
 ### Requirement: UI workflow rehearsal separates evidence roles
 AgentWorkflowRehearsal SHALL model non-trivial UI validation work with distinct
 evidence roles when multiple agents or workstreams are used: UI inventory,
-baseline callback semantics, implementation validation, and main-agent
-integration.
+source-baseline mapping/alignment when relevant, implementation validation,
+and main-agent integration.
 
 #### Scenario: UI roles are all present
 - **WHEN** a multi-agent UI workflow claims full runnable UI confidence
 - **THEN** the rehearsal requires evidence packets for real UI inventory,
-  baseline semantics when relevant, implementation click/function-chain
+  source-baseline mapping/alignment when relevant, implementation click/function-chain
   validation, and integration review
 
 #### Scenario: Agents only edit code

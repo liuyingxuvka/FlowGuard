@@ -9,7 +9,7 @@
 - [x] 2.1 Add observed/rendered UI inventory data structures and review helper APIs under `flowguard.ui_structure`. Evidence: unit tests for pass/fail inventory coverage.
 - [x] 2.2 Require observed buttons, inputs, selects, tables, display fields, status text, native-dialog triggers, and commands to map to `UIControl`, `UIDisplayElement`, `UIVisibleSurfaceItem`, or a scoped blindspot. Evidence: unit tests for unmapped and mapped cases.
 - [x] 2.3 Add enabled-control functional chain structures and review helper APIs that bind visible control, UI event, code owner, runtime/local/backend/native function, observed UI update, and evidence reference. Evidence: unit tests rejecting API-only and label-only proof.
-- [x] 2.4 Add MATLAB baseline callback semantics structures and review helper APIs for `uigetfile`, `uigetdir`, `winopen`, no-callback buttons, choose/cancel/path/error/load-result branches, and native/manual boundaries. Evidence: unit tests for pass/fail MATLAB parity cases.
+- [x] 2.4 Add generic source-baseline interaction semantics structures and review helper APIs for native pickers, external opens, save/custom dialogs, no-handler controls, trigger/confirm/cancel/value/result/error branches, and native/manual boundaries. Evidence: unit tests for pass/fail source-based parity cases.
 - [x] 2.5 Integrate the new gates into UI Flow docs, public API exports, and generated UI templates without weakening the compact starter boundary. Evidence: docs/template/API tests.
 
 ## 3. Miss, Process, Risk, Closure, And Agent Workflow Gates
@@ -17,7 +17,7 @@
 - [x] 3.1 Strengthen Model Miss Review guidance and helpers so user-observed UI mismatch after green evidence records previous claim, miss class, same-class UI scan, and same-class evidence. Evidence: model-miss unit tests.
 - [x] 3.2 Strengthen plan-detailing and development-process helpers so UI task rows and lifecycle evidence carry evidence type, evidence status, evidence reference, freshness, and scoped boundary. Evidence: plan/process unit tests.
 - [x] 3.3 Add final UI done-claim review support to RiskEvidenceLedger/ClosureContract so planned evidence, missing manual signoff, native-dialog blindspots, unmapped visible items, missing functional chains, and missing implementation validation block broad claims. Evidence: risk/closure unit tests.
-- [x] 3.4 Strengthen AgentWorkflowRehearsal so multi-agent UI workflows require inventory, baseline semantics, implementation validation, and integration evidence roles before full runnable UI confidence. Evidence: agent-workflow unit tests.
+- [x] 3.4 Strengthen AgentWorkflowRehearsal so multi-agent UI workflows require inventory, source-baseline mapping/alignment, implementation validation, and integration evidence roles before full runnable UI confidence. Evidence: agent-workflow unit tests.
 
 ## 4. Skill, Documentation, And Installed Sync
 
@@ -30,6 +30,6 @@
 
 - [x] 5.1 Run focused tests for UI structure, Model Miss, plan detailing, development process, risk ledger, closure contract, agent workflow, public templates, API surface, and skill docs. Evidence: passing focused test output.
 - [x] 5.2 Run project audit and strongest practical regression suite; background runs may start early but only final exit/result artifacts count. Evidence: formal project audit pass, OpenSpec strict pass, self-model pass, and `python -m pytest -q` with 807 passed, 13 warnings, 225 subtests passed.
-- [x] 5.3 Verify editable install and shadow workspace imports expose the same FlowGuard version and new APIs. Evidence: both formal and shadow roots import FlowGuard 0.43.3/schema 1.0 and expose the new UI inventory, functional-chain, MATLAB gate, model-miss, closure, and agent-role symbols.
+- [x] 5.3 Verify editable install and shadow workspace imports expose the same FlowGuard version and new APIs. Evidence: both formal and shadow roots import FlowGuard 0.43.3/schema 1.0 and expose the UI inventory, functional-chain, source-baseline, model-miss, closure, and agent-role symbols.
 - [x] 5.4 Update adoption logs with executed checks, skipped or timed-out checks, sync status, and safe final claim wording. Evidence: `.flowguard` machine log and human log.
 - [x] 5.5 Perform KB postflight and record reusable lessons or misses. Evidence: KB feedback event `7bd61e52-f6de-466a-9eac-648b698a6dfd`.

@@ -12,7 +12,7 @@ If a user opens a UI after a green FlowGuard claim and the visible behavior is
 wrong, treat the episode as a model miss. Typical UI miss types are
 `evidence_overclaimed` when the prior proof only showed a label or API route,
 and `boundary_missing` when the prior model did not account for the visible
-control, field, callback branch, task flow, human-operability rule, or UI state
+control, field, source-interaction branch, task flow, human-operability rule, or UI state
 update.
 
 For bug repair work inside an existing modeled system, run Existing Model

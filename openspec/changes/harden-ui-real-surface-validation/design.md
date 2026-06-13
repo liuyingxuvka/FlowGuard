@@ -22,7 +22,7 @@ contract, and skill guidance without creating a parallel UI route.
   scoped blindspot.
 - Require each enabled actionable control to prove a real function chain from
   visible control through owner code and observed UI result.
-- Add MATLAB baseline callback semantics for migration parity.
+- Add generic source-baseline interaction semantics for source-based parity.
 - Make user-observed UI mismatch after green evidence a model miss, not a local
   patch-only bug.
 - Ensure OpenSpec task completion records evidence type and status.
@@ -65,14 +65,17 @@ Alternative considered: rely on existing step evidence and `code_contract_id`
 fields. Rejected because those fields are too implicit; API existence and label
 matching can still be mistaken for real click-to-effect behavior.
 
-### MATLAB semantics are a specialized UI baseline gate
+### Source interaction semantics are a generic UI baseline gate
 
-Represent MATLAB migration parity as a UI baseline semantics gate with known
-callback families: `uigetfile`, `uigetdir`, `winopen`, no-callback buttons,
-choose/cancel/path/error/load-result branches, and manual/native boundaries.
+Represent source-based UI parity as a UI source-baseline interaction gate with
+declared interaction kinds: native pickers, external opens, save/custom
+dialogs, no-handler controls, navigation, commands,
+trigger/confirm/cancel/value/result/error branches, and manual/native
+boundaries.
 
-Alternative considered: put MATLAB rules only in docs. Rejected because the
-previous failure class is behavioral and needs executable bad-case tests.
+Alternative considered: put source interaction rules only in docs. Rejected
+because the previous failure class is behavioral and needs executable bad-case
+tests.
 
 ### Done-claim review consumes sibling evidence
 
@@ -108,7 +111,7 @@ boundary.
 ## Migration Plan
 
 1. Add OpenSpec deltas and tasks for the new hard gates.
-2. Add UI inventory, functional chain, MATLAB callback, and UI done-claim
+2. Add UI inventory, functional chain, source interaction, and UI done-claim
    helpers with focused bad-case tests.
 3. Update Model Miss, plan detailing, development process, risk ledger,
    closure contract, agent workflow, public templates, docs, and Codex skills.

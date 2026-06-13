@@ -2,7 +2,7 @@
 
 ### Requirement: UI last-mile artifacts participate in process freshness
 DevelopmentProcessFlow SHALL treat observed UI inventories, visible-surface
-mappings, functional chains, MATLAB callback baseline gates,
+mappings, functional chains, source-baseline interaction gates,
 implementation-validation runs, native/manual boundaries, installed-skill sync,
 shadow-workspace sync, and local Git sync as freshness-sensitive artifacts.
 

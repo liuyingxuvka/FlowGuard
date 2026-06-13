@@ -388,7 +388,10 @@ inventory.
   `UIControl`, `UIDisplayElement`, `UIStateNode`, `UITransition`,
   `UIObservedSurfaceItem`, `UIObservedSurfaceInventory`,
   `UIControlFunctionalChain`, `UIControlFunctionalChainSet`,
-  `MATLABCallbackSemantics`, `MATLABBaselineCallbackGate`,
+  `UIWorkModeDeclaration`, `UISourceBaseline`, `UISourceBaselineItem`,
+  `UISourceTargetMapping`, `UISourceTargetMappingRow`,
+  `UIObservedSourceAlignment`, `UISourceInteractionSemantics`,
+  `UISourceBaselineInteractionGate`,
   `UIJourneyCoverage`, `UIJourneyEntryPoint`, `UIFeatureJourney`,
   `UITerminalActionAllowance`, `UIBlindspot`,
   `UIJourneyCoverageReport`, `UIFeatureContract`,
@@ -410,7 +413,8 @@ inventory.
   `UITextHierarchyBlueprint`, `UITextElement`, `UITypographyToken`,
   `review_ui_observed_surface_inventory()`,
   `review_ui_control_functional_chains()`,
-  `review_matlab_baseline_callback_gate()`,
+  `review_ui_source_baseline_alignment()`,
+  `review_ui_source_baseline_interactions()`,
   `review_ui_interaction_model()`, `review_ui_journey_coverage()`,
   `review_ui_human_operability()`,
   `review_ui_implementation_validation()`,
@@ -419,7 +423,8 @@ inventory.
   `review_ui_responsiveness_contract()`,
   `review_ui_structure_derivation()`, and `review_ui_text_hierarchy()` for
   inventorying the real visible UI first, modeling UI interactions, proving
-  enabled-control functional chains, preserving MATLAB callback semantics,
+  enabled-control functional chains, aligning source-baseline interactions when
+  work is source-based or mixed,
   proving launch-to-terminal journey coverage and reachable visible-control/event coverage when complete app UI is claimed,
   validating task coverage, region semantics, affordance, action grammar,
   native/dialog returns, keyboard/focus, and human walkthroughs before
@@ -459,7 +464,7 @@ Reporting helpers help an AI agent explain what was checked and what was not:
   confidence ledger that connects user risks to FlowGuard model obligations,
   optional public code contracts, obligation-family gates, analogous defect
   scans, recurring defect-family gates, model/test split gates, UI
-  implementation, real-surface, functional-chain, MATLAB callback, and
+  implementation, real-surface, functional-chain, source-baseline interaction, and
   done-claim gates, artifact-payload gates, model-angle deliberation
   evidence, remembered maintenance obligations, and current proof evidence
 - `MaintenanceObligation`, `MaintenanceObligationReport`, and

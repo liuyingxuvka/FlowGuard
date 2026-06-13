@@ -3,7 +3,7 @@
 FlowGuard Risk Purpose Header
 Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
 Purpose: prevent UI completion claims from passing when the real rendered UI,
-enabled-control behavior, MATLAB callback semantics, or final claim evidence is
+enabled-control behavior, source-baseline interaction semantics, or final claim evidence is
 missing.
 Modeled block shape: Input x State -> Set(Output x State).
 Run: python .flowguard/harden_ui_real_surface_validation/run_checks.py
@@ -35,7 +35,7 @@ class UIHardeningState:
     observed_inventory_gate: bool = False
     all_visible_items_mapped: bool = False
     functional_chain_gate: bool = False
-    matlab_callback_gate: bool = False
+    source_baseline_gate: bool = False
     ui_model_miss_gate: bool = False
     task_evidence_gate: bool = False
     final_done_claim_gate: bool = False
@@ -52,7 +52,7 @@ class UIHardeningState:
             and self.observed_inventory_gate
             and self.all_visible_items_mapped
             and self.functional_chain_gate
-            and self.matlab_callback_gate
+            and self.source_baseline_gate
             and self.ui_model_miss_gate
             and self.task_evidence_gate
             and self.final_done_claim_gate
@@ -71,7 +71,7 @@ class CorrectUILastMileHardening:
         "observed_inventory_gate",
         "all_visible_items_mapped",
         "functional_chain_gate",
-        "matlab_callback_gate",
+        "source_baseline_gate",
         "ui_model_miss_gate",
         "task_evidence_gate",
         "final_done_claim_gate",
@@ -87,7 +87,7 @@ class CorrectUILastMileHardening:
     output_description = "UI last-mile hardening state or claim decision"
     idempotency = (
         "Full claim requires observed inventory, mapping, function chains, "
-        "MATLAB semantics, model miss, task evidence, final claim, agent roles, "
+        "source-baseline semantics, model miss, task evidence, final claim, agent roles, "
         "tests, installed skill sync, and shadow/git sync."
     )
 
@@ -130,12 +130,12 @@ class CorrectUILastMileHardening:
                 replace(state, functional_chain_gate=ok),
                 label="functional_chain_gate_added" if ok else "functional_chain_blocked",
             )
-        elif action == "add_matlab_callback_gate":
+        elif action == "add_source_baseline_gate":
             ok = state.functional_chain_gate
             yield FunctionResult(
-                UIHardeningOutput("matlab_callback_gate_added" if ok else "matlab_gate_blocked"),
-                replace(state, matlab_callback_gate=ok),
-                label="matlab_callback_gate_added" if ok else "matlab_gate_blocked",
+                UIHardeningOutput("source_baseline_gate_added" if ok else "source_gate_blocked"),
+                replace(state, source_baseline_gate=ok),
+                label="source_baseline_gate_added" if ok else "source_gate_blocked",
             )
         elif action == "add_model_miss_gate":
             ok = state.functional_chain_gate
@@ -171,7 +171,7 @@ class CorrectUILastMileHardening:
                 and state.observed_inventory_gate
                 and state.all_visible_items_mapped
                 and state.functional_chain_gate
-                and state.matlab_callback_gate
+                and state.source_baseline_gate
                 and state.ui_model_miss_gate
                 and state.task_evidence_gate
                 and state.final_done_claim_gate
@@ -235,16 +235,16 @@ class BrokenApiOnlyFunctionalChain(CorrectUILastMileHardening):
         yield from super().apply(input_obj, state)
 
 
-class BrokenMatlabCancelBranchMissing(CorrectUILastMileHardening):
-    name = "BrokenMatlabCancelBranchMissing"
-    idempotency = "Broken variant accepts MATLAB file picker parity without cancel/error branch semantics."
+class BrokenSourceBranchMissing(CorrectUILastMileHardening):
+    name = "BrokenSourceBranchMissing"
+    idempotency = "Broken variant accepts source picker parity without cancel/error branch semantics."
 
     def apply(self, input_obj: UIHardeningAction, state: UIHardeningState) -> Iterable[FunctionResult]:
-        if input_obj.action_type == "add_matlab_callback_gate":
+        if input_obj.action_type == "add_source_baseline_gate":
             yield FunctionResult(
-                UIHardeningOutput("matlab_success_only_accepted"),
-                replace(state, matlab_callback_gate=False),
-                label="matlab_success_only_accepted",
+                UIHardeningOutput("source_success_only_accepted"),
+                replace(state, source_baseline_gate=False),
+                label="source_success_only_accepted",
             )
             return
         yield from super().apply(input_obj, state)
@@ -278,7 +278,7 @@ HAPPY_PATH = (
     "add_observed_inventory_gate",
     "map_visible_items",
     "add_functional_chain_gate",
-    "add_matlab_callback_gate",
+    "add_source_baseline_gate",
     "add_model_miss_gate",
     "add_task_evidence_gate",
     "add_final_done_claim_gate",
@@ -299,7 +299,7 @@ def no_full_done_without_last_mile_evidence(state: UIHardeningState, trace) -> I
     del trace
     if state.done_claim == "accepted" and not state.ready_for_full_claim():
         return InvariantResult.fail(
-            "full UI done accepted without observed inventory, mapping, functional chain, MATLAB semantics, miss, task, final-claim, agent-role, test, install, shadow, and git evidence"
+            "full UI done accepted without observed inventory, mapping, functional chain, source-baseline semantics, miss, task, final-claim, agent-role, test, install, shadow, and git evidence"
         )
     return InvariantResult.pass_()
 
@@ -307,7 +307,7 @@ def no_full_done_without_last_mile_evidence(state: UIHardeningState, trace) -> I
 INVARIANTS = (
     Invariant(
         "no_full_done_without_last_mile_evidence",
-        "Full UI completion requires observed real surface, functional chain, MATLAB semantics, closure, validation, and sync evidence.",
+        "Full UI completion requires observed real surface, functional chain, source-baseline semantics, closure, validation, and sync evidence.",
         no_full_done_without_last_mile_evidence,
     ),
 )
@@ -332,8 +332,8 @@ def build_broken_api_only_workflow() -> Workflow:
     return Workflow((BrokenApiOnlyFunctionalChain(),), name="ui_last_mile_hardening_api_only")
 
 
-def build_broken_matlab_workflow() -> Workflow:
-    return Workflow((BrokenMatlabCancelBranchMissing(),), name="ui_last_mile_hardening_matlab_missing_cancel")
+def build_broken_source_workflow() -> Workflow:
+    return Workflow((BrokenSourceBranchMissing(),), name="ui_last_mile_hardening_source_missing_cancel")
 
 
 def build_broken_done_claim_workflow() -> Workflow:

@@ -52,7 +52,7 @@ def main() -> int:
         run_case("correct_ui_last_mile_hardening", model.CorrectUILastMileHardening(), expect_done="accepted"),
         run_case("broken_no_observed_inventory", model.BrokenNoObservedInventory(), expect_done="rejected"),
         run_case("broken_api_only_functional_chain", model.BrokenApiOnlyFunctionalChain(), expect_done="rejected"),
-        run_case("broken_matlab_cancel_branch_missing", model.BrokenMatlabCancelBranchMissing(), expect_done="rejected"),
+        run_case("broken_source_cancel_branch_missing", model.BrokenSourceBranchMissing(), expect_done="rejected"),
         run_case(
             "broken_final_claim_overbroad",
             model.BrokenFinalClaimOverbroad(),

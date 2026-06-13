@@ -1,12 +1,17 @@
 # UI Flow Structure Protocol
 
 Use this route when UI design needs a model-first interaction structure before
-visual design or frontend implementation. The route has five model/design
-stages for complete app-level UI claims: build or review a UI interaction
-model, review visible UI surface, review launch-to-terminal journey coverage,
-derive UI structure from that model, then derive a UI text hierarchy blueprint
-from the reviewed structure. It has a later implementation-evidence stage only
-when the agent claims the running UI is implemented, runnable, or complete. Local
+visual design or frontend implementation. The route first classifies the UI
+work mode as `greenfield`, `source_based`, or `mixed`. Greenfield work is
+grounded in user tasks, target UI intent, observed UI, functional chains, and
+implementation evidence. Source-based and mixed work must also build a source
+baseline, target mapping, approved-difference ledger, and observed-source
+alignment. After work-mode routing, the route has model/design stages for
+complete app-level UI claims: build or review a UI interaction model, review
+visible UI surface, review launch-to-terminal journey coverage, derive UI
+structure from that model, then derive a UI text hierarchy blueprint from the
+reviewed structure. It has a later implementation-evidence stage only when the
+agent claims the running UI is implemented, runnable, or complete. Local
 component-only UI work may skip journey coverage with an explicit scope reason.
 When a UI transition-test coverage claim is made, project the reviewed
 `UIInteractionModel.transitions` into a transition coverage matrix before
@@ -56,7 +61,14 @@ behavior, state, navigation, or control-availability impact.
 
 Collect the lightest fit-for-risk UI evidence:
 
+- UI work mode: `greenfield`, `source_based`, or `mixed`, including which
+  scope ids are greenfield and which are source-based;
 - product goal and user workflow;
+- source authority inventory when work is source-based or mixed, such as an
+  existing app, prototype, design file, screenshot, product spec, customer
+  workflow, manual observation, runtime observation, or other declared source;
+- target mapping and approved differences when any source item is moved,
+  renamed, merged, split, replaced, hidden, deleted, deferred, or newly added;
 - existing FlowGuard product/workflow model when available;
 - initial UI state;
 - controls, buttons, inputs, menus, panels, dialogs, drawers, inspectors, and
@@ -419,9 +431,11 @@ Use `UIFeatureContract`, `UIImplementationValidation`,
 Use `UIRenderEvidenceSet`, `UIRenderEvidence`, and
 `review_ui_render_evidence(...)` when the route needs evidence-kind review.
 Use `UIControlFunctionalChainSet`,
-`review_ui_control_functional_chains(...)`, `MATLABBaselineCallbackGate`, and
-`review_matlab_baseline_callback_gate(...)` when enabled controls or MATLAB
-migration semantics are in scope.
+`review_ui_control_functional_chains(...)`, `UISourceBaseline`,
+`UISourceTargetMapping`, `UIObservedSourceAlignment`,
+`UISourceBaselineInteractionGate`, `review_ui_source_baseline_alignment(...)`,
+and `review_ui_source_baseline_interactions(...)` when enabled controls or
+source-based/mixed UI semantics are in scope.
 
 The validation should include:
 
@@ -440,9 +454,12 @@ The validation should include:
   state update -> click/test evidence;
 - API existence, route existence, and label matching are insufficient unless
   the click evidence shows the functional chain updates the UI state;
-- MATLAB migrations must preserve callback semantics for `uigetfile`,
-  `uigetdir`, `winopen`, and buttons with no callback, including select,
-  cancel, chosen path, load result, open/shell effect, and error path branches;
+- Source-based and mixed UI work must preserve generic source interaction
+  semantics for native pickers, external opens, save/custom dialogs,
+  no-handler controls, navigation, and commands, including trigger, confirm,
+  cancel, selected value, result feedback, external effect, and error path
+  branches. Greenfield UI must not invent a source baseline; use user-task,
+  observed-surface, functional-chain, and implementation evidence instead;
 - browser, desktop automation, or manual journey runs with step-level event,
   control, source-state, target-state, result, evidence reference, and observed
   state data;
@@ -465,8 +482,8 @@ Known-bad hazards:
   picker, or dialog action is never clicked and is not scoped as pure UI or a
   blindspot;
 - an enabled control has only an API or label proof and no functional chain;
-- MATLAB picker/open/no-callback behavior models success but omits cancel,
-  error, selected-path, or no-op disposition;
+- source picker/open/no-handler behavior models success but omits cancel,
+  error, selected value, or no-op disposition;
 - a reachable actionable control or modeled event has no feature owner, pure UI
   classification, run evidence, or blindspot;
 - a modeled feature journey has no passed browser, desktop, or manual run;

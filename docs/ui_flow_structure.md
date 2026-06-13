@@ -1,11 +1,15 @@
 # UI Flow Structure
 
 UI Flow Structure is FlowGuard's helper layer for model-first interface
-planning. For an existing or runnable UI, it first inventories the real visible
-surface: buttons, inputs, dropdowns, tables, displayed fields, status text,
-dialogs, menus, panels, and regions. Every observed item must map to a
-`UIControl`, `UIDisplayElement`, or `UIVisibleSurfaceItem`, or be recorded as a
-blindspot with owner and validation boundary. It then models the UI's
+planning. It first classifies UI work as `greenfield`, `source_based`, or
+`mixed`. Greenfield work is grounded in user tasks, target UI intent, observed
+UI, functional chains, and implementation evidence. Source-based and mixed work
+also require a source baseline, target mapping, approved-difference ledger, and
+observed-source alignment. For an existing or runnable UI, it first inventories
+the real visible surface: buttons, inputs, dropdowns, tables, displayed fields,
+status text, dialogs, menus, panels, and regions. Every observed item must map
+to a `UIControl`, `UIDisplayElement`, or `UIVisibleSurfaceItem`, or be recorded
+as a blindspot with owner and validation boundary. It then models the UI's
 interaction behavior, reviews the user-visible surface, reviews
 launch-to-terminal journey coverage when complete app-level UI coverage is
 claimed, derives the UI structure from that model, derives a UI text hierarchy
@@ -69,9 +73,9 @@ Use it when:
   keyboard/focus rules, and walkthrough evidence;
 - UI that looks clickable, editable, selectable, or read-only needs an
   affordance contract so visual cues match actual behavior;
-- MATLAB migrations need callback semantics for `uigetfile`, `uigetdir`,
-  `winopen`, no-callback buttons, select, cancel, chosen path, load result, and
-  error branches;
+- source-based UI work needs source-baseline interaction semantics for native
+  pickers, external opens, save/custom dialogs, no-handler controls, trigger,
+  confirm, cancel, selected value, success feedback, and error branches;
 - layout or responsiveness confidence depends on overflow, overlap, viewport
   bounds, focus/keyboard reachability, scroll ownership, immediate feedback, or
   stale-result guards;
@@ -126,10 +130,19 @@ The observed real-surface and functional-chain objects are:
 - `UIControlFunctionalChainSet`: the functional-chain evidence boundary.
 - `review_ui_control_functional_chains(chain_set)`: rejects API-only or
   label-only evidence for enabled controls.
-- `MATLABCallbackSemantics`, `MATLABBaselineCallbackGate`, and
-  `review_matlab_baseline_callback_gate(...)`: preserve MATLAB picker,
-  directory picker, shell-open, cancel, selected-path, load-result, error, and
-  no-callback semantics during migration.
+- `UIWorkModeDeclaration`, `UISourceBaseline`, `UISourceBaselineItem`,
+  `UISourceTargetMapping`, `UISourceTargetMappingRow`,
+  `UIObservedSourceAlignment`, and `review_ui_source_baseline_alignment(...)`:
+  decide whether the work is greenfield, source-based, or mixed. Greenfield UI
+  is governed by user tasks, visible-surface inventory, functional chains, and
+  implementation validation. Source-based and mixed UI must inventory the real
+  source, map each in-scope source item to the target UI or an approved
+  disposition, and compare observed UI back to that mapping.
+- `UISourceInteractionSemantics`, `UISourceBaselineInteractionGate`, and
+  `review_ui_source_baseline_interactions(...)`: preserve generic source
+  interaction semantics such as file/directory pickers, save/custom dialogs,
+  external opens, navigation, commands, cancel, selected value, success
+  feedback, error, and no-handler dispositions during source-based work.
 
 The human-operability objects are:
 

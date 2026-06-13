@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.47.0 - 2026-06-13
+
+Generic UI source-baseline validation.
+
+- Added generic `greenfield`, `source_based`, and `mixed` UI work-mode modeling
+  plus source baseline, target mapping, approved difference, observed-source
+  alignment, and source interaction review helpers.
+- Replaced source-specific UI migration wording, APIs, process/risk gates,
+  closure evidence, agent-workflow roles, public templates, docs, and active
+  OpenSpec changes with generic source-baseline terminology.
+- Added regression coverage so active skills, templates, docs, and OpenSpec
+  guidance do not hard-code a specific source UI technology while still
+  allowing historical archive records.
+
 ## v0.46.0 - 2026-06-12
 
 Mandatory template harvest closure.

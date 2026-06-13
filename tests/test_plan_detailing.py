@@ -139,6 +139,11 @@ class PlanDetailingTests(unittest.TestCase):
 
         self.assertEqual(flowguard.PLAN_DETAIL_STATUS_PASS, report.status, report.format_text())
 
+    def test_ui_source_alignment_evidence_type_can_satisfy_ui_task(self):
+        report = flowguard.review_plan_detail(self.ui_plan(evidence_kind="ui_observed_source_alignment"))
+
+        self.assertEqual(flowguard.PLAN_DETAIL_STATUS_PASS, report.status, report.format_text())
+
     def test_ui_task_rejects_generic_or_planned_evidence(self):
         generic = flowguard.review_plan_detail(self.ui_plan(evidence_kind="test"))
         generic_codes = {finding.code for finding in generic.findings}

@@ -1349,7 +1349,7 @@ two transitions, one journey, and implementation validation.
 Guards against: claiming UI completion without real visible items,
 functional chains, journey evidence, visible surface, or text hierarchy.
 Use before editing: frontend work where controls, state, navigation,
-validation, callbacks, or visible text affect behavior.
+validation, source interactions, or visible text affect behavior.
 Run: python .flowguard/ui_flow_structure/run_checks.py
 Modeled block shape: Input x State -> Set(Output x State).
 """
@@ -1371,7 +1371,7 @@ class UICompactPlan:
     functional_chains: tuple[tuple[str, str, str, str, str], ...]
     user_tasks: tuple[tuple[str, str, str], ...]
     human_operability_evidence: tuple[str, ...]
-    matlab_callback_branches: tuple[str, ...]
+    source_interaction_branches: tuple[str, ...]
     ui_done_claim_reviewed: bool
     visible_surface_items: tuple[tuple[str, str, str], ...]
     evidence_kinds: tuple[str, ...]
@@ -1429,10 +1429,10 @@ def review_functional_chains(plan: UICompactPlan) -> UICompactReport:
     return report("flowguard UI functional chains", findings)
 
 
-def review_matlab_callback_gate(plan: UICompactPlan) -> UICompactReport:
-    required = {"select", "cancel", "chosen_path", "load_result", "error_path"}
-    findings = tuple("matlab_callback_branch_missing" for _ in required - set(plan.matlab_callback_branches))
-    return report("flowguard MATLAB callback semantics", findings)
+def review_ui_source_baseline_gate(plan: UICompactPlan) -> UICompactReport:
+    required = {"trigger", "confirm", "cancel", "value_selected", "success_feedback", "error_path"}
+    findings = tuple("source_interaction_branch_missing" for _ in required - set(plan.source_interaction_branches))
+    return report("flowguard UI source-baseline interactions", findings)
 
 
 def review_human_operability(plan: UICompactPlan) -> UICompactReport:
@@ -1474,7 +1474,7 @@ def correct_plan() -> UICompactPlan:
         functional_chains=(("add", "click_add", "ui.add_item", "add_item", "editing"), ("submit", "click_submit", "ui.submit", "submit_item", "submitted"), ("reset", "click_reset", "ui.reset", "reset_item", "empty")),
         user_tasks=(("create_item", "add", "walkthrough:add-submit"), ("submit_item", "submit", "walkthrough:add-submit"), ("reset_item", "reset", "walkthrough:reset")),
         human_operability_evidence=("task_coverage", "affordance_review", "action_grammar", "dialog_return", "keyboard_focus", "walkthrough"),
-        matlab_callback_branches=("select", "cancel", "chosen_path", "load_result", "error_path"),
+        source_interaction_branches=("trigger", "confirm", "cancel", "value_selected", "success_feedback", "error_path"),
         ui_done_claim_reviewed=True,
         visible_surface_items=(("submit_disabled", "disabled_control", "Submit is disabled because nothing has been added."),),
         evidence_kinds=("screenshot",),
@@ -1495,7 +1495,7 @@ def broken_plan() -> UICompactPlan:
         functional_chains=(),
         user_tasks=(),
         human_operability_evidence=("task_coverage",),
-        matlab_callback_branches=("select",),
+        source_interaction_branches=("trigger",),
         ui_done_claim_reviewed=False,
         visible_surface_items=(("debug", "status", "mock backend route pending"), ("submit", "disabled_control", "Submit"),),
         evidence_kinds=(),
@@ -1509,7 +1509,7 @@ def run_checks():
     bad = broken_plan()
     reviewers = (
         review_interaction_model, review_observed_inventory, review_journey,
-        review_functional_chains, review_matlab_callback_gate,
+        review_functional_chains, review_ui_source_baseline_gate,
         review_human_operability,
         review_implementation, review_visible_surface, review_structure,
         review_text,
@@ -1540,10 +1540,13 @@ UI_FLOW_STRUCTURE_NOTES_TEMPLATE = """# FlowGuard UI Flow Structure Notes
 
 This compact default scaffold covers the first useful UI model: real visible
 surface inventory, three states, three visible controls, enabled-control
-functional chains, MATLAB callback semantics when relevant, two transitions,
-one journey, task coverage plus human-operability, one implementation run, one
-visible-surface check, one evidence kind, one UI done-claim review, and one text
-hierarchy check.
+functional chains, source-baseline interaction semantics when relevant, two
+transitions, one journey, task coverage plus human-operability, one
+implementation run, one visible-surface check, one evidence kind, one UI
+done-claim review, and one text hierarchy check. For greenfield UI work,
+source-baseline interaction branches are not required; use user tasks, observed
+surface inventory, functional chains, and implementation validation as the
+hard evidence path.
 
 The text hierarchy contract is semantic. Use stable roles such as
 `"surface-title"`, `"region-heading"`, `"standard-text"`, and

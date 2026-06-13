@@ -25,26 +25,26 @@ the observed target and revision.
   inventory evidence exists for an existing or runnable UI claim
 - **THEN** the claim remains design-only or scoped
 
-### Requirement: MATLAB baseline callback semantics are modeled for migration parity
-FlowGuard UI Flow Structure SHALL require MATLAB migration parity claims to
-model baseline callback semantics, not only visible control names. The baseline
-gate MUST cover relevant `uigetfile`, `uigetdir`, `winopen`, no-callback
-buttons, choose/cancel/path/error/load-result branches, and native/manual
-boundaries.
+### Requirement: Source-baseline interaction semantics are modeled for source-based parity
+FlowGuard UI Flow Structure SHALL require source-based parity claims to model
+source-baseline interaction semantics, not only visible control names. The
+baseline gate MUST cover relevant native pickers, external opens, save/custom
+dialogs, no-handler controls, trigger/confirm/cancel/value/result/error
+branches, and native/manual boundaries.
 
 #### Scenario: File picker baseline covers choose and cancel
-- **WHEN** a migrated UI claims parity with a MATLAB `uigetfile` callback
-- **THEN** the baseline callback gate requires choose-file, cancel, selected
-  path, load-result, and error-path semantics unless a branch is explicitly
-  out of scope
+- **WHEN** a source-based UI claims parity with a source file picker
+- **THEN** the source interaction gate requires trigger, confirm, cancel,
+  selected value, result feedback, and error-path semantics unless a branch is
+  explicitly out of scope
 
-#### Scenario: No-callback button remains visible
-- **WHEN** a MATLAB baseline has a visible enabled button with no callback
-- **THEN** the migrated UI must either model it as non-functional/disabled with
+#### Scenario: No-handler button remains visible
+- **WHEN** a source baseline has a visible enabled button with no handler
+- **THEN** the target UI must either model it as non-functional/disabled with
   a user-facing reason or provide a replacement functional chain
 
 #### Scenario: Native opener has scoped evidence
-- **WHEN** a migrated UI uses or replaces MATLAB `winopen`
-- **THEN** the baseline semantics gate requires structured evidence for the
+- **WHEN** a source-based UI uses or replaces an external opener
+- **THEN** the source-baseline interaction gate requires structured evidence for the
   visible trigger, native/local action, observable result or manual boundary,
   and any scoped blindspot

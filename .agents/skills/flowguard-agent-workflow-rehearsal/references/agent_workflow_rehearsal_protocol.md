@@ -67,7 +67,7 @@ Build an `AgentWorkflowPlan` with:
   that exercise real file/artifact/AI work-package surfaces, manual checks,
   installed-skill sync, and long checks when the task touches them;
 - for UI full claims, `ui_evidence_roles` must include separate evidence for
-  `ui_inventory`, `ui_baseline_semantics`, and
+  `ui_inventory`, `ui_source_baseline`, and
   `ui_implementation_validation`;
 - final evidence claim: none, scoped, full, or blocked.
 
@@ -118,7 +118,7 @@ A rehearsal can return `pass` only when:
 - meaningful validation steps have rework gates;
 - weak validation guidance has compensating checks or a scoped claim;
 - the final evidence claim does not exceed planned downstream validation.
-- UI full claims include separate real-surface inventory, baseline semantics,
+- UI full claims include separate real-surface inventory, source-baseline mapping/alignment,
   and implementation-validation evidence roles. These may be produced by
   separate agents, but each role needs an evidence id or boundary before the
   main agent can claim full confidence.

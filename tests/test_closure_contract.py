@@ -10,6 +10,7 @@ from flowguard import (
     CLOSURE_REPORT_MODEL_ANGLE,
     CLOSURE_REPORT_RISK_LEDGER,
     CLOSURE_REPORT_RUNTIME_GATEWAY,
+    CLOSURE_REPORT_UI_SOURCE_BASELINE_ALIGNMENT,
     CLOSURE_REPORT_UI_DONE_CLAIM,
     CLOSURE_REPORT_UI_HUMAN_OPERABILITY,
     MODEL_QUALITY_HIDDEN_STATE,
@@ -299,6 +300,29 @@ class FlowGuardClosureContractTests(unittest.TestCase):
                         "report:ui-done-claim",
                         report_kind=CLOSURE_REPORT_UI_DONE_CLAIM,
                         decision="ui_done_claim_full_confidence",
+                    ),
+                ),
+            )
+        )
+        self.assertTrue(full.ok, full.format_text())
+        self.assertEqual(CLOSURE_DECISION_FULL, full.decision)
+
+    def test_required_ui_source_baseline_alignment_is_final_confidence_input(self):
+        missing = review_flowguard_closure_contract(
+            green_plan(require_ui_source_baseline_alignment=True)
+        )
+        self.assertFalse(missing.ok)
+        self.assertIn("missing_ui_source_baseline_alignment", finding_codes(missing))
+
+        full = review_flowguard_closure_contract(
+            green_plan(
+                require_ui_source_baseline_alignment=True,
+                evidence_reports=green_plan().evidence_reports
+                + (
+                    evidence_report(
+                        "report:ui-source-baseline-alignment",
+                        report_kind=CLOSURE_REPORT_UI_SOURCE_BASELINE_ALIGNMENT,
+                        decision="ui_source_baseline_alignment_full_confidence",
                     ),
                 ),
             )

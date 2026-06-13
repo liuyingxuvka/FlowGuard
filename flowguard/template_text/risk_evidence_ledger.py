@@ -6,7 +6,7 @@ RISK_EVIDENCE_LEDGER_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header
 
 Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
 Purpose: Review whether a final FlowGuard confidence claim is backed by model obligations, public code contracts, UI real-surface/functional-chain/done-claim gates, payload gates, recurring defect-family gates, model/test split gates, and current evidence.
-Guards against: coarse models hiding untested internal branches, skipped UI inventory, functional-chain, MATLAB callback, click-through, or file/work-package payload evidence for real surfaces, oversized direct model evidence bypassing ModelMesh, slow or broad validation bypassing TestMesh, recurring same-class misses hiding behind local point fixes, tests covering only helper paths, skipped or stale evidence being treated as pass, and background progress being counted as final proof.
+Guards against: coarse models hiding untested internal branches, skipped UI inventory, functional-chain, source-baseline interaction, click-through, or file/work-package payload evidence for real surfaces, oversized direct model evidence bypassing ModelMesh, slow or broad validation bypassing TestMesh, recurring same-class misses hiding behind local point fixes, tests covering only helper paths, skipped or stale evidence being treated as pass, and background progress being counted as final proof.
 Use before editing: Run this before claiming done, release-ready, or fully validated after model/test/code changes.
 Run: python .flowguard/risk_evidence_ledger/run_checks.py
 """
@@ -18,7 +18,7 @@ from flowguard import (
     RISK_GATE_ARTIFACT_PAYLOAD,
     RISK_GATE_DEFECT_FAMILY,
     RISK_GATE_MAINTENANCE_OBLIGATION,
-    RISK_GATE_MATLAB_CALLBACK_SEMANTICS,
+    RISK_GATE_UI_SOURCE_BASELINE_INTERACTION,
     RISK_GATE_MODEL_SPLIT,
     RISK_GATE_UI_DONE_CLAIM,
     RISK_GATE_UI_FUNCTIONAL_CHAIN,
@@ -53,7 +53,7 @@ def correct_ledger() -> RiskEvidenceLedgerPlan:
                     RiskEvidenceGate(RISK_GATE_UI_REAL_SURFACE, "ui:checkout-observed-inventory"),
                     RiskEvidenceGate(RISK_GATE_UI_FUNCTIONAL_CHAIN, "ui:duplicate-submit-chain"),
                     RiskEvidenceGate(RISK_GATE_UI_DONE_CLAIM, "ui:checkout-done-claim"),
-                    RiskEvidenceGate(RISK_GATE_MATLAB_CALLBACK_SEMANTICS, "ui:matlab-callbacks"),
+                    RiskEvidenceGate(RISK_GATE_UI_SOURCE_BASELINE_INTERACTION, "ui:source-baseline-interactions"),
                     RiskEvidenceGate(RISK_GATE_ARTIFACT_PAYLOAD, "payload:checkout-export-pack"),
                     RiskEvidenceGate(RISK_GATE_MAINTENANCE_OBLIGATION, "structure:submit-routing"),
                 ),

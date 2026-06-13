@@ -24,6 +24,7 @@ plan and does not prove the implementation.
   ids, evidence ids, and commands.
 - UI/action validation rows when a plan has visible controls: reachable
   enabled control ids, expected click-through method, pure-UI classifications,
+  work mode, source-baseline inventory and target mapping when applicable,
   human-operability, and manual/native-dialog boundaries.
 - Artifact payload rows when a plan imports, exports, saves, loads, generates,
   or consumes files/work packages: real payload surface ids, payload contract

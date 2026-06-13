@@ -141,6 +141,47 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertLess(len((ROOT / "flowguard" / "templates.py").read_text(encoding="utf-8").splitlines()), 1000)
         self.assertIn("UIInteractionModel", (template_text_root / "ui_flow_structure.py").read_text(encoding="utf-8"))
 
+    def test_active_ui_guidance_does_not_hardcode_specific_source_technology(self):
+        forbidden_terms = (
+            "MATLAB",
+            "matlab",
+            "uigetfile",
+            "uigetdir",
+            "winopen",
+            "MATLABBaselineCallbackGate",
+            "MATLABCallbackSemantics",
+            "review_matlab_baseline_callback_gate",
+            "matlab_callback",
+            "baseline_callback",
+            "covered_callback_ids",
+            "UI_EVIDENCE_ROLE_BASELINE_SEMANTICS",
+            "ui_baseline_semantics",
+        )
+        roots = (ROOT / "flowguard", ROOT / "docs", ROOT / ".agents" / "skills", ROOT / "openspec" / "changes")
+        suffixes = {".py", ".md", ".txt", ".toml", ".yaml", ".yml", ".json"}
+        ignored_parts = {
+            ".git",
+            "__pycache__",
+            "archive",
+        }
+        ignored_names = {
+            "CHANGELOG.md",
+            "flowguard_adoption_log.md",
+        }
+        offenders = []
+        for root in roots:
+            for path in root.rglob("*"):
+                if not path.is_file() or path.suffix not in suffixes:
+                    continue
+                if ignored_parts.intersection(path.parts) or path.name in ignored_names:
+                    continue
+                text = path.read_text(encoding="utf-8", errors="ignore")
+                hits = [term for term in forbidden_terms if term in text]
+                if hits:
+                    offenders.append(f"{path.relative_to(ROOT)}: {', '.join(hits)}")
+
+        self.assertEqual([], offenders)
+
     def test_risk_intent_template_executes(self):
         output = self.run_written_template(
             risk_intent_template_files(),

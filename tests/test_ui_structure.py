@@ -2,8 +2,8 @@ import unittest
 from dataclasses import replace
 
 from flowguard import (
-    MATLABBaselineCallbackGate,
-    MATLABCallbackSemantics,
+    UISourceBaselineInteractionGate,
+    UISourceInteractionSemantics,
     SUPPORTED_UI_EVIDENCE_KINDS,
     UIColdPathWork,
     UIControl,
@@ -25,12 +25,15 @@ from flowguard import (
     UIInteractionModel,
     UIJourneyCoverage,
     UIJourneyEntryPoint,
+    UIObservedSourceAlignment,
     UIObservedSurfaceInventory,
     UIObservedSurfaceItem,
     UIRegionRecommendation,
     UIRenderEvidence,
     UIRenderEvidenceSet,
     UIResponsivenessContract,
+    UISourceBaseline,
+    UISourceBaselineItem,
     UIStableRegionRule,
     UIStateNode,
     UIActionGrammar,
@@ -38,6 +41,8 @@ from flowguard import (
     UIDialogWindowContract,
     UIKeyboardFocusContract,
     UIRegionSemanticMap,
+    UISourceTargetMapping,
+    UISourceTargetMappingRow,
     UIStructureDerivation,
     UITextElement,
     UITextHierarchyBlueprint,
@@ -49,7 +54,8 @@ from flowguard import (
     UIVisibleSurface,
     UIVisibleSurfaceItem,
     review_ui_human_operability,
-    review_matlab_baseline_callback_gate,
+    review_ui_source_baseline_alignment,
+    review_ui_source_baseline_interactions,
     review_ui_control_functional_chains,
     review_ui_geometry_layout_evidence,
     review_ui_implementation_validation,
@@ -829,39 +835,128 @@ def functional_chain_set(**kwargs) -> UIControlFunctionalChainSet:
     return UIControlFunctionalChainSet("import-run-functional-chains", **defaults)
 
 
-def matlab_callback_gate(**kwargs) -> MATLABBaselineCallbackGate:
+def ui_source_baseline_gate(**kwargs) -> UISourceBaselineInteractionGate:
     defaults = {
-        "source_baseline_ref": "matlab://legacy/import_runner.m",
+        "source_baseline_ref": "source://legacy/import-runner",
         "target_ui_revision": "ui-rev-1",
-        "callbacks": (
-            MATLABCallbackSemantics(
-                "select_file_callback",
-                "import",
-                "uigetfile",
-                baseline_callback="uigetfile('*.txt')",
-                covered_branches=("choose", "cancel", "path_selected", "load_result", "error_path"),
-                evidence_ref="evidence://matlab/select-file.json",
+        "interactions": (
+            UISourceInteractionSemantics(
+                "select_file_interaction",
+                "source_import_button",
+                "file_picker",
+                target_control_id="import",
+                source_behavior_ref="source://legacy/import-runner/select-file",
+                covered_branches=("trigger", "confirm", "cancel", "value_selected", "success_feedback", "error_path"),
+                evidence_ref="evidence://source-baseline/select-file.json",
                 native_boundary="native file picker observed by manual browser-shell run",
                 manual_boundary="manual observation recorded choose and cancel outcomes",
-                rationale="MATLAB file picker parity includes choose, cancel, path, load result, and error.",
+                rationale="Source file-picker parity includes trigger, confirm, cancel, selected value, feedback, and error.",
             ),
-            MATLABCallbackSemantics(
-                "open_results_callback",
-                "export",
-                "winopen",
-                baseline_callback="winopen(outputDir)",
+            UISourceInteractionSemantics(
+                "open_results_interaction",
+                "source_export_button",
+                "external_open",
+                target_control_id="export",
+                source_behavior_ref="source://legacy/import-runner/open-results",
                 covered_branches=("trigger", "opened", "error_path"),
-                evidence_ref="evidence://matlab/winopen.json",
+                evidence_ref="evidence://source-baseline/open-results.json",
                 native_boundary="OS shell open observed manually",
                 manual_boundary="manual observation records open/error boundary",
                 rationale="Native shell open is represented as a bounded external action.",
             ),
         ),
-        "validation_boundaries": ("MATLAB callback audit", "desktop shell observation"),
+        "validation_boundaries": ("source interaction audit", "desktop shell observation"),
         "rationale": "Migration parity covers interaction semantics, not only matching control names.",
     }
     defaults.update(kwargs)
-    return MATLABBaselineCallbackGate("matlab-callback-gate", **defaults)
+    return UISourceBaselineInteractionGate("source-baseline-interaction-gate", **defaults)
+
+
+def ui_source_baseline(**kwargs) -> UISourceBaseline:
+    defaults = {
+        "work_mode": "source_based",
+        "source_type": "legacy_app",
+        "source_ref": "source://legacy/import-runner",
+        "current_revision": "source-rev-1",
+        "items": (
+            UISourceBaselineItem(
+                "source_import_button",
+                "button",
+                label="Import",
+                source_surface_id="source-main",
+                source_region_id="source-inputs",
+                source_task_ids=("select_file",),
+                interaction_ids=("select_file_interaction",),
+                evidence_ref="evidence://source-baseline/import-button.json",
+                rationale="The source UI has a file selection button in the input task.",
+            ),
+            UISourceBaselineItem(
+                "source_export_button",
+                "button",
+                label="Open Results",
+                source_surface_id="source-main",
+                source_region_id="source-output",
+                source_task_ids=("open_results",),
+                interaction_ids=("open_results_interaction",),
+                evidence_ref="evidence://source-baseline/open-results-button.json",
+                rationale="The source UI has an external-open button for result output.",
+            ),
+        ),
+        "validation_boundaries": ("source inventory extraction",),
+        "evidence_ref": "evidence://source-baseline/inventory.json",
+        "rationale": "Source-based UI work starts from a real source inventory.",
+    }
+    defaults.update(kwargs)
+    return UISourceBaseline("import-run-source-baseline", **defaults)
+
+
+def ui_source_target_mapping(**kwargs) -> UISourceTargetMapping:
+    defaults = {
+        "work_mode": "source_based",
+        "source_baseline_id": "import-run-source-baseline",
+        "target_ui_revision": "ui-rev-1",
+        "mappings": (
+            UISourceTargetMappingRow(
+                "map-import-button",
+                source_item_id="source_import_button",
+                target_control_id="import",
+                target_region_id="primary-workspace",
+                target_task_id="select_file",
+                disposition="preserve",
+                rationale="The target keeps the source file selection action.",
+            ),
+            UISourceTargetMappingRow(
+                "map-open-results-button",
+                source_item_id="source_export_button",
+                target_control_id="export",
+                target_region_id="primary-workspace",
+                target_task_id="open_results",
+                disposition="preserve",
+                rationale="The target keeps the source result-opening action.",
+            ),
+        ),
+        "validation_boundaries": ("source-to-target mapping review",),
+        "rationale": "Every in-scope source UI item is mapped or deliberately disposed.",
+    }
+    defaults.update(kwargs)
+    return UISourceTargetMapping("import-run-source-mapping", **defaults)
+
+
+def ui_observed_source_alignment(**kwargs) -> UIObservedSourceAlignment:
+    defaults = {
+        "work_mode": "source_based",
+        "source_baseline_id": "import-run-source-baseline",
+        "target_mapping_id": "import-run-source-mapping",
+        "observed_inventory_id": "import-run-observed-inventory",
+        "current_revision": "ui-rev-1",
+        "aligned_source_item_ids": ("source_import_button", "source_export_button"),
+        "observed_target_item_ids": ("observed_import_button", "observed_result_table"),
+        "validation_boundaries": ("observed UI source alignment",),
+        "evidence_ref": "evidence://browser/source-alignment.json",
+        "rationale": "Observed UI evidence confirms mapped source items or approved differences.",
+    }
+    defaults.update(kwargs)
+    return UIObservedSourceAlignment("import-run-source-alignment", **defaults)
 
 
 def task_frame(**kwargs) -> UIUserTaskFrame:
@@ -1259,43 +1354,128 @@ class UIVisibleSurfaceEvidenceTests(unittest.TestCase):
         self.assertIn("functional_chain_api_only", codes)
         self.assertIn("functional_chain_label_only_evidence", codes)
 
-    def test_matlab_callback_gate_covers_picker_and_native_shell_semantics(self):
-        report = review_matlab_baseline_callback_gate(matlab_callback_gate(), interaction_model=ui_model())
+    def test_ui_source_baseline_gate_covers_picker_and_native_shell_semantics(self):
+        report = review_ui_source_baseline_interactions(ui_source_baseline_gate(), interaction_model=ui_model())
 
         self.assertTrue(report.ok, report.format_text())
-        self.assertEqual(("open_results_callback", "select_file_callback"), report.covered_callback_ids)
+        self.assertEqual(("open_results_interaction", "select_file_interaction"), report.covered_interaction_ids)
 
-    def test_matlab_callback_gate_blocks_success_only_and_no_callback_without_disposition(self):
-        gate = matlab_callback_gate(
-            callbacks=(
-                MATLABCallbackSemantics(
+    def test_ui_source_baseline_gate_blocks_success_only_and_no_handler_without_disposition(self):
+        gate = ui_source_baseline_gate(
+            interactions=(
+                UISourceInteractionSemantics(
                     "select_file_success_only",
-                    "import",
-                    "uigetfile",
-                    baseline_callback="uigetfile('*.txt')",
-                    covered_branches=("choose", "path_selected", "load_result"),
-                    evidence_ref="evidence://matlab/success-only.json",
+                    "source_import_button",
+                    "file_picker",
+                    target_control_id="import",
+                    source_behavior_ref="source://legacy/import-runner/select-file",
+                    covered_branches=("trigger", "confirm", "value_selected"),
+                    evidence_ref="evidence://source-baseline/success-only.json",
                     native_boundary="native file picker observed manually",
                     rationale="Missing cancel and error branches should block parity.",
                 ),
-                MATLABCallbackSemantics(
+                UISourceInteractionSemantics(
                     "unused_button",
-                    "settings",
-                    "no_callback",
-                    baseline_callback="",
+                    "source_settings_button",
+                    "no_handler",
+                    target_control_id="settings",
                     covered_branches=(),
-                    evidence_ref="evidence://matlab/no-callback.json",
-                    rationale="Visible no-callback button needs disposition.",
+                    evidence_ref="evidence://source-baseline/no-handler.json",
+                    rationale="Visible no-handler button needs disposition.",
                 ),
             )
         )
 
-        report = review_matlab_baseline_callback_gate(gate, interaction_model=ui_model())
+        report = review_ui_source_baseline_interactions(gate, interaction_model=ui_model())
         codes = finding_codes(report)
 
         self.assertFalse(report.ok)
-        self.assertIn("matlab_callback_missing_branch_semantics", codes)
-        self.assertIn("matlab_no_callback_missing_disposition", codes)
+        self.assertIn("ui_source_interaction_missing_branch_semantics", codes)
+        self.assertIn("ui_source_no_handler_missing_disposition", codes)
+
+    def test_source_based_alignment_requires_source_mapping_and_observed_alignment(self):
+        report = review_ui_source_baseline_alignment(
+            ui_source_baseline(),
+            ui_source_target_mapping(),
+            ui_observed_source_alignment(),
+            observed_inventory=observed_inventory(),
+        )
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual(("source_export_button", "source_import_button"), report.covered_source_item_ids)
+
+    def test_greenfield_mode_does_not_require_source_inventory_or_mapping(self):
+        report = review_ui_source_baseline_alignment(
+            UISourceBaseline(
+                "greenfield-ui-mode",
+                "greenfield",
+                validation_boundaries=("work-mode declaration",),
+                evidence_ref="evidence://requirements/user-task-ledger.json",
+                rationale="This UI is designed from user tasks, not from an existing source surface.",
+            )
+        )
+        codes = finding_codes(report)
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertIn("greenfield_source_baseline_unnecessary", codes)
+        self.assertNotIn("missing_ui_source_target_mapping", codes)
+        self.assertNotIn("missing_ui_observed_source_alignment", codes)
+
+    def test_source_based_alignment_blocks_missing_mapping(self):
+        report = review_ui_source_baseline_alignment(ui_source_baseline())
+        codes = finding_codes(report)
+
+        self.assertFalse(report.ok)
+        self.assertIn("missing_ui_source_target_mapping", codes)
+        self.assertIn("missing_ui_observed_source_alignment", codes)
+
+    def test_source_based_alignment_blocks_unapproved_source_drift(self):
+        mapping = ui_source_target_mapping(
+            mappings=(
+                UISourceTargetMappingRow(
+                    "map-import-moved",
+                    source_item_id="source_import_button",
+                    target_control_id="import",
+                    target_region_id="secondary-panel",
+                    target_task_id="select_file",
+                    disposition="move",
+                    rationale="The target moves the control, but no approval or validation boundary was recorded.",
+                ),
+                UISourceTargetMappingRow(
+                    "map-open-results-button",
+                    source_item_id="source_export_button",
+                    target_control_id="export",
+                    target_region_id="primary-workspace",
+                    target_task_id="open_results",
+                    disposition="preserve",
+                    rationale="The target keeps the source result-opening action.",
+                ),
+            )
+        )
+
+        report = review_ui_source_baseline_alignment(
+            ui_source_baseline(),
+            mapping,
+            ui_observed_source_alignment(aligned_source_item_ids=("source_export_button",), approved_difference_ids=("map-import-moved",)),
+            observed_inventory=observed_inventory(),
+        )
+        codes = finding_codes(report)
+
+        self.assertFalse(report.ok)
+        self.assertIn("ui_source_difference_unapproved", codes)
+        self.assertNotIn("ui_source_item_missing_observed_alignment", codes)
+
+    def test_source_based_alignment_blocks_unobserved_unapproved_source_item(self):
+        report = review_ui_source_baseline_alignment(
+            ui_source_baseline(),
+            ui_source_target_mapping(),
+            ui_observed_source_alignment(aligned_source_item_ids=("source_import_button",)),
+            observed_inventory=observed_inventory(),
+        )
+        codes = finding_codes(report)
+
+        self.assertFalse(report.ok)
+        self.assertIn("ui_source_item_missing_observed_alignment", codes)
 
     def test_render_evidence_accepts_screenshot_and_dom_evidence(self):
         report = review_ui_render_evidence(render_evidence(), interaction_model=ui_model())

@@ -38,6 +38,9 @@ Build a `FlowGuardClosureContractPlan` with:
   old-field disposition are in scope.
 - `ClosureEvidenceReport` rows for the Risk Evidence Ledger and route reports
   that the final claim consumes.
+- For UI source-based or mixed full claims, a `ClosureEvidenceReport` with
+  `report_kind="ui_source_baseline_alignment"` when
+  `require_ui_source_baseline_alignment=True`.
 - For UI full claims, a `ClosureEvidenceReport` with
   `report_kind="ui_done_claim_review"` when
   `require_ui_done_claim_review=True`.
@@ -103,9 +106,10 @@ Use the gates that match the claim:
   defect scans, defect-family gates, split gates, and current proof evidence.
 - UI Done Claim: when the final statement says a UI is complete, runnable, or
   wired, the closure package includes current observed real-surface inventory,
-  enabled-control functional chains, human-operability review, MATLAB callback
-  semantics when applicable, implementation validation, native-dialog/manual
-  blindspots, and no
+  enabled-control functional chains, human-operability review,
+  `ui_source_baseline_alignment` evidence for source-based or mixed scopes,
+  source-baseline interaction semantics when applicable, implementation
+  validation, native-dialog/manual blindspots, and no
   `planned:*` evidence standing in for observation.
 - Typed claim chain: broad claims consume the right support type instead of
   promoting plan-only, model-only, or test-only evidence into production

@@ -212,6 +212,33 @@ class ApiSurfaceTests(unittest.TestCase):
             self.assertIn(name, flowguard.__all__)
             self.assertTrue(hasattr(flowguard, name), name)
             self.assertNotIn(name, flowguard.CORE_API)
+        new_ui_source_baseline_helpers = (
+            "UI_WORK_MODES",
+            "UI_SOURCE_TYPES",
+            "UI_SOURCE_INTERACTION_KINDS",
+            "UI_SOURCE_INTERACTION_REQUIRED_BRANCHES",
+            "UI_SOURCE_NO_HANDLER_DISPOSITIONS",
+            "UI_SOURCE_TARGET_DISPOSITIONS",
+            "UI_SOURCE_CHANGED_DISPOSITIONS",
+            "UIWorkModeDeclaration",
+            "UISourceBaseline",
+            "UISourceBaselineItem",
+            "UISourceTargetMapping",
+            "UISourceTargetMappingRow",
+            "UIObservedSourceAlignment",
+            "UISourceBaselineAlignmentReport",
+            "UISourceInteractionSemantics",
+            "UISourceBaselineInteractionGate",
+            "UISourceBaselineInteractionReport",
+            "review_ui_source_baseline_alignment",
+            "review_ui_source_baseline_interactions",
+        )
+        for name in new_ui_source_baseline_helpers:
+            self.assertIn(name, flowguard.MODELING_HELPER_API)
+            self.assertIn(name, flowguard.UI_FLOW_STRUCTURE_ROUTE_API)
+            self.assertIn(name, flowguard.__all__)
+            self.assertTrue(hasattr(flowguard, name), name)
+            self.assertNotIn(name, flowguard.CORE_API)
         new_ui_human_operability_helpers = (
             "UI_HUMAN_OPERABILITY_EVIDENCE_KINDS",
             "UI_PERCEIVED_ACTIONABLE_ROLES",

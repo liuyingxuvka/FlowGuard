@@ -61,7 +61,7 @@ RISK_GATE_UI_REAL_SURFACE = "ui_real_surface"
 RISK_GATE_UI_FUNCTIONAL_CHAIN = "ui_functional_chain"
 RISK_GATE_UI_DONE_CLAIM = "ui_done_claim"
 RISK_GATE_UI_HUMAN_OPERABILITY = "ui_human_operability"
-RISK_GATE_MATLAB_CALLBACK_SEMANTICS = "matlab_callback_semantics"
+RISK_GATE_UI_SOURCE_BASELINE_INTERACTION = "ui_source_baseline_interaction"
 RISK_GATE_ARTIFACT_PAYLOAD = "artifact_payload"
 
 PASSING_PROOF_STATUSES = {RISK_PROOF_STATUS_PASSED}
@@ -547,15 +547,15 @@ GATE_CODE_MAP = {
         "required UI human-operability gate is blocked",
         "required UI human-operability evidence remains explicitly scoped",
     ),
-    RISK_GATE_MATLAB_CALLBACK_SEMANTICS: (
-        "missing_matlab_callback_semantics_gate",
-        "matlab_callback_semantics_gate_not_current",
-        "matlab_callback_semantics_gate_blocked",
-        "matlab_callback_semantics_gate_scoped_confidence",
-        "required risk has no MATLAB baseline callback semantics gate",
-        "required MATLAB baseline callback semantics evidence is stale or missing",
-        "required MATLAB baseline callback semantics gate is blocked",
-        "required MATLAB baseline callback semantics evidence remains explicitly scoped",
+    RISK_GATE_UI_SOURCE_BASELINE_INTERACTION: (
+        "missing_ui_source_baseline_interaction_gate",
+        "ui_source_baseline_interaction_gate_not_current",
+        "ui_source_baseline_interaction_gate_blocked",
+        "ui_source_baseline_interaction_gate_scoped_confidence",
+        "required risk has no UI source-baseline interaction semantics gate",
+        "required UI source-baseline interaction evidence is stale or missing",
+        "required UI source-baseline interaction gate is blocked",
+        "required UI source-baseline interaction evidence remains explicitly scoped",
     ),
     RISK_GATE_ARTIFACT_PAYLOAD: (
         "missing_artifact_payload_gate",
@@ -965,7 +965,7 @@ __all__ = [
     "RISK_GATE_PARENT_MODEL_EVIDENCE",
     "RISK_GATE_TEST_SPLIT",
     "RISK_GATE_TOPOLOGY_HAZARD",
-    "RISK_GATE_MATLAB_CALLBACK_SEMANTICS",
+    "RISK_GATE_UI_SOURCE_BASELINE_INTERACTION",
     "RISK_GATE_UI_DONE_CLAIM",
     "RISK_GATE_UI_FUNCTIONAL_CHAIN",
     "RISK_GATE_UI_HUMAN_OPERABILITY",
