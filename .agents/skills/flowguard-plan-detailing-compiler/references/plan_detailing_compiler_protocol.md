@@ -1,12 +1,28 @@
 # Plan Detailing Compiler Protocol
 
-Plan detailing answers one question before ordinary FlowGuard modeling starts:
-is the plan detailed enough to check?
+Plan detailing answers one delegated simulator-mode question before ordinary
+FlowGuard modeling starts: is the plan detailed enough to check?
 
 Use it when a request is non-trivial but the plan is still a rough idea, a few
-steps, or an AI-written outline. The route converts that rough plan into
-structured rows that downstream routes can consume. It does not execute the
-plan and does not prove the implementation.
+steps, or an AI-written outline and the user explicitly requested
+PlanDetailing or DevelopmentProcessFlow selected the `plan_detailing` mode. The
+route converts that rough plan into structured rows that downstream routes can
+consume. It does not execute the plan and does not prove the implementation.
+
+## Invocation Topology
+
+Generic automatic routing for rough-plan discussion enters
+`flowguard-development-process-flow` first as the development-process simulator
+front door. That front door records the `plan_detailing` mode and either:
+
+- keeps the gap visible as a scoped simulator finding; or
+- delegates here for full `PlanDetail` row construction and
+  `review_plan_detail(...)` evidence.
+
+Direct invocation is still valid when the user names PlanDetailing, an existing
+OpenSpec/FlowGuard artifact requires this exact route, or another FlowGuard
+route delegates the `plan_detailing` mode. Do not describe this protocol as the
+generic first entry for all rough plans.
 
 ## Required Rows
 

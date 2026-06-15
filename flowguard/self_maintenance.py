@@ -535,8 +535,23 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             "flowguard-model-mesh",
         ),
         RouteProfile(
+            "development_process_simulator",
+            "Non-trivial rough plan, multi-skill workflow, or lifecycle claim needs one process front door with internal modes.",
+            ("task intent", "risk flags", "candidate modes"),
+            ("selected modes", "delegated mode owners", "claim boundary"),
             "development_process_flow",
-            "Staged edits, validation freshness, install sync, shadow sync, or peer writes affect confidence.",
+            ("plan_detailing_compiler", "agent_workflow_rehearsal", "development_process_flow"),
+            "development_process_simulator",
+            "",
+            "flowguard-development-process-flow",
+            metadata={
+                "modes": ("plan_detailing", "agent_workflow", "execution_freshness"),
+                "front_door": "development_process_flow",
+            },
+        ),
+        RouteProfile(
+            "development_process_flow",
+            "Development-process simulator front door and execution-freshness owner for staged edits, validation freshness, install sync, shadow sync, or peer writes.",
             ("process actions", "artifacts", "evidence"),
             ("minimum revalidation", "freshness gaps", "blocked claims"),
             "development_process_flow",
@@ -567,7 +582,7 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
         ),
         RouteProfile(
             "agent_workflow_rehearsal",
-            "Multi-skill or skipped-skill work needs route ordering and rework gates.",
+            "Delegated agent_workflow simulator mode needs skill/tool ordering, skipped-skill consequences, and rework gates.",
             ("candidate skills", "tool actions", "claim boundary"),
             ("workflow findings", "required rework", "final claim scope"),
             "agent_workflow_rehearsal",
@@ -600,7 +615,7 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
         ),
         RouteProfile(
             "plan_detailing_compiler",
-            "A vague idea, short plan, or AI-generated workflow needs checkable rows.",
+            "Delegated plan_detailing simulator mode needs checkable PlanDetail rows.",
             ("rough plan", "sources", "state surfaces"),
             ("plan detail rows", "step contracts", "validation requirements"),
             "plan_detailing_compiler",

@@ -12,12 +12,12 @@ from dataclasses import dataclass, replace
 from typing import Any, Iterable, Sequence
 
 from flowguard import (
-    Explorer,
     FunctionResult,
     Invariant,
     InvariantResult,
     Workflow,
 )
+from flowguard.explorer import Explorer
 
 
 ScoreBucket = str
@@ -346,6 +346,8 @@ def build_explorer(
     max_sequence_length: int = 2,
     required_labels: Sequence[str] = ("decision_apply", "record_skipped"),
 ) -> Explorer:
+    """Build the internal finite explorer used by legacy example tests."""
+
     return Explorer(
         workflow=workflow or build_workflow(),
         initial_states=(INITIAL_STATE,),

@@ -1,19 +1,19 @@
 # RiskProfile and Check Plans
 
-The FlowGuard modeling primitive remains small:
+The FlowGuard modeling entry remains small:
 
 ```text
-State + FunctionBlock + Invariant + Explorer
+RiskIntent + Workflow + FlowGuardCheckPlan + run_model_first_checks
 ```
 
-For new or deepened FlowGuard models, the formal entry is no longer a direct
-`Explorer(...)` run. Use `FlowGuardCheckPlan` and `run_model_first_checks()` so
+For new or deepened FlowGuard models, do not start from a direct finite-engine
+run. Use `FlowGuardCheckPlan` and `run_model_first_checks()` so
 the model must name what it protects, bind the minimum useful model contract,
 prove at least one representative known-bad case is caught, and close template
 reuse/harvest.
 
-`Explorer` remains the deterministic finite exploration engine under that
-runner. It is not the public first-read path for non-trivial model creation.
+The deterministic finite exploration engine remains underneath that runner. It
+is not the public first-read path for non-trivial model creation.
 See `docs/api_surface.md` for the API layer map.
 
 ## RiskProfile
@@ -126,7 +126,7 @@ Execution order:
 
 1. `ModelQualityAudit`
 2. optional `ScenarioMatrixBuilder`
-3. `Explorer`
+3. internal finite model run
 4. counterexample minimization for the first invariant violation
 5. scenario review when scenarios exist
 6. optional transition coverage projection when broad model-to-code-to-test
@@ -134,8 +134,8 @@ Execution order:
 7. optional progress, contract, and conformance sections
 8. unified summary report
 
-If Explorer fails, the summary fails. If Explorer passes but audit has warnings
-or generated scenarios need review, the summary is `pass_with_gaps`. If
+If the finite model run fails, the summary fails. If it passes but audit has
+warnings or generated scenarios need review, the summary is `pass_with_gaps`. If
 conformance is not run, it is a confidence gap, not a failure and not a pass.
 Generated transition coverage cells are also not pass evidence; project them to
 Model-Test Alignment obligations and code contracts, then bind current test

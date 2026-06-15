@@ -1,7 +1,9 @@
 # ui-source-baseline-validation Specification
 
 ## Purpose
-TBD - created by archiving change generalize-ui-source-baseline-gate. Update Purpose after archive.
+Define when UI work must be checked against an existing source UI, including
+greenfield/source-based/mixed scope declarations, source inventory, target
+mapping, branch semantics, observed alignment, and explicit drift disposition.
 ## Requirements
 ### Requirement: UI work mode is explicit
 The system SHALL require non-trivial UI work to declare whether the in-scope UI is `greenfield`, `source_based`, or `mixed` before applying source-baseline validation.
@@ -80,4 +82,3 @@ The system SHALL keep generic UI source-baseline guidance free of hard-coded sou
 #### Scenario: Historical logs are not active guidance
 - **WHEN** historical changelog or adoption-log entries mention a previous source-specific implementation
 - **THEN** the generic surface review does not require rewriting history
-

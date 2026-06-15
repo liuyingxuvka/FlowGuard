@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from flowguard import Explorer
+from flowguard.explorer import Explorer
 
 try:
     from examples.risk_evidence_ledger.model import (

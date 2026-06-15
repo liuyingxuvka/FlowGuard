@@ -1,8 +1,9 @@
 # Plan Detailing Compiler
 
-Plan Detailing Compiler is the first FlowGuard route for rough ideas, short
-plans, or AI-generated outlines. Its job is to make missing details visible
-before behavior modeling, staged development, validation, or done claims begin.
+Plan Detailing Compiler is the delegated `plan_detailing` mode for rough
+ideas, short plans, or AI-generated outlines. Generic plan discussion now
+enters the development-process simulator through DevelopmentProcessFlow first,
+which either keeps missing detail visible or delegates here for full rows.
 
 It does not call an LLM and it does not execute the plan. A human or AI writes
 structured `PlanDetail` rows; FlowGuard reviews whether those rows are detailed

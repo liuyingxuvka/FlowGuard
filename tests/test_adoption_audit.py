@@ -5,6 +5,8 @@ from pathlib import Path
 
 from flowguard import audit_flowguard_adoption
 
+ROOT = Path(__file__).resolve().parents[1]
+
 
 class AdoptionAuditTests(unittest.TestCase):
     def test_stale_fallback_model_is_warning_when_flowguard_is_available(self):
@@ -58,7 +60,7 @@ class AdoptionAuditTests(unittest.TestCase):
             root = Path(tmp)
             (root / ".flowguard").mkdir()
             (root / ".flowguard" / "model.py").write_text(
-                "from flowguard import Explorer, FlowGuardCheckPlan, KnownBadProof, MinimumModelContract, RiskIntent, run_model_first_checks\n"
+                "from flowguard import FlowGuardCheckPlan, KnownBadProof, MinimumModelContract, RiskIntent, run_model_first_checks\n"
                 "report = run_model_first_checks(FlowGuardCheckPlan(workflow=None, known_bad_proofs=(KnownBadProof('case', protected_error_class='x', method='broken', observed_status='failed'),)))\n",
                 encoding="utf-8",
             )
@@ -66,6 +68,22 @@ class AdoptionAuditTests(unittest.TestCase):
             report = audit_flowguard_adoption(root, flowguard_available=True)
 
             self.assertEqual("pass", report.status)
+
+    def test_explorer_import_requires_formal_runner_path(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / ".flowguard").mkdir()
+            (root / ".flowguard" / "model.py").write_text(
+                "from flowguard import Explorer, FlowGuardCheckPlan, KnownBadProof, MinimumModelContract, RiskIntent, run_model_first_checks\n"
+                "report = run_model_first_checks(FlowGuardCheckPlan(workflow=None, known_bad_proofs=(KnownBadProof('case', protected_error_class='x', method='broken', observed_status='failed'),)))\n",
+                encoding="utf-8",
+            )
+
+            report = audit_flowguard_adoption(root, flowguard_available=True)
+
+            self.assertEqual("pass_with_gaps", report.status)
+            self.assertEqual("direct_explorer_formal_entry_required", report.findings[0].category)
+            self.assertIn("Explorer import in current model", dict(report.findings[0].metadata)["markers"])
 
     def test_historical_fallback_is_suggestion_when_current_models_are_clean(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -85,6 +103,19 @@ class AdoptionAuditTests(unittest.TestCase):
             self.assertEqual("pass_with_gaps", report.status)
             self.assertEqual("suggestion", report.findings[0].severity)
             self.assertEqual("historical_fallback_evidence", report.findings[0].category)
+
+    def test_current_project_flowguard_models_have_no_stale_entry_path(self):
+        report = audit_flowguard_adoption(ROOT, flowguard_available=True)
+
+        current_stale_categories = {
+            "stale_fallback_model",
+            "current_fallback_model",
+            "direct_explorer_formal_entry_required",
+        }
+        self.assertFalse(
+            current_stale_categories.intersection(finding.category for finding in report.findings),
+            report.format_text(),
+        )
 
     def test_missing_flowguard_directory_is_plain_pass(self):
         with tempfile.TemporaryDirectory() as tmp:

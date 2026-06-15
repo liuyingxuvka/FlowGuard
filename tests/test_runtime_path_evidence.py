@@ -136,6 +136,73 @@ class RuntimePathEvidenceTests(unittest.TestCase):
         self.assertIn("runtime_node_output_mismatch", codes)
         self.assertIn("runtime_node_state_write_mismatch", codes)
 
+    def test_business_path_binding_is_checked_when_declared(self):
+        ok_observation = observation(
+            "validate_order",
+            business_path_id="submit_order",
+            business_intent="submit order",
+            observed_terminal="accepted",
+        )
+        ok_report = review_runtime_path_alignment(
+            RuntimePathAlignmentPlan(
+                "checkout-business-path-ok",
+                node_contracts=(
+                    contract(
+                        "validate_order",
+                        business_path_id="submit_order",
+                        business_intent="submit order",
+                        expected_terminal="accepted",
+                    ),
+                ),
+                observations=(ok_observation,),
+            )
+        )
+        wrong_report = review_runtime_path_alignment(
+            RuntimePathAlignmentPlan(
+                "checkout-business-path-wrong",
+                node_contracts=(
+                    contract(
+                        "validate_order",
+                        business_path_id="submit_order",
+                        business_intent="submit order",
+                        expected_terminal="accepted",
+                    ),
+                ),
+                observations=(
+                    observation(
+                        "validate_order",
+                        business_path_id="cancel_order",
+                        business_intent="cancel order",
+                        observed_terminal="cancelled",
+                    ),
+                ),
+            )
+        )
+        missing_report = review_runtime_path_alignment(
+            RuntimePathAlignmentPlan(
+                "checkout-business-path-missing",
+                node_contracts=(
+                    contract(
+                        "validate_order",
+                        business_path_id="submit_order",
+                        expected_terminal="accepted",
+                    ),
+                ),
+                observations=(observation("validate_order"),),
+            )
+        )
+
+        self.assertTrue(ok_report.ok, ok_report.format_text())
+        self.assertIn("business_path=submit_order", ok_observation.format_progress_line())
+        wrong_codes = finding_codes(wrong_report)
+        self.assertFalse(wrong_report.ok)
+        self.assertIn("runtime_node_business_path_mismatch", wrong_codes)
+        self.assertIn("runtime_node_business_intent_mismatch", wrong_codes)
+        self.assertIn("runtime_node_business_terminal_mismatch", wrong_codes)
+        missing_codes = finding_codes(missing_report)
+        self.assertIn("runtime_node_business_path_missing", missing_codes)
+        self.assertIn("runtime_node_business_terminal_missing", missing_codes)
+
     def test_exact_path_rejects_uncontracted_and_out_of_order_nodes(self):
         report = review_runtime_path_alignment(
             RuntimePathAlignmentPlan(

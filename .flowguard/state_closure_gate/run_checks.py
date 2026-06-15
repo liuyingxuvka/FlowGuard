@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from flowguard import (
-    Explorer,
     STATE_CLOSURE_DIMENSION_EXTERNAL_INPUT,
     STATE_CLOSURE_HANDLING_ACCEPT_AS_NORMAL,
     STATE_CLOSURE_HANDLING_REJECT,
@@ -12,30 +11,34 @@ from flowguard import (
     StateClosurePlan,
     review_state_closure,
 )
+from flowguard.formal_runner import FormalWorkflowCase, run_formal_workflow_suite
 import model
 
 
-def run_workflow(name: str, workflow, *, expect_ok: bool) -> bool:
-    report = Explorer(
-        workflow=workflow,
+REQUIRED_LABELS = (
+    "unknown_observed",
+    "unknown_case_generated",
+    "safe_handling_declared",
+    "full_claim_accepted",
+    "scoped_or_blocked_claim",
+)
+
+
+def run_workflow_suite() -> bool:
+    cases = [FormalWorkflowCase("correct_state_closure_gate", model.build_correct_workflow(), True)]
+    cases.extend(FormalWorkflowCase(broken.name, broken, False) for broken in model.build_broken_workflows())
+    report = run_formal_workflow_suite(
+        "state_closure_gate",
+        tuple(cases),
         initial_states=(model.initial_state(),),
         external_inputs=model.EXTERNAL_INPUTS,
         invariants=model.INVARIANTS,
         max_sequence_length=model.MAX_SEQUENCE_LENGTH,
         terminal_predicate=model.terminal_predicate,
-        required_labels=(
-            "unknown_observed",
-            "unknown_case_generated",
-            "safe_handling_declared",
-            "full_claim_accepted",
-            "scoped_or_blocked_claim",
-        ),
-    ).explore()
-    ok = report.ok
-    print(f"{name}: {'OK' if ok else 'VIOLATION'}")
-    print(report.format_text(max_examples=1))
-    print()
-    return ok is expect_ok
+        required_labels=REQUIRED_LABELS,
+        protected_error_class="unknown_state_not_safely_closed",
+    )
+    return report.ok
 
 
 def helper_case(name: str, plan: StateClosurePlan, *, expect_ok: bool) -> bool:
@@ -89,13 +92,9 @@ def run_helper_cases() -> bool:
 
 
 def main() -> int:
-    workflow_checks = [
-        run_workflow("correct_state_closure_gate", model.build_correct_workflow(), expect_ok=True)
-    ]
-    for broken in model.build_broken_workflows():
-        workflow_checks.append(run_workflow(broken.name, broken, expect_ok=False))
+    workflow_checks = run_workflow_suite()
     helper_checks = run_helper_cases()
-    return 0 if all(workflow_checks) and helper_checks else 1
+    return 0 if workflow_checks and helper_checks else 1
 
 
 if __name__ == "__main__":

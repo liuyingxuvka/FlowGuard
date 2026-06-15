@@ -99,8 +99,11 @@ class MaintenanceObligationTests(unittest.TestCase):
         )
 
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-        self.assertIn("correct_maintenance_obligation_memory: OK", result.stdout)
-        self.assertIn("maintenance_obligation_bad_claim: VIOLATION", result.stdout)
+        self.assertIn(
+            "correct_maintenance_obligation_memory: observed=OK expected=OK match=yes",
+            result.stdout,
+        )
+        self.assertIn("maintenance_obligation_bad_claim: observed=VIOLATION expected=VIOLATION", result.stdout)
 
 
 if __name__ == "__main__":

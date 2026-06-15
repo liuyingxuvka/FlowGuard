@@ -1,18 +1,23 @@
 # development-process-flow Specification
 
 ## Purpose
-This capability defines how FlowGuard orders staged edits, validation, install sync, shadow sync, release evidence, and done claims so later work cannot reuse stale proof.
+This capability defines how FlowGuard uses one development-process simulator
+front door for plan discussion, multi-skill workflow setup, staged edits,
+validation, install sync, shadow sync, release evidence, and done claims so
+later work cannot reuse stale proof.
 DevelopmentProcessFlow deltas can be archived into a main spec.
 ## Requirements
-### Requirement: model-first-function-flow routes development lifecycle review
+### Requirement: DevelopmentProcessFlow is the development-process simulator front door
 The `model-first-function-flow` Skill SHALL include
-`development_process_flow` as a sibling route for development lifecycle
-ordering, artifact overwrite, validation freshness, minimum revalidation, and
-V-style lifecycle confidence.
+`development_process_flow` as the first process route for non-trivial rough
+plan discussion, multi-skill workflow setup, lifecycle ordering, artifact
+overwrite, validation freshness, minimum revalidation, and V-style lifecycle
+confidence.
 
 #### Scenario: Route is listed beside sibling routes
 - **WHEN** the Skill route map is read
-- **THEN** `development_process_flow` is listed beside `core_modeling`,
+- **THEN** `development_process_simulator` and `development_process_flow` are
+  listed beside `core_modeling`,
   `model_test_alignment`, `model_mesh_maintenance`, `test_mesh_maintenance`,
   and `structure_mesh_maintenance`
 
@@ -30,6 +35,22 @@ non-trivial staged development or modification task where step ordering,
 touched artifacts, validation evidence, evidence freshness, peer writes, or
 minimum revalidation affects whether the agent can safely continue or claim
 done.
+
+#### Scenario: Rough plan trigger enters simulator
+- **WHEN** an agent is asked to discuss, refine, or accept a non-trivial rough
+  plan
+- **THEN** the Codex-facing guidance enters `flowguard-development-process-flow`
+  first
+- **AND** it records the `plan_detailing` simulator mode before delegating to
+  `flowguard-plan-detailing-compiler`
+
+#### Scenario: Multi-skill trigger enters simulator
+- **WHEN** a task may require several Codex skills, tools, plugins, external
+  actions, or skipped-skill consequences
+- **THEN** the Codex-facing guidance enters `flowguard-development-process-flow`
+  first
+- **AND** it records the `agent_workflow` simulator mode before delegating to
+  `flowguard-agent-workflow-rehearsal`
 
 #### Scenario: Staged implementation trigger
 - **WHEN** an agent is asked to complete a non-trivial task with staged actions
@@ -49,15 +70,18 @@ done.
 - **THEN** the guidance permits skipping DevelopmentProcessFlow with a clear
   reason
 
-### Requirement: DevelopmentProcessFlow remains one sibling route
-FlowGuard SHALL keep DevelopmentProcessFlow as one sibling route and SHALL NOT
-split the Codex skill into separate lightweight and heavyweight modes for this
-trigger clarification.
+### Requirement: DevelopmentProcessFlow exposes internal simulator modes
+FlowGuard SHALL keep one Codex front-door skill for development process work
+while exposing named internal simulator modes for plan detail, agent workflow,
+and execution freshness.
 
-#### Scenario: Single route wording
+#### Scenario: Single front door wording
 - **WHEN** the satellite skill and route documentation are read
-- **THEN** they describe direct use of `flowguard-development-process-flow`
-  rather than introducing separate named modes
+- **THEN** they describe direct use of `flowguard-development-process-flow` as
+  the front door
+- **AND** they name `plan_detailing`, `agent_workflow`, and
+  `execution_freshness` as internal modes rather than competing generic first
+  entries
 
 #### Scenario: Sibling evidence boundary preserved
 - **WHEN** DevelopmentProcessFlow references evidence from ModelMesh, TestMesh,
@@ -383,4 +407,123 @@ DevelopmentProcessFlow SHALL name generic UI source-baseline artifacts and evide
 #### Scenario: Generic process surface uses source-specific name
 - **WHEN** a current DevelopmentProcessFlow skill, template, API constant, or docs row names one source technology as a generic UI freshness gate
 - **THEN** the process surface is incomplete until it is generalized
+
+### Requirement: Writing-quality ledgers are freshness-sensitive artifacts
+DevelopmentProcessFlow SHALL treat literature progression ledgers, method depth
+ledgers, figure/table argument ledgers, AI-style density ledgers, citation or
+footnote verification matrices, installed skill prompts, and final prose edits
+as freshness-sensitive process artifacts when a workflow claims high-quality
+writing completion.
+
+#### Scenario: Final prose changes after citation audit
+- **WHEN** final prose changes after a citation or footnote verification matrix
+  is produced
+- **THEN** DevelopmentProcessFlow MUST mark the citation evidence stale or
+  require a scoped claim
+
+#### Scenario: Citation audit is disposition-only
+- **WHEN** source gaps were downgraded or dispositioned
+- **AND** no citation or footnote verification matrix exists
+- **THEN** DevelopmentProcessFlow MUST block strict source-verification claims
+  while allowing a scoped no-invention/source-boundary claim
+
+### Requirement: Owner-skill evidence remains explicit
+DevelopmentProcessFlow SHALL preserve which owner skill is responsible for each
+writing-quality gate and whether evidence is passed, scoped, stale, skipped, or
+blocked.
+
+#### Scenario: Literature progression gate is missing
+- **WHEN** a thesis workflow claims deep literature review quality
+- **AND** no LogicGuard or thesis-workflow progression evidence is current
+- **THEN** DevelopmentProcessFlow MUST report the claim as unsupported
+
+### Requirement: DevelopmentProcessFlow consumes plan-detail projections for rough plans
+DevelopmentProcessFlow SHALL consume PlanDetail projections for non-trivial rough plans, AI-generated plans, or plan discussions before reviewing lifecycle order, evidence freshness, and completion claims.
+
+#### Scenario: Rough plan projection supplies lifecycle rows
+- **WHEN** a rough plan is converted to PlanDetail rows with artifacts, ordered steps, validation, evidence, and freshness rules
+- **THEN** DevelopmentProcessFlow reviews the projected DevelopmentProcessPlan using the same ids and current freshness rules
+
+#### Scenario: Prose-only lifecycle plan is not current evidence
+- **WHEN** a non-trivial lifecycle claim relies only on a long Markdown or numbered prose plan
+- **THEN** DevelopmentProcessFlow treats the claim as scoped or unsupported until structured lifecycle rows and evidence ids exist
+
+### Requirement: Plan-detail gaps remain claim boundaries
+DevelopmentProcessFlow SHALL preserve missing, skipped, stale, or scoped PlanDetail rows as lifecycle claim boundaries when deriving minimum revalidation.
+
+#### Scenario: Missing subrequirement blocks done claim
+- **WHEN** a projected plan has a subrequirement without current validation evidence or an accepted scoped omission
+- **THEN** DevelopmentProcessFlow reports missing required revalidation or unsupported claim evidence before allowing full done confidence
+
+#### Scenario: Later writes stale projected evidence
+- **WHEN** implementation changes an artifact after projected validation evidence was produced
+- **THEN** DevelopmentProcessFlow marks that evidence stale using the projected artifact and evidence ids
+
+### Requirement: Capability coverage artifacts stale UI completion evidence
+DevelopmentProcessFlow SHALL treat UI functional capability inventories, output contracts, capability-task mappings, implementation bindings, and capability coverage reports as freshness-sensitive UI lifecycle artifacts.
+
+#### Scenario: Capability inventory changes after UI evidence
+- **WHEN** a UI capability inventory, output contract, or implementation binding changes after human-operability or implementation validation evidence was produced
+- **THEN** DevelopmentProcessFlow marks the affected UI evidence stale and requires rerunning the relevant UI Flow Structure gates
+
+#### Scenario: UI task complete lacks capability evidence type
+- **WHEN** a UI task is marked complete for functional implementation work
+- **AND** no current capability coverage evidence kind or scoped-out boundary is recorded
+- **THEN** DevelopmentProcessFlow blocks done or release confidence for that task
+
+### Requirement: UI last-mile artifacts participate in process freshness
+DevelopmentProcessFlow SHALL treat observed UI inventories, visible-surface
+mappings, functional chains, source-baseline interaction gates,
+implementation-validation runs, native/manual boundaries, installed-skill sync,
+shadow-workspace sync, and local Git sync as freshness-sensitive artifacts.
+
+#### Scenario: UI inventory changes after click evidence
+- **WHEN** an observed UI inventory or visible control map changes after
+  implementation validation evidence was produced
+- **THEN** DevelopmentProcessFlow marks the affected UI evidence stale and
+  recommends rerunning UI implementation validation
+
+#### Scenario: Background regression is progress only
+- **WHEN** a UI/model regression is started in the background but has no final
+  exit status and result artifact
+- **THEN** DevelopmentProcessFlow treats it as liveness only, not current
+  validation evidence
+
+#### Scenario: Skill guidance changes require sync evidence
+- **WHEN** UI route skill guidance or public templates change
+- **THEN** final confidence requires installed-skill sync, editable-install
+  import evidence, shadow-workspace import evidence, and local Git sync status
+  or an explicit scoped boundary
+
+### Requirement: Payload and UI evidence freshness
+DevelopmentProcessFlow SHALL treat UI action maps, payload schemas, import and
+export behavior, AI work-package structure, validation prompts, installed
+skills, and verifier artifacts as freshness-sensitive process artifacts.
+
+#### Scenario: Payload schema changes after evidence
+- **WHEN** payload schema, work-package structure, import/export code, or
+  output formatting changes after payload validation evidence is produced
+- **THEN** DevelopmentProcessFlow MUST mark that evidence stale and recommend
+  rerunning the payload validation requirement
+
+#### Scenario: UI action map changes after click-through evidence
+- **WHEN** reachable UI controls, events, state transitions, or handlers change
+  after browser, desktop, or manual click-through evidence is produced
+- **THEN** DevelopmentProcessFlow MUST mark the click-through evidence stale
+
+### Requirement: Installed prompt and package sync are process evidence
+DevelopmentProcessFlow SHALL track repository skill guidance, installed Codex
+skills, editable install state, source mirror sync, and package version as
+process artifacts for done or release confidence.
+
+#### Scenario: Repository prompt changed but installed prompt was not synced
+- **WHEN** repository-managed FlowGuard skill guidance changes
+- **AND** installed Codex skill content is not refreshed or verified
+- **THEN** DevelopmentProcessFlow MUST report local installed behavior as
+  unsynced or scoped
+
+#### Scenario: Editable install points at current source
+- **WHEN** local installed package behavior is claimed
+- **THEN** evidence MUST show the imported package path, package version, and
+  expected helper symbols from the current source
 

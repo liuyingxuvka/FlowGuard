@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from flowguard import (
-    Explorer,
     MAINTENANCE_ARTIFACT_CODE,
     MAINTENANCE_ROUTE_STRUCTURE_MESH,
     OBLIGATION_STATUS_RESOLVED,
@@ -19,31 +18,35 @@ from flowguard import (
     review_maintenance_scan,
     review_risk_evidence_ledger,
 )
+from flowguard.formal_runner import FormalWorkflowCase, run_formal_workflow_suite
 import model
 
 
-def run_workflow(name: str, workflow, *, expect_ok: bool) -> bool:
-    report = Explorer(
-        workflow=workflow,
+REQUIRED_LABELS = (
+    "anchored_obligation_recorded",
+    "unanchored_observation_recorded",
+    "anchor_touched",
+    "owner_evidence_recorded",
+    "scoped_claim_only",
+    "full_claim_accepted",
+)
+
+
+def run_workflow_suite() -> bool:
+    cases = [FormalWorkflowCase("correct_maintenance_obligation_memory", model.build_correct_workflow(), True)]
+    cases.extend(FormalWorkflowCase(broken.name, broken, False) for broken in model.build_broken_workflows())
+    report = run_formal_workflow_suite(
+        "maintenance_obligation_memory",
+        tuple(cases),
         initial_states=(model.initial_state(),),
         external_inputs=model.EXTERNAL_INPUTS,
         invariants=model.INVARIANTS,
         max_sequence_length=model.MAX_SEQUENCE_LENGTH,
         terminal_predicate=model.terminal_predicate,
-        required_labels=(
-            "anchored_obligation_recorded",
-            "unanchored_observation_recorded",
-            "anchor_touched",
-            "owner_evidence_recorded",
-            "scoped_claim_only",
-            "full_claim_accepted",
-        ),
-    ).explore()
-    ok = report.ok
-    print(f"{name}: {'OK' if ok else 'VIOLATION'}")
-    print(report.format_text(max_examples=1))
-    print()
-    return ok is expect_ok
+        required_labels=REQUIRED_LABELS,
+        protected_error_class="maintenance_obligation_not_remembered",
+    )
+    return report.ok
 
 
 def helper_case(name: str, ok: bool, text: str) -> bool:
@@ -165,13 +168,9 @@ def run_helper_cases() -> bool:
 
 
 def main() -> int:
-    workflow_checks = [
-        run_workflow("correct_maintenance_obligation_memory", model.build_correct_workflow(), expect_ok=True)
-    ]
-    for broken in model.build_broken_workflows():
-        workflow_checks.append(run_workflow(broken.name, broken, expect_ok=False))
+    workflow_checks = run_workflow_suite()
     helper_checks = run_helper_cases()
-    return 0 if all(workflow_checks) and helper_checks else 1
+    return 0 if workflow_checks and helper_checks else 1
 
 
 if __name__ == "__main__":

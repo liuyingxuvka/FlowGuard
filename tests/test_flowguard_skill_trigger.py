@@ -13,9 +13,9 @@ class FlowguardSkillTriggerTests(unittest.TestCase):
 
     def test_skill_trigger_catalog_matches_expectations(self):
         self.assertTrue(self.report.ok, self.report.format_text(max_counterexamples=1))
-        self.assertEqual(21, self.report.total_scenarios)
-        self.assertEqual(13, self.report.passed)
-        self.assertEqual(7, self.report.expected_violations_observed)
+        self.assertEqual(26, self.report.total_scenarios)
+        self.assertEqual(16, self.report.passed)
+        self.assertEqual(9, self.report.expected_violations_observed)
         self.assertEqual(1, self.report.needs_human_review)
 
     def test_correct_trigger_scenarios_pass_or_need_review(self):
@@ -33,6 +33,9 @@ class FlowguardSkillTriggerTests(unittest.TestCase):
             "STS12_structure_mesh_routes_directly",
             "STS13_model_miss_routes_directly",
             "STS14_existing_model_preflight_routes_directly",
+            "STS15_rough_plan_enters_development_simulator",
+            "STS16_multi_skill_enters_development_simulator",
+            "STS17_full_plan_to_release_enters_all_simulator_modes",
         ):
             self.assertEqual("pass", self.statuses[name])
         self.assertEqual(
@@ -49,6 +52,8 @@ class FlowguardSkillTriggerTests(unittest.TestCase):
             "STB05_broken_in_progress_evidence_finalized",
             "STB06_broken_ambiguous_scope_skipped",
             "STB07_broken_missing_model_mesh",
+            "STB08_broken_plan_detailing_direct_first",
+            "STB09_broken_agent_workflow_direct_first",
         }
         for name in expected:
             self.assertEqual("expected_violation_observed", self.statuses[name])

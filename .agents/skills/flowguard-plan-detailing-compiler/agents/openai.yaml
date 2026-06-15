@@ -1,4 +1,4 @@
 interface:
   display_name: "FlowGuard Plan Detailing Compiler"
-  short_description: "Turn rough plans into structured FlowGuard detail rows"
-  default_prompt: "Use $flowguard-plan-detailing-compiler when a non-trivial task starts from a vague idea, short plan, or AI-generated outline; build PlanDetail rows for scope, UI actions, payload/work-package surfaces, state, artifacts, side effects, receipts, validation, failure/rework, human questions, and claim evidence before downstream FlowGuard modeling."
+  short_description: "Delegated plan_detailing mode for structured plan rows"
+  default_prompt: "Use $flowguard-plan-detailing-compiler when explicitly requested or delegated by $flowguard-development-process-flow's plan_detailing simulator mode; build PlanDetail rows for scope, UI actions, payload/work-package surfaces, state, artifacts, side effects, receipts, validation, failure/rework, human questions, and claim evidence before downstream FlowGuard modeling. Generic rough-plan routing should enter $flowguard-development-process-flow first."

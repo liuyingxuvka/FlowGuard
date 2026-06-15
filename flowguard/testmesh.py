@@ -78,6 +78,8 @@ def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
 class TestPartitionItem:
     """One parent test partition owned by a child suite/script or parent gate."""
 
+    __test__ = False
+
     item_id: str
     item_type: str = "behavior"
     owner_suite_id: str = ""
@@ -107,6 +109,8 @@ class TestPartitionItem:
 @dataclass(frozen=True)
 class TestSuiteEvidence:
     """Evidence summary for one child suite/script, parent, or release-only test."""
+
+    __test__ = False
 
     suite_id: str
     command: str = ""
@@ -205,6 +209,8 @@ class TestSuiteEvidence:
 class TestTargetSplitDerivation:
     """Model-derived target child-suite layout for one parent TestMesh gate."""
 
+    __test__ = False
+
     source_model_id: str
     target_suite_ids: tuple[str, ...] = ()
     covered_partition_item_ids: tuple[str, ...] = ()
@@ -239,6 +245,8 @@ class TestTargetSplitDerivation:
 @dataclass(frozen=True)
 class TestMeshPlan:
     """A parent test boundary and the child evidence used for a decision."""
+
+    __test__ = False
 
     parent_suite_id: str
     partition_items: tuple[TestPartitionItem, ...] = ()

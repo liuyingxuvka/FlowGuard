@@ -47,7 +47,7 @@ Tasks:
 11. Treat background progress as liveness only; require final long-check
    artifacts before using the result as evidence.
 12. Encode the required hazards from `model_mesh_protocol.md` as broken variants.
-13. Run Explorer plus progress/stuck review, hazard review, and conformance or
+13. Run the formal check plan plus progress/stuck review, hazard review, and conformance or
    live projection when applicable.
 14. Return a decision: `mesh_green_can_continue`, `add_evidence`,
    `update_child_model`, `split_model_boundary`, `coverage_gap_blocked`,

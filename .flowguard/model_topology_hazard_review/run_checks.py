@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from flowguard import (
-    Explorer,
     TOPOLOGY_CONFIDENCE_BLOCKED,
     TOPOLOGY_DISPOSITION_BLOCKED,
     TOPOLOGY_SEVERITY_BLOCKER,
@@ -14,6 +13,7 @@ from flowguard import (
     infer_topology_digest,
     review_topology_hazards,
 )
+from flowguard.formal_runner import FormalWorkflowCase, run_formal_workflow_suite
 import model
 
 
@@ -27,29 +27,32 @@ class EffectBlock:
         return ()
 
 
-def run_workflow(name: str, workflow, *, expect_ok: bool) -> bool:
-    report = Explorer(
-        workflow=workflow,
+REQUIRED_LABELS = (
+    "anchor_observed",
+    "anchored_hazard_inferred",
+    "required_route_created",
+    "hazard_handled_or_scoped",
+    "compatibility_disposition_chosen",
+    "full_claim_accepted",
+    "scoped_or_blocked_claim",
+)
+
+
+def run_workflow_suite() -> bool:
+    cases = [FormalWorkflowCase("correct_topology_hazard_review", model.build_correct_workflow(), True)]
+    cases.extend(FormalWorkflowCase(broken.name, broken, False) for broken in model.build_broken_workflows())
+    report = run_formal_workflow_suite(
+        "model_topology_hazard_review",
+        tuple(cases),
         initial_states=(model.initial_state(),),
         external_inputs=model.EXTERNAL_INPUTS,
         invariants=model.INVARIANTS,
         max_sequence_length=model.MAX_SEQUENCE_LENGTH,
         terminal_predicate=model.terminal_predicate,
-        required_labels=(
-            "anchor_observed",
-            "anchored_hazard_inferred",
-            "required_route_created",
-            "hazard_handled_or_scoped",
-            "compatibility_disposition_chosen",
-            "full_claim_accepted",
-            "scoped_or_blocked_claim",
-        ),
-    ).explore()
-    ok = report.ok
-    print(f"{name}: {'OK' if ok else 'VIOLATION'}")
-    print(report.format_text(max_examples=1))
-    print()
-    return ok is expect_ok
+        required_labels=REQUIRED_LABELS,
+        protected_error_class="topology_hazard_not_handled",
+    )
+    return report.ok
 
 
 def helper_case(name: str, plan: TopologyHazardReviewPlan, *, expect_ok: bool) -> bool:
@@ -97,13 +100,9 @@ def run_helper_cases() -> bool:
 
 
 def main() -> int:
-    workflow_checks = [
-        run_workflow("correct_topology_hazard_review", model.build_correct_workflow(), expect_ok=True)
-    ]
-    for broken in model.build_broken_workflows():
-        workflow_checks.append(run_workflow(broken.name, broken, expect_ok=False))
+    workflow_checks = run_workflow_suite()
     helper_checks = run_helper_cases()
-    return 0 if all(workflow_checks) and helper_checks else 1
+    return 0 if workflow_checks and helper_checks else 1
 
 
 if __name__ == "__main__":

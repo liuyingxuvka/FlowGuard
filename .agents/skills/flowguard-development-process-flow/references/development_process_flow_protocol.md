@@ -1,29 +1,48 @@
 # DevelopmentProcessFlow Protocol
 
-Use `development_process_flow` when the risky question is not whether a product
-workflow, test hierarchy, model mesh, or code structure is correct, but whether
-a staged development lifecycle can still trust its process order and validation
-evidence after later work.
+Use `development_process_flow` as the FlowGuard development-process simulator
+front door. It decides whether the current request needs `plan_detailing`,
+`agent_workflow`, `execution_freshness`, or an ordered combination of those
+internal modes before an agent implements, validates, installs, syncs, releases,
+archives, publishes, or claims done.
 
-This is a sibling sub-protocol. It supports planning and execution evidence
-without supervising other routes. It can reference evidence produced by
-ModelMesh, TestMesh, StructureMesh, Model-Test Alignment, Model Topology Hazard
-Review, LongCheck, or Conformance Adoption through ids and freshness metadata,
-and it should consume a Risk Evidence Ledger decision before final
+This is the single hot-path process entry for non-trivial rough-plan
+discussion, multi-skill workflow planning, and lifecycle evidence freshness.
+The `flowguard-plan-detailing-compiler` and
+`flowguard-agent-workflow-rehearsal` skills remain available as explicit or
+delegated mode owners, not as competing generic first stops.
+
+It can reference evidence produced by ModelMesh, TestMesh, StructureMesh,
+Model-Test Alignment, Model Topology Hazard Review, LongCheck, Conformance
+Adoption, PlanDetailing, or AgentWorkflowRehearsal through ids and freshness
+metadata, and it should consume a Risk Evidence Ledger decision before final
 done/release/archive/publish claims. It does not inspect, replace, or repair
 those route internals.
 
-When the upstream plan is vague or only a short AI outline, use
-`flowguard-plan-detailing-compiler` first. Its `PlanDetail` rows can be
-projected with `plan_detail_to_development_process(...)` to create lifecycle
-artifacts, actions, evidence, validation requirements, and freshness rules.
-DevelopmentProcessFlow then owns evidence freshness; plan detailing only proves
-the lifecycle rows are explicit enough to review.
+## Simulator Modes
+
+- `plan_detailing`: rough idea, vague request, short plan, or AI-generated
+  outline must become explicit rows with scope, artifacts, steps, receipts,
+  validation, failures, human questions, and claim boundaries. Delegate to
+  PlanDetailing when detailed row construction is needed.
+- `agent_workflow`: selected/skipped skills, tools, plugins, external actions,
+  side effects, inventory freshness, continue/rework gates, or cross-route
+  evidence claims must be rehearsed. Delegate to AgentWorkflowRehearsal when
+  a full skill/tool workflow plan is needed.
+- `execution_freshness`: staged edits, validation, install/sync, shadow sync,
+  git/version work, release/archive/publish, peer writes, or final claims need
+  artifact-version and evidence-freshness review. This protocol owns that mode.
+
+For a full plan-to-release path, record all applicable modes in order:
+`plan_detailing` -> `agent_workflow` -> `execution_freshness`.
 
 ## Trigger
 
 Create or update a DevelopmentProcessFlow review when:
 
+- a user asks to discuss, refine, detail, or accept a non-trivial plan;
+- a task may require several Codex skills, tools, plugins, external actions,
+  install/sync, release/publish, or cross-route evidence claims;
 - non-trivial development, modification, refactor, prompt, skill, documentation,
   repository, install, or release work has multiple meaningful stages and
   requires validation;
@@ -61,6 +80,11 @@ being split. Use TestMesh for validation hierarchy and StructureMesh for code
 structure decomposition. Use Model-Test Alignment for direct model/code/test
 obligation coverage. Use core modeling for the product workflow itself.
 
+Do not trigger PlanDetailing or AgentWorkflowRehearsal directly for generic
+rough-plan or multi-skill setup unless the user explicitly names that skill or
+DevelopmentProcessFlow has selected and delegated the corresponding simulator
+mode.
+
 Skip only for truly single-step work with no meaningful validation or artifact
 freshness risk, such as a tiny typo fix, pure explanation, or formatting-only
 change.
@@ -73,6 +97,8 @@ Use grouped process rows instead of separate blanks for every lifecycle field.
   upstream artifact ids when they affect freshness;
 - process steps: action id/type, actor, status, decision scope, read/write
   artifacts, invalidations, and ordering dependencies;
+- simulator mode decisions: selected modes, reason, delegated skill if any,
+  required mode evidence, and scoped gaps;
 - validation evidence: evidence id, kind, producer route, status, command or
   result path, covered artifact versions, verifier artifacts, and validation
   requirement ids;

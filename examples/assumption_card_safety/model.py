@@ -5,13 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from flowguard import (
-    Explorer,
     FunctionResult,
     Invariant,
     InvariantResult,
     ReachabilityCondition,
     Workflow,
 )
+from flowguard.explorer import Explorer
 
 
 @dataclass(frozen=True)

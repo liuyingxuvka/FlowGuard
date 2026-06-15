@@ -15,6 +15,7 @@ Guards against:
 - progress logs that do not name the FlowGuard model being compared;
 - broad confidence claims without leaf runtime node observations;
 - stale, non-passing, internal-only, or out-of-order runtime path evidence;
+- runtime nodes that match ids but prove the wrong business path;
 - runtime gateway or parent-model claims that cannot point to child path ids.
 
 Use before editing:
@@ -53,6 +54,9 @@ def node_contracts():
             model_obligation_id=OBLIGATION_ID,
             code_contract_id=CODE_CONTRACT_ID,
             boundary_id="checkout.submit.boundary",
+            business_path_id="submit_order",
+            business_intent="submit order",
+            expected_terminal="accepted",
             allowed_outputs=("accepted",),
             allowed_state_writes=("order_status",),
             sequence_index=0,
@@ -70,7 +74,10 @@ def good_plan():
         model_obligation_id=OBLIGATION_ID,
         code_contract_id=CODE_CONTRACT_ID,
         boundary_id="checkout.submit.boundary",
+        business_path_id="submit_order",
+        business_intent="submit order",
         observed_output="accepted",
+        observed_terminal="accepted",
         observed_state_writes=("order_status",),
         evidence_id="runtime-path:validate-order:v1",
         progress_message="accepted valid order at model-owned boundary",
@@ -141,6 +148,10 @@ Runtime path evidence connects real code progress output back to a FlowGuard
 model. Each emitted node should name the compared `model_id`, `model_path`,
 `node_id`, run id, status, and the relevant obligation or code contract when
 known.
+
+When a claim depends on a specific useful workflow route, the contract and
+observation should also name `business_path_id`, `business_intent`, and the
+expected or observed terminal.
 
 Use it at leaf model boundaries, state writes, side effects, parent/child
 handoffs, runtime gateway writes, and final confidence claims. Do not treat

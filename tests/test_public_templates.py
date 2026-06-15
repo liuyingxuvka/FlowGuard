@@ -28,7 +28,7 @@ from flowguard.templates import (
     risk_template_library_template_files,
     runtime_path_evidence_template_files,
     structure_mesh_template_files,
-    test_mesh_template_files,
+    test_mesh_template_files as mesh_template_files_factory,
     topology_hazard_template_files,
     ui_flow_structure_full_template_files,
     ui_flow_structure_template_files,
@@ -58,7 +58,7 @@ PUBLIC_TEMPLATE_FACTORIES = (
     ui_flow_structure_template_files,
     development_process_flow_template_files,
     workflow_step_contracts_template_files,
-    test_mesh_template_files,
+    mesh_template_files_factory,
     structure_mesh_template_files,
     topology_hazard_template_files,
 )
@@ -356,7 +356,7 @@ class PublicTemplateTests(unittest.TestCase):
 
     def test_test_mesh_template_executes(self):
         output = self.run_written_template(
-            test_mesh_template_files(),
+            mesh_template_files_factory(),
             (".flowguard", "test_mesh"),
         )
         self.assertIn("flowguard test mesh", output)
@@ -364,7 +364,7 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("stale_test_evidence", output)
 
     def test_test_mesh_template_teaches_parent_child_hierarchy(self):
-        files = test_mesh_template_files()
+        files = mesh_template_files_factory()
         combined = "\n".join(file.content for file in files)
 
         self.assertIn("parent test gate", combined)
@@ -485,7 +485,7 @@ class PublicTemplateTests(unittest.TestCase):
         files = development_process_flow_template_files()
         combined = "\n".join(file.content for file in files)
 
-        self.assertIn("sibling sub-protocol", combined)
+        self.assertIn("development-process simulator front door", combined)
         self.assertIn("does not inspect", combined)
         self.assertIn("does not make FlowGuard a task orchestrator", combined)
         self.assertIn("run AutoSplit, ModelMesh, or TestMesh as its own", combined)

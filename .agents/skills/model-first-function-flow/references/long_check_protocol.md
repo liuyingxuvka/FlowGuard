@@ -38,11 +38,11 @@ may cite the run only as in-progress liveness.
 
 ## Progress Is Not Pass/Fail
 
-Formal `run_model_first_checks(...)` runs inherit bounded `Explorer` progress on
-`stderr`. Treat progress as liveness/observability only. It does not change
+Formal `run_model_first_checks(...)` runs inherit bounded finite-runner progress
+on `stderr`. Treat progress as liveness/observability only. It does not change
 pass/fail semantics.
 
-Distinguish inherited Explorer progress from project-specific or legacy custom
+Distinguish inherited formal-runner progress from project-specific or legacy custom
 runners. A custom runner that bypasses the formal path may only emit a final
 report until it implements its own progress signal. Do not describe final report
 sections as live progress; final summaries become completion evidence only

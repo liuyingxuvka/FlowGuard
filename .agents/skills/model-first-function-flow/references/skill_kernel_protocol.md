@@ -55,8 +55,9 @@ to the kernel instead of taking ownership of unclear work.
 
 | Sub-protocol | Owns |
 | --- | --- |
-| `core_modeling` | Risk Intent, state write inventory, function blocks, invariants, formal CheckPlan, known-bad proof, and Explorer as the internal finite runner |
-| `plan_detailing_compiler` | rough plans, short AI outlines, PlanDetail rows, receipts, validation, rework, human questions, and projection to sibling routes |
+| `core_modeling` | Risk Intent, state write inventory, function blocks, invariants, formal CheckPlan, known-bad proof, and the internal finite runner |
+| `development_process_simulator` | front-door process routing for rough-plan, multi-skill, execution-freshness, install/sync, release/archive/publish, and final claim modes |
+| `plan_detailing_compiler` | delegated `plan_detailing` mode rows, receipts, validation, rework, human questions, and projection to downstream routes |
 | `architecture_reduction` | behavior-preserving code contraction candidates, observable architecture contracts, and target StructureMesh handoff |
 | `ui_flow_structure` | UI interaction model, app-level journey coverage, implemented/runnable UI click-through evidence alignment, reachable visible-control branches, state/control/event/display transitions, parent/child UI topology, menu levels, overlays, stable placements, UI text hierarchy blueprint, and intentional redundancy |
 | `model_topology_hazard_review` | topology digest, usage intent, anchored future-use hazards, required owner routes, and scoped or blocked confidence before broad claims |
@@ -66,7 +67,8 @@ to the kernel instead of taking ownership of unclear work.
 | `model_mesh_maintenance` | parent/child model hierarchy, child reattachment, whole-flow mesh closure, and oversized-model governance |
 | `test_mesh_maintenance` | parent/child test hierarchy plus validation evidence |
 | `structure_mesh_maintenance` | parent/child script/module structure split evidence |
-| `development_process_flow` | non-trivial staged development or modification, lifecycle ordering, artifact overwrite, evidence freshness, and minimum revalidation |
+| `agent_workflow_rehearsal` | delegated `agent_workflow` mode inventory, selected/skipped skills, side effects, continue/rework gates, and final claim scope |
+| `development_process_flow` | simulator front door plus `execution_freshness` mode for staged development, artifact overwrite, evidence freshness, and minimum revalidation |
 | `model_miss_review` | non-trivial bug repair, model miss classification, root-cause backpropagation, current bug instance handling, same-class bug responsibility, and analogous defect scan closure |
 | `conformance_adoption` | replay, install sync, shadow workspace sync, release sync, adoption evidence |
 | `long_check_observability` | background log artifacts, liveness-only progress, and completion proof |

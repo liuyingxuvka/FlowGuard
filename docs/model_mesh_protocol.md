@@ -190,7 +190,7 @@ Suggested evidence tiers:
 
 - `candidate_only`: model exists but has not produced trustworthy current
   evidence.
-- `abstract_green`: abstract Explorer/invariant checks passed.
+- `abstract_green`: abstract formal model/invariant checks passed.
 - `hazard_green`: known-bad hazard variants fail for the intended reasons.
 - `live_current_green`: current runtime state or current artifact projection was
   checked against the model boundary.
@@ -352,7 +352,7 @@ Tasks:
 12. Treat background progress as liveness only; require final long-check
    artifacts before using the result as evidence.
 13. Encode the required hazards from `model_mesh_protocol.md` as broken variants.
-14. Run Explorer plus progress/stuck review, hazard review, and conformance or
+14. Run the formal check plan plus progress/stuck review, hazard review, and conformance or
    live projection when applicable.
 15. Return a decision: `mesh_green_can_continue`, `add_evidence`,
    `update_child_model`, `split_model_boundary`, `coverage_gap_blocked`,

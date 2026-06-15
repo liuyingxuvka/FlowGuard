@@ -323,3 +323,159 @@ FlowGuard UI Flow Structure SHALL model file pickers, directory pickers, save di
 - **WHEN** the installed generic UI Flow Structure skill is read
 - **THEN** it describes source-baseline authority, work mode, generic interactions, source-target mapping, and observed alignment without naming a specific source technology as a hard gate
 
+### Requirement: UI Flow Structure includes functional capability coverage in the existing route
+FlowGuard UI Flow Structure SHALL account functional capability coverage inside the existing UI route before broad model, human-operability, implementation, or completion claims.
+
+#### Scenario: Capability coverage precedes task and implementation claims
+- **WHEN** a UI task claims that user-visible functionality is complete, runnable, release-ready, or human-operable
+- **THEN** UI Flow Structure requires a current capability inventory and coverage review that feeds existing feature contracts, task coverage, journeys, controls/events, functional chains, output contracts, and implementation evidence
+
+#### Scenario: Existing UI stages are reused
+- **WHEN** capability coverage is required
+- **THEN** it augments work mode, observed surface, UI interaction model, human-operability, implementation validation, and closure evidence
+- **AND** it does not create a separate parallel UI workflow
+
+#### Scenario: Observed controls alone are insufficient
+- **WHEN** observed surface inventory and enabled-control functional chains pass
+- **AND** a required capability is absent from the capability inventory or has no existing-flow binding
+- **THEN** UI Flow Structure blocks full UI completion confidence
+
+### Requirement: Observed UI inventory is the first hard gate
+FlowGuard UI Flow Structure SHALL require a rendered or observed UI inventory
+before an existing, migrated, runnable, or complete UI can be called modeled.
+The inventory MUST list real visible controls, inputs, selects, tables,
+display fields, status text, native-dialog triggers, and visible commands for
+the observed target and revision.
+
+#### Scenario: Observed item maps to model owner
+- **WHEN** an observed inventory item is visible in an in-scope UI state
+- **THEN** the UI review requires it to map to a `UIControl`,
+  `UIDisplayElement`, or `UIVisibleSurfaceItem`
+- **AND** the mapped owner must be registered in the reviewed UI model or
+  visible surface
+
+#### Scenario: Observed item is missing from model
+- **WHEN** an observed inventory includes an in-scope visible button, input,
+  select, table, display field, status text, native-dialog trigger, or command
+  with no mapped model owner and no scoped blindspot
+- **THEN** UI Flow Structure blocks model-complete and runnable-UI claims
+
+#### Scenario: Model-only surface cannot prove real UI coverage
+- **WHEN** a UI model declares controls and visible items but no observed
+  inventory evidence exists for an existing or runnable UI claim
+- **THEN** the claim remains design-only or scoped
+
+### Requirement: Source-baseline interaction semantics are modeled for source-based parity
+FlowGuard UI Flow Structure SHALL require source-based parity claims to model
+source-baseline interaction semantics, not only visible control names. The
+baseline gate MUST cover relevant native pickers, external opens, save/custom
+dialogs, no-handler controls, trigger/confirm/cancel/value/result/error
+branches, and native/manual boundaries.
+
+#### Scenario: File picker baseline covers choose and cancel
+- **WHEN** a source-based UI claims parity with a source file picker
+- **THEN** the source interaction gate requires trigger, confirm, cancel,
+  selected value, result feedback, and error-path semantics unless a branch is
+  explicitly out of scope
+
+#### Scenario: No-handler button remains visible
+- **WHEN** a source baseline has a visible enabled button with no handler
+- **THEN** the target UI must either model it as non-functional/disabled with
+  a user-facing reason or provide a replacement functional chain
+
+#### Scenario: Native opener has scoped evidence
+- **WHEN** a source-based UI uses or replaces an external opener
+- **THEN** the source-baseline interaction gate requires structured evidence for the
+  visible trigger, native/local action, observable result or manual boundary,
+  and any scoped blindspot
+
+### Requirement: Implemented UI action evidence covers reachable controls
+UI Flow Structure SHALL require each reachable enabled actionable control and
+modeled event in an implemented/runnable UI claim to have real run evidence,
+pure-UI classification, or a scoped implementation blindspot.
+
+#### Scenario: Reachable button is unverified
+- **WHEN** a running UI exposes an enabled actionable control or modeled event
+- **AND** the implementation validation has no browser, desktop, or manual step
+  evidence for it
+- **AND** it has no pure-UI classification or scoped blindspot
+- **THEN** the implementation validation MUST report a blocker
+
+#### Scenario: Native dialog needs manual fallback
+- **WHEN** a reachable UI action depends on a native file picker, download,
+  clipboard, desktop shell, system permission, or third-party surface that the
+  automation cannot inspect
+- **THEN** the action MUST have manual step evidence or a scoped blindspot with
+  owner, reason, and validation boundary
+
+### Requirement: UI run evidence records step-level freshness
+UI implementation validation SHALL keep run method, step event, control,
+source state, target state, result, evidence reference, and model or
+implementation revision visible.
+
+#### Scenario: Stale UI click-through evidence
+- **WHEN** UI run evidence references an older model or implementation revision
+- **THEN** the implemented UI claim MUST remain blocked or scoped until the run
+  is refreshed
+
+### Requirement: Visible UI surface is reviewed
+The UI Flow Structure route SHALL provide a visible-surface review that accounts
+for user-facing controls, status text, helper copy, placeholders, metadata, and
+disabled-state reasons when those items are in scope for a modeled UI.
+
+#### Scenario: Visible surface has user-facing purpose
+- **WHEN** a UI route records visible controls, status text, helper copy,
+  placeholders, metadata, or disabled controls
+- **THEN** the review verifies that each item has a state or owner, a
+  user-facing purpose, and a rationale before accepting the visible surface
+
+#### Scenario: Internal terminology is rejected
+- **WHEN** a visible UI item exposes internal implementation terminology such as
+  mock, backend, hydration, debug route, dataset id, or render strategy without
+  an explicit user-facing reason
+- **THEN** the visible-surface review reports an internal-terminology finding
+
+#### Scenario: Disabled control explains availability
+- **WHEN** a visible disabled control is part of the UI surface
+- **THEN** the review requires a user-understandable disabled reason or reports
+  the disabled control as incomplete
+
+### Requirement: UI route can review universal layout evidence
+The UI Flow Structure route SHALL provide a universal geometry/layout evidence
+surface for text overflow, control overlap, viewport bounds, dialog or popover
+bounds, focus reachability, keyboard reachability, and scroll ownership.
+
+#### Scenario: Layout issue blocks clean geometry evidence
+- **WHEN** geometry evidence records text overflow, overlapping controls,
+  out-of-bounds UI, missing focus reachability, missing keyboard reachability,
+  or unclear scroll ownership
+- **THEN** the geometry review reports the affected item as a layout evidence
+  finding
+
+#### Scenario: Passing geometry evidence supports handoff
+- **WHEN** geometry evidence records checked bounds, no overflow, no overlap,
+  focus reachability, keyboard reachability, and scroll ownership
+- **THEN** the geometry review can pass for the declared UI surface boundary
+
+### Requirement: UI route can model hot and cold interaction paths
+The UI Flow Structure route SHALL provide a responsiveness contract that names
+hot-path user feedback, cold-path work, stale-result guards,
+cancellation/coalescing behavior, and stable regions when responsiveness claims
+are in scope.
+
+#### Scenario: Hot path has immediate feedback
+- **WHEN** a UI interaction is modeled as a hot-path action
+- **THEN** the responsiveness review requires a feedback target or reports the
+  hot path as missing immediate feedback
+
+#### Scenario: Cold result cannot overwrite newer state
+- **WHEN** a UI interaction starts cold-path work that may finish after later
+  user input
+- **THEN** the responsiveness review requires a stale-result guard,
+  cancellation, or coalescing rule before accepting the contract
+
+#### Scenario: Stable region is preserved
+- **WHEN** a UI region is marked stable across unrelated input changes
+- **THEN** the responsiveness review requires a preservation rule or reports the
+  stable region as unprotected
+

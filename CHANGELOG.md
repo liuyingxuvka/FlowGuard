@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.49.0 - 2026-06-15
+
+Development-process simulator entry consolidation.
+
+- Added `development_process_simulator` helpers so rough-plan discussion,
+  multi-skill workflow setup, staged execution, install/sync, release/archive,
+  publish, and final process claims enter `flowguard-development-process-flow`
+  first with ordered `plan_detailing`, `agent_workflow`, and
+  `execution_freshness` modes.
+- Reframed PlanDetailing Compiler and AgentWorkflowRehearsal as explicit or
+  simulator-delegated mode owners instead of competing generic first entries.
+- Updated Codex skill prompts, OpenAI metadata, AGENTS guidance, README, API
+  docs, current OpenSpec specs, and active plan-discussion change notes to
+  remove stale direct/peer route wording.
+- Added routing/model/API/docs regression coverage so old rough-plan and
+  multi-skill hot-path wording is rejected.
+
 ## v0.48.0 - 2026-06-15
 
 Single formal FlowGuard model entry.

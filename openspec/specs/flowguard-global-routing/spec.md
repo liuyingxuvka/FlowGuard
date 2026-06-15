@@ -50,20 +50,24 @@ for every FlowGuard task.
   route selection, and cross-route coordination, while clear direct satellite
   matches should use the matching satellite
 
-### Requirement: Multi-skill workflow rehearsal routes directly
+### Requirement: Multi-skill workflow rehearsal enters the development-process simulator
 The global Codex FlowGuard guidance SHALL route non-trivial tasks that may
 require multiple installed skills, uncertain skill selection, cross-skill
 ordering, external side effects, staged validation, or non-trivial completion
-evidence to `flowguard-agent-workflow-rehearsal` before execution.
+evidence to `flowguard-development-process-flow` first, recording
+`agent_workflow` before any delegated `flowguard-agent-workflow-rehearsal`
+review.
 
 #### Scenario: Complex multi-skill task rehearses first
 - **WHEN** a task may involve several installed Codex skills, plugins, tools,
   or staged validation paths
-- **THEN** the global guidance selects `flowguard-agent-workflow-rehearsal`
+- **THEN** the global guidance selects `flowguard-development-process-flow`
   before execution begins
+- **AND** the simulator delegates to `flowguard-agent-workflow-rehearsal` only
+  when a full skill/tool workflow rehearsal is needed
 
 #### Scenario: Fresh snapshot is part of routing
-- **WHEN** `flowguard-agent-workflow-rehearsal` is selected
+- **WHEN** the simulator delegates to `flowguard-agent-workflow-rehearsal`
 - **THEN** the guidance requires a fresh current-machine skill snapshot for
   that invocation
 - **AND** it forbids treating cached skill lists as current evidence
@@ -71,7 +75,7 @@ evidence to `flowguard-agent-workflow-rehearsal` before execution.
 #### Scenario: Tiny tasks can skip rehearsal
 - **WHEN** the task is a trivial read-only answer, formatting-only edit, direct
   command answer, or obvious low-risk single-skill task
-- **THEN** the guidance may skip `flowguard-agent-workflow-rehearsal` with a
+- **THEN** the guidance may skip the `agent_workflow` simulator mode with a
   concrete reason
 
 ### Requirement: Global routing preserves existing routes while adding handoff continuation
@@ -224,4 +228,43 @@ skills from each carrying independent long-form route inventories.
   first-read prompt surfaces
 - **THEN** they fail or require the extra detail to move behind the reference
   handoff before done/release confidence is claimed
+
+### Requirement: Global routing sends rough plan discussions to the development-process simulator
+Global FlowGuard routing SHALL send non-trivial plan discussions,方案 discussions,
+acceptance-standard discussions, execution-step discussions, and AI-generated
+outlines to `flowguard-development-process-flow` first as the
+development-process simulator before implementation or final confidence routes.
+
+#### Scenario: Plan discussion selects plan detailing
+- **WHEN** a non-trivial user request asks to discuss, design, refine, or agree on a plan before execution
+- **THEN** global routing selects `flowguard-development-process-flow` as the
+  first process route
+- **AND** records the `plan_detailing` simulator mode before delegating to
+  `flowguard-plan-detailing-compiler` when full rows are needed
+
+#### Scenario: Structured lifecycle review can use development process directly
+- **WHEN** the user already provides structured lifecycle rows, artifact versions, validation evidence, and freshness rules
+- **THEN** global routing may select `flowguard-development-process-flow` directly for lifecycle freshness review
+
+### Requirement: Global routing composes simulator modes and delegated owners
+Global FlowGuard routing SHALL compose DevelopmentProcessFlow,
+PlanDetailing, and AgentWorkflowRehearsal by simulator mode and ownership
+rather than exposing three competing first entries.
+
+#### Scenario: Multi-skill plan composes routes
+- **WHEN** a plan discussion produces structured PlanDetail rows and the work involves multiple skills, tools, agents, or side effects
+- **THEN** global routing records `agent_workflow` in the simulator and hands
+  the PlanDetail projection to AgentWorkflowRehearsal before execution
+
+#### Scenario: Execution freshness composes routes
+- **WHEN** the same plan enters implementation, validation, done, release, archive, or publish review
+- **THEN** global routing records `execution_freshness` and uses
+  DevelopmentProcessFlow for lifecycle freshness and claim support
+
+### Requirement: Global routing blocks prose-only broad claims
+Global FlowGuard routing SHALL prevent broad done, release, publish, archive, or production-confidence claims from relying only on prose plans when the task was non-trivial.
+
+#### Scenario: Prose plan cannot support full completion
+- **WHEN** a non-trivial plan discussion has no PlanDetail rows, workflow rehearsal handoff, or current lifecycle evidence
+- **THEN** global routing keeps the final claim scoped or blocked until the missing structured evidence is created
 

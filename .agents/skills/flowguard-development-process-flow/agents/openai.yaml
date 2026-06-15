@@ -1,4 +1,4 @@
 interface:
   display_name: "FlowGuard Development Process Flow"
-  short_description: "Plan and verify staged development workflows"
-  default_prompt: "Use $flowguard-development-process-flow for non-trivial staged development or modification tasks to track steps, touched artifacts, UI/payload validation evidence, freshness risks, and minimum revalidation before claiming done."
+  short_description: "Front door for plan, workflow, and execution process simulation"
+  default_prompt: "Use $flowguard-development-process-flow as the development-process simulator front door for non-trivial plan discussion, multi-skill/tool workflow setup, staged development, install/sync, release, archive, or publish work; record plan_detailing, agent_workflow, and execution_freshness modes, touched artifacts, validation evidence, freshness risks, peer writes, and minimum revalidation before claiming done."

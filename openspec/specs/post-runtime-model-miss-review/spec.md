@@ -174,3 +174,69 @@ Post-runtime Model Miss Review SHALL classify user-observed source page, region,
 - **WHEN** the target model is internally consistent but conflicts with the source baseline or approved difference ledger
 - **THEN** Model Miss Review backpropagates the miss to source-baseline modeling and same-class counterexamples
 
+### Requirement: Post-green retry loops backpropagate into ModelMesh evidence
+Post-runtime Model Miss Review SHALL treat stuck retry, repeated rejected
+packet, same-input resend, missing repair feedback, and child-local-green but
+parent-stuck failures after a previous FlowGuard pass as model misses that must
+backpropagate into the existing ModelMesh and evidence chain.
+
+#### Scenario: Same packet repeats after rejection
+- **WHEN** runtime, test, replay, log, or user evidence shows a rejected packet
+  being resent without changing the modeled input or repair target
+- **AND** prior FlowGuard evidence was green or used for a confidence claim
+- **THEN** Model-Miss Review SHALL classify the failure as a missed input branch,
+  state coarse boundary, invariant weakness, or evidence overclaim
+- **AND** the repair SHALL add or scope a same-class model/test obligation
+
+#### Scenario: Rejection feedback did not name the repair
+- **WHEN** a rejected handoff fails to tell the upstream model which field,
+  body, owner, or repair command is required
+- **THEN** the miss review SHALL backpropagate the gap into ModelMesh closure
+  feedback tokens, transition coverage, owner code contract, and same-class
+  evidence before broad closure
+
+#### Scenario: Child green does not reattach to parent
+- **WHEN** a child model or child test is green locally
+- **AND** the parent remains stuck, stale, or unable to consume the child output
+- **THEN** Model-Miss Review SHALL route closure through the existing parent
+  child-reattachment, ModelMesh closure, Model-Test Alignment, and TestMesh
+  evidence gates
+
+### Requirement: Missing promised UI capability is a model miss
+Post-runtime Model Miss Review SHALL treat user-observed missing UI functionality after green UI evidence as a model miss, not as a local visual or button-only defect.
+
+#### Scenario: Required UI function was never modeled
+- **WHEN** a user reports that a UI lacks a promised or expected function after prior FlowGuard evidence was green or used for a completion claim
+- **THEN** Model Miss Review records a `boundary_missing` miss against the capability inventory, previous claim, affected feature/task/control/output, root cause, same-class capability candidates, and required repair evidence
+
+#### Scenario: Function had only weak evidence
+- **WHEN** a function was represented by label, screenshot, API existence, empty chart/table container, or prose but lacked output contract and implementation binding evidence
+- **THEN** Model Miss Review records `evidence_overclaimed` and requires same-class capability/output evidence before broad closure
+
+### Requirement: User-observed UI mismatch after green evidence is a model miss
+Post-runtime Model Miss Review SHALL treat user-visible UI mismatch after a
+green FlowGuard claim as a model miss. The review MUST record previous green
+claim, observed UI failure, miss classification, why the previous model passed,
+same-class UI controls or fields, and the tests or implementation evidence
+needed to prevent recurrence.
+
+#### Scenario: User opens UI and a wired button fails
+- **WHEN** a user observes that an enabled UI button does not perform the
+  claimed function after a prior green model or implementation claim
+- **THEN** Model Miss Review classifies the issue as `evidence_overclaimed`,
+  `boundary_missing`, `state_too_coarse`, `input_branch_missing`, or another
+  supported miss type
+- **AND** it requires same-class scan and same-class validation before broad
+  closure
+
+#### Scenario: Local patch cannot close UI miss
+- **WHEN** a UI miss affects a class of buttons, fields, file pickers, table
+  loaders, or visible state updates
+- **THEN** repairing only the observed instance is insufficient for broad
+  confidence unless same-class cases are explicitly scoped out with rationale
+
+#### Scenario: Previous green reason is preserved
+- **WHEN** a prior FlowGuard model or task was marked green before the UI miss
+- **THEN** the miss review records which evidence passed, why it was too narrow,
+  and which new model/test/validation row would have failed earlier
+

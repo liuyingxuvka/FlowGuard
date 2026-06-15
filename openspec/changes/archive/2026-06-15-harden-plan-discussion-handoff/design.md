@@ -1,15 +1,24 @@
 ## Context
 
-FlowGuard already has the pieces needed for high-standard planning: PlanDetailing turns rough plans into structured rows, WorkflowStepContracts preserve receipts, DevelopmentProcessFlow reviews lifecycle freshness, and AgentWorkflowRehearsal checks multi-skill execution order. The failure mode is in the handoff: agents can produce an acceptable prose plan, skip PlanDetailing as a peer route, and later execute from memory instead of from a stable evidence contract.
+FlowGuard already has the pieces needed for high-standard planning:
+PlanDetailing turns rough plans into structured rows, WorkflowStepContracts
+preserve receipts, DevelopmentProcessFlow reviews lifecycle freshness, and
+AgentWorkflowRehearsal checks multi-skill execution order. This change is now
+superseded by `fold-development-process-simulator-entry`: agents should not see
+PlanDetailing and AgentWorkflowRehearsal as competing peer hot-path entries;
+they enter DevelopmentProcessFlow first as simulator modes.
 
 ## Goals / Non-Goals
 
 **Goals:**
 
-- Make `flowguard-plan-detailing-compiler` the direct route for non-trivial plan,方案, acceptance, and execution-step discussions that start from prose or an AI outline.
+- Route non-trivial plan,方案, acceptance, and execution-step discussions through
+  the DevelopmentProcessFlow simulator front door, then delegate its
+  `plan_detailing` mode when full PlanDetail rows are needed.
 - Preserve plan subrequirements as stable ids with artifacts, validations, failure/rework gates, skipped/scoped rows, and final evidence ids.
 - Expose an AgentWorkflowRehearsal completion ledger so execution and final review can see which planned steps are complete, blocked, skipped, need recheck, or provide handoff evidence.
-- Keep DevelopmentProcessFlow focused on lifecycle order and evidence freshness while consuming plan-detail projections for rough plans.
+- Keep DevelopmentProcessFlow as the front door plus execution-freshness owner
+  while consuming plan-detail projections for rough plans.
 
 **Non-Goals:**
 
@@ -19,11 +28,13 @@ FlowGuard already has the pieces needed for high-standard planning: PlanDetailin
 
 ## Decisions
 
-1. **Promote PlanDetailing by routing, not by replacing downstream routes.**
+1. **Promote PlanDetailing as a delegated simulator mode, not a competing hot entry.**
    - PlanDetailing owns whether a plan is detailed enough to execute.
    - DevelopmentProcessFlow owns whether lifecycle evidence is current.
    - AgentWorkflowRehearsal owns multi-skill ordering and handoff gates.
-   - Alternative considered: make DevelopmentProcessFlow generate detailed plans. Rejected because its current contract is evidence freshness, not plan amplification.
+   - Alternative superseded: make PlanDetailing the generic first route.
+     Rejected because it lets agents skip process-mode ordering and forget
+     execution-freshness gates later.
 
 2. **Use additive report fields for the workflow completion ledger.**
    - Add `completed_steps`, `blocked_steps`, `skipped_steps`, `required_rechecks`, and `handoff_points` to `AgentWorkflowRehearsalReport`.
@@ -31,7 +42,9 @@ FlowGuard already has the pieces needed for high-standard planning: PlanDetailin
    - Alternative considered: add a separate ledger route. Rejected because this is a report view over rehearsal findings, not a new proof owner.
 
 3. **Model the known bad path in executable routing examples.**
-   - Add skill-trigger scenarios where a rough AI plan must select PlanDetailing and multi-skill planning must select AgentWorkflowRehearsal.
+   - Add skill-trigger scenarios where a rough AI plan must select
+     DevelopmentProcessFlow with `plan_detailing` mode and multi-skill planning
+     must select DevelopmentProcessFlow with `agent_workflow` mode.
    - Add broken scenarios for direct execution from prose or routing a rough plan only to DevelopmentProcessFlow.
    - This keeps the behavior from regressing into prompt-only advice.
 

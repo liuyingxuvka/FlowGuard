@@ -237,8 +237,8 @@ class StateClosureTests(unittest.TestCase):
         )
 
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-        self.assertIn("correct_state_closure_gate: OK", result.stdout)
-        self.assertIn("state_closure_missing_generation: VIOLATION", result.stdout)
+        self.assertIn("correct_state_closure_gate: observed=OK expected=OK match=yes", result.stdout)
+        self.assertIn("state_closure_missing_generation: observed=VIOLATION expected=VIOLATION", result.stdout)
 
 
 if __name__ == "__main__":

@@ -1,7 +1,9 @@
 # risk-template-library Specification
 
 ## Purpose
-TBD - created by archiving change raise-minimum-valuable-model-entry. Update Purpose after archive.
+Define packaged public and per-machine local risk templates so new or deepened
+FlowGuard models can reuse known risk shapes, record no-match decisions, and
+harvest reusable local candidates without leaking private project paths.
 ## Requirements
 ### Requirement: Packaged public risk templates
 FlowGuard SHALL provide packaged public risk templates that are available on any
@@ -42,16 +44,14 @@ library before a model creation or model deepening flow generates a new model.
 - **THEN** the template reuse review records an explicit no-match reason instead of silently skipping reuse
 
 ### Requirement: Local template harvest creates candidate risk cards
-FlowGuard SHALL harvest a local candidate template only from reusable model
-evidence that includes a protected error class, required state or side effects,
-completion evidence, and a known-bad case.
+FlowGuard SHALL harvest a local candidate template only from reusable model evidence that includes a protected error class, required state or side effects, completion evidence, a known-bad case, and model-instance proof that the known-bad case was caught.
 
 #### Scenario: Reusable model is saved as candidate
-- **WHEN** a model run exposes a reusable risk pattern with a known-bad case and completion evidence
+- **WHEN** a model run exposes a reusable risk pattern with a known-bad case, completion evidence, and current known-bad proof
 - **THEN** FlowGuard can write a local candidate template card with status `candidate`
 
 #### Scenario: Project-specific model is not harvested
-- **WHEN** a model lacks a protected error class, known-bad case, or reusable abstract terms
+- **WHEN** a model lacks a protected error class, known-bad case, executable proof, or reusable abstract terms
 - **THEN** FlowGuard refuses to write a local candidate and reports the missing fields
 
 ### Requirement: Similar templates can merge without losing evidence
@@ -68,11 +68,10 @@ known-bad cases.
 - **THEN** FlowGuard keeps them separate and records the reason as a false-friend rationale when supplied
 
 ### Requirement: Template harvest closure is mandatory after reusable modeling
-FlowGuard SHALL require a template harvest closure review after any new or
-materially deepened model before broad FlowGuard completion confidence.
+FlowGuard SHALL require a template harvest closure review after any new or materially deepened model before formal FlowGuard completion confidence.
 
 #### Scenario: New model writes reusable candidate
-- **WHEN** a new model exposes a reusable protected error class with state or side effects, completion evidence, and a known-bad case
+- **WHEN** a new model exposes a reusable protected error class with state or side effects, completion evidence, a known-bad case, and known-bad proof
 - **THEN** the harvest closure review records disposition `written` and the written local template id
 
 #### Scenario: Deepened model strengthens existing template
@@ -87,9 +86,9 @@ materially deepened model before broad FlowGuard completion confidence.
 - **WHEN** a model is not reusable enough to harvest
 - **THEN** the harvest closure review records disposition `not_harvestable` and one accepted reason
 
-#### Scenario: Missing closure is a gap
-- **WHEN** a new or deepened model has no harvest closure review
-- **THEN** FlowGuard reports a template harvest closure gap before broad completion confidence
+#### Scenario: Missing closure blocks formal confidence
+- **WHEN** a new or deepened formal model has no harvest closure review
+- **THEN** FlowGuard reports a blocking template harvest closure gap before formal completion confidence
 
 ### Requirement: Not-harvestable reasons are bounded
 FlowGuard SHALL accept only concrete not-harvestable reasons so agents cannot

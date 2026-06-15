@@ -116,3 +116,99 @@ by a person for in-scope user tasks.
 - **THEN** implementation validation requires a passing or explicitly scoped
   human-operability report for the same target revision
 
+### Requirement: UI implementation validation consumes capability coverage
+UI Implementation Validation SHALL consume current UI functional capability coverage when a running UI is claimed implemented, runnable, complete, or wired for user-visible functions.
+
+#### Scenario: Capability coverage is current
+- **WHEN** implementation validation claims complete runnable UI behavior
+- **THEN** it references the current capability inventory and a passing capability coverage report for the same model or implementation revision
+
+#### Scenario: Capability coverage is missing
+- **WHEN** implementation validation has feature contracts and journey runs
+- **AND** no current capability coverage evidence is supplied for an in-scope user-visible function boundary
+- **THEN** implementation validation blocks full runnable UI confidence
+
+#### Scenario: Capability output evidence is missing
+- **WHEN** a required capability has journey or click evidence
+- **AND** its result-producing output contract is missing, failed, stale, or scoped without owner
+- **THEN** implementation validation rejects full functional completion for that capability
+
+### Requirement: Enabled controls prove a real functional chain
+UI Implementation Validation SHALL require every in-scope enabled actionable
+control to have a real functional chain or an explicit pure-UI/deferred
+blindspot classification. A functional chain MUST bind visible control, UI
+event, code owner, backend/local/native function, observed UI state or display
+update, evidence reference, result, and current revision.
+
+#### Scenario: Button click produces observed UI result
+- **WHEN** an enabled button is part of a runnable or complete UI claim
+- **THEN** implementation validation requires evidence that clicking the
+  visible control triggered the modeled UI event, reached the declared code
+  owner/function, and produced the expected observed UI state or display update
+
+#### Scenario: API existence is insufficient
+- **WHEN** a control only cites an API route, handler name, or local function
+  without click evidence and observed UI result
+- **THEN** implementation validation blocks runnable/complete UI confidence
+
+#### Scenario: Label match is insufficient
+- **WHEN** a control only proves that its label, accessible name, or DOM text is
+  correct
+- **THEN** implementation validation treats the evidence as render evidence,
+  not functional-chain evidence
+
+#### Scenario: Native dialog branch is manually bounded
+- **WHEN** a functional chain enters a native dialog, file picker, permission
+  prompt, or OS shell action that cannot be fully automated
+- **THEN** the chain must include structured manual/native evidence,
+  observable result or blindspot, owner, validation boundary, and rationale
+
+### Requirement: UI completion claims require implementation validation
+FlowGuard SHALL require `UIImplementationValidation` for claims that an
+implemented UI is runnable, complete, or has buttons wired to real behavior.
+
+#### Scenario: Runnable claim has no implementation validation
+- **WHEN** an agent claims a UI is runnable, complete, or button wiring is
+  finished
+- **AND** no current implementation validation exists for the relevant target
+  revision
+- **THEN** the claim is blocked or downgraded to design/model-only confidence
+
+### Requirement: UI evidence declares evidence kind
+UI implementation validation SHALL allow render and implementation evidence to
+declare the kind of evidence used for a runnable UI claim, including screenshot,
+browser click-through, DOM text, computed style, geometry, accessibility or
+ARIA, runtime trace, log, test result, and manual observation evidence.
+
+#### Scenario: Screenshot evidence is accepted
+- **WHEN** implementation validation records screenshot evidence for a visible
+  UI surface
+- **THEN** the evidence kind is accepted as a normal UI evidence type
+
+#### Scenario: Evidence without kind is rejected
+- **WHEN** implementation validation records render or implementation evidence
+  without an evidence kind
+- **THEN** the implementation evidence review reports the evidence as missing a
+  declared kind
+
+#### Scenario: Unknown evidence kind is rejected
+- **WHEN** implementation validation records an evidence kind outside the
+  supported UI evidence kind list
+- **THEN** the implementation evidence review reports the evidence kind as
+  unknown
+
+### Requirement: Render evidence remains bound to UI model context
+UI render evidence SHALL identify the source interaction model, implementation
+target, evidence target, result, evidence reference, and model or
+implementation revision before supporting a runnable UI completion claim.
+
+#### Scenario: Render evidence names model context
+- **WHEN** render evidence supports an implemented UI claim
+- **THEN** it records the source UI interaction model, implementation target,
+  evidence target, evidence reference, result, and current revision
+
+#### Scenario: Stale render evidence is rejected
+- **WHEN** render evidence references a model or implementation revision that
+  differs from the current validation revision
+- **THEN** the implementation evidence review reports stale render evidence
+

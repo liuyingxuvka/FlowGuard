@@ -46,10 +46,11 @@ after the route needs deep evidence.
 - For real target-project use, ensure the FlowGuard AGENTS.md managed block/version record exists; if installed FlowGuard is newer, run `python -m flowguard project-upgrade --root .` with artifact/model/test upgrade scanning before relying on old models/tests/evidence.
 - FlowGuard is latest-schema-first: upgrade old artifacts at project/tool boundaries; do not preserve long-lived runtime compatibility for obsolete fields, aliases, or wrappers.
 - Default replacement means cleanup: old fields, aliases, wrappers, fallback paths, and compatibility-like surfaces need a disposition unless the user explicitly requests compatibility preservation.
+- Important business paths need identity when route semantics affect confidence: path id, business intent, trigger, expected terminal, state writes, side effects, equivalent/exclusive paths, old-path disposition, and evidence ids.
 - If import fails, connect the real toolchain or report blocked/partial; do not write a temporary mini-framework or fake mini-framework substitute.
 - Represent modeled blocks as `Input x State -> Set(Output x State)`.
-- Treat direct `Explorer(...)` as an internal engine, not the formal entry for
-  non-trivial model creation.
+- Treat direct finite-engine calls as internal mechanics, not the formal entry
+  for non-trivial model creation.
 - Do not replace executable modeling with prose or weaken invariants to pass.
 - Preserve user and peer-agent changes; later writes can stale evidence.
 - Long checks may run in the background, but final confidence needs exit/status and result artifacts, not progress lines.
@@ -77,19 +78,18 @@ the row below calls for deep route evidence.
 | --- | --- | --- |
 | Older adopted project, old FlowGuard artifact, old model/test evidence, obsolete API aliases | `artifact_schema_upgrade` | `artifact-upgrade` or `project-upgrade` |
 | FlowGuard itself feels heavy, route groups are incomplete, field layers need folding, or AI needs route-first self-maintenance | `flowguard_self_maintenance` | `review_flowguard_self_maintenance()` |
-| Changed artifacts, open maintenance obligations, stale evidence, skipped routes, split/reduction pressure | `maintenance_scan_router` | `maintenance-scan-template` |
+| Changed artifacts, open maintenance obligations, stale evidence, skipped routes, business-path hazards, split/reduction pressure | `maintenance_scan_router` | `maintenance-scan-template` |
 | Existing modeled system, ownership lookup, duplicate-boundary risk | `existing_model_preflight` | `flowguard-existing-model-preflight` |
 | Current route/model may be too narrow or a new model angle may be needed | `model_angle_deliberation` | `model-angle-template` or `review_model_angle_deliberations()` |
 | Field additions, removals, renames, migrations, replacements, prompt/config fields, payload/schema keys, old-field disposition | `field_lifecycle_mesh` | `flowguard-field-lifecycle-mesh` |
-| Similar features, A/B workflow drift, sibling tests, shared-kernel/adapter suspicion | `model_similarity_consolidation` | `docs/model_similarity_consolidation.md` |
+| Similar features, duplicate business paths, A/B workflow drift, sibling tests, shared-kernel/adapter suspicion | `model_similarity_consolidation` | `docs/model_similarity_consolidation.md` |
 | New/deepened model must reuse/search and close public/local template harvest | `risk_template_library` | `risk-template-search`, `risk-template-harvest`, `risk-template-harvest-review`, or `risk-template-library-template` |
-| Rough idea/short plan needs detailed scope, state, evidence, receipts, rework | `plan_detailing_compiler` | `flowguard-plan-detailing-compiler` |
-| Multi-skill/tool/plugin planning, skipped skill consequences, rework gates | `agent_workflow_rehearsal` | `flowguard-agent-workflow-rehearsal` |
+| Rough plan, multi-skill/tool setup, staged execution, install/sync, release/archive/publish, or final process claim needs one development-process simulator | `development_process_simulator` | `flowguard-development-process-flow`; may delegate `flowguard-plan-detailing-compiler` or `flowguard-agent-workflow-rehearsal` |
 | Ordinary behavior/state modeling, Risk Intent, state inventory | `core_modeling` | `references/modeling_protocol.md` |
 | Existing code/prompt flow should shrink without behavior loss | `architecture_reduction` | `flowguard-architecture-reduction` |
 | Pre-code module/function/block ownership recommendation | `code_structure_recommendation` | `flowguard-code-structure-recommendation` |
 | UI controls, screens, journeys, display/text ownership, runnable UI evidence | `ui_flow_structure` | `flowguard-ui-flow-structure` |
-| Locally green model topology implies future-use hazards before broad confidence | `model_topology_hazard_review` | `flowguard-model-topology-hazard-review` |
+| Locally green model topology implies future-use hazards, duplicate/conflicting paths, or old/new route gaps before broad confidence | `model_topology_hazard_review` | `flowguard-model-topology-hazard-review` |
 | Model obligations, transition coverage, files/work packages, or code/test/boundary rows | `model_test_alignment` | `flowguard-model-test-alignment` |
 | Three or more models, oversized model, stale child evidence, parent/child mesh | `model_mesh_maintenance` | `flowguard-model-mesh` |
 | Large/slow/stale/release-only tests or parent/child test hierarchy | `test_mesh_maintenance` | `flowguard-test-mesh` |

@@ -15,6 +15,7 @@ from flowguard import (
     MAINTENANCE_ARTIFACT_MODEL,
     MAINTENANCE_SCAN_DECISION_CLEAR,
     MAINTENANCE_SCAN_DECISION_SCOPED,
+    MAINTENANCE_SIGNAL_BUSINESS_PATH_DUPLICATE,
     MAINTENANCE_SIGNAL_LARGE_MODULE,
     MAINTENANCE_SIGNAL_REDUCIBLE_BRANCH,
     MaintenanceChangedArtifact,
@@ -58,6 +59,10 @@ def main():
             MaintenanceSignal("large-module", MAINTENANCE_SIGNAL_LARGE_MODULE),
         ),
     )
+    business_path_needed = MaintenanceScanPlan(
+        "business-path-duplication",
+        signals=(MaintenanceSignal("submit-order-duplicate", MAINTENANCE_SIGNAL_BUSINESS_PATH_DUPLICATE),),
+    )
     remembered_obligation = MaintenanceScanPlan(
         "remembered-structure-gap",
         changed_artifacts=(
@@ -96,6 +101,12 @@ def main():
                 ("structure_mesh_maintenance",),
             ),
             run_case(
+                "business_path_needed",
+                business_path_needed,
+                "maintenance_scan_actions_suggested",
+                ("model_similarity_consolidation",),
+            ),
+            run_case(
                 "summary_bridge",
                 summary_bridge,
                 "maintenance_scan_actions_suggested",
@@ -131,6 +142,7 @@ ModelMesh, TestMesh, DevelopmentProcessFlow, or AgentWorkflowRehearsal.
   `maintenance_scan_plan_from_summary_report(...)`;
 - duplicate branch, pass-through adapter, removable state, or duplicate
   validation;
+- duplicate, conflicting, unproven, or legacy-disposition business paths;
 - large module, public API split, oversized model, stale child model evidence,
   slow tests, progress-only tests, or broad validation.
 

@@ -86,6 +86,9 @@ class RuntimeNodeContract:
     boundary_id: str = ""
     input_case: str = ""
     state_case: str = ""
+    business_path_id: str = ""
+    business_intent: str = ""
+    expected_terminal: str = ""
     required: bool = True
     ordered: bool = True
     sequence_index: int | None = None
@@ -113,6 +116,9 @@ class RuntimeNodeContract:
         object.__setattr__(self, "boundary_id", str(self.boundary_id))
         object.__setattr__(self, "input_case", str(self.input_case))
         object.__setattr__(self, "state_case", str(self.state_case))
+        object.__setattr__(self, "business_path_id", str(self.business_path_id))
+        object.__setattr__(self, "business_intent", str(self.business_intent))
+        object.__setattr__(self, "expected_terminal", str(self.expected_terminal))
         object.__setattr__(self, "required", bool(self.required))
         object.__setattr__(self, "ordered", bool(self.ordered))
         if self.sequence_index is not None:
@@ -139,6 +145,9 @@ class RuntimeNodeContract:
             "boundary_id": self.boundary_id,
             "input_case": self.input_case,
             "state_case": self.state_case,
+            "business_path_id": self.business_path_id,
+            "business_intent": self.business_intent,
+            "expected_terminal": self.expected_terminal,
             "required": self.required,
             "ordered": self.ordered,
             "sequence_index": self.sequence_index,
@@ -170,10 +179,13 @@ class RuntimeNodeObservation:
     boundary_id: str = ""
     input_case: str = ""
     state_case: str = ""
+    business_path_id: str = ""
+    business_intent: str = ""
     sequence_index: int | None = None
     accepted: bool = True
     observed_output: str = ""
     observed_next_state: str = ""
+    observed_terminal: str = ""
     observed_state_writes: tuple[str, ...] = ()
     observed_side_effects: tuple[str, ...] = ()
     observed_error_path: str = ""
@@ -205,11 +217,14 @@ class RuntimeNodeObservation:
         object.__setattr__(self, "boundary_id", str(self.boundary_id))
         object.__setattr__(self, "input_case", str(self.input_case))
         object.__setattr__(self, "state_case", str(self.state_case))
+        object.__setattr__(self, "business_path_id", str(self.business_path_id))
+        object.__setattr__(self, "business_intent", str(self.business_intent))
         if self.sequence_index is not None:
             object.__setattr__(self, "sequence_index", int(self.sequence_index))
         object.__setattr__(self, "accepted", bool(self.accepted))
         object.__setattr__(self, "observed_output", str(self.observed_output))
         object.__setattr__(self, "observed_next_state", str(self.observed_next_state))
+        object.__setattr__(self, "observed_terminal", str(self.observed_terminal))
         object.__setattr__(self, "observed_state_writes", _as_tuple(self.observed_state_writes))
         object.__setattr__(self, "observed_side_effects", _as_tuple(self.observed_side_effects))
         object.__setattr__(self, "observed_error_path", str(self.observed_error_path))
@@ -250,6 +265,8 @@ class RuntimeNodeObservation:
             ("boundary", self.boundary_id),
             ("input_case", self.input_case),
             ("state_case", self.state_case),
+            ("business_path", self.business_path_id),
+            ("business_intent", self.business_intent),
             ("evidence", self.evidence_key()),
             ("progress", self.progress_message),
         )
@@ -272,10 +289,13 @@ class RuntimeNodeObservation:
             "boundary_id": self.boundary_id,
             "input_case": self.input_case,
             "state_case": self.state_case,
+            "business_path_id": self.business_path_id,
+            "business_intent": self.business_intent,
             "sequence_index": self.sequence_index,
             "accepted": self.accepted,
             "observed_output": self.observed_output,
             "observed_next_state": self.observed_next_state,
+            "observed_terminal": self.observed_terminal,
             "observed_state_writes": list(self.observed_state_writes),
             "observed_side_effects": list(self.observed_side_effects),
             "observed_error_path": self.observed_error_path,
@@ -734,6 +754,43 @@ def _review_binding(
                     metadata={"expected": expected, "actual": actual},
                 )
             )
+    business_checks = (
+        (
+            "business_path_id",
+            "runtime_node_business_path_mismatch",
+            "runtime_node_business_path_missing",
+        ),
+        (
+            "business_intent",
+            "runtime_node_business_intent_mismatch",
+            "runtime_node_business_intent_missing",
+        ),
+    )
+    for attr, mismatch_code, missing_code in business_checks:
+        expected = getattr(contract, attr)
+        actual = getattr(observation, attr)
+        if expected and not actual:
+            findings.append(
+                RuntimePathFinding(
+                    missing_code,
+                    f"runtime node {contract.node_id!r} does not bind required {attr}",
+                    node_id=contract.node_id,
+                    observation_id=observation.observation_id,
+                    evidence_id=observation.evidence_key(),
+                    metadata={"expected": expected},
+                )
+            )
+        elif expected and actual and expected != actual:
+            findings.append(
+                RuntimePathFinding(
+                    mismatch_code,
+                    f"runtime node {contract.node_id!r} {attr} does not match",
+                    node_id=contract.node_id,
+                    observation_id=observation.observation_id,
+                    evidence_id=observation.evidence_key(),
+                    metadata={"expected": expected, "actual": actual},
+                )
+            )
 
 
 def _review_behavior(
@@ -751,6 +808,19 @@ def _review_behavior(
         and observation.observed_next_state not in contract.allowed_next_states
     ):
         _behavior_finding("runtime_node_next_state_mismatch", "next_state", contract, observation, findings)
+    if contract.expected_terminal and not observation.observed_terminal:
+        findings.append(
+            RuntimePathFinding(
+                "runtime_node_business_terminal_missing",
+                f"runtime node {contract.node_id!r} does not report the expected business terminal",
+                node_id=contract.node_id,
+                observation_id=observation.observation_id,
+                evidence_id=observation.evidence_key(),
+                metadata={"expected_terminal": contract.expected_terminal},
+            )
+        )
+    elif contract.expected_terminal and observation.observed_terminal and contract.expected_terminal != observation.observed_terminal:
+        _behavior_finding("runtime_node_business_terminal_mismatch", "business_terminal", contract, observation, findings)
     _extra_tuple_items(
         "runtime_node_state_write_mismatch",
         "state writes",

@@ -16,6 +16,7 @@ from flowguard import (
     MAINTENANCE_ROUTE_DEVELOPMENT_PROCESS_FLOW,
     MAINTENANCE_ROUTE_MODEL_TEST_ALIGNMENT,
     MAINTENANCE_ROUTE_MODEL_MATURATION,
+    MAINTENANCE_ROUTE_MODEL_SIMILARITY,
     MAINTENANCE_ROUTE_STRUCTURE_MESH,
     MAINTENANCE_SCAN_DECISION_BLOCKED,
     MAINTENANCE_SCAN_DECISION_CLEAR,
@@ -23,6 +24,10 @@ from flowguard import (
     MAINTENANCE_SCAN_DECISION_SCOPED,
     MAINTENANCE_SCAN_DECISION_SUGGESTED,
     MAINTENANCE_SIGNAL_LARGE_MODULE,
+    MAINTENANCE_SIGNAL_BUSINESS_PATH_CONFLICT,
+    MAINTENANCE_SIGNAL_BUSINESS_PATH_DUPLICATE,
+    MAINTENANCE_SIGNAL_BUSINESS_PATH_LEGACY_DISPOSITION,
+    MAINTENANCE_SIGNAL_BUSINESS_PATH_UNPROVEN,
     MAINTENANCE_SIGNAL_MODEL_ANGLE_GAP,
     MAINTENANCE_SIGNAL_REDUCIBLE_BRANCH,
     MAINTENANCE_SIGNAL_STATE_CLOSURE_GAP,
@@ -192,6 +197,27 @@ class MaintenanceScanTests(unittest.TestCase):
         self.assertFalse(report.ok)
         self.assertEqual(MAINTENANCE_SCAN_DECISION_REQUIRED, report.decision)
         self.assertIn(MAINTENANCE_ROUTE_MODEL_MATURATION, routes(report))
+
+    def test_business_path_signals_route_to_existing_owners(self):
+        report = review_maintenance_scan(
+            MaintenanceScanPlan(
+                "business-paths",
+                signals=(
+                    MaintenanceSignal("dup-path", MAINTENANCE_SIGNAL_BUSINESS_PATH_DUPLICATE),
+                    MaintenanceSignal("conflict-path", MAINTENANCE_SIGNAL_BUSINESS_PATH_CONFLICT),
+                    MaintenanceSignal("unproven-path", MAINTENANCE_SIGNAL_BUSINESS_PATH_UNPROVEN),
+                    MaintenanceSignal("legacy-path", MAINTENANCE_SIGNAL_BUSINESS_PATH_LEGACY_DISPOSITION),
+                ),
+            )
+        )
+
+        action_by_signal = {signal_id: action for action in report.actions for signal_id in action.signal_ids}
+        self.assertFalse(report.ok)
+        self.assertEqual(MAINTENANCE_ROUTE_MODEL_SIMILARITY, action_by_signal["dup-path"].route_id)
+        self.assertEqual(MAINTENANCE_ACTION_SUGGESTED, action_by_signal["dup-path"].strength)
+        self.assertEqual(MAINTENANCE_ROUTE_MODEL_TEST_ALIGNMENT, action_by_signal["conflict-path"].route_id)
+        self.assertEqual(MAINTENANCE_ROUTE_MODEL_TEST_ALIGNMENT, action_by_signal["unproven-path"].route_id)
+        self.assertEqual(MAINTENANCE_ROUTE_ARCHITECTURE_REDUCTION, action_by_signal["legacy-path"].route_id)
 
     def test_summary_report_bridge_routes_structured_gap_to_scan_action(self):
         summary = FlowGuardSummaryReport.from_sections(
@@ -374,8 +400,11 @@ class MaintenanceScanTests(unittest.TestCase):
         )
 
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-        self.assertIn("correct_maintenance_scan_router: OK", result.stdout)
-        self.assertIn("maintenance_scan_bad_claim: VIOLATION", result.stdout)
+        self.assertIn(
+            "correct_maintenance_scan_router: observed=OK expected=OK match=yes",
+            result.stdout,
+        )
+        self.assertIn("maintenance_scan_bad_claim: observed=VIOLATION expected=VIOLATION", result.stdout)
 
 
 if __name__ == "__main__":

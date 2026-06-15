@@ -199,7 +199,7 @@ Use this scaffold to model a development lifecycle as a stateful process.
 
 - versioned requirements, designs, models, code, tests, docs, release assets,
   adapters, field lifecycle meshes, field projections, replacement
-  dispositions, bug-repair closure rows, and sibling route report artifacts;
+  dispositions, bug-repair closure rows, and route-owner report artifacts;
 - ordered development actions that read, write, invalidate, or claim evidence;
 - validation evidence and the exact artifact versions it covers;
 - UI observed inventory, functional capability coverage, functional-chain,
@@ -208,7 +208,7 @@ Use this scaffold to model a development lifecycle as a stateful process.
 - verifier changes, such as tests or model files changing after evidence was
   produced;
 - freshness rules that propagate upstream changes to downstream artifacts;
-- sibling AutoSplit, ModelMesh, or TestMesh evidence ids when split review is
+- AutoSplit, ModelMesh, or TestMesh evidence ids when split review is
   relevant to the process claim;
 - whether done, release, archive, or publish claims have current evidence;
 - the minimum revalidation needed when evidence is stale or missing.
@@ -231,14 +231,15 @@ track capability inventories or output-contract/binding rows with
 feature-contract, task, output, or implementation change should stale that
 evidence before release confidence.
 
-## Sibling Route Boundary
+## Route Owner Boundary
 
-This is a sibling sub-protocol. It can reference evidence produced by ModelMesh,
-TestMesh, StructureMesh, Model-Test Alignment, LongCheck, or Conformance
-Adoption through evidence ids and freshness metadata. It does not inspect,
-supervise, replace, or repair those routes. If sibling evidence is failed,
-stale, skipped, missing, or progress-only, this route keeps that lifecycle gap
-visible for the current process claim.
+This is the development-process simulator front door and execution-freshness
+owner. It can reference evidence produced by ModelMesh, TestMesh, StructureMesh,
+Model-Test Alignment, LongCheck, or Conformance Adoption through evidence ids
+and freshness metadata. It does not inspect, supervise, replace, or repair
+those routes. If route-owner evidence is failed, stale, skipped, missing, or
+progress-only, this route keeps that lifecycle gap visible for the current
+process claim.
 
 When direct model/test evidence is large, incomplete, slow, broad,
 progress-only, or release-only, run AutoSplit, ModelMesh, or TestMesh as its own

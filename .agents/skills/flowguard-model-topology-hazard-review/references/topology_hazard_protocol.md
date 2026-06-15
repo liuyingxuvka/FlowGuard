@@ -11,7 +11,8 @@ Create or update a review when:
   depend on a model that only proved local paths;
 - the topology contains repeatable side effects, shared state writers, external
   confirmation boundaries, broad terminal states, old/new compatibility paths,
-  migration/history surfaces, or parent/child compression;
+  migration/history surfaces, duplicate or conflicting business paths,
+  unproven important business paths, or parent/child compression;
 - a model pass and ordinary tests pass but an experienced engineer would still
   ask what future real use could expose;
 - state-closure, model-test alignment, model maturation, process freshness, or
@@ -28,7 +29,11 @@ Use grouped rows instead of blank field lists:
   history or compatibility possibility, compatibility policy, and goal;
 - topology digest: state nodes, input nodes, block nodes, workflow edges,
   reads/writes, side effects, external boundaries, terminal nodes, old/new
-  paths, parent/child links, and landmark ids;
+  paths, business path identities, parent/child links, and landmark ids;
+- business path identities: stable path id, business intent, trigger,
+  preconditions, expected terminal, state writes, side effects, equivalent
+  paths, exclusive paths, superseded old paths, compatibility disposition,
+  source labels, and evidence ids;
 - candidate hazards: anchor ids, rationale from topology shape, future failure
   mode, affected state/edge/side effect/terminal/boundary, disposition,
   required routes, handled/scoped status, and proof ids.
@@ -37,7 +42,8 @@ Use grouped rows instead of blank field lists:
 
 Every hard hazard must name a concrete topology anchor. Valid anchors include a
 state, edge, side-effect edge, terminal/success node, compatibility path,
-external boundary, shared writer, or parent/child compression landmark.
+business path, external boundary, shared writer, or parent/child compression
+landmark.
 
 Classify dispositions:
 
@@ -48,6 +54,10 @@ Classify dispositions:
   process confidence;
 - Architecture Reduction plus ledger when old/new compatibility paths need a
   preserve, migrate, block, delete, or latest-schema-first decision;
+- Architecture Reduction plus Model Similarity when two business paths do the
+  same useful job;
+- Model Maturation plus Model-Test Alignment when business paths conflict or
+  lack path-specific evidence;
 - scoped out only with a concrete reason.
 Anchored hazards that remain scoped or unresolved should become maintenance
 obligations so later scans can reopen the owner route when the same model,
@@ -69,6 +79,8 @@ A topology hazard review can support broad confidence only when:
 - scoped anchored hazards are exported as maintenance obligations when they can
   affect later work;
 - compatibility/history surfaces have an explicit disposition;
+- duplicate, conflicting, or unproven business paths have owner routes or
+  current evidence;
 - repeatable side effects and external boundaries are covered by current
   model-test, process, or risk-ledger evidence when broad usage is possible;
 - scoped confidence is carried into the final Risk Evidence Ledger instead of

@@ -56,6 +56,14 @@ RISK_FLAGS = {
     "model_miss",
     "runtime_after_pass",
     "existing_model_context",
+    "rough_plan",
+    "plan_detailing",
+    "multi_skill_workflow",
+    "tool_or_plugin_order",
+    "external_action",
+    "install_sync",
+    "shadow_sync",
+    "git_sync",
 }
 
 DIRECT_SKILL_BY_ROUTE = {
@@ -96,6 +104,8 @@ class SkillTriggerDecision:
     required_checks: tuple[str, ...]
     reason: str
     selected_skill: str = ""
+    selected_mode: str = ""
+    selected_modes: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -190,6 +200,9 @@ def requires_flowguard(task: TaskDescription | TaskFact) -> bool:
         "bug_fix",
         "structured_argument",
         "decision_plan",
+        "rough_plan",
+        "multi_skill_workflow",
+        "full_development_process",
         "model_maintenance",
         "process_change",
         "test_alignment",
@@ -225,6 +238,8 @@ def required_checks_for(task: TaskDescription | TaskFact) -> tuple[str, ...]:
         checks.append("model_mesh")
     if flags & {"staged_validation", "validation_freshness", "release_confidence"}:
         checks.append("development_process_flow")
+    if flags & {"rough_plan", "plan_detailing", "multi_skill_workflow", "tool_or_plugin_order", "external_action", "install_sync", "shadow_sync", "git_sync"}:
+        checks.append("development_process_flow")
     if flags & {"model_test_alignment"}:
         checks.append("model_test_alignment")
     if flags & {"test_mesh", "stale_validation"}:
@@ -258,6 +273,17 @@ def direct_route_for(task: TaskDescription | TaskFact | None) -> str:
         return "test_mesh_maintenance"
     if flags & {"structure_mesh", "public_api_split"}:
         return "structure_mesh_maintenance"
+    if task.kind in {"rough_plan", "multi_skill_workflow", "full_development_process"} or flags & {
+        "rough_plan",
+        "plan_detailing",
+        "multi_skill_workflow",
+        "tool_or_plugin_order",
+        "external_action",
+        "install_sync",
+        "shadow_sync",
+        "git_sync",
+    }:
+        return "development_process_flow"
     if flags & {"staged_validation", "validation_freshness", "release_confidence"}:
         return "development_process_flow"
     if flags & {"model_miss", "runtime_after_pass"}:
@@ -267,6 +293,31 @@ def direct_route_for(task: TaskDescription | TaskFact | None) -> str:
 
 def direct_skill_for(task: TaskDescription | TaskFact | None) -> str:
     return DIRECT_SKILL_BY_ROUTE.get(direct_route_for(task), "")
+
+
+def development_simulator_modes_for(task: TaskDescription | TaskFact | None) -> tuple[str, ...]:
+    if task is None:
+        return ()
+    flags = set(task.risk_flags)
+    modes: list[str] = []
+    if task.kind == "rough_plan" or flags & {"rough_plan", "plan_detailing"}:
+        modes.append("plan_detailing")
+    if task.kind == "multi_skill_workflow" or flags & {
+        "multi_skill_workflow",
+        "tool_or_plugin_order",
+        "external_action",
+    }:
+        modes.append("agent_workflow")
+    if task.kind in {"process_change", "full_development_process"} or flags & {
+        "staged_validation",
+        "validation_freshness",
+        "release_confidence",
+        "install_sync",
+        "shadow_sync",
+        "git_sync",
+    }:
+        modes.append("execution_freshness")
+    return tuple(dict.fromkeys(modes))
 
 
 class ClassifyTaskRisk:
@@ -327,12 +378,19 @@ class DecideSkillTrigger:
             fact = state.fact_for(input_obj.task_id)
             selected_skill = direct_skill_for(fact)
             if selected_skill:
+                selected_modes = (
+                    development_simulator_modes_for(fact)
+                    if selected_skill == "flowguard-development-process-flow"
+                    else ()
+                )
                 decision = SkillTriggerDecision(
                     input_obj.task_id,
                     "use_direct_flowguard_skill",
                     input_obj.required_checks,
                     f"{selected_skill} selected as the clear FlowGuard satellite route",
                     selected_skill,
+                    selected_modes[0] if selected_modes else "",
+                    selected_modes,
                 )
                 label = "direct_satellite_selected"
             else:
@@ -540,6 +598,56 @@ class BrokenClassifyAmbiguousAsSkip(ClassifyTaskRisk):
         yield from super().apply(input_obj, state)
 
 
+class BrokenPlanDetailingDirectFirst(DecideSkillTrigger):
+    name = "DecideSkillTrigger"
+
+    def apply(self, input_obj: RiskAssessment, state: State) -> Iterable[FunctionResult]:
+        fact = state.fact_for(input_obj.task_id)
+        if input_obj.decision == "flowguard_required" and fact and "rough_plan" in fact.risk_flags:
+            decision = SkillTriggerDecision(
+                input_obj.task_id,
+                "use_direct_flowguard_skill",
+                input_obj.required_checks,
+                "broken trigger selects plan detailing as the first entry",
+                "flowguard-plan-detailing-compiler",
+                "plan_detailing",
+                ("plan_detailing",),
+            )
+            yield FunctionResult(
+                decision,
+                state.with_decision(decision),
+                label="broken_plan_detailing_direct_first",
+                reason=decision.reason,
+            )
+            return
+        yield from super().apply(input_obj, state)
+
+
+class BrokenAgentWorkflowDirectFirst(DecideSkillTrigger):
+    name = "DecideSkillTrigger"
+
+    def apply(self, input_obj: RiskAssessment, state: State) -> Iterable[FunctionResult]:
+        fact = state.fact_for(input_obj.task_id)
+        if input_obj.decision == "flowguard_required" and fact and "multi_skill_workflow" in fact.risk_flags:
+            decision = SkillTriggerDecision(
+                input_obj.task_id,
+                "use_direct_flowguard_skill",
+                input_obj.required_checks,
+                "broken trigger selects agent workflow as the first entry",
+                "flowguard-agent-workflow-rehearsal",
+                "agent_workflow",
+                ("agent_workflow",),
+            )
+            yield FunctionResult(
+                decision,
+                state.with_decision(decision),
+                label="broken_agent_workflow_direct_first",
+                reason=decision.reason,
+            )
+            return
+        yield from super().apply(input_obj, state)
+
+
 def risky_tasks_must_trigger_skill() -> Invariant:
     def predicate(state: State, _trace: object) -> InvariantResult:
         bad = []
@@ -648,6 +756,34 @@ def direct_routes_select_matching_skill() -> Invariant:
     )
 
 
+def development_process_simulator_modes_are_recorded() -> Invariant:
+    def predicate(state: State, _trace: object) -> InvariantResult:
+        bad = []
+        for fact in state.task_facts:
+            expected_modes = development_simulator_modes_for(fact)
+            if not expected_modes:
+                continue
+            decision = state.decision_for(fact.task_id)
+            observed_skill = decision.selected_skill if decision else ""
+            observed_modes = tuple(decision.selected_modes if decision else ())
+            if (
+                decision is None
+                or decision.action != "use_direct_flowguard_skill"
+                or observed_skill != "flowguard-development-process-flow"
+                or observed_modes != expected_modes
+            ):
+                bad.append((fact.task_id, expected_modes, observed_skill, observed_modes))
+        if bad:
+            return InvariantResult.fail(f"development simulator route/modes mismatch: {tuple(bad)!r}")
+        return InvariantResult.pass_()
+
+    return Invariant(
+        "development_process_simulator_modes_are_recorded",
+        "Rough-plan, multi-skill, and execution-freshness tasks must enter DevelopmentProcessFlow with internal simulator modes.",
+        predicate,
+    )
+
+
 def skip_requires_reason() -> Invariant:
     def predicate(state: State, _trace: object) -> InvariantResult:
         bad = tuple(
@@ -686,6 +822,7 @@ INVARIANTS = (
     ambiguous_tasks_need_human_review(),
     required_checks_must_run(),
     direct_routes_select_matching_skill(),
+    development_process_simulator_modes_are_recorded(),
     skip_requires_reason(),
     final_evidence_must_not_be_in_progress(),
 )
@@ -737,6 +874,35 @@ TASK_PROCESS = TaskDescription(
     "release-process-flow",
     "process_change",
     ("staged_validation", "validation_freshness", "release_confidence"),
+)
+TASK_ROUGH_PLAN = TaskDescription(
+    "rough-plan-discussion",
+    "rough_plan",
+    ("rough_plan", "plan_detailing"),
+    production_code_exists=False,
+)
+TASK_MULTI_SKILL_WORKFLOW = TaskDescription(
+    "multi-skill-workflow",
+    "multi_skill_workflow",
+    ("multi_skill_workflow", "tool_or_plugin_order", "external_action"),
+    production_code_exists=False,
+)
+TASK_FULL_DEVELOPMENT_SIMULATOR = TaskDescription(
+    "full-development-simulator",
+    "full_development_process",
+    (
+        "rough_plan",
+        "plan_detailing",
+        "multi_skill_workflow",
+        "tool_or_plugin_order",
+        "external_action",
+        "staged_validation",
+        "validation_freshness",
+        "release_confidence",
+        "install_sync",
+        "shadow_sync",
+        "git_sync",
+    ),
 )
 TASK_ALIGNMENT = TaskDescription(
     "model-test-alignment",
@@ -900,6 +1066,33 @@ def skill_trigger_scenarios() -> tuple[Scenario, ...]:
             ),
         ),
         scenario(
+            "STS15_rough_plan_enters_development_simulator",
+            "Rough plan discussions should enter the DevelopmentProcessFlow front door in plan_detailing mode.",
+            TASK_ROUGH_PLAN,
+            _expect_ok(
+                "OK; rough plan uses DevelopmentProcessFlow with plan_detailing mode",
+                labels=("risk_requires_flowguard", "direct_satellite_selected", "flowguard_route_completed"),
+            ),
+        ),
+        scenario(
+            "STS16_multi_skill_enters_development_simulator",
+            "Multi-skill workflow planning should enter the DevelopmentProcessFlow front door in agent_workflow mode.",
+            TASK_MULTI_SKILL_WORKFLOW,
+            _expect_ok(
+                "OK; multi-skill workflow uses DevelopmentProcessFlow with agent_workflow mode",
+                labels=("risk_requires_flowguard", "direct_satellite_selected", "flowguard_route_completed"),
+            ),
+        ),
+        scenario(
+            "STS17_full_plan_to_release_enters_all_simulator_modes",
+            "Plan-to-release work should preserve plan, workflow, and execution modes under one front door.",
+            TASK_FULL_DEVELOPMENT_SIMULATOR,
+            _expect_ok(
+                "OK; full development simulator path records all internal modes",
+                labels=("risk_requires_flowguard", "direct_satellite_selected", "flowguard_route_completed"),
+            ),
+        ),
+        scenario(
             "STS10_model_test_alignment_routes_directly",
             "Model obligations and test evidence should use Model-Test Alignment.",
             TASK_ALIGNMENT,
@@ -1013,6 +1206,26 @@ def skill_trigger_scenarios() -> tuple[Scenario, ...]:
                 ("required_checks_must_run",),
             ),
             workflow=build_workflow(action_block=BrokenRunMissingModelMesh()),
+        ),
+        scenario(
+            "STB08_broken_plan_detailing_direct_first",
+            "Broken trigger selects PlanDetailing as the first automatic entry for a rough plan.",
+            TASK_ROUGH_PLAN,
+            _expect_violation(
+                "VIOLATION development_process_simulator_modes_are_recorded",
+                ("development_process_simulator_modes_are_recorded",),
+            ),
+            workflow=build_workflow(trigger_block=BrokenPlanDetailingDirectFirst()),
+        ),
+        scenario(
+            "STB09_broken_agent_workflow_direct_first",
+            "Broken trigger selects AgentWorkflowRehearsal as the first automatic entry for multi-skill workflow.",
+            TASK_MULTI_SKILL_WORKFLOW,
+            _expect_violation(
+                "VIOLATION development_process_simulator_modes_are_recorded",
+                ("development_process_simulator_modes_are_recorded",),
+            ),
+            workflow=build_workflow(trigger_block=BrokenAgentWorkflowDirectFirst()),
         ),
     )
 

@@ -7,6 +7,7 @@ MODEL_SIMILARITY_CONSOLIDATION_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Hea
 Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
 Purpose: Compare FlowGuard model signatures before creating parallel model or code boundaries.
 Guards against: duplicate model ownership, forgotten sibling workflows, unsafe shared-kernel extraction, false-friend consolidation, adapter-only duplication, missing shared/variant tests, and similarity advice without current evidence.
+Also compares business path ids, business intents, and path terminals so one useful business path is not accidentally modeled twice.
 Use before editing: Run this before adding a model boundary, changing one member of a similar A/B/C workflow family, recommending code structure, or turning similar workflows into shared code.
 Run: python .flowguard/model_similarity_consolidation/run_checks.py
 """
@@ -35,6 +36,9 @@ def correct_plan() -> ModelSimilarityPlan:
             code_paths=("flowguard/checkout/simple.py",),
             test_paths=("tests/test_checkout_simple.py",),
             owned_public_behaviors=("submit_order",),
+            business_path_ids=("submit_order",),
+            business_intents=("submit order",),
+            path_terminals=("accepted",),
             shared_kernel_id="checkout_core",
             adapter_ids=("simple_adapter",),
             maintenance_tags=("checkout", "order-write"),
@@ -50,6 +54,9 @@ def correct_plan() -> ModelSimilarityPlan:
             code_paths=("flowguard/checkout/retry.py",),
             test_paths=("tests/test_checkout_retry.py",),
             owned_public_behaviors=("submit_order", "retry_order"),
+            business_path_ids=("submit_order", "retry_order"),
+            business_intents=("submit order", "retry order"),
+            path_terminals=("accepted", "retry_scheduled"),
             shared_kernel_id="checkout_core",
             adapter_ids=("retry_adapter",),
             maintenance_tags=("checkout", "order-write"),
@@ -65,6 +72,9 @@ def correct_plan() -> ModelSimilarityPlan:
             code_paths=("flowguard/checkout/cancel.py",),
             test_paths=("tests/test_checkout_cancel.py",),
             owned_public_behaviors=("cancel_order",),
+            business_path_ids=("cancel_order",),
+            business_intents=("cancel order",),
+            path_terminals=("cancelled",),
             shared_kernel_id="checkout_core",
             adapter_ids=("cancel_adapter",),
             maintenance_tags=("checkout", "order-write"),
@@ -122,6 +132,8 @@ def false_friend_plan() -> ModelSimilarityPlan:
                 function_blocks=("RefreshCache",),
                 state_owned=("cache_entries",),
                 side_effects_owned=("write_cache",),
+                business_intents=("refresh cache",),
+                path_terminals=("cache_fresh",),
                 failure_modes=("stale_cache",),
                 false_friend_model_ids=("cache-report",),
             ),
@@ -130,6 +142,8 @@ def false_friend_plan() -> ModelSimilarityPlan:
                 function_blocks=("RenderReport",),
                 state_owned=("report_rows",),
                 side_effects_owned=("write_report",),
+                business_intents=("refresh cache",),
+                path_terminals=("report_rendered",),
                 failure_modes=("missing_report_row",),
             ),
         ),

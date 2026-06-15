@@ -1,26 +1,25 @@
 ---
 name: flowguard-plan-detailing-compiler
-description: Use when a rough idea, vague request, short plan, or AI-generated workflow needs to become a detailed FlowGuard process plan before modeling, implementation, validation, or done claims.
+description: Use when explicitly requested or delegated by flowguard-development-process-flow's plan_detailing simulator mode to turn rough plans into detailed FlowGuard process rows. Generic rough-plan routing should enter flowguard-development-process-flow first.
 ---
 
 # FlowGuard Plan Detailing Compiler
 
-Standalone FlowGuard satellite skill for turning rough plans into structured
-FlowGuard-ready detail rows. Use it before behavior modeling when the task is
-non-trivial but the plan lacks explicit scope, state, artifacts, side effects,
-receipts, validation, failure branches, rework gates, human-review questions,
-or final evidence boundaries.
+Delegated FlowGuard mode skill for structured plan rows. It remains directly
+invokable when the user names PlanDetailing or another route delegates
+`plan_detailing`; ordinary plan discussion enters
+`flowguard-development-process-flow` first.
 
-Return to `model-first-function-flow` when the FlowGuard route itself is
-unclear. Use DevelopmentProcessFlow, PlanIntake, WorkflowStepContracts, and
-AgentWorkflowRehearsal after plan-detail rows exist.
+Return to `model-first-function-flow` when the FlowGuard route itself is unclear.
+Return to DevelopmentProcessFlow for generic "make a better plan" requests.
 
 ## First Read
 
 - Route id: `plan_detailing_compiler`.
+- Simulator mode: `plan_detailing`; front door: `flowguard-development-process-flow`.
 - Core helpers: `PlanDetail`, `PlanDetailStep`, `PlanDetailValidation`,
   `PlanDetailFailureBranch`, `review_plan_detail()`.
-- Projection helpers: `plan_detail_to_plan_intake()`,
+- Projections: `plan_detail_to_plan_intake()`,
   `plan_detail_to_step_contracts()`,
   `plan_detail_to_development_process()`,
   `plan_detail_to_agent_workflow_plan()`.
@@ -28,28 +27,24 @@ AgentWorkflowRehearsal after plan-detail rows exist.
 
 ## Hard Gates
 
-- Verify the real package before claiming FlowGuard use.
-- For real target-project work, keep the AGENTS.md managed block/version record
-  current or record why it was not updated.
-- Do not create a fake mini-framework.
-- Do not treat long prose as structured plan detail.
-- Plan-detail pass means the plan may proceed; it is not implementation,
-  release, or production proof.
-- Full claims require current final evidence ids and no scoped detail gaps.
-- If the plan creates/deepens a model, record template harvest closure before broad claims: written, merged, duplicate-linked, or accepted not-harvestable.
-- Plans with UI, import/export files, generated artifacts, or AI work packages
-  must expose task/action coverage, human-operability evidence, synthetic
-  payload cases for the real surface, execution proof refs, and manual review gates.
+- Verify the real package, AGENTS.md managed record, and no fake mini-framework.
+- Do not present this as the generic first entry for rough-plan discussion.
+- Long prose is not structured plan detail.
+- Plan-detail pass is not implementation, release, or production proof.
+- Full claims require final evidence ids and no scoped detail gaps.
+- New/deepened models need template harvest closure.
+- UI, import/export, generated artifact, and AI work-package plans need
+  task/action coverage, human-operability evidence, payload cases for the real surface,
+  execution proof refs, and manual review gates.
 
 ## Minimum Workflow
 
-1. Capture rough task, goal, assumptions, scope, sources, and risk surfaces.
-2. List artifacts, UI tasks/actions, payload/work-package surfaces, state surfaces,
-   side effects, steps, receipts, validation, failures, human questions, and claim boundary.
+1. Capture goal, assumptions, scope, sources, and risk surfaces.
+2. List artifacts, UI tasks/actions, payload/work-package surfaces, state,
+   side effects, steps, receipts, validation, failures, questions, and claim boundary.
 3. Run `review_plan_detail()`.
-4. Project passing/scoped rows to PlanIntake, WorkflowStepContracts,
-   DevelopmentProcessFlow, and AgentWorkflowRehearsal as needed.
-5. Keep missing/scoped rows visible before downstream modeling or claims.
+4. Project passing/scoped rows to downstream routes as needed.
+5. Keep missing/scoped rows visible before downstream claims.
 
 ## Snapshot
 

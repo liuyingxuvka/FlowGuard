@@ -1,8 +1,27 @@
 # plan-detailing-compiler Specification
 
 ## Purpose
-This capability defines FlowGuard's Plan Detailing Compiler behavior and the evidence required to use it safely in AI-agent maintenance workflows.
+This capability defines FlowGuard's Plan Detailing Compiler behavior and the
+evidence required to use it safely when explicitly invoked or delegated by the
+development-process simulator in AI-agent maintenance workflows.
 ## Requirements
+### Requirement: PlanDetailing is a delegated development-process simulator mode
+FlowGuard SHALL treat PlanDetailing as the `plan_detailing` mode owned by the
+development-process simulator front door, while preserving explicit direct
+invocation when the user or an existing artifact names this route.
+
+#### Scenario: Generic rough plan enters simulator first
+- **WHEN** an agent is asked to discuss, refine, or accept a non-trivial rough
+  plan without explicitly naming PlanDetailing
+- **THEN** Codex routes first to `flowguard-development-process-flow`
+- **AND** the simulator records `plan_detailing` before any delegated
+  `flowguard-plan-detailing-compiler` pass
+
+#### Scenario: Explicit PlanDetailing remains valid
+- **WHEN** the user or an existing FlowGuard artifact explicitly asks for
+  PlanDetailing
+- **THEN** `flowguard-plan-detailing-compiler` remains directly invokable
+
 ### Requirement: Rough plans are represented as structured detail rows
 FlowGuard SHALL provide public data structures for a rough plan's goal, assumptions, scope, source evidence, risk surfaces, artifacts, state surfaces, side effects, ordered steps, receipts, validation requirements, failure branches, rework gates, human-review questions, and final claim boundary.
 
@@ -75,4 +94,88 @@ PlanDetailingCompiler SHALL require UI plans to name UI work mode, source scope 
 - **WHEN** a UI plan declares greenfield work
 - **AND** it lacks user goals, supported tasks, target UI rationale, or must-fail counterexamples for label-only validation
 - **THEN** plan detailing reports the plan as incomplete
+
+### Requirement: Plan discussions route to structured plan detail
+PlanDetailing SHALL be the direct FlowGuard route for non-trivial plan discussions,方案 discussions, acceptance-criteria discussions, execution-step discussions, and AI-generated outlines before implementation or broad completion claims begin.
+
+#### Scenario: Non-trivial plan discussion uses plan detailing
+- **WHEN** a user and agent discuss a non-trivial implementation plan, validation plan, or acceptance boundary
+- **THEN** routing selects `flowguard-plan-detailing-compiler` before downstream FlowGuard execution routes
+
+#### Scenario: Trivial work can skip plan detailing
+- **WHEN** the task is a tiny copy edit, direct command answer, formatting-only change, or pure read-only explanation
+- **THEN** routing may skip PlanDetailing with a concrete reason
+
+### Requirement: Plan detail preserves subrequirements as execution contracts
+PlanDetailing SHALL require non-trivial plans to preserve major items, sub-items, artifacts, validation obligations, failure branches, rework gates, skipped or scoped rows, and final evidence ids as structured rows before the plan can support execution.
+
+#### Scenario: Numbered prose plan is insufficient
+- **WHEN** a non-trivial plan contains only a numbered prose outline without stable row ids, validation ids, failure branches, rework gates, or final evidence ids
+- **THEN** PlanDetailing blocks or scopes the plan instead of allowing a full execution or done claim
+
+#### Scenario: Subrequirement evidence is preserved
+- **WHEN** a plan contains a major item with multiple subrequirements
+- **THEN** each subrequirement is represented by a stable step, artifact, validation, evidence, or scoped omission row before full confidence is allowed
+
+### Requirement: Plan detail projections feed execution routes
+PlanDetailing SHALL project the same structured rows to WorkflowStepContracts, DevelopmentProcessFlow, and AgentWorkflowRehearsal so downstream routes consume the agreed plan rather than reinterpreting prose.
+
+#### Scenario: Projection keeps ids stable
+- **WHEN** PlanDetail rows are projected to downstream routes
+- **THEN** step ids, artifact ids, validation ids, evidence ids, and final claim scope remain traceable to the original plan detail
+
+#### Scenario: Missing detail remains visible downstream
+- **WHEN** a plan-detail review is scoped or blocked because a row is missing or skipped
+- **THEN** downstream route handoff preserves the gap as a claim boundary instead of hiding it behind a fresh prose summary
+
+### Requirement: UI plans name capability coverage evidence
+PlanDetailing SHALL require non-trivial UI plans to name functional capability inventory, capability-task mapping, output contracts, implementation bindings, and evidence kinds before execution-ready or done-ready UI claims.
+
+#### Scenario: UI plan names required capabilities
+- **WHEN** a UI plan claims user-visible functionality will be implemented or completed
+- **THEN** plan detail rows include capability inventory evidence, expected output contracts, implementation binding evidence, and validation or scoped-out boundaries
+
+#### Scenario: UI plan only names controls
+- **WHEN** a UI plan lists screens or buttons but omits the required functional capability inventory
+- **THEN** the plan is incomplete for broad UI implementation or release claims
+
+### Requirement: UI task rows carry evidence type and status
+Plan Detailing Compiler SHALL require UI-related task rows to name completion
+evidence type, evidence status, and evidence reference or scoped boundary before
+the task can support a done, release, or runnable-UI claim.
+
+#### Scenario: Checked task has no evidence type
+- **WHEN** a UI task is marked complete but lacks evidence type and evidence
+  status
+- **THEN** plan-detail review reports the row as unsupported for UI completion
+
+#### Scenario: Artifact complete is not release complete
+- **WHEN** OpenSpec artifacts are complete but UI implementation evidence,
+  real-surface inventory, functional-chain evidence, or native/manual signoff
+  remains missing
+- **THEN** the plan remains artifact-complete only and cannot support release
+  confidence
+
+#### Scenario: Evidence type is explicit
+- **WHEN** a UI task uses model coverage, static test, runtime click,
+  browser DOM/geometry, desktop-shell manual observation, or native-dialog
+  blindspot evidence
+- **THEN** the task row records that evidence type and whether it is current,
+  passing, scoped, stale, planned, or missing
+
+### Requirement: Plans expose UI and payload validation surfaces
+PlanDetail SHALL require non-trivial plans to expose UI action, artifact
+payload, AI work-package, manual-review, and final-evidence surfaces when those
+boundaries can affect the claim.
+
+#### Scenario: Plan includes import/export work
+- **WHEN** a plan touches file import, file export, generated artifacts, or AI
+  work packages
+- **THEN** the plan detail MUST name payload cases, expected evidence kinds,
+  failure/rework branches, freshness rules, and final claim boundaries
+
+#### Scenario: Plan includes running UI completion
+- **WHEN** a plan claims implemented or runnable UI behavior
+- **THEN** the plan detail MUST name the click-through evidence boundary and
+  any manual-check or blindspot branches
 

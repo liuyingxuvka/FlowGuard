@@ -1,7 +1,8 @@
 import unittest
 from dataclasses import dataclass
 
-from flowguard import Explorer, FunctionResult, Invariant, InvariantResult, Workflow
+from flowguard import FunctionResult, Invariant, InvariantResult, Workflow
+from flowguard.explorer import Explorer
 from flowguard.scenario import ScenarioExpectation
 from flowguard.scenario_matrix import ScenarioMatrixBuilder, synthesize_challenge_scenarios_from_report
 

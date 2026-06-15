@@ -1,7 +1,10 @@
 # flowguard-maintenance-hardening Specification
 
 ## Purpose
-TBD - created by archiving change complete-flowguard-maintenance-hardening. Update Purpose after archive.
+Define the evidence gates for claiming FlowGuard maintenance complete, including
+project audit, OpenSpec validation, model and unit regression evidence, editable
+install checks, shadow workspace synchronization, release alignment, and
+peer-safe sync behavior.
 ## Requirements
 ### Requirement: Maintenance hardening release closure
 FlowGuard maintenance hardening SHALL require current evidence for tracked source, local model artifacts, shadow workspace sync, editable install source, OpenSpec validation, local regression, GitHub CI, and GitHub Release alignment before claiming the maintenance release complete.
@@ -16,4 +19,3 @@ Shadow workspace synchronization SHALL default to copying current source sets wi
 #### Scenario: Shadow-only file exists
 - **WHEN** the shadow sync helper runs without an explicit destructive mode
 - **THEN** files present only in the shadow workspace remain present after synchronization
-

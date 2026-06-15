@@ -36,8 +36,8 @@ contracts = (
 )
 ```
 
-The model still uses ordinary `Workflow`, `FunctionBlock`, `Trace`, and
-`Explorer` behavior. The contracts compile to invariants, so the same
+The model still uses ordinary `Workflow`, `FunctionBlock`, `Trace`, and the
+formal model-check behavior. The contracts compile to invariants, so the same
 counterexample machinery catches a skipped step, a reversed order, a premature
 claim, or a stale receipt.
 
@@ -61,7 +61,7 @@ a default receipt with the same value as `step_id`.
 
 ## Where It Connects
 
-- `compile_step_contract_invariants(...)` feeds Explorer and
+- `compile_step_contract_invariants(...)` feeds the formal model check and
   `run_model_first_checks(...)`.
 - `review_step_contract_trace(...)` explains one concrete trace.
 - `step_contracts_to_validation_requirements(...)` feeds

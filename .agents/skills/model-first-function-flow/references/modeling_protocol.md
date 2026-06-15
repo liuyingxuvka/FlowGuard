@@ -68,24 +68,26 @@ Before changing files, separate three situations:
   routes, or split/reduction signals may need an existing owner route.
 
 If real FlowGuard is importable but a current `.flowguard` Python model still
-claims `flowguard_package_available = False`, uses a fallback explorer, or
-defines local replacement `Explorer`/`Workflow` classes, record a
+claims `flowguard_package_available = False`, uses a fallback finite runner, or
+defines local replacement `Workflow` or finite-runner classes, record a
 `stale_fallback_model` warning. This is a confidence gap, not a hard failure.
-If a current `.flowguard` model calls `Explorer(...)` directly without a
+If a current `.flowguard` model calls the internal finite runner directly without a
 `FlowGuardCheckPlan`, `RiskIntent`, `MinimumModelContract`, and
-`KnownBadProof`, record `direct_explorer_formal_entry_required` and upgrade the
+`KnownBadProof`, record `direct_runner_formal_entry_required` and upgrade the
 model before making a complete FlowGuard claim.
 
-## 0.2 Detail Rough Plans Before Modeling
+## 0.2 Enter The Process Simulator For Rough Plans
 
 When the request is non-trivial but still a rough idea, short plan, or
-AI-generated outline, use Plan Detailing before writing the behavior model.
-Create `PlanDetail` rows for goal, sources, risk surfaces, artifacts, state
-surfaces, side effects, ordered steps, receipts, validation, failure branches,
-rework gates, human-review questions, freshness rules, and final evidence.
-Run `review_plan_detail(...)` and keep scoped or missing rows visible.
+AI-generated outline, enter `flowguard-development-process-flow` first as the
+development-process simulator and record `plan_detailing` before writing the
+behavior model. Delegate to PlanDetailing when full rows are needed. Create
+`PlanDetail` rows for goal, sources, risk surfaces, artifacts, state surfaces,
+side effects, ordered steps, receipts, validation, failure branches, rework
+gates, human-review questions, freshness rules, and final evidence. Run
+`review_plan_detail(...)` and keep scoped or missing rows visible.
 
-After detail review, project rows with `plan_detail_to_plan_intake(...)`,
+After delegated detail review, project rows with `plan_detail_to_plan_intake(...)`,
 `plan_detail_to_step_contracts(...)`,
 `plan_detail_to_development_process(...)`, and
 `plan_detail_to_agent_workflow_plan(...)` as needed. A plan-detail pass means
@@ -95,7 +97,7 @@ confidence.
 Keep the API surface boundary clear:
 
 - core modeling primitives use `FunctionBlock`, `FunctionResult`, `Invariant`,
-  `Workflow`, and `Explorer`;
+  and `Workflow`;
 - formal model-first entry uses `FlowGuardCheckPlan`,
   `run_model_first_checks`, `RiskIntent`, `MinimumModelContract`,
   `KnownBadProof`, template reuse/no-match review, and template harvest closure;
@@ -176,6 +178,9 @@ Answer these questions before creating or editing the model:
 - Which state fields, side effects, confirmations, durable records, or external
   commitments must be modeled or the failure would be invisible?
 - Which completion evidence proves the workflow is actually done?
+- Which useful business path is being proven: path id, business intent,
+  trigger, expected terminal, state writes, side effects, equivalent/exclusive
+  paths, old-path disposition, and evidence ids?
 - Which adversarial inputs, repeated inputs, retries, partial successes,
   ordering changes, concurrent actions, or exception branches must be simulated?
 - Which representative known-bad implementation or trace should fail?
@@ -196,8 +201,13 @@ reason. Missing closure means the model is not fully done.
 Put the brief into `RiskProfile` through a `RiskIntent` or equivalent
 `risk_intent` mapping, bind the minimum model contract and known-bad proof on
 the `FlowGuardCheckPlan`, and run `run_model_first_checks(plan)`. Direct
-`Explorer(...)` remains an internal execution primitive, not the formal entry
-for non-trivial model creation.
+Direct finite engine calls remain internal execution primitives, not the formal
+entry for non-trivial model creation.
+
+When the workflow has multiple useful routes or old/new alternatives, pass the
+same business path identity into topology hazard review, model similarity, and
+runtime path evidence. A node-level pass is not enough if the real code may have
+proved the wrong business path.
 
 ## 1. Identify External Inputs
 
@@ -363,18 +373,18 @@ Choose:
 
 Always include repeated-input exploration when duplicate side effects are possible. For one input and length two, the explorer must check both `[x]` and `[x, x]`.
 
-The runner delegates finite exploration to `Explorer(...)`, which emits bounded
-ten-step progress on `stderr` by default, counted by top-level
+The formal runner delegates finite exploration to the internal model runner,
+which emits bounded progress on `stderr` by default, counted by top-level
 `initial_state x input_sequence` work units. This helps agents distinguish a
 long serial run from a silent process, but it is not pass/fail evidence and it
-does not change `CheckReport` semantics. Use plan progress settings or
+does not change report semantics. Use plan progress settings or
 `FLOWGUARD_PROGRESS=0` when a strict environment requires no progress output.
 
 Put the intended coverage boundary in `RiskProfile`, create a
 `FlowGuardCheckPlan`, bind the minimum model contract, known-bad proof, template
 reuse/no-match review, and harvest closure, then call
 `run_model_first_checks(plan)`. The runner performs the minimum model review,
-known-bad proof review, audit, optional scenario scaffolding, Explorer,
+known-bad proof review, audit, optional scenario scaffolding, finite model run,
 counterexample minimization, scenario review, optional
 progress/contract/conformance sections, and a unified summary.
 
@@ -682,7 +692,7 @@ should be treated as audit errors.
 Use a `FlowGuardSummaryReport` when you need to present minimum-model,
 known-bad proof, template harvest, model check, audit, scenario review,
 progress, contract, conformance, and skipped/not-run sections together. If
-Explorer passes but a formal gate blocks or audit warns, the overall status
+the finite model check passes but a formal gate blocks or audit warns, the overall status
 should not be treated as plain `pass`. If production conformance is not run,
 record `not_run` or `skipped_with_reason`; skipped is not pass.
 

@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from unittest.mock import patch
 
 from flowguard import (
-    Explorer,
     FlowGuardCheckPlan,
     FunctionResult,
     KnownBadProof,
@@ -19,6 +18,7 @@ from flowguard import (
     Workflow,
     run_model_first_checks,
 )
+from flowguard.explorer import Explorer
 
 
 @dataclass(frozen=True)

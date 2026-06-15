@@ -749,6 +749,7 @@ from .runtime_gateway import (
 from . import agent_workflow_rehearsal as _agent_workflow_rehearsal
 from . import closure_contract as _closure_contract
 from . import development_process_flow as _development_process_flow
+from . import development_process_simulator as _development_process_simulator
 from . import existing_model_preflight as _existing_model_preflight
 from . import field_lifecycle as _field_lifecycle
 from . import hierarchy as _hierarchy
@@ -778,6 +779,7 @@ from .state_closure import *  # noqa: F403
 from .topology_hazard import *  # noqa: F403
 from .model_freshness import *  # noqa: F403
 from .model_maturation import *  # noqa: F403
+from .development_process_simulator import *  # noqa: F403
 from .development_process_flow import (
     PROCESS_ARTIFACT_ADAPTER,
     PROCESS_ARTIFACT_BUG_REPAIR_CLOSURE,
@@ -883,7 +885,7 @@ from .coverage import (
     build_benchmark_coverage_audit,
 )
 from .core import FunctionBlock, FunctionResult, Invariant, InvariantResult
-from .explorer import Explorer, ReachabilityCondition, enumerate_input_sequences
+from .explorer import ReachabilityCondition, enumerate_input_sequences
 from .export import to_json_text, to_jsonable
 from .loop import GraphEdge, LoopCheckConfig, LoopCheckReport, check_loops, tarjan_scc
 from .mermaid import (
@@ -1158,6 +1160,7 @@ PLAN_INTAKE_ADVANCED_API = PLAN_INTAKE_CLAIM_API
 AGENT_WORKFLOW_REHEARSAL_ROUTE_API = tuple(name for name in _agent_workflow_rehearsal.__all__ if name in globals())
 FLOWGUARD_CLOSURE_CONTRACT_API = tuple(_closure_contract.__all__)
 DEVELOPMENT_PROCESS_FLOW_ROUTE_API = tuple(name for name in _development_process_flow.__all__ if name in globals())
+DEVELOPMENT_PROCESS_SIMULATOR_ROUTE_API = tuple(_development_process_simulator.__all__)
 EXISTING_MODEL_PREFLIGHT_ROUTE_API = tuple(name for name in _existing_model_preflight.__all__ if name in globals())
 FIELD_LIFECYCLE_MESH_API = tuple(_field_lifecycle.__all__)
 MODEL_MESH_ROUTE_API = tuple(name for name in _hierarchy.__all__ if name in globals())
@@ -1187,7 +1190,6 @@ CORE_API = (
     "Workflow",
     "WorkflowPath",
     "WorkflowRun",
-    "Explorer",
     "ReachabilityCondition",
     "CheckReport",
     "DeadBranch",
@@ -1866,6 +1868,7 @@ MODELING_HELPER_API = (
     "STRUCTURE_EVIDENCE_ORDER",
     "STRUCTURE_SCOPE_ROUTINE",
     "STRUCTURE_SCOPE_RELEASE",
+    *DEVELOPMENT_PROCESS_SIMULATOR_ROUTE_API,
     "ProcessArtifact",
     "ActionEffect",
     "ProcessAction",
@@ -2371,6 +2374,7 @@ FLOWGUARD_ROUTE_API = {
     "model_mesh_maintenance": MODEL_MESH_ROUTE_API,
     "test_mesh_maintenance": TEST_MESH_ROUTE_API,
     "structure_mesh_maintenance": STRUCTURE_MESH_ROUTE_API,
+    "development_process_simulator": DEVELOPMENT_PROCESS_SIMULATOR_ROUTE_API,
     "development_process_flow": DEVELOPMENT_PROCESS_FLOW_ROUTE_API,
     "model_miss_review": MODEL_MISS_REVIEW_ROUTE_API,
     "risk_evidence_ledger": RISK_EVIDENCE_LEDGER_ROUTE_API,
@@ -2512,11 +2516,20 @@ ROUTE_STARTER_API = {
         "structure_mesh_template_files",
     ),
     "development_process_flow": (
+        "DevelopmentProcessSimulationRequest",
+        "DevelopmentProcessSimulatorReport",
+        "review_development_process_simulator",
         "DevelopmentProcessPlan",
         "ProcessEvidence",
         "ProcessAction",
         "review_development_process_flow",
         "development_process_flow_template_files",
+    ),
+    "development_process_simulator": (
+        "DevelopmentProcessSimulationRequest",
+        "DevelopmentProcessSimulatorReport",
+        "DevelopmentProcessModeDecision",
+        "review_development_process_simulator",
     ),
     "model_miss_review": (
         "DefectFamilyGatePlan",
@@ -2544,6 +2557,7 @@ ROUTE_STARTER_API = {
         "review_state_closure",
     ),
     "model_topology_hazard_review": (
+        "BusinessPathIdentity",
         "TopologyDigest",
         "TopologyHazardReviewPlan",
         "TopologyHazardReport",
@@ -2617,6 +2631,7 @@ _PUBLIC_API_SUPPLEMENT = (
     "CODE_STRUCTURE_RECOMMENDATION_ROUTE_API",
     "CORE_API",
     "DEVELOPMENT_PROCESS_FLOW_ROUTE_API",
+    "DEVELOPMENT_PROCESS_SIMULATOR_ROUTE_API",
     "EVIDENCE_FIELD_STRUCTURE_API",
     "EVIDENCE_API",
     "EXISTING_MODEL_PREFLIGHT_ROUTE_API",

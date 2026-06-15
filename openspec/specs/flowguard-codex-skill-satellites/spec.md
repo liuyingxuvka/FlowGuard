@@ -91,15 +91,18 @@ kernel's project adoption rule.
   managed block and project version record, or to record why that update was
   not performed
 
-### Requirement: Agent workflow rehearsal satellite is directly discoverable
+### Requirement: Agent workflow rehearsal satellite is discoverable as a delegated mode owner
 The repository SHALL provide `flowguard-agent-workflow-rehearsal` as a
-standalone FlowGuard satellite skill that Codex can invoke directly.
+FlowGuard skill that Codex can invoke when explicitly requested or delegated by
+the development-process simulator `agent_workflow` mode.
 
-#### Scenario: Rehearsal satellite is listed with peers
+#### Scenario: Rehearsal satellite is listed with delegated role
 - **WHEN** a Codex agent reads the FlowGuard skill topology or reusable AGENTS
   guidance
-- **THEN** `flowguard-agent-workflow-rehearsal` appears as a peer FlowGuard
-  satellite beside the existing route-specific satellites
+- **THEN** `flowguard-agent-workflow-rehearsal` appears as the delegated
+  `agent_workflow` owner
+- **AND** generic multi-skill workflow routing enters
+  `flowguard-development-process-flow` first
 
 #### Scenario: Rehearsal satellite preserves hard gates
 - **WHEN** the satellite is used in another repository or machine
@@ -160,12 +163,15 @@ the satellite `references/` directory when that route has a standalone skill.
   hard gates, workflow checklist, validation boundary, and non-goals without
   requiring the kernel's duplicate copy
 
-### Requirement: Plan detailing is exposed as a direct Codex satellite
-FlowGuard SHALL include `flowguard-plan-detailing-compiler` as a directly invokable Codex satellite skill.
+### Requirement: Plan detailing is exposed as a delegated mode owner
+FlowGuard SHALL include `flowguard-plan-detailing-compiler` as the delegated
+`plan_detailing` owner that remains directly invokable when explicitly named.
 
-#### Scenario: Satellite is discoverable
+#### Scenario: Delegated skill is discoverable
 - **WHEN** the FlowGuard Codex skill topology is read
-- **THEN** plan detailing appears beside the existing direct satellites
+- **THEN** plan detailing appears as the `plan_detailing` owner
+- **AND** generic rough-plan routing enters `flowguard-development-process-flow`
+  first
 
 #### Scenario: Installed skill sync covers plan detailing
 - **WHEN** the repository skill is updated
@@ -219,4 +225,83 @@ FlowGuard Codex skill satellites SHALL keep installed UI and process skill guida
 #### Scenario: Installed skill hard-codes one source technology
 - **WHEN** installed FlowGuard UI or development process skill guidance hard-codes one source technology as a generic gate
 - **THEN** the installed skill sync is incomplete
+
+### Requirement: FlowGuard skills expose writing-quality process gates
+FlowGuard Codex skill guidance SHALL mention writing-quality ledgers as process
+evidence when prompt, skill, or document workflows depend on academic or
+source-backed writing quality.
+
+#### Scenario: DevelopmentProcessFlow skill is read
+- **WHEN** an agent uses DevelopmentProcessFlow for thesis, report, paper, or
+  source-backed writing upgrades
+- **THEN** the skill guidance MUST name literature progression, method depth,
+  figure/table argument treatment, AI-style density, and citation/footnote
+  verification as possible freshness-sensitive artifacts
+
+### Requirement: Plan detailing is a delegated simulator mode owner
+FlowGuard Codex skill guidance SHALL present `flowguard-plan-detailing-compiler`
+as the delegated `plan_detailing` owner for non-trivial plan discussions and
+rough AI outlines after the DevelopmentProcessFlow simulator front door records
+the mode.
+
+#### Scenario: Plan detailing appears as delegated owner
+- **WHEN** a Codex agent reads FlowGuard skill topology or reusable AGENTS guidance
+- **THEN** `flowguard-plan-detailing-compiler` appears as the delegated
+  `plan_detailing` owner under `flowguard-development-process-flow`
+
+#### Scenario: Plan discussion records mode before delegation
+- **WHEN** the task is a non-trivial plan discussion before implementation
+- **THEN** Codex skill guidance selects DevelopmentProcessFlow first and records
+  `plan_detailing` before any delegated PlanDetailing pass
+
+### Requirement: Installed skills include updated plan-detailing guidance
+Installed FlowGuard Codex skill synchronization SHALL refresh the local installed `flowguard-plan-detailing-compiler`, `flowguard-agent-workflow-rehearsal`, and `flowguard-development-process-flow` guidance when repository routing changes.
+
+#### Scenario: Installed guidance is synchronized
+- **WHEN** repository skill guidance is updated for plan discussion handoff
+- **THEN** local installed skill copies are synchronized or an explicit unsynced boundary is reported before local Codex behavior is claimed
+
+### Requirement: Installed UI skill guidance teaches real-surface first gate
+FlowGuard Codex skill satellite guidance SHALL state that existing/runnable UI
+work starts from observed real UI inventory, maps every visible item to a model
+owner or blindspot, validates enabled controls through real functional chains,
+and uses final done-claim review before broad completion wording.
+
+#### Scenario: Repository and installed skills align
+- **WHEN** the repository UI Flow, Model Miss, DevelopmentProcessFlow,
+  AgentWorkflowRehearsal, or Closure guidance changes
+- **THEN** installed Codex skill copies must be synchronized or final
+  confidence must stay scoped
+
+#### Scenario: Compact template cannot prove completion
+- **WHEN** a public compact template is used for UI route exploration
+- **THEN** the guidance says compact output is not runnable/complete UI
+  evidence unless observed inventory, functional-chain, and implementation
+  validation gates are also current
+
+### Requirement: Satellite skill guidance teaches validation gates
+FlowGuard Codex satellite skills SHALL surface the new UI and artifact payload
+validation evidence gates in their concise route shells or reference protocols.
+
+#### Scenario: UI satellite is read
+- **WHEN** an agent reads `flowguard-ui-flow-structure`
+- **THEN** the guidance MUST say runnable UI completion requires reachable
+  actionable controls/events to have run evidence, pure-UI classification, or
+  scoped blindspots
+
+#### Scenario: Alignment and TestMesh satellites are read
+- **WHEN** an agent reads Model-Test Alignment or TestMesh guidance
+- **THEN** the guidance MUST route artifact payload contracts to Model-Test
+  Alignment and large payload evidence matrices to TestMesh
+
+### Requirement: Installed skill sync covers validation gate changes
+Installed FlowGuard skill synchronization SHALL verify that local installed
+skills include validation gate guidance before active installed behavior is
+claimed.
+
+#### Scenario: Installed skill is stale
+- **WHEN** repository skill content includes validation gate guidance
+- **AND** the installed skill copy does not
+- **THEN** release or local sync confidence MUST remain scoped until the
+  installed skill is refreshed or the mismatch is reported
 

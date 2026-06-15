@@ -210,7 +210,7 @@ Suggested evidence tiers:
 
 - `candidate_only`: model exists but has not produced trustworthy current
   evidence.
-- `abstract_green`: abstract Explorer/invariant checks passed.
+- `abstract_green`: abstract formal model/invariant checks passed.
 - `hazard_green`: known-bad hazard variants fail for the intended reasons.
 - `live_current_green`: current runtime state or current artifact projection was
   checked against the model boundary.

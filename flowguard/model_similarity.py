@@ -128,6 +128,9 @@ class ModelSignature:
     code_paths: tuple[str, ...] = ()
     test_paths: tuple[str, ...] = ()
     owned_public_behaviors: tuple[str, ...] = ()
+    business_path_ids: tuple[str, ...] = ()
+    business_intents: tuple[str, ...] = ()
+    path_terminals: tuple[str, ...] = ()
     shared_kernel_id: str = ""
     adapter_ids: tuple[str, ...] = ()
     maintenance_tags: tuple[str, ...] = ()
@@ -163,6 +166,9 @@ class ModelSignature:
         object.__setattr__(self, "code_paths", _as_tuple(self.code_paths))
         object.__setattr__(self, "test_paths", _as_tuple(self.test_paths))
         object.__setattr__(self, "owned_public_behaviors", _as_tuple(self.owned_public_behaviors))
+        object.__setattr__(self, "business_path_ids", _as_tuple(self.business_path_ids))
+        object.__setattr__(self, "business_intents", _as_tuple(self.business_intents))
+        object.__setattr__(self, "path_terminals", _as_tuple(self.path_terminals))
         object.__setattr__(self, "shared_kernel_id", str(self.shared_kernel_id))
         object.__setattr__(self, "adapter_ids", _as_tuple(self.adapter_ids))
         object.__setattr__(self, "maintenance_tags", _as_tuple(self.maintenance_tags))
@@ -195,6 +201,9 @@ class ModelSignature:
             + self.evidence_gate_ids
             + self.public_entrypoints
             + self.owned_public_behaviors
+            + self.business_path_ids
+            + self.business_intents
+            + self.path_terminals
         )
 
     def has_behavior_elements(self) -> bool:
@@ -220,6 +229,9 @@ class ModelSignature:
             "code_paths": list(self.code_paths),
             "test_paths": list(self.test_paths),
             "owned_public_behaviors": list(self.owned_public_behaviors),
+            "business_path_ids": list(self.business_path_ids),
+            "business_intents": list(self.business_intents),
+            "path_terminals": list(self.path_terminals),
             "shared_kernel_id": self.shared_kernel_id,
             "adapter_ids": list(self.adapter_ids),
             "maintenance_tags": list(self.maintenance_tags),
@@ -399,6 +411,9 @@ def model_signature_minimal(
     risk_template_ids: Sequence[str] = (),
     known_bad_case_ids: Sequence[str] = (),
     evidence_gate_ids: Sequence[str] = (),
+    business_path_ids: Sequence[str] = (),
+    business_intents: Sequence[str] = (),
+    path_terminals: Sequence[str] = (),
     maturity_level: str = "",
     model_path: str = "",
     metadata: Mapping[str, Any] | None = None,
@@ -421,6 +436,9 @@ def model_signature_minimal(
         risk_template_ids=tuple(risk_template_ids),
         known_bad_case_ids=tuple(known_bad_case_ids),
         evidence_gate_ids=tuple(evidence_gate_ids),
+        business_path_ids=tuple(business_path_ids),
+        business_intents=tuple(business_intents),
+        path_terminals=tuple(path_terminals),
         maturity_level=maturity_level,
         metadata=dict(metadata or {}),
     )
@@ -437,6 +455,9 @@ def model_signature_maintenance(
     code_paths: Sequence[str] = (),
     test_paths: Sequence[str] = (),
     owned_public_behaviors: Sequence[str] = (),
+    business_path_ids: Sequence[str] = (),
+    business_intents: Sequence[str] = (),
+    path_terminals: Sequence[str] = (),
     shared_kernel_id: str = "",
     adapter_ids: Sequence[str] = (),
     maintenance_tags: Sequence[str] = (),
@@ -461,6 +482,9 @@ def model_signature_maintenance(
         code_paths=tuple(code_paths),
         test_paths=tuple(test_paths),
         owned_public_behaviors=tuple(owned_public_behaviors),
+        business_path_ids=tuple(business_path_ids),
+        business_intents=tuple(business_intents),
+        path_terminals=tuple(path_terminals),
         shared_kernel_id=shared_kernel_id,
         adapter_ids=tuple(adapter_ids),
         maintenance_tags=tuple(maintenance_tags),
@@ -1015,6 +1039,9 @@ def _matching_elements(left: ModelSignature, right: ModelSignature) -> tuple[str
         ("contract_out", left.contracts_out, right.contracts_out),
         ("entrypoint", left.public_entrypoints, right.public_entrypoints),
         ("public_behavior", left.owned_public_behaviors, right.owned_public_behaviors),
+        ("business_path", left.business_path_ids, right.business_path_ids),
+        ("business_intent", left.business_intents, right.business_intents),
+        ("business_terminal", left.path_terminals, right.path_terminals),
         ("maintenance_tag", left.maintenance_tags, right.maintenance_tags),
         ("evidence", left.evidence_ids, right.evidence_ids),
     ):
@@ -1038,6 +1065,9 @@ def _different_elements(left: ModelSignature, right: ModelSignature) -> tuple[st
         ("failure", left.failure_modes, right.failure_modes),
         ("entrypoint", left.public_entrypoints, right.public_entrypoints),
         ("public_behavior", left.owned_public_behaviors, right.owned_public_behaviors),
+        ("business_path", left.business_path_ids, right.business_path_ids),
+        ("business_intent", left.business_intents, right.business_intents),
+        ("business_terminal", left.path_terminals, right.path_terminals),
         ("adapter", left.adapter_ids, right.adapter_ids),
     ):
         left_only = sorted(set(left_values) - set(right_values))
@@ -1063,6 +1093,8 @@ def _material_conflict(left: ModelSignature, right: ModelSignature) -> bool:
         | set(left.contracts_in)
         | set(left.contracts_out)
         | set(left.owned_public_behaviors)
+        | set(left.business_path_ids)
+        | set(left.business_intents)
     ).intersection(
         set(right.function_blocks)
         | set(right.state_owned)
@@ -1072,6 +1104,8 @@ def _material_conflict(left: ModelSignature, right: ModelSignature) -> bool:
         | set(right.contracts_in)
         | set(right.contracts_out)
         | set(right.owned_public_behaviors)
+        | set(right.business_path_ids)
+        | set(right.business_intents)
     )
     return not shared_behavior and (
         bool(left.state_owned or left.side_effects_owned or left.failure_modes)
@@ -1147,6 +1181,15 @@ def _classify_pair(left: ModelSignature, right: ModelSignature) -> str:
     failure_overlap = bool(_intersection(left.failure_modes, right.failure_modes))
     invariant_overlap = bool(_intersection(left.invariants, right.invariants))
     evidence_overlap = bool(_intersection(left.evidence_ids, right.evidence_ids))
+    business_path_overlap = bool(_intersection(left.business_path_ids, right.business_path_ids))
+    business_intent_overlap = bool(_intersection(left.business_intents, right.business_intents))
+    business_terminal_overlap = bool(_intersection(left.path_terminals, right.path_terminals))
+    business_terminal_divergence = bool(
+        (business_path_overlap or business_intent_overlap)
+        and left.path_terminals
+        and right.path_terminals
+        and not business_terminal_overlap
+    )
     same_family = bool(left.workflow_family and left.workflow_family == right.workflow_family)
     different_variants = bool(left.variant_id and right.variant_id and left.variant_id != right.variant_id)
     parent_child = left.model_id in right.child_model_ids or right.model_id in left.child_model_ids
@@ -1156,6 +1199,8 @@ def _classify_pair(left: ModelSignature, right: ModelSignature) -> str:
     false_friend_declared = right.model_id in left.false_friend_model_ids or left.model_id in right.false_friend_model_ids
     same_shared_kernel = bool(left.shared_kernel_id and left.shared_kernel_id == right.shared_kernel_id)
 
+    if business_terminal_divergence:
+        return RELATION_FALSE_FRIEND
     if false_friend_declared or ((_has_name_overlap(left, right) or same_family) and _material_conflict(left, right)):
         return RELATION_FALSE_FRIEND
     if parent_child:
@@ -1165,6 +1210,12 @@ def _classify_pair(left: ModelSignature, right: ModelSignature) -> str:
     if same_family and different_variants and (function_overlap or failure_overlap or invariant_overlap):
         return RELATION_SAME_FAMILY_VARIANT
     if same_family and (function_overlap or failure_overlap) and not different_variants:
+        return RELATION_SAME_WORKFLOW
+    if business_path_overlap and (state_overlap or side_effect_overlap or function_overlap):
+        return RELATION_DUPLICATE_BOUNDARY
+    if business_intent_overlap and business_terminal_overlap and (state_overlap or side_effect_overlap or function_overlap):
+        return RELATION_DUPLICATE_BOUNDARY
+    if business_path_overlap or (business_intent_overlap and business_terminal_overlap):
         return RELATION_SAME_WORKFLOW
     if function_overlap and (state_overlap or side_effect_overlap) and (same_family or failure_overlap):
         return RELATION_DUPLICATE_BOUNDARY
@@ -1187,6 +1238,8 @@ def _classify_pair(left: ModelSignature, right: ModelSignature) -> str:
             bool(_intersection(left.contracts_in, right.contracts_in)),
             bool(_intersection(left.contracts_out, right.contracts_out)),
             bool(_intersection(left.owned_public_behaviors, right.owned_public_behaviors)),
+            business_path_overlap,
+            business_intent_overlap and business_terminal_overlap,
         )
         if shared
     )

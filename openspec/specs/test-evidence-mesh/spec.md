@@ -152,3 +152,46 @@ TestMesh SHALL track evidence hierarchy for transition coverage cells but SHALL 
 - **THEN** the mesh can support evidence freshness
 - **AND** Model-Test Alignment remains responsible for whether those cells cover the declared model obligations
 
+### Requirement: TestMesh owns ModelMesh-derived leaf-cell evidence
+TestMesh SHALL require current child-suite evidence for every required
+ModelMesh-derived transition leaf-cell id before a parent validation gate can
+support parent confidence.
+
+#### Scenario: ModelMesh-derived cell has no child owner
+- **WHEN** a TestMesh parent gate declares required leaf-cell ids generated from
+  ModelMesh closure transitions
+- **AND** no registered child suite owns one of those ids
+- **THEN** TestMesh SHALL report missing leaf-cell evidence
+- **AND** parent validation confidence SHALL be blocked
+
+#### Scenario: Child suite owns retry/rejection cell
+- **WHEN** a child suite owns a ModelMesh-derived retry/rejection leaf-cell id
+- **AND** the suite has current passing evidence and final background artifacts
+- **THEN** TestMesh MAY count that child evidence for parent evidence freshness
+- **AND** Model-Test Alignment SHALL still own semantic model/code/test binding
+
+### Requirement: TestMesh owns large payload evidence matrices
+TestMesh SHALL allow large artifact payload validation matrices to be split
+into child suites or scripts with explicit case ownership and current evidence.
+
+#### Scenario: Child suite owns payload cases
+- **WHEN** a parent validation gate declares required payload case ids
+- **THEN** each required case id MUST be owned by a registered child suite or
+  script with current passing evidence before parent confidence is green
+
+#### Scenario: Payload matrix is too large for a flat claim
+- **WHEN** payload validation includes many cases, slow cases, release-only
+  cases, browser/manual-heavy cases, or background jobs
+- **THEN** TestMesh MUST preserve child evidence status instead of allowing a
+  flat green parent summary to hide stale, skipped, not-run, or scoped cases
+
+### Requirement: TestMesh does not decide payload semantics
+TestMesh SHALL preserve payload case ids and evidence freshness while leaving
+payload semantics to Model-Test Alignment.
+
+#### Scenario: Parent mesh is current but semantics are unbound
+- **WHEN** child suites have current evidence for required payload case ids
+- **THEN** TestMesh can support evidence freshness
+- **AND** Model-Test Alignment remains responsible for deciding whether the
+  evidence satisfies the artifact payload contract
+

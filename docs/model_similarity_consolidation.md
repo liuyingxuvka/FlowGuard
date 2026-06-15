@@ -20,6 +20,7 @@ Each `ModelSignature` can name:
 - invariants, failure modes, input/output contracts, and public entrypoints;
 - code paths, test paths, public behaviors, shared-kernel id, adapters,
   maintenance tags, and changed references;
+- business path ids, business intents, and expected path terminals;
 - parent/child model ids, evidence ids, freshness, blindspots, and known false
   friends.
 
@@ -46,6 +47,9 @@ signatures = (
         function_blocks=("ValidateOrder",),
         code_paths=("flowguard/checkout/simple.py",),
         test_paths=("tests/test_checkout_simple.py",),
+        business_path_ids=("submit_order",),
+        business_intents=("submit order",),
+        path_terminals=("accepted",),
         shared_kernel_id="checkout_core",
         adapter_ids=("simple_adapter",),
     ),
@@ -56,6 +60,9 @@ signatures = (
         function_blocks=("ValidateOrder",),
         code_paths=("flowguard/checkout/retry.py",),
         test_paths=("tests/test_checkout_retry.py",),
+        business_path_ids=("submit_order", "retry_order"),
+        business_intents=("submit order", "retry order"),
+        path_terminals=("accepted", "retry_scheduled"),
         shared_kernel_id="checkout_core",
         adapter_ids=("retry_adapter",),
     ),
@@ -125,6 +132,11 @@ Similarity findings are handoffs:
 - shared kernel or symmetric flow -> Code Structure Recommendation and
   ModelMesh;
 - duplicate boundary or adapter-only difference -> Architecture Reduction;
+- shared business path id or intent with overlapping state/side effects ->
+  duplicate boundary, usually Architecture Reduction or Model Similarity
+  follow-up;
+- same business intent with conflicting terminals -> false friend or manual
+  review, not automatic consolidation;
 - parent/child or sibling overlap -> ModelMesh;
 - evidence duplicate -> Model-Test Alignment;
 - false friend -> keep separate and preserve the rationale.

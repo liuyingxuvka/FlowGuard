@@ -104,7 +104,8 @@ class ApiSurfaceTests(unittest.TestCase):
 
     def test_core_group_keeps_minimal_path_visible(self):
         self.assertIn("Workflow", flowguard.CORE_API)
-        self.assertIn("Explorer", flowguard.CORE_API)
+        self.assertNotIn("Explorer", flowguard.CORE_API)
+        self.assertFalse(hasattr(flowguard, "Explorer"))
         self.assertIn("Invariant", flowguard.CORE_API)
         self.assertIn("FunctionResult", flowguard.CORE_API)
         self.assertNotIn("run_model_first_checks", flowguard.CORE_API)
@@ -333,6 +334,7 @@ class ApiSurfaceTests(unittest.TestCase):
         self.assertIn("ModelMaturationSignal", flowguard.MODELING_HELPER_API)
         self.assertIn("ModelMaturationReport", flowguard.MODELING_HELPER_API)
         self.assertIn("review_model_maturation_loop", flowguard.MODELING_HELPER_API)
+        self.assertIn("BusinessPathIdentity", flowguard.MODELING_HELPER_API)
         self.assertIn("UsageIntent", flowguard.MODELING_HELPER_API)
         self.assertIn("TopologyDigest", flowguard.MODELING_HELPER_API)
         self.assertIn("TopologyHazardCandidate", flowguard.MODELING_HELPER_API)
@@ -341,6 +343,7 @@ class ApiSurfaceTests(unittest.TestCase):
         self.assertIn("infer_topology_digest", flowguard.MODELING_HELPER_API)
         self.assertIn("infer_topology_hazard_plan", flowguard.MODELING_HELPER_API)
         self.assertIn("review_topology_hazards", flowguard.MODELING_HELPER_API)
+        self.assertIn("TOPOLOGY_LANDMARK_BUSINESS_PATH_DUPLICATE", flowguard.MODELING_HELPER_API)
         self.assertIn("ObservableArchitectureContract", flowguard.MODELING_HELPER_API)
         self.assertIn("CompatibilitySurfaceClassification", flowguard.MODELING_HELPER_API)
         self.assertIn("ArchitectureReductionCandidate", flowguard.MODELING_HELPER_API)
@@ -476,6 +479,7 @@ class ApiSurfaceTests(unittest.TestCase):
             "model_mesh_maintenance",
             "test_mesh_maintenance",
             "structure_mesh_maintenance",
+            "development_process_simulator",
             "development_process_flow",
             "model_miss_review",
             "risk_evidence_ledger",
@@ -525,6 +529,7 @@ class ApiSurfaceTests(unittest.TestCase):
             "model_test_alignment",
             "test_mesh_maintenance",
             "model_mesh_maintenance",
+            "development_process_simulator",
             "development_process_flow",
             "risk_evidence_ledger",
             "flowguard_closure_contract",
@@ -685,6 +690,7 @@ class ApiSurfaceTests(unittest.TestCase):
             "CODE_STRUCTURE_RECOMMENDATION_ROUTE_API",
             "CORE_API",
             "DEVELOPMENT_PROCESS_FLOW_ROUTE_API",
+            "DEVELOPMENT_PROCESS_SIMULATOR_ROUTE_API",
             "EVIDENCE_FIELD_STRUCTURE_API",
             "EVIDENCE_API",
             "EXISTING_MODEL_PREFLIGHT_ROUTE_API",

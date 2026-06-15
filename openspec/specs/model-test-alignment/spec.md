@@ -444,3 +444,69 @@ depends on sibling model obligations or shared mechanism evidence.
 - **THEN** the review accepts the evidence only for obligations whose external
   contract, mechanism, provenance, and freshness match the evidence scope
 
+### Requirement: Model-Test Alignment consumes ModelMesh-derived transition cells
+Model-Test Alignment SHALL treat ModelMesh-derived transition coverage cells as
+ordinary required transition obligations and apply the existing code-contract,
+evidence freshness, required-kind, target-id, and assertion-scope rules.
+
+#### Scenario: ModelMesh-derived transition lacks test evidence
+- **WHEN** a ModelMesh-derived transition obligation is required
+- **AND** no current passing test evidence covers the matching transition cell
+- **THEN** Model-Test Alignment SHALL report missing test evidence
+
+#### Scenario: Rejection retry evidence is incomplete
+- **WHEN** a ModelMesh-derived retry/rejection transition requires failure,
+  negative, and replay evidence
+- **AND** the bound tests only cover the happy path
+- **THEN** Model-Test Alignment SHALL report missing required test kinds
+
+#### Scenario: Fake-agent packet evidence remains scoped
+- **WHEN** test evidence for a ModelMesh-derived AI packet handoff is synthetic
+  or fake-agent-only
+- **THEN** Model-Test Alignment SHALL treat it as contract or control-flow
+  evidence unless a real external-contract assertion scope is supplied
+
+### Requirement: Artifact payload validation review
+Model-Test Alignment SHALL provide artifact payload contract and evidence
+helpers that compare declared payload cases with current test, replay, browser,
+desktop, or manual evidence.
+
+#### Scenario: Payload contract is satisfied
+- **WHEN** an `ArtifactPayloadContract` declares required payload cases and
+  expected outputs, errors, state writes, side effects, or round-trip behavior
+- **AND** current passing `ArtifactPayloadEvidence` covers every required case
+  with external-contract scope
+- **THEN** the payload validation report MAY support alignment confidence
+
+#### Scenario: Required payload case is missing
+- **WHEN** a required payload case has no current passing evidence
+- **THEN** the payload validation report MUST include a missing-payload-evidence
+  blocker
+
+#### Scenario: Payload evidence is stale or non-passing
+- **WHEN** payload evidence is stale, skipped, failed, timeout, not-run,
+  running, progress-only, or error
+- **THEN** it MUST NOT count toward payload coverage
+
+#### Scenario: Payload output mismatches contract
+- **WHEN** payload evidence observes an output, error path, state write, side
+  effect, or round-trip result outside the declared contract
+- **THEN** the payload validation report MUST include a mismatch blocker
+
+### Requirement: Payload validation feeds Model-Test Alignment
+Model-Test Alignment SHALL let plans include artifact payload contracts and
+evidence so payload failures block model/test/code alignment claims.
+
+#### Scenario: Alignment blocks on payload failure
+- **WHEN** a Model-Test Alignment plan includes payload contracts or evidence
+- **AND** payload validation reports missing, stale, non-passing, scoped, or
+  mismatched evidence
+- **THEN** `review_model_test_alignment(...)` MUST include equivalent findings
+  and return a blocked or scoped decision
+
+#### Scenario: Legacy plans remain compatible
+- **WHEN** a Model-Test Alignment plan has no artifact payload contracts or
+  evidence
+- **THEN** existing model-test, code-contract, boundary, field, and runtime-path
+  behavior remains unchanged
+

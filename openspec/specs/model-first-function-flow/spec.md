@@ -231,28 +231,58 @@ The model-first-function-flow guidance SHALL preserve plan-detail scoped, missin
 - **THEN** the model-first result cannot claim broader completion confidence until the scoped gap is closed by downstream evidence
 
 ### Requirement: model-first-function-flow teaches minimum valuable entry
-The model-first-function-flow guidance SHALL teach a minimum valuable model
-entry instead of a thin default path for non-trivial model creation and model
-deepening work.
+The model-first-function-flow guidance SHALL teach one formal minimum valuable model entry instead of a direct `Explorer(...)`, optional runner, fallback, or thin default path for non-trivial model creation and model deepening work.
 
 #### Scenario: Skill guidance names minimum valuable model
 - **WHEN** an agent reads the model-first-function-flow skill
-- **THEN** the default entry guidance requires a protected error class, modeled state, side effects, completion evidence, and a known-bad case
+- **THEN** the default entry guidance requires a protected error class, modeled state, side effects, completion evidence, a known-bad case, and executable proof that the known-bad case is caught
 
 #### Scenario: Thin entry no longer controls default wording
 - **WHEN** docs or installed skill guidance describe the default model-first path
-- **THEN** they use minimum valuable model language and do not present a thin happy-path model as sufficient
+- **THEN** they use minimum valuable model language and do not present a thin happy-path model or direct Explorer run as sufficient
+
+#### Scenario: Fallback language is absent
+- **WHEN** model-first guidance describes FlowGuard entry choices
+- **THEN** it MUST NOT present direct Explorer, fallback explorers, local mini-frameworks, or compatibility routes as acceptable FlowGuard entry paths
 
 ### Requirement: model-first-function-flow routes template search and harvest
-The model-first-function-flow guidance SHALL route new or deepened model work
-through public/local template search before modeling and local candidate harvest
-after reusable successful modeling.
+The model-first-function-flow guidance SHALL route new or deepened model work through public/local template search before modeling and local candidate harvest after reusable successful modeling.
 
 #### Scenario: Search before modeling
 - **WHEN** an agent starts a new or materially deepened model
-- **THEN** the guidance requires public and local template search or an explicit scoped skip
+- **THEN** the guidance requires public and local template search or an explicit no-match reason
 
 #### Scenario: Harvest after reusable modeling
 - **WHEN** a completed model introduces a reusable protected error class and known-bad case
-- **THEN** the guidance instructs the agent to save or report a local candidate template
+- **THEN** the guidance instructs the agent to save, merge, duplicate-link, or record accepted not-harvestable template closure
+
+#### Scenario: Formal runner is the route
+- **WHEN** the guidance instructs an agent to run a new or deepened model
+- **THEN** it MUST use the formal check plan path rather than direct Explorer as the route
+
+### Requirement: Business path identity capture
+Model-first FlowGuard work SHALL capture business-path identity for important
+workflow routes when route duplication, conflict, old/new disposition, or
+runtime binding can affect confidence.
+
+#### Scenario: Important path records identity
+- **WHEN** a modeled workflow contains an important user-facing or business-facing route
+- **THEN** the model records a stable path id, business intent, trigger, expected terminal, state writes, side effects, and available evidence or source labels
+
+#### Scenario: Old and new paths record disposition
+- **WHEN** a modeled workflow keeps an old path beside a replacement path
+- **THEN** the model records whether the old path is superseded, preserved for compatibility, delegated, deleted, or still unresolved
+
+### Requirement: Business path relation capture
+Model-first FlowGuard work SHALL record explicit equivalence and exclusivity
+between business paths when those relationships explain why similar paths are
+valid or invalid.
+
+#### Scenario: Similar paths are declared equivalent
+- **WHEN** two paths intentionally perform the same business job
+- **THEN** the model records the equivalence and the compatibility or reduction evidence required to keep both paths
+
+#### Scenario: Competing paths are declared exclusive
+- **WHEN** two paths share a trigger but are valid only under separate conditions
+- **THEN** the model records the exclusive relationship or preconditions that prevent conflict
 

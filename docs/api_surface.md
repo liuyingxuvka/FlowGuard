@@ -9,7 +9,7 @@ The executable core is still:
 ```text
 FunctionBlock: Input x State -> Set(Output x State)
 Workflow = composed FunctionBlocks
-Explorer = deterministic finite exploration
+formal runner = deterministic finite model checks plus evidence gates
 ```
 
 The formal minimum useful entry for new or deepened models is:
@@ -22,10 +22,10 @@ risky boundary -> RiskIntent -> template search/no-match
 -> inspect counterexample/gaps -> close template harvest
 ```
 
-`Explorer` remains the deterministic finite exploration engine. It is no
-longer the agent-default public entry for non-trivial model creation. The
-sections below are route layers for UI, structure, testing, hierarchy, process,
-release, or evidence risk.
+The deterministic finite exploration engine remains an internal execution
+primitive. It is no longer the agent-default public entry for non-trivial model
+creation. The sections below are route layers for UI, structure, testing,
+hierarchy, process, release, or evidence risk.
 
 ## Agent-Default API
 
@@ -43,6 +43,7 @@ It keeps the normal path short:
   `default_flowguard_self_maintenance_plan()`,
   `review_flowguard_self_maintenance()`;
 - project and release gates: `audit_project_adoption()`,
+  `review_development_process_simulator()`,
   `review_development_process_flow()`, `review_maintenance_scan()`;
 - escalation checks: `review_model_test_alignment()`,
   `review_field_lifecycle()`, and `review_topology_hazards()`.
@@ -84,23 +85,23 @@ checks:
 - `FunctionBlock`, `FunctionResult`
 - `Invariant`, `InvariantResult`
 - `Workflow`, `WorkflowPath`, `WorkflowRun`
-- `Explorer`, `ReachabilityCondition`, `enumerate_input_sequences`
+- `ReachabilityCondition`, `enumerate_input_sequences`
 - `CheckReport`, `InvariantViolation`, `DeadBranch`, `ExceptionBranch`,
   `ReachabilityFailure`
 - `Trace`, `TraceStep`
 
 These APIs should stay small and semantically stable. New helpers should not
-change the meaning of `FunctionBlock`, `Workflow`, or `Explorer`, and obsolete
+change the meaning of `FunctionBlock` or `Workflow`, and obsolete
 compatibility-only aliases should not remain in the first-read surface.
 FlowGuard is latest-schema-first: old artifacts may be detected and upgraded at
 project/tool boundaries, but normal route logic should consume current-schema
 artifacts and current route-first APIs only.
 
-`Explorer.explore()` emits minimal progress visibility by default: a start line
-and bounded ten-step progress lines on `stderr`, counted by top-level
-`initial_state x input_sequence` work units. This is observability only; it
-does not change `CheckReport`, traces, pass/fail status, or stdout output. Use
-`Explorer(..., progress_steps=0)` or `FLOWGUARD_PROGRESS=0` for silent runs.
+Formal runs emit minimal progress visibility by default through the internal
+finite runner: a start line and bounded progress lines on `stderr`, counted by
+top-level `initial_state x input_sequence` work units. This is observability
+only; it does not change reports, traces, pass/fail status, or stdout output.
+Use `FLOWGUARD_PROGRESS=0` for silent formal runs.
 
 ## Route-Scoped Discovery First
 
@@ -120,8 +121,8 @@ For AI agents, route groups are the normal discovery surface:
   and AI-generated outlines that need explicit source, scope, state, side
   effect, step, receipt, validation, rework, human-question, and claim rows.
 - `MODEL_SIMILARITY_ROUTE_API` is the first stop for similar A/B/C workflow
-  maintenance, shared kernels, adapter variants, sibling tests, and false
-  friends.
+  maintenance, shared kernels, adapter variants, sibling tests, duplicate
+  business paths, path-terminal divergence, and false friends.
 - `CODE_STRUCTURE_RECOMMENDATION_ROUTE_API`,
   `MODEL_TEST_ALIGNMENT_ROUTE_API`, and `ARCHITECTURE_REDUCTION_ROUTE_API`
   consume `SimilarityHandoff` when model similarity drives their work.
@@ -133,7 +134,9 @@ For AI agents, route groups are the normal discovery surface:
   compatibility facades.
 - `MAINTENANCE_SCAN_ROUTE_API` is the thin router for FlowGuard-managed
   project work that needs to surface model/code/test drift, stale evidence,
-  skipped candidate routes, or split/reduction pressure before a broad claim.
+  skipped candidate routes, duplicate/conflicting/unproven business paths, old
+  business-path disposition gaps, or split/reduction pressure before a broad
+  claim.
   `maintenance_scan_plan_from_summary_report(...)` bridges structured
   SummaryReport gaps into that same router without making the runner a new
   workflow engine.
@@ -159,7 +162,8 @@ For AI agents, route groups are the normal discovery surface:
   enumerations that may have unknown, malformed, missing, or old-schema cases.
 - `TOPOLOGY_HAZARD_ROUTE_API` is the default runner review for model-shape
   future-use hazards before broad done, release, publish, or full-confidence
-  claims.
+  claims. It includes `BusinessPathIdentity` so important routes can name the
+  useful business path they prove, not only the local model node that ran.
 - `FLOWGUARD_SELF_MAINTENANCE_ROUTE_API` is the parent route for FlowGuard's
   own maintenance chain: route graph completeness, AI entry profiles, field
   layers, child route reports, install/shadow sync, and closure boundaries.
@@ -190,7 +194,7 @@ inventory.
 - default state/input closure helpers such as `StateClosurePlan`,
   `StateClosureDimension`, `infer_state_closure_plan()`, and
   `review_state_closure()` for keeping unknown/other cases visible in
-  `run_model_first_checks(...)` without changing direct `Explorer` semantics.
+  `run_model_first_checks(...)` without changing formal model semantics.
 - default model topology hazard helpers such as `UsageIntent`,
   `TopologyDigest`, `TopologyHazardCandidate`,
   `infer_topology_digest()`, `infer_topology_hazard_plan()`, and
@@ -448,11 +452,15 @@ inventory.
   hierarchy, information-display ownership, and then deriving semantic text
   hierarchy tokens with calm visual handoff guidance before visual design or
   frontend implementation.
-- optional DevelopmentProcessFlow helpers such as `ProcessArtifact`,
+- development-process simulator helpers such as
+  `DevelopmentProcessSimulationRequest`,
+  `DevelopmentProcessSimulatorReport`,
+  `review_development_process_simulator()`, `ProcessArtifact`,
   `ProcessAction`, `ProcessEvidence`, `ValidationRequirement`,
   `DevelopmentProcessPlan`, `review_development_process_flow()`, and
-  `derive_revalidation_plan()` for reviewing lifecycle ordering, artifact
-  overwrite, evidence freshness, and minimum revalidation as a sibling route
+  `derive_revalidation_plan()` for selecting `plan_detailing`,
+  `agent_workflow`, and `execution_freshness` modes, then reviewing lifecycle
+  ordering, artifact overwrite, evidence freshness, and minimum revalidation
   without supervising ModelMesh, TestMesh, StructureMesh, or Model-Test
   Alignment. Field lifecycle artifacts, field projections, replacement
   disposition records, and bug-repair closure records have route-specific
@@ -514,8 +522,9 @@ Reporting helpers help an AI agent explain what was checked and what was not:
   `review_plan_detail()`, `plan_detail_to_plan_intake()`,
   `plan_detail_to_step_contracts()`,
   `plan_detail_to_development_process()`, and
-  `plan_detail_to_agent_workflow_plan()` for forcing rough plans into
-  checkable rows before downstream routes review them
+  `plan_detail_to_agent_workflow_plan()` for delegated `plan_detailing` mode
+  row construction after the development-process simulator decides rough plans
+  need checkable rows
 - model-impact freshness helpers such as `ModelFreshnessRecord`,
   `UpgradeImpact`, `ModelImpactAssessment`, `ModelReuseTicket`,
   `ModelRerunEvidence`, `ModelImpactFreshnessPlan`,

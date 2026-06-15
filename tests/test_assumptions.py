@@ -4,13 +4,13 @@ from dataclasses import dataclass
 
 from flowguard import (
     AssumptionCard,
-    Explorer,
     FunctionResult,
     Invariant,
     Workflow,
     assumption_card,
     conditional_assumption,
 )
+from flowguard.explorer import Explorer
 
 
 @dataclass(frozen=True)

@@ -3,36 +3,41 @@
 from __future__ import annotations
 
 from flowguard import (
-    Explorer,
     SELF_MAINTENANCE_STATUS_PASS,
     SelfMaintenanceChildReport,
     default_flowguard_self_maintenance_plan,
     review_flowguard_self_maintenance,
 )
+from flowguard.formal_runner import FormalWorkflowCase, run_formal_workflow_suite
 import model
 
 
-def run_workflow(name: str, workflow, *, expect_ok: bool) -> bool:
-    report = Explorer(
-        workflow=workflow,
+REQUIRED_LABELS = (
+    "route_graph_connected",
+    "field_layers_declared",
+    "focused_validation_passed",
+    "local_surfaces_synced",
+    "done_accepted",
+)
+
+
+def run_workflow_suite() -> bool:
+    report = run_formal_workflow_suite(
+        "self_maintenance_mesh",
+        (
+            FormalWorkflowCase("correct_self_maintenance", model.build_correct_workflow(), True),
+            FormalWorkflowCase("broken_route_graph_only", model.build_broken_route_graph_only_workflow(), False),
+            FormalWorkflowCase("broken_missing_sync", model.build_broken_missing_sync_workflow(), False),
+        ),
         initial_states=(model.initial_state(),),
         external_inputs=model.EXTERNAL_INPUTS,
         invariants=model.INVARIANTS,
         max_sequence_length=model.MAX_SEQUENCE_LENGTH,
         terminal_predicate=model.terminal_predicate,
-        required_labels=(
-            "route_graph_connected",
-            "field_layers_declared",
-            "focused_validation_passed",
-            "local_surfaces_synced",
-            "done_accepted",
-        ),
-    ).explore()
-    ok = report.ok
-    print(f"{name}: {'OK' if ok else 'VIOLATION'}")
-    print(report.format_text(max_examples=1))
-    print()
-    return ok is expect_ok
+        required_labels=REQUIRED_LABELS,
+        protected_error_class="self_maintenance_incomplete",
+    )
+    return report.ok
 
 
 def run_route_profile_review() -> bool:
@@ -59,17 +64,7 @@ def run_route_profile_review() -> bool:
 
 def main() -> int:
     checks = (
-        run_workflow("correct_self_maintenance", model.build_correct_workflow(), expect_ok=True),
-        run_workflow(
-            "broken_route_graph_only",
-            model.build_broken_route_graph_only_workflow(),
-            expect_ok=False,
-        ),
-        run_workflow(
-            "broken_missing_sync",
-            model.build_broken_missing_sync_workflow(),
-            expect_ok=False,
-        ),
+        run_workflow_suite(),
         run_route_profile_review(),
     )
     if all(checks):

@@ -16,7 +16,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.48.0` | `1.0` | Python standard library only | MIT |
+| `v0.49.0` | `1.0` | Python standard library only | MIT |
 
 English lead content comes first; a Chinese mirror follows below.
 
@@ -185,7 +185,8 @@ python examples/job_matching/run_checks.py
 ```python
 from dataclasses import dataclass, replace
 
-from flowguard import Explorer, FunctionResult, Invariant, Workflow
+from flowguard import FunctionResult, Invariant, Workflow
+from flowguard.formal_runner import FormalWorkflowCase, run_formal_workflow_suite
 
 
 @dataclass(frozen=True)
@@ -231,35 +232,70 @@ class ProcessJob:
         ]
 
 
-workflow = Workflow((ProcessJob(),), name="retry_deduplication")
+class BrokenProcessJob(ProcessJob):
+    name = "broken_process_job"
 
-report = Explorer(
-    workflow=workflow,
-    initial_states=(State(),),
-    external_inputs=(Input("A"),),
-    invariants=(
-        Invariant(
-            name="side_effect_once",
-            description="The same job may not create duplicate side effects.",
-            predicate=lambda state, trace: state.side_effects <= len(set(state.processed)),
+    def apply(self, input_obj: Input, state: State):
+        return [
+            FunctionResult(
+                output="processed",
+                new_state=replace(
+                    state,
+                    processed=state.processed + (input_obj.job_id,),
+                    side_effects=state.side_effects + 1,
+                ),
+                label="duplicate_processing",
+            )
+        ]
+
+
+workflow = Workflow((ProcessJob(),), name="retry_deduplication")
+broken_workflow = Workflow((BrokenProcessJob(),), name="retry_deduplication_broken")
+invariants = (
+    Invariant(
+        name="side_effect_once",
+        description="The same job may not create duplicate side effects.",
+        predicate=lambda state, trace: state.side_effects <= len(set(state.processed)),
+    ),
+)
+
+report = run_formal_workflow_suite(
+    "retry_deduplication",
+    (
+        FormalWorkflowCase(
+            "correct_retry_deduplication",
+            workflow,
+            True,
+            required_labels=("first_processing", "deduplicated_retry"),
+        ),
+        FormalWorkflowCase(
+            "broken_duplicate_side_effect",
+            broken_workflow,
+            False,
+            protected_error_class="duplicate_side_effect",
         ),
     ),
+    initial_states=(State(),),
+    external_inputs=(Input("A"),),
+    invariants=invariants,
     max_sequence_length=2,
-    progress_steps=0,
-).explore()
+    protected_error_class="duplicate_side_effect",
+)
 print(report.format_text())
 ```
 
 ## Skill Routes
 
-FlowGuard has one kernel and several peer satellite skills. Use the smallest route that owns the actual risk:
+FlowGuard has one kernel and several satellite skills. Development-process work
+uses one front door with internal modes; use the smallest route that owns the
+actual risk:
 
 | Skill route | Use it when |
 | --- | --- |
 | `model-first-function-flow` | ordinary behavior/state modeling, unclear route selection, or cross-route coordination |
-| `flowguard-plan-detailing-compiler` | a rough idea or short plan needs explicit scope, state, side effects, evidence, receipts, rework, and claim boundaries |
 | `flowguard-existing-model-preflight` | existing modeled-system work should first identify model ownership, reuse/extend decisions, and duplicate-boundary risk |
-| `flowguard-development-process-flow` | staged development, archive, publish, release, or done confidence depends on current validation evidence |
+| `flowguard-development-process-flow` | rough plans, multi-skill/tool setup, staged development, archive, publish, release, or done confidence enter the development-process simulator; it may delegate to PlanDetailing or AgentWorkflowRehearsal |
+| `flowguard-plan-detailing-compiler` | explicit or simulator-delegated `plan_detailing` mode needs scope, state, side effects, evidence, receipts, rework, and claim boundaries |
 | `flowguard-ui-flow-structure` | UI controls, visible surface, required functional capabilities, task coverage, human-operability, launch-to-terminal journeys, overlays, recovery paths, information ownership, and runnable evidence kinds need modeling |
 | `flowguard-code-structure-recommendation` | a function-flow model should derive module, facade, state-owner, side-effect, config, and validation boundaries |
 | `flowguard-structure-mesh` | a script, package, command, public API, or refactor split needs facade compatibility and parity evidence |
@@ -378,14 +414,17 @@ FlowGuard 在声明的有限模型里探索 trace，并检查 invariant、scenar
 
 ## 从小开始
 
-大多数 FlowGuard 使用可以很薄：
+大多数 FlowGuard 使用入口可以很小，但模型本身仍要有牙齿：
 
 ```text
 选择一个风险边界
--> 命名 Input、State、Output、side effect 和 owner
--> 写一个 invariant 或 scenario
+-> 命名要防住的错误类型
+-> 搜 public/local risk template；没有匹配就写清楚原因
+-> 命名 Input、State、Output、side effect、完成证据和 owner
+-> 写一个 invariant 或 scenario，并放入一个代表性 known-bad case
 -> 运行检查
--> 看 counterexample
+-> 证明这个 known-bad case 已经会被抓住
+-> 关闭 template harvest：写入、合并、链接，或接受不可 harvest 的理由
 -> 修模型、计划、代码、测试、UI 或声明
 ```
 
@@ -484,14 +523,14 @@ python examples/job_matching/run_checks.py
 
 ## Skill 架构
 
-FlowGuard 有一个 kernel 和多个同级 satellite skill。选择真正拥有当前风险的最小路线：
+FlowGuard 有一个 kernel 和多个 satellite skill。开发流程类工作先走一个统一入口和内部模式；选择真正拥有当前风险的最小路线：
 
 | Skill route | 适用场景 |
 | --- | --- |
 | `model-first-function-flow` | 普通行为/状态建模、路线不清楚或跨路线协调 |
-| `flowguard-plan-detailing-compiler` | 粗想法或短计划需要明确 scope、state、side effect、evidence、receipt、rework 和 claim boundary |
 | `flowguard-existing-model-preflight` | 已有模型系统里的工作要先找到 model owner、复用/扩展判断和重复 boundary 风险 |
-| `flowguard-development-process-flow` | staged development、archive、publish、release 或 done confidence 取决于当前验证证据 |
+| `flowguard-development-process-flow` | 粗计划、多技能/工具安排、staged development、archive、publish、release 或 done confidence 先进入 development-process simulator；需要时再委托 PlanDetailing 或 AgentWorkflowRehearsal |
+| `flowguard-plan-detailing-compiler` | 显式调用或 simulator 委托的 `plan_detailing` 模式需要明确 scope、state、side effect、evidence、receipt、rework 和 claim boundary |
 | `flowguard-ui-flow-structure` | UI control、可见表面、必需功能能力、任务覆盖、人类可操作性、launch-to-terminal journey、overlay、恢复路径、信息 ownership 和 runnable evidence kind 需要建模 |
 | `flowguard-code-structure-recommendation` | function-flow 模型要推导 module、facade、state-owner、side-effect、config 和 validation boundary |
 | `flowguard-structure-mesh` | 脚本、包、命令、公开 API 或 refactor 拆分需要 facade compatibility 和 parity evidence |

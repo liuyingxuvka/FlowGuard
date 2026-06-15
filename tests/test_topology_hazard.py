@@ -17,6 +17,11 @@ from flowguard import (
     RiskEvidenceLedgerPlan,
     RiskEvidenceRow,
     RiskProfile,
+    BusinessPathIdentity,
+    TOPOLOGY_LANDMARK_BUSINESS_PATH_CONFLICT,
+    TOPOLOGY_LANDMARK_BUSINESS_PATH_DUPLICATE,
+    TOPOLOGY_LANDMARK_BUSINESS_PATH_LEGACY_DISPOSITION,
+    TOPOLOGY_LANDMARK_BUSINESS_PATH_UNPROVEN,
     TOPOLOGY_COMPAT_UNKNOWN,
     TOPOLOGY_CONFIDENCE_BLOCKED,
     TOPOLOGY_CONFIDENCE_FULL,
@@ -131,6 +136,65 @@ class TopologyHazardTests(unittest.TestCase):
         self.assertIn("side_effect_repeat", landmark_types)
         self.assertIn("legacy_or_compatibility_path", landmark_types)
         self.assertIn("external_confirmation_boundary", landmark_types)
+
+    def test_business_path_landmarks_surface_duplicate_conflict_unproven_and_legacy_gaps(self):
+        plan = infer_topology_hazard_plan(
+            workflow=Workflow((SaveRecord(),), name="checkout"),
+            external_inputs=(Event(),),
+            usage_intent=UsageIntent(usage_modes=(TOPOLOGY_USAGE_RELEASE,), final_claim="release"),
+            business_paths=(
+                BusinessPathIdentity(
+                    "submit",
+                    business_intent="submit order",
+                    trigger="submit",
+                    expected_terminal="accepted",
+                    state_writes=("order_status",),
+                    side_effects=("write_order",),
+                    evidence_ids=("runtime:submit",),
+                ),
+                BusinessPathIdentity(
+                    "submit_alias",
+                    business_intent="submit order",
+                    trigger="submit",
+                    expected_terminal="accepted",
+                    state_writes=("order_status",),
+                    side_effects=("write_order",),
+                ),
+                BusinessPathIdentity(
+                    "submit_reject",
+                    business_intent="submit order",
+                    trigger="submit",
+                    expected_terminal="rejected",
+                    state_writes=("order_status",),
+                    side_effects=("write_rejection",),
+                    evidence_ids=("runtime:reject",),
+                ),
+                BusinessPathIdentity(
+                    "submit_v2",
+                    business_intent="submit order v2",
+                    trigger="upgrade",
+                    expected_terminal="accepted",
+                    state_writes=("order_status",),
+                    side_effects=("write_order_v2",),
+                    supersedes=("submit_v1",),
+                    evidence_ids=("runtime:v2",),
+                ),
+            ),
+        )
+
+        landmark_types = {landmark.landmark_type for landmark in plan.digest.landmarks}
+        report = review_topology_hazards(plan)
+
+        self.assertIn(TOPOLOGY_LANDMARK_BUSINESS_PATH_DUPLICATE, landmark_types)
+        self.assertIn(TOPOLOGY_LANDMARK_BUSINESS_PATH_CONFLICT, landmark_types)
+        self.assertIn(TOPOLOGY_LANDMARK_BUSINESS_PATH_UNPROVEN, landmark_types)
+        self.assertIn(TOPOLOGY_LANDMARK_BUSINESS_PATH_LEGACY_DISPOSITION, landmark_types)
+        self.assertFalse(report.ok)
+        self.assertIn("business_path:submit", plan.digest.anchor_ids())
+        self.assertTrue(
+            any("business-path" in candidate.hazard_id for candidate in report.candidates),
+            report.format_text(),
+        )
 
     def test_unanchored_ai_hazard_cannot_become_hard_gate(self):
         digest = infer_topology_digest(
@@ -281,8 +345,11 @@ class TopologyHazardTests(unittest.TestCase):
         )
 
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-        self.assertIn("correct_topology_hazard_review: OK", result.stdout)
-        self.assertIn("topology_hazard_unanchored_hard_gate: VIOLATION", result.stdout)
+        self.assertIn("correct_topology_hazard_review: observed=OK expected=OK match=yes", result.stdout)
+        self.assertIn(
+            "topology_hazard_unanchored_hard_gate: observed=VIOLATION expected=VIOLATION",
+            result.stdout,
+        )
 
 
 if __name__ == "__main__":

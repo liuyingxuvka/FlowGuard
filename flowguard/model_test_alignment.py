@@ -342,6 +342,8 @@ class PythonTestAssertionEvidence:
 class TestEvidence:
     """Plain evidence from one test, command, replay, or manual validation."""
 
+    __test__ = False
+
     evidence_id: str
     test_name: str = ""
     path: str = ""

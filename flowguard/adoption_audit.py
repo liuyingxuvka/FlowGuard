@@ -30,6 +30,11 @@ FLOWGUARD_UNAVAILABLE_RE = re.compile(
 LOCAL_EXPLORER_RE = re.compile(r"\bclass\s+Explorer\b")
 LOCAL_WORKFLOW_RE = re.compile(r"\bclass\s+Workflow\b")
 DIRECT_EXPLORER_RE = re.compile(r"\bExplorer\s*\(")
+EXPLORER_IMPORT_RE = re.compile(
+    r"^\s*from\s+flowguard(?:\.explorer)?\s+import[^\n#]*\bExplorer\b"
+    r"|^\s*import\s+flowguard\.explorer\b",
+    re.MULTILINE,
+)
 FORMAL_ENTRY_TERMS = (
     "FlowGuardCheckPlan",
     "run_model_first_checks",
@@ -249,11 +254,17 @@ def _current_fallback_markers(text: str) -> tuple[str, ...]:
 
 
 def _direct_explorer_without_formal_entry_markers(text: str) -> tuple[str, ...]:
-    if not DIRECT_EXPLORER_RE.search(text):
+    imports_explorer = EXPLORER_IMPORT_RE.search(text) is not None
+    calls_explorer = DIRECT_EXPLORER_RE.search(text) is not None
+    if not imports_explorer and not calls_explorer:
         return ()
-    if all(term in text for term in FORMAL_ENTRY_TERMS):
+    if calls_explorer and not imports_explorer and all(term in text for term in FORMAL_ENTRY_TERMS):
         return ()
-    markers = ["direct Explorer call"]
+    markers: list[str] = []
+    if imports_explorer:
+        markers.append("Explorer import in current model")
+    if calls_explorer:
+        markers.append("direct Explorer call")
     missing = tuple(term for term in FORMAL_ENTRY_TERMS if term not in text)
     markers.extend(f"missing {term}" for term in missing)
     return tuple(markers)

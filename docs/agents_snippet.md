@@ -1,5 +1,4 @@
 # AGENTS.md Snippet: Global FlowGuard Skill Routing
-
 Copy this compact section into another repository's `AGENTS.md`.
 
 ```markdown
@@ -40,7 +39,7 @@ This is still compact, but it must have teeth. A new or deepened model names the
 - Field-bearing work needs a FieldLifecycleMesh view: high-level models include behavior-bearing fields, while child/leaf field models account all discovered fields and record owner, readers, writers, projection, lifecycle, and old-field disposition. For full/runtime/release/production field claims, behavior projections should include minimal `gate:`, `test:`, and `replay:` evidence refs instead of only naming the field.
 - Do not create a fake mini-framework or replace executable modeling with prose.
 - Represent each modeled block as `Input x State -> Set(Output x State)`.
-- Treat direct `Explorer(...)` as an internal engine, not the formal entry for non-trivial model creation.
+- Treat direct finite-engine calls as internal mechanics, not the formal entry for non-trivial model creation.
 - Preserve user and peer-agent changes; later writes can stale earlier evidence.
 - Long background checks are liveness only until final output and exit/status artifacts exist.
 - For existing/runnable UI, first inventory real visible items and map each to `UIControl`, `UIDisplayElement`, `UIVisibleSurfaceItem`, or blindspot.
@@ -49,9 +48,11 @@ This is still compact, but it must have teeth. A new or deepened model names the
 - Source-based UI work needs generic source-baseline interaction semantics for native pickers, external opens, save/custom dialogs, no-handler controls, trigger/confirm/cancel/value/result/error branches. Greenfield UI should use user-task, visible-surface, functional-chain, and implementation evidence without inventing a source baseline.
 - UI done/runnable/button-wired claims need current `UIImplementationValidation` and UI done-claim review; planned/background/artifact-only evidence is not release completion.
 - Reused test results need current `TestResultReuseTicket` and `ProofArtifactRef`; old `passed` output is not current evidence by itself.
+- Rough-plan discussion, multi-skill/tool workflow setup, staged execution, install/sync, release/archive/publish, and final process claims enter `flowguard-development-process-flow` first as the development-process simulator. Record `plan_detailing`, `agent_workflow`, and `execution_freshness` modes; delegate to PlanDetailing or AgentWorkflowRehearsal only when explicit or simulator-selected.
 - After `run_model_first_checks()`, read structured ledger routes and obligations before manual route inference.
 - New/deepened models need template harvest closure before broad claims: written, merged, duplicate-linked, or accepted not-harvestable.
 - Before trusting that one existing route or model is enough, record model-angle deliberation when the task may need a missing viewpoint.
+- When a workflow has multiple useful routes, old/new alternatives, or path-sensitive external proof, record business path identity: stable path id, intent, trigger, expected terminal, state writes, side effects, equivalent/exclusive paths, old-path disposition, and evidence ids.
 - For non-trivial FlowGuard work, show a route-specific Mermaid snapshot once the route/model is stable; diagrams explain and do not validate.
 - Before full done/release/publish confidence, connect risks, obligations, UI click-through gates, artifact-payload gates, code/test evidence, proof artifacts, automatic state-closure gaps, and topology-hazard gaps through Risk Evidence Ledger or equivalent.
 - After non-trivial work, use `maintenance_scan_router` for SummaryReport gaps, changed artifacts, open obligations, skipped routes, stale evidence, state/topology gaps, or split/reduction signals.
@@ -62,25 +63,24 @@ This is still compact, but it must have teeth. A new or deepened model names the
 | Trigger | Route | Entry |
 | --- | --- | --- |
 | FlowGuard itself feels heavy, route groups are incomplete, field layers need folding, or AI needs route-first self-maintenance | `flowguard_self_maintenance` | `default_flowguard_self_maintenance_plan()` then `review_flowguard_self_maintenance()` |
-| Changed artifacts, open maintenance obligations, stale evidence, skipped routes, split/reduction pressure after project work | `maintenance_scan_router` | `review_maintenance_scan()` or `maintenance-scan-template` |
+| Changed artifacts, open maintenance obligations, stale evidence, skipped routes, business-path hazards, split/reduction pressure after project work | `maintenance_scan_router` | `review_maintenance_scan()` or `maintenance-scan-template` |
 | Older adopted project, old FlowGuard artifact, old model/test evidence, obsolete API aliases | `artifact_schema_upgrade` | `artifact-upgrade` or `project-upgrade` |
 | Existing modeled system, ownership lookup, duplicate-boundary risk | `existing_model_preflight` | `flowguard-existing-model-preflight` |
 | Current route/model may be too narrow or a new model angle may be needed | `model_angle_deliberation` | `model-angle-template` or `review_model_angle_deliberations()` |
 | Field lifecycle, behavior-bearing field projection, old/replaced/deprecated field disposition | `field_lifecycle_mesh` | `flowguard-field-lifecycle-mesh` |
-| Similar features, A/B workflow drift, sibling tests, shared-kernel/adapter suspicion | `model_similarity_consolidation` | `model-first-function-flow` reference |
+| Similar features, duplicate business paths, A/B workflow drift, sibling tests, shared-kernel/adapter suspicion | `model_similarity_consolidation` | `model-first-function-flow` reference |
 | New/deepened model must reuse/search and close public/local template harvest | `risk_template_library` | `risk-template-search`, `risk-template-harvest`, `risk-template-harvest-review`, or `risk-template-library-template` |
-| Rough idea/short plan needs detailed scope, state, evidence, receipts, rework | `plan_detailing_compiler` | `flowguard-plan-detailing-compiler` |
-| Multi-skill/tool/plugin planning, skipped skill consequences, rework gates | `agent_workflow_rehearsal` | `flowguard-agent-workflow-rehearsal` |
+| Rough plan, multi-skill/tool setup, staged execution, install/sync, release/archive/publish, or final process claim needs one development-process simulator | `development_process_simulator` | `flowguard-development-process-flow`; may delegate to `flowguard-plan-detailing-compiler` or `flowguard-agent-workflow-rehearsal` |
 | Ordinary behavior/state modeling, Risk Intent, state inventory | `core_modeling` | `model-first-function-flow` |
 | Existing code/prompt flow should shrink without behavior loss | `architecture_reduction` | `flowguard-architecture-reduction` |
 | Pre-code module/function/block ownership recommendation | `code_structure_recommendation` | `flowguard-code-structure-recommendation` |
 | UI controls, real visible surface inventory, enabled-control functional chains, source-baseline interaction semantics when applicable, screens, journeys, display/text ownership, runnable UI click-through evidence | `ui_flow_structure` | `flowguard-ui-flow-structure` |
-| Locally green model topology implies future-use hazards before broad confidence | `model_topology_hazard_review` | `flowguard-model-topology-hazard-review` |
+| Locally green model topology implies future-use hazards, duplicate/conflicting paths, or old/new route gaps before broad confidence | `model_topology_hazard_review` | `flowguard-model-topology-hazard-review` |
 | Model obligations versus tests, code contracts, boundary observations, or artifact payload cases | `model_test_alignment` | `flowguard-model-test-alignment` |
 | Three or more models, oversized model, stale child evidence, parent/child mesh | `model_mesh_maintenance` | `flowguard-model-mesh` |
 | Large/slow/stale/release-only tests or parent/child test hierarchy | `test_mesh_maintenance` | `flowguard-test-mesh` |
 | Large script/module/package/API split, facade or public entrypoint parity | `structure_mesh_maintenance` | `flowguard-structure-mesh` |
-| Staged development, edits, validation freshness, install/shadow/git sync | `development_process_flow` | `flowguard-development-process-flow` |
+| Execution-freshness mode for staged edits, validation freshness, install/shadow/git sync | `development_process_flow` | `flowguard-development-process-flow` |
 | Non-trivial bug repair, false confidence, or runtime/test/replay/manual evidence shows a missed failure class | `model_miss_review` | `flowguard-model-miss-review` |
 | Model too coarse after state-closure/code/test/mesh/freshness evidence | `model_maturation_loop` | `model-first-function-flow` reference |
 | Final broad confidence boundary | `risk_evidence_ledger` | `docs/risk_evidence_ledger.md` |

@@ -1,18 +1,34 @@
 # AgentWorkflowRehearsal Protocol
 
-Use `agent_workflow_rehearsal` when the agent's main risk is capability
+Use `agent_workflow_rehearsal` when explicitly requested or delegated by the
+development-process simulator because the agent's main risk is capability
 selection and sequencing across installed Codex skills, tools, plugins, or
 external actions. The model answers: "Given the current machine/session, is the
 planned skill workflow coherent enough to start?"
 
-This is a sibling FlowGuard route. It can reference OpenSpec, LogicGuard,
-FlowGuard satellites, browser tools, GitHub, document plugins, or local custom
-skills as inventory entries, but it does not execute or supervise those skills.
-Owning skills still perform their own work and validation.
+This is a delegated simulator-mode route. It can reference OpenSpec,
+LogicGuard, FlowGuard satellites, browser tools, GitHub, document plugins, or
+local custom skills as inventory entries, but it does not execute or supervise
+those skills. Owning skills still perform their own work and validation.
+
+## Invocation Topology
+
+Generic automatic routing for multi-skill/tool/plugin/external-action work
+enters `flowguard-development-process-flow` first as the development-process
+simulator front door. That front door records the `agent_workflow` mode and
+either:
+
+- keeps the missing workflow rehearsal as a scoped simulator finding; or
+- delegates here for a full fresh-inventory `AgentWorkflowPlan` review.
+
+Direct invocation is still valid when the user names AgentWorkflowRehearsal,
+an existing OpenSpec/FlowGuard artifact requires this exact route, or another
+FlowGuard route delegates the `agent_workflow` mode. Do not describe this
+protocol as the generic first entry for all multi-skill work.
 
 ## Trigger
 
-Use this route when:
+Use this route when explicitly invoked or simulator-delegated and:
 
 - the task may require several installed skills, plugins, tools, or external
   actions;
@@ -71,8 +87,9 @@ Build an `AgentWorkflowPlan` with:
   `ui_implementation_validation`;
 - final evidence claim: none, scoped, full, or blocked.
 
-If the work starts from a rough idea or short plan, build `PlanDetail` rows
-first and run `review_plan_detail(...)`. Use
+If the work starts from a rough idea or short plan, enter DevelopmentProcessFlow
+first so it can record `plan_detailing` before `agent_workflow`; then build
+`PlanDetail` rows and run `review_plan_detail(...)` when delegated. Use
 `plan_detail_to_agent_workflow_plan(...)` to carry selected skills, ordered
 steps, side effects, evidence gates, rework gates, risk flags, and final claim
 scope into AgentWorkflowRehearsal.

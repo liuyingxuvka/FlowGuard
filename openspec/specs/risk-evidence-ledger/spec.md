@@ -228,3 +228,67 @@ RiskEvidenceLedger SHALL use generic source-baseline gate constants and findings
 - **WHEN** a current risk gate constant, finding code, docs row, or template names one source technology as the generic UI source evidence gate
 - **THEN** the risk ledger surface is incomplete until the name is generalized
 
+### Requirement: Risk evidence ledger consumes business path evidence
+Risk evidence ledger closure SHALL allow final confidence rows to depend on
+current business-path topology and runtime evidence when path duplication,
+conflict, old-path disposition, or wrong-path runtime proof can affect the
+claim.
+
+#### Scenario: Missing business path hazard review limits confidence
+- **WHEN** a final claim depends on a path-sensitive workflow and business-path topology review is missing, stale, or blocked
+- **THEN** the risk evidence ledger records the gap and limits or blocks broad confidence
+
+#### Scenario: Current business path evidence supports closure
+- **WHEN** topology hazard review and runtime path evidence both bind to the expected business path
+- **THEN** the risk evidence ledger can use those current evidence rows to support final closure
+
+### Requirement: Risk ledger consumes UI functional capability coverage
+RiskEvidenceLedger SHALL provide a UI functional capability coverage gate for final UI done, release, or runnable-confidence claims.
+
+#### Scenario: Capability gate supports confidence
+- **WHEN** every in-scope required UI capability has current coverage, output contract evidence, implementation binding evidence, and accepted scope boundaries
+- **THEN** the risk ledger may treat UI capability coverage as supporting evidence for the declared UI claim
+
+#### Scenario: Capability gate is missing or scoped
+- **WHEN** the UI capability coverage gate is missing, stale, failed, planned-only, or scoped below the final claim
+- **THEN** the risk ledger blocks or scopes final UI confidence instead of accepting visible-control or screenshot evidence alone
+
+### Requirement: Final UI confidence consumes real-surface and implementation evidence
+Risk Evidence Ledger SHALL require broad UI done, release, or full-confidence
+claims to consume current observed-surface inventory, UI implementation
+validation, functional-chain, source-baseline interaction evidence when relevant, and
+final done-claim review evidence.
+
+#### Scenario: Ledger has current UI evidence
+- **WHEN** a broad UI claim has current passing real-surface inventory,
+  implementation validation, functional-chain, and done-claim evidence
+- **THEN** the risk ledger may support full UI confidence if no other in-scope
+  risk gate blocks
+
+#### Scenario: Ledger lacks UI implementation validation
+- **WHEN** a broad UI claim lacks current `UIImplementationValidation`
+- **THEN** the risk ledger blocks or scopes the claim even if labels, APIs, or
+  static tests exist
+
+#### Scenario: Planned evidence cannot support ledger confidence
+- **WHEN** UI evidence is marked planned, not-run, running, stale, skipped, or
+  progress-only
+- **THEN** the risk ledger cannot count it as passing evidence
+
+### Requirement: Final risk evidence consumes UI and payload gates
+RiskEvidenceLedger SHALL require current proof or route-gate evidence for UI
+action and artifact payload risks before full confidence.
+
+#### Scenario: UI risk lacks click-through proof
+- **WHEN** a final risk row depends on implemented UI behavior
+- **AND** no current UI implementation validation proof or scoped blindspot is
+  attached
+- **THEN** the ledger MUST block or scope full confidence
+
+#### Scenario: Payload risk lacks payload proof
+- **WHEN** a final risk row depends on file import/export, generated artifact,
+  or AI work-package behavior
+- **AND** no current artifact payload validation proof or scoped blindspot is
+  attached
+- **THEN** the ledger MUST block or scope full confidence
+

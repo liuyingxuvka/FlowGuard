@@ -134,7 +134,7 @@ are candidate evidence, not proof that real code passed.
 
 Static challenge routes are only the input-shape layer. For model-derived
 proactive bug discovery, use
-`synthesize_challenge_scenarios_from_report(...)` with an Explorer
+`synthesize_challenge_scenarios_from_report(...)` with a model-check
 `CheckReport`. That helper creates ordinary scenarios from actual model
 evidence:
 

@@ -18,6 +18,8 @@ Every runtime node observation should carry:
 - `run_id`;
 - `leaf_model_id` or `child_model_id` when the node belongs to a model mesh;
 - `model_obligation_id`, `code_contract_id`, or `boundary_id` when known;
+- `business_path_id`, `business_intent`, and expected/observed terminal when a
+  claim depends on a specific useful business route;
 - input/state case and observed output, next state, writes, effects, or error
   path when relevant;
 - status, freshness, assertion scope, and optional `ProofArtifactRef`.
@@ -27,7 +29,7 @@ the recorder's `format_progress_lines()` so the line says which FlowGuard
 model is being compared:
 
 ```text
-flowguard.runtime_path model=checkout.leaf model_path=.flowguard/checkout_leaf/model.py node=validate_order run=run:1 status=passed obligation=accept_valid_order
+flowguard.runtime_path model=checkout.leaf model_path=.flowguard/checkout_leaf/model.py node=validate_order run=run:1 status=passed obligation=accept_valid_order business_path=submit_order
 ```
 
 That line is intentionally readable without the model already loaded. A human
@@ -38,8 +40,8 @@ or another AI can see which model file to inspect next.
 Use `review_runtime_path_alignment(...)` with `RuntimeNodeContract`,
 `RuntimeNodeObservation`, and `RuntimePathRun` rows. The review blocks when a
 required node is missing, stale, non-passing, internal-path-only, out of order,
-bound to the wrong model obligation, or emits behavior outside the node
-contract.
+bound to the wrong model obligation, bound to the wrong business path, missing
+a required business path binding, or emits behavior outside the node contract.
 
 Runtime path evidence is not a replacement for conformance replay, tests,
 ModelMesh, TestMesh, or closure review. It is the structured model/code path

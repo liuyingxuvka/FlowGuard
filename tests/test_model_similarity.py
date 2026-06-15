@@ -9,6 +9,7 @@ from flowguard import (
     ModelSignature,
     ModelSimilarityEvidence,
     ModelSimilarityPlan,
+    RELATION_DUPLICATE_BOUNDARY,
     SimilarityHandoff,
     model_signature_maintenance,
     model_signature_minimal,
@@ -150,6 +151,62 @@ class ModelSimilarityReviewTests(unittest.TestCase):
         self.assertEqual(RELATION_FALSE_FRIEND, report.relations[0].relation_type)
         self.assertEqual("keep_separate", report.relations[0].recommendation)
         self.assertEqual("blocked", report.relations[0].confidence)
+
+    def test_shared_business_path_marks_duplicate_boundary(self):
+        report = review_model_similarity_consolidation(
+            ModelSimilarityPlan(
+                "business-path-duplicate",
+                signatures=(
+                    ModelSignature(
+                        "web-submit",
+                        function_blocks=("SubmitFromWeb",),
+                        state_owned=("order_status",),
+                        side_effects_owned=("write_order",),
+                        business_path_ids=("submit_order",),
+                        business_intents=("submit order",),
+                        path_terminals=("accepted",),
+                    ),
+                    ModelSignature(
+                        "cli-submit",
+                        function_blocks=("SubmitFromCli",),
+                        state_owned=("order_status",),
+                        side_effects_owned=("write_order",),
+                        business_path_ids=("submit_order",),
+                        business_intents=("submit order",),
+                        path_terminals=("accepted",),
+                    ),
+                ),
+                comparison_pairs=(("web-submit", "cli-submit"),),
+            )
+        )
+
+        relation = report.relations[0]
+        self.assertEqual(RELATION_DUPLICATE_BOUNDARY, relation.relation_type)
+        self.assertIn("business_path:submit_order", relation.matched_elements)
+
+    def test_business_terminal_divergence_marks_false_friend(self):
+        report = review_model_similarity_consolidation(
+            ModelSimilarityPlan(
+                "business-path-false-friend",
+                signatures=(
+                    ModelSignature(
+                        "submit-accepted",
+                        business_intents=("submit order",),
+                        path_terminals=("accepted",),
+                        state_owned=("order_status",),
+                    ),
+                    ModelSignature(
+                        "submit-rejected",
+                        business_intents=("submit order",),
+                        path_terminals=("rejected",),
+                        state_owned=("order_status",),
+                    ),
+                ),
+                comparison_pairs=(("submit-accepted", "submit-rejected"),),
+            )
+        )
+
+        self.assertEqual(RELATION_FALSE_FRIEND, report.relations[0].relation_type)
 
     def test_shared_kernel_routes_to_structure_recommendation(self):
         plan = ModelSimilarityPlan(

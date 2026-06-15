@@ -1,7 +1,8 @@
 import unittest
 from dataclasses import dataclass
 
-from flowguard import Explorer, FunctionResult, Invariant, InvariantResult, Workflow
+from flowguard import FunctionResult, Invariant, InvariantResult, Workflow
+from flowguard.explorer import Explorer
 
 
 @dataclass(frozen=True)

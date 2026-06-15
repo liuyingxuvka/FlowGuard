@@ -23,6 +23,11 @@ SATELLITE_SKILLS = {
     "flowguard-ui-flow-structure": "ui_flow_structure_protocol.md",
 }
 
+DELEGATED_DEVELOPMENT_PROCESS_MODE_SKILLS = {
+    "flowguard-agent-workflow-rehearsal",
+    "flowguard-plan-detailing-compiler",
+}
+
 TEMPLATE_HARVEST_SKILLS = SATELLITE_SKILLS.keys() - {"flowguard-existing-model-preflight"}
 
 KERNEL_HANDOFFS = {
@@ -88,6 +93,15 @@ class SkillDocsTests(unittest.TestCase):
                 self.assertLessEqual(len(text.splitlines()), 65)
                 self.assertLess(len(text), 3000)
 
+    def test_active_openspec_specs_have_real_purpose_text(self):
+        for path in sorted((ROOT / "openspec" / "specs").glob("*/spec.md")):
+            with self.subTest(spec=path.parent.name):
+                text = self.read(path)
+                self.assertIn("## Purpose", text)
+                purpose_block = text.split("## Purpose", 1)[1].split("## Requirements", 1)[0]
+                self.assertNotIn("TBD", purpose_block)
+                self.assertNotIn("Update Purpose after archive", purpose_block)
+
     def test_kernel_is_compact_router_with_reference_handoffs(self):
         text = self.read(KERNEL_ROOT / "SKILL.md")
 
@@ -132,6 +146,9 @@ class SkillDocsTests(unittest.TestCase):
     def test_satellite_skills_are_concise_route_shells(self):
         route_expectations = {
             "flowguard-agent-workflow-rehearsal": (
+                "Delegated FlowGuard mode skill",
+                "agent_workflow",
+                "flowguard-development-process-flow",
                 "SkillInventorySnapshot",
                 "candidate skills",
                 "continue/rework gates",
@@ -148,6 +165,11 @@ class SkillDocsTests(unittest.TestCase):
                 "validation boundaries",
             ),
             "flowguard-development-process-flow": (
+                "Front-door FlowGuard satellite skill",
+                "development-process simulator",
+                "plan_detailing",
+                "agent_workflow",
+                "execution_freshness",
                 "artifact versions",
                 "minimum revalidation",
                 "review_auto_mesh_splits",
@@ -188,6 +210,9 @@ class SkillDocsTests(unittest.TestCase):
                 "Risk Evidence Ledger",
             ),
             "flowguard-plan-detailing-compiler": (
+                "Delegated FlowGuard mode skill",
+                "plan_detailing",
+                "flowguard-development-process-flow",
                 "PlanDetail",
                 "review_plan_detail()",
                 "step receipts",
@@ -220,7 +245,13 @@ class SkillDocsTests(unittest.TestCase):
                 reference = self.read(root / "references" / reference_name)
 
                 self.assertIn(f"name: {skill_name}", text)
-                self.assertIn("Standalone FlowGuard satellite skill", text)
+                if skill_name == "flowguard-development-process-flow":
+                    self.assertIn("Front-door FlowGuard satellite skill", text)
+                elif skill_name in DELEGATED_DEVELOPMENT_PROCESS_MODE_SKILLS:
+                    self.assertIn("Delegated FlowGuard mode skill", text)
+                    self.assertIn("flowguard-development-process-flow", text)
+                else:
+                    self.assertIn("Standalone FlowGuard satellite skill", text)
                 self.assertIn("model-first-function-flow", text)
                 self.assertIn("real package", text)
                 self.assertIn("AGENTS.md managed", text)
@@ -236,6 +267,9 @@ class SkillDocsTests(unittest.TestCase):
                     self.assertIn(phrase, text)
                 combined = f"{text}\n{reference}"
                 self.assertNotIn("fake file/work-package", combined)
+                if skill_name in DELEGATED_DEVELOPMENT_PROCESS_MODE_SKILLS:
+                    self.assertIn("Generic", openai_yaml)
+                    self.assertIn("flowguard-development-process-flow first", openai_yaml)
 
     def test_model_test_alignment_skill_does_not_teach_optional_code_contracts(self):
         checked = (
@@ -468,6 +502,59 @@ class SkillDocsTests(unittest.TestCase):
         )
         for marker in long_form_markers:
             self.assertNotIn(marker, text)
+
+    def test_active_guidance_does_not_reintroduce_old_process_entry_rules(self):
+        active_guidance_paths = (
+            ROOT / "README.md",
+            ROOT / "AGENTS.md",
+            ROOT / "docs" / "agents_snippet.md",
+            ROOT / "docs" / "api_surface.md",
+            ROOT / "docs" / "modeling_protocol.md",
+            ROOT / "docs" / "productized_helpers.md",
+            ROOT / "docs" / "plan_detailing_compiler.md",
+            SKILLS_ROOT / "model-first-function-flow" / "SKILL.md",
+            SKILLS_ROOT / "model-first-function-flow" / "references" / "skill_kernel_protocol.md",
+            SKILLS_ROOT / "model-first-function-flow" / "references" / "modeling_protocol.md",
+            ROOT / "openspec" / "specs" / "development-process-flow" / "spec.md",
+            ROOT / "openspec" / "specs" / "flowguard-global-routing" / "spec.md",
+            ROOT / "openspec" / "specs" / "flowguard-codex-skill-satellites" / "spec.md",
+            ROOT / "openspec" / "specs" / "plan-detailing-compiler" / "spec.md",
+            ROOT / "openspec" / "specs" / "flowguard-agent-workflow-rehearsal" / "spec.md",
+            ROOT / "openspec" / "changes" / "harden-plan-discussion-handoff" / "proposal.md",
+            ROOT / "openspec" / "changes" / "harden-plan-discussion-handoff" / "design.md",
+            ROOT / "openspec" / "changes" / "harden-plan-discussion-handoff" / "specs" / "flowguard-global-routing" / "spec.md",
+            ROOT / "openspec" / "changes" / "harden-plan-discussion-handoff" / "specs" / "flowguard-codex-skill-satellites" / "spec.md",
+        )
+        stale_phrases = (
+            "Plan Detailing Compiler is the first FlowGuard route",
+            "PlanDetailing is now the direct route",
+            "direct route for non-trivial plan",
+            "use Plan Detailing before writing the behavior model",
+            "Global routing sends rough plan discussions to PlanDetailing",
+            "first direct FlowGuard satellite",
+            "plan detailing appears beside",
+            "peer satellite route",
+            "not as a hidden child",
+            "Use `flowguard-plan-detailing-compiler` first",
+            "Multi-skill workflow rehearsal routes directly",
+            "This is a sibling sub-protocol",
+            "rather than introducing separate named modes",
+        )
+
+        for path in active_guidance_paths:
+            if not path.exists():
+                continue
+            text = self.read(path)
+            with self.subTest(path=path.relative_to(ROOT)):
+                for phrase in stale_phrases:
+                    self.assertNotIn(phrase, text)
+                self.assertIn("simulator", text.lower(), path)
+                self.assertTrue(
+                    "flowguard-development-process-flow" in text
+                    or "DevelopmentProcessFlow" in text
+                    or "development_process_simulator" in text,
+                    path,
+                )
 
     def test_guidance_compression_model_exists(self):
         model = self.read(ROOT / ".flowguard" / "guidance_compression" / "model.py")

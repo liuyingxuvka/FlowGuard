@@ -329,3 +329,39 @@ FlowGuard ClosureContract SHALL require current source-baseline, target mapping,
 - **THEN** ClosureContract does not require source-baseline alignment
 - **AND** it still requires the applicable UI task, implementation, process, and risk evidence
 
+### Requirement: Final UI claims require functional capability coverage
+FlowGuard ClosureContract SHALL require current UI functional capability coverage before final statements claim that a UI is complete, runnable, release-ready, or implemented for in-scope user-visible functions.
+
+#### Scenario: UI closure has capability coverage
+- **WHEN** a closure plan requires UI functional capability coverage
+- **AND** a current full-confidence capability coverage report is supplied
+- **THEN** capability coverage does not block final UI closure confidence
+
+#### Scenario: UI closure lacks capability coverage
+- **WHEN** a final UI claim covers user-visible functionality
+- **AND** no current capability coverage report is supplied
+- **THEN** ClosureContract blocks broad UI release confidence or scopes the claim below full functional completion
+
+### Requirement: UI done claims are reviewed before full confidence
+FlowGuard Closure Contract SHALL review final UI done claims for missing manual
+signoff, native-dialog blindspots, planned evidence, unmapped observed visible
+items, missing functional chains, missing implementation validation, and stale
+process evidence before allowing full done, release, publish, or production
+confidence.
+
+#### Scenario: Final UI claim is fully supported
+- **WHEN** every in-scope UI last-mile evidence row is current, passing, mapped,
+  and consumed by process and risk evidence
+- **THEN** Closure Contract may allow the full UI done or release claim
+
+#### Scenario: Final UI claim has native blindspot
+- **WHEN** a native dialog or manual-only branch remains unobserved or only
+  planned
+- **THEN** Closure Contract downgrades the final wording to scoped confidence
+  such as base implementation complete but release not complete
+
+#### Scenario: Final UI claim has unmapped visible item
+- **WHEN** an observed visible UI item remains unmapped to a model owner or
+  scoped blindspot
+- **THEN** Closure Contract blocks full UI completion confidence
+

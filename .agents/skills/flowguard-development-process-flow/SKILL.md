@@ -1,49 +1,56 @@
 ---
 name: flowguard-development-process-flow
-description: Use for staged development, modification, release, archive, or publish work where step ordering, artifact versions, validation freshness, peer writes, or minimum revalidation affects confidence.
+description: Use as the FlowGuard development-process simulator front door for non-trivial plan discussion, multi-skill workflow setup, staged development, install/sync, release, archive, publish, or final process claims. Record plan_detailing, agent_workflow, and execution_freshness modes before delegating.
 ---
 
 # FlowGuard Development Process Flow
 
-Standalone FlowGuard satellite skill for lifecycle order and evidence freshness
-when plan/edit/test/install/sync/release confidence depends on current
-artifact/evidence versions.
+Front-door FlowGuard satellite skill for the development-process simulator.
+Rough plans, multi-skill/tool workflows, and plan/edit/test/install/sync/release
+confidence enter here first; internal mode owners supply detailed evidence.
 
 Return to `model-first-function-flow` when the route is unclear; cite sibling evidence ids, not internals.
 
 ## First Read
 
-- Route id: `development_process_flow`.
-- Helpers: `review_development_process_flow()`, `derive_revalidation_plan()`, `review_auto_mesh_splits()`.
-- Revalidation output includes route, proof, freshness gap, blocked claim.
+- Route id: `development_process_flow`; simulator route id: `development_process_simulator`.
+- Helper: `review_development_process_simulator()`.
+- Modes: `plan_detailing`, `agent_workflow`, `execution_freshness`.
+- Delegates: `flowguard-plan-detailing-compiler` for plan rows,
+  `flowguard-agent-workflow-rehearsal` for skill/tool order, this skill for
+  evidence freshness.
+- Lifecycle helpers: `review_development_process_flow()`,
+  `derive_revalidation_plan()`, `review_auto_mesh_splits()`.
 - Reference: `references/development_process_flow_protocol.md`.
 
 ## Hard Gates
 
 - Verify the real package and AGENTS.md managed records; do not create a fake mini-framework.
+- Do not route ordinary rough plans or multi-skill setup directly to delegated
+  mode skills; enter this simulator and record selected mode(s).
 - Skipped, stale, failed, progress-only, or release-only evidence is not pass.
-- UI tasks need explicit completion evidence type; background or planned UI evidence does not satisfy `[x]`, done, release, or archive.
-- Later writes can stale model/test reuse; reused output needs current `TestResultReuseTicket` and `ProofArtifactRef`.
-- Transition, UI chain, human-operability, source-baseline, payload schemas, field, route docs, installed-skill, and prompt changes stale their evidence.
-- Model-code-test rows stale when obligations, owners, tests, transition cells, or proof artifacts change.
+- UI, payload schemas, field, route docs, installed-skill, prompt, transition,
+  and human-operability changes stale their evidence.
+- Reused output needs current `TestResultReuseTicket` and `ProofArtifactRef`.
 - New/deepened process models need template harvest closure before broad claims.
-- Later writes can stale evidence or reopen obligations; preserve peer changes.
+- Preserve peer changes; later writes can stale earlier evidence.
 
 ## Minimum Workflow
 
-1. List stages and touched artifacts.
-2. Record which validation evidence covers which artifact version.
-3. Identify later actions that stale evidence.
-4. Regenerate transition coverage and model-code-test bindings when inputs changed.
-5. Include field lifecycle, payload, UI inventory/chain/human/source-baseline/done-claim, replacement, and bug-closure artifacts when changed.
-6. Derive the minimum revalidation plan.
-7. Triage failures before continuing or claiming done.
+1. Classify modes: rough plan -> `plan_detailing`; multi-skill/tool/external
+   action -> `agent_workflow`; implementation/install/sync/release/final claim
+   -> `execution_freshness`.
+2. For `plan_detailing`, require rows or a delegated PlanDetailing pass.
+3. For `agent_workflow`, require fresh inventory/order/gates or a delegated
+   AgentWorkflowRehearsal pass.
+4. For `execution_freshness`, list stages, artifacts, validation evidence,
+   invalidations, peer writes, and minimum revalidation.
+5. Triage failures before continuing or claiming done.
 
 ## Snapshot
 
-Show artifact versions, action order, invalidations, evidence ids, minimum
-revalidation, and unsupported claims. Edges mean order, invalidation, or
-required revalidation.
+Show modes, artifact versions, action order, invalidations, evidence ids,
+minimum revalidation, and unsupported claims.
 
 ## Non-Goals
 

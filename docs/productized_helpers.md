@@ -3,9 +3,7 @@
 FlowGuard's core remains small, while the public model-first entry is formal:
 
 ```text
-State + FunctionBlock + Invariant + Explorer
 FunctionBlock: Input x State -> Set(Output x State)
-Explorer: deterministic finite exploration
 
 RiskIntent + MinimumModelContract + KnownBadProof
 -> FlowGuardCheckPlan -> run_model_first_checks
@@ -104,14 +102,14 @@ warnings rather than rejected.
 Use `audit_flowguard_adoption(root)` for read-only checks of existing
 FlowGuard adoption evidence. It scans `.flowguard` Python files for stale
 fallback markers such as `flowguard_package_available = False`, fallback
-explorer comments, local replacement `Explorer`/`Workflow` classes, and current
-direct `Explorer(...)` calls that do not also bind the formal CheckPlan and
-known-bad proof gate.
+finite-runner comments, local replacement `Workflow` or finite-runner classes,
+and current direct finite-runner calls that do not also bind the formal
+CheckPlan and known-bad proof gate.
 
 If the real package is importable but a current model still appears to use a
 fallback, the report emits `stale_fallback_model` as a warning. If a current
-model runs direct Explorer without the formal gate, it emits
-`direct_explorer_formal_entry_required`. Historical fallback mentions in old
+model runs the finite engine without the formal gate, it emits a formal-entry
+required finding. Historical fallback mentions in old
 logs are kept visible as suggestions. These findings do not make the model fail
 by themselves; they prevent overclaiming current FlowGuard adoption from stale
 evidence.
@@ -127,14 +125,32 @@ The start command records `in_progress`; the finish command appends the final
 entry. This is a reporting helper only. It does not replace model checks,
 scenario review, conformance replay, or test execution.
 
+## Development Process Simulator
+
+Use `DevelopmentProcessSimulationRequest` and
+`review_development_process_simulator(...)` when a non-trivial request starts
+as plan discussion, involves several skills/tools/plugins, or will continue
+through staged edit/test/install/sync/release work. The simulator is the one
+front door for those process questions. It returns ordered mode decisions:
+
+- `plan_detailing`: rough plans need explicit rows before implementation.
+- `agent_workflow`: skills, tools, side effects, gates, and skipped candidates
+  need rehearsal before execution.
+- `execution_freshness`: artifact versions, peer writes, validation evidence,
+  install/shadow/git sync, and final claims need freshness review.
+
+The simulator does not replace the delegated mode owners. It points rough
+plans to Plan Detailing, multi-skill workflows to AgentWorkflowRehearsal, and
+execution-freshness claims to DevelopmentProcessFlow.
+
 ## Plan Detailing Compiler
 
-Use `PlanDetail` and `review_plan_detail(...)` when a human or AI starts with a
-rough idea, a short plan, or a vague workflow outline. The compiler does not
-generate the work by itself; it reviews structured rows for goal, source
-evidence, risk surfaces, artifacts, state, side effects, ordered steps,
-receipts, validation, failure branches, rework gates, human questions, and
-final evidence claim scope.
+Use `PlanDetail` and `review_plan_detail(...)` when the user explicitly asks
+for PlanDetailing or the development-process simulator delegates the
+`plan_detailing` mode. The compiler does not generate the work by itself; it
+reviews structured rows for goal, source evidence, risk surfaces, artifacts,
+state, side effects, ordered steps, receipts, validation, failure branches,
+rework gates, human questions, and final evidence claim scope.
 
 Projection helpers connect the detailed plan to existing routes:
 
@@ -286,7 +302,7 @@ pack-generated challenge routes stay inside the existing replay, alignment, and
 ledger evidence chain.
 
 For model-derived discovery, use
-`synthesize_challenge_scenarios_from_report(...)` after an Explorer run or let
+`synthesize_challenge_scenarios_from_report(...)` after a model-check report or let
 `run_model_first_checks(...)` add the `model_derived_challenges` section when
 auto-generated scenarios are enabled for retry, deduplication, cache, or
 side-effect risks. Those scenarios are selected from actual FlowGuard evidence:
@@ -299,7 +315,7 @@ explains why that route is worth testing.
 
 `StateClosurePlan`, `StateClosureDimension`, `StateClosureCase`, and
 `review_state_closure(...)` make "all other values" explicit without changing
-core `Explorer` into an infinite-state engine. Use `closed_enumeration` only
+the finite model runner into an infinite-state engine. Use `closed_enumeration` only
 when the listed values really are complete. Use `open_boundary` when other,
 malformed, missing, old-schema, invalid-terminal, or externally unknown cases
 may occur.
@@ -345,7 +361,7 @@ Status rules:
 - Any invariant violation, dead branch, exception, contract failure, progress
   failure, scenario mismatch, or conformance failure should make the relevant
   section `failed`.
-- If Explorer passes but audit has warnings, overall status is
+- If the finite model check passes but audit has warnings, overall status is
   `pass_with_gaps`.
 - A `not_run` or `skipped_with_reason` conformance section is a confidence gap,
   not a hard failure and not a pass.
@@ -400,10 +416,10 @@ the low-friction formal path for AI agents:
    boundaries, not as pass evidence.
 
 The runner is orchestration, not a new core checker. It calls existing helpers
-and delegates finite exploration to the core `Explorer`.
+and delegates finite exploration to the internal finite runner.
 
-Because the runner delegates model exploration to core `Explorer(...)`, it
-inherits the default ten-step `stderr` progress output. Do not add a second
+Because the runner delegates model exploration to the internal finite runner,
+it inherits the default bounded `stderr` progress output. Do not add a second
 runner-specific progress loop; silence progress with `FLOWGUARD_PROGRESS=0` or
 the plan progress fields when needed.
 
@@ -470,10 +486,11 @@ These are scaffolds, not reusable business logic. Rename every state field,
 input, output, invariant, and blindspot to match the target project before
 claiming confidence.
 
-The development process flow helper is a sibling route. It can reference
-evidence produced by ModelMesh, TestMesh, StructureMesh, Model-Test Alignment,
-LongCheck, or Conformance Adoption through evidence ids and artifact-version
-metadata, but it does not inspect or supervise those routes.
+The development process flow helper is the simulator front door and
+execution-freshness owner. It can reference evidence produced by ModelMesh,
+TestMesh, StructureMesh, Model-Test Alignment, LongCheck, or Conformance
+Adoption through evidence ids and artifact-version metadata, but it does not
+inspect or supervise those route owners.
 
 ## Maintenance Scan Router
 

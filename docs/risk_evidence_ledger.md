@@ -17,6 +17,11 @@ to ordinary evidence:
 user risk -> UI real-surface/functional-chain/done-claim gates -> payload gates -> topology hazard review -> model obligation -> remembered maintenance obligation -> public code contract -> obligation-family gate -> analogous scan -> defect-family gate -> current proof evidence
 ```
 
+If the user-facing risk depends on a specific useful business path, the
+topology hazard and runtime path evidence should bind to that path id and
+terminal result. A generic green node or helper-path test does not prove a
+business-path-sensitive final claim.
+
 If any link is missing, stale, skipped, progress-only, or internal-path-only, the
 report downgrades the final claim instead of letting the agent say "fully
 validated."

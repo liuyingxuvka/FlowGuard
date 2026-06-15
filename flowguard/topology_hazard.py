@@ -21,6 +21,7 @@ TOPOLOGY_NODE_BLOCK = "block"
 TOPOLOGY_NODE_INPUT = "input"
 TOPOLOGY_NODE_OUTPUT = "output"
 TOPOLOGY_NODE_USAGE = "usage"
+TOPOLOGY_NODE_BUSINESS_PATH = "business_path"
 
 TOPOLOGY_EDGE_WORKFLOW = "workflow_edge"
 TOPOLOGY_EDGE_STATE_WRITE = "state_write"
@@ -34,6 +35,10 @@ TOPOLOGY_LANDMARK_EXTERNAL_CONFIRMATION = "external_confirmation_boundary"
 TOPOLOGY_LANDMARK_COARSE_TERMINAL = "coarse_terminal_state"
 TOPOLOGY_LANDMARK_LEGACY_COMPATIBILITY = "legacy_or_compatibility_path"
 TOPOLOGY_LANDMARK_PARENT_CHILD_COMPRESSION = "parent_child_compression"
+TOPOLOGY_LANDMARK_BUSINESS_PATH_DUPLICATE = "business_path_duplicate"
+TOPOLOGY_LANDMARK_BUSINESS_PATH_CONFLICT = "business_path_conflict"
+TOPOLOGY_LANDMARK_BUSINESS_PATH_UNPROVEN = "business_path_unproven"
+TOPOLOGY_LANDMARK_BUSINESS_PATH_LEGACY_DISPOSITION = "business_path_legacy_disposition"
 
 TOPOLOGY_USAGE_UNKNOWN = "unknown"
 TOPOLOGY_USAGE_LOCAL = "local"
@@ -80,6 +85,7 @@ TOPOLOGY_ROUTE_MODEL_TEST_ALIGNMENT = "model_test_alignment"
 TOPOLOGY_ROUTE_RISK_LEDGER = "risk_evidence_ledger"
 TOPOLOGY_ROUTE_DEVELOPMENT_PROCESS = "development_process_flow"
 TOPOLOGY_ROUTE_ARCHITECTURE_REDUCTION = "architecture_reduction"
+TOPOLOGY_ROUTE_MODEL_SIMILARITY = "model_similarity_consolidation"
 
 TOPOLOGY_HARD_DISPOSITIONS = {
     TOPOLOGY_DISPOSITION_MODEL_PATCH,
@@ -184,6 +190,115 @@ def _broad_usage(usage: "UsageIntent") -> bool:
             }
         )
     )
+
+
+@dataclass(frozen=True)
+class BusinessPathIdentity:
+    """Stable identity for an important modeled business path."""
+
+    path_id: str
+    business_intent: str = ""
+    trigger: str = ""
+    preconditions: tuple[str, ...] = ()
+    expected_terminal: str = ""
+    state_writes: tuple[str, ...] = ()
+    side_effects: tuple[str, ...] = ()
+    source_labels: tuple[str, ...] = ()
+    equivalent_to: tuple[str, ...] = ()
+    exclusive_with: tuple[str, ...] = ()
+    supersedes: tuple[str, ...] = ()
+    compatibility_disposition: str = TOPOLOGY_COMPAT_UNKNOWN
+    evidence_ids: tuple[str, ...] = ()
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        path_id = str(self.path_id)
+        if not path_id:
+            raise ValueError("path_id is required")
+        object.__setattr__(self, "path_id", path_id)
+        object.__setattr__(self, "business_intent", str(self.business_intent))
+        object.__setattr__(self, "trigger", str(self.trigger))
+        object.__setattr__(self, "preconditions", _as_tuple(self.preconditions))
+        object.__setattr__(self, "expected_terminal", str(self.expected_terminal))
+        object.__setattr__(self, "state_writes", _as_tuple(self.state_writes))
+        object.__setattr__(self, "side_effects", _as_tuple(self.side_effects))
+        object.__setattr__(self, "source_labels", _as_tuple(self.source_labels))
+        object.__setattr__(self, "equivalent_to", _as_tuple(self.equivalent_to))
+        object.__setattr__(self, "exclusive_with", _as_tuple(self.exclusive_with))
+        object.__setattr__(self, "supersedes", _as_tuple(self.supersedes))
+        object.__setattr__(
+            self,
+            "compatibility_disposition",
+            str(self.compatibility_disposition or TOPOLOGY_COMPAT_UNKNOWN),
+        )
+        object.__setattr__(self, "evidence_ids", _as_tuple(self.evidence_ids))
+        object.__setattr__(self, "metadata", dict(self.metadata))
+
+    def anchor_id(self) -> str:
+        return f"business_path:{self.path_id}"
+
+    def has_current_source(self) -> bool:
+        return bool(self.source_labels or self.evidence_ids)
+
+    def identity_key(self) -> tuple[str, str, str]:
+        return (
+            self.business_intent.strip().lower(),
+            self.trigger.strip().lower(),
+            self.expected_terminal.strip().lower(),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "path_id": self.path_id,
+            "business_intent": self.business_intent,
+            "trigger": self.trigger,
+            "preconditions": list(self.preconditions),
+            "expected_terminal": self.expected_terminal,
+            "state_writes": list(self.state_writes),
+            "side_effects": list(self.side_effects),
+            "source_labels": list(self.source_labels),
+            "equivalent_to": list(self.equivalent_to),
+            "exclusive_with": list(self.exclusive_with),
+            "supersedes": list(self.supersedes),
+            "compatibility_disposition": self.compatibility_disposition,
+            "evidence_ids": list(self.evidence_ids),
+            "metadata": to_jsonable(dict(self.metadata)),
+        }
+
+
+def _coerce_business_path(value: BusinessPathIdentity | Mapping[str, Any] | Any) -> BusinessPathIdentity:
+    if isinstance(value, BusinessPathIdentity):
+        return value
+    if isinstance(value, Mapping):
+        return BusinessPathIdentity(**value)
+    return BusinessPathIdentity(
+        path_id=getattr(value, "path_id", "") or getattr(value, "id", ""),
+        business_intent=getattr(value, "business_intent", "") or getattr(value, "intent", ""),
+        trigger=getattr(value, "trigger", ""),
+        preconditions=getattr(value, "preconditions", ()),
+        expected_terminal=getattr(value, "expected_terminal", "") or getattr(value, "terminal", ""),
+        state_writes=getattr(value, "state_writes", ()) or getattr(value, "writes", ()),
+        side_effects=getattr(value, "side_effects", ()),
+        source_labels=getattr(value, "source_labels", ()),
+        equivalent_to=getattr(value, "equivalent_to", ()),
+        exclusive_with=getattr(value, "exclusive_with", ()),
+        supersedes=getattr(value, "supersedes", ()),
+        compatibility_disposition=getattr(value, "compatibility_disposition", TOPOLOGY_COMPAT_UNKNOWN),
+        evidence_ids=getattr(value, "evidence_ids", ()),
+        metadata=getattr(value, "metadata", {}) or {},
+    )
+
+
+def _paths_exclusive(left: BusinessPathIdentity, right: BusinessPathIdentity) -> bool:
+    return right.path_id in left.exclusive_with or left.path_id in right.exclusive_with
+
+
+def _paths_share_applicability(left: BusinessPathIdentity, right: BusinessPathIdentity) -> bool:
+    if left.trigger and right.trigger and left.trigger != right.trigger:
+        return False
+    if not left.preconditions or not right.preconditions:
+        return True
+    return bool(set(left.preconditions).intersection(right.preconditions))
 
 
 @dataclass(frozen=True)
@@ -329,6 +444,7 @@ class TopologyDigest:
     edges: tuple[TopologyEdge, ...] = ()
     landmarks: tuple[TopologyLandmark, ...] = ()
     usage_intent: UsageIntent = field(default_factory=UsageIntent)
+    business_paths: tuple[BusinessPathIdentity, ...] = ()
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -337,6 +453,7 @@ class TopologyDigest:
         object.__setattr__(self, "nodes", tuple(self.nodes))
         object.__setattr__(self, "edges", tuple(self.edges))
         object.__setattr__(self, "landmarks", tuple(self.landmarks))
+        object.__setattr__(self, "business_paths", tuple(_coerce_business_path(path) for path in self.business_paths))
         object.__setattr__(self, "metadata", dict(self.metadata))
 
     def anchor_ids(self) -> tuple[str, ...]:
@@ -354,6 +471,7 @@ class TopologyDigest:
             "edges": [edge.to_dict() for edge in self.edges],
             "landmarks": [landmark.to_dict() for landmark in self.landmarks],
             "usage_intent": self.usage_intent.to_dict(),
+            "business_paths": [path.to_dict() for path in self.business_paths],
             "metadata": to_jsonable(dict(self.metadata)),
         }
 
@@ -607,6 +725,7 @@ def infer_topology_digest(
     initial_states: Sequence[Any] = (),
     external_inputs: Sequence[Any] = (),
     usage_intent: UsageIntent | None = None,
+    business_paths: Sequence[BusinessPathIdentity | Mapping[str, Any] | Any] = (),
     digest_id: str = "",
 ) -> TopologyDigest:
     """Build a small topology digest from a FlowGuard workflow and examples."""
@@ -614,6 +733,7 @@ def infer_topology_digest(
     blocks = tuple(getattr(workflow, "blocks", ()) or ())
     workflow_name = str(getattr(workflow, "name", "") or type(workflow).__name__)
     usage = usage_intent or UsageIntent()
+    path_identities = tuple(_coerce_business_path(path) for path in business_paths)
     nodes: list[TopologyNode] = [
         TopologyNode("usage:intent", TOPOLOGY_NODE_USAGE, usage.final_claim, {"usage_modes": usage.usage_modes})
     ]
@@ -644,6 +764,15 @@ def infer_topology_digest(
                 TOPOLOGY_NODE_INPUT,
                 _type_name(input_obj),
                 {"fields": _field_names(input_obj), "values": _field_values(input_obj)},
+            )
+        )
+    for path in path_identities:
+        nodes.append(
+            TopologyNode(
+                path.anchor_id(),
+                TOPOLOGY_NODE_BUSINESS_PATH,
+                path.business_intent or path.path_id,
+                path.to_dict(),
             )
         )
 
@@ -685,7 +814,7 @@ def infer_topology_digest(
                 )
             )
 
-    landmarks = list(_infer_landmarks(nodes, edges, usage))
+    landmarks = list(_infer_landmarks(nodes, edges, usage, path_identities))
     return TopologyDigest(
         digest_id=digest_id or f"topology:{workflow_name}",
         workflow_name=workflow_name,
@@ -693,6 +822,7 @@ def infer_topology_digest(
         edges=tuple(edges),
         landmarks=tuple(landmarks),
         usage_intent=usage,
+        business_paths=path_identities,
     )
 
 
@@ -700,6 +830,7 @@ def _infer_landmarks(
     nodes: Sequence[TopologyNode],
     edges: Sequence[TopologyEdge],
     usage: UsageIntent,
+    business_paths: Sequence[BusinessPathIdentity] = (),
 ) -> tuple[TopologyLandmark, ...]:
     landmarks: list[TopologyLandmark] = []
     write_owners: dict[str, list[str]] = {}
@@ -786,6 +917,102 @@ def _infer_landmarks(
                 "usage intent asks for broad release, production, package, plugin, or service confidence",
             )
         )
+    landmarks.extend(_infer_business_path_landmarks(business_paths))
+    return tuple(landmarks)
+
+
+def _infer_business_path_landmarks(
+    business_paths: Sequence[BusinessPathIdentity],
+) -> tuple[TopologyLandmark, ...]:
+    landmarks: list[TopologyLandmark] = []
+    by_id = {path.path_id: path for path in business_paths}
+
+    for path in business_paths:
+        if not path.has_current_source():
+            landmarks.append(
+                TopologyLandmark(
+                    f"landmark:business-path-unproven:{path.path_id}",
+                    TOPOLOGY_LANDMARK_BUSINESS_PATH_UNPROVEN,
+                    (path.anchor_id(),),
+                    "business path lacks source labels or current evidence ids",
+                    {"path_id": path.path_id},
+                )
+            )
+        if path.supersedes and path.compatibility_disposition == TOPOLOGY_COMPAT_UNKNOWN:
+            landmarks.append(
+                TopologyLandmark(
+                    f"landmark:business-path-legacy:{path.path_id}",
+                    TOPOLOGY_LANDMARK_BUSINESS_PATH_LEGACY_DISPOSITION,
+                    (path.anchor_id(),) + tuple(f"business_path:{old_id}" for old_id in path.supersedes),
+                    "business path supersedes old paths without an explicit compatibility disposition",
+                    {"path_id": path.path_id, "supersedes": path.supersedes},
+                )
+            )
+
+    duplicate_pairs: set[tuple[str, str]] = set()
+    for path in business_paths:
+        for equivalent_id in path.equivalent_to:
+            if equivalent_id in by_id:
+                duplicate_pairs.add(tuple(sorted((path.path_id, equivalent_id))))
+
+    by_identity: dict[tuple[str, str, str], list[BusinessPathIdentity]] = {}
+    for path in business_paths:
+        key = path.identity_key()
+        if key[0] and (key[1] or key[2]):
+            by_identity.setdefault(key, []).append(path)
+    for paths in by_identity.values():
+        if len(paths) < 2:
+            continue
+        for left_index, left in enumerate(paths):
+            for right in paths[left_index + 1 :]:
+                if not _paths_exclusive(left, right):
+                    duplicate_pairs.add(tuple(sorted((left.path_id, right.path_id))))
+
+    for left_id, right_id in sorted(duplicate_pairs):
+        left = by_id[left_id]
+        right = by_id[right_id]
+        landmarks.append(
+            TopologyLandmark(
+                f"landmark:business-path-duplicate:{left_id}:{right_id}",
+                TOPOLOGY_LANDMARK_BUSINESS_PATH_DUPLICATE,
+                (left.anchor_id(), right.anchor_id()),
+                "business paths appear to perform the same business job",
+                {
+                    "path_ids": (left_id, right_id),
+                    "left": left.to_dict(),
+                    "right": right.to_dict(),
+                },
+            )
+        )
+
+    for left_index, left in enumerate(business_paths):
+        for right in business_paths[left_index + 1 :]:
+            if _paths_exclusive(left, right) or not _paths_share_applicability(left, right):
+                continue
+            shared_state = tuple(sorted(set(left.state_writes).intersection(right.state_writes)))
+            shared_effects = tuple(sorted(set(left.side_effects).intersection(right.side_effects)))
+            terminal_conflict = bool(
+                left.expected_terminal
+                and right.expected_terminal
+                and left.expected_terminal != right.expected_terminal
+            )
+            side_effect_conflict = bool(left.side_effects and right.side_effects and set(left.side_effects) != set(right.side_effects))
+            if (shared_state or shared_effects) and (terminal_conflict or side_effect_conflict):
+                landmarks.append(
+                    TopologyLandmark(
+                        f"landmark:business-path-conflict:{left.path_id}:{right.path_id}",
+                        TOPOLOGY_LANDMARK_BUSINESS_PATH_CONFLICT,
+                        (left.anchor_id(), right.anchor_id()),
+                        "business paths share applicability and ownership but disagree on terminal or side effects",
+                        {
+                            "path_ids": (left.path_id, right.path_id),
+                            "shared_state_writes": shared_state,
+                            "shared_side_effects": shared_effects,
+                            "left_terminal": left.expected_terminal,
+                            "right_terminal": right.expected_terminal,
+                        },
+                    )
+                )
     return tuple(landmarks)
 
 
@@ -890,6 +1117,83 @@ def derive_topology_hazard_candidates(digest: TopologyDigest) -> tuple[TopologyH
                     severity=TOPOLOGY_SEVERITY_CONFIDENCE_GAP,
                 )
             )
+        elif landmark.landmark_type == TOPOLOGY_LANDMARK_BUSINESS_PATH_DUPLICATE:
+            candidates.append(
+                TopologyHazardCandidate(
+                    f"hazard:business-path-duplicate:{landmark.landmark_id}",
+                    "Two business paths appear to do the same useful job.",
+                    rationale="Duplicate business paths increase model and software support cost unless one is removed, folded, or explicitly preserved for compatibility.",
+                    future_failure_mode="Future changes update one useful path while a duplicate path remains reachable, stale, or falsely counted as separate evidence.",
+                    topology_anchor_ids=landmark.anchor_ids,
+                    source_landmark_ids=(landmark.landmark_id,),
+                    disposition=TOPOLOGY_DISPOSITION_COMPATIBILITY_DECISION,
+                    required_routes=(
+                        TOPOLOGY_ROUTE_ARCHITECTURE_REDUCTION,
+                        TOPOLOGY_ROUTE_MODEL_SIMILARITY,
+                        TOPOLOGY_ROUTE_RISK_LEDGER,
+                    ),
+                    confidence_effect=TOPOLOGY_CONFIDENCE_SCOPED,
+                    severity=TOPOLOGY_SEVERITY_CONFIDENCE_GAP,
+                    metadata=landmark.metadata,
+                )
+            )
+        elif landmark.landmark_type == TOPOLOGY_LANDMARK_BUSINESS_PATH_CONFLICT:
+            effect = TOPOLOGY_CONFIDENCE_BLOCKED if broad else TOPOLOGY_CONFIDENCE_SCOPED
+            candidates.append(
+                TopologyHazardCandidate(
+                    f"hazard:business-path-conflict:{landmark.landmark_id}",
+                    "Business paths may conflict for the same trigger or ownership surface.",
+                    rationale="A green local model can still be wrong if two routes compete for the same business input, state write, side effect, or terminal result.",
+                    future_failure_mode="The real workflow follows a different path than the modeled claim, or two paths race to write incompatible state.",
+                    topology_anchor_ids=landmark.anchor_ids,
+                    source_landmark_ids=(landmark.landmark_id,),
+                    disposition=TOPOLOGY_DISPOSITION_MODEL_MATURATION,
+                    required_routes=(
+                        TOPOLOGY_ROUTE_MODEL_MATURATION,
+                        TOPOLOGY_ROUTE_MODEL_TEST_ALIGNMENT,
+                        TOPOLOGY_ROUTE_RISK_LEDGER,
+                    ),
+                    confidence_effect=effect,
+                    severity=TOPOLOGY_SEVERITY_BLOCKER if effect == TOPOLOGY_CONFIDENCE_BLOCKED else TOPOLOGY_SEVERITY_CONFIDENCE_GAP,
+                    metadata=landmark.metadata,
+                )
+            )
+        elif landmark.landmark_type == TOPOLOGY_LANDMARK_BUSINESS_PATH_UNPROVEN:
+            candidates.append(
+                TopologyHazardCandidate(
+                    f"hazard:business-path-unproven:{landmark.landmark_id}",
+                    "A business path lacks source or runtime evidence binding.",
+                    rationale="Path-sensitive confidence needs evidence for the specific useful path, not only for a nearby node or generic success state.",
+                    future_failure_mode="The model reports success while only a different path has been exercised or inspected.",
+                    topology_anchor_ids=landmark.anchor_ids,
+                    source_landmark_ids=(landmark.landmark_id,),
+                    disposition=TOPOLOGY_DISPOSITION_TEST_REQUIRED,
+                    required_routes=(TOPOLOGY_ROUTE_MODEL_TEST_ALIGNMENT, TOPOLOGY_ROUTE_RISK_LEDGER),
+                    confidence_effect=TOPOLOGY_CONFIDENCE_BLOCKED if broad else TOPOLOGY_CONFIDENCE_SCOPED,
+                    severity=TOPOLOGY_SEVERITY_BLOCKER if broad else TOPOLOGY_SEVERITY_CONFIDENCE_GAP,
+                    metadata=landmark.metadata,
+                )
+            )
+        elif landmark.landmark_type == TOPOLOGY_LANDMARK_BUSINESS_PATH_LEGACY_DISPOSITION:
+            candidates.append(
+                TopologyHazardCandidate(
+                    f"hazard:business-path-legacy:{landmark.landmark_id}",
+                    "An old/new business path relationship lacks an explicit disposition.",
+                    rationale="Replacement paths must say whether old paths are deleted, blocked, migrated, delegated, or preserved for compatibility.",
+                    future_failure_mode="An old path stays reachable without evidence, or a deleted path is still assumed by users, artifacts, or tests.",
+                    topology_anchor_ids=landmark.anchor_ids,
+                    source_landmark_ids=(landmark.landmark_id,),
+                    disposition=TOPOLOGY_DISPOSITION_COMPATIBILITY_DECISION,
+                    required_routes=(
+                        TOPOLOGY_ROUTE_ARCHITECTURE_REDUCTION,
+                        TOPOLOGY_ROUTE_DEVELOPMENT_PROCESS,
+                        TOPOLOGY_ROUTE_RISK_LEDGER,
+                    ),
+                    confidence_effect=TOPOLOGY_CONFIDENCE_BLOCKED if broad else TOPOLOGY_CONFIDENCE_SCOPED,
+                    severity=TOPOLOGY_SEVERITY_BLOCKER if broad else TOPOLOGY_SEVERITY_CONFIDENCE_GAP,
+                    metadata=landmark.metadata,
+                )
+            )
     return tuple(candidates)
 
 
@@ -899,6 +1203,7 @@ def infer_topology_hazard_plan(
     initial_states: Sequence[Any] = (),
     external_inputs: Sequence[Any] = (),
     usage_intent: UsageIntent | None = None,
+    business_paths: Sequence[BusinessPathIdentity | Mapping[str, Any] | Any] = (),
     plan_id: str = "",
     candidates: Sequence[TopologyHazardCandidate] = (),
     final_claim: str = "",
@@ -910,6 +1215,7 @@ def infer_topology_hazard_plan(
         initial_states=initial_states,
         external_inputs=external_inputs,
         usage_intent=usage_intent,
+        business_paths=business_paths,
         digest_id=plan_id and f"{plan_id}:digest",
     )
     return TopologyHazardReviewPlan(
@@ -1069,12 +1375,17 @@ __all__ = [
     "TOPOLOGY_EDGE_SIDE_EFFECT",
     "TOPOLOGY_EDGE_STATE_WRITE",
     "TOPOLOGY_EDGE_WORKFLOW",
+    "TOPOLOGY_LANDMARK_BUSINESS_PATH_CONFLICT",
+    "TOPOLOGY_LANDMARK_BUSINESS_PATH_DUPLICATE",
+    "TOPOLOGY_LANDMARK_BUSINESS_PATH_LEGACY_DISPOSITION",
+    "TOPOLOGY_LANDMARK_BUSINESS_PATH_UNPROVEN",
     "TOPOLOGY_LANDMARK_COARSE_TERMINAL",
     "TOPOLOGY_LANDMARK_EXTERNAL_CONFIRMATION",
     "TOPOLOGY_LANDMARK_LEGACY_COMPATIBILITY",
     "TOPOLOGY_LANDMARK_PARENT_CHILD_COMPRESSION",
     "TOPOLOGY_LANDMARK_SHARED_WRITER",
     "TOPOLOGY_LANDMARK_SIDE_EFFECT_REPEAT",
+    "TOPOLOGY_NODE_BUSINESS_PATH",
     "TOPOLOGY_NODE_BLOCK",
     "TOPOLOGY_NODE_INPUT",
     "TOPOLOGY_NODE_OUTPUT",
@@ -1083,6 +1394,7 @@ __all__ = [
     "TOPOLOGY_ROUTE_ARCHITECTURE_REDUCTION",
     "TOPOLOGY_ROUTE_DEVELOPMENT_PROCESS",
     "TOPOLOGY_ROUTE_MODEL_MATURATION",
+    "TOPOLOGY_ROUTE_MODEL_SIMILARITY",
     "TOPOLOGY_ROUTE_MODEL_TEST_ALIGNMENT",
     "TOPOLOGY_ROUTE_RISK_LEDGER",
     "TOPOLOGY_SEVERITY_BLOCKER",
@@ -1096,6 +1408,7 @@ __all__ = [
     "TOPOLOGY_USAGE_RELEASE",
     "TOPOLOGY_USAGE_SERVICE",
     "TOPOLOGY_USAGE_UNKNOWN",
+    "BusinessPathIdentity",
     "TopologyDigest",
     "TopologyEdge",
     "TopologyHazardCandidate",

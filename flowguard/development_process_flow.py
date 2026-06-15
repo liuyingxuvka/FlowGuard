@@ -1,11 +1,11 @@
 """Development lifecycle process-flow governance helpers.
 
-DevelopmentProcessFlow reviews whether a development lifecycle can trust its
+DevelopmentProcessFlow is the development-process simulator front door and the
+execution-freshness owner. It reviews whether a development lifecycle can trust
 current validation evidence after ordered artifact writes, verifier changes,
-peer writes, and routine/release claims. It is a sibling route beside
+peer writes, and routine/release claims. It may reference evidence ids from
 ModelMesh, TestMesh, StructureMesh, Model-Test Alignment, LongCheck, and
-Conformance Adoption. It may reference sibling route evidence ids, but it does
-not inspect or replace sibling route internals.
+Conformance Adoption, but it does not inspect or replace those route internals.
 """
 
 from __future__ import annotations
