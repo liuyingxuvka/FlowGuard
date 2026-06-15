@@ -14,8 +14,14 @@ from flowguard import (
     STATE_CLOSURE_HANDLING_REJECT,
     STATE_CLOSURE_POLICY_OPEN,
     FunctionResult,
+    KnownBadProof,
+    MinimumModelContract,
+    RiskIntent,
+    RiskProfile,
     StateClosureDimension,
     StateClosurePlan,
+    TemplateHarvestReview,
+    TemplateReuseReview,
     Workflow,
     infer_state_closure_plan,
     review_state_closure,
@@ -25,6 +31,53 @@ from flowguard.plan import FlowGuardCheckPlan
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def formal_entry_kwargs():
+    return {
+        "risk_profile": RiskProfile(
+            modeled_boundary="event state closure",
+            risk_classes=("side_effect",),
+            risk_intent=RiskIntent(
+                failure_modes=("unknown event accepted as normal",),
+                protected_error_classes=("unsafe_unknown_input",),
+                protected_harms=("unexpected input reaches side effects",),
+                must_model_state=("status",),
+                must_model_side_effects=("event_accept",),
+                completion_evidence=("accepted_label",),
+                adversarial_inputs=("unknown event status",),
+                hard_invariants=("unknowns reject before side effects",),
+                known_bad_cases=("unknown_status_accepted",),
+                template_no_match_reason="state closure gate owns this local input boundary",
+                blindspots=("production adapter replay is outside this unit test",),
+            ),
+        ),
+        "template_reuse_review": TemplateReuseReview(
+            no_match_reason="state closure gate owns this local input boundary",
+            searched_layers=("public", "local"),
+        ),
+        "template_harvest_review": TemplateHarvestReview(
+            disposition="not_harvestable",
+            not_harvestable_reason="not_reusable_project_specific",
+        ),
+        "minimum_model_contract": MinimumModelContract(
+            protected_error_classes=("unsafe_unknown_input",),
+            modeled_state=("status",),
+            modeled_side_effects=("event_accept",),
+            completion_evidence=("accepted_label",),
+            known_bad_cases=("unknown_status_accepted",),
+        ),
+        "known_bad_proofs": (
+            KnownBadProof(
+                "unknown_status_accepted",
+                protected_error_class="unsafe_unknown_input",
+                method="state_closure_review",
+                observed_status="failed",
+                observed_failure="state closure blocks side effect before unknown resolution",
+                evidence_id="state_closure:unknown_status_accepted",
+            ),
+        ),
+    }
 
 
 @dataclass(frozen=True)
@@ -134,6 +187,7 @@ class StateClosureTests(unittest.TestCase):
                 initial_states=(State("idle"),),
                 external_inputs=(Event("known"),),
                 max_sequence_length=1,
+                **formal_entry_kwargs(),
             )
         )
         sections = {section.name: section for section in summary.sections}
@@ -165,6 +219,7 @@ class StateClosureTests(unittest.TestCase):
                 external_inputs=(Event("known"),),
                 max_sequence_length=1,
                 state_closure_plan=closure_plan,
+                **formal_entry_kwargs(),
             )
         )
         sections = {section.name: section for section in summary.sections}

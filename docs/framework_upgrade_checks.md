@@ -3,15 +3,17 @@
 This page is for FlowGuard framework upgrades, benchmark claims, and internal
 capability reports. It is not part of the ordinary project modeling path.
 
-For normal project work, start with:
+For normal project work, start with the formal minimum model entry:
 
 ```text
-State + FunctionBlock + Invariant + Explorer
+RiskIntent + Input x State -> Set(Output x State)
+-> MinimumModelContract + KnownBadProof
+-> FlowGuardCheckPlan + run_model_first_checks
 ```
 
-Use `run_model_first_checks(...)`, scenario review, progress checks, contracts,
-and conformance replay only when they fit the project risk. Do not require the
-full internal benchmark suite for ordinary bug fixes.
+Use scenario review, progress checks, contracts, and conformance replay when
+they fit the project risk. Do not require the full internal benchmark suite for
+ordinary bug fixes.
 
 ## When To Use This Page
 

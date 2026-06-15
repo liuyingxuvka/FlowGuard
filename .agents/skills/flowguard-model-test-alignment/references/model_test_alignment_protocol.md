@@ -25,6 +25,13 @@ a transition cell should use a stable target id and cover the same code
 contract; large or slow matrices can project required cell ids to TestMesh
 through `transition_coverage_to_required_leaf_cell_ids(...)`.
 
+When ModelMesh owns a parent/child closure, project the `MeshClosureModel` with
+`model_mesh_closure_to_transition_coverage(...)` and compare those generated
+transition obligations like any other matrix. Repeated-input retry or rejection
+handoffs are not covered by one observed regression; the generated cells require
+happy-path, failure-path, negative-path, and replay evidence unless the route is
+explicitly scoped out.
+
 When the result supports a final done, release, publish, or full-confidence
 claim, pass the obligation ids, code contract ids, test evidence ids, statuses,
 freshness, and assertion scopes into a Risk Evidence Ledger. Alignment proves
@@ -152,6 +159,9 @@ Use grouped field families instead of a blank for every possible detail.
   effects, error paths, and exactness.
 - transition coverage source when generated from a matrix: cell id, source
   state, trigger, target state, expected output, and required test kinds.
+- ModelMesh closure source when generated from a mesh: parent model id, closure
+  transition id, consumer model, code contract id, runtime node id, repeat-input
+  tokens, and repair/blocker/progress tokens.
 - field lifecycle source when generated from FieldLifecycleMesh: field id,
   projection id, behavior impact, old-field disposition if relevant, and owner
   route.

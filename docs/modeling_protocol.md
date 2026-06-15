@@ -102,6 +102,10 @@ If real FlowGuard is importable but a current `.flowguard` Python model still
 claims `flowguard_package_available = False`, uses a fallback explorer, or
 defines local replacement `Explorer`/`Workflow` classes, record a
 `stale_fallback_model` warning. This is a confidence gap, not a hard failure.
+If a current `.flowguard` model calls `Explorer(...)` directly without a
+`FlowGuardCheckPlan`, `RiskIntent`, `MinimumModelContract`, and
+`KnownBadProof`, record `direct_explorer_formal_entry_required` and upgrade the
+model before making a complete FlowGuard claim.
 
 ## 0.2 Detail Rough Plans Before Modeling
 
@@ -121,9 +125,11 @@ confidence.
 
 Keep the API surface boundary clear:
 
-- core modeling uses `FunctionBlock`, `FunctionResult`, `Invariant`,
+- core modeling primitives use `FunctionBlock`, `FunctionResult`, `Invariant`,
   `Workflow`, and `Explorer`;
-- modeling helpers reduce boilerplate, but direct `Explorer` use remains valid;
+- formal model-first entry uses `FlowGuardCheckPlan`,
+  `run_model_first_checks`, `RiskIntent`, `MinimumModelContract`,
+  `KnownBadProof`, template reuse/no-match review, and template harvest closure;
 - reporting helpers explain gaps and skipped work, but warnings are not hard
   failures;
 - evidence and benchmark helpers are mainly for FlowGuard maintenance and
@@ -509,18 +515,19 @@ Answer these questions before creating or editing the model:
 
 The first/default model should be a minimum valuable model, not a happy-path
 stub. It can stay small, but it needs state, side effects or completion
-evidence, and at least one known-bad case unless the claim is explicitly scoped.
+evidence, and at least one known-bad case with current proof that the broken
+variant fails unless the claim is explicitly scoped.
 Search packaged public templates and the per-machine local template library
 before generating a new or materially deepened model. Before a complete claim,
 record template harvest closure: write a local candidate, merge an existing template,
 duplicate-link an existing template, or record an accepted not-harvestable
 reason. Missing closure means the model is not fully done.
 
-When using the optional runner path, put the brief into `RiskProfile` through a
-`RiskIntent` or equivalent `risk_intent` mapping. Direct `Explorer(...)` usage
-remains valid; still keep the brief in the model file, adoption note, or review
-summary so reviewers can see why the model includes the chosen state, inputs,
-scenarios, and invariants.
+Put the brief into `RiskProfile` through a `RiskIntent` or equivalent
+`risk_intent` mapping, bind the minimum model contract and known-bad proof on
+the `FlowGuardCheckPlan`, and run `run_model_first_checks(plan)`. Direct
+`Explorer(...)` remains an internal execution primitive, not the formal entry
+for non-trivial model creation.
 
 ## 1. Identify External Inputs
 
@@ -532,6 +539,7 @@ Examples:
 - The same job repeated.
 - A low-signal item.
 - A retry after partial progress.
+- The same rejected AI packet repeated after missing feedback.
 
 ## 2. Identify Abstract Finite State
 
@@ -673,7 +681,7 @@ python -m flowguard maintenance-template --output .
 It scaffolds repeated-action, missing-report, and install-sync checks. Rename
 the roles and state fields before treating it as project evidence.
 
-## 9. Run Explorer With Repeated Inputs
+## 9. Run The Formal Check Plan With Repeated Inputs
 
 Choose:
 
@@ -684,23 +692,23 @@ Choose:
 
 Always include repeated-input exploration when duplicate side effects are possible. For one input and length two, the explorer must check both `[x]` and `[x, x]`.
 
-Direct `Explorer(...)` runs emit bounded ten-step progress on `stderr` by
-default, counted by top-level `initial_state x input_sequence` work units. This
-helps agents distinguish a long serial run from a silent process, but it is not
-pass/fail evidence and it does not change `CheckReport` semantics. Use
-`progress_steps=0` or `FLOWGUARD_PROGRESS=0` when a strict environment requires
-no progress output.
+The runner delegates finite exploration to `Explorer(...)`, which emits bounded
+ten-step progress on `stderr` by default, counted by top-level
+`initial_state x input_sequence` work units. This helps agents distinguish a
+long serial run from a silent process, but it is not pass/fail evidence and it
+does not change `CheckReport` semantics. Use plan progress settings or
+`FLOWGUARD_PROGRESS=0` when a strict environment requires no progress output.
 
-When using the orchestration path, put the intended coverage boundary in a
-`RiskProfile`, then create a `FlowGuardCheckPlan` and call
-`run_model_first_checks(plan)`. The runner performs audit, automatic
-state/input closure review, optional scenario scaffolding, Explorer,
-counterexample minimization, scenario review, optional
-progress/contract/conformance sections, and a unified summary. The closure
-review generates representative `other`, malformed, and missing-field cases for
-inferred finite dimensions; undeclared policies scope confidence, and unsafe
-unknown handling blocks it. This is a convenience path, not the only valid way
-to run FlowGuard.
+Put the intended coverage boundary in `RiskProfile`, create a
+`FlowGuardCheckPlan`, bind the minimum model contract, known-bad proof, template
+reuse/no-match review, and harvest closure, then call
+`run_model_first_checks(plan)`. The runner performs the minimum model review,
+known-bad proof review, audit, automatic state/input closure review, optional
+scenario scaffolding, Explorer, counterexample minimization, scenario review,
+optional progress/contract/conformance sections, and a unified summary. The
+closure review generates representative `other`, malformed, and missing-field
+cases for inferred finite dimensions; undeclared policies scope confidence, and
+unsafe unknown handling blocks it.
 
 ## 10. Inspect Counterexamples
 
@@ -751,6 +759,11 @@ Production implementation should preserve:
 - the same deduplication behavior;
 - the same downstream object compatibility;
 - the same invariants.
+
+For retry, rejection, or AI-packet repair loops, the model should also preserve
+why the next packet changes or why the route blocks. A repeated input that emits
+the same rejected shape without repair feedback, progress, or a blocker is a
+stuck-loop counterexample, even if each individual rejection is locally valid.
 
 ## 13. Replay Production Code Against Model Traces
 
@@ -1020,11 +1033,12 @@ means "this is a confidence boundary", not "the model failed". A suggestion is
 an improvement idea. Only structural problems such as a workflow with no blocks
 should be treated as audit errors.
 
-Use a `FlowGuardSummaryReport` when you need to present model check, audit,
-scenario review, progress, contract, conformance, and skipped/not-run sections
-together. If Explorer passes but audit warns, the overall status should be
-`pass_with_gaps`, not plain `pass`. If production conformance is not run, record
-`not_run` or `skipped_with_reason`; skipped is not pass.
+Use a `FlowGuardSummaryReport` when you need to present minimum-model,
+known-bad proof, template harvest, model check, audit, scenario review,
+progress, contract, conformance, and skipped/not-run sections together. If
+Explorer passes but a formal gate blocks or audit warns, the overall status
+should not be treated as plain `pass`. If production conformance is not run,
+record `not_run` or `skipped_with_reason`; skipped is not pass.
 
 `FlowGuardSummaryReport.finding_ledger` flattens every section finding and
 every non-pass section gap into a `FlowGuardFindingLedger`. Use that ledger
@@ -1049,16 +1063,19 @@ Recommended low-friction agent flow:
 1. Create a model if none exists yet, or reuse/update the existing model.
 2. Start with the smallest inspectable boundary that still exposes the customer
    risk.
-3. Declare a lightweight `RiskProfile`.
-4. Use standard property factories or domain packs when they fit.
-5. Run `run_model_first_checks()` when available.
-6. Inspect the finding ledger before choosing a repair path for framework
+3. Declare `RiskProfile` with a minimum valuable `RiskIntent`.
+4. Bind `MinimumModelContract`, current `KnownBadProof`, template reuse/no-match
+   review, and template harvest closure.
+5. Use standard property factories or domain packs when they fit.
+6. Run `run_model_first_checks()`.
+7. Inspect the finding ledger before choosing a repair path for framework
    upgrades, live failures, or model misses.
-7. Inspect minimized counterexamples if any.
-8. Treat `pass_with_gaps` as useful but limited confidence.
-9. Do not claim production conformance unless conformance replay or equivalent
+8. Inspect minimized counterexamples if any.
+9. Treat `pass_with_gaps`, `blocked`, skipped, stale, or `not_run` sections as
+   claim boundaries.
+10. Do not claim production conformance unless conformance replay or equivalent
    real-code evidence exists.
-10. Record skipped checks; skipped is not pass.
+11. Record skipped checks; skipped is not pass.
 
 For older adopted repositories, run project upgrade before relying on existing
 FlowGuard files. FlowGuard's runtime path is latest-schema-first: old artifacts
@@ -1071,6 +1088,8 @@ reviews should not keep accepting obsolete fields, aliases, or wrappers.
   protected harms, model-critical state and side effects, completion evidence,
   adversarial inputs, known-bad cases, hard invariants, used public/local
   templates or a no-match reason, and blindspots.
+- The model includes current known-bad proof evidence showing a representative
+  broken path fails for the protected error class.
 - If no model existed before FlowGuard applied, an AI-created model script now
   captures the relevant customer risk instead of waiting for a preexisting
   script.

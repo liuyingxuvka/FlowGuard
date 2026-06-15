@@ -3,9 +3,15 @@ from dataclasses import dataclass
 
 from flowguard import (
     FunctionResult,
+    KnownBadProof,
+    MinimumModelContract,
     ModelTestAlignmentPlan,
     ProcessArtifact,
     ProcessEvidence,
+    RiskIntent,
+    RiskProfile,
+    TemplateHarvestReview,
+    TemplateReuseReview,
     Trace,
     TraceStep,
     Workflow,
@@ -39,6 +45,53 @@ from flowguard.step_contracts import (
     step_contracts_to_validation_requirements,
 )
 from flowguard.conformance import replay_trace
+
+
+def formal_entry_kwargs():
+    return {
+        "risk_profile": RiskProfile(
+            modeled_boundary="workflow step contracts",
+            risk_classes=("side_effect",),
+            risk_intent=RiskIntent(
+                failure_modes=("done claimed without required inventory step",),
+                protected_error_classes=("premature_completion",),
+                protected_harms=("workflow is marked done before required receipts exist",),
+                must_model_state=("step_receipts",),
+                must_model_side_effects=("done_claim",),
+                completion_evidence=("done_receipt",),
+                adversarial_inputs=("claim done before inventory",),
+                hard_invariants=("required steps precede done claim",),
+                known_bad_cases=("done_without_inventory",),
+                template_no_match_reason="step contract unit test owns this local boundary",
+                blindspots=("production replay is covered by model-test alignment tests",),
+            ),
+        ),
+        "template_reuse_review": TemplateReuseReview(
+            no_match_reason="step contract unit test owns this local boundary",
+            searched_layers=("public", "local"),
+        ),
+        "template_harvest_review": TemplateHarvestReview(
+            disposition="not_harvestable",
+            not_harvestable_reason="not_reusable_project_specific",
+        ),
+        "minimum_model_contract": MinimumModelContract(
+            protected_error_classes=("premature_completion",),
+            modeled_state=("step_receipts",),
+            modeled_side_effects=("done_claim",),
+            completion_evidence=("done_receipt",),
+            known_bad_cases=("done_without_inventory",),
+        ),
+        "known_bad_proofs": (
+            KnownBadProof(
+                "done_without_inventory",
+                protected_error_class="premature_completion",
+                method="workflow_step_contract",
+                observed_status="failed",
+                observed_failure="required step contract failed",
+                evidence_id="step_contract:done_without_inventory",
+            ),
+        ),
+    }
 
 
 def _step(label, metadata=None, reason=""):
@@ -193,6 +246,7 @@ class WorkflowStepContractTests(unittest.TestCase):
                 external_inputs=("go",),
                 max_sequence_length=1,
                 step_contracts=_contracts(),
+                **formal_entry_kwargs(),
             )
         )
         sections = {section.name: section for section in summary.sections}

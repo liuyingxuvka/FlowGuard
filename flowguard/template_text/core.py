@@ -259,16 +259,25 @@ __all__ = [
 ]
 '''
 
-RUN_CHECKS_TEMPLATE = '''"""Run the minimum valuable model_template checks."""
+RUN_CHECKS_TEMPLATE = '''"""Run the formal minimum valuable model_template checks."""
 
 from __future__ import annotations
 
-from flowguard import Explorer
+from flowguard import (
+    FlowGuardCheckPlan,
+    KnownBadProof,
+    MinimumModelContract,
+    RiskIntent,
+    RiskProfile,
+    TemplateHarvestReview,
+    TemplateReuseReview,
+    run_model_first_checks,
+)
 import model
 
 
-def run(workflow):
-    return Explorer(
+def build_plan(workflow, known_bad_proofs=()):
+    return FlowGuardCheckPlan(
         workflow=workflow,
         initial_states=(model.initial_state(),),
         external_inputs=model.EXTERNAL_INPUTS,
@@ -276,17 +285,84 @@ def run(workflow):
         max_sequence_length=model.MAX_SEQUENCE_LENGTH,
         terminal_predicate=model.terminal_predicate,
         required_labels=("stored", "completed_with_evidence", "rejected_duplicate"),
-    ).explore()
+        risk_profile=RiskProfile(
+            modeled_boundary="validate-store-complete sample workflow",
+            risk_classes=("deduplication", "side_effect"),
+            risk_intent=RiskIntent(
+                failure_modes=("completion without durable evidence", "duplicate item storage"),
+                protected_error_classes=("premature_completion", "duplicate_side_effect"),
+                protected_harms=("caller trusts an output that was not durably recorded",),
+                must_model_state=("seen_ids", "stored_ids", "evidence_ids", "completed_ids"),
+                must_model_side_effects=("storage_write", "completion_record"),
+                completion_evidence=("evidence_ids",),
+                adversarial_inputs=("same item repeated", "invalid item", "completion after partial work"),
+                hard_invariants=("completed ids have evidence", "stored ids are accepted once"),
+                known_bad_cases=("complete_without_evidence",),
+                used_template_ids=("completion_requires_evidence", "side_effect_at_most_once"),
+                blindspots=("production storage adapter replay is outside this sample template",),
+            ),
+        ),
+        template_reuse_review=TemplateReuseReview(
+            used_template_ids=("completion_requires_evidence", "side_effect_at_most_once"),
+            searched_layers=("public", "local"),
+        ),
+        minimum_model_contract=MinimumModelContract(
+            protected_error_classes=("premature_completion", "duplicate_side_effect"),
+            modeled_state=("seen_ids", "stored_ids", "evidence_ids", "completed_ids"),
+            modeled_side_effects=("storage_write", "completion_record"),
+            completion_evidence=("evidence_ids",),
+            known_bad_cases=("complete_without_evidence",),
+        ),
+        known_bad_proofs=known_bad_proofs,
+        template_harvest_review=TemplateHarvestReview(
+            disposition="not_harvestable",
+            not_harvestable_reason="not_reusable_project_specific",
+        ),
+        scenario_matrix_config={"enabled": False},
+    )
+
+
+def known_bad_proof_from_broken_summary(summary):
+    sections = {section.name: section for section in summary.sections}
+    model_status = sections["model_check"].status
+    caught = model_status == "failed"
+    return KnownBadProof(
+        "complete_without_evidence",
+        protected_error_class="premature_completion",
+        method="formal_broken_workflow",
+        expected_failure="failed",
+        observed_status="failed" if caught else "passed",
+        observed_failure=(
+            "completion_requires_evidence caught BrokenCompleteWithoutEvidence"
+            if caught
+            else "BrokenCompleteWithoutEvidence unexpectedly passed"
+        ),
+        evidence_id="model:model_template_broken",
+    )
 
 
 def main() -> int:
-    report = run(model.build_workflow())
-    broken = run(model.broken_workflow())
+    broken_summary = run_model_first_checks(build_plan(model.broken_workflow()))
+    proof = known_bad_proof_from_broken_summary(broken_summary)
+    report = run_model_first_checks(build_plan(model.build_workflow(), known_bad_proofs=(proof,)))
+    sections = {section.name: section for section in report.sections}
+    runnable_ok = (
+        sections["model_check"].status == "pass"
+        and sections["known_bad_proof"].status == "pass"
+        and proof.observed_status == "failed"
+    )
+    print(f"status: {'OK' if runnable_ok else 'BLOCKED'}")
     print(report.format_text())
-    print(f"known_bad_without_evidence_rejected: {'yes' if not broken.ok else 'no'}")
-    labels = sorted({label for trace in report.traces for label in trace.labels})
+    print(f"known_bad_without_evidence_rejected: {'yes' if proof.observed_status == 'failed' else 'no'}")
+    model_report = dict(report.metadata)["model_check_report"]
+    labels = sorted({label for trace in model_report.traces for label in trace.labels})
     print("labels: " + ",".join(labels))
-    return 0 if report.ok and not broken.ok else 1
+    expected_labels = {"stored", "completed_with_evidence", "rejected_duplicate"}
+    return 0 if (
+        runnable_ok
+        and proof.observed_status == "failed"
+        and expected_labels.issubset(labels)
+    ) else 1
 
 
 if __name__ == "__main__":

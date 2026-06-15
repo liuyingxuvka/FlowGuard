@@ -308,6 +308,9 @@ it must keep their freshness rules visible:
   leaf boundary-matrix cells.
 - model/UI transition edits stale generated transition coverage cells, MTA
   transition obligations, and TestMesh required cell ids derived from them.
+- ModelMesh closure edits stale generated transition coverage cells, MTA
+  transition obligations, and TestMesh required cell ids derived from closure
+  transitions, especially retry/rejection repeat-input cells.
 - test command, source, tested artifact, dependency, environment, result
   fingerprint, or coverage-scope edits stale any `TestResultReuseTicket` that
   reused old test output.

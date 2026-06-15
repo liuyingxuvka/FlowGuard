@@ -12,6 +12,16 @@ from .adoption import ADOPTION_STATUSES
 from .schema import SCHEMA_VERSION
 
 
+def _parse_json_mapping_arg(value: str, option_name: str) -> dict[str, object]:
+    try:
+        payload = json.loads(value)
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"{option_name} must be a JSON object: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise SystemExit(f"{option_name} must be a JSON object.")
+    return payload
+
+
 def _run_benchmark() -> int:
     from examples.problem_corpus.executable import review_executable_corpus
 
@@ -429,6 +439,7 @@ def _run_risk_template_harvest_command(args: argparse.Namespace) -> int:
         required_side_effects=tuple(args.required_side_effect or ()),
         required_evidence=tuple(args.required_evidence or ()),
         known_bad_cases=tuple(args.known_bad_case or ()),
+        known_bad_proofs=tuple(_parse_json_mapping_arg(value, "--known-bad-proof") for value in (args.known_bad_proof or ())),
         merge_keys=tuple(args.merge_key or ()),
         local_root=args.local_root,
         write=not args.no_write,
@@ -597,6 +608,12 @@ def _add_risk_template_harvest_parser(subparsers: argparse._SubParsersAction[arg
     parser.add_argument("--required-side-effect", action="append", default=[])
     parser.add_argument("--required-evidence", action="append", default=[])
     parser.add_argument("--known-bad-case", action="append", default=[])
+    parser.add_argument(
+        "--known-bad-proof",
+        action="append",
+        default=[],
+        help="JSON object for one KnownBadProof, including case_id and observed_status.",
+    )
     parser.add_argument("--merge-key", action="append", default=[])
     parser.add_argument("--local-root", default=None, help="Override local template library root.")
     parser.add_argument("--no-write", action="store_true", help="Validate the candidate without writing it.")

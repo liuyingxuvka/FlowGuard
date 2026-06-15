@@ -342,6 +342,46 @@ class SkillDocsTests(unittest.TestCase):
         self.assertNotIn("Build or update a FlowGuard model mesh", model_mesh)
         self.assertIn("Build or update a FlowGuard model mesh", model_mesh_template)
 
+    def test_model_mesh_closure_liveness_is_documented_across_routes(self):
+        model_mesh = self.read(
+            SKILLS_ROOT / "flowguard-model-mesh" / "references" / "model_mesh_protocol.md"
+        )
+        model_mesh_template = self.read(
+            SKILLS_ROOT
+            / "flowguard-model-mesh"
+            / "references"
+            / "templates"
+            / "model_mesh_prompt_template.md"
+        )
+        model_test_alignment = self.read(
+            SKILLS_ROOT
+            / "flowguard-model-test-alignment"
+            / "references"
+            / "model_test_alignment_protocol.md"
+        )
+        test_mesh = self.read(SKILLS_ROOT / "flowguard-test-mesh" / "references" / "test_mesh_protocol.md")
+        model_miss = self.read(
+            SKILLS_ROOT / "flowguard-model-miss-review" / "references" / "model_miss_protocol.md"
+        )
+        kernel = self.read(KERNEL_ROOT / "references" / "skill_kernel_protocol.md")
+
+        for phrase in (
+            "repeat-input tokens",
+            "repair feedback",
+            "blocker tokens",
+            "closure model is required",
+            "same packet",
+        ):
+            self.assertIn(phrase, model_mesh)
+        self.assertIn("mesh_closure_required", model_mesh_template)
+        self.assertIn("model_mesh_closure_to_transition_coverage", model_test_alignment)
+        self.assertIn("happy-path, failure-path, negative-path, and replay", model_test_alignment)
+        self.assertIn("model_mesh_closure_to_transition_coverage", test_mesh)
+        self.assertIn("repair-feedback/no-delta behavior", test_mesh)
+        self.assertIn("repeatedly returns the same packet", model_miss)
+        self.assertIn("Model-Test Alignment/TestMesh", model_miss)
+        self.assertIn("MODEL_MESH_CLOSURE_RETRY_TEST_KINDS", kernel)
+
     def test_reduced_field_prompts_use_grouped_families(self):
         model_test_alignment = self.read(
             SKILLS_ROOT

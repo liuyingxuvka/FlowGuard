@@ -17,6 +17,9 @@ issue after a FlowGuard pass.
   left without reader/writer/owner visibility?
 - Was the failure found by a user opening or clicking the UI after a green
   claim? If yes, record it as a UI model miss rather than a local button fix.
+- Was the failure a repeated rejected intent, missing field, missing body, or
+  same packet shape after a green parent/child route claim? If yes, record it as
+  a ModelMesh closure miss and require repair feedback or an explicit blocker.
 - Which prior UI model or evidence row went green, and was it green only
   because a label matched, an API route existed, or a planned click was
   overclaimed?
@@ -33,6 +36,8 @@ issue after a FlowGuard pass.
   whole model target?
 - Which observed-regression test and same-class generalized test evidence now
   prove the repaired obligation?
+- Which retry/rejection transition cells prove failure, negative, replay, and
+  no-delta repair-feedback behavior when the miss was a repeated packet loop?
 - Which root-cause field ids and same-class field case ids prove the repair is
   not only an observed-field point fix?
 - Which owner code contract implements the repaired behavior, and which

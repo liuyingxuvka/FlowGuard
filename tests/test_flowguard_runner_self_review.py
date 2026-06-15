@@ -11,7 +11,7 @@ from examples.flowguard_runner_self_review.model import (
     BROKEN_POINT_RULE_WITHOUT_LEDGER,
     BROKEN_SCENARIO_AUTO_PASS,
     CORRECT_RUNNER,
-    DIRECT_EXPLORER_ALLOWED,
+    DIRECT_EXPLORER_FORMAL_ENTRY,
     representative_summary_lines,
     run_runner_self_check_summary,
     run_runner_self_review,
@@ -29,15 +29,15 @@ class FlowguardRunnerSelfReviewTests(unittest.TestCase):
     def test_runner_self_review_catalog_matches_expectations(self):
         self.assertTrue(self.review.ok, self.review.format_text(max_counterexamples=1))
         self.assertEqual(9, self.review.total_scenarios)
-        self.assertEqual(2, self.review.passed)
-        self.assertEqual(7, self.review.expected_violations_observed)
+        self.assertEqual(1, self.review.passed)
+        self.assertEqual(8, self.review.expected_violations_observed)
 
     def test_supported_helper_runner_paths_pass(self):
-        for case in (CORRECT_RUNNER, DIRECT_EXPLORER_ALLOWED):
-            self.assertEqual("pass", self.statuses[case.name])
+        self.assertEqual("pass", self.statuses[CORRECT_RUNNER.name])
 
     def test_broken_helper_runner_variants_are_caught(self):
         for case in (
+            DIRECT_EXPLORER_FORMAL_ENTRY,
             BROKEN_EXPLORER_DOWNGRADED,
             BROKEN_AUDIT_WARNING_PASS,
             BROKEN_CONFORMANCE_OVERCLAIM,
@@ -74,7 +74,7 @@ class FlowguardRunnerSelfReviewTests(unittest.TestCase):
         )
         self.assertEqual(0, completed.returncode, completed.stdout + completed.stderr)
         self.assertIn("flowguard runner self-review", completed.stdout)
-        self.assertIn("expected violations observed: 7", completed.stdout)
+        self.assertIn("expected violations observed: 8", completed.stdout)
         self.assertIn("overall_status: pass_with_gaps", completed.stdout)
 
 

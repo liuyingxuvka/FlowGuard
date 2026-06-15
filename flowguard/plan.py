@@ -9,7 +9,7 @@ from typing import Any, Iterable, Mapping, Sequence
 from .core import FrozenMetadata, freeze_metadata
 from .export import to_jsonable
 from .risk import RiskProfile
-from .risk_templates import MinimumModelContract, TemplateHarvestReview, TemplateReuseReview
+from .risk_templates import KnownBadProof, MinimumModelContract, TemplateHarvestReview, TemplateReuseReview
 
 
 @dataclass(frozen=True)
@@ -69,6 +69,8 @@ class FlowGuardCheckPlan:
     external_inputs: tuple[Any, ...]
     invariants: tuple[Any, ...] = ()
     max_sequence_length: int = 1
+    terminal_predicate: Any = None
+    required_labels: tuple[str, ...] = ()
     risk_profile: RiskProfile | None = None
     scenarios: tuple[Any, ...] = ()
     contracts: tuple[Any, ...] = ()
@@ -84,6 +86,7 @@ class FlowGuardCheckPlan:
     template_reuse_review: TemplateReuseReview | None = None
     template_harvest_review: TemplateHarvestReview | None = None
     minimum_model_contract: MinimumModelContract | None = None
+    known_bad_proofs: tuple[KnownBadProof, ...] = ()
     metadata: FrozenMetadata = field(default_factory=tuple, compare=False)
 
     def __init__(
@@ -94,6 +97,8 @@ class FlowGuardCheckPlan:
         external_inputs: Sequence[Any],
         invariants: Sequence[Any] = (),
         max_sequence_length: int = 1,
+        terminal_predicate: Any = None,
+        required_labels: Sequence[str] = (),
         risk_profile: RiskProfile | Mapping[str, Any] | None = None,
         scenarios: Sequence[Any] = (),
         contracts: Sequence[Any] = (),
@@ -109,6 +114,7 @@ class FlowGuardCheckPlan:
         template_reuse_review: TemplateReuseReview | Mapping[str, Any] | None = None,
         template_harvest_review: TemplateHarvestReview | Mapping[str, Any] | None = None,
         minimum_model_contract: MinimumModelContract | Mapping[str, Any] | None = None,
+        known_bad_proofs: Sequence[KnownBadProof | Mapping[str, Any]] = (),
         metadata: Mapping[str, Any] | Iterable[tuple[str, Any]] | None = None,
     ) -> None:
         object.__setattr__(self, "workflow", workflow)
@@ -116,6 +122,8 @@ class FlowGuardCheckPlan:
         object.__setattr__(self, "external_inputs", tuple(external_inputs))
         object.__setattr__(self, "invariants", tuple(invariants))
         object.__setattr__(self, "max_sequence_length", int(max_sequence_length))
+        object.__setattr__(self, "terminal_predicate", terminal_predicate)
+        object.__setattr__(self, "required_labels", tuple(str(label) for label in required_labels))
         object.__setattr__(self, "risk_profile", _coerce_risk_profile(risk_profile))
         object.__setattr__(self, "scenarios", tuple(scenarios))
         object.__setattr__(self, "contracts", tuple(contracts))
@@ -135,6 +143,7 @@ class FlowGuardCheckPlan:
         object.__setattr__(self, "template_reuse_review", _coerce_template_reuse_review(template_reuse_review))
         object.__setattr__(self, "template_harvest_review", _coerce_template_harvest_review(template_harvest_review))
         object.__setattr__(self, "minimum_model_contract", _coerce_minimum_model_contract(minimum_model_contract))
+        object.__setattr__(self, "known_bad_proofs", _coerce_known_bad_proofs(known_bad_proofs))
         object.__setattr__(self, "metadata", freeze_metadata(metadata))
 
     def format_text(self) -> str:
@@ -145,6 +154,8 @@ class FlowGuardCheckPlan:
             f"external_inputs: {len(self.external_inputs)}",
             f"invariants: {len(self.invariants)}",
             f"max_sequence_length: {self.max_sequence_length}",
+            f"terminal_predicate: {'provided' if self.terminal_predicate is not None else 'not_provided'}",
+            f"required_labels: {len(self.required_labels)}",
             f"scenarios: {len(self.scenarios)}",
             f"contracts: {len(self.contracts)}",
             f"step_contracts: {len(self.step_contracts)}",
@@ -156,6 +167,7 @@ class FlowGuardCheckPlan:
             f"template_reuse_review: {'provided' if self.template_reuse_review is not None else 'not_provided'}",
             f"template_harvest_review: {'provided' if self.template_harvest_review is not None else 'not_provided'}",
             f"minimum_model_contract: {'provided' if self.minimum_model_contract is not None else 'not_provided'}",
+            f"known_bad_proofs: {len(self.known_bad_proofs)}",
         ]
         if self.risk_profile is not None:
             lines.append(f"risk_profile: {self.risk_profile.modeled_boundary}")
@@ -179,6 +191,8 @@ class FlowGuardCheckPlan:
                 for invariant in self.invariants
             ],
             "max_sequence_length": self.max_sequence_length,
+            "terminal_predicate": "provided" if self.terminal_predicate is not None else None,
+            "required_labels": list(self.required_labels),
             "risk_profile": self.risk_profile.to_dict() if self.risk_profile else None,
             "scenarios": [str(getattr(scenario, "name", repr(scenario))) for scenario in self.scenarios],
             "contracts": [str(getattr(contract, "function_name", repr(contract))) for contract in self.contracts],
@@ -212,6 +226,7 @@ class FlowGuardCheckPlan:
                 if self.minimum_model_contract is not None
                 else None
             ),
+            "known_bad_proofs": [proof.to_dict() for proof in self.known_bad_proofs],
             "metadata": to_jsonable(self.metadata),
         }
 
@@ -265,6 +280,22 @@ def _coerce_minimum_model_contract(
     if isinstance(value, Mapping):
         return MinimumModelContract.from_dict(value)
     raise TypeError("minimum_model_contract must be a MinimumModelContract, mapping, or None")
+
+
+def _coerce_known_bad_proofs(
+    values: Sequence[KnownBadProof | Mapping[str, Any]] | None,
+) -> tuple[KnownBadProof, ...]:
+    if values is None:
+        return ()
+    proofs: list[KnownBadProof] = []
+    for value in values:
+        if isinstance(value, KnownBadProof):
+            proofs.append(value)
+        elif isinstance(value, Mapping):
+            proofs.append(KnownBadProof.from_dict(value))
+        else:
+            raise TypeError("known_bad_proofs must contain KnownBadProof or mapping items")
+    return tuple(proofs)
 
 
 def _assumption_card_to_jsonable(value: Any) -> Any:

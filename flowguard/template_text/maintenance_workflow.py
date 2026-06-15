@@ -393,9 +393,18 @@ def build_workflow(
     )
 '''
 
-MAINTENANCE_WORKFLOW_RUN_CHECKS_TEMPLATE = '''"""Run the maintenance workflow template checks."""
+MAINTENANCE_WORKFLOW_RUN_CHECKS_TEMPLATE = '''"""Run the formal maintenance workflow template checks."""
 
-from flowguard import Explorer
+from flowguard import (
+    FlowGuardCheckPlan,
+    KnownBadProof,
+    MinimumModelContract,
+    RiskIntent,
+    RiskProfile,
+    TemplateHarvestReview,
+    TemplateReuseReview,
+    run_model_first_checks,
+)
 
 from model import (
     BrokenPublisherRole,
@@ -408,20 +417,123 @@ from model import (
 )
 
 
-def run_case(name, workflow, inputs, expected_ok, max_sequence_length=1):
-    report = Explorer(
+def build_plan(workflow, inputs, *, known_bad_proofs=(), max_sequence_length=1):
+    return FlowGuardCheckPlan(
         workflow=workflow,
         initial_states=(MaintenanceState(),),
         external_inputs=inputs,
         invariants=maintenance_invariants(),
         max_sequence_length=max_sequence_length,
-    ).explore()
-    observed = "OK" if report.ok else "VIOLATION"
+        risk_profile=RiskProfile(
+            modeled_boundary="maintenance workflow template",
+            risk_classes=("idempotency", "side_effect", "conformance", "module_boundary"),
+            risk_intent=RiskIntent(
+                failure_modes=(
+                    "duplicate maintenance action",
+                    "completion without report or install sync",
+                    "publish before installed copy is synchronized",
+                ),
+                protected_error_classes=(
+                    "duplicate_side_effect",
+                    "premature_completion",
+                    "premature_publish",
+                ),
+                protected_harms=("agent reports completion or publication without evidence",),
+                must_model_state=(
+                    "actions",
+                    "reports",
+                    "installed_changes",
+                    "published_changes",
+                    "adoption_statuses",
+                ),
+                must_model_side_effects=("maintenance_action", "install_sync", "publish"),
+                completion_evidence=("report", "installed_change"),
+                adversarial_inputs=("same change repeated", "missing report", "unsynced install"),
+                hard_invariants=(
+                    "one maintenance action per change/action",
+                    "completion requires report and install sync",
+                    "publish requires install sync",
+                ),
+                known_bad_cases=(
+                    "duplicate_sleep_action",
+                    "completed_without_report",
+                    "publish_without_install_sync",
+                ),
+                used_template_ids=("side_effect_at_most_once", "completion_requires_evidence"),
+                blindspots=("real install command and package artifact checks require project evidence"),
+            ),
+            confidence_goal="model_level",
+        ),
+        template_reuse_review=TemplateReuseReview(
+            used_template_ids=("side_effect_at_most_once", "completion_requires_evidence"),
+            searched_layers=("public", "local"),
+        ),
+        minimum_model_contract=MinimumModelContract(
+            protected_error_classes=(
+                "duplicate_side_effect",
+                "premature_completion",
+                "premature_publish",
+            ),
+            modeled_state=(
+                "actions",
+                "reports",
+                "installed_changes",
+                "published_changes",
+                "adoption_statuses",
+            ),
+            modeled_side_effects=("maintenance_action", "install_sync", "publish"),
+            completion_evidence=("report", "installed_change"),
+            known_bad_cases=(
+                "duplicate_sleep_action",
+                "completed_without_report",
+                "publish_without_install_sync",
+            ),
+        ),
+        known_bad_proofs=known_bad_proofs,
+        template_harvest_review=TemplateHarvestReview(
+            disposition="not_harvestable",
+            not_harvestable_reason="not_reusable_project_specific",
+        ),
+    )
+
+
+def model_check_ok(summary):
+    sections = {section.name: section for section in summary.sections}
+    return sections["model_check"].status == "pass"
+
+
+def proof_from_summary(case_id, protected_error_class, summary):
+    caught = not model_check_ok(summary)
+    return KnownBadProof(
+        case_id,
+        protected_error_class=protected_error_class,
+        method="broken_workflow_variant",
+        expected_failure="failed",
+        observed_status="failed" if caught else "passed",
+        observed_failure=(
+            f"{case_id} was rejected by maintenance invariants"
+            if caught
+            else f"{case_id} unexpectedly passed"
+        ),
+        evidence_id=f"maintenance-template:{case_id}",
+    )
+
+
+def run_case(name, workflow, inputs, expected_ok, max_sequence_length=1, known_bad_proofs=()):
+    summary = run_model_first_checks(
+        build_plan(
+            workflow,
+            inputs,
+            known_bad_proofs=known_bad_proofs,
+            max_sequence_length=max_sequence_length,
+        )
+    )
+    ok = model_check_ok(summary)
+    observed = "OK" if ok else "VIOLATION"
     print(f"{name}: {observed}")
-    if report.ok != expected_ok:
-        print(report.format_text(max_counterexamples=1))
-        return False
-    return True
+    if ok != expected_ok:
+        print(summary.format_text())
+    return ok == expected_ok, summary
 
 
 def main():
@@ -429,31 +541,49 @@ def main():
     missing_report = MaintenanceInput("change-2", "architect-review", "skill-v2", has_report=False)
     unsynced_install = MaintenanceInput("change-3", "install-sync", "skill-v2", install_synced=False)
 
-    cases = (
-        ("correct_maintenance_workflow", build_workflow(), (normal,), True, 2),
+    broken_cases = (
         (
             "broken_duplicate_sleep_action",
+            "duplicate_sleep_action",
+            "duplicate_side_effect",
             build_workflow(sleep_block=BrokenSleepRole()),
             (normal,),
-            False,
             2,
         ),
         (
             "broken_completed_without_report",
+            "completed_without_report",
+            "premature_completion",
             build_workflow(reviewer_block=BrokenReviewerRole()),
             (missing_report,),
-            False,
             1,
         ),
         (
             "broken_publish_without_install_sync",
+            "publish_without_install_sync",
+            "premature_publish",
             build_workflow(publisher_block=BrokenPublisherRole()),
             (unsynced_install,),
-            False,
             1,
         ),
     )
-    ok = all(run_case(*case) for case in cases)
+
+    proofs = []
+    ok = True
+    for name, case_id, error_class, workflow, inputs, max_sequence_length in broken_cases:
+        case_ok, summary = run_case(name, workflow, inputs, False, max_sequence_length)
+        ok = ok and case_ok
+        proofs.append(proof_from_summary(case_id, error_class, summary))
+
+    case_ok, summary = run_case(
+        "correct_maintenance_workflow",
+        build_workflow(),
+        (normal,),
+        True,
+        2,
+        known_bad_proofs=tuple(proofs),
+    )
+    ok = ok and case_ok and {section.name: section for section in summary.sections}["known_bad_proof"].status == "pass"
     return 0 if ok else 1
 
 

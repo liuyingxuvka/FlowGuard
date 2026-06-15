@@ -125,6 +125,17 @@ class RiskPlanTests(unittest.TestCase):
                 "completion_evidence": ("receipt",),
                 "known_bad_cases": ("retry_writes_twice",),
             },
+            known_bad_proofs=(
+                {
+                    "case_id": "retry_writes_twice",
+                    "protected_error_class": "duplicate_side_effect",
+                    "method": "broken_workflow",
+                    "expected_failure": "failed",
+                    "observed_status": "failed",
+                    "observed_failure": "duplicate write invariant failed",
+                    "evidence_id": "model:retry_writes_twice",
+                },
+            ),
         )
 
         self.assertEqual(1, plan.max_sequence_length)
@@ -133,13 +144,16 @@ class RiskPlanTests(unittest.TestCase):
         self.assertEqual(("side_effect_at_most_once",), plan.template_reuse_review.used_template_ids)
         self.assertEqual("duplicate_linked", plan.template_harvest_review.disposition)
         self.assertEqual(("retry_writes_twice",), plan.minimum_model_contract.known_bad_cases)
+        self.assertEqual(("retry_writes_twice",), tuple(proof.case_id for proof in plan.known_bad_proofs))
         self.assertIn("workflow: tiny", plan.format_text())
         self.assertIn("template_harvest_review: provided", plan.format_text())
+        self.assertIn("known_bad_proofs: 1", plan.format_text())
         self.assertEqual("tiny", plan.to_dict()["workflow"])
         self.assertEqual(
             ["side_effect_at_most_once"],
             plan.to_dict()["template_harvest_review"]["linked_template_ids"],
         )
+        self.assertEqual("retry_writes_twice", plan.to_dict()["known_bad_proofs"][0]["case_id"])
 
 
 if __name__ == "__main__":

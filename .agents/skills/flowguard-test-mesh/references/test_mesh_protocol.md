@@ -37,6 +37,12 @@ downstream alignment. It does not decide the semantic transition obligation;
 Model-Test Alignment still proves that model obligation, owner code contract,
 and external-contract test evidence bind the same behavior.
 
+ModelMesh closure models can feed this route after
+`model_mesh_closure_to_transition_coverage(...)` projects parent/child closure
+transitions into required cell ids. Retry or rejection cells from repeated input
+tokens should have child-suite evidence for failure, negative, replay, and
+repair-feedback/no-delta behavior before parent validation confidence is broad.
+
 Artifact payload matrices can feed TestMesh the same way. When import/export,
 generated artifact, or AI work-package validation has many accepted/rejected
 payload cases, TestMesh owns child-suite partitioning, result artifacts,
@@ -142,6 +148,9 @@ evidence. A leaf matrix-cell suite that does not name its cells is a blocker,
 because the parent cannot tell which finite boundary cell was proved.
 Transition coverage cells use the same required id surface when they are routed
 through TestMesh.
+ModelMesh-derived closure cells use that same required id surface after
+projection; do not collapse all retry/rejection closure behavior into a single
+generic suite result.
 
 ## Routine And Release Scope
 

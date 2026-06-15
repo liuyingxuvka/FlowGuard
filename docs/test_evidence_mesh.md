@@ -159,6 +159,12 @@ cells; Model-Test Alignment still owns whether those cells bind the declared
 transition obligations, owner code contracts, and current external-contract
 test evidence.
 
+ModelMesh closure models can feed the same path after
+`model_mesh_closure_to_transition_coverage(...)` projects parent/child closure
+transitions into transition cells. Retry or rejection cells generated from
+repeated input tokens should be owned by child suites that prove failure,
+negative, replay, and no-delta feedback behavior, not only the happy path.
+
 Artifact payload matrices can also feed this surface. Child suites can own
 required payload case ids and result artifacts, but TestMesh only checks
 partition ownership and evidence freshness. Model-Test Alignment still owns

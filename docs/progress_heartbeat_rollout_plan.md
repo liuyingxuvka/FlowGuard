@@ -12,7 +12,7 @@ long-running FlowGuard Explorer runs.
 | 3 | Emit progress to `stderr`, not `stdout`. | Use the standard error stream for human/agent progress. | Existing scripts that read final reports from `stdout` keep working. |
 | 4 | Add the smallest compatibility controls. | Add `progress_steps=10` by default, `progress_steps=0` to disable, and `FLOWGUARD_PROGRESS=0` as a process-level opt-out. | Old callers remain valid, and strict CI can silence progress. |
 | 5 | Let `run_model_first_checks()` inherit core behavior. | Do not add duplicate progress logic to `flowguard/runner.py`. | Runner calls show Explorer progress through the same core path. |
-| 6 | Update templates and docs by reference, not by copying logic. | Keep generated templates using plain `Explorer(...)`. | New templates rely on the core feature instead of writing their own progress loop. |
+| 6 | Update templates and docs by reference, not by copying logic. | Keep generated templates on `run_model_first_checks(...)` so they inherit core Explorer progress through the formal runner. | New templates rely on the core feature instead of writing their own progress loop. |
 | 7 | Add focused regression tests before broad release checks. | Unit-test progress buckets, stream routing, opt-out, and report stability. | The behavior is covered without depending on long-running models. |
 | 8 | Publish as a source-only patch release. | Version, changelog, local install, shadow workspace sync, tag, and GitHub Release. | README-visible version, `pyproject.toml`, git tag, and GitHub Release align. |
 
@@ -28,7 +28,7 @@ long-running FlowGuard Explorer runs.
 | R6 | The feature changes pass/fail semantics or trace collection. | Require `report_semantics_unchanged`. | Existing invariant report tests still pass and report fields stay stable. |
 | R7 | Users cannot disable progress in strict environments. | Require API and environment opt-out. | `progress_steps=0` and `FLOWGUARD_PROGRESS=0` produce no progress. |
 | R8 | Runner gains a second inconsistent progress implementation. | Require `runner_inherits_core` and reject duplicate runner progress. | `run_model_first_checks()` still delegates to Explorer without custom progress code. |
-| R9 | Templates copy progress code and drift from the core implementation. | Require templates to keep plain `Explorer(...)` usage. | Template tests still execute and contain no custom progress loop. |
+| R9 | Templates copy progress code and drift from the core implementation. | Require templates to inherit progress through `run_model_first_checks(...)` without custom progress loops. | Template tests still execute and contain no custom progress loop. |
 | R10 | Release claims completion without local install/shadow workspace sync. | Require release sync checks before publication. | Install check and any shadow workspace focused checks pass before GitHub release. |
 
 ## Scope Boundaries
@@ -38,4 +38,3 @@ long-running FlowGuard Explorer runs.
   event protocol, dashboard, or progress UI in this release.
 - The progress output is observability only. It must not be used as pass/fail
   evidence, and skipped or incomplete checks remain separate concerns.
-

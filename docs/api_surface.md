@@ -1,8 +1,8 @@
 # API Surface Layers
 
-FlowGuard has one core model and several optional helper layers. The layers are
-named so AI coding agents can choose the smallest useful path without treating
-every helper as a required gate.
+FlowGuard has one core model and route-specific helper layers. The layers are
+named so AI coding agents can start from one formal path and then open only the
+route helpers that own the current risk.
 
 The executable core is still:
 
@@ -12,30 +12,31 @@ Workflow = composed FunctionBlocks
 Explorer = deterministic finite exploration
 ```
 
-The minimum useful path remains:
+The formal minimum useful entry for new or deepened models is:
 
 ```text
-State + FunctionBlock + Invariant + Explorer
+risky boundary -> RiskIntent -> template search/no-match
+-> Input x State -> Set(Output x State)
+-> MinimumModelContract + KnownBadProof
+-> FlowGuardCheckPlan -> run_model_first_checks
+-> inspect counterexample/gaps -> close template harvest
 ```
 
-For AI agents, keep that as the default entry:
-
-```text
-risky boundary -> Input x State -> Set(Output x State)
--> one invariant or scenario -> run checks
--> inspect counterexample -> escalate only if a named risk requires it
-```
-
-The sections below are escalation layers. They help when the task has a named
-UI, structure, testing, hierarchy, process, release, or evidence risk, but they
-are not prerequisites for valid FlowGuard use.
+`Explorer` remains the deterministic finite exploration engine. It is no
+longer the agent-default public entry for non-trivial model creation. The
+sections below are route layers for UI, structure, testing, hierarchy, process,
+release, or evidence risk.
 
 ## Agent-Default API
 
 `AGENT_DEFAULT_API` is the smallest public first-read surface for AI agents.
 It keeps the normal path short:
 
-- core modeling: `Workflow`, `Explorer`, `Invariant`, `FunctionResult`;
+- formal model-first entry: `RiskIntent`, `RiskProfile`,
+  `FlowGuardCheckPlan`, `MinimumModelContract`, `KnownBadProof`,
+  `TemplateReuseReview`, `TemplateHarvestReview`, and
+  `run_model_first_checks`;
+- core modeling primitives: `Workflow`, `Invariant`, and `FunctionResult`;
 - route selection: `FLOWGUARD_ROUTE_API`,
   `default_flowguard_route_profiles()`;
 - FlowGuard self-maintenance:
@@ -77,7 +78,8 @@ when the route needs the deep example.
 
 ## Core API
 
-Core APIs are the stable objects needed to build and run a direct finite model:
+Core APIs are the stable objects used by the formal runner and advanced custom
+checks:
 
 - `FunctionBlock`, `FunctionResult`
 - `Invariant`, `InvariantResult`
@@ -274,6 +276,9 @@ inventory.
   `transition_obligation_id()`, and
   `ui_interaction_model_to_transition_coverage()` provide the standard bridge
   from modeled transitions into those alignment and TestMesh evidence targets.
+  `model_mesh_closure_to_transition_coverage()` does the same for ModelMesh
+  closure transitions, with `MODEL_MESH_CLOSURE_RETRY_TEST_KINDS` enforcing
+  retry/rejection evidence breadth for repeated-input handoffs.
   Field lifecycle reports and projections can be supplied directly to
   `ModelTestAlignmentPlan`, where behavior-bearing fields become model
   obligations and code contracts that still require current test evidence.
@@ -453,9 +458,9 @@ inventory.
   disposition records, and bug-repair closure records have route-specific
   freshness codes so later writes cannot reuse stale field evidence.
 
-These helpers return or consume the same core model objects. They are useful
-shortcuts, not a new modeling language and not mandatory for valid FlowGuard
-use.
+These helpers return or consume the same core model objects. They are route
+layers, not a new modeling language. For non-trivial model creation, the
+formal `FlowGuardCheckPlan` path remains the required public entry.
 
 ## Reporting Helpers
 
@@ -464,7 +469,9 @@ Reporting helpers help an AI agent explain what was checked and what was not:
 - `AssumptionCard` and `ConditionalAssumption` for visible bounded assumptions
   with explicit preconditions, a `why_not_modeled` explanation, invalidation
   conditions, rationale, and checks
-- `RiskIntent`, `RiskProfile`, and `FlowGuardCheckPlan`
+- `RiskIntent`, `RiskProfile`, `FlowGuardCheckPlan`,
+  `MinimumModelContract`, `KnownBadProof`, `TemplateReuseReview`,
+  `TemplateHarvestReview`, and `review_known_bad_proofs`
 - `RiskEvidenceRow`, `RiskEvidenceProof`, `RiskEvidenceLedgerPlan`,
   `RiskEvidenceLedgerReport`, and `review_risk_evidence_ledger()` for the final
   confidence ledger that connects user risks to FlowGuard model obligations,
@@ -580,7 +587,7 @@ Evidence APIs are used to keep FlowGuard itself honest:
 
 These tools are valuable for FlowGuard maintenance. Ordinary project models do
 not have to run the full evidence baseline, problem corpus, or benchmark suite
-before using `Explorer` or `run_model_first_checks`.
+before using `run_model_first_checks`.
 
 ## Introspection Constants
 
@@ -598,16 +605,17 @@ The package exports lightweight grouping constants:
 - `REPORTING_HELPER_API`
 - `EVIDENCE_API`
 - `API_SURFACE`
-- `MODELING_HELPER_API`, the complete helper index and fallback inventory
+- `MODELING_HELPER_API`, the complete helper index and migration inventory
 
-They are descriptive lists of exported public names. They do not enforce a
-runtime policy and they do not make helper layers mandatory.
+They are descriptive lists of exported public names. Runtime policy is enforced
+by the runner, audits, templates, and route checks rather than by these grouping
+constants alone.
 
 ## Agent Guidance
 
-Start with the core path when it is enough. Add helpers only when they clarify a
-real risk, reduce repetitive code, or improve reporting honesty. Keep skipped
-checks visible. In an existing modeled system, use Existing Model Preflight to
+Start with the formal model-first path and keep skipped checks visible. Add
+route helpers when they clarify a real risk, reduce repetitive code, or improve
+reporting honesty. In an existing modeled system, use Existing Model Preflight to
 look up current model responsibilities, FunctionBlocks, state owners,
 side-effect owners, and public entrypoints before proposing new ownership or a
 parallel workflow. Before trusting that one existing route is enough, record
@@ -650,8 +658,9 @@ obligations, skipped routes, stale evidence, or structure/reduction signals may
 require another owner route.
 When parent confidence claims whole-flow closure, add a
 mesh closure model so root entries, child outputs, joins, terminal
-dispositions, and out-of-scope branches are checked as executable handoff
-obligations before `mesh_green_can_continue`. When a parent model relies on
+dispositions, repeated-input repair feedback, blocker/progress tokens, and
+out-of-scope branches are checked as executable handoff obligations before
+`mesh_green_can_continue`. When a parent model relies on
 child models for confidence, add layered boundary proof so each parent item has
 an owner, child ownership is disjoint except for explicit bridge/shared-kernel
 cases, current child evidence is reattached to the parent, and each leaf proves

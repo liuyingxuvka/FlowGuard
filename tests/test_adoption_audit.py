@@ -37,12 +37,42 @@ class AdoptionAuditTests(unittest.TestCase):
             self.assertEqual("pass_with_gaps", report.status)
             self.assertIn("current_fallback_model", [finding.category for finding in report.findings])
 
+    def test_direct_explorer_model_requires_formal_entry(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / ".flowguard").mkdir()
+            (root / ".flowguard" / "model.py").write_text(
+                "from flowguard import Explorer, Workflow\n"
+                "report = Explorer(Workflow(()), (), ()).explore()\n",
+                encoding="utf-8",
+            )
+
+            report = audit_flowguard_adoption(root, flowguard_available=True)
+
+            self.assertEqual("pass_with_gaps", report.status)
+            self.assertEqual("direct_explorer_formal_entry_required", report.findings[0].category)
+            self.assertIn("direct Explorer call", dict(report.findings[0].metadata)["markers"])
+
+    def test_formal_check_plan_with_internal_explorer_reference_is_clean(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / ".flowguard").mkdir()
+            (root / ".flowguard" / "model.py").write_text(
+                "from flowguard import Explorer, FlowGuardCheckPlan, KnownBadProof, MinimumModelContract, RiskIntent, run_model_first_checks\n"
+                "report = run_model_first_checks(FlowGuardCheckPlan(workflow=None, known_bad_proofs=(KnownBadProof('case', protected_error_class='x', method='broken', observed_status='failed'),)))\n",
+                encoding="utf-8",
+            )
+
+            report = audit_flowguard_adoption(root, flowguard_available=True)
+
+            self.assertEqual("pass", report.status)
+
     def test_historical_fallback_is_suggestion_when_current_models_are_clean(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root / ".flowguard").mkdir()
             (root / ".flowguard" / "model.py").write_text(
-                "from flowguard import Explorer, Workflow\n",
+                "from flowguard import FlowGuardCheckPlan, KnownBadProof, MinimumModelContract, RiskIntent, run_model_first_checks\n",
                 encoding="utf-8",
             )
             (root / ".flowguard" / "adoption_log.jsonl").write_text(

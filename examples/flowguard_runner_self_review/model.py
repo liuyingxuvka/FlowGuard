@@ -10,10 +10,14 @@ from flowguard import (
     FunctionResult,
     Invariant,
     InvariantResult,
+    KnownBadProof,
+    MinimumModelContract,
+    RiskIntent,
     RiskProfile,
     Scenario,
     ScenarioExpectation,
     TemplateHarvestReview,
+    TemplateReuseReview,
     Workflow,
     review_scenarios,
     run_model_first_checks,
@@ -38,14 +42,14 @@ class RunnerState:
     minimizer_kept_original: bool = True
     finding_ledger_status: str = "not_required"
     point_rule_patch: bool = False
-    direct_explorer_supported: bool = True
-    runner_required: bool = False
+    direct_explorer_formal_entry: bool = False
+    runner_required: bool = True
     packs_required: bool = False
     notes: tuple[str, ...] = ()
 
 
 CORRECT_RUNNER = RunnerCase("correct_runner_pass_with_gaps")
-DIRECT_EXPLORER_ALLOWED = RunnerCase("direct_explorer_still_allowed")
+DIRECT_EXPLORER_FORMAL_ENTRY = RunnerCase("direct_explorer_formal_entry")
 BROKEN_EXPLORER_DOWNGRADED = RunnerCase("broken_explorer_failure_downgraded")
 BROKEN_AUDIT_WARNING_PASS = RunnerCase("broken_audit_warning_reported_pass")
 BROKEN_CONFORMANCE_OVERCLAIM = RunnerCase("broken_conformance_not_run_claims_production")
@@ -70,7 +74,7 @@ class EvaluateRunnerArchitecture:
         "minimizer_kept_original",
         "finding_ledger_status",
         "point_rule_patch",
-        "direct_explorer_supported",
+        "direct_explorer_formal_entry",
         "runner_required",
         "packs_required",
         "notes",
@@ -100,12 +104,12 @@ def _state_for_case(case: RunnerCase) -> RunnerState:
             has_counterexample=False,
             minimizer_kept_original=True,
             finding_ledger_status="full",
-            direct_explorer_supported=True,
-            runner_required=False,
+            direct_explorer_formal_entry=False,
+            runner_required=True,
             packs_required=False,
             notes=("correct helper-runner behavior",),
         )
-    if case == DIRECT_EXPLORER_ALLOWED:
+    if case == DIRECT_EXPLORER_FORMAL_ENTRY:
         return RunnerState(
             case_name=case.name,
             explorer_status="pass",
@@ -113,10 +117,10 @@ def _state_for_case(case: RunnerCase) -> RunnerState:
             summary_status="pass",
             conformance_status="not_run",
             confidence_claim="model_level",
-            direct_explorer_supported=True,
+            direct_explorer_formal_entry=True,
             runner_required=False,
             packs_required=False,
-            notes=("minimal Explorer path remains valid",),
+            notes=("direct Explorer cannot be the formal FlowGuard entry",),
         )
     if case == BROKEN_EXPLORER_DOWNGRADED:
         return RunnerState(
@@ -195,10 +199,10 @@ def _state_for_case(case: RunnerCase) -> RunnerState:
             summary_status="pass",
             conformance_status="not_run",
             confidence_claim="model_level",
-            direct_explorer_supported=False,
+            direct_explorer_formal_entry=False,
             runner_required=True,
             packs_required=True,
-            notes=("Packs and runner must stay optional",),
+            notes=("Runner is required for formal entry, but packs must stay optional",),
         )
     raise ValueError(f"unknown runner case: {case!r}")
 
@@ -264,12 +268,12 @@ def minimizer_preserves_original_counterexample(state: RunnerState, trace) -> In
     return InvariantResult.pass_()
 
 
-def helper_flow_remains_optional(state: RunnerState, trace) -> InvariantResult:
+def formal_entry_requires_runner(state: RunnerState, trace) -> InvariantResult:
     del trace
-    if not state.direct_explorer_supported or state.runner_required or state.packs_required:
+    if state.direct_explorer_formal_entry or not state.runner_required or state.packs_required:
         return _fail(
-            "helper_flow_remains_optional",
-            "Runner or packs became mandatory and replaced direct Explorer usage",
+            "formal_entry_requires_runner",
+            "Formal FlowGuard entry requires the check-plan runner, disallows direct Explorer entry, and keeps packs optional",
         )
     return InvariantResult.pass_()
 
@@ -316,9 +320,9 @@ def invariants() -> tuple[Invariant, ...]:
             minimizer_preserves_original_counterexample,
         ),
         Invariant(
-            "helper_flow_remains_optional",
-            "Runner and packs remain optional helper paths",
-            helper_flow_remains_optional,
+            "formal_entry_requires_runner",
+            "Formal FlowGuard entry uses the runner, not direct Explorer or mandatory packs",
+            formal_entry_requires_runner,
         ),
         Invariant(
             "coverage_first_ledger_precedes_point_rule_patch",
@@ -331,7 +335,7 @@ def invariants() -> tuple[Invariant, ...]:
 def all_cases() -> tuple[RunnerCase, ...]:
     return (
         CORRECT_RUNNER,
-        DIRECT_EXPLORER_ALLOWED,
+        DIRECT_EXPLORER_FORMAL_ENTRY,
         BROKEN_EXPLORER_DOWNGRADED,
         BROKEN_AUDIT_WARNING_PASS,
         BROKEN_CONFORMANCE_OVERCLAIM,
@@ -344,13 +348,14 @@ def all_cases() -> tuple[RunnerCase, ...]:
 
 def self_review_scenarios() -> tuple[Scenario, ...]:
     expected_violations = {
+        DIRECT_EXPLORER_FORMAL_ENTRY.name: ("formal_entry_requires_runner",),
         BROKEN_EXPLORER_DOWNGRADED.name: ("failed_explorer_forces_failed_summary",),
         BROKEN_AUDIT_WARNING_PASS.name: ("audit_warning_prevents_plain_pass",),
         BROKEN_CONFORMANCE_OVERCLAIM.name: ("no_production_confidence_without_conformance",),
         BROKEN_SCENARIO_AUTO_PASS.name: ("generated_scenarios_need_review",),
         BROKEN_MINIMIZER_DROPS_ORIGINAL.name: ("minimizer_preserves_original_counterexample",),
         BROKEN_POINT_RULE_WITHOUT_LEDGER.name: ("coverage_first_ledger_precedes_point_rule_patch",),
-        BROKEN_PACKS_MANDATORY.name: ("helper_flow_remains_optional",),
+        BROKEN_PACKS_MANDATORY.name: ("formal_entry_requires_runner",),
     }
     workflow = build_workflow()
     checks = invariants()
@@ -392,19 +397,53 @@ def run_runner_self_check_summary():
     plan = FlowGuardCheckPlan(
         workflow=build_workflow(),
         initial_states=(RunnerState(),),
-        external_inputs=(CORRECT_RUNNER, DIRECT_EXPLORER_ALLOWED),
+        external_inputs=(CORRECT_RUNNER,),
         invariants=invariants(),
         max_sequence_length=1,
         risk_profile=RiskProfile(
             modeled_boundary="FlowGuard helper runner architecture",
             risk_classes=("deduplication", "conformance"),
             confidence_goal="model_level",
+            risk_intent=RiskIntent(
+                failure_modes=("helper runner accepts thin direct model as complete",),
+                protected_error_classes=("thin_model_overclaim",),
+                protected_harms=("FlowGuard confidence is claimed without a useful model",),
+                must_model_state=("summary_status", "finding_ledger_status"),
+                must_model_side_effects=("confidence_claim",),
+                completion_evidence=("summary_sections", "finding_ledger"),
+                adversarial_inputs=("direct explorer path", "happy-path-only runner",),
+                hard_invariants=("direct explorer cannot be formal entry",),
+                known_bad_cases=("direct_explorer_claims_flowguard_complete",),
+                template_no_match_reason="self-review architecture case is project-specific",
+                blindspots=("production package installation is checked separately",),
+            ),
             skipped_checks=(
                 {
                     "name": "production_conformance",
                     "reason": "self-review models FlowGuard helper architecture, not production adapter behavior",
                     "status": "not_feasible",
                 },
+            ),
+        ),
+        template_reuse_review=TemplateReuseReview(
+            no_match_reason="self-review architecture case is project-specific",
+            searched_layers=("public", "local"),
+        ),
+        minimum_model_contract=MinimumModelContract(
+            protected_error_classes=("thin_model_overclaim",),
+            modeled_state=("summary_status", "finding_ledger_status"),
+            modeled_side_effects=("confidence_claim",),
+            completion_evidence=("summary_sections", "finding_ledger"),
+            known_bad_cases=("direct_explorer_claims_flowguard_complete",),
+        ),
+        known_bad_proofs=(
+            KnownBadProof(
+                "direct_explorer_claims_flowguard_complete",
+                protected_error_class="thin_model_overclaim",
+                method="scenario_review",
+                observed_status="failed",
+                observed_failure="helper runner self-review rejects thin direct completion claim",
+                evidence_id="scenario:direct_explorer_claims_flowguard_complete",
             ),
         ),
         template_harvest_review=TemplateHarvestReview(
@@ -432,7 +471,7 @@ __all__ = [
     "BROKEN_POINT_RULE_WITHOUT_LEDGER",
     "BROKEN_SCENARIO_AUTO_PASS",
     "CORRECT_RUNNER",
-    "DIRECT_EXPLORER_ALLOWED",
+    "DIRECT_EXPLORER_FORMAL_ENTRY",
     "RunnerCase",
     "RunnerState",
     "all_cases",

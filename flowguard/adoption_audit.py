@@ -29,6 +29,14 @@ FLOWGUARD_UNAVAILABLE_RE = re.compile(
 )
 LOCAL_EXPLORER_RE = re.compile(r"\bclass\s+Explorer\b")
 LOCAL_WORKFLOW_RE = re.compile(r"\bclass\s+Workflow\b")
+DIRECT_EXPLORER_RE = re.compile(r"\bExplorer\s*\(")
+FORMAL_ENTRY_TERMS = (
+    "FlowGuardCheckPlan",
+    "run_model_first_checks",
+    "KnownBadProof",
+    "MinimumModelContract",
+    "RiskIntent",
+)
 
 
 @dataclass(frozen=True)
@@ -135,38 +143,51 @@ def audit_flowguard_adoption(
     findings: list[AdoptionAuditFinding] = []
     model_files = _flowguard_python_files(root_path)
     current_fallback_count = 0
+    current_direct_explorer_count = 0
     for path in model_files:
         text = _read_text(path)
         if not text:
             continue
         markers = _current_fallback_markers(text)
-        if not markers:
-            continue
-        current_fallback_count += 1
-        if flowguard_available:
-            findings.append(
-                AdoptionAuditFinding(
-                    "warning",
-                    "stale_fallback_model",
-                    "real flowguard is importable, but this current .flowguard model still appears to use fallback evidence",
-                    "Migrate the current model to the real FlowGuard Workflow/Explorer API, or mark the fallback as historical.",
-                    str(path),
-                    {"markers": markers},
+        if markers:
+            current_fallback_count += 1
+            if flowguard_available:
+                findings.append(
+                    AdoptionAuditFinding(
+                        "warning",
+                        "stale_fallback_model",
+                        "real flowguard is importable, but this current .flowguard model still appears to use fallback evidence",
+                        "Migrate the current model to the formal FlowGuard CheckPlan path, or mark the fallback as historical.",
+                        str(path),
+                        {"markers": markers},
+                    )
                 )
-            )
-        else:
+            else:
+                findings.append(
+                    AdoptionAuditFinding(
+                        "warning",
+                        "current_fallback_model",
+                        "this current .flowguard model appears to use fallback evidence because real flowguard is not importable",
+                        "Connect the real FlowGuard package or record the fallback as a skipped/blocked adoption gap.",
+                        str(path),
+                        {"markers": markers},
+                    )
+                )
+        direct_markers = _direct_explorer_without_formal_entry_markers(text)
+        if direct_markers:
+            current_direct_explorer_count += 1
             findings.append(
                 AdoptionAuditFinding(
                     "warning",
-                    "current_fallback_model",
-                    "this current .flowguard model appears to use fallback evidence because real flowguard is not importable",
-                    "Connect the real FlowGuard package or record the fallback as a skipped/blocked adoption gap.",
+                    "direct_explorer_formal_entry_required",
+                    "this current .flowguard model appears to run Explorer directly without a formal CheckPlan and known-bad proof gate",
+                    "Migrate the model to FlowGuardCheckPlan with RiskIntent, MinimumModelContract, KnownBadProof, and run_model_first_checks.",
                     str(path),
-                    {"markers": markers},
+                    {"markers": direct_markers},
                 )
             )
 
-    if current_fallback_count == 0 and _historical_fallback_mentioned(root_path):
+    if current_fallback_count == 0 and current_direct_explorer_count == 0 and _historical_fallback_mentioned(root_path):
         findings.append(
             AdoptionAuditFinding(
                 "suggestion",
@@ -225,6 +246,17 @@ def _current_fallback_markers(text: str) -> tuple[str, ...]:
     if LOCAL_WORKFLOW_RE.search(text) and "from flowguard" not in lowered:
         markers.append("local Workflow class")
     return tuple(dict.fromkeys(markers))
+
+
+def _direct_explorer_without_formal_entry_markers(text: str) -> tuple[str, ...]:
+    if not DIRECT_EXPLORER_RE.search(text):
+        return ()
+    if all(term in text for term in FORMAL_ENTRY_TERMS):
+        return ()
+    markers = ["direct Explorer call"]
+    missing = tuple(term for term in FORMAL_ENTRY_TERMS if term not in text)
+    markers.extend(f"missing {term}" for term in missing)
+    return tuple(markers)
 
 
 def _historical_fallback_mentioned(root: Path) -> bool:

@@ -4,11 +4,13 @@ A state write inventory is a small checklist for model fidelity. It helps avoid
 building an invariant around one obvious writer while missing another production
 path that mutates the same state.
 
-This is a modeling practice, not a new FlowGuard runtime gate. The direct core
-path remains:
+This is a modeling practice, not a new FlowGuard runtime gate. Use it inside
+the formal model-first path:
 
 ```text
-State + FunctionBlock + Invariant + Explorer
+RiskIntent + Input x State -> Set(Output x State)
+-> MinimumModelContract + KnownBadProof
+-> FlowGuardCheckPlan + run_model_first_checks
 ```
 
 ## When To Make One

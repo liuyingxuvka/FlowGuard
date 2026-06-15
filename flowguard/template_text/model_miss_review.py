@@ -27,6 +27,8 @@ Guards against:
   contract;
 - leaving old, fallback, compatibility, or alternate paths reachable without a
   disposition;
+- returning the same rejected intent, missing-field packet, missing-body packet,
+  or no-delta retry output without repair feedback or an explicit blocker;
 - treating a recurring same-class miss as another ordinary point fix;
 - using the known bug as the whole model target instead of holdout evidence;
 - treating a later green runtime check as enough to close a known miss.
@@ -884,7 +886,8 @@ issue after a FlowGuard pass.
 - Which refined model checks, runtime checks, and same-class tests must pass
   before completion?
 - If the repair changed a child model under a parent ModelMesh, which parent
-  reattachment gate consumed the new child evidence id?
+  reattachment gate consumed the new child evidence id, and which mesh closure
+  transitions were rerun when child outputs or retry/rejection handoffs changed?
 - If same-class validation is large, slow, layered, background, or release-only,
   which TestMesh parent/child suite owns it and where is final result evidence?
 - Which DevelopmentProcessFlow and Risk Evidence Ledger rows consume the final
@@ -1062,8 +1065,8 @@ Default closure needs:
 
 Escalate to `model-miss-full-template` when the repair needs generalized bad
 case modeling, known-bug holdout evidence, legacy path or old-field disposition,
-recurring defect-family gates, parent/child ModelMesh reattachment, TestMesh
-ownership, or Risk Evidence Ledger closure.
+recurring defect-family gates, parent/child ModelMesh reattachment and closure,
+TestMesh ownership, or Risk Evidence Ledger closure.
 
 If old runtime paths or fields are still reachable, the full route should record
 `legacy_path_disposition_recorded` evidence before broad completion.

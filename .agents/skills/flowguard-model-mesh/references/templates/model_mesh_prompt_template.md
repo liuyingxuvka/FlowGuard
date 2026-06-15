@@ -35,9 +35,11 @@ Tasks:
 7. For each repaired child model, record the parent reattachment contract:
    expected inputs, expected outputs, expected state and side-effect ownership,
    expected outgoing guarantees, and the consumed child evidence id.
-8. When whole-flow parent confidence is claimed, create a mesh closure model
-   that records root entries, child outputs, consumers, joins, terminals,
-   out-of-scope branches, and loop progress rules.
+8. When whole-flow parent confidence is claimed, or when child outputs,
+   reattachment contracts, or runtime path evidence are present, create a mesh
+   closure model that records root entries, child outputs, consumers, joins,
+   terminals, out-of-scope branches, repeat-input tokens, repair feedback, and
+   loop progress or blocker rules.
 9. Separate the current bug instance from the bug class: confirm Model-Miss
    Review represented the same-class responsibility or marked it out of scope.
 10. When a child boundary changed, propagate that change to the parent
@@ -50,11 +52,12 @@ Tasks:
 14. Return a decision: `mesh_green_can_continue`, `add_evidence`,
    `update_child_model`, `split_model_boundary`, `coverage_gap_blocked`,
    `overlap_too_high_refactor_needed`, `ownership_conflict`,
-   `target_split_derivation_required`, `large_model_split_review_required`,
-   `child_reattachment_required`, `blocked_by_stale_evidence`,
-   `unconsumed_child_output`, `missing_join_point`, `terminal_leak`,
-   `loop_progress_required`, `blocked_by_cross_model_contradiction`, or
-   `model_coverage_insufficient`.
+    `target_split_derivation_required`, `large_model_split_review_required`,
+    `child_reattachment_required`, `blocked_by_stale_evidence`,
+    `unconsumed_child_output`, `missing_join_point`, `terminal_leak`,
+    `loop_progress_required`, `loop_repair_feedback_required`,
+    `loop_no_delta_disposition_required`, `mesh_closure_required`,
+    `blocked_by_cross_model_contradiction`, or `model_coverage_insufficient`.
 15. Report what the mesh proves, what it does not prove, and which checks were
    skipped. Skipped is not pass.
 ```

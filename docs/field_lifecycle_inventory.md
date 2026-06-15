@@ -4,37 +4,37 @@ Generated inventory of FlowGuard dataclass fields. It is a maintenance
 aid, not deletion authority: behavior-bearing, compatibility-looking,
 and evidence-bearing fields still need route-owned proof before edits.
 
-- Field rows: `3841`
+- Field rows: `3858`
 - Modules: `69`
 
 ## Lifecycle Layers
 
 | Layer | Fields |
 | --- | ---: |
-| `behavior_or_contract` | 562 |
+| `behavior_or_contract` | 565 |
 | `collection_metadata` | 759 |
 | `compatibility_or_old_path` | 39 |
 | `display_or_metadata` | 193 |
-| `evidence_or_decision` | 772 |
-| `unclassified` | 1516 |
+| `evidence_or_decision` | 779 |
+| `unclassified` | 1523 |
 
 ## AI Surface Tiers
 
 | Tier | Fields |
 | --- | ---: |
-| `advanced` | 446 |
-| `internal` | 2291 |
-| `starter` | 1104 |
+| `advanced` | 450 |
+| `internal` | 2302 |
+| `starter` | 1106 |
 
 ## Route Owners
 
 | Route Owner | Fields |
 | --- | ---: |
-| `core_or_internal` | 1183 |
+| `core_or_internal` | 1194 |
 | `ui_flow_structure` | 676 |
 | `model_test_alignment` | 212 |
 | `plan_intake_claims` | 177 |
-| `model_mesh_maintenance` | 147 |
+| `model_mesh_maintenance` | 153 |
 | `model_similarity_consolidation` | 146 |
 | `plan_detailing_compiler` | 121 |
 | `development_process_flow` | 95 |
@@ -64,7 +64,7 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `ui_structure` | 676 |
 | `model_test_alignment` | 212 |
 | `plan_intake` | 177 |
-| `hierarchy` | 147 |
+| `hierarchy` | 153 |
 | `model_similarity` | 146 |
 | `plan_detailing` | 121 |
 | `layered_proof` | 103 |
@@ -81,20 +81,20 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `maintenance_scan` | 66 |
 | `testmesh` | 66 |
 | `field_lifecycle` | 65 |
+| `risk_templates` | 61 |
 | `self_maintenance` | 61 |
 | `structuremesh` | 61 |
 | `runtime_gateway` | 54 |
 | `auto_split` | 52 |
 | `budgeted` | 52 |
-| `risk_templates` | 51 |
 | `corpus` | 48 |
 | `executable` | 48 |
 | `risk_evidence_ledger` | 47 |
 | `code_structure` | 44 |
 | `model_maturation` | 39 |
 | `state_closure` | 38 |
+| `plan` | 33 |
 | `model_angle_deliberation` | 32 |
-| `plan` | 32 |
 | `report` | 30 |
 | `scenario` | 30 |
 | `step_contracts` | 29 |
@@ -1109,9 +1109,15 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `hierarchy` | `MeshClosureTransition` | `consumes` | `model_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
 | `hierarchy` | `MeshClosureTransition` | `emits` | `model_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
 | `hierarchy` | `MeshClosureTransition` | `consumer_model_id` | `model_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `hierarchy` | `MeshClosureTransition` | `code_contract_id` | `model_mesh_maintenance` | `starter` | `behavior_or_contract` | `true` |
+| `hierarchy` | `MeshClosureTransition` | `runtime_node_id` | `model_mesh_maintenance` | `starter` | `unclassified` | `false` |
 | `hierarchy` | `MeshClosureTransition` | `loop` | `model_mesh_maintenance` | `internal` | `unclassified` | `false` |
 | `hierarchy` | `MeshClosureTransition` | `progress_rule` | `model_mesh_maintenance` | `internal` | `unclassified` | `false` |
 | `hierarchy` | `MeshClosureTransition` | `max_iterations` | `model_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `hierarchy` | `MeshClosureTransition` | `repeat_input_tokens` | `model_mesh_maintenance` | `advanced` | `behavior_or_contract` | `true` |
+| `hierarchy` | `MeshClosureTransition` | `progress_tokens` | `model_mesh_maintenance` | `advanced` | `evidence_or_decision` | `false` |
+| `hierarchy` | `MeshClosureTransition` | `repair_feedback_tokens` | `model_mesh_maintenance` | `advanced` | `evidence_or_decision` | `false` |
+| `hierarchy` | `MeshClosureTransition` | `blocker_tokens` | `model_mesh_maintenance` | `advanced` | `evidence_or_decision` | `false` |
 | `hierarchy` | `MeshClosureTransition` | `rationale` | `model_mesh_maintenance` | `internal` | `unclassified` | `false` |
 | `hierarchy` | `MeshClosureJoin` | `join_id` | `model_mesh_maintenance` | `starter` | `unclassified` | `false` |
 | `hierarchy` | `MeshClosureJoin` | `required_inputs` | `model_mesh_maintenance` | `advanced` | `behavior_or_contract` | `true` |
@@ -2076,6 +2082,7 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `plan` | `FlowGuardCheckPlan` | `template_reuse_review` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `plan` | `FlowGuardCheckPlan` | `template_harvest_review` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `plan` | `FlowGuardCheckPlan` | `minimum_model_contract` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `plan` | `FlowGuardCheckPlan` | `known_bad_proofs` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
 | `plan` | `FlowGuardCheckPlan` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `plan_detailing` | `PlanDetailSource` | `source_id` | `plan_detailing_compiler` | `starter` | `unclassified` | `false` |
 | `plan_detailing` | `PlanDetailSource` | `source_kind` | `plan_detailing_compiler` | `internal` | `unclassified` | `false` |
@@ -2681,6 +2688,16 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `risk_templates` | `MinimumModelContract` | `modeled_side_effects` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
 | `risk_templates` | `MinimumModelContract` | `completion_evidence` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
 | `risk_templates` | `MinimumModelContract` | `known_bad_cases` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `risk_templates` | `KnownBadProof` | `case_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `risk_templates` | `KnownBadProof` | `protected_error_class` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `risk_templates` | `KnownBadProof` | `method` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `risk_templates` | `KnownBadProof` | `expected_failure` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `risk_templates` | `KnownBadProof` | `observed_status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `risk_templates` | `KnownBadProof` | `observed_failure` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `risk_templates` | `KnownBadProof` | `evidence_id` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `risk_templates` | `KnownBadProof` | `proof_artifact_id` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `risk_templates` | `KnownBadProof` | `current` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `risk_templates` | `KnownBadProof` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `risk_templates` | `MinimumModelReviewReport` | `ok` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
 | `risk_templates` | `MinimumModelReviewReport` | `status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
 | `risk_templates` | `MinimumModelReviewReport` | `findings` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |

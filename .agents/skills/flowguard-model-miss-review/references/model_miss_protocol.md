@@ -15,6 +15,12 @@ and `boundary_missing` when the prior model did not account for the promised
 capability, visible control, field, source-interaction branch, task flow,
 human-operability rule, or UI state update.
 
+If a post-green runtime route repeatedly returns the same packet, rejected
+intent, missing-field shape, or no-body shape without repair feedback or a
+blocking disposition, treat it as a model miss in the parent/child closure
+model. The repair must add the same-class retry/rejection liveness case, not
+only patch the observed packet.
+
 For bug repair work inside an existing modeled system, run Existing Model
 Preflight first so the fix extends the current model boundary instead of
 creating a parallel one.
@@ -86,9 +92,12 @@ creating a parallel one.
 16. Validate the repair with the refined model plus the strongest practical
    production-facing evidence.
 17. If the repair changed a child model under a parent ModelMesh, rerun the
-   affected parent child-reattachment gate. The parent must consume the current
-   child evidence id and confirm the child's inputs, outputs, state ownership,
-   side-effect ownership, and outgoing guarantees still fit the parent flow.
+    affected parent child-reattachment gate. The parent must consume the current
+    child evidence id and confirm the child's inputs, outputs, state ownership,
+    side-effect ownership, and outgoing guarantees still fit the parent flow.
+    If the child emits outputs, runtime path evidence, or retry/rejection
+    handoffs that the parent consumes, rerun the mesh closure model as well and
+    project the affected closure transitions to Model-Test Alignment/TestMesh.
 18. If the miss shows that real code accepted an unmodeled input, emitted an
     extra output/error/state write/side effect, or failed a declared leaf cell,
     update the leaf boundary matrix and rerun layered proof. Do not close the
@@ -128,8 +137,9 @@ and projected when relevant, the repaired model obligation must bind to the
 owner code contract, and reachable old/fallback/legacy paths or old fields must
 have a disposition.
 When the miss was repaired in a child model under a parent mesh, the affected
-parent reattachment gate must also pass or remain an explicit blocker. The model
-maturation loop must show no open in-scope upgrade action for a broad claim. A
+parent reattachment gate and any required mesh closure model must also pass or
+remain explicit blockers. The model maturation loop must show no open in-scope
+upgrade action for a broad claim. A
 patch plus a later green runtime check, or a patch plus one observed-bug
 regression test, is not enough by itself. A recurring or high-risk same-class
 miss also requires a current defect-family gate or an explicit

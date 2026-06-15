@@ -2,6 +2,10 @@ import unittest
 
 from flowguard import (
     EVIDENCE_ABSTRACT_GREEN,
+    MODEL_MESH_CLOSURE_RETRY_TEST_KINDS,
+    MeshClosureModel,
+    MeshClosureTerminal,
+    MeshClosureTransition,
     ModelTestAlignmentPlan,
     TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
     TEST_EVIDENCE_ROLE_TRANSITION_CELL,
@@ -19,6 +23,7 @@ from flowguard import (
     UIInteractionModel,
     UIStateNode,
     UITransition,
+    model_mesh_closure_to_transition_coverage,
     review_model_test_alignment,
     review_test_mesh,
     transition_coverage_to_code_contracts,
@@ -323,6 +328,122 @@ class TransitionCoverageTests(unittest.TestCase):
         self.assertFalse(report.ok)
         self.assertEqual("leaf_matrix_cell_evidence_required", report.decision)
         self.assertIn("leaf_matrix_cell_evidence_missing", [finding.code for finding in report.findings])
+
+    def test_model_mesh_closure_projects_retry_transition_to_matrix(self):
+        closure = MeshClosureModel(
+            "flowpilot-parent",
+            root_entries=("rejected_packet",),
+            transitions=(
+                MeshClosureTransition(
+                    "retry_same_packet",
+                    consumes=("rejected_packet",),
+                    emits=("repair_feedback", "blocked"),
+                    consumer_model_id="flowpilot-router",
+                    code_contract_id="router.retry_packet",
+                    runtime_node_id="runtime.retry_packet",
+                    loop=True,
+                    repeat_input_tokens=("rejected_packet",),
+                    repair_feedback_tokens=("repair_feedback",),
+                    blocker_tokens=("blocked",),
+                    rationale="same rejected packet must receive repair feedback or block",
+                ),
+            ),
+            terminals=(MeshClosureTerminal("blocked", consumes=("blocked",)),),
+        )
+
+        matrix = model_mesh_closure_to_transition_coverage(closure)
+        obligations = transition_coverage_to_model_obligations(matrix)
+        contracts = transition_coverage_to_code_contracts(matrix)
+
+        self.assertEqual("model_mesh_closure", matrix.source_route)
+        self.assertEqual(("flowpilot-parent.retry_same_packet",), matrix.required_cell_ids())
+        self.assertEqual(MODEL_MESH_CLOSURE_RETRY_TEST_KINDS, matrix.cells[0].required_test_kinds)
+        self.assertEqual("router.retry_packet", matrix.cells[0].code_contract_id)
+        self.assertEqual("runtime.retry_packet", matrix.cells[0].runtime_node_id)
+        self.assertEqual(("runtime.retry_packet",), obligations[0].required_runtime_node_ids)
+        self.assertEqual("router.retry_packet", contracts[0].code_contract_id)
+
+    def test_model_mesh_retry_transition_requires_negative_and_replay_evidence(self):
+        closure = MeshClosureModel(
+            "flowpilot-parent",
+            root_entries=("rejected_packet",),
+            transitions=(
+                MeshClosureTransition(
+                    "retry_same_packet",
+                    consumes=("rejected_packet",),
+                    emits=("repair_feedback", "blocked"),
+                    consumer_model_id="flowpilot-router",
+                    code_contract_id="router.retry_packet",
+                    loop=True,
+                    repeat_input_tokens=("rejected_packet",),
+                    repair_feedback_tokens=("repair_feedback",),
+                    blocker_tokens=("blocked",),
+                ),
+            ),
+            terminals=(MeshClosureTerminal("blocked", consumes=("blocked",)),),
+        )
+        matrix = model_mesh_closure_to_transition_coverage(closure)
+        obligation_id = transition_obligation_id("flowpilot-parent.retry_same_packet")
+
+        report = review_model_test_alignment(
+            ModelTestAlignmentPlan(
+                "flowpilot-parent",
+                obligations=transition_coverage_to_model_obligations(matrix),
+                code_contracts=transition_coverage_to_code_contracts(matrix),
+                test_evidence=(
+                    transition_evidence(
+                        "test_retry_same_packet_happy_only",
+                        obligation_id,
+                        "flowpilot-parent.retry_same_packet",
+                        contract_id="router.retry_packet",
+                    ),
+                ),
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("missing_required_test_kind", [finding.code for finding in report.findings])
+
+    def test_model_mesh_required_leaf_cell_id_feeds_test_mesh(self):
+        closure = MeshClosureModel(
+            "flowpilot-parent",
+            root_entries=("rejected_packet",),
+            transitions=(
+                MeshClosureTransition(
+                    "retry_same_packet",
+                    consumes=("rejected_packet",),
+                    emits=("repair_feedback", "blocked"),
+                    loop=True,
+                    repeat_input_tokens=("rejected_packet",),
+                    repair_feedback_tokens=("repair_feedback",),
+                    blocker_tokens=("blocked",),
+                ),
+            ),
+            terminals=(MeshClosureTerminal("blocked", consumes=("blocked",)),),
+        )
+        required_cells = transition_coverage_to_required_leaf_cell_ids(
+            model_mesh_closure_to_transition_coverage(closure)
+        )
+        plan = TestMeshPlan(
+            parent_suite_id="flowpilot-parent-retry",
+            partition_items=tuple(
+                TestPartitionItem(cell_id, item_type="model_mesh_closure", owner_suite_id="retry-cells")
+                for cell_id in required_cells
+            ),
+            child_suites=(child_suite("retry-cells"),),
+            target_split_derivation=TestTargetSplitDerivation(
+                "flowpilot-parent",
+                target_suite_ids=("retry-cells",),
+                covered_partition_item_ids=required_cells,
+                rationale="ModelMesh closure retry cells are owned by retry regression tests",
+            ),
+            required_leaf_cell_ids=required_cells,
+        )
+
+        report = review_test_mesh(plan)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("leaf_matrix_cell_evidence_required", report.decision)
 
 
 if __name__ == "__main__":

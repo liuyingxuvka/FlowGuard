@@ -13,6 +13,7 @@ from flowguard.templates import (
     existing_model_preflight_template_files,
     field_lifecycle_template_files,
     layered_boundary_proof_template_files,
+    maintenance_workflow_template_files,
     model_angle_deliberation_template_files,
     model_miss_review_full_template_files,
     model_miss_review_template_files,
@@ -130,6 +131,14 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("completed_with_evidence", output)
         self.assertIn("rejected_duplicate", output)
         self.assertIn("known_bad_without_evidence_rejected: yes", output)
+
+    def test_public_run_templates_use_formal_entry_not_direct_explorer(self):
+        for factory in PUBLIC_TEMPLATE_FACTORIES + (maintenance_workflow_template_files,):
+            with self.subTest(factory=factory.__name__):
+                for file in factory():
+                    if file.path.endswith("run_checks.py"):
+                        self.assertNotIn("Explorer(", file.content)
+                        self.assertNotIn("from flowguard import Explorer", file.content)
 
     def test_template_text_is_route_scoped_behind_public_facade(self):
         template_text_root = ROOT / "flowguard" / "template_text"
@@ -318,6 +327,8 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("TEST_EVIDENCE_ROLE_TRANSITION_CELL", combined)
         self.assertIn("transition_coverage_to_code_contracts", combined)
         self.assertIn("transition_coverage_to_model_obligations", combined)
+        self.assertIn("model_mesh_closure_to_transition_coverage", combined)
+        self.assertIn("ModelMesh closure projection", combined)
         self.assertIn("TestResultReuseTicket", combined)
         self.assertIn("audit_python_code_contracts", combined)
         self.assertIn("audit_python_test_assertions", combined)
@@ -365,6 +376,8 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("result_reused=True", combined)
         self.assertIn("TransitionCoverageMatrix", combined)
         self.assertIn("transition_coverage_to_required_leaf_cell_ids", combined)
+        self.assertIn("model_mesh_closure_to_transition_coverage", combined)
+        self.assertIn("ModelMesh closure projection cells", combined)
         self.assertIn("required_leaf_cell_ids", combined)
 
     def test_code_structure_recommendation_template_executes(self):
@@ -720,6 +733,17 @@ class PublicTemplateTests(unittest.TestCase):
                 "completion_receipt",
                 "--known-bad-case",
                 "ack_only",
+                "--known-bad-proof",
+                json.dumps(
+                    {
+                        "case_id": "ack_only",
+                        "protected_error_class": "premature_completion",
+                        "method": "broken_workflow_variant",
+                        "observed_status": "failed",
+                        "observed_failure": "ack-only completion was rejected",
+                        "evidence_id": "cli:known-bad",
+                    }
+                ),
                 "--no-write",
                 "--json",
             ],

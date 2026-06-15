@@ -11,7 +11,15 @@ from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
 from .export import to_jsonable
-from .model_test_alignment import CodeContract, ModelObligation, TEST_KIND_HAPPY_PATH
+from .hierarchy import MeshClosureModel
+from .model_test_alignment import (
+    CodeContract,
+    ModelObligation,
+    TEST_KIND_FAILURE_PATH,
+    TEST_KIND_HAPPY_PATH,
+    TEST_KIND_NEGATIVE_PATH,
+    TEST_KIND_REPLAY,
+)
 
 TRANSITION_COVERAGE_OBLIGATION_TYPE = "transition_coverage"
 TRANSITION_COVERAGE_OBLIGATION_PREFIX = "transition"
@@ -19,6 +27,13 @@ TRANSITION_COVERAGE_SOURCE_MODEL = "model"
 TRANSITION_COVERAGE_SOURCE_UI = "ui_flow_structure"
 TRANSITION_COVERAGE_SOURCE_WORKFLOW = "workflow_step_contracts"
 TRANSITION_COVERAGE_SOURCE_LEAF_BOUNDARY = "leaf_boundary_matrix"
+TRANSITION_COVERAGE_SOURCE_MODEL_MESH_CLOSURE = "model_mesh_closure"
+MODEL_MESH_CLOSURE_RETRY_TEST_KINDS = (
+    TEST_KIND_HAPPY_PATH,
+    TEST_KIND_FAILURE_PATH,
+    TEST_KIND_NEGATIVE_PATH,
+    TEST_KIND_REPLAY,
+)
 
 
 def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
@@ -232,6 +247,53 @@ def transition_coverage_to_code_contracts(
     return tuple(contracts)
 
 
+def _token_state(tokens: Sequence[str], fallback: str) -> str:
+    values = _unique([str(token) for token in tokens if str(token)])
+    return "+".join(values) if values else fallback
+
+
+def model_mesh_closure_to_transition_coverage(
+    closure_model: MeshClosureModel,
+    *,
+    matrix_id: str = "",
+    default_required_test_kinds: Sequence[str] = (TEST_KIND_HAPPY_PATH,),
+    retry_required_test_kinds: Sequence[str] = MODEL_MESH_CLOSURE_RETRY_TEST_KINDS,
+    risk_class: str = "normal",
+) -> TransitionCoverageMatrix:
+    """Project ModelMesh closure handoffs into required transition cells."""
+
+    cells: list[TransitionCoverageCell] = []
+    for transition in closure_model.transitions:
+        retry_like = transition.loop or bool(transition.repeat_input_tokens)
+        required_test_kinds = retry_required_test_kinds if retry_like else default_required_test_kinds
+        cell_id = f"{closure_model.parent_model_id}.{transition.transition_id}"
+        expected_outputs = transition.emits
+        cells.append(
+            TransitionCoverageCell(
+                cell_id=cell_id,
+                source_state=_token_state(transition.consumes, "mesh_entry"),
+                trigger=transition.transition_id,
+                target_state=_token_state(transition.emits, "mesh_no_output"),
+                expected_output=_token_state(expected_outputs, ""),
+                function_block=transition.consumer_model_id,
+                code_contract_id=transition.code_contract_id,
+                runtime_node_id=transition.runtime_node_id,
+                risk_class="retry_or_rejection" if retry_like else risk_class,
+                required_test_kinds=tuple(required_test_kinds),
+                rationale=transition.rationale or (
+                    f"ModelMesh closure transition {transition.transition_id}"
+                ),
+            )
+        )
+    return TransitionCoverageMatrix(
+        matrix_id or f"{closure_model.parent_model_id}:model-mesh-closure",
+        model_id=closure_model.parent_model_id,
+        source_route=TRANSITION_COVERAGE_SOURCE_MODEL_MESH_CLOSURE,
+        cells=tuple(cells),
+        rationale=closure_model.rationale,
+    )
+
+
 def ui_interaction_model_to_transition_coverage(
     model: Any,
     *,
@@ -277,10 +339,13 @@ __all__ = [
     "TRANSITION_COVERAGE_OBLIGATION_TYPE",
     "TRANSITION_COVERAGE_SOURCE_LEAF_BOUNDARY",
     "TRANSITION_COVERAGE_SOURCE_MODEL",
+    "TRANSITION_COVERAGE_SOURCE_MODEL_MESH_CLOSURE",
     "TRANSITION_COVERAGE_SOURCE_UI",
     "TRANSITION_COVERAGE_SOURCE_WORKFLOW",
+    "MODEL_MESH_CLOSURE_RETRY_TEST_KINDS",
     "TransitionCoverageCell",
     "TransitionCoverageMatrix",
+    "model_mesh_closure_to_transition_coverage",
     "transition_coverage_to_code_contracts",
     "transition_coverage_to_model_obligations",
     "transition_coverage_to_required_leaf_cell_ids",

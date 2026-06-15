@@ -95,6 +95,34 @@ class StoreAccepted:
         )
 
 
+class BrokenValidateInput:
+    name = "BrokenValidateInput"
+    reads = ("seen_ids",)
+    writes = ("seen_ids",)
+    accepted_input_type = Input
+
+    def apply(self, input_obj: Input, state: State) -> Iterable[FunctionResult]:
+        yield FunctionResult(
+            output=Accepted(input_obj.item_id),
+            new_state=replace(state, seen_ids=state.seen_ids + (input_obj.item_id,)),
+            label="broken_accepted_duplicate",
+        )
+
+
+class BrokenStoreAccepted:
+    name = "BrokenStoreAccepted"
+    reads = ("stored_ids",)
+    writes = ("stored_ids",)
+    accepted_input_type = Accepted
+
+    def apply(self, input_obj: Accepted, state: State) -> Iterable[FunctionResult]:
+        yield FunctionResult(
+            output=Stored(input_obj.item_id),
+            new_state=replace(state, stored_ids=state.stored_ids + (input_obj.item_id,)),
+            label="broken_duplicate_store",
+        )
+
+
 def terminal_predicate(current_output, state, trace) -> bool:
     del state, trace
     return isinstance(current_output, Rejected)
@@ -155,15 +183,22 @@ def build_workflow() -> Workflow:
     return Workflow((ValidateInput(), StoreAccepted()), name="model_template")
 
 
+def broken_workflow() -> Workflow:
+    return Workflow((BrokenValidateInput(), BrokenStoreAccepted()), name="model_template_broken")
+
+
 __all__ = [
     "EXTERNAL_INPUTS",
     "INVARIANTS",
     "MAX_SEQUENCE_LENGTH",
     "Accepted",
+    "BrokenStoreAccepted",
+    "BrokenValidateInput",
     "Input",
     "Rejected",
     "State",
     "Stored",
+    "broken_workflow",
     "build_workflow",
     "initial_state",
     "terminal_predicate",

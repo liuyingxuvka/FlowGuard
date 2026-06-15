@@ -104,6 +104,22 @@ def closure_model(**kwargs):
     return MeshClosureModel(**defaults)
 
 
+def reattachment_closure(output="payment_reattached"):
+    return MeshClosureModel(
+        parent_model_id="checkout",
+        root_entries=("root_start",),
+        transitions=(
+            MeshClosureTransition(
+                "reattach_payment",
+                consumes=("root_start",),
+                emits=(output,),
+                consumer_model_id="payment",
+            ),
+        ),
+        terminals=(MeshClosureTerminal("reattached", consumes=(output,)),),
+    )
+
+
 class HierarchicalMeshTests(unittest.TestCase):
     def test_complete_partition_map_can_continue(self):
         partition = HierarchyPartitionMap(
@@ -128,6 +144,34 @@ class HierarchicalMeshTests(unittest.TestCase):
         self.assertEqual([], report.to_dict()["findings"])
         self.assertIn("flowguard hierarchical mesh", report.format_text())
 
+    def test_child_output_without_closure_model_blocks_parent_green(self):
+        partition = HierarchyPartitionMap(
+            parent_model_id="checkout",
+            coverage_items=(HierarchyCoverageItem("payment", owner_model_id="payment"),),
+            child_models=(child("payment", outputs_emitted=("payment_result",)),),
+            target_split_derivation=target("checkout", ("payment",), ("payment",)),
+        )
+
+        report = review_hierarchical_mesh(partition)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("mesh_closure_required", report.decision)
+        self.assertIn("mesh_closure_required", [finding.code for finding in report.findings])
+
+    def test_reattachment_without_closure_model_blocks_parent_green(self):
+        partition = HierarchyPartitionMap(
+            parent_model_id="checkout",
+            coverage_items=(HierarchyCoverageItem("payment", owner_model_id="payment"),),
+            child_models=(child("payment", evidence_id="payment:v1"),),
+            target_split_derivation=target("checkout", ("payment",), ("payment",)),
+            reattachment_contracts=(reattachment_empty("payment", consumed_evidence_id="payment:v1"),),
+        )
+
+        report = review_hierarchical_mesh(partition)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("mesh_closure_required", report.decision)
+
     def test_mesh_closure_complete_model_can_continue(self):
         report = review_mesh_closure_model(
             closure_model(),
@@ -150,6 +194,77 @@ class HierarchicalMeshTests(unittest.TestCase):
         self.assertFalse(report.ok)
         self.assertEqual("missing_root_entry", report.decision)
         self.assertIn("missing_root_entry", [finding.code for finding in report.findings])
+
+    def test_repeat_input_loop_requires_repair_feedback(self):
+        report = review_mesh_closure_model(
+            closure_model(
+                root_entries=("rejected_packet",),
+                transitions=(
+                    MeshClosureTransition(
+                        "retry_same_packet",
+                        consumes=("rejected_packet",),
+                        emits=("rejected_packet", "blocked"),
+                        loop=True,
+                        repeat_input_tokens=("rejected_packet",),
+                        blocker_tokens=("blocked",),
+                        max_iterations=1,
+                    ),
+                ),
+                joins=(),
+                terminals=(MeshClosureTerminal("blocked", consumes=("blocked",)),),
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertEqual("loop_repair_feedback_required", report.decision)
+        self.assertIn("loop_repair_feedback_required", [finding.code for finding in report.findings])
+
+    def test_repeat_input_loop_requires_structured_no_delta_disposition(self):
+        report = review_mesh_closure_model(
+            closure_model(
+                root_entries=("rejected_packet",),
+                transitions=(
+                    MeshClosureTransition(
+                        "retry_same_packet",
+                        consumes=("rejected_packet",),
+                        emits=("rejected_packet", "repair_feedback"),
+                        loop=True,
+                        progress_rule="agent should change the packet",
+                        repeat_input_tokens=("rejected_packet",),
+                        repair_feedback_tokens=("repair_feedback",),
+                    ),
+                ),
+                joins=(),
+                terminals=(MeshClosureTerminal("retry_terminal", consumes=("repair_feedback",)),),
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertEqual("loop_no_delta_disposition_required", report.decision)
+        self.assertIn("loop_no_delta_disposition_required", [finding.code for finding in report.findings])
+
+    def test_guarded_repeat_input_loop_can_close(self):
+        report = review_mesh_closure_model(
+            closure_model(
+                root_entries=("rejected_packet",),
+                transitions=(
+                    MeshClosureTransition(
+                        "retry_same_packet",
+                        consumes=("rejected_packet",),
+                        emits=("repair_feedback", "blocked"),
+                        loop=True,
+                        repeat_input_tokens=("rejected_packet",),
+                        repair_feedback_tokens=("repair_feedback",),
+                        blocker_tokens=("blocked",),
+                    ),
+                ),
+                joins=(),
+                terminals=(MeshClosureTerminal("blocked", consumes=("blocked",)),),
+            )
+        )
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual("mesh_closure_green", report.decision)
 
     def test_mesh_closure_rejects_unconsumed_child_output(self):
         report = review_mesh_closure_model(
@@ -614,6 +729,7 @@ class HierarchicalMeshTests(unittest.TestCase):
                 side_effect=True,
             ),
             reattachment_contracts=(reattachment("payment"),),
+            closure_model=reattachment_closure("child_done"),
         )
 
         report = review_hierarchical_mesh(partition)
@@ -786,6 +902,7 @@ class HierarchicalMeshTests(unittest.TestCase):
             target_split_derivation=target("checkout", ("payment",), ("payment",)),
             reattachment_contracts=(reattachment_empty("payment", consumed_evidence_id="payment:v2"),),
             boundary_changes=(summary,),
+            closure_model=reattachment_closure(),
         )
 
         report = review_hierarchical_mesh(partition)
@@ -817,6 +934,7 @@ class HierarchicalMeshTests(unittest.TestCase):
                 reattachment_empty("payment", consumed_evidence_id="payment:v2", expected_state_owned=("payment_state",)),
             ),
             boundary_changes=(summary,),
+            closure_model=reattachment_closure(),
         )
 
         report = review_hierarchical_mesh(partition)

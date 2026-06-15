@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from flowguard.risk_templates import (
     TEMPLATE_LIBRARY_ENV_VAR,
+    KnownBadProof,
     MinimumModelContract,
     RiskTemplate,
     TemplateHarvestReview,
@@ -16,11 +17,26 @@ from flowguard.risk_templates import (
     harvest_risk_template_candidate,
     load_local_risk_templates,
     merge_risk_templates,
+    review_known_bad_proofs,
     review_minimum_model_contract,
     review_template_harvest_closure,
     search_risk_templates,
     write_local_risk_template,
 )
+
+
+def known_bad_proof(**kwargs):
+    defaults = {
+        "case_id": "ack_without_receipt",
+        "protected_error_class": "premature_completion",
+        "method": "broken_workflow",
+        "expected_failure": "failed",
+        "observed_status": "failed",
+        "observed_failure": "completion_without_receipt invariant failed",
+        "evidence_id": "model:known-bad",
+    }
+    defaults.update(kwargs)
+    return KnownBadProof(**defaults)
 
 
 class RiskTemplateTests(unittest.TestCase):
@@ -88,6 +104,7 @@ class RiskTemplateTests(unittest.TestCase):
                 required_state=("completed",),
                 required_evidence=("receipt",),
                 known_bad_cases=("ack_without_receipt",),
+                known_bad_proofs=(known_bad_proof(),),
                 local_root=directory,
             )
             loaded = load_local_risk_templates(directory)
@@ -103,7 +120,8 @@ class RiskTemplateTests(unittest.TestCase):
             template_reuse_review=TemplateReuseReview(no_match_reason="no similar template yet", searched_layers=("public", "local")),
         )
 
-        self.assertEqual("pass_with_gaps", report.status)
+        self.assertFalse(report.ok)
+        self.assertEqual("blocked", report.status)
         self.assertIn("missing_completion_evidence", report.findings)
         self.assertIn("missing_known_bad_case", report.findings)
 
@@ -124,6 +142,71 @@ class RiskTemplateTests(unittest.TestCase):
 
         self.assertEqual("pass", report.status)
         self.assertFalse(report.findings)
+
+    def test_known_bad_proof_passes_when_case_is_caught(self):
+        report = review_known_bad_proofs(
+            MinimumModelContract(
+                protected_error_classes=("premature_completion",),
+                completion_evidence=("receipt",),
+                known_bad_cases=("ack_without_receipt",),
+            ),
+            (known_bad_proof(),),
+        )
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual("pass", report.status)
+
+    def test_missing_known_bad_proof_blocks(self):
+        report = review_known_bad_proofs(
+            MinimumModelContract(
+                protected_error_classes=("premature_completion",),
+                known_bad_cases=("ack_without_receipt",),
+            ),
+            (),
+        )
+
+        self.assertFalse(report.ok)
+        self.assertEqual("blocked", report.status)
+        self.assertIn("missing_known_bad_proof", report.findings)
+
+    def test_known_bad_case_that_passes_fails_review(self):
+        report = review_known_bad_proofs(
+            MinimumModelContract(
+                protected_error_classes=("premature_completion",),
+                known_bad_cases=("ack_without_receipt",),
+            ),
+            (known_bad_proof(observed_status="passed"),),
+        )
+
+        self.assertFalse(report.ok)
+        self.assertEqual("failed", report.status)
+        self.assertIn("known_bad_case_passed", report.findings)
+
+    def test_stale_known_bad_proof_blocks(self):
+        report = review_known_bad_proofs(
+            MinimumModelContract(
+                protected_error_classes=("premature_completion",),
+                known_bad_cases=("ack_without_receipt",),
+            ),
+            (known_bad_proof(current=False),),
+        )
+
+        self.assertFalse(report.ok)
+        self.assertEqual("blocked", report.status)
+        self.assertIn("stale_known_bad_proof", report.findings)
+
+    def test_known_bad_protected_error_mismatch_blocks(self):
+        report = review_known_bad_proofs(
+            MinimumModelContract(
+                protected_error_classes=("duplicate_side_effect",),
+                known_bad_cases=("ack_without_receipt",),
+            ),
+            (known_bad_proof(),),
+        )
+
+        self.assertFalse(report.ok)
+        self.assertEqual("blocked", report.status)
+        self.assertIn("known_bad_protected_error_mismatch", report.findings)
 
     def test_template_harvest_review_passes_for_written_candidate(self):
         report = review_template_harvest_closure(

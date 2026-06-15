@@ -15,6 +15,7 @@ from .risk_templates import (
     MinimumModelContract,
     TemplateHarvestReview,
     TemplateReuseReview,
+    review_known_bad_proofs,
     review_minimum_model_contract,
     review_template_harvest_closure,
 )
@@ -56,11 +57,7 @@ AUTO_SCENARIO_RISKS = frozenset(
 
 
 def run_model_first_checks(plan: FlowGuardCheckPlan) -> FlowGuardSummaryReport:
-    """Run a lightweight model-first helper workflow.
-
-    This is an optional convenience layer. Direct `Explorer` usage remains the
-    minimal and fully supported path.
-    """
+    """Run the formal model-first FlowGuard check workflow."""
 
     sections: list[FlowGuardSection] = []
     artifacts: dict[str, Any] = {"plan": plan}
@@ -96,6 +93,7 @@ def run_model_first_checks(plan: FlowGuardCheckPlan) -> FlowGuardSummaryReport:
         template_reuse_review=plan.template_reuse_review,
         template_harvest_review=plan.template_harvest_review,
         minimum_model_contract=plan.minimum_model_contract,
+        known_bad_proofs=plan.known_bad_proofs,
     )
     artifacts["audit_report"] = audit_report
     sections.append(section_from_audit_report(audit_report))
@@ -129,6 +127,8 @@ def run_model_first_checks(plan: FlowGuardCheckPlan) -> FlowGuardSummaryReport:
             external_inputs=plan.external_inputs,
             invariants=active_invariants,
             max_sequence_length=plan.max_sequence_length,
+            terminal_predicate=plan.terminal_predicate,
+            required_labels=plan.required_labels,
             assumption_card=plan.assumption_card,
         ).explore()
         sections.append(section_from_check_report(model_report))
@@ -274,13 +274,6 @@ def _append_minimum_model_section(
     artifacts: dict[str, Any],
     plan: FlowGuardCheckPlan,
 ) -> None:
-    if (
-        plan.minimum_model_contract is None
-        and plan.template_reuse_review is None
-        and plan.template_harvest_review is None
-        and plan.risk_profile is None
-    ):
-        return
     contract = plan.minimum_model_contract or _contract_from_risk_profile(plan.risk_profile)
     template_reuse_review = plan.template_reuse_review or _template_reuse_from_risk_profile(plan.risk_profile)
     report = review_minimum_model_contract(
@@ -295,6 +288,21 @@ def _append_minimum_model_section(
             summary=report.summary,
             findings=report.findings,
             metadata={"report": report, "always_show_findings": bool(report.findings)},
+        )
+    )
+    proof_report = review_known_bad_proofs(
+        contract,
+        plan.known_bad_proofs,
+        risk_intent=getattr(plan.risk_profile, "risk_intent", None),
+    )
+    artifacts["known_bad_proof_review"] = proof_report
+    sections.append(
+        FlowGuardSection(
+            name="known_bad_proof",
+            status=proof_report.status,
+            summary=proof_report.summary,
+            findings=proof_report.findings,
+            metadata={"report": proof_report, "always_show_findings": bool(proof_report.findings)},
         )
     )
     _append_template_harvest_section(sections, artifacts, plan.template_harvest_review)

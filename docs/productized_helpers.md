@@ -1,15 +1,20 @@
 # Productized Helper Layer
 
-FlowGuard's core remains small:
+FlowGuard's core remains small, while the public model-first entry is formal:
 
 ```text
 State + FunctionBlock + Invariant + Explorer
 FunctionBlock: Input x State -> Set(Output x State)
 Explorer: deterministic finite exploration
+
+RiskIntent + MinimumModelContract + KnownBadProof
+-> FlowGuardCheckPlan -> run_model_first_checks
 ```
 
-The helper layer exists to make that path easier for AI coding agents. It should
-not become a mandatory checklist or a second formal system.
+The helper layer exists to make that path repeatable for AI coding agents. It
+should not become a second formal system, but the model-first entry must still
+name the protected error class, model completion evidence, prove a known-bad
+case is caught, and close template reuse/harvest.
 
 For the full public API layer map, see `docs/api_surface.md`. The exported
 `API_SURFACE` grouping is descriptive only; it does not turn helpers, reports,
@@ -99,13 +104,17 @@ warnings rather than rejected.
 Use `audit_flowguard_adoption(root)` for read-only checks of existing
 FlowGuard adoption evidence. It scans `.flowguard` Python files for stale
 fallback markers such as `flowguard_package_available = False`, fallback
-explorer comments, or local replacement `Explorer`/`Workflow` classes.
+explorer comments, local replacement `Explorer`/`Workflow` classes, and current
+direct `Explorer(...)` calls that do not also bind the formal CheckPlan and
+known-bad proof gate.
 
 If the real package is importable but a current model still appears to use a
-fallback, the report emits `stale_fallback_model` as a warning. Historical
-fallback mentions in old logs are kept visible as suggestions. These findings
-do not make the model fail by themselves; they prevent overclaiming current
-FlowGuard adoption from stale evidence.
+fallback, the report emits `stale_fallback_model` as a warning. If a current
+model runs direct Explorer without the formal gate, it emits
+`direct_explorer_formal_entry_required`. Historical fallback mentions in old
+logs are kept visible as suggestions. These findings do not make the model fail
+by themselves; they prevent overclaiming current FlowGuard adoption from stale
+evidence.
 
 For low-friction logging, the CLI can append start and finish entries:
 
@@ -373,7 +382,7 @@ example that prints a Markdown Mermaid code block.
 ## Runner and Domain Packs
 
 `RiskProfile`, `FlowGuardCheckPlan`, and `run_model_first_checks(...)` provide
-a low-friction path for AI agents:
+the low-friction formal path for AI agents:
 
 1. Create a model if none exists yet, or update the existing model.
 2. Start with the smallest inspectable boundary that still exposes the
@@ -382,18 +391,21 @@ a low-friction path for AI agents:
 3. Declare the intended risk boundary in `RiskProfile`, preferably with a
    `RiskIntent` that names failure modes, protected harms, model-critical
    state, adversarial inputs, hard invariants, and blindspots.
-4. Use property factories or domain packs when they fit.
-5. Run `run_model_first_checks(...)`.
-6. Inspect minimized counterexamples when present.
-7. Treat `pass_with_gaps` as useful but limited confidence.
+4. Bind a `MinimumModelContract`, template reuse/no-match review, at least one
+   current `KnownBadProof`, and template harvest closure.
+5. Use property factories or domain packs when they fit.
+6. Run `run_model_first_checks(...)`.
+7. Inspect minimized counterexamples when present.
+8. Treat `pass_with_gaps`, `blocked`, `not_run`, and skipped sections as claim
+   boundaries, not as pass evidence.
 
 The runner is orchestration, not a new core checker. It calls existing helpers
-and keeps direct `Explorer` use valid.
+and delegates finite exploration to the core `Explorer`.
 
 Because the runner delegates model exploration to core `Explorer(...)`, it
 inherits the default ten-step `stderr` progress output. Do not add a second
 runner-specific progress loop; silence progress with `FLOWGUARD_PROGRESS=0` or
-`Explorer(..., progress_steps=0)` when needed.
+the plan progress fields when needed.
 
 Domain packs are small recipes:
 
@@ -430,8 +442,8 @@ URL and version policy. The basic project template demonstrates validation,
 rejection, duplicate input, source-trace invariants, completion evidence, and a
 known-bad variant that must fail. The Risk Intent template shows how to bind a
 `RiskIntent`, `RiskProfile`, template reuse review, minimum model contract,
-template harvest closure, and `FlowGuardCheckPlan` before running
-`run_model_first_checks(...)`. The risk
+current `KnownBadProof`, template harvest closure, and `FlowGuardCheckPlan`
+before running `run_model_first_checks(...)`. The risk
 template library template shows how to search packaged public templates,
 reference the per-machine local template library, prepare a local candidate,
 and close harvest as written, merged, duplicate-linked, or not-harvestable

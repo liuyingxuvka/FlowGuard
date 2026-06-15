@@ -29,6 +29,7 @@ Replace this sample risk with the workflow under review.
 from __future__ import annotations
 
 from flowguard import (
+    KnownBadProof,
     MinimumModelContract,
     TemplateHarvestReview,
     TemplateReuseReview,
@@ -58,6 +59,19 @@ def minimum_contract():
     )
 
 
+def known_bad_proofs():
+    return (
+        KnownBadProof(
+            "ack_without_output_marked_completed",
+            protected_error_class="premature_completion",
+            method="broken_workflow_variant",
+            observed_status="failed",
+            observed_failure="ACK-only completion variant lacks durable output evidence",
+            evidence_id="risk-template-library:known-bad",
+        ),
+    )
+
+
 def template_reuse_review():
     search = search_public_templates()
     used = (search.matches[0].template.template_id,) if search.matches else ()
@@ -79,6 +93,7 @@ def candidate_harvest(write=False):
         required_side_effects=("output_write",),
         required_evidence=("durable_output_ref",),
         known_bad_cases=("ack_without_output_marked_completed",),
+        known_bad_proofs=known_bad_proofs(),
         merge_keys=("completion", "evidence", "ack"),
         write=write,
     )
@@ -144,7 +159,7 @@ Default layers:
 
 Do not store project source code or private payloads in local templates. Save
 abstract protected error classes, required state, side effects, completion
-evidence, and known-bad cases.
+evidence, known-bad cases, and current proof that the known-bad case is caught.
 """
 
 __all__ = [

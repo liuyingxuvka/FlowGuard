@@ -26,6 +26,21 @@ NOT_HARVESTABLE_REASONS = (
     "write_blocked",
     "human_deferred",
 )
+KNOWN_BAD_PROOF_CAUGHT_STATUSES = (
+    "failed",
+    "rejected",
+    "blocked",
+    "invariant_violation",
+    "expected_violation",
+)
+KNOWN_BAD_PROOF_PASS_STATUSES = ("pass", "passed", "ok", "clean")
+KNOWN_BAD_PROOF_NOT_CURRENT_STATUSES = (
+    "stale",
+    "skipped",
+    "not_run",
+    "running",
+    "progress_only",
+)
 
 
 def _normalize_text_items(values: Iterable[str] | str | None) -> tuple[str, ...]:
@@ -347,6 +362,63 @@ class MinimumModelContract:
 
 
 @dataclass(frozen=True)
+class KnownBadProof:
+    """Structured proof that one declared known-bad case is caught."""
+
+    case_id: str
+    protected_error_class: str = ""
+    method: str = ""
+    expected_failure: str = "failed"
+    observed_status: str = ""
+    observed_failure: str = ""
+    evidence_id: str = ""
+    proof_artifact_id: str = ""
+    current: bool = True
+    metadata: FrozenMetadata = field(default_factory=tuple, compare=False)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "case_id", str(self.case_id or "").strip())
+        object.__setattr__(self, "protected_error_class", str(self.protected_error_class or "").strip())
+        object.__setattr__(self, "method", str(self.method or "").strip())
+        object.__setattr__(self, "expected_failure", str(self.expected_failure or "").strip().lower())
+        object.__setattr__(self, "observed_status", str(self.observed_status or "").strip().lower())
+        object.__setattr__(self, "observed_failure", str(self.observed_failure or "").strip())
+        object.__setattr__(self, "evidence_id", str(self.evidence_id or "").strip())
+        object.__setattr__(self, "proof_artifact_id", str(self.proof_artifact_id or "").strip())
+        object.__setattr__(self, "current", bool(self.current))
+        object.__setattr__(self, "metadata", freeze_metadata(self.metadata))
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "KnownBadProof":
+        return cls(
+            case_id=str(data.get("case_id", data.get("known_bad_case", ""))),
+            protected_error_class=str(data.get("protected_error_class", "")),
+            method=str(data.get("method", data.get("proof_method", ""))),
+            expected_failure=str(data.get("expected_failure", data.get("expected_result", "failed"))),
+            observed_status=str(data.get("observed_status", data.get("observed_result", ""))),
+            observed_failure=str(data.get("observed_failure", "")),
+            evidence_id=str(data.get("evidence_id", data.get("check_id", ""))),
+            proof_artifact_id=str(data.get("proof_artifact_id", "")),
+            current=bool(data.get("current", True)),
+            metadata=data.get("metadata"),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "case_id": self.case_id,
+            "protected_error_class": self.protected_error_class,
+            "method": self.method,
+            "expected_failure": self.expected_failure,
+            "observed_status": self.observed_status,
+            "observed_failure": self.observed_failure,
+            "evidence_id": self.evidence_id,
+            "proof_artifact_id": self.proof_artifact_id,
+            "current": self.current,
+            "metadata": to_jsonable(self.metadata),
+        }
+
+
+@dataclass(frozen=True)
 class MinimumModelReviewReport:
     """Review result for a minimum valuable model declaration."""
 
@@ -661,8 +733,8 @@ def review_template_reuse(review: TemplateReuseReview | Mapping[str, Any] | None
 
     if review is None:
         return MinimumModelReviewReport(
-            ok=True,
-            status="pass_with_gaps",
+            ok=False,
+            status="blocked",
             findings=("missing_template_reuse_review",),
             summary="template reuse review was not provided",
         )
@@ -672,9 +744,9 @@ def review_template_reuse(review: TemplateReuseReview | Mapping[str, Any] | None
         findings.append("missing_template_search_layers")
     if not normalized.used_template_ids and not normalized.no_match_reason.strip():
         findings.append("missing_template_use_or_no_match_reason")
-    status = "pass" if not findings else "pass_with_gaps"
+    status = "pass" if not findings else "blocked"
     return MinimumModelReviewReport(
-        ok=True,
+        ok=not findings,
         status=status,
         findings=tuple(findings),
         summary=f"used_templates={len(normalized.used_template_ids)} matches={len(normalized.match_template_ids)}",
@@ -706,14 +778,115 @@ def review_minimum_model_contract(
         findings.append("missing_known_bad_case")
     reuse = review_template_reuse(template_reuse_review)
     findings.extend(reuse.findings)
-    status = "pass" if not findings else "pass_with_gaps"
+    status = "pass" if not findings else "blocked"
     return MinimumModelReviewReport(
-        ok=True,
+        ok=not findings,
         status=status,
         findings=tuple(_unique(findings)),
         summary=(
             f"protected_errors={len(normalized.protected_error_classes)} "
             f"known_bad_cases={len(normalized.known_bad_cases)}"
+        ),
+    )
+
+
+def _coerce_known_bad_proofs(
+    proofs: Sequence[KnownBadProof | Mapping[str, Any]] | None,
+) -> tuple[KnownBadProof, ...]:
+    if proofs is None:
+        return ()
+    normalized: list[KnownBadProof] = []
+    for proof in proofs:
+        if isinstance(proof, KnownBadProof):
+            normalized.append(proof)
+        elif isinstance(proof, Mapping):
+            normalized.append(KnownBadProof.from_dict(proof))
+        else:
+            raise TypeError("known_bad_proofs must contain KnownBadProof or mapping items")
+    return tuple(normalized)
+
+
+def review_known_bad_proofs(
+    contract: MinimumModelContract | Mapping[str, Any] | None,
+    proofs: Sequence[KnownBadProof | Mapping[str, Any]] | None,
+    *,
+    risk_intent: Any = None,
+) -> MinimumModelReviewReport:
+    """Review executable proof that declared known-bad cases are caught."""
+
+    normalized_contract = (
+        contract
+        if isinstance(contract, MinimumModelContract)
+        else MinimumModelContract.from_dict(contract or {})
+    )
+    normalized_proofs = _coerce_known_bad_proofs(proofs)
+    declared_cases = _unique(
+        (
+            *normalized_contract.known_bad_cases,
+            *tuple(getattr(risk_intent, "known_bad_cases", ()) or ()),
+        )
+    )
+    protected_errors = _unique(
+        (
+            *normalized_contract.protected_error_classes,
+            *tuple(getattr(risk_intent, "protected_error_classes", ()) or ()),
+        )
+    )
+    protected_lookup = {item.lower() for item in protected_errors}
+    findings: list[str] = []
+
+    if not declared_cases:
+        findings.append("missing_known_bad_case")
+    if not normalized_proofs:
+        findings.append("missing_known_bad_proof")
+
+    proofs_by_case: dict[str, list[KnownBadProof]] = {}
+    for proof in normalized_proofs:
+        proofs_by_case.setdefault(proof.case_id, []).append(proof)
+
+    for case_id in declared_cases:
+        if case_id not in proofs_by_case:
+            findings.append(f"missing_known_bad_proof: {case_id}")
+
+    for proof in normalized_proofs:
+        if not proof.case_id:
+            findings.append("missing_known_bad_case_id")
+        elif declared_cases and proof.case_id not in declared_cases:
+            findings.append(f"unknown_known_bad_proof_case: {proof.case_id}")
+        if not proof.protected_error_class:
+            findings.append("missing_known_bad_protected_error_class")
+        elif protected_lookup and proof.protected_error_class.lower() not in protected_lookup:
+            findings.append("known_bad_protected_error_mismatch")
+        if not proof.method:
+            findings.append("missing_known_bad_proof_method")
+        if not (proof.evidence_id or proof.proof_artifact_id):
+            findings.append("missing_known_bad_evidence")
+        if not proof.expected_failure:
+            findings.append("missing_expected_failure")
+        if not proof.current or proof.observed_status in KNOWN_BAD_PROOF_NOT_CURRENT_STATUSES:
+            findings.append("stale_known_bad_proof")
+        if proof.observed_status in KNOWN_BAD_PROOF_PASS_STATUSES:
+            findings.append("known_bad_case_passed")
+        elif proof.observed_status not in KNOWN_BAD_PROOF_CAUGHT_STATUSES:
+            findings.append("known_bad_proof_not_caught")
+        elif not proof.observed_failure:
+            findings.append("missing_observed_failure")
+
+    unique_findings = _unique(findings)
+    failure_findings = {"known_bad_case_passed", "known_bad_proof_not_caught"}
+    if any(finding in failure_findings for finding in unique_findings):
+        status = "failed"
+    elif unique_findings:
+        status = "blocked"
+    else:
+        status = "pass"
+    return MinimumModelReviewReport(
+        ok=status == "pass",
+        status=status,
+        findings=unique_findings,
+        summary=(
+            f"declared_known_bad_cases={len(declared_cases)} "
+            f"proofs={len(normalized_proofs)}"
         ),
     )
 
@@ -811,6 +984,7 @@ def harvest_risk_template_candidate(
     required_side_effects: Iterable[str] | str = (),
     required_evidence: Iterable[str] | str = (),
     known_bad_cases: Iterable[str] | str = (),
+    known_bad_proofs: Sequence[KnownBadProof | Mapping[str, Any]] | None = None,
     merge_keys: Iterable[str] | str = (),
     local_root: str | Path | None = None,
     write: bool = True,
@@ -841,6 +1015,18 @@ def harvest_risk_template_candidate(
         missing.append("missing_completion_evidence")
     if not template.known_bad_cases:
         missing.append("missing_known_bad_case")
+    proof_report = review_known_bad_proofs(
+        MinimumModelContract(
+            protected_error_classes=template.protected_error_classes,
+            modeled_state=template.required_state,
+            modeled_side_effects=template.required_side_effects,
+            completion_evidence=template.required_evidence,
+            known_bad_cases=template.known_bad_cases,
+        ),
+        known_bad_proofs,
+    )
+    if proof_report.status != "pass":
+        missing.extend(proof_report.findings)
     if missing:
         return RiskTemplateHarvestReport(False, "blocked", tuple(missing), template=template)
     if not write:
@@ -858,6 +1044,10 @@ def harvest_risk_template_candidate(
 
 
 __all__ = [
+    "KNOWN_BAD_PROOF_CAUGHT_STATUSES",
+    "KNOWN_BAD_PROOF_NOT_CURRENT_STATUSES",
+    "KNOWN_BAD_PROOF_PASS_STATUSES",
+    "KnownBadProof",
     "MinimumModelContract",
     "MinimumModelReviewReport",
     "NOT_HARVESTABLE_REASONS",
@@ -878,6 +1068,7 @@ __all__ = [
     "load_local_risk_templates",
     "merge_risk_templates",
     "review_template_harvest_closure",
+    "review_known_bad_proofs",
     "review_minimum_model_contract",
     "review_template_reuse",
     "search_risk_templates",

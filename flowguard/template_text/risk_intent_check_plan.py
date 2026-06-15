@@ -36,6 +36,7 @@ from flowguard import (
     FunctionResult,
     Invariant,
     InvariantResult,
+    KnownBadProof,
     MinimumModelContract,
     RiskIntent,
     RiskProfile,
@@ -157,6 +158,16 @@ def build_check_plan() -> FlowGuardCheckPlan:
             completion_evidence=("accepted_id_recorded",),
             known_bad_cases=("retry_accepts_same_item_twice",),
         ),
+        known_bad_proofs=(
+            KnownBadProof(
+                "retry_accepts_same_item_twice",
+                protected_error_class="duplicate_side_effect",
+                method="broken_workflow_variant",
+                observed_status="failed",
+                observed_failure="duplicate retry variant violates no_duplicate_accepts",
+                evidence_id="risk-intent-template:known-bad",
+            ),
+        ),
     )
 
 
@@ -203,7 +214,7 @@ Record:
 - protected harms;
 - state and side effects that must be visible;
 - completion evidence;
-- known-bad cases that should fail on broken models;
+- known-bad cases that should fail on broken models, with current proof;
 - public/local template ids used, or a no-match reason;
 - template harvest closure: written, merged, duplicate-linked, or an accepted not-harvestable reason;
 - adversarial inputs or retries;

@@ -1,18 +1,20 @@
 # RiskProfile and Check Plans
 
-The direct FlowGuard path remains:
+The FlowGuard modeling primitive remains small:
 
 ```text
 State + FunctionBlock + Invariant + Explorer
 ```
 
-`RiskProfile`, `FlowGuardCheckPlan`, and `run_model_first_checks()` are optional
-orchestration helpers for AI coding agents that need a single low-friction
-entry point.
+For new or deepened FlowGuard models, the formal entry is no longer a direct
+`Explorer(...)` run. Use `FlowGuardCheckPlan` and `run_model_first_checks()` so
+the model must name what it protects, bind the minimum useful model contract,
+prove at least one representative known-bad case is caught, and close template
+reuse/harvest.
 
-They live in the reporting/helper layer, not the core layer. Direct
-`Explorer(...)` use remains the simplest valid path; see `docs/api_surface.md`
-for the API layer map.
+`Explorer` remains the deterministic finite exploration engine under that
+runner. It is not the public first-read path for non-trivial model creation.
+See `docs/api_surface.md` for the API layer map.
 
 ## RiskProfile
 
@@ -60,14 +62,13 @@ Known risk classes include:
 Unknown risk classes are allowed. They appear as warnings because the audit
 heuristics only know the standard classes.
 
-The `risk_intent` field can be omitted for direct or minimal plans, but agents
-should treat a missing or thin Risk Intent Brief as a pre-modeling gap. A
+The `risk_intent` field is the normal place for the Risk Intent Brief. A
 minimum valuable brief explains the failure modes, protected error classes,
 protected harms, state and side effects that must be visible, completion
 evidence, adversarial inputs to simulate, known-bad cases, used public/local
-template ids or a no-match reason, hard invariants, and blindspots. Direct
-`Explorer(...)` usage can keep the same brief in comments, model notes, or the
-adoption log instead of using `RiskProfile`.
+template ids or a no-match reason, hard invariants, and blindspots. Missing or
+thin risk intent, missing template search/no-match reason, missing completion
+evidence, or missing known-bad cases are pre-modeling gaps.
 
 Confidence goals:
 
@@ -80,10 +81,10 @@ Skipped checks must include a reason. Skipped is not pass.
 
 ## FlowGuardCheckPlan
 
-`FlowGuardCheckPlan` packages one optional runner invocation:
+`FlowGuardCheckPlan` packages the formal runner invocation:
 
 ```python
-from flowguard import FlowGuardCheckPlan
+from flowguard import FlowGuardCheckPlan, KnownBadProof, MinimumModelContract
 
 plan = FlowGuardCheckPlan(
     workflow=workflow,
@@ -92,13 +93,30 @@ plan = FlowGuardCheckPlan(
     invariants=invariants,
     max_sequence_length=2,
     risk_profile=risk_profile,
+    minimum_model_contract=MinimumModelContract(
+        protected_error_classes=("duplicate_side_effect",),
+        modeled_state=("records", "side_effect_log"),
+        modeled_side_effects=("record_write", "notification_send"),
+        completion_evidence=("record_id", "side_effect_receipt"),
+        known_bad_cases=("retry_writes_second_record",),
+    ),
+    known_bad_proofs=(
+        KnownBadProof(
+            "retry_writes_second_record",
+            protected_error_class="duplicate_side_effect",
+            method="broken_workflow_variant",
+            observed_status="failed",
+            observed_failure="retry variant creates a second side effect",
+        ),
+    ),
 )
 ```
 
-Optional fields include scenarios, contracts, progress config, conformance
-status/report, scenario matrix config, and metadata. Missing optional fields do
-not fail the plan; they become `not_run`, `skipped_with_reason`, or audit gaps
-when relevant.
+Route-specific fields still exist for scenarios, contracts, progress config,
+conformance status/report, scenario matrix config, and metadata. The minimum
+model contract, template reuse/no-match review, known-bad proof, and template
+harvest closure are not cosmetic; missing items become blocked or gap sections
+instead of silent pass evidence.
 
 ## run_model_first_checks
 

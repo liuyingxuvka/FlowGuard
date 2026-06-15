@@ -14,6 +14,8 @@ contracts, and ordinary test evidence describe the same behavioral surface.
 Guards against:
 - model scenarios, invariants, hazards, or transitions with no test evidence;
 - model state transitions that were never projected into testable matrix cells;
+- ModelMesh closure transitions, especially retry/rejection loops, that were
+  never projected into testable matrix cells;
 - model obligations with no code external contract owner;
 - code functions or entrypoints that miss model-declared external behavior;
 - code functions or entrypoints that add model-forbidden external behavior;
@@ -70,6 +72,7 @@ from flowguard import (
     TransitionCoverageMatrix,
     audit_python_code_contracts,
     audit_python_test_assertions,
+    model_mesh_closure_to_transition_coverage,
     review_code_boundary_conformance,
     review_python_contract_source_audit,
     review_model_test_alignment,
@@ -649,6 +652,12 @@ For field-bearing changes, pass FieldLifecycleMesh reports or projections into
 projections into model obligations and required owner code contracts, then the
 ordinary test evidence must prove the same external behavior.
 
+For ModelMesh closure projection, use
+`model_mesh_closure_to_transition_coverage(...)` before claiming parent/child
+handoff tests cover the mesh. Retry or rejection transitions from repeated
+inputs should keep their generated transition cells visible through
+Model-Test Alignment and TestMesh.
+
 List test evidence:
 
 - evidence id;
@@ -844,7 +853,7 @@ def main() -> int:
     print(broken.format_text())
     print()
     print("plain model obligations -> owner code external contracts -> plain test evidence -> replay evidence -> synthetic payload case on real surface")
-    print("escalate to model-test-alignment-full-template for code-boundary conformance, source audit, ArtifactPayloadContract, state closure evidence, TestResultReuseTicket, or TransitionCoverageMatrix")
+    print("escalate to model-test-alignment-full-template for code-boundary conformance, source audit, ArtifactPayloadContract, state closure evidence, TestResultReuseTicket, TransitionCoverageMatrix, or ModelMesh closure projection")
     return 0 if aligned.ok and not broken.ok else 1
 
 
@@ -864,8 +873,9 @@ actually guarded by runtime code and tests.
 Escalate to `model-test-alignment-full-template` when the claim needs
 code-boundary conformance rows, artifact payload contracts, conservative Python source audit,
 state-closure evidence for unknown/old-schema cases, reused test-result
-tickets, transition coverage matrices, FieldLifecycleMesh projections, or
-large TestMesh/StructureMesh handoffs.
+tickets, transition coverage matrices, ModelMesh closure projection with
+`model_mesh_closure_to_transition_coverage(...)`, FieldLifecycleMesh
+projections, or large TestMesh/StructureMesh handoffs.
 """
 
 __all__ = [

@@ -55,7 +55,7 @@ to the kernel instead of taking ownership of unclear work.
 
 | Sub-protocol | Owns |
 | --- | --- |
-| `core_modeling` | Risk Intent, state write inventory, function blocks, invariants, Explorer, CheckPlan |
+| `core_modeling` | Risk Intent, state write inventory, function blocks, invariants, formal CheckPlan, known-bad proof, and Explorer as the internal finite runner |
 | `plan_detailing_compiler` | rough plans, short AI outlines, PlanDetail rows, receipts, validation, rework, human questions, and projection to sibling routes |
 | `architecture_reduction` | behavior-preserving code contraction candidates, observable architecture contracts, and target StructureMesh handoff |
 | `ui_flow_structure` | UI interaction model, app-level journey coverage, implemented/runnable UI click-through evidence alignment, reachable visible-control branches, state/control/event/display transitions, parent/child UI topology, menu levels, overlays, stable placements, UI text hierarchy blueprint, and intentional redundancy |
@@ -76,12 +76,16 @@ to the kernel instead of taking ownership of unclear work.
 
 These are package helpers:
 
-- `RiskIntent`, `RiskProfile`, `FlowGuardCheckPlan`;
+- `RiskIntent`, `RiskProfile`, `FlowGuardCheckPlan`,
+  `MinimumModelContract`, `KnownBadProof`, `TemplateReuseReview`,
+  `TemplateHarvestReview`, and `review_known_bad_proofs`;
 - property factories and packs;
 - `review_model_test_alignment()` and `review_code_boundary_conformance()`;
 - `TransitionCoverageMatrix`, `transition_coverage_to_model_obligations()`,
   `transition_coverage_to_code_contracts()`, and
   `transition_coverage_to_required_leaf_cell_ids()`;
+- `model_mesh_closure_to_transition_coverage()` and
+  `MODEL_MESH_CLOSURE_RETRY_TEST_KINDS`;
 - `review_obligation_family_parity()` and `review_analogous_defect_scan()`;
 - `review_model_maturation_loop()` for post-evidence model upgrade decisions;
 - `review_risk_evidence_ledger()` and risk evidence ledger rows;
@@ -115,6 +119,9 @@ sub-skills.
   Model-Miss Review responsible for the miss and ModelMesh responsible for the
   parent reattachment gate, upward child-boundary propagation, and affected
   sibling model review.
+- When ModelMesh closure transitions include retry/rejection or repeated-input
+  loops, project them through Model-Test Alignment/TestMesh before broad
+  evidence claims.
 - Keep the current bug instance separate from bug-class responsibility:
   patching the observed instance is not closure until the miss is classified
   and the same-class case is represented or explicitly out of scope.

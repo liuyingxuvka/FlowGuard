@@ -10,9 +10,11 @@ from .core import FrozenMetadata, block_name, freeze_metadata
 from .export import to_jsonable
 from .risk import RiskProfile
 from .risk_templates import (
+    KnownBadProof,
     MinimumModelContract,
     TemplateHarvestReview,
     TemplateReuseReview,
+    review_known_bad_proofs,
     review_minimum_model_contract,
     review_template_harvest_closure,
 )
@@ -246,6 +248,7 @@ def audit_model(
     template_reuse_review: TemplateReuseReview | dict[str, Any] | None = None,
     template_harvest_review: TemplateHarvestReview | dict[str, Any] | None = None,
     minimum_model_contract: MinimumModelContract | dict[str, Any] | None = None,
+    known_bad_proofs: Iterable[KnownBadProof | dict[str, Any]] | None = None,
 ) -> ModelQualityAuditReport:
     """Audit obvious model-quality gaps without blocking model execution.
 
@@ -308,6 +311,21 @@ def audit_model(
                     code,
                     f"minimum valuable model gap: {code}",
                     "Name the protected error, modeled state/side effects, completion evidence, known-bad case, and template reuse result before broad confidence.",
+                    {"modeled_boundary": profile.modeled_boundary},
+                )
+            )
+        proof_review = review_known_bad_proofs(
+            contract,
+            tuple(known_bad_proofs or ()),
+            risk_intent=profile.risk_intent,
+        )
+        for code in proof_review.findings:
+            findings.append(
+                _finding(
+                    "error" if proof_review.status == "failed" else "warning",
+                    code,
+                    f"known-bad proof gap: {code}",
+                    "Provide current executable proof that each declared known-bad case fails or is rejected for the protected error class.",
                     {"modeled_boundary": profile.modeled_boundary},
                 )
             )

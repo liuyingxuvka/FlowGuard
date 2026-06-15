@@ -166,19 +166,25 @@ The closure model should record:
 - required join points and the outputs each join needs;
 - normal exits, failure exits, terminal side-effect closures, and
   out-of-scope dispositions with rationale;
-- loop-like retry or wait handoffs and their bound or progress rule.
+- loop-like retry, rejection, or wait handoffs, the repeat-input tokens and
+  repeated output tokens,
+  repair feedback tokens, and either progress tokens, blocker tokens, or a
+  finite iteration bound.
 
 `review_mesh_closure_model(...)` blocks green closure when a root entry is
 missing, a consumed token is unknown, a child output has no consumer, a required
 output is unreachable from the root entries, a join cannot complete, an
 out-of-scope disposition lacks rationale, a terminal is reached with pending
-required outputs, or a loop-like handoff lacks a bound or progress rule.
+required outputs, or a loop-like handoff lacks repair feedback, a structured
+no-delta disposition, or a bound/progress rule.
 
 When `HierarchyPartitionMap.closure_model` is present,
 `review_hierarchical_mesh(...)` must consume the closure report before returning
-`mesh_green_can_continue`. If no closure model is declared, the mesh may still
-support partition, target-split, evidence, or reattachment claims, but it should
-not be described as proving whole-flow entry-to-exit closure.
+`mesh_green_can_continue`. If a parent partition declares child outputs,
+reattachment contracts, or runtime path evidence, the closure model is required
+for broad parent green confidence. Without it, the mesh may still support
+partition, target-split, evidence, or scoped reattachment facts, but it should
+not be described as proving a closed parent/child flow.
 
 Suggested evidence tiers:
 
@@ -285,10 +291,12 @@ At minimum, the mesh must make these broken variants fail:
 27. A parent mesh reaches a terminal disposition while required child outputs or
     join obligations remain pending.
 28. A closure model marks a branch out of scope without rationale.
-29. A loop-like parent/child handoff is accepted as closed without a bound,
-    ranking, or progress rule.
+29. A loop-like parent/child handoff is accepted as closed without repair
+    feedback, a blocker/progress token, a bound, ranking, or progress rule.
 30. A closure model consumes an unknown or foreign output token that is not
     produced by a root entry, child output, transition, or join.
+31. A repeated AI packet or rejected input is returned with the same packet or
+    token shape and no repair instruction, so the next packet can be identical.
 31. A final full-confidence claim cites child model evidence that was never
     attached to a Risk Evidence Ledger row.
 
@@ -332,9 +340,11 @@ Tasks:
 8. When parent confidence depends on code boundary proof, build layered
    boundary proof from parent coverage, child disjointness, child
    reattachment, and leaf boundary-matrix rows.
-9. When whole-flow parent confidence is claimed, create a mesh closure model
-   that records root entries, child outputs, consumers, joins, terminals,
-   out-of-scope branches, and loop progress rules.
+9. When whole-flow parent confidence is claimed, or when child outputs,
+   reattachment contracts, or runtime path evidence are present, create a mesh
+   closure model that records root entries, child outputs, consumers, joins,
+   terminals, out-of-scope branches, repeat-input tokens, repair feedback, and
+   loop progress or blocker rules.
 10. Separate the current bug instance from the bug class: confirm Model-Miss
    Review represented the same-class responsibility or marked it out of scope.
 11. When a child boundary changed, propagate that change to the parent
@@ -376,8 +386,8 @@ The mesh is sufficient for the current decision only when:
   finite `Input x State -> Set(Output x State)` cell or are explicitly blocked;
 - whole-flow parent confidence, when claimed, is backed by a green mesh closure
   model that consumes every required child output, completes joins, reaches a
-  valid terminal disposition, and keeps out-of-scope or loop-progress gaps
-  explicit;
+  valid terminal disposition, and keeps out-of-scope, repair-feedback,
+  blocker-token, and loop-progress gaps explicit;
 - the current bug instance is not confused with bug-class closure; Model-Miss
   Review either represented the same-class responsibility or marked it out of
   scope before mesh confidence is claimed;

@@ -4,8 +4,13 @@ from dataclasses import dataclass
 from flowguard import FunctionResult, InvariantResult, Workflow, assumption_card, conditional_assumption
 from flowguard.checks import no_duplicate_values
 from flowguard.plan import FlowGuardCheckPlan
-from flowguard.risk import RiskProfile, SkippedCheck
-from flowguard.risk_templates import TemplateHarvestReview
+from flowguard.risk import RiskIntent, RiskProfile, SkippedCheck
+from flowguard.risk_templates import (
+    KnownBadProof,
+    MinimumModelContract,
+    TemplateHarvestReview,
+    TemplateReuseReview,
+)
 from flowguard.runner import run_model_first_checks
 
 
@@ -67,6 +72,68 @@ def make_runner_assumption_card():
     )
 
 
+def formal_risk_profile(*, confidence_goal="model_level", risk_classes=("deduplication",), skipped_checks=()):
+    return RiskProfile(
+        modeled_boundary="recording",
+        risk_classes=risk_classes,
+        risk_intent=RiskIntent(
+            failure_modes=("retry creates duplicate record",),
+            protected_error_classes=("duplicate_side_effect",),
+            protected_harms=("downstream workflow sees the same job twice",),
+            must_model_state=("records",),
+            must_model_side_effects=("record_write",),
+            completion_evidence=("record_added_label",),
+            adversarial_inputs=("same job repeated",),
+            hard_invariants=("records are unique",),
+            known_bad_cases=("retry_adds_duplicate_record",),
+            used_template_ids=("side_effect_at_most_once",),
+            blindspots=("production storage replay is checked separately",),
+        ),
+        confidence_goal=confidence_goal,
+        skipped_checks=skipped_checks,
+    )
+
+
+def formal_minimum_contract():
+    return MinimumModelContract(
+        protected_error_classes=("duplicate_side_effect",),
+        modeled_state=("records",),
+        modeled_side_effects=("record_write",),
+        completion_evidence=("record_added_label",),
+        known_bad_cases=("retry_adds_duplicate_record",),
+    )
+
+
+def formal_template_reuse():
+    return TemplateReuseReview(
+        used_template_ids=("side_effect_at_most_once",),
+        searched_layers=("public", "local"),
+    )
+
+
+def formal_known_bad_proof(**kwargs):
+    values = {
+        "case_id": "retry_adds_duplicate_record",
+        "protected_error_class": "duplicate_side_effect",
+        "method": "broken_workflow",
+        "expected_failure": "failed",
+        "observed_status": "failed",
+        "observed_failure": "no_duplicate_records invariant failed",
+        "evidence_id": "model:retry_adds_duplicate_record",
+    }
+    values.update(kwargs)
+    return KnownBadProof(**values)
+
+
+def formal_template_harvest(**kwargs):
+    values = {
+        "disposition": "duplicate_linked",
+        "linked_template_ids": ("side_effect_at_most_once",),
+    }
+    values.update(kwargs)
+    return TemplateHarvestReview(**values)
+
+
 class RunnerTests(unittest.TestCase):
     def test_run_model_first_checks_auto_generates_scenarios_for_risk_profile(self):
         plan = FlowGuardCheckPlan(
@@ -82,15 +149,13 @@ class RunnerTests(unittest.TestCase):
                 ),
             ),
             max_sequence_length=2,
-            risk_profile=RiskProfile(
-                modeled_boundary="recording",
-                risk_classes=("deduplication",),
+            risk_profile=formal_risk_profile(
                 skipped_checks=(SkippedCheck("conformance_replay", "no production adapter yet"),),
             ),
-            template_harvest_review=TemplateHarvestReview(
-                disposition="duplicate_linked",
-                linked_template_ids=("side_effect_at_most_once",),
-            ),
+            template_reuse_review=formal_template_reuse(),
+            template_harvest_review=formal_template_harvest(),
+            minimum_model_contract=formal_minimum_contract(),
+            known_bad_proofs=(formal_known_bad_proof(),),
             scenario_matrix_config={"max_scenarios": 4},
         )
 
@@ -128,11 +193,11 @@ class RunnerTests(unittest.TestCase):
                 ),
             ),
             max_sequence_length=2,
-            risk_profile={"modeled_boundary": "broken recording", "risk_classes": ("deduplication",)},
-            template_harvest_review={
-                "disposition": "duplicate_linked",
-                "linked_template_ids": ("side_effect_at_most_once",),
-            },
+            risk_profile=formal_risk_profile(),
+            template_reuse_review=formal_template_reuse(),
+            template_harvest_review=formal_template_harvest(),
+            minimum_model_contract=formal_minimum_contract(),
+            known_bad_proofs=(formal_known_bad_proof(),),
             scenario_matrix_config={"enabled": False},
         )
 
@@ -152,15 +217,18 @@ class RunnerTests(unittest.TestCase):
             initial_states=(State(),),
             external_inputs=("job_1",),
             max_sequence_length=1,
-            risk_profile=RiskProfile(
-                modeled_boundary="recording",
-                risk_classes=("conformance",),
+            risk_profile=formal_risk_profile(
                 confidence_goal="production_conformance",
+                risk_classes=("conformance",),
             ),
-            template_harvest_review=TemplateHarvestReview(
+            template_reuse_review=formal_template_reuse(),
+            template_harvest_review=formal_template_harvest(
                 disposition="not_harvestable",
+                linked_template_ids=(),
                 not_harvestable_reason="no_new_pattern",
             ),
+            minimum_model_contract=formal_minimum_contract(),
+            known_bad_proofs=(formal_known_bad_proof(),),
             conformance_status="skipped_with_reason",
         )
 
@@ -183,7 +251,10 @@ class RunnerTests(unittest.TestCase):
             initial_states=(State(),),
             external_inputs=("job_1",),
             max_sequence_length=1,
-            risk_profile=RiskProfile(modeled_boundary="recording", risk_classes=("deduplication",)),
+            risk_profile=formal_risk_profile(),
+            template_reuse_review=formal_template_reuse(),
+            minimum_model_contract=formal_minimum_contract(),
+            known_bad_proofs=(formal_known_bad_proof(),),
         )
 
         summary = run_model_first_checks(plan)
@@ -201,6 +272,11 @@ class RunnerTests(unittest.TestCase):
             external_inputs=("job_1",),
             max_sequence_length=1,
             assumption_card=card,
+            risk_profile=formal_risk_profile(),
+            template_reuse_review=formal_template_reuse(),
+            template_harvest_review=formal_template_harvest(),
+            minimum_model_contract=formal_minimum_contract(),
+            known_bad_proofs=(formal_known_bad_proof(),),
         )
 
         summary = run_model_first_checks(plan)

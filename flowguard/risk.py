@@ -45,6 +45,7 @@ RISK_INTENT_FIELDS = (
     "hard_invariants",
     "known_bad_cases",
     "used_template_ids",
+    "template_no_match_reason",
     "blindspots",
 )
 
@@ -125,14 +126,22 @@ class RiskIntent:
         warnings: list[str] = []
         if not self.failure_modes:
             warnings.append("risk_intent.failure_modes is empty")
+        if not self.protected_error_classes:
+            warnings.append("risk_intent.protected_error_classes is empty")
         if not self.protected_harms:
             warnings.append("risk_intent.protected_harms is empty")
         if not self.must_model_state:
             warnings.append("risk_intent.must_model_state is empty")
+        if not self.completion_evidence:
+            warnings.append("risk_intent.completion_evidence is empty")
         if not self.adversarial_inputs:
             warnings.append("risk_intent.adversarial_inputs is empty")
         if not self.hard_invariants:
             warnings.append("risk_intent.hard_invariants is empty")
+        if not self.known_bad_cases:
+            warnings.append("risk_intent.known_bad_cases is empty")
+        if not self.used_template_ids and not self.template_no_match_reason.strip():
+            warnings.append("risk_intent template reuse or no-match reason is empty")
         if not self.blindspots:
             warnings.append("risk_intent.blindspots is empty")
         return tuple(warnings)

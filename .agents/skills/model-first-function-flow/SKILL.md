@@ -25,7 +25,8 @@ Skip only tiny copy edits, formatting-only changes, direct command answers, or r
 risky boundary -> protected error class -> public/local risk template search
 -> Input x State -> Set(Output x State)
 -> state + side effects + completion evidence + known-bad case
--> run checks -> inspect counterexample -> record template harvest closure
+-> FlowGuardCheckPlan + run_model_first_checks
+-> inspect counterexample -> record template harvest closure
 ```
 
 The default entry is compact, but it must have teeth. A new or deepened model
@@ -35,10 +36,9 @@ representative bad implementation would fail. Complete claims still need
 current evidence for the selected route, and missing/stale/skipped evidence
 means partial or scoped FlowGuard evidence.
 
-When package helpers are needed, read `AGENT_DEFAULT_API` first, then the
-selected `ROUTE_STARTER_API[route_id]`. Load `ROUTE_ADVANCED_API`, full helper
-indexes, or `*-full-template` scaffolds only after the route needs deep
-evidence.
+When package helpers are needed, read `AGENT_DEFAULT_API`, then the selected
+`ROUTE_STARTER_API[route_id]`. Load advanced indexes or full templates only
+after the route needs deep evidence.
 
 ## Hard Gates
 
@@ -48,6 +48,8 @@ evidence.
 - Default replacement means cleanup: old fields, aliases, wrappers, fallback paths, and compatibility-like surfaces need a disposition unless the user explicitly requests compatibility preservation.
 - If import fails, connect the real toolchain or report blocked/partial; do not write a temporary mini-framework or fake mini-framework substitute.
 - Represent modeled blocks as `Input x State -> Set(Output x State)`.
+- Treat direct `Explorer(...)` as an internal engine, not the formal entry for
+  non-trivial model creation.
 - Do not replace executable modeling with prose or weaken invariants to pass.
 - Preserve user and peer-agent changes; later writes can stale evidence.
 - Long checks may run in the background, but final confidence needs exit/status and result artifacts, not progress lines.
@@ -101,7 +103,8 @@ the row below calls for deep route evidence.
 | FlowGuard framework upgrade or benchmark/corpus claim | `framework_upgrade` | `references/framework_upgrade_protocol.md` |
 | Guard-family child reports, cross-Guard gaps, stale child evidence, skipped child checks | `guard_closure_contract` | `assets/guard_closure_contract.py` |
 
-When no direct route clearly matches, stay in this kernel and build the smallest executable model first.
+When no direct route clearly matches, stay in this kernel and build the smallest
+formal executable model first.
 
 ## Flow Lenses
 

@@ -36,6 +36,12 @@ root entries, child-output tokens, parent or sibling consumers, required joins,
 normal/failure exits, and explicit out-of-scope dispositions. It proves the
 handoffs close without expanding child internals.
 
+When the parent mesh declares child outputs, runtime path evidence, or
+reattachment contracts, `review_hierarchical_mesh(...)` requires a closure model
+before broad parent green confidence. The mesh can still report local partition
+or evidence facts without that model, but it must not say the parent/child route
+can continue as a closed flow.
+
 If a child model was changed to repair a bug, its own green result is not enough
 for parent confidence. The parent must reattach that child by consuming the
 current child evidence id and checking that the child still accepts the expected
@@ -125,6 +131,11 @@ closed, not merely partitioned. The model records:
 required output is unreachable from root entries, a join is incomplete, an
 out-of-scope disposition lacks rationale, a terminal is reached while required
 outputs remain pending, or a loop-like handoff has no bound or progress rule.
+For repeated-input retry/rejection loops, record `repeat_input_tokens`,
+`repair_feedback_tokens`, and either `progress_tokens`, `blocker_tokens`, or a
+finite `max_iterations` value. A loop that returns the same packet or token
+without repair feedback or a no-delta disposition is a stuck-loop risk, not a
+green closure.
 
 When `HierarchyPartitionMap.closure_model` is present,
 `review_hierarchical_mesh(...)` consumes the closure report before returning

@@ -55,13 +55,20 @@ class ApiSurfaceTests(unittest.TestCase):
         self.assertTrue(set(flowguard.AGENT_DEFAULT_API).issubset(public_first_read_names))
 
     def test_agent_default_api_is_compact_first_read_surface(self):
-        self.assertLess(len(flowguard.AGENT_DEFAULT_API), 20)
+        self.assertLessEqual(len(flowguard.AGENT_DEFAULT_API), 24)
         expected = {
             "Workflow",
-            "Explorer",
             "Invariant",
+            "RiskIntent",
+            "RiskProfile",
+            "FlowGuardCheckPlan",
+            "MinimumModelContract",
+            "KnownBadProof",
+            "TemplateReuseReview",
+            "TemplateHarvestReview",
+            "review_known_bad_proofs",
+            "run_model_first_checks",
             "FLOWGUARD_ROUTE_API",
-            "default_flowguard_self_maintenance_plan",
             "audit_project_adoption",
             "review_development_process_flow",
             "review_maintenance_scan",
@@ -69,6 +76,7 @@ class ApiSurfaceTests(unittest.TestCase):
             "review_field_lifecycle",
         }
         self.assertTrue(expected.issubset(set(flowguard.AGENT_DEFAULT_API)))
+        self.assertNotIn("Explorer", flowguard.AGENT_DEFAULT_API)
         self.assertEqual(flowguard.AGENT_DEFAULT_API, flowguard.API_SURFACE["agent_default"])
 
     def test_route_starter_api_is_compact_and_public(self):
@@ -103,6 +111,8 @@ class ApiSurfaceTests(unittest.TestCase):
 
     def test_runner_and_internal_evidence_are_not_core(self):
         self.assertIn("RiskIntent", flowguard.REPORTING_HELPER_API)
+        self.assertIn("KnownBadProof", flowguard.MODELING_HELPER_API)
+        self.assertIn("review_known_bad_proofs", flowguard.MODELING_HELPER_API)
         self.assertIn("RiskEvidenceLedgerPlan", flowguard.REPORTING_HELPER_API)
         self.assertIn("RiskEvidenceProof", flowguard.REPORTING_HELPER_API)
         self.assertIn("RiskEvidenceRow", flowguard.REPORTING_HELPER_API)
@@ -293,6 +303,9 @@ class ApiSurfaceTests(unittest.TestCase):
         self.assertIn("review_model_test_alignment", flowguard.MODELING_HELPER_API)
         self.assertIn("TransitionCoverageCell", flowguard.MODELING_HELPER_API)
         self.assertIn("TransitionCoverageMatrix", flowguard.MODELING_HELPER_API)
+        self.assertIn("MODEL_MESH_CLOSURE_RETRY_TEST_KINDS", flowguard.MODELING_HELPER_API)
+        self.assertIn("TRANSITION_COVERAGE_SOURCE_MODEL_MESH_CLOSURE", flowguard.MODELING_HELPER_API)
+        self.assertIn("model_mesh_closure_to_transition_coverage", flowguard.MODELING_HELPER_API)
         self.assertIn("transition_coverage_to_code_contracts", flowguard.MODELING_HELPER_API)
         self.assertIn("transition_coverage_to_model_obligations", flowguard.MODELING_HELPER_API)
         self.assertIn("ui_interaction_model_to_transition_coverage", flowguard.MODELING_HELPER_API)

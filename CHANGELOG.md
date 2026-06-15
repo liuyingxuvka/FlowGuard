@@ -1,5 +1,32 @@
 # Changelog
 
+## v0.48.0 - 2026-06-15
+
+Single formal FlowGuard model entry.
+
+- Added structured `KnownBadProof` review so new or deepened models must prove
+  representative broken cases are caught before broad FlowGuard claims.
+- Hardened `RiskIntent`, `MinimumModelContract`, template reuse/no-match, and
+  runner summary gates so missing protected errors, completion evidence,
+  known-bad proof, or template closure blocks instead of silently passing.
+- Removed direct `Explorer` from the agent-default API, migrated public
+  templates and model-first skills to `FlowGuardCheckPlan` +
+  `run_model_first_checks(...)`, and added adoption audit warnings for
+  direct-Explorer-only current models.
+
+## v0.47.3 - 2026-06-15
+
+ModelMesh closure and retry/rejection liveness hardening.
+
+- Made parent/child ModelMesh confidence require closure modeling whenever child
+  outputs, reattachment contracts, or runtime path evidence are present.
+- Added repeated-input retry/rejection closure fields, repair-feedback and
+  blocker/progress checks, ModelMesh closure transition projection into
+  Model-Test Alignment/TestMesh, and regression tests for stuck-loop hazards.
+- Updated skills, templates, docs, OpenSpec coverage, field inventory, public API
+  exports, and template/CLI known-bad proof wiring so current evidence, tests,
+  and installed skills agree on the strengthened contract.
+
 ## v0.47.2 - 2026-06-13
 
 UI functional capability coverage.

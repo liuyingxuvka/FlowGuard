@@ -47,6 +47,7 @@ Use:
 from flowguard import (
     TransitionCoverageCell,
     TransitionCoverageMatrix,
+    model_mesh_closure_to_transition_coverage,
     transition_coverage_to_code_contracts,
     transition_coverage_to_model_obligations,
     transition_coverage_to_required_leaf_cell_ids,
@@ -62,6 +63,12 @@ test evidence must cover. When a cell names `code_contract_id`, also project
 the matrix into `CodeContract` rows with
 `transition_coverage_to_code_contracts(...)` and bind transition-cell test
 evidence to the same contract.
+
+When ModelMesh owns the parent/child handoff, project the
+`MeshClosureModel` with `model_mesh_closure_to_transition_coverage(...)` before
+claiming tests cover that mesh route. Retry or rejection closure transitions
+that declare repeated input tokens require happy-path, failure-path,
+negative-path, and replay evidence through the generated transition cells.
 
 ## Code Boundary Conformance
 

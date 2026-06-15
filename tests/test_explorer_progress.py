@@ -6,7 +6,19 @@ from contextlib import redirect_stderr, redirect_stdout
 from dataclasses import dataclass
 from unittest.mock import patch
 
-from flowguard import Explorer, FlowGuardCheckPlan, FunctionResult, Workflow, run_model_first_checks
+from flowguard import (
+    Explorer,
+    FlowGuardCheckPlan,
+    FunctionResult,
+    KnownBadProof,
+    MinimumModelContract,
+    RiskIntent,
+    RiskProfile,
+    TemplateHarvestReview,
+    TemplateReuseReview,
+    Workflow,
+    run_model_first_checks,
+)
 
 
 @dataclass(frozen=True)
@@ -33,6 +45,53 @@ def run_with_captured_streams(explorer):
     with patch.dict(os.environ, {"FLOWGUARD_PROGRESS": "1"}), redirect_stdout(stdout), redirect_stderr(stderr):
         report = explorer.explore()
     return report, stdout.getvalue(), stderr.getvalue()
+
+
+def formal_entry_kwargs():
+    return {
+        "risk_profile": RiskProfile(
+            modeled_boundary="recording progress",
+            risk_classes=("side_effect",),
+            risk_intent=RiskIntent(
+                failure_modes=("recording reports complete without evidence",),
+                protected_error_classes=("missing_record_evidence",),
+                protected_harms=("caller trusts an unrecorded input",),
+                must_model_state=("seen",),
+                must_model_side_effects=("record_write",),
+                completion_evidence=("recorded_label",),
+                adversarial_inputs=("single input record",),
+                hard_invariants=("recorded input is visible in state",),
+                known_bad_cases=("record_without_seen_state",),
+                template_no_match_reason="progress test uses a local recording model",
+                blindspots=("this test checks progress output, not production replay",),
+            ),
+        ),
+        "template_reuse_review": TemplateReuseReview(
+            no_match_reason="progress test uses a local recording model",
+            searched_layers=("public", "local"),
+        ),
+        "template_harvest_review": TemplateHarvestReview(
+            disposition="not_harvestable",
+            not_harvestable_reason="not_reusable_project_specific",
+        ),
+        "minimum_model_contract": MinimumModelContract(
+            protected_error_classes=("missing_record_evidence",),
+            modeled_state=("seen",),
+            modeled_side_effects=("record_write",),
+            completion_evidence=("recorded_label",),
+            known_bad_cases=("record_without_seen_state",),
+        ),
+        "known_bad_proofs": (
+            KnownBadProof(
+                "record_without_seen_state",
+                protected_error_class="missing_record_evidence",
+                method="broken_workflow",
+                observed_status="failed",
+                observed_failure="recorded label without state evidence rejected",
+                evidence_id="model:record_without_seen_state",
+            ),
+        ),
+    }
 
 
 class ExplorerProgressTests(unittest.TestCase):
@@ -99,6 +158,7 @@ class ExplorerProgressTests(unittest.TestCase):
             initial_states=(State(),),
             external_inputs=("a",),
             max_sequence_length=1,
+            **formal_entry_kwargs(),
         )
         stderr = io.StringIO()
         with patch.dict(os.environ, {"FLOWGUARD_PROGRESS": "1"}), redirect_stderr(stderr):

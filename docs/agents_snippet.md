@@ -24,10 +24,11 @@ For coding, repository, process, prompt, skill, documentation, release, archive,
 risky boundary -> protected error class -> public/local risk template search
 -> Input x State -> Set(Output x State)
 -> state + side effects + completion evidence + known-bad case
--> run checks -> inspect counterexample -> record template harvest closure
+-> FlowGuardCheckPlan + KnownBadProof + run_model_first_checks
+-> inspect counterexample -> record template harvest closure
 ```
 
-This is still compact, but it must have teeth. A new or deepened model names the real error it prevents, records used public/local template ids or a no-match reason, models completion evidence, includes a representative bad case, and closes template harvest as written, merged, duplicate-linked, or accepted not-harvestable. Complete FlowGuard use needs current evidence for the selected route; skipped, stale, deferred, progress-only, or not-run checks are not passes.
+This is still compact, but it must have teeth. A new or deepened model names the real error it prevents, records used public/local template ids or a no-match reason, models completion evidence, includes a representative bad case, proves that bad case is caught, and closes template harvest as written, merged, duplicate-linked, or accepted not-harvestable. Complete FlowGuard use needs current evidence for the selected route; skipped, stale, deferred, progress-only, or not-run checks are not passes.
 
 ### Hard Gates
 
@@ -39,6 +40,7 @@ This is still compact, but it must have teeth. A new or deepened model names the
 - Field-bearing work needs a FieldLifecycleMesh view: high-level models include behavior-bearing fields, while child/leaf field models account all discovered fields and record owner, readers, writers, projection, lifecycle, and old-field disposition. For full/runtime/release/production field claims, behavior projections should include minimal `gate:`, `test:`, and `replay:` evidence refs instead of only naming the field.
 - Do not create a fake mini-framework or replace executable modeling with prose.
 - Represent each modeled block as `Input x State -> Set(Output x State)`.
+- Treat direct `Explorer(...)` as an internal engine, not the formal entry for non-trivial model creation.
 - Preserve user and peer-agent changes; later writes can stale earlier evidence.
 - Long background checks are liveness only until final output and exit/status artifacts exist.
 - For existing/runnable UI, first inventory real visible items and map each to `UIControl`, `UIDisplayElement`, `UIVisibleSurfaceItem`, or blindspot.

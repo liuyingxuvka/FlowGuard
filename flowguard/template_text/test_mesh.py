@@ -6,7 +6,7 @@ TEST_MESH_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header
 
 Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
 Purpose: Review whether a parent test gate can trust child suites/scripts as owned validation regions.
-Guards against: flat test splits, stale child suites, hidden skips, progress-only background runs, duplicate ownership, missing transition or artifact-payload matrix evidence, and release checks blocking routine confidence.
+Guards against: flat test splits, stale child suites, hidden skips, progress-only background runs, duplicate ownership, missing transition, ModelMesh closure, or artifact-payload matrix evidence, and release checks blocking routine confidence.
 Use before editing: Update this TestMesh when changing validation layout, test partitions, transition or artifact payload matrices, child test scripts, slow regression gates, or background evidence contracts.
 Run: python .flowguard/test_mesh/run_checks.py
 """
@@ -25,6 +25,7 @@ from flowguard import (
     TestTargetSplitDerivation,
     TransitionCoverageCell,
     TransitionCoverageMatrix,
+    model_mesh_closure_to_transition_coverage,
     review_test_mesh,
     transition_coverage_to_required_leaf_cell_ids,
 )
@@ -201,6 +202,9 @@ Use this scaffold to keep a project's validation hierarchy explicit.
   parent;
 - whether transition coverage matrix cells have current child evidence when
   the matrix is too large or slow for direct Model-Test Alignment rows;
+- whether ModelMesh closure projection cells have current child evidence when
+  parent/child retry or rejection handoffs are too large or slow for direct
+  Model-Test Alignment rows;
 - whether artifact payload case ids have current child evidence when a
   file/work-package payload matrix is too large or slow for direct Model-Test
   Alignment rows;

@@ -6,13 +6,17 @@ from pathlib import Path
 
 from flowguard import (
     FunctionResult,
+    KnownBadProof,
     MAINTENANCE_ROUTE_MODEL_MATURATION,
     MAINTENANCE_SIGNAL_TOPOLOGY_HAZARD_GAP,
+    MinimumModelContract,
     RISK_CONFIDENCE_BLOCKED,
     RISK_GATE_TOPOLOGY_HAZARD,
+    RiskIntent,
     RiskEvidenceGate,
     RiskEvidenceLedgerPlan,
     RiskEvidenceRow,
+    RiskProfile,
     TOPOLOGY_COMPAT_UNKNOWN,
     TOPOLOGY_CONFIDENCE_BLOCKED,
     TOPOLOGY_CONFIDENCE_FULL,
@@ -22,6 +26,8 @@ from flowguard import (
     TOPOLOGY_USAGE_RELEASE,
     TopologyHazardCandidate,
     TopologyHazardReviewPlan,
+    TemplateHarvestReview,
+    TemplateReuseReview,
     UsageIntent,
     Workflow,
     infer_topology_digest,
@@ -36,6 +42,53 @@ from flowguard.runner import run_model_first_checks
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def formal_entry_kwargs():
+    return {
+        "risk_profile": RiskProfile(
+            modeled_boundary="save topology",
+            risk_classes=("side_effect",),
+            risk_intent=RiskIntent(
+                failure_modes=("save completes without durable record",),
+                protected_error_classes=("missing_save_evidence",),
+                protected_harms=("caller trusts a missing record",),
+                must_model_state=("saved_record", "status"),
+                must_model_side_effects=("record_write",),
+                completion_evidence=("saved_label",),
+                adversarial_inputs=("save event repeated",),
+                hard_invariants=("save has durable evidence",),
+                known_bad_cases=("save_without_record",),
+                template_no_match_reason="topology hazard unit test uses a local save model",
+                blindspots=("real storage replay is not part of this topology test",),
+            ),
+        ),
+        "template_reuse_review": TemplateReuseReview(
+            no_match_reason="topology hazard unit test uses a local save model",
+            searched_layers=("public", "local"),
+        ),
+        "template_harvest_review": TemplateHarvestReview(
+            disposition="not_harvestable",
+            not_harvestable_reason="not_reusable_project_specific",
+        ),
+        "minimum_model_contract": MinimumModelContract(
+            protected_error_classes=("missing_save_evidence",),
+            modeled_state=("saved_record", "status"),
+            modeled_side_effects=("record_write",),
+            completion_evidence=("saved_label",),
+            known_bad_cases=("save_without_record",),
+        ),
+        "known_bad_proofs": (
+            KnownBadProof(
+                "save_without_record",
+                protected_error_class="missing_save_evidence",
+                method="broken_workflow",
+                observed_status="failed",
+                observed_failure="save completion without evidence rejected",
+                evidence_id="model:save_without_record",
+            ),
+        ),
+    }
 
 
 @dataclass(frozen=True)
@@ -153,6 +206,7 @@ class TopologyHazardTests(unittest.TestCase):
                 initial_states=(State(),),
                 external_inputs=(Event(),),
                 max_sequence_length=1,
+                **formal_entry_kwargs(),
             )
         )
         sections = {section.name: section for section in summary.sections}

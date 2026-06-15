@@ -385,9 +385,15 @@ class MeshClosureTransition:
     consumes: tuple[str, ...] = ()
     emits: tuple[str, ...] = ()
     consumer_model_id: str = ""
+    code_contract_id: str = ""
+    runtime_node_id: str = ""
     loop: bool = False
     progress_rule: str = ""
     max_iterations: int | None = None
+    repeat_input_tokens: tuple[str, ...] = ()
+    progress_tokens: tuple[str, ...] = ()
+    repair_feedback_tokens: tuple[str, ...] = ()
+    blocker_tokens: tuple[str, ...] = ()
     rationale: str = ""
 
     def __post_init__(self) -> None:
@@ -395,14 +401,28 @@ class MeshClosureTransition:
         object.__setattr__(self, "consumes", _as_tuple(self.consumes))
         object.__setattr__(self, "emits", _as_tuple(self.emits))
         object.__setattr__(self, "consumer_model_id", str(self.consumer_model_id))
+        object.__setattr__(self, "code_contract_id", str(self.code_contract_id))
+        object.__setattr__(self, "runtime_node_id", str(self.runtime_node_id))
         object.__setattr__(self, "loop", bool(self.loop))
         if self.max_iterations is not None:
             object.__setattr__(self, "max_iterations", int(self.max_iterations))
         object.__setattr__(self, "progress_rule", str(self.progress_rule))
+        object.__setattr__(self, "repeat_input_tokens", _as_tuple(self.repeat_input_tokens))
+        object.__setattr__(self, "progress_tokens", _as_tuple(self.progress_tokens))
+        object.__setattr__(self, "repair_feedback_tokens", _as_tuple(self.repair_feedback_tokens))
+        object.__setattr__(self, "blocker_tokens", _as_tuple(self.blocker_tokens))
         object.__setattr__(self, "rationale", str(self.rationale))
 
     def has_progress_rule(self) -> bool:
-        return bool(self.progress_rule) or self.max_iterations is not None
+        return (
+            bool(self.progress_rule)
+            or self.max_iterations is not None
+            or bool(self.progress_tokens)
+            or bool(self.blocker_tokens)
+        )
+
+    def has_structured_repeat_disposition(self) -> bool:
+        return bool(self.progress_tokens or self.blocker_tokens) or self.max_iterations is not None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -410,9 +430,15 @@ class MeshClosureTransition:
             "consumes": list(self.consumes),
             "emits": list(self.emits),
             "consumer_model_id": self.consumer_model_id,
+            "code_contract_id": self.code_contract_id,
+            "runtime_node_id": self.runtime_node_id,
             "loop": self.loop,
             "progress_rule": self.progress_rule,
             "max_iterations": self.max_iterations,
+            "repeat_input_tokens": list(self.repeat_input_tokens),
+            "progress_tokens": list(self.progress_tokens),
+            "repair_feedback_tokens": list(self.repair_feedback_tokens),
+            "blocker_tokens": list(self.blocker_tokens),
             "rationale": self.rationale,
         }
 
@@ -857,6 +883,10 @@ def _mesh_closure_decision(findings: Sequence[MeshClosureFinding]) -> str:
         "unknown_closure_consumer",
         "out_of_scope_rationale_required",
         "loop_progress_required",
+        "loop_repeat_input_not_consumed",
+        "loop_repair_feedback_required",
+        "loop_no_delta_disposition_required",
+        "loop_liveness_token_not_emitted",
         "unconsumed_child_output",
         "unreachable_required_output",
         "missing_join_point",
@@ -924,6 +954,62 @@ def review_mesh_closure_model(
                     metadata=transition.to_dict(),
                 )
             )
+        if transition.loop and transition.repeat_input_tokens:
+            missing_repeat_inputs = tuple(
+                sorted(set(transition.repeat_input_tokens) - set(transition.consumes))
+            )
+            if missing_repeat_inputs:
+                findings.append(
+                    MeshClosureFinding(
+                        "loop_repeat_input_not_consumed",
+                        "repeat-input loop declares repeated tokens that the transition does not consume",
+                        model_id=transition.consumer_model_id or closure_model.parent_model_id,
+                        item_id=transition.transition_id,
+                        metadata={
+                            "missing_repeat_inputs": missing_repeat_inputs,
+                            "transition": transition.to_dict(),
+                        },
+                    )
+                )
+            if not transition.repair_feedback_tokens:
+                findings.append(
+                    MeshClosureFinding(
+                        "loop_repair_feedback_required",
+                        "repeat-input loop must emit structured repair feedback before retry can be safe",
+                        model_id=transition.consumer_model_id or closure_model.parent_model_id,
+                        item_id=transition.transition_id,
+                        metadata=transition.to_dict(),
+                    )
+                )
+            if not transition.has_structured_repeat_disposition():
+                findings.append(
+                    MeshClosureFinding(
+                        "loop_no_delta_disposition_required",
+                        "repeat-input loop must declare a progress token, blocker token, or iteration bound",
+                        model_id=transition.consumer_model_id or closure_model.parent_model_id,
+                        item_id=transition.transition_id,
+                        metadata=transition.to_dict(),
+                    )
+                )
+            liveness_tokens = (
+                transition.progress_tokens
+                + transition.repair_feedback_tokens
+                + transition.blocker_tokens
+            )
+            missing_emits = tuple(sorted(set(liveness_tokens) - set(transition.emits)))
+            if missing_emits:
+                findings.append(
+                    MeshClosureFinding(
+                        "loop_liveness_token_not_emitted",
+                        "repeat-input loop declares liveness tokens that are not emitted by the transition",
+                        model_id=transition.consumer_model_id or closure_model.parent_model_id,
+                        item_id=transition.transition_id,
+                        metadata={
+                            "missing_liveness_tokens": missing_emits,
+                            "transition": transition.to_dict(),
+                        },
+                    )
+                )
 
     for terminal in closure_model.terminals:
         if terminal.terminal_kind not in ALLOWED_MESH_CLOSURE_TERMINALS:
@@ -1158,6 +1244,17 @@ def _has_sibling_boundary_overlap(
         if set(child.side_effects_owned) & set(sibling.depends_on):
             return True
         if set(child.contracts_out) & set(sibling.depends_on):
+                return True
+    return False
+
+
+def _partition_requires_closure_model(partition_map: HierarchyPartitionMap) -> bool:
+    """Return whether this mesh has concrete parent/child handoffs to close."""
+
+    if partition_map.reattachment_contracts:
+        return True
+    for child in partition_map.child_models:
+        if child.outputs_emitted or child.runtime_path_evidence_ids:
             return True
     return False
 
@@ -1678,7 +1775,30 @@ def review_hierarchical_mesh(
         activation_reasons.append("boundary_change")
     findings.extend(boundary_change_findings)
     closure_report = None
-    if partition_map.closure_model is not None:
+    if partition_map.closure_model is None and _partition_requires_closure_model(partition_map):
+        findings.append(
+            HierarchyMeshFinding(
+                "mesh_closure_required",
+                "parent mesh has child handoff outputs or reattachment contracts but no closure model",
+                model_id=partition_map.parent_model_id,
+                metadata={
+                    "child_outputs": {
+                        child.model_id: list(child.outputs_emitted)
+                        for child in partition_map.child_models
+                        if child.outputs_emitted
+                    },
+                    "runtime_path_evidence_ids": {
+                        child.model_id: list(child.runtime_path_evidence_ids)
+                        for child in partition_map.child_models
+                        if child.runtime_path_evidence_ids
+                    },
+                    "reattachment_contracts": [
+                        contract.child_model_id for contract in partition_map.reattachment_contracts
+                    ],
+                },
+            )
+        )
+    elif partition_map.closure_model is not None:
         activation_reasons.append("closure_model")
         closure_report = review_mesh_closure_model(
             partition_map.closure_model,
@@ -1887,6 +2007,8 @@ def review_hierarchical_mesh(
         decision = BOUNDARY_PROPAGATION_SIBLING_RERUN_REQUIRED
     elif any(finding.code == "boundary_change_reattachment_required" for finding in blocking):
         decision = BOUNDARY_PROPAGATION_REATTACH_ONLY
+    elif any(finding.code == "mesh_closure_required" for finding in blocking):
+        decision = "mesh_closure_required"
     elif any(finding.code == "coverage_gap" for finding in blocking):
         decision = "coverage_gap_blocked"
     elif any(finding.code == "excessive_functional_overlap" for finding in blocking):

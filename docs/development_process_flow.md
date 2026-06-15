@@ -194,6 +194,13 @@ evidence id. Parent coverage edits, child ownership or contract edits, child
 evidence-id changes, and leaf code/test/observation edits stale the related
 layered proof rows until they are rerun and reattached.
 
+When the final claim depends on ModelMesh closure, DevelopmentProcessFlow should
+also reference the closure report and any transition coverage, Model-Test
+Alignment, or TestMesh rows projected from it. Child-output edits,
+reattachment-contract edits, repeat-input token changes, repair-feedback token
+changes, and runtime node/code contract edits stale those derived rows until
+they are regenerated and rerun.
+
 When the final claim closes a model miss or non-trivial bug repair,
 DevelopmentProcessFlow should include Model-Test Alignment as a required
 validation pair for the repaired model obligation, owner code contract, and
