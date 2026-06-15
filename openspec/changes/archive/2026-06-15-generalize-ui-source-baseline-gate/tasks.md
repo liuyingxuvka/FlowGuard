@@ -32,5 +32,5 @@
 
 - [x] 6.1 Reinstall/editable-sync the local package and verify import path/version.
 - [x] 6.2 Sync installed Codex FlowGuard skills and verify installed copies.
-- [x] 6.3 Sync the FlowGuard_20260427 shadow workspace and verify import/version there.
+- [x] 6.3 Sync the local shadow workspace and verify import/version there.
 - [x] 6.4 Record FlowGuard adoption evidence, perform KB postflight, commit local git changes, and tag the local version.

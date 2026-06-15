@@ -27,9 +27,9 @@
 ## 5. Version, Installation, And Workspace Sync
 
 - [x] 5.1 Bump FlowGuard package/version metadata, project adoption record, changelog/release notes, and docs version references to `0.49.0`.
-- [x] 5.2 Sync repository-managed skills to `C:\Users\liu_y\.codex\skills` and verify content hashes for the touched skills.
+- [x] 5.2 Sync repository-managed skills to `<codex-skills-dir>` and verify content hashes for the touched skills.
 - [x] 5.3 Refresh editable local install and verify installed package version, import path, and simulator helper imports.
-- [x] 5.4 Sync the shadow workspace `C:\Users\liu_y\Documents\FlowGuard_20260427` as a whole source set for touched package, docs, examples, tests, OpenSpec, and skills.
+- [x] 5.4 Sync the shadow workspace `<shadow-workspace>` as a whole source set for touched package, docs, examples, tests, OpenSpec, and skills.
 
 ## 6. Validation And Closure
 

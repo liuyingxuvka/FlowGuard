@@ -21,6 +21,6 @@
 
 - [x] 4.1 Refresh editable install and verify package import path, version, and schema.
 - [x] 4.2 Sync repository-managed FlowGuard skills into installed Codex skills and verify content parity.
-- [x] 4.3 Sync the source checkout to the FlowGuard_20260427 shadow workspace without reverting peer work.
+- [x] 4.3 Sync the source checkout to the local shadow workspace without reverting peer work.
 - [x] 4.4 Verify shadow workspace import, project audit, OpenSpec, FlowGuard, and focused tests.
 - [x] 4.5 Record FlowGuard adoption evidence, update changelog/version surfaces, and create a scoped local git commit/tag if the worktree is safe.

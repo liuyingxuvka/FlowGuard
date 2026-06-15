@@ -47,7 +47,7 @@
 - [x] 6.2 Refresh editable install and verify import path, version, schema, and
   new API availability.
 - [x] 6.3 Sync the updated checkout to
-  the local `FlowGuard_20260427` shadow workspace and verify shadow imports,
+  the local local shadow workspace and verify shadow imports,
   OpenSpec, project audit, self-model, and focused tests.
 - [x] 6.4 Record FlowGuard adoption evidence and KB postflight.
 - [x] 6.5 Commit local git and tag the local version.

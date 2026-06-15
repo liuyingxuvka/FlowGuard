@@ -24,7 +24,7 @@
 - [x] 4.1 Update repository skill prompts and protocol references for UI Flow, Model Miss, DevelopmentProcessFlow, AgentWorkflowRehearsal, and any affected closure/risk guidance. Evidence: skill-doc tests or focused content checks.
 - [x] 4.2 Update public docs, README/API surface, and template text so compact examples cannot be mistaken for full runnable UI evidence. Evidence: docs/template tests.
 - [x] 4.3 Synchronize installed Codex skill copies from the repository skill sources. Evidence: SHA256 comparison for repository and installed UI Flow, Model Miss, DevelopmentProcessFlow, and AgentWorkflowRehearsal skill files.
-- [x] 4.4 Synchronize the current shadow workspace with the editable Git root without overwriting unrelated peer work. Evidence: `scripts/sync_shadow_workspace.py --source . --target C:\Users\liu_y\Documents\FlowGuard --install --verify --expected-version 0.43.3` copied 1311 files and passed verification.
+- [x] 4.4 Synchronize the current shadow workspace with the editable Git root without overwriting unrelated peer work. Evidence: `scripts/sync_shadow_workspace.py --source . --target <source-workspace> --install --verify --expected-version 0.43.3` copied 1311 files and passed verification.
 
 ## 5. Validation And Release Boundary
 

@@ -21,7 +21,7 @@
 ## 4. Release
 
 - [x] 4.1 Update version metadata and changelog for the local release candidate.
-- [x] 4.2 Sync local editable install and the `FlowGuard_20260427` shadow workspace.
+- [x] 4.2 Sync local editable install and the local shadow workspace.
 - [x] 4.3 Commit and tag the local git release candidate after the recurring-defect gate follow-up is complete. GitHub push/publish remains out of scope unless explicitly requested.
 
 ## 5. Recurring Defect-Family Gate

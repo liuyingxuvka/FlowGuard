@@ -34,7 +34,7 @@
 ## 6. Sync And Finalization
 
 - [x] 6.1 Refresh the editable install from the git checkout and verify `flowguard.__file__`, version, schema, and new API availability.
-- [x] 6.2 Sync the updated git checkout back to the local `FlowGuard_20260427` shadow workspace without overwriting unrelated work.
+- [x] 6.2 Sync the updated git checkout back to the local local shadow workspace without overwriting unrelated work.
 - [x] 6.3 Verify the shadow workspace imports and focused tests against the synced code.
 - [x] 6.4 Update OpenSpec task status, adoption evidence, and KB postflight before final response.
 

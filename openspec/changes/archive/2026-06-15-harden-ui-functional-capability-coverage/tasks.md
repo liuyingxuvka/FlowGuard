@@ -30,6 +30,6 @@
 - [x] 5.2 Validate this OpenSpec change and all current specs strictly, accounting for parallel active changes without reverting them.
 - [x] 5.3 Run focused tests and the strongest practical full regression.
 - [x] 5.4 Reinstall/editable-sync the local package and verify import path/version.
-- [x] 5.5 Sync the FlowGuard_20260427 shadow workspace and verify import/version there.
+- [x] 5.5 Sync the local shadow workspace and verify import/version there.
 - [x] 5.6 Record FlowGuard adoption evidence and predictive-KB postflight.
 - [x] 5.7 Commit only this work's files and create a local version tag without reverting peer-agent changes.

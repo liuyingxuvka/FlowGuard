@@ -22,5 +22,5 @@
 - [x] 4.1 Run OpenSpec strict validation for this change.
 - [x] 4.2 Run focused auto split, DevelopmentProcessFlow, Risk Ledger, ModelMesh/TestMesh, API, template, and skill-doc tests.
 - [x] 4.3 Run model examples and full/background regression, inspecting final exit artifacts before claiming completion.
-- [x] 4.4 Sync editable install, installed FlowGuard skills, `FlowGuard_20260427` shadow workspace, and local git/tag state.
+- [x] 4.4 Sync editable install, installed FlowGuard skills, local shadow workspace, and local git/tag state.
 - [x] 4.5 Record FlowGuard adoption evidence and KB postflight.

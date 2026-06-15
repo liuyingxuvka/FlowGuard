@@ -27,6 +27,6 @@
 ## 5. Sync And Completion
 
 - [x] 5.1 Sync the editable local install and verify import path/version/API.
-- [x] 5.2 Sync the shadow workspace `FlowGuard_20260427` with the git source workspace.
+- [x] 5.2 Sync the local shadow workspace with the git source workspace.
 - [x] 5.3 Verify installed Codex skill copy and local git working tree state.
 - [x] 5.4 Record FlowGuard adoption evidence and KB postflight.

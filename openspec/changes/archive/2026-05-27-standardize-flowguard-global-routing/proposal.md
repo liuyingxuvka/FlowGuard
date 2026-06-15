@@ -42,6 +42,6 @@ None.
 - Repository prompt material: `docs/agents_snippet.md`, README, and
   `.agents/skills/model-first-function-flow`.
 - Tests: focused skill-doc route-priority assertions.
-- Sync surfaces: installed Codex skills, `FlowGuard_20260427` shadow workspace,
+- Sync surfaces: installed Codex skills, local shadow workspace,
   local editable install, version/changelog/README, git tag, and GitHub
   Release.

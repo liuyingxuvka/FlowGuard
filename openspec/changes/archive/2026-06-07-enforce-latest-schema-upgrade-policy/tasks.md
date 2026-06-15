@@ -36,6 +36,6 @@
 - [x] 6.1 Bump local package version and changelog for the intentional breaking cleanup policy.
 - [x] 6.2 Refresh editable install and verify `flowguard.__file__`, package version, schema, and new API availability.
 - [x] 6.3 Sync affected repository-managed FlowGuard skills into installed Codex skills and verify content parity.
-- [x] 6.4 Sync the git repository source to the `FlowGuard_20260427` shadow workspace without reverting peer-agent changes.
+- [x] 6.4 Sync the git repository source to the local shadow workspace without reverting peer-agent changes.
 - [x] 6.5 Record FlowGuard adoption evidence and KB postflight.
 - [x] 6.6 Commit local git changes and create a local version tag only after validation and sync evidence pass.
