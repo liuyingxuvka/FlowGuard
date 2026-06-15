@@ -2,11 +2,12 @@
 
 Purpose:
 Models the skill-architecture upgrade from one FlowGuard kernel skill with
-internal sub-protocols to one kernel plus the current directly invokable
-satellite skills.
+internal sub-protocols to one kernel plus the current public owner and
+delegated mode satellite skills.
 
 Guards against:
 - publishing while any satellite skill is missing;
+- publishing while public owner and delegated mode skill counts are collapsed;
 - treating helper APIs or CLI templates as Codex skills;
 - allowing satellite skills to bypass kernel hard gates;
 - claiming complete FlowGuard use while the closure contract is absent;
@@ -25,7 +26,9 @@ from typing import Iterable
 from flowguard import FunctionResult, Invariant, InvariantResult, Workflow
 
 
-SATELLITE_COUNT = 14
+SATELLITE_COUNT = 15
+PUBLIC_OWNER_SKILL_COUNT = 13
+DELEGATED_MODE_SKILL_COUNT = 2
 
 
 @dataclass(frozen=True)
@@ -42,6 +45,8 @@ class UpgradeOutput:
 class UpgradeState:
     kernel_preserved: bool = False
     satellite_count: int = 0
+    public_owner_skill_count: int = 0
+    delegated_mode_skill_count: int = 0
     helper_api_misclassified: bool = False
     global_prompt_synced: bool = False
     installed_skills_synced: bool = False
@@ -55,6 +60,8 @@ class UpgradeState:
         return (
             self.kernel_preserved
             and self.satellite_count == SATELLITE_COUNT
+            and self.public_owner_skill_count == PUBLIC_OWNER_SKILL_COUNT
+            and self.delegated_mode_skill_count == DELEGATED_MODE_SKILL_COUNT
             and not self.helper_api_misclassified
             and self.global_prompt_synced
             and self.installed_skills_synced
@@ -70,6 +77,8 @@ class SkillSatelliteUpgrade:
     reads = (
         "kernel_preserved",
         "satellite_count",
+        "public_owner_skill_count",
+        "delegated_mode_skill_count",
         "helper_api_misclassified",
         "global_prompt_synced",
         "installed_skills_synced",
@@ -89,7 +98,13 @@ class SkillSatelliteUpgrade:
         if action == "prepare_topology":
             yield FunctionResult(
                 UpgradeOutput("topology_prepared"),
-                replace(state, kernel_preserved=True, satellite_count=SATELLITE_COUNT),
+                replace(
+                    state,
+                    kernel_preserved=True,
+                    satellite_count=SATELLITE_COUNT,
+                    public_owner_skill_count=PUBLIC_OWNER_SKILL_COUNT,
+                    delegated_mode_skill_count=DELEGATED_MODE_SKILL_COUNT,
+                ),
                 label="topology_prepared",
             )
         elif action == "misclassify_helper_api":
@@ -167,7 +182,7 @@ def no_release_without_full_topology_and_sync(state: UpgradeState, trace) -> Inv
 INVARIANTS = (
     Invariant(
         "no_release_without_full_topology_and_sync",
-        "Release claims require kernel, current satellite topology, prompt/install/shadow/test/version alignment, and no helper API misclassification.",
+        "Release claims require kernel, current public owner/delegated satellite topology, prompt/install/shadow/test/version alignment, and no helper API misclassification.",
         no_release_without_full_topology_and_sync,
     ),
 )
@@ -201,6 +216,9 @@ __all__ = [
     "EXTERNAL_INPUTS",
     "INVARIANTS",
     "MAX_SEQUENCE_LENGTH",
+    "PUBLIC_OWNER_SKILL_COUNT",
+    "DELEGATED_MODE_SKILL_COUNT",
+    "SATELLITE_COUNT",
     "UpgradeAction",
     "UpgradeOutput",
     "UpgradeState",

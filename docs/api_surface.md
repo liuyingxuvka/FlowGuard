@@ -43,8 +43,9 @@ It keeps the normal path short:
   `default_flowguard_self_maintenance_plan()`,
   `review_flowguard_self_maintenance()`;
 - project and release gates: `audit_project_adoption()`,
-  `review_development_process_simulator()`,
-  `review_development_process_flow()`, `review_maintenance_scan()`;
+  `review_development_process_flow()`; the process simulator and maintenance
+  scan helpers are consumed through DevelopmentProcessFlow rather than exposed
+  as first-read gates;
 - escalation checks: `review_model_test_alignment()`,
   `review_field_lifecycle()`, and `review_topology_hazards()`.
 
@@ -67,7 +68,10 @@ AGENT_DEFAULT_API
 -> MODELING_HELPER_API / REPORTING_HELPER_API as full indexes only
 ```
 
-`ROUTE_ADVANCED_API` keeps the full route groups available for deep work.
+`FLOWGUARD_ROUTE_API` and `ROUTE_STARTER_API` are public-owner surfaces. Internal
+feeders, delegated modes, and data helpers stay out of the first-read route
+map. `FLOWGUARD_INTERNAL_ROUTE_API` and `ROUTE_ADVANCED_API` keep the full route
+groups available for deep work.
 `PLAN_INTAKE_STARTER_API` is the compact first-read slice for plan-intake claim
 review; `PLAN_INTAKE_ADVANCED_API` remains the complete plan-intake inventory.
 
@@ -107,22 +111,30 @@ Use `FLOWGUARD_PROGRESS=0` for silent formal runs.
 
 For AI agents, route groups are the normal discovery surface:
 
-- `FLOWGUARD_ROUTE_API` names the supported route groups.
+- `FLOWGUARD_ROUTE_API` names the public owner route groups. Delegated modes,
+  internal feeders, and data helpers are listed in `FLOWGUARD_INTERNAL_ROUTE_API`
+  and can be consumed only through their owner route or advanced helper
+  inventory.
 - `default_flowguard_route_profiles()` is the compact first-read map for AI
   maintenance: each `RouteProfile` names the trigger, minimal inputs, outputs,
-  evidence owner, API group, template, skill, and next actions. Use
-  `review_flowguard_self_maintenance()` to check that profile ids stay aligned
-  with public route groups.
+  evidence owner, API group, template, skill, role, entry policy, owner route,
+  absorption route, cleanup disposition, and next actions. Use
+  `review_flowguard_self_maintenance()` to check that public owner profiles stay
+  aligned with public route groups and that internal helpers do not leak into
+  `FLOWGUARD_ROUTE_API`.
 - `default_ai_maintenance_profiles()` gives thin entry profiles for common
   FlowGuard self-maintenance work such as fields, route graph connection,
   structure, and validation. They are entry profiles only; route-owned evidence
   still expands in the specialist route.
-- `PLAN_DETAILING_ROUTE_API` is the first stop for vague ideas, short plans,
-  and AI-generated outlines that need explicit source, scope, state, side
-  effect, step, receipt, validation, rework, human-question, and claim rows.
-- `MODEL_SIMILARITY_ROUTE_API` is the first stop for similar A/B/C workflow
+- `PLAN_DETAILING_ROUTE_API` is a delegated DevelopmentProcessFlow mode helper
+  for vague ideas, short plans, and AI-generated outlines that need explicit
+  source, scope, state, side effect, step, receipt, validation, rework,
+  human-question, and claim rows.
+- `MODEL_SIMILARITY_ROUTE_API` is an internal feeder for ExistingModelPreflight,
+  ArchitectureReduction, and Model-Test Alignment when similar A/B/C workflow
   maintenance, shared kernels, adapter variants, sibling tests, duplicate
-  business paths, path-terminal divergence, and false friends.
+  business paths, path-terminal divergence, or false friends affect the owner
+  route.
 - `CODE_STRUCTURE_RECOMMENDATION_ROUTE_API`,
   `MODEL_TEST_ALIGNMENT_ROUTE_API`, and `ARCHITECTURE_REDUCTION_ROUTE_API`
   consume `SimilarityHandoff` when model similarity drives their work.
@@ -132,7 +144,8 @@ For AI agents, route groups are the normal discovery surface:
   `flowguard.model_test_alignment_source`, while the original
   `flowguard.model_test_alignment` and top-level `flowguard` imports remain
   compatibility facades.
-- `MAINTENANCE_SCAN_ROUTE_API` is the thin router for FlowGuard-managed
+- `MAINTENANCE_SCAN_ROUTE_API` is an internal DevelopmentProcessFlow post-change
+  scan helper for FlowGuard-managed
   project work that needs to surface model/code/test drift, stale evidence,
   skipped candidate routes, duplicate/conflicting/unproven business paths, old
   business-path disposition gaps, or split/reduction pressure before a broad
@@ -195,6 +208,24 @@ inventory.
   `StateClosureDimension`, `infer_state_closure_plan()`, and
   `review_state_closure()` for keeping unknown/other cases visible in
   `run_model_first_checks(...)` without changing formal model semantics.
+- contract-exhaustion helpers such as `ContractDimension`,
+  `ContractMutationCase`, `ContractOracle`, `CompositeHandoffAcceptance`,
+  `ContractExhaustionPlan`, `ContractExhaustionReport`,
+  `review_contract_exhaustion()`,
+  `state_closure_cases_to_contract_cases()`,
+  `scenario_matrix_to_contract_cases()`,
+  `family_bad_case_seed_to_contract_cases()`,
+  `artifact_payload_cases_to_contract_cases()`,
+  `transition_coverage_to_contract_cases()`,
+  `model_mesh_closure_to_contract_cases()`,
+  `contract_exhaustion_to_model_obligations()`,
+  `contract_exhaustion_to_test_mesh_cell_ids()`, and
+  `contract_exhaustion_to_risk_gate_ids()` plus
+  `contract_exhaustion_to_composite_handoff_acceptance_ids()` for turning declared finite
+  boundaries, same-class family seeds, payload cases, transition cells, and
+  parent/child closure hazards into canonical bad-case ids with explicit
+  oracle expectations, downstream route handoffs, and independent composite
+  handoff acceptance ids. Matrix ready does not mean whole-chain ready.
 - default model topology hazard helpers such as `UsageIntent`,
   `TopologyDigest`, `TopologyHazardCandidate`,
   `infer_topology_digest()`, `infer_topology_hazard_plan()`, and
@@ -310,7 +341,10 @@ inventory.
   before a family-level claim is promoted to full confidence. For bug-repair
   workflows, `AnalogousDefectCandidate` and
   `review_analogous_defect_scan()` record where the same failure shape might
-  recur before broad closure is claimed.
+  recur before broad closure is claimed. These helpers declare or scan the
+  family surface; canonical same-class bad-case coverage should flow through
+  ContractExhaustionMesh so each sibling case has a stable case id, oracle, and
+  MTA/TestMesh/Risk Ledger handoff.
 - optional model maturation helpers such as `ModelMaturationSignal`,
   `ModelMaturationPlan`, `ModelMaturationReport`, and
   `review_model_maturation_loop()` for turning model-miss, model-test,
@@ -452,19 +486,20 @@ inventory.
   hierarchy, information-display ownership, and then deriving semantic text
   hierarchy tokens with calm visual handoff guidance before visual design or
   frontend implementation.
-- development-process simulator helpers such as
+- development-process owner helpers such as
   `DevelopmentProcessSimulationRequest`,
   `DevelopmentProcessSimulatorReport`,
   `review_development_process_simulator()`, `ProcessArtifact`,
   `ProcessAction`, `ProcessEvidence`, `ValidationRequirement`,
   `DevelopmentProcessPlan`, `review_development_process_flow()`, and
-  `derive_revalidation_plan()` for selecting `plan_detailing`,
-  `agent_workflow`, and `execution_freshness` modes, then reviewing lifecycle
-  ordering, artifact overwrite, evidence freshness, and minimum revalidation
-  without supervising ModelMesh, TestMesh, StructureMesh, or Model-Test
-  Alignment. Field lifecycle artifacts, field projections, replacement
-  disposition records, and bug-repair closure records have route-specific
-  freshness codes so later writes cannot reuse stale field evidence.
+  `derive_revalidation_plan()` for letting `development_process_flow` select
+  `plan_detailing`, `agent_workflow`, and `execution_freshness` modes, then
+  reviewing lifecycle ordering, artifact overwrite, post-change owner scan
+  signals, evidence freshness, and minimum revalidation without supervising
+  ModelMesh, TestMesh, StructureMesh, or Model-Test Alignment. Field lifecycle
+  artifacts, field projections, replacement disposition records, and
+  bug-repair closure records have route-specific freshness codes so later
+  writes cannot reuse stale field evidence.
 
 These helpers return or consume the same core model objects. They are route
 layers, not a new modeling language. For non-trivial model creation, the
@@ -575,7 +610,8 @@ Evidence APIs are used to keep FlowGuard itself honest:
 - benchmark scorecards and benchmark coverage audits;
 - problem corpus and executable corpus reports;
 - pytest/template helpers used by examples and framework validation;
-- public template writers, including `model_test_alignment_template_files()`,
+- template writers, including public owner route templates and internal
+  evidence scaffolds such as `model_test_alignment_template_files()`,
   `model_test_alignment_full_template_files()`,
   `code_structure_recommendation_template_files()`,
   `existing_model_preflight_template_files()`,
@@ -643,8 +679,10 @@ before trusting the three-way claim. When related obligations are being treated
 as one family-level promise, add `ObligationFamily` and
 `ObligationFamilyEvidence` rows so missing sibling mechanisms or wrong
 provenance keep the alignment report scoped or blocked. When a post-green bug
-shows a reusable failure shape, run `review_analogous_defect_scan()` and feed
-that scan status into the final ledger before claiming full closure. When a code contract is supposed to be a
+shows a reusable failure shape, declare the same-class family seed, project it
+through ContractExhaustionMesh, and feed those canonical case ids plus any
+`review_analogous_defect_scan()` status into the final ledger before claiming
+full closure. When a code contract is supposed to be a
 closed boundary, add `CodeBoundaryContract` and `CodeBoundaryObservation` rows
 and run `review_code_boundary_conformance()` so forbidden inputs, unknown
 accepted inputs, extra outputs, extra errors, extra state writes, and extra

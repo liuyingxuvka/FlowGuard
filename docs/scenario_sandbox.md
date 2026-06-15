@@ -31,6 +31,13 @@ The input sequence is exact and deterministic. It can be empty, single input, re
 
 The sandbox does not generate random data.
 
+When scenario patterns are used as "similar bug" or finite-boundary coverage,
+project them through ContractExhaustionMesh with
+`scenario_matrix_to_contract_cases(...)`. The sandbox owns deterministic
+scenario execution and human oracle comparison; ContractExhaustionMesh owns the
+canonical bad-case id, expected reaction, and downstream MTA/TestMesh/Risk
+Ledger handoff.
+
 ## Human Oracle
 
 `ScenarioExpectation` records what a human expects before execution:

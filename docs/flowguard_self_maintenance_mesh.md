@@ -10,21 +10,22 @@ The intended AI path is:
 
 ```text
 user intent
--> ExistingModelPreflight or ModelAngleDeliberation
+-> ExistingModelPreflight consumes model-angle or similarity evidence when needed
 -> FlowGuard self-maintenance route profile
--> MaintenanceScan owner action
+-> DevelopmentProcessFlow consumes post-change scan signals
 -> owning specialist route evidence
 -> Risk Evidence Ledger
 -> Closure Contract
 ```
 
-`FLOWGUARD_ROUTE_API` remains the public route group registry.
+`FLOWGUARD_ROUTE_API` remains the public-owner route group registry.
 `default_flowguard_self_maintenance_plan()` is the first-read helper: it fills
 route profiles, public API route group ids, AI entry profiles, and field layer
 defaults before review. `default_flowguard_route_profiles()` remains the
 compact explanation layer above the registry for specialist overrides. It names
 the route trigger, minimal inputs, outputs, evidence owner, template, skill,
-and next route.
+role, entry policy, canonical owner, absorption route, cleanup disposition, and
+next route.
 
 ## Field Layers
 
@@ -41,7 +42,7 @@ Field-heavy work should first use `default_field_layer_profiles()`:
 
 ## StructureMesh Candidates
 
-This change keeps public facades stable and records split candidates instead of
+This change keeps public owner facades explicit and records split candidates instead of
 rewriting large modules immediately:
 
 - `flowguard/ui_structure.py`: candidate child owners are interaction model,
@@ -51,8 +52,9 @@ rewriting large modules immediately:
   code contracts, source audit, transition coverage, and binding rows.
 - `flowguard/risk_evidence_ledger.py`: candidate child owners are proof rows,
   maintenance obligations, confidence claims, and final ledger findings.
-- `flowguard/__init__.py`: candidate child owners are public route registry,
-  helper API grouping, and compatibility supplement.
+- `flowguard/__init__.py`: candidate child owners are public owner route
+  registry, internal helper inventory, advanced API grouping, and compatibility
+  supplement.
 
 Any future split should keep the existing public entrypoint as facade until
 StructureMesh parity evidence and focused API tests pass.

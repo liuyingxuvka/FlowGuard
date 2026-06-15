@@ -13,6 +13,8 @@ Use it before treating these surfaces as safe contraction work:
 - public facades kept for imports, CLIs, APIs, or file formats;
 - negative tests that prove retired inputs are rejected;
 - historical mappings or archived compatibility evidence.
+- older same-class, analogous-bug, finite-boundary, or fallback prompt paths
+  that now duplicate ContractExhaustionMesh canonical case generation.
 
 ## Classifications
 
@@ -70,7 +72,10 @@ closure claim.
 3. List contraction candidates.
 4. Add compatibility-surface classifications for old or alternate-looking
    surfaces.
-5. Run `review_architecture_reduction()`.
-6. Send public entrypoint work to StructureMesh, replay gaps to conformance or
+5. Mark duplicate bad-case generator paths for ContractExhaustionMesh
+   absorption or deletion unless they are current contract declarations,
+   evidence consumers, or explicitly preserved compatibility surfaces.
+6. Run `review_architecture_reduction()`.
+7. Send public entrypoint work to StructureMesh, replay gaps to conformance or
    Model-Test Alignment, and closure of executable old paths to
    `LegacyPathDisposition`.

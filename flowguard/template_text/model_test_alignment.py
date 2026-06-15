@@ -181,7 +181,7 @@ def aligned_plan() -> ModelTestAlignmentPlan:
             ModelObligation(
                 "model_miss_duplicate_submit_family",
                 obligation_type="model_miss",
-                description="post-runtime duplicate-submit miss is closed by observed and same-class tests",
+                description="post-runtime duplicate-submit miss is closed by observed and ContractExhaustionMesh case tests",
                 model_miss_origin=True,
                 requires_same_class_test_evidence=True,
                 required_test_kinds=(TEST_KIND_HAPPY_PATH,),

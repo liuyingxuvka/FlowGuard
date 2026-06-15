@@ -14,11 +14,12 @@ standalone satellite skills.
   or hard-to-follow models, tests, scripts, modules, and commands;
 - hard gates: real package import, no fake mini-framework, executable evidence
   over prose, skipped is not pass, and adoption evidence for real use;
-- route map to specialized protocols and directly invokable satellite skills;
+- route map to specialized protocols, public owner satellites, and delegated
+  mode satellites;
 - distinction between agent sub-protocols and package helper APIs.
 - the FlowGuard closure contract: complete FlowGuard use is not a mode, and a
   full done/release/publish/production-confidence claim requires current
-  intake, model ownership, same-class miss evidence when relevant,
+  intake, model ownership, ContractExhaustionMesh case evidence when relevant,
   obligation-family parity when related obligations share a claim, analogous
   defect scan when a bug repair exposes a reusable failure shape, alignment,
   mesh/boundary proof when relevant, model maturation, freshness, ledger, and
@@ -28,16 +29,16 @@ standalone satellite skills.
   test evidence to name the same behavior. Model+test-only rows are scoped or
   blocked, not green.
 
-## Standalone Satellite Skills
+## Public Owner Satellite Skills
 
-These route-specific Codex skills can be invoked directly when the user's
-request clearly matches their trigger:
+These route-specific Codex skills are public owner routes. They can be invoked
+directly when the user's request clearly matches their trigger:
 
 | Satellite skill | Route |
 | --- | --- |
 | `flowguard-model-test-alignment` | `model_test_alignment` |
+| `flowguard-contract-exhaustion-mesh` | `contract_exhaustion_mesh` |
 | `flowguard-development-process-flow` | `development_process_flow` |
-| `flowguard-plan-detailing-compiler` | `plan_detailing_compiler` |
 | `flowguard-model-miss-review` | `model_miss_review` |
 | `flowguard-architecture-reduction` | `architecture_reduction` |
 | `flowguard-code-structure-recommendation` | `code_structure_recommendation` |
@@ -51,24 +52,31 @@ If a task is ambiguous, cross-route, or starts from a general FlowGuard
 applicability question, use the kernel first. Satellite skills must route back
 to the kernel instead of taking ownership of unclear work.
 
+Delegated mode skills are not public owner routes. DevelopmentProcessFlow may
+delegate to `flowguard-plan-detailing-compiler` for `plan_detailing` rows or
+to `flowguard-agent-workflow-rehearsal` for `agent_workflow` rows; explicit
+user requests for those exact skills may still open them, but ordinary routing
+keeps DevelopmentProcessFlow as the owner.
+
 ## Sub-Protocols Own
 
 | Sub-protocol | Owns |
 | --- | --- |
 | `core_modeling` | Risk Intent, state write inventory, function blocks, invariants, formal CheckPlan, known-bad proof, and the internal finite runner |
-| `development_process_simulator` | front-door process routing for rough-plan, multi-skill, execution-freshness, install/sync, release/archive/publish, and final claim modes |
+| `development_process_simulator` | internal request helper consumed by `development_process_flow` for rough-plan, multi-skill, execution-freshness, install/sync, release/archive/publish, and final claim modes |
 | `plan_detailing_compiler` | delegated `plan_detailing` mode rows, receipts, validation, rework, human questions, and projection to downstream routes |
 | `architecture_reduction` | behavior-preserving code contraction candidates, observable architecture contracts, and target StructureMesh handoff |
 | `ui_flow_structure` | UI interaction model, app-level journey coverage, implemented/runnable UI click-through evidence alignment, reachable visible-control branches, state/control/event/display transitions, parent/child UI topology, menu levels, overlays, stable placements, UI text hierarchy blueprint, and intentional redundancy |
 | `model_topology_hazard_review` | topology digest, usage intent, anchored future-use hazards, required owner routes, and scoped or blocked confidence before broad claims |
 | `model_test_alignment` | direct comparison of model obligations, transition coverage obligations, owner code contracts, code-boundary observations, artifact payload cases, obligation-family parity, and ordinary test evidence |
+| `contract_exhaustion_mesh` | canonical bad-case generation from declared finite boundaries, same-class family seeds, payload contracts, transition cells, parent/child closure hazards, and no-delta loops |
 | `model_maturation_loop` | converts post-code, post-miss, alignment, mesh, boundary, and freshness signals into model-upgrade or scoped-claim decisions |
 | `risk_evidence_ledger` | final risk-to-model-to-code-to-family/UI/payload-gates-to-evidence confidence boundary for done/release/publish/full-confidence claims |
 | `model_mesh_maintenance` | parent/child model hierarchy, child reattachment, whole-flow mesh closure, and oversized-model governance |
 | `test_mesh_maintenance` | parent/child test hierarchy plus validation evidence |
 | `structure_mesh_maintenance` | parent/child script/module structure split evidence |
 | `agent_workflow_rehearsal` | delegated `agent_workflow` mode inventory, selected/skipped skills, side effects, continue/rework gates, and final claim scope |
-| `development_process_flow` | simulator front door plus `execution_freshness` mode for staged development, artifact overwrite, evidence freshness, and minimum revalidation |
+| `development_process_flow` | public process owner plus internal simulator and `execution_freshness` mode for staged development, artifact overwrite, post-change scan signals, evidence freshness, and minimum revalidation |
 | `model_miss_review` | non-trivial bug repair, model miss classification, root-cause backpropagation, current bug instance handling, same-class bug responsibility, and analogous defect scan closure |
 | `conformance_adoption` | replay, install sync, shadow workspace sync, release sync, adoption evidence |
 | `long_check_observability` | background log artifacts, liveness-only progress, and completion proof |
@@ -88,6 +96,9 @@ These are package helpers:
   `transition_coverage_to_required_leaf_cell_ids()`;
 - `model_mesh_closure_to_transition_coverage()` and
   `MODEL_MESH_CLOSURE_RETRY_TEST_KINDS`;
+- `ContractDimension`, `ContractMutationCase`, `ContractExhaustionPlan`,
+  `review_contract_exhaustion()`, and contract-exhaustion feeder/consumer
+  projection helpers;
 - `review_obligation_family_parity()` and `review_analogous_defect_scan()`;
 - `review_model_maturation_loop()` for post-evidence model upgrade decisions;
 - `review_risk_evidence_ledger()` and risk evidence ledger rows;
@@ -122,11 +133,11 @@ sub-skills.
   parent reattachment gate, upward child-boundary propagation, and affected
   sibling model review.
 - When ModelMesh closure transitions include retry/rejection or repeated-input
-  loops, project them through Model-Test Alignment/TestMesh before broad
-  evidence claims.
+  loops, project them through ContractExhaustionMesh, then Model-Test
+  Alignment/TestMesh before broad evidence claims.
 - Keep the current bug instance separate from bug-class responsibility:
   patching the observed instance is not closure until the miss is classified
-  and the same-class case is represented or explicitly out of scope.
+  and the ContractExhaustionMesh case is represented or explicitly out of scope.
 - Keep LongCheck evidence boundaries explicit: background progress is liveness,
   not pass evidence, until final output, error, combined log, exit, and
   metadata artifacts exist.

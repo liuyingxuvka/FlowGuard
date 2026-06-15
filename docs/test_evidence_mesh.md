@@ -54,11 +54,15 @@ layered plan:
 - a model-miss repair needs broad same-class coverage, such as parameterized
   variants, property tests, seeded fuzz, background shards, or release-only
   regressions that are too large for a direct Model-Test Alignment row set.
+  The case ids should come from ContractExhaustionMesh, not from local prose
+  examples.
 - a transition coverage matrix is too large, slow, UI/browser-heavy, or
   release-only to prove with one flat direct evidence row set.
 - an import/export, generated artifact, save/load, or AI work-package payload
   matrix is too large, slow, manual-heavy, or release-only to prove with one
   flat direct evidence row set.
+- a ContractExhaustionMesh report routes canonical bad-case ids to TestMesh
+  through `contract_exhaustion_to_test_mesh_cell_ids(...)`.
 
 Automatic split diagnostics provide the trigger before a broad test result is
 accepted as enough. When direct validation evidence reports slow duration,
@@ -135,9 +139,9 @@ Ledger. TestMesh owns the validation hierarchy; the ledger owns the final
 "does this evidence support this user risk?" claim boundary.
 
 For model-miss repair, the parent gate should keep the observed regression and
-same-class generalized coverage distinct. A child suite can own the observed
-case, while another owns the same-class family through parameterized tests,
-property checks, seeded fuzz, or release-only runs. Routine confidence remains
+ContractExhaustionMesh same-class coverage distinct. A child suite can own the
+observed case, while another owns the generated case ids through parameterized
+tests, property checks, seeded fuzz, or release-only runs. Routine confidence remains
 scoped until release-only same-class evidence is current.
 
 For layered boundary proof, TestMesh can own the suite/script hierarchy that

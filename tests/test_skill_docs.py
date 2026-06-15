@@ -10,6 +10,7 @@ SATELLITE_SKILLS = {
     "flowguard-agent-workflow-rehearsal": "agent_workflow_rehearsal_protocol.md",
     "flowguard-architecture-reduction": "architecture_reduction_protocol.md",
     "flowguard-code-structure-recommendation": "code_structure_recommendation_protocol.md",
+    "flowguard-contract-exhaustion-mesh": "contract_exhaustion_mesh_protocol.md",
     "flowguard-development-process-flow": "development_process_flow_protocol.md",
     "flowguard-existing-model-preflight": "existing_model_preflight_protocol.md",
     "flowguard-field-lifecycle-mesh": "field_lifecycle_mesh_protocol.md",
@@ -164,6 +165,13 @@ class SkillDocsTests(unittest.TestCase):
                 "code structure diagram",
                 "validation boundaries",
             ),
+            "flowguard-contract-exhaustion-mesh": (
+                "ContractDimension",
+                "ContractMutationCase",
+                "review_contract_exhaustion()",
+                "canonical coverage",
+                "declared finite boundary",
+            ),
             "flowguard-development-process-flow": (
                 "Front-door FlowGuard satellite skill",
                 "development-process simulator",
@@ -191,7 +199,7 @@ class SkillDocsTests(unittest.TestCase):
                 "evidence tiers/freshness",
             ),
             "flowguard-model-miss-review": (
-                "same-class generalized bad case",
+                "contract-exhaustion same-class case",
                 "root-cause backpropagation",
                 "owner code contract",
                 "miss-repair diagram",
@@ -461,7 +469,15 @@ class SkillDocsTests(unittest.TestCase):
 
         self.assertEqual(sorted(SATELLITE_SKILLS), satellite_names)
         self.assertIn(f"SATELLITE_COUNT = {len(SATELLITE_SKILLS)}", topology_model)
-        self.assertIn("current directly invokable", topology_model)
+        self.assertIn(
+            f"PUBLIC_OWNER_SKILL_COUNT = {len(set(SATELLITE_SKILLS) - DELEGATED_DEVELOPMENT_PROCESS_MODE_SKILLS)}",
+            topology_model,
+        )
+        self.assertIn(
+            f"DELEGATED_MODE_SKILL_COUNT = {len(DELEGATED_DEVELOPMENT_PROCESS_MODE_SKILLS)}",
+            topology_model,
+        )
+        self.assertIn("public owner and delegated mode", topology_model)
         self.assertNotIn("seven satellites", topology_model)
 
     def test_agents_snippet_uses_compact_canonical_route_table(self):

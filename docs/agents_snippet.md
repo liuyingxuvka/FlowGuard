@@ -37,6 +37,7 @@ This is still compact, but it must have teeth. A new or deepened model names the
 - FlowGuard is latest-schema-first: old artifacts may be upgraded at project/tool boundaries, but route logic should not preserve long-lived compatibility branches for obsolete fields, aliases, or wrappers.
 - Default replacement means dispose the old path, old field, alias, wrapper, or fallback unless the user explicitly requests compatibility or preservation. If compatibility is explicit, record the preserved surface and evidence; otherwise delete, block, migrate, delegate, repair, or scope it out with a concrete reason.
 - Field-bearing work needs a FieldLifecycleMesh view: high-level models include behavior-bearing fields, while child/leaf field models account all discovered fields and record owner, readers, writers, projection, lifecycle, and old-field disposition. For full/runtime/release/production field claims, behavior projections should include minimal `gate:`, `test:`, and `replay:` evidence refs instead of only naming the field.
+- Same-class, field/schema, payload, transition, parent/child, or no-delta bad-case generation uses ContractExhaustionMesh after the owning route declares the finite boundary. Hand-written analogous examples are seeds, not canonical coverage.
 - Do not create a fake mini-framework or replace executable modeling with prose.
 - Represent each modeled block as `Input x State -> Set(Output x State)`.
 - Treat direct finite-engine calls as internal mechanics, not the formal entry for non-trivial model creation.
@@ -48,29 +49,25 @@ This is still compact, but it must have teeth. A new or deepened model names the
 - Source-based UI work needs generic source-baseline interaction semantics for native pickers, external opens, save/custom dialogs, no-handler controls, trigger/confirm/cancel/value/result/error branches. Greenfield UI should use user-task, visible-surface, functional-chain, and implementation evidence without inventing a source baseline.
 - UI done/runnable/button-wired claims need current `UIImplementationValidation` and UI done-claim review; planned/background/artifact-only evidence is not release completion.
 - Reused test results need current `TestResultReuseTicket` and `ProofArtifactRef`; old `passed` output is not current evidence by itself.
-- Rough-plan discussion, multi-skill/tool workflow setup, staged execution, install/sync, release/archive/publish, and final process claims enter `flowguard-development-process-flow` first as the development-process simulator. Record `plan_detailing`, `agent_workflow`, and `execution_freshness` modes; delegate to PlanDetailing or AgentWorkflowRehearsal only when explicit or simulator-selected.
+- Rough-plan discussion, multi-skill/tool workflow setup, staged execution, install/sync, release/archive/publish, post-change owner scans, and final process claims enter `flowguard-development-process-flow` first. Record `plan_detailing`, `agent_workflow`, and `execution_freshness` modes; delegate to PlanDetailing or AgentWorkflowRehearsal only when explicit or simulator-selected.
 - After `run_model_first_checks()`, read structured ledger routes and obligations before manual route inference.
 - New/deepened models need template harvest closure before broad claims: written, merged, duplicate-linked, or accepted not-harvestable.
-- Before trusting that one existing route or model is enough, record model-angle deliberation when the task may need a missing viewpoint.
+- Before trusting that one existing route or model is enough, let ExistingModelPreflight consume model-angle and similarity evidence when a missing viewpoint or similar workflow may matter.
 - When a workflow has multiple useful routes, old/new alternatives, or path-sensitive external proof, record business path identity: stable path id, intent, trigger, expected terminal, state writes, side effects, equivalent/exclusive paths, old-path disposition, and evidence ids.
 - For non-trivial FlowGuard work, show a route-specific Mermaid snapshot once the route/model is stable; diagrams explain and do not validate.
 - Before full done/release/publish confidence, connect risks, obligations, UI click-through gates, artifact-payload gates, code/test evidence, proof artifacts, automatic state-closure gaps, and topology-hazard gaps through Risk Evidence Ledger or equivalent.
-- After non-trivial work, use `maintenance_scan_router` for SummaryReport gaps, changed artifacts, open obligations, skipped routes, stale evidence, state/topology gaps, or split/reduction signals.
+- After non-trivial work, let DevelopmentProcessFlow consume post-change scan signals for SummaryReport gaps, changed artifacts, open obligations, skipped routes, stale evidence, state/topology gaps, or split/reduction pressure.
 - Finish real project use with adoption evidence: trigger, model/risk, commands, findings, skipped gaps, validation results, and next actions.
-
 ### Route Map
-
 | Trigger | Route | Entry |
 | --- | --- | --- |
 | FlowGuard itself feels heavy, route groups are incomplete, field layers need folding, or AI needs route-first self-maintenance | `flowguard_self_maintenance` | `default_flowguard_self_maintenance_plan()` then `review_flowguard_self_maintenance()` |
-| Changed artifacts, open maintenance obligations, stale evidence, skipped routes, business-path hazards, split/reduction pressure after project work | `maintenance_scan_router` | `review_maintenance_scan()` or `maintenance-scan-template` |
 | Older adopted project, old FlowGuard artifact, old model/test evidence, obsolete API aliases | `artifact_schema_upgrade` | `artifact-upgrade` or `project-upgrade` |
-| Existing modeled system, ownership lookup, duplicate-boundary risk | `existing_model_preflight` | `flowguard-existing-model-preflight` |
-| Current route/model may be too narrow or a new model angle may be needed | `model_angle_deliberation` | `model-angle-template` or `review_model_angle_deliberations()` |
+| Existing modeled system, ownership lookup, duplicate-boundary risk, model-angle gaps, or similar workflow evidence | `existing_model_preflight` | `flowguard-existing-model-preflight`; consumes model-angle and similarity rows |
 | Field lifecycle, behavior-bearing field projection, old/replaced/deprecated field disposition | `field_lifecycle_mesh` | `flowguard-field-lifecycle-mesh` |
-| Similar features, duplicate business paths, A/B workflow drift, sibling tests, shared-kernel/adapter suspicion | `model_similarity_consolidation` | `model-first-function-flow` reference |
+| Canonical finite bad-case generation from declared fields, state/input boundaries, same-class families, payload contracts, transition cells, parent/child closure, or no-delta loops | `contract_exhaustion_mesh` | `flowguard-contract-exhaustion-mesh` |
 | New/deepened model must reuse/search and close public/local template harvest | `risk_template_library` | `risk-template-search`, `risk-template-harvest`, `risk-template-harvest-review`, or `risk-template-library-template` |
-| Rough plan, multi-skill/tool setup, staged execution, install/sync, release/archive/publish, or final process claim needs one development-process simulator | `development_process_simulator` | `flowguard-development-process-flow`; may delegate to `flowguard-plan-detailing-compiler` or `flowguard-agent-workflow-rehearsal` |
+| Rough plan, multi-skill/tool setup, staged execution, post-change scan, install/sync, release/archive/publish, or final process claim | `development_process_flow` | `flowguard-development-process-flow`; may delegate to `flowguard-plan-detailing-compiler` or `flowguard-agent-workflow-rehearsal` |
 | Ordinary behavior/state modeling, Risk Intent, state inventory | `core_modeling` | `model-first-function-flow` |
 | Existing code/prompt flow should shrink without behavior loss | `architecture_reduction` | `flowguard-architecture-reduction` |
 | Pre-code module/function/block ownership recommendation | `code_structure_recommendation` | `flowguard-code-structure-recommendation` |
@@ -80,7 +77,6 @@ This is still compact, but it must have teeth. A new or deepened model names the
 | Three or more models, oversized model, stale child evidence, parent/child mesh | `model_mesh_maintenance` | `flowguard-model-mesh` |
 | Large/slow/stale/release-only tests or parent/child test hierarchy | `test_mesh_maintenance` | `flowguard-test-mesh` |
 | Large script/module/package/API split, facade or public entrypoint parity | `structure_mesh_maintenance` | `flowguard-structure-mesh` |
-| Execution-freshness mode for staged edits, validation freshness, install/shadow/git sync | `development_process_flow` | `flowguard-development-process-flow` |
 | Non-trivial bug repair, false confidence, or runtime/test/replay/manual evidence shows a missed failure class | `model_miss_review` | `flowguard-model-miss-review` |
 | Model too coarse after state-closure/code/test/mesh/freshness evidence | `model_maturation_loop` | `model-first-function-flow` reference |
 | Final broad confidence boundary | `risk_evidence_ledger` | `docs/risk_evidence_ledger.md` |
@@ -100,9 +96,10 @@ Package helpers such as `review_model_test_alignment()`,
 starter CLIs are helpers, not separate Codex skills.
 
 When a change touches a feature that resembles another workflow, model,
-test family, or code path, use Model Similarity Consolidation before claiming
-maintenance coverage. Record whether the relation creates a maintenance group,
-which sibling models/code/tests must be checked, which tests are shared versus
+test family, or code path, feed Model Similarity Consolidation evidence into
+ExistingModelPreflight or the selected owner route before claiming maintenance
+coverage. Record whether the relation creates a maintenance group, which
+sibling models/code/tests must be checked, which tests are shared versus
 variant-specific, and whether shared-kernel/adapter work or false-friend
 separation applies.
 

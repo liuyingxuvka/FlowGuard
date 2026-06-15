@@ -14,7 +14,7 @@ Project FlowGuard record:
 - Human log: `docs/flowguard_adoption_log.md`
 
 Current adoption record:
-- FlowGuard package version: `0.49.0`
+- FlowGuard package version: `0.50.0`
 - FlowGuard schema version: `1.0`
 
 Before non-trivial work:
@@ -55,17 +55,17 @@ UI runnable claims and file/work-package claims need current UI click-through
 or artifact-payload evidence gates before broad done/release confidence.
 
 Non-trivial rough-plan discussion, multi-skill/tool workflow setup, staged
-execution, install/sync, release/archive/publish, and final process claims
-enter `flowguard-development-process-flow` first as the development-process
-simulator. Record `plan_detailing`, `agent_workflow`, and
+execution, install/sync, release/archive/publish, post-change owner scans, and
+final process claims enter `flowguard-development-process-flow` first as the
+development-process simulator. Record `plan_detailing`, `agent_workflow`, and
 `execution_freshness` modes; delegate to PlanDetailing or
 AgentWorkflowRehearsal only when explicit or simulator-selected.
 
-After non-trivial FlowGuard-managed work, run or record a maintenance scan when
-changed artifacts, skipped routes, stale evidence, or split/reduction signals
-may require an owning route such as Model-Test Alignment,
-DevelopmentProcessFlow, Architecture Reduction, StructureMesh, ModelMesh,
-TestMesh, or AgentWorkflowRehearsal.
+After non-trivial FlowGuard-managed work, let DevelopmentProcessFlow consume
+post-change scan signals for changed artifacts, skipped routes, stale evidence,
+open obligations, or split/reduction pressure. The scan output routes each gap
+to the owning specialist, such as Model-Test Alignment, Architecture
+Reduction, StructureMesh, ModelMesh, TestMesh, or AgentWorkflowRehearsal.
 
 Do not create a fake local FlowGuard replacement. Do not claim full FlowGuard
 completion from an AGENTS/manifest/log update alone; executable model checks,

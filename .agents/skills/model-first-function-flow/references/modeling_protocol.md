@@ -63,9 +63,11 @@ Before changing files, separate three situations:
   ModelMesh, code-boundary, or freshness evidence says the model itself is too
   coarse, stale, disconnected, or only supports a scoped claim. Translate that
   signal into a model-upgrade action before broad confidence is claimed.
-- `maintenance_scan_router`: after non-trivial FlowGuard-managed work, changed
-  artifacts, remembered maintenance obligations, stale evidence, skipped
-  routes, or split/reduction signals may need an existing owner route.
+- `development_process_flow_post_change_scan`: after non-trivial
+  FlowGuard-managed work, DevelopmentProcessFlow consumes changed artifacts,
+  remembered maintenance obligations, stale evidence, skipped routes, and
+  split/reduction signals, then sends each unresolved item to its existing
+  owner route.
 
 If real FlowGuard is importable but a current `.flowguard` Python model still
 claims `flowguard_package_available = False`, uses a fallback finite runner, or
@@ -492,13 +494,13 @@ When this happens:
    `would_have_failed_if`, new plan/model/test item, and closure evidence.
 5. If the issue belongs in scope, represent it as executable evidence: scenario,
    invariant, replay adapter, representative trace, or a model boundary update
-   for the observed issue, plus one same-class generalized bad case when
-   practical.
+   for the observed issue, plus one same-class family seed or finite boundary
+   routed through ContractExhaustionMesh when practical.
 6. If the miss involves a field, schema key, config flag, prompt/config field,
    payload column, or persisted attribute, run or update FieldLifecycleMesh so
-   the root-cause field, same-class field cases, and any old/replaced field are
+   the root-cause field, ContractExhaustionMesh field cases, and any old/replaced field are
    visible.
-7. Add observed-regression and same-class test evidence, then run Model-Test
+7. Add observed-regression and contract-exhaustion case test evidence, then run Model-Test
    Alignment to verify the repaired obligation, owner code contract, and tests
    cover the same behavior. Behavior-bearing field projections should feed the
    same alignment rows.
@@ -507,7 +509,7 @@ When this happens:
    a repaired contract or replacement field, same-contract repaired, or
    explicitly out of scope with a reason.
 9. Rerun the relevant model checks and confirm the old weakness plus the
-   same-class case are now visible, or deliberately out of scope.
+   ContractExhaustionMesh case is now visible, or deliberately out of scope.
 10. Validate the repair with the refined model plus the strongest practical
    production-facing evidence.
 11. If the repair changed a child model under a parent ModelMesh, rerun the
@@ -524,7 +526,7 @@ When this happens:
    and exit status exist; progress output is only liveness.
 15. Record `Miss type`, `Root cause backpropagation`, `Generalized case`,
    field lifecycle/projection/disposition evidence when fields are involved,
-   owner code contract, observed/same-class tests, legacy path disposition, and
+   owner code contract, observed/contract-exhaustion case tests, legacy path disposition, and
    any parent reattachment decision in the adoption log, or the reason no
    generalized case was added, along with rerun commands, skipped checks, and
    residual blindspots.
@@ -779,7 +781,8 @@ Recommended low-friction agent flow:
   ledger before point-rule patches.
 - Known model misses are classified, represented in executable evidence or
   marked out of scope, rerun, and then validated with production-facing checks.
-  In-scope misses add one same-class generalized bad case when practical.
+  In-scope misses add one ContractExhaustionMesh same-class or finite-boundary
+  case when practical.
 - Scenario reviews compare expected and observed outcomes.
 - Broken-model scenarios produce expected violations rather than ordinary failures.
 - Loop/stuck review is run for workflows with retries, refresh, waiting, or reprocessing.

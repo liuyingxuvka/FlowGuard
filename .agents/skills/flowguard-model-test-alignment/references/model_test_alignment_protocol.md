@@ -32,6 +32,12 @@ handoffs are not covered by one observed regression; the generated cells require
 happy-path, failure-path, negative-path, and replay evidence unless the route is
 explicitly scoped out.
 
+When a field/schema boundary, same-class family seed, payload contract,
+transition matrix, or mesh-closure hazard is used as finite bad-case coverage,
+project it through ContractExhaustionMesh first. This protocol consumes
+`contract_exhaustion_to_model_obligations(...)`; it does not treat local
+hand-written analogous examples as canonical obligations.
+
 When the result supports a final done, release, publish, or full-confidence
 claim, pass the obligation ids, code contract ids, test evidence ids, statuses,
 freshness, and assertion scopes into a Risk Evidence Ledger. Alignment proves
@@ -41,7 +47,7 @@ scoped, or blocked.
 For non-trivial bug repairs and recurring or high-risk same-class model misses,
 alignment evidence is an input to closure and to the defect-family gate. Bind
 the repaired model obligation, the owner code external contract, the
-observed-regression test, and the same-class generalized test to the same
+observed-regression test, and the ContractExhaustionMesh same-class test to the same
 behavior before the Risk Evidence Ledger claim; do not make Model-Test
 Alignment the family promotion route.
 

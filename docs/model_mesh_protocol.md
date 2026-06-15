@@ -37,7 +37,8 @@ mesh evidence is enough for a specific user-facing risk row.
 
 Keep the current bug instance separate from bug-class responsibility.
 Model-Miss Review owns classification of the observed instance and the
-same-class generalized case. ModelMesh owns whether the repaired child boundary
+same-class family seed. ContractExhaustionMesh owns the generated sibling,
+stale-child, unconsumed-child, and no-delta case ids. ModelMesh owns whether the repaired child boundary
 still fits the parent and any affected siblings. A patched instance plus a
 green child run is not mesh confidence until that class responsibility is
 represented or explicitly out of scope and the parent/affected sibling handoffs
@@ -83,6 +84,7 @@ Before trusting existing models, write a compact inventory:
 | `target_split_derivation` | Source FlowGuard model and target child model layout that derived this parent split. |
 | `reattachment_contracts` | Parent expectations for repaired child inputs, outputs, ownership, outgoing guarantees, and consumed evidence ids. |
 | `closure_model` | FlowGuard-style parent/child handoff model for root entries, child outputs, consumers, joins, terminals, and out-of-scope dispositions. |
+| `contract_exhaustion_case_ids` | Canonical case ids projected from closure hazards such as stale child evidence, unconsumed child output, or repeat/no-delta loops. |
 
 ## Partition And Overlap Review
 

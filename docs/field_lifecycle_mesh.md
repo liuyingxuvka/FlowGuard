@@ -67,6 +67,12 @@ FieldProjection(
 These references are handoffs. They do not replace Model-Test Alignment,
 Runtime Gateway Adoption, conformance replay, or Closure Contract evidence.
 
+When a field/schema boundary needs finite bad-case coverage, project it to
+ContractExhaustionMesh. FieldLifecycleMesh declares the field, owner, readers,
+writers, lifecycle, replacement, and behavior projection; ContractExhaustionMesh
+creates canonical missing-field, empty-value, wrong-type, unknown-enum, or
+old-field case ids with explicit oracle reactions.
+
 ## Route Handoffs
 
 - Existing Model Preflight records behavior field ids and existing field owners.
@@ -74,8 +80,10 @@ Runtime Gateway Adoption, conformance replay, or Closure Contract evidence.
 - Model-Test Alignment consumes field projections as model obligations and code
   contracts.
 - Architecture Reduction and Legacy Path Disposition close old fields.
-- Model-Miss Review records root-cause fields, same-class field cases, and old
-  field disposition.
+- Model-Miss Review records root-cause fields, same-class field boundaries, and
+  old field disposition.
+- ContractExhaustionMesh generates canonical field bad-case ids from those
+  root-cause or same-class field boundaries.
 - DevelopmentProcessFlow stales field evidence after later field/projection or
   replacement writes.
 - Closure Contract blocks broad confidence when required field lifecycle

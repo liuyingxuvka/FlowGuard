@@ -27,7 +27,10 @@ provenance source?
 - `ObligationFamilyParityReport`: the matrix and findings.
 - `review_obligation_family_parity(...)`: the executable checker.
 - `FamilyBadCaseSeed` and `derive_same_class_bad_cases(...)`: derive sibling
-  bad cases from one observed miss so the family can be tested uniformly.
+  bad cases from one observed miss so the family can be tested uniformly. For
+  canonical coverage, feed the seed through
+  `family_bad_case_seed_to_contract_cases(...)` and use the resulting
+  ContractExhaustionMesh case ids downstream.
 - `AnalogousDefectCandidate` and `review_analogous_defect_scan(...)`: after a
   real miss, scan where the same failure shape may recur and record whether
   each candidate is covered, repair-now, model-upgrade-needed, separate-change,
@@ -84,8 +87,10 @@ alone. The usual pattern is:
 
 ```text
 observed miss -> FamilyBadCaseSeed
--> review_analogous_defect_scan(...)
--> repair/cover must-scan candidates
+-> family_bad_case_seed_to_contract_cases(...)
+-> review_contract_exhaustion(...)
+-> review_analogous_defect_scan(...) for scan disposition
+-> repair/cover required canonical cases
 -> feed scan confidence into the Risk Evidence Ledger
 ```
 
@@ -108,7 +113,7 @@ confidence.
 
 ## Boundary
 
-This helper is not a new skill route and it does not replace Model-Miss Review,
-Model-Test Alignment, TestMesh, or the Risk Evidence Ledger. It is a generic
-FlowGuard evidence gate used by those routes when the confidence claim spans a
-family of related obligations.
+This helper is not the canonical bad-case generator. It defines the family and
+checks family evidence parity; ContractExhaustionMesh creates the stable
+bad-case ids. It also does not replace Model-Miss Review, Model-Test
+Alignment, TestMesh, or the Risk Evidence Ledger.

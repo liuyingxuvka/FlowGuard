@@ -1,0 +1,4 @@
+interface:
+  display_name: "FlowGuard Contract Exhaustion"
+  short_description: "Canonical FlowGuard bad-case matrix"
+  default_prompt: "Use $flowguard-contract-exhaustion-mesh to generate canonical bad cases, oracles, and route handoffs from declared FlowGuard boundaries."

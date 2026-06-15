@@ -7,7 +7,7 @@ done. It also checks whether a release, archive, or publish claim still has
 current evidence.
 
 It is a sibling helper route. It can reference evidence ids produced by
-ModelMesh, TestMesh, StructureMesh, Model-Test Alignment, Model Topology Hazard
+ContractExhaustionMesh, ModelMesh, TestMesh, StructureMesh, Model-Test Alignment, Model Topology Hazard
 Review, LongCheck, or Conformance Adoption, but it does not inspect or
 supervise those route internals.
 
@@ -109,11 +109,12 @@ while the current artifact is `code.checkout@4`.
 - explicit upstream freshness rules, such as requirement changes invalidating
   downstream code and validation evidence;
 - model-miss repair changes that invalidate earlier alignment evidence, such
-  as a new miss classification, same-class generalized case, closure evidence
-  role, or test row used to prove closure;
+  as a new miss classification, ContractExhaustionMesh case id, closure
+  evidence role, or test row used to prove closure;
 - bug-repair evidence changes that invalidate earlier closure, such as a new
   root-cause backpropagation record, owner code contract, compatibility or
-  legacy path disposition, observed-regression test, same-class test, or Risk
+  legacy path disposition, observed-regression test, contract-exhaustion case
+  test, or Risk
   Evidence Ledger row;
 - ambiguous freshness policy for declared upstream/downstream artifacts;
 - progress-only background evidence, hidden skipped validation, failed
@@ -204,12 +205,19 @@ they are regenerated and rerun.
 When the final claim closes a model miss or non-trivial bug repair,
 DevelopmentProcessFlow should include Model-Test Alignment as a required
 validation pair for the repaired model obligation, owner code contract, and
-observed/same-class test rows. It should also include the root-cause
+observed/contract-exhaustion case test rows. It should also include the root-cause
 backpropagation record, compatibility or legacy path disposition, and Risk
-Evidence Ledger row as freshness-sensitive artifacts. If the same-class
+Evidence Ledger row as freshness-sensitive artifacts. If the contract-exhaustion
 evidence is large, slow, background, layered, or release-only, it should also
 include TestMesh evidence and keep routine confidence scoped until current
 release evidence exists.
+
+When the work changes a field/schema boundary, same-class family, payload
+contract, transition matrix, parent/child closure, or no-delta loop, rerun
+ContractExhaustionMesh before consuming downstream Model-Test Alignment,
+TestMesh, ModelMesh, or Risk Evidence Ledger evidence. A stale generated case
+matrix is stale process evidence even when a downstream green test still
+exists.
 
 When later implementation, validation, alignment, mesh, code-boundary, or
 freshness evidence says the model itself is too coarse, stale, disconnected, or

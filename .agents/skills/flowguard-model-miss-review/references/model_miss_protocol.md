@@ -19,7 +19,8 @@ If a post-green runtime route repeatedly returns the same packet, rejected
 intent, missing-field shape, or no-body shape without repair feedback or a
 blocking disposition, treat it as a model miss in the parent/child closure
 model. The repair must add the same-class retry/rejection liveness case, not
-only patch the observed packet.
+only patch the observed packet. That case should be generated as a canonical
+ContractExhaustionMesh case before downstream evidence claims.
 
 For bug repair work inside an existing modeled system, run Existing Model
 Preflight first so the fix extends the current model boundary instead of
@@ -45,7 +46,8 @@ creating a parallel one.
    `root_cause_field_ids`, `same_class_field_ids`, and `old_field_ids` as
    needed, then update FieldLifecycleMesh so projection and disposition gaps are
    explicit.
-6. Add one same-class generalized bad case when practical.
+6. Add one same-class family seed or finite boundary when practical, then route
+   it through ContractExhaustionMesh to generate canonical bad-case ids.
 7. For UI misses, run `review_ui_model_misses(...)` with a record of the prior
    green claim, why it looked green, the user-observed failure, affected
    capabilities/controls/fields, same-class capabilities/controls/fields,
@@ -57,14 +59,14 @@ creating a parallel one.
    export, save, open, configure, delete, or generated-output functions should
    be reviewed as a same-class UI family before closure.
 8. Add current test evidence for the observed regression and for the
-   same-class generalized case. A point regression is necessary but does not
+   ContractExhaustionMesh same-class cases. A point regression is necessary but does not
    close an in-scope miss by itself.
 9. Bind the repaired obligation to the owner code contract that actually
    implements the behavior. Helper-only, adapter-only, or internal-path tests
    cannot close a public bug class by themselves.
 10. Run Model-Test Alignment on the repaired model obligation, owner code
-   contracts, and the observed/same-class test evidence. If the
-   same-class validation is too large, slow, layered, stale-prone,
+   contracts, and the observed/contract-exhaustion case test evidence. If the
+   contract-exhaustion validation is too large, slow, layered, stale-prone,
    background, or release-only, route that hierarchy to TestMesh and report
    scoped confidence until current child evidence exists.
 11. If the repair adds, replaces, bypasses, or preserves an old/fallback/legacy
@@ -83,8 +85,8 @@ creating a parallel one.
    a concrete reason.
 14. If the same-class miss recurs, or if a high-risk first miss would make a
    local point fix overclaim full confidence, promote it to a defect-family gate
-   with a model obligation, authority boundary, observed failure, same-class
-   generalized case, historical holdout, and current proof evidence. The gate
+   with a model obligation, authority boundary, observed failure,
+   ContractExhaustionMesh case id, historical holdout, and current proof evidence. The gate
    is FlowGuard evidence for the existing Model-Miss/Risk Evidence Ledger
    chain, not a new downstream app skill.
 15. Rerun the relevant model checks and confirm the old weakness is now visible,

@@ -14,6 +14,21 @@ should not become a second formal system, but the model-first entry must still
 name the protected error class, model completion evidence, prove a known-bad
 case is caught, and close template reuse/harvest.
 
+ContractExhaustionMesh is the canonical helper for expanding declared finite
+boundaries into bad cases. It does not discover the whole world by magic. A
+route must first declare the field, state/input boundary, same-class family,
+payload contract, transition matrix, or parent/child closure token. Then
+`review_contract_exhaustion()` creates stable bad-case ids, expected oracle
+reactions, and downstream MTA/TestMesh/ModelMesh/Risk Ledger handoffs. This
+replaces older patterns where each prompt hand-wrote "similar bug" examples
+as if they were canonical coverage.
+
+Matrix readiness is not whole-chain readiness. A generated case can be valid
+and still require a separate composite handoff acceptance item before broad
+done/release confidence. Those acceptance ids state which route owners must
+consume the same case id together, so a single-point matrix pass cannot be
+mistaken for full model-chain closure.
+
 For the full public API layer map, see `docs/api_surface.md`. The exported
 `API_SURFACE` grouping is descriptive only; it does not turn helpers, reports,
 or internal evidence tools into required steps.
@@ -125,13 +140,14 @@ The start command records `in_progress`; the finish command appends the final
 entry. This is a reporting helper only. It does not replace model checks,
 scenario review, conformance replay, or test execution.
 
-## Development Process Simulator
+## DevelopmentProcessFlow Front Door
 
-Use `DevelopmentProcessSimulationRequest` and
-`review_development_process_simulator(...)` when a non-trivial request starts
-as plan discussion, involves several skills/tools/plugins, or will continue
-through staged edit/test/install/sync/release work. The simulator is the one
-front door for those process questions. It returns ordered mode decisions:
+Start with DevelopmentProcessFlow when a non-trivial request starts as plan
+discussion, involves several skills/tools/plugins, or will continue through
+staged edit/test/install/sync/release work. Internally it may call
+`DevelopmentProcessSimulationRequest` and
+`review_development_process_simulator(...)`, but the public owner route stays
+`development_process_flow`. The internal helper returns ordered mode decisions:
 
 - `plan_detailing`: rough plans need explicit rows before implementation.
 - `agent_workflow`: skills, tools, side effects, gates, and skipped candidates
@@ -139,9 +155,9 @@ front door for those process questions. It returns ordered mode decisions:
 - `execution_freshness`: artifact versions, peer writes, validation evidence,
   install/shadow/git sync, and final claims need freshness review.
 
-The simulator does not replace the delegated mode owners. It points rough
-plans to Plan Detailing, multi-skill workflows to AgentWorkflowRehearsal, and
-execution-freshness claims to DevelopmentProcessFlow.
+The helper does not replace the delegated mode owners. It points rough plans
+to Plan Detailing, multi-skill workflows to AgentWorkflowRehearsal, and
+execution-freshness claims back to DevelopmentProcessFlow.
 
 ## Plan Detailing Compiler
 
@@ -186,12 +202,14 @@ result can support Model-Test Alignment or TestMesh only when the ticket and
 matching `ProofArtifactRef` prove unchanged command, test source, tested
 artifact, dependencies, environment, result fingerprint, and covered scope.
 
-## Model Angle Deliberation
+## ExistingModelPreflight Angle Evidence
 
-Use `review_model_angle_deliberations(...)` before an agent trusts one model
-boundary or one route choice in an existing modeled system. This is the answer
-to a common AI failure mode: the agent follows the provided route list but does
-not ask whether the current situation needs a different model viewpoint.
+ExistingModelPreflight owns route-boundary doubt in an existing modeled
+system. It may consume `review_model_angle_deliberations(...)` when an agent
+needs to preserve candidate viewpoints before deciding whether to reuse,
+extend, split, or scope a model. This is the answer to a common AI failure
+mode: the agent follows the provided route list but does not ask whether the
+current situation needs a different model viewpoint.
 
 Each `ModelAngleDeliberation` row is intentionally free-form:
 
@@ -206,10 +224,10 @@ Each `ModelAngleDeliberation` row is intentionally free-form:
 Known FlowGuard routes are hints, not the full imagination space. The angle can
 be about fields, lifecycle, installation sync, release evidence, user policy,
 runtime topology, AI workflow ordering, or another domain-specific surface.
-The review only preserves the decision; the owning route still supplies the
-actual model, test, replay, or closure evidence.
+The review only preserves the decision; ExistingModelPreflight or the owning
+route still supplies the actual model, test, replay, or closure evidence.
 
-Use the template with:
+The template remains an internal evidence scaffold:
 
 ```powershell
 python -m flowguard model-angle-template --output .
@@ -249,10 +267,11 @@ effect. This lets AI agents continue through the existing route system instead
 of guessing from prose.
 
 Use `maintenance_scan_plan_from_summary_report(...)` to turn those report gaps
-into a `MaintenanceScanPlan`. The maintenance scan remains a router: it points
-to existing specialists such as DevelopmentProcessFlow, Model-Test Alignment,
-Model Maturation, TestMesh, StructureMesh, or AgentWorkflowRehearsal, but it
-does not run those routes or validate their evidence.
+into a `MaintenanceScanPlan`. DevelopmentProcessFlow owns the post-change scan
+decision: it consumes the scan output and points each unresolved item to
+existing specialists such as DevelopmentProcessFlow, Model-Test Alignment,
+Model Maturation, TestMesh, StructureMesh, or AgentWorkflowRehearsal, but the
+scan helper itself does not run those routes or validate their evidence.
 
 `DevelopmentProcessFlow` revalidation recommendations include the prior
 producer route, proof-artifact requirement, freshness gap codes, and claim
@@ -311,7 +330,7 @@ state revisits, interleaved replay, and risk-signaling trace text. This is
 different from a generic `[A, B, A]` matrix row because the model report
 explains why that route is worth testing.
 
-## State Closure Gate
+## State Closure As ContractExhaustion Input
 
 `StateClosurePlan`, `StateClosureDimension`, `StateClosureCase`, and
 `review_state_closure(...)` make "all other values" explicit without changing
@@ -320,12 +339,14 @@ when the listed values really are complete. Use `open_boundary` when other,
 malformed, missing, old-schema, invalid-terminal, or externally unknown cases
 may occur.
 
-`run_model_first_checks(...)` runs this gate automatically. If no explicit
-closure plan is supplied, FlowGuard infers visible dimensions from external
-inputs and dataclass fields such as `status`, `phase`, `kind`, `type`, `mode`,
-and `schema_version`. Inferred unknown policies keep confidence scoped.
-Explicit open boundaries pass only when unknown cases are rejected, blocked,
-isolated, or routed to model maturation before side effects.
+`run_model_first_checks(...)` runs this gate automatically. ContractExhaustionMesh
+can also project StateClosure rows into canonical bad cases with
+`state_closure_cases_to_contract_cases(...)`. If no explicit closure plan is
+supplied, FlowGuard infers visible dimensions from external inputs and
+dataclass fields such as `status`, `phase`, `kind`, `type`, `mode`, and
+`schema_version`. Inferred unknown policies keep confidence scoped. Explicit
+open boundaries pass only when unknown cases are rejected, blocked, isolated,
+or routed to model maturation before side effects.
 
 ## Model Topology Hazard Review
 

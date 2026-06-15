@@ -141,6 +141,13 @@ Generated transition coverage cells are also not pass evidence; project them to
 Model-Test Alignment obligations and code contracts, then bind current test
 evidence to the same cell and contract before claiming coverage.
 
+For same-class, field/schema, payload, transition, parent/child, or no-delta
+coverage beyond one representative known-bad proof, use ContractExhaustionMesh.
+The owning route declares the finite boundary; `review_contract_exhaustion()`
+creates canonical case ids and expected oracle reactions; MTA/TestMesh/ModelMesh
+and the Risk Evidence Ledger close the evidence. Do not treat hand-written
+analogous examples as exhaustive coverage.
+
 Every `FlowGuardSummaryReport` also exposes `finding_ledger` and
 `maintenance_obligations`, and `to_dict()` includes both as machine-readable
 output. The ledger flattens model check failures, audit warnings,
@@ -152,9 +159,9 @@ LiveFlowGuard framework upgrades and non-trivial bug/model-miss repairs so the
 next action is chosen deliberately: fix the real system, adjust the check flow,
 extend the model, or record a boundary as out of scope. For in-scope
 bug/model-miss repairs, the next action also includes root-cause
-backpropagation, upgrading tests from an observed-bug regression to same-class
-evidence, binding the owner code contract, and rerunning Model-Test Alignment
-before full closure.
+backpropagation, projecting the same-class or finite-boundary surface through
+ContractExhaustionMesh, binding the owner code contract, and rerunning
+Model-Test Alignment before full closure.
 
 ## Domain Packs
 

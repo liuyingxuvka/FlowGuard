@@ -94,3 +94,19 @@ FlowGuard SHALL make the family confidence boundary explicit so downstream route
 - **WHEN** a family parity report is produced
 - **THEN** it includes one coverage cell per required member and mechanism, with status and evidence ids.
 
+### Requirement: Family seeds feed canonical bad-case expansion
+FlowGuard obligation-family parity MUST provide same-class family seeds to
+ContractExhaustionMesh when an observed miss or family mechanism requires
+canonical sibling bad-case expansion.
+
+#### Scenario: Seed expands through contract exhaustion
+- **WHEN** a family bad-case seed names a required mechanism and sibling
+  members
+- **THEN** canonical ContractMutationCase rows are generated or required for
+  the sibling cases
+
+#### Scenario: Unmodeled sibling relation remains a gap
+- **WHEN** a same-class claim lacks a declared sibling relation or mechanism
+- **THEN** FlowGuard reports a model gap instead of treating the family as
+  exhausted
+

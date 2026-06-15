@@ -50,6 +50,39 @@ SELF_MAINTENANCE_FINDING_INFO = "info"
 SELF_MAINTENANCE_FINDING_GAP = "gap"
 SELF_MAINTENANCE_FINDING_BLOCKER = "blocker"
 
+ROUTE_ROLE_PUBLIC_OWNER = "public_owner"
+ROUTE_ROLE_DELEGATED_MODE = "delegated_mode"
+ROUTE_ROLE_INTERNAL_FEEDER = "internal_feeder"
+ROUTE_ROLE_DATA_HELPER = "data_helper"
+ROUTE_ROLE_ARCHIVE_ONLY = "archive_only"
+ROUTE_ROLES = (
+    ROUTE_ROLE_PUBLIC_OWNER,
+    ROUTE_ROLE_DELEGATED_MODE,
+    ROUTE_ROLE_INTERNAL_FEEDER,
+    ROUTE_ROLE_DATA_HELPER,
+    ROUTE_ROLE_ARCHIVE_ONLY,
+)
+
+ENTRY_POLICY_DIRECT = "direct"
+ENTRY_POLICY_VIA_OWNER = "via_owner"
+ENTRY_POLICY_INTERNAL_ONLY = "internal_only"
+ENTRY_POLICIES = (
+    ENTRY_POLICY_DIRECT,
+    ENTRY_POLICY_VIA_OWNER,
+    ENTRY_POLICY_INTERNAL_ONLY,
+)
+
+CLEANUP_DISPOSITION_KEEP = "keep"
+CLEANUP_DISPOSITION_ABSORB = "absorb"
+CLEANUP_DISPOSITION_DELETE = "delete"
+CLEANUP_DISPOSITION_FACADE_REVIEW = "facade_review"
+CLEANUP_DISPOSITIONS = (
+    CLEANUP_DISPOSITION_KEEP,
+    CLEANUP_DISPOSITION_ABSORB,
+    CLEANUP_DISPOSITION_DELETE,
+    CLEANUP_DISPOSITION_FACADE_REVIEW,
+)
+
 
 def _as_tuple(values: Sequence[str] | str | None) -> tuple[str, ...]:
     if values is None:
@@ -81,6 +114,11 @@ class RouteProfile:
     template_factory: str = ""
     skill_name: str = ""
     summary: str = ""
+    route_role: str = ROUTE_ROLE_PUBLIC_OWNER
+    entry_policy: str = ENTRY_POLICY_DIRECT
+    canonical_owner_route: str = ""
+    absorbed_by_route: str = ""
+    cleanup_disposition: str = CLEANUP_DISPOSITION_KEEP
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -94,6 +132,20 @@ class RouteProfile:
         object.__setattr__(self, "template_factory", str(self.template_factory))
         object.__setattr__(self, "skill_name", str(self.skill_name))
         object.__setattr__(self, "summary", str(self.summary))
+        route_role = str(self.route_role or ROUTE_ROLE_PUBLIC_OWNER)
+        if route_role not in ROUTE_ROLES:
+            raise ValueError(f"unknown route role: {route_role}")
+        entry_policy = str(self.entry_policy or ENTRY_POLICY_DIRECT)
+        if entry_policy not in ENTRY_POLICIES:
+            raise ValueError(f"unknown entry policy: {entry_policy}")
+        cleanup_disposition = str(self.cleanup_disposition or CLEANUP_DISPOSITION_KEEP)
+        if cleanup_disposition not in CLEANUP_DISPOSITIONS:
+            raise ValueError(f"unknown cleanup disposition: {cleanup_disposition}")
+        object.__setattr__(self, "route_role", route_role)
+        object.__setattr__(self, "entry_policy", entry_policy)
+        object.__setattr__(self, "canonical_owner_route", str(self.canonical_owner_route))
+        object.__setattr__(self, "absorbed_by_route", str(self.absorbed_by_route))
+        object.__setattr__(self, "cleanup_disposition", cleanup_disposition)
         object.__setattr__(self, "metadata", dict(self.metadata))
 
     def to_dict(self) -> dict[str, Any]:
@@ -108,6 +160,11 @@ class RouteProfile:
             "template_factory": self.template_factory,
             "skill_name": self.skill_name,
             "summary": self.summary,
+            "route_role": self.route_role,
+            "entry_policy": self.entry_policy,
+            "canonical_owner_route": self.canonical_owner_route,
+            "absorbed_by_route": self.absorbed_by_route,
+            "cleanup_disposition": self.cleanup_disposition,
             "metadata": to_jsonable(dict(self.metadata)),
         }
 
@@ -387,6 +444,11 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             ("development_process_flow", "flowguard-codex-skill-satellites"),
             "template_structure",
             "write_template_files",
+            route_role=ROUTE_ROLE_DATA_HELPER,
+            entry_policy=ENTRY_POLICY_INTERNAL_ONLY,
+            canonical_owner_route=SELF_MAINTENANCE_ROUTE,
+            absorbed_by_route=SELF_MAINTENANCE_ROUTE,
+            cleanup_disposition=CLEANUP_DISPOSITION_ABSORB,
         ),
         RouteProfile(
             "evidence_field_structure",
@@ -396,6 +458,11 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             "evidence_field_structure",
             ("development_process_flow", "risk_evidence_ledger"),
             "evidence_field_structure",
+            route_role=ROUTE_ROLE_DATA_HELPER,
+            entry_policy=ENTRY_POLICY_INTERNAL_ONLY,
+            canonical_owner_route="development_process_flow",
+            absorbed_by_route="development_process_flow",
+            cleanup_disposition=CLEANUP_DISPOSITION_ABSORB,
         ),
         RouteProfile(
             "existing_model_preflight",
@@ -417,6 +484,11 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             ("existing_model_preflight", "model_maturation_loop", "model_mesh_maintenance"),
             "model_angle_deliberation",
             "model_angle_deliberation_template_files",
+            route_role=ROUTE_ROLE_INTERNAL_FEEDER,
+            entry_policy=ENTRY_POLICY_VIA_OWNER,
+            canonical_owner_route="existing_model_preflight",
+            absorbed_by_route="existing_model_preflight",
+            cleanup_disposition=CLEANUP_DISPOSITION_ABSORB,
         ),
         RouteProfile(
             "risk_template_library",
@@ -437,6 +509,11 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             ("development_process_flow", "model_test_alignment", "structure_mesh_maintenance"),
             "maintenance_scan_router",
             "maintenance_scan_template_files",
+            route_role=ROUTE_ROLE_INTERNAL_FEEDER,
+            entry_policy=ENTRY_POLICY_VIA_OWNER,
+            canonical_owner_route="development_process_flow",
+            absorbed_by_route="development_process_flow",
+            cleanup_disposition=CLEANUP_DISPOSITION_ABSORB,
         ),
         RouteProfile(
             "maintenance_obligation_memory",
@@ -446,6 +523,11 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             "maintenance_obligation_memory",
             ("maintenance_scan_router", "risk_evidence_ledger"),
             "maintenance_obligation_memory",
+            route_role=ROUTE_ROLE_DATA_HELPER,
+            entry_policy=ENTRY_POLICY_INTERNAL_ONLY,
+            canonical_owner_route="risk_evidence_ledger",
+            absorbed_by_route="risk_evidence_ledger",
+            cleanup_disposition=CLEANUP_DISPOSITION_ABSORB,
         ),
         RouteProfile(
             "field_lifecycle_mesh",
@@ -459,6 +541,22 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             "flowguard-field-lifecycle-mesh",
         ),
         RouteProfile(
+            "contract_exhaustion_mesh",
+            "Declared finite boundaries need canonical bad-case ids and oracle handoffs.",
+            ("contract dimensions", "seed cases", "oracles"),
+            ("mutation cases", "route case ids", "model/test handoffs"),
+            "contract_exhaustion_mesh",
+            (
+                "model_test_alignment",
+                "test_mesh_maintenance",
+                "model_mesh_maintenance",
+                "risk_evidence_ledger",
+            ),
+            "contract_exhaustion_mesh",
+            "",
+            "flowguard-contract-exhaustion-mesh",
+        ),
+        RouteProfile(
             "model_similarity_consolidation",
             "Similar models or workflows may share kernels, adapters, tests, or false-friend boundaries.",
             ("model signatures", "relation evidence", "changed member"),
@@ -467,6 +565,11 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             ("existing_model_preflight", "architecture_reduction", "model_test_alignment"),
             "model_similarity_consolidation",
             "model_similarity_consolidation_template_files",
+            route_role=ROUTE_ROLE_INTERNAL_FEEDER,
+            entry_policy=ENTRY_POLICY_VIA_OWNER,
+            canonical_owner_route="existing_model_preflight",
+            absorbed_by_route="existing_model_preflight",
+            cleanup_disposition=CLEANUP_DISPOSITION_ABSORB,
         ),
         RouteProfile(
             "architecture_reduction",
@@ -548,6 +651,11 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
                 "modes": ("plan_detailing", "agent_workflow", "execution_freshness"),
                 "front_door": "development_process_flow",
             },
+            route_role=ROUTE_ROLE_INTERNAL_FEEDER,
+            entry_policy=ENTRY_POLICY_VIA_OWNER,
+            canonical_owner_route="development_process_flow",
+            absorbed_by_route="development_process_flow",
+            cleanup_disposition=CLEANUP_DISPOSITION_ABSORB,
         ),
         RouteProfile(
             "development_process_flow",
@@ -579,6 +687,11 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             ("maintenance_scan_router", "development_process_flow"),
             "flowguard_closure_contract",
             "closure_contract_template_files",
+            route_role=ROUTE_ROLE_INTERNAL_FEEDER,
+            entry_policy=ENTRY_POLICY_VIA_OWNER,
+            canonical_owner_route="risk_evidence_ledger",
+            absorbed_by_route="risk_evidence_ledger",
+            cleanup_disposition=CLEANUP_DISPOSITION_ABSORB,
         ),
         RouteProfile(
             "agent_workflow_rehearsal",
@@ -590,6 +703,11 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             "agent_workflow_rehearsal",
             "",
             "flowguard-agent-workflow-rehearsal",
+            route_role=ROUTE_ROLE_DELEGATED_MODE,
+            entry_policy=ENTRY_POLICY_VIA_OWNER,
+            canonical_owner_route="development_process_flow",
+            absorbed_by_route="development_process_flow",
+            cleanup_disposition=CLEANUP_DISPOSITION_KEEP,
         ),
         RouteProfile(
             "ui_flow_structure",
@@ -623,6 +741,11 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             "plan_detailing_compiler",
             "plan_detailing_template_files",
             "flowguard-plan-detailing-compiler",
+            route_role=ROUTE_ROLE_DELEGATED_MODE,
+            entry_policy=ENTRY_POLICY_VIA_OWNER,
+            canonical_owner_route="development_process_flow",
+            absorbed_by_route="development_process_flow",
+            cleanup_disposition=CLEANUP_DISPOSITION_KEEP,
         ),
         RouteProfile(
             "state_closure",
@@ -632,6 +755,11 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             "state_closure",
             ("model_maturation_loop", "model_test_alignment"),
             "state_closure",
+            route_role=ROUTE_ROLE_INTERNAL_FEEDER,
+            entry_policy=ENTRY_POLICY_VIA_OWNER,
+            canonical_owner_route="contract_exhaustion_mesh",
+            absorbed_by_route="contract_exhaustion_mesh",
+            cleanup_disposition=CLEANUP_DISPOSITION_ABSORB,
         ),
         RouteProfile(
             "model_topology_hazard_review",
@@ -753,11 +881,50 @@ def route_graph_completeness_findings(
 ) -> tuple[SelfMaintenanceFinding, ...]:
     """Compare route profiles with public route discovery groups."""
 
-    profile_ids = {profile.route_id for profile in route_profiles}
+    public_profile_ids = {
+        profile.route_id
+        for profile in route_profiles
+        if profile.route_role == ROUTE_ROLE_PUBLIC_OWNER and profile.entry_policy == ENTRY_POLICY_DIRECT
+    }
     api_ids = set(_as_tuple(api_route_group_ids))
     findings: list[SelfMaintenanceFinding] = []
     for profile in route_profiles:
-        if profile.api_group not in api_ids:
+        if profile.route_role == ROUTE_ROLE_PUBLIC_OWNER and profile.entry_policy != ENTRY_POLICY_DIRECT:
+            findings.append(
+                SelfMaintenanceFinding(
+                    "public_owner_not_direct",
+                    "public owner route must use direct entry policy",
+                    SELF_MAINTENANCE_FINDING_BLOCKER,
+                    owner_route=profile.route_id,
+                    next_action="set entry_policy=direct or classify the profile as delegated/internal/data",
+                    metadata=profile.to_dict(),
+                )
+            )
+        if profile.route_role != ROUTE_ROLE_PUBLIC_OWNER and profile.entry_policy == ENTRY_POLICY_DIRECT:
+            findings.append(
+                SelfMaintenanceFinding(
+                    "non_public_route_direct_entry",
+                    "non-public route profile cannot use direct entry policy",
+                    SELF_MAINTENANCE_FINDING_BLOCKER,
+                    owner_route=profile.route_id,
+                    next_action="set entry_policy=via_owner or internal_only",
+                    metadata=profile.to_dict(),
+                )
+            )
+        if profile.route_role in {ROUTE_ROLE_INTERNAL_FEEDER, ROUTE_ROLE_DATA_HELPER, ROUTE_ROLE_DELEGATED_MODE} and not (
+            profile.canonical_owner_route or profile.absorbed_by_route
+        ):
+            findings.append(
+                SelfMaintenanceFinding(
+                    "helper_route_missing_owner",
+                    "delegated, feeder, or data-helper route must name the owner that consumes it",
+                    SELF_MAINTENANCE_FINDING_BLOCKER,
+                    owner_route=profile.route_id,
+                    next_action="set canonical_owner_route or absorbed_by_route",
+                    metadata=profile.to_dict(),
+                )
+            )
+        if profile.route_role == ROUTE_ROLE_PUBLIC_OWNER and profile.api_group not in api_ids:
             findings.append(
                 SelfMaintenanceFinding(
                     "route_profile_missing_api_group",
@@ -768,14 +935,25 @@ def route_graph_completeness_findings(
                     metadata=profile.to_dict(),
                 )
             )
-    for group_id in sorted(api_ids - profile_ids):
+        if profile.route_role != ROUTE_ROLE_PUBLIC_OWNER and profile.api_group in api_ids:
+            findings.append(
+                SelfMaintenanceFinding(
+                    "internal_route_exposed_publicly",
+                    "internal, delegated, or data-helper route is exposed through the public route API",
+                    SELF_MAINTENANCE_FINDING_BLOCKER,
+                    owner_route=profile.route_id,
+                    next_action="remove the route from FLOWGUARD_ROUTE_API and expose it only through advanced/helper inventories",
+                    metadata=profile.to_dict(),
+                )
+            )
+    for group_id in sorted(api_ids - public_profile_ids):
         findings.append(
             SelfMaintenanceFinding(
                 "api_group_missing_route_profile",
-                "FLOWGUARD_ROUTE_API group has no compact route profile",
+                "FLOWGUARD_ROUTE_API group has no direct public-owner route profile",
                 SELF_MAINTENANCE_FINDING_GAP,
                 owner_route=group_id,
-                next_action="add a RouteProfile so AI can see trigger, minimal inputs, outputs, and handoffs",
+                next_action="add a public-owner RouteProfile or remove the group from public route discovery",
             )
         )
     return tuple(findings)
@@ -873,12 +1051,27 @@ def review_flowguard_self_maintenance(plan: SelfMaintenancePlan) -> SelfMaintena
 
 __all__ = [
     "AIMaintenanceProfile",
+    "CLEANUP_DISPOSITION_ABSORB",
+    "CLEANUP_DISPOSITION_DELETE",
+    "CLEANUP_DISPOSITION_FACADE_REVIEW",
+    "CLEANUP_DISPOSITION_KEEP",
+    "CLEANUP_DISPOSITIONS",
+    "ENTRY_POLICIES",
+    "ENTRY_POLICY_DIRECT",
+    "ENTRY_POLICY_INTERNAL_ONLY",
+    "ENTRY_POLICY_VIA_OWNER",
     "FIELD_LAYER_COMPATIBILITY",
     "FIELD_LAYER_CORE",
     "FIELD_LAYER_METADATA_DISPLAY",
     "FIELD_LAYER_ROUTE_OWNED",
     "FIELD_LAYER_SHARED_EVIDENCE",
     "FIELD_LAYERS",
+    "ROUTE_ROLE_ARCHIVE_ONLY",
+    "ROUTE_ROLE_DATA_HELPER",
+    "ROUTE_ROLE_DELEGATED_MODE",
+    "ROUTE_ROLE_INTERNAL_FEEDER",
+    "ROUTE_ROLE_PUBLIC_OWNER",
+    "ROUTE_ROLES",
     "SELF_MAINTENANCE_DECISION_BLOCKED",
     "SELF_MAINTENANCE_DECISION_FULL",
     "SELF_MAINTENANCE_DECISION_SCOPED",

@@ -13,7 +13,7 @@ The `flowguard-plan-detailing-compiler` and
 delegated mode owners, not as competing generic first stops.
 
 It can reference evidence produced by ModelMesh, TestMesh, StructureMesh,
-Model-Test Alignment, Model Topology Hazard Review, LongCheck, Conformance
+ContractExhaustionMesh, Model-Test Alignment, Model Topology Hazard Review, LongCheck, Conformance
 Adoption, PlanDetailing, or AgentWorkflowRehearsal through ids and freshness
 metadata, and it should consume a Risk Evidence Ledger decision before final
 done/release/archive/publish claims. It does not inspect, replace, or repair
@@ -64,7 +64,7 @@ Create or update a DevelopmentProcessFlow review when:
   bug-repair closure artifact changed after alignment, process, or closure
   evidence was produced;
 - a non-trivial bug repair changed root-cause evidence, model obligations,
-  owner code contracts, observed/same-class tests, compatibility disposition,
+  owner code contracts, observed/contract-exhaustion case tests, compatibility disposition,
   or ledger rows after earlier validation;
 - a done, release, archive, or publish claim depends on validation evidence;
 - peer-agent or unknown-writer changes could make earlier evidence stale;
@@ -151,6 +151,11 @@ Use these triage classes:
   coverage matrix, Model-Test Alignment obligations, or TestMesh required cell
   ids were generated. Regenerate the matrix and rerun the owning evidence
   route.
+- `contract_exhaustion_matrix_stale`: a field/schema boundary, same-class
+  family seed, payload contract, transition matrix, parent/child closure, or
+  no-delta loop changed after canonical bad-case ids were generated.
+  Regenerate ContractExhaustionMesh cases and rerun affected MTA/TestMesh/
+  ModelMesh/Risk Ledger evidence.
 - `ui_action_evidence_stale`: reachable controls, modeled UI events,
   pure-UI classifications, or native/manual boundaries changed after UI
   implementation validation. Rerun UI Flow Structure implementation evidence.
@@ -174,7 +179,7 @@ Use these triage classes:
   model-code-test binding row was produced. Regenerate the affected row and
   rerun Model-Test Alignment before claiming done or release confidence.
 - `bug_repair_closure_stale`: a root-cause backpropagation record,
-  same-class case, owner code contract, legacy path disposition, or Risk
+  contract-exhaustion case, owner code contract, legacy path disposition, or Risk
   Evidence Ledger row changed after the repair was validated. Rerun the owning
   route evidence before claiming done or release confidence.
 - `field_lifecycle_changed_after_field_evidence`: FieldLifecycleMesh rows

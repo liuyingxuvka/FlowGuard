@@ -279,7 +279,7 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("recurring_family_requires_defect_family_gate", combined)
         self.assertIn("validate_recurring_without_defect_family_gate", combined)
         self.assertIn("broken_point_fix_only_validation", combined)
-        self.assertIn("same-class generalized bad case", combined)
+        self.assertIn("ContractExhaustionMesh same-class case", combined)
 
     def test_model_test_alignment_template_executes(self):
         output = self.run_written_template(
@@ -783,7 +783,7 @@ class PublicTemplateTests(unittest.TestCase):
     def test_public_templates_do_not_contain_local_project_markers(self):
         home_name = Path.home().name
         private_markers = [
-            "C:\\Users",
+            "C:" + "\\Users",
             "FlowGuardProjectAutopilot",
             "FlowPilot",
             "Cockpit",

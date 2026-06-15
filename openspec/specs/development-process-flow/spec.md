@@ -527,3 +527,54 @@ process artifacts for done or release confidence.
 - **THEN** evidence MUST show the imported package path, package version, and
   expected helper symbols from the current source
 
+### Requirement: Contract-exhaustion evidence is freshness-sensitive
+FlowGuard DevelopmentProcessFlow MUST treat ContractExhaustionMesh reports,
+case ids, oracles, verifier artifacts, and downstream evidence as
+freshness-sensitive lifecycle artifacts.
+
+#### Scenario: Model change stales generated cases
+- **WHEN** a model, field lifecycle row, payload contract, transition matrix,
+  or parent-child closure model changes after contract-exhaustion evidence was
+  produced
+- **THEN** DevelopmentProcessFlow records the old report as stale until the
+  owning evidence is regenerated or scoped
+
+#### Scenario: Final claim consumes current report
+- **WHEN** a done, release, archive, or publish claim depends on finite
+  same-class or boundary exhaustion
+- **THEN** DevelopmentProcessFlow requires current contract-exhaustion evidence
+  and downstream route evidence before broad confidence
+
+### Requirement: DevelopmentProcessFlow absorbs simulator and scan helpers
+DevelopmentProcessFlow SHALL be the public owner for process simulation,
+delegated process modes, post-change scan inputs, evidence freshness, install
+sync, shadow sync, release, archive, publish, and final process claims.
+
+#### Scenario: Process simulator helper is consumed
+- **WHEN** `review_development_process_simulator()` is used
+- **THEN** its evidence MUST be reported under the `development_process_flow`
+  route id
+- **AND** callers MUST NOT publish `development_process_simulator` as a separate
+  direct route starter
+
+#### Scenario: Maintenance scan is a process input
+- **WHEN** changed artifacts, stale evidence, skipped routes, open obligations,
+  or split/reduction signals are reviewed after work
+- **THEN** DevelopmentProcessFlow MUST consume the scan as a post-change owner
+  routing input
+- **AND** the scan MUST NOT become the final confidence owner
+
+### Requirement: Delegated process mode skills are owner-selected
+DevelopmentProcessFlow SHALL select plan-detailing and agent-workflow mode
+skills when those detailed reviews are required.
+
+#### Scenario: Plan detailing is delegated
+- **WHEN** DevelopmentProcessFlow selects `plan_detailing`
+- **THEN** `flowguard-plan-detailing-compiler` MAY produce detailed rows
+- **AND** final process confidence remains owned by DevelopmentProcessFlow
+
+#### Scenario: Agent workflow is delegated
+- **WHEN** DevelopmentProcessFlow selects `agent_workflow`
+- **THEN** `flowguard-agent-workflow-rehearsal` MAY produce workflow evidence
+- **AND** the delegated skill MUST NOT be a competing generic first stop
+

@@ -71,7 +71,6 @@ class ApiSurfaceTests(unittest.TestCase):
             "FLOWGUARD_ROUTE_API",
             "audit_project_adoption",
             "review_development_process_flow",
-            "review_maintenance_scan",
             "review_model_test_alignment",
             "review_field_lifecycle",
         }
@@ -461,33 +460,39 @@ class ApiSurfaceTests(unittest.TestCase):
     def test_route_api_registry_groups_public_names(self):
         expected_groups = {
             "flowguard_self_maintenance",
-            "template_structure",
-            "evidence_field_structure",
             "existing_model_preflight",
-            "agent_workflow_rehearsal",
-            "model_similarity_consolidation",
             "architecture_reduction",
             "code_structure_recommendation",
             "model_test_alignment",
             "field_lifecycle_mesh",
-            "plan_detailing_compiler",
-            "maintenance_obligation_memory",
-            "maintenance_scan_router",
-            "model_angle_deliberation",
+            "contract_exhaustion_mesh",
             "risk_template_library",
             "ui_flow_structure",
             "model_mesh_maintenance",
             "test_mesh_maintenance",
             "structure_mesh_maintenance",
-            "development_process_simulator",
             "development_process_flow",
             "model_miss_review",
             "risk_evidence_ledger",
-            "flowguard_closure_contract",
-            "state_closure",
             "model_topology_hazard_review",
         }
         self.assertEqual(expected_groups, set(flowguard.FLOWGUARD_ROUTE_API))
+        self.assertEqual(expected_groups, set(flowguard.PUBLIC_FLOWGUARD_ROUTE_GROUPS))
+
+        expected_internal_groups = {
+            "template_structure",
+            "evidence_field_structure",
+            "agent_workflow_rehearsal",
+            "model_similarity_consolidation",
+            "plan_detailing_compiler",
+            "maintenance_obligation_memory",
+            "maintenance_scan_router",
+            "model_angle_deliberation",
+            "development_process_simulator",
+            "flowguard_closure_contract",
+            "state_closure",
+        }
+        self.assertEqual(expected_internal_groups, set(flowguard.FLOWGUARD_INTERNAL_ROUTE_API))
 
         for group_name, names in flowguard.FLOWGUARD_ROUTE_API.items():
             with self.subTest(group=group_name):
@@ -508,6 +513,10 @@ class ApiSurfaceTests(unittest.TestCase):
             self.assertIn(name, flowguard.RISK_TEMPLATE_LIBRARY_API)
             self.assertIn(name, flowguard.ROUTE_STARTER_API["risk_template_library"])
 
+        for internal_group in expected_internal_groups:
+            self.assertNotIn(internal_group, flowguard.ROUTE_STARTER_API)
+            self.assertIn(internal_group, flowguard.ROUTE_ADVANCED_API)
+
     def test_route_profiles_cover_public_route_api(self):
         profiles = flowguard.default_flowguard_route_profiles()
         profile_ids = {profile.route_id for profile in profiles}
@@ -522,6 +531,7 @@ class ApiSurfaceTests(unittest.TestCase):
             "maintenance_scan_router",
             "maintenance_obligation_memory",
             "field_lifecycle_mesh",
+            "contract_exhaustion_mesh",
             "model_similarity_consolidation",
             "architecture_reduction",
             "code_structure_recommendation",
@@ -541,6 +551,13 @@ class ApiSurfaceTests(unittest.TestCase):
             "model_topology_hazard_review",
         }
         self.assertEqual(expected_profile_ids, profile_ids)
+        by_id = {profile.route_id: profile for profile in profiles}
+        for group_id in flowguard.PUBLIC_FLOWGUARD_ROUTE_GROUPS:
+            self.assertEqual(flowguard.ROUTE_ROLE_PUBLIC_OWNER, by_id[group_id].route_role)
+            self.assertEqual(flowguard.ENTRY_POLICY_DIRECT, by_id[group_id].entry_policy)
+        for group_id in flowguard.FLOWGUARD_INTERNAL_ROUTE_API:
+            self.assertNotEqual(flowguard.ROUTE_ROLE_PUBLIC_OWNER, by_id[group_id].route_role)
+            self.assertNotEqual(flowguard.ENTRY_POLICY_DIRECT, by_id[group_id].entry_policy)
 
         report = flowguard.review_flowguard_self_maintenance(
             flowguard.SelfMaintenancePlan(
@@ -605,6 +622,15 @@ class ApiSurfaceTests(unittest.TestCase):
 
         self.assertIn("route_profile_missing_api_group", {finding.code for finding in findings})
         self.assertIn("field_lifecycle_mesh", {finding.owner_route for finding in findings})
+
+    def test_route_completeness_blocks_internal_public_exposure(self):
+        profiles = flowguard.default_flowguard_route_profiles()
+        api_groups = tuple(flowguard.FLOWGUARD_ROUTE_API) + ("model_angle_deliberation",)
+
+        findings = flowguard.route_graph_completeness_findings(profiles, api_groups)
+
+        self.assertIn("internal_route_exposed_publicly", {finding.code for finding in findings})
+        self.assertIn("model_angle_deliberation", {finding.owner_route for finding in findings})
 
     def test_field_layer_profiles_are_entry_only_and_preserve_expansion(self):
         layers = flowguard.default_field_layer_profiles()
@@ -688,12 +714,14 @@ class ApiSurfaceTests(unittest.TestCase):
             "API_SURFACE",
             "ARCHITECTURE_REDUCTION_ROUTE_API",
             "CODE_STRUCTURE_RECOMMENDATION_ROUTE_API",
+            "CONTRACT_EXHAUSTION_MESH_API",
             "CORE_API",
             "DEVELOPMENT_PROCESS_FLOW_ROUTE_API",
             "DEVELOPMENT_PROCESS_SIMULATOR_ROUTE_API",
             "EVIDENCE_FIELD_STRUCTURE_API",
             "EVIDENCE_API",
             "EXISTING_MODEL_PREFLIGHT_ROUTE_API",
+            "FLOWGUARD_INTERNAL_ROUTE_API",
             "FLOWGUARD_ROUTE_API",
             "FLOWGUARD_CLOSURE_CONTRACT_API",
             "FLOWGUARD_SELF_MAINTENANCE_ROUTE_API",
@@ -709,6 +737,7 @@ class ApiSurfaceTests(unittest.TestCase):
             "MODEL_MATURATION_API",
             "PLAN_DETAILING_ROUTE_API",
             "PLAN_INTAKE_ADVANCED_API",
+            "PUBLIC_FLOWGUARD_ROUTE_GROUPS",
             "RISK_EVIDENCE_LEDGER_ROUTE_API",
             "RISK_TEMPLATE_LIBRARY_API",
             "ROUTE_ADVANCED_API",

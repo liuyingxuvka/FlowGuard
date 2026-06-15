@@ -11,6 +11,12 @@ change-impact obligations, shared and variant test obligations, code
 maintenance obligations, and downstream route handoffs. It does not merge
 models or rewrite production code.
 
+When similarity review implies "this sibling could have the same bug", treat
+that as a family/boundary declaration, not canonical coverage. Feed the
+declared sibling family or changed-member seed through ContractExhaustionMesh
+so generated case ids, oracles, and downstream evidence routes are shared
+instead of creating another local analogous-bug path.
+
 ## What It Compares
 
 Each `ModelSignature` can name:

@@ -17,6 +17,16 @@ to ordinary evidence:
 user risk -> UI real-surface/functional-chain/done-claim gates -> payload gates -> topology hazard review -> model obligation -> remembered maintenance obligation -> public code contract -> obligation-family gate -> analogous scan -> defect-family gate -> current proof evidence
 ```
 
+When the risk depends on finite bad-case coverage, insert
+ContractExhaustionMesh before the final proof row:
+
+```text
+declared boundary/family/payload/mesh closure
+-> ContractExhaustionMesh case ids and oracles
+-> MTA/TestMesh/ModelMesh evidence
+-> Risk Evidence Ledger gate
+```
+
 If the user-facing risk depends on a specific useful business path, the
 topology hazard and runtime path evidence should bind to that path id and
 terminal result. A generic green node or helper-path test does not prove a
@@ -34,7 +44,8 @@ Risk Evidence Ledger chain. It is not a new skill route and it is not owned by a
 downstream app.
 
 For non-trivial bug repairs, the ledger row should connect the repaired model
-obligation, owner code contract, observed-regression proof, same-class proof,
+obligation, owner code contract, observed-regression proof,
+ContractExhaustionMesh same-class case proof,
 analogous or family proof when relevant, and any legacy path disposition. If
 one of those links is missing, the row should stay scoped or blocked rather
 than reporting full confidence from a green command alone.

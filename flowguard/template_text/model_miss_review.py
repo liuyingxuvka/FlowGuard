@@ -21,8 +21,8 @@ Guards against:
 - validating a fix before backpropagating the root cause into the prior
   plan/model/test gap;
 - validating a fix before representing the observed issue in the model;
-- validating a point fix before representing a same-class generalized bad case;
-- validating only the observed bug without same-class test evidence;
+- validating a point fix before representing a ContractExhaustionMesh same-class case;
+- validating only the observed bug without contract-exhaustion case evidence;
 - validating without binding the repaired obligation to the owner code
   contract;
 - leaving old, fallback, compatibility, or alternate paths reachable without a
@@ -504,7 +504,7 @@ def invariants() -> tuple[Invariant, ...]:
                 and state.fix_validated_after_refinement
             ):
                 return InvariantResult.fail(
-                    "completed runtime issue without classification, root-cause backpropagation, observed issue model representation, same-class generalized bad case representation, known-bug holdout role, owner code contract, same-class test evidence, legacy path disposition, Model-Test Alignment rerun, recurring defect-family gate when needed, and refined validation"
+                    "completed runtime issue without classification, root-cause backpropagation, observed issue model representation, ContractExhaustionMesh case representation, known-bug holdout role, owner code contract, contract-exhaustion case test evidence, legacy path disposition, Model-Test Alignment rerun, recurring defect-family gate when needed, and refined validation"
                 )
         return InvariantResult.pass_()
 
@@ -524,7 +524,7 @@ def invariants() -> tuple[Invariant, ...]:
             and state.generalized_bad_case_in_scope
             and not state.generalized_bad_case_represented_in_model
         ):
-            return InvariantResult.fail("fix validated as point-fix-only without a same-class generalized bad case")
+            return InvariantResult.fail("fix validated as point-fix-only without a ContractExhaustionMesh same-class case")
         return InvariantResult.pass_()
 
     def fix_validation_requires_known_bug_holdout_role(state: State, _trace) -> InvariantResult:
@@ -542,7 +542,7 @@ def invariants() -> tuple[Invariant, ...]:
         if not state.observed_regression_test_added:
             return InvariantResult.fail("fix validated before adding observed-regression test evidence")
         if not state.same_class_test_evidence_added:
-            return InvariantResult.fail("fix validated before adding same-class generalized test evidence")
+            return InvariantResult.fail("fix validated before adding ContractExhaustionMesh case test evidence")
         if not state.model_test_alignment_rerun:
             return InvariantResult.fail("fix validated before rerunning Model-Test Alignment")
         return InvariantResult.pass_()
@@ -588,7 +588,7 @@ def invariants() -> tuple[Invariant, ...]:
         ),
         Invariant(
             "fix_validation_requires_generalized_bad_case",
-            "Fix validation requires a same-class generalized bad case when that class is in scope.",
+            "Fix validation requires a ContractExhaustionMesh same-class case when that class is in scope.",
             fix_validation_requires_generalized_bad_case,
         ),
         Invariant(
@@ -598,7 +598,7 @@ def invariants() -> tuple[Invariant, ...]:
         ),
         Invariant(
             "fix_validation_requires_same_class_test_evidence",
-            "Fix validation requires observed regression and same-class test evidence aligned to the repaired model.",
+            "Fix validation requires observed regression and ContractExhaustionMesh case evidence aligned to the repaired model.",
             fix_validation_requires_same_class_test_evidence,
         ),
         Invariant(
@@ -700,7 +700,7 @@ def run_checks():
             ),
             scenario(
                 "point_fix_only_without_generalized_bad_case",
-                "Broken workflow validates only the observed issue and misses a same-class generalized bad case.",
+                "Broken workflow validates only the observed issue and misses a ContractExhaustionMesh same-class case.",
                 (FLOWGUARD_PASS, RUNTIME_FAIL, CLASSIFY_MISS, BACKPROPAGATE_ROOT_CAUSE, REPRESENT_ISSUE, VALIDATE_FIX, FINALIZE),
                 ScenarioExpectation(
                     expected_status="violation",
@@ -863,12 +863,12 @@ issue after a FlowGuard pass.
   or left without FieldLifecycleMesh projection?
 - How is the issue now represented: scenario, invariant, replay adapter,
   representative trace, or explicit out-of-scope boundary?
-- What same-class generalized bad case prevents a point-fix-only repair, and is
-  that class represented or explicitly out of scope?
+- What same-class family seed or finite boundary prevents a point-fix-only repair,
+  and which ContractExhaustionMesh case ids represent it or explicitly scope it out?
 - How is the known bug used as validation or holdout evidence instead of the
   whole model target?
-- Which observed-regression test and same-class generalized test evidence now
-  prove the repaired obligation?
+- Which observed-regression test and ContractExhaustionMesh case test evidence
+  now prove the repaired obligation?
 - Which `root_cause_field_ids`, `same_class_field_ids`, and `old_field_ids`
   describe the field-level miss, and does FieldLifecycleMesh close their
   projection or disposition gaps?
@@ -882,13 +882,13 @@ issue after a FlowGuard pass.
 - Has this same-class family appeared before, or is it high risk enough to
   require a defect-family gate rather than another ordinary bug fix?
 - Which defect-family gate records the family id, authority boundary, observed
-  failure, same-class generalized case, historical holdout, and current proof?
-- Which refined model checks, runtime checks, and same-class tests must pass
-  before completion?
+  failure, ContractExhaustionMesh case id, historical holdout, and current proof?
+- Which refined model checks, runtime checks, and contract-exhaustion cases must
+  pass before completion?
 - If the repair changed a child model under a parent ModelMesh, which parent
   reattachment gate consumed the new child evidence id, and which mesh closure
   transitions were rerun when child outputs or retry/rejection handoffs changed?
-- If same-class validation is large, slow, layered, background, or release-only,
+- If contract-exhaustion validation is large, slow, layered, background, or release-only,
   which TestMesh parent/child suite owns it and where is final result evidence?
 - Which DevelopmentProcessFlow and Risk Evidence Ledger rows consume the final
   model/code/test/legacy-path evidence, and which later edits would stale them?
@@ -896,8 +896,8 @@ issue after a FlowGuard pass.
 Do not let a later green runtime check, one observed-bug regression test, or a
 second local point fix close a known model miss by itself. Full closure needs
 root-cause backpropagation when there was a prior claim, FieldLifecycleMesh
-projection for behavior-bearing fields, owner code contract binding, same-class
-test evidence, old-path/old-field disposition for reachable old paths or
+projection for behavior-bearing fields, owner code contract binding,
+ContractExhaustionMesh case evidence, old-path/old-field disposition for reachable old paths or
 fields, and recurring families need a defect-family gate or an explicit
 scoped-confidence boundary.
 Child-local green is not enough when parent mesh confidence depends on the

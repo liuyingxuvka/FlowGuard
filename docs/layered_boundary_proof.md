@@ -14,6 +14,13 @@ It checks four tables:
 4. Leaf boundary matrix: leaf models prove every finite
    `Input x State -> Set(Output x State)` cell against real-code evidence.
 
+When the parent proof depends on generated bad cases from fields, payloads,
+same-class families, transition cells, or mesh closure hazards, use
+ContractExhaustionMesh to create the canonical case ids first. Layered boundary
+proof consumes those ids through child contracts, reattachment proof, leaf
+matrix evidence, Model-Test Alignment, and TestMesh; it does not generate a
+parallel list of analogous cases.
+
 When a leaf matrix declares `input_cases` and `state_cases`, FlowGuard treats
 their Cartesian product as the expected finite boundary. Missing cells,
 unexpected cells, missing observed outputs/states/writes/effects/errors, extra

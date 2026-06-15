@@ -49,9 +49,11 @@ inputs, emits the expected outputs, owns the expected state and side effects,
 and provides the outgoing guarantees the parent flow depends on.
 
 Keep the bug instance and the bug class separate. Model-Miss Review owns the
-observed defect and the same-class generalized case. The hierarchy owns whether
-the child boundary changed in a way that makes parent or sibling assumptions
-stale. A patched instance does not make the parent mesh green by itself.
+observed defect and the same-class family seed. ContractExhaustionMesh owns the
+generated same-class, stale-child, unconsumed-child, and no-delta case ids. The
+hierarchy owns whether the child boundary changed in a way that makes parent or
+sibling assumptions stale. A patched instance does not make the parent mesh
+green by itself.
 
 Before the parent mesh trusts a child-model layout, it should record the target
 split derivation from a FlowGuard source model or model-of-models. The

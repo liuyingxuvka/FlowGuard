@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.50.0 - 2026-06-15
+
+Helper control-plane consolidation.
+
+- Added first-class route-role metadata to `RouteProfile` so public owner
+  routes, delegated modes, internal feeders, data helpers, and cleanup
+  dispositions are machine-checkable instead of prompt-only guidance.
+- Split public route discovery from advanced/internal helper inventories so
+  `FLOWGUARD_ROUTE_API` and `ROUTE_STARTER_API` expose owner routes while
+  simulator, model-angle, similarity, maintenance-scan, closure, and
+  state-closure helpers remain owner-consumed evidence.
+- Updated FlowGuard skills, AGENTS guidance, API docs, topology docs, project
+  adoption generation, self-maintenance models, and regression tests so
+  DevelopmentProcessFlow, ExistingModelPreflight, ContractExhaustionMesh,
+  ArchitectureReduction, and RiskEvidenceLedger own the single hot path without
+  helper-first fallback routes.
+
 ## v0.49.0 - 2026-06-15
 
 Development-process simulator entry consolidation.

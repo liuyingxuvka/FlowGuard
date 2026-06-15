@@ -30,7 +30,8 @@ Build a `FlowGuardClosureContractPlan` with:
 - `ModelQualitySignal` rows for hidden state, missing side effects, owner
   ambiguity, helper-only proof, missing public boundary, or parent/child
   evidence gaps.
-- `SameClassMissClosure` rows for observed failures plus same-class proof.
+- `SameClassMissClosure` rows for observed failures plus ContractExhaustionMesh
+  case proof.
 - `RuntimeGatewayInventoryClosure` rows for critical runtime state writer
   inventory and gateway adoption evidence.
 - `field_lifecycle_reports` or `ClosureEvidenceReport` rows with
@@ -68,7 +69,7 @@ Use the gates that match the claim:
   invariant, scenario, replay, or parent/child obligation is current.
 - Model-miss or bug repair: every non-trivial in-scope bug class has the
   observed failure, root-cause backpropagation when a prior claim existed, and
-  a same-class generalized bad case when practical.
+  a ContractExhaustionMesh same-class or finite-boundary case when practical.
 - Model-test/code alignment: model obligations, code contracts, code-boundary
   observations, and test evidence line up at the external boundary being
   claimed.

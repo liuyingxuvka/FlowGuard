@@ -13,7 +13,7 @@ core model work before narrowing.
 
 ## Applicability
 
-Decision: `use_flowguard`, `skip_with_reason`, or `needs_human_review`.
+Decision: `use_flowguard`, `skip_with_reason`, or `needs_human_review`; flow lenses are `behavior_flow`, `argument_flow`, and `decision_flow`.
 
 Use FlowGuard when order, state, ownership, retries, side effects, validation freshness, release/process steps, UI state, model-test evidence, or module boundaries can change safety. Use plan detailing first when a rough plan lacks scope, state, artifacts, evidence, or rework.
 
@@ -57,11 +57,13 @@ after the route needs deep evidence.
 - Reused test results need current `TestResultReuseTicket` and `ProofArtifactRef`; old `passed` output is not current evidence by itself.
 - Broad confidence needs model obligation ids, owner code contract ids, and current external-contract test evidence bound to the same behavior; model+test-only rows are scoped/blocked.
 - Broad transition-test claims need a transition matrix projected to MTA code/test rows or TestMesh, or an explicit scoped-out reason.
+- Same-class/finite bad-case generation routes through `contract_exhaustion_mesh`
+  after the owner declares the boundary; hand-written examples are only seeds.
 - Complete runnable UI claims need reachable enabled controls clicked or scoped as pure UI/deferred blindspots with structured evidence.
 - File import/export, generated artifact, and AI work-package claims need synthetic payload cases for the real payload surface plus current external evidence refs or proof artifacts; prose-only manual checks are scoped/blocked.
 - New/deepened models need template harvest closure before broad claims: written, merged, duplicate-linked, or accepted not-harvestable.
 - After `run_model_first_checks()`, read structured ledger owner routes and maintenance obligations before manually inferring the next route.
-- Before trusting one route/model, record model-angle deliberation when a task may need a missing viewpoint: what it sees, misses, what fails if ignored, and whether to reuse, extend, add child model, create new model, scope/defer, or ask.
+- Before trusting one route/model, let ExistingModelPreflight consume model-angle and similarity evidence when the task may need a missing viewpoint or resembles another workflow.
 - For non-trivial FlowGuard work, show a route-specific Mermaid snapshot once the route/model is stable; diagrams explain, not validate.
 - Before broad done/release/publish confidence, use Risk Evidence Ledger or equivalent and keep remembered maintenance obligations, automatic state-closure, and topology-hazard gaps visible.
 - Guard-family children must return closure reports with `owner_guard`, `artifact_kind`, `closure_status`, `findings`, `missing_inputs`, `stale_evidence`, `skipped_checks`, `next_actions`, `safe_claim`, and `unsafe_claim_boundary`; validate them with `assets/guard_closure_contract.py` before broad confidence.
@@ -78,13 +80,11 @@ the row below calls for deep route evidence.
 | --- | --- | --- |
 | Older adopted project, old FlowGuard artifact, old model/test evidence, obsolete API aliases | `artifact_schema_upgrade` | `artifact-upgrade` or `project-upgrade` |
 | FlowGuard itself feels heavy, route groups are incomplete, field layers need folding, or AI needs route-first self-maintenance | `flowguard_self_maintenance` | `review_flowguard_self_maintenance()` |
-| Changed artifacts, open maintenance obligations, stale evidence, skipped routes, business-path hazards, split/reduction pressure | `maintenance_scan_router` | `maintenance-scan-template` |
-| Existing modeled system, ownership lookup, duplicate-boundary risk | `existing_model_preflight` | `flowguard-existing-model-preflight` |
-| Current route/model may be too narrow or a new model angle may be needed | `model_angle_deliberation` | `model-angle-template` or `review_model_angle_deliberations()` |
+| Existing modeled system, ownership lookup, duplicate-boundary risk, missing model angle, or similar workflow/model/test family | `existing_model_preflight` | `flowguard-existing-model-preflight`; consumes model-angle and similarity rows |
 | Field additions, removals, renames, migrations, replacements, prompt/config fields, payload/schema keys, old-field disposition | `field_lifecycle_mesh` | `flowguard-field-lifecycle-mesh` |
-| Similar features, duplicate business paths, A/B workflow drift, sibling tests, shared-kernel/adapter suspicion | `model_similarity_consolidation` | `docs/model_similarity_consolidation.md` |
+| Canonical finite bad-case generation from declared boundaries/families/payloads/transitions/mesh closure | `contract_exhaustion_mesh` | `flowguard-contract-exhaustion-mesh` |
 | New/deepened model must reuse/search and close public/local template harvest | `risk_template_library` | `risk-template-search`, `risk-template-harvest`, `risk-template-harvest-review`, or `risk-template-library-template` |
-| Rough plan, multi-skill/tool setup, staged execution, install/sync, release/archive/publish, or final process claim needs one development-process simulator | `development_process_simulator` | `flowguard-development-process-flow`; may delegate `flowguard-plan-detailing-compiler` or `flowguard-agent-workflow-rehearsal` |
+| Rough plan, multi-skill/tool setup, staged execution, post-change scan, install/sync, release/archive/publish, or final process claim | `development_process_flow` | `flowguard-development-process-flow` simulator owner; may delegate `flowguard-plan-detailing-compiler` or `flowguard-agent-workflow-rehearsal` |
 | Ordinary behavior/state modeling, Risk Intent, state inventory | `core_modeling` | `references/modeling_protocol.md` |
 | Existing code/prompt flow should shrink without behavior loss | `architecture_reduction` | `flowguard-architecture-reduction` |
 | Pre-code module/function/block ownership recommendation | `code_structure_recommendation` | `flowguard-code-structure-recommendation` |
@@ -106,16 +106,13 @@ the row below calls for deep route evidence.
 When no direct route clearly matches, stay in this kernel and build the smallest
 formal executable model first.
 
-## Flow Lenses
-
-Use `behavior_flow` for software/UI/release/process state, `argument_flow` for claims and support, and `decision_flow` for plans, tradeoffs, commitments, and changed conditions.
-
 ## Minimal Workflow
 
 1. Decide applicability/lens, verify the package/adoption record for real project work, and model the risky finite-state boundary.
 2. Search public/local risk templates before new or deepened modeling, then record used template ids or a no-match reason.
 3. Make at least one representative bad path fail before trusting the pass.
-4. Inspect counterexamples, revise model/code/tests/process, record template harvest closure, derive transition/code-contract obligations for broad claims, run route-specific validation, and record evidence.
+4. For broad same-class/finite-boundary claims, route canonical ContractExhaustionMesh cases to MTA/TestMesh/ModelMesh/Risk Ledger.
+5. Inspect counterexamples, revise model/code/tests/process, record template harvest closure, derive obligations, validate, and record evidence.
 
 ## Reference Map
 

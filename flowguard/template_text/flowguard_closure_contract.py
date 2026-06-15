@@ -202,7 +202,7 @@ production-confidence claim.
   ambiguity, helper-only proof, missing public boundary, and parent/child
   evidence gaps.
 - Same-class model-miss closure evidence with both the observed failure and
-  same-class proof.
+  ContractExhaustionMesh case proof.
 - Runtime gateway inventory closure for critical state writers.
 - FieldLifecycleMesh evidence for behavior-bearing fields, old/replaced fields,
   and replacement disposition.

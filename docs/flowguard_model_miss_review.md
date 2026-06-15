@@ -30,16 +30,17 @@ issue after a FlowGuard pass.
   return, keyboard/focus, walkthrough, and same-class task evidence.
 - How is the issue now represented: scenario, invariant, replay adapter,
   representative trace, or explicit out-of-scope boundary?
-- What same-class generalized bad case prevents a point-fix-only repair, and is
-  that class represented or explicitly out of scope?
+- What same-class family seed or finite boundary prevents a point-fix-only
+  repair, and which ContractExhaustionMesh case ids represent that class or
+  explicitly scope it out?
 - How is the known bug used as validation or holdout evidence instead of the
   whole model target?
-- Which observed-regression test and same-class generalized test evidence now
-  prove the repaired obligation?
+- Which observed-regression test and contract-exhaustion same-class test
+  evidence now prove the repaired obligation?
 - Which retry/rejection transition cells prove failure, negative, replay, and
   no-delta repair-feedback behavior when the miss was a repeated packet loop?
-- Which root-cause field ids and same-class field case ids prove the repair is
-  not only an observed-field point fix?
+- Which root-cause field ids and ContractExhaustionMesh field case ids prove
+  the repair is not only an observed-field point fix?
 - Which owner code contract implements the repaired behavior, and which
   Model-Test Alignment rows prove the model obligation, owner code contract,
   observed-regression test, and same-class test cover the same behavior?
@@ -53,11 +54,11 @@ issue after a FlowGuard pass.
   require a defect-family gate rather than another ordinary bug fix?
 - Which defect-family gate records the family id, authority boundary, observed
   failure, same-class generalized case, historical holdout, and current proof?
-- Which refined model checks, runtime checks, and same-class tests must pass
-  before completion?
+- Which refined model checks, runtime checks, ContractExhaustionMesh cases, and
+  downstream tests must pass before completion?
 - If the repair changed a child model under a parent ModelMesh, which parent
   reattachment gate consumed the new child evidence id?
-- If same-class validation is large, slow, layered, background, or release-only,
+- If contract-exhaustion validation is large, slow, layered, background, or release-only,
   which TestMesh parent/child suite owns it and where is final result evidence?
 - Which DevelopmentProcessFlow and Risk Evidence Ledger rows consume the final
   model/code/test/legacy-path evidence, and which later edits would stale them?
@@ -65,16 +66,16 @@ issue after a FlowGuard pass.
 Do not let a later green runtime check, one observed-bug regression test, or a
 second local point fix close a known model miss by itself. Full closure needs
 root-cause backpropagation when there was a prior claim, owner code contract
-binding, same-class test evidence, legacy path disposition for reachable old
-paths, and recurring families need a defect-family gate or an explicit
-scoped-confidence boundary.
+binding, ContractExhaustionMesh case ids plus same-class test evidence, legacy
+path disposition for reachable old paths, and recurring families need a
+defect-family gate or an explicit scoped-confidence boundary.
 For UI misses, full closure also needs `review_ui_model_misses(...)` evidence:
 previous claim, previous green reason, observed failure, affected
 controls/fields, same-class controls/fields, same-class tests or click
 evidence, task-flow and human-operability gaps, root-cause backpropagation, and
 code owner.
-When the root cause is a field, full closure also needs same-class field cases,
-field lifecycle projection into Model-Test Alignment, and old-field
-disposition for any legacy field left in or near the repaired path.
+When the root cause is a field, full closure also needs ContractExhaustionMesh
+field cases, field lifecycle projection into Model-Test Alignment, and
+old-field disposition for any legacy field left in or near the repaired path.
 Child-local green is not enough when parent mesh confidence depends on the
 child's input/output/state/side-effect handoff.

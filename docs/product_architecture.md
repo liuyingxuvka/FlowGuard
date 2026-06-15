@@ -18,9 +18,10 @@ This is the surface that belongs in a future public GitHub release:
 - invariant cookbook;
 - scenario, loop, progress, contract, and conformance examples;
 - `model-first-function-flow` Skill Kernel;
-- `flowguard-*` satellite skills for mature direct routes, including UI flow
-  structure, code structure, model-test alignment, process flow, model misses,
-  ModelMesh, TestMesh, and StructureMesh;
+- `flowguard-*` satellite skills for mature public owner routes, including UI
+  flow structure, code structure, model-test alignment, process flow, model
+  misses, ModelMesh, TestMesh, and StructureMesh, plus delegated
+  DevelopmentProcessFlow mode skills;
 - UI Text Hierarchy Blueprint helpers for the `v0.16.0` public UI text route;
 - `AGENTS.md` snippet;
 - lightweight adoption log support;

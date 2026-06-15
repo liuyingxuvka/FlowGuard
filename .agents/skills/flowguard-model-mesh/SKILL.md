@@ -16,7 +16,8 @@ TestMesh for test hierarchy and StructureMesh for code hierarchy.
 
 - Route id: `model_mesh_maintenance`.
 - Core helpers: `review_hierarchical_mesh()`,
-  `review_mesh_closure_model()`, Child Reattachment Gate.
+  `review_mesh_closure_model()`, `model_mesh_closure_to_contract_cases()`,
+  Child Reattachment Gate.
 - Report evidence tiers/freshness before broad parent confidence.
 - Reference: `references/model_mesh_protocol.md`.
 
@@ -32,6 +33,10 @@ TestMesh for test hierarchy and StructureMesh for code hierarchy.
 - Older child or parent model artifacts must be upgraded to the current
   FlowGuard shape, replaced, or explicitly blocked before they count as current
   mesh evidence.
+- Parent/child stale evidence, unconsumed child output, and retry/no-delta
+  loop hazards should be projected to ContractExhaustionMesh. Child-local green
+  is not parent proof until those generated case ids are consumed by MTA,
+  TestMesh, and risk evidence where relevant.
 - New/deepened child or parent models need template harvest closure before broad claims.
 
 ## Minimum Workflow
@@ -41,12 +46,14 @@ TestMesh for test hierarchy and StructureMesh for code hierarchy.
 3. Review required hazards and child ownership boundaries.
 4. Check parent coverage, child disjointness, and child reattachment.
 5. Review affected siblings when a child boundary changed.
-6. Keep whole-flow closure separate from local child green.
+6. Project closure hazards to ContractExhaustionMesh and keep whole-flow
+   closure separate from local child green.
 
 ## Snapshot
 
-Show a mesh diagram with parent, children, partition items, evidence
-tiers/freshness, reattachment status, and what the mesh does or does not prove.
+Show a mesh diagram with parent, children, partition items, contract-exhaustion
+closure case ids, evidence tiers/freshness, reattachment status, and what the
+mesh does or does not prove.
 When drawing the snapshot, edges mean delegates, reattaches, consumes output, inherits obligations, or scopes confidence.
 
 ## Non-Goals

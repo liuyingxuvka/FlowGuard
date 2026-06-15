@@ -11,8 +11,8 @@ describe the same behavioral surface.
 For post-runtime model-miss repairs and non-trivial bug fixes, use Model-Test
 Alignment after Model-Miss Review updates the model. The repaired in-scope
 obligation should mark that it originated from a model miss and require closure
-evidence roles: one current observed-regression test and one current same-class
-generalized test. It also needs the owner `CodeContract` for the real public,
+evidence roles: one current observed-regression test and one current
+ContractExhaustionMesh same-class case test. It also needs the owner `CodeContract` for the real public,
 CLI, API, facade, adapter, or persisted-output surface that implements the
 repair. A green exact regression test is necessary, but it is not enough for
 full closure.
@@ -20,6 +20,9 @@ full closure.
 If the same-class miss recurs or is high risk, Model-Test Alignment still only
 proves the obligation/test rows. The recurring family itself is handled by
 `review_defect_family_gates(...)` and then consumed by the Risk Evidence Ledger.
+The sibling bad-case ids should come from ContractExhaustionMesh, normally via
+`family_bad_case_seed_to_contract_cases(...)` and
+`contract_exhaustion_to_model_obligations(...)`.
 
 When the claim spans a family of related obligations, add obligation-family
 parity evidence to the same plan. Alignment can prove that each declared
@@ -45,8 +48,11 @@ Use:
 
 ```python
 from flowguard import (
+    contract_exhaustion_to_model_obligations,
+    transition_coverage_to_contract_cases,
     TransitionCoverageCell,
     TransitionCoverageMatrix,
+    model_mesh_closure_to_contract_cases,
     model_mesh_closure_to_transition_coverage,
     transition_coverage_to_code_contracts,
     transition_coverage_to_model_obligations,
@@ -69,6 +75,9 @@ When ModelMesh owns the parent/child handoff, project the
 claiming tests cover that mesh route. Retry or rejection closure transitions
 that declare repeated input tokens require happy-path, failure-path,
 negative-path, and replay evidence through the generated transition cells.
+For canonical same-class, no-delta, stale-child, or unconsumed-child coverage,
+also project the closure model through `model_mesh_closure_to_contract_cases(...)`
+and feed the resulting cases through ContractExhaustionMesh.
 
 ## Code Boundary Conformance
 
@@ -119,6 +128,12 @@ status/output/error path/state writes/side effects, round-trip result when
 required, and an `evidence_ref` or `proof_artifact` that points to the real
 surface run. Manual checks must still be structured case evidence; prose-only
 manual review is scoped or blocked.
+
+When payload cases are used to claim finite bad-case coverage, project the
+contract through `artifact_payload_cases_to_contract_cases(...)` and then
+`review_contract_exhaustion(...)`. Model-Test Alignment consumes the resulting
+model obligations and evidence rows; it does not treat ad hoc payload examples
+as canonical exhaustive coverage.
 
 ## Conservative Source Audit
 
@@ -284,11 +299,11 @@ The review keeps these gaps visible:
   means the obligation is too coarse and should split or reattach evidence to
   leaf matrix cells;
 - repaired model-miss obligations that only have observed-regression evidence
-  and lack same-class generalized test evidence;
-- same-class closure evidence that is stale, overclaimed, internal-path-only,
+  and lack ContractExhaustionMesh case test evidence;
+- ContractExhaustionMesh closure evidence that is stale, overclaimed, internal-path-only,
   or attached to the wrong model obligation;
 - bug-repair closure evidence whose model obligation, owner code contract, and
-  observed/same-class tests do not all bind the same repaired behavior;
+  observed/contract-exhaustion case tests do not all bind the same repaired behavior;
 - supporting or leaf matrix-cell evidence without a target id;
 - transition-cell evidence without a target id, or with a target id that does
   not match the projected transition obligation;

@@ -41,6 +41,12 @@ Before changing files, separate three situations:
   owner code contracts. When
   real Python source/tests are in scope, first run or request conservative
   source audit evidence for the code and test rows.
+- `contract_exhaustion_mesh`: a declared finite boundary, same-class family,
+  payload contract, transition matrix, parent/child closure, or no-delta loop
+  must be expanded into canonical bad-case ids with explicit oracle reactions
+  and downstream route handoffs. Use this after the owning route declares the
+  boundary and before treating similar-bug or exhaustive-boundary coverage as
+  current evidence.
 - `model_topology_hazard_review`: a locally green model topology may imply
   future-use hazards before broad done, release, publish, or full-confidence
   claims. Read topology and usage intent first; only hazards with concrete
@@ -68,11 +74,12 @@ Before changing files, separate three situations:
   minimum revalidation is the risky boundary. Use this sibling route to review
   lifecycle rows without supervising ModelMesh, TestMesh, StructureMesh, or
   Model-Test Alignment internals.
-- `maintenance_scan_router`: a non-trivial FlowGuard-managed project change is
+- `development_process_flow`: a non-trivial FlowGuard-managed project change is
   ending or changing direction and the agent must check whether changed
   artifacts, remembered maintenance obligations, stale evidence, skipped
-  candidate routes, or split/reduction signals require an owner route. Use the
-  scan to route work; do not treat it as model/test/replay validation.
+  candidate routes, or split/reduction signals require an owner route. Let
+  DevelopmentProcessFlow consume the maintenance scan signal; do not treat the
+  scan helper as model/test/replay validation or final confidence.
 - `risk_evidence_ledger`: a final done, release, publish, or full-confidence
   claim depends on whether user risks are linked to model obligations, owner
   code contracts, and current proof evidence. Use this boundary after the
@@ -88,13 +95,15 @@ Before changing files, separate three situations:
   model itself is too coarse, stale, disconnected, or only supports a scoped
   claim. Translate that signal into a model-upgrade action before broad
   confidence is claimed.
-- `flowguard_closure_contract`: a full done, release, publish, or
-  production-confidence claim is being made from FlowGuard evidence. Treat the
-  closure chain as intrinsic to FlowGuard use, not as a mode: required
+- `flowguard_closure_contract`: a guard-family child closure helper may support
+  a full done, release, publish, or production-confidence claim from FlowGuard
+  evidence, but RiskEvidenceLedger remains the final broad-confidence owner.
+  Treat the closure chain as intrinsic support, not as a direct route mode:
+  required
   plan/risk intake, model ownership, same-class miss evidence when relevant,
   obligation-family parity when related obligations share a confidence claim,
-  analogous defect scan when a post-green miss exposes a reusable failure
-  shape, model-test/code alignment, mesh or boundary proof when relevant,
+  ContractExhaustionMesh case ids and analogous defect scan when a post-green
+  miss exposes a reusable failure shape, model-test/code alignment, mesh or boundary proof when relevant,
   evidence freshness, Risk Evidence Ledger, and typed claim-chain support must
   be current or the claim stays partial/scoped.
 
@@ -834,14 +843,14 @@ When this happens:
    `would_have_failed_if`, new plan/model/test item, and closure evidence.
 5. If the issue belongs in scope, represent it as executable evidence: scenario,
    invariant, replay adapter, representative trace, or a model boundary update
-   for the observed issue, plus one same-class generalized bad case when
-   practical.
+   for the observed issue, plus one same-class family seed or finite boundary
+   routed through ContractExhaustionMesh when practical.
 6. If the miss involves a field, schema key, config flag, prompt/config field,
    payload column, or persisted attribute, run or update FieldLifecycleMesh so
-   the root-cause field, same-class field cases, and any old/replaced field are
+   the root-cause field, ContractExhaustionMesh field cases, and any old/replaced field are
    visible.
-7. Add current test evidence for the observed regression and same-class
-   generalized bad case, then run Model-Test Alignment to verify the repaired
+7. Add current test evidence for the observed regression and contract-exhaustion
+   case, then run Model-Test Alignment to verify the repaired
    obligation, owner code contract, and tests cover the same behavior. A
    single observed-bug regression test is not full closure. Behavior-bearing
    field projections should feed the same alignment rows.
@@ -857,17 +866,17 @@ When this happens:
    `BusinessPathIdentity` so duplicate, conflicting, unproven, or legacy
    business paths can route through topology, similarity, runtime evidence, and
    risk ledger checks.
-9. If same-class coverage is large, slow, layered, background, or release-only,
+9. If contract-exhaustion coverage is large, slow, layered, background, or release-only,
    route the validation hierarchy to TestMesh and report scoped confidence
    until current child evidence exists.
 10. If the same-class miss has recurred, or if the first miss is high risk enough
    that a local point fix would overclaim full confidence, promote it to a
    defect-family gate with a model obligation, authority boundary, observed
-   failure case, same-class generalized case, historical holdout case, current
+   failure case, ContractExhaustionMesh case id, historical holdout case, current
    family parity status and analogous scan status when related obligations are
    in scope, and current proof evidence.
 11. Rerun the relevant model checks and confirm the old weakness plus the
-   same-class case are now visible, or deliberately out of scope.
+   ContractExhaustionMesh case is now visible, or deliberately out of scope.
 12. Validate the repair with the refined model plus the strongest practical
    production-facing evidence.
 13. If the repair changed a child model under a parent ModelMesh, rerun the
@@ -1145,7 +1154,8 @@ reviews should not keep accepting obsolete fields, aliases, or wrappers.
   ledger before point-rule patches.
 - Known model misses are classified, represented in executable evidence or
   marked out of scope, rerun, and then validated with production-facing checks.
-  In-scope misses add one same-class generalized bad case when practical.
+  In-scope misses add one ContractExhaustionMesh same-class or finite-boundary
+  case when practical.
 - Scenario reviews compare expected and observed outcomes.
 - Broken-model scenarios produce expected violations rather than ordinary failures.
 - Loop/stuck review is run for workflows with retries, refresh, waiting, or reprocessing.

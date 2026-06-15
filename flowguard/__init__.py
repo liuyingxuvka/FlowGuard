@@ -748,6 +748,7 @@ from .runtime_gateway import (
 )
 from . import agent_workflow_rehearsal as _agent_workflow_rehearsal
 from . import closure_contract as _closure_contract
+from . import contract_exhaustion as _contract_exhaustion
 from . import development_process_flow as _development_process_flow
 from . import development_process_simulator as _development_process_simulator
 from . import existing_model_preflight as _existing_model_preflight
@@ -770,6 +771,7 @@ from . import model_freshness as _model_freshness
 from . import model_maturation as _model_maturation
 from .self_maintenance import *  # noqa: F403
 from .closure_contract import *  # noqa: F403
+from .contract_exhaustion import *  # noqa: F403
 from .field_lifecycle import *  # noqa: F403
 from .maintenance_obligation import *  # noqa: F403
 from .maintenance_scan import *  # noqa: F403
@@ -1159,6 +1161,7 @@ PLAN_INTAKE_STARTER_API = (
 PLAN_INTAKE_ADVANCED_API = PLAN_INTAKE_CLAIM_API
 AGENT_WORKFLOW_REHEARSAL_ROUTE_API = tuple(name for name in _agent_workflow_rehearsal.__all__ if name in globals())
 FLOWGUARD_CLOSURE_CONTRACT_API = tuple(_closure_contract.__all__)
+CONTRACT_EXHAUSTION_MESH_API = tuple(_contract_exhaustion.__all__)
 DEVELOPMENT_PROCESS_FLOW_ROUTE_API = tuple(name for name in _development_process_flow.__all__ if name in globals())
 DEVELOPMENT_PROCESS_SIMULATOR_ROUTE_API = tuple(_development_process_simulator.__all__)
 EXISTING_MODEL_PREFLIGHT_ROUTE_API = tuple(name for name in _existing_model_preflight.__all__ if name in globals())
@@ -1218,7 +1221,6 @@ AGENT_DEFAULT_API = (
     "default_flowguard_route_profiles",
     "audit_project_adoption",
     "review_development_process_flow",
-    "review_maintenance_scan",
     "review_model_test_alignment",
     "review_field_lifecycle",
     "review_topology_hazards",
@@ -2354,7 +2356,7 @@ PLAN_DETAILING_ROUTE_API = (
     "plan_detail_to_agent_workflow_plan",
 )
 
-FLOWGUARD_ROUTE_API = {
+_FLOWGUARD_ROUTE_API_GROUPS = {
     "flowguard_self_maintenance": FLOWGUARD_SELF_MAINTENANCE_ROUTE_API,
     "template_structure": TEMPLATE_STRUCTURE_API,
     "evidence_field_structure": EVIDENCE_FIELD_STRUCTURE_API,
@@ -2365,6 +2367,7 @@ FLOWGUARD_ROUTE_API = {
     "code_structure_recommendation": CODE_STRUCTURE_RECOMMENDATION_ROUTE_API,
     "model_test_alignment": MODEL_TEST_ALIGNMENT_ROUTE_API,
     "field_lifecycle_mesh": FIELD_LIFECYCLE_MESH_API,
+    "contract_exhaustion_mesh": CONTRACT_EXHAUSTION_MESH_API,
     "plan_detailing_compiler": PLAN_DETAILING_ROUTE_API,
     "maintenance_obligation_memory": MAINTENANCE_OBLIGATION_MEMORY_API,
     "maintenance_scan_router": MAINTENANCE_SCAN_ROUTE_API,
@@ -2383,7 +2386,37 @@ FLOWGUARD_ROUTE_API = {
     "model_topology_hazard_review": TOPOLOGY_HAZARD_ROUTE_API,
 }
 
-ROUTE_STARTER_API = {
+PUBLIC_FLOWGUARD_ROUTE_GROUPS = (
+    "flowguard_self_maintenance",
+    "existing_model_preflight",
+    "architecture_reduction",
+    "code_structure_recommendation",
+    "model_test_alignment",
+    "field_lifecycle_mesh",
+    "contract_exhaustion_mesh",
+    "risk_template_library",
+    "ui_flow_structure",
+    "model_mesh_maintenance",
+    "test_mesh_maintenance",
+    "structure_mesh_maintenance",
+    "development_process_flow",
+    "model_miss_review",
+    "risk_evidence_ledger",
+    "model_topology_hazard_review",
+)
+
+FLOWGUARD_ROUTE_API = {
+    route_id: _FLOWGUARD_ROUTE_API_GROUPS[route_id]
+    for route_id in PUBLIC_FLOWGUARD_ROUTE_GROUPS
+}
+
+FLOWGUARD_INTERNAL_ROUTE_API = {
+    route_id: names
+    for route_id, names in _FLOWGUARD_ROUTE_API_GROUPS.items()
+    if route_id not in FLOWGUARD_ROUTE_API
+}
+
+_ROUTE_STARTER_API_GROUPS = {
     "flowguard_self_maintenance": (
         "default_flowguard_self_maintenance_plan",
         "review_flowguard_self_maintenance",
@@ -2449,6 +2482,16 @@ ROUTE_STARTER_API = {
         "FieldLifecycleReport",
         "review_field_lifecycle",
         "field_lifecycle_template_files",
+    ),
+    "contract_exhaustion_mesh": (
+        "ContractDimension",
+        "ContractMutationCase",
+        "ContractOracle",
+        "ContractExhaustionPlan",
+        "ContractExhaustionReport",
+        "review_contract_exhaustion",
+        "contract_exhaustion_to_model_obligations",
+        "contract_exhaustion_to_test_mesh_cell_ids",
     ),
     "plan_intake_claims": PLAN_INTAKE_STARTER_API,
     "plan_detailing_compiler": (
@@ -2566,8 +2609,14 @@ ROUTE_STARTER_API = {
     ),
 }
 
+ROUTE_STARTER_API = {
+    route_id: _ROUTE_STARTER_API_GROUPS[route_id]
+    for route_id in PUBLIC_FLOWGUARD_ROUTE_GROUPS
+}
+ROUTE_STARTER_API["plan_intake_claims"] = PLAN_INTAKE_STARTER_API
+
 ROUTE_ADVANCED_API = {
-    **FLOWGUARD_ROUTE_API,
+    **_FLOWGUARD_ROUTE_API_GROUPS,
     "plan_intake_claims": PLAN_INTAKE_ADVANCED_API,
 }
 
@@ -2629,12 +2678,14 @@ _PUBLIC_API_SUPPLEMENT = (
     "API_SURFACE",
     "ARCHITECTURE_REDUCTION_ROUTE_API",
     "CODE_STRUCTURE_RECOMMENDATION_ROUTE_API",
+    "CONTRACT_EXHAUSTION_MESH_API",
     "CORE_API",
     "DEVELOPMENT_PROCESS_FLOW_ROUTE_API",
     "DEVELOPMENT_PROCESS_SIMULATOR_ROUTE_API",
     "EVIDENCE_FIELD_STRUCTURE_API",
     "EVIDENCE_API",
     "EXISTING_MODEL_PREFLIGHT_ROUTE_API",
+    "FLOWGUARD_INTERNAL_ROUTE_API",
     "FLOWGUARD_ROUTE_API",
     "FLOWGUARD_CLOSURE_CONTRACT_API",
     "FLOWGUARD_SELF_MAINTENANCE_ROUTE_API",
@@ -2650,6 +2701,7 @@ _PUBLIC_API_SUPPLEMENT = (
     "MODEL_MATURATION_API",
     "PLAN_DETAILING_ROUTE_API",
     "PLAN_INTAKE_ADVANCED_API",
+    "PUBLIC_FLOWGUARD_ROUTE_GROUPS",
     "RISK_EVIDENCE_LEDGER_ROUTE_API",
     "RISK_TEMPLATE_LIBRARY_API",
     "ROUTE_ADVANCED_API",
@@ -2706,6 +2758,7 @@ def _dedupe_public_names(*groups: tuple[str, ...]) -> list[str]:
 
 __all__ = _dedupe_public_names(
     CORE_API,
+    CONTRACT_EXHAUSTION_MESH_API,
     MODELING_HELPER_API,
     REPORTING_HELPER_API,
     EVIDENCE_API,

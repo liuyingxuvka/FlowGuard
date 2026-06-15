@@ -292,3 +292,42 @@ action and artifact payload risks before full confidence.
   attached
 - **THEN** the ledger MUST block or scope full confidence
 
+### Requirement: Risk rows consume contract-exhaustion evidence
+FlowGuard RiskEvidenceLedger MUST be able to require current
+ContractExhaustionMesh reports and case evidence before granting full risk
+confidence for same-class or finite-boundary claims.
+
+#### Scenario: Blocked exhaustion blocks full risk confidence
+- **WHEN** a risk row depends on contract-exhaustion coverage and the report is
+  blocked by missing oracles or model gaps
+- **THEN** the risk row cannot report full confidence
+
+#### Scenario: Current report supports scoped risk row
+- **WHEN** all required cases for the claim have current evidence and no
+  blocking findings
+- **THEN** the risk row can consume the report as part of its final decision
+
+### Requirement: RiskEvidenceLedger owns final broad confidence
+RiskEvidenceLedger SHALL be the final broad confidence owner for done, release,
+archive, publish, production, or full claims that depend on FlowGuard route
+evidence.
+
+#### Scenario: Closure helper pass is insufficient
+- **WHEN** a closure helper, maintenance scan, or child report is passing
+- **THEN** a broad claim MUST still be unsupported until RiskEvidenceLedger
+  consumes current proof rows for the relevant risks
+
+#### Scenario: Single-route matrix is insufficient
+- **WHEN** ContractExhaustionMesh generated cases pass a single route matrix
+- **THEN** RiskEvidenceLedger MUST require composite handoff acceptance for
+  any case that needs multi-route closure before broad confidence is allowed
+
+### Requirement: Ledger consumes owner-route evidence only
+RiskEvidenceLedger SHALL consume current evidence from public owner routes or
+explicitly identified helper evidence that has been consumed by a public owner.
+
+#### Scenario: Internal helper evidence bypasses owner
+- **WHEN** a risk row cites only internal helper evidence that no owner route
+  consumed
+- **THEN** the ledger MUST report unsupported confidence for that row
+
