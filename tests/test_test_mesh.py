@@ -4,6 +4,7 @@ from flowguard import (
     EVIDENCE_ABSTRACT_GREEN,
     EVIDENCE_CONFORMANCE_GREEN,
     ProofArtifactRef,
+    TEST_LAYER_CONTRACT_COMBINATION_SHARD,
     TEST_LAYER_LEAF_MATRIX_CELL,
     TestMeshPlan,
     TestPartitionItem,
@@ -110,6 +111,62 @@ class TestMeshTests(unittest.TestCase):
         report = review_test_mesh(plan)
 
         self.assertTrue(report.ok, report.format_text())
+
+    def test_contract_coverage_shard_evidence_can_support_parent_gate(self):
+        plan = TestMeshPlan(
+            parent_suite_id="contract-validation",
+            partition_items=(
+                TestPartitionItem(
+                    "contract_shard:packet-router:packet-evidence",
+                    item_type="contract_coverage_shard",
+                    owner_suite_id="contract-shards",
+                ),
+            ),
+            child_suites=(
+                suite(
+                    "contract-shards",
+                    layer=TEST_LAYER_CONTRACT_COMBINATION_SHARD,
+                    owned_coverage_shard_ids=("contract_shard:packet-router:packet-evidence",),
+                ),
+            ),
+            target_split_derivation=target(
+                "contract-validation-model",
+                ("contract-shards",),
+                ("contract_shard:packet-router:packet-evidence",),
+            ),
+            required_coverage_shard_ids=("contract_shard:packet-router:packet-evidence",),
+        )
+
+        report = review_test_mesh(plan)
+
+        self.assertTrue(report.ok, report.format_text())
+
+    def test_missing_contract_coverage_shard_evidence_blocks_parent_gate(self):
+        plan = TestMeshPlan(
+            parent_suite_id="contract-validation",
+            partition_items=(
+                TestPartitionItem(
+                    "contract_shard:packet-router:packet-evidence",
+                    item_type="contract_coverage_shard",
+                    owner_suite_id="contract-shards",
+                ),
+            ),
+            child_suites=(
+                suite("contract-shards", layer=TEST_LAYER_CONTRACT_COMBINATION_SHARD),
+            ),
+            target_split_derivation=target(
+                "contract-validation-model",
+                ("contract-shards",),
+                ("contract_shard:packet-router:packet-evidence",),
+            ),
+            required_coverage_shard_ids=("contract_shard:packet-router:packet-evidence",),
+        )
+
+        report = review_test_mesh(plan)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("contract_coverage_shard_evidence_required", report.decision)
+        self.assertIn("contract_coverage_shard_evidence_missing", [finding.code for finding in report.findings])
 
     def test_missing_leaf_matrix_cell_evidence_blocks_parent_gate(self):
         plan = TestMeshPlan(

@@ -50,6 +50,9 @@ RISK_LEDGER_DECISION_SCOPED = "risk_evidence_scoped_confidence"
 RISK_GATE_DEFECT_FAMILY = "defect_family"
 RISK_GATE_MODEL_SPLIT = "model_split"
 RISK_GATE_TEST_SPLIT = "test_split"
+RISK_GATE_MODEL_CARTESIAN_COVERAGE = "model_cartesian_coverage"
+RISK_GATE_CONTRACT_COVERAGE_SHARD = "contract_coverage_shard"
+RISK_GATE_PARENT_CONSUMED_CHILD_COVERAGE = "parent_consumed_child_coverage"
 RISK_GATE_FAMILY = "family"
 RISK_GATE_ANALOGOUS_SCAN = "analogous_scan"
 RISK_GATE_TOPOLOGY_HAZARD = "topology_hazard"
@@ -392,6 +395,15 @@ def _decision_for(findings: Sequence[RiskEvidenceFinding]) -> tuple[str, str, bo
         "missing_model_split_gate",
         "model_split_gate_not_current",
         "model_split_gate_blocked",
+        "missing_model_cartesian_coverage_gate",
+        "model_cartesian_coverage_gate_not_current",
+        "model_cartesian_coverage_gate_blocked",
+        "missing_contract_coverage_shard_gate",
+        "contract_coverage_shard_gate_not_current",
+        "contract_coverage_shard_gate_blocked",
+        "missing_parent_consumed_child_coverage_gate",
+        "parent_consumed_child_coverage_gate_not_current",
+        "parent_consumed_child_coverage_gate_blocked",
         "missing_test_split_gate",
         "test_split_gate_not_current",
         "test_split_gate_blocked",
@@ -413,6 +425,9 @@ def _decision_for(findings: Sequence[RiskEvidenceFinding]) -> tuple[str, str, bo
         "analogous_scan_scoped_confidence",
         "model_angle_review_scoped_confidence",
         "model_split_gate_scoped_confidence",
+        "model_cartesian_coverage_gate_scoped_confidence",
+        "contract_coverage_shard_gate_scoped_confidence",
+        "parent_consumed_child_coverage_gate_scoped_confidence",
         "test_split_gate_scoped_confidence",
         "ui_implementation_gate_scoped_confidence",
         "artifact_payload_gate_scoped_confidence",
@@ -487,6 +502,36 @@ GATE_CODE_MAP = {
         "required model split gate evidence is stale or missing",
         "required model split gate is blocked",
         "required model split gate remains explicitly scoped",
+    ),
+    RISK_GATE_MODEL_CARTESIAN_COVERAGE: (
+        "missing_model_cartesian_coverage_gate",
+        "model_cartesian_coverage_gate_not_current",
+        "model_cartesian_coverage_gate_blocked",
+        "model_cartesian_coverage_gate_scoped_confidence",
+        "required risk has no model-local Cartesian coverage receipt gate",
+        "required model-local Cartesian coverage receipt is stale or missing",
+        "required model-local Cartesian coverage receipt is blocked",
+        "model-local Cartesian coverage receipt remains explicitly scoped",
+    ),
+    RISK_GATE_CONTRACT_COVERAGE_SHARD: (
+        "missing_contract_coverage_shard_gate",
+        "contract_coverage_shard_gate_not_current",
+        "contract_coverage_shard_gate_blocked",
+        "contract_coverage_shard_gate_scoped_confidence",
+        "required risk has no contract coverage shard evidence gate",
+        "required contract coverage shard evidence is stale or missing",
+        "required contract coverage shard evidence is blocked",
+        "contract coverage shard evidence remains explicitly scoped",
+    ),
+    RISK_GATE_PARENT_CONSUMED_CHILD_COVERAGE: (
+        "missing_parent_consumed_child_coverage_gate",
+        "parent_consumed_child_coverage_gate_not_current",
+        "parent_consumed_child_coverage_gate_blocked",
+        "parent_consumed_child_coverage_gate_scoped_confidence",
+        "required risk has no parent-consumed child coverage gate",
+        "required parent-consumed child coverage evidence is stale or missing",
+        "required parent-consumed child coverage gate is blocked",
+        "parent-consumed child coverage gate remains explicitly scoped",
     ),
     RISK_GATE_TEST_SPLIT: (
         "missing_test_split_gate",
@@ -968,12 +1013,15 @@ __all__ = [
     "RISK_LEDGER_DECISION_SCOPED",
     "RISK_GATE_ANALOGOUS_SCAN",
     "RISK_GATE_ARTIFACT_PAYLOAD",
+    "RISK_GATE_CONTRACT_COVERAGE_SHARD",
     "RISK_GATE_DEFECT_FAMILY",
     "RISK_GATE_FAMILY",
     "RISK_GATE_MAINTENANCE_OBLIGATION",
+    "RISK_GATE_MODEL_CARTESIAN_COVERAGE",
     "RISK_GATE_MODEL_ANGLE_REVIEW",
     "RISK_GATE_MODEL_SPLIT",
     "RISK_GATE_PARENT_MODEL_EVIDENCE",
+    "RISK_GATE_PARENT_CONSUMED_CHILD_COVERAGE",
     "RISK_GATE_TEST_SPLIT",
     "RISK_GATE_TOPOLOGY_HAZARD",
     "RISK_GATE_UI_SOURCE_BASELINE_INTERACTION",

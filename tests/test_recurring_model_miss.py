@@ -139,6 +139,41 @@ class RecurringModelMissTests(unittest.TestCase):
         self.assertIn("status: OK", report.format_text())
         self.assertIn("duplicate-submit-family", report.passed_gate_ids)
 
+    def test_combination_model_miss_requires_interaction_group_and_coverage_receipt(self):
+        missing = review_defect_family_gates(
+            plan(
+                gates=(
+                    promoted_gate(
+                        observed_combination_case_id="cartesian:packet-router:packet-evidence-contract:1",
+                        affected_model_ids=("packet-router",),
+                    ),
+                )
+            )
+        )
+
+        self.assertFalse(missing.ok)
+        self.assertIn("missing_combination_interaction_group", finding_codes(missing))
+        self.assertIn("missing_combination_coverage_receipt", finding_codes(missing))
+
+        closed = review_defect_family_gates(
+            plan(
+                gates=(
+                    promoted_gate(
+                        observed_combination_case_id="cartesian:packet-router:packet-evidence-contract:1",
+                        affected_model_ids=("packet-router",),
+                        interaction_group_ids=("packet-evidence-contract",),
+                        generated_combination_case_ids=(
+                            "cartesian:packet-router:packet-evidence-contract:1",
+                            "cartesian:packet-router:packet-evidence-contract:2",
+                        ),
+                        coverage_receipt_ids=("contract_coverage:packet-router",),
+                    ),
+                )
+            )
+        )
+
+        self.assertTrue(closed.ok, closed.format_text())
+
     def test_promoted_family_requires_same_class_and_historical_holdout_cases(self):
         report = review_defect_family_gates(
             plan(

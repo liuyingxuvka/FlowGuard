@@ -63,6 +63,8 @@ layered plan:
   flat direct evidence row set.
 - a ContractExhaustionMesh report routes canonical bad-case ids to TestMesh
   through `contract_exhaustion_to_test_mesh_cell_ids(...)`.
+- a ContractExhaustionMesh model-local Cartesian report routes grouped coverage
+  to TestMesh through `contract_exhaustion_to_test_mesh_shard_ids(...)`.
 
 Automatic split diagnostics provide the trigger before a broad test result is
 accepted as enough. When direct validation evidence reports slow duration,
@@ -125,6 +127,8 @@ Each child suite or child test script reports a `TestSuiteEvidence` summary:
 - owned state and side effects;
 - owned artifact payload contract ids and case ids when the child suite proves
   synthetic file or work-package cases for downstream Model-Test Alignment;
+- owned ContractExhaustionMesh coverage shard ids when the child suite proves
+  a generated Cartesian shard for downstream model coverage receipts;
 - not-run and stale reasons.
 
 Progress output is not completion evidence. A background suite is complete only
@@ -154,6 +158,12 @@ When a parent gate declares `required_leaf_cell_ids`, each id must be owned by
 a child `TestSuiteEvidence` row through `owned_leaf_cell_ids`. Missing, stale,
 skipped, progress-only, background-incomplete, non-passing, or invalidly reused
 owners do not support the parent gate.
+
+When a parent gate declares `required_coverage_shard_ids`, each shard id must
+be owned by a current passing child row through `owned_coverage_shard_ids`.
+This is separate from ordinary leaf cells: a shard proves a bounded slice of a
+generated ContractExhaustionMesh Cartesian matrix, not a single transition
+cell.
 
 Transition coverage matrices can feed this same surface. Use
 `transition_coverage_to_required_leaf_cell_ids(...)` to produce required cell

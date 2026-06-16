@@ -629,6 +629,8 @@ class HierarchyPartitionMap:
     allowed_shared_areas: tuple[str, ...] = ()
     boundary_changes: tuple[ChildBoundaryChangeSummary, ...] = ()
     closure_model: MeshClosureModel | None = None
+    coverage_receipts: tuple[Any, ...] = ()
+    required_coverage_receipt_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "parent_model_id", str(self.parent_model_id))
@@ -638,6 +640,8 @@ class HierarchyPartitionMap:
         object.__setattr__(self, "required_evidence_tier", str(self.required_evidence_tier))
         object.__setattr__(self, "allowed_shared_areas", _as_tuple(self.allowed_shared_areas))
         object.__setattr__(self, "boundary_changes", tuple(self.boundary_changes))
+        object.__setattr__(self, "coverage_receipts", tuple(self.coverage_receipts))
+        object.__setattr__(self, "required_coverage_receipt_ids", _as_tuple(self.required_coverage_receipt_ids))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -658,6 +662,11 @@ class HierarchyPartitionMap:
             "closure_model": (
                 self.closure_model.to_dict() if self.closure_model is not None else None
             ),
+            "coverage_receipts": [
+                receipt.to_dict() if hasattr(receipt, "to_dict") else to_jsonable(receipt)
+                for receipt in self.coverage_receipts
+            ],
+            "required_coverage_receipt_ids": list(self.required_coverage_receipt_ids),
         }
 
 
@@ -1749,6 +1758,107 @@ def _boundary_change_findings(
     return findings, decisions
 
 
+def _receipt_attr(receipt: Any, name: str, default: Any = "") -> Any:
+    if isinstance(receipt, Mapping):
+        return receipt.get(name, default)
+    return getattr(receipt, name, default)
+
+
+def _coverage_receipt_findings(partition_map: HierarchyPartitionMap) -> list[HierarchyMeshFinding]:
+    findings: list[HierarchyMeshFinding] = []
+    receipts_by_id: dict[str, Any] = {}
+    for receipt in partition_map.coverage_receipts:
+        receipt_id = str(_receipt_attr(receipt, "receipt_id", ""))
+        model_id = str(_receipt_attr(receipt, "model_id", ""))
+        if not receipt_id:
+            findings.append(
+                HierarchyMeshFinding(
+                    "model_coverage_receipt_id_missing",
+                    "model coverage receipt has no receipt_id",
+                    model_id=model_id,
+                    metadata={
+                        "receipt": receipt.to_dict() if hasattr(receipt, "to_dict") else to_jsonable(receipt)
+                    },
+                )
+            )
+            continue
+        if receipt_id in receipts_by_id:
+            findings.append(
+                HierarchyMeshFinding(
+                    "model_coverage_receipt_duplicate",
+                    "model coverage receipt id appears more than once",
+                    model_id=model_id,
+                    item_id=receipt_id,
+                )
+            )
+        receipts_by_id[receipt_id] = receipt
+
+    for receipt_id in partition_map.required_coverage_receipt_ids:
+        receipt = receipts_by_id.get(receipt_id)
+        if receipt is None:
+            findings.append(
+                HierarchyMeshFinding(
+                    "model_coverage_receipt_missing",
+                    "parent ModelMesh requires a model coverage receipt that is absent",
+                    item_id=receipt_id,
+                    metadata={"required_coverage_receipt_id": receipt_id},
+                )
+            )
+            continue
+        current = bool(_receipt_attr(receipt, "current", False))
+        confidence = str(_receipt_attr(receipt, "confidence", ""))
+        status = str(_receipt_attr(receipt, "status", ""))
+        missing_case_ids = _as_tuple(_receipt_attr(receipt, "missing_case_ids", ()))
+        blocked_case_ids = _as_tuple(_receipt_attr(receipt, "blocked_case_ids", ()))
+        if not current:
+            findings.append(
+                HierarchyMeshFinding(
+                    "model_coverage_receipt_stale",
+                    "required model coverage receipt is stale",
+                    model_id=str(_receipt_attr(receipt, "model_id", "")),
+                    item_id=receipt_id,
+                    metadata={"receipt_id": receipt_id},
+                )
+            )
+        if confidence != "full" or status != "covered" or missing_case_ids or blocked_case_ids:
+            findings.append(
+                HierarchyMeshFinding(
+                    "model_coverage_receipt_incomplete",
+                    "required model coverage receipt is not full covered confidence",
+                    model_id=str(_receipt_attr(receipt, "model_id", "")),
+                    item_id=receipt_id,
+                    metadata={
+                        "receipt_id": receipt_id,
+                        "status": status,
+                        "confidence": confidence,
+                        "missing_case_ids": list(missing_case_ids),
+                        "blocked_case_ids": list(blocked_case_ids),
+                    },
+                )
+            )
+
+    for receipt in partition_map.coverage_receipts:
+        receipt_id = str(_receipt_attr(receipt, "receipt_id", ""))
+        model_id = str(_receipt_attr(receipt, "model_id", ""))
+        required_child_ids = _as_tuple(_receipt_attr(receipt, "required_child_receipt_ids", ()))
+        consumed_child_ids = set(_as_tuple(_receipt_attr(receipt, "consumed_child_receipt_ids", ())))
+        missing_child_ids = tuple(receipt_id for receipt_id in required_child_ids if receipt_id not in consumed_child_ids)
+        if missing_child_ids:
+            findings.append(
+                HierarchyMeshFinding(
+                    "model_child_coverage_receipt_unconsumed",
+                    "parent model coverage receipt does not consume every required child coverage receipt",
+                    model_id=model_id,
+                    item_id=receipt_id,
+                    metadata={
+                        "receipt_id": receipt_id,
+                        "missing_child_receipt_ids": list(missing_child_ids),
+                    },
+                )
+            )
+    return findings
+
+
 def review_hierarchical_mesh(
     partition_map: HierarchyPartitionMap,
     *,
@@ -1774,6 +1884,10 @@ def review_hierarchical_mesh(
     if boundary_change_decisions:
         activation_reasons.append("boundary_change")
     findings.extend(boundary_change_findings)
+    coverage_receipt_findings = _coverage_receipt_findings(partition_map)
+    if partition_map.coverage_receipts or partition_map.required_coverage_receipt_ids:
+        activation_reasons.append("model_coverage_receipts")
+    findings.extend(coverage_receipt_findings)
     closure_report = None
     if partition_map.closure_model is None and _partition_requires_closure_model(partition_map):
         findings.append(
@@ -2009,6 +2123,15 @@ def review_hierarchical_mesh(
         decision = BOUNDARY_PROPAGATION_REATTACH_ONLY
     elif any(finding.code == "mesh_closure_required" for finding in blocking):
         decision = "mesh_closure_required"
+    elif any(finding.code in {
+        "model_coverage_receipt_missing",
+        "model_coverage_receipt_id_missing",
+        "model_coverage_receipt_duplicate",
+        "model_coverage_receipt_stale",
+        "model_coverage_receipt_incomplete",
+        "model_child_coverage_receipt_unconsumed",
+    } for finding in blocking):
+        decision = "model_coverage_receipt_required"
     elif any(finding.code == "coverage_gap" for finding in blocking):
         decision = "coverage_gap_blocked"
     elif any(finding.code == "excessive_functional_overlap" for finding in blocking):

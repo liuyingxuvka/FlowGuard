@@ -22,9 +22,9 @@ ContractExhaustionMesh before the final proof row:
 
 ```text
 declared boundary/family/payload/mesh closure
--> ContractExhaustionMesh case ids and oracles
+-> ContractExhaustionMesh case ids, shards, receipts, and oracles
 -> MTA/TestMesh/ModelMesh evidence
--> Risk Evidence Ledger gate
+-> Risk Evidence Ledger gates
 ```
 
 If the user-facing risk depends on a specific useful business path, the
@@ -65,6 +65,8 @@ whether the rows and later claim promotion were too narrow.
   flat fields per route.
 - `RiskEvidenceGate`: one optional gate such as `defect_family`,
   `model_split`, `test_split`, `family`, `analogous_scan`,
+  `model_cartesian_coverage`, `contract_coverage_shard`,
+  `parent_consumed_child_coverage`,
   `ui_implementation`, `ui_real_surface`, `ui_functional_chain`,
   `ui_human_operability`, `ui_done_claim`, `ui_source_baseline_interaction`, `artifact_payload`,
   `topology_hazard`, `model_angle_review`, `parent_model_evidence`, or
@@ -214,6 +216,15 @@ public submit behavior.
   `maintenance_obligation_missing_resolution_evidence`,
   `missing_defect_family_gate`,
   `defect_family_gate_not_current`, `defect_family_gate_blocked`,
+  `missing_model_cartesian_coverage_gate`,
+  `model_cartesian_coverage_gate_not_current`,
+  `model_cartesian_coverage_gate_blocked`,
+  `missing_contract_coverage_shard_gate`,
+  `contract_coverage_shard_gate_not_current`,
+  `contract_coverage_shard_gate_blocked`,
+  `missing_parent_consumed_child_coverage_gate`,
+  `parent_consumed_child_coverage_gate_not_current`,
+  `parent_consumed_child_coverage_gate_blocked`,
   `missing_proof_evidence`, `missing_current_passing_proof`,
   `internal_path_only_evidence`, `stale_proof_evidence`,
   `route_gap_visible`, or `proof_evidence_not_passing`: do not claim full
@@ -239,8 +250,10 @@ public submit behavior.
   optional code-boundary observations, obligation-family parity findings,
   model-code-test binding rows, and ordinary test evidence.
 - TestMesh produces child-suite evidence status, freshness, skipped/timeout
-  visibility, and release/routine boundaries.
-- ModelMesh produces parent/child model evidence and reattachment status.
+  visibility, release/routine boundaries, and ContractExhaustionMesh shard
+  evidence ownership.
+- ModelMesh produces parent/child model evidence, reattachment status, and
+  model coverage receipt consumption.
 - Model Maturation produces model-upgrade or scoped-claim decisions when later
   route evidence says the model is too coarse, stale, or disconnected, and can
   emit maintenance obligations that later scans and ledgers inherit.

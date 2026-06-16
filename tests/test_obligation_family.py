@@ -141,6 +141,35 @@ class ObligationFamilyParityTests(unittest.TestCase):
         self.assertEqual(["research", "current_node"], [case.member_id for case in cases])
         self.assertTrue(all(case.source_case_id == "material-case-1" for case in cases))
 
+    def test_bad_case_seed_carries_cartesian_model_backpropagation_fields(self):
+        cases = derive_same_class_bad_cases(
+            family(),
+            FamilyBadCaseSeed(
+                "observed-combination-miss",
+                family_id="packet-result",
+                source_member_id="material",
+                mechanism_id="result_envelope_to_return_event",
+                failure_mode="old evidence consumed as current",
+                affected_model_ids=("packet-router",),
+                root_cause_dimension_ids=("packet.status", "evidence.path"),
+                interaction_group_ids=("packet-evidence-contract",),
+                observed_combination_case_id="cartesian:packet-router:packet-evidence-contract:1",
+                generated_combination_case_ids=(
+                    "cartesian:packet-router:packet-evidence-contract:1",
+                    "cartesian:packet-router:packet-evidence-contract:2",
+                ),
+                coverage_receipt_ids=("contract_coverage:packet-router",),
+            ),
+        )
+
+        self.assertEqual(("packet-router",), cases[0].affected_model_ids)
+        self.assertEqual(("packet-evidence-contract",), cases[0].interaction_group_ids)
+        self.assertEqual(
+            "cartesian:packet-router:packet-evidence-contract:1",
+            cases[0].observed_combination_case_id,
+        )
+        self.assertEqual(("contract_coverage:packet-router",), cases[0].coverage_receipt_ids)
+
     def test_analogous_defect_scan_blocks_unreviewed_must_scan_sibling(self):
         report = review_analogous_defect_scan(
             (family(),),

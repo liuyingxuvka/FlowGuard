@@ -7,7 +7,7 @@ description: Use when FlowGuard obligations, tests, code contracts, or source au
 
 Standalone FlowGuard satellite skill for obligations, tests, owner
 `CodeContract`s, source audits, boundary observations, payload evidence, and
-FieldLifecycleMesh projections.
+field projections.
 
 Return to `model-first-function-flow` when obligations are undefined. Do not invoke TestMesh, ModelMesh, or StructureMesh from this route.
 
@@ -16,8 +16,7 @@ Return to `model-first-function-flow` when obligations are undefined. Do not inv
 - Route id: `model_test_alignment`.
 - Starter: `ROUTE_STARTER_API["model_test_alignment"]` and
   `model-test-alignment-template`.
-- Full template covers source audit, boundary conformance, state closure,
-  matrices, and reused evidence.
+- Full template covers source audit, boundary conformance, matrices, and reuse.
 - Helpers: `review_model_test_alignment()`, `TransitionCoverageMatrix`,
   `CodeContract`, `ArtifactPayloadContract`,
   `contract_exhaustion_to_model_obligations()`.
@@ -32,12 +31,13 @@ Return to `model-first-function-flow` when obligations are undefined. Do not inv
 - Full confidence requires each obligation to bind an owner `CodeContract` and
   current external-contract test evidence.
 - Transition coverage needs cells plus evidence targets, or scoped-out boundary.
-- Behavior-bearing fields need FieldLifecycleMesh projection or scoped-out reason.
+- Behavior fields need FieldLifecycleMesh projection or scoped-out reason.
 - Reused results need current `TestResultReuseTicket` and `ProofArtifactRef`.
-- File/import/export/work-package claims need `ArtifactPayloadContract` cases
-  plus real-surface payload evidence.
+- File/work-package claims need `ArtifactPayloadContract` plus real evidence.
 - Same-class, payload, transition, and mesh-closure bad cases become canonical
   obligations only after projection to `ContractMutationCase`.
+- Cartesian combination cases become obligations only after ContractExhaustionMesh
+  projection and must cite the generated case id in current external tests.
 - Source audit is support, not semantic proof; missing evidence is maintenance.
 - New/deepened obligations need template harvest closure before broad claims.
 
@@ -45,8 +45,8 @@ Return to `model-first-function-flow` when obligations are undefined. Do not inv
 
 1. List obligations, scenarios, invariants, hazards, transitions, and fields.
 2. Project transition matrices into obligations when coverage is claimed.
-3. Feed same-class, payload, transition, or mesh-closure seeds through
-   ContractExhaustionMesh and add resulting obligations.
+3. Feed same-class, payload, transition, mesh-closure, or Cartesian groups
+   through ContractExhaustionMesh and add resulting obligations.
 4. Add owner code contracts, boundary observations, and same-contract tests.
 5. Add synthetic payload cases for the real file/work-package surface.
 6. Compare rows, classify gaps, and route split needs outward.

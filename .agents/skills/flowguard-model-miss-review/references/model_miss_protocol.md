@@ -46,8 +46,9 @@ creating a parallel one.
    `root_cause_field_ids`, `same_class_field_ids`, and `old_field_ids` as
    needed, then update FieldLifecycleMesh so projection and disposition gaps are
    explicit.
-6. Add one same-class family seed or finite boundary when practical, then route
-   it through ContractExhaustionMesh to generate canonical bad-case ids.
+6. Add one same-class family seed, finite boundary, or interaction group when
+   practical, then route it through ContractExhaustionMesh to generate
+   canonical bad-case ids, generated combination ids, and coverage receipt ids.
 7. For UI misses, run `review_ui_model_misses(...)` with a record of the prior
    green claim, why it looked green, the user-observed failure, affected
    capabilities/controls/fields, same-class capabilities/controls/fields,
@@ -86,9 +87,10 @@ creating a parallel one.
 14. If the same-class miss recurs, or if a high-risk first miss would make a
    local point fix overclaim full confidence, promote it to a defect-family gate
    with a model obligation, authority boundary, observed failure,
-   ContractExhaustionMesh case id, historical holdout, and current proof evidence. The gate
-   is FlowGuard evidence for the existing Model-Miss/Risk Evidence Ledger
-   chain, not a new downstream app skill.
+   ContractExhaustionMesh case id, generated combination ids, coverage receipt
+   ids, historical holdout, and current proof evidence. The gate is FlowGuard
+   evidence for the existing Model-Miss/Risk Evidence Ledger chain, not a new
+   downstream app skill.
 15. Rerun the relevant model checks and confirm the old weakness is now visible,
    or deliberately mark the generalized case out of scope.
 16. Validate the repair with the refined model plus the strongest practical

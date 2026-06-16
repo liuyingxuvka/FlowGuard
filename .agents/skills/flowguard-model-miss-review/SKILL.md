@@ -1,6 +1,6 @@
 ---
 name: flowguard-model-miss-review
-description: Use when runtime, tests, replay, logs, manual validation, or production evidence fails after FlowGuard passed. Triggers include model miss, false confidence, boundary missing, state too coarse, input branch missing, invariant too weak, evidence overclaimed, root-cause backpropagation, or generalized bad case.
+description: Use when runtime, tests, replay, logs, manual validation, or production evidence fails after FlowGuard passed, including model miss, false confidence, boundary missing, weak invariant, or root-cause backpropagation.
 ---
 
 # FlowGuard Model Miss Review
@@ -14,9 +14,9 @@ the model, code contract, tests, or final claim is too narrow. Return to
 - Route id: `model_miss_review`.
 - Entry: `ROUTE_STARTER_API["model_miss_review"]`, `model-miss-template`, or
   full variant.
-- Concepts: observed failure, contract-exhaustion same-class case,
-  `boundary_missing`, root-cause backpropagation, owner code contract,
-  old-path/field disposition, defect-family gate, maturation.
+- Concepts: observed failure, contract-exhaustion same-class case or
+  combination case, `boundary_missing`, root-cause backpropagation, owner code contract,
+  old-path/field disposition, coverage receipt, defect-family gate, maturation.
 - Reference: `references/model_miss_protocol.md`.
 
 ## Hard Gates
@@ -28,14 +28,14 @@ the model, code contract, tests, or final claim is too narrow. Return to
   field gaps, tests, backpropagation, and code owner.
 - The observed instance and bug-class responsibility are separate.
 - Same-class generation is not hand-written canonical coverage. Abstract the
-  miss into a boundary/family seed, then route sibling cases through
-  `flowguard-contract-exhaustion-mesh`.
+  miss into a boundary/family seed or interaction group, then route sibling
+  cases through `flowguard-contract-exhaustion-mesh`.
 - Root cause, model obligation, owner code contract, observed test, and
   same-class test must bind to the same repaired behavior.
 - Old, fallback, compatibility, alternate paths, and field misses need
   disposition/projection instead of accidental reachability.
-- A later green runtime check does not close a miss without current
-  contract-exhaustion case evidence for the in-scope same-class surface.
+- A later green runtime check does not close a miss without current case,
+  shard, receipt, and alignment evidence for the in-scope class.
 - Deepened miss models need template harvest closure before broad claims.
 
 ## Minimum Workflow
@@ -43,7 +43,7 @@ the model, code contract, tests, or final claim is too narrow. Return to
 1. Run existing-model preflight when the bug is inside a modeled system.
 2. Classify the miss and backpropagate root cause into the model/test gap.
 3. For UI misses, run `review_ui_model_misses()` before fixing only one control.
-4. Add or name one family seed, then use ContractExhaustionMesh for sibling ids.
+4. Add one family seed or interaction group, then use ContractExhaustionMesh.
 5. Update the model or FieldLifecycleMesh and bind the owner code contract.
 6. Add observed-regression and contract-exhaustion evidence, then rerun
    alignment, disposition, mesh, maturation, freshness, and risk gates.

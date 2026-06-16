@@ -16,9 +16,12 @@ from __future__ import annotations
 from flowguard import (
     OBLIGATION_STATUS_RESOLVED,
     RISK_GATE_ARTIFACT_PAYLOAD,
+    RISK_GATE_CONTRACT_COVERAGE_SHARD,
     RISK_GATE_DEFECT_FAMILY,
     RISK_GATE_MAINTENANCE_OBLIGATION,
+    RISK_GATE_MODEL_CARTESIAN_COVERAGE,
     RISK_GATE_TOPOLOGY_HAZARD,
+    RISK_GATE_PARENT_CONSUMED_CHILD_COVERAGE,
     RISK_GATE_UI_SOURCE_BASELINE_INTERACTION,
     RISK_GATE_MODEL_SPLIT,
     RISK_GATE_UI_DONE_CLAIM,
@@ -51,6 +54,9 @@ def correct_ledger() -> RiskEvidenceLedgerPlan:
                 proof_evidence_ids=("test:duplicate-submit",),
                 gates=(
                     RiskEvidenceGate(RISK_GATE_DEFECT_FAMILY, "defect-family:duplicate-submit"),
+                    RiskEvidenceGate(RISK_GATE_MODEL_CARTESIAN_COVERAGE, "contract_coverage:checkout-child"),
+                    RiskEvidenceGate(RISK_GATE_CONTRACT_COVERAGE_SHARD, "contract_shard:checkout-child:duplicate-submit"),
+                    RiskEvidenceGate(RISK_GATE_PARENT_CONSUMED_CHILD_COVERAGE, "contract_coverage:checkout-parent"),
                     RiskEvidenceGate(RISK_GATE_UI_IMPLEMENTATION, "ui:duplicate-submit-clickthrough"),
                     RiskEvidenceGate(RISK_GATE_UI_REAL_SURFACE, "ui:checkout-observed-inventory"),
                     RiskEvidenceGate(RISK_GATE_UI_FUNCTIONAL_CAPABILITY_COVERAGE, "ui:checkout-capability-coverage"),
@@ -209,6 +215,34 @@ def broken_missing_model_split_gate_ledger() -> RiskEvidenceLedgerPlan:
     )
 
 
+def broken_missing_cartesian_coverage_ledger() -> RiskEvidenceLedgerPlan:
+    return RiskEvidenceLedgerPlan(
+        "missing-cartesian-coverage-gate",
+        rows=(
+            RiskEvidenceRow(
+                "contract_matrix",
+                model_obligation_id="model:request-boundary",
+                code_contract_id="api:parse_request",
+                proof_evidence_ids=("test:request-boundary",),
+                gates=(
+                    RiskEvidenceGate(RISK_GATE_MODEL_CARTESIAN_COVERAGE),
+                    RiskEvidenceGate(RISK_GATE_CONTRACT_COVERAGE_SHARD),
+                    RiskEvidenceGate(RISK_GATE_PARENT_CONSUMED_CHILD_COVERAGE),
+                ),
+            ),
+        ),
+        proof_evidence=(
+            RiskEvidenceProof(
+                "test:request-boundary",
+                result_status=RISK_PROOF_STATUS_PASSED,
+                producer_route="model_test_alignment",
+                command="python -m unittest tests.test_request_boundary",
+                summary="case tests passed, but no model coverage receipt, shard, or parent-consumed-child gate was supplied",
+            ),
+        ),
+    )
+
+
 def broken_missing_artifact_payload_gate_ledger() -> RiskEvidenceLedgerPlan:
     return RiskEvidenceLedgerPlan(
         "missing-artifact-payload-gate",
@@ -272,6 +306,7 @@ def run_checks():
         review_risk_evidence_ledger(broken_progress_only_ledger()),
         review_risk_evidence_ledger(broken_missing_defect_family_gate_ledger()),
         review_risk_evidence_ledger(broken_missing_model_split_gate_ledger()),
+        review_risk_evidence_ledger(broken_missing_cartesian_coverage_ledger()),
         review_risk_evidence_ledger(broken_missing_artifact_payload_gate_ledger()),
         review_risk_evidence_ledger(broken_open_maintenance_obligation_ledger()),
     )
@@ -291,6 +326,7 @@ def main() -> int:
         progress_only,
         missing_defect_family,
         missing_model_split,
+        missing_cartesian_coverage,
         missing_artifact_payload,
         open_obligation,
     ) = run_checks()
@@ -304,6 +340,8 @@ def main() -> int:
     print()
     print(missing_model_split.format_text(max_findings=5))
     print()
+    print(missing_cartesian_coverage.format_text(max_findings=5))
+    print()
     print(missing_artifact_payload.format_text(max_findings=5))
     print()
     print(open_obligation.format_text(max_findings=5))
@@ -316,6 +354,8 @@ def main() -> int:
         and missing_defect_family.decision == "missing_defect_family_gate"
         and not missing_model_split.ok
         and missing_model_split.decision == "missing_model_split_gate"
+        and not missing_cartesian_coverage.ok
+        and missing_cartesian_coverage.decision == "missing_model_cartesian_coverage_gate"
         and not missing_artifact_payload.ok
         and missing_artifact_payload.decision == "missing_artifact_payload_gate"
         and not open_obligation.ok
@@ -337,6 +377,8 @@ Use this scaffold before final confidence claims.
 - each user-facing risk has a FlowGuard model obligation owner;
 - each required public behavior has a code contract when the project requires it;
 - each recurring or high-risk same-class model miss has a current defect-family gate;
+- each model-scoped Cartesian coverage claim has current coverage receipt,
+  shard, and parent-consumed-child gates when the final claim depends on it;
 - each required ModelMesh or TestMesh split gate is current before broad parent
   confidence is claimed;
 - each remembered maintenance obligation is resolved by owner-route evidence,

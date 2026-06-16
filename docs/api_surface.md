@@ -122,6 +122,11 @@ For AI agents, route groups are the normal discovery surface:
   `review_flowguard_self_maintenance()` to check that public owner profiles stay
   aligned with public route groups and that internal helpers do not leak into
   `FLOWGUARD_ROUTE_API`.
+  When a route gains a new contract object, generated case family, evidence
+  receipt, or downstream gate, update its route profile in the same change; the
+  profile is the AI-facing checklist after route selection. Keep
+  `ROUTE_STARTER_API` compact and put detailed checklists in route profiles,
+  advanced APIs, docs, and skills.
 - `default_ai_maintenance_profiles()` gives thin entry profiles for common
   FlowGuard self-maintenance work such as fields, route graph connection,
   structure, and validation. They are entry profiles only; route-owned evidence
@@ -208,9 +213,12 @@ inventory.
   `StateClosureDimension`, `infer_state_closure_plan()`, and
   `review_state_closure()` for keeping unknown/other cases visible in
   `run_model_first_checks(...)` without changing formal model semantics.
-- contract-exhaustion helpers such as `ContractDimension`,
-  `ContractMutationCase`, `ContractOracle`, `CompositeHandoffAcceptance`,
-  `ContractExhaustionPlan`, `ContractExhaustionReport`,
+- contract-exhaustion helpers such as `ContractDimension`, `ContractAxis`,
+  `ContractInteractionGroup`, `ContractMutationCase`,
+  `ContractCombinationCase`, `ContractCoverageShard`,
+  `ModelContractCoverageReceipt`, `ContractOracle`,
+  `CompositeHandoffAcceptance`, `ContractExhaustionPlan`,
+  `ContractExhaustionReport`,
   `review_contract_exhaustion()`,
   `state_closure_cases_to_contract_cases()`,
   `scenario_matrix_to_contract_cases()`,
@@ -219,12 +227,15 @@ inventory.
   `transition_coverage_to_contract_cases()`,
   `model_mesh_closure_to_contract_cases()`,
   `contract_exhaustion_to_model_obligations()`,
-  `contract_exhaustion_to_test_mesh_cell_ids()`, and
+  `contract_exhaustion_to_test_mesh_cell_ids()`,
+  `contract_exhaustion_to_test_mesh_shard_ids()`,
+  `contract_exhaustion_to_coverage_receipt_ids()`, and
   `contract_exhaustion_to_risk_gate_ids()` plus
   `contract_exhaustion_to_composite_handoff_acceptance_ids()` for turning declared finite
-  boundaries, same-class family seeds, payload cases, transition cells, and
-  parent/child closure hazards into canonical bad-case ids with explicit
-  oracle expectations, downstream route handoffs, and independent composite
+  boundaries, model-scoped Cartesian axes, same-class family seeds, payload
+  cases, transition cells, and parent/child closure hazards into canonical
+  bad-case ids with explicit oracle expectations, coverage receipts,
+  downstream route handoffs, shard evidence targets, and independent composite
   handoff acceptance ids. Matrix ready does not mean whole-chain ready.
 - default model topology hazard helpers such as `UsageIntent`,
   `TopologyDigest`, `TopologyHazardCandidate`,

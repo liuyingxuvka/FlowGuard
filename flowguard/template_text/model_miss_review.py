@@ -865,6 +865,9 @@ issue after a FlowGuard pass.
   representative trace, or explicit out-of-scope boundary?
 - What same-class family seed or finite boundary prevents a point-fix-only repair,
   and which ContractExhaustionMesh case ids represent it or explicitly scope it out?
+- If this is a combination miss, which affected model ids, root-cause dimension
+  ids, interaction group ids, generated combination case ids, and coverage
+  receipt ids represent the wider bug class?
 - How is the known bug used as validation or holdout evidence instead of the
   whole model target?
 - Which observed-regression test and ContractExhaustionMesh case test evidence
@@ -882,7 +885,8 @@ issue after a FlowGuard pass.
 - Has this same-class family appeared before, or is it high risk enough to
   require a defect-family gate rather than another ordinary bug fix?
 - Which defect-family gate records the family id, authority boundary, observed
-  failure, ContractExhaustionMesh case id, historical holdout, and current proof?
+  failure, ContractExhaustionMesh case id, generated combination ids, coverage
+  receipt ids, historical holdout, and current proof?
 - Which refined model checks, runtime checks, and contract-exhaustion cases must
   pass before completion?
 - If the repair changed a child model under a parent ModelMesh, which parent

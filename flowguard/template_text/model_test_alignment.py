@@ -658,6 +658,12 @@ handoff tests cover the mesh. Retry or rejection transitions from repeated
 inputs should keep their generated transition cells visible through
 Model-Test Alignment and TestMesh.
 
+For ContractExhaustionMesh model-local Cartesian coverage, use
+`contract_exhaustion_to_model_obligations(...)` before claiming generated
+combination cases are tested. Each generated obligation needs current evidence
+for the exact case id; shard ownership belongs in TestMesh and coverage
+receipt consumption belongs in ModelMesh/Risk Evidence Ledger.
+
 List test evidence:
 
 - evidence id;
@@ -875,7 +881,8 @@ code-boundary conformance rows, artifact payload contracts, conservative Python 
 state-closure evidence for unknown/old-schema cases, reused test-result
 tickets, transition coverage matrices, ModelMesh closure projection with
 `model_mesh_closure_to_transition_coverage(...)`, FieldLifecycleMesh
-projections, or large TestMesh/StructureMesh handoffs.
+projections, ContractExhaustionMesh generated combination obligations, or large
+TestMesh/StructureMesh handoffs.
 """
 
 __all__ = [

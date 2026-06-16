@@ -50,9 +50,11 @@ TEST_LAYER_CHILD_REATTACHMENT = "child_reattachment"
 TEST_LAYER_CODE_BOUNDARY_CONFORMANCE = "code_boundary_conformance"
 TEST_LAYER_LEAF_BOUNDARY_MATRIX = "leaf_boundary_matrix"
 TEST_LAYER_LEAF_MATRIX_CELL = "leaf_matrix_cell"
+TEST_LAYER_CONTRACT_COMBINATION_SHARD = "contract_combination_shard"
 LEAF_MATRIX_LAYERS = {
     TEST_LAYER_LEAF_BOUNDARY_MATRIX,
     TEST_LAYER_LEAF_MATRIX_CELL,
+    TEST_LAYER_CONTRACT_COMBINATION_SHARD,
 }
 
 TEST_EVIDENCE_ORDER = {
@@ -138,6 +140,7 @@ class TestSuiteEvidence:
     owns_state: tuple[str, ...] = ()
     owns_side_effects: tuple[str, ...] = ()
     owned_leaf_cell_ids: tuple[str, ...] = ()
+    owned_coverage_shard_ids: tuple[str, ...] = ()
     not_run_reason: str = ""
     stale_reasons: tuple[str, ...] = ()
 
@@ -158,6 +161,7 @@ class TestSuiteEvidence:
         object.__setattr__(self, "owns_state", _as_tuple(self.owns_state))
         object.__setattr__(self, "owns_side_effects", _as_tuple(self.owns_side_effects))
         object.__setattr__(self, "owned_leaf_cell_ids", _as_tuple(self.owned_leaf_cell_ids))
+        object.__setattr__(self, "owned_coverage_shard_ids", _as_tuple(self.owned_coverage_shard_ids))
         object.__setattr__(self, "not_run_reason", str(self.not_run_reason))
         object.__setattr__(self, "stale_reasons", _as_tuple(self.stale_reasons))
 
@@ -200,6 +204,7 @@ class TestSuiteEvidence:
             "owns_state": list(self.owns_state),
             "owns_side_effects": list(self.owns_side_effects),
             "owned_leaf_cell_ids": list(self.owned_leaf_cell_ids),
+            "owned_coverage_shard_ids": list(self.owned_coverage_shard_ids),
             "not_run_reason": self.not_run_reason,
             "stale_reasons": list(self.stale_reasons),
         }
@@ -253,6 +258,7 @@ class TestMeshPlan:
     child_suites: tuple[TestSuiteEvidence, ...] = ()
     target_split_derivation: TestTargetSplitDerivation | None = None
     required_leaf_cell_ids: tuple[str, ...] = ()
+    required_coverage_shard_ids: tuple[str, ...] = ()
     required_evidence_tier: str = EVIDENCE_ABSTRACT_GREEN
     require_proof_artifacts: bool = False
     decision_scope: str = TEST_SCOPE_ROUTINE
@@ -265,6 +271,7 @@ class TestMeshPlan:
         object.__setattr__(self, "partition_items", tuple(self.partition_items))
         object.__setattr__(self, "child_suites", tuple(self.child_suites))
         object.__setattr__(self, "required_leaf_cell_ids", _as_tuple(self.required_leaf_cell_ids))
+        object.__setattr__(self, "required_coverage_shard_ids", _as_tuple(self.required_coverage_shard_ids))
         object.__setattr__(self, "required_evidence_tier", str(self.required_evidence_tier))
         object.__setattr__(self, "require_proof_artifacts", bool(self.require_proof_artifacts))
         object.__setattr__(self, "decision_scope", str(self.decision_scope))
@@ -282,6 +289,7 @@ class TestMeshPlan:
                 else None
             ),
             "required_leaf_cell_ids": list(self.required_leaf_cell_ids),
+            "required_coverage_shard_ids": list(self.required_coverage_shard_ids),
             "required_evidence_tier": self.required_evidence_tier,
             "require_proof_artifacts": self.require_proof_artifacts,
             "decision_scope": self.decision_scope,
@@ -412,6 +420,8 @@ def _decision_for_findings(findings: Sequence[TestMeshFinding]) -> str:
         ("missing_target_split_rationale", "target_split_derivation_required"),
         ("leaf_matrix_cell_owner_missing", "leaf_matrix_cell_evidence_required"),
         ("leaf_matrix_cell_evidence_missing", "leaf_matrix_cell_evidence_required"),
+        ("contract_coverage_shard_owner_missing", "contract_coverage_shard_evidence_required"),
+        ("contract_coverage_shard_evidence_missing", "contract_coverage_shard_evidence_required"),
         ("coverage_gap", "coverage_gap_blocked"),
         ("duplicate_partition_owner", "ownership_conflict"),
         ("duplicate_state_owner", "ownership_conflict"),
@@ -694,10 +704,11 @@ def _suite_evidence_findings(plan: TestMeshPlan) -> tuple[list[TestMeshFinding],
                 )
             )
         if suite.result_reused or suite.reuse_ticket is not None:
+            owned_obligation_ids = suite.owned_leaf_cell_ids + suite.owned_coverage_shard_ids
             for code, message in test_result_reuse_gap_codes(
                 suite.reuse_ticket,
                 expected_evidence_id=suite.suite_id,
-                required_obligation_ids=suite.owned_leaf_cell_ids,
+                required_obligation_ids=owned_obligation_ids,
             ):
                 findings.append(
                     TestMeshFinding(
@@ -710,7 +721,7 @@ def _suite_evidence_findings(plan: TestMeshPlan) -> tuple[list[TestMeshFinding],
             for code, message in proof_artifact_gap_codes(
                 suite.proof_artifact,
                 declared_status=suite.result_status,
-                required_obligation_ids=suite.owned_leaf_cell_ids,
+                required_obligation_ids=owned_obligation_ids,
                 require_result_path=True,
                 require_fingerprints=True,
             ):
@@ -723,10 +734,11 @@ def _suite_evidence_findings(plan: TestMeshPlan) -> tuple[list[TestMeshFinding],
                     )
                 )
         if plan.require_proof_artifacts:
+            owned_obligation_ids = suite.owned_leaf_cell_ids + suite.owned_coverage_shard_ids
             for code, message in proof_artifact_gap_codes(
                 suite.proof_artifact,
                 declared_status=suite.result_status,
-                required_obligation_ids=suite.owned_leaf_cell_ids,
+                required_obligation_ids=owned_obligation_ids,
                 require_result_path=True,
                 require_fingerprints=True,
             ):
@@ -762,8 +774,22 @@ def _suite_evidence_findings(plan: TestMeshPlan) -> tuple[list[TestMeshFinding],
 def _leaf_matrix_evidence_findings(plan: TestMeshPlan) -> list[TestMeshFinding]:
     findings: list[TestMeshFinding] = []
     cell_owners: dict[str, list[TestSuiteEvidence]] = {}
+    shard_owners: dict[str, list[TestSuiteEvidence]] = {}
     for suite in plan.child_suites:
-        if suite.layer in LEAF_MATRIX_LAYERS and not suite.owned_leaf_cell_ids:
+        if suite.layer == TEST_LAYER_CONTRACT_COMBINATION_SHARD and not suite.owned_coverage_shard_ids:
+            findings.append(
+                TestMeshFinding(
+                    "contract_coverage_shard_owner_missing",
+                    f"contract coverage shard evidence suite {suite.suite_id} does not name the shards it proves",
+                    suite_id=suite.suite_id,
+                    metadata=suite.to_dict(),
+                )
+            )
+        elif (
+            suite.layer in LEAF_MATRIX_LAYERS
+            and suite.layer != TEST_LAYER_CONTRACT_COMBINATION_SHARD
+            and not suite.owned_leaf_cell_ids
+        ):
             findings.append(
                 TestMeshFinding(
                     "leaf_matrix_cell_owner_missing",
@@ -774,6 +800,8 @@ def _leaf_matrix_evidence_findings(plan: TestMeshPlan) -> list[TestMeshFinding]:
             )
         for cell_id in suite.owned_leaf_cell_ids:
             cell_owners.setdefault(cell_id, []).append(suite)
+        for shard_id in suite.owned_coverage_shard_ids:
+            shard_owners.setdefault(shard_id, []).append(suite)
 
     for cell_id in plan.required_leaf_cell_ids:
         owners = tuple(cell_owners.get(cell_id, ()))
@@ -790,6 +818,25 @@ def _leaf_matrix_evidence_findings(plan: TestMeshPlan) -> list[TestMeshFinding]:
                     item_id=cell_id,
                     metadata={
                         "required_leaf_cell_id": cell_id,
+                        "owners": [suite.to_dict() for suite in owners],
+                    },
+                )
+            )
+    for shard_id in plan.required_coverage_shard_ids:
+        owners = tuple(shard_owners.get(shard_id, ()))
+        current_owners = tuple(
+            suite
+            for suite in owners
+            if suite.has_current_pass() and suite.background_complete()
+        )
+        if not current_owners:
+            findings.append(
+                TestMeshFinding(
+                    "contract_coverage_shard_evidence_missing",
+                    "parent test gate lacks current passing evidence for a required contract coverage shard",
+                    item_id=shard_id,
+                    metadata={
+                        "required_coverage_shard_id": shard_id,
                         "owners": [suite.to_dict() for suite in owners],
                     },
                 )
@@ -841,6 +888,7 @@ __all__ = [
     "TEST_LAYER_CHILD_DISJOINTNESS",
     "TEST_LAYER_CHILD_REATTACHMENT",
     "TEST_LAYER_CODE_BOUNDARY_CONFORMANCE",
+    "TEST_LAYER_CONTRACT_COMBINATION_SHARD",
     "TEST_LAYER_LEAF_BOUNDARY_MATRIX",
     "TEST_LAYER_LEAF_MATRIX_CELL",
     "TEST_LAYER_PARENT",

@@ -33,6 +33,9 @@ issue after a FlowGuard pass.
 - What same-class family seed or finite boundary prevents a point-fix-only
   repair, and which ContractExhaustionMesh case ids represent that class or
   explicitly scope it out?
+- If the miss is a combination-shaped bug, which affected model ids,
+  root-cause dimension ids, interaction group ids, generated combination case
+  ids, and coverage receipt ids backpropagate that class into the model?
 - How is the known bug used as validation or holdout evidence instead of the
   whole model target?
 - Which observed-regression test and contract-exhaustion same-class test
@@ -53,7 +56,8 @@ issue after a FlowGuard pass.
 - Has this same-class family appeared before, or is it high risk enough to
   require a defect-family gate rather than another ordinary bug fix?
 - Which defect-family gate records the family id, authority boundary, observed
-  failure, same-class generalized case, historical holdout, and current proof?
+  failure, same-class generalized case, generated combination case ids,
+  coverage receipt ids, historical holdout, and current proof?
 - Which refined model checks, runtime checks, ContractExhaustionMesh cases, and
   downstream tests must pass before completion?
 - If the repair changed a child model under a parent ModelMesh, which parent
@@ -77,5 +81,9 @@ code owner.
 When the root cause is a field, full closure also needs ContractExhaustionMesh
 field cases, field lifecycle projection into Model-Test Alignment, and
 old-field disposition for any legacy field left in or near the repaired path.
+When the root cause is an interaction between fields, states, inputs, or
+parent/child handoffs, full closure also needs ContractExhaustionMesh
+interaction groups, generated combination case ids, TestMesh shard evidence
+when sharded, and coverage receipts consumed by the relevant ModelMesh parent.
 Child-local green is not enough when parent mesh confidence depends on the
 child's input/output/state/side-effect handoff.

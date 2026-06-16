@@ -1,13 +1,13 @@
 ---
 name: flowguard-development-process-flow
-description: Use as the FlowGuard development-process simulator front door for non-trivial plans, multi-skill setup, staged development, install/sync, release/archive/publish, or final claims. Record plan_detailing, agent_workflow, and execution_freshness before delegating.
+description: Use as the FlowGuard development-process simulator front door for plans, multi-skill setup, staged work, install/sync, release/archive/publish, or final claims.
 ---
 
 # FlowGuard Development Process Flow
 
 Front-door FlowGuard satellite skill for the development-process simulator.
-Rough plans, multi-skill/tool workflows, and plan/edit/test/install/sync/release
-claims enter here first; mode owners supply evidence.
+Rough plans, multi-skill workflows, and lifecycle claims enter here first; mode
+owners supply evidence.
 
 Return to `model-first-function-flow` when the route is unclear; cite sibling
 evidence ids, not internals.
@@ -34,7 +34,7 @@ evidence ids, not internals.
 - UI, payload schemas, fields, route docs, installed skills, prompts, and
   transitions stale their evidence.
 - Replacing older same-class/boundary generation requires ContractExhaustionMesh
-  cases plus refreshed MTA/TestMesh/ModelMesh/Risk Ledger evidence.
+  cases/shards/receipts plus refreshed downstream evidence.
 - Reused output needs current `TestResultReuseTicket` and `ProofArtifactRef`.
 - New/deepened process models need template harvest closure before broad claims.
 - Preserve peer changes; later writes can stale earlier evidence.
@@ -48,8 +48,8 @@ evidence ids, not internals.
 3. For `agent_workflow`, require fresh inventory, order, and gates.
 4. For `execution_freshness`, list stages, artifact versions, validation
    evidence, invalidations, peer writes, and minimum revalidation.
-5. If model-boundary coverage changes, include ContractExhaustionMesh before
-   downstream closure.
+5. If model-boundary coverage changes, include ContractExhaustionMesh and route
+   profile/checklist updates before downstream closure.
 6. Triage failures before continuing or claiming done.
 
 ## Snapshot

@@ -251,6 +251,12 @@ class FamilyBadCaseSeed:
     description: str = ""
     source_case_id: str = ""
     exclude_member_ids: tuple[str, ...] = ()
+    affected_model_ids: tuple[str, ...] = ()
+    root_cause_dimension_ids: tuple[str, ...] = ()
+    interaction_group_ids: tuple[str, ...] = ()
+    observed_combination_case_id: str = ""
+    generated_combination_case_ids: tuple[str, ...] = ()
+    coverage_receipt_ids: tuple[str, ...] = ()
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -262,6 +268,12 @@ class FamilyBadCaseSeed:
         object.__setattr__(self, "description", str(self.description))
         object.__setattr__(self, "source_case_id", str(self.source_case_id))
         object.__setattr__(self, "exclude_member_ids", _as_tuple(self.exclude_member_ids))
+        object.__setattr__(self, "affected_model_ids", _as_tuple(self.affected_model_ids))
+        object.__setattr__(self, "root_cause_dimension_ids", _as_tuple(self.root_cause_dimension_ids))
+        object.__setattr__(self, "interaction_group_ids", _as_tuple(self.interaction_group_ids))
+        object.__setattr__(self, "observed_combination_case_id", str(self.observed_combination_case_id))
+        object.__setattr__(self, "generated_combination_case_ids", _as_tuple(self.generated_combination_case_ids))
+        object.__setattr__(self, "coverage_receipt_ids", _as_tuple(self.coverage_receipt_ids))
         object.__setattr__(self, "metadata", dict(self.metadata))
 
     def to_dict(self) -> dict[str, Any]:
@@ -274,6 +286,12 @@ class FamilyBadCaseSeed:
             "description": self.description,
             "source_case_id": self.source_case_id,
             "exclude_member_ids": list(self.exclude_member_ids),
+            "affected_model_ids": list(self.affected_model_ids),
+            "root_cause_dimension_ids": list(self.root_cause_dimension_ids),
+            "interaction_group_ids": list(self.interaction_group_ids),
+            "observed_combination_case_id": self.observed_combination_case_id,
+            "generated_combination_case_ids": list(self.generated_combination_case_ids),
+            "coverage_receipt_ids": list(self.coverage_receipt_ids),
             "metadata": to_jsonable(dict(self.metadata)),
         }
 
@@ -291,6 +309,12 @@ class DerivedFamilyBadCase:
     source_case_id: str = ""
     description: str = ""
     expected_status: str = "must_fail_before_repair"
+    affected_model_ids: tuple[str, ...] = ()
+    root_cause_dimension_ids: tuple[str, ...] = ()
+    interaction_group_ids: tuple[str, ...] = ()
+    observed_combination_case_id: str = ""
+    generated_combination_case_ids: tuple[str, ...] = ()
+    coverage_receipt_ids: tuple[str, ...] = ()
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -303,6 +327,12 @@ class DerivedFamilyBadCase:
         object.__setattr__(self, "source_case_id", str(self.source_case_id))
         object.__setattr__(self, "description", str(self.description))
         object.__setattr__(self, "expected_status", str(self.expected_status))
+        object.__setattr__(self, "affected_model_ids", _as_tuple(self.affected_model_ids))
+        object.__setattr__(self, "root_cause_dimension_ids", _as_tuple(self.root_cause_dimension_ids))
+        object.__setattr__(self, "interaction_group_ids", _as_tuple(self.interaction_group_ids))
+        object.__setattr__(self, "observed_combination_case_id", str(self.observed_combination_case_id))
+        object.__setattr__(self, "generated_combination_case_ids", _as_tuple(self.generated_combination_case_ids))
+        object.__setattr__(self, "coverage_receipt_ids", _as_tuple(self.coverage_receipt_ids))
         object.__setattr__(self, "metadata", dict(self.metadata))
 
     def to_dict(self) -> dict[str, Any]:
@@ -316,6 +346,12 @@ class DerivedFamilyBadCase:
             "source_case_id": self.source_case_id,
             "description": self.description,
             "expected_status": self.expected_status,
+            "affected_model_ids": list(self.affected_model_ids),
+            "root_cause_dimension_ids": list(self.root_cause_dimension_ids),
+            "interaction_group_ids": list(self.interaction_group_ids),
+            "observed_combination_case_id": self.observed_combination_case_id,
+            "generated_combination_case_ids": list(self.generated_combination_case_ids),
+            "coverage_receipt_ids": list(self.coverage_receipt_ids),
             "metadata": to_jsonable(dict(self.metadata)),
         }
 
@@ -657,6 +693,12 @@ def derive_same_class_bad_cases(
                 source_member_id=seed.source_member_id,
                 source_case_id=seed.source_case_id,
                 description=description,
+                affected_model_ids=seed.affected_model_ids,
+                root_cause_dimension_ids=seed.root_cause_dimension_ids,
+                interaction_group_ids=seed.interaction_group_ids,
+                observed_combination_case_id=seed.observed_combination_case_id,
+                generated_combination_case_ids=seed.generated_combination_case_ids,
+                coverage_receipt_ids=seed.coverage_receipt_ids,
                 metadata={"seed_id": seed.seed_id, **dict(seed.metadata)},
             )
         )

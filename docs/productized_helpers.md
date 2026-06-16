@@ -23,6 +23,14 @@ reactions, and downstream MTA/TestMesh/ModelMesh/Risk Ledger handoffs. This
 replaces older patterns where each prompt hand-wrote "similar bug" examples
 as if they were canonical coverage.
 
+For model-local Cartesian coverage, the declared boundary is `model_id` plus
+finite axes and interaction groups. The report produces combination cases,
+optional shard ids, and a model coverage receipt. That receipt proves only that
+the local model boundary was exhausted; parent confidence still needs ModelMesh
+to consume child receipt ids, TestMesh to close shard evidence, Model-Test
+Alignment to bind generated obligations to tests, and Risk Evidence Ledger to
+consume the final gates.
+
 Matrix readiness is not whole-chain readiness. A generated case can be valid
 and still require a separate composite handoff acceptance item before broad
 done/release confidence. Those acceptance ids state which route owners must

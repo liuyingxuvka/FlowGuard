@@ -8,7 +8,7 @@ OpenSpec validation, project audit, and route reports.
 
 ```text
 Owning route declaration
--> ContractExhaustionMesh canonical case ids and oracles
+-> ContractExhaustionMesh case ids, shards, receipts, and oracles
 -> Composite handoff acceptance ids for multi-route closure
 -> Model-Test Alignment / TestMesh / ModelMesh / Risk Evidence Ledger
 -> DevelopmentProcessFlow freshness and final claim boundary
@@ -17,8 +17,10 @@ Owning route declaration
 ContractExhaustionMesh is now the only canonical route for generated finite
 bad-case ids. A matrix-ready report does not prove whole-chain readiness by
 itself; broad confidence also needs the composite handoff acceptance ids to be
-closed by the relevant route owners. Existing routes remain owners of their own
-declarations and evidence:
+closed by the relevant route owners. Model-local Cartesian coverage also emits
+coverage receipts; those receipts become parent ModelMesh and Risk Evidence
+Ledger inputs rather than replacing parent closure. Existing routes remain
+owners of their own declarations and evidence:
 
 - StateClosure and ScenarioMatrix declare state/input and deterministic
   challenge cases.
@@ -51,6 +53,9 @@ Public route discovery is intentionally smaller than the full helper inventory.
 `FLOWGUARD_ROUTE_API` and `ROUTE_STARTER_API` expose public owner routes only.
 Helpers that still add useful structure stay available through advanced/helper
 inventories, but they do not compete as first-stop routes.
+The AI-facing route checklist lives in `default_flowguard_route_profiles()`:
+when a route adds a new required output, downstream handoff, gate, shard, or
+receipt, that route profile must be updated in the same change.
 
 Current role shape:
 

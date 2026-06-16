@@ -17,6 +17,7 @@ from flowguard import (
     EVIDENCE_ABSTRACT_GREEN,
     EVIDENCE_CONFORMANCE_GREEN,
     ProofArtifactRef,
+    TEST_LAYER_CONTRACT_COMBINATION_SHARD,
     TEST_LAYER_LEAF_MATRIX_CELL,
     TestMeshPlan,
     TestPartitionItem,
@@ -75,6 +76,7 @@ def transition_matrix() -> TransitionCoverageMatrix:
 
 def routine_plan() -> TestMeshPlan:
     transition_cell_ids = transition_coverage_to_required_leaf_cell_ids(transition_matrix())
+    contract_shard_ids = ("contract_shard:project-validation:request-boundary",)
     return TestMeshPlan(
         parent_suite_id="project-validation",
         decision_scope="routine",
@@ -84,6 +86,11 @@ def routine_plan() -> TestMeshPlan:
             *(
                 TestPartitionItem(cell_id, item_type="transition_coverage", owner_suite_id="transition-cells")
                 for cell_id in transition_cell_ids
+            ),
+            TestPartitionItem(
+                contract_shard_ids[0],
+                item_type="contract_coverage_shard",
+                owner_suite_id="contract-exhaustion-shards",
             ),
         ),
         child_suites=(
@@ -120,6 +127,17 @@ def routine_plan() -> TestMeshPlan:
                 owned_leaf_cell_ids=transition_cell_ids,
             ),
             TestSuiteEvidence(
+                "contract-exhaustion-shards",
+                command="python -m unittest tests.test_contract_exhaustion_variants",
+                layer=TEST_LAYER_CONTRACT_COMBINATION_SHARD,
+                result_status="passed",
+                evidence_tier=EVIDENCE_ABSTRACT_GREEN,
+                evidence_current=True,
+                test_count=32,
+                selected_count=32,
+                owned_coverage_shard_ids=contract_shard_ids,
+            ),
+            TestSuiteEvidence(
                 "release-full",
                 command="python -m unittest discover -s tests",
                 layer="release",
@@ -131,11 +149,12 @@ def routine_plan() -> TestMeshPlan:
         ),
         target_split_derivation=TestTargetSplitDerivation(
             "project-validation-model",
-            target_suite_ids=("unit", "runtime", "transition-cells", "release-full"),
-            covered_partition_item_ids=("unit-fast", "runtime-contract", *transition_cell_ids),
+            target_suite_ids=("unit", "runtime", "transition-cells", "contract-exhaustion-shards", "release-full"),
+            covered_partition_item_ids=("unit-fast", "runtime-contract", *transition_cell_ids, *contract_shard_ids),
             rationale="derived from the parent validation FlowGuard model and release gate boundaries",
         ),
         required_leaf_cell_ids=transition_cell_ids,
+        required_coverage_shard_ids=contract_shard_ids,
     )
 
 
@@ -205,6 +224,8 @@ Use this scaffold to keep a project's validation hierarchy explicit.
 - whether ModelMesh closure projection cells have current child evidence when
   parent/child retry or rejection handoffs are too large or slow for direct
   Model-Test Alignment rows;
+- whether ContractExhaustionMesh Cartesian coverage shards have current child
+  evidence when local model coverage is generated as shard ids;
 - whether artifact payload case ids have current child evidence when a
   file/work-package payload matrix is too large or slow for direct Model-Test
   Alignment rows;

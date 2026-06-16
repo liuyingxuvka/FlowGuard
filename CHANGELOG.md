@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.51.0 - 2026-06-16
+
+Hierarchical Cartesian contract-exhaustion coverage.
+
+- Added model-scoped axes, interaction groups, generated combination cases,
+  coverage shards, and coverage receipts so ContractExhaustionMesh can produce
+  finite bad-case matrices per model instead of relying on hand-written
+  representative examples.
+- Wired generated combination obligations into Model-Test Alignment, TestMesh,
+  ModelMesh, RiskEvidenceLedger, bug-family records, and model-miss review so
+  a green single-point matrix cannot be mistaken for a closed parent/child
+  model chain.
+- Updated FlowGuard route profiles, skills, templates, OpenSpec tasks, docs,
+  topology, and regression tests so future AI agents see the Cartesian
+  coverage checklist and required handoffs before claiming completion.
+
 ## v0.50.0 - 2026-06-15
 
 Helper control-plane consolidation.

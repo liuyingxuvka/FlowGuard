@@ -13,6 +13,7 @@ dimension -> generated bad case -> oracle -> required downstream route.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from itertools import product
 from typing import Any, Iterable, Mapping, Sequence
 
 from .export import to_json_text, to_jsonable
@@ -58,6 +59,7 @@ CONTRACT_MUTATION_REPEAT_WITHOUT_DELTA = "repeat_without_delta"
 CONTRACT_MUTATION_TRANSITION_REPLAY = "transition_replay"
 CONTRACT_MUTATION_SCENARIO_CHALLENGE = "scenario_challenge"
 CONTRACT_MUTATION_ANALOGOUS_DEFECT = "analogous_defect"
+CONTRACT_MUTATION_CARTESIAN_COMBINATION = "cartesian_combination"
 
 CONTRACT_ORACLE_REJECT_BEFORE_SIDE_EFFECT = "reject_before_side_effect"
 CONTRACT_ORACLE_BLOCK_BEFORE_DOWNSTREAM = "block_before_downstream"
@@ -75,6 +77,22 @@ CONTRACT_ROUTE_MODEL_MESH = "model_mesh"
 CONTRACT_ROUTE_OBLIGATION_FAMILY = "obligation_family_parity"
 CONTRACT_ROUTE_MODEL_MISS_REVIEW = "model_miss_review"
 CONTRACT_ROUTE_RISK_EVIDENCE_LEDGER = "risk_evidence_ledger"
+
+CONTRACT_GENERATION_SINGLE_DIMENSION = "single_dimension"
+CONTRACT_GENERATION_LOCAL_CARTESIAN = "local_cartesian"
+CONTRACT_GENERATION_PARENT_INTERFACE = "parent_interface_cartesian"
+
+CONTRACT_MODEL_LEVEL_ROOT = "root"
+CONTRACT_MODEL_LEVEL_PARENT = "parent"
+CONTRACT_MODEL_LEVEL_CHILD = "child"
+CONTRACT_MODEL_LEVEL_LEAF = "leaf"
+
+CONTRACT_COVERAGE_STATUS_COVERED = "covered"
+CONTRACT_COVERAGE_STATUS_SCOPED = "scoped"
+CONTRACT_COVERAGE_STATUS_BLOCKED = "blocked"
+CONTRACT_COVERAGE_STATUS_IN_PROGRESS = "in_progress"
+
+DEFAULT_CARTESIAN_CASE_LIMIT = 100_000
 
 _BROAD_CLAIMS = {"done", "release", "publish", "production", "full"}
 
@@ -291,6 +309,14 @@ class ContractMutationCase:
     freshness_scope: str = ""
     description: str = ""
     metadata: Mapping[str, Any] = field(default_factory=dict)
+    dimension_ids: tuple[str, ...] = ()
+    axis_case_ids: tuple[str, ...] = ()
+    interaction_group_id: str = ""
+    combination_order: int = 0
+    coverage_shard_id: str = ""
+    model_id: str = ""
+    parent_model_id: str = ""
+    generation_kind: str = CONTRACT_GENERATION_SINGLE_DIMENSION
 
     def __post_init__(self) -> None:
         mutation_type = str(self.mutation_type)
@@ -313,6 +339,14 @@ class ContractMutationCase:
         object.__setattr__(self, "freshness_scope", str(self.freshness_scope))
         object.__setattr__(self, "description", str(self.description))
         object.__setattr__(self, "metadata", _metadata(self.metadata))
+        object.__setattr__(self, "dimension_ids", _as_tuple(self.dimension_ids))
+        object.__setattr__(self, "axis_case_ids", _as_tuple(self.axis_case_ids))
+        object.__setattr__(self, "interaction_group_id", str(self.interaction_group_id))
+        object.__setattr__(self, "combination_order", int(self.combination_order))
+        object.__setattr__(self, "coverage_shard_id", str(self.coverage_shard_id))
+        object.__setattr__(self, "model_id", str(self.model_id))
+        object.__setattr__(self, "parent_model_id", str(self.parent_model_id))
+        object.__setattr__(self, "generation_kind", str(self.generation_kind))
 
     def routes(self) -> tuple[str, ...]:
         if self.required_routes:
@@ -351,6 +385,13 @@ class ContractMutationCase:
                 CONTRACT_ROUTE_MODEL_MISS_REVIEW,
                 CONTRACT_ROUTE_TEST_MESH,
             )
+        if self.mutation_type == CONTRACT_MUTATION_CARTESIAN_COMBINATION:
+            return (
+                CONTRACT_ROUTE_MODEL_MESH,
+                CONTRACT_ROUTE_MODEL_TEST_ALIGNMENT,
+                CONTRACT_ROUTE_TEST_MESH,
+                CONTRACT_ROUTE_RISK_EVIDENCE_LEDGER,
+            )
         return (
             CONTRACT_ROUTE_FIELD_LIFECYCLE,
             CONTRACT_ROUTE_MODEL_TEST_ALIGNMENT,
@@ -377,6 +418,14 @@ class ContractMutationCase:
             "freshness_scope": self.freshness_scope,
             "description": self.description,
             "metadata": to_jsonable(dict(self.metadata)),
+            "dimension_ids": list(self.dimension_ids),
+            "axis_case_ids": list(self.axis_case_ids),
+            "interaction_group_id": self.interaction_group_id,
+            "combination_order": self.combination_order,
+            "coverage_shard_id": self.coverage_shard_id,
+            "model_id": self.model_id,
+            "parent_model_id": self.parent_model_id,
+            "generation_kind": self.generation_kind,
         }
 
 
@@ -444,6 +493,238 @@ class CompositeHandoffAcceptance:
 
 
 @dataclass(frozen=True)
+class ContractAxis:
+    """One finite axis inside a model-local Cartesian bad-case group."""
+
+    axis_id: str
+    model_id: str = ""
+    dimension_ids: tuple[str, ...] = ()
+    values: tuple[str, ...] = ()
+    mutation_types: tuple[str, ...] = ()
+    required: bool = True
+    source_route: str = ""
+    description: str = ""
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "axis_id", str(self.axis_id))
+        object.__setattr__(self, "model_id", str(self.model_id))
+        object.__setattr__(self, "dimension_ids", _as_tuple(self.dimension_ids))
+        object.__setattr__(self, "values", _as_tuple(self.values))
+        object.__setattr__(self, "mutation_types", _as_tuple(self.mutation_types))
+        object.__setattr__(self, "required", bool(self.required))
+        object.__setattr__(self, "source_route", str(self.source_route))
+        object.__setattr__(self, "description", str(self.description))
+        object.__setattr__(self, "metadata", _metadata(self.metadata))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "axis_id": self.axis_id,
+            "model_id": self.model_id,
+            "dimension_ids": list(self.dimension_ids),
+            "values": list(self.values),
+            "mutation_types": list(self.mutation_types),
+            "required": self.required,
+            "source_route": self.source_route,
+            "description": self.description,
+            "metadata": to_jsonable(dict(self.metadata)),
+        }
+
+
+@dataclass(frozen=True)
+class ContractInteractionGroup:
+    """A finite set of axes that must be combined within one model boundary."""
+
+    group_id: str
+    model_id: str = ""
+    axis_ids: tuple[str, ...] = ()
+    dimension_ids: tuple[str, ...] = ()
+    generation_kind: str = CONTRACT_GENERATION_LOCAL_CARTESIAN
+    required_routes: tuple[str, ...] = ()
+    required: bool = True
+    max_combinations: int | None = None
+    oracle_status: str = CONTRACT_ORACLE_BLOCK_BEFORE_DOWNSTREAM
+    description: str = ""
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "group_id", str(self.group_id))
+        object.__setattr__(self, "model_id", str(self.model_id))
+        object.__setattr__(self, "axis_ids", _as_tuple(self.axis_ids))
+        object.__setattr__(self, "dimension_ids", _as_tuple(self.dimension_ids))
+        object.__setattr__(self, "generation_kind", str(self.generation_kind))
+        object.__setattr__(self, "required_routes", _as_tuple(self.required_routes))
+        object.__setattr__(self, "required", bool(self.required))
+        if self.max_combinations is not None:
+            object.__setattr__(self, "max_combinations", int(self.max_combinations))
+        object.__setattr__(self, "oracle_status", str(self.oracle_status))
+        object.__setattr__(self, "description", str(self.description))
+        object.__setattr__(self, "metadata", _metadata(self.metadata))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "group_id": self.group_id,
+            "model_id": self.model_id,
+            "axis_ids": list(self.axis_ids),
+            "dimension_ids": list(self.dimension_ids),
+            "generation_kind": self.generation_kind,
+            "required_routes": list(self.required_routes),
+            "required": self.required,
+            "max_combinations": self.max_combinations,
+            "oracle_status": self.oracle_status,
+            "description": self.description,
+            "metadata": to_jsonable(dict(self.metadata)),
+        }
+
+
+@dataclass(frozen=True)
+class ContractCoverageShard:
+    """One deterministic slice of generated Cartesian combination cases."""
+
+    shard_id: str
+    model_id: str = ""
+    interaction_group_id: str = ""
+    case_ids: tuple[str, ...] = ()
+    complete: bool = True
+    total_combinations: int = 0
+    generated_count: int = 0
+    skipped_count: int = 0
+    status: str = CONTRACT_COVERAGE_STATUS_COVERED
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "shard_id", str(self.shard_id))
+        object.__setattr__(self, "model_id", str(self.model_id))
+        object.__setattr__(self, "interaction_group_id", str(self.interaction_group_id))
+        object.__setattr__(self, "case_ids", _as_tuple(self.case_ids))
+        object.__setattr__(self, "complete", bool(self.complete))
+        object.__setattr__(self, "total_combinations", int(self.total_combinations))
+        object.__setattr__(self, "generated_count", int(self.generated_count))
+        object.__setattr__(self, "skipped_count", int(self.skipped_count))
+        object.__setattr__(self, "status", str(self.status))
+        object.__setattr__(self, "metadata", _metadata(self.metadata))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "shard_id": self.shard_id,
+            "model_id": self.model_id,
+            "interaction_group_id": self.interaction_group_id,
+            "case_ids": list(self.case_ids),
+            "complete": self.complete,
+            "total_combinations": self.total_combinations,
+            "generated_count": self.generated_count,
+            "skipped_count": self.skipped_count,
+            "status": self.status,
+            "metadata": to_jsonable(dict(self.metadata)),
+        }
+
+
+@dataclass(frozen=True)
+class ContractCombinationCase:
+    """Human-readable view of a generated Cartesian combination case."""
+
+    case_id: str
+    model_id: str = ""
+    interaction_group_id: str = ""
+    axis_case_ids: tuple[str, ...] = ()
+    dimension_ids: tuple[str, ...] = ()
+    coverage_shard_id: str = ""
+    expected_status: str = CONTRACT_ORACLE_BLOCK_BEFORE_DOWNSTREAM
+    required_routes: tuple[str, ...] = ()
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "case_id", str(self.case_id))
+        object.__setattr__(self, "model_id", str(self.model_id))
+        object.__setattr__(self, "interaction_group_id", str(self.interaction_group_id))
+        object.__setattr__(self, "axis_case_ids", _as_tuple(self.axis_case_ids))
+        object.__setattr__(self, "dimension_ids", _as_tuple(self.dimension_ids))
+        object.__setattr__(self, "coverage_shard_id", str(self.coverage_shard_id))
+        object.__setattr__(self, "expected_status", str(self.expected_status))
+        object.__setattr__(self, "required_routes", _as_tuple(self.required_routes))
+        object.__setattr__(self, "metadata", _metadata(self.metadata))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "case_id": self.case_id,
+            "model_id": self.model_id,
+            "interaction_group_id": self.interaction_group_id,
+            "axis_case_ids": list(self.axis_case_ids),
+            "dimension_ids": list(self.dimension_ids),
+            "coverage_shard_id": self.coverage_shard_id,
+            "expected_status": self.expected_status,
+            "required_routes": list(self.required_routes),
+            "metadata": to_jsonable(dict(self.metadata)),
+        }
+
+
+@dataclass(frozen=True)
+class ModelContractCoverageReceipt:
+    """Receipt proving one model's generated contract combinations were closed."""
+
+    receipt_id: str
+    model_id: str
+    parent_model_id: str = ""
+    status: str = CONTRACT_COVERAGE_STATUS_COVERED
+    confidence: str = CONTRACT_EXHAUSTION_CONFIDENCE_FULL
+    current: bool = True
+    covered_case_ids: tuple[str, ...] = ()
+    shard_ids: tuple[str, ...] = ()
+    interaction_group_ids: tuple[str, ...] = ()
+    required_child_receipt_ids: tuple[str, ...] = ()
+    consumed_child_receipt_ids: tuple[str, ...] = ()
+    missing_case_ids: tuple[str, ...] = ()
+    blocked_case_ids: tuple[str, ...] = ()
+    finding_codes: tuple[str, ...] = ()
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "receipt_id", str(self.receipt_id))
+        object.__setattr__(self, "model_id", str(self.model_id))
+        object.__setattr__(self, "parent_model_id", str(self.parent_model_id))
+        object.__setattr__(self, "status", str(self.status))
+        object.__setattr__(self, "confidence", str(self.confidence))
+        object.__setattr__(self, "current", bool(self.current))
+        object.__setattr__(self, "covered_case_ids", _as_tuple(self.covered_case_ids))
+        object.__setattr__(self, "shard_ids", _as_tuple(self.shard_ids))
+        object.__setattr__(self, "interaction_group_ids", _as_tuple(self.interaction_group_ids))
+        object.__setattr__(self, "required_child_receipt_ids", _as_tuple(self.required_child_receipt_ids))
+        object.__setattr__(self, "consumed_child_receipt_ids", _as_tuple(self.consumed_child_receipt_ids))
+        object.__setattr__(self, "missing_case_ids", _as_tuple(self.missing_case_ids))
+        object.__setattr__(self, "blocked_case_ids", _as_tuple(self.blocked_case_ids))
+        object.__setattr__(self, "finding_codes", _as_tuple(self.finding_codes))
+        object.__setattr__(self, "metadata", _metadata(self.metadata))
+
+    def complete(self) -> bool:
+        return (
+            self.status == CONTRACT_COVERAGE_STATUS_COVERED
+            and self.confidence == CONTRACT_EXHAUSTION_CONFIDENCE_FULL
+            and self.current
+            and not self.missing_case_ids
+            and not self.blocked_case_ids
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "receipt_id": self.receipt_id,
+            "model_id": self.model_id,
+            "parent_model_id": self.parent_model_id,
+            "status": self.status,
+            "confidence": self.confidence,
+            "current": self.current,
+            "covered_case_ids": list(self.covered_case_ids),
+            "shard_ids": list(self.shard_ids),
+            "interaction_group_ids": list(self.interaction_group_ids),
+            "required_child_receipt_ids": list(self.required_child_receipt_ids),
+            "consumed_child_receipt_ids": list(self.consumed_child_receipt_ids),
+            "missing_case_ids": list(self.missing_case_ids),
+            "blocked_case_ids": list(self.blocked_case_ids),
+            "finding_codes": list(self.finding_codes),
+            "metadata": to_jsonable(dict(self.metadata)),
+        }
+
+
+@dataclass(frozen=True)
 class ContractExhaustionPlan:
     """A normalized contract-exhaustion request."""
 
@@ -460,6 +741,18 @@ class ContractExhaustionPlan:
     required_route_ids: tuple[str, ...] = ()
     require_composite_handoff_acceptance: bool = True
     metadata: Mapping[str, Any] = field(default_factory=dict)
+    model_id: str = ""
+    parent_model_id: str = ""
+    model_level: str = ""
+    axes: tuple[ContractAxis, ...] = ()
+    interaction_groups: tuple[ContractInteractionGroup, ...] = ()
+    coverage_shards: tuple[ContractCoverageShard, ...] = ()
+    coverage_receipts: tuple[ModelContractCoverageReceipt, ...] = ()
+    required_coverage_receipt_ids: tuple[str, ...] = ()
+    required_child_receipt_ids: tuple[str, ...] = ()
+    consumed_child_receipt_ids: tuple[str, ...] = ()
+    require_model_coverage_receipt: bool = False
+    cartesian_case_limit: int = DEFAULT_CARTESIAN_CASE_LIMIT
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "plan_id", str(self.plan_id))
@@ -478,6 +771,18 @@ class ContractExhaustionPlan:
             bool(self.require_composite_handoff_acceptance),
         )
         object.__setattr__(self, "metadata", _metadata(self.metadata))
+        object.__setattr__(self, "model_id", str(self.model_id))
+        object.__setattr__(self, "parent_model_id", str(self.parent_model_id))
+        object.__setattr__(self, "model_level", str(self.model_level))
+        object.__setattr__(self, "axes", tuple(self.axes))
+        object.__setattr__(self, "interaction_groups", tuple(self.interaction_groups))
+        object.__setattr__(self, "coverage_shards", tuple(self.coverage_shards))
+        object.__setattr__(self, "coverage_receipts", tuple(self.coverage_receipts))
+        object.__setattr__(self, "required_coverage_receipt_ids", _as_tuple(self.required_coverage_receipt_ids))
+        object.__setattr__(self, "required_child_receipt_ids", _as_tuple(self.required_child_receipt_ids))
+        object.__setattr__(self, "consumed_child_receipt_ids", _as_tuple(self.consumed_child_receipt_ids))
+        object.__setattr__(self, "require_model_coverage_receipt", bool(self.require_model_coverage_receipt))
+        object.__setattr__(self, "cartesian_case_limit", int(self.cartesian_case_limit))
 
     def oracle_ids(self) -> set[str]:
         return {oracle.oracle_id for oracle in self.oracles}
@@ -497,6 +802,18 @@ class ContractExhaustionPlan:
             "required_route_ids": list(self.required_route_ids),
             "require_composite_handoff_acceptance": self.require_composite_handoff_acceptance,
             "metadata": to_jsonable(dict(self.metadata)),
+            "model_id": self.model_id,
+            "parent_model_id": self.parent_model_id,
+            "model_level": self.model_level,
+            "axes": [axis.to_dict() for axis in self.axes],
+            "interaction_groups": [group.to_dict() for group in self.interaction_groups],
+            "coverage_shards": [shard.to_dict() for shard in self.coverage_shards],
+            "coverage_receipts": [receipt.to_dict() for receipt in self.coverage_receipts],
+            "required_coverage_receipt_ids": list(self.required_coverage_receipt_ids),
+            "required_child_receipt_ids": list(self.required_child_receipt_ids),
+            "consumed_child_receipt_ids": list(self.consumed_child_receipt_ids),
+            "require_model_coverage_receipt": self.require_model_coverage_receipt,
+            "cartesian_case_limit": self.cartesian_case_limit,
         }
 
 
@@ -515,6 +832,10 @@ class ContractExhaustionReport:
     missing_oracle_case_ids: tuple[str, ...] = ()
     model_gap_dimension_ids: tuple[str, ...] = ()
     summary: str = ""
+    combination_cases: tuple[ContractCombinationCase, ...] = ()
+    coverage_shards: tuple[ContractCoverageShard, ...] = ()
+    coverage_receipts: tuple[ModelContractCoverageReceipt, ...] = ()
+    required_coverage_receipt_ids: tuple[str, ...] = ()
 
     @property
     def required_mta_case_ids(self) -> tuple[str, ...]:
@@ -540,6 +861,14 @@ class ContractExhaustionReport:
             if acceptance.required
         )
 
+    @property
+    def required_combination_case_ids(self) -> tuple[str, ...]:
+        return tuple(case.case_id for case in self.combination_cases)
+
+    @property
+    def required_coverage_shard_ids(self) -> tuple[str, ...]:
+        return tuple(shard.shard_id for shard in self.coverage_shards if shard.case_ids)
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "plan_id": self.plan_id,
@@ -562,6 +891,12 @@ class ContractExhaustionReport:
             "missing_oracle_case_ids": list(self.missing_oracle_case_ids),
             "model_gap_dimension_ids": list(self.model_gap_dimension_ids),
             "summary": self.summary,
+            "combination_cases": [case.to_dict() for case in self.combination_cases],
+            "coverage_shards": [shard.to_dict() for shard in self.coverage_shards],
+            "coverage_receipts": [receipt.to_dict() for receipt in self.coverage_receipts],
+            "required_coverage_receipt_ids": list(self.required_coverage_receipt_ids),
+            "required_combination_case_ids": list(self.required_combination_case_ids),
+            "required_coverage_shard_ids": list(self.required_coverage_shard_ids),
         }
 
     def to_json_text(self, indent: int = 2) -> str:
@@ -574,9 +909,22 @@ class ContractExhaustionReport:
             f"decision: {self.decision}",
             f"confidence: {self.confidence}",
             f"generated_cases: {len(self.generated_cases)}",
+            f"combination_cases: {len(self.combination_cases)}",
         ]
         if self.summary:
             lines.append(f"summary: {self.summary}")
+        for receipt in self.coverage_receipts:
+            lines.append(
+                "coverage_receipt "
+                f"{receipt.receipt_id}: model={receipt.model_id} "
+                f"status={receipt.status} cases={len(receipt.covered_case_ids)}"
+            )
+        for shard in self.coverage_shards:
+            lines.append(
+                "coverage_shard "
+                f"{shard.shard_id}: {shard.generated_count}/{shard.total_combinations} "
+                f"status={shard.status}"
+            )
         for route, case_ids in sorted(self.required_route_case_ids.items()):
             lines.append(f"route {route}: {', '.join(case_ids) if case_ids else '(none)'}")
         for acceptance in self.composite_handoff_acceptances:
@@ -639,6 +987,9 @@ def _case_for_dimension(dimension: ContractDimension, mutation_type: str) -> Con
         freshness_scope=dimension.currentness_rule,
         description=dimension.description
         or f"{dimension.dimension_id} must handle {mutation_type}",
+        dimension_ids=(dimension.dimension_id,),
+        model_id=dimension.owner_model_id,
+        generation_kind=CONTRACT_GENERATION_SINGLE_DIMENSION,
         metadata={
             "owner_model_id": dimension.owner_model_id,
             "producer": dimension.producer,
@@ -650,6 +1001,463 @@ def _case_for_dimension(dimension: ContractDimension, mutation_type: str) -> Con
 
 def _generated_cases_for_dimension(dimension: ContractDimension) -> tuple[ContractMutationCase, ...]:
     return tuple(_case_for_dimension(dimension, mutation) for mutation in dimension.default_mutations())
+
+
+def _axis_tokens(
+    axis: ContractAxis,
+    dimensions_by_id: Mapping[str, ContractDimension],
+) -> tuple[dict[str, Any], ...]:
+    tokens: list[dict[str, Any]] = []
+    if axis.values:
+        for value in axis.values:
+            tokens.append(
+                {
+                    "axis_id": axis.axis_id,
+                    "case_id": _case_id(axis.axis_id, value),
+                    "value": value,
+                    "dimension_ids": axis.dimension_ids,
+                    "mutation_type": "",
+                }
+            )
+        return tuple(tokens)
+    if axis.mutation_types:
+        dimension_ids = axis.dimension_ids
+        for mutation_type in axis.mutation_types:
+            tokens.append(
+                {
+                    "axis_id": axis.axis_id,
+                    "case_id": _case_id(axis.axis_id, mutation_type),
+                    "value": mutation_type,
+                    "dimension_ids": dimension_ids,
+                    "mutation_type": mutation_type,
+                }
+            )
+        return tuple(tokens)
+    for dimension_id in axis.dimension_ids:
+        dimension = dimensions_by_id.get(dimension_id)
+        mutation_types = (
+            dimension.default_mutations()
+            if dimension is not None
+            else (CONTRACT_MUTATION_MALFORMED_INPUT,)
+        )
+        for mutation_type in mutation_types:
+            tokens.append(
+                {
+                    "axis_id": axis.axis_id,
+                    "case_id": _case_id(axis.axis_id, dimension_id, mutation_type),
+                    "value": mutation_type,
+                    "dimension_ids": (dimension_id,),
+                    "mutation_type": mutation_type,
+                }
+            )
+    return tuple(tokens)
+
+
+def _axis_from_dimension(dimension: ContractDimension, *, model_id: str) -> ContractAxis:
+    return ContractAxis(
+        axis_id=dimension.dimension_id,
+        model_id=model_id or dimension.owner_model_id,
+        dimension_ids=(dimension.dimension_id,),
+        mutation_types=dimension.default_mutations(),
+        required=dimension.required,
+        source_route=dimension.source_route,
+        description=dimension.description,
+        metadata=dimension.metadata,
+    )
+
+
+def _axes_for_group(
+    plan: ContractExhaustionPlan,
+    group: ContractInteractionGroup,
+    dimensions_by_id: Mapping[str, ContractDimension],
+) -> tuple[tuple[ContractAxis, ...], tuple[ContractExhaustionFinding, ...]]:
+    axes_by_id = {axis.axis_id: axis for axis in plan.axes}
+    axes: list[ContractAxis] = []
+    findings: list[ContractExhaustionFinding] = []
+    if group.axis_ids:
+        for axis_id in group.axis_ids:
+            axis = axes_by_id.get(axis_id)
+            if axis is None:
+                findings.append(
+                    _finding(
+                        "contract_cartesian_axis_unknown",
+                        "interaction group references an axis that is not declared",
+                        severity=(
+                            CONTRACT_EXHAUSTION_FINDING_BLOCKER
+                            if group.required
+                            else CONTRACT_EXHAUSTION_FINDING_GAP
+                        ),
+                        action="declare the axis or remove it from the interaction group",
+                        metadata={"group_id": group.group_id, "axis_id": axis_id},
+                    )
+                )
+                continue
+            axes.append(axis)
+    elif group.dimension_ids:
+        for dimension_id in group.dimension_ids:
+            dimension = dimensions_by_id.get(dimension_id)
+            if dimension is None:
+                findings.append(
+                    _finding(
+                        "contract_cartesian_dimension_unknown",
+                        "interaction group references a dimension that is not declared",
+                        severity=(
+                            CONTRACT_EXHAUSTION_FINDING_BLOCKER
+                            if group.required
+                            else CONTRACT_EXHAUSTION_FINDING_GAP
+                        ),
+                        dimension_id=dimension_id,
+                        action="declare the dimension or remove it from the interaction group",
+                        metadata={"group_id": group.group_id},
+                    )
+                )
+                continue
+            axes.append(_axis_from_dimension(dimension, model_id=group.model_id or plan.model_id))
+    else:
+        findings.append(
+            _finding(
+                "contract_cartesian_group_empty",
+                "interaction group declares no axes or dimensions, so no Cartesian boundary exists",
+                severity=(
+                    CONTRACT_EXHAUSTION_FINDING_BLOCKER
+                    if group.required
+                    else CONTRACT_EXHAUSTION_FINDING_GAP
+                ),
+                action="declare the model-local axes that should be combined",
+                metadata={"group_id": group.group_id},
+            )
+        )
+    return tuple(axes), tuple(findings)
+
+
+def _generated_cases_for_interaction_group(
+    plan: ContractExhaustionPlan,
+    group: ContractInteractionGroup,
+    dimensions_by_id: Mapping[str, ContractDimension],
+) -> tuple[
+    tuple[ContractMutationCase, ...],
+    tuple[ContractCombinationCase, ...],
+    ContractCoverageShard | None,
+    tuple[ContractExhaustionFinding, ...],
+]:
+    findings: list[ContractExhaustionFinding] = []
+    model_id = group.model_id or plan.model_id
+    if not model_id:
+        findings.append(
+            _finding(
+                "contract_cartesian_model_id_missing",
+                "Cartesian interaction group must name the model whose finite boundary is being exhausted",
+                severity=(
+                    CONTRACT_EXHAUSTION_FINDING_BLOCKER
+                    if group.required
+                    else CONTRACT_EXHAUSTION_FINDING_GAP
+                ),
+                action="set ContractExhaustionPlan.model_id or ContractInteractionGroup.model_id",
+                metadata={"group_id": group.group_id},
+            )
+        )
+    axes, axis_findings = _axes_for_group(plan, group, dimensions_by_id)
+    findings.extend(axis_findings)
+
+    token_sets: list[tuple[dict[str, Any], ...]] = []
+    for axis in axes:
+        tokens = _axis_tokens(axis, dimensions_by_id)
+        if not tokens:
+            findings.append(
+                _finding(
+                    "contract_cartesian_axis_empty",
+                    "Cartesian axis has no values, mutations, or dimension-derived cases",
+                    severity=(
+                        CONTRACT_EXHAUSTION_FINDING_BLOCKER
+                        if axis.required and group.required
+                        else CONTRACT_EXHAUSTION_FINDING_GAP
+                    ),
+                    action="declare finite values, mutation_types, or dimension_ids for the axis",
+                    metadata={"group_id": group.group_id, "axis_id": axis.axis_id},
+                )
+            )
+            continue
+        token_sets.append(tokens)
+
+    if not token_sets:
+        return (), (), None, tuple(findings)
+
+    total_combinations = 1
+    for tokens in token_sets:
+        total_combinations *= len(tokens)
+
+    limit = group.max_combinations if group.max_combinations is not None else plan.cartesian_case_limit
+    generated_limit = max(0, int(limit))
+    if total_combinations > generated_limit:
+        findings.append(
+            _finding(
+                "contract_cartesian_case_limit_exceeded",
+                "Cartesian interaction group has more combinations than this run is allowed to close",
+                severity=(
+                    CONTRACT_EXHAUSTION_FINDING_BLOCKER
+                    if group.required
+                    else CONTRACT_EXHAUSTION_FINDING_GAP
+                ),
+                action="split the model, shard the group, or raise the explicit run limit with evidence",
+                metadata={
+                    "group_id": group.group_id,
+                    "model_id": model_id,
+                    "total_combinations": total_combinations,
+                    "generated_limit": generated_limit,
+                },
+            )
+        )
+
+    shard_id = _case_id("contract_shard", model_id or plan.plan_id, group.group_id)
+    mutation_cases: list[ContractMutationCase] = []
+    combination_cases: list[ContractCombinationCase] = []
+    generated_count = min(total_combinations, generated_limit)
+    for index, token_product in enumerate(product(*token_sets)):
+        if index >= generated_count:
+            break
+        axis_case_ids = tuple(str(token["case_id"]) for token in token_product)
+        dimension_ids = _unique(
+            dimension_id
+            for token in token_product
+            for dimension_id in token.get("dimension_ids", ())
+        )
+        input_delta = {
+            "axis_cases": {
+                str(token["axis_id"]): str(token["case_id"])
+                for token in token_product
+            },
+            "axis_values": {
+                str(token["axis_id"]): to_jsonable(token.get("value", ""))
+                for token in token_product
+            },
+            "dimension_ids": list(dimension_ids),
+            "interaction_group_id": group.group_id,
+            "model_id": model_id,
+        }
+        case_id = _case_id("cartesian", model_id or plan.plan_id, group.group_id, str(index + 1))
+        required_routes = group.required_routes or (
+            CONTRACT_ROUTE_MODEL_MESH,
+            CONTRACT_ROUTE_MODEL_TEST_ALIGNMENT,
+            CONTRACT_ROUTE_TEST_MESH,
+            CONTRACT_ROUTE_RISK_EVIDENCE_LEDGER,
+        )
+        mutation_cases.append(
+            ContractMutationCase(
+                case_id=case_id,
+                dimension_id="|".join(dimension_ids),
+                mutation_type=CONTRACT_MUTATION_CARTESIAN_COMBINATION,
+                source_route=CONTRACT_EXHAUSTION_ROUTE,
+                source_case_id=group.group_id,
+                required=group.required,
+                input_delta=input_delta,
+                expected_status=group.oracle_status,
+                required_routes=required_routes,
+                required_test_cell_id=case_id,
+                risk_gate_id=_case_id("contract_cartesian", case_id),
+                description=group.description
+                or f"{model_id or plan.plan_id} must handle Cartesian combination {group.group_id}",
+                dimension_ids=dimension_ids,
+                axis_case_ids=axis_case_ids,
+                interaction_group_id=group.group_id,
+                combination_order=index + 1,
+                coverage_shard_id=shard_id,
+                model_id=model_id,
+                parent_model_id=plan.parent_model_id,
+                generation_kind=group.generation_kind,
+                metadata={
+                    "axis_ids": [axis.axis_id for axis in axes],
+                    "axis_case_ids": list(axis_case_ids),
+                    "total_combinations": total_combinations,
+                    "generated_limit": generated_limit,
+                    **dict(group.metadata),
+                },
+            )
+        )
+        combination_cases.append(
+            ContractCombinationCase(
+                case_id=case_id,
+                model_id=model_id,
+                interaction_group_id=group.group_id,
+                axis_case_ids=axis_case_ids,
+                dimension_ids=dimension_ids,
+                coverage_shard_id=shard_id,
+                expected_status=group.oracle_status,
+                required_routes=required_routes,
+                metadata=input_delta,
+            )
+        )
+
+    shard = ContractCoverageShard(
+        shard_id=shard_id,
+        model_id=model_id,
+        interaction_group_id=group.group_id,
+        case_ids=tuple(case.case_id for case in mutation_cases),
+        complete=generated_count == total_combinations,
+        total_combinations=total_combinations,
+        generated_count=generated_count,
+        skipped_count=max(0, total_combinations - generated_count),
+        status=(
+            CONTRACT_COVERAGE_STATUS_COVERED
+            if generated_count == total_combinations
+            else CONTRACT_COVERAGE_STATUS_SCOPED
+        ),
+        metadata={
+            "generation_kind": group.generation_kind,
+            "axis_ids": [axis.axis_id for axis in axes],
+        },
+    )
+    return tuple(mutation_cases), tuple(combination_cases), shard, tuple(findings)
+
+
+def _coverage_receipts_for_report(
+    plan: ContractExhaustionPlan,
+    generated_cases: Sequence[ContractMutationCase],
+    findings: Sequence[ContractExhaustionFinding],
+    shards: Sequence[ContractCoverageShard],
+) -> tuple[ModelContractCoverageReceipt, ...]:
+    receipts = list(plan.coverage_receipts)
+    if not (plan.require_model_coverage_receipt or plan.interaction_groups or plan.required_child_receipt_ids):
+        return tuple(receipts)
+
+    model_id = plan.model_id
+    if not model_id and plan.interaction_groups:
+        model_ids = _unique(group.model_id for group in plan.interaction_groups)
+        model_id = model_ids[0] if len(model_ids) == 1 else ""
+    case_ids = tuple(
+        case.case_id
+        for case in generated_cases
+        if case.generation_kind
+        in {CONTRACT_GENERATION_LOCAL_CARTESIAN, CONTRACT_GENERATION_PARENT_INTERFACE}
+    )
+    finding_codes = _unique(finding.code for finding in findings)
+    blocking_case_ids = _unique(
+        finding.case_id
+        for finding in findings
+        if finding.case_id and finding.severity == CONTRACT_EXHAUSTION_FINDING_BLOCKER
+    )
+    missing_case_ids = _unique(
+        case.case_id
+        for shard in shards
+        if not shard.complete
+        for case in generated_cases
+        if case.coverage_shard_id == shard.shard_id
+    )
+    status = CONTRACT_COVERAGE_STATUS_COVERED
+    confidence = CONTRACT_EXHAUSTION_CONFIDENCE_FULL
+    if any(finding.severity == CONTRACT_EXHAUSTION_FINDING_BLOCKER for finding in findings):
+        status = CONTRACT_COVERAGE_STATUS_BLOCKED
+        confidence = CONTRACT_EXHAUSTION_CONFIDENCE_BLOCKED
+    elif any(not shard.complete for shard in shards) or any(
+        finding.severity == CONTRACT_EXHAUSTION_FINDING_GAP for finding in findings
+    ):
+        status = CONTRACT_COVERAGE_STATUS_SCOPED
+        confidence = CONTRACT_EXHAUSTION_CONFIDENCE_SCOPED
+    receipt_id = _case_id("contract_coverage", model_id or plan.plan_id)
+    receipts.append(
+        ModelContractCoverageReceipt(
+            receipt_id=receipt_id,
+            model_id=model_id,
+            parent_model_id=plan.parent_model_id,
+            status=status,
+            confidence=confidence,
+            current=True,
+            covered_case_ids=case_ids,
+            shard_ids=tuple(shard.shard_id for shard in shards),
+            interaction_group_ids=tuple(group.group_id for group in plan.interaction_groups),
+            required_child_receipt_ids=plan.required_child_receipt_ids,
+            consumed_child_receipt_ids=plan.consumed_child_receipt_ids,
+            missing_case_ids=missing_case_ids,
+            blocked_case_ids=blocking_case_ids,
+            finding_codes=finding_codes,
+            metadata={
+                "plan_id": plan.plan_id,
+                "model_level": plan.model_level,
+                "required_coverage_receipt_ids": list(plan.required_coverage_receipt_ids),
+            },
+        )
+    )
+    return tuple(receipts)
+
+
+def _coverage_receipt_findings(
+    plan: ContractExhaustionPlan,
+    receipts: Sequence[ModelContractCoverageReceipt],
+    shards: Sequence[ContractCoverageShard],
+) -> tuple[ContractExhaustionFinding, ...]:
+    findings: list[ContractExhaustionFinding] = []
+    receipts_by_id = {receipt.receipt_id: receipt for receipt in receipts}
+    if (plan.require_model_coverage_receipt or plan.interaction_groups) and not plan.model_id and not any(
+        receipt.model_id for receipt in receipts
+    ):
+        findings.append(
+            _finding(
+                "contract_coverage_model_id_missing",
+                "model-scoped Cartesian coverage needs a model id before it can be consumed by ModelMesh",
+                action="set the owning model_id on the plan, group, or receipt",
+            )
+        )
+    for receipt_id in plan.required_coverage_receipt_ids:
+        receipt = receipts_by_id.get(receipt_id)
+        if receipt is None:
+            findings.append(
+                _finding(
+                    "contract_coverage_receipt_missing",
+                    "required model coverage receipt was not supplied or generated",
+                    action="run the model-local Cartesian matrix and provide its receipt",
+                    metadata={"receipt_id": receipt_id},
+                )
+            )
+            continue
+        if not receipt.complete():
+            findings.append(
+                _finding(
+                    "contract_coverage_receipt_incomplete",
+                    "model coverage receipt is not current, full-confidence, and complete",
+                    severity=CONTRACT_EXHAUSTION_FINDING_BLOCKER,
+                    action="close missing/blocked cases or scope out the broad claim",
+                    metadata={"receipt": receipt.to_dict()},
+                )
+            )
+    for receipt in receipts:
+        missing_child_receipts = tuple(
+            receipt_id
+            for receipt_id in receipt.required_child_receipt_ids
+            if receipt_id not in receipt.consumed_child_receipt_ids
+        )
+        if missing_child_receipts:
+            findings.append(
+                _finding(
+                    "contract_child_receipt_unconsumed",
+                    "parent model coverage receipt does not consume every required child coverage receipt",
+                    action="attach the latest child receipt ids to the parent coverage run",
+                    metadata={
+                        "receipt_id": receipt.receipt_id,
+                        "model_id": receipt.model_id,
+                        "missing_child_receipt_ids": list(missing_child_receipts),
+                    },
+                )
+            )
+        if not receipt.current:
+            findings.append(
+                _finding(
+                    "contract_coverage_receipt_stale",
+                    "model coverage receipt is stale",
+                    action="rerun the model-local Cartesian matrix",
+                    metadata={"receipt": receipt.to_dict()},
+                )
+            )
+    for shard in shards:
+        if not shard.complete:
+            findings.append(
+                _finding(
+                    "contract_coverage_shard_incomplete",
+                    "coverage shard did not generate or close every combination in its interaction group",
+                    severity=CONTRACT_EXHAUSTION_FINDING_BLOCKER,
+                    action="complete the shard, split it into explicit child shards, or narrow the claim",
+                    metadata=shard.to_dict(),
+                )
+            )
+    return tuple(findings)
 
 
 def _route_case_ids(cases: Sequence[ContractMutationCase]) -> dict[str, tuple[str, ...]]:
@@ -716,8 +1524,10 @@ def review_contract_exhaustion(plan: ContractExhaustionPlan) -> ContractExhausti
 
     findings: list[ContractExhaustionFinding] = []
     generated_cases: list[ContractMutationCase] = list(plan.seed_cases)
+    combination_cases: list[ContractCombinationCase] = []
+    coverage_shards: list[ContractCoverageShard] = list(plan.coverage_shards)
 
-    if not plan.dimensions and not plan.seed_cases:
+    if not plan.dimensions and not plan.seed_cases and not plan.interaction_groups:
         findings.append(
             _finding(
                 "contract_boundary_missing",
@@ -738,11 +1548,26 @@ def review_contract_exhaustion(plan: ContractExhaustionPlan) -> ContractExhausti
                     severity=severity,
                     dimension_id=dimension.dimension_id,
                     action="split, bound, or explicitly scope this dimension",
-                )
             )
+        )
         generated_cases.extend(_generated_cases_for_dimension(dimension))
 
+    dimensions_by_id = {dimension.dimension_id: dimension for dimension in plan.dimensions}
+    for group in plan.interaction_groups:
+        cases, combos, shard, group_findings = _generated_cases_for_interaction_group(
+            plan,
+            group,
+            dimensions_by_id,
+        )
+        generated_cases.extend(cases)
+        combination_cases.extend(combos)
+        if shard is not None:
+            coverage_shards.append(shard)
+        findings.extend(group_findings)
+
     generated_cases_tuple = tuple(generated_cases)
+    combination_cases_tuple = tuple(combination_cases)
+    coverage_shards_tuple = tuple(coverage_shards)
     oracle_ids = plan.oracle_ids()
     missing_oracle_case_ids: list[str] = []
     model_gap_dimension_ids: list[str] = []
@@ -777,6 +1602,15 @@ def review_contract_exhaustion(plan: ContractExhaustionPlan) -> ContractExhausti
                     action="declare whether runtime rejects, blocks, reissues, marks stale, or scopes it",
                 )
             )
+
+    coverage_receipts = _coverage_receipts_for_report(
+        plan,
+        generated_cases_tuple,
+        findings,
+        coverage_shards_tuple,
+    )
+    coverage_findings = _coverage_receipt_findings(plan, coverage_receipts, coverage_shards_tuple)
+    findings.extend(coverage_findings)
 
     required_route_case_ids = _route_case_ids(generated_cases_tuple)
     composite_handoff_acceptances = _composite_handoff_acceptances(generated_cases_tuple)
@@ -820,6 +1654,13 @@ def review_contract_exhaustion(plan: ContractExhaustionPlan) -> ContractExhausti
         composite_handoff_acceptances=composite_handoff_acceptances,
         missing_oracle_case_ids=_unique(missing_oracle_case_ids),
         model_gap_dimension_ids=_unique(model_gap_dimension_ids),
+        combination_cases=combination_cases_tuple,
+        coverage_shards=coverage_shards_tuple,
+        coverage_receipts=coverage_receipts,
+        required_coverage_receipt_ids=(
+            plan.required_coverage_receipt_ids
+            or tuple(receipt.receipt_id for receipt in coverage_receipts)
+        ),
         summary=(
             "matrix ready; broad chain confidence still requires composite handoff closure"
             if ok and not findings and composite_handoff_acceptances
@@ -926,6 +1767,12 @@ def family_bad_case_seed_to_contract_cases(
                     "mechanism_id": case.mechanism_id,
                     "failure_mode": case.failure_mode,
                     "source_member_id": case.source_member_id,
+                    "affected_model_ids": list(getattr(case, "affected_model_ids", ())),
+                    "root_cause_dimension_ids": list(getattr(case, "root_cause_dimension_ids", ())),
+                    "interaction_group_ids": list(getattr(case, "interaction_group_ids", ())),
+                    "observed_combination_case_id": str(getattr(case, "observed_combination_case_id", "")),
+                    "generated_combination_case_ids": list(getattr(case, "generated_combination_case_ids", ())),
+                    "coverage_receipt_ids": list(getattr(case, "coverage_receipt_ids", ())),
                     **dict(case.metadata),
                 },
             )
@@ -1085,6 +1932,15 @@ def contract_exhaustion_to_model_obligations(report: ContractExhaustionReport) -
         if CONTRACT_ROUTE_MODEL_TEST_ALIGNMENT not in case.routes():
             continue
         required_test_kinds = (TEST_KIND_REPLAY,) if case.required_test_cell_id else (TEST_KIND_NEGATIVE_PATH,)
+        external_inputs = tuple(
+            value
+            for value in (
+                case.mutation_type,
+                *case.axis_case_ids,
+                case.interaction_group_id,
+            )
+            if str(value)
+        )
         obligations.append(
             ModelObligation(
                 f"contract_exhaustion:{case.case_id}",
@@ -1093,7 +1949,7 @@ def contract_exhaustion_to_model_obligations(report: ContractExhaustionReport) -
                 required=case.required,
                 required_test_kinds=required_test_kinds,
                 risk_level="high",
-                external_inputs=(case.mutation_type,),
+                external_inputs=external_inputs,
                 external_outputs=(case.expected_status,),
                 error_paths=(case.expected_status,),
                 exact_external_contract=True,
@@ -1115,6 +1971,12 @@ def contract_exhaustion_to_test_mesh_cell_ids(report: ContractExhaustionReport) 
     return report.required_testmesh_case_ids
 
 
+def contract_exhaustion_to_test_mesh_shard_ids(report: ContractExhaustionReport) -> tuple[str, ...]:
+    """Return Cartesian shard ids that TestMesh must close as child evidence."""
+
+    return report.required_coverage_shard_ids
+
+
 def contract_exhaustion_to_risk_gate_ids(report: ContractExhaustionReport) -> tuple[str, ...]:
     """Return required risk/evidence gate ids for ledger-style evidence checks."""
 
@@ -1131,6 +1993,12 @@ def contract_exhaustion_to_composite_handoff_acceptance_ids(
     """Return acceptance ids that must close before whole-chain confidence."""
 
     return report.required_composite_handoff_acceptance_ids
+
+
+def contract_exhaustion_to_coverage_receipt_ids(report: ContractExhaustionReport) -> tuple[str, ...]:
+    """Return model coverage receipt ids that parent ModelMesh/RiskLedger gates consume."""
+
+    return _unique(receipt.receipt_id for receipt in report.coverage_receipts if receipt.receipt_id)
 
 
 __all__ = (
@@ -1154,6 +2022,7 @@ __all__ = (
     "CONTRACT_EXHAUSTION_FINDING_INFO",
     "CONTRACT_EXHAUSTION_ROUTE",
     "CONTRACT_MUTATION_ANALOGOUS_DEFECT",
+    "CONTRACT_MUTATION_CARTESIAN_COMBINATION",
     "CONTRACT_MUTATION_CONFLICTING_PAYLOAD",
     "CONTRACT_MUTATION_EMPTY_VALUE",
     "CONTRACT_MUTATION_MALFORMED_INPUT",
@@ -1177,6 +2046,18 @@ __all__ = (
     "CONTRACT_ORACLE_REISSUE_WITH_REPAIR_INFO",
     "CONTRACT_ORACLE_REJECT_BEFORE_SIDE_EFFECT",
     "CONTRACT_ORACLE_SCOPED_CONFIDENCE",
+    "CONTRACT_GENERATION_LOCAL_CARTESIAN",
+    "CONTRACT_GENERATION_PARENT_INTERFACE",
+    "CONTRACT_GENERATION_SINGLE_DIMENSION",
+    "CONTRACT_MODEL_LEVEL_CHILD",
+    "CONTRACT_MODEL_LEVEL_LEAF",
+    "CONTRACT_MODEL_LEVEL_PARENT",
+    "CONTRACT_MODEL_LEVEL_ROOT",
+    "CONTRACT_COVERAGE_STATUS_BLOCKED",
+    "CONTRACT_COVERAGE_STATUS_COVERED",
+    "CONTRACT_COVERAGE_STATUS_IN_PROGRESS",
+    "CONTRACT_COVERAGE_STATUS_SCOPED",
+    "DEFAULT_CARTESIAN_CASE_LIMIT",
     "CONTRACT_ROUTE_FIELD_LIFECYCLE",
     "CONTRACT_ROUTE_MODEL_MESH",
     "CONTRACT_ROUTE_MODEL_MISS_REVIEW",
@@ -1185,17 +2066,24 @@ __all__ = (
     "CONTRACT_ROUTE_RISK_EVIDENCE_LEDGER",
     "CONTRACT_ROUTE_TEST_MESH",
     "CompositeHandoffAcceptance",
+    "ContractAxis",
+    "ContractCombinationCase",
+    "ContractCoverageShard",
     "ContractDimension",
     "ContractExhaustionFinding",
     "ContractExhaustionPlan",
     "ContractExhaustionReport",
+    "ContractInteractionGroup",
     "ContractMutationCase",
     "ContractOracle",
+    "ModelContractCoverageReceipt",
     "artifact_payload_cases_to_contract_cases",
     "contract_exhaustion_to_composite_handoff_acceptance_ids",
+    "contract_exhaustion_to_coverage_receipt_ids",
     "contract_exhaustion_to_model_obligations",
     "contract_exhaustion_to_risk_gate_ids",
     "contract_exhaustion_to_test_mesh_cell_ids",
+    "contract_exhaustion_to_test_mesh_shard_ids",
     "family_bad_case_seed_to_contract_cases",
     "model_mesh_closure_to_contract_cases",
     "review_contract_exhaustion",

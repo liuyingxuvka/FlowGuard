@@ -11,6 +11,7 @@ from flowguard import (
     MeshClosureModel,
     MeshClosureTerminal,
     MeshClosureTransition,
+    ModelContractCoverageReceipt,
     ModelTargetSplitDerivation,
     classify_legacy_model,
     review_hierarchical_mesh,
@@ -143,6 +144,67 @@ class HierarchicalMeshTests(unittest.TestCase):
         self.assertEqual("mesh_green_can_continue", report.decision)
         self.assertEqual([], report.to_dict()["findings"])
         self.assertIn("flowguard hierarchical mesh", report.format_text())
+
+    def test_model_coverage_receipts_can_close_parent_child_consumption(self):
+        partition = HierarchyPartitionMap(
+            parent_model_id="checkout",
+            coverage_items=(HierarchyCoverageItem("payment", owner_model_id="payment"),),
+            child_models=(child("payment"),),
+            target_split_derivation=target("checkout", ("payment",), ("payment",)),
+            coverage_receipts=(
+                ModelContractCoverageReceipt(
+                    "contract_coverage:payment",
+                    "payment",
+                    covered_case_ids=("cartesian:payment:local:1",),
+                    shard_ids=("contract_shard:payment:local",),
+                    interaction_group_ids=("local",),
+                ),
+                ModelContractCoverageReceipt(
+                    "contract_coverage:checkout",
+                    "checkout",
+                    required_child_receipt_ids=("contract_coverage:payment",),
+                    consumed_child_receipt_ids=("contract_coverage:payment",),
+                    covered_case_ids=("cartesian:checkout:parent:1",),
+                    shard_ids=("contract_shard:checkout:parent",),
+                    interaction_group_ids=("parent",),
+                ),
+            ),
+            required_coverage_receipt_ids=(
+                "contract_coverage:payment",
+                "contract_coverage:checkout",
+            ),
+        )
+
+        report = review_hierarchical_mesh(partition)
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertIn("model_coverage_receipts", report.activation_reasons)
+
+    def test_parent_coverage_receipt_must_consume_required_child_receipts(self):
+        partition = HierarchyPartitionMap(
+            parent_model_id="checkout",
+            coverage_items=(HierarchyCoverageItem("payment", owner_model_id="payment"),),
+            child_models=(child("payment"),),
+            target_split_derivation=target("checkout", ("payment",), ("payment",)),
+            coverage_receipts=(
+                ModelContractCoverageReceipt(
+                    "contract_coverage:checkout",
+                    "checkout",
+                    required_child_receipt_ids=("contract_coverage:payment",),
+                    consumed_child_receipt_ids=(),
+                    covered_case_ids=("cartesian:checkout:parent:1",),
+                    shard_ids=("contract_shard:checkout:parent",),
+                    interaction_group_ids=("parent",),
+                ),
+            ),
+            required_coverage_receipt_ids=("contract_coverage:checkout",),
+        )
+
+        report = review_hierarchical_mesh(partition)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("model_coverage_receipt_required", report.decision)
+        self.assertIn("model_child_coverage_receipt_unconsumed", {finding.code for finding in report.findings})
 
     def test_child_output_without_closure_model_blocks_parent_green(self):
         partition = HierarchyPartitionMap(

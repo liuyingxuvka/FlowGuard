@@ -8,11 +8,14 @@ from flowguard import (
     RISK_CONFIDENCE_SCOPED,
     RISK_GATE_ANALOGOUS_SCAN,
     RISK_GATE_ARTIFACT_PAYLOAD,
+    RISK_GATE_CONTRACT_COVERAGE_SHARD,
     RISK_GATE_DEFECT_FAMILY,
     RISK_GATE_FAMILY,
     RISK_GATE_MAINTENANCE_OBLIGATION,
+    RISK_GATE_MODEL_CARTESIAN_COVERAGE,
     RISK_GATE_MODEL_ANGLE_REVIEW,
     RISK_GATE_MODEL_SPLIT,
+    RISK_GATE_PARENT_CONSUMED_CHILD_COVERAGE,
     RISK_GATE_PARENT_MODEL_EVIDENCE,
     RISK_GATE_TEST_SPLIT,
     RISK_GATE_TOPOLOGY_HAZARD,
@@ -160,6 +163,40 @@ class RiskEvidenceLedgerTests(unittest.TestCase):
 
         self.assertFalse(report.ok)
         self.assertEqual("unknown_risk_gate_kind", report.decision)
+
+    def test_cartesian_coverage_gates_are_required_for_full_risk_confidence(self):
+        missing = review_risk_evidence_ledger(
+            plan(
+                rows=(
+                    row(
+                        gates=(
+                            gate(RISK_GATE_MODEL_CARTESIAN_COVERAGE),
+                            gate(RISK_GATE_CONTRACT_COVERAGE_SHARD, "contract_shard:packet-router:packet-evidence"),
+                            gate(RISK_GATE_PARENT_CONSUMED_CHILD_COVERAGE, "contract_coverage:parent"),
+                        ),
+                    ),
+                )
+            )
+        )
+
+        self.assertFalse(missing.ok)
+        self.assertIn("missing_model_cartesian_coverage_gate", finding_codes(missing))
+
+        full = review_risk_evidence_ledger(
+            plan(
+                rows=(
+                    row(
+                        gates=(
+                            gate(RISK_GATE_MODEL_CARTESIAN_COVERAGE, "contract_coverage:packet-router"),
+                            gate(RISK_GATE_CONTRACT_COVERAGE_SHARD, "contract_shard:packet-router:packet-evidence"),
+                            gate(RISK_GATE_PARENT_CONSUMED_CHILD_COVERAGE, "contract_coverage:parent"),
+                        ),
+                    ),
+                )
+            )
+        )
+
+        self.assertTrue(full.ok, full.format_text())
 
     def test_stale_skipped_failed_and_progress_only_do_not_count_as_pass(self):
         for status in (

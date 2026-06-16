@@ -8,6 +8,7 @@ from flowguard import (
     CONTRACT_EXHAUSTION_CONFIDENCE_FULL,
     CONTRACT_EXHAUSTION_CONFIDENCE_SCOPED,
     CONTRACT_MUTATION_MISSING_REQUIRED_FIELD,
+    CONTRACT_MUTATION_CARTESIAN_COMBINATION,
     CONTRACT_MUTATION_REPEAT_WITHOUT_DELTA,
     CONTRACT_MUTATION_UNKNOWN_ENUM,
     CONTRACT_ORACLE_REJECT_BEFORE_SIDE_EFFECT,
@@ -21,6 +22,8 @@ from flowguard import (
     ArtifactPayloadContract,
     CompositeHandoffAcceptance,
     ContractDimension,
+    ContractAxis,
+    ContractInteractionGroup,
     ContractExhaustionPlan,
     ContractMutationCase,
     ContractOracle,
@@ -35,9 +38,11 @@ from flowguard import (
     TransitionCoverageMatrix,
     artifact_payload_cases_to_contract_cases,
     contract_exhaustion_to_composite_handoff_acceptance_ids,
+    contract_exhaustion_to_coverage_receipt_ids,
     contract_exhaustion_to_model_obligations,
     contract_exhaustion_to_risk_gate_ids,
     contract_exhaustion_to_test_mesh_cell_ids,
+    contract_exhaustion_to_test_mesh_shard_ids,
     family_bad_case_seed_to_contract_cases,
     model_mesh_closure_to_contract_cases,
     review_contract_exhaustion,
@@ -85,6 +90,92 @@ class ContractExhaustionTests(unittest.TestCase):
         obligations = contract_exhaustion_to_model_obligations(report)
         self.assertEqual(3, len(obligations))
         self.assertTrue(all("contract_exhaustion:" in obligation.obligation_id for obligation in obligations))
+
+    def test_model_local_cartesian_interaction_group_generates_receipt_and_route_obligations(self):
+        report = review_contract_exhaustion(
+            ContractExhaustionPlan(
+                "model-cartesian",
+                model_id="packet-router",
+                parent_model_id="flowpilot-parent",
+                axes=(
+                    ContractAxis("packet_status", values=("missing", "wrong_type")),
+                    ContractAxis("evidence_path", values=("missing_file", "old_packet_dir")),
+                ),
+                interaction_groups=(
+                    ContractInteractionGroup(
+                        "packet-evidence-contract",
+                        axis_ids=("packet_status", "evidence_path"),
+                    ),
+                ),
+                require_model_coverage_receipt=True,
+            )
+        )
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual(4, len(report.combination_cases))
+        self.assertEqual(4, len([case for case in report.generated_cases if case.mutation_type == CONTRACT_MUTATION_CARTESIAN_COMBINATION]))
+        self.assertEqual(("contract_coverage:packet-router",), contract_exhaustion_to_coverage_receipt_ids(report))
+        self.assertEqual(("contract_shard:packet-router:packet-evidence-contract",), contract_exhaustion_to_test_mesh_shard_ids(report))
+        self.assertTrue(all(case.model_id == "packet-router" for case in report.combination_cases))
+        self.assertTrue(set(report.required_combination_case_ids).issubset(set(contract_exhaustion_to_test_mesh_cell_ids(report))))
+        self.assertTrue(contract_exhaustion_to_risk_gate_ids(report))
+        obligations = contract_exhaustion_to_model_obligations(report)
+        cartesian_obligations = [
+            obligation
+            for obligation in obligations
+            if "cartesian:packet-router:packet-evidence-contract" in obligation.obligation_id
+        ]
+        self.assertEqual(4, len(cartesian_obligations))
+        self.assertTrue(all("packet-evidence-contract" in obligation.external_inputs for obligation in cartesian_obligations))
+
+    def test_model_local_cartesian_group_blocks_when_limit_cannot_close_all_cases(self):
+        report = review_contract_exhaustion(
+            ContractExhaustionPlan(
+                "model-cartesian-limit",
+                model_id="packet-router",
+                axes=(
+                    ContractAxis("status", values=("a", "b", "c")),
+                    ContractAxis("evidence", values=("x", "y")),
+                ),
+                interaction_groups=(
+                    ContractInteractionGroup(
+                        "too-wide",
+                        axis_ids=("status", "evidence"),
+                    ),
+                ),
+                cartesian_case_limit=5,
+                require_model_coverage_receipt=True,
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("contract_cartesian_case_limit_exceeded", {finding.code for finding in report.findings})
+        self.assertIn("contract_coverage_shard_incomplete", {finding.code for finding in report.findings})
+        self.assertEqual(5, len(report.combination_cases))
+
+    def test_parent_receipt_blocks_when_required_child_receipt_is_not_consumed(self):
+        report = review_contract_exhaustion(
+            ContractExhaustionPlan(
+                "parent-receipt",
+                model_id="parent",
+                axes=(
+                    ContractAxis("child_summary", values=("pass",)),
+                    ContractAxis("parent_handoff", values=("consume",)),
+                ),
+                interaction_groups=(
+                    ContractInteractionGroup(
+                        "parent-consumes-child",
+                        axis_ids=("child_summary", "parent_handoff"),
+                    ),
+                ),
+                required_child_receipt_ids=("contract_coverage:child-a",),
+                consumed_child_receipt_ids=(),
+                require_model_coverage_receipt=True,
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("contract_child_receipt_unconsumed", {finding.code for finding in report.findings})
 
     def test_unknown_oracle_blocks_required_case(self):
         report = review_contract_exhaustion(

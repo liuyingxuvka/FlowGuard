@@ -192,6 +192,12 @@ class DefectFamilyGate:
     root_cause_field_ids: tuple[str, ...] = ()
     same_class_field_ids: tuple[str, ...] = ()
     old_field_ids: tuple[str, ...] = ()
+    affected_model_ids: tuple[str, ...] = ()
+    root_cause_dimension_ids: tuple[str, ...] = ()
+    interaction_group_ids: tuple[str, ...] = ()
+    observed_combination_case_id: str = ""
+    generated_combination_case_ids: tuple[str, ...] = ()
+    coverage_receipt_ids: tuple[str, ...] = ()
     scoped_confidence_reasons: tuple[str, ...] = ()
     next_actions: tuple[str, ...] = ()
     metadata: Mapping[str, Any] = field(default_factory=dict)
@@ -216,6 +222,12 @@ class DefectFamilyGate:
         object.__setattr__(self, "root_cause_field_ids", _as_tuple(self.root_cause_field_ids))
         object.__setattr__(self, "same_class_field_ids", _as_tuple(self.same_class_field_ids))
         object.__setattr__(self, "old_field_ids", _as_tuple(self.old_field_ids))
+        object.__setattr__(self, "affected_model_ids", _as_tuple(self.affected_model_ids))
+        object.__setattr__(self, "root_cause_dimension_ids", _as_tuple(self.root_cause_dimension_ids))
+        object.__setattr__(self, "interaction_group_ids", _as_tuple(self.interaction_group_ids))
+        object.__setattr__(self, "observed_combination_case_id", str(self.observed_combination_case_id))
+        object.__setattr__(self, "generated_combination_case_ids", _as_tuple(self.generated_combination_case_ids))
+        object.__setattr__(self, "coverage_receipt_ids", _as_tuple(self.coverage_receipt_ids))
         object.__setattr__(
             self,
             "scoped_confidence_reasons",
@@ -247,6 +259,12 @@ class DefectFamilyGate:
             "root_cause_field_ids": list(self.root_cause_field_ids),
             "same_class_field_ids": list(self.same_class_field_ids),
             "old_field_ids": list(self.old_field_ids),
+            "affected_model_ids": list(self.affected_model_ids),
+            "root_cause_dimension_ids": list(self.root_cause_dimension_ids),
+            "interaction_group_ids": list(self.interaction_group_ids),
+            "observed_combination_case_id": self.observed_combination_case_id,
+            "generated_combination_case_ids": list(self.generated_combination_case_ids),
+            "coverage_receipt_ids": list(self.coverage_receipt_ids),
             "scoped_confidence_reasons": list(self.scoped_confidence_reasons),
             "next_actions": list(self.next_actions),
             "metadata": to_jsonable(dict(self.metadata)),
@@ -843,6 +861,32 @@ def review_defect_family_gates(plan: DefectFamilyGatePlan) -> DefectFamilyGateRe
                     "field-root-cause model miss has no same-class field case ids",
                     gate_id=gate.gate_id,
                     metadata={"root_cause_field_ids": list(gate.root_cause_field_ids)},
+                ),
+            )
+        if gate.observed_combination_case_id and not gate.interaction_group_ids:
+            add_gap(
+                gate.gate_id,
+                _finding(
+                    "missing_combination_interaction_group",
+                    "combination-root-cause model miss has no interaction group id to deepen",
+                    gate_id=gate.gate_id,
+                    metadata={
+                        "observed_combination_case_id": gate.observed_combination_case_id,
+                        "affected_model_ids": list(gate.affected_model_ids),
+                    },
+                ),
+            )
+        if gate.observed_combination_case_id and not gate.coverage_receipt_ids:
+            add_gap(
+                gate.gate_id,
+                _finding(
+                    "missing_combination_coverage_receipt",
+                    "combination-root-cause model miss has no coverage receipt proving the upgraded matrix",
+                    gate_id=gate.gate_id,
+                    metadata={
+                        "observed_combination_case_id": gate.observed_combination_case_id,
+                        "generated_combination_case_ids": list(gate.generated_combination_case_ids),
+                    },
                 ),
             )
         if not has_holdout_case:

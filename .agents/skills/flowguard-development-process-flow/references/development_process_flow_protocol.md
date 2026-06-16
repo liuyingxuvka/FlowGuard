@@ -152,10 +152,10 @@ Use these triage classes:
   ids were generated. Regenerate the matrix and rerun the owning evidence
   route.
 - `contract_exhaustion_matrix_stale`: a field/schema boundary, same-class
-  family seed, payload contract, transition matrix, parent/child closure, or
-  no-delta loop changed after canonical bad-case ids were generated.
-  Regenerate ContractExhaustionMesh cases and rerun affected MTA/TestMesh/
-  ModelMesh/Risk Ledger evidence.
+  family seed, payload contract, transition matrix, parent/child closure,
+  interaction group, coverage shard, coverage receipt, or no-delta loop changed
+  after canonical bad-case ids were generated. Regenerate ContractExhaustionMesh
+  cases and rerun affected MTA/TestMesh/ModelMesh/Risk Ledger evidence.
 - `ui_action_evidence_stale`: reachable controls, modeled UI events,
   pure-UI classifications, or native/manual boundaries changed after UI
   implementation validation. Rerun UI Flow Structure implementation evidence.
@@ -179,9 +179,10 @@ Use these triage classes:
   model-code-test binding row was produced. Regenerate the affected row and
   rerun Model-Test Alignment before claiming done or release confidence.
 - `bug_repair_closure_stale`: a root-cause backpropagation record,
-  contract-exhaustion case, owner code contract, legacy path disposition, or Risk
-  Evidence Ledger row changed after the repair was validated. Rerun the owning
-  route evidence before claiming done or release confidence.
+  contract-exhaustion case, generated combination case, coverage receipt, owner
+  code contract, legacy path disposition, or Risk Evidence Ledger row changed
+  after the repair was validated. Rerun the owning route evidence before
+  claiming done or release confidence.
 - `field_lifecycle_changed_after_field_evidence`: FieldLifecycleMesh rows
   changed after field lifecycle evidence was produced. Rerun FieldLifecycleMesh
   and consume the new report before broad claims.

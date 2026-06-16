@@ -16,7 +16,8 @@ Return to `model-first-function-flow` for ordinary small test evidence.
 - Route id: `test_mesh_maintenance`.
 - Core helpers: `review_test_mesh()`, `TestTargetSplitDerivation`,
   `TestSuiteEvidence`, `transition_coverage_to_required_leaf_cell_ids()`,
-  `contract_exhaustion_to_test_mesh_cell_ids()`.
+  `contract_exhaustion_to_test_mesh_cell_ids()`,
+  `contract_exhaustion_to_test_mesh_shard_ids()`.
 - Reference: `references/test_mesh_protocol.md`.
 
 ## Hard Gates
@@ -33,6 +34,10 @@ Return to `model-first-function-flow` for ordinary small test evidence.
   payload, transition, parent/child, and no-delta case ids that need child
   suite ownership. TestMesh reviews freshness and ownership; it does not invent
   replacement bad cases.
+- ContractExhaustionMesh Cartesian shards are child evidence targets. A parent
+  claim that depends on model-local combinations must list
+  `required_coverage_shard_ids`; a child suite must own those shard ids with
+  current passing, non-progress-only evidence.
 - Model-Test Alignment still owns whether a required cell binds the model
   obligation, owner code contract, and external-contract test evidence.
 - New/deepened model-derived test meshes need template harvest closure before
@@ -42,8 +47,8 @@ Return to `model-first-function-flow` for ordinary small test evidence.
 
 1. Identify parent suite/check and partition items.
 2. Derive target child suites or child test scripts from model risk.
-3. Include transition, payload, same-class, no-delta, and
-   contract-exhaustion case ids when the parent claim depends on them.
+3. Include transition, payload, same-class, no-delta, contract-exhaustion case
+   ids, and contract coverage shard ids when the parent claim depends on them.
 4. Attach result status, evidence tier, result path, freshness, and reuse proof.
 5. Scope or block parent confidence when child evidence is stale or missing.
 

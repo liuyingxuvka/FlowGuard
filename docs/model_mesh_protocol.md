@@ -85,6 +85,7 @@ Before trusting existing models, write a compact inventory:
 | `reattachment_contracts` | Parent expectations for repaired child inputs, outputs, ownership, outgoing guarantees, and consumed evidence ids. |
 | `closure_model` | FlowGuard-style parent/child handoff model for root entries, child outputs, consumers, joins, terminals, and out-of-scope dispositions. |
 | `contract_exhaustion_case_ids` | Canonical case ids projected from closure hazards such as stale child evidence, unconsumed child output, or repeat/no-delta loops. |
+| `coverage_receipt_ids` | Model-scoped Cartesian coverage receipts consumed by this parent or child boundary. |
 
 ## Partition And Overlap Review
 
@@ -152,6 +153,13 @@ outgoing guarantees drift from the parent expectation. This gate does not inline
 the child state graph; it checks whether the child can still plug into the
 parent's modeled handoff.
 
+When ContractExhaustionMesh emits `ModelContractCoverageReceipt` rows, treat
+them as model-local evidence ids. A child receipt is not automatically parent
+coverage. The parent partition map must list required child receipt ids and the
+parent receipt must consume them before a broad parent or root claim can be
+green. Missing, stale, duplicate, incomplete, scoped, blocked, or unconsumed
+receipts keep the mesh decision scoped or blocked.
+
 ## Mesh Closure Model
 
 Use a mesh closure model when a parent mesh claims whole-flow confidence across
@@ -215,6 +223,7 @@ Keep the mesh finite and inspectable. A useful mesh state usually contains:
 
 - registered child models and their declared risk boundaries;
 - evidence tier and freshness for each child model;
+- model-scoped Cartesian coverage receipts and required child receipt ids;
 - live/current run or artifact facts that the decision depends on;
 - cross-model dependencies and contract obligations;
 - child reattachment contracts and consumed child evidence ids when a repaired

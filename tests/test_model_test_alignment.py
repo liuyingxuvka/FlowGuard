@@ -23,6 +23,7 @@ from flowguard import (
     TEST_KIND_EDGE_PATH,
     TEST_KIND_FAILURE_PATH,
     TEST_KIND_HAPPY_PATH,
+    TEST_KIND_REPLAY,
     ProofArtifactRef,
     RuntimeNodeContract,
     RuntimeNodeObservation,
@@ -695,6 +696,74 @@ class ModelTestAlignmentTests(unittest.TestCase):
         report = review_model_test_alignment(plan)
 
         self.assertTrue(report.ok, report.format_text())
+
+    def test_contract_exhaustion_combination_obligations_require_case_id_test_evidence(self):
+        exhaustion = flowguard.review_contract_exhaustion(
+            flowguard.ContractExhaustionPlan(
+                "packet-router-contract",
+                model_id="packet-router",
+                axes=(
+                    flowguard.ContractAxis("packet_status", values=("missing", "wrong_type")),
+                    flowguard.ContractAxis("evidence_path", values=("missing_file", "old_packet_dir")),
+                ),
+                interaction_groups=(
+                    flowguard.ContractInteractionGroup(
+                        "packet-evidence-contract",
+                        axis_ids=("packet_status", "evidence_path"),
+                    ),
+                ),
+                require_model_coverage_receipt=True,
+            )
+        )
+        obligations = flowguard.contract_exhaustion_to_model_obligations(exhaustion)
+        obligation_ids = tuple(obligation.obligation_id for obligation in obligations)
+        contracts = tuple(
+            code_contract(
+                f"router.contract.{index}",
+                obligation.obligation_id,
+                external_inputs=obligation.external_inputs,
+                external_outputs=obligation.external_outputs,
+                error_paths=obligation.error_paths,
+            )
+            for index, obligation in enumerate(obligations, start=1)
+        )
+        missing = ModelTestAlignmentPlan(
+            model_id="packet-router",
+            obligations=obligations,
+            code_contracts=contracts,
+            test_evidence=(
+                contract_evidence(
+                    "test_first_combination_only",
+                    obligation_ids[0],
+                    contracts[0].code_contract_id,
+                    test_kind=TEST_KIND_REPLAY,
+                ),
+            ),
+        )
+
+        missing_report = review_model_test_alignment(missing)
+        self.assertFalse(missing_report.ok)
+        self.assertIn("missing_test_evidence", finding_codes(missing_report))
+
+        covered = ModelTestAlignmentPlan(
+            model_id="packet-router",
+            obligations=obligations,
+            code_contracts=contracts,
+            test_evidence=(
+                TestEvidence(
+                    "test_all_generated_combinations",
+                    result_status="passed",
+                    evidence_current=True,
+                    test_kind=TEST_KIND_REPLAY,
+                    covered_obligations=obligation_ids,
+                    covered_code_contracts=tuple(contract.code_contract_id for contract in contracts),
+                    assertion_scope=api_name("TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT"),
+                ),
+            ),
+        )
+
+        covered_report = review_model_test_alignment(covered)
+        self.assertTrue(covered_report.ok, covered_report.format_text())
 
     def test_supporting_and_leaf_evidence_need_targets(self):
         plan = ModelTestAlignmentPlan(

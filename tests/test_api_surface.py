@@ -582,6 +582,43 @@ class ApiSurfaceTests(unittest.TestCase):
         self.assertTrue(report.ok, report.format_text())
         self.assertFalse(report.findings, report.format_text())
 
+    def test_contract_exhaustion_route_profile_mentions_cartesian_receipts_and_handoffs(self):
+        profiles = {profile.route_id: profile for profile in flowguard.default_flowguard_route_profiles()}
+        profile = profiles["contract_exhaustion_mesh"]
+
+        self.assertIn("model axes", profile.minimal_inputs)
+        self.assertIn("interaction groups", profile.minimal_inputs)
+        self.assertIn("combination cases", profile.outputs)
+        self.assertIn("coverage shards", profile.outputs)
+        self.assertIn("coverage receipts", profile.outputs)
+        self.assertIn("model_mesh_maintenance", profile.next_actions)
+        self.assertIn("test_mesh_maintenance", profile.next_actions)
+        checklist = tuple(profile.metadata["checklist"])
+        self.assertTrue(any("declared finite axes" in item for item in checklist))
+        self.assertTrue(any("contract_coverage_shard" in item for item in checklist))
+
+        mta = profiles["model_test_alignment"]
+        self.assertIn("contract-exhaustion obligation ids", mta.minimal_inputs)
+        self.assertIn("combination obligation coverage", mta.outputs)
+
+        test_mesh = profiles["test_mesh_maintenance"]
+        self.assertIn("required shard ids", test_mesh.minimal_inputs)
+        self.assertIn("shard evidence", test_mesh.outputs)
+
+        model_mesh = profiles["model_mesh_maintenance"]
+        self.assertIn("coverage receipts", model_mesh.minimal_inputs)
+        self.assertIn("required child receipt ids", model_mesh.minimal_inputs)
+        self.assertIn("coverage receipt status", model_mesh.outputs)
+
+        risk = profiles["risk_evidence_ledger"]
+        self.assertIn("cartesian coverage gates", risk.minimal_inputs)
+        self.assertIn("coverage gate gaps", risk.outputs)
+
+        miss = profiles["model_miss_review"]
+        self.assertIn("combination case id", miss.minimal_inputs)
+        self.assertIn("interaction group upgrade", miss.outputs)
+        self.assertIn("coverage receipt", miss.outputs)
+
     def test_default_self_maintenance_plan_folds_common_fields(self):
         child_report = flowguard.SelfMaintenanceChildReport(
             "route-graph",

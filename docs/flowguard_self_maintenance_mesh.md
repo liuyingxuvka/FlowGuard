@@ -27,6 +27,15 @@ the route trigger, minimal inputs, outputs, evidence owner, template, skill,
 role, entry policy, canonical owner, absorption route, cleanup disposition, and
 next route.
 
+When a route gains a new required contract object, case generator, receipt,
+gate, or downstream handoff, update the route profile at the same time as the
+runtime helper. The profile is the AI-facing checklist after route selection.
+For ContractExhaustionMesh, that checklist must mention model axes,
+interaction groups, generated combination cases, coverage shards, coverage
+receipts, and the MTA/TestMesh/ModelMesh/RiskLedger handoffs that consume
+them. The compact `ROUTE_STARTER_API` should stay small; detailed objects
+belong in route profiles, advanced APIs, docs, and skill references.
+
 ## Field Layers
 
 Field-heavy work should first use `default_field_layer_profiles()`:

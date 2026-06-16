@@ -5,12 +5,10 @@ description: Use when a FlowGuard project has three or more local models, an ove
 
 # FlowGuard Model Mesh
 
-Standalone FlowGuard satellite skill for parent/child model governance. Use it
-when model evidence is oversized, stale, split across three or more local
-models, or needs child reattachment and affected sibling review.
-
-Return to `model-first-function-flow` for ordinary single-model work. Use
-TestMesh for test hierarchy and StructureMesh for code hierarchy.
+Standalone FlowGuard satellite skill for parent/child model governance when
+evidence is oversized, stale, split across local models, or needs child
+reattachment and affected sibling review. Return to `model-first-function-flow`
+for ordinary single-model work; use TestMesh for tests and StructureMesh for code.
 
 ## First Read
 
@@ -24,19 +22,18 @@ TestMesh for test hierarchy and StructureMesh for code hierarchy.
 ## Hard Gates
 
 - Verify the real package before claiming FlowGuard use.
-- For real target-project work, keep the AGENTS.md managed block/version record
-  current or record why it was not updated.
+- Keep the AGENTS.md managed block/version record current or record why not.
 - Do not create a fake mini-framework.
 - Parent confidence needs parent coverage, legal child disjointness, current
   child reattachment, and leaf boundary-matrix evidence.
 - Background or stale child evidence is scoped, not pass.
-- Older child or parent model artifacts must be upgraded to the current
-  FlowGuard shape, replaced, or explicitly blocked before they count as current
-  mesh evidence.
+- Old parent/child artifacts must be upgraded, replaced, or blocked.
 - Parent/child stale evidence, unconsumed child output, and retry/no-delta
   loop hazards should be projected to ContractExhaustionMesh. Child-local green
   is not parent proof until those generated case ids are consumed by MTA,
   TestMesh, and risk evidence where relevant.
+- Child-local Cartesian coverage is not parent coverage. Parent ModelMesh must
+  consume child `ModelContractCoverageReceipt` ids before broad confidence.
 - New/deepened child or parent models need template harvest closure before broad claims.
 
 ## Minimum Workflow
@@ -48,13 +45,13 @@ TestMesh for test hierarchy and StructureMesh for code hierarchy.
 5. Review affected siblings when a child boundary changed.
 6. Project closure hazards to ContractExhaustionMesh and keep whole-flow
    closure separate from local child green.
+7. Require current child and parent coverage receipts; stale, missing,
+   duplicate, incomplete, or unconsumed receipts block parent confidence.
 
 ## Snapshot
 
-Show a mesh diagram with parent, children, partition items, contract-exhaustion
-closure case ids, evidence tiers/freshness, reattachment status, and what the
-mesh does or does not prove.
-When drawing the snapshot, edges mean delegates, reattaches, consumes output, inherits obligations, or scopes confidence.
+Show a mesh diagram with parent, children, partition items, case ids,
+evidence tiers/freshness, reattachment, and claim boundary.
 
 ## Non-Goals
 
