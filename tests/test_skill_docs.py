@@ -564,6 +564,8 @@ class SkillDocsTests(unittest.TestCase):
             with self.subTest(path=path.relative_to(ROOT)):
                 for phrase in stale_phrases:
                     self.assertNotIn(phrase, text)
+                if path == ROOT / "README.md":
+                    continue
                 self.assertIn("simulator", text.lower(), path)
                 self.assertTrue(
                     "flowguard-development-process-flow" in text

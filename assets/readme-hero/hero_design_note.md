@@ -18,7 +18,7 @@ Choose the smallest risky boundary worth modeling, define a finite-state functio
 
 ## Hero tagline
 
-Executable finite-state preflight models for risky AI-agent transitions before they become code or release claims.
+A Python toolkit for checking risky AI-agent workflow changes before they become code or release claims.
 
 ## Visual concept
 
