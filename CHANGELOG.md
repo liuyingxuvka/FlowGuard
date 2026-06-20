@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.52.1 - 2026-06-20
+
+FlowGuard self-maintenance and release hygiene.
+
+- Archived the completed ContractExhaustionMesh OpenSpec changes into the main
+  specs so the active change list is clean before publication.
+- Re-ran FlowGuard self-maintenance, DevelopmentProcessFlow, Model/Test/Code
+  alignment, TestMesh, and StructureMesh checks and kept the current route
+  structure unchanged because no model-backed split or field deletion was
+  required.
+- Prepared a source-only patch release that aligns public version metadata,
+  project adoption records, changelog, README, Git tag, and GitHub Release.
+
 ## v0.52.0 - 2026-06-20
 
 Contract coverage universe and observed-problem backfeed.

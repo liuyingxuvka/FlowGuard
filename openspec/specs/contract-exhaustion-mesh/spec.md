@@ -142,3 +142,134 @@ matrix readiness.
   ModelMesh, RiskEvidenceLedger, or DevelopmentProcessFlow
 - **THEN** the report MUST expose a composite handoff acceptance id that the
   relevant owner routes can close
+
+### Requirement: Model-scoped Cartesian coverage
+ContractExhaustionMesh SHALL support model-scoped Cartesian coverage by
+allowing a plan to declare local axes, interaction groups, generated
+combination cases, coverage receipts, and shard status for a specific model.
+
+#### Scenario: Leaf model generates local combinations
+- **WHEN** a leaf model declares finite input, state, field, evidence, or output
+  axes in one interaction group
+- **THEN** FlowGuard generates stable combination case ids for the local
+  Cartesian product of that interaction group
+- **AND** the resulting coverage receipt names the model id and generated case
+  ids
+
+#### Scenario: Missing model id blocks full hierarchical coverage
+- **WHEN** a broad hierarchical claim depends on contract-exhaustion coverage
+  but the coverage receipt has no model id
+- **THEN** FlowGuard reports the coverage as invalid for all-model Cartesian
+  confidence
+
+### Requirement: Coverage receipts preserve shard state
+ContractExhaustionMesh SHALL represent large model-scoped Cartesian matrices as
+explicit shards without treating unfinished shards as full coverage.
+
+#### Scenario: Unfinished shard remains visible
+- **WHEN** a model-scoped coverage receipt has required shards that are not
+  current and passing
+- **THEN** the receipt reports scoped or blocked coverage instead of full
+  coverage
+
+#### Scenario: Full coverage requires every required shard
+- **WHEN** every generated case is covered directly or every required shard is
+  current and passing
+- **THEN** the coverage receipt may report full confidence for that model
+
+### Requirement: Parent interface combinations use child summaries
+ContractExhaustionMesh SHALL allow parent interaction groups to combine child
+coverage receipt summaries, exposed output classes, exposed error classes, and
+parent-local axes instead of expanding every child internal case.
+
+#### Scenario: Parent consumes child summaries
+- **WHEN** a parent model declares an interaction group over child receipt
+  output classes and parent state
+- **THEN** FlowGuard generates parent interface combination cases over those
+  summaries
+- **AND** the parent receipt records which child receipt ids were consumed
+
+### Requirement: Combination cases project to route obligations
+ContractExhaustionMesh SHALL project generated combination case ids to
+Model-Test Alignment, TestMesh, ModelMesh, and RiskEvidenceLedger using the
+existing route handoff surface.
+
+#### Scenario: Combination case crosses route owners
+- **WHEN** a generated combination case requires semantic test binding, large
+  test evidence, parent/child consumption, and final risk evidence
+- **THEN** FlowGuard exposes route case ids and composite handoff acceptance ids
+  for the same combination case id
+
+### Requirement: Coverage universe completeness
+ContractExhaustionMesh SHALL allow a plan to declare the complete coverage
+universe for a scoped or broad claim, including required dimensions, axes,
+interaction groups, payload contracts, code boundaries, generated case ids,
+coverage receipts, and explicit scoped exclusions.
+
+#### Scenario: Broad claim missing coverage universe
+- **WHEN** a contract-exhaustion plan claims done, release, publish,
+  production, or full confidence without a coverage universe
+- **THEN** FlowGuard reports a blocked finding instead of treating the generated
+  matrix as complete coverage
+
+#### Scenario: Declared universe item is missing from generated coverage
+- **WHEN** a coverage universe names a required dimension, axis, interaction
+  group, case id, payload contract, boundary, or receipt that is not present in
+  the plan or generated report
+- **THEN** FlowGuard reports the missing item with its kind and id
+
+#### Scenario: Scoped exclusion closes an intentional gap
+- **WHEN** a universe item is intentionally excluded with a reason and owner
+  route
+- **THEN** FlowGuard keeps the exclusion visible without blocking that specific
+  missing item
+
+### Requirement: Actionable oracle feedback
+ContractExhaustionMesh SHALL require reject, block, reissue, retry, or repair
+cases to declare expected feedback fields and repair fields when actionable
+feedback is required by the plan or broad claim.
+
+#### Scenario: Reject case lacks repair fields
+- **WHEN** a required bad case expects rejection, blocking, reissue, retry, or
+  repair but its oracle does not name repair fields
+- **THEN** FlowGuard reports an actionable-oracle finding for that case
+
+#### Scenario: Reject case includes actionable feedback
+- **WHEN** a required bad case has an oracle with expected message fields and
+  repair fields
+- **THEN** FlowGuard can treat the case as mechanically actionable for the
+  contract-exhaustion report
+
+### Requirement: Generic synthetic contract fault profiles
+ContractExhaustionMesh SHALL expose generic synthetic contract-fault profiles
+from generated cases so downstream consumers can rehearse bad submissions
+without adding a domain-specific fake actor to FlowGuard.
+
+#### Scenario: Synthetic fault profile is generated from a case
+- **WHEN** a generated mutation or combination case has an expected oracle
+  reaction
+- **THEN** FlowGuard can emit a `ContractFaultProfile` naming the contract
+  path, mutation type, expected status, message fields, repair fields, and
+  retry class
+
+#### Scenario: Synthetic fault profile is not live evidence
+- **WHEN** a synthetic fault profile is exported
+- **THEN** it is marked synthetic-only and not allowed to satisfy live
+  completion evidence by itself
+
+### Requirement: Observed problem backfeed
+ContractExhaustionMesh SHALL accept observed-problem backfeed rows and report
+whether each real miss maps to generated cases, same-class cases, and coverage
+receipts.
+
+#### Scenario: Observed miss maps to generated coverage
+- **WHEN** an observed problem names generated mutation or combination cases
+  plus same-class coverage and receipt ids
+- **THEN** FlowGuard records the problem as mapped to the current coverage
+  matrix
+
+#### Scenario: Observed miss is outside the coverage universe
+- **WHEN** an observed problem cannot be matched to a generated case,
+  same-class case, or required receipt
+- **THEN** FlowGuard reports it as a coverage or model gap rather than
+  treating the existing matrix as complete
