@@ -587,14 +587,20 @@ class ApiSurfaceTests(unittest.TestCase):
         profile = profiles["contract_exhaustion_mesh"]
 
         self.assertIn("model axes", profile.minimal_inputs)
+        self.assertIn("coverage universe", profile.minimal_inputs)
         self.assertIn("interaction groups", profile.minimal_inputs)
         self.assertIn("combination cases", profile.outputs)
         self.assertIn("coverage shards", profile.outputs)
         self.assertIn("coverage receipts", profile.outputs)
+        self.assertIn("fault profiles", profile.outputs)
+        self.assertIn("backfeed report", profile.outputs)
         self.assertIn("model_mesh_maintenance", profile.next_actions)
         self.assertIn("test_mesh_maintenance", profile.next_actions)
         checklist = tuple(profile.metadata["checklist"])
         self.assertTrue(any("declared finite axes" in item for item in checklist))
+        self.assertTrue(any("coverage universe" in item for item in checklist))
+        self.assertTrue(any("actionable oracle feedback" in item for item in checklist))
+        self.assertTrue(any("observed real misses" in item for item in checklist))
         self.assertTrue(any("contract_coverage_shard" in item for item in checklist))
 
         mta = profiles["model_test_alignment"]
@@ -618,6 +624,23 @@ class ApiSurfaceTests(unittest.TestCase):
         self.assertIn("combination case id", miss.minimal_inputs)
         self.assertIn("interaction group upgrade", miss.outputs)
         self.assertIn("coverage receipt", miss.outputs)
+
+    def test_contract_exhaustion_api_exports_coverage_universe_helpers(self):
+        expected = (
+            "ContractCoverageUniverse",
+            "ContractCoverageExclusion",
+            "ContractFaultProfile",
+            "ObservedProblemBackfeed",
+            "ObservedProblemBackfeedReport",
+            "contract_fault_profiles_from_report",
+            "review_observed_problem_backfeed",
+        )
+
+        for name in expected:
+            self.assertIn(name, flowguard.CONTRACT_EXHAUSTION_MESH_API)
+            self.assertIn(name, flowguard.MODELING_HELPER_API)
+            self.assertIn(name, flowguard.__all__)
+            self.assertTrue(hasattr(flowguard, name), name)
 
     def test_default_self_maintenance_plan_folds_common_fields(self):
         child_report = flowguard.SelfMaintenanceChildReport(

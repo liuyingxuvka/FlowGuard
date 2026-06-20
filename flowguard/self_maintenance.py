@@ -542,9 +542,9 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
         ),
         RouteProfile(
             "contract_exhaustion_mesh",
-            "Declared finite model boundaries need canonical bad-case ids, Cartesian combinations, or oracle handoffs.",
-            ("contract dimensions", "seed cases", "oracles", "model axes", "interaction groups"),
-            ("mutation cases", "combination cases", "coverage shards", "coverage receipts", "route case ids"),
+            "Declared finite model boundaries need canonical bad-case ids, Cartesian combinations, universe coverage, or oracle handoffs.",
+            ("contract dimensions", "coverage universe", "seed cases", "oracles", "model axes", "interaction groups"),
+            ("mutation cases", "combination cases", "coverage shards", "coverage receipts", "fault profiles", "backfeed report", "route case ids"),
             "contract_exhaustion_mesh",
             (
                 "model_test_alignment",
@@ -559,7 +559,10 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             metadata={
                 "checklist": (
                     "declare model_id before Cartesian coverage",
+                    "declare the coverage universe before broad/full claims",
                     "generate only from declared finite axes or dimensions",
+                    "require actionable oracle feedback fields for reject/block/reissue cases",
+                    "map observed real misses back to generated and same-class case ids",
                     "project combination obligations to Model-Test Alignment",
                     "project case and shard ids to TestMesh",
                     "require ModelMesh coverage receipts for parent/child closure",
@@ -568,6 +571,9 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
                 "starter_helpers": (
                     "ContractAxis",
                     "ContractInteractionGroup",
+                    "ContractCoverageUniverse",
+                    "ContractFaultProfile",
+                    "ObservedProblemBackfeed",
                     "ModelContractCoverageReceipt",
                     "contract_exhaustion_to_test_mesh_shard_ids",
                     "contract_exhaustion_to_coverage_receipt_ids",

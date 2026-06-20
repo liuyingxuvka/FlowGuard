@@ -216,10 +216,15 @@ inventory.
 - contract-exhaustion helpers such as `ContractDimension`, `ContractAxis`,
   `ContractInteractionGroup`, `ContractMutationCase`,
   `ContractCombinationCase`, `ContractCoverageShard`,
+  `ContractCoverageUniverse`, `ContractCoverageExclusion`,
   `ModelContractCoverageReceipt`, `ContractOracle`,
-  `CompositeHandoffAcceptance`, `ContractExhaustionPlan`,
+  `CompositeHandoffAcceptance`, `ContractFaultProfile`,
+  `ObservedProblemBackfeed`, `ObservedProblemBackfeedReport`,
+  `ContractExhaustionPlan`,
   `ContractExhaustionReport`,
   `review_contract_exhaustion()`,
+  `contract_fault_profiles_from_report()`,
+  `review_observed_problem_backfeed()`,
   `state_closure_cases_to_contract_cases()`,
   `scenario_matrix_to_contract_cases()`,
   `family_bad_case_seed_to_contract_cases()`,
@@ -235,8 +240,11 @@ inventory.
   boundaries, model-scoped Cartesian axes, same-class family seeds, payload
   cases, transition cells, and parent/child closure hazards into canonical
   bad-case ids with explicit oracle expectations, coverage receipts,
-  downstream route handoffs, shard evidence targets, and independent composite
-  handoff acceptance ids. Matrix ready does not mean whole-chain ready.
+  downstream route handoffs, shard evidence targets, generic synthetic
+  contract-fault profiles, observed-problem backfeed, and independent
+  composite handoff acceptance ids. Matrix ready does not mean whole-chain
+  ready, and broad/full coverage needs a declared coverage universe rather
+  than only internally consistent generated cases.
 - default model topology hazard helpers such as `UsageIntent`,
   `TopologyDigest`, `TopologyHazardCandidate`,
   `infer_topology_digest()`, `infer_topology_hazard_plan()`, and

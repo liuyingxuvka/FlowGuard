@@ -95,6 +95,13 @@ CONTRACT_COVERAGE_STATUS_IN_PROGRESS = "in_progress"
 DEFAULT_CARTESIAN_CASE_LIMIT = 100_000
 
 _BROAD_CLAIMS = {"done", "release", "publish", "production", "full"}
+_ACTIONABLE_ORACLE_STATUSES = {
+    CONTRACT_ORACLE_REJECT_BEFORE_SIDE_EFFECT,
+    CONTRACT_ORACLE_BLOCK_BEFORE_DOWNSTREAM,
+    CONTRACT_ORACLE_REISSUE_WITH_REPAIR_INFO,
+    CONTRACT_ORACLE_MARK_STALE,
+    CONTRACT_ORACLE_NO_DELTA_LOOP_BLOCK,
+}
 
 _DIMENSION_DEFAULT_MUTATIONS: dict[str, tuple[str, ...]] = {
     CONTRACT_DIMENSION_FIELD: (
@@ -174,6 +181,21 @@ def _unique(values: Iterable[str]) -> tuple[str, ...]:
 
 def _metadata(value: Mapping[str, Any] | None) -> dict[str, Any]:
     return dict(value or {})
+
+
+def _metadata_values(metadata: Mapping[str, Any], *keys: str) -> tuple[str, ...]:
+    values: list[str] = []
+    for key in keys:
+        raw = metadata.get(key)
+        if raw is None:
+            continue
+        if isinstance(raw, str):
+            values.append(raw)
+        elif isinstance(raw, Sequence) and not isinstance(raw, (bytes, bytearray)):
+            values.extend(str(item) for item in raw if str(item))
+        else:
+            values.append(str(raw))
+    return _unique(values)
 
 
 def _case_id(*parts: str) -> str:
@@ -725,6 +747,258 @@ class ModelContractCoverageReceipt:
 
 
 @dataclass(frozen=True)
+class ContractCoverageExclusion:
+    """Explicitly scoped item omitted from a coverage universe."""
+
+    item_kind: str
+    item_id: str
+    reason: str
+    owner_route: str
+    source_ref: str = ""
+    expires_when: str = ""
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "item_kind", str(self.item_kind))
+        object.__setattr__(self, "item_id", str(self.item_id))
+        object.__setattr__(self, "reason", str(self.reason))
+        object.__setattr__(self, "owner_route", str(self.owner_route))
+        object.__setattr__(self, "source_ref", str(self.source_ref))
+        object.__setattr__(self, "expires_when", str(self.expires_when))
+        object.__setattr__(self, "metadata", _metadata(self.metadata))
+
+    def complete(self) -> bool:
+        return bool(self.item_kind and self.item_id and self.reason and self.owner_route)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "item_kind": self.item_kind,
+            "item_id": self.item_id,
+            "reason": self.reason,
+            "owner_route": self.owner_route,
+            "source_ref": self.source_ref,
+            "expires_when": self.expires_when,
+            "metadata": to_jsonable(dict(self.metadata)),
+        }
+
+
+@dataclass(frozen=True)
+class ContractCoverageUniverse:
+    """The declared finite universe a contract-exhaustion report claims to cover."""
+
+    universe_id: str
+    claim_scope: str = ""
+    source_refs: tuple[str, ...] = ()
+    required_dimension_ids: tuple[str, ...] = ()
+    required_axis_ids: tuple[str, ...] = ()
+    required_interaction_group_ids: tuple[str, ...] = ()
+    required_payload_contract_ids: tuple[str, ...] = ()
+    required_boundary_ids: tuple[str, ...] = ()
+    required_case_ids: tuple[str, ...] = ()
+    required_coverage_receipt_ids: tuple[str, ...] = ()
+    exclusions: tuple[ContractCoverageExclusion, ...] = ()
+    require_full_product: bool = True
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "universe_id", str(self.universe_id))
+        object.__setattr__(self, "claim_scope", str(self.claim_scope))
+        object.__setattr__(self, "source_refs", _as_tuple(self.source_refs))
+        object.__setattr__(self, "required_dimension_ids", _as_tuple(self.required_dimension_ids))
+        object.__setattr__(self, "required_axis_ids", _as_tuple(self.required_axis_ids))
+        object.__setattr__(
+            self,
+            "required_interaction_group_ids",
+            _as_tuple(self.required_interaction_group_ids),
+        )
+        object.__setattr__(
+            self,
+            "required_payload_contract_ids",
+            _as_tuple(self.required_payload_contract_ids),
+        )
+        object.__setattr__(self, "required_boundary_ids", _as_tuple(self.required_boundary_ids))
+        object.__setattr__(self, "required_case_ids", _as_tuple(self.required_case_ids))
+        object.__setattr__(
+            self,
+            "required_coverage_receipt_ids",
+            _as_tuple(self.required_coverage_receipt_ids),
+        )
+        object.__setattr__(self, "exclusions", tuple(self.exclusions))
+        object.__setattr__(self, "require_full_product", bool(self.require_full_product))
+        object.__setattr__(self, "metadata", _metadata(self.metadata))
+
+    def excluded(self, item_kind: str, item_id: str) -> bool:
+        return any(
+            exclusion.item_kind == item_kind
+            and exclusion.item_id == item_id
+            and exclusion.complete()
+            for exclusion in self.exclusions
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "universe_id": self.universe_id,
+            "claim_scope": self.claim_scope,
+            "source_refs": list(self.source_refs),
+            "required_dimension_ids": list(self.required_dimension_ids),
+            "required_axis_ids": list(self.required_axis_ids),
+            "required_interaction_group_ids": list(self.required_interaction_group_ids),
+            "required_payload_contract_ids": list(self.required_payload_contract_ids),
+            "required_boundary_ids": list(self.required_boundary_ids),
+            "required_case_ids": list(self.required_case_ids),
+            "required_coverage_receipt_ids": list(self.required_coverage_receipt_ids),
+            "exclusions": [exclusion.to_dict() for exclusion in self.exclusions],
+            "require_full_product": self.require_full_product,
+            "metadata": to_jsonable(dict(self.metadata)),
+        }
+
+
+@dataclass(frozen=True)
+class ContractFaultProfile:
+    """Generic synthetic bad-submitter profile derived from a contract case."""
+
+    profile_id: str
+    source_case_id: str
+    mutation_type: str = ""
+    contract_path: str = ""
+    expected_status: str = ""
+    expected_message_fields: tuple[str, ...] = ()
+    required_repair_fields: tuple[str, ...] = ()
+    retry_class: str = ""
+    synthetic_only: bool = True
+    live_completion_allowed: bool = False
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "profile_id", str(self.profile_id))
+        object.__setattr__(self, "source_case_id", str(self.source_case_id))
+        object.__setattr__(self, "mutation_type", str(self.mutation_type))
+        object.__setattr__(self, "contract_path", str(self.contract_path))
+        object.__setattr__(self, "expected_status", str(self.expected_status))
+        object.__setattr__(self, "expected_message_fields", _as_tuple(self.expected_message_fields))
+        object.__setattr__(self, "required_repair_fields", _as_tuple(self.required_repair_fields))
+        object.__setattr__(self, "retry_class", str(self.retry_class))
+        object.__setattr__(self, "synthetic_only", bool(self.synthetic_only))
+        object.__setattr__(self, "live_completion_allowed", bool(self.live_completion_allowed))
+        object.__setattr__(self, "metadata", _metadata(self.metadata))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "profile_id": self.profile_id,
+            "source_case_id": self.source_case_id,
+            "mutation_type": self.mutation_type,
+            "contract_path": self.contract_path,
+            "expected_status": self.expected_status,
+            "expected_message_fields": list(self.expected_message_fields),
+            "required_repair_fields": list(self.required_repair_fields),
+            "retry_class": self.retry_class,
+            "synthetic_only": self.synthetic_only,
+            "live_completion_allowed": self.live_completion_allowed,
+            "metadata": to_jsonable(dict(self.metadata)),
+        }
+
+
+@dataclass(frozen=True)
+class ObservedProblemBackfeed:
+    """A real miss that must map back into canonical generated coverage."""
+
+    problem_id: str
+    observed_failure: str = ""
+    failure_mode: str = ""
+    affected_dimension_ids: tuple[str, ...] = ()
+    affected_axis_ids: tuple[str, ...] = ()
+    affected_interaction_group_ids: tuple[str, ...] = ()
+    affected_payload_contract_ids: tuple[str, ...] = ()
+    affected_boundary_ids: tuple[str, ...] = ()
+    matched_case_ids: tuple[str, ...] = ()
+    matched_combination_case_ids: tuple[str, ...] = ()
+    matched_coverage_receipt_ids: tuple[str, ...] = ()
+    same_class_case_ids: tuple[str, ...] = ()
+    source_refs: tuple[str, ...] = ()
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "problem_id", str(self.problem_id))
+        object.__setattr__(self, "observed_failure", str(self.observed_failure))
+        object.__setattr__(self, "failure_mode", str(self.failure_mode))
+        object.__setattr__(self, "affected_dimension_ids", _as_tuple(self.affected_dimension_ids))
+        object.__setattr__(self, "affected_axis_ids", _as_tuple(self.affected_axis_ids))
+        object.__setattr__(
+            self,
+            "affected_interaction_group_ids",
+            _as_tuple(self.affected_interaction_group_ids),
+        )
+        object.__setattr__(
+            self,
+            "affected_payload_contract_ids",
+            _as_tuple(self.affected_payload_contract_ids),
+        )
+        object.__setattr__(self, "affected_boundary_ids", _as_tuple(self.affected_boundary_ids))
+        object.__setattr__(self, "matched_case_ids", _as_tuple(self.matched_case_ids))
+        object.__setattr__(
+            self,
+            "matched_combination_case_ids",
+            _as_tuple(self.matched_combination_case_ids),
+        )
+        object.__setattr__(
+            self,
+            "matched_coverage_receipt_ids",
+            _as_tuple(self.matched_coverage_receipt_ids),
+        )
+        object.__setattr__(self, "same_class_case_ids", _as_tuple(self.same_class_case_ids))
+        object.__setattr__(self, "source_refs", _as_tuple(self.source_refs))
+        object.__setattr__(self, "metadata", _metadata(self.metadata))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "problem_id": self.problem_id,
+            "observed_failure": self.observed_failure,
+            "failure_mode": self.failure_mode,
+            "affected_dimension_ids": list(self.affected_dimension_ids),
+            "affected_axis_ids": list(self.affected_axis_ids),
+            "affected_interaction_group_ids": list(self.affected_interaction_group_ids),
+            "affected_payload_contract_ids": list(self.affected_payload_contract_ids),
+            "affected_boundary_ids": list(self.affected_boundary_ids),
+            "matched_case_ids": list(self.matched_case_ids),
+            "matched_combination_case_ids": list(self.matched_combination_case_ids),
+            "matched_coverage_receipt_ids": list(self.matched_coverage_receipt_ids),
+            "same_class_case_ids": list(self.same_class_case_ids),
+            "source_refs": list(self.source_refs),
+            "metadata": to_jsonable(dict(self.metadata)),
+        }
+
+
+@dataclass(frozen=True)
+class ObservedProblemBackfeedReport:
+    """Review result for observed problems backfed into the generated matrix."""
+
+    ok: bool
+    decision: str
+    checked_problem_count: int = 0
+    mapped_problem_ids: tuple[str, ...] = ()
+    unmapped_problem_ids: tuple[str, ...] = ()
+    findings: tuple[ContractExhaustionFinding, ...] = ()
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "ok", bool(self.ok))
+        object.__setattr__(self, "decision", str(self.decision))
+        object.__setattr__(self, "checked_problem_count", int(self.checked_problem_count))
+        object.__setattr__(self, "mapped_problem_ids", _as_tuple(self.mapped_problem_ids))
+        object.__setattr__(self, "unmapped_problem_ids", _as_tuple(self.unmapped_problem_ids))
+        object.__setattr__(self, "findings", tuple(self.findings))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "ok": self.ok,
+            "decision": self.decision,
+            "checked_problem_count": self.checked_problem_count,
+            "mapped_problem_ids": list(self.mapped_problem_ids),
+            "unmapped_problem_ids": list(self.unmapped_problem_ids),
+            "findings": [finding.to_dict() for finding in self.findings],
+        }
+
+
+@dataclass(frozen=True)
 class ContractExhaustionPlan:
     """A normalized contract-exhaustion request."""
 
@@ -753,6 +1027,10 @@ class ContractExhaustionPlan:
     consumed_child_receipt_ids: tuple[str, ...] = ()
     require_model_coverage_receipt: bool = False
     cartesian_case_limit: int = DEFAULT_CARTESIAN_CASE_LIMIT
+    coverage_universe: ContractCoverageUniverse | None = None
+    require_coverage_universe: bool = False
+    require_actionable_oracle_feedback: bool = False
+    observed_problem_backfeed: tuple[ObservedProblemBackfeed, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "plan_id", str(self.plan_id))
@@ -783,6 +1061,18 @@ class ContractExhaustionPlan:
         object.__setattr__(self, "consumed_child_receipt_ids", _as_tuple(self.consumed_child_receipt_ids))
         object.__setattr__(self, "require_model_coverage_receipt", bool(self.require_model_coverage_receipt))
         object.__setattr__(self, "cartesian_case_limit", int(self.cartesian_case_limit))
+        object.__setattr__(self, "coverage_universe", self.coverage_universe)
+        object.__setattr__(self, "require_coverage_universe", bool(self.require_coverage_universe))
+        object.__setattr__(
+            self,
+            "require_actionable_oracle_feedback",
+            bool(self.require_actionable_oracle_feedback),
+        )
+        object.__setattr__(
+            self,
+            "observed_problem_backfeed",
+            tuple(self.observed_problem_backfeed),
+        )
 
     def oracle_ids(self) -> set[str]:
         return {oracle.oracle_id for oracle in self.oracles}
@@ -814,6 +1104,17 @@ class ContractExhaustionPlan:
             "consumed_child_receipt_ids": list(self.consumed_child_receipt_ids),
             "require_model_coverage_receipt": self.require_model_coverage_receipt,
             "cartesian_case_limit": self.cartesian_case_limit,
+            "coverage_universe": (
+                self.coverage_universe.to_dict()
+                if self.coverage_universe is not None
+                else None
+            ),
+            "require_coverage_universe": self.require_coverage_universe,
+            "require_actionable_oracle_feedback": self.require_actionable_oracle_feedback,
+            "observed_problem_backfeed": [
+                problem.to_dict()
+                for problem in self.observed_problem_backfeed
+            ],
         }
 
 
@@ -836,6 +1137,9 @@ class ContractExhaustionReport:
     coverage_shards: tuple[ContractCoverageShard, ...] = ()
     coverage_receipts: tuple[ModelContractCoverageReceipt, ...] = ()
     required_coverage_receipt_ids: tuple[str, ...] = ()
+    coverage_universe: ContractCoverageUniverse | None = None
+    contract_fault_profiles: tuple[ContractFaultProfile, ...] = ()
+    observed_problem_backfeed_report: ObservedProblemBackfeedReport | None = None
 
     @property
     def required_mta_case_ids(self) -> tuple[str, ...]:
@@ -897,6 +1201,20 @@ class ContractExhaustionReport:
             "required_coverage_receipt_ids": list(self.required_coverage_receipt_ids),
             "required_combination_case_ids": list(self.required_combination_case_ids),
             "required_coverage_shard_ids": list(self.required_coverage_shard_ids),
+            "coverage_universe": (
+                self.coverage_universe.to_dict()
+                if self.coverage_universe is not None
+                else None
+            ),
+            "contract_fault_profiles": [
+                profile.to_dict()
+                for profile in self.contract_fault_profiles
+            ],
+            "observed_problem_backfeed_report": (
+                self.observed_problem_backfeed_report.to_dict()
+                if self.observed_problem_backfeed_report is not None
+                else None
+            ),
         }
 
     def to_json_text(self, indent: int = 2) -> str:
@@ -924,6 +1242,17 @@ class ContractExhaustionReport:
                 "coverage_shard "
                 f"{shard.shard_id}: {shard.generated_count}/{shard.total_combinations} "
                 f"status={shard.status}"
+            )
+        if self.coverage_universe is not None:
+            lines.append(f"coverage_universe: {self.coverage_universe.universe_id}")
+        if self.contract_fault_profiles:
+            lines.append(f"contract_fault_profiles: {len(self.contract_fault_profiles)}")
+        if self.observed_problem_backfeed_report is not None:
+            lines.append(
+                "observed_problem_backfeed: "
+                f"{self.observed_problem_backfeed_report.decision} "
+                f"mapped={len(self.observed_problem_backfeed_report.mapped_problem_ids)} "
+                f"unmapped={len(self.observed_problem_backfeed_report.unmapped_problem_ids)}"
             )
         for route, case_ids in sorted(self.required_route_case_ids.items()):
             lines.append(f"route {route}: {', '.join(case_ids) if case_ids else '(none)'}")
@@ -1519,6 +1848,377 @@ def _decision(findings: Sequence[ContractExhaustionFinding]) -> tuple[str, str, 
     )
 
 
+def _case_contract_path(case: ContractMutationCase) -> str:
+    metadata = dict(case.metadata)
+    values = _metadata_values(
+        metadata,
+        "contract_path",
+        "field_path",
+        "payload_path",
+        "boundary_id",
+        "code_boundary_id",
+    )
+    if values:
+        return values[0]
+    if case.dimension_id:
+        return case.dimension_id
+    if case.dimension_ids:
+        return ".".join(case.dimension_ids)
+    return case.case_id
+
+
+def _retry_class_for_status(expected_status: str) -> str:
+    if expected_status == CONTRACT_ORACLE_REISSUE_WITH_REPAIR_INFO:
+        return "repair_and_resubmit"
+    if expected_status == CONTRACT_ORACLE_REJECT_BEFORE_SIDE_EFFECT:
+        return "reject_and_repair"
+    if expected_status == CONTRACT_ORACLE_BLOCK_BEFORE_DOWNSTREAM:
+        return "block_and_repair"
+    if expected_status == CONTRACT_ORACLE_MARK_STALE:
+        return "refresh_current_evidence"
+    if expected_status == CONTRACT_ORACLE_NO_DELTA_LOOP_BLOCK:
+        return "stop_repeat_and_escalate"
+    return "none"
+
+
+def _contract_fault_profiles_from_cases(
+    cases: Sequence[ContractMutationCase],
+    oracles: Sequence[ContractOracle],
+) -> tuple[ContractFaultProfile, ...]:
+    oracles_by_id = {oracle.oracle_id: oracle for oracle in oracles}
+    profiles: list[ContractFaultProfile] = []
+    for case in cases:
+        oracle = oracles_by_id.get(case.oracle_id)
+        expected_status = oracle.expected_status if oracle is not None else case.expected_status
+        if not expected_status:
+            continue
+        profiles.append(
+            ContractFaultProfile(
+                profile_id=_case_id("contract_fault", case.case_id),
+                source_case_id=case.case_id,
+                mutation_type=case.mutation_type,
+                contract_path=_case_contract_path(case),
+                expected_status=expected_status,
+                expected_message_fields=(
+                    oracle.expected_message_fields
+                    if oracle is not None
+                    else _metadata_values(case.metadata, "expected_message_fields")
+                ),
+                required_repair_fields=(
+                    oracle.required_repair_fields
+                    if oracle is not None
+                    else _metadata_values(case.metadata, "required_repair_fields")
+                ),
+                retry_class=_retry_class_for_status(expected_status),
+                synthetic_only=True,
+                live_completion_allowed=False,
+                metadata={
+                    "source_route": case.source_route,
+                    "source_case_id": case.source_case_id,
+                    "dimension_ids": list(case.dimension_ids),
+                    "generation_kind": case.generation_kind,
+                },
+            )
+        )
+    return tuple(profiles)
+
+
+def _coverage_universe_available_ids(
+    plan: ContractExhaustionPlan,
+    generated_cases: Sequence[ContractMutationCase],
+    combination_cases: Sequence[ContractCombinationCase],
+    coverage_receipts: Sequence[ModelContractCoverageReceipt],
+) -> dict[str, set[str]]:
+    payload_contract_ids: set[str] = set()
+    boundary_ids: set[str] = set()
+    for dimension in plan.dimensions:
+        if dimension.dimension_type == CONTRACT_DIMENSION_PAYLOAD:
+            payload_contract_ids.add(dimension.dimension_id)
+        boundary_ids.add(dimension.dimension_id)
+        payload_contract_ids.update(
+            _metadata_values(dimension.metadata, "payload_contract_id", "payload_contract_ids")
+        )
+        boundary_ids.update(
+            _metadata_values(dimension.metadata, "boundary_id", "boundary_ids", "code_boundary_id")
+        )
+    for axis in plan.axes:
+        boundary_ids.add(axis.axis_id)
+        boundary_ids.update(_metadata_values(axis.metadata, "boundary_id", "boundary_ids", "code_boundary_id"))
+    for group in plan.interaction_groups:
+        boundary_ids.add(group.group_id)
+        boundary_ids.update(_metadata_values(group.metadata, "boundary_id", "boundary_ids", "code_boundary_id"))
+    for case in generated_cases:
+        boundary_ids.add(case.case_id)
+        if case.dimension_id:
+            boundary_ids.add(case.dimension_id)
+        payload_contract_ids.update(
+            _metadata_values(case.metadata, "payload_contract_id", "payload_contract_ids")
+        )
+        boundary_ids.update(
+            _metadata_values(case.metadata, "boundary_id", "boundary_ids", "code_boundary_id")
+        )
+    return {
+        "dimension": {dimension.dimension_id for dimension in plan.dimensions},
+        "axis": {axis.axis_id for axis in plan.axes},
+        "interaction_group": {group.group_id for group in plan.interaction_groups},
+        "payload_contract": payload_contract_ids,
+        "boundary": boundary_ids,
+        "case": {case.case_id for case in generated_cases} | {case.case_id for case in combination_cases},
+        "coverage_receipt": {receipt.receipt_id for receipt in coverage_receipts},
+    }
+
+
+def _coverage_universe_findings(
+    plan: ContractExhaustionPlan,
+    generated_cases: Sequence[ContractMutationCase],
+    combination_cases: Sequence[ContractCombinationCase],
+    coverage_receipts: Sequence[ModelContractCoverageReceipt],
+) -> tuple[ContractExhaustionFinding, ...]:
+    findings: list[ContractExhaustionFinding] = []
+    universe = plan.coverage_universe
+    if universe is None:
+        if plan.require_coverage_universe or plan.claim_scope in _BROAD_CLAIMS:
+            findings.append(
+                _finding(
+                    "coverage_universe_missing",
+                    "broad contract-exhaustion claim has no declared coverage universe",
+                    action=(
+                        "declare ContractCoverageUniverse or narrow the claim to routine matrix confidence"
+                    ),
+                )
+            )
+        return tuple(findings)
+
+    for exclusion in universe.exclusions:
+        if not exclusion.complete():
+            findings.append(
+                _finding(
+                    "coverage_universe_exclusion_incomplete",
+                    "coverage-universe exclusion must name item kind, item id, reason, and owner route",
+                    action="complete the exclusion or remove it from the coverage universe",
+                    metadata={"universe_id": universe.universe_id, "exclusion": exclusion.to_dict()},
+                )
+            )
+
+    available = _coverage_universe_available_ids(
+        plan,
+        generated_cases,
+        combination_cases,
+        coverage_receipts,
+    )
+    required_by_kind = {
+        "dimension": universe.required_dimension_ids,
+        "axis": universe.required_axis_ids,
+        "interaction_group": universe.required_interaction_group_ids,
+        "payload_contract": universe.required_payload_contract_ids,
+        "boundary": universe.required_boundary_ids,
+        "case": universe.required_case_ids,
+        "coverage_receipt": universe.required_coverage_receipt_ids,
+    }
+    for item_kind, required_ids in required_by_kind.items():
+        for item_id in required_ids:
+            if item_id in available[item_kind] or universe.excluded(item_kind, item_id):
+                continue
+            findings.append(
+                _finding(
+                    "coverage_universe_item_missing",
+                    "coverage universe names an item that is not present in the generated coverage",
+                    action="project this item into ContractExhaustionMesh or add an explicit scoped exclusion",
+                    metadata={
+                        "universe_id": universe.universe_id,
+                        "item_kind": item_kind,
+                        "item_id": item_id,
+                    },
+                )
+            )
+    if (
+        universe.require_full_product
+        and universe.required_axis_ids
+        and not universe.required_interaction_group_ids
+        and not plan.interaction_groups
+    ):
+        findings.append(
+            _finding(
+                "coverage_universe_interaction_group_missing",
+                "coverage universe requires finite axes but no interaction group declares their product",
+                action="declare the model-local interaction group or scope out the product claim",
+                metadata={"universe_id": universe.universe_id},
+            )
+        )
+    return tuple(findings)
+
+
+def _actionable_oracle_feedback_findings(
+    plan: ContractExhaustionPlan,
+    cases: Sequence[ContractMutationCase],
+) -> tuple[ContractExhaustionFinding, ...]:
+    if not (plan.require_actionable_oracle_feedback or plan.claim_scope in _BROAD_CLAIMS):
+        return ()
+    findings: list[ContractExhaustionFinding] = []
+    oracles_by_id = {oracle.oracle_id: oracle for oracle in plan.oracles}
+    for case in cases:
+        if not case.required:
+            continue
+        oracle = oracles_by_id.get(case.oracle_id)
+        expected_status = oracle.expected_status if oracle is not None else case.expected_status
+        if expected_status not in _ACTIONABLE_ORACLE_STATUSES:
+            continue
+        if oracle is None:
+            findings.append(
+                _finding(
+                    "contract_oracle_actionable_missing",
+                    "actionable contract fault needs an explicit oracle with repair feedback fields",
+                    case_id=case.case_id,
+                    action="bind this case to a ContractOracle with expected_message_fields and required_repair_fields",
+                )
+            )
+            continue
+        if not oracle.expected_message_fields:
+            findings.append(
+                _finding(
+                    "contract_oracle_feedback_fields_missing",
+                    "actionable oracle does not name the feedback fields the receiver will see",
+                    case_id=case.case_id,
+                    action="add expected_message_fields to the ContractOracle",
+                    metadata={"oracle_id": oracle.oracle_id},
+                )
+            )
+        if not oracle.required_repair_fields:
+            findings.append(
+                _finding(
+                    "contract_oracle_repair_fields_missing",
+                    "actionable oracle does not name the fields required to repair the submission",
+                    case_id=case.case_id,
+                    action="add required_repair_fields to the ContractOracle",
+                    metadata={"oracle_id": oracle.oracle_id},
+                )
+            )
+    return tuple(findings)
+
+
+def _observed_problem_backfeed_report(
+    problems: Sequence[ObservedProblemBackfeed],
+    generated_cases: Sequence[ContractMutationCase],
+    combination_cases: Sequence[ContractCombinationCase],
+    coverage_receipts: Sequence[ModelContractCoverageReceipt],
+    coverage_universe: ContractCoverageUniverse | None,
+) -> ObservedProblemBackfeedReport | None:
+    if not problems:
+        return None
+    generated_case_ids = {case.case_id for case in generated_cases}
+    combination_case_ids = {case.case_id for case in combination_cases}
+    coverage_receipt_ids = {receipt.receipt_id for receipt in coverage_receipts}
+    same_class_case_ids = {
+        case.case_id
+        for case in generated_cases
+        if case.mutation_type == CONTRACT_MUTATION_ANALOGOUS_DEFECT or case.family_id
+    }
+    universe_dimension_ids = (
+        set(coverage_universe.required_dimension_ids)
+        if coverage_universe is not None
+        else set()
+    )
+    findings: list[ContractExhaustionFinding] = []
+    mapped: list[str] = []
+    unmapped: list[str] = []
+    for problem in problems:
+        before_count = len(findings)
+        if not problem.matched_case_ids and not problem.matched_combination_case_ids:
+            findings.append(
+                _finding(
+                    "observed_problem_case_missing",
+                    "observed problem is not mapped to any generated contract case",
+                    action="add a ContractExhaustionMesh case or mark this as a new model gap",
+                    metadata={"problem_id": problem.problem_id},
+                )
+            )
+        for case_id in problem.matched_case_ids:
+            if case_id not in generated_case_ids:
+                findings.append(
+                    _finding(
+                        "observed_problem_case_unknown",
+                        "observed problem references a case that was not generated by this report",
+                        case_id=case_id,
+                        action="regenerate the matrix or update the observed-problem mapping",
+                        metadata={"problem_id": problem.problem_id},
+                    )
+                )
+        for case_id in problem.matched_combination_case_ids:
+            if case_id not in combination_case_ids:
+                findings.append(
+                    _finding(
+                        "observed_problem_combination_case_unknown",
+                        "observed problem references a Cartesian case that was not generated by this report",
+                        case_id=case_id,
+                        action="add the missing interaction group or update the mapping",
+                        metadata={"problem_id": problem.problem_id},
+                    )
+                )
+        if not problem.same_class_case_ids:
+            findings.append(
+                _finding(
+                    "observed_problem_same_class_case_missing",
+                    "observed problem has no same-class contract case proving the family was covered",
+                    action="project the observed miss into a same-class ContractMutationCase",
+                    metadata={"problem_id": problem.problem_id},
+                )
+            )
+        for case_id in problem.same_class_case_ids:
+            if case_id not in same_class_case_ids and case_id not in generated_case_ids:
+                findings.append(
+                    _finding(
+                        "observed_problem_same_class_case_unknown",
+                        "observed problem references a same-class case that is not in the generated matrix",
+                        case_id=case_id,
+                        action="generate the same-class case or update the backfeed row",
+                        metadata={"problem_id": problem.problem_id},
+                    )
+                )
+        if not problem.matched_coverage_receipt_ids:
+            findings.append(
+                _finding(
+                    "observed_problem_receipt_missing",
+                    "observed problem is not tied to a model coverage receipt",
+                    action="run or attach the coverage receipt that now covers this miss",
+                    metadata={"problem_id": problem.problem_id},
+                )
+            )
+        for receipt_id in problem.matched_coverage_receipt_ids:
+            if receipt_id not in coverage_receipt_ids:
+                findings.append(
+                    _finding(
+                        "observed_problem_receipt_unknown",
+                        "observed problem references a coverage receipt that is not present in this report",
+                        action="attach the current receipt or rerun the coverage matrix",
+                        metadata={"problem_id": problem.problem_id, "receipt_id": receipt_id},
+                    )
+                )
+        for dimension_id in problem.affected_dimension_ids:
+            if coverage_universe is not None and dimension_id not in universe_dimension_ids:
+                findings.append(
+                    _finding(
+                        "observed_problem_dimension_outside_universe",
+                        "observed problem names a dimension outside the declared coverage universe",
+                        dimension_id=dimension_id,
+                        action="add the dimension to the universe or record an explicit exclusion",
+                        metadata={"problem_id": problem.problem_id},
+                    )
+                )
+        if len(findings) == before_count:
+            mapped.append(problem.problem_id)
+        else:
+            unmapped.append(problem.problem_id)
+    decision, _, ok = _decision(findings)
+    return ObservedProblemBackfeedReport(
+        ok=ok,
+        decision=decision,
+        checked_problem_count=len(problems),
+        mapped_problem_ids=_unique(mapped),
+        unmapped_problem_ids=_unique(unmapped),
+        findings=tuple(findings),
+    )
+
+
 def review_contract_exhaustion(plan: ContractExhaustionPlan) -> ContractExhaustionReport:
     """Generate contract bad cases and verify each has a model-owned reaction."""
 
@@ -1611,6 +2311,25 @@ def review_contract_exhaustion(plan: ContractExhaustionPlan) -> ContractExhausti
     )
     coverage_findings = _coverage_receipt_findings(plan, coverage_receipts, coverage_shards_tuple)
     findings.extend(coverage_findings)
+    universe_findings = _coverage_universe_findings(
+        plan,
+        generated_cases_tuple,
+        combination_cases_tuple,
+        coverage_receipts,
+    )
+    findings.extend(universe_findings)
+    actionable_findings = _actionable_oracle_feedback_findings(plan, generated_cases_tuple)
+    findings.extend(actionable_findings)
+    contract_fault_profiles = _contract_fault_profiles_from_cases(generated_cases_tuple, plan.oracles)
+    backfeed_report = _observed_problem_backfeed_report(
+        plan.observed_problem_backfeed,
+        generated_cases_tuple,
+        combination_cases_tuple,
+        coverage_receipts,
+        plan.coverage_universe,
+    )
+    if backfeed_report is not None:
+        findings.extend(backfeed_report.findings)
 
     required_route_case_ids = _route_case_ids(generated_cases_tuple)
     composite_handoff_acceptances = _composite_handoff_acceptances(generated_cases_tuple)
@@ -1659,8 +2378,16 @@ def review_contract_exhaustion(plan: ContractExhaustionPlan) -> ContractExhausti
         coverage_receipts=coverage_receipts,
         required_coverage_receipt_ids=(
             plan.required_coverage_receipt_ids
+            or (
+                plan.coverage_universe.required_coverage_receipt_ids
+                if plan.coverage_universe is not None
+                else ()
+            )
             or tuple(receipt.receipt_id for receipt in coverage_receipts)
         ),
+        coverage_universe=plan.coverage_universe,
+        contract_fault_profiles=contract_fault_profiles,
+        observed_problem_backfeed_report=backfeed_report,
         summary=(
             "matrix ready; broad chain confidence still requires composite handoff closure"
             if ok and not findings and composite_handoff_acceptances
@@ -1669,6 +2396,37 @@ def review_contract_exhaustion(plan: ContractExhaustionPlan) -> ContractExhausti
             else "contract exhaustion needs route/model closure before broad confidence"
         ),
     )
+
+
+def contract_fault_profiles_from_report(
+    report: ContractExhaustionReport,
+) -> tuple[ContractFaultProfile, ...]:
+    """Return generic synthetic contract-fault profiles from a report."""
+
+    if report.contract_fault_profiles:
+        return report.contract_fault_profiles
+    return _contract_fault_profiles_from_cases(report.generated_cases, ())
+
+
+def review_observed_problem_backfeed(
+    report: ContractExhaustionReport,
+    observed_problems: Sequence[ObservedProblemBackfeed],
+) -> ObservedProblemBackfeedReport:
+    """Check that real observed misses map back to canonical generated cases."""
+
+    backfeed_report = _observed_problem_backfeed_report(
+        observed_problems,
+        report.generated_cases,
+        report.combination_cases,
+        report.coverage_receipts,
+        report.coverage_universe,
+    )
+    if backfeed_report is None:
+        return ObservedProblemBackfeedReport(
+            ok=True,
+            decision=CONTRACT_EXHAUSTION_DECISION_READY,
+        )
+    return backfeed_report
 
 
 def state_closure_cases_to_contract_cases(
@@ -2068,16 +2826,22 @@ __all__ = (
     "CompositeHandoffAcceptance",
     "ContractAxis",
     "ContractCombinationCase",
+    "ContractCoverageExclusion",
     "ContractCoverageShard",
+    "ContractCoverageUniverse",
     "ContractDimension",
     "ContractExhaustionFinding",
     "ContractExhaustionPlan",
     "ContractExhaustionReport",
+    "ContractFaultProfile",
     "ContractInteractionGroup",
     "ContractMutationCase",
     "ContractOracle",
     "ModelContractCoverageReceipt",
+    "ObservedProblemBackfeed",
+    "ObservedProblemBackfeedReport",
     "artifact_payload_cases_to_contract_cases",
+    "contract_fault_profiles_from_report",
     "contract_exhaustion_to_composite_handoff_acceptance_ids",
     "contract_exhaustion_to_coverage_receipt_ids",
     "contract_exhaustion_to_model_obligations",
@@ -2087,6 +2851,7 @@ __all__ = (
     "family_bad_case_seed_to_contract_cases",
     "model_mesh_closure_to_contract_cases",
     "review_contract_exhaustion",
+    "review_observed_problem_backfeed",
     "scenario_matrix_to_contract_cases",
     "state_closure_cases_to_contract_cases",
     "transition_coverage_to_contract_cases",

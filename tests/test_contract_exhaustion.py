@@ -8,9 +8,11 @@ from flowguard import (
     CONTRACT_EXHAUSTION_CONFIDENCE_FULL,
     CONTRACT_EXHAUSTION_CONFIDENCE_SCOPED,
     CONTRACT_MUTATION_MISSING_REQUIRED_FIELD,
+    CONTRACT_MUTATION_ANALOGOUS_DEFECT,
     CONTRACT_MUTATION_CARTESIAN_COMBINATION,
     CONTRACT_MUTATION_REPEAT_WITHOUT_DELTA,
     CONTRACT_MUTATION_UNKNOWN_ENUM,
+    CONTRACT_ORACLE_PASS_ALLOWED,
     CONTRACT_ORACLE_REJECT_BEFORE_SIDE_EFFECT,
     CONTRACT_ROUTE_FIELD_LIFECYCLE,
     CONTRACT_ROUTE_MODEL_MESH,
@@ -21,12 +23,15 @@ from flowguard import (
     ArtifactPayloadCase,
     ArtifactPayloadContract,
     CompositeHandoffAcceptance,
+    ContractCoverageExclusion,
+    ContractCoverageUniverse,
     ContractDimension,
     ContractAxis,
     ContractInteractionGroup,
     ContractExhaustionPlan,
     ContractMutationCase,
     ContractOracle,
+    ObservedProblemBackfeed,
     MeshClosureModel,
     MeshClosureTransition,
     ObligationFamily,
@@ -37,6 +42,7 @@ from flowguard import (
     TransitionCoverageCell,
     TransitionCoverageMatrix,
     artifact_payload_cases_to_contract_cases,
+    contract_fault_profiles_from_report,
     contract_exhaustion_to_composite_handoff_acceptance_ids,
     contract_exhaustion_to_coverage_receipt_ids,
     contract_exhaustion_to_model_obligations,
@@ -46,6 +52,7 @@ from flowguard import (
     family_bad_case_seed_to_contract_cases,
     model_mesh_closure_to_contract_cases,
     review_contract_exhaustion,
+    review_observed_problem_backfeed,
     scenario_matrix_to_contract_cases,
     state_closure_cases_to_contract_cases,
     transition_coverage_to_contract_cases,
@@ -284,6 +291,198 @@ class ContractExhaustionTests(unittest.TestCase):
             {finding.code for finding in report.findings},
         )
         self.assertEqual((), report.required_composite_handoff_acceptance_ids)
+
+    def test_broad_claim_requires_declared_coverage_universe(self):
+        report = review_contract_exhaustion(
+            ContractExhaustionPlan(
+                "release-no-universe",
+                seed_cases=(
+                    ContractMutationCase(
+                        "packet-kind-present",
+                        mutation_type=CONTRACT_MUTATION_MISSING_REQUIRED_FIELD,
+                        expected_status=CONTRACT_ORACLE_PASS_ALLOWED,
+                    ),
+                ),
+                claim_scope="release",
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("coverage_universe_missing", {finding.code for finding in report.findings})
+
+    def test_coverage_universe_blocks_missing_required_items_and_accepts_explicit_exclusion(self):
+        blocked = review_contract_exhaustion(
+            ContractExhaustionPlan(
+                "universe-missing-axis",
+                dimensions=(
+                    ContractDimension("packet.kind", CONTRACT_DIMENSION_FIELD),
+                ),
+                coverage_universe=ContractCoverageUniverse(
+                    "packet-contract-universe",
+                    required_dimension_ids=("packet.kind",),
+                    required_axis_ids=("packet_status",),
+                    required_payload_contract_ids=("packet-json",),
+                ),
+                require_coverage_universe=True,
+            )
+        )
+
+        self.assertFalse(blocked.ok)
+        missing = {
+            (finding.metadata.get("item_kind"), finding.metadata.get("item_id"))
+            for finding in blocked.findings
+            if finding.code == "coverage_universe_item_missing"
+        }
+        self.assertIn(("axis", "packet_status"), missing)
+        self.assertIn(("payload_contract", "packet-json"), missing)
+
+        scoped = review_contract_exhaustion(
+            ContractExhaustionPlan(
+                "universe-excluded-payload",
+                dimensions=(
+                    ContractDimension("packet.kind", CONTRACT_DIMENSION_FIELD),
+                ),
+                coverage_universe=ContractCoverageUniverse(
+                    "packet-contract-universe",
+                    required_dimension_ids=("packet.kind",),
+                    required_payload_contract_ids=("packet-json",),
+                    exclusions=(
+                        ContractCoverageExclusion(
+                            "payload_contract",
+                            "packet-json",
+                            "payload contract is owned by the artifact-payload child route",
+                            "model_test_alignment",
+                        ),
+                    ),
+                ),
+                require_coverage_universe=True,
+            )
+        )
+
+        self.assertTrue(scoped.ok, scoped.format_text())
+        self.assertNotIn("coverage_universe_item_missing", {finding.code for finding in scoped.findings})
+
+    def test_actionable_oracle_feedback_requires_message_and_repair_fields(self):
+        report = review_contract_exhaustion(
+            ContractExhaustionPlan(
+                "actionable-oracle-missing-fields",
+                seed_cases=(
+                    ContractMutationCase(
+                        "bad-packet-json",
+                        mutation_type=CONTRACT_MUTATION_MISSING_REQUIRED_FIELD,
+                        oracle_id="reject-json",
+                    ),
+                ),
+                oracles=(
+                    ContractOracle(
+                        "reject-json",
+                        CONTRACT_ORACLE_REJECT_BEFORE_SIDE_EFFECT,
+                    ),
+                ),
+                require_actionable_oracle_feedback=True,
+            )
+        )
+
+        self.assertFalse(report.ok)
+        finding_codes = {finding.code for finding in report.findings}
+        self.assertIn("contract_oracle_feedback_fields_missing", finding_codes)
+        self.assertIn("contract_oracle_repair_fields_missing", finding_codes)
+
+    def test_contract_fault_profiles_are_generic_and_not_live_evidence(self):
+        report = review_contract_exhaustion(
+            ContractExhaustionPlan(
+                "fault-profiles",
+                seed_cases=(
+                    ContractMutationCase(
+                        "bad-packet-json",
+                        dimension_id="packet.body",
+                        mutation_type=CONTRACT_MUTATION_MISSING_REQUIRED_FIELD,
+                        oracle_id="reject-json",
+                    ),
+                ),
+                oracles=(
+                    ContractOracle(
+                        "reject-json",
+                        CONTRACT_ORACLE_REJECT_BEFORE_SIDE_EFFECT,
+                        expected_message_fields=("error_path", "expected_format"),
+                        required_repair_fields=("packet.body",),
+                    ),
+                ),
+            )
+        )
+
+        profiles = contract_fault_profiles_from_report(report)
+        self.assertEqual(1, len(profiles))
+        self.assertEqual("bad-packet-json", profiles[0].source_case_id)
+        self.assertEqual("packet.body", profiles[0].contract_path)
+        self.assertEqual(("error_path", "expected_format"), profiles[0].expected_message_fields)
+        self.assertTrue(profiles[0].synthetic_only)
+        self.assertFalse(profiles[0].live_completion_allowed)
+
+    def test_observed_problem_backfeed_requires_case_family_and_receipt_mapping(self):
+        same_class = ContractMutationCase(
+            "same_class:miss-a:packet-b:evidence-bind",
+            mutation_type=CONTRACT_MUTATION_ANALOGOUS_DEFECT,
+            family_id="packets",
+            expected_status=CONTRACT_ORACLE_PASS_ALLOWED,
+        )
+        report = review_contract_exhaustion(
+            ContractExhaustionPlan(
+                "backfeed-ok",
+                model_id="packet-router",
+                seed_cases=(same_class,),
+                axes=(
+                    ContractAxis("packet_status", values=("missing",)),
+                    ContractAxis("evidence_path", values=("missing_file",)),
+                ),
+                interaction_groups=(
+                    ContractInteractionGroup(
+                        "packet-evidence-contract",
+                        axis_ids=("packet_status", "evidence_path"),
+                    ),
+                ),
+                require_model_coverage_receipt=True,
+                coverage_universe=ContractCoverageUniverse(
+                    "packet-universe",
+                    required_dimension_ids=(),
+                    required_axis_ids=("packet_status", "evidence_path"),
+                    required_interaction_group_ids=("packet-evidence-contract",),
+                    required_case_ids=("same_class:miss-a:packet-b:evidence-bind",),
+                    required_coverage_receipt_ids=("contract_coverage:packet-router",),
+                ),
+            )
+        )
+
+        backfeed = review_observed_problem_backfeed(
+            report,
+            (
+                ObservedProblemBackfeed(
+                    "real-miss-a",
+                    matched_case_ids=("same_class:miss-a:packet-b:evidence-bind",),
+                    same_class_case_ids=("same_class:miss-a:packet-b:evidence-bind",),
+                    matched_coverage_receipt_ids=("contract_coverage:packet-router",),
+                ),
+            ),
+        )
+
+        self.assertTrue(backfeed.ok, backfeed.to_dict())
+        self.assertEqual(("real-miss-a",), backfeed.mapped_problem_ids)
+
+        blocked = review_contract_exhaustion(
+            ContractExhaustionPlan(
+                "backfeed-missing",
+                seed_cases=(same_class,),
+                observed_problem_backfeed=(
+                    ObservedProblemBackfeed("real-miss-b"),
+                ),
+            )
+        )
+
+        self.assertFalse(blocked.ok)
+        finding_codes = {finding.code for finding in blocked.findings}
+        self.assertIn("observed_problem_case_missing", finding_codes)
+        self.assertIn("observed_problem_same_class_case_missing", finding_codes)
+        self.assertIn("observed_problem_receipt_missing", finding_codes)
 
     def test_state_closure_and_scenario_matrix_feed_common_cases(self):
         state_cases = state_closure_cases_to_contract_cases(

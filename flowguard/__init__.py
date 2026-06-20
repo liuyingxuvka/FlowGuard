@@ -1274,6 +1274,7 @@ MODELING_HELPER_API = (
     "ScenarioMatrixBuilder",
     *FLOWGUARD_SELF_MAINTENANCE_ROUTE_API,
     *MODEL_ANGLE_DELIBERATION_API,
+    *CONTRACT_EXHAUSTION_MESH_API,
     "CachePack",
     "DeduplicationPack",
     "RetryPack",

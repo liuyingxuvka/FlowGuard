@@ -662,7 +662,10 @@ For ContractExhaustionMesh model-local Cartesian coverage, use
 `contract_exhaustion_to_model_obligations(...)` before claiming generated
 combination cases are tested. Each generated obligation needs current evidence
 for the exact case id; shard ownership belongs in TestMesh and coverage
-receipt consumption belongs in ModelMesh/Risk Evidence Ledger.
+receipt consumption belongs in ModelMesh/Risk Evidence Ledger. Broad/full
+claims must also keep the `ContractCoverageUniverse`, actionable oracle
+feedback fields, and any `ObservedProblemBackfeed` mapping aligned with those
+same obligation ids and receipts.
 
 List test evidence:
 

@@ -148,6 +148,16 @@ creates canonical case ids and expected oracle reactions; MTA/TestMesh/ModelMesh
 and the Risk Evidence Ledger close the evidence. Do not treat hand-written
 analogous examples as exhaustive coverage.
 
+For broad/full coverage claims, also declare a `ContractCoverageUniverse`.
+That universe lists the dimensions, axes, interaction groups, payload
+contracts, code boundaries, case ids, and coverage receipts that are in scope.
+If a real observed problem is discovered later, backfeed it as
+`ObservedProblemBackfeed`; it must map to generated cases, same-class cases,
+and coverage receipts, or FlowGuard should report a model/coverage gap. Reject,
+block, reissue, retry, or repair cases also need actionable oracle feedback
+fields so the report proves the receiver can fix the bad submission, not only
+that the bad submission is rejected.
+
 Every `FlowGuardSummaryReport` also exposes `finding_ledger` and
 `maintenance_obligations`, and `to_dict()` includes both as machine-readable
 output. The ledger flattens model check failures, audit warnings,

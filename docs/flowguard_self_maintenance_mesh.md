@@ -32,9 +32,11 @@ gate, or downstream handoff, update the route profile at the same time as the
 runtime helper. The profile is the AI-facing checklist after route selection.
 For ContractExhaustionMesh, that checklist must mention model axes,
 interaction groups, generated combination cases, coverage shards, coverage
-receipts, and the MTA/TestMesh/ModelMesh/RiskLedger handoffs that consume
-them. The compact `ROUTE_STARTER_API` should stay small; detailed objects
-belong in route profiles, advanced APIs, docs, and skill references.
+receipts, coverage universes, actionable oracle feedback, observed-problem
+backfeed, generic fault profiles, and the MTA/TestMesh/ModelMesh/RiskLedger
+handoffs that consume them. The compact `ROUTE_STARTER_API` should stay small;
+detailed objects belong in route profiles, advanced APIs, docs, and skill
+references.
 
 ## Field Layers
 

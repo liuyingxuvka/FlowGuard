@@ -44,9 +44,11 @@ Before changing files, separate three situations:
 - `contract_exhaustion_mesh`: a declared finite boundary, same-class family,
   payload contract, transition matrix, parent/child closure, or no-delta loop
   must be expanded into canonical bad-case ids with explicit oracle reactions
-  and downstream route handoffs. Use this after the owning route declares the
-  boundary and before treating similar-bug or exhaustive-boundary coverage as
-  current evidence.
+  and downstream route handoffs. Broad/full claims must also declare the
+  coverage universe and make observed real misses map back to generated and
+  same-class case ids. Use this after the owning route declares the boundary
+  and before treating similar-bug or exhaustive-boundary coverage as current
+  evidence.
 - `model_topology_hazard_review`: a locally green model topology may imply
   future-use hazards before broad done, release, publish, or full-confidence
   claims. Read topology and usage intent first; only hazards with concrete

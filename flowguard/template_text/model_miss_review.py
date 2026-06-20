@@ -867,11 +867,13 @@ issue after a FlowGuard pass.
   and which ContractExhaustionMesh case ids represent it or explicitly scope it out?
 - If this is a combination miss, which affected model ids, root-cause dimension
   ids, interaction group ids, generated combination case ids, and coverage
-  receipt ids represent the wider bug class?
+  receipt ids represent the wider bug class, and does the coverage universe now
+  include those ids?
 - How is the known bug used as validation or holdout evidence instead of the
   whole model target?
 - Which observed-regression test and ContractExhaustionMesh case test evidence
-  now prove the repaired obligation?
+  now prove the repaired obligation, and which ObservedProblemBackfeed row maps
+  the real miss back to generated and same-class cases?
 - Which `root_cause_field_ids`, `same_class_field_ids`, and `old_field_ids`
   describe the field-level miss, and does FieldLifecycleMesh close their
   projection or disposition gaps?

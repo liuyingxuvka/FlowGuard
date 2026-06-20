@@ -82,7 +82,7 @@ the row below calls for deep route evidence.
 | FlowGuard itself feels heavy, route groups are incomplete, field layers need folding, or AI needs route-first self-maintenance | `flowguard_self_maintenance` | `review_flowguard_self_maintenance()` |
 | Existing modeled system, ownership lookup, duplicate-boundary risk, missing model angle, or similar workflow/model/test family | `existing_model_preflight` | `flowguard-existing-model-preflight`; consumes model-angle and similarity rows |
 | Field additions, removals, renames, migrations, replacements, prompt/config fields, payload/schema keys, old-field disposition | `field_lifecycle_mesh` | `flowguard-field-lifecycle-mesh` |
-| Canonical finite bad-case generation from declared boundaries/families/payloads/transitions/mesh closure | `contract_exhaustion_mesh` | `flowguard-contract-exhaustion-mesh` |
+| Canonical finite bad-case generation from declared boundaries/families/payloads/transitions/mesh closure, broad coverage universe, or observed-problem backfeed | `contract_exhaustion_mesh` | `flowguard-contract-exhaustion-mesh` |
 | New/deepened model must reuse/search and close public/local template harvest | `risk_template_library` | `risk-template-search`, `risk-template-harvest`, `risk-template-harvest-review`, or `risk-template-library-template` |
 | Rough plan, multi-skill/tool setup, staged execution, post-change scan, install/sync, release/archive/publish, or final process claim | `development_process_flow` | `flowguard-development-process-flow` simulator owner; may delegate `flowguard-plan-detailing-compiler` or `flowguard-agent-workflow-rehearsal` |
 | Ordinary behavior/state modeling, Risk Intent, state inventory | `core_modeling` | `references/modeling_protocol.md` |

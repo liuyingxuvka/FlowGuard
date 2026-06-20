@@ -5,9 +5,11 @@ evidence:
 
 ```text
 declared finite boundary
+-> coverage universe for broad/full claims
 -> optional model-scoped axes and interaction groups
 -> ContractMutationCase / ContractCombinationCase ids
--> oracle reactions and coverage receipts
+-> oracle reactions, actionable feedback, fault profiles, and coverage receipts
+-> observed-problem backfeed for real misses
 -> composite handoff acceptance
 -> MTA/TestMesh/ModelMesh/Risk Evidence Ledger handoff
 ```
@@ -16,6 +18,9 @@ It is not a global bug oracle. It exhausts the boundary the model has actually
 declared. Missing declarations are model gaps. Cartesian generation is
 per-model: the route combines declared axes inside one model boundary or a
 declared parent-interface group, not every field in the repository.
+For broad/full claims, missing universe declarations are also model gaps: the
+route must name the finite universe it claims to cover before the generated
+matrix can be treated as complete.
 
 ## Feeders
 
@@ -47,8 +52,14 @@ Create `ContractExhaustionPlan` with:
 - `axes`: finite model-local values or dimension-derived mutations;
 - `interaction_groups`: the axis sets that should be combined by Cartesian
   product;
+- `coverage_universe`: dimensions, axes, groups, payload contracts, boundaries,
+  case ids, receipts, and scoped exclusions claimed by this run;
 - `required_child_receipt_ids` and `consumed_child_receipt_ids` when a parent
   model coverage run must consume child coverage;
+- `require_actionable_oracle_feedback`: true when reject/block/reissue/repair
+  cases must prove the receiver gets repairable feedback fields;
+- `observed_problem_backfeed`: real misses that must map back to generated
+  cases, same-class cases, and coverage receipts;
 - `claim_scope`: routine, done, release, publish, production, or full;
 - `required_route_ids`: routes that must receive at least one case.
 
@@ -65,6 +76,15 @@ coverage receipt ids. A generated combination id is only a candidate proof
 target until TestMesh, Model-Test Alignment, ModelMesh, and Risk Evidence
 Ledger consume the corresponding case, shard, receipt, and composite handoff
 ids.
+
+For universe coverage, blockers include a broad/full claim with no
+`ContractCoverageUniverse`, a universe item that is not present in generated
+coverage, an incomplete scoped exclusion, or an observed real miss that cannot
+be mapped to generated cases, same-class cases, and a current coverage receipt.
+For actionable feedback, reject/block/reissue/repair cases need a
+`ContractOracle` with `expected_message_fields` and `required_repair_fields`.
+`ContractFaultProfile` rows can then be used by downstream synthetic
+contract-submitter rehearsals, but they remain synthetic-only evidence.
 
 Matrix readiness is not full chain readiness. `composite_handoff_acceptances`
 and `contract_exhaustion_to_composite_handoff_acceptance_ids(...)` are separate

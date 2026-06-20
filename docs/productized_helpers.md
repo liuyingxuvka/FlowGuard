@@ -23,6 +23,16 @@ reactions, and downstream MTA/TestMesh/ModelMesh/Risk Ledger handoffs. This
 replaces older patterns where each prompt hand-wrote "similar bug" examples
 as if they were canonical coverage.
 
+For broad/full claims, the route must also declare a `ContractCoverageUniverse`.
+This is the generic list of what the matrix claims to cover: dimensions, axes,
+interaction groups, payload contracts, code boundaries, generated case ids, and
+coverage receipts. Missing items must either be projected into
+ContractExhaustionMesh or explicitly scoped out with an owner route and reason.
+When a bad-submitter rehearsal is needed, use generic `ContractFaultProfile`
+rows derived from cases; FlowGuard does not need a product-specific fake actor.
+When a real miss appears, feed it back through `ObservedProblemBackfeed` so the
+matrix either proves same-class coverage or records a coverage gap.
+
 For model-local Cartesian coverage, the declared boundary is `model_id` plus
 finite axes and interaction groups. The report produces combination cases,
 optional shard ids, and a model coverage receipt. That receipt proves only that

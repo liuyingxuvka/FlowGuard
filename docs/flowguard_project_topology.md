@@ -8,7 +8,9 @@ OpenSpec validation, project audit, and route reports.
 
 ```text
 Owning route declaration
--> ContractExhaustionMesh case ids, shards, receipts, and oracles
+-> ContractExhaustionMesh coverage universe
+-> ContractExhaustionMesh case ids, shards, receipts, oracles, and fault profiles
+-> Observed-problem backfeed for real misses
 -> Composite handoff acceptance ids for multi-route closure
 -> Model-Test Alignment / TestMesh / ModelMesh / Risk Evidence Ledger
 -> DevelopmentProcessFlow freshness and final claim boundary
@@ -19,7 +21,9 @@ bad-case ids. A matrix-ready report does not prove whole-chain readiness by
 itself; broad confidence also needs the composite handoff acceptance ids to be
 closed by the relevant route owners. Model-local Cartesian coverage also emits
 coverage receipts; those receipts become parent ModelMesh and Risk Evidence
-Ledger inputs rather than replacing parent closure. Existing routes remain
+Ledger inputs rather than replacing parent closure. Broad/full claims must name
+the coverage universe first, and observed misses must map back to generated and
+same-class case ids or remain visible as model gaps. Existing routes remain
 owners of their own declarations and evidence:
 
 - StateClosure and ScenarioMatrix declare state/input and deterministic

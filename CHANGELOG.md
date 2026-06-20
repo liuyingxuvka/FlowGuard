@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.52.0 - 2026-06-20
+
+Contract coverage universe and observed-problem backfeed.
+
+- Added `ContractCoverageUniverse`, scoped exclusions, and broad-claim gates so
+  ContractExhaustionMesh can prove the declared coverage universe is present
+  instead of only proving the generated matrix is internally consistent.
+- Added generic `ContractFaultProfile` and `ObservedProblemBackfeed` helpers so
+  downstream systems can rehearse bad contract submissions and map real misses
+  back to generated, same-class, and coverage-receipt evidence without a
+  FlowPilot-specific fake-AI API.
+- Updated route profiles, skills, docs, templates, OpenSpec change records, API
+  exports, and regression tests for actionable oracle feedback and universe
+  completeness.
+
 ## v0.51.0 - 2026-06-16
 
 Hierarchical Cartesian contract-exhaustion coverage.
