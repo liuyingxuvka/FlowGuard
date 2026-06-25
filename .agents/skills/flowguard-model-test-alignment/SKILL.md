@@ -55,6 +55,7 @@ Return to `model-first-function-flow` when obligations are undefined. Do not inv
 
 Show coverage from model obligations to code contracts to tests, boundary
 observations, missing I/O or state writes, and scoped gaps.
+Status note: obligation, code/test evidence, missing or stale rows, next alignment step.
 
 ## Non-Goals
 

@@ -58,7 +58,7 @@ Generic warnings cannot block confidence without a topology anchor.
 ## Prompt
 
 Use the protocol/template for full prompts. Output candidates with anchors,
-rationale, future failure mode, disposition, route, and confidence effect.
+rationale, future failure, disposition, route, confidence effect, and a status note.
 
 ## Non-Goals
 - Do not replace Model Maturation, Model-Test Alignment, Risk Evidence Ledger, DevelopmentProcessFlow, or Architecture Reduction.

@@ -56,6 +56,7 @@ evidence ids, not internals.
 
 Show modes, artifact versions, action order, invalidations, evidence ids,
 minimum revalidation, and unsupported claims.
+Status note: mode, freshness, invalidated evidence, validation, unsupported claims, next step.
 
 ## Non-Goals
 

@@ -52,6 +52,7 @@ the model, code contract, tests, or final claim is too narrow. Return to
 
 Show a miss-repair diagram with failure, boundary_missing, contract-exhaustion
 case ids, root cause, field gap, code owner, tests, old-path disposition, gaps.
+Status note: prior claim, failure, miss class, evidence/gap, next repair/check.
 
 ## Non-Goals
 

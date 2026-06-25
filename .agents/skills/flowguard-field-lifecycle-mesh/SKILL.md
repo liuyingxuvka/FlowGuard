@@ -53,6 +53,7 @@ with downstream evidence routes as needed.
 
 Show parent groups, leaf rows, behavior-bearing projections,
 contract-exhaustion case ids, old field dispositions, and route handoffs.
+Status note: field boundary, projection, old-field disposition, gap, next handoff.
 
 ## Non-Goals
 

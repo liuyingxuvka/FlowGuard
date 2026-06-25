@@ -54,6 +54,7 @@ this preflight with the downstream route that owns the actual work.
 
 Show existing model boundaries, field lifecycle owners/gaps, model-angle gaps,
 reuse decision, duplicate-boundary risks, and downstream route.
+Status note: searched boundary, hits/gaps, reuse, duplicate risk, route, next step.
 
 ## Non-Goals
 

@@ -50,6 +50,7 @@ Return to DevelopmentProcessFlow for generic "make a better plan" requests.
 
 Show goal, state/artifact surfaces, step receipts, validation evidence,
 failure/rework branches, human questions, and claim scope.
+Status note: plan goal, missing row, validation/rework gap, question, next step.
 
 ## Non-Goals
 

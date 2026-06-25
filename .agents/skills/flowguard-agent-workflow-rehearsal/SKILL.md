@@ -49,6 +49,7 @@ skill rehearses before execution; it does not execute the workflow.
 
 Show candidate skills, selected skills, skipped skills, continue/rework gates,
 side effects, validation gaps, and final claim boundary.
+Status note: inventory, selected/skipped skills, side effects, validation gaps, next gate.
 
 ## Non-Goals
 

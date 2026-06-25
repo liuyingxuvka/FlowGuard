@@ -64,7 +64,10 @@ after the route needs deep evidence.
 - New/deepened models need template harvest closure before broad claims: written, merged, duplicate-linked, or accepted not-harvestable.
 - After `run_model_first_checks()`, read structured ledger owner routes and maintenance obligations before manually inferring the next route.
 - Before trusting one route/model, let ExistingModelPreflight consume model-angle and similarity evidence when the task may need a missing viewpoint or resembles another workflow.
-- For non-trivial FlowGuard work, show a route-specific Mermaid snapshot once the route/model is stable; diagrams explain, not validate.
+- For non-trivial FlowGuard work, first show a short current-situation note:
+  what is being checked, why it matters, current evidence or gaps, and the next
+  step. Add or refresh a route-specific Mermaid snapshot when it clarifies the
+  route/model; diagrams explain, not validate.
 - Before broad done/release/publish confidence, use Risk Evidence Ledger or equivalent and keep remembered maintenance obligations, automatic state-closure, and topology-hazard gaps visible.
 - Guard-family children must return closure reports with `owner_guard`, `artifact_kind`, `closure_status`, `findings`, `missing_inputs`, `stale_evidence`, `skipped_checks`, `next_actions`, `safe_claim`, and `unsafe_claim_boundary`; validate them with `assets/guard_closure_contract.py` before broad confidence.
 - Treat child `partial`, `blocked`, `downgraded`, stale, skipped, or hard-finding reports as FlowGuard maintenance obligations, not passed final claims.

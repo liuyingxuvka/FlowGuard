@@ -56,6 +56,7 @@ Return to `model-first-function-flow` for ordinary small test evidence.
 
 Show a validation mesh diagram with parent gates, child tests, evidence status,
 freshness, background status, and scoped gaps.
+Status note: parent claim, child status, stale/skipped/background gaps, next rerun/split.
 
 ## Non-Goals
 

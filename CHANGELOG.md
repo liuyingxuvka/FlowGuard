@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.52.2 - 2026-06-25
+
+FlowGuard current-situation visibility.
+
+- Added lightweight current-situation guidance so non-trivial FlowGuard work
+  tells users what is being checked, why it matters, current evidence or gaps,
+  and the next step before or with Mermaid snapshots.
+- Updated the shared agent snippet, model-first kernel, and direct FlowGuard
+  satellite skills with concise status-note wording while preserving hot-path
+  prompt budgets and existing route ownership.
+- Archived the OpenSpec change into `flowguard-model-visibility` and
+  `user-facing-model-diagrams`, and refreshed local model checks so diagram-only
+  prompt rollouts without current-situation notes are rejected.
+
 ## v0.52.1 - 2026-06-20
 
 FlowGuard self-maintenance and release hygiene.

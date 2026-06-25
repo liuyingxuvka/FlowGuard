@@ -20,7 +20,7 @@ Standalone FlowGuard satellite skill for UI states, journeys, human-operability,
 - Verify real package and AGENTS.md managed records; no fake mini-framework.
 - Work mode first: `greenfield`, `source_based`, or `mixed`; source-based/mixed need baseline -> mapping -> observed alignment.
 - Existing/runnable UI: observed surface is first. Map visible controls, fields, status, dialogs, menus, toolbars, and regions to owner or blindspot.
-- Non-trivial UI or complete/runnable/function claims need `UIFunctionalCapabilityInventory` plus `review_ui_functional_capability_coverage`: required capability -> feature, task, UI path, owner/chain, output, evidence or scoped blindspot.
+- Non-trivial or runnable UI claims need capability coverage: capability -> feature, task, UI path, owner/chain, output, evidence or blindspot.
 - Each reachable enabled action needs visible-control -> event -> owner -> backend/local/native function -> UI state update -> click/test evidence. Label proof is not enough.
 - Supported tasks need path, primary control, chain, feedback, cancel/error, keyboard/focus, walkthrough, and affordance/grammar/region/dialog behavior.
 - Source-based scopes need generic source branches and approved differences.
@@ -42,6 +42,7 @@ Standalone FlowGuard satellite skill for UI states, journeys, human-operability,
 9. Add journey, evidence-kind, geometry, transition-cell, and implementation validation as needed.
 
 Snapshot: UI state diagram with controls, capabilities, tasks, visible surface, recovery, text ownership, evidence, blindspots.
+Status: surface, task/control, evidence/gap, next UI check.
 
 ## Non-Goals
 

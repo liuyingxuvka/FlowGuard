@@ -42,6 +42,7 @@ needs derivation.
 
 Show a structure mesh diagram with parent, child modules, public entrypoints,
 facades, dependency cycles, ownership, parity evidence, and gaps.
+Status note: parent structure, entrypoints, parity evidence, gaps, next check.
 
 ## Non-Goals
 

@@ -54,7 +54,7 @@ This is still compact, but it must have teeth. A new or deepened model names the
 - New/deepened models need template harvest closure before broad claims: written, merged, duplicate-linked, or accepted not-harvestable.
 - Before trusting that one existing route or model is enough, let ExistingModelPreflight consume model-angle and similarity evidence when a missing viewpoint or similar workflow may matter.
 - When a workflow has multiple useful routes, old/new alternatives, or path-sensitive external proof, record business path identity: stable path id, intent, trigger, expected terminal, state writes, side effects, equivalent/exclusive paths, old-path disposition, and evidence ids.
-- For non-trivial FlowGuard work, show a route-specific Mermaid snapshot once the route/model is stable; diagrams explain and do not validate.
+- For non-trivial FlowGuard work, first show a short current-situation note: what is being checked, why it matters, current evidence or gaps, and the next step. Add or refresh a route-specific Mermaid snapshot when it clarifies the route/model; diagrams explain and do not validate.
 - Before full done/release/publish confidence, connect risks, obligations, UI click-through gates, artifact-payload gates, code/test evidence, proof artifacts, automatic state-closure gaps, and topology-hazard gaps through Risk Evidence Ledger or equivalent.
 - After non-trivial work, let DevelopmentProcessFlow consume post-change scan signals for SummaryReport gaps, changed artifacts, open obligations, skipped routes, stale evidence, state/topology gaps, or split/reduction pressure.
 - Finish real project use with adoption evidence: trigger, model/risk, commands, findings, skipped gaps, validation results, and next actions.

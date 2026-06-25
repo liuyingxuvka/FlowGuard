@@ -1,8 +1,5 @@
-# flowguard-model-visibility Specification
+## MODIFIED Requirements
 
-## Purpose
-This capability defines FlowGuard's Flowguard Model Visibility behavior and the evidence required to use it safely in AI-agent maintenance workflows.
-## Requirements
 ### Requirement: Non-trivial FlowGuard work defaults to user-visible model snapshots
 FlowGuard guidance SHALL direct agents to show a short user-facing current
 situation explanation before or with a Mermaid model snapshot during
@@ -38,25 +35,6 @@ current evidence or gaps, and the next step.
   showing the searched boundary, relevant model hits or gaps, reuse decision,
   duplicate-boundary risk, and downstream route
 
-### Requirement: Trivial work may skip diagrams
-FlowGuard guidance SHALL NOT force diagrams for tiny, obvious, single-step,
-mechanical, formatting-only, direct-command, or user-suppressed tasks.
-
-#### Scenario: Tiny copy edit remains concise
-- **WHEN** the work is a trivial copy edit or one-step direct command with no
-  meaningful model interpretation
-- **THEN** the agent may skip a diagram with normal concise reporting
-
-### Requirement: Diagrams explain but do not validate
-FlowGuard guidance SHALL state that diagrams explain the model and do not count
-as validation evidence.
-
-#### Scenario: Validation still comes from executable evidence
-- **WHEN** a diagram is shown to the user
-- **THEN** the agent still needs executable FlowGuard checks, tests, replay,
-  browser/manual evidence, or explicit skipped/not-run boundaries before making
-  completion claims
-
 ### Requirement: Material model changes update the visible snapshot
 FlowGuard guidance SHALL direct agents to update the user-facing current
 situation explanation and snapshot when route choice, model scope, branch
@@ -68,4 +46,3 @@ work.
   what FlowGuard is checking
 - **THEN** the user-visible current situation explanation and snapshot are
   updated or the final report clearly explains the changed model boundary
-

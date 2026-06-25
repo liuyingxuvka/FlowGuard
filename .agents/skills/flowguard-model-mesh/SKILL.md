@@ -52,6 +52,7 @@ for ordinary single-model work; use TestMesh for tests and StructureMesh for cod
 
 Show a mesh diagram with parent, children, partition items, case ids,
 evidence tiers/freshness, reattachment, and claim boundary.
+Status note: parent, children, stale/missing evidence, reattachment, next mesh check.
 
 ## Non-Goals
 

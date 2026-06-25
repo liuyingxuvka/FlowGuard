@@ -43,8 +43,9 @@ Standalone FlowGuard satellite skill for canonical coverage from a declared fini
 ## Snapshot
 
 Show universe -> case id -> oracle/fault profile -> observed-backfeed -> downstream route.
+Status: boundary, cases, gaps, owner, next.
 
 ## Non-Goals
 
-- Do not replace StateClosure, FieldLifecycleMesh, MTA, TestMesh, ModelMesh, ModelMissReview, or RiskLedger.
+- Do not replace sibling routes or RiskLedger.
 - Do not run tests directly or claim all software bugs are covered.

@@ -56,6 +56,7 @@ DevelopmentProcessFlow.
 Show boundary, observable contract, contraction candidates,
 ContractExhaustionMesh absorption/deletion candidates, proof status, target
 action, and required next route.
+Status: contract, candidate, proof, risks, next route.
 
 ## Non-Goals
 

@@ -1,8 +1,5 @@
-# user-facing-model-diagrams Specification
+## MODIFIED Requirements
 
-## Purpose
-This capability defines FlowGuard's User Facing Model Diagrams behavior and the evidence required to use it safely in AI-agent maintenance workflows.
-## Requirements
 ### Requirement: Lightweight Diagram Guidance
 FlowGuard skills SHALL allow agents to use a user-facing Mermaid diagram or
 compact flow sketch when the value of a non-trivial model would otherwise be
@@ -50,13 +47,3 @@ every satellite skill to be deeply rewritten at once.
 - **WHEN** another FlowGuard satellite skill is used
 - **THEN** the shared kernel guidance still permits a current situation
   explanation and diagram when the model explanation would benefit from them
-
-### Requirement: No Runtime Semantics Change
-The diagram guidance SHALL NOT change FlowGuard's executable model semantics,
-public Python API, schema version, or validation pass/fail criteria.
-
-#### Scenario: Prompt-only upgrade
-- **WHEN** the release is validated
-- **THEN** existing runtime tests and public API checks continue to pass without
-  requiring a new FlowGuard schema version
-
