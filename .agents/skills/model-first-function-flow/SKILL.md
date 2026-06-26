@@ -6,7 +6,7 @@ description: FlowGuard kernel for ordinary behavior/state modeling, unclear Flow
 # FlowGuard Skill Kernel
 
 This is the compact FlowGuard router and hard-gate layer. Keep detailed
-protocols in `references/*.md` or in the matching standalone satellite skill.
+protocols in references/*.md or in the matching standalone satellite skill.
 Use a direct satellite when the route is obvious; use this kernel for ordinary
 behavior/state modeling, unclear route selection, cross-route coordination, or
 core model work before narrowing.
@@ -100,7 +100,7 @@ the row below calls for deep route evidence.
 | Staged development, edits, validation freshness, install/shadow/git sync | `development_process_flow` | `flowguard-development-process-flow` |
 | Non-trivial bug repair, false confidence, or runtime/test/replay/manual evidence shows a missed failure class | `model_miss_review` | `flowguard-model-miss-review` |
 | Model too coarse after state-closure/code/test/mesh/freshness evidence | `model_maturation_loop` | `references/modeling_protocol.md` |
-| Final broad confidence boundary | `risk_evidence_ledger` | `docs/risk_evidence_ledger.md` |
+| Final broad confidence boundary | `risk_evidence_ledger` | docs/risk_evidence_ledger.md |
 | Production conformance, install sync, shadow workspace sync | `conformance_adoption` | `references/conformance_adoption_protocol.md` |
 | Long-running model/test/regression check | `long_check_observability` | `references/long_check_protocol.md` |
 | FlowGuard framework upgrade or benchmark/corpus claim | `framework_upgrade` | `references/framework_upgrade_protocol.md` |
@@ -128,3 +128,43 @@ formal executable model first.
 Use Python standard library code in models. Keep abstract state finite,
 immutable, and inspectable. Do not call LLM APIs, databases, network services,
 clocks, random sources, probability models, or Monte Carlo from the model.
+
+
+<!-- BEGIN SKILLGUARD CONTRACT LAYER -->
+## Purpose
+
+Use this skill for its declared flowguard workflow while binding each run to a route, evidence, checks, and a bounded completion claim.
+
+## Entrypoint Scope
+
+The entrypoint covers the installed model-first-function-flow skill and the local materials explicitly routed by its instructions. It does not expand to unrelated repositories, private files, external services, publication, or release claims unless the user request and skill workflow explicitly include them.
+
+## Local Material Routing
+
+Resolve local materials from the active workspace, this skill directory, user-provided files, or explicitly configured project paths. Treat private machine paths as local-only inputs and keep public-facing instructions portable.
+
+## Entrypoint Acceptance Map
+
+A valid run selects one declared route, follows the phase order, records direct evidence, runs required checks, reports blockers and failures, and closes only inside the claim boundary. Available routes: model preflight, process review, evidence alignment, closure.
+
+## Use When
+
+Use when the user request matches the model-first-function-flow activation boundary and needs this skill's governed workflow, source material, checks, or handoff behavior.
+
+## Do Not Use When
+
+Do not use when the task is outside this skill's domain, when required local materials are unavailable, when another more specific skill owns the request, or when the user asks only for a tiny direct answer.
+
+## Required Workflow
+
+Select the route, inspect local materials, perform the work in phase order, collect direct evidence, run the required checks, fix failures, and only then report progress or completion.
+
+## Output Requirements
+
+When reporting, include evidence, failures, blockers, skipped_checks with reasons, residual_risk, and claim_boundary. State clearly what was checked, what was not checked, and what remains blocked or uncertain.
+
+## SkillGuard Maintenance
+
+Keep the `.skillguard` control root, work contract, check manifest, check scripts, evidence records, and progress ledger current. Re-run SkillGuard checks after changing this entrypoint, route behavior, evidence rules, or closure wording.
+
+<!-- END SKILLGUARD CONTRACT LAYER -->

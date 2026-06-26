@@ -41,7 +41,7 @@ this preflight with the downstream route that owns the actual work.
 
 ## Minimum Workflow
 
-1. Search model records, docs, OpenSpec changes, and `.flowguard/`.
+1. Search model records, docs, OpenSpec changes, and .flowguard/.
 2. Extract FunctionBlock, state, side-effect, public-entrypoint, and field
    lifecycle owners.
 3. Classify old-shape models as upgraded, blocked, or current before reuse.
@@ -61,3 +61,43 @@ Status note: searched boundary, hits/gaps, reuse, duplicate risk, route, next st
 - Do not implement production changes.
 - Do not split code, tests, or models directly.
 - Do not replace route-specific validation evidence.
+
+
+<!-- BEGIN SKILLGUARD CONTRACT LAYER -->
+## Purpose
+
+Use this skill for its declared flowguard workflow while binding each run to a route, evidence, checks, and a bounded completion claim.
+
+## Entrypoint Scope
+
+The entrypoint covers the installed flowguard-existing-model-preflight skill and the local materials explicitly routed by its instructions. It does not expand to unrelated repositories, private files, external services, publication, or release claims unless the user request and skill workflow explicitly include them.
+
+## Local Material Routing
+
+Resolve local materials from the active workspace, this skill directory, user-provided files, or explicitly configured project paths. Treat private machine paths as local-only inputs and keep public-facing instructions portable.
+
+## Entrypoint Acceptance Map
+
+A valid run selects one declared route, follows the phase order, records direct evidence, runs required checks, reports blockers and failures, and closes only inside the claim boundary. Available routes: model preflight, process review, evidence alignment, closure.
+
+## Use When
+
+Use when the user request matches the flowguard-existing-model-preflight activation boundary and needs this skill's governed workflow, source material, checks, or handoff behavior.
+
+## Do Not Use When
+
+Do not use when the task is outside this skill's domain, when required local materials are unavailable, when another more specific skill owns the request, or when the user asks only for a tiny direct answer.
+
+## Required Workflow
+
+Select the route, inspect local materials, perform the work in phase order, collect direct evidence, run the required checks, fix failures, and only then report progress or completion.
+
+## Output Requirements
+
+When reporting, include evidence, failures, blockers, skipped_checks with reasons, residual_risk, and claim_boundary. State clearly what was checked, what was not checked, and what remains blocked or uncertain.
+
+## SkillGuard Maintenance
+
+Keep the `.skillguard` control root, work contract, check manifest, check scripts, evidence records, and progress ledger current. Re-run SkillGuard checks after changing this entrypoint, route behavior, evidence rules, or closure wording.
+
+<!-- END SKILLGUARD CONTRACT LAYER -->
