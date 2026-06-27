@@ -5,11 +5,8 @@ description: FlowGuard kernel for ordinary behavior/state modeling, unclear Flow
 
 # FlowGuard Skill Kernel
 
-This is the compact FlowGuard router and hard-gate layer. Keep detailed
-protocols in references/*.md or in the matching standalone satellite skill.
-Use a direct satellite when the route is obvious; use this kernel for ordinary
-behavior/state modeling, unclear route selection, cross-route coordination, or
-core model work before narrowing.
+This is the compact FlowGuard router and hard-gate layer. Keep detailed protocols in references/*.md or in the matching standalone satellite skill.
+Use a direct satellite when the route is obvious; use this kernel for ordinary behavior/state modeling, unclear route selection, cross-route coordination, or core model work before narrowing.
 
 ## Applicability
 
@@ -29,12 +26,7 @@ risky boundary -> protected error class -> public/local risk template search
 -> inspect counterexample -> record template harvest closure
 ```
 
-The default entry is compact, but it must have teeth. A new or deepened model
-needs to say what real error it prevents, which public/local template it reused
-or why none matched, what completion evidence proves the work, and which
-representative bad implementation would fail. Complete claims still need
-current evidence for the selected route, and missing/stale/skipped evidence
-means partial or scoped FlowGuard evidence.
+The default entry is compact, but it must have teeth. A new or deepened model needs the real error it prevents, reused template or no-match reason, completion evidence, and one representative bad implementation that fails. Complete claims need current route evidence; missing, stale, or skipped evidence means partial/scoped FlowGuard evidence.
 
 When package helpers are needed, read `AGENT_DEFAULT_API`, then the selected
 `ROUTE_STARTER_API[route_id]`. Load advanced indexes or full templates only
@@ -49,35 +41,29 @@ after the route needs deep evidence.
 - Important business paths need identity when route semantics affect confidence: path id, business intent, trigger, expected terminal, state writes, side effects, equivalent/exclusive paths, old-path disposition, and evidence ids.
 - If import fails, connect the real toolchain or report blocked/partial; do not write a temporary mini-framework or fake mini-framework substitute.
 - Represent modeled blocks as `Input x State -> Set(Output x State)`.
-- Treat direct finite-engine calls as internal mechanics, not the formal entry
-  for non-trivial model creation.
+- Treat direct finite-engine calls as internal mechanics, not the formal entry for non-trivial model creation.
 - Do not replace executable modeling with prose or weaken invariants to pass.
 - Preserve user and peer-agent changes; later writes can stale evidence.
 - Long checks may run in the background, but final confidence needs exit/status and result artifacts, not progress lines.
 - Reused test results need current `TestResultReuseTicket` and `ProofArtifactRef`; old `passed` output is not current evidence by itself.
 - Broad confidence needs model obligation ids, owner code contract ids, and current external-contract test evidence bound to the same behavior; model+test-only rows are scoped/blocked.
 - Broad transition-test claims need a transition matrix projected to MTA code/test rows or TestMesh, or an explicit scoped-out reason.
-- Same-class/finite bad-case generation routes through `contract_exhaustion_mesh`
-  after the owner declares the boundary; hand-written examples are only seeds.
+- Same-class/finite bad-case generation routes through `contract_exhaustion_mesh` after the owner declares the boundary; hand-written examples are only seeds.
 - Complete runnable UI claims need reachable enabled controls clicked or scoped as pure UI/deferred blindspots with structured evidence.
 - File import/export, generated artifact, and AI work-package claims need synthetic payload cases for the real payload surface plus current external evidence refs or proof artifacts; prose-only manual checks are scoped/blocked.
 - New/deepened models need template harvest closure before broad claims: written, merged, duplicate-linked, or accepted not-harvestable.
 - After `run_model_first_checks()`, read structured ledger owner routes and maintenance obligations before manually inferring the next route.
 - Before trusting one route/model, let ExistingModelPreflight consume model-angle and similarity evidence when the task may need a missing viewpoint or resembles another workflow.
-- For non-trivial FlowGuard work, first show a short current-situation note:
-  what is being checked, why it matters, current evidence or gaps, and the next
-  step. Add or refresh a route-specific Mermaid snapshot when it clarifies the
-  route/model; diagrams explain, not validate.
+- FlowGuard diagram intent gate: add or refresh a route-specific Mermaid/table snapshot when it clarifies route/model state. Do not flatten these into a generic flowchart, and do not turn FlowGuard into proof-tree reasoning without LogicGuard.
+- For non-trivial FlowGuard work, first show a short current-situation note: what is being checked, why it matters, current evidence/gaps, and next step; diagrams explain, not validate.
 - Before broad done/release/publish confidence, use Risk Evidence Ledger or equivalent and keep remembered maintenance obligations, automatic state-closure, and topology-hazard gaps visible.
 - Guard-family children must return closure reports with `owner_guard`, `artifact_kind`, `closure_status`, `findings`, `missing_inputs`, `stale_evidence`, `skipped_checks`, `next_actions`, `safe_claim`, and `unsafe_claim_boundary`; validate them with `assets/guard_closure_contract.py` before broad confidence.
 - Treat child `partial`, `blocked`, `downgraded`, stale, skipped, or hard-finding reports as FlowGuard maintenance obligations, not passed final claims.
 
 ## Route Map
 
-Pick the smallest named route that owns the actual risk. Helper APIs and
-template CLIs are package helpers, not independently triggerable Codex skills.
-Default route template CLIs are compact; use full-template commands only when
-the row below calls for deep route evidence.
+Pick the smallest named route that owns the actual risk. Helper APIs and template CLIs are package helpers, not independently triggerable Codex skills.
+Default route template CLIs are compact; use full-template commands only when the row below calls for deep route evidence.
 
 | Trigger | Route | Entry |
 | --- | --- | --- |
@@ -125,46 +111,27 @@ formal executable model first.
 
 ## Constraints
 
-Use Python standard library code in models. Keep abstract state finite,
-immutable, and inspectable. Do not call LLM APIs, databases, network services,
-clocks, random sources, probability models, or Monte Carlo from the model.
-
+Use Python standard library code in models. Keep abstract state finite, immutable, and inspectable. Do not call LLM APIs, databases, network services, clocks, random sources, probability models, or Monte Carlo from the model.
 
 <!-- BEGIN SKILLGUARD CONTRACT LAYER -->
 ## Purpose
-
-Use this skill for its declared flowguard workflow while binding each run to a route, evidence, checks, and a bounded completion claim.
-
+Bind each flowguard run to the declared integration mode, evidence, blockers, residual_risk, and claim_boundary.
 ## Entrypoint Scope
-
-The entrypoint covers the installed model-first-function-flow skill and the local materials explicitly routed by its instructions. It does not expand to unrelated repositories, private files, external services, publication, or release claims unless the user request and skill workflow explicitly include them.
-
+Covers model-first-function-flow plus explicitly routed local materials; no unrelated repos, private files, external services, publication, or release claims unless requested and routed.
 ## Local Material Routing
-
-Resolve local materials from the active workspace, this skill directory, user-provided files, or explicitly configured project paths. Treat private machine paths as local-only inputs and keep public-facing instructions portable.
-
+Use workspace, skill directory, user files, or configured project paths; keep private machine paths local and public instructions portable.
 ## Entrypoint Acceptance Map
-
-A valid run selects one declared route, follows the phase order, records direct evidence, runs required checks, reports blockers and failures, and closes only inside the claim boundary. Available routes: model preflight, process review, evidence alignment, closure.
-
+Use SkillGuard as the runtime contract executor attached to the native route/check owner: FlowGuard skill route map plus the real flowguard package/model checks. It enforces contract gates through that native owner before progress or closure; duplicate SkillGuard-owned execution paths are invalid. Declared gates/routes: model preflight, process review, evidence alignment, closure.
 ## Use When
-
-Use when the user request matches the model-first-function-flow activation boundary and needs this skill's governed workflow, source material, checks, or handoff behavior.
-
+Use when the request matches model-first-function-flow and needs this governed workflow, materials, checks, or handoff behavior.
 ## Do Not Use When
-
-Do not use when the task is outside this skill's domain, when required local materials are unavailable, when another more specific skill owns the request, or when the user asks only for a tiny direct answer.
-
+Do not use outside the domain, without required materials, when a more specific skill owns the work, or for tiny direct answers.
 ## Required Workflow
-
-Select the route, inspect local materials, perform the work in phase order, collect direct evidence, run the required checks, fix failures, and only then report progress or completion.
-
+Select the target-owned native route/check surface, run the SkillGuard contract gates around the native workflow, collect evidence, run checks, fix failures, then report.
+## Hard Gates
+Do not skip phases, do not replace required evidence with prose, do not treat stale reports as current, do not weaken validation to pass, and do not claim completion when blockers remain.
 ## Output Requirements
-
-When reporting, include evidence, failures, blockers, skipped_checks with reasons, residual_risk, and claim_boundary. State clearly what was checked, what was not checked, and what remains blocked or uncertain.
-
+Report evidence, failures, blockers, skipped_checks with reasons, residual_risk, and claim_boundary; distinguish checked, unchecked, blocked, and uncertain.
 ## SkillGuard Maintenance
-
-Keep the `.skillguard` control root, work contract, check manifest, check scripts, evidence records, and progress ledger current. Re-run SkillGuard checks after changing this entrypoint, route behavior, evidence rules, or closure wording.
-
+Keep `.skillguard` contracts, checks, evidence, and ledger current; rerun SkillGuard after entrypoint, route, evidence, or closure changes.
 <!-- END SKILLGUARD CONTRACT LAYER -->
