@@ -66,23 +66,17 @@ rationale, future failure, disposition, route, confidence effect, and a status n
 
 <!-- BEGIN SKILLGUARD CONTRACT LAYER -->
 ## Purpose
-Bind each flowguard run to the declared integration mode, evidence, blockers, residual_risk, and claim_boundary.
-## Entrypoint Scope
-Covers flowguard-model-topology-hazard-review plus explicitly routed local materials; no unrelated repos, private files, external services, publication, or release claims unless requested and routed.
-## Local Material Routing
-Use workspace, skill directory, user files, or configured project paths; keep private machine paths local and public instructions portable.
-## Entrypoint Acceptance Map
-Use SkillGuard as the runtime contract executor attached to the native route/check owner: FlowGuard skill route map plus the real flowguard package/model checks. It enforces contract gates through that native owner before progress or closure; duplicate SkillGuard-owned execution paths are invalid. Declared gates/routes: model preflight, process review, evidence alignment, closure.
-## Use When
-Use when the request matches flowguard-model-topology-hazard-review and needs this governed workflow, materials, checks, or handoff behavior.
-## Do Not Use When
-Do not use outside the domain, without required materials, when a more specific skill owns the work, or for tiny direct answers.
+Bind this FlowGuard route to one work contract, native checks, current evidence, blockers, residual_risk, and claim_boundary.
+## Entry Scope
+Covers flowguard-model-topology-hazard-review and explicitly routed local materials only; no unrelated repos, private paths, external services, publication, or release claims unless separately routed.
+## Runtime Binding
+SkillGuard is the contract executor around FlowGuard's native router/checker/model surface. Use native-integrated or hybrid mode when a route already exists; do not add a second execution path.
 ## Required Workflow
-Select the target-owned native route/check surface, run the SkillGuard contract gates around the native workflow, collect evidence, run checks, fix failures, then report.
+Select the FlowGuard-owned route, open or compile `.skillguard/work-contract.json`, start or update the run record, execute native model/check gates, refresh evidence, fix blockers, then close only from current checks.
 ## Hard Gates
-Do not skip phases, do not replace required evidence with prose, do not treat stale reports as current, do not weaken validation to pass, and do not claim completion when blockers remain.
-## Output Requirements
-Report evidence, failures, blockers, skipped_checks with reasons, residual_risk, and claim_boundary; distinguish checked, unchecked, blocked, and uncertain.
-## SkillGuard Maintenance
-Keep `.skillguard` contracts, checks, evidence, and ledger current; rerun SkillGuard after entrypoint, route, evidence, or closure changes.
+Block skipped phases, stale or prose-only evidence, hollow contracts, quality downgrades, unresolved native-route conflicts, and completion claims with remaining blockers.
+## Output
+Report checked target, route, evidence, failures, blockers, skipped_checks, residual_risk, and claim_boundary; separate checked facts from judgment.
+## Maintenance
+Refresh contracts, checks, evidence, and installed copies after entrypoint, route, evidence, or closure changes.
 <!-- END SKILLGUARD CONTRACT LAYER -->
