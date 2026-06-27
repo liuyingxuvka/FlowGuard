@@ -81,18 +81,32 @@ class SkillDocsTests(unittest.TestCase):
     def read(self, path: Path) -> str:
         return path.read_text(encoding="utf-8")
 
+    def split_skillguard_layer(self, text: str) -> tuple[str, str]:
+        begin = "<!-- BEGIN SKILLGUARD CONTRACT LAYER -->"
+        end = "<!-- END SKILLGUARD CONTRACT LAYER -->"
+        if begin not in text:
+            return text, ""
+        before, rest = text.split(begin, 1)
+        layer, after = rest.split(end, 1)
+        return (before + after).strip(), (begin + layer + end).strip()
+
     def test_hot_path_prompt_budgets_are_enforced(self):
         kernel = self.read(KERNEL_ROOT / "SKILL.md")
         snippet = self.read(ROOT / "docs" / "agents_snippet.md")
+        kernel_core, kernel_contract = self.split_skillguard_layer(kernel)
 
-        self.assertLessEqual(len(kernel.splitlines()), 130)
+        self.assertLessEqual(len(kernel_core.splitlines()), 130)
+        self.assertLessEqual(len(kernel_contract.splitlines()), 24)
         self.assertLessEqual(len(snippet.splitlines()), 110)
 
         for skill_name in SATELLITE_SKILLS:
             with self.subTest(skill=skill_name):
                 text = self.read(SKILLS_ROOT / skill_name / "SKILL.md")
-                self.assertLessEqual(len(text.splitlines()), 65)
-                self.assertLess(len(text), 3000)
+                core, contract = self.split_skillguard_layer(text)
+                self.assertLessEqual(len(core.splitlines()), 65)
+                self.assertLessEqual(len(contract.splitlines()), 24)
+                self.assertLess(len(core), 3000)
+                self.assertLess(len(contract), 1800)
 
     def test_active_openspec_specs_have_real_purpose_text(self):
         for path in sorted((ROOT / "openspec" / "specs").glob("*/spec.md")):

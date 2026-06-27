@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.52.3 - 2026-06-27
+
+- Added SkillGuard runtime-contract governance for the installed FlowGuard Codex skill materials.
+- Synchronized installed skill copies with accepted source material and local git evidence.
+- Recorded release-scope validation so route selection, evidence gates, quality floors, and closure boundaries remain visible before completion claims.
+
 ## v0.52.2 - 2026-06-25
 
 FlowGuard current-situation visibility.
