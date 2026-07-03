@@ -7,6 +7,9 @@ Copy this compact section into another repository's `AGENTS.md`.
 FlowGuard repository: https://github.com/liuyingxuvka/FlowGuard
 Keep the managed AGENTS.md block and `.flowguard/project.toml` current.
 
+Primary agent surface: `.agents/skills/`; Default entry skill: `.agents/skills/model-first-function-flow/SKILL.md`
+Complete AI-agent setup means the agent can read `AGENTS.md` and all FlowGuard sibling `SKILL.md` files under `.agents/skills/`. The Python `flowguard` module/CLI is executable check support, not the AI-agent skill installation surface.
+
 ### Decision
 
 For coding, repository, process, prompt, skill, documentation, release, archive, publish, UI, test, and software-maintenance work, first decide:
@@ -31,9 +34,9 @@ This is still compact, but it must have teeth. A new or deepened model names the
 
 ### Hard Gates
 
-- Verify the real package before modeling: `python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"`.
-- Verify the package version when adoption/version freshness matters: `python -c "import importlib.metadata as m; print(m.version('flowguard'))"`.
-- If the managed AGENTS block or `.flowguard/project.toml` is missing, use `python -m flowguard project-adopt --root .`; if installed FlowGuard is newer than the project record, use `python -m flowguard project-upgrade --root .`. Project upgrade scans known FlowGuard artifacts, model evidence, tests, docs, and guidance; use `--records-only` only when intentionally scoping out that scan.
+- Verify the real FlowGuard check engine before claiming executable evidence: `python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"`.
+- Verify the check-engine version when adoption/version freshness matters: `python -c "import importlib.metadata as m; print(m.version('flowguard'))"`.
+- If the managed AGENTS block or `.flowguard/project.toml` is missing, use `python -m flowguard project-adopt --root .`; if the installed check engine is newer than the project record, use `python -m flowguard project-upgrade --root .`. Project upgrade scans known FlowGuard artifacts, model evidence, tests, docs, and guidance; use `--records-only` only when intentionally scoping out that scan.
 - FlowGuard is latest-schema-first: old artifacts may be upgraded at project/tool boundaries, but route logic should not preserve long-lived compatibility branches for obsolete fields, aliases, or wrappers.
 - Default replacement means dispose the old path, old field, alias, wrapper, or fallback unless the user explicitly requests compatibility or preservation. If compatibility is explicit, record the preserved surface and evidence; otherwise delete, block, migrate, delegate, repair, or scope it out with a concrete reason.
 - Field-bearing work needs a FieldLifecycleMesh view: high-level models include behavior-bearing fields, while child/leaf field models account all discovered fields and record owner, readers, writers, projection, lifecycle, and old-field disposition. For full/runtime/release/production field claims, behavior projections should include minimal `gate:`, `test:`, and `replay:` evidence refs instead of only naming the field.
@@ -87,7 +90,7 @@ This is still compact, but it must have teeth. A new or deepened model names the
 ### Reference Handoff
 
 Use the matching satellite `references/*.md` file after selecting a route.
-Package helpers such as `review_model_test_alignment()`,
+Check-engine helpers such as `review_model_test_alignment()`,
 `review_development_process_flow()`, `review_test_mesh()`,
 `review_structure_mesh()`, `review_architecture_reduction()`,
 `review_existing_model_preflight()`, `review_model_angle_deliberations()`,

@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class ProjectIntegrationTests(unittest.TestCase):
-    def test_pyproject_declares_installable_standard_library_package(self):
+    def test_pyproject_declares_check_command_wrapper(self):
         text = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
 
         self.assertIn('name = "flowguard"', text)
@@ -17,11 +17,16 @@ class ProjectIntegrationTests(unittest.TestCase):
         self.assertIn('"flowguard*"', text)
         self.assertIn('flowguard = "flowguard.__main__:main"', text)
 
-    def test_project_integration_doc_requires_real_toolchain(self):
+    def test_project_integration_doc_separates_skill_suite_from_check_engine(self):
         text = (ROOT / "docs" / "project_integration.md").read_text(encoding="utf-8")
 
+        self.assertIn("AI-agent skill suite", text)
+        self.assertIn("Agent Skill Suite Setup", text)
+        self.assertIn("`.agents/skills/`", text)
+        self.assertIn("model-first-function-flow", text)
+        self.assertIn("not the AI-agent skill install surface", text)
+        self.assertIn("check-execution convenience", text)
         self.assertIn('python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"', text)
-        self.assertIn("pip install -e", text)
         self.assertIn("toolchain_preflight.py", text)
         self.assertIn("temporary local mini-framework", text)
         self.assertIn("one-off mini framework", text)
@@ -34,6 +39,7 @@ class ProjectIntegrationTests(unittest.TestCase):
         self.assertIn("artifact-upgrade", text)
         self.assertIn("latest-schema-first", text)
         self.assertIn(".flowguard/project.toml", text)
+        self.assertLess(text.index("Agent Skill Suite Setup"), text.index("python -m pip install -e"))
 
     def test_skill_requires_import_preflight_and_rejects_substitute(self):
         text = (
@@ -44,6 +50,9 @@ class ProjectIntegrationTests(unittest.TestCase):
             / "SKILL.md"
         ).read_text(encoding="utf-8")
 
+        self.assertIn("default entrypoint for the FlowGuard AI-agent skill suite", text)
+        self.assertIn("all sibling FlowGuard", text)
+        self.assertIn("Skill availability and executable evidence are separate", text)
         self.assertIn('python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"', text)
         self.assertIn("do not write a temporary mini-framework", text)
         self.assertIn("assets/toolchain_preflight.py", text)

@@ -16,7 +16,7 @@
 ## 3. Sync And Install
 
 - [x] 3.1 Reinstall or refresh the editable local FlowGuard install from the Git checkout.
-- [x] 3.2 Sync changed repository skills/docs/specs into the `FlowGuard_20260427` shadow workspace without reverting unrelated peer work.
+- [x] 3.2 Sync changed repository skills/docs/specs into the local shadow workspace without reverting unrelated peer work.
 - [x] 3.3 Sync changed installed skill copies under `$CODEX_HOME/skills` where those installed copies exist.
 - [x] 3.4 Verify imports, package version, and schema version from both the Git checkout context and the shadow workspace context.
 

@@ -81,32 +81,18 @@ class SkillDocsTests(unittest.TestCase):
     def read(self, path: Path) -> str:
         return path.read_text(encoding="utf-8")
 
-    def split_skillguard_layer(self, text: str) -> tuple[str, str]:
-        begin = "<!-- BEGIN SKILLGUARD CONTRACT LAYER -->"
-        end = "<!-- END SKILLGUARD CONTRACT LAYER -->"
-        if begin not in text:
-            return text, ""
-        before, rest = text.split(begin, 1)
-        layer, after = rest.split(end, 1)
-        return (before + after).strip(), (begin + layer + end).strip()
-
     def test_hot_path_prompt_budgets_are_enforced(self):
         kernel = self.read(KERNEL_ROOT / "SKILL.md")
         snippet = self.read(ROOT / "docs" / "agents_snippet.md")
-        kernel_core, kernel_contract = self.split_skillguard_layer(kernel)
 
-        self.assertLessEqual(len(kernel_core.splitlines()), 130)
-        self.assertLessEqual(len(kernel_contract.splitlines()), 24)
+        self.assertLessEqual(len(kernel.splitlines()), 130)
         self.assertLessEqual(len(snippet.splitlines()), 110)
 
         for skill_name in SATELLITE_SKILLS:
             with self.subTest(skill=skill_name):
                 text = self.read(SKILLS_ROOT / skill_name / "SKILL.md")
-                core, contract = self.split_skillguard_layer(text)
-                self.assertLessEqual(len(core.splitlines()), 65)
-                self.assertLessEqual(len(contract.splitlines()), 24)
-                self.assertLess(len(core), 3000)
-                self.assertLess(len(contract), 1800)
+                self.assertLessEqual(len(text.splitlines()), 65)
+                self.assertLess(len(text), 3000)
 
     def test_active_openspec_specs_have_real_purpose_text(self):
         for path in sorted((ROOT / "openspec" / "specs").glob("*/spec.md")):
@@ -126,7 +112,7 @@ class SkillDocsTests(unittest.TestCase):
             "skip_with_reason",
             "needs_human_review",
             "Input x State -> Set(Output x State)",
-            "real package",
+            "real FlowGuard check engine",
             "AGENTS.md managed",
             "fake mini-framework",
             "Risk Evidence Ledger",
@@ -136,7 +122,7 @@ class SkillDocsTests(unittest.TestCase):
             "behavior_flow",
             "argument_flow",
             "decision_flow",
-            "package helpers, not independently triggerable Codex skills",
+            "check-engine helpers, not independently triggerable Codex skills",
         )
         for phrase in expected:
             self.assertIn(phrase, text)
@@ -275,7 +261,7 @@ class SkillDocsTests(unittest.TestCase):
                 else:
                     self.assertIn("Standalone FlowGuard satellite skill", text)
                 self.assertIn("model-first-function-flow", text)
-                self.assertIn("real package", text)
+                self.assertIn("FlowGuard check engine", text)
                 self.assertIn("AGENTS.md managed", text)
                 self.assertIn("fake mini-framework", text)
                 if skill_name in TEMPLATE_HARVEST_SKILLS:
@@ -507,15 +493,18 @@ class SkillDocsTests(unittest.TestCase):
             "skip_with_reason",
             "needs_human_review",
             "Input x State -> Set(Output x State)",
-            "real package",
+            "real FlowGuard check engine",
             "project-adopt",
             "project-upgrade",
             "Risk Evidence Ledger",
             "public/local risk template",
             "template harvest closure",
             "risk-template-harvest-review",
-            "Package helpers",
+            "Check-engine helpers",
             "not separate Codex skills",
+            "Primary agent surface: `.agents/skills/`",
+            "Default entry skill: `.agents/skills/model-first-function-flow/SKILL.md`",
+            "not the AI-agent skill installation surface",
         )
         for phrase in expected:
             self.assertIn(phrase, text)
@@ -532,6 +521,25 @@ class SkillDocsTests(unittest.TestCase):
         )
         for marker in long_form_markers:
             self.assertNotIn(marker, text)
+
+    def test_readme_presents_flowguard_as_skill_suite_first(self):
+        text = self.read(ROOT / "README.md")
+
+        expected = (
+            "An AI-agent skill suite with executable check scripts",
+            "Its primary agent surface is `.agents/skills/`",
+            ".agents/skills/model-first-function-flow/SKILL.md",
+            "Run executable check scripts only when current evidence is needed",
+            "not the AI-agent skill install",
+        )
+        for phrase in expected:
+            self.assertIn(phrase, text)
+
+        self.assertNotIn("python -m pip install -e .", text)
+        self.assertLess(
+            text.index(".agents/skills/model-first-function-flow/SKILL.md"),
+            text.index("python -m flowguard"),
+        )
 
     def test_active_guidance_does_not_reintroduce_old_process_entry_rules(self):
         active_guidance_paths = (

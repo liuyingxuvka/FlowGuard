@@ -25,7 +25,7 @@ Return to `model-first-function-flow` when obligations are undefined. Do not inv
 
 ## Hard Gates
 
-- Verify the real package, keep AGENTS.md managed records current, and do not
+- Verify FlowGuard check engine, keep AGENTS.md managed records current, and do not
   create a fake mini-framework.
 - Tests cover declared obligations, not just helper/internal paths.
 - Full confidence requires each obligation to bind an owner `CodeContract` and
@@ -53,33 +53,11 @@ Return to `model-first-function-flow` when obligations are undefined. Do not inv
 
 ## Snapshot
 
-Snapshot: model obligation -> code contract -> test evidence; edges mean covers, partially covers, contradicts, or lacks evidence.
-Status: obligation, code/test evidence, missing or stale rows, next alignment step.
+Show coverage from model obligations to code contracts to tests, boundary
+observations, missing I/O or state writes, and scoped gaps.
+Status note: obligation, code/test evidence, missing or stale rows, next alignment step.
 
 ## Non-Goals
 
 - Do not split tests, code, or models.
 - Do not replace conformance replay for production-facing validation.
-
-<!-- BEGIN SKILLGUARD CONTRACT LAYER -->
-## Purpose
-Bind this FlowGuard route to one work contract, native checks, evidence, blockers, residual_risk, and claim_boundary.
-## Entrypoint Scope
-Covers flowguard-model-test-alignment and routed local materials only; no unrelated repos, private paths, services, publication, or release claims unless separately routed.
-## Local Material Routing
-Use FlowGuard's native router, package/model checks, `.skillguard/work-contract.json`, check_manifest, and run records; keep public text portable.
-## Entrypoint Acceptance Map
-Mode is native-integrated/hybrid as declared; SkillGuard executes gates around the native owner and must not add a second execution route.
-## Use When
-Use when this skill is selected and the task needs governed route, evidence, check, handoff, or closure behavior.
-## Do Not Use When
-Do not use outside the skill domain, without required materials, when a more specific skill owns the work, or for tiny direct answers.
-## Required Workflow
-Select the FlowGuard-owned route, open/compile the contract, start/update run record, run native model/check gates, refresh evidence, fix blockers, then close from current checks.
-## Hard Gates
-Block skipped phases, stale/prose-only evidence, hollow contracts, quality downgrades, native-route conflicts, and completion claims with blockers.
-## Output Requirements
-Report target, route, evidence, failures, blockers, skipped_checks, residual_risk, and claim_boundary; separate checked facts from judgment.
-## SkillGuard Maintenance
-Refresh contracts, checks, evidence, and installed copies after entrypoint, route, evidence, or closure changes.
-<!-- END SKILLGUARD CONTRACT LAYER -->

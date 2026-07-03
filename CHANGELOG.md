@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.52.4 - 2026-07-03
+
+FlowGuard skill-suite distribution.
+
+- Reframed public onboarding around `.agents/skills/` as the primary AI-agent
+  skill-suite surface, with `model-first-function-flow` as the default
+  entrypoint and sibling FlowGuard skills kept visible.
+- Clarified that the Python `flowguard` module and CLI are executable
+  check-engine support, not the AI-agent skill installation surface.
+- Added skill-suite marker verification and updated project adoption templates,
+  docs, and tests so repository, installed Codex skills, and generated AGENTS
+  guidance stay aligned.
+- Archived the `reframe-flowguard-as-skill-suite` OpenSpec change into the main
+  specs and refreshed release-scope evidence.
+
 ## v0.52.3 - 2026-06-27
 
 - Added SkillGuard runtime-contract governance for the installed FlowGuard Codex skill materials.

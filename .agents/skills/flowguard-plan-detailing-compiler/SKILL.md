@@ -27,7 +27,7 @@ Return to DevelopmentProcessFlow for generic "make a better plan" requests.
 
 ## Hard Gates
 
-- Verify the real package, AGENTS.md managed record, and no fake mini-framework.
+- Verify FlowGuard check engine, AGENTS.md managed record, and no fake mini-framework.
 - Do not present this as the generic first entry for rough-plan discussion.
 - Long prose is not structured plan detail.
 - Plan-detail pass is not implementation, release, or production proof.
@@ -57,26 +57,3 @@ Status note: plan goal, missing row, validation/rework gap, question, next step.
 - Do not execute the work plan.
 - Do not call LLM APIs from the model.
 - Do not replace downstream route evidence or final closure contracts.
-
-<!-- BEGIN SKILLGUARD CONTRACT LAYER -->
-## Purpose
-Bind this FlowGuard route to one work contract, native checks, evidence, blockers, residual_risk, and claim_boundary.
-## Entrypoint Scope
-Covers flowguard-plan-detailing-compiler and routed local materials only; no unrelated repos, private paths, services, publication, or release claims unless separately routed.
-## Local Material Routing
-Use FlowGuard's native router, package/model checks, `.skillguard/work-contract.json`, check_manifest, and run records; keep public text portable.
-## Entrypoint Acceptance Map
-Mode is native-integrated/hybrid as declared; SkillGuard executes gates around the native owner and must not add a second execution route.
-## Use When
-Use when this skill is selected and the task needs governed route, evidence, check, handoff, or closure behavior.
-## Do Not Use When
-Do not use outside the skill domain, without required materials, when a more specific skill owns the work, or for tiny direct answers.
-## Required Workflow
-Select the FlowGuard-owned route, open/compile the contract, start/update run record, run native model/check gates, refresh evidence, fix blockers, then close from current checks.
-## Hard Gates
-Block skipped phases, stale/prose-only evidence, hollow contracts, quality downgrades, native-route conflicts, and completion claims with blockers.
-## Output Requirements
-Report target, route, evidence, failures, blockers, skipped_checks, residual_risk, and claim_boundary; separate checked facts from judgment.
-## SkillGuard Maintenance
-Refresh contracts, checks, evidence, and installed copies after entrypoint, route, evidence, or closure changes.
-<!-- END SKILLGUARD CONTRACT LAYER -->

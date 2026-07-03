@@ -25,7 +25,7 @@ DevelopmentProcessFlow.
 
 ## Hard Gates
 
-- Verify the real package, keep AGENTS.md managed records current, and do not
+- Verify FlowGuard check engine, keep AGENTS.md managed records current, and do not
   create a fake mini-framework.
 - Every candidate needs target action, proof status, next route, and scoped or
   risky obligations.
@@ -48,7 +48,7 @@ DevelopmentProcessFlow.
 4. Classify candidates as merge, collapse, remove, keep facade, or review.
 5. Separate explicit safety/compatibility fields from removable surfaces.
 6. Mark duplicate bad-case generators for ContractExhaustionMesh absorption or
-   deletion; do not leave alternate routes unless explicitly required.
+   deletion; do not leave fallback routes unless explicitly required.
 7. Separate ready, scoped, risky, and blocked candidates.
 
 ## Snapshot
@@ -63,26 +63,3 @@ Status: contract, candidate, proof, risks, next route.
 - Do not rewrite production code directly.
 - Do not delete compatibility facades from property-only evidence.
 - Do not hide skipped or stale conformance evidence.
-
-<!-- BEGIN SKILLGUARD CONTRACT LAYER -->
-## Purpose
-Bind this FlowGuard route to one work contract, native checks, evidence, blockers, residual_risk, and claim_boundary.
-## Entrypoint Scope
-Covers flowguard-architecture-reduction and routed local materials only; no unrelated repos, private paths, services, publication, or release claims unless separately routed.
-## Local Material Routing
-Use FlowGuard's native router, package/model checks, `.skillguard/work-contract.json`, check_manifest, and run records; keep public text portable.
-## Entrypoint Acceptance Map
-Mode is native-integrated/hybrid as declared; SkillGuard executes gates around the native owner and must not add a second execution route.
-## Use When
-Use when this skill is selected and the task needs governed route, evidence, check, handoff, or closure behavior.
-## Do Not Use When
-Do not use outside the skill domain, without required materials, when a more specific skill owns the work, or for tiny direct answers.
-## Required Workflow
-Select the FlowGuard-owned route, open/compile the contract, start/update run record, run native model/check gates, refresh evidence, fix blockers, then close from current checks.
-## Hard Gates
-Block skipped phases, stale/prose-only evidence, hollow contracts, quality downgrades, native-route conflicts, and completion claims with blockers.
-## Output Requirements
-Report target, route, evidence, failures, blockers, skipped_checks, residual_risk, and claim_boundary; separate checked facts from judgment.
-## SkillGuard Maintenance
-Refresh contracts, checks, evidence, and installed copies after entrypoint, route, evidence, or closure changes.
-<!-- END SKILLGUARD CONTRACT LAYER -->

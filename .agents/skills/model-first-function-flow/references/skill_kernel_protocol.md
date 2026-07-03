@@ -12,7 +12,7 @@ standalone satellite skills.
 - flow lens: `behavior_flow`, `argument_flow`, or `decision_flow`;
 - a soft oversize hint that suggests considering parent/child splits for large
   or hard-to-follow models, tests, scripts, modules, and commands;
-- hard gates: real package import, no fake mini-framework, executable evidence
+- hard gates: real FlowGuard check-engine import, no fake mini-framework, executable evidence
   over prose, skipped is not pass, and adoption evidence for real use;
 - route map to specialized protocols, public owner satellites, and delegated
   mode satellites;
@@ -84,7 +84,7 @@ keeps DevelopmentProcessFlow as the owner.
 
 ## Helper APIs Are Not Sub-Skills
 
-These are package helpers:
+These are check-engine helpers:
 
 - `RiskIntent`, `RiskProfile`, `FlowGuardCheckPlan`,
   `MinimumModelContract`, `KnownBadProof`, `TemplateReuseReview`,

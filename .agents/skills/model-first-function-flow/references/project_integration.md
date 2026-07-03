@@ -1,7 +1,7 @@
 # Project Integration
 
-This document explains how a target repository should connect to the real
-`flowguard` toolchain before using the `model-first-function-flow` skill.
+This document explains how a target repository should use FlowGuard as an
+AI-agent skill suite with executable check scripts.
 
 FlowGuard source repository:
 
@@ -9,21 +9,42 @@ FlowGuard source repository:
 https://github.com/liuyingxuvka/FlowGuard
 ```
 
-## Preflight
+## Agent Skill Suite Setup
 
-Before modeling in another repository, run:
+For AI-agent use, FlowGuard setup means the agent can read the skill suite, not
+that a Python package has been installed.
+
+The required agent-visible surface is:
+
+- `AGENTS.md`
+- `.agents/skills/model-first-function-flow/SKILL.md`
+- all sibling FlowGuard `SKILL.md` files under `.agents/skills/`
+- any referenced `references/`, `assets/`, and check scripts used by the
+  selected route
+
+Start from `model-first-function-flow`. Use a direct FlowGuard sibling skill
+when the route is obvious, and use the kernel when route selection is unclear.
+
+If the agent can read the skills but cannot run executable checks yet, record
+that as scoped or partial evidence. Do not treat package metadata, a passing
+project audit, or a directory named `flowguard` as proof that the AI-agent
+skill suite is installed.
+
+## Executable Check Preflight
+
+Before claiming executable FlowGuard evidence in another repository, run:
 
 ```powershell
 python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"
 ```
 
-This prints the artifact schema version, not the GitHub/package release
-version. For example, FlowGuard can be released as `v0.2.1` while the
-trace/report schema remains `1.0`.
+This checks the local executable check engine and prints the artifact schema
+version, not the GitHub release version. For example, FlowGuard can be released
+as `v0.52.2` while the trace/report schema remains `1.0`.
 
 If this fails, do not create a temporary local mini-framework and claim the
-project used FlowGuard. Connect the real toolchain first, or record the task as
-blocked or partial.
+project used FlowGuard. Connect the real check engine first, or record the task
+as blocked or partial.
 
 If the import preflight succeeds but the target project has no FlowGuard model
 yet, create one. Existing production code or a prewritten model script is not a
@@ -31,26 +52,29 @@ requirement. The agent should write or adapt a model script from the current
 plan, run it, inspect counterexamples, and strengthen it when the customer's
 risk is not yet visible.
 
-## Local Source Install
+## Local Check Engine Source
 
-If you have a local checkout of this repository, set an explicit source path:
+When the check engine must be run from a local FlowGuard checkout, point the
+agent or shell at that source tree explicitly:
 
 ```powershell
 $env:FLOWGUARD_SOURCE = "<path-to-your-FlowGuard-checkout>"
+$env:PYTHONPATH = "$env:FLOWGUARD_SOURCE;$env:PYTHONPATH"
+python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"
+```
+
+The repository still exposes `python -m flowguard ...` as a compatibility
+command wrapper for checks, templates, and project records. That wrapper is a
+check-execution convenience; it is not the AI-agent skill install surface.
+
+If a development environment deliberately wants editable metadata for those
+compatibility commands, it may run:
+
+```powershell
 python -m pip install -e $env:FLOWGUARD_SOURCE
 ```
 
-The normal editable install command is intentional. It works in a fresh virtual
-environment because `pip` can prepare the standard build backend declared in
-`pyproject.toml`.
-
-Then verify:
-
-```powershell
-python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"
-python -m flowguard schema-version
-python -c "import importlib.metadata as m; print(m.version('flowguard'))"
-```
+Record that as check-engine command setup, not as FlowGuard skill setup.
 
 ## Toolchain Preflight Helper
 
@@ -63,7 +87,8 @@ python <path-to-model-first-function-flow-skill>\assets\toolchain_preflight.py -
 
 If the helper reports `mode: pythonpath_available`, the source tree is usable
 but the active environment has not been permanently connected yet. Run one of
-the recommended commands before treating the adoption as complete.
+the recommended check-engine commands before treating executable evidence as
+current.
 
 To point the helper at a local source tree:
 
@@ -71,30 +96,18 @@ To point the helper at a local source tree:
 python <path-to-model-first-function-flow-skill>\assets\toolchain_preflight.py --source <path-to-your-FlowGuard-checkout> --json
 ```
 
-To let it install the source tree in editable mode:
+To let it prepare editable metadata for compatibility commands:
 
 ```powershell
 python <path-to-model-first-function-flow-skill>\assets\toolchain_preflight.py --source <path-to-your-FlowGuard-checkout> --install-editable --json
 ```
 
-The helper does not replace the import preflight. After it succeeds, still run:
+The helper does not replace skill-suite setup or import preflight. After it
+succeeds, still run:
 
 ```powershell
 python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"
 ```
-
-## Temporary PYTHONPATH Fallback
-
-If editable install is not appropriate, use a temporary `PYTHONPATH` while
-running checks:
-
-```powershell
-$env:PYTHONPATH = "<path-to-your-FlowGuard-checkout>;$env:PYTHONPATH"
-python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"
-```
-
-This is acceptable for a quick pilot, but the adoption log should record that
-the toolchain was connected through `PYTHONPATH`.
 
 ## What Not To Do
 
@@ -104,24 +117,27 @@ Do not:
   FlowGuard;
 - write a one-off mini framework and mark the task as fully checked;
 - hide import failures behind prose;
-- treat a skipped install as a passed model-first check.
+- treat skipped check-engine setup as a passed model-first check;
+- treat package metadata as proof that `.agents/skills/` is available to the
+  AI agent.
 
-If an AI wrote a model-shaped draft before `flowguard` was available, treat that
-draft as an exploratory sketch only, not as FlowGuard evidence. It cannot count
-as FlowGuard adoption until the real toolchain is connected and the checks run
-against the real package. Record that state as:
+If an AI wrote a model-shaped draft before `flowguard` was available, treat
+that draft as an exploratory sketch only, not as FlowGuard evidence. It cannot
+count as FlowGuard executable evidence until the real check engine is connected
+and the checks run against it. Record that state as:
 
 ```text
 skill_decision: blocked_or_partial
 status: blocked
-friction: flowguard package was not connected to this repository
-next_action: install flowguard editable or add an explicit integration path
+friction: flowguard check engine was not connected to this repository
+next_action: make the FlowGuard skills visible and connect the check engine
 ```
 
-## Project AGENTS.md
+## Project AGENTS.md And Records
 
-After connecting the package, add the rule from `docs/agents_snippet.md` to the
-target project's `AGENTS.md`. The low-friction command is:
+After the target agent can see the skill suite, add the rule from
+`docs/agents_snippet.md` to the target project's `AGENTS.md`. The low-friction
+compatibility command is:
 
 ```powershell
 python -m flowguard project-adopt --root .
@@ -130,19 +146,21 @@ python -m flowguard project-adopt --root .
 This creates or updates only the managed FlowGuard block in `AGENTS.md`, writes
 `.flowguard/project.toml`, and appends adoption records under `.flowguard/` and
 `docs/`. The managed block includes the FlowGuard GitHub URL so future agents
-know where the real toolchain comes from.
+know where the skill suite and check engine come from.
 
 That project rule should require:
 
 - FlowGuard repository URL: `https://github.com/liuyingxuvka/FlowGuard`;
-- `flowguard` import preflight;
-- installed package version comparison against `.flowguard/project.toml`;
+- FlowGuard skill-suite visibility under `.agents/skills/`;
+- `flowguard` executable check preflight;
+- installed check-engine version comparison against `.flowguard/project.toml`
+  when version freshness matters;
 - AI-created model scripts when no model exists yet;
 - model-first checks before production edits;
 - Model-Miss Review for non-trivial bug repairs and for tests, replay, logs, or
   manual validation that expose a new issue after FlowGuard already passed;
 - adoption log entries for real use;
-- explicit blocked status when the real toolchain is unavailable.
+- explicit blocked status when the skill suite or check engine is unavailable.
 
 Use a read-only audit when you only need to check adoption state:
 
@@ -150,16 +168,27 @@ Use a read-only audit when you only need to check adoption state:
 python -m flowguard project-audit --root .
 ```
 
-If the installed FlowGuard package version is newer than the project record,
-run the explicit upgrade path before broad confidence claims:
+If the installed check-engine version is newer than the project record, run the
+explicit upgrade path before broad confidence claims:
 
 ```powershell
 python -m flowguard project-upgrade --root .
 ```
 
+This does more than update version text. For an older adopted repository,
+`project-upgrade` also scans known FlowGuard artifacts, model evidence, tests,
+docs, and guidance for deterministic upgrades into the current FlowGuard
+shape. Use `--records-only` only when intentionally scoping out that scan, and
+run `python -m flowguard artifact-upgrade --root . --apply` when you need the
+upgrade scan directly.
+
 Then check release notes or the changelog, rerun affected FlowGuard models and
-tests, and record the evidence. If the installed package version is older than
-the project record, upgrade the local FlowGuard toolchain first.
+tests, and record the evidence. If the installed check-engine version is older
+than the project record, connect a current FlowGuard check engine first.
+
+FlowGuard is latest-schema-first. Old artifacts may be detected and upgraded at
+project/tool boundaries, but normal route logic should not preserve long-lived
+compatibility branches for obsolete fields, aliases, or wrappers.
 
 If the target project also uses a spec/SPAC-style planning or orchestration
 skill, treat that tool's plan as optional FlowGuard handoff context. The handoff

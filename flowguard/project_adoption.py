@@ -160,7 +160,7 @@ class ProjectAdoptionReport:
 
 
 def installed_flowguard_package_version() -> str:
-    """Return the installed FlowGuard package version, or an empty string."""
+    """Return the installed FlowGuard check-engine package version, or an empty string."""
 
     try:
         return importlib.metadata.version("flowguard")
@@ -214,19 +214,27 @@ process changes.
 FlowGuard repository:
 {FLOWGUARD_REPOSITORY_URL}
 
+FlowGuard agent skill suite:
+- Primary agent surface: `.agents/skills/`
+- Default entry skill: `.agents/skills/model-first-function-flow/SKILL.md`
+- Complete AI-agent setup means the agent can read `AGENTS.md` and all
+  FlowGuard sibling `SKILL.md` files under `.agents/skills/`.
+- The Python `flowguard` module/CLI is executable check support, not the
+  AI-agent skill installation surface.
+
 Project FlowGuard record:
 - Manifest: `{FLOWGUARD_PROJECT_MANIFEST}`
 - Machine log: `{FLOWGUARD_PROJECT_LOG}`
 - Human log: `{FLOWGUARD_PROJECT_MARKDOWN_LOG}`
 
 Current adoption record:
-- FlowGuard package version: `{package}`
+- FlowGuard check-engine version: `{package}`
 - FlowGuard schema version: `{schema_version}`
 
 Before non-trivial work:
-1. Verify the real package:
+1. Verify the real FlowGuard check engine:
    `python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"`
-2. Check the installed package version:
+2. Check the installed check-engine version:
    `python -c "import importlib.metadata as m; print(m.version('flowguard'))"`
 3. Audit the project record:
    `python -m flowguard project-audit --root .`
@@ -238,8 +246,8 @@ Before non-trivial work:
    the current FlowGuard shape. Use `--records-only` only when intentionally
    scoping out artifact/model/test upgrade scanning.
    Then rerun affected models/tests before broad confidence and record the result.
-6. If the installed version is older than the project record, stop and upgrade
-   the local FlowGuard toolchain before claiming FlowGuard confidence.
+6. If the installed version is older than the project record, stop and connect
+   a current FlowGuard check engine before claiming FlowGuard confidence.
 
 FlowGuard runtime guidance is latest-schema-first: old artifacts may be
 detected and upgraded at project/tool boundaries, but normal route logic should
@@ -402,7 +410,7 @@ def _write_project_adoption(
         status="completed",
         findings=(
             f"FlowGuard repository recorded: {FLOWGUARD_REPOSITORY_URL}",
-            f"FlowGuard package version recorded: {package_version}",
+            f"FlowGuard check-engine version recorded: {package_version}",
             f"FlowGuard schema version recorded: {SCHEMA_VERSION}",
             *(
                 (f"Artifact upgrade scan: {artifact_upgrade_report.summary}",)
@@ -515,8 +523,8 @@ def _audit_findings(
             ProjectAdoptionFinding(
                 "blocked",
                 "flowguard_package_unavailable",
-                "the real FlowGuard package version could not be found",
-                f"Install or connect FlowGuard from {FLOWGUARD_REPOSITORY_URL}.",
+                "the real FlowGuard check-engine version could not be found",
+                f"Connect FlowGuard check execution from {FLOWGUARD_REPOSITORY_URL}.",
             )
         )
     if manifest and str(manifest.get("repository", "")) != FLOWGUARD_REPOSITORY_URL:
@@ -547,7 +555,7 @@ def _audit_findings(
                 ProjectAdoptionFinding(
                     "warning",
                     "unknown_flowguard_version_comparison",
-                    "could not compare installed FlowGuard package version with the project manifest",
+                    "could not compare installed FlowGuard check-engine version with the project manifest",
                     "Review package release notes and update the project manifest manually if needed.",
                     str(root_path / FLOWGUARD_PROJECT_MANIFEST),
                     {"installed_package_version": package_version, "manifest_package_version": manifest_package},
@@ -558,8 +566,8 @@ def _audit_findings(
                 ProjectAdoptionFinding(
                     "blocked",
                     "installed_flowguard_older",
-                    "installed FlowGuard package is older than the project-recorded version",
-                    "Upgrade the local FlowGuard toolchain before claiming FlowGuard confidence.",
+                    "installed FlowGuard check engine is older than the project-recorded version",
+                    "Connect the current FlowGuard check engine before claiming FlowGuard confidence.",
                     str(root_path / FLOWGUARD_PROJECT_MANIFEST),
                     {"installed_package_version": package_version, "manifest_package_version": manifest_package},
                 )
@@ -569,7 +577,7 @@ def _audit_findings(
                 ProjectAdoptionFinding(
                     "warning",
                     "project_flowguard_upgrade_available",
-                    "installed FlowGuard package is newer than the project-recorded version",
+                    "installed FlowGuard check engine is newer than the project-recorded version",
                     "Run project-upgrade, check release notes/changelog, and rerun affected model/test evidence before broad confidence.",
                     str(root_path / FLOWGUARD_PROJECT_MANIFEST),
                     {"installed_package_version": package_version, "manifest_package_version": manifest_package},

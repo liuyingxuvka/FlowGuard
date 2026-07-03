@@ -17,7 +17,7 @@ Standalone FlowGuard satellite skill for UI states, journeys, human-operability,
 
 ## Hard Gates
 
-- Verify real package and AGENTS.md managed records; no fake mini-framework.
+- Verify FlowGuard check engine and AGENTS.md managed records; no fake mini-framework.
 - Work mode first: `greenfield`, `source_based`, or `mixed`; source-based/mixed need baseline -> mapping -> observed alignment.
 - Existing/runnable UI: observed surface is first. Map visible controls, fields, status, dialogs, menus, toolbars, and regions to owner or blindspot.
 - Non-trivial or runnable UI claims need capability coverage: capability -> feature, task, UI path, owner/chain, output, evidence or blindspot.
@@ -41,32 +41,9 @@ Standalone FlowGuard satellite skill for UI states, journeys, human-operability,
 8. Derive regions, controls, text hierarchy, calm typography guidance.
 9. Add journey, evidence-kind, geometry, transition-cell, and implementation validation as needed.
 
-Snapshot: UI state diagram, controls, capabilities, tasks, recovery, evidence/blindspots; edges mean reachable controls/screens and interaction transitions.
+Snapshot: UI state diagram with controls, capabilities, tasks, visible surface, recovery, text ownership, evidence, blindspots.
 Status: surface, task/control, evidence/gap, next UI check.
 
 ## Non-Goals
 
 - Do not style-first or prose-validate.
-
-<!-- BEGIN SKILLGUARD CONTRACT LAYER -->
-## Purpose
-Bind this FlowGuard route to one work contract, native checks, evidence, blockers, residual_risk, and claim_boundary.
-## Entrypoint Scope
-Covers flowguard-ui-flow-structure and routed local materials only; no unrelated repos, private paths, services, publication, or release claims unless separately routed.
-## Local Material Routing
-Use FlowGuard's native router, package/model checks, `.skillguard/work-contract.json`, check_manifest, and run records; keep public text portable.
-## Entrypoint Acceptance Map
-Mode is native-integrated/hybrid as declared; SkillGuard executes gates around the native owner and must not add a second execution route.
-## Use When
-Use when this skill is selected and the task needs governed route, evidence, check, handoff, or closure behavior.
-## Do Not Use When
-Do not use outside the skill domain, without required materials, when a more specific skill owns the work, or for tiny direct answers.
-## Required Workflow
-Select the FlowGuard-owned route, open/compile the contract, start/update run record, run native model/check gates, refresh evidence, fix blockers, then close from current checks.
-## Hard Gates
-Block skipped phases, stale/prose-only evidence, hollow contracts, quality downgrades, native-route conflicts, and completion claims with blockers.
-## Output Requirements
-Report target, route, evidence, failures, blockers, skipped_checks, residual_risk, and claim_boundary; separate checked facts from judgment.
-## SkillGuard Maintenance
-Refresh contracts, checks, evidence, and installed copies after entrypoint, route, evidence, or closure changes.
-<!-- END SKILLGUARD CONTRACT LAYER -->
