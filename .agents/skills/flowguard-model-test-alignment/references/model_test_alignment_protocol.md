@@ -105,6 +105,16 @@ boundaries into the same Model-Test Alignment review. Use
 `audit_python_code_contracts()`, `audit_python_test_assertions()`, and
 `review_python_contract_source_audit()` when the Python source is available.
 It is an evidence collector, not a semantic proof engine.
+For real-code claims that name concrete paths and symbols, attach the resulting
+`ContractSourceAuditReport` to `ModelTestAlignmentPlan.source_audit_reports`
+and set `require_source_audit=True`. Missing, red, or unrelated source-audit
+reports block the final alignment decision.
+
+Use the final `ModelCodeTestBindingRow` rows as the closure summary. A row
+should expose owner code contract ids, code paths, symbols, current test ids,
+boundary/runtime/payload ids, source-audit decision, and open gap codes. Do
+not make a broad final claim from scattered evidence when the binding row still
+shows a gap.
 
 ## Trigger
 
@@ -127,6 +137,8 @@ Create or update a model-test alignment review when:
 - a bug repair or post-runtime model-miss repair needs proof that tests cover
   both the observed regression and the same-class generalized bug family
   through the owner code contract;
+- a concrete counterexample trace or known-bad proof must become a real
+  code-level regression test with a stable target id;
 - several sibling obligations are being promoted as one family-level claim and
   need required mechanism coverage with allowed provenance;
 - reviewers suspect orphan tests, orphan code contracts, duplicated test
@@ -161,6 +173,9 @@ Use grouped field families instead of a blank for every possible detail.
 - identity: id, type, required flag, and short description;
 - required evidence: test kinds, closure role when this comes from a model
   miss, and whether shared evidence or implementation is allowed;
+- closure targets: `ClosureEvidenceTarget` rows for counterexample ids,
+  known-bad proof ids, or replay case ids that must be closed by current
+  external tests;
 - external boundary when relevant: inputs, outputs, state reads/writes, side
   effects, error paths, and exactness.
 - transition coverage source when generated from a matrix: cell id, source
@@ -202,6 +217,8 @@ confidence claim. Capture:
   contract implementing the same obligation;
 - risk notes: overclaim, internal-path-only, source-audit caveat, or model-miss
   closure role.
+  Counterexample and known-bad closure roles must also name the exact
+  `evidence_target_id` they replay.
 
 Expand only when applicable:
 

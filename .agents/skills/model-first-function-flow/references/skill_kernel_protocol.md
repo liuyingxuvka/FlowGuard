@@ -143,9 +143,11 @@ sub-skills.
   metadata artifacts exist.
 - Keep Model-Test Alignment independent from mesh routes; it compares plain
   obligation, transition coverage, code-contract, code-boundary observation,
-  and evidence rows and does not split tests or code. When the transition cell
-  set is large or slow, route evidence hierarchy to TestMesh while keeping the
-  semantic obligations visible.
+  source-audit, closure-target, and evidence rows and does not split tests or
+  code. Real-code claims with paths/symbols can require green source audit, and
+  concrete counterexample or known-bad repairs need target-aware owner-code
+  tests. When the transition cell set is large or slow, route evidence
+  hierarchy to TestMesh while keeping the semantic obligations visible.
 - Keep Risk Evidence Ledger as a final claim boundary. It consumes evidence ids
   from sibling routes, but it does not replace their checks or rerun tests.
 - Keep Architecture Reduction as the model-to-code contraction route. It may

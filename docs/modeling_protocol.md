@@ -233,6 +233,16 @@ test-assertion evidence, and feed those rows into the same alignment review.
 It is deliberately limited: it is not a perfect semantic proof for Python, does
 not replace conformance replay, and must send dynamic, ambiguous, or complex
 behavior to manual review.
+For real-code claims that name concrete paths and symbols, attach the source
+audit report to `ModelTestAlignmentPlan.source_audit_reports` and set
+`require_source_audit=True`; a missing, red, or unrelated green audit keeps the
+binding row blocked.
+
+When a counterexample trace or known-bad proof is part of the repair, record it
+as a `ClosureEvidenceTarget`. The closing `TestEvidence` must be current,
+external-contract or mixed-scope, bound to the owner `CodeContract`, and use the
+same `evidence_target_id` with `counterexample_regression` or
+`known_bad_replay`. A happy-path test for the same function is not enough.
 
 Use `review_model_test_alignment(...)` for this direct comparison. Use
 `review_code_boundary_conformance(...)` when only the real-code boundary needs
@@ -851,11 +861,12 @@ When this happens:
    payload column, or persisted attribute, run or update FieldLifecycleMesh so
    the root-cause field, ContractExhaustionMesh field cases, and any old/replaced field are
    visible.
-7. Add current test evidence for the observed regression and contract-exhaustion
-   case, then run Model-Test Alignment to verify the repaired
-   obligation, owner code contract, and tests cover the same behavior. A
-   single observed-bug regression test is not full closure. Behavior-bearing
-   field projections should feed the same alignment rows.
+7. Add current test evidence for the observed regression, any concrete
+   counterexample or known-bad replay target, and the contract-exhaustion case,
+   then run Model-Test Alignment to verify the repaired obligation, owner code
+   contract, closure target, and tests cover the same behavior. A single
+   observed-bug regression test is not full closure. Behavior-bearing field
+   projections should feed the same alignment rows.
    When sibling obligations make the same family-level claim, add family parity
    rows so every sibling has the required mechanism and allowed provenance.
    Also run an analogous defect scan when the miss shape may recur outside the
@@ -895,8 +906,9 @@ When this happens:
     and exit status exist; progress output is only liveness.
 17. Record `Miss type`, `Root cause backpropagation`, `Generalized case`, field
     lifecycle/projection/disposition evidence when fields are involved, owner
-    code contract, observed-regression test evidence, same-class test evidence,
-    legacy path disposition, family parity result, analogous scan result,
+    code contract, observed-regression test evidence, target-aware
+    counterexample/known-bad replay evidence, same-class test evidence, legacy
+    path disposition, family parity result, analogous scan result,
     Model-Test Alignment result, and any parent reattachment or defect-family
     gate decision in the adoption log, or the reason no generalized case was
     added, along with rerun commands, skipped checks, and residual blindspots.

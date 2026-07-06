@@ -1,9 +1,49 @@
 {
-  "schema_version": "skillguard.installed_manifest_index.v1",
-  "target_path": "..",
-  "target_type": "control_manifest",
-  "status": "checked",
+  "artifacts": [
+    {
+      "path": "skillguard_profile.json",
+      "required": true,
+      "role": "Installed profile"
+    },
+    {
+      "path": "skillguard_skill_contract.json",
+      "required": true,
+      "role": "Installed skill contract"
+    },
+    {
+      "path": "skillguard_evidence_rules.json",
+      "required": true,
+      "role": "Installed evidence rules"
+    },
+    {
+      "path": "skillguard_closure_policy.json",
+      "required": true,
+      "role": "Installed closure policy"
+    },
+    {
+      "path": "work-contract.json",
+      "required": true,
+      "role": "Runnable work contract"
+    },
+    {
+      "path": "check_manifest.json",
+      "required": true,
+      "role": "Runnable check manifest"
+    },
+    {
+      "path": "reports/current_check_report.json",
+      "required": true,
+      "role": "Current check summary"
+    },
+    {
+      "path": "reports/current_closure.json",
+      "required": true,
+      "role": "Current closure summary"
+    }
+  ],
+  "blockers": [],
   "checks": [],
+  "claim_boundary": "This record covers only the installed skill entrypoint, local SkillGuard records, and current files inspected for this target. It does not prove runtime checker execution, fixture coverage, CLI checks, tests, suite automation, package publication, code-contract validation, release readiness, or future AI behavior without separate current evidence.",
   "evidence": [
     {
       "evidence_id": "current-evidence-manifest",
@@ -12,52 +52,12 @@
     }
   ],
   "failures": [],
-  "blockers": [],
-  "skipped_checks": [],
   "residual_risk": [
     "This static record must be refreshed when the skill entrypoint, route contract, or validation rules change."
   ],
-  "claim_boundary": "This record covers only the installed skill entrypoint, local SkillGuard records, and current files inspected for this target. It does not prove runtime checker execution, fixture coverage, CLI checks, tests, suite automation, package publication, code-contract validation, release readiness, or future AI behavior without separate current evidence.",
-  "artifacts": [
-    {
-      "path": "skillguard_profile.json",
-      "role": "Installed profile",
-      "required": true
-    },
-    {
-      "path": "skillguard_skill_contract.json",
-      "role": "Installed skill contract",
-      "required": true
-    },
-    {
-      "path": "skillguard_evidence_rules.json",
-      "role": "Installed evidence rules",
-      "required": true
-    },
-    {
-      "path": "skillguard_closure_policy.json",
-      "role": "Installed closure policy",
-      "required": true
-    },
-    {
-      "path": "work-contract.json",
-      "role": "Runnable work contract",
-      "required": true
-    },
-    {
-      "path": "check_manifest.json",
-      "role": "Runnable check manifest",
-      "required": true
-    },
-    {
-      "path": "reports/current_check_report.json",
-      "role": "Current check summary",
-      "required": true
-    },
-    {
-      "path": "reports/current_closure.json",
-      "role": "Current closure summary",
-      "required": true
-    }
-  ]
+  "schema_version": "1.0",
+  "skipped_checks": [],
+  "status": "checked",
+  "target_path": "..",
+  "target_type": "control_manifest"
 }

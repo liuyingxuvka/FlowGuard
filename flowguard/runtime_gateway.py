@@ -223,6 +223,54 @@ class RuntimeWriteObservation:
 
 
 @dataclass(frozen=True)
+class RuntimeWriterInventoryEvidence:
+    """Evidence that critical runtime state writers were inventoried."""
+
+    evidence_id: str
+    covered_surface_ids: tuple[str, ...] = ()
+    discovered_writer_ids: tuple[str, ...] = ()
+    scoped_out_writer_ids: tuple[str, ...] = ()
+    scoped_out_reasons: FrozenMetadata = field(default_factory=tuple, compare=False)
+    proof_artifact_ids: tuple[str, ...] = ()
+    current: bool = True
+    result_status: str = "passed"
+    source_kind: str = ""
+    metadata: FrozenMetadata = field(default_factory=tuple, compare=False)
+
+    def __post_init__(self) -> None:
+        evidence_id = str(self.evidence_id)
+        if not evidence_id:
+            raise ValueError("evidence_id is required")
+        object.__setattr__(self, "evidence_id", evidence_id)
+        object.__setattr__(self, "covered_surface_ids", _as_tuple(self.covered_surface_ids))
+        object.__setattr__(self, "discovered_writer_ids", _as_tuple(self.discovered_writer_ids))
+        object.__setattr__(self, "scoped_out_writer_ids", _as_tuple(self.scoped_out_writer_ids))
+        object.__setattr__(self, "scoped_out_reasons", _metadata(self.scoped_out_reasons))
+        object.__setattr__(self, "proof_artifact_ids", _as_tuple(self.proof_artifact_ids))
+        object.__setattr__(self, "current", bool(self.current))
+        object.__setattr__(self, "result_status", str(self.result_status or "").lower())
+        object.__setattr__(self, "source_kind", str(self.source_kind or ""))
+        object.__setattr__(self, "metadata", _metadata(self.metadata))
+
+    def has_current_pass(self) -> bool:
+        return self.current and self.result_status in RUNTIME_GATEWAY_PASSING_STATUSES
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "evidence_id": self.evidence_id,
+            "covered_surface_ids": list(self.covered_surface_ids),
+            "discovered_writer_ids": list(self.discovered_writer_ids),
+            "scoped_out_writer_ids": list(self.scoped_out_writer_ids),
+            "scoped_out_reasons": to_jsonable(self.scoped_out_reasons),
+            "proof_artifact_ids": list(self.proof_artifact_ids),
+            "current": self.current,
+            "result_status": self.result_status,
+            "source_kind": self.source_kind,
+            "metadata": to_jsonable(self.metadata),
+        }
+
+
+@dataclass(frozen=True)
 class RuntimeGatewayAdoptionPlan:
     """Plan for reviewing whether runtime state writes are FlowGuard-gated."""
 
@@ -232,6 +280,7 @@ class RuntimeGatewayAdoptionPlan:
     gateways: tuple[RuntimeGatewayContract, ...] = ()
     write_observations: tuple[RuntimeWriteObservation, ...] = ()
     complete_inventory_evidence_ids: tuple[str, ...] = ()
+    writer_inventory_evidence: tuple[RuntimeWriterInventoryEvidence, ...] = ()
     require_complete_inventory: bool = True
     require_observed_writer_for_critical_surfaces: bool = True
     metadata: FrozenMetadata = field(default_factory=tuple, compare=False)
@@ -283,6 +332,16 @@ class RuntimeGatewayAdoptionPlan:
         )
         object.__setattr__(
             self,
+            "writer_inventory_evidence",
+            tuple(
+                item
+                if isinstance(item, RuntimeWriterInventoryEvidence)
+                else RuntimeWriterInventoryEvidence(**item)
+                for item in self.writer_inventory_evidence
+            ),
+        )
+        object.__setattr__(
+            self,
             "require_complete_inventory",
             bool(self.require_complete_inventory),
         )
@@ -307,6 +366,9 @@ class RuntimeGatewayAdoptionPlan:
                 observation.to_dict() for observation in self.write_observations
             ],
             "complete_inventory_evidence_ids": list(self.complete_inventory_evidence_ids),
+            "writer_inventory_evidence": [
+                evidence.to_dict() for evidence in self.writer_inventory_evidence
+            ],
             "require_complete_inventory": self.require_complete_inventory,
             "require_observed_writer_for_critical_surfaces": (
                 self.require_observed_writer_for_critical_surfaces
@@ -423,7 +485,12 @@ def review_runtime_gateway_adoption(
         for surface_id in gateway.managed_surface_ids:
             managed_by_gateway.setdefault(surface_id, set()).add(gateway.gateway_id)
 
-    if runtime_required and plan.require_complete_inventory and not plan.complete_inventory_evidence_ids:
+    if (
+        runtime_required
+        and plan.require_complete_inventory
+        and not plan.complete_inventory_evidence_ids
+        and not plan.writer_inventory_evidence
+    ):
         findings.append(
             RuntimeGatewayFinding(
                 "missing_complete_writer_inventory",
@@ -431,6 +498,8 @@ def review_runtime_gateway_adoption(
                 "error",
             )
         )
+    if runtime_required and plan.require_complete_inventory:
+        _review_writer_inventory_evidence(plan, findings)
 
     for surface in plan.state_surfaces:
         owner_gateway_ids = _surface_owner_gateway_ids(surface, managed_by_gateway)
@@ -528,6 +597,87 @@ def review_runtime_gateway_adoption(
                 )
 
     return RuntimeGatewayAdoptionReport(plan=plan, findings=tuple(findings))
+
+
+def _review_writer_inventory_evidence(
+    plan: RuntimeGatewayAdoptionPlan,
+    findings: list[RuntimeGatewayFinding],
+) -> None:
+    if not plan.writer_inventory_evidence:
+        findings.append(
+            RuntimeGatewayFinding(
+                "missing_structured_writer_inventory_evidence",
+                "runtime-gateway adoption requires structured current writer inventory evidence",
+                "error",
+            )
+        )
+        return
+
+    passing_inventory = tuple(
+        evidence for evidence in plan.writer_inventory_evidence if evidence.has_current_pass()
+    )
+    for evidence in plan.writer_inventory_evidence:
+        if not evidence.current:
+            findings.append(
+                RuntimeGatewayFinding(
+                    "writer_inventory_stale",
+                    f"writer inventory evidence {evidence.evidence_id!r} is not current",
+                    "error",
+                    metadata={"writer_inventory_evidence": evidence.to_dict()},
+                )
+            )
+        if evidence.result_status not in RUNTIME_GATEWAY_PASSING_STATUSES:
+            findings.append(
+                RuntimeGatewayFinding(
+                    "writer_inventory_not_passing",
+                    f"writer inventory evidence {evidence.evidence_id!r} has non-passing status {evidence.result_status!r}",
+                    "error",
+                    metadata={"writer_inventory_evidence": evidence.to_dict()},
+                )
+            )
+        if not evidence.proof_artifact_ids:
+            findings.append(
+                RuntimeGatewayFinding(
+                    "writer_inventory_missing_proof_artifact",
+                    f"writer inventory evidence {evidence.evidence_id!r} has no proof artifact id",
+                    "error",
+                    metadata={"writer_inventory_evidence": evidence.to_dict()},
+                )
+            )
+        scoped_reasons = dict(evidence.scoped_out_reasons)
+        missing_reasons = tuple(
+            writer_id
+            for writer_id in evidence.scoped_out_writer_ids
+            if not str(scoped_reasons.get(writer_id, ""))
+        )
+        if missing_reasons:
+            findings.append(
+                RuntimeGatewayFinding(
+                    "writer_inventory_scoped_without_reason",
+                    f"writer inventory evidence {evidence.evidence_id!r} scopes out writers without reasons",
+                    "error",
+                    metadata={
+                        "missing_reason_writer_ids": list(missing_reasons),
+                        "writer_inventory_evidence": evidence.to_dict(),
+                    },
+                )
+            )
+
+    covered_surface_ids: set[str] = set()
+    for evidence in passing_inventory:
+        covered_surface_ids.update(evidence.covered_surface_ids)
+    for surface in plan.state_surfaces:
+        if not surface.critical:
+            continue
+        if surface.surface_id not in covered_surface_ids:
+            findings.append(
+                RuntimeGatewayFinding(
+                    "writer_inventory_missing_critical_surface",
+                    f"critical surface {surface.surface_id!r} is not covered by current writer inventory evidence",
+                    "error",
+                    surface_id=surface.surface_id,
+                )
+            )
 
 
 def _surface_owner_gateway_ids(
@@ -704,6 +854,7 @@ def _summary(
     return (
         f"{decision}: surfaces={len(plan.state_surfaces)} "
         f"gateways={len(plan.gateways)} observations={len(plan.write_observations)} "
+        f"writer_inventory={len(plan.writer_inventory_evidence)} "
         f"errors={errors} warnings={warnings}"
     )
 
@@ -726,6 +877,7 @@ __all__ = [
     "RuntimeGatewayContract",
     "RuntimeGatewayFinding",
     "RuntimeStateSurface",
+    "RuntimeWriterInventoryEvidence",
     "RuntimeWriteObservation",
     "review_runtime_gateway_adoption",
 ]

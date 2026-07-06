@@ -1,0 +1,152 @@
+contract_version: 1
+change: harden-model-code-test-closure
+obligations:
+  - id: req.model-test-alignment.source-audit-gate
+    source: "specs/model-test-alignment/spec.md#Requirement: Source audit can gate real-code alignment"
+    claim: "Required source audit blocks missing, failed, or unrelated real-code audit evidence."
+    required: true
+    evidence:
+      - check.model-test-alignment.focused
+      - check.source-audit.model
+  - id: req.model-test-alignment.binding-row-summary
+    source: "specs/model-test-alignment/spec.md#Requirement: Binding rows summarize behavior closure"
+    claim: "Binding rows expose owner code, path/symbol, tests, runtime/boundary/payload ids, source decision, and open gaps."
+    required: true
+    evidence:
+      - check.model-test-alignment.focused
+  - id: req.model-test-alignment.target-aware-bad-case-closure
+    source: "specs/model-test-alignment/spec.md#Requirement: Counterexample and known-bad obligations close through target-aware code tests"
+    claim: "Counterexample and known-bad closure requires current external owner-code-bound test evidence for the same target id."
+    required: true
+    evidence:
+      - check.model-test-alignment.focused
+      - check.model-miss.model
+  - id: req.runtime-gateway.structured-writer-inventory
+    source: "specs/runtime-gateway-adoption/spec.md#Requirement: Runtime gateway claims use structured writer inventory evidence"
+    claim: "Runtime-gateway claims require structured, current, passing writer inventory evidence that covers critical surfaces and has proof artifacts."
+    required: true
+    evidence:
+      - check.runtime-gateway.focused
+  - id: req.post-runtime-model-miss.target-projection
+    source: "specs/post-runtime-model-miss-review/spec.md#Requirement: Model-miss counterexamples project into Model-Test Alignment closure"
+    claim: "Model-miss guidance and model regressions project counterexamples and known-bad misses into target-aware owner-code-bound test closure."
+    required: true
+    evidence:
+      - check.model-miss.model
+      - check.skills.docs
+checks:
+  - id: check.model-test-alignment.focused
+    kind: command
+    command: python
+    args:
+      - -m
+      - pytest
+      - tests/test_model_test_alignment.py
+      - -q
+    required: true
+    covers:
+      - req.model-test-alignment.source-audit-gate
+      - req.model-test-alignment.binding-row-summary
+      - req.model-test-alignment.target-aware-bad-case-closure
+    expected:
+      exit_code: 0
+  - id: check.runtime-gateway.focused
+    kind: command
+    command: python
+    args:
+      - -m
+      - pytest
+      - tests/test_runtime_gateway_adoption.py
+      - -q
+    required: true
+    covers:
+      - req.runtime-gateway.structured-writer-inventory
+    expected:
+      exit_code: 0
+  - id: check.source-audit.model
+    kind: command
+    command: python
+    args:
+      - .flowguard/contract_source_audit/run_checks.py
+    required: true
+    covers:
+      - req.model-test-alignment.source-audit-gate
+    expected:
+      exit_code: 0
+  - id: check.model-miss.model
+    kind: command
+    command: python
+    args:
+      - .flowguard/model_miss_review/run_checks.py
+    required: true
+    covers:
+      - req.model-test-alignment.target-aware-bad-case-closure
+      - req.post-runtime-model-miss.target-projection
+    expected:
+      exit_code: 0
+  - id: check.skills.docs
+    kind: command
+    command: python
+    args:
+      - -m
+      - pytest
+      - tests/test_public_templates.py
+      - tests/test_skill_docs.py
+      - -q
+    required: true
+    covers:
+      - req.post-runtime-model-miss.target-projection
+    expected:
+      exit_code: 0
+  - id: check.api-surface
+    kind: command
+    command: python
+    args:
+      - -m
+      - pytest
+      - tests/test_api_surface.py
+      - -q
+    required: true
+    covers:
+      - req.model-test-alignment.source-audit-gate
+      - req.runtime-gateway.structured-writer-inventory
+    expected:
+      exit_code: 0
+  - id: check.openspec.strict
+    kind: command
+    command: openspec
+    args:
+      - validate
+      - harden-model-code-test-closure
+      - --strict
+    required: true
+    covers:
+      - req.model-test-alignment.source-audit-gate
+      - req.model-test-alignment.binding-row-summary
+      - req.model-test-alignment.target-aware-bad-case-closure
+      - req.runtime-gateway.structured-writer-inventory
+      - req.post-runtime-model-miss.target-projection
+    expected:
+      exit_code: 0
+freshness:
+  watch:
+    - openspec/changes/harden-model-code-test-closure/proposal.md
+    - openspec/changes/harden-model-code-test-closure/design.md
+    - openspec/changes/harden-model-code-test-closure/tasks.md
+    - openspec/changes/harden-model-code-test-closure/specs/**/*.md
+    - openspec/changes/harden-model-code-test-closure/verification-contract.yaml
+    - flowguard/model_test_alignment.py
+    - flowguard/model_test_alignment_source.py
+    - flowguard/runtime_gateway.py
+    - flowguard/__init__.py
+    - flowguard/template_text/**/*.py
+    - tests/test_model_test_alignment.py
+    - tests/test_runtime_gateway_adoption.py
+    - tests/test_api_surface.py
+    - tests/test_public_templates.py
+    - tests/test_skill_docs.py
+    - .flowguard/contract_source_audit/**/*.py
+    - .flowguard/model_test_code_alignment/**/*.py
+    - .flowguard/model_miss_review/**/*.py
+    - .agents/skills/**/*.md
+    - docs/**/*.md

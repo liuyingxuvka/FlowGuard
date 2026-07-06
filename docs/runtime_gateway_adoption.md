@@ -34,6 +34,7 @@ from flowguard import (
     RuntimeGatewayAdoptionPlan,
     RuntimeGatewayContract,
     RuntimeStateSurface,
+    RuntimeWriterInventoryEvidence,
     RuntimeWriteObservation,
     review_runtime_gateway_adoption,
 )
@@ -42,6 +43,14 @@ plan = RuntimeGatewayAdoptionPlan(
     "flowpilot",
     target_level=ADOPTION_LEVEL_RUNTIME_GATEWAY,
     complete_inventory_evidence_ids=("inventory:critical-state-writers",),
+    writer_inventory_evidence=(
+        RuntimeWriterInventoryEvidence(
+            "inventory:critical-state-writers",
+            covered_surface_ids=("router_state",),
+            discovered_writer_ids=("writer:router_state_write",),
+            proof_artifact_ids=("artifact:writer-inventory",),
+        ),
+    ),
     state_surfaces=(
         RuntimeStateSurface(
             "router_state",
@@ -77,6 +86,10 @@ print(report.format_text())
 The review blocks runtime-gateway confidence when:
 
 - no complete writer inventory evidence is supplied;
+- no structured current writer inventory evidence is supplied for a
+  `runtime_gateway` claim;
+- structured writer inventory is stale, non-passing, misses a critical state
+  surface, scopes out a writer without a reason, or lacks proof artifact ids;
 - a critical state surface has no declared gateway owner;
 - a gateway owner is unknown;
 - a gateway does not require atomic commit or replay observation;
@@ -125,5 +138,8 @@ mediated write observations, runtime path, replay, and proof evidence.
 
 This helper is not a perfect source scanner. A target project must provide the
 writer inventory from source audit, runtime instrumentation, tests, or replay.
-FlowGuard then reviews whether that inventory is complete enough for the claim
-and whether each known critical write path is gated.
+Use `RuntimeWriterInventoryEvidence` to make that inventory auditable: list the
+covered state surfaces, discovered writer ids, any scoped-out writer ids plus
+reasons, and proof artifact ids. FlowGuard then reviews whether that inventory
+is complete enough for the claim and whether each known critical write path is
+gated.

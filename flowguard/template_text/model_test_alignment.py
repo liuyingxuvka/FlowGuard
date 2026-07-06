@@ -55,12 +55,15 @@ from flowguard import (
     CodeBoundaryContract,
     CodeBoundaryObservation,
     CodeContract,
+    ClosureEvidenceTarget,
     ModelObligation,
     ModelTestAlignmentPlan,
     ProofArtifactRef,
     RuntimeNodeObservation,
     TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
     TEST_ASSERTION_SCOPE_INTERNAL_PATH,
+    TEST_CLOSURE_ROLE_COUNTEREXAMPLE_REGRESSION,
+    TEST_CLOSURE_ROLE_KNOWN_BAD_REPLAY,
     TEST_CLOSURE_ROLE_OBSERVED_REGRESSION,
     TEST_CLOSURE_ROLE_SAME_CLASS_GENERALIZED,
     TEST_EVIDENCE_ROLE_TRANSITION_CELL,
@@ -152,10 +155,12 @@ def transition_code_contracts() -> tuple[CodeContract, ...]:
     )
 
 
-def aligned_plan() -> ModelTestAlignmentPlan:
+def aligned_plan(source_audit_reports=()) -> ModelTestAlignmentPlan:
     return ModelTestAlignmentPlan(
         model_id="sample_checkout_model",
         require_proof_artifacts=True,
+        require_source_audit=bool(source_audit_reports),
+        source_audit_reports=source_audit_reports,
         obligations=(
             ModelObligation(
                 "accept_valid_order",
@@ -184,6 +189,16 @@ def aligned_plan() -> ModelTestAlignmentPlan:
                 description="post-runtime duplicate-submit miss is closed by observed and ContractExhaustionMesh case tests",
                 model_miss_origin=True,
                 requires_same_class_test_evidence=True,
+                required_closure_targets=(
+                    ClosureEvidenceTarget(
+                        "counterexample:duplicate-submit",
+                        closure_evidence_role=TEST_CLOSURE_ROLE_COUNTEREXAMPLE_REGRESSION,
+                    ),
+                    ClosureEvidenceTarget(
+                        "known-bad:duplicate-submit",
+                        closure_evidence_role=TEST_CLOSURE_ROLE_KNOWN_BAD_REPLAY,
+                    ),
+                ),
                 required_test_kinds=(TEST_KIND_HAPPY_PATH,),
             ),
             *transition_coverage_to_model_obligations(transition_matrix()),
@@ -307,6 +322,38 @@ def aligned_plan() -> ModelTestAlignmentPlan:
                     "model_miss_duplicate_submit_family",
                 ),
             ),
+            TestEvidence(
+                "test_duplicate_submit_counterexample_regression",
+                test_name="test_duplicate_submit_counterexample_regression",
+                path="tests/test_checkout.py",
+                result_status="passed",
+                test_kind=TEST_KIND_HAPPY_PATH,
+                covered_obligations=("model_miss_duplicate_submit_family",),
+                covered_code_contracts=("checkout_duplicate_submit_family",),
+                assertion_scope=TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
+                closure_evidence_role=TEST_CLOSURE_ROLE_COUNTEREXAMPLE_REGRESSION,
+                evidence_target_id="counterexample:duplicate-submit",
+                proof_artifact=proof_artifact(
+                    "test_duplicate_submit_counterexample_regression",
+                    "model_miss_duplicate_submit_family",
+                ),
+            ),
+            TestEvidence(
+                "test_duplicate_submit_known_bad_replay",
+                test_name="test_duplicate_submit_known_bad_replay",
+                path="tests/test_checkout.py",
+                result_status="passed",
+                test_kind=TEST_KIND_HAPPY_PATH,
+                covered_obligations=("model_miss_duplicate_submit_family",),
+                covered_code_contracts=("checkout_duplicate_submit_family",),
+                assertion_scope=TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
+                closure_evidence_role=TEST_CLOSURE_ROLE_KNOWN_BAD_REPLAY,
+                evidence_target_id="known-bad:duplicate-submit",
+                proof_artifact=proof_artifact(
+                    "test_duplicate_submit_known_bad_replay",
+                    "model_miss_duplicate_submit_family",
+                ),
+            ),
         ),
         runtime_node_observations=(
             RuntimeNodeObservation(
@@ -387,9 +434,11 @@ def aligned_plan() -> ModelTestAlignmentPlan:
     )
 
 
-def broken_plan() -> ModelTestAlignmentPlan:
+def broken_plan(source_audit_reports=()) -> ModelTestAlignmentPlan:
     return ModelTestAlignmentPlan(
         model_id="sample_checkout_model",
+        require_source_audit=bool(source_audit_reports),
+        source_audit_reports=source_audit_reports,
         obligations=(
             ModelObligation(
                 "reject_duplicate_order",
@@ -405,6 +454,16 @@ def broken_plan() -> ModelTestAlignmentPlan:
                 obligation_type="model_miss",
                 model_miss_origin=True,
                 requires_same_class_test_evidence=True,
+                required_closure_targets=(
+                    ClosureEvidenceTarget(
+                        "counterexample:duplicate-submit",
+                        closure_evidence_role=TEST_CLOSURE_ROLE_COUNTEREXAMPLE_REGRESSION,
+                    ),
+                    ClosureEvidenceTarget(
+                        "known-bad:duplicate-submit",
+                        closure_evidence_role=TEST_CLOSURE_ROLE_KNOWN_BAD_REPLAY,
+                    ),
+                ),
             ),
         ),
         code_contracts=(
@@ -536,6 +595,12 @@ def test_observed_duplicate_submit_regression():
 
 def test_same_class_duplicate_submit_variants():
     assert reject_duplicate_order("duplicate-via-alt-entry") == "Rejected"
+
+def test_duplicate_submit_counterexample_regression():
+    assert reject_duplicate_order("counterexample:duplicate-submit") == "Rejected"
+
+def test_duplicate_submit_known_bad_replay():
+    assert reject_duplicate_order("known-bad:duplicate-submit") == "Rejected"
 """,
 }
 
@@ -569,8 +634,12 @@ def source_audit(plan: ModelTestAlignmentPlan, source_by_path: dict[str, str]):
 
 
 def run_checks():
-    aligned = aligned_plan()
-    broken = broken_plan()
+    aligned_base = aligned_plan()
+    broken_base = broken_plan()
+    aligned_source = source_audit(aligned_base, ALIGNED_SOURCE)
+    broken_source = source_audit(broken_base, BROKEN_SOURCE)
+    aligned = aligned_plan((aligned_source,))
+    broken = broken_plan((broken_source,))
     aligned_boundary = review_code_boundary_conformance(aligned.boundary_contracts, aligned.boundary_observations, aligned.code_contracts)
     broken_boundary = review_code_boundary_conformance(broken.boundary_contracts, broken.boundary_observations, broken.code_contracts)
     return (
@@ -578,8 +647,8 @@ def run_checks():
         review_model_test_alignment(broken),
         aligned_boundary,
         broken_boundary,
-        source_audit(aligned, ALIGNED_SOURCE),
-        source_audit(broken, BROKEN_SOURCE),
+        aligned_source,
+        broken_source,
     )
 '''
 
@@ -707,12 +776,20 @@ Optionally run the conservative source audit:
   contains assertions.
 - `review_python_contract_source_audit(...)` flags source-level gaps before the
   declared rows are trusted. This is not a full semantic proof.
+- For real-code claims, pass the green `ContractSourceAuditReport` into
+  `ModelTestAlignmentPlan.source_audit_reports` and set
+  `require_source_audit=True`; unrelated green audits do not close the row.
 - Code audits inspect function signatures, return values, raises, assignments, and calls.
   They can flag a missing Python symbol, missing input, missing output, missing
   state write, and extra side effect.
 - Test audits check that tests must call the declared code contract symbol and
   contain an assert or unittest assertion; helper/internal path evidence and no
   assert evidence stay visible as source-level gaps.
+
+For concrete counterexamples or known-bad proofs, add `ClosureEvidenceTarget`
+rows on the obligation and matching external-contract `TestEvidence` rows with
+`counterexample_regression` or `known_bad_replay`, the same
+`evidence_target_id`, and the owner `CodeContract`.
 
 ## Boundary
 

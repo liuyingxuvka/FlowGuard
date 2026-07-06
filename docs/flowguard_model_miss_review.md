@@ -30,6 +30,8 @@ issue after a FlowGuard pass.
   return, keyboard/focus, walkthrough, and same-class task evidence.
 - How is the issue now represented: scenario, invariant, replay adapter,
   representative trace, or explicit out-of-scope boundary?
+- If the issue produced a concrete counterexample trace or known-bad proof,
+  what stable target id will be replayed by the real-code regression test?
 - What same-class family seed or finite boundary prevents a point-fix-only
   repair, and which ContractExhaustionMesh case ids represent that class or
   explicitly scope it out?
@@ -40,6 +42,9 @@ issue after a FlowGuard pass.
   whole model target?
 - Which observed-regression test and contract-exhaustion same-class test
   evidence now prove the repaired obligation?
+- Which `counterexample_regression` or `known_bad_replay` `TestEvidence` row
+  cites the same `evidence_target_id`, covers the repaired obligation, and
+  binds to the owner `CodeContract`?
 - Which retry/rejection transition cells prove failure, negative, replay, and
   no-delta repair-feedback behavior when the miss was a repeated packet loop?
 - Which root-cause field ids and ContractExhaustionMesh field case ids prove
@@ -73,6 +78,10 @@ root-cause backpropagation when there was a prior claim, owner code contract
 binding, ContractExhaustionMesh case ids plus same-class test evidence, legacy
 path disposition for reachable old paths, and recurring families need a
 defect-family gate or an explicit scoped-confidence boundary.
+If a miss has a counterexample or known-bad id, broad closure also needs
+target-aware Model-Test Alignment evidence: the repaired obligation declares a
+`ClosureEvidenceTarget`, and the current passing external test uses
+`counterexample_regression` or `known_bad_replay` with the same target id.
 For UI misses, full closure also needs `review_ui_model_misses(...)` evidence:
 previous claim, previous green reason, observed failure, affected
 controls/fields, same-class controls/fields, same-class tests or click

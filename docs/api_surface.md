@@ -315,15 +315,19 @@ inventory.
   Model-Test Alignment, or manual review without merging models or rewriting
   code automatically.
 - model-test alignment helpers such as `ModelObligation`,
-  `CodeContract`, `TestEvidence`, `ModelTestAlignmentPlan`, and
-  `review_model_test_alignment()` for directly comparing model obligations
-  with owner code external contracts and ordinary test evidence without
-  invoking TestMesh or StructureMesh. `ModelCodeTestBindingRow` exposes the
-  required three-way row status. `TestEvidence` can distinguish primary
-  proof, primary `edge_path` proof, supporting contract evidence, integration
-  smoke evidence, exact leaf matrix-cell evidence, transition-cell evidence,
-  and model-miss closure roles such as observed regression versus same-class
-  generalized evidence. `TransitionCoverageCell`,
+  `ClosureEvidenceTarget`, `CodeContract`, `TestEvidence`,
+  `ModelTestAlignmentPlan`, and `review_model_test_alignment()` for directly
+  comparing model obligations with owner code external contracts and ordinary
+  test evidence without invoking TestMesh or StructureMesh. `ModelCodeTestBindingRow`
+  exposes the required behavior closure row: owner contracts, paths, symbols,
+  tests, boundary/runtime/payload ids, source-audit decision, and open gap
+  codes. `TestEvidence` can distinguish primary proof, primary `edge_path`
+  proof, supporting contract evidence, integration smoke evidence, exact leaf
+  matrix-cell evidence, transition-cell evidence, and model-miss closure roles
+  such as observed regression, same-class generalized evidence,
+  `counterexample_regression`, and `known_bad_replay`. `ClosureEvidenceTarget`
+  binds a concrete counterexample id, known-bad proof id, or replay case id to
+  the external owner-code test that must close it. `TransitionCoverageCell`,
   `TransitionCoverageMatrix`, `transition_coverage_to_model_obligations()`,
   `transition_coverage_to_code_contracts()`,
   `transition_coverage_to_required_leaf_cell_ids()`,
@@ -396,7 +400,10 @@ inventory.
   `audit_python_test_assertions()`, and
   `review_python_contract_source_audit()` for feeding AST-visible code and test
   assertion evidence into Model-Test Alignment without presenting it as perfect
-  semantic proof or a replacement for conformance replay.
+  semantic proof or a replacement for conformance replay. When
+  `ModelTestAlignmentPlan.require_source_audit` is true, attached
+  `ContractSourceAuditReport` rows must be green and cover the plan's required
+  code contracts and tests before the final alignment decision can be green.
 - optional code-boundary conformance helpers such as
   `CodeBoundaryContract`, `CodeBoundaryObservation`,
   `CodeBoundaryConformanceReport`, and
@@ -405,12 +412,15 @@ inventory.
   alignment confidence is claimed.
 - optional runtime gateway adoption helpers such as
   `RuntimeStateSurface`, `RuntimeGatewayContract`,
-  `RuntimeWriteObservation`, `RuntimeGatewayAdoptionPlan`,
+  `RuntimeWriteObservation`, `RuntimeWriterInventoryEvidence`,
+  `RuntimeGatewayAdoptionPlan`,
   `RuntimeGatewayAdoptionReport`, and
   `review_runtime_gateway_adoption()` for distinguishing design-only,
   test-aligned, and runtime-gateway FlowGuard adoption, and for blocking
   runtime protection claims when critical state writes can still bypass the
-  declared gateway.
+  declared gateway. `RuntimeWriterInventoryEvidence` makes the writer scan
+  auditable by listing covered critical surfaces, discovered writers,
+  scoped-out writers with reasons, current passing status, and proof artifacts.
 - optional runtime path evidence helpers such as `RuntimeNodeContract`,
   `RuntimeNodeObservation`, `RuntimePathRecorder`, and
   `review_runtime_path_alignment()` for comparing real code progress output to
@@ -694,8 +704,14 @@ an internal path. When real Python source and tests are available, use
 `audit_python_code_contracts()`, `audit_python_test_assertions()`, and
 `review_python_contract_source_audit()` to check whether the declared code
 contracts and test evidence are supported by AST-visible code and assertions
-before trusting the three-way claim. When related obligations are being treated
-as one family-level promise, add `ObligationFamily` and
+before trusting the three-way claim; for real-code claims, attach that report to
+`ModelTestAlignmentPlan.source_audit_reports` and set
+`require_source_audit=True` so missing, red, or unrelated audits block the final
+binding row. If the model found a concrete counterexample or known-bad proof,
+record it as a `ClosureEvidenceTarget` and require a current external
+`counterexample_regression` or `known_bad_replay` test bound to the owner code
+contract and the same target id. When related obligations are being treated as
+one family-level promise, add `ObligationFamily` and
 `ObligationFamilyEvidence` rows so missing sibling mechanisms or wrong
 provenance keep the alignment report scoped or blocked. When a post-green bug
 shows a reusable failure shape, declare the same-class family seed, project it
@@ -706,8 +722,8 @@ closed boundary, add `CodeBoundaryContract` and `CodeBoundaryObservation` rows
 and run `review_code_boundary_conformance()` so forbidden inputs, unknown
 accepted inputs, extra outputs, extra errors, extra state writes, and extra
 side effects stay visible. When a project claims FlowGuard protects production
-state mutation, add `RuntimeStateSurface`, `RuntimeGatewayContract`, and
-`RuntimeWriteObservation` rows and run
+state mutation, add `RuntimeStateSurface`, `RuntimeGatewayContract`,
+`RuntimeWriteObservation`, and `RuntimeWriterInventoryEvidence` rows and run
 `review_runtime_gateway_adoption()` so complete writer inventory, gateway
 ownership, direct-write bypasses, stale observations, and proof-artifact gaps
 stay visible. Send ambiguous or complex behavior to manual review and keep

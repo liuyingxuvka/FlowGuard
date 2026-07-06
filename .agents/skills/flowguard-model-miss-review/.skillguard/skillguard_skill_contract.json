@@ -1,9 +1,8 @@
 {
-  "schema_version": "skillguard.installed_skill_contract.v1",
-  "target_path": "../SKILL.md",
-  "target_type": "skill_contract",
-  "status": "checked",
+  "blockers": [],
   "checks": [],
+  "claim_boundary": "This record covers only the installed skill entrypoint, local SkillGuard records, and current files inspected for this target. It does not prove runtime checker execution, fixture coverage, CLI checks, tests, suite automation, package publication, code-contract validation, release readiness, or future AI behavior without separate current evidence.",
+  "contract_version": "installed-skill-upgrade.v2",
   "evidence": [
     {
       "evidence_id": "skill-entrypoint",
@@ -17,13 +16,6 @@
     }
   ],
   "failures": [],
-  "blockers": [],
-  "skipped_checks": [],
-  "residual_risk": [
-    "This static record must be refreshed when the skill entrypoint, route contract, or validation rules change."
-  ],
-  "claim_boundary": "This record covers only the installed skill entrypoint, local SkillGuard records, and current files inspected for this target. It does not prove runtime checker execution, fixture coverage, CLI checks, tests, suite automation, package publication, code-contract validation, release readiness, or future AI behavior without separate current evidence.",
-  "contract_version": "installed-skill-upgrade.v2",
   "required_sections": [
     "Purpose",
     "Entrypoint Scope",
@@ -36,10 +28,18 @@
     "Output Requirements",
     "SkillGuard Maintenance"
   ],
+  "residual_risk": [
+    "This static record must be refreshed when the skill entrypoint, route contract, or validation rules change."
+  ],
   "routes": [
     "model_preflight",
     "process_review",
     "evidence_alignment",
     "closure"
-  ]
+  ],
+  "schema_version": "1.0",
+  "skipped_checks": [],
+  "status": "checked",
+  "target_path": "../SKILL.md",
+  "target_type": "skill_contract"
 }

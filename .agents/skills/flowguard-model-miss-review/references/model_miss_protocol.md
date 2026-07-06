@@ -60,13 +60,17 @@ creating a parallel one.
    export, save, open, configure, delete, or generated-output functions should
    be reviewed as a same-class UI family before closure.
 8. Add current test evidence for the observed regression and for the
-   ContractExhaustionMesh same-class cases. A point regression is necessary but does not
-   close an in-scope miss by itself.
+   ContractExhaustionMesh same-class cases. If the miss produced a concrete
+   counterexample trace or known-bad proof, give that trace/proof a stable
+   target id and add target-aware `counterexample_regression` or
+   `known_bad_replay` evidence for the same id. A point regression is necessary
+   but does not close an in-scope miss by itself.
 9. Bind the repaired obligation to the owner code contract that actually
    implements the behavior. Helper-only, adapter-only, or internal-path tests
    cannot close a public bug class by themselves.
 10. Run Model-Test Alignment on the repaired model obligation, owner code
-   contracts, and the observed/contract-exhaustion case test evidence. If the
+   contracts, `ClosureEvidenceTarget` rows, and the observed,
+   counterexample/known-bad, and contract-exhaustion case test evidence. If the
    contract-exhaustion validation is too large, slow, layered, stale-prone,
    background, or release-only, route that hierarchy to TestMesh and report
    scoped confidence until current child evidence exists.
@@ -114,7 +118,8 @@ creating a parallel one.
     artifacts so later edits do not stale the repair evidence.
 21. Record `Miss type`, `Root cause backpropagation`, `Generalized case`, field
     lifecycle/projection/disposition evidence when fields are involved, owner
-    code contract, observed-regression test evidence, same-class test evidence,
+    code contract, observed-regression test evidence, target-aware
+    counterexample or known-bad replay evidence, same-class test evidence,
     family parity result, analogous scan result, legacy path disposition,
     Model-Test Alignment result, process freshness, and any parent reattachment
     or defect-family gate decision in adoption evidence and the Risk Evidence
@@ -134,8 +139,9 @@ miss repair changed a child model that an existing parent ModelMesh depends on.
 The bug repair or model miss is closed only when it is classified, represented
 in executable evidence or explicitly out of scope, rerun, validated with
 production-facing evidence, and, for in-scope misses, backed by current
-observed-regression and same-class test evidence in Model-Test Alignment. Root
-cause must be backpropagated into the previous plan/model/test gap when a prior
+observed-regression, target-aware counterexample/known-bad replay when present,
+and same-class test evidence in Model-Test Alignment. Root cause must be
+backpropagated into the previous plan/model/test gap when a prior
 claim existed, behavior-bearing fields must be represented in FieldLifecycleMesh
 and projected when relevant, the repaired model obligation must bind to the
 owner code contract, and reachable old/fallback/legacy paths or old fields must

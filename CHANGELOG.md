@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.52.5 - 2026-07-06
+
+Model-code-test closure hardening.
+
+- Added first-class optional source-audit gating to Model-Test Alignment for
+  real-code claims, including missing, failed, and unrelated-audit blockers.
+- Expanded `ModelCodeTestBindingRow` into a behavior closure summary with owner
+  code, path/symbol, tests, boundary/runtime/payload ids, source-audit decision,
+  and open gap codes.
+- Added target-aware counterexample and known-bad replay closure through
+  external owner-code-bound `TestEvidence`.
+- Added structured runtime writer-inventory evidence for Runtime Gateway
+  Adoption and updated public docs, templates, skills, and tests.
+
 ## v0.52.4 - 2026-07-03
 
 FlowGuard skill-suite distribution.

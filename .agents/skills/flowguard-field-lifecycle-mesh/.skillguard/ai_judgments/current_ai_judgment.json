@@ -1,18 +1,32 @@
 {
-  "schema_version": "skillguard.installed_ai_judgment.v1",
-  "target_path": "..",
-  "target_type": "ai_judgment",
-  "status": "checked",
+  "blockers": [],
   "checks": [],
+  "claim_boundary": "This record covers only the installed skill entrypoint, local SkillGuard records, and current files inspected for this target. It does not prove runtime checker execution, fixture coverage, CLI checks, tests, suite automation, package publication, code-contract validation, release readiness, or future AI behavior without separate current evidence.",
+  "confidence": {
+    "level": "medium",
+    "rationale": "Based on installed files generated during the upgrade."
+  },
+  "decision": "bounded_support_only",
   "evidence": [],
   "failures": [],
-  "blockers": [],
-  "skipped_checks": [],
-  "residual_risk": [
-    "This static record must be refreshed when the skill entrypoint, route contract, or validation rules change."
+  "findings": [
+    {
+      "claim": "The installed skill has a SkillGuard contract layer and runnable contract files.",
+      "finding_id": "installed-contract-layer-present",
+      "limits": [
+        "This advisory judgment does not replace current command output."
+      ],
+      "severity": "informational",
+      "supporting_evidence": [
+        "skill-entrypoint",
+        "runtime-work-contract"
+      ]
+    }
   ],
-  "claim_boundary": "This record covers only the installed skill entrypoint, local SkillGuard records, and current files inspected for this target. It does not prove runtime checker execution, fixture coverage, CLI checks, tests, suite automation, package publication, code-contract validation, release readiness, or future AI behavior without separate current evidence.",
-  "decision": "bounded_support_only",
+  "human_review": {
+    "reason": "AI judgment cannot approve broad skill-readiness claims by itself.",
+    "required": true
+  },
   "input_evidence": [
     {
       "evidence_id": "skill-entrypoint",
@@ -25,33 +39,19 @@
       "summary": "Runnable work contract."
     }
   ],
-  "findings": [
-    {
-      "finding_id": "installed-contract-layer-present",
-      "severity": "informational",
-      "claim": "The installed skill has a SkillGuard contract layer and runnable contract files.",
-      "supporting_evidence": [
-        "skill-entrypoint",
-        "runtime-work-contract"
-      ],
-      "limits": [
-        "This advisory judgment does not replace current command output."
-      ]
-    }
+  "residual_risk": [
+    "This static record must be refreshed when the skill entrypoint, route contract, or validation rules change."
   ],
-  "confidence": {
-    "level": "medium",
-    "rationale": "Based on installed files generated during the upgrade."
-  },
+  "schema_version": "1.0",
+  "skipped_checks": [],
+  "status": "checked",
+  "target_path": "..",
+  "target_type": "ai_judgment",
   "uncertainty": [
     {
-      "question": "Will future skill behavior require more specific routes?",
       "impact": "The contract may need route refinement.",
+      "question": "Will future skill behavior require more specific routes?",
       "resolution_path": "Rerun SkillGuard checks after skill changes."
     }
-  ],
-  "human_review": {
-    "required": true,
-    "reason": "AI judgment cannot approve broad skill-readiness claims by itself."
-  }
+  ]
 }

@@ -20,6 +20,8 @@ from flowguard import (
     TestResultReuseTicket,
     TEST_CLOSURE_ROLE_OBSERVED_REGRESSION,
     TEST_CLOSURE_ROLE_SAME_CLASS_GENERALIZED,
+    TEST_CLOSURE_ROLE_COUNTEREXAMPLE_REGRESSION,
+    TEST_CLOSURE_ROLE_KNOWN_BAD_REPLAY,
     TEST_KIND_EDGE_PATH,
     TEST_KIND_FAILURE_PATH,
     TEST_KIND_HAPPY_PATH,
@@ -1101,6 +1103,308 @@ class ModelTestAlignmentTests(unittest.TestCase):
         self.assertFalse(report.ok)
         self.assertIn("missing_same_class_test_evidence", codes)
         self.assertIn("test_overclaims_model_confidence", codes)
+
+    def test_model_test_alignment_requires_source_audit_report_for_real_code_claim(self):
+        plan = ModelTestAlignmentPlan(
+            model_id="checkout",
+            require_source_audit=True,
+            obligations=(obligation("accept_valid_order"),),
+            code_contracts=(
+                owner_contract(
+                    "accept_valid_order",
+                    path="checkout.py",
+                    symbol="submit_order",
+                ),
+            ),
+            test_evidence=(
+                bound_evidence(
+                    "test_accept_valid_order",
+                    "accept_valid_order",
+                    path="test_checkout.py",
+                    test_name="test_accept_valid_order",
+                ),
+            ),
+        )
+
+        report = review_model_test_alignment(plan)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("source_audit_required", report.decision)
+        self.assertIn("missing_source_audit_report", finding_codes(report))
+        self.assertEqual("missing_source_audit_report", report.binding_rows[0].source_audit_decision)
+
+    def test_model_test_alignment_blocks_on_source_audit_failure(self):
+        contract = owner_contract(
+            "accept_valid_order",
+            path="checkout.py",
+            symbol="submit_order",
+        )
+        test_item = bound_evidence(
+            "test_accept_valid_order",
+            "accept_valid_order",
+            path="test_checkout.py",
+            test_name="test_accept_valid_order",
+        )
+        source_report = api_name("review_python_contract_source_audit")(
+            (contract,),
+            (test_item,),
+            api_name("audit_python_code_contracts")((contract,), {"checkout.py": "def other(): pass"}),
+            api_name("audit_python_test_assertions")((test_item,), (contract,), {"test_checkout.py": "def test_accept_valid_order():\n    assert True"}),
+        )
+
+        report = review_model_test_alignment(
+            ModelTestAlignmentPlan(
+                model_id="checkout",
+                require_source_audit=True,
+                obligations=(obligation("accept_valid_order"),),
+                code_contracts=(contract,),
+                test_evidence=(test_item,),
+                source_audit_reports=(source_report,),
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("source_audit_blocked", finding_codes(report))
+        self.assertEqual("source_audit_blocked", report.binding_rows[0].source_audit_decision)
+
+    def test_model_test_alignment_accepts_green_source_audit_and_reports_binding_row_summary(self):
+        contract = owner_contract(
+            "accept_valid_order",
+            path="checkout.py",
+            symbol="submit_order",
+            external_inputs=("order_id",),
+            external_outputs=("accepted",),
+        )
+        test_item = bound_evidence(
+            "test_accept_valid_order",
+            "accept_valid_order",
+            path="test_checkout.py",
+            test_name="test_accept_valid_order",
+        )
+        code_audit = api_name("audit_python_code_contracts")(
+            (contract,),
+            {"checkout.py": 'def submit_order(order_id):\n    return "accepted"\n'},
+        )
+        test_audit = api_name("audit_python_test_assertions")(
+            (test_item,),
+            (contract,),
+            {"test_checkout.py": 'def test_accept_valid_order():\n    assert submit_order("order-1") == "accepted"\n'},
+        )
+        source_report = api_name("review_python_contract_source_audit")((contract,), (test_item,), code_audit, test_audit)
+
+        report = review_model_test_alignment(
+            ModelTestAlignmentPlan(
+                model_id="checkout",
+                require_source_audit=True,
+                obligations=(
+                    obligation(
+                        "accept_valid_order",
+                        external_inputs=("order_id",),
+                        external_outputs=("accepted",),
+                    ),
+                ),
+                code_contracts=(contract,),
+                test_evidence=(test_item,),
+                source_audit_reports=(source_report,),
+            )
+        )
+
+        self.assertTrue(report.ok, report.format_text())
+        row = report.binding_rows[0]
+        self.assertEqual(("checkout.accept_valid_order",), row.owner_code_contract_ids)
+        self.assertEqual(("checkout.py",), row.code_paths)
+        self.assertEqual(("submit_order",), row.code_symbols)
+        self.assertEqual(("test_accept_valid_order",), row.test_evidence_ids)
+        self.assertEqual("source_audit_green", row.source_audit_decision)
+        self.assertEqual((), row.open_gap_codes)
+
+    def test_model_test_alignment_rejects_unrelated_green_source_audit(self):
+        audited_contract = code_contract(
+            "checkout.other",
+            "accept_valid_order",
+            path="other.py",
+            symbol="other_order",
+        )
+        audited_test = contract_evidence(
+            "test_other_order",
+            "accept_valid_order",
+            "checkout.other",
+            path="test_other.py",
+            test_name="test_other_order",
+        )
+        source_report = api_name("review_python_contract_source_audit")(
+            (audited_contract,),
+            (audited_test,),
+            api_name("audit_python_code_contracts")(
+                (audited_contract,),
+                {"other.py": "def other_order():\n    return 'accepted'\n"},
+            ),
+            api_name("audit_python_test_assertions")(
+                (audited_test,),
+                (audited_contract,),
+                {"test_other.py": "def test_other_order():\n    assert other_order() == 'accepted'\n"},
+            ),
+        )
+        contract = owner_contract(
+            "accept_valid_order",
+            path="checkout.py",
+            symbol="submit_order",
+        )
+        test_item = bound_evidence(
+            "test_accept_valid_order",
+            "accept_valid_order",
+            path="test_checkout.py",
+            test_name="test_accept_valid_order",
+        )
+
+        report = review_model_test_alignment(
+            ModelTestAlignmentPlan(
+                model_id="checkout",
+                require_source_audit=True,
+                obligations=(obligation("accept_valid_order"),),
+                code_contracts=(contract,),
+                test_evidence=(test_item,),
+                source_audit_reports=(source_report,),
+            )
+        )
+
+        codes = finding_codes(report)
+        self.assertFalse(report.ok)
+        self.assertIn("source_audit_missing_code_contract_coverage", codes)
+        self.assertIn("source_audit_missing_test_evidence_coverage", codes)
+        self.assertEqual("source_audit_incomplete", report.binding_rows[0].source_audit_decision)
+
+    def test_counterexample_obligation_requires_bound_regression_test(self):
+        plan = ModelTestAlignmentPlan(
+            model_id="checkout",
+            obligations=(
+                obligation(
+                    "reject_duplicate_order",
+                    required_closure_targets=(
+                        flowguard.ClosureEvidenceTarget(
+                            "counterexample:duplicate-write",
+                            closure_evidence_role=TEST_CLOSURE_ROLE_COUNTEREXAMPLE_REGRESSION,
+                            source_kind="counterexample",
+                        ),
+                    ),
+                ),
+            ),
+            code_contracts=(owner_contract("reject_duplicate_order"),),
+            test_evidence=(bound_evidence("test_reject_duplicate_happy", "reject_duplicate_order"),),
+        )
+
+        report = review_model_test_alignment(plan)
+
+        self.assertFalse(report.ok)
+        self.assertIn("missing_counterexample_regression_test", finding_codes(report))
+
+    def test_counterexample_closure_cannot_be_internal_path_only(self):
+        plan = ModelTestAlignmentPlan(
+            model_id="checkout",
+            obligations=(
+                obligation(
+                    "reject_duplicate_order",
+                    required_closure_targets=(
+                        flowguard.ClosureEvidenceTarget(
+                            "counterexample:duplicate-write",
+                            closure_evidence_role=TEST_CLOSURE_ROLE_COUNTEREXAMPLE_REGRESSION,
+                        ),
+                    ),
+                ),
+            ),
+            code_contracts=(owner_contract("reject_duplicate_order"),),
+            test_evidence=(
+                bound_evidence(
+                    "test_counterexample_internal",
+                    "reject_duplicate_order",
+                    closure_evidence_role=TEST_CLOSURE_ROLE_COUNTEREXAMPLE_REGRESSION,
+                    evidence_target_id="counterexample:duplicate-write",
+                    assertion_scope=api_name("TEST_ASSERTION_SCOPE_INTERNAL_PATH"),
+                ),
+            ),
+        )
+
+        report = review_model_test_alignment(plan)
+        codes = finding_codes(report)
+
+        self.assertFalse(report.ok)
+        self.assertIn("model_miss_closure_evidence_internal_path_only", codes)
+        self.assertIn("missing_counterexample_regression_test", codes)
+
+    def test_counterexample_and_known_bad_closure_accepts_external_owner_bound_tests(self):
+        plan = ModelTestAlignmentPlan(
+            model_id="checkout",
+            obligations=(
+                obligation(
+                    "reject_duplicate_order",
+                    allow_shared_evidence=True,
+                    required_closure_targets=(
+                        flowguard.ClosureEvidenceTarget(
+                            "counterexample:duplicate-write",
+                            closure_evidence_role=TEST_CLOSURE_ROLE_COUNTEREXAMPLE_REGRESSION,
+                        ),
+                        flowguard.ClosureEvidenceTarget(
+                            "known-bad:duplicate-write",
+                            closure_evidence_role=TEST_CLOSURE_ROLE_KNOWN_BAD_REPLAY,
+                        ),
+                    ),
+                ),
+            ),
+            code_contracts=(owner_contract("reject_duplicate_order"),),
+            test_evidence=(
+                bound_evidence(
+                    "test_counterexample_regression",
+                    "reject_duplicate_order",
+                    closure_evidence_role=TEST_CLOSURE_ROLE_COUNTEREXAMPLE_REGRESSION,
+                    evidence_target_id="counterexample:duplicate-write",
+                ),
+                bound_evidence(
+                    "test_known_bad_replay",
+                    "reject_duplicate_order",
+                    closure_evidence_role=TEST_CLOSURE_ROLE_KNOWN_BAD_REPLAY,
+                    evidence_target_id="known-bad:duplicate-write",
+                ),
+            ),
+        )
+
+        report = review_model_test_alignment(plan)
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual(
+            ("test_counterexample_regression", "test_known_bad_replay"),
+            report.binding_rows[0].test_evidence_ids,
+        )
+
+    def test_known_bad_obligation_requires_replay_target(self):
+        plan = ModelTestAlignmentPlan(
+            model_id="checkout",
+            obligations=(
+                obligation(
+                    "reject_duplicate_order",
+                    required_closure_targets=(
+                        flowguard.ClosureEvidenceTarget(
+                            "known-bad:duplicate-write",
+                            closure_evidence_role=TEST_CLOSURE_ROLE_KNOWN_BAD_REPLAY,
+                        ),
+                    ),
+                ),
+            ),
+            code_contracts=(owner_contract("reject_duplicate_order"),),
+            test_evidence=(
+                bound_evidence(
+                    "test_known_bad_without_target",
+                    "reject_duplicate_order",
+                    closure_evidence_role=TEST_CLOSURE_ROLE_KNOWN_BAD_REPLAY,
+                ),
+            ),
+        )
+
+        report = review_model_test_alignment(plan)
+        codes = finding_codes(report)
+
+        self.assertFalse(report.ok)
+        self.assertIn("closure_evidence_target_missing", codes)
+        self.assertIn("missing_known_bad_replay_test", codes)
 
     def test_python_source_audit_accepts_external_contract_test(self):
         contract = code_contract(

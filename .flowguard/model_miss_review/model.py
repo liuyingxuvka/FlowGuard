@@ -15,6 +15,8 @@ Guards against:
 - validating a fix before representing the observed issue in the model;
 - validating a point fix before representing a same-class generalized bad case;
 - validating only the observed bug without same-class test evidence;
+- validating a known-bad or counterexample repair without target-aware
+  owner-code replay evidence;
 - validating without binding the repaired obligation to the owner code
   contract;
 - leaving old, fallback, compatibility, or alternate paths reachable without a
@@ -54,6 +56,7 @@ class State:
     generalized_bad_case_represented_in_model: bool = False
     known_bug_used_as_holdout: bool = False
     observed_regression_test_added: bool = False
+    target_aware_replay_evidence_added: bool = False
     same_class_test_evidence_added: bool = False
     owner_code_contract_bound: bool = False
     model_test_alignment_rerun: bool = False
@@ -79,6 +82,7 @@ REPRESENT_ISSUE = Event("represent_issue")
 REPRESENT_GENERALIZED_BAD_CASE = Event("represent_generalized_bad_case")
 RECORD_KNOWN_BUG_HOLDOUT = Event("record_known_bug_holdout")
 ADD_OBSERVED_REGRESSION_TEST = Event("add_observed_regression_test")
+ADD_TARGET_AWARE_REPLAY_EVIDENCE = Event("add_target_aware_replay_evidence")
 ADD_SAME_CLASS_TEST_EVIDENCE = Event("add_same_class_test_evidence")
 BIND_OWNER_CODE_CONTRACT = Event("bind_owner_code_contract")
 RERUN_MODEL_TEST_ALIGNMENT = Event("rerun_model_test_alignment")
@@ -102,6 +106,7 @@ class ApplyReviewStep:
         "generalized_bad_case_represented_in_model",
         "known_bug_used_as_holdout",
         "observed_regression_test_added",
+        "target_aware_replay_evidence_added",
         "same_class_test_evidence_added",
         "owner_code_contract_bound",
         "model_test_alignment_rerun",
@@ -121,6 +126,7 @@ class ApplyReviewStep:
         "generalized_bad_case_represented_in_model",
         "known_bug_used_as_holdout",
         "observed_regression_test_added",
+        "target_aware_replay_evidence_added",
         "same_class_test_evidence_added",
         "owner_code_contract_bound",
         "model_test_alignment_rerun",
@@ -210,8 +216,18 @@ class ApplyReviewStep:
                 label="observed_regression_test_added",
             )
             return
-        if input_obj.name == "add_same_class_test_evidence":
+        if input_obj.name == "add_target_aware_replay_evidence":
             if not state.observed_regression_test_added:
+                yield FunctionResult("target_aware_replay_evidence_blocked", state, label="blocked")
+                return
+            yield FunctionResult(
+                "target_aware_replay_evidence_added",
+                replace(state, target_aware_replay_evidence_added=True),
+                label="target_aware_replay_evidence_added",
+            )
+            return
+        if input_obj.name == "add_same_class_test_evidence":
+            if not state.target_aware_replay_evidence_added:
                 yield FunctionResult("same_class_test_evidence_blocked", state, label="blocked")
                 return
             yield FunctionResult(
@@ -301,6 +317,9 @@ class ApplyReviewStep:
                 return
             if state.generalized_bad_case_in_scope and not state.observed_regression_test_added:
                 yield FunctionResult("observed_regression_test_validation_blocked", state, label="blocked")
+                return
+            if state.generalized_bad_case_in_scope and not state.target_aware_replay_evidence_added:
+                yield FunctionResult("target_aware_replay_evidence_validation_blocked", state, label="blocked")
                 return
             if state.generalized_bad_case_in_scope and not state.same_class_test_evidence_added:
                 yield FunctionResult("same_class_test_evidence_validation_blocked", state, label="blocked")
@@ -418,6 +437,25 @@ class BrokenValidateWithoutSameClassTestEvidence(ApplyReviewStep):
         yield from super().apply(input_obj, state)
 
 
+class BrokenValidateWithoutTargetAwareReplayEvidence(ApplyReviewStep):
+    def apply(self, input_obj: Event, state: State) -> Iterable[FunctionResult]:
+        if input_obj.name == "validate_fix" and state.observed_regression_test_added:
+            yield FunctionResult(
+                "validated_without_target_aware_replay_evidence",
+                replace(
+                    state,
+                    same_class_test_evidence_added=True,
+                    owner_code_contract_bound=True,
+                    model_test_alignment_rerun=True,
+                    legacy_path_disposition_recorded=True,
+                    fix_validated_after_refinement=True,
+                ),
+                label="broken_validate_without_target_aware_replay_evidence",
+            )
+            return
+        yield from super().apply(input_obj, state)
+
+
 class BrokenValidateWithoutOwnerCodeContract(ApplyReviewStep):
     def apply(self, input_obj: Event, state: State) -> Iterable[FunctionResult]:
         if input_obj.name == "validate_fix" and state.same_class_test_evidence_added:
@@ -475,6 +513,7 @@ def invariants() -> tuple[Invariant, ...]:
                     not state.generalized_bad_case_in_scope
                     or (
                         state.observed_regression_test_added
+                        and state.target_aware_replay_evidence_added
                         and state.same_class_test_evidence_added
                         and state.owner_code_contract_bound
                         and state.model_test_alignment_rerun
@@ -494,7 +533,7 @@ def invariants() -> tuple[Invariant, ...]:
                 and state.fix_validated_after_refinement
             ):
                 return InvariantResult.fail(
-                    "completed runtime issue without classification, root-cause backpropagation, observed issue model representation, same-class generalized bad case representation, known-bug holdout role, owner code contract, same-class test evidence, legacy path disposition, Model-Test Alignment rerun, recurring defect-family gate when needed, and refined validation"
+                    "completed runtime issue without classification, root-cause backpropagation, observed issue model representation, same-class generalized bad case representation, known-bug holdout role, owner code contract, target-aware replay evidence, same-class test evidence, legacy path disposition, Model-Test Alignment rerun, recurring defect-family gate when needed, and refined validation"
                 )
         return InvariantResult.pass_()
 
@@ -535,6 +574,15 @@ def invariants() -> tuple[Invariant, ...]:
             return InvariantResult.fail("fix validated before adding same-class generalized test evidence")
         if not state.model_test_alignment_rerun:
             return InvariantResult.fail("fix validated before rerunning Model-Test Alignment")
+        return InvariantResult.pass_()
+
+    def fix_validation_requires_target_aware_replay_evidence(state: State, _trace) -> InvariantResult:
+        if (
+            state.fix_validated_after_refinement
+            and state.generalized_bad_case_in_scope
+            and not state.target_aware_replay_evidence_added
+        ):
+            return InvariantResult.fail("fix validated before adding target-aware counterexample/known-bad replay evidence")
         return InvariantResult.pass_()
 
     def fix_validation_requires_owner_code_contract(state: State, _trace) -> InvariantResult:
@@ -592,6 +640,11 @@ def invariants() -> tuple[Invariant, ...]:
             fix_validation_requires_same_class_test_evidence,
         ),
         Invariant(
+            "fix_validation_requires_target_aware_replay_evidence",
+            "Fix validation requires target-aware counterexample or known-bad replay evidence.",
+            fix_validation_requires_target_aware_replay_evidence,
+        ),
+        Invariant(
             "fix_validation_requires_owner_code_contract",
             "Fix validation requires the owner code contract for the repaired obligation.",
             fix_validation_requires_owner_code_contract,
@@ -639,6 +692,7 @@ def run_checks():
                 REPRESENT_GENERALIZED_BAD_CASE,
                 RECORD_KNOWN_BUG_HOLDOUT,
                 ADD_OBSERVED_REGRESSION_TEST,
+                ADD_TARGET_AWARE_REPLAY_EVIDENCE,
                 ADD_SAME_CLASS_TEST_EVIDENCE,
                 BIND_OWNER_CODE_CONTRACT,
                 RERUN_MODEL_TEST_ALIGNMENT,
@@ -718,6 +772,27 @@ def run_checks():
                 block=BrokenValidateWithoutHoldoutRole(),
             ),
             scenario(
+                "validate_without_target_aware_replay_evidence",
+                "Broken workflow has a known-bad proof but does not replay that target through owner code.",
+                (
+                    FLOWGUARD_PASS,
+                    RUNTIME_FAIL,
+                    CLASSIFY_MISS,
+                    BACKPROPAGATE_ROOT_CAUSE,
+                    REPRESENT_ISSUE,
+                    REPRESENT_GENERALIZED_BAD_CASE,
+                    RECORD_KNOWN_BUG_HOLDOUT,
+                    ADD_OBSERVED_REGRESSION_TEST,
+                    VALIDATE_FIX,
+                    FINALIZE,
+                ),
+                ScenarioExpectation(
+                    expected_status="violation",
+                    expected_violation_names=("fix_validation_requires_target_aware_replay_evidence",),
+                ),
+                block=BrokenValidateWithoutTargetAwareReplayEvidence(),
+            ),
+            scenario(
                 "validate_without_same_class_test_evidence",
                 "Broken workflow models the class but only validates the observed bug.",
                 (
@@ -729,6 +804,7 @@ def run_checks():
                     REPRESENT_GENERALIZED_BAD_CASE,
                     RECORD_KNOWN_BUG_HOLDOUT,
                     ADD_OBSERVED_REGRESSION_TEST,
+                    ADD_TARGET_AWARE_REPLAY_EVIDENCE,
                     VALIDATE_FIX,
                     FINALIZE,
                 ),
@@ -750,6 +826,7 @@ def run_checks():
                     REPRESENT_GENERALIZED_BAD_CASE,
                     RECORD_KNOWN_BUG_HOLDOUT,
                     ADD_OBSERVED_REGRESSION_TEST,
+                    ADD_TARGET_AWARE_REPLAY_EVIDENCE,
                     ADD_SAME_CLASS_TEST_EVIDENCE,
                     VALIDATE_FIX,
                     FINALIZE,
@@ -772,6 +849,7 @@ def run_checks():
                     REPRESENT_GENERALIZED_BAD_CASE,
                     RECORD_KNOWN_BUG_HOLDOUT,
                     ADD_OBSERVED_REGRESSION_TEST,
+                    ADD_TARGET_AWARE_REPLAY_EVIDENCE,
                     ADD_SAME_CLASS_TEST_EVIDENCE,
                     BIND_OWNER_CODE_CONTRACT,
                     RERUN_MODEL_TEST_ALIGNMENT,
@@ -796,6 +874,7 @@ def run_checks():
                     REPRESENT_GENERALIZED_BAD_CASE,
                     RECORD_KNOWN_BUG_HOLDOUT,
                     ADD_OBSERVED_REGRESSION_TEST,
+                    ADD_TARGET_AWARE_REPLAY_EVIDENCE,
                     ADD_SAME_CLASS_TEST_EVIDENCE,
                     BIND_OWNER_CODE_CONTRACT,
                     RERUN_MODEL_TEST_ALIGNMENT,

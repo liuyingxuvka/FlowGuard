@@ -1,8 +1,4 @@
 {
-  "schema_version": "skillguard.check_manifest.v1",
-  "target_skill": ".codex/skills/flowguard-development-process-flow",
-  "contract_ref": ".codex/skills/flowguard-development-process-flow/.skillguard/work-contract.json",
-  "output_schema": "skillguard.cli_result.v1",
   "checks": [
     {
       "check_id": "check_route",
@@ -60,6 +56,8 @@
       "required": true
     }
   ],
+  "claim_boundary": "This check manifest lists local SkillGuard contract-executor checks for the declared target only. It does not replace the target skill's native router/check system or prove future executions or external service behavior.",
+  "contract_ref": ".codex/skills/flowguard-development-process-flow/.skillguard/work-contract.json",
   "freshness": {
     "watch": [
       "SKILL.md",
@@ -69,5 +67,7 @@
       ".skillguard/runs/"
     ]
   },
-  "claim_boundary": "This check manifest lists local SkillGuard contract-executor checks for the declared target only. It does not replace the target skill's native router/check system or prove future executions or external service behavior."
+  "output_schema": "skillguard.cli_result.v1",
+  "schema_version": "1.0",
+  "target_skill": ".codex/skills/flowguard-development-process-flow"
 }

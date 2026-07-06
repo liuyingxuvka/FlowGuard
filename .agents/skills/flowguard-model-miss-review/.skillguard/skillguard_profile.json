@@ -1,9 +1,8 @@
 {
-  "schema_version": "skillguard.installed_profile.v1",
-  "target_path": "../SKILL.md",
-  "target_type": "skill",
-  "status": "checked",
+  "blockers": [],
   "checks": [],
+  "claim_boundary": "This record covers only the installed skill entrypoint, local SkillGuard records, and current files inspected for this target. It does not prove runtime checker execution, fixture coverage, CLI checks, tests, suite automation, package publication, code-contract validation, release readiness, or future AI behavior without separate current evidence.",
+  "control_root": ".skillguard",
   "evidence": [
     {
       "evidence_id": "current-evidence-manifest",
@@ -12,13 +11,14 @@
     }
   ],
   "failures": [],
-  "blockers": [],
-  "skipped_checks": [],
+  "profile_version": "installed-skill-upgrade.v2",
+  "purpose": "Maintain SkillGuard readiness for the installed flowguard-model-miss-review skill.",
   "residual_risk": [
     "This static record must be refreshed when the skill entrypoint, route contract, or validation rules change."
   ],
-  "claim_boundary": "This record covers only the installed skill entrypoint, local SkillGuard records, and current files inspected for this target. It does not prove runtime checker execution, fixture coverage, CLI checks, tests, suite automation, package publication, code-contract validation, release readiness, or future AI behavior without separate current evidence.",
-  "profile_version": "installed-skill-upgrade.v2",
-  "purpose": "Maintain SkillGuard readiness for the installed flowguard-model-miss-review skill.",
-  "control_root": ".skillguard"
+  "schema_version": "1.0",
+  "skipped_checks": [],
+  "status": "checked",
+  "target_path": "../SKILL.md",
+  "target_type": "skill"
 }

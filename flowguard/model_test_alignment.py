@@ -77,9 +77,15 @@ ALLOWED_TEST_EVIDENCE_ROLES = PRIMARY_TEST_EVIDENCE_ROLES | {
 TEST_CLOSURE_ROLE_UNSPECIFIED = ""
 TEST_CLOSURE_ROLE_OBSERVED_REGRESSION = "observed_regression"
 TEST_CLOSURE_ROLE_SAME_CLASS_GENERALIZED = "same_class_generalized"
+TEST_CLOSURE_ROLE_COUNTEREXAMPLE_REGRESSION = "counterexample_regression"
+TEST_CLOSURE_ROLE_KNOWN_BAD_REPLAY = "known_bad_replay"
 MODEL_MISS_DEFAULT_CLOSURE_ROLES = (
     TEST_CLOSURE_ROLE_OBSERVED_REGRESSION,
     TEST_CLOSURE_ROLE_SAME_CLASS_GENERALIZED,
+)
+TARGET_AWARE_CLOSURE_ROLES = (
+    TEST_CLOSURE_ROLE_COUNTEREXAMPLE_REGRESSION,
+    TEST_CLOSURE_ROLE_KNOWN_BAD_REPLAY,
 )
 
 TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT = "external_contract"
@@ -134,6 +140,40 @@ def _unique_sorted(values: Sequence[str]) -> tuple[str, ...]:
 
 
 @dataclass(frozen=True)
+class ClosureEvidenceTarget:
+    """One concrete bad-case or closure target that test evidence must replay."""
+
+    target_id: str
+    closure_evidence_role: str = TEST_CLOSURE_ROLE_UNSPECIFIED
+    source_kind: str = ""
+    required: bool = True
+    description: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "target_id", str(self.target_id))
+        object.__setattr__(self, "closure_evidence_role", str(self.closure_evidence_role))
+        object.__setattr__(self, "source_kind", str(self.source_kind))
+        object.__setattr__(self, "description", str(self.description))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "target_id": self.target_id,
+            "closure_evidence_role": self.closure_evidence_role,
+            "source_kind": self.source_kind,
+            "required": self.required,
+            "description": self.description,
+        }
+
+
+def _coerce_closure_evidence_target(
+    target: ClosureEvidenceTarget | Mapping[str, Any],
+) -> ClosureEvidenceTarget:
+    if isinstance(target, ClosureEvidenceTarget):
+        return target
+    return ClosureEvidenceTarget(**dict(target))
+
+
+@dataclass(frozen=True)
 class ModelObligation:
     """One scenario, invariant, hazard, transition, or contract the model owns."""
 
@@ -155,6 +195,7 @@ class ModelObligation:
     model_miss_origin: bool = False
     requires_same_class_test_evidence: bool = False
     required_closure_evidence_roles: tuple[str, ...] = ()
+    required_closure_targets: tuple[ClosureEvidenceTarget | Mapping[str, Any], ...] = ()
     required_runtime_node_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
@@ -169,10 +210,20 @@ class ModelObligation:
         object.__setattr__(self, "state_writes", _as_tuple(self.state_writes))
         object.__setattr__(self, "side_effects", _as_tuple(self.side_effects))
         object.__setattr__(self, "error_paths", _as_tuple(self.error_paths))
-        closure_roles = _as_tuple(self.required_closure_evidence_roles)
+        closure_targets = tuple(
+            _coerce_closure_evidence_target(target)
+            for target in self.required_closure_targets
+        )
+        object.__setattr__(self, "required_closure_targets", closure_targets)
+        closure_roles = list(_as_tuple(self.required_closure_evidence_roles))
+        closure_roles.extend(
+            target.closure_evidence_role
+            for target in closure_targets
+            if target.required and target.closure_evidence_role
+        )
         if self.requires_same_class_test_evidence and not closure_roles:
-            closure_roles = MODEL_MISS_DEFAULT_CLOSURE_ROLES
-        object.__setattr__(self, "required_closure_evidence_roles", closure_roles)
+            closure_roles.extend(MODEL_MISS_DEFAULT_CLOSURE_ROLES)
+        object.__setattr__(self, "required_closure_evidence_roles", _unique_sorted(closure_roles))
         object.__setattr__(self, "required_runtime_node_ids", _as_tuple(self.required_runtime_node_ids))
 
     def to_dict(self) -> dict[str, Any]:
@@ -195,6 +246,7 @@ class ModelObligation:
             "model_miss_origin": self.model_miss_origin,
             "requires_same_class_test_evidence": self.requires_same_class_test_evidence,
             "required_closure_evidence_roles": list(self.required_closure_evidence_roles),
+            "required_closure_targets": [target.to_dict() for target in self.required_closure_targets],
             "required_runtime_node_ids": list(self.required_runtime_node_ids),
         }
 
@@ -904,11 +956,13 @@ class ModelTestAlignmentPlan:
     runtime_node_contracts: tuple[RuntimeNodeContract, ...] = ()
     runtime_node_observations: tuple[RuntimeNodeObservation, ...] = ()
     runtime_path_runs: tuple[RuntimePathRun, ...] = ()
+    source_audit_reports: tuple[Any, ...] = ()
     field_lifecycle_reports: tuple[Any, ...] = ()
     field_lifecycle_projections: tuple[Any, ...] = ()
     similarity_handoff: SimilarityHandoff | Mapping[str, Any] | None = None
     require_proof_artifacts: bool = False
     require_runtime_path_evidence: bool = False
+    require_source_audit: bool = False
     allow_orphan_tests: bool = False
     allow_orphan_code_contracts: bool = False
 
@@ -966,9 +1020,11 @@ class ModelTestAlignmentPlan:
             "runtime_path_runs",
             tuple(item if isinstance(item, RuntimePathRun) else RuntimePathRun(**item) for item in self.runtime_path_runs),
         )
+        object.__setattr__(self, "source_audit_reports", tuple(self.source_audit_reports))
         object.__setattr__(self, "field_lifecycle_reports", tuple(self.field_lifecycle_reports))
         object.__setattr__(self, "field_lifecycle_projections", tuple(self.field_lifecycle_projections))
         object.__setattr__(self, "similarity_handoff", normalize_similarity_handoff(self.similarity_handoff))
+        object.__setattr__(self, "require_source_audit", bool(self.require_source_audit))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -987,6 +1043,10 @@ class ModelTestAlignmentPlan:
                 observation.to_dict() for observation in self.runtime_node_observations
             ],
             "runtime_path_runs": [run.to_dict() for run in self.runtime_path_runs],
+            "source_audit_reports": [
+                report.to_dict() if hasattr(report, "to_dict") else to_jsonable(report)
+                for report in self.source_audit_reports
+            ],
             "field_lifecycle_reports": [
                 report.to_dict() if hasattr(report, "to_dict") else to_jsonable(report)
                 for report in self.field_lifecycle_reports
@@ -1000,6 +1060,7 @@ class ModelTestAlignmentPlan:
             else None,
             "require_proof_artifacts": self.require_proof_artifacts,
             "require_runtime_path_evidence": self.require_runtime_path_evidence,
+            "require_source_audit": self.require_source_audit,
             "allow_orphan_tests": self.allow_orphan_tests,
             "allow_orphan_code_contracts": self.allow_orphan_code_contracts,
         }
@@ -1040,20 +1101,53 @@ class ModelTestAlignmentFinding:
 
 @dataclass(frozen=True)
 class ModelCodeTestBindingRow:
-    """One visible lock row for a required model obligation."""
+    """One visible closure row for a required model obligation."""
 
     model_obligation_id: str
     code_contract_id: str = ""
     test_evidence_id: str = ""
     status: str = "blocked"
     gaps: tuple[str, ...] = ()
+    code_contract_ids: tuple[str, ...] = ()
+    owner_code_contract_ids: tuple[str, ...] = ()
+    code_paths: tuple[str, ...] = ()
+    code_symbols: tuple[str, ...] = ()
+    test_evidence_ids: tuple[str, ...] = ()
+    boundary_contract_ids: tuple[str, ...] = ()
+    boundary_observation_ids: tuple[str, ...] = ()
+    runtime_node_ids: tuple[str, ...] = ()
+    runtime_observation_ids: tuple[str, ...] = ()
+    payload_contract_ids: tuple[str, ...] = ()
+    field_projection_ids: tuple[str, ...] = ()
+    source_audit_decision: str = ""
+    open_gap_codes: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "model_obligation_id", str(self.model_obligation_id))
         object.__setattr__(self, "code_contract_id", str(self.code_contract_id))
         object.__setattr__(self, "test_evidence_id", str(self.test_evidence_id))
         object.__setattr__(self, "status", str(self.status))
-        object.__setattr__(self, "gaps", _as_tuple(self.gaps))
+        code_contract_ids = _unique_sorted(
+            tuple(self.code_contract_ids) + ((self.code_contract_id,) if self.code_contract_id else ())
+        )
+        test_evidence_ids = _unique_sorted(
+            tuple(self.test_evidence_ids) + ((self.test_evidence_id,) if self.test_evidence_id else ())
+        )
+        open_gap_codes = _unique_sorted(tuple(self.open_gap_codes) + tuple(self.gaps))
+        object.__setattr__(self, "code_contract_ids", code_contract_ids)
+        object.__setattr__(self, "owner_code_contract_ids", _unique_sorted(self.owner_code_contract_ids))
+        object.__setattr__(self, "code_paths", _unique_sorted(self.code_paths))
+        object.__setattr__(self, "code_symbols", _unique_sorted(self.code_symbols))
+        object.__setattr__(self, "test_evidence_ids", test_evidence_ids)
+        object.__setattr__(self, "boundary_contract_ids", _unique_sorted(self.boundary_contract_ids))
+        object.__setattr__(self, "boundary_observation_ids", _unique_sorted(self.boundary_observation_ids))
+        object.__setattr__(self, "runtime_node_ids", _unique_sorted(self.runtime_node_ids))
+        object.__setattr__(self, "runtime_observation_ids", _unique_sorted(self.runtime_observation_ids))
+        object.__setattr__(self, "payload_contract_ids", _unique_sorted(self.payload_contract_ids))
+        object.__setattr__(self, "field_projection_ids", _unique_sorted(self.field_projection_ids))
+        object.__setattr__(self, "source_audit_decision", str(self.source_audit_decision))
+        object.__setattr__(self, "open_gap_codes", open_gap_codes)
+        object.__setattr__(self, "gaps", open_gap_codes)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -1062,6 +1156,19 @@ class ModelCodeTestBindingRow:
             "test_evidence_id": self.test_evidence_id,
             "status": self.status,
             "gaps": list(self.gaps),
+            "code_contract_ids": list(self.code_contract_ids),
+            "owner_code_contract_ids": list(self.owner_code_contract_ids),
+            "code_paths": list(self.code_paths),
+            "code_symbols": list(self.code_symbols),
+            "test_evidence_ids": list(self.test_evidence_ids),
+            "boundary_contract_ids": list(self.boundary_contract_ids),
+            "boundary_observation_ids": list(self.boundary_observation_ids),
+            "runtime_node_ids": list(self.runtime_node_ids),
+            "runtime_observation_ids": list(self.runtime_observation_ids),
+            "payload_contract_ids": list(self.payload_contract_ids),
+            "field_projection_ids": list(self.field_projection_ids),
+            "source_audit_decision": self.source_audit_decision,
+            "open_gap_codes": list(self.open_gap_codes),
         }
 
 
@@ -1109,6 +1216,10 @@ class ModelTestAlignmentReport:
                     f"obligation: {row.model_obligation_id or '(none)'}",
                     f"code_contract: {row.code_contract_id or '(none)'}",
                     f"evidence: {row.test_evidence_id or '(none)'}",
+                    f"code_paths: {', '.join(row.code_paths) if row.code_paths else '(none)'}",
+                    f"code_symbols: {', '.join(row.code_symbols) if row.code_symbols else '(none)'}",
+                    f"tests: {', '.join(row.test_evidence_ids) if row.test_evidence_ids else '(none)'}",
+                    f"source_audit: {row.source_audit_decision or '(not required)'}",
                     f"gaps: {', '.join(row.gaps) if row.gaps else '(none)'}",
                 ]
             )
@@ -1231,6 +1342,129 @@ class ContractSourceAuditReport:
         }
 
 
+def _report_bool(report: Any, attr: str, default: bool = False) -> bool:
+    if isinstance(report, Mapping):
+        return bool(report.get(attr, default))
+    return bool(getattr(report, attr, default))
+
+
+def _report_str(report: Any, attr: str, default: str = "") -> str:
+    if isinstance(report, Mapping):
+        return str(report.get(attr, default))
+    return str(getattr(report, attr, default))
+
+
+def _report_sequence(report: Any, attr: str) -> tuple[Any, ...]:
+    if isinstance(report, Mapping):
+        return tuple(report.get(attr, ()) or ())
+    return tuple(getattr(report, attr, ()) or ())
+
+
+def _report_to_dict(report: Any) -> Mapping[str, Any]:
+    if hasattr(report, "to_dict"):
+        return report.to_dict()
+    if isinstance(report, Mapping):
+        return dict(report)
+    return {"report": to_jsonable(report)}
+
+
+def _item_id(item: Any, attr: str) -> str:
+    if isinstance(item, Mapping):
+        return str(item.get(attr, ""))
+    return str(getattr(item, attr, ""))
+
+
+def _source_audit_code_ids(reports: Sequence[Any], *, ok_only: bool = True) -> set[str]:
+    ids: set[str] = set()
+    for report in reports:
+        if ok_only and not _report_bool(report, "ok"):
+            continue
+        for evidence in _report_sequence(report, "code_evidence"):
+            code_contract_id = _item_id(evidence, "code_contract_id")
+            if code_contract_id:
+                ids.add(code_contract_id)
+    return ids
+
+
+def _source_audit_test_ids(reports: Sequence[Any], *, ok_only: bool = True) -> set[str]:
+    ids: set[str] = set()
+    for report in reports:
+        if ok_only and not _report_bool(report, "ok"):
+            continue
+        for evidence in _report_sequence(report, "test_evidence"):
+            evidence_id = _item_id(evidence, "evidence_id")
+            if evidence_id:
+                ids.add(evidence_id)
+    return ids
+
+
+def _source_audit_findings(
+    plan: ModelTestAlignmentPlan,
+    code_contracts_by_id: Mapping[str, CodeContract],
+) -> list[ModelTestAlignmentFinding]:
+    findings: list[ModelTestAlignmentFinding] = []
+    reports = tuple(plan.source_audit_reports)
+    if not plan.require_source_audit and not reports:
+        return findings
+    if plan.require_source_audit and not reports:
+        findings.append(
+            ModelTestAlignmentFinding(
+                "missing_source_audit_report",
+                "model-test alignment requires source audit evidence but no source audit report was supplied",
+                metadata={"model_id": plan.model_id},
+            )
+        )
+        return findings
+
+    for report in reports:
+        if not _report_bool(report, "ok"):
+            findings.append(
+                ModelTestAlignmentFinding(
+                    "source_audit_blocked",
+                    "source audit report is not green",
+                    metadata={
+                        "source_audit_decision": _report_str(report, "decision"),
+                        "source_audit_report": _report_to_dict(report),
+                    },
+                )
+            )
+
+    if not plan.require_source_audit:
+        return findings
+
+    audited_code_ids = _source_audit_code_ids(reports)
+    audited_test_ids = _source_audit_test_ids(reports)
+    required_code_ids = {
+        contract.code_contract_id
+        for contract in code_contracts_by_id.values()
+        if contract.required and contract.path and contract.symbol
+    }
+    required_test_ids = {
+        evidence.evidence_id
+        for evidence in plan.test_evidence
+        if evidence.path and evidence.test_name and evidence.covered_code_contracts
+    }
+    for code_contract_id in sorted(required_code_ids - audited_code_ids):
+        findings.append(
+            ModelTestAlignmentFinding(
+                "source_audit_missing_code_contract_coverage",
+                f"required source audit does not cover code contract {code_contract_id}",
+                code_contract_id=code_contract_id,
+                metadata={"required_code_contract_ids": sorted(required_code_ids)},
+            )
+        )
+    for evidence_id in sorted(required_test_ids - audited_test_ids):
+        findings.append(
+            ModelTestAlignmentFinding(
+                "source_audit_missing_test_evidence_coverage",
+                f"required source audit does not cover test evidence {evidence_id}",
+                evidence_id=evidence_id,
+                metadata={"required_test_evidence_ids": sorted(required_test_ids)},
+            )
+        )
+    return findings
+
+
 def _blocker_findings(
     findings: Sequence[ModelTestAlignmentFinding],
 ) -> tuple[ModelTestAlignmentFinding, ...]:
@@ -1247,6 +1481,10 @@ def _decision_for_findings(findings: Sequence[ModelTestAlignmentFinding]) -> str
         ("missing_code_contract", "missing_code_contract"),
         ("code_contract_missing_behavior", "code_contract_missing_behavior"),
         ("code_contract_extra_behavior", "code_contract_extra_behavior"),
+        ("missing_source_audit_report", "source_audit_required"),
+        ("source_audit_blocked", "source_audit_blocked"),
+        ("source_audit_missing_code_contract_coverage", "source_audit_incomplete"),
+        ("source_audit_missing_test_evidence_coverage", "source_audit_incomplete"),
         ("duplicate_code_boundary", "code_boundary_conformance_failed"),
         ("unknown_code_boundary_contract_reference", "code_boundary_conformance_failed"),
         ("unknown_code_boundary_observation_reference", "code_boundary_conformance_failed"),
@@ -1304,6 +1542,10 @@ def _decision_for_findings(findings: Sequence[ModelTestAlignmentFinding]) -> str
         ("supporting_evidence_target_missing", "supporting_evidence_target_required"),
         ("primary_edge_role_kind_mismatch", "invalid_alignment_plan"),
         ("invalid_test_evidence_role", "invalid_alignment_plan"),
+        ("closure_evidence_target_missing", "closure_evidence_target_required"),
+        ("missing_counterexample_regression_test", "missing_counterexample_regression_test"),
+        ("missing_known_bad_replay_test", "missing_known_bad_replay_test"),
+        ("missing_closure_target_test_evidence", "missing_closure_target_test_evidence"),
         ("model_miss_closure_evidence_internal_path_only", "test_checks_internal_path_only"),
         ("missing_same_class_test_evidence", "missing_same_class_test_evidence"),
         ("missing_observed_regression_test_evidence", "missing_observed_regression_test_evidence"),
@@ -2585,6 +2827,31 @@ def _evidence_findings(
                     metadata=evidence.to_dict(),
                 )
             )
+        if (
+            evidence.closure_evidence_role in TARGET_AWARE_CLOSURE_ROLES
+            and not evidence.evidence_target_id
+        ):
+            findings.append(
+                ModelTestAlignmentFinding(
+                    "closure_evidence_target_missing",
+                    f"test evidence {evidence.evidence_id} must name the counterexample or known-bad target it closes",
+                    evidence_id=evidence.evidence_id,
+                    metadata=evidence.to_dict(),
+                )
+            )
+        if (
+            evidence.closure_evidence_role
+            and evidence.assertion_scope
+            in {TEST_ASSERTION_SCOPE_INTERNAL_PATH, TEST_ASSERTION_SCOPE_UNKNOWN}
+        ):
+            findings.append(
+                ModelTestAlignmentFinding(
+                    "model_miss_closure_evidence_internal_path_only",
+                    f"closure evidence {evidence.evidence_id} does not prove the external behavior boundary",
+                    evidence_id=evidence.evidence_id,
+                    metadata=evidence.to_dict(),
+                )
+            )
         if not evidence.covered_obligations:
             severity = "warning" if plan.allow_orphan_tests else "blocker"
             findings.append(
@@ -2874,23 +3141,88 @@ def _evidence_binds_obligation_to_code_contract(
     return False
 
 
+def _field_projection_id(projection: Any) -> str:
+    for attr in ("projection_id", "field_id", "id"):
+        value = getattr(projection, attr, "")
+        if value:
+            return str(value)
+    if isinstance(projection, Mapping):
+        for key in ("projection_id", "field_id", "id"):
+            value = projection.get(key)
+            if value:
+                return str(value)
+    return ""
+
+
+def _binding_source_audit_decision(
+    plan: ModelTestAlignmentPlan,
+    contract_ids: Sequence[str],
+    evidence_ids: Sequence[str],
+) -> str:
+    reports = tuple(plan.source_audit_reports)
+    if not reports:
+        return "missing_source_audit_report" if plan.require_source_audit else ""
+    if any(not _report_bool(report, "ok") for report in reports):
+        return "source_audit_blocked"
+    audited_code_ids = _source_audit_code_ids(reports)
+    audited_test_ids = _source_audit_test_ids(reports)
+    missing_code = set(contract_ids) - audited_code_ids
+    missing_test = set(evidence_ids) - audited_test_ids
+    if missing_code or missing_test:
+        return "source_audit_incomplete" if plan.require_source_audit else "source_audit_partial"
+    return "source_audit_green"
+
+
+def _binding_gap_codes(
+    findings: Sequence[ModelTestAlignmentFinding],
+    *,
+    obligation_id: str,
+    contract_ids: Sequence[str],
+    evidence_ids: Sequence[str],
+) -> tuple[str, ...]:
+    contract_id_set = set(contract_ids)
+    evidence_id_set = set(evidence_ids)
+    codes: list[str] = []
+    for finding in findings:
+        if finding.severity != "blocker":
+            continue
+        if finding.obligation_id and finding.obligation_id == obligation_id:
+            codes.append(finding.code)
+        elif finding.code_contract_id and finding.code_contract_id in contract_id_set:
+            codes.append(finding.code)
+        elif finding.evidence_id and finding.evidence_id in evidence_id_set:
+            codes.append(finding.code)
+    return _unique_sorted(codes)
+
+
 def _binding_rows(
+    plan: ModelTestAlignmentPlan,
     obligations_by_id: Mapping[str, ModelObligation],
     code_contracts_by_id: Mapping[str, CodeContract],
     passing_by_obligation: Mapping[str, Sequence[TestEvidence]],
+    findings: Sequence[ModelTestAlignmentFinding],
 ) -> tuple[ModelCodeTestBindingRow, ...]:
     contracts_by_obligation = _code_contracts_by_obligation(code_contracts_by_id, obligations_by_id)
     rows: list[ModelCodeTestBindingRow] = []
+    field_projections = _field_lifecycle_projection_rows(plan)
     for obligation_id, obligation in obligations_by_id.items():
         if not obligation.required:
             continue
         owner_contracts = tuple(contracts_by_obligation.get(obligation_id, ()))
         if not owner_contracts:
+            gap_codes = _binding_gap_codes(
+                findings,
+                obligation_id=obligation_id,
+                contract_ids=(),
+                evidence_ids=(),
+            ) or ("missing_code_contract",)
             rows.append(
                 ModelCodeTestBindingRow(
                     model_obligation_id=obligation_id,
                     status="blocked",
-                    gaps=("missing_code_contract",),
+                    gaps=gap_codes,
+                    source_audit_decision=_binding_source_audit_decision(plan, (), ()),
+                    open_gap_codes=gap_codes,
                 )
             )
             continue
@@ -2907,29 +3239,109 @@ def _binding_rows(
                     code_contracts_by_id,
                 )
             )
+            contract_ids = (contract.code_contract_id,)
+            evidence_ids = tuple(evidence.evidence_id for evidence in locked_evidence)
+            boundary_contract_ids = tuple(
+                boundary.boundary_id
+                for boundary in plan.boundary_contracts
+                if boundary.model_obligation_id == obligation_id
+                or boundary.code_contract_id in contract_ids
+            )
+            boundary_observation_ids = tuple(
+                observation.observation_id
+                for observation in plan.boundary_observations
+                if observation.boundary_id in boundary_contract_ids
+            )
+            runtime_node_ids = tuple(obligation.required_runtime_node_ids) + tuple(
+                runtime_contract.node_id
+                for runtime_contract in plan.runtime_node_contracts
+                if runtime_contract.model_obligation_id == obligation_id
+                or runtime_contract.code_contract_id in contract_ids
+            )
+            runtime_observation_ids = tuple(
+                observation.observation_id
+                for observation in plan.runtime_node_observations
+                if observation.model_obligation_id == obligation_id
+                or observation.code_contract_id in contract_ids
+                or observation.node_id in runtime_node_ids
+            )
+            payload_contract_ids = tuple(
+                payload.payload_contract_id
+                for payload in plan.payload_contracts
+                if payload.model_obligation_id == obligation_id
+                or payload.code_contract_id in contract_ids
+            )
+            field_projection_ids = tuple(
+                _field_projection_id(projection)
+                for projection in field_projections
+                if getattr(projection, "model_obligation_id", "") == obligation_id
+                or getattr(projection, "code_contract_id", "") in contract_ids
+            )
+            source_audit_decision = _binding_source_audit_decision(
+                plan,
+                contract_ids,
+                evidence_ids,
+            )
+            gap_codes = _binding_gap_codes(
+                findings,
+                obligation_id=obligation_id,
+                contract_ids=contract_ids,
+                evidence_ids=evidence_ids,
+            )
             if locked_evidence:
-                for evidence in locked_evidence:
-                    rows.append(
-                        ModelCodeTestBindingRow(
-                            model_obligation_id=obligation_id,
-                            code_contract_id=contract.code_contract_id,
-                            test_evidence_id=evidence.evidence_id,
-                            status="locked",
-                        )
+                rows.append(
+                    ModelCodeTestBindingRow(
+                        model_obligation_id=obligation_id,
+                        code_contract_id=contract.code_contract_id,
+                        test_evidence_id=evidence_ids[0] if evidence_ids else "",
+                        status="locked" if not gap_codes else "blocked",
+                        gaps=gap_codes,
+                        code_contract_ids=contract_ids,
+                        owner_code_contract_ids=contract_ids,
+                        code_paths=(contract.path,),
+                        code_symbols=(contract.symbol,),
+                        test_evidence_ids=evidence_ids,
+                        boundary_contract_ids=boundary_contract_ids,
+                        boundary_observation_ids=boundary_observation_ids,
+                        runtime_node_ids=runtime_node_ids,
+                        runtime_observation_ids=runtime_observation_ids,
+                        payload_contract_ids=payload_contract_ids,
+                        field_projection_ids=field_projection_ids,
+                        source_audit_decision=source_audit_decision,
+                        open_gap_codes=gap_codes,
                     )
+                )
             else:
+                if not gap_codes:
+                    gap_codes = ("missing_code_contract_test_evidence",)
                 rows.append(
                     ModelCodeTestBindingRow(
                         model_obligation_id=obligation_id,
                         code_contract_id=contract.code_contract_id,
                         status="blocked",
-                        gaps=("missing_code_contract_test_evidence",),
+                        gaps=gap_codes,
+                        code_contract_ids=contract_ids,
+                        owner_code_contract_ids=contract_ids,
+                        code_paths=(contract.path,),
+                        code_symbols=(contract.symbol,),
+                        boundary_contract_ids=boundary_contract_ids,
+                        boundary_observation_ids=boundary_observation_ids,
+                        runtime_node_ids=runtime_node_ids,
+                        runtime_observation_ids=runtime_observation_ids,
+                        payload_contract_ids=payload_contract_ids,
+                        field_projection_ids=field_projection_ids,
+                        source_audit_decision=source_audit_decision,
+                        open_gap_codes=gap_codes,
                     )
                 )
     return tuple(rows)
 
 
 def _closure_role_finding_code(role: str) -> str:
+    if role == TEST_CLOSURE_ROLE_COUNTEREXAMPLE_REGRESSION:
+        return "missing_counterexample_regression_test"
+    if role == TEST_CLOSURE_ROLE_KNOWN_BAD_REPLAY:
+        return "missing_known_bad_replay_test"
     if role == TEST_CLOSURE_ROLE_SAME_CLASS_GENERALIZED:
         return "missing_same_class_test_evidence"
     if role == TEST_CLOSURE_ROLE_OBSERVED_REGRESSION:
@@ -2938,11 +3350,23 @@ def _closure_role_finding_code(role: str) -> str:
 
 
 def _closure_role_label(role: str) -> str:
+    if role == TEST_CLOSURE_ROLE_COUNTEREXAMPLE_REGRESSION:
+        return "counterexample regression"
+    if role == TEST_CLOSURE_ROLE_KNOWN_BAD_REPLAY:
+        return "known-bad replay"
     if role == TEST_CLOSURE_ROLE_SAME_CLASS_GENERALIZED:
         return "same-class generalized"
     if role == TEST_CLOSURE_ROLE_OBSERVED_REGRESSION:
         return "observed regression"
     return role or "unspecified closure"
+
+
+def _closure_target_finding_code(target: ClosureEvidenceTarget) -> str:
+    if target.closure_evidence_role == TEST_CLOSURE_ROLE_COUNTEREXAMPLE_REGRESSION:
+        return "missing_counterexample_regression_test"
+    if target.closure_evidence_role == TEST_CLOSURE_ROLE_KNOWN_BAD_REPLAY:
+        return "missing_known_bad_replay_test"
+    return "missing_closure_target_test_evidence"
 
 
 def _coverage_findings(
@@ -2984,6 +3408,24 @@ def _coverage_findings(
             )
 
         if obligation.required and not coverage_evidence:
+            for target in obligation.required_closure_targets:
+                if not target.required:
+                    continue
+                findings.append(
+                    ModelTestAlignmentFinding(
+                        _closure_target_finding_code(target),
+                        (
+                            f"model obligation {obligation_id} lacks current passing "
+                            f"{_closure_role_label(target.closure_evidence_role)} "
+                            f"test evidence for target {target.target_id!r}"
+                        ),
+                        obligation_id=obligation_id,
+                        metadata={
+                            "obligation": obligation.to_dict(),
+                            "required_closure_target": target.to_dict(),
+                        },
+                    )
+                )
             findings.append(
                 ModelTestAlignmentFinding(
                     "missing_test_evidence",
@@ -3024,6 +3466,34 @@ def _coverage_findings(
                                 "obligation": obligation.to_dict(),
                                 "required_closure_role": role,
                                 "roles_present": sorted(externally_scoped_roles),
+                            },
+                        )
+                    )
+            for target in obligation.required_closure_targets:
+                if not target.required:
+                    continue
+                matching_target_evidence = tuple(
+                    evidence
+                    for evidence in coverage_evidence
+                    if evidence.closure_evidence_role == target.closure_evidence_role
+                    and evidence.evidence_target_id == target.target_id
+                    and evidence.has_external_contract_assertion()
+                    and not evidence.overclaims_model_confidence
+                )
+                if not matching_target_evidence:
+                    findings.append(
+                        ModelTestAlignmentFinding(
+                            _closure_target_finding_code(target),
+                            (
+                                f"model obligation {obligation_id} lacks current passing "
+                                f"{_closure_role_label(target.closure_evidence_role)} "
+                                f"test evidence for target {target.target_id!r}"
+                            ),
+                            obligation_id=obligation_id,
+                            metadata={
+                                "obligation": obligation.to_dict(),
+                                "required_closure_target": target.to_dict(),
+                                "matching_roles_present": sorted(externally_scoped_roles),
                             },
                         )
                     )
@@ -3094,6 +3564,7 @@ def review_model_test_alignment(plan: ModelTestAlignmentPlan) -> ModelTestAlignm
     findings.extend(code_contract_findings)
     findings.extend(_code_contract_findings(plan, obligations_by_id, code_contracts_by_id))
     findings.extend(_evidence_findings(plan, obligations_by_id, code_contracts_by_id))
+    findings.extend(_source_audit_findings(plan, code_contracts_by_id))
     if plan.boundary_contracts or plan.boundary_observations:
         boundary_report = review_code_boundary_conformance(
             plan.boundary_contracts,
@@ -3175,7 +3646,6 @@ def review_model_test_alignment(plan: ModelTestAlignmentPlan) -> ModelTestAlignm
         )
     passing_by_obligation = _passing_evidence_by_obligation(plan, obligations_by_id)
     passing_by_code_contract = _passing_external_evidence_by_code_contract(plan, code_contracts_by_id)
-    binding_rows = _binding_rows(obligations_by_id, code_contracts_by_id, passing_by_obligation)
     findings.extend(
         _coverage_findings(
             obligations_by_id,
@@ -3183,6 +3653,13 @@ def review_model_test_alignment(plan: ModelTestAlignmentPlan) -> ModelTestAlignm
             code_contracts_by_id,
             passing_by_code_contract,
         )
+    )
+    binding_rows = _binding_rows(
+        plan,
+        obligations_by_id,
+        code_contracts_by_id,
+        passing_by_obligation,
+        findings,
     )
     blockers = _blocker_findings(findings)
     return ModelTestAlignmentReport(
@@ -3247,6 +3724,7 @@ __all__ = [
     "CODE_CONTRACT_ROLE_HELPER",
     "CODE_CONTRACT_ROLE_OWNER",
     "CODE_CONTRACT_ROLE_READ_ONLY",
+    "ClosureEvidenceTarget",
     "CodeBoundaryConformanceReport",
     "CodeBoundaryContract",
     "CodeBoundaryFinding",
@@ -3268,6 +3746,8 @@ __all__ = [
     "TEST_ASSERTION_SCOPE_UNKNOWN",
     "TEST_CLOSURE_ROLE_OBSERVED_REGRESSION",
     "TEST_CLOSURE_ROLE_SAME_CLASS_GENERALIZED",
+    "TEST_CLOSURE_ROLE_COUNTEREXAMPLE_REGRESSION",
+    "TEST_CLOSURE_ROLE_KNOWN_BAD_REPLAY",
     "TEST_CLOSURE_ROLE_UNSPECIFIED",
     "TEST_EVIDENCE_ROLE_INTEGRATION_SMOKE",
     "TEST_EVIDENCE_ROLE_LEAF_MATRIX_CELL",

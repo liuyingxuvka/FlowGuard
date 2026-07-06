@@ -874,6 +874,9 @@ issue after a FlowGuard pass.
 - Which observed-regression test and ContractExhaustionMesh case test evidence
   now prove the repaired obligation, and which ObservedProblemBackfeed row maps
   the real miss back to generated and same-class cases?
+- If the miss produced a concrete counterexample or known-bad proof, which
+  stable target id is replayed by current external owner-code
+  `counterexample_regression` or `known_bad_replay` evidence?
 - Which `root_cause_field_ids`, `same_class_field_ids`, and `old_field_ids`
   describe the field-level miss, and does FieldLifecycleMesh close their
   projection or disposition gaps?
@@ -1038,7 +1041,7 @@ def main() -> int:
     correct, broken = run_checks()
     print(f"{correct.scenario_name}: {'PASS' if correct.ok else 'FAIL'}")
     print("required gates: root_cause_backpropagated, same_class_test_evidence_added, owner_code_contract_bound")
-    print("required test/replay: replay_or_negative_check_added")
+    print("required test/replay: replay_or_negative_check_added, target-aware known-bad/counterexample replay when present")
     print(f"expected violations observed: {sum(not report.ok for report in broken)}")
     for report in broken:
         print(f"- {report.scenario_name}: {', '.join(report.findings)}")
@@ -1061,6 +1064,8 @@ Default closure needs:
 - model-miss classification;
 - root-cause backpropagation into the model;
 - same-class test evidence, not only the observed regression;
+- target-aware counterexample or known-bad replay evidence when a concrete
+  trace/proof is in scope;
 - owner code contract binding through Model-Test Alignment;
 - replay or negative check evidence;
 - validation after the refined model/checks.
@@ -1070,9 +1075,10 @@ Default closure needs:
   implementation or test evidence before closure.
 
 Escalate to `model-miss-full-template` when the repair needs generalized bad
-case modeling, known-bug holdout evidence, legacy path or old-field disposition,
-recurring defect-family gates, parent/child ModelMesh reattachment and closure,
-TestMesh ownership, or Risk Evidence Ledger closure.
+case modeling, known-bug holdout evidence, target-aware counterexample replay,
+legacy path or old-field disposition, recurring defect-family gates,
+parent/child ModelMesh reattachment and closure, TestMesh ownership, or Risk
+Evidence Ledger closure.
 
 If old runtime paths or fields are still reachable, the full route should record
 `legacy_path_disposition_recorded` evidence before broad completion.

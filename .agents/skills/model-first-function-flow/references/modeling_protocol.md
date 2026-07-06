@@ -143,7 +143,7 @@ below. Satellite details stay in the satellite-owned reference.
 
 | Signal | Route | Load next |
 | --- | --- | --- |
-| Model obligations and ordinary tests both need current evidence parity. | Model-Test Alignment | `.agents/skills/flowguard-model-test-alignment/references/model_test_alignment_protocol.md` |
+| Model obligations, owner code contracts, source audit, bad-case targets, and ordinary tests need current evidence parity. | Model-Test Alignment | `.agents/skills/flowguard-model-test-alignment/references/model_test_alignment_protocol.md` |
 | Three or more local models, an oversized model, stale child evidence, or a parent/child model claim. | ModelMesh | `.agents/skills/flowguard-model-mesh/references/model_mesh_protocol.md` |
 | Model, test, mesh, miss, or code-boundary evidence says the model is too coarse or stale. | Model maturation loop | Stay in this protocol and use `review_model_maturation_loop(...)`; then rerun the owning route. |
 | Changed artifacts, remembered maintenance obligations, stale evidence, or skipped routes need owner-route review. | Maintenance scan router | Use `review_maintenance_scan(...)`; then rerun the owner route. |
@@ -194,6 +194,11 @@ The first/default model should be a minimum valuable model, not a happy-path
 stub. It can stay small, but it needs state, side effects or completion
 evidence, and at least one known-bad case with current proof that the broken
 variant fails unless the claim is explicitly scoped.
+When that known-bad case or a counterexample later supports a real-code repair,
+give it a stable target id and send it to Model-Test Alignment as a
+`ClosureEvidenceTarget`; broad closure then needs a current external
+`known_bad_replay` or `counterexample_regression` test bound to the owner code
+contract and the same target id.
 Search packaged public templates and the per-machine local template library
 before generating a new or materially deepened model. Before a complete claim,
 record template harvest closure: write a local candidate, merge an existing template,

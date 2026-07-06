@@ -9,6 +9,7 @@ from flowguard import (
     RuntimeGatewayAdoptionPlan,
     RuntimeGatewayContract,
     RuntimeStateSurface,
+    RuntimeWriterInventoryEvidence,
     RuntimeWriteObservation,
     review_runtime_gateway_adoption,
 )
@@ -52,6 +53,19 @@ def observation(observation_id="router_state_write", **overrides):
     return RuntimeWriteObservation(**values)
 
 
+def writer_inventory(evidence_id="inventory:critical-state-writers", **overrides):
+    values = {
+        "evidence_id": evidence_id,
+        "covered_surface_ids": ("router_state",),
+        "discovered_writer_ids": ("writer:router_state_write",),
+        "proof_artifact_ids": ("artifact:writer-inventory",),
+        "current": True,
+        "result_status": "passed",
+    }
+    values.update(overrides)
+    return RuntimeWriterInventoryEvidence(**values)
+
+
 def runtime_plan(**overrides):
     values = {
         "project_id": "flowpilot",
@@ -60,6 +74,7 @@ def runtime_plan(**overrides):
         "gateways": (gateway(),),
         "write_observations": (observation(),),
         "complete_inventory_evidence_ids": ("inventory:critical-state-writers",),
+        "writer_inventory_evidence": (writer_inventory(),),
     }
     values.update(overrides)
     return RuntimeGatewayAdoptionPlan(**values)
@@ -87,11 +102,74 @@ class RuntimeGatewayAdoptionTests(unittest.TestCase):
 
     def test_missing_inventory_blocks_runtime_gateway_claim(self):
         report = review_runtime_gateway_adoption(
-            runtime_plan(complete_inventory_evidence_ids=())
+            runtime_plan(
+                complete_inventory_evidence_ids=(),
+                writer_inventory_evidence=(),
+            )
         )
 
         self.assertFalse(report.ok)
         self.assertIn("missing_complete_writer_inventory", finding_codes(report))
+        self.assertIn("missing_structured_writer_inventory_evidence", finding_codes(report))
+
+    def test_opaque_inventory_id_without_structured_evidence_blocks_runtime_gateway_claim(self):
+        report = review_runtime_gateway_adoption(
+            runtime_plan(writer_inventory_evidence=())
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("missing_structured_writer_inventory_evidence", finding_codes(report))
+
+    def test_stale_and_non_passing_writer_inventory_blocks(self):
+        report = review_runtime_gateway_adoption(
+            runtime_plan(
+                writer_inventory_evidence=(
+                    writer_inventory(current=False, result_status="skipped"),
+                )
+            )
+        )
+
+        codes = finding_codes(report)
+        self.assertFalse(report.ok)
+        self.assertIn("writer_inventory_stale", codes)
+        self.assertIn("writer_inventory_not_passing", codes)
+        self.assertIn("writer_inventory_missing_critical_surface", codes)
+
+    def test_writer_inventory_must_cover_critical_surface(self):
+        report = review_runtime_gateway_adoption(
+            runtime_plan(
+                writer_inventory_evidence=(
+                    writer_inventory(covered_surface_ids=("other_surface",)),
+                )
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("writer_inventory_missing_critical_surface", finding_codes(report))
+
+    def test_writer_inventory_scoped_writer_requires_reason(self):
+        report = review_runtime_gateway_adoption(
+            runtime_plan(
+                writer_inventory_evidence=(
+                    writer_inventory(
+                        scoped_out_writer_ids=("writer:legacy_router_state_write",),
+                    ),
+                )
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("writer_inventory_scoped_without_reason", finding_codes(report))
+
+    def test_writer_inventory_requires_proof_artifact(self):
+        report = review_runtime_gateway_adoption(
+            runtime_plan(
+                writer_inventory_evidence=(writer_inventory(proof_artifact_ids=()),)
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("writer_inventory_missing_proof_artifact", finding_codes(report))
 
     def test_unmanaged_critical_surface_blocks(self):
         report = review_runtime_gateway_adoption(
@@ -195,6 +273,7 @@ class RuntimeGatewayAdoptionTests(unittest.TestCase):
             "RuntimeGatewayContract",
             "RuntimeGatewayFinding",
             "RuntimeStateSurface",
+            "RuntimeWriterInventoryEvidence",
             "RuntimeWriteObservation",
             "review_runtime_gateway_adoption",
         )

@@ -1,12 +1,12 @@
 ---
 name: flowguard-model-miss-review
-description: Use when runtime, tests, replay, logs, manual validation, or production evidence fails after FlowGuard passed, including model miss, false confidence, boundary missing, weak invariant, or root-cause backpropagation.
+description: Use when runtime, tests, replay, logs, or manual validation fails after FlowGuard passed.
 ---
 
 # FlowGuard Model Miss Review
 
-Standalone FlowGuard satellite skill for bug repairs where real failure shows
-the model, code contract, tests, or final claim is too narrow. Return to
+Standalone FlowGuard satellite skill for repairs where real failure shows the
+model, code contract, tests, or final claim is too narrow. Return to
 `model-first-function-flow` only when there is no concrete failure evidence.
 
 ## First Read
@@ -14,28 +14,23 @@ the model, code contract, tests, or final claim is too narrow. Return to
 - Route id: `model_miss_review`.
 - Entry: `ROUTE_STARTER_API["model_miss_review"]`, `model-miss-template`, or
   full variant.
-- Concepts: observed failure, contract-exhaustion same-class case or
-  combination case, `boundary_missing`, root-cause backpropagation, owner code contract,
-  old-path/field disposition, coverage receipt, defect-family gate, maturation.
+- Concepts: observed failure, contract-exhaustion same-class case,
+  `boundary_missing`, root-cause backpropagation, owner code contract,
+  disposition, coverage receipt, defect-family gate, maturation.
 - Reference: `references/model_miss_protocol.md`.
 
 ## Hard Gates
 
-- Verify FlowGuard check engine, keep AGENTS.md managed records current, and do not
-  create a fake mini-framework.
+- Verify FlowGuard check engine, keep AGENTS.md managed records current, and do not create a fake mini-framework.
 - A user-observed UI failure after a green claim is a model miss.
-- Preserve previous claim, failure, affected/same-class surface, task/control/
-  field gaps, tests, backpropagation, and code owner.
+- Preserve prior claim, failure, same-class surface, tests, backpropagation, and code owner.
 - The observed instance and bug-class responsibility are separate.
-- Same-class generation is not hand-written canonical coverage. Abstract the
-  miss into a boundary/family seed or interaction group, then route sibling
-  cases through `flowguard-contract-exhaustion-mesh`.
+- Same-class generation is not hand-written canonical coverage. Route seeds through `flowguard-contract-exhaustion-mesh`.
 - Root cause, model obligation, owner code contract, observed test, and
   same-class test must bind to the same repaired behavior.
-- Old, fallback, compatibility, alternate paths, and field misses need
-  disposition/projection instead of accidental reachability.
-- A later green runtime check does not close a miss without current case,
-  shard, receipt, and alignment evidence for the in-scope class.
+- Counterexample/known-bad misses need target-aware owner-code replay evidence.
+- Old/fallback paths and field misses need disposition/projection.
+- A later green runtime check does not close a miss without current class evidence.
 - Deepened miss models need template harvest closure before broad claims.
 
 ## Minimum Workflow

@@ -1,230 +1,212 @@
 {
-  "schema_version": "skillguard.work_contract.v1",
-  "skill_id": "flowguard-contract-exhaustion-mesh",
-  "target_path": ".codex/skills/flowguard-contract-exhaustion-mesh",
-  "contract_version": "3",
-  "integration_mode": "native-integrated",
-  "native_route_owner": "FlowGuard skill route map plus the real flowguard package/model checks",
-  "native_route_bindings": [
+  "check_scripts": [
     {
-      "binding_id": "model_preflight_native_route",
-      "native_route_id": "flowguard.model_preflight",
-      "source": "FlowGuard skill route map plus the real flowguard package/model checks",
-      "required_before_closure": true
+      "check_id": "check_route",
+      "command": "python .skillguard/checks/check_route.py",
+      "failure_class": "route",
+      "phase_id": "intake",
+      "required": true,
+      "script_path": ".skillguard/checks/check_route.py"
     },
     {
-      "binding_id": "process_review_native_route",
-      "native_route_id": "flowguard.process_review",
-      "source": "FlowGuard skill route map plus the real flowguard package/model checks",
-      "required_before_closure": true
+      "check_id": "check_phase_order",
+      "command": "python .skillguard/checks/check_phase_order.py",
+      "failure_class": "phase_order",
+      "phase_id": "inventory",
+      "required": true,
+      "script_path": ".skillguard/checks/check_phase_order.py"
     },
     {
-      "binding_id": "evidence_alignment_native_route",
-      "native_route_id": "flowguard.evidence_alignment",
-      "source": "FlowGuard skill route map plus the real flowguard package/model checks",
-      "required_before_closure": true
+      "check_id": "check_evidence",
+      "command": "python .skillguard/checks/check_evidence.py",
+      "failure_class": "evidence",
+      "phase_id": "execution",
+      "required": true,
+      "script_path": ".skillguard/checks/check_evidence.py"
     },
     {
-      "binding_id": "closure_native_route",
-      "native_route_id": "flowguard.closure",
-      "source": "FlowGuard skill route map plus the real flowguard package/model checks",
-      "required_before_closure": true
+      "check_id": "check_quality_floor",
+      "command": "python .skillguard/checks/check_quality_floor.py",
+      "failure_class": "quality_floor",
+      "phase_id": "checks",
+      "required": true,
+      "script_path": ".skillguard/checks/check_quality_floor.py"
+    },
+    {
+      "check_id": "check_closure",
+      "command": "python .skillguard/checks/check_closure.py",
+      "failure_class": "closure",
+      "phase_id": "closure",
+      "required": true,
+      "script_path": ".skillguard/checks/check_closure.py"
     }
   ],
+  "claim_boundary": "This work contract governs only SkillGuard overlay evidence for the declared target skill. It does not replace the target skill's native router/check system and does not prove external services, package publication, GitHub release readiness, or future AI correctness.",
+  "closure_rules": [
+    {
+      "allowed_decision": "accepted",
+      "required_checks": [
+        "check_route",
+        "check_phase_order",
+        "check_evidence",
+        "check_quality_floor",
+        "check_closure"
+      ],
+      "required_evidence": [
+        "task_summary",
+        "target_inventory",
+        "direct_evidence",
+        "check_output",
+        "closure_report"
+      ],
+      "rule_id": "accepted_requires_all_required_checks",
+      "scope": "declared run scope only"
+    }
+  ],
+  "contract_hash": "3FBC8D82EA7D80F45978141C01AF729D75ACEE43617CFA98547B596F6B9DC88D",
+  "contract_version": "3",
+  "forbidden_shortcuts": [
+    {
+      "shortcut_id": "skip_to_closure",
+      "summary": "Do not move directly from intake or planning to closure without current phase evidence and required checks."
+    },
+    {
+      "shortcut_id": "reuse_stale_evidence",
+      "summary": "Do not treat old reports, prior chat summaries, or progress ledger entries as current closure evidence."
+    },
+    {
+      "shortcut_id": "downgrade_quality_floor",
+      "summary": "Do not weaken required checks, evidence, or quality floors to make a run pass."
+    }
+  ],
+  "integration_claim_boundary": "SkillGuard executes the runtime contract against the native route/check system owned by FlowGuard skill route map plus the real flowguard package/model checks. It may enforce contract gates before progress or closure, but must not create a competing execution router or bypass the native controller/checker.",
+  "integration_mode": "native-integrated",
+  "may_define_parallel_execution_route": false,
+  "may_define_skillguard_runtime_route": false,
   "native_check_bindings": [
     {
       "binding_id": "flowguard_package_import_native_check",
-      "native_check_id": "flowguard_package_import",
       "evidence_source": "FlowGuard skill route map plus the real flowguard package/model checks",
+      "native_check_id": "flowguard_package_import",
       "required": true
     },
     {
       "binding_id": "flowguard_model_or_project_audit_native_check",
-      "native_check_id": "flowguard_model_or_project_audit",
       "evidence_source": "FlowGuard skill route map plus the real flowguard package/model checks",
+      "native_check_id": "flowguard_model_or_project_audit",
       "required": true
     }
   ],
-  "skillguard_role": "native_contract_executor",
-  "may_define_parallel_execution_route": false,
-  "may_define_skillguard_runtime_route": false,
-  "integration_claim_boundary": "SkillGuard executes the runtime contract against the native route/check system owned by FlowGuard skill route map plus the real flowguard package/model checks. It may enforce contract gates before progress or closure, but must not create a competing execution router or bypass the native controller/checker.",
-  "routes": [
+  "native_route_bindings": [
     {
-      "route_id": "model_preflight",
-      "summary": "SkillGuard runtime contract executor for the target skill's native model preflight route/check surface. Duplicate SkillGuard-owned execution paths are invalid; evidence, required checks, blockers, and closure run through the target skill's own workflow.",
-      "route_source": "native_binding",
-      "activation_keywords": [
-        "model_preflight",
-        "model preflight",
-        "model-preflight",
-        "model",
-        "模型",
-        "建模",
-        "preflight",
-        "预检",
-        "前置检查"
-      ],
-      "default_route": true,
-      "route_priority": 0,
-      "do_not_use_when": [
-        "The task is outside this skill's activation boundary."
-      ],
-      "phase_order": [
-        "intake",
-        "inventory",
-        "execution",
-        "checks",
-        "closure"
-      ]
+      "binding_id": "model_preflight_native_route",
+      "native_route_id": "flowguard.model_preflight",
+      "required_before_closure": true,
+      "source": "FlowGuard skill route map plus the real flowguard package/model checks"
     },
     {
-      "route_id": "process_review",
-      "summary": "SkillGuard runtime contract executor for the target skill's native process review route/check surface. Duplicate SkillGuard-owned execution paths are invalid; evidence, required checks, blockers, and closure run through the target skill's own workflow.",
-      "route_source": "native_binding",
-      "activation_keywords": [
-        "process_review",
-        "process review",
-        "process-review",
-        "process",
-        "流程",
-        "过程",
-        "review",
-        "复核",
-        "审查",
-        "评审"
-      ],
-      "default_route": false,
-      "route_priority": 1,
-      "do_not_use_when": [
-        "The task is outside this skill's activation boundary."
-      ],
-      "phase_order": [
-        "intake",
-        "inventory",
-        "execution",
-        "checks",
-        "closure"
-      ]
+      "binding_id": "process_review_native_route",
+      "native_route_id": "flowguard.process_review",
+      "required_before_closure": true,
+      "source": "FlowGuard skill route map plus the real flowguard package/model checks"
     },
     {
-      "route_id": "evidence_alignment",
-      "summary": "SkillGuard runtime contract executor for the target skill's native evidence alignment route/check surface. Duplicate SkillGuard-owned execution paths are invalid; evidence, required checks, blockers, and closure run through the target skill's own workflow.",
-      "route_source": "native_binding",
-      "activation_keywords": [
-        "evidence_alignment",
-        "evidence alignment",
-        "evidence-alignment",
-        "evidence",
-        "证据",
-        "材料",
-        "alignment",
-        "对齐",
-        "一致性"
-      ],
-      "default_route": false,
-      "route_priority": 2,
-      "do_not_use_when": [
-        "The task is outside this skill's activation boundary."
-      ],
-      "phase_order": [
-        "intake",
-        "inventory",
-        "execution",
-        "checks",
-        "closure"
-      ]
+      "binding_id": "evidence_alignment_native_route",
+      "native_route_id": "flowguard.evidence_alignment",
+      "required_before_closure": true,
+      "source": "FlowGuard skill route map plus the real flowguard package/model checks"
     },
     {
-      "route_id": "closure",
-      "summary": "SkillGuard runtime contract executor for the target skill's native closure route/check surface. Duplicate SkillGuard-owned execution paths are invalid; evidence, required checks, blockers, and closure run through the target skill's own workflow.",
-      "route_source": "native_binding",
-      "activation_keywords": [
-        "closure",
-        "close",
-        "收尾",
-        "闭环",
-        "完成",
-        "归档",
-        "发布"
-      ],
-      "default_route": false,
-      "route_priority": 3,
-      "do_not_use_when": [
-        "The task is outside this skill's activation boundary."
-      ],
-      "phase_order": [
-        "intake",
-        "inventory",
-        "execution",
-        "checks",
-        "closure"
-      ]
+      "binding_id": "closure_native_route",
+      "native_route_id": "flowguard.closure",
+      "required_before_closure": true,
+      "source": "FlowGuard skill route map plus the real flowguard package/model checks"
     }
   ],
+  "native_route_owner": "FlowGuard skill route map plus the real flowguard package/model checks",
   "phases": [
     {
-      "phase_id": "intake",
-      "summary": "Confirm target, requested outcome, route, scope, and claim boundary.",
-      "required_evidence": [
-        "task_summary"
+      "allowed_next": [
+        "inventory"
       ],
+      "phase_id": "intake",
       "required_checks": [
         "check_route"
       ],
-      "allowed_next": [
-        "inventory"
-      ]
+      "required_evidence": [
+        "task_summary"
+      ],
+      "summary": "Confirm target, requested outcome, route, scope, and claim boundary."
     },
     {
-      "phase_id": "inventory",
-      "summary": "Inspect current target files, local materials, source ownership, and activation boundary.",
-      "required_evidence": [
-        "target_inventory"
+      "allowed_next": [
+        "execution"
       ],
+      "phase_id": "inventory",
       "required_checks": [
         "check_phase_order"
       ],
-      "allowed_next": [
-        "execution"
-      ]
+      "required_evidence": [
+        "target_inventory"
+      ],
+      "summary": "Inspect current target files, local materials, source ownership, and activation boundary."
     },
     {
-      "phase_id": "execution",
-      "summary": "Perform the skill work inside the selected route without skipping declared gates.",
-      "required_evidence": [
-        "direct_evidence"
+      "allowed_next": [
+        "checks"
       ],
+      "phase_id": "execution",
       "required_checks": [
         "check_evidence"
       ],
-      "allowed_next": [
-        "checks"
-      ]
+      "required_evidence": [
+        "direct_evidence"
+      ],
+      "summary": "Perform the skill work inside the selected route without skipping declared gates."
     },
     {
-      "phase_id": "checks",
-      "summary": "Run required checks, quality floors, freshness checks, and negative-case gates when applicable.",
-      "required_evidence": [
-        "check_output"
+      "allowed_next": [
+        "closure"
       ],
+      "phase_id": "checks",
       "required_checks": [
         "check_quality_floor"
       ],
-      "allowed_next": [
-        "closure"
-      ]
+      "required_evidence": [
+        "check_output"
+      ],
+      "summary": "Run required checks, quality floors, freshness checks, and negative-case gates when applicable."
     },
     {
+      "allowed_next": [],
       "phase_id": "closure",
-      "summary": "Close only inside the evidence-backed claim boundary.",
-      "required_evidence": [
-        "closure_report"
-      ],
       "required_checks": [
         "check_closure"
       ],
-      "allowed_next": []
+      "required_evidence": [
+        "closure_report"
+      ],
+      "summary": "Close only inside the evidence-backed claim boundary."
+    }
+  ],
+  "quality_floors": [
+    {
+      "failure_effect": "block checked or accepted closure",
+      "floor_id": "no_prose_only_completion",
+      "required_checks": [
+        "check_evidence",
+        "check_quality_floor"
+      ],
+      "summary": "Required checks and file evidence cannot be replaced by prose-only claims."
+    },
+    {
+      "failure_effect": "block accepted closure",
+      "floor_id": "no_quality_downgrade",
+      "required_checks": [
+        "check_quality_floor",
+        "check_closure"
+      ],
+      "summary": "Do not weaken required workflow, evidence, freshness, or validation expectations to make a run pass."
     }
   ],
   "required_evidence": [
@@ -264,103 +246,122 @@
       "source": ".skillguard/runs/"
     }
   ],
-  "check_scripts": [
+  "routes": [
     {
-      "check_id": "check_route",
-      "phase_id": "intake",
-      "required": true,
-      "script_path": ".skillguard/checks/check_route.py",
-      "command": "python .skillguard/checks/check_route.py",
-      "failure_class": "route"
+      "activation_keywords": [
+        "model_preflight",
+        "model preflight",
+        "model-preflight",
+        "model",
+        "\u6a21\u578b",
+        "\u5efa\u6a21",
+        "preflight",
+        "\u9884\u68c0",
+        "\u524d\u7f6e\u68c0\u67e5"
+      ],
+      "default_route": true,
+      "do_not_use_when": [
+        "The task is outside this skill's activation boundary."
+      ],
+      "phase_order": [
+        "intake",
+        "inventory",
+        "execution",
+        "checks",
+        "closure"
+      ],
+      "route_id": "model_preflight",
+      "route_priority": 0,
+      "route_source": "native_binding",
+      "summary": "SkillGuard runtime contract executor for the target skill's native model preflight route/check surface. Duplicate SkillGuard-owned execution paths are invalid; evidence, required checks, blockers, and closure run through the target skill's own workflow."
     },
     {
-      "check_id": "check_phase_order",
-      "phase_id": "inventory",
-      "required": true,
-      "script_path": ".skillguard/checks/check_phase_order.py",
-      "command": "python .skillguard/checks/check_phase_order.py",
-      "failure_class": "phase_order"
+      "activation_keywords": [
+        "process_review",
+        "process review",
+        "process-review",
+        "process",
+        "\u6d41\u7a0b",
+        "\u8fc7\u7a0b",
+        "review",
+        "\u590d\u6838",
+        "\u5ba1\u67e5",
+        "\u8bc4\u5ba1"
+      ],
+      "default_route": false,
+      "do_not_use_when": [
+        "The task is outside this skill's activation boundary."
+      ],
+      "phase_order": [
+        "intake",
+        "inventory",
+        "execution",
+        "checks",
+        "closure"
+      ],
+      "route_id": "process_review",
+      "route_priority": 1,
+      "route_source": "native_binding",
+      "summary": "SkillGuard runtime contract executor for the target skill's native process review route/check surface. Duplicate SkillGuard-owned execution paths are invalid; evidence, required checks, blockers, and closure run through the target skill's own workflow."
     },
     {
-      "check_id": "check_evidence",
-      "phase_id": "execution",
-      "required": true,
-      "script_path": ".skillguard/checks/check_evidence.py",
-      "command": "python .skillguard/checks/check_evidence.py",
-      "failure_class": "evidence"
+      "activation_keywords": [
+        "evidence_alignment",
+        "evidence alignment",
+        "evidence-alignment",
+        "evidence",
+        "\u8bc1\u636e",
+        "\u6750\u6599",
+        "alignment",
+        "\u5bf9\u9f50",
+        "\u4e00\u81f4\u6027"
+      ],
+      "default_route": false,
+      "do_not_use_when": [
+        "The task is outside this skill's activation boundary."
+      ],
+      "phase_order": [
+        "intake",
+        "inventory",
+        "execution",
+        "checks",
+        "closure"
+      ],
+      "route_id": "evidence_alignment",
+      "route_priority": 2,
+      "route_source": "native_binding",
+      "summary": "SkillGuard runtime contract executor for the target skill's native evidence alignment route/check surface. Duplicate SkillGuard-owned execution paths are invalid; evidence, required checks, blockers, and closure run through the target skill's own workflow."
     },
     {
-      "check_id": "check_quality_floor",
-      "phase_id": "checks",
-      "required": true,
-      "script_path": ".skillguard/checks/check_quality_floor.py",
-      "command": "python .skillguard/checks/check_quality_floor.py",
-      "failure_class": "quality_floor"
-    },
-    {
-      "check_id": "check_closure",
-      "phase_id": "closure",
-      "required": true,
-      "script_path": ".skillguard/checks/check_closure.py",
-      "command": "python .skillguard/checks/check_closure.py",
-      "failure_class": "closure"
+      "activation_keywords": [
+        "closure",
+        "close",
+        "\u6536\u5c3e",
+        "\u95ed\u73af",
+        "\u5b8c\u6210",
+        "\u5f52\u6863",
+        "\u53d1\u5e03"
+      ],
+      "default_route": false,
+      "do_not_use_when": [
+        "The task is outside this skill's activation boundary."
+      ],
+      "phase_order": [
+        "intake",
+        "inventory",
+        "execution",
+        "checks",
+        "closure"
+      ],
+      "route_id": "closure",
+      "route_priority": 3,
+      "route_source": "native_binding",
+      "summary": "SkillGuard runtime contract executor for the target skill's native closure route/check surface. Duplicate SkillGuard-owned execution paths are invalid; evidence, required checks, blockers, and closure run through the target skill's own workflow."
     }
   ],
-  "quality_floors": [
-    {
-      "floor_id": "no_prose_only_completion",
-      "summary": "Required checks and file evidence cannot be replaced by prose-only claims.",
-      "required_checks": [
-        "check_evidence",
-        "check_quality_floor"
-      ],
-      "failure_effect": "block checked or accepted closure"
-    },
-    {
-      "floor_id": "no_quality_downgrade",
-      "summary": "Do not weaken required workflow, evidence, freshness, or validation expectations to make a run pass.",
-      "required_checks": [
-        "check_quality_floor",
-        "check_closure"
-      ],
-      "failure_effect": "block accepted closure"
-    }
-  ],
-  "forbidden_shortcuts": [
-    {
-      "shortcut_id": "skip_to_closure",
-      "summary": "Do not move directly from intake or planning to closure without current phase evidence and required checks."
-    },
-    {
-      "shortcut_id": "reuse_stale_evidence",
-      "summary": "Do not treat old reports, prior chat summaries, or progress ledger entries as current closure evidence."
-    },
-    {
-      "shortcut_id": "downgrade_quality_floor",
-      "summary": "Do not weaken required checks, evidence, or quality floors to make a run pass."
-    }
-  ],
-  "closure_rules": [
-    {
-      "rule_id": "accepted_requires_all_required_checks",
-      "allowed_decision": "accepted",
-      "required_checks": [
-        "check_route",
-        "check_phase_order",
-        "check_evidence",
-        "check_quality_floor",
-        "check_closure"
-      ],
-      "required_evidence": [
-        "task_summary",
-        "target_inventory",
-        "direct_evidence",
-        "check_output",
-        "closure_report"
-      ],
-      "scope": "declared run scope only"
-    }
-  ],
+  "schema_version": "1.0",
+  "skill_id": "flowguard-contract-exhaustion-mesh",
+  "skillguard_role": "native_contract_executor",
   "stale_bindings": [
     {
       "binding_id": "target_skill_prompt",
@@ -381,6 +382,5 @@
       ]
     }
   ],
-  "claim_boundary": "This work contract governs only SkillGuard overlay evidence for the declared target skill. It does not replace the target skill's native router/check system and does not prove external services, package publication, GitHub release readiness, or future AI correctness.",
-  "contract_hash": "3FBC8D82EA7D80F45978141C01AF729D75ACEE43617CFA98547B596F6B9DC88D"
+  "target_path": ".codex/skills/flowguard-contract-exhaustion-mesh"
 }

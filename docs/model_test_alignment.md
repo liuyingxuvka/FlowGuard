@@ -8,6 +8,20 @@ read TestMesh, StructureMesh, or ModelMesh reports.
 Use it before claiming that model coverage, code behavior, and test coverage
 describe the same behavioral surface.
 
+For real Python code claims, make the source-audit decision part of the same
+plan instead of leaving it as a side note. Add
+`ModelTestAlignmentPlan.source_audit_reports` and set
+`require_source_audit=True` when the claim depends on declared `path` and
+`symbol` rows matching actual source and tests. Missing, red, or unrelated
+source-audit reports block the final alignment decision.
+
+Each report also emits `ModelCodeTestBindingRow` closure summaries. A row names
+the model obligation, owner code contract ids, code paths and symbols, test
+evidence ids, boundary/runtime/payload ids, source-audit decision, and open gap
+codes. Treat that row as the final claim boundary for an AI-written code
+change: if the row says the source audit or runtime evidence is missing, the
+final claim stays scoped.
+
 For post-runtime model-miss repairs and non-trivial bug fixes, use Model-Test
 Alignment after Model-Miss Review updates the model. The repaired in-scope
 obligation should mark that it originated from a model miss and require closure
@@ -16,6 +30,12 @@ ContractExhaustionMesh same-class case test. It also needs the owner `CodeContra
 CLI, API, facade, adapter, or persisted-output surface that implements the
 repair. A green exact regression test is necessary, but it is not enough for
 full closure.
+
+When the model miss came from a concrete counterexample trace or known-bad
+proof, add a target-aware closure requirement. Use
+`ClosureEvidenceTarget` with `counterexample_regression` or
+`known_bad_replay`, and make the matching `TestEvidence` cite the same
+`evidence_target_id`, owner code contract, and external assertion scope.
 
 If the same-class miss recurs or is high risk, Model-Test Alignment still only
 proves the obligation/test rows. The recurring family itself is handled by
@@ -147,6 +167,12 @@ Use `audit_python_code_contracts(...)` to produce
 `PythonTestAssertionEvidence`, and `review_python_contract_source_audit(...)`
 to report source-level findings before trusting the declared rows.
 
+When this audit is required for a real-code alignment claim, pass the resulting
+`ContractSourceAuditReport` into `ModelTestAlignmentPlan.source_audit_reports`
+and set `require_source_audit=True`. A green audit must cover the plan's
+required code contract ids and real test evidence ids; an unrelated green audit
+is not enough.
+
 The source audit can support or challenge alignment rows by recording:
 
 - code-contract evidence for public functions, classes, methods, CLIs, facades,
@@ -186,6 +212,9 @@ List model obligations with `ModelObligation`:
   the obligation is repairing a post-runtime miss;
 - required closure evidence roles, normally `observed_regression` and
   `same_class_generalized` for in-scope model-miss repairs.
+- required closure targets with `ClosureEvidenceTarget` when a specific
+  counterexample id, known-bad proof id, or replay case id must become a real
+  code regression test.
 
 List code external contracts with `CodeContract` for every required model
 obligation that is part of the confidence claim. These rows may be

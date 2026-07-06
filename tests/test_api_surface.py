@@ -387,10 +387,13 @@ class ApiSurfaceTests(unittest.TestCase):
             "CodeBoundaryFinding",
             "CodeBoundaryObservation",
             "CodeContract",
+            "ClosureEvidenceTarget",
             "TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT",
             "TEST_ASSERTION_SCOPE_INTERNAL_PATH",
             "TEST_ASSERTION_SCOPE_MIXED",
             "TEST_ASSERTION_SCOPE_UNKNOWN",
+            "TEST_CLOSURE_ROLE_COUNTEREXAMPLE_REGRESSION",
+            "TEST_CLOSURE_ROLE_KNOWN_BAD_REPLAY",
             "TEST_CLOSURE_ROLE_OBSERVED_REGRESSION",
             "TEST_CLOSURE_ROLE_SAME_CLASS_GENERALIZED",
             "TEST_CLOSURE_ROLE_UNSPECIFIED",
@@ -415,6 +418,29 @@ class ApiSurfaceTests(unittest.TestCase):
             "review_artifact_payload_validation",
             "review_code_boundary_conformance",
             "review_python_contract_source_audit",
+        )
+
+        for name in expected:
+            self.assertIn(name, flowguard.MODELING_HELPER_API)
+            self.assertIn(name, flowguard.__all__)
+            self.assertTrue(hasattr(flowguard, name), name)
+            self.assertNotIn(name, flowguard.CORE_API)
+
+    def test_runtime_gateway_writer_inventory_api_is_public_helper(self):
+        expected = (
+            "ADOPTION_LEVEL_DESIGN_MODEL",
+            "ADOPTION_LEVEL_RUNTIME_GATEWAY",
+            "ADOPTION_LEVEL_TEST_ALIGNED",
+            "RUNTIME_WRITE_DIRECT",
+            "RUNTIME_WRITE_GATEWAY",
+            "RuntimeGatewayAdoptionPlan",
+            "RuntimeGatewayAdoptionReport",
+            "RuntimeGatewayContract",
+            "RuntimeGatewayFinding",
+            "RuntimeStateSurface",
+            "RuntimeWriterInventoryEvidence",
+            "RuntimeWriteObservation",
+            "review_runtime_gateway_adoption",
         )
 
         for name in expected:

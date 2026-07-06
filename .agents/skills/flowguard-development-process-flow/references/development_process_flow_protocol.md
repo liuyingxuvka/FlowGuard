@@ -66,6 +66,9 @@ Create or update a DevelopmentProcessFlow review when:
 - a non-trivial bug repair changed root-cause evidence, model obligations,
   owner code contracts, observed/contract-exhaustion case tests, compatibility disposition,
   or ledger rows after earlier validation;
+- a real-code alignment claim changed source-audit reports, binding-row gap
+  codes, counterexample/known-bad target ids, or writer-inventory evidence after
+  earlier validation;
 - a done, release, archive, or publish claim depends on validation evidence;
 - peer-agent or unknown-writer changes could make earlier evidence stale;
 - a changed artifact touches a remembered open maintenance obligation and the
@@ -175,9 +178,10 @@ Use these triage classes:
   was produced. Rerun or replace the owning evidence before it can support the
   lifecycle claim.
 - `three_way_binding_stale`: a model obligation, owner code contract, code
-  source, test row, transition cell, or proof artifact changed after a
-  model-code-test binding row was produced. Regenerate the affected row and
-  rerun Model-Test Alignment before claiming done or release confidence.
+  source, source-audit report, test row, transition cell, bad-case closure
+  target, or proof artifact changed after a model-code-test binding row was
+  produced. Regenerate the affected row and rerun Model-Test Alignment before
+  claiming done or release confidence.
 - `bug_repair_closure_stale`: a root-cause backpropagation record,
   contract-exhaustion case, generated combination case, coverage receipt, owner
   code contract, legacy path disposition, or Risk Evidence Ledger row changed
@@ -189,6 +193,10 @@ Use these triage classes:
 - `field_projection_changed_after_alignment_pass`: a behavior-bearing field
   projection changed after Model-Test Alignment passed. Regenerate field
   obligations/contracts and rerun alignment.
+- `runtime_writer_inventory_stale`: a runtime-gateway claim changed critical
+  state surfaces, gateway contracts, discovered writers, scoped-out writer
+  reasons, or inventory proof artifacts after adoption evidence passed. Rerun
+  Runtime Gateway Adoption before claiming runtime protection.
 - `replacement_disposition_changed_after_closure_pass`: old-path or old-field
   disposition changed after closure evidence. Rerun the owning disposition and
   closure routes.
