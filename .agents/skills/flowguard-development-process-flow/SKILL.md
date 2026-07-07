@@ -54,8 +54,7 @@ evidence ids, not internals.
 
 ## Snapshot
 
-Show modes, artifact versions, action order, invalidations, evidence ids,
-minimum revalidation, and unsupported claims.
+Show modes/artifact versions/action order/evidence; edges mean order, invalidation, or required revalidation.
 Status note: mode, freshness, invalidated evidence, validation, unsupported claims, next step.
 
 ## Non-Goals

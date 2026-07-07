@@ -144,6 +144,14 @@ class SkillDocsTests(unittest.TestCase):
         for reference_path in reference_paths:
             self.assertIn(reference_path, text)
 
+    def test_kernel_preserves_route_specific_diagram_intent(self):
+        text = self.read(KERNEL_ROOT / "SKILL.md")
+
+        self.assertIn("FlowGuard diagram intent gate", text)
+        self.assertIn("Do not flatten these into a generic flowchart", text)
+        self.assertIn("without LogicGuard", text)
+        self.assertIn("SourceGuard/TraceGuard/WorldGuard/LogicGuard diagrams keep their own edge meanings", text)
+
     def test_satellite_skills_are_concise_route_shells(self):
         route_expectations = {
             "flowguard-agent-workflow-rehearsal": (

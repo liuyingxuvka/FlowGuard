@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.52.6 - 2026-07-07
+
+Guard-family simulation readiness patch.
+
+- Restored route-specific diagram intent guidance in the model-first kernel so downstream Guard skills are not flattened into generic flowcharts.
+- Hardened FlowGuard SkillGuard work contracts so duplicate SkillGuard-owned execution paths are invalid while native FlowGuard checks remain authoritative.
+- Added OpenSpec release tracking and source-side regression coverage for the prompt contract.
+
 ## v0.52.5 - 2026-07-06
 
 Model-code-test closure hardening.

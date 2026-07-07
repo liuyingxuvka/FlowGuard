@@ -50,8 +50,7 @@ for ordinary single-model work; use TestMesh for tests and StructureMesh for cod
 
 ## Snapshot
 
-Show a mesh diagram with parent, children, partition items, case ids,
-evidence tiers/freshness, reattachment, and claim boundary.
+Show a mesh diagram with parent/children/cases; edges mean delegates, reattaches, consumes output, or blocks claim boundary.
 Status note: parent, children, stale/missing evidence, reattachment, next mesh check.
 
 ## Non-Goals

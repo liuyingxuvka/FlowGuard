@@ -79,7 +79,7 @@
       "summary": "Do not weaken required checks, evidence, or quality floors to make a run pass."
     }
   ],
-  "integration_claim_boundary": "SkillGuard executes the runtime contract against the native route/check system owned by FlowGuard skill route map plus the real flowguard package/model checks. It may enforce contract gates before progress or closure, but must not create a competing execution router or bypass the native controller/checker.",
+  "integration_claim_boundary": "SkillGuard executes the runtime contract against the native route/check system owned by FlowGuard skill route map plus the real flowguard package/model checks. Duplicate SkillGuard-owned execution paths are invalid; it may enforce contract gates before progress or closure, but must not create a competing execution router or bypass the native controller/checker.",
   "integration_mode": "native-integrated",
   "may_define_parallel_execution_route": false,
   "may_define_skillguard_runtime_route": false,

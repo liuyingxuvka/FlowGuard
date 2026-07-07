@@ -68,6 +68,7 @@ after the route needs deep evidence.
   what is being checked, why it matters, current evidence or gaps, and the next
   step. Add or refresh a route-specific Mermaid snapshot when it clarifies the
   route/model; diagrams explain, not validate.
+- FlowGuard diagram intent gate: preserve active model semantics. Do not flatten these into a generic flowchart; state/process/UI/SourceGuard/TraceGuard/WorldGuard/LogicGuard diagrams keep their own edge meanings, without LogicGuard being collapsed into FlowGuard control flow.
 - Before broad done/release/publish confidence, use Risk Evidence Ledger or equivalent and keep remembered maintenance obligations, automatic state-closure, and topology-hazard gaps visible.
 - Guard-family children must return closure reports with `owner_guard`, `artifact_kind`, `closure_status`, `findings`, `missing_inputs`, `stale_evidence`, `skipped_checks`, `next_actions`, `safe_claim`, and `unsafe_claim_boundary`; validate them with `assets/guard_closure_contract.py` before broad confidence.
 - Treat child `partial`, `blocked`, `downgraded`, stale, skipped, or hard-finding reports as FlowGuard maintenance obligations, not passed final claims.
@@ -106,8 +107,7 @@ the row below calls for deep route evidence.
 | FlowGuard framework upgrade or benchmark/corpus claim | `framework_upgrade` | `references/framework_upgrade_protocol.md` |
 | Guard-family child reports, cross-Guard gaps, stale child evidence, skipped child checks | `guard_closure_contract` | `assets/guard_closure_contract.py` |
 
-When no direct route clearly matches, stay in this kernel and build the smallest
-formal executable model first.
+When no direct route clearly matches, stay in this kernel and build the smallest formal executable model first.
 
 ## Minimal Workflow
 

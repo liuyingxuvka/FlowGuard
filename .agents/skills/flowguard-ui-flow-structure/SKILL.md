@@ -41,7 +41,7 @@ Standalone FlowGuard satellite skill for UI states, journeys, human-operability,
 8. Derive regions, controls, text hierarchy, calm typography guidance.
 9. Add journey, evidence-kind, geometry, transition-cell, and implementation validation as needed.
 
-Snapshot: UI state diagram with controls, capabilities, tasks, visible surface, recovery, text ownership, evidence, blindspots.
+Snapshot: UI state diagram; edges mean reachable controls, interaction transitions, recovery, text ownership, evidence, blindspots.
 Status: surface, task/control, evidence/gap, next UI check.
 
 ## Non-Goals
