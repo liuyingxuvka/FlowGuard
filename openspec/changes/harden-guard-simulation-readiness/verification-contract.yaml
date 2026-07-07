@@ -1,0 +1,85 @@
+contract_version: 1
+change: harden-guard-simulation-readiness
+obligations:
+  - id: req.flowguard.diagram-semantics
+    source: "specs/guard-simulation-readiness/spec.md#Requirement: Kernel Skill Must Preserve Route-Specific Diagram Semantics"
+    claim: "The installed and source kernel guidance preserves route-specific diagram intent."
+    required: true
+    evidence:
+      - check.tests
+  - id: req.flowguard.skill-contracts
+    source: "specs/guard-simulation-readiness/spec.md#Requirement: Skill Contracts Must Preserve Native FlowGuard Ownership"
+    claim: "FlowGuard source skill contracts reject duplicate SkillGuard-owned execution paths while preserving native FlowGuard ownership."
+    required: true
+    evidence:
+      - check.guard-readiness
+      - check.flowguard.audit
+checks:
+  - id: check.tests
+    kind: command
+    command: python
+    args:
+      - -m
+      - pytest
+      - tests
+      - -q
+    required: true
+    covers:
+      - req.flowguard.diagram-semantics
+      - req.flowguard.skill-contracts
+    expected:
+      exit_code: 0
+  - id: check.guard-readiness
+    kind: command
+    command: python
+    args:
+      - scripts/verify_guard_simulation_readiness.py
+    required: true
+    covers:
+      - req.flowguard.skill-contracts
+    expected:
+      exit_code: 0
+  - id: check.flowguard.audit
+    kind: command
+    command: python
+    args:
+      - -m
+      - flowguard
+      - project-audit
+      - --root
+      - .
+    required: true
+    covers:
+      - req.flowguard.skill-contracts
+    expected:
+      exit_code: 0
+  - id: check.openspec.strict
+    kind: command
+    command: openspec
+    args:
+      - validate
+      - harden-guard-simulation-readiness
+      - --strict
+    required: true
+    covers:
+      - req.flowguard.diagram-semantics
+      - req.flowguard.skill-contracts
+    expected:
+      exit_code: 0
+freshness:
+  watch:
+    - openspec/changes/harden-guard-simulation-readiness/proposal.md
+    - openspec/changes/harden-guard-simulation-readiness/design.md
+    - openspec/changes/harden-guard-simulation-readiness/tasks.md
+    - openspec/changes/harden-guard-simulation-readiness/specs/**/*.md
+    - openspec/changes/harden-guard-simulation-readiness/verification-contract.yaml
+    - pyproject.toml
+    - flowguard/**/*.py
+    - scripts/verify_guard_simulation_readiness.py
+    - scripts/run_flowguard_model_regressions.py
+    - tests/**/*.py
+    - scripts/run_flowguard_model_regressions.py
+    - .agents/skills/**/*.md
+    - .agents/skills/**/.skillguard/**/*.json
+    - .agents/skills/**/.skillguard/**/*.py
+    - .flowguard/**/*.toml

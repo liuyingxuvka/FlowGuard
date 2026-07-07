@@ -13,7 +13,7 @@
 
 - [x] Bump package version and changelog.
 - [x] Reinstall editable package and verify import path.
-- [ ] Commit, tag, push, and publish the release.
+- [x] Commit, tag, push, and publish the release.
 
 ## Verification Evidence
 
