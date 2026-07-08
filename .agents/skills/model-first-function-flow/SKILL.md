@@ -56,6 +56,7 @@ after the route needs deep evidence.
 - Long checks may run in the background, but final confidence needs exit/status and result artifacts, not progress lines.
 - Reused test results need current `TestResultReuseTicket` and `ProofArtifactRef`; old `passed` output is not current evidence by itself.
 - Broad confidence needs model obligation ids, owner code contract ids, and current external-contract test evidence bound to the same behavior; model+test-only rows are scoped/blocked.
+- Broad behavior claims need a Behavior Commitment Ledger row first: every external behavior promise maps to source surfaces, exactly one primary owner model, evidence, dependencies, and PPA handoff when `path_sensitive=true`.
 - Broad transition-test claims need a transition matrix projected to MTA code/test rows or TestMesh, or an explicit scoped-out reason.
 - Same-class/finite bad-case generation routes through `contract_exhaustion_mesh`
   after the owner declares the boundary; hand-written examples are only seeds.
@@ -77,14 +78,13 @@ after the route needs deep evidence.
 
 Pick the smallest named route that owns the actual risk. Helper APIs and
 template CLIs are check-engine helpers, not independently triggerable Codex skills.
-Default route template CLIs are compact; use full-template commands only when
-the row below calls for deep route evidence.
 
 | Trigger | Route | Entry |
 | --- | --- | --- |
 | Older adopted project, old FlowGuard artifact, old model/test evidence, obsolete API aliases | `artifact_schema_upgrade` | `artifact-upgrade` or `project-upgrade` |
 | FlowGuard itself feels heavy, route groups are incomplete, field layers need folding, or AI needs route-first self-maintenance | `flowguard_self_maintenance` | `review_flowguard_self_maintenance()` |
 | Existing modeled system, ownership lookup, duplicate-boundary risk, missing model angle, or similar workflow/model/test family | `existing_model_preflight` | `flowguard-existing-model-preflight`; consumes model-angle and similarity rows |
+| Full external behavior inventory, source-to-commitment coverage, one primary model owner per behavior, or broad behavior claim | `behavior_commitment_ledger` | `flowguard-behavior-commitment-ledger`; path-sensitive rows hand off to Primary Path Authority |
 | Field additions, removals, renames, migrations, replacements, prompt/config fields, payload/schema keys, old-field disposition | `field_lifecycle_mesh` | `flowguard-field-lifecycle-mesh` |
 | Canonical finite bad-case generation from declared boundaries/families/payloads/transitions/mesh closure, broad coverage universe, or observed-problem backfeed | `contract_exhaustion_mesh` | `flowguard-contract-exhaustion-mesh` |
 | New/deepened model must reuse/search and close public/local template harvest | `risk_template_library` | `risk-template-search`, `risk-template-harvest`, `risk-template-harvest-review`, or `risk-template-library-template` |
@@ -98,7 +98,6 @@ the row below calls for deep route evidence.
 | Three or more models, oversized model, stale child evidence, parent/child mesh | `model_mesh_maintenance` | `flowguard-model-mesh` |
 | Large/slow/stale/release-only tests or parent/child test hierarchy | `test_mesh_maintenance` | `flowguard-test-mesh` |
 | Large script/module/package/API split, facade or public entrypoint parity | `structure_mesh_maintenance` | `flowguard-structure-mesh` |
-| Staged development, edits, validation freshness, install/shadow/git sync | `development_process_flow` | `flowguard-development-process-flow` |
 | Non-trivial bug repair, false confidence, or runtime/test/replay/manual evidence shows a missed failure class | `model_miss_review` | `flowguard-model-miss-review` |
 | Model too coarse after state-closure/code/test/mesh/freshness evidence | `model_maturation_loop` | `references/modeling_protocol.md` |
 | Final broad confidence boundary | `risk_evidence_ledger` | `docs/risk_evidence_ledger.md` |

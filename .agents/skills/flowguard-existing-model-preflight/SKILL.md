@@ -1,15 +1,13 @@
 ---
 name: flowguard-existing-model-preflight
-description: Use before non-trivial discussion, analysis, proposal, feature work, bug fix, refactor, UI flow change, test change, prompt change, skill change, or agent-workflow change in an existing modeled system so Codex grounds the route in current FlowGuard models before proposing new structure.
+description: Use before discussion, proposal, feature, bug, refactor, UI, test, prompt, skill, or workflow change in an existing modeled system.
 ---
 
 # FlowGuard Existing Model Preflight
 
-Standalone FlowGuard satellite skill for grounding non-trivial work in current
-model ownership before adding or changing a boundary. Use it for existing
-prompt, skill, UI, test, process, feature, bug, or refactor surfaces. If the
-change resembles another workflow, include Model Similarity Consolidation before
-selecting reuse, extension, child model, or new boundary.
+Standalone FlowGuard satellite skill for grounding work in current model
+ownership before changing a boundary. If the change resembles another workflow,
+include Model Similarity Consolidation before selecting reuse, extension, child model, or new boundary.
 
 Return to `model-first-function-flow` when the FlowGuard route is unclear. Pair
 this preflight with the downstream route that owns the actual work.
@@ -21,10 +19,10 @@ this preflight with the downstream route that owns the actual work.
   `ExistingOwnershipSnapshot`, `DuplicateBoundaryRisk`,
   `existing_model_preflight_from_project()`,
   `review_existing_model_preflight()`.
+- Behavior companion: identify affected commitment ids and owner models before creating a new boundary.
 - Model-angle companion: `ModelAngleDeliberation` and
   `review_model_angle_deliberations()` when the owner model may be too narrow.
-- Similarity handoff: cite relation ids, maintenance group ids, change-impact
-  ids, and impacted sibling model ids when A/B/C workflows may drift.
+- Similarity handoff: cite relation ids, maintenance groups, change-impact ids, and sibling model ids when workflows may drift.
 - Reference: `references/existing_model_preflight_protocol.md`.
 
 ## Hard Gates
@@ -35,6 +33,7 @@ this preflight with the downstream route that owns the actual work.
 - Do not create a fake mini-framework.
 - Prefer existing modeled responsibilities and field lifecycle ownership over
   parallel ownership.
+- Prefer existing commitments; suspected overlap or unregistered external behavior routes to `flowguard-behavior-commitment-ledger`.
 - Keep stale, skipped, missing, and no-model-found evidence visible.
 - Treat older model artifacts as upgrade-boundary inputs; run `project-upgrade`
   or `artifact-upgrade` before trusting old-shape evidence.
@@ -46,9 +45,9 @@ this preflight with the downstream route that owns the actual work.
    lifecycle owners.
 3. Classify old-shape models as upgraded, blocked, or current before reuse.
 4. Decide reuse, extend, add child model, new boundary, or no model found.
-5. Record model-angle deliberation for missing-viewpoint risk; unresolved
-   required angles block full preflight.
-6. Route duplicate-boundary shrinkage to Architecture Reduction.
+5. Record affected commitment ids, owner model, and siblings; unresolved duplicates route to the ledger.
+6. Record model-angle deliberation; unresolved required angles block full preflight.
+7. Route duplicate-boundary shrinkage to Architecture Reduction.
 
 ## Snapshot
 

@@ -1,0 +1,129 @@
+contract_version: 1
+change: add-behavior-commitment-ledger
+obligations:
+  - id: req.behavior_ledger.full_coverage
+    source: "specs/behavior-commitment-ledger/spec.md#Requirement: Ledger records all in-scope behavior commitments"
+    claim: Full-scope behavior commitments are registered and missing expected commitments block broad confidence.
+    required: true
+    evidence:
+      - check.behavior_ledger.core_matrix
+  - id: req.behavior_ledger.bidirectional_mapping
+    source: "specs/behavior-commitment-ledger/spec.md#Requirement: Source surfaces and commitments map both ways"
+    claim: Source surfaces and commitments are checked in both directions.
+    required: true
+    evidence:
+      - check.behavior_ledger.core_matrix
+  - id: req.behavior_ledger.primary_owner
+    source: "specs/behavior-commitment-ledger/spec.md#Requirement: Each commitment has one primary owner model"
+    claim: Each commitment has one primary owner and overlap blocks confidence.
+    required: true
+    evidence:
+      - check.behavior_ledger.core_matrix
+  - id: req.behavior_ledger.path_sensitive_ppa
+    source: "specs/behavior-commitment-ledger/spec.md#Requirement: Path-sensitive commitments consume Primary Path Authority"
+    claim: Path-sensitive commitments require PPA evidence and blocked PPA blocks the ledger.
+    required: true
+    evidence:
+      - check.behavior_ledger.ppa_matrix
+  - id: req.behavior_ledger.cartesian
+    source: "specs/behavior-commitment-ledger/spec.md#Requirement: Ledger supports finite Cartesian coverage planning"
+    claim: Commitment coverage exposes finite ContractExhaustionMesh axes and interaction groups.
+    required: true
+    evidence:
+      - check.behavior_ledger.contract_exhaustion
+  - id: req.integrations.risk_release
+    source: "specs/risk-evidence-ledger/spec.md#Requirement: Risk ledger gates behavior commitment coverage"
+    claim: RiskEvidenceLedger has a behavior-commitment gate for broad confidence.
+    required: true
+    evidence:
+      - check.behavior_ledger.release_gate
+  - id: req.integrations.skills_docs
+    source: "specs/flowguard-codex-skill-satellites/spec.md#Requirement: Agent skills prompt default commitment registration"
+    claim: Agent-facing skills and docs route non-trivial behavior work through the ledger.
+    required: true
+    evidence:
+      - check.behavior_ledger.docs
+checks:
+  - id: check.behavior_ledger.core_matrix
+    kind: command
+    command: python
+    args:
+      - -m
+      - pytest
+      - tests/test_behavior_commitment_ledger.py
+    required: true
+    covers:
+      - req.behavior_ledger.full_coverage
+      - req.behavior_ledger.bidirectional_mapping
+      - req.behavior_ledger.primary_owner
+    expected:
+      exit_code: 0
+  - id: check.behavior_ledger.ppa_matrix
+    kind: command
+    command: python
+    args:
+      - -m
+      - pytest
+      - tests/test_behavior_commitment_primary_path.py
+    required: true
+    covers:
+      - req.behavior_ledger.path_sensitive_ppa
+    expected:
+      exit_code: 0
+  - id: check.behavior_ledger.contract_exhaustion
+    kind: command
+    command: python
+    args:
+      - -m
+      - pytest
+      - tests/test_behavior_commitment_contract_exhaustion.py
+    required: true
+    covers:
+      - req.behavior_ledger.cartesian
+    expected:
+      exit_code: 0
+  - id: check.behavior_ledger.release_gate
+    kind: command
+    command: python
+    args:
+      - -m
+      - pytest
+      - tests/test_behavior_commitment_release_gate.py
+    required: true
+    covers:
+      - req.integrations.risk_release
+    expected:
+      exit_code: 0
+  - id: check.behavior_ledger.docs
+    kind: command
+    command: python
+    args:
+      - -m
+      - pytest
+      - tests/test_public_templates.py
+      - tests/test_api_surface.py
+    required: true
+    covers:
+      - req.integrations.skills_docs
+    expected:
+      exit_code: 0
+freshness:
+  watch:
+    - openspec/changes/add-behavior-commitment-ledger/proposal.md
+    - openspec/changes/add-behavior-commitment-ledger/design.md
+    - openspec/changes/add-behavior-commitment-ledger/tasks.md
+    - openspec/changes/add-behavior-commitment-ledger/specs/**/*.md
+    - openspec/changes/add-behavior-commitment-ledger/verification-contract.yaml
+    - flowguard/behavior_commitment.py
+    - flowguard/primary_path_authority.py
+    - flowguard/risk_evidence_ledger.py
+    - flowguard/development_process_flow.py
+    - flowguard/contract_exhaustion.py
+    - flowguard/templates.py
+    - flowguard/template_text/behavior_commitment_ledger.py
+    - .agents/skills/flowguard-behavior-commitment-ledger/SKILL.md
+    - .agents/skills/*/SKILL.md
+    - docs/behavior_commitment_ledger.md
+    - tests/test_behavior_commitment_*.py
+    - tests/test_api_surface.py
+    - tests/test_public_templates.py

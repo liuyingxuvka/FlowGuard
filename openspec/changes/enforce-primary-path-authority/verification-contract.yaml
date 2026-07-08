@@ -1,0 +1,300 @@
+contract_version: 1
+change: enforce-primary-path-authority
+obligations:
+  - id: req.primary-path-authority.contracts
+    source: "specs/primary-path-authority/spec.md#Requirement: Primary path contracts declare one runtime authority"
+    claim: "Each path-sensitive business intent can name one primary runtime authority and missing owners are rejected."
+    required: true
+    evidence:
+      - check.primary-path-authority.unit
+      - check.primary-path-authority.model
+  - id: req.primary-path-authority.no-fallback-success
+    source: "specs/primary-path-authority/spec.md#Requirement: Automatic fallback success is rejected"
+    claim: "Primary failure followed by automatic alternate success is a hard blocker."
+    required: true
+    evidence:
+      - check.primary-path-authority.core-matrix
+      - check.runtime-path-evidence.unit
+  - id: req.primary-path-authority.disposition
+    source: "specs/primary-path-authority/spec.md#Requirement: Non-primary surfaces require disposition"
+    claim: "Non-primary old paths, facades, helpers, fields, migrations, and recovery surfaces require explicit disposition."
+    required: true
+    evidence:
+      - check.primary-path-authority.compatibility-matrix
+      - check.primary-path-authority.field-matrix
+  - id: req.primary-path-authority.coverage
+    source: "specs/primary-path-authority/spec.md#Requirement: Coverage receipts support primary path closure"
+    claim: "The route exposes case ids, shard ids, coverage receipts, and risk gate ids."
+    required: true
+    evidence:
+      - check.primary-path-authority.contract-exhaustion
+      - check.primary-path-authority.test-mesh
+      - check.risk-evidence-ledger.unit
+  - id: req.runtime-path-evidence.fallback-signals
+    source: "specs/runtime-path-evidence/spec.md#Requirement: Runtime evidence preserves fallback masking signals"
+    claim: "Runtime observations preserve fallback invocation and success masking signals."
+    required: true
+    evidence:
+      - check.runtime-path-evidence.unit
+  - id: req.risk-evidence-ledger.primary-path-gates
+    source: "specs/risk-evidence-ledger/spec.md#Requirement: Risk ledger consumes primary path authority"
+    claim: "Risk ledger blocks broad confidence when primary-path authority or Cartesian receipts are missing or blocked."
+    required: true
+    evidence:
+      - check.risk-evidence-ledger.unit
+  - id: req.contract-exhaustion.primary-path-universe
+    source: "specs/contract-exhaustion-mesh/spec.md#Requirement: Primary path authority coverage universe"
+    claim: "Primary-path coverage declares finite axes, interaction groups, generated cases, and oracles."
+    required: true
+    evidence:
+      - check.primary-path-authority.contract-exhaustion
+  - id: req.test-mesh.primary-path-shards
+    source: "specs/test-evidence-mesh/spec.md#Requirement: TestMesh owns primary path coverage shards"
+    claim: "Parent confidence consumes child shard ownership evidence for the primary-path matrix."
+    required: true
+    evidence:
+      - check.primary-path-authority.test-mesh
+      - check.test-mesh.unit
+  - id: req.api-registry.primary-path
+    source: "specs/flowguard-api-registry/spec.md#Requirement: Primary path route is discoverable"
+    claim: "Primary-path authority is exported, discoverable, and templated through public APIs and CLI."
+    required: true
+    evidence:
+      - check.api-surface.unit
+      - check.templates.unit
+  - id: req.skills.primary-path-guidance
+    source: "specs/flowguard-codex-skill-satellites/spec.md#Requirement: Agent skills prompt primary path authority"
+    claim: "Agent-facing guidance prompts path enumeration, primary authority, no silent fallback, and coverage gates."
+    required: true
+    evidence:
+      - check.primary-path-authority.docs-skills
+  - id: req.install-sync.primary-path
+    source: "design.md#Migration Plan"
+    claim: "Local install, shadow workspace, installed skills, and local git checkout expose the same primary-path capability."
+    required: true
+    evidence:
+      - check.install-sync.import-feature
+      - check.project-audit
+checks:
+  - id: check.primary-path-authority.model
+    kind: command
+    command: python
+    args:
+      - .flowguard/primary_path_authority/run_checks.py
+    required: true
+    covers:
+      - req.primary-path-authority.contracts
+    expected:
+      exit_code: 0
+  - id: check.primary-path-authority.unit
+    kind: command
+    command: python
+    args:
+      - -m
+      - pytest
+      - tests/test_primary_path_authority.py
+      - -q
+    required: true
+    covers:
+      - req.primary-path-authority.contracts
+      - req.primary-path-authority.disposition
+    expected:
+      exit_code: 0
+  - id: check.primary-path-authority.core-matrix
+    kind: command
+    command: python
+    args:
+      - -m
+      - pytest
+      - tests/test_primary_path_authority_core_matrix.py
+      - -q
+    required: true
+    covers:
+      - req.primary-path-authority.no-fallback-success
+    expected:
+      exit_code: 0
+  - id: check.primary-path-authority.compatibility-matrix
+    kind: command
+    command: python
+    args:
+      - -m
+      - pytest
+      - tests/test_primary_path_authority_compatibility_matrix.py
+      - tests/test_primary_path_authority_facade_matrix.py
+      - -q
+    required: true
+    covers:
+      - req.primary-path-authority.disposition
+    expected:
+      exit_code: 0
+  - id: check.primary-path-authority.field-matrix
+    kind: command
+    command: python
+    args:
+      - -m
+      - pytest
+      - tests/test_primary_path_authority_field_matrix.py
+      - -q
+    required: true
+    covers:
+      - req.primary-path-authority.disposition
+    expected:
+      exit_code: 0
+  - id: check.primary-path-authority.contract-exhaustion
+    kind: command
+    command: python
+    args:
+      - -m
+      - pytest
+      - tests/test_primary_path_authority_contract_exhaustion.py
+      - -q
+    required: true
+    covers:
+      - req.primary-path-authority.coverage
+      - req.contract-exhaustion.primary-path-universe
+    expected:
+      exit_code: 0
+  - id: check.primary-path-authority.test-mesh
+    kind: command
+    command: python
+    args:
+      - -m
+      - pytest
+      - tests/test_primary_path_authority_release_gate_matrix.py
+      - -q
+    required: true
+    covers:
+      - req.primary-path-authority.coverage
+      - req.test-mesh.primary-path-shards
+    expected:
+      exit_code: 0
+  - id: check.runtime-path-evidence.unit
+    kind: command
+    command: python
+    args:
+      - -m
+      - pytest
+      - tests/test_runtime_path_evidence.py
+      - tests/test_primary_path_authority_runtime_matrix.py
+      - -q
+    required: true
+    covers:
+      - req.primary-path-authority.no-fallback-success
+      - req.runtime-path-evidence.fallback-signals
+    expected:
+      exit_code: 0
+  - id: check.risk-evidence-ledger.unit
+    kind: command
+    command: python
+    args:
+      - -m
+      - pytest
+      - tests/test_risk_evidence_ledger.py
+      - -q
+    required: true
+    covers:
+      - req.primary-path-authority.coverage
+      - req.risk-evidence-ledger.primary-path-gates
+    expected:
+      exit_code: 0
+  - id: check.test-mesh.unit
+    kind: command
+    command: python
+    args:
+      - -m
+      - pytest
+      - tests/test_test_mesh.py
+      - -q
+    required: true
+    covers:
+      - req.test-mesh.primary-path-shards
+    expected:
+      exit_code: 0
+  - id: check.api-surface.unit
+    kind: command
+    command: python
+    args:
+      - -m
+      - pytest
+      - tests/test_api_surface.py
+      - -q
+    required: true
+    covers:
+      - req.api-registry.primary-path
+    expected:
+      exit_code: 0
+  - id: check.templates.unit
+    kind: command
+    command: python
+    args:
+      - -m
+      - pytest
+      - tests/test_public_templates.py
+      - -q
+    required: true
+    covers:
+      - req.api-registry.primary-path
+    expected:
+      exit_code: 0
+  - id: check.primary-path-authority.docs-skills
+    kind: command
+    command: python
+    args:
+      - -m
+      - pytest
+      - tests/test_primary_path_authority_docs.py
+      - -q
+    required: true
+    covers:
+      - req.skills.primary-path-guidance
+    expected:
+      exit_code: 0
+  - id: check.project-audit
+    kind: command
+    command: python
+    args:
+      - -m
+      - flowguard
+      - project-audit
+      - --root
+      - .
+    required: true
+    covers:
+      - req.install-sync.primary-path
+    expected:
+      exit_code: 0
+  - id: check.install-sync.import-feature
+    kind: command
+    command: python
+    args:
+      - -c
+      - "import flowguard; print(flowguard.__file__); print(hasattr(flowguard, 'review_primary_path_authority'))"
+    required: true
+    covers:
+      - req.install-sync.primary-path
+    expected:
+      exit_code: 0
+freshness:
+  watch:
+    - openspec/changes/enforce-primary-path-authority/proposal.md
+    - openspec/changes/enforce-primary-path-authority/design.md
+    - openspec/changes/enforce-primary-path-authority/tasks.md
+    - openspec/changes/enforce-primary-path-authority/specs/**/*.md
+    - openspec/changes/enforce-primary-path-authority/verification-contract.yaml
+    - flowguard/primary_path_authority.py
+    - flowguard/runtime_path.py
+    - flowguard/topology_hazard.py
+    - flowguard/risk_evidence_ledger.py
+    - flowguard/templates.py
+    - flowguard/template_text/primary_path_authority.py
+    - flowguard/__init__.py
+    - flowguard/__main__.py
+    - .flowguard/primary_path_authority/**
+    - tests/test_primary_path_authority*.py
+    - tests/test_runtime_path_evidence.py
+    - tests/test_risk_evidence_ledger.py
+    - tests/test_api_surface.py
+    - tests/test_public_templates.py
+    - AGENTS.md
+    - docs/agents_snippet.md
+    - .agents/skills/**/*.md

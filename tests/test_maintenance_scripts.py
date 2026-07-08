@@ -59,11 +59,12 @@ class MaintenanceScriptTests(unittest.TestCase):
                 textwrap.dedent(
                     """
                     SCHEMA_VERSION = "1.0"
+                    __version__ = "{version}"
 
                     def default_flowguard_self_maintenance_plan():
                         return None
                     """
-                ).strip()
+                ).format(version=metadata.version("flowguard")).strip()
                 + "\n",
                 encoding="utf-8",
             )

@@ -22,7 +22,7 @@ Project FlowGuard record:
 - Human log: `docs/flowguard_adoption_log.md`
 
 Current adoption record:
-- FlowGuard check-engine version: `0.52.6`
+- FlowGuard check-engine version: `0.53.0`
 - FlowGuard schema version: `1.0`
 
 Before non-trivial work:
@@ -54,6 +54,13 @@ compatibility is explicit, record the preserved surface, compatibility intent,
 and current evidence; otherwise delete, block, migrate, delegate, repair, or
 scope it out with a concrete reason.
 
+Broad behavior work should use or update BehaviorCommitmentLedger before
+claiming full coverage: register external behavior promises, map source
+surfaces to commitments, assign exactly one primary owner model per
+commitment, record dependencies/evidence, and hand `path_sensitive=true`
+commitments to Primary Path Authority. Do not treat every helper function,
+file, field, or model as a behavior commitment.
+
 Field-bearing work should use or update FieldLifecycleMesh: high-level behavior
 models include behavior-bearing fields, while child/leaf field rows account all
 discovered fields and record owner, readers, writers, projection, lifecycle,
@@ -61,6 +68,11 @@ and old-field disposition.
 
 UI runnable claims and file/work-package claims need current UI click-through
 or artifact-payload evidence gates before broad done/release confidence.
+
+Path-sensitive behavior commitments need Primary Path Authority evidence before
+broad confidence: one primary runtime authority per business intent, visible
+primary failure, no automatic fallback success, ContractExhaustionMesh
+coverage, TestMesh shards, and Risk Evidence Ledger gates.
 
 Non-trivial rough-plan discussion, multi-skill/tool workflow setup, staged
 execution, install/sync, release/archive/publish, post-change owner scans, and

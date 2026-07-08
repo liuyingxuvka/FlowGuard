@@ -1,12 +1,11 @@
 ---
 name: flowguard-model-test-alignment
-description: Use when FlowGuard obligations, tests, code contracts, or source audits need comparison.
+description: Use when obligations, tests, code contracts, or source audits need comparison.
 ---
 
 # FlowGuard Model-Test Alignment
 
-Standalone FlowGuard satellite skill for obligations, tests, owner
-`CodeContract`s, source audits, boundary observations, payloads, and fields.
+Standalone FlowGuard satellite skill for obligations, tests, owner `CodeContract`s, source audits, boundary observations, payloads, and fields.
 
 Return to `model-first-function-flow` when obligations are undefined. Do not invoke TestMesh, ModelMesh, or StructureMesh.
 
@@ -24,8 +23,9 @@ Return to `model-first-function-flow` when obligations are undefined. Do not inv
 - Verify FlowGuard check engine, keep AGENTS.md managed records current, and do not create a fake mini-framework.
 - Tests cover declared obligations, not just helper/internal paths.
 - Full confidence requires each obligation to bind an owner `CodeContract` and current external-contract test evidence.
-- Real Python code claims with paths/symbols require green `source_audit_reports` when `require_source_audit=True`.
-- Counterexample and known-bad repairs require target-aware `counterexample_regression` or `known_bad_replay` tests bound to owner code.
+- Broad behavior claims bind test/code/model rows to commitment ids, not only local model ids.
+- Real code claims with paths/symbols require green `source_audit_reports` when `require_source_audit=True`.
+- Counterexample repairs require target-aware `counterexample_regression` or `known_bad_replay` tests bound to owner code.
 - Final claims cite `ModelCodeTestBindingRow` closure summaries and their open gaps.
 - Transition coverage needs cells plus evidence targets, or scoped-out boundary.
 - Behavior fields need FieldLifecycleMesh projection or scoped-out reason.
@@ -37,10 +37,10 @@ Return to `model-first-function-flow` when obligations are undefined. Do not inv
 
 ## Minimum Workflow
 
-1. List obligations, scenarios, hazards, transitions, and fields.
+1. List obligations, scenarios, hazards, transitions, fields, and affected commitment ids.
 2. Project transition matrices into obligations when coverage is claimed.
 3. Feed finite bad-case groups through ContractExhaustionMesh.
-4. Add owner code contracts, boundary observations, and same-contract tests.
+4. Add owner code contracts, boundary observations, same-contract tests, and commitment-id bindings.
 5. Add synthetic payload cases for the real file/work-package surface.
 6. Compare rows, classify gaps, and route split needs outward.
 

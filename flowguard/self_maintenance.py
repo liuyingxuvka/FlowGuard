@@ -468,12 +468,50 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             "existing_model_preflight",
             "Existing modeled system needs ownership lookup before new work.",
             ("project root", "candidate change boundary"),
-            ("reuse decision", "duplicate-boundary risks", "downstream route"),
+            ("reuse decision", "duplicate-boundary risks", "affected commitment ids", "downstream route"),
             "existing_model_preflight",
-            ("model_similarity_consolidation", "architecture_reduction", "field_lifecycle_mesh"),
+            ("behavior_commitment_ledger", "model_similarity_consolidation", "architecture_reduction", "field_lifecycle_mesh"),
             "existing_model_preflight",
             "existing_model_preflight_template_files",
             "flowguard-existing-model-preflight",
+        ),
+        RouteProfile(
+            "behavior_commitment_ledger",
+            "Project or work-package needs a complete external behavior inventory before broad FlowGuard confidence.",
+            ("source surfaces", "behavior commitments", "owner models", "path sensitivity"),
+            ("coverage decision", "missing behavior gaps", "extra behavior gaps", "PPA handoff ids", "risk gate ids"),
+            "behavior_commitment_ledger",
+            ("primary_path_authority", "contract_exhaustion_mesh", "test_mesh_maintenance", "risk_evidence_ledger"),
+            "behavior_commitment_ledger",
+            "behavior_commitment_ledger_template_files",
+            "flowguard-behavior-commitment-ledger",
+            metadata={
+                "checklist": (
+                    "register external behavior promises, not every helper function",
+                    "map every source surface to commitments and every commitment back to source evidence",
+                    "select exactly one primary owner model per commitment",
+                    "route path_sensitive=true commitments through Primary Path Authority",
+                )
+            },
+        ),
+        RouteProfile(
+            "primary_path_authority",
+            "Path-sensitive work needs one primary runtime authority and no automatic alternate success after primary failure.",
+            ("business intent", "primary path", "fallback candidates", "coverage receipts"),
+            ("authority decision", "fallback disposition gaps", "coverage gate ids", "risk gate ids"),
+            "primary_path_authority",
+            ("contract_exhaustion_mesh", "test_mesh_maintenance", "risk_evidence_ledger"),
+            "primary_path_authority",
+            "primary_path_authority_template_files",
+            "flowguard-development-process-flow",
+            metadata={
+                "checklist": (
+                    "enumerate runtime paths, aliases, wrappers, helper routes, old fields, recovery paths, and migrations",
+                    "select exactly one primary runtime authority per business intent",
+                    "reject primary_failure -> fallback_success masking",
+                    "require ContractExhaustionMesh axes, TestMesh shards, and RiskLedger gates for broad claims",
+                )
+            },
         ),
         RouteProfile(
             "model_angle_deliberation",
@@ -827,6 +865,14 @@ def default_ai_maintenance_profiles() -> tuple[AIMaintenanceProfile, ...]:
             ("installed route ids", "public route groups"),
             ("maintenance_scan_router", "flowguard-codex-skill-satellites"),
             ("route profiles", "skill/docs sync", "route completeness check"),
+        ),
+        AIMaintenanceProfile(
+            "primary_path_authority",
+            "Prevent fallback maintenance debt by fixing the primary path instead of adding alternate success paths.",
+            "primary_path_authority",
+            ("business intent", "primary path id", "fallback candidates"),
+            ("contract_exhaustion_mesh", "test_mesh_maintenance", "risk_evidence_ledger"),
+            ("no silent fallback", "compatibility disposition", "coverage receipts"),
         ),
         AIMaintenanceProfile(
             "structure",

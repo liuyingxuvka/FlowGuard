@@ -9,7 +9,6 @@ Keep the managed AGENTS.md block and `.flowguard/project.toml` current.
 
 Primary agent surface: `.agents/skills/`; Default entry skill: `.agents/skills/model-first-function-flow/SKILL.md`
 Complete AI-agent setup means the agent can read `AGENTS.md` and all FlowGuard sibling `SKILL.md` files under `.agents/skills/`. The Python `flowguard` module/CLI is executable check support, not the AI-agent skill installation surface.
-
 ### Decision
 
 For coding, repository, process, prompt, skill, documentation, release, archive, publish, UI, test, and software-maintenance work, first decide:
@@ -19,7 +18,6 @@ For coding, repository, process, prompt, skill, documentation, release, archive,
 - Use `use_model_first_kernel` for ordinary behavior/state modeling, unclear route selection, or cross-route coordination.
 - Use `skip_with_reason` only for tiny copy edits, formatting-only changes, direct command answers, read-only explanation, or work with no behavior/state/process/release impact.
 - Use `needs_human_review` when the risk boundary cannot be narrowed safely.
-
 ### Minimum Valuable Model
 
 ```text
@@ -33,12 +31,14 @@ risky boundary -> protected error class -> public/local risk template search
 This is still compact, but it must have teeth. A new or deepened model names the real error it prevents, records used public/local template ids or a no-match reason, models completion evidence, includes a representative bad case, proves that bad case is caught, and closes template harvest as written, merged, duplicate-linked, or accepted not-harvestable. Complete FlowGuard use needs current evidence for the selected route; skipped, stale, deferred, progress-only, or not-run checks are not passes.
 
 ### Hard Gates
-
 - Verify the real FlowGuard check engine before claiming executable evidence: `python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"`.
 - Verify the check-engine version when adoption/version freshness matters: `python -c "import importlib.metadata as m; print(m.version('flowguard'))"`.
 - If the managed AGENTS block or `.flowguard/project.toml` is missing, use `python -m flowguard project-adopt --root .`; if the installed check engine is newer than the project record, use `python -m flowguard project-upgrade --root .`. Project upgrade scans known FlowGuard artifacts, model evidence, tests, docs, and guidance; use `--records-only` only when intentionally scoping out that scan.
 - FlowGuard is latest-schema-first: old artifacts may be upgraded at project/tool boundaries, but route logic should not preserve long-lived compatibility branches for obsolete fields, aliases, or wrappers.
 - Default replacement means dispose the old path, old field, alias, wrapper, or fallback unless the user explicitly requests compatibility or preservation. If compatibility is explicit, record the preserved surface and evidence; otherwise delete, block, migrate, delegate, repair, or scope it out with a concrete reason.
+- Behavior Commitment Ledger is the default upstream inventory for broad behavior claims: register external behavior promises, map every source surface to commitments, give each commitment exactly one primary owner model, record dependencies/evidence, and scope out removed/deferred/compatibility behavior with owner, reason, validation boundary, and rationale. Do not register every helper function as a commitment.
+- Primary Path Authority is the default for path-sensitive work: enumerate all runtime paths, legacy paths, aliases, wrappers, helper routes, compatibility facades, old fields, backup caches, migration paths, and recovery paths before implementation; select exactly one primary runtime authority per business intent; when the primary path fails, expose the failure and repair the primary path rather than automatically invoking an alternate path that returns success.
+- Preserved compatibility facades must be thin, bounded, non-authoritative, currently evidenced, and delegated to the primary path; broad done/release claims need Behavior Commitment Ledger evidence, Primary Path Authority evidence for `path_sensitive=true` commitments, ContractExhaustionMesh Cartesian coverage, TestMesh shard evidence, and Risk Evidence Ledger consumption.
 - Field-bearing work needs a FieldLifecycleMesh view: high-level models include behavior-bearing fields, while child/leaf field models account all discovered fields and record owner, readers, writers, projection, lifecycle, and old-field disposition. For full/runtime/release/production field claims, behavior projections should include minimal `gate:`, `test:`, and `replay:` evidence refs instead of only naming the field.
 - Same-class, field/schema, payload, transition, parent/child, or no-delta bad-case generation uses ContractExhaustionMesh after the owning route declares the finite boundary; model-scoped Cartesian coverage also needs axes, interaction groups, shards/receipts, and MTA/TestMesh/ModelMesh/RiskLedger consumption. Hand-written analogous examples are seeds, not canonical coverage.
 - Do not create a fake mini-framework or replace executable modeling with prose.
@@ -60,13 +60,13 @@ This is still compact, but it must have teeth. A new or deepened model names the
 - For non-trivial FlowGuard work, first show a short current-situation note: what is being checked, why it matters, current evidence or gaps, and the next step. Add or refresh a route-specific Mermaid snapshot when it clarifies the route/model; diagrams explain and do not validate.
 - Before full done/release/publish confidence, connect risks, obligations, UI click-through gates, artifact-payload gates, code/test evidence, proof artifacts, automatic state-closure gaps, and topology-hazard gaps through Risk Evidence Ledger or equivalent.
 - After non-trivial work, let DevelopmentProcessFlow consume post-change scan signals for SummaryReport gaps, changed artifacts, open obligations, skipped routes, stale evidence, state/topology gaps, or split/reduction pressure.
-- Finish real project use with adoption evidence: trigger, model/risk, commands, findings, skipped gaps, validation results, and next actions.
 ### Route Map
 | Trigger | Route | Entry |
 | --- | --- | --- |
 | FlowGuard itself feels heavy, route groups are incomplete, field layers need folding, or AI needs route-first self-maintenance | `flowguard_self_maintenance` | `default_flowguard_self_maintenance_plan()` then `review_flowguard_self_maintenance()` |
 | Older adopted project, old FlowGuard artifact, old model/test evidence, obsolete API aliases | `artifact_schema_upgrade` | `artifact-upgrade` or `project-upgrade` |
 | Existing modeled system, ownership lookup, duplicate-boundary risk, model-angle gaps, or similar workflow evidence | `existing_model_preflight` | `flowguard-existing-model-preflight`; consumes model-angle and similarity rows |
+| Full external behavior inventory, source-to-commitment coverage, one primary model owner per behavior, or broad behavior claim | `behavior_commitment_ledger` | `flowguard-behavior-commitment-ledger`; path-sensitive rows hand off to Primary Path Authority |
 | Field lifecycle, behavior-bearing field projection, old/replaced/deprecated field disposition | `field_lifecycle_mesh` | `flowguard-field-lifecycle-mesh` |
 | Canonical finite bad-case generation from declared fields, state/input boundaries, Cartesian interaction groups, same-class families, payload contracts, transition cells, parent/child closure, no-delta loops, broad coverage universe, or observed-problem backfeed | `contract_exhaustion_mesh` | `flowguard-contract-exhaustion-mesh` |
 | New/deepened model must reuse/search and close public/local template harvest | `risk_template_library` | `risk-template-search`, `risk-template-harvest`, `risk-template-harvest-review`, or `risk-template-library-template` |

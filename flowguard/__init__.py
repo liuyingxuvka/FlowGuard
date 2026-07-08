@@ -762,6 +762,8 @@ from . import maintenance_obligation as _maintenance_obligation
 from . import maintenance_scan as _maintenance_scan
 from . import model_angle_deliberation as _model_angle_deliberation
 from . import plan_intake as _plan_intake
+from . import primary_path_authority as _primary_path_authority
+from . import behavior_commitment as _behavior_commitment
 from . import recurring_model_miss as _recurring_model_miss
 from . import risk_evidence_ledger as _risk_evidence_ledger
 from . import risk_templates as _risk_templates
@@ -788,6 +790,7 @@ from .model_maturation import *  # noqa: F403
 from .development_process_simulator import *  # noqa: F403
 from .development_process_flow import (
     PROCESS_ARTIFACT_ADAPTER,
+    PROCESS_ARTIFACT_BEHAVIOR_COMMITMENT_LEDGER,
     PROCESS_ARTIFACT_BUG_REPAIR_CLOSURE,
     PROCESS_ARTIFACT_CODE,
     PROCESS_ARTIFACT_DESIGN,
@@ -807,6 +810,7 @@ from .development_process_flow import (
     PROCESS_ARTIFACT_UI_HUMAN_OPERABILITY,
     PROCESS_ARTIFACT_UI_OBSERVED_INVENTORY,
     PROCESS_CLAIM_ACTIONS,
+    PROCESS_EVIDENCE_BEHAVIOR_COMMITMENT_LEDGER,
     PROCESS_EVIDENCE_BUG_REPAIR_CLOSURE,
     PROCESS_EVIDENCE_ERROR,
     PROCESS_EVIDENCE_FAILED,
@@ -977,6 +981,8 @@ from .risk_evidence_ledger import (
     RISK_LEDGER_DECISION_SCOPED,
     RISK_GATE_ANALOGOUS_SCAN,
     RISK_GATE_ARTIFACT_PAYLOAD,
+    RISK_GATE_BEHAVIOR_COMMITMENT_CARTESIAN_COVERAGE,
+    RISK_GATE_BEHAVIOR_COMMITMENT_COVERAGE,
     RISK_GATE_CONTRACT_COVERAGE_SHARD,
     RISK_GATE_DEFECT_FAMILY,
     RISK_GATE_FAMILY,
@@ -986,6 +992,8 @@ from .risk_evidence_ledger import (
     RISK_GATE_MODEL_SPLIT,
     RISK_GATE_PARENT_CONSUMED_CHILD_COVERAGE,
     RISK_GATE_PARENT_MODEL_EVIDENCE,
+    RISK_GATE_PRIMARY_PATH_AUTHORITY,
+    RISK_GATE_PRIMARY_PATH_AUTHORITY_CARTESIAN_COVERAGE,
     RISK_GATE_TEST_SPLIT,
     RISK_GATE_TOPOLOGY_HAZARD,
     RISK_GATE_UI_SOURCE_BASELINE_INTERACTION,
@@ -1123,6 +1131,7 @@ from .summary_report import (
 from .templates import (
     TemplateFile,
     adoption_template_files,
+    behavior_commitment_ledger_template_files,
     closure_contract_template_files,
     code_structure_recommendation_template_files,
     development_process_flow_template_files,
@@ -1138,6 +1147,7 @@ from .templates import (
     model_test_alignment_full_template_files,
     model_test_alignment_template_files,
     plan_detailing_template_files,
+    primary_path_authority_template_files,
     project_adoption_template_files,
     project_template_files,
     risk_evidence_ledger_template_files,
@@ -1156,6 +1166,11 @@ from .trace import Trace, TraceStep
 from .workflow import Workflow, WorkflowPath, WorkflowRun
 
 PLAN_INTAKE_CLAIM_API = tuple(_plan_intake.__all__)
+for _name in _primary_path_authority.__all__:
+    globals()[_name] = getattr(_primary_path_authority, _name)
+for _name in _behavior_commitment.__all__:
+    globals()[_name] = getattr(_behavior_commitment, _name)
+
 PLAN_INTAKE_STARTER_API = (
     "PlanIntakeCompletenessPlan",
     "PlanIntakeCompletenessReport",
@@ -1179,6 +1194,8 @@ MAINTENANCE_OBLIGATION_MEMORY_API = tuple(_maintenance_obligation.__all__)
 MAINTENANCE_SCAN_ROUTE_API = tuple(_maintenance_scan.__all__)
 MODEL_ANGLE_DELIBERATION_API = tuple(_model_angle_deliberation.__all__)
 MODEL_MISS_REVIEW_ROUTE_API = tuple(name for name in _recurring_model_miss.__all__ if name in globals())
+PRIMARY_PATH_AUTHORITY_ROUTE_API = tuple(name for name in _primary_path_authority.__all__ if name in globals())
+BEHAVIOR_COMMITMENT_LEDGER_ROUTE_API = tuple(name for name in _behavior_commitment.__all__ if name in globals())
 RISK_EVIDENCE_LEDGER_ROUTE_API = tuple(name for name in _risk_evidence_ledger.__all__ if name in globals())
 RISK_TEMPLATE_LIBRARY_API = tuple(_risk_templates.__all__)
 FLOWGUARD_SELF_MAINTENANCE_ROUTE_API = (
@@ -1280,6 +1297,8 @@ MODELING_HELPER_API = (
     *FLOWGUARD_SELF_MAINTENANCE_ROUTE_API,
     *MODEL_ANGLE_DELIBERATION_API,
     *CONTRACT_EXHAUSTION_MESH_API,
+    *BEHAVIOR_COMMITMENT_LEDGER_ROUTE_API,
+    *PRIMARY_PATH_AUTHORITY_ROUTE_API,
     "CachePack",
     "DeduplicationPack",
     "RetryPack",
@@ -1925,10 +1944,12 @@ MODELING_HELPER_API = (
     "PROCESS_EVIDENCE_UI_DIALOG_RETURN",
     "PROCESS_EVIDENCE_UI_KEYBOARD_FOCUS",
     "PROCESS_EVIDENCE_UI_HUMAN_WALKTHROUGH",
+    "PROCESS_EVIDENCE_BEHAVIOR_COMMITMENT_LEDGER",
     "PROCESS_CLAIM_ACTIONS",
     "PROCESS_ARTIFACT_REQUIREMENT",
     "PROCESS_ARTIFACT_DESIGN",
     "PROCESS_ARTIFACT_MODEL",
+    "PROCESS_ARTIFACT_BEHAVIOR_COMMITMENT_LEDGER",
     "PROCESS_ARTIFACT_FIELD_LIFECYCLE",
     "PROCESS_ARTIFACT_FIELD_PROJECTION",
     "PROCESS_ARTIFACT_REPLACEMENT_DISPOSITION",
@@ -2082,10 +2103,14 @@ REPORTING_HELPER_API = (
     "RISK_LEDGER_DECISION_SCOPED",
     "RISK_GATE_DEFECT_FAMILY",
     "RISK_GATE_ARTIFACT_PAYLOAD",
+    "RISK_GATE_BEHAVIOR_COMMITMENT_CARTESIAN_COVERAGE",
+    "RISK_GATE_BEHAVIOR_COMMITMENT_COVERAGE",
     "RISK_GATE_MODEL_SPLIT",
     "RISK_GATE_MODEL_CARTESIAN_COVERAGE",
     "RISK_GATE_CONTRACT_COVERAGE_SHARD",
     "RISK_GATE_PARENT_CONSUMED_CHILD_COVERAGE",
+    "RISK_GATE_PRIMARY_PATH_AUTHORITY",
+    "RISK_GATE_PRIMARY_PATH_AUTHORITY_CARTESIAN_COVERAGE",
     "RISK_GATE_TEST_SPLIT",
     "RISK_GATE_UI_IMPLEMENTATION",
     "RISK_GATE_UI_REAL_SURFACE",
@@ -2217,6 +2242,7 @@ EVIDENCE_API = (
     "assert_report_ok",
     "TemplateFile",
     "adoption_template_files",
+    "behavior_commitment_ledger_template_files",
     "closure_contract_template_files",
     "code_structure_recommendation_template_files",
     "development_process_flow_template_files",
@@ -2232,6 +2258,8 @@ EVIDENCE_API = (
     "model_test_alignment_full_template_files",
     "model_test_alignment_template_files",
     "plan_detailing_template_files",
+    "behavior_commitment_ledger_template_files",
+    "primary_path_authority_template_files",
     "project_adoption_template_files",
     "project_template_files",
     "risk_evidence_ledger_template_files",
@@ -2260,6 +2288,7 @@ TEMPLATE_STRUCTURE_API = (
     "model_test_alignment_full_template_files",
     "runtime_path_evidence_template_files",
     "plan_detailing_template_files",
+    "primary_path_authority_template_files",
     "code_structure_recommendation_template_files",
     "existing_model_preflight_template_files",
     "field_lifecycle_template_files",
@@ -2381,6 +2410,8 @@ _FLOWGUARD_ROUTE_API_GROUPS = {
     "template_structure": TEMPLATE_STRUCTURE_API,
     "evidence_field_structure": EVIDENCE_FIELD_STRUCTURE_API,
     "existing_model_preflight": EXISTING_MODEL_PREFLIGHT_ROUTE_API,
+    "behavior_commitment_ledger": BEHAVIOR_COMMITMENT_LEDGER_ROUTE_API,
+    "primary_path_authority": PRIMARY_PATH_AUTHORITY_ROUTE_API,
     "agent_workflow_rehearsal": AGENT_WORKFLOW_REHEARSAL_ROUTE_API,
     "model_similarity_consolidation": MODEL_SIMILARITY_ROUTE_API,
     "architecture_reduction": ARCHITECTURE_REDUCTION_ROUTE_API,
@@ -2409,6 +2440,8 @@ _FLOWGUARD_ROUTE_API_GROUPS = {
 PUBLIC_FLOWGUARD_ROUTE_GROUPS = (
     "flowguard_self_maintenance",
     "existing_model_preflight",
+    "behavior_commitment_ledger",
+    "primary_path_authority",
     "architecture_reduction",
     "code_structure_recommendation",
     "model_test_alignment",
@@ -2460,6 +2493,25 @@ _ROUTE_STARTER_API_GROUPS = {
         "existing_model_preflight_from_project",
         "review_existing_model_preflight",
         "existing_model_preflight_template_files",
+    ),
+    "behavior_commitment_ledger": (
+        "BehaviorCommitmentLedger",
+        "BehaviorCommitment",
+        "BehaviorSourceSurface",
+        "BehaviorPathAuthorityBinding",
+        "BehaviorCommitmentCoverageReport",
+        "review_behavior_commitment_ledger",
+        "behavior_commitment_contract_exhaustion_plan",
+        "behavior_commitment_ledger_template_files",
+    ),
+    "primary_path_authority": (
+        "PrimaryPathContract",
+        "FallbackPathCandidate",
+        "PrimaryPathAuthorityPlan",
+        "PrimaryPathAuthorityReport",
+        "review_primary_path_authority",
+        "primary_path_authority_contract_exhaustion_plan",
+        "primary_path_authority_template_files",
     ),
     "agent_workflow_rehearsal": (
         "AgentWorkflowPlan",
@@ -2711,6 +2763,7 @@ _PUBLIC_API_SUPPLEMENT = (
     "EXISTING_MODEL_PREFLIGHT_ROUTE_API",
     "FLOWGUARD_INTERNAL_ROUTE_API",
     "FLOWGUARD_ROUTE_API",
+    "BEHAVIOR_COMMITMENT_LEDGER_ROUTE_API",
     "FLOWGUARD_CLOSURE_CONTRACT_API",
     "FLOWGUARD_SELF_MAINTENANCE_ROUTE_API",
     "FIELD_LIFECYCLE_MESH_API",
@@ -2725,6 +2778,7 @@ _PUBLIC_API_SUPPLEMENT = (
     "MODEL_MATURATION_API",
     "PLAN_DETAILING_ROUTE_API",
     "PLAN_INTAKE_ADVANCED_API",
+    "PRIMARY_PATH_AUTHORITY_ROUTE_API",
     "PUBLIC_FLOWGUARD_ROUTE_GROUPS",
     "RISK_EVIDENCE_LEDGER_ROUTE_API",
     "RISK_TEMPLATE_LIBRARY_API",

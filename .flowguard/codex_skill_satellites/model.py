@@ -26,8 +26,8 @@ from typing import Iterable
 from flowguard import FunctionResult, Invariant, InvariantResult, Workflow
 
 
-SATELLITE_COUNT = 15
-PUBLIC_OWNER_SKILL_COUNT = 13
+SATELLITE_COUNT = 16
+PUBLIC_OWNER_SKILL_COUNT = 14
 DELEGATED_MODE_SKILL_COUNT = 2
 
 

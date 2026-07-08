@@ -146,7 +146,7 @@ def verify_workspace(
         f"helper={helper_name!r}; "
         "print(json.dumps({"
         "'schema_version': flowguard.SCHEMA_VERSION, "
-        "'package_version': m.version('flowguard'), "
+        "'package_version': getattr(flowguard, '__version__', None) or m.version('flowguard'), "
         "'source_path': flowguard.__file__, "
         "'helper_name': helper, "
         "'helper_available': hasattr(flowguard, helper)"

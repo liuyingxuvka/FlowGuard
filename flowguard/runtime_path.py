@@ -89,6 +89,8 @@ class RuntimeNodeContract:
     business_path_id: str = ""
     business_intent: str = ""
     expected_terminal: str = ""
+    primary_path_id: str = ""
+    require_no_fallback: bool = False
     required: bool = True
     ordered: bool = True
     sequence_index: int | None = None
@@ -119,6 +121,8 @@ class RuntimeNodeContract:
         object.__setattr__(self, "business_path_id", str(self.business_path_id))
         object.__setattr__(self, "business_intent", str(self.business_intent))
         object.__setattr__(self, "expected_terminal", str(self.expected_terminal))
+        object.__setattr__(self, "primary_path_id", str(self.primary_path_id))
+        object.__setattr__(self, "require_no_fallback", bool(self.require_no_fallback))
         object.__setattr__(self, "required", bool(self.required))
         object.__setattr__(self, "ordered", bool(self.ordered))
         if self.sequence_index is not None:
@@ -148,6 +152,8 @@ class RuntimeNodeContract:
             "business_path_id": self.business_path_id,
             "business_intent": self.business_intent,
             "expected_terminal": self.expected_terminal,
+            "primary_path_id": self.primary_path_id,
+            "require_no_fallback": self.require_no_fallback,
             "required": self.required,
             "ordered": self.ordered,
             "sequence_index": self.sequence_index,
@@ -181,6 +187,11 @@ class RuntimeNodeObservation:
     state_case: str = ""
     business_path_id: str = ""
     business_intent: str = ""
+    primary_path_id: str = ""
+    fallback_path_id: str = ""
+    primary_failure_id: str = ""
+    fallback_invoked: bool = False
+    fallback_returned_success: bool = False
     sequence_index: int | None = None
     accepted: bool = True
     observed_output: str = ""
@@ -219,6 +230,11 @@ class RuntimeNodeObservation:
         object.__setattr__(self, "state_case", str(self.state_case))
         object.__setattr__(self, "business_path_id", str(self.business_path_id))
         object.__setattr__(self, "business_intent", str(self.business_intent))
+        object.__setattr__(self, "primary_path_id", str(self.primary_path_id))
+        object.__setattr__(self, "fallback_path_id", str(self.fallback_path_id))
+        object.__setattr__(self, "primary_failure_id", str(self.primary_failure_id))
+        object.__setattr__(self, "fallback_invoked", bool(self.fallback_invoked))
+        object.__setattr__(self, "fallback_returned_success", bool(self.fallback_returned_success))
         if self.sequence_index is not None:
             object.__setattr__(self, "sequence_index", int(self.sequence_index))
         object.__setattr__(self, "accepted", bool(self.accepted))
@@ -267,6 +283,9 @@ class RuntimeNodeObservation:
             ("state_case", self.state_case),
             ("business_path", self.business_path_id),
             ("business_intent", self.business_intent),
+            ("primary_path", self.primary_path_id),
+            ("fallback_path", self.fallback_path_id),
+            ("primary_failure", self.primary_failure_id),
             ("evidence", self.evidence_key()),
             ("progress", self.progress_message),
         )
@@ -291,6 +310,11 @@ class RuntimeNodeObservation:
             "state_case": self.state_case,
             "business_path_id": self.business_path_id,
             "business_intent": self.business_intent,
+            "primary_path_id": self.primary_path_id,
+            "fallback_path_id": self.fallback_path_id,
+            "primary_failure_id": self.primary_failure_id,
+            "fallback_invoked": self.fallback_invoked,
+            "fallback_returned_success": self.fallback_returned_success,
             "sequence_index": self.sequence_index,
             "accepted": self.accepted,
             "observed_output": self.observed_output,
@@ -647,6 +671,17 @@ def _review_observation_status(
     observation: RuntimeNodeObservation,
     findings: list[RuntimePathFinding],
 ) -> None:
+    if observation.fallback_invoked and observation.fallback_returned_success:
+        findings.append(
+            RuntimePathFinding(
+                "runtime_path_silent_fallback",
+                "runtime observation shows fallback invocation returning success after primary failure",
+                node_id=observation.node_id,
+                observation_id=observation.observation_id,
+                evidence_id=observation.evidence_key(),
+                metadata=observation.to_dict(),
+            )
+        )
     if not observation.has_current_pass():
         findings.append(
             RuntimePathFinding(
@@ -710,6 +745,17 @@ def _review_contract_observations(
     for observation in passing:
         _review_binding(contract, observation, findings)
         _review_behavior(contract, observation, findings)
+        if contract.require_no_fallback and observation.fallback_invoked:
+            findings.append(
+                RuntimePathFinding(
+                    "runtime_path_fallback_invoked",
+                    f"runtime node {contract.node_id!r} invoked a fallback path despite no-fallback contract",
+                    node_id=contract.node_id,
+                    observation_id=observation.observation_id,
+                    evidence_id=observation.evidence_key(),
+                    metadata={"contract": contract.to_dict(), "observation": observation.to_dict()},
+                )
+            )
         if contract.requires_gateway_binding and not observation.gateway_id:
             findings.append(
                 RuntimePathFinding(
@@ -764,6 +810,11 @@ def _review_binding(
             "business_intent",
             "runtime_node_business_intent_mismatch",
             "runtime_node_business_intent_missing",
+        ),
+        (
+            "primary_path_id",
+            "runtime_node_primary_path_mismatch",
+            "runtime_node_primary_path_missing",
         ),
     )
     for attr, mismatch_code, missing_code in business_checks:

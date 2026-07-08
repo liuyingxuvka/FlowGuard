@@ -9,6 +9,7 @@ KERNEL_ROOT = SKILLS_ROOT / "model-first-function-flow"
 SATELLITE_SKILLS = {
     "flowguard-agent-workflow-rehearsal": "agent_workflow_rehearsal_protocol.md",
     "flowguard-architecture-reduction": "architecture_reduction_protocol.md",
+    "flowguard-behavior-commitment-ledger": "behavior_commitment_ledger_protocol.md",
     "flowguard-code-structure-recommendation": "code_structure_recommendation_protocol.md",
     "flowguard-contract-exhaustion-mesh": "contract_exhaustion_mesh_protocol.md",
     "flowguard-development-process-flow": "development_process_flow_protocol.md",
@@ -167,6 +168,12 @@ class SkillDocsTests(unittest.TestCase):
                 "ObservableArchitectureContract",
                 "contraction candidates",
                 "required next route",
+            ),
+            "flowguard-behavior-commitment-ledger": (
+                "BehaviorCommitmentLedger",
+                "source evidence",
+                "Primary Path Authority",
+                "review_behavior_commitment_ledger()",
             ),
             "flowguard-code-structure-recommendation": (
                 "FunctionBlock-to-module ownership",

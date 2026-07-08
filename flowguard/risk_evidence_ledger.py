@@ -53,6 +53,10 @@ RISK_GATE_TEST_SPLIT = "test_split"
 RISK_GATE_MODEL_CARTESIAN_COVERAGE = "model_cartesian_coverage"
 RISK_GATE_CONTRACT_COVERAGE_SHARD = "contract_coverage_shard"
 RISK_GATE_PARENT_CONSUMED_CHILD_COVERAGE = "parent_consumed_child_coverage"
+RISK_GATE_BEHAVIOR_COMMITMENT_COVERAGE = "behavior_commitment_coverage"
+RISK_GATE_BEHAVIOR_COMMITMENT_CARTESIAN_COVERAGE = "behavior_commitment_cartesian_coverage"
+RISK_GATE_PRIMARY_PATH_AUTHORITY = "primary_path_authority"
+RISK_GATE_PRIMARY_PATH_AUTHORITY_CARTESIAN_COVERAGE = "primary_path_authority_cartesian_coverage"
 RISK_GATE_FAMILY = "family"
 RISK_GATE_ANALOGOUS_SCAN = "analogous_scan"
 RISK_GATE_TOPOLOGY_HAZARD = "topology_hazard"
@@ -404,6 +408,18 @@ def _decision_for(findings: Sequence[RiskEvidenceFinding]) -> tuple[str, str, bo
         "missing_parent_consumed_child_coverage_gate",
         "parent_consumed_child_coverage_gate_not_current",
         "parent_consumed_child_coverage_gate_blocked",
+        "missing_behavior_commitment_coverage_gate",
+        "behavior_commitment_coverage_gate_not_current",
+        "behavior_commitment_coverage_gate_blocked",
+        "missing_behavior_commitment_cartesian_coverage_gate",
+        "behavior_commitment_cartesian_coverage_gate_not_current",
+        "behavior_commitment_cartesian_coverage_gate_blocked",
+        "missing_primary_path_authority_gate",
+        "primary_path_authority_gate_not_current",
+        "primary_path_authority_gate_blocked",
+        "missing_primary_path_authority_cartesian_coverage_gate",
+        "primary_path_authority_cartesian_coverage_gate_not_current",
+        "primary_path_authority_cartesian_coverage_gate_blocked",
         "missing_test_split_gate",
         "test_split_gate_not_current",
         "test_split_gate_blocked",
@@ -532,6 +548,46 @@ GATE_CODE_MAP = {
         "required parent-consumed child coverage evidence is stale or missing",
         "required parent-consumed child coverage gate is blocked",
         "parent-consumed child coverage gate remains explicitly scoped",
+    ),
+    RISK_GATE_BEHAVIOR_COMMITMENT_COVERAGE: (
+        "missing_behavior_commitment_coverage_gate",
+        "behavior_commitment_coverage_gate_not_current",
+        "behavior_commitment_coverage_gate_blocked",
+        "behavior_commitment_coverage_gate_scoped_confidence",
+        "required risk has no behavior commitment ledger coverage gate",
+        "required behavior commitment ledger evidence is stale or missing",
+        "required behavior commitment ledger gate is blocked",
+        "behavior commitment ledger evidence remains explicitly scoped",
+    ),
+    RISK_GATE_BEHAVIOR_COMMITMENT_CARTESIAN_COVERAGE: (
+        "missing_behavior_commitment_cartesian_coverage_gate",
+        "behavior_commitment_cartesian_coverage_gate_not_current",
+        "behavior_commitment_cartesian_coverage_gate_blocked",
+        "behavior_commitment_cartesian_coverage_gate_scoped_confidence",
+        "required risk has no behavior commitment Cartesian coverage gate",
+        "required behavior commitment Cartesian coverage evidence is stale or missing",
+        "required behavior commitment Cartesian coverage gate is blocked",
+        "behavior commitment Cartesian coverage evidence remains explicitly scoped",
+    ),
+    RISK_GATE_PRIMARY_PATH_AUTHORITY: (
+        "missing_primary_path_authority_gate",
+        "primary_path_authority_gate_not_current",
+        "primary_path_authority_gate_blocked",
+        "primary_path_authority_gate_scoped_confidence",
+        "required risk has no primary-path authority evidence gate",
+        "required primary-path authority evidence is stale or missing",
+        "required primary-path authority gate is blocked",
+        "primary-path authority evidence remains explicitly scoped",
+    ),
+    RISK_GATE_PRIMARY_PATH_AUTHORITY_CARTESIAN_COVERAGE: (
+        "missing_primary_path_authority_cartesian_coverage_gate",
+        "primary_path_authority_cartesian_coverage_gate_not_current",
+        "primary_path_authority_cartesian_coverage_gate_blocked",
+        "primary_path_authority_cartesian_coverage_gate_scoped_confidence",
+        "required risk has no primary-path Cartesian coverage gate",
+        "required primary-path Cartesian coverage evidence is stale or missing",
+        "required primary-path Cartesian coverage gate is blocked",
+        "primary-path Cartesian coverage evidence remains explicitly scoped",
     ),
     RISK_GATE_TEST_SPLIT: (
         "missing_test_split_gate",
@@ -1013,6 +1069,8 @@ __all__ = [
     "RISK_LEDGER_DECISION_SCOPED",
     "RISK_GATE_ANALOGOUS_SCAN",
     "RISK_GATE_ARTIFACT_PAYLOAD",
+    "RISK_GATE_BEHAVIOR_COMMITMENT_CARTESIAN_COVERAGE",
+    "RISK_GATE_BEHAVIOR_COMMITMENT_COVERAGE",
     "RISK_GATE_CONTRACT_COVERAGE_SHARD",
     "RISK_GATE_DEFECT_FAMILY",
     "RISK_GATE_FAMILY",
@@ -1022,6 +1080,8 @@ __all__ = [
     "RISK_GATE_MODEL_SPLIT",
     "RISK_GATE_PARENT_MODEL_EVIDENCE",
     "RISK_GATE_PARENT_CONSUMED_CHILD_COVERAGE",
+    "RISK_GATE_PRIMARY_PATH_AUTHORITY",
+    "RISK_GATE_PRIMARY_PATH_AUTHORITY_CARTESIAN_COVERAGE",
     "RISK_GATE_TEST_SPLIT",
     "RISK_GATE_TOPOLOGY_HAZARD",
     "RISK_GATE_UI_SOURCE_BASELINE_INTERACTION",

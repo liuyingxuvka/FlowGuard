@@ -18,6 +18,11 @@ from .template_text.core import (
     ADOPTION_LOG_TEMPLATE,
     MODEL_NOTES_TEMPLATE,
 )
+from .template_text.behavior_commitment_ledger import (
+    BEHAVIOR_COMMITMENT_LEDGER_MODEL_TEMPLATE,
+    BEHAVIOR_COMMITMENT_LEDGER_RUN_CHECKS_TEMPLATE,
+    BEHAVIOR_COMMITMENT_LEDGER_NOTES_TEMPLATE,
+)
 from .template_text.development_process_flow import (
     DEVELOPMENT_PROCESS_FLOW_MODEL_TEMPLATE,
     DEVELOPMENT_PROCESS_FLOW_RUN_CHECKS_TEMPLATE,
@@ -82,6 +87,11 @@ from .template_text.plan_detailing import (
     PLAN_DETAILING_MODEL_TEMPLATE,
     PLAN_DETAILING_RUN_CHECKS_TEMPLATE,
     PLAN_DETAILING_NOTES_TEMPLATE,
+)
+from .template_text.primary_path_authority import (
+    PRIMARY_PATH_AUTHORITY_MODEL_TEMPLATE,
+    PRIMARY_PATH_AUTHORITY_RUN_CHECKS_TEMPLATE,
+    PRIMARY_PATH_AUTHORITY_NOTES_TEMPLATE,
 )
 from .template_text.risk_evidence_ledger import (
     RISK_EVIDENCE_LEDGER_MODEL_TEMPLATE,
@@ -183,6 +193,22 @@ def plan_detailing_template_files() -> tuple[TemplateFile, ...]:
         TemplateFile(".flowguard/plan_detailing/model.py", PLAN_DETAILING_MODEL_TEMPLATE),
         TemplateFile(".flowguard/plan_detailing/run_checks.py", PLAN_DETAILING_RUN_CHECKS_TEMPLATE),
         TemplateFile("docs/flowguard_plan_detailing.md", PLAN_DETAILING_NOTES_TEMPLATE),
+    )
+
+
+def behavior_commitment_ledger_template_files() -> tuple[TemplateFile, ...]:
+    return (
+        TemplateFile(".flowguard/behavior_commitment_ledger/model.py", BEHAVIOR_COMMITMENT_LEDGER_MODEL_TEMPLATE),
+        TemplateFile(".flowguard/behavior_commitment_ledger/run_checks.py", BEHAVIOR_COMMITMENT_LEDGER_RUN_CHECKS_TEMPLATE),
+        TemplateFile("docs/flowguard_behavior_commitment_ledger.md", BEHAVIOR_COMMITMENT_LEDGER_NOTES_TEMPLATE),
+    )
+
+
+def primary_path_authority_template_files() -> tuple[TemplateFile, ...]:
+    return (
+        TemplateFile(".flowguard/primary_path_authority/model.py", PRIMARY_PATH_AUTHORITY_MODEL_TEMPLATE),
+        TemplateFile(".flowguard/primary_path_authority/run_checks.py", PRIMARY_PATH_AUTHORITY_RUN_CHECKS_TEMPLATE),
+        TemplateFile("docs/flowguard_primary_path_authority.md", PRIMARY_PATH_AUTHORITY_NOTES_TEMPLATE),
     )
 
 
@@ -402,6 +428,9 @@ def write_template_files(
 
 __all__ = [
     "ADOPTION_LOG_TEMPLATE",
+    "BEHAVIOR_COMMITMENT_LEDGER_MODEL_TEMPLATE",
+    "BEHAVIOR_COMMITMENT_LEDGER_NOTES_TEMPLATE",
+    "BEHAVIOR_COMMITMENT_LEDGER_RUN_CHECKS_TEMPLATE",
     "CODE_STRUCTURE_RECOMMENDATION_MODEL_TEMPLATE",
     "CODE_STRUCTURE_RECOMMENDATION_NOTES_TEMPLATE",
     "CODE_STRUCTURE_RECOMMENDATION_RUN_CHECKS_TEMPLATE",
@@ -444,6 +473,9 @@ __all__ = [
     "PLAN_DETAILING_MODEL_TEMPLATE",
     "PLAN_DETAILING_NOTES_TEMPLATE",
     "PLAN_DETAILING_RUN_CHECKS_TEMPLATE",
+    "PRIMARY_PATH_AUTHORITY_MODEL_TEMPLATE",
+    "PRIMARY_PATH_AUTHORITY_NOTES_TEMPLATE",
+    "PRIMARY_PATH_AUTHORITY_RUN_CHECKS_TEMPLATE",
     "RISK_INTENT_CHECK_PLAN_MODEL_TEMPLATE",
     "RISK_INTENT_CHECK_PLAN_NOTES_TEMPLATE",
     "RISK_INTENT_CHECK_PLAN_RUN_CHECKS_TEMPLATE",
@@ -473,6 +505,7 @@ __all__ = [
     "WORKFLOW_STEP_CONTRACTS_NOTES_TEMPLATE",
     "WORKFLOW_STEP_CONTRACTS_RUN_CHECKS_TEMPLATE",
     "adoption_template_files",
+    "behavior_commitment_ledger_template_files",
     "closure_contract_template_files",
     "code_structure_recommendation_template_files",
     "development_process_flow_template_files",
@@ -488,6 +521,7 @@ __all__ = [
     "model_test_alignment_full_template_files",
     "model_test_alignment_template_files",
     "plan_detailing_template_files",
+    "primary_path_authority_template_files",
     "project_template_files",
     "project_adoption_template_files",
     "risk_evidence_ledger_template_files",

@@ -41,6 +41,7 @@ PROCESS_CLAIM_ACTIONS = {
 PROCESS_ARTIFACT_REQUIREMENT = "requirement"
 PROCESS_ARTIFACT_DESIGN = "design"
 PROCESS_ARTIFACT_MODEL = "model"
+PROCESS_ARTIFACT_BEHAVIOR_COMMITMENT_LEDGER = "behavior_commitment_ledger"
 PROCESS_ARTIFACT_FIELD_LIFECYCLE = "field_lifecycle"
 PROCESS_ARTIFACT_FIELD_PROJECTION = "field_projection"
 PROCESS_ARTIFACT_REPLACEMENT_DISPOSITION = "replacement_disposition"
@@ -59,6 +60,7 @@ PROCESS_ARTIFACT_UI_DONE_CLAIM = "ui_done_claim"
 PROCESS_ARTIFACT_UI_HUMAN_OPERABILITY = "ui_human_operability"
 
 PROCESS_EVIDENCE_FIELD_LIFECYCLE = "field_lifecycle_mesh"
+PROCESS_EVIDENCE_BEHAVIOR_COMMITMENT_LEDGER = "behavior_commitment_ledger"
 PROCESS_EVIDENCE_FIELD_PROJECTION = "field_projection"
 PROCESS_EVIDENCE_MODEL_MISS_REVIEW = "model_miss_review"
 PROCESS_EVIDENCE_BUG_REPAIR_CLOSURE = "bug_repair_closure"
@@ -748,6 +750,8 @@ def _stale_code_for_artifact(artifact: ProcessArtifact | None, evidence: Process
         return "test_changed_after_test_pass"
     if artifact.artifact_type == PROCESS_ARTIFACT_MODEL and evidence.evidence_kind == "model_test_alignment":
         return "model_changed_after_alignment_pass"
+    if artifact.artifact_type == PROCESS_ARTIFACT_BEHAVIOR_COMMITMENT_LEDGER:
+        return "behavior_commitment_ledger_changed_after_coverage_pass"
     if artifact.artifact_type == PROCESS_ARTIFACT_FIELD_LIFECYCLE:
         return "field_lifecycle_changed_after_field_evidence"
     if artifact.artifact_type == PROCESS_ARTIFACT_FIELD_PROJECTION:
@@ -1154,6 +1158,7 @@ __all__ = [
     "PROCESS_ARTIFACT_DESIGN",
     "PROCESS_ARTIFACT_DOC",
     "PROCESS_ARTIFACT_BUG_REPAIR_CLOSURE",
+    "PROCESS_ARTIFACT_BEHAVIOR_COMMITMENT_LEDGER",
     "PROCESS_ARTIFACT_FIELD_LIFECYCLE",
     "PROCESS_ARTIFACT_FIELD_PROJECTION",
     "PROCESS_ARTIFACT_MODEL",
@@ -1171,6 +1176,7 @@ __all__ = [
     "PROCESS_CLAIM_ACTIONS",
     "PROCESS_EVIDENCE_ERROR",
     "PROCESS_EVIDENCE_FAILED",
+    "PROCESS_EVIDENCE_BEHAVIOR_COMMITMENT_LEDGER",
     "PROCESS_EVIDENCE_BUG_REPAIR_CLOSURE",
     "PROCESS_EVIDENCE_FIELD_LIFECYCLE",
     "PROCESS_EVIDENCE_FIELD_PROJECTION",

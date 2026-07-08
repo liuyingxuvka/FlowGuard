@@ -16,7 +16,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.52.6` | `1.0` | Python standard library only | MIT |
+| `v0.53.0` | `1.0` | Python standard library only | MIT |
 
 English comes first. A Chinese mirror follows below.
 
@@ -79,6 +79,7 @@ The important output is often the counterexample: a concrete sequence of states 
 | UI workflows | buttons exist, but the user cannot recover, cancel, or reach a terminal state | launch-to-terminal journeys, visible controls, disabled reasons, and recovery paths |
 | Refactors | a new module split loses the real state or side-effect owner | facade boundaries, state owners, side-effect owners, and parity evidence |
 | Tests and releases | an old passing test is treated as proof after code, docs, models, or fixtures changed | evidence freshness and minimum revalidation requirements |
+| Feature or behavior inventory | AI fixes one local path while missing, duplicating, or inventing external behavior | a Behavior Commitment Ledger: source surfaces, commitments, one primary owner model, dependencies, evidence, and PPA handoff for path-sensitive behavior |
 | Model-code-test binding | a model, a code contract, and a test all exist, but they do not prove the same behavior | binding rows that connect obligations, owner code, source audit, runtime evidence, bad-case replay, and open gaps |
 | Parent and child models | one local green check is treated as whole-system confidence | child evidence, parent reattachment, sibling impact, and scoped confidence |
 | Public claims | a README, release note, or "done" message says more than current evidence supports | the claim boundary and the missing proof |
@@ -145,6 +146,12 @@ choose one risky boundary
 ```
 
 Escalate only when the risk needs it. A retry bug may need a small model. A release claim, UI flow, refactor split, or parent/child model chain may need a stronger route.
+
+For broad feature, release, UI/API/CLI, skill, workflow, or project-confidence
+claims, start with the Behavior Commitment Ledger. It registers external
+behavior promises, maps them to source surfaces, assigns exactly one primary
+owner model, and sends `path_sensitive=true` rows to Primary Path Authority so
+the work does not accumulate hidden fallback paths.
 
 ## Minimal Model Sketch
 

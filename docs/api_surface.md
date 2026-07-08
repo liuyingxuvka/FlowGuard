@@ -75,6 +75,12 @@ groups available for deep work.
 `PLAN_INTAKE_STARTER_API` is the compact first-read slice for plan-intake claim
 review; `PLAN_INTAKE_ADVANCED_API` remains the complete plan-intake inventory.
 
+`behavior_commitment_ledger` is the upstream public route for broad behavior
+claims. Use `ROUTE_STARTER_API["behavior_commitment_ledger"]` before claiming a
+project, release, UI/API/CLI behavior, skill, workflow, or process boundary is
+covered. Path-sensitive commitments then hand off to
+`primary_path_authority`.
+
 Template defaults follow the same rule. `model-miss-template`,
 `model-test-alignment-template`, and `ui-flow-structure-template` emit compact
 runnable scaffolds. Use `model-miss-full-template`,

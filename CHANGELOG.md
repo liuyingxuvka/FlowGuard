@@ -1,5 +1,28 @@
 # Changelog
 
+## v0.53.0 - 2026-07-08
+
+Behavior Commitment Ledger, Primary Path Authority, and no-fallback coverage.
+
+- Added `behavior_commitment` as the upstream Behavior Commitment Ledger route
+  so broad work inventories every external, verifiable behavior commitment
+  before assigning one primary owner model and downstream evidence.
+- Connected path-sensitive behavior commitments to `primary_path_authority`, so
+  the ledger owns full behavior registration while PPA owns single primary path
+  authority and rejects alternate success after primary failure.
+- Added `primary_path_authority` as a first-class FlowGuard route so each
+  path-sensitive business intent declares one primary runtime authority and
+  rejects automatic alternate success after primary failure.
+- Wired no-fallback evidence through RuntimePath observations,
+  RiskEvidenceLedger gates, public API/CLI/template surfaces, AGENTS guidance,
+  and installed FlowGuard skill shells.
+- Added model-scoped Cartesian coverage for the primary-path boundary with
+  actionable oracle binding, TestMesh shard ownership, and downstream risk
+  evidence consumption.
+- Published the previously untagged OpenSpec readiness verification commit and
+  included validated OpenSpec records for ContractExhaustionMesh,
+  hierarchical Cartesian coverage, and helper control-plane consolidation.
+
 ## v0.52.6 - 2026-07-07
 
 Guard-family simulation readiness patch.

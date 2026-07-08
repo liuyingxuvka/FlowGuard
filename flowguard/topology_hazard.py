@@ -208,6 +208,11 @@ class BusinessPathIdentity:
     exclusive_with: tuple[str, ...] = ()
     supersedes: tuple[str, ...] = ()
     compatibility_disposition: str = TOPOLOGY_COMPAT_UNKNOWN
+    authority_role: str = ""
+    fallback_for: str = ""
+    invoked_on_primary_failure: bool = False
+    returns_success_after_primary_failure: bool = False
+    fallback_disposition: str = ""
     evidence_ids: tuple[str, ...] = ()
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
@@ -231,6 +236,15 @@ class BusinessPathIdentity:
             "compatibility_disposition",
             str(self.compatibility_disposition or TOPOLOGY_COMPAT_UNKNOWN),
         )
+        object.__setattr__(self, "authority_role", str(self.authority_role))
+        object.__setattr__(self, "fallback_for", str(self.fallback_for))
+        object.__setattr__(self, "invoked_on_primary_failure", bool(self.invoked_on_primary_failure))
+        object.__setattr__(
+            self,
+            "returns_success_after_primary_failure",
+            bool(self.returns_success_after_primary_failure),
+        )
+        object.__setattr__(self, "fallback_disposition", str(self.fallback_disposition))
         object.__setattr__(self, "evidence_ids", _as_tuple(self.evidence_ids))
         object.__setattr__(self, "metadata", dict(self.metadata))
 
@@ -261,6 +275,11 @@ class BusinessPathIdentity:
             "exclusive_with": list(self.exclusive_with),
             "supersedes": list(self.supersedes),
             "compatibility_disposition": self.compatibility_disposition,
+            "authority_role": self.authority_role,
+            "fallback_for": self.fallback_for,
+            "invoked_on_primary_failure": self.invoked_on_primary_failure,
+            "returns_success_after_primary_failure": self.returns_success_after_primary_failure,
+            "fallback_disposition": self.fallback_disposition,
             "evidence_ids": list(self.evidence_ids),
             "metadata": to_jsonable(dict(self.metadata)),
         }

@@ -202,6 +202,18 @@ FILE_TEMPLATE_COMMANDS: tuple[FileTemplateCommand, ...] = (
         "plan_detailing_template_files",
     ),
     FileTemplateCommand(
+        "primary-path-authority-template",
+        "Print or write the Primary Path Authority no-fallback route template.",
+        "primary_path_authority",
+        "primary_path_authority_template_files",
+    ),
+    FileTemplateCommand(
+        "behavior-commitment-ledger-template",
+        "Print or write the Behavior Commitment Ledger full behavior inventory template.",
+        "behavior_commitment_ledger",
+        "behavior_commitment_ledger_template_files",
+    ),
+    FileTemplateCommand(
         "model-miss-template",
         "Print or write the bug-repair/model-miss review template.",
         "model_miss_review",

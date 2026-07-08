@@ -565,6 +565,7 @@ class ContractInteractionGroup:
     required_routes: tuple[str, ...] = ()
     required: bool = True
     max_combinations: int | None = None
+    oracle_id: str = ""
     oracle_status: str = CONTRACT_ORACLE_BLOCK_BEFORE_DOWNSTREAM
     description: str = ""
     metadata: Mapping[str, Any] = field(default_factory=dict)
@@ -579,6 +580,7 @@ class ContractInteractionGroup:
         object.__setattr__(self, "required", bool(self.required))
         if self.max_combinations is not None:
             object.__setattr__(self, "max_combinations", int(self.max_combinations))
+        object.__setattr__(self, "oracle_id", str(self.oracle_id))
         object.__setattr__(self, "oracle_status", str(self.oracle_status))
         object.__setattr__(self, "description", str(self.description))
         object.__setattr__(self, "metadata", _metadata(self.metadata))
@@ -593,6 +595,7 @@ class ContractInteractionGroup:
             "required_routes": list(self.required_routes),
             "required": self.required,
             "max_combinations": self.max_combinations,
+            "oracle_id": self.oracle_id,
             "oracle_status": self.oracle_status,
             "description": self.description,
             "metadata": to_jsonable(dict(self.metadata)),
@@ -1578,6 +1581,7 @@ def _generated_cases_for_interaction_group(
                 source_route=CONTRACT_EXHAUSTION_ROUTE,
                 source_case_id=group.group_id,
                 required=group.required,
+                oracle_id=group.oracle_id,
                 input_delta=input_delta,
                 expected_status=group.oracle_status,
                 required_routes=required_routes,

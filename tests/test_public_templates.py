@@ -7,6 +7,7 @@ import unittest
 from pathlib import Path
 
 from flowguard.templates import (
+    behavior_commitment_ledger_template_files,
     closure_contract_template_files,
     code_structure_recommendation_template_files,
     development_process_flow_template_files,
@@ -21,6 +22,7 @@ from flowguard.templates import (
     model_test_alignment_full_template_files,
     model_test_alignment_template_files,
     plan_detailing_template_files,
+    primary_path_authority_template_files,
     project_adoption_template_files,
     project_template_files,
     risk_evidence_ledger_template_files,
@@ -44,6 +46,8 @@ PUBLIC_TEMPLATE_FACTORIES = (
     risk_intent_template_files,
     risk_template_library_template_files,
     plan_detailing_template_files,
+    behavior_commitment_ledger_template_files,
+    primary_path_authority_template_files,
     model_miss_review_template_files,
     model_test_alignment_template_files,
     code_structure_recommendation_template_files,
@@ -69,6 +73,8 @@ TEMPLATE_CLI_COMMANDS = {
     "risk-intent-template": "risk_intent_check_plan",
     "risk-template-library-template": "risk_template_library",
     "plan-detailing-template": "plan_detailing",
+    "behavior-commitment-ledger-template": "behavior_commitment_ledger",
+    "primary-path-authority-template": "primary_path_authority",
     "model-miss-template": "model_miss_review",
     "model-miss-full-template": "model_miss_review_full",
     "model-test-alignment-template": "model_test_alignment",
@@ -232,6 +238,15 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("plan_detail_to_development_process", combined)
         self.assertIn("plan_detail_to_step_contracts", combined)
         self.assertIn("FlowGuard Risk Purpose Header", combined)
+
+    def test_behavior_commitment_ledger_template_executes(self):
+        output = self.run_written_template(
+            behavior_commitment_ledger_template_files(),
+            (".flowguard", "behavior_commitment_ledger"),
+        )
+        self.assertIn("flowguard behavior commitment ledger", output)
+        self.assertIn("full_inventory_registered: yes", output)
+        self.assertIn("behavior_commitment_coverage_green", output)
 
     def test_model_miss_review_template_executes(self):
         output = self.run_written_template(
