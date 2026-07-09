@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.53.1 - 2026-07-09
+
+FlowGuard self-maintenance gate hardening.
+
+- Added strict Behavior Commitment Ledger self-maintenance checks so FlowGuard
+  workflow changes must keep behavior registration, DCAR coverage,
+  TestMesh routing, and model-miss backfeed connected before broad confidence.
+- Extended behavior commitment records with source freshness, replacement
+  synchronization, TestMesh alignment, model-miss status, and change-mode
+  handling for new, changed, replacement, discovery, and model-miss work.
+- Updated FlowGuard agent skills, templates, public APIs, CLI rendering, and
+  tests so missing ledger coverage blocks immediately instead of leaving an
+  alternate success path.
+
 ## v0.53.0 - 2026-07-08
 
 Behavior Commitment Ledger, Primary Path Authority, and no-fallback coverage.
