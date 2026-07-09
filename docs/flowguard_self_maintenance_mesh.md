@@ -48,8 +48,9 @@ Field-heavy work should first use `default_field_layer_profiles()`:
   first, then expanded for claim evidence.
 - `metadata_display`: display and metadata fields are accounted but scoped out
   of high-level behavior models unless they affect behavior.
-- `compatibility_disposition`: old fields, aliases, wrappers, and fallbacks
-  require delete, migrate, block, delegate, repair, preserve, or scope evidence.
+- `replacement_disposition`: old fields, aliases, wrappers, and alternate
+  success paths require delete, migrate, block, delegate, repair, replace, or
+  scope-out evidence.
 
 ## StructureMesh Candidates
 
@@ -64,11 +65,11 @@ rewriting large modules immediately:
 - `flowguard/risk_evidence_ledger.py`: candidate child owners are proof rows,
   maintenance obligations, confidence claims, and final ledger findings.
 - `flowguard/__init__.py`: candidate child owners are public owner route
-  registry, internal helper inventory, advanced API grouping, and compatibility
-  supplement.
+  registry, internal helper inventory, advanced API grouping, and replacement
+  disposition supplement.
 
-Any future split should keep the existing public entrypoint as facade until
-StructureMesh parity evidence and focused API tests pass.
+Any future split should keep exactly one public entrypoint as the active path
+after StructureMesh parity evidence and focused API tests pass.
 
 ## Validation Boundary
 

@@ -11,10 +11,16 @@ Run: python run_checks.py
 """
 
 from flowguard import (
+    BCL_CHANGE_BOOTSTRAP_LEDGER,
     BCL_COMMITMENT_WORKFLOW,
     BCL_EVIDENCE_CURRENT_PASS,
+    BCL_MISS_ORIGIN_NONE,
+    BCL_MODEL_SYNC_OWNER_CURRENT,
+    BCL_REPLACEMENT_ACTIVE,
     BCL_SCOPE_FULL,
     BCL_SOURCE_DOC,
+    BCL_SOURCE_FRESHNESS_CURRENT,
+    BCL_TEST_MESH_SHARD_CURRENT,
     BehaviorCommitment,
     BehaviorCommitmentLedger,
     BehaviorEvidenceBinding,
@@ -28,6 +34,7 @@ def build_behavior_commitment_ledger():
         project_boundary="example project external behavior",
         current_revision="template-initial",
         claim_scope=BCL_SCOPE_FULL,
+        change_mode=BCL_CHANGE_BOOTSTRAP_LEDGER,
         owner="project-maintainer",
         validation_boundary="template smoke plus project-specific FlowGuard evidence",
         rationale="baseline ledger records external behavior promises before implementation paths",
@@ -39,6 +46,7 @@ def build_behavior_commitment_ledger():
                 label="README promises the primary workflow",
                 source_ref="README.md#usage",
                 commitment_ids=("commitment:run-primary-workflow",),
+                freshness_state=BCL_SOURCE_FRESHNESS_CURRENT,
                 owner="project-maintainer",
                 validation_boundary="README and smoke test stay aligned",
                 rationale="public docs are an external behavior source",
@@ -55,6 +63,9 @@ def build_behavior_commitment_ledger():
                 failure_boundary="fail closed with visible repair information",
                 source_surface_ids=("surface:readme-workflow",),
                 primary_owner_model_id="model:primary-workflow",
+                replacement_state=BCL_REPLACEMENT_ACTIVE,
+                model_sync_state=BCL_MODEL_SYNC_OWNER_CURRENT,
+                miss_origin_state=BCL_MISS_ORIGIN_NONE,
                 validation_boundary="model obligation, code contract, and smoke test cover the same behavior",
                 rationale="this is the external behavior promise; helper functions are implementation details",
                 evidence=BehaviorEvidenceBinding(
@@ -66,6 +77,7 @@ def build_behavior_commitment_ledger():
                     coverage_shard_ids=("contract_shard:behavior_commitment_ledger:full_inventory_mapping",),
                     coverage_receipt_ids=("contract_coverage:behavior_commitment_ledger",),
                     evidence_state=BCL_EVIDENCE_CURRENT_PASS,
+                    test_mesh_state=BCL_TEST_MESH_SHARD_CURRENT,
                     current=True,
                 ),
             ),
@@ -101,11 +113,20 @@ helper function or private implementation detail as a commitment.
 For each commitment:
 
 - record the source surface that promised or exposed it;
+- record whether this is first bootstrap, added behavior, changed behavior,
+  removed/replaced behavior, historical gap backfill, or model-miss check;
+- keep source surfaces current; changed, missing, or unchecked source surfaces
+  block broad claims until the AI updates the ledger;
 - name exactly one primary owner model;
 - list supporting or child models only after the primary owner is clear;
 - bind current model, code-contract, test, coverage, and risk evidence;
+- do not keep old or alternate success surfaces; replaced or removed behavior
+  must be disposed, repaired, delegated to the primary path, replaced, or scoped out;
+- use model misses only as a backfeed check: map the miss to an existing
+  commitment when possible, and create/backfill a commitment only when the
+  observed external behavior was not registered;
 - if `path_sensitive=true`, attach Primary Path Authority evidence instead of
-  creating another fallback checker.
+  creating another alternate-path checker.
 
 Broad done, release, publish, archive, production, or full-confidence claims
 need current ledger evidence.

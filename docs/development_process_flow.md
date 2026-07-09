@@ -11,6 +11,16 @@ ContractExhaustionMesh, ModelMesh, TestMesh, StructureMesh, Model-Test Alignment
 Review, LongCheck, or Conformance Adoption, but it does not inspect or
 supervise those route internals.
 
+For behavior-bearing work, DevelopmentProcessFlow is also the first routing
+place to select the behavior-ledger change mode: `bootstrap_ledger`,
+`add_behavior`, `change_behavior`, `remove_or_replace_behavior`,
+`coverage_gap_backfill`, or `model_miss_check`. This selection does not create
+a new workflow. It tells the existing routes which evidence to refresh:
+ExistingModelPreflight finds the owner model, Behavior Commitment Ledger
+updates the external behavior row, ContractExhaustionMesh generates DCAR cases,
+Model-Test Alignment and TestMesh bind current evidence, and SelfMaintenance
+consumes the child reports before broad claims.
+
 When a lifecycle claim is broad enough to say done, release, archive, publish,
 or framework-sync confidence, use `require_proof_artifacts=True`. In that mode,
 each consumed `ProcessEvidence` row must attach a proof artifact with a result
@@ -112,8 +122,8 @@ while the current artifact is `code.checkout@4`.
   as a new miss classification, ContractExhaustionMesh case id, closure
   evidence role, or test row used to prove closure;
 - bug-repair evidence changes that invalidate earlier closure, such as a new
-  root-cause backpropagation record, owner code contract, compatibility or
-  legacy path disposition, observed-regression test, contract-exhaustion case
+  root-cause backpropagation record, owner code contract, old-path
+  disposition, observed-regression test, contract-exhaustion case
   test, or Risk
   Evidence Ledger row;
 - ambiguous freshness policy for declared upstream/downstream artifacts;
@@ -206,7 +216,7 @@ When the final claim closes a model miss or non-trivial bug repair,
 DevelopmentProcessFlow should include Model-Test Alignment as a required
 validation pair for the repaired model obligation, owner code contract, and
 observed/contract-exhaustion case test rows. It should also include the root-cause
-backpropagation record, compatibility or legacy path disposition, and Risk
+backpropagation record, old-path disposition, and Risk
 Evidence Ledger row as freshness-sensitive artifacts. If the contract-exhaustion
 evidence is large, slow, background, layered, or release-only, it should also
 include TestMesh evidence and keep routine confidence scoped until current

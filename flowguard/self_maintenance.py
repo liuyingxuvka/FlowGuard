@@ -20,13 +20,21 @@ FIELD_LAYER_CORE = "core"
 FIELD_LAYER_ROUTE_OWNED = "route_owned"
 FIELD_LAYER_SHARED_EVIDENCE = "shared_evidence"
 FIELD_LAYER_METADATA_DISPLAY = "metadata_display"
-FIELD_LAYER_COMPATIBILITY = "compatibility_disposition"
+FIELD_LAYER_REPLACEMENT_DISPOSITION = "replacement_disposition"
 FIELD_LAYERS = (
     FIELD_LAYER_CORE,
     FIELD_LAYER_ROUTE_OWNED,
     FIELD_LAYER_SHARED_EVIDENCE,
     FIELD_LAYER_METADATA_DISPLAY,
-    FIELD_LAYER_COMPATIBILITY,
+    FIELD_LAYER_REPLACEMENT_DISPOSITION,
+)
+
+SELF_MAINTENANCE_REQUIRED_CHILD_REPORTS = (
+    "route_graph",
+    "behavior_commitment_ledger",
+    "contract_exhaustion_mesh",
+    "test_mesh_maintenance",
+    "model_miss_review",
 )
 
 SELF_MAINTENANCE_STATUS_PASS = "pass"
@@ -478,18 +486,36 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
         RouteProfile(
             "behavior_commitment_ledger",
             "Project or work-package needs a complete external behavior inventory before broad FlowGuard confidence.",
-            ("source surfaces", "behavior commitments", "owner models", "path sensitivity"),
-            ("coverage decision", "missing behavior gaps", "extra behavior gaps", "PPA handoff ids", "risk gate ids"),
+            ("change mode", "source surfaces", "behavior commitments", "owner models", "path sensitivity"),
+            (
+                "coverage decision",
+                "source freshness gaps",
+                "missing behavior gaps",
+                "extra behavior gaps",
+                "replacement disposition gaps",
+                "PPA handoff ids",
+                "DCAR case ids",
+                "TestMesh shard ids",
+                "risk gate ids",
+            ),
             "behavior_commitment_ledger",
-            ("primary_path_authority", "contract_exhaustion_mesh", "test_mesh_maintenance", "risk_evidence_ledger"),
+            (
+                "primary_path_authority",
+                "contract_exhaustion_mesh",
+                "model_test_alignment",
+                "test_mesh_maintenance",
+                "risk_evidence_ledger",
+            ),
             "behavior_commitment_ledger",
             "behavior_commitment_ledger_template_files",
             "flowguard-behavior-commitment-ledger",
             metadata={
                 "checklist": (
+                    "classify mode as bootstrap, add, change, remove-or-replace, coverage-gap backfill, or model-miss check",
                     "register external behavior promises, not every helper function",
                     "map every source surface to commitments and every commitment back to source evidence",
                     "select exactly one primary owner model per commitment",
+                    "keep source freshness, replacement state, model sync, TestMesh shard state, and model-miss backfeed state current",
                     "route path_sensitive=true commitments through Primary Path Authority",
                 )
             },
@@ -497,8 +523,8 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
         RouteProfile(
             "primary_path_authority",
             "Path-sensitive work needs one primary runtime authority and no automatic alternate success after primary failure.",
-            ("business intent", "primary path", "fallback candidates", "coverage receipts"),
-            ("authority decision", "fallback disposition gaps", "coverage gate ids", "risk gate ids"),
+            ("business intent", "primary path", "old or alternate path candidates", "coverage receipts"),
+            ("authority decision", "old-path disposition gaps", "coverage gate ids", "risk gate ids"),
             "primary_path_authority",
             ("contract_exhaustion_mesh", "test_mesh_maintenance", "risk_evidence_ledger"),
             "primary_path_authority",
@@ -508,7 +534,7 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
                 "checklist": (
                     "enumerate runtime paths, aliases, wrappers, helper routes, old fields, recovery paths, and migrations",
                     "select exactly one primary runtime authority per business intent",
-                    "reject primary_failure -> fallback_success masking",
+                    "reject primary_failure -> alternate_success masking",
                     "require ContractExhaustionMesh axes, TestMesh shards, and RiskLedger gates for broad claims",
                 )
             },
@@ -868,11 +894,11 @@ def default_ai_maintenance_profiles() -> tuple[AIMaintenanceProfile, ...]:
         ),
         AIMaintenanceProfile(
             "primary_path_authority",
-            "Prevent fallback maintenance debt by fixing the primary path instead of adding alternate success paths.",
+            "Prevent alternate-path maintenance debt by fixing the primary path instead of adding alternate success paths.",
             "primary_path_authority",
-            ("business intent", "primary path id", "fallback candidates"),
+            ("business intent", "primary path id", "old or alternate path candidates"),
             ("contract_exhaustion_mesh", "test_mesh_maintenance", "risk_evidence_ledger"),
-            ("no silent fallback", "compatibility disposition", "coverage receipts"),
+            ("no silent alternate success", "old-path disposition", "coverage receipts"),
         ),
         AIMaintenanceProfile(
             "structure",
@@ -934,13 +960,13 @@ def default_field_layer_profiles() -> tuple[FieldLayerProfile, ...]:
             "Display and metadata fields stay accounted but out of high-level behavior models.",
         ),
         FieldLayerProfile(
-            FIELD_LAYER_COMPATIBILITY,
-            ("old fields", "aliases", "fallbacks", "wrappers"),
+            FIELD_LAYER_REPLACEMENT_DISPOSITION,
+            ("old fields", "aliases", "alternate paths", "wrappers"),
             "show_disposition",
             "architecture_reduction",
             ("field_lifecycle_mesh", "development_process_flow"),
             True,
-            "Compatibility-like fields need delete, migrate, block, delegate, repair, preserve, or scope evidence.",
+            "Old or replaced surfaces need delete, migrate, block, delegate, repair, or scope-out evidence.",
         ),
     )
 
@@ -1062,10 +1088,29 @@ def review_flowguard_self_maintenance(plan: SelfMaintenancePlan) -> SelfMaintena
                 SelfMaintenanceFinding(
                     "field_layer_missing",
                     "required field layer is missing",
-                    SELF_MAINTENANCE_FINDING_BLOCKER if required_layer == FIELD_LAYER_COMPATIBILITY else SELF_MAINTENANCE_FINDING_GAP,
+                    SELF_MAINTENANCE_FINDING_BLOCKER
+                    if required_layer == FIELD_LAYER_REPLACEMENT_DISPOSITION
+                    else SELF_MAINTENANCE_FINDING_GAP,
                     owner_route="field_lifecycle_mesh",
                     next_action=f"add field layer {required_layer}",
                     metadata={"layer_id": required_layer},
+                )
+            )
+
+    current_pass_children = {report.artifact_kind for report in plan.child_reports if report.is_current_pass()}
+    if plan.broad_claim:
+        for required_child in SELF_MAINTENANCE_REQUIRED_CHILD_REPORTS:
+            if required_child in current_pass_children:
+                continue
+            findings.append(
+                SelfMaintenanceFinding(
+                    "required_child_report_missing",
+                    "broad self-maintenance needs current pass evidence from this child route",
+                    SELF_MAINTENANCE_FINDING_BLOCKER,
+                    owner_route=required_child,
+                    child_id=required_child,
+                    next_action=f"run or refresh {required_child} evidence before claiming broad self-maintenance",
+                    metadata={"artifact_kind": required_child},
                 )
             )
 
@@ -1105,7 +1150,7 @@ def review_flowguard_self_maintenance(plan: SelfMaintenancePlan) -> SelfMaintena
         decision = SELF_MAINTENANCE_DECISION_FULL
         confidence = SELF_MAINTENANCE_STATUS_PASS
         ok = True
-        summary = "Route graph, field layers, AI profiles, and child reports are current."
+        summary = "Route graph, field layers, AI profiles, behavior ledger, DCAR, TestMesh, model-miss backfeed, and child reports are current."
 
     return SelfMaintenanceReport(
         ok=ok,
@@ -1130,9 +1175,9 @@ __all__ = [
     "ENTRY_POLICY_DIRECT",
     "ENTRY_POLICY_INTERNAL_ONLY",
     "ENTRY_POLICY_VIA_OWNER",
-    "FIELD_LAYER_COMPATIBILITY",
     "FIELD_LAYER_CORE",
     "FIELD_LAYER_METADATA_DISPLAY",
+    "FIELD_LAYER_REPLACEMENT_DISPOSITION",
     "FIELD_LAYER_ROUTE_OWNED",
     "FIELD_LAYER_SHARED_EVIDENCE",
     "FIELD_LAYERS",
@@ -1148,6 +1193,7 @@ __all__ = [
     "SELF_MAINTENANCE_FINDING_BLOCKER",
     "SELF_MAINTENANCE_FINDING_GAP",
     "SELF_MAINTENANCE_FINDING_INFO",
+    "SELF_MAINTENANCE_REQUIRED_CHILD_REPORTS",
     "SELF_MAINTENANCE_ROUTE",
     "SELF_MAINTENANCE_STATUS_BLOCKED",
     "SELF_MAINTENANCE_STATUS_PASS",

@@ -9,6 +9,26 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class ApiSurfaceTests(unittest.TestCase):
+    def self_maintenance_child_reports(self):
+        def child(child_id, owner_guard, artifact_kind):
+            return flowguard.SelfMaintenanceChildReport(
+                child_id,
+                owner_guard,
+                artifact_kind,
+                closure_status=flowguard.SELF_MAINTENANCE_STATUS_PASS,
+                current=True,
+                safe_claim=f"{artifact_kind} evidence is current",
+                unsafe_claim_boundary="does not prove package, shadow, or git sync",
+            )
+
+        return (
+            child("route-graph", "flowguard_self_maintenance", "route_graph"),
+            child("behavior-commitment-ledger", "behavior_commitment_ledger", "behavior_commitment_ledger"),
+            child("contract-exhaustion-mesh", "contract_exhaustion_mesh", "contract_exhaustion_mesh"),
+            child("test-mesh", "test_mesh_maintenance", "test_mesh_maintenance"),
+            child("model-miss-backfeed", "model_miss_review", "model_miss_review"),
+        )
+
     def iter_api_surface_names(self):
         for group in flowguard.API_SURFACE.values():
             if isinstance(group, dict):
@@ -596,17 +616,7 @@ class ApiSurfaceTests(unittest.TestCase):
                 api_route_group_ids=tuple(flowguard.FLOWGUARD_ROUTE_API),
                 ai_profiles=flowguard.default_ai_maintenance_profiles(),
                 field_layers=flowguard.default_field_layer_profiles(),
-                child_reports=(
-                    flowguard.SelfMaintenanceChildReport(
-                        "route-graph",
-                        "flowguard_self_maintenance",
-                        "route_graph",
-                        closure_status=flowguard.SELF_MAINTENANCE_STATUS_PASS,
-                        current=True,
-                        safe_claim="route profiles are discoverable",
-                        unsafe_claim_boundary="does not prove route internals",
-                    ),
-                ),
+                child_reports=self.self_maintenance_child_reports(),
             )
         )
         self.assertTrue(report.ok, report.format_text())
@@ -673,19 +683,9 @@ class ApiSurfaceTests(unittest.TestCase):
             self.assertTrue(hasattr(flowguard, name), name)
 
     def test_default_self_maintenance_plan_folds_common_fields(self):
-        child_report = flowguard.SelfMaintenanceChildReport(
-            "route-graph",
-            "flowguard_self_maintenance",
-            "route_graph",
-            closure_status=flowguard.SELF_MAINTENANCE_STATUS_PASS,
-            current=True,
-            safe_claim="route profiles are discoverable",
-            unsafe_claim_boundary="does not prove route internals",
-        )
-
         plan = flowguard.default_flowguard_self_maintenance_plan(
             "default-self-maintenance-plan",
-            child_reports=(child_report,),
+            child_reports=self.self_maintenance_child_reports(),
         )
 
         self.assertEqual(tuple(flowguard.FLOWGUARD_ROUTE_API), plan.api_route_group_ids)
@@ -699,6 +699,22 @@ class ApiSurfaceTests(unittest.TestCase):
         report = flowguard.review_flowguard_self_maintenance(plan)
         self.assertTrue(report.ok, report.format_text())
         self.assertFalse(report.findings, report.format_text())
+
+    def test_broad_self_maintenance_requires_behavior_child_reports(self):
+        plan = flowguard.default_flowguard_self_maintenance_plan(
+            "missing-behavior-ledger-child-report",
+            child_reports=tuple(
+                report
+                for report in self.self_maintenance_child_reports()
+                if report.artifact_kind != "behavior_commitment_ledger"
+            ),
+        )
+
+        report = flowguard.review_flowguard_self_maintenance(plan)
+
+        self.assertFalse(report.ok, report.format_text())
+        self.assertIn("required_child_report_missing", {finding.code for finding in report.findings})
+        self.assertIn("behavior_commitment_ledger", {finding.child_id for finding in report.findings})
 
     def test_route_completeness_reports_missing_route_group(self):
         profiles = flowguard.default_flowguard_route_profiles()
@@ -732,7 +748,7 @@ class ApiSurfaceTests(unittest.TestCase):
             "expand_when_route_runs",
             by_layer[flowguard.FIELD_LAYER_ROUTE_OWNED].first_read_exposure,
         )
-        self.assertTrue(by_layer[flowguard.FIELD_LAYER_COMPATIBILITY].disposition_required)
+        self.assertTrue(by_layer[flowguard.FIELD_LAYER_REPLACEMENT_DISPOSITION].disposition_required)
         self.assertIn(
             "model_test_alignment",
             by_layer[flowguard.FIELD_LAYER_ROUTE_OWNED].expansion_required_for,

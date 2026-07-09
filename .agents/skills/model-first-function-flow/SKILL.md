@@ -44,8 +44,8 @@ after the route needs deep evidence.
 
 - Verify the real FlowGuard check engine before claiming executable evidence: `python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"`.
 - For real target-project use, ensure the FlowGuard AGENTS.md managed block/version record exists; if installed FlowGuard is newer, run `python -m flowguard project-upgrade --root .` with artifact/model/test upgrade scanning before relying on old models/tests/evidence.
-- FlowGuard is latest-schema-first: upgrade old artifacts at project/tool boundaries; do not preserve long-lived runtime compatibility for obsolete fields, aliases, or wrappers.
-- Default replacement means cleanup: old fields, aliases, wrappers, fallback paths, and compatibility-like surfaces need a disposition unless the user explicitly requests compatibility preservation.
+- FlowGuard is latest-schema-first: upgrade old artifacts at project/tool boundaries; do not keep long-lived old runtime branches for obsolete fields, aliases, or wrappers.
+- Default replacement means cleanup: old fields, aliases, wrappers, and alternate success paths need a disposition. Delete, block, migrate, delegate, repair, replace, or scope them out; do not leave them as second successful routes.
 - Important business paths need identity when route semantics affect confidence: path id, business intent, trigger, expected terminal, state writes, side effects, equivalent/exclusive paths, old-path disposition, and evidence ids.
 - If import fails, connect the real toolchain or report blocked/partial; do not write a temporary mini-framework or fake mini-framework substitute.
 - Represent modeled blocks as `Input x State -> Set(Output x State)`.

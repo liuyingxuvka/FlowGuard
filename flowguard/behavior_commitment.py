@@ -3,7 +3,7 @@
 The ledger is the upstream account book for user-visible or externally
 reliable behavior. It answers "what behavior did we promise and who owns it?"
 Path-sensitive rows then hand off to Primary Path Authority for the stricter
-"one runtime path, no fallback success" rule.
+"one runtime path, no automatic alternate success" rule.
 """
 
 from __future__ import annotations
@@ -117,6 +117,80 @@ BCL_EVIDENCE_STATES = (
     BCL_EVIDENCE_BLOCKED,
 )
 
+BCL_CHANGE_BOOTSTRAP_LEDGER = "bootstrap_ledger"
+BCL_CHANGE_ADD_BEHAVIOR = "add_behavior"
+BCL_CHANGE_CHANGE_BEHAVIOR = "change_behavior"
+BCL_CHANGE_REMOVE_OR_REPLACE_BEHAVIOR = "remove_or_replace_behavior"
+BCL_CHANGE_COVERAGE_GAP_BACKFILL = "coverage_gap_backfill"
+BCL_CHANGE_MODEL_MISS_CHECK = "model_miss_check"
+BCL_CHANGE_MODES = (
+    BCL_CHANGE_BOOTSTRAP_LEDGER,
+    BCL_CHANGE_ADD_BEHAVIOR,
+    BCL_CHANGE_CHANGE_BEHAVIOR,
+    BCL_CHANGE_REMOVE_OR_REPLACE_BEHAVIOR,
+    BCL_CHANGE_COVERAGE_GAP_BACKFILL,
+    BCL_CHANGE_MODEL_MISS_CHECK,
+)
+
+BCL_SOURCE_FRESHNESS_CURRENT = "current"
+BCL_SOURCE_FRESHNESS_CHANGED = "changed_since_ledger"
+BCL_SOURCE_FRESHNESS_MISSING = "missing_source"
+BCL_SOURCE_FRESHNESS_UNCHECKED = "unchecked_source"
+BCL_SOURCE_FRESHNESS_STATES = (
+    BCL_SOURCE_FRESHNESS_CURRENT,
+    BCL_SOURCE_FRESHNESS_CHANGED,
+    BCL_SOURCE_FRESHNESS_MISSING,
+    BCL_SOURCE_FRESHNESS_UNCHECKED,
+)
+
+BCL_REPLACEMENT_ACTIVE = "active"
+BCL_REPLACEMENT_DEPRECATED = "deprecated"
+BCL_REPLACEMENT_REPLACED = "replaced"
+BCL_REPLACEMENT_REMOVED_SCOPED_OUT = "removed_scoped_out"
+BCL_REPLACEMENT_STATES = (
+    BCL_REPLACEMENT_ACTIVE,
+    BCL_REPLACEMENT_DEPRECATED,
+    BCL_REPLACEMENT_REPLACED,
+    BCL_REPLACEMENT_REMOVED_SCOPED_OUT,
+)
+
+BCL_MODEL_SYNC_OWNER_CURRENT = "owner_model_current"
+BCL_MODEL_SYNC_OWNER_MISSING = "owner_model_missing"
+BCL_MODEL_SYNC_OWNER_STALE = "owner_model_stale"
+BCL_MODEL_SYNC_SIBLING_UNCHECKED = "sibling_unchecked"
+BCL_MODEL_SYNC_CHILD_NEEDED = "child_model_needed"
+BCL_MODEL_SYNC_STATES = (
+    BCL_MODEL_SYNC_OWNER_CURRENT,
+    BCL_MODEL_SYNC_OWNER_MISSING,
+    BCL_MODEL_SYNC_OWNER_STALE,
+    BCL_MODEL_SYNC_SIBLING_UNCHECKED,
+    BCL_MODEL_SYNC_CHILD_NEEDED,
+)
+
+BCL_TEST_MESH_SHARD_CURRENT = "shard_current"
+BCL_TEST_MESH_SHARD_MISSING = "shard_missing"
+BCL_TEST_MESH_PROGRESS_ONLY = "progress_only"
+BCL_TEST_MESH_STALE = "stale"
+BCL_TEST_MESH_RELEASE_ONLY = "release_only"
+BCL_TEST_MESH_STATES = (
+    BCL_TEST_MESH_SHARD_CURRENT,
+    BCL_TEST_MESH_SHARD_MISSING,
+    BCL_TEST_MESH_PROGRESS_ONLY,
+    BCL_TEST_MESH_STALE,
+    BCL_TEST_MESH_RELEASE_ONLY,
+)
+
+BCL_MISS_ORIGIN_NONE = "no_miss"
+BCL_MISS_ORIGIN_OBSERVED = "observed_model_miss"
+BCL_MISS_ORIGIN_SAME_CLASS_SEED = "same_class_seed"
+BCL_MISS_ORIGIN_RECURRING_FAMILY = "recurring_family"
+BCL_MISS_ORIGIN_STATES = (
+    BCL_MISS_ORIGIN_NONE,
+    BCL_MISS_ORIGIN_OBSERVED,
+    BCL_MISS_ORIGIN_SAME_CLASS_SEED,
+    BCL_MISS_ORIGIN_RECURRING_FAMILY,
+)
+
 BCL_PPA_NOT_REQUIRED = "not_required"
 BCL_PPA_MISSING = "ppa_missing"
 BCL_PPA_PASSED = "ppa_passed"
@@ -181,6 +255,7 @@ class BehaviorSourceSurface:
     label: str = ""
     source_ref: str = ""
     commitment_ids: tuple[str, ...] = ()
+    freshness_state: str = BCL_SOURCE_FRESHNESS_CURRENT
     in_scope: bool = True
     scoped_out_reason: str = ""
     owner: str = ""
@@ -194,6 +269,7 @@ class BehaviorSourceSurface:
         object.__setattr__(self, "label", str(self.label))
         object.__setattr__(self, "source_ref", str(self.source_ref))
         object.__setattr__(self, "commitment_ids", _as_tuple(self.commitment_ids))
+        object.__setattr__(self, "freshness_state", str(self.freshness_state or BCL_SOURCE_FRESHNESS_CURRENT))
         object.__setattr__(self, "in_scope", bool(self.in_scope))
         object.__setattr__(self, "scoped_out_reason", str(self.scoped_out_reason))
         object.__setattr__(self, "owner", str(self.owner))
@@ -211,6 +287,7 @@ class BehaviorSourceSurface:
             "label": self.label,
             "source_ref": self.source_ref,
             "commitment_ids": list(self.commitment_ids),
+            "freshness_state": self.freshness_state,
             "in_scope": self.in_scope,
             "scoped_out_reason": self.scoped_out_reason,
             "owner": self.owner,
@@ -233,6 +310,7 @@ class BehaviorEvidenceBinding:
     coverage_shard_ids: tuple[str, ...] = ()
     coverage_receipt_ids: tuple[str, ...] = ()
     evidence_state: str = BCL_EVIDENCE_MISSING
+    test_mesh_state: str = BCL_TEST_MESH_SHARD_CURRENT
     current: bool = False
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
@@ -246,6 +324,7 @@ class BehaviorEvidenceBinding:
         object.__setattr__(self, "coverage_shard_ids", _as_tuple(self.coverage_shard_ids))
         object.__setattr__(self, "coverage_receipt_ids", _as_tuple(self.coverage_receipt_ids))
         object.__setattr__(self, "evidence_state", str(self.evidence_state or BCL_EVIDENCE_MISSING))
+        object.__setattr__(self, "test_mesh_state", str(self.test_mesh_state or BCL_TEST_MESH_SHARD_CURRENT))
         object.__setattr__(self, "current", bool(self.current))
         object.__setattr__(self, "metadata", _metadata(self.metadata))
 
@@ -266,6 +345,7 @@ class BehaviorEvidenceBinding:
             "coverage_shard_ids": list(self.coverage_shard_ids),
             "coverage_receipt_ids": list(self.coverage_receipt_ids),
             "evidence_state": self.evidence_state,
+            "test_mesh_state": self.test_mesh_state,
             "current": self.current,
             "metadata": to_jsonable(dict(self.metadata)),
         }
@@ -396,6 +476,9 @@ class BehaviorCommitment:
     child_model_ids: tuple[str, ...] = ()
     dependency_commitment_ids: tuple[str, ...] = ()
     excluded_behavior_ids: tuple[str, ...] = ()
+    replacement_state: str = BCL_REPLACEMENT_ACTIVE
+    model_sync_state: str = BCL_MODEL_SYNC_OWNER_CURRENT
+    miss_origin_state: str = BCL_MISS_ORIGIN_NONE
     path_authority: BehaviorPathAuthorityBinding | Mapping[str, Any] | None = None
     evidence: BehaviorEvidenceBinding | Mapping[str, Any] | None = None
     in_scope: bool = True
@@ -420,6 +503,9 @@ class BehaviorCommitment:
         object.__setattr__(self, "child_model_ids", _as_tuple(self.child_model_ids))
         object.__setattr__(self, "dependency_commitment_ids", _as_tuple(self.dependency_commitment_ids))
         object.__setattr__(self, "excluded_behavior_ids", _as_tuple(self.excluded_behavior_ids))
+        object.__setattr__(self, "replacement_state", str(self.replacement_state or BCL_REPLACEMENT_ACTIVE))
+        object.__setattr__(self, "model_sync_state", str(self.model_sync_state or BCL_MODEL_SYNC_OWNER_CURRENT))
+        object.__setattr__(self, "miss_origin_state", str(self.miss_origin_state or BCL_MISS_ORIGIN_NONE))
         object.__setattr__(self, "path_authority", _coerce_path_binding(self.path_authority))
         object.__setattr__(self, "evidence", _coerce_evidence(self.evidence))
         object.__setattr__(self, "in_scope", bool(self.in_scope))
@@ -451,6 +537,9 @@ class BehaviorCommitment:
             "child_model_ids": list(self.child_model_ids),
             "dependency_commitment_ids": list(self.dependency_commitment_ids),
             "excluded_behavior_ids": list(self.excluded_behavior_ids),
+            "replacement_state": self.replacement_state,
+            "model_sync_state": self.model_sync_state,
+            "miss_origin_state": self.miss_origin_state,
             "path_authority": self.path_authority.to_dict(),
             "evidence": self.evidence.to_dict(),
             "in_scope": self.in_scope,
@@ -473,6 +562,7 @@ class BehaviorCommitmentLedger:
     source_surfaces: tuple[BehaviorSourceSurface | Mapping[str, Any], ...] = ()
     expected_commitment_ids: tuple[str, ...] = ()
     claim_scope: str = BCL_SCOPE_ROUTINE
+    change_mode: str = BCL_CHANGE_BOOTSTRAP_LEDGER
     require_current_evidence: bool = False
     require_risk_gates_for_broad_claim: bool = True
     owner: str = ""
@@ -488,6 +578,7 @@ class BehaviorCommitmentLedger:
         object.__setattr__(self, "source_surfaces", tuple(_coerce_surface(item) for item in self.source_surfaces))
         object.__setattr__(self, "expected_commitment_ids", _as_tuple(self.expected_commitment_ids))
         object.__setattr__(self, "claim_scope", str(self.claim_scope or BCL_SCOPE_ROUTINE))
+        object.__setattr__(self, "change_mode", str(self.change_mode or BCL_CHANGE_BOOTSTRAP_LEDGER))
         object.__setattr__(self, "require_current_evidence", bool(self.require_current_evidence))
         object.__setattr__(self, "require_risk_gates_for_broad_claim", bool(self.require_risk_gates_for_broad_claim))
         object.__setattr__(self, "owner", str(self.owner))
@@ -507,6 +598,7 @@ class BehaviorCommitmentLedger:
             "source_surfaces": [surface.to_dict() for surface in self.source_surfaces],
             "expected_commitment_ids": list(self.expected_commitment_ids),
             "claim_scope": self.claim_scope,
+            "change_mode": self.change_mode,
             "require_current_evidence": self.require_current_evidence,
             "require_risk_gates_for_broad_claim": self.require_risk_gates_for_broad_claim,
             "owner": self.owner,
@@ -674,6 +766,14 @@ def review_behavior_commitment_ledger(
         findings.append(_finding("ledger_missing_rationale", "ledger must explain the behavior boundary rationale"))
     if not ledger.commitments:
         findings.append(_finding("ledger_missing_commitments", "ledger must include at least one behavior commitment"))
+    if ledger.change_mode not in BCL_CHANGE_MODES:
+        findings.append(
+            _finding(
+                "ledger_unknown_change_mode",
+                "ledger change mode must classify bootstrap, add, change, replace/remove, gap backfill, or model-miss check work",
+                metadata={"change_mode": ledger.change_mode},
+            )
+        )
 
     commitment_by_id: dict[str, BehaviorCommitment] = {}
     for commitment in ledger.commitments:
@@ -802,6 +902,24 @@ def _review_surface(
                 metadata={"surface": surface.to_dict()},
             )
         )
+    if surface.freshness_state not in BCL_SOURCE_FRESHNESS_STATES:
+        findings.append(
+            _finding(
+                "source_surface_unknown_freshness_state",
+                "source surface uses an unknown freshness state",
+                surface_id=surface.surface_id,
+                metadata={"surface": surface.to_dict()},
+            )
+        )
+    elif surface.freshness_state != BCL_SOURCE_FRESHNESS_CURRENT:
+        findings.append(
+            _finding(
+                "source_surface_freshness_not_current",
+                "broad behavior coverage requires current source-surface review",
+                surface_id=surface.surface_id,
+                metadata={"surface": surface.to_dict()},
+            )
+        )
     if not surface.commitment_ids:
         unmapped_surface_ids.append(surface.surface_id)
         findings.append(
@@ -856,6 +974,33 @@ def _review_commitment(
             _finding(
                 "commitment_unknown_kind",
                 "commitment uses an unknown kind",
+                commitment_id=commitment.commitment_id,
+                metadata={"commitment": commitment.to_dict()},
+            )
+        )
+    if commitment.replacement_state not in BCL_REPLACEMENT_STATES:
+        findings.append(
+            _finding(
+                "commitment_unknown_replacement_state",
+                "commitment uses an unknown replacement state",
+                commitment_id=commitment.commitment_id,
+                metadata={"commitment": commitment.to_dict()},
+            )
+        )
+    if commitment.model_sync_state not in BCL_MODEL_SYNC_STATES:
+        findings.append(
+            _finding(
+                "commitment_unknown_model_sync_state",
+                "commitment uses an unknown model-sync state",
+                commitment_id=commitment.commitment_id,
+                metadata={"commitment": commitment.to_dict()},
+            )
+        )
+    if commitment.miss_origin_state not in BCL_MISS_ORIGIN_STATES:
+        findings.append(
+            _finding(
+                "commitment_unknown_miss_origin_state",
+                "commitment uses an unknown model-miss origin state",
                 commitment_id=commitment.commitment_id,
                 metadata={"commitment": commitment.to_dict()},
             )
@@ -960,6 +1105,8 @@ def _review_commitment(
                 metadata={"evidence": commitment.evidence.to_dict()},
             )
         )
+    if ledger.broad_claim():
+        _review_change_lifecycle(commitment, findings)
 
     _review_path_binding(commitment, findings, path_sensitive_commitment_ids, ppa_blocked_commitment_ids)
     required_risk_gate_ids.extend(commitment.evidence.risk_gate_ids)
@@ -969,6 +1116,81 @@ def _review_commitment(
     required_risk_gate_ids.extend(commitment.path_authority.ppa_risk_gate_ids)
     coverage_shard_ids.extend(commitment.path_authority.ppa_coverage_shard_ids)
     coverage_receipt_ids.extend(commitment.path_authority.ppa_coverage_receipt_ids)
+
+
+def _review_change_lifecycle(
+    commitment: BehaviorCommitment,
+    findings: list[BehaviorCommitmentFinding],
+) -> None:
+    if commitment.replacement_state == BCL_REPLACEMENT_REMOVED_SCOPED_OUT:
+        findings.append(
+            _finding(
+                "commitment_removed_behavior_still_in_scope",
+                "removed behavior must be scoped out with owner, reason, validation boundary, and rationale",
+                commitment_id=commitment.commitment_id,
+                metadata={"commitment": commitment.to_dict()},
+            )
+        )
+    if commitment.replacement_state == BCL_REPLACEMENT_REPLACED and not (
+        commitment.excluded_behavior_ids or commitment.metadata.get("replacement_commitment_id")
+    ):
+        findings.append(
+            _finding(
+                "commitment_replacement_disposition_missing",
+                "replaced behavior must name the replacement commitment or excluded behavior ids",
+                commitment_id=commitment.commitment_id,
+                metadata={"commitment": commitment.to_dict()},
+            )
+        )
+    if commitment.replacement_state in {
+        BCL_REPLACEMENT_DEPRECATED,
+        BCL_REPLACEMENT_REPLACED,
+    } and not (commitment.owner and commitment.validation_boundary and commitment.rationale):
+        findings.append(
+            _finding(
+                "commitment_lifecycle_disposition_missing",
+                "deprecated or replaced behavior must record owner, validation boundary, and rationale",
+                commitment_id=commitment.commitment_id,
+                metadata={"commitment": commitment.to_dict()},
+            )
+        )
+    if commitment.model_sync_state != BCL_MODEL_SYNC_OWNER_CURRENT:
+        findings.append(
+            _finding(
+                "commitment_model_sync_not_current",
+                "broad behavior coverage requires current owner-model and sibling/child-model review",
+                commitment_id=commitment.commitment_id,
+                metadata={"commitment": commitment.to_dict()},
+            )
+        )
+    if commitment.evidence.test_mesh_state not in BCL_TEST_MESH_STATES:
+        findings.append(
+            _finding(
+                "commitment_unknown_test_mesh_state",
+                "commitment evidence uses an unknown TestMesh state",
+                commitment_id=commitment.commitment_id,
+                metadata={"evidence": commitment.evidence.to_dict()},
+            )
+        )
+    elif commitment.evidence.test_mesh_state != BCL_TEST_MESH_SHARD_CURRENT:
+        findings.append(
+            _finding(
+                "commitment_test_mesh_not_current",
+                "broad behavior coverage requires current TestMesh shard evidence",
+                commitment_id=commitment.commitment_id,
+                metadata={"evidence": commitment.evidence.to_dict()},
+            )
+        )
+    if commitment.miss_origin_state != BCL_MISS_ORIGIN_NONE:
+        if commitment.model_sync_state != BCL_MODEL_SYNC_OWNER_CURRENT or not commitment.evidence.coverage_case_ids:
+            findings.append(
+                _finding(
+                    "commitment_model_miss_backfeed_incomplete",
+                    "model-miss backfeed must map to the existing commitment, current owner model, and same-class/DCAR coverage",
+                    commitment_id=commitment.commitment_id,
+                    metadata={"commitment": commitment.to_dict(), "evidence": commitment.evidence.to_dict()},
+                )
+            )
 
 
 def _review_path_binding(
@@ -1061,6 +1283,17 @@ def default_behavior_commitment_axes(
             values=(BCL_SCOPE_ROUTINE, BCL_SCOPE_DONE, BCL_SCOPE_RELEASE, BCL_SCOPE_PUBLISH, BCL_SCOPE_ARCHIVE, BCL_SCOPE_FULL),
             source_route=BEHAVIOR_COMMITMENT_ROUTE_ID,
         ),
+        ContractAxis("change_mode", model_id=model_id, values=BCL_CHANGE_MODES, source_route=BEHAVIOR_COMMITMENT_ROUTE_ID),
+        ContractAxis(
+            "source_freshness_state",
+            model_id=model_id,
+            values=BCL_SOURCE_FRESHNESS_STATES,
+            source_route=BEHAVIOR_COMMITMENT_ROUTE_ID,
+        ),
+        ContractAxis("replacement_state", model_id=model_id, values=BCL_REPLACEMENT_STATES, source_route=BEHAVIOR_COMMITMENT_ROUTE_ID),
+        ContractAxis("model_sync_state", model_id=model_id, values=BCL_MODEL_SYNC_STATES, source_route=BEHAVIOR_COMMITMENT_ROUTE_ID),
+        ContractAxis("test_mesh_state", model_id=model_id, values=BCL_TEST_MESH_STATES, source_route="test_mesh_maintenance"),
+        ContractAxis("miss_origin_state", model_id=model_id, values=BCL_MISS_ORIGIN_STATES, source_route="model_miss_review"),
     )
 
 
@@ -1102,6 +1335,30 @@ def default_behavior_commitment_interaction_groups(
             model_id=model_id,
             axis_ids=("path_sensitivity", "ppa_result", "release_gate_state"),
             required_routes=routes + (PRIMARY_PATH_ROUTE_ID,),
+            max_combinations=max_combinations,
+            oracle_id=BEHAVIOR_COMMITMENT_ORACLE_ID,
+        ),
+        ContractInteractionGroup(
+            "change_mode_source_freshness",
+            model_id=model_id,
+            axis_ids=("change_mode", "source_kind", "source_freshness_state"),
+            required_routes=routes,
+            max_combinations=max_combinations,
+            oracle_id=BEHAVIOR_COMMITMENT_ORACLE_ID,
+        ),
+        ContractInteractionGroup(
+            "replacement_model_sync",
+            model_id=model_id,
+            axis_ids=("change_mode", "replacement_state", "model_sync_state"),
+            required_routes=routes + ("existing_model_preflight",),
+            max_combinations=max_combinations,
+            oracle_id=BEHAVIOR_COMMITMENT_ORACLE_ID,
+        ),
+        ContractInteractionGroup(
+            "model_miss_backfeed",
+            model_id=model_id,
+            axis_ids=("miss_origin_state", "model_sync_state", "test_mesh_state"),
+            required_routes=routes + ("model_miss_review", "contract_exhaustion_mesh"),
             max_combinations=max_combinations,
             oracle_id=BEHAVIOR_COMMITMENT_ORACLE_ID,
         ),
@@ -1169,7 +1426,7 @@ def behavior_commitment_contract_exhaustion_plan(
                     "owner_model_id",
                     "evidence_id",
                 ),
-                disallowed_side_effects=("fallback_success_path", "unregistered_behavior_claim"),
+                disallowed_side_effects=("alternate_success_path", "unregistered_behavior_claim"),
                 description="Missing, extra, overlapping, stale, or PPA-blocked behavior commitments must block broad claims.",
             ),
         ),
@@ -1199,6 +1456,13 @@ def behavior_commitment_risk_gate_ids(report: BehaviorCommitmentCoverageReport) 
 
 __all__ = [
     "BCL_BROAD_CLAIM_SCOPES",
+    "BCL_CHANGE_ADD_BEHAVIOR",
+    "BCL_CHANGE_BOOTSTRAP_LEDGER",
+    "BCL_CHANGE_CHANGE_BEHAVIOR",
+    "BCL_CHANGE_COVERAGE_GAP_BACKFILL",
+    "BCL_CHANGE_MODEL_MISS_CHECK",
+    "BCL_CHANGE_MODES",
+    "BCL_CHANGE_REMOVE_OR_REPLACE_BEHAVIOR",
     "BCL_COMMITMENT_CLI",
     "BCL_COMMITMENT_DOC",
     "BCL_COMMITMENT_KINDS",
@@ -1221,11 +1485,27 @@ __all__ = [
     "BCL_EVIDENCE_SKIPPED",
     "BCL_EVIDENCE_STALE",
     "BCL_EVIDENCE_STATES",
+    "BCL_MISS_ORIGIN_NONE",
+    "BCL_MISS_ORIGIN_OBSERVED",
+    "BCL_MISS_ORIGIN_RECURRING_FAMILY",
+    "BCL_MISS_ORIGIN_SAME_CLASS_SEED",
+    "BCL_MISS_ORIGIN_STATES",
+    "BCL_MODEL_SYNC_CHILD_NEEDED",
+    "BCL_MODEL_SYNC_OWNER_CURRENT",
+    "BCL_MODEL_SYNC_OWNER_MISSING",
+    "BCL_MODEL_SYNC_OWNER_STALE",
+    "BCL_MODEL_SYNC_SIBLING_UNCHECKED",
+    "BCL_MODEL_SYNC_STATES",
     "BCL_PPA_BLOCKED",
     "BCL_PPA_MISSING",
     "BCL_PPA_NOT_REQUIRED",
     "BCL_PPA_PASSED",
     "BCL_PPA_RESULTS",
+    "BCL_REPLACEMENT_ACTIVE",
+    "BCL_REPLACEMENT_DEPRECATED",
+    "BCL_REPLACEMENT_REMOVED_SCOPED_OUT",
+    "BCL_REPLACEMENT_REPLACED",
+    "BCL_REPLACEMENT_STATES",
     "BCL_RISK_GATE_CARTESIAN_COVERAGE",
     "BCL_RISK_GATE_COVERAGE",
     "BCL_SCOPE_ARCHIVE",
@@ -1241,6 +1521,11 @@ __all__ = [
     "BCL_SOURCE_CLI",
     "BCL_SOURCE_CODE",
     "BCL_SOURCE_DOC",
+    "BCL_SOURCE_FRESHNESS_CHANGED",
+    "BCL_SOURCE_FRESHNESS_CURRENT",
+    "BCL_SOURCE_FRESHNESS_MISSING",
+    "BCL_SOURCE_FRESHNESS_STATES",
+    "BCL_SOURCE_FRESHNESS_UNCHECKED",
     "BCL_SOURCE_KINDS",
     "BCL_SOURCE_OPENSPEC",
     "BCL_SOURCE_PROCESS",
@@ -1248,6 +1533,12 @@ __all__ = [
     "BCL_SOURCE_SKILL",
     "BCL_SOURCE_TEST",
     "BCL_SOURCE_UI",
+    "BCL_TEST_MESH_PROGRESS_ONLY",
+    "BCL_TEST_MESH_RELEASE_ONLY",
+    "BCL_TEST_MESH_SHARD_CURRENT",
+    "BCL_TEST_MESH_SHARD_MISSING",
+    "BCL_TEST_MESH_STALE",
+    "BCL_TEST_MESH_STATES",
     "BEHAVIOR_COMMITMENT_ORACLE_ID",
     "BEHAVIOR_COMMITMENT_ROUTE_ID",
     "BehaviorCommitment",

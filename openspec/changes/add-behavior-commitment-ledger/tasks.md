@@ -2,7 +2,7 @@
 
 - [x] 1.1 Create proposal, design, spec deltas, verification contract, and task list for Behavior Commitment Ledger.
 - [x] 1.2 Validate the OpenSpec change shape before implementation.
-- [x] 1.3 Confirm the ledger is upstream of Primary Path Authority and does not duplicate PPA fallback logic.
+- [x] 1.3 Confirm the ledger is upstream of Primary Path Authority and does not duplicate PPA alternate-path logic.
 
 ## 2. Core Ledger API
 
@@ -41,3 +41,12 @@
 - [x] 6.4 Sync installed local package and installed FlowGuard skills.
 - [x] 6.5 Sync shadow workspace without reverting parallel agent work.
 - [x] 6.6 Run KB postflight and record any reusable lesson.
+
+## 7. Change-Mode, DCAR, Model-Miss, And Self-Maintenance Hardening
+
+- [x] 7.1 Add behavior-ledger change modes, source freshness, replacement disposition, model-sync, TestMesh state, and model-miss origin fields/checks.
+- [x] 7.2 Extend Behavior Commitment Ledger ContractExhaustion/DCAR axes and interaction groups for change mode, freshness, replacement/model sync, TestMesh, and model-miss backfeed.
+- [x] 7.3 Update FlowGuard skills, docs, AGENTS guidance, and templates so AI agents run bootstrap/add/change/remove/backfill/model-miss paths without preserving old or alternate success surfaces.
+- [x] 7.4 Add focused negative tests for stale sources, replaced behavior without disposition, stale owner model, missing TestMesh shards, model-miss backfeed gaps, duplicate model-miss commitments, and new DCAR groups.
+- [x] 7.5 Add or refresh FlowGuard self-maintenance evidence so BCL, DCAR, TestMesh, and model-miss backfeed are child gates before broad self-maintenance confidence.
+- [x] 7.6 Rerun affected FlowGuard/OpenSpec/test validation after the hardening work.

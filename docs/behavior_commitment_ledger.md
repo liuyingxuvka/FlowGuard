@@ -22,6 +22,22 @@ A commitment is not every helper function, private class, implementation file,
 internal field, or model. A model proves a commitment; it is not automatically
 the whole feature inventory.
 
+## Change Modes
+
+Before editing or claiming behavior coverage, classify the ledger work:
+
+- `bootstrap_ledger`: no baseline ledger exists, so the AI investigates README,
+  docs, API/CLI, skills, templates, spec-tool records, issues, changelog, and
+  historical traces.
+- `add_behavior`: a new external behavior is added.
+- `change_behavior`: an existing behavior changes.
+- `remove_or_replace_behavior`: old behavior is removed, deprecated, or
+  replaced; no old or alternate surface is left as a second success path.
+- `coverage_gap_backfill`: a historical external behavior was visible but not
+  registered.
+- `model_miss_check`: a runtime/test/replay/manual failure after a green claim
+  triggers a check for missing or stale behavior registration.
+
 ## What The Ledger Checks
 
 The ledger checks both directions:
@@ -33,7 +49,13 @@ It also checks:
 
 - missing expected commitments;
 - extra invented commitments with no source;
+- changed, missing, or unchecked source surfaces;
 - one primary owner model per commitment;
+- stale owner-model/sibling/child-model review;
+- replaced or deprecated behavior without disposition;
+- TestMesh shards that are stale, missing, progress-only, or release-only;
+- model-miss backfeed that does not map to an existing commitment, owner model,
+  and same-class/DCAR coverage;
 - supporting or child models that accidentally overlap the primary owner;
 - unknown dependency ids;
 - scoped-out behavior without owner, reason, validation boundary, and rationale;
@@ -53,7 +75,7 @@ Behavior Commitment Ledger
 -> TestMesh shards + Risk Evidence Ledger gates
 ```
 
-The ledger should not recreate fallback detection. If a behavior is
+The ledger should not recreate alternate-path detection. If a behavior is
 path-sensitive, attach PPA evidence with
 `behavior_path_binding_from_primary_path_report()`. If PPA blocks, the ledger
 blocks that commitment and any broad claim depending on it.
@@ -92,3 +114,11 @@ current ledger evidence plus downstream evidence:
 If the ledger says behavior is missing, extra, overlapping, stale, or
 PPA-blocked, repair the root commitment, owner model, evidence, or primary
 path. Do not add a second runtime path as a workaround.
+
+## Model Miss Backfeed
+
+A model miss does not automatically mean a new feature exists. First map the
+observed failure to an existing commitment and owner model. If the commitment
+exists, repair the model, code contract, tests, evidence, and DCAR/same-class
+coverage under that commitment. Create or backfill a commitment only when the
+observed external behavior was never registered.

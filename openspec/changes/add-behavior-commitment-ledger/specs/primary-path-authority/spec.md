@@ -7,7 +7,7 @@ and risk gate ids.
 
 #### Scenario: Ledger creates PPA binding
 - **WHEN** a behavior commitment is marked path-sensitive
-- **THEN** the ledger SHALL require a PPA binding instead of treating fallback-path review as a separate ledger-only concern
+- **THEN** the ledger SHALL require a PPA binding instead of treating alternate-path review as a separate ledger-only concern
 
 #### Scenario: PPA report maps back to commitment
 - **WHEN** a PPA report is attached to a behavior commitment

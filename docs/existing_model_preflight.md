@@ -27,7 +27,14 @@ read-only explanations, or greenfield work with no existing model context.
 
 For non-trivial bug fixes, run at least light preflight before Model-Miss
 Review. The point is to identify which existing model owns the failing behavior
-before adding a new model, test boundary, or compatibility path.
+before adding a new model, test boundary, or alternate path.
+
+For behavior-ledger work, preflight is the owner lookup step. For added,
+changed, removed, replaced, or model-miss-triggered behavior, record the
+affected commitment ids, primary owner model, likely sibling models, and whether
+the existing owner should be extended, split into a child model, or blocked for
+manual review. Do not create a second owner model simply because the old one
+missed a branch.
 
 ## Light And Full Modes
 

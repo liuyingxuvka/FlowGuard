@@ -38,6 +38,10 @@ class SelfMaintenanceState:
     ai_profiles_declared: bool = False
     field_layers_declared: bool = False
     child_reports_current: bool = False
+    behavior_ledger_current: bool = False
+    dcar_coverage_current: bool = False
+    test_mesh_shards_current: bool = False
+    model_miss_backfeed_current: bool = False
     route_api_tested: bool = False
     focused_validation_passed: bool = False
     install_sync_verified: bool = False
@@ -51,6 +55,10 @@ class SelfMaintenanceState:
             and self.ai_profiles_declared
             and self.field_layers_declared
             and self.child_reports_current
+            and self.behavior_ledger_current
+            and self.dcar_coverage_current
+            and self.test_mesh_shards_current
+            and self.model_miss_backfeed_current
             and self.route_api_tested
             and self.focused_validation_passed
             and self.install_sync_verified
@@ -66,6 +74,10 @@ class CorrectSelfMaintenance:
         "ai_profiles_declared",
         "field_layers_declared",
         "child_reports_current",
+        "behavior_ledger_current",
+        "dcar_coverage_current",
+        "test_mesh_shards_current",
+        "model_miss_backfeed_current",
         "route_api_tested",
         "focused_validation_passed",
         "install_sync_verified",
@@ -77,7 +89,10 @@ class CorrectSelfMaintenance:
     accepted_input_type = SelfMaintenanceAction
     input_description = "self-maintenance lifecycle action"
     output_description = "self-maintenance state or claim decision"
-    idempotency = "Done claims require route graph, profiles, child reports, validation, install, shadow, and git gates."
+    idempotency = (
+        "Done claims require route graph, profiles, behavior ledger, DCAR, TestMesh, "
+        "model-miss backfeed, validation, install, shadow, and git gates."
+    )
 
     def apply(self, input_obj: SelfMaintenanceAction, state: SelfMaintenanceState) -> Iterable[FunctionResult]:
         action = input_obj.action_type
@@ -94,6 +109,10 @@ class CorrectSelfMaintenance:
                     state,
                     field_layers_declared=True,
                     child_reports_current=True,
+                    behavior_ledger_current=True,
+                    dcar_coverage_current=True,
+                    test_mesh_shards_current=True,
+                    model_miss_backfeed_current=True,
                     route_api_tested=True,
                 ),
                 label="field_layers_declared",
@@ -165,6 +184,78 @@ class BrokenMissingSync(CorrectSelfMaintenance):
         yield from super().apply(input_obj, state)
 
 
+class BrokenMissingCoverageGate(CorrectSelfMaintenance):
+    name = "BrokenMissingCoverageGate"
+    omitted_gate = ""
+    idempotency = "Broken variant accepts completion while one self-coverage gate is still missing."
+
+    def apply(self, input_obj: SelfMaintenanceAction, state: SelfMaintenanceState) -> Iterable[FunctionResult]:
+        if input_obj.action_type == "declare_field_layers":
+            updates = {
+                "field_layers_declared": True,
+                "child_reports_current": True,
+                "behavior_ledger_current": True,
+                "dcar_coverage_current": True,
+                "test_mesh_shards_current": True,
+                "model_miss_backfeed_current": True,
+                "route_api_tested": True,
+            }
+            if self.omitted_gate:
+                updates[self.omitted_gate] = False
+            yield FunctionResult(
+                SelfMaintenanceOutput("field_layers_declared"),
+                replace(state, **updates),
+                label="field_layers_declared",
+            )
+            return
+        if input_obj.action_type == "claim_done":
+            checks = {
+                "route_graph_connected": state.route_graph_connected,
+                "ai_profiles_declared": state.ai_profiles_declared,
+                "field_layers_declared": state.field_layers_declared,
+                "child_reports_current": state.child_reports_current,
+                "behavior_ledger_current": state.behavior_ledger_current,
+                "dcar_coverage_current": state.dcar_coverage_current,
+                "test_mesh_shards_current": state.test_mesh_shards_current,
+                "model_miss_backfeed_current": state.model_miss_backfeed_current,
+                "route_api_tested": state.route_api_tested,
+                "focused_validation_passed": state.focused_validation_passed,
+                "install_sync_verified": state.install_sync_verified,
+                "shadow_sync_checked": state.shadow_sync_checked,
+                "git_status_checked": state.git_status_checked,
+            }
+            if self.omitted_gate:
+                checks[self.omitted_gate] = True
+            claim = "accepted" if all(checks.values()) else "rejected"
+            yield FunctionResult(
+                SelfMaintenanceOutput(f"done_{claim}"),
+                replace(state, done_claim=claim),
+                label=f"done_{claim}",
+            )
+            return
+        yield from super().apply(input_obj, state)
+
+
+class BrokenMissingBehaviorLedger(BrokenMissingCoverageGate):
+    name = "BrokenMissingBehaviorLedger"
+    omitted_gate = "behavior_ledger_current"
+
+
+class BrokenMissingDcarCoverage(BrokenMissingCoverageGate):
+    name = "BrokenMissingDcarCoverage"
+    omitted_gate = "dcar_coverage_current"
+
+
+class BrokenMissingTestMeshShards(BrokenMissingCoverageGate):
+    name = "BrokenMissingTestMeshShards"
+    omitted_gate = "test_mesh_shards_current"
+
+
+class BrokenMissingModelMissBackfeed(BrokenMissingCoverageGate):
+    name = "BrokenMissingModelMissBackfeed"
+    omitted_gate = "model_miss_backfeed_current"
+
+
 def terminal_predicate(current_output, state, trace) -> bool:
     del state, trace
     return isinstance(current_output, SelfMaintenanceOutput) and current_output.status.startswith("done_")
@@ -174,7 +265,7 @@ def no_done_without_full_route_and_sync(state: SelfMaintenanceState, trace) -> I
     del trace
     if state.done_claim == "accepted" and not state.ready_for_done():
         return InvariantResult.fail(
-            "self-maintenance done accepted before route graph, profiles, field layers, child reports, tests, install, shadow, and git gates"
+            "self-maintenance done accepted before route graph, profiles, field layers, child reports, behavior ledger, DCAR, TestMesh, model-miss backfeed, tests, install, shadow, and git gates"
         )
     return InvariantResult.pass_()
 
@@ -189,7 +280,7 @@ def route_graph_does_not_replace_field_layers(state: SelfMaintenanceState, trace
 INVARIANTS = (
     Invariant(
         "no_done_without_full_route_and_sync",
-        "Self-maintenance done claims require route graph, AI profiles, field layers, child reports, validation, install, shadow, and git gates.",
+        "Self-maintenance done claims require route graph, AI profiles, field layers, child reports, behavior ledger, DCAR, TestMesh, model-miss backfeed, validation, install, shadow, and git gates.",
         no_done_without_full_route_and_sync,
     ),
     Invariant(
@@ -226,6 +317,22 @@ def build_broken_missing_sync_workflow() -> Workflow:
     return Workflow((BrokenMissingSync(),), name="self_maintenance_broken_missing_sync")
 
 
+def build_broken_missing_behavior_ledger_workflow() -> Workflow:
+    return Workflow((BrokenMissingBehaviorLedger(),), name="self_maintenance_broken_missing_behavior_ledger")
+
+
+def build_broken_missing_dcar_coverage_workflow() -> Workflow:
+    return Workflow((BrokenMissingDcarCoverage(),), name="self_maintenance_broken_missing_dcar_coverage")
+
+
+def build_broken_missing_test_mesh_shards_workflow() -> Workflow:
+    return Workflow((BrokenMissingTestMeshShards(),), name="self_maintenance_broken_missing_test_mesh_shards")
+
+
+def build_broken_missing_model_miss_backfeed_workflow() -> Workflow:
+    return Workflow((BrokenMissingModelMissBackfeed(),), name="self_maintenance_broken_missing_model_miss_backfeed")
+
+
 __all__ = [
     "EXTERNAL_INPUTS",
     "INVARIANTS",
@@ -233,7 +340,11 @@ __all__ = [
     "SelfMaintenanceAction",
     "SelfMaintenanceOutput",
     "SelfMaintenanceState",
+    "build_broken_missing_behavior_ledger_workflow",
+    "build_broken_missing_dcar_coverage_workflow",
+    "build_broken_missing_model_miss_backfeed_workflow",
     "build_broken_missing_sync_workflow",
+    "build_broken_missing_test_mesh_shards_workflow",
     "build_broken_route_graph_only_workflow",
     "build_correct_workflow",
     "initial_state",

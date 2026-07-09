@@ -12,3 +12,8 @@ changes in an existing modeled system.
 #### Scenario: Duplicate boundary is suspected
 - **WHEN** a request appears to create behavior overlapping a sibling commitment
 - **THEN** existing-model preflight SHALL route to Behavior Commitment Ledger review before implementation
+
+#### Scenario: Model miss maps to existing owner first
+- **WHEN** a model miss is observed for a previously green modeled behavior
+- **THEN** existing-model preflight SHALL identify the existing commitment id and owner model when one exists
+- **AND** it SHALL route to coverage-gap backfill only when no registered commitment covers the observed external behavior

@@ -7,10 +7,10 @@ still miss a broader problem: no single artifact says which external behaviors
 the project promises to cover, which model owns each promise, and whether the
 set is complete.
 
-The user goal is not to add another compatibility layer. The goal is to make
-AI agents register the full behavior inventory first, then force each behavior
+The user goal is not to add another old-path layer. The goal is to make AI
+agents register the full behavior inventory first, then force each behavior
 through one owner and one path when path-sensitive. This reduces hidden
-fallbacks, duplicate helpers, and unowned “small patches”.
+alternate success paths, duplicate helpers, and unowned “small patches”.
 
 ## Goals / Non-Goals
 
@@ -48,7 +48,7 @@ fallbacks, duplicate helpers, and unowned “small patches”.
 The ledger owns the semantic question: “What behavior are we promising, and
 which model owns it?” PPA owns the runtime path question: “For this
 path-sensitive behavior, is there exactly one primary authority and no
-fallback success?”
+alternate success?”
 
 Alternative considered: put behavior registration inside PPA. That would make
 non-path-sensitive behavior invisible and overload PPA with product-inventory
@@ -83,11 +83,11 @@ broad confidence instead of allowing two models to overlap.
 
 Alternative considered: allow several primary owners with shared
 responsibility. That is exactly the ambiguity that tends to create hidden
-fallback paths and maintenance debt.
+alternate success paths and maintenance debt.
 
 ### 5. Scoped-out behavior must still be accountable
 
-Old, removed, deferred, compatibility, migration-only, and out-of-scope
+Old, removed, deferred, migration-only, and out-of-scope
 behavior must record owner, reason, validation boundary, and rationale. This
 prevents “not in this change” from becoming untracked behavior.
 

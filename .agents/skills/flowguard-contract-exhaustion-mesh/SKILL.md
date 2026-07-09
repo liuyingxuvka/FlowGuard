@@ -9,10 +9,9 @@ Standalone FlowGuard satellite skill for canonical coverage from a declared fini
 
 ## First Read
 
-- Route: `contract_exhaustion_mesh`
-- Starter: `ROUTE_STARTER_API["contract_exhaustion_mesh"]`
+- Route: `contract_exhaustion_mesh`.
+- Starter: `ROUTE_STARTER_API["contract_exhaustion_mesh"]`.
 - Core helpers: `ContractDimension`, `ContractMutationCase`, `ContractCoverageUniverse`, `ContractExhaustionPlan`, `review_contract_exhaustion()`.
-- Projection helpers: feeders, fault profiles, feed, and downstream projections.
 - Reference: `references/contract_exhaustion_mesh_protocol.md`.
 
 ## Hard Gates
@@ -22,15 +21,13 @@ Standalone FlowGuard satellite skill for canonical coverage from a declared fini
 - Cartesian coverage is model-scoped: model id, finite axes, interaction groups.
 - Broad/full claims need `ContractCoverageUniverse`; missing items are gaps.
 - Required cases need `ContractOracle`; reject/block/repair cases need feedback fields.
-- Hand-written same-class examples are seed evidence, not canonical coverage.
+- Hand-written same-class examples are seeds, not canonical coverage.
 - Real misses map to generated, same-class, and receipt evidence or stay gaps.
-- `ContractFaultProfile` rows are synthetic rehearsal, not live completion.
 - Matrix ready is not whole-chain ready; broad claims need handoff.
 - ModelMesh consumes child receipts; TestMesh owns shards; MTA owns generated obligations.
-- Unbounded dimensions split, bound, or scope.
-- New/deepened routes need template harvest closure before broad claims.
-- PPA no-fallback claims need intent, result, candidate surface/trigger/behavior, disposition, and evidence axes; A-failed/B-succeeded examples are seeds.
-- Behavior Commitment Ledger broad claims add source, owner, evidence, dependency, path, PPA, and release axes.
+- New/deepened routes need template harvest closure.
+- PPA single-path claims need intent, result, candidate surface/trigger/behavior, disposition, evidence axes; A-failed/B-succeeded examples are seeds.
+- BCL broad claims add source, owner, evidence, dependency, path, PPA, release, change-mode, source-freshness, replacement, model-sync, TestMesh, and model-miss axes.
 
 ## Minimum Workflow
 
@@ -39,14 +36,13 @@ Standalone FlowGuard satellite skill for canonical coverage from a declared fini
 3. For broad/full claims, declare `ContractCoverageUniverse` and exclusions.
 4. Run `review_contract_exhaustion()` and fix universe/model/oracle/feedback/receipt/shard gaps.
 5. Project cases to MTA, TestMesh, ModelMesh, and Risk Ledger.
-6. Remove old fallback or hand-written same-class generators that duplicate it.
-7. For Behavior Commitment Ledger, generate commitment coverage first; path-sensitive rows consume PPA coverage.
-8. For PPA, prove primary failure cannot auto-return alternate success, then project ids to TestMesh and Risk Ledger.
+6. Remove old hand-written generators that duplicate canonical coverage.
+7. For BCL, generate commitment coverage first, then let path-sensitive rows consume PPA coverage.
+8. For PPA, prove primary failure cannot auto-return alternate success, then project ids.
 
 ## Snapshot
 
-Show universe -> case id -> oracle/fault profile -> observed-backfeed -> downstream route.
-Status: boundary, cases, gaps, next.
+Show universe -> case id -> oracle/fault profile -> observed-backfeed -> downstream route. Status: boundary, cases, gaps, next.
 
 ## Non-Goals
 

@@ -3,8 +3,13 @@ import unittest
 from flowguard import (
     BCL_COMMITMENT_WORKFLOW,
     BCL_EVIDENCE_CURRENT_PASS,
+    BCL_MISS_ORIGIN_OBSERVED,
+    BCL_MODEL_SYNC_OWNER_STALE,
+    BCL_REPLACEMENT_REPLACED,
     BCL_SCOPE_FULL,
     BCL_SOURCE_DOC,
+    BCL_SOURCE_FRESHNESS_CHANGED,
+    BCL_TEST_MESH_SHARD_MISSING,
     BehaviorCommitment,
     BehaviorCommitmentLedger,
     BehaviorEvidenceBinding,
@@ -151,6 +156,71 @@ class BehaviorCommitmentLedgerTests(unittest.TestCase):
 
         self.assertFalse(report.ok)
         self.assertIn("scoped_out_behavior_missing_disposition", codes(report))
+
+    def test_changed_source_surface_blocks_broad_claim_until_ledger_is_refreshed(self):
+        report = review_behavior_commitment_ledger(
+            ledger(surfaces=(surface(freshness_state=BCL_SOURCE_FRESHNESS_CHANGED),))
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("source_surface_freshness_not_current", codes(report))
+
+    def test_replaced_behavior_requires_replacement_disposition(self):
+        report = review_behavior_commitment_ledger(
+            ledger(commitments=(commitment(replacement_state=BCL_REPLACEMENT_REPLACED),))
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("commitment_replacement_disposition_missing", codes(report))
+        self.assertIn("commitment_lifecycle_disposition_missing", codes(report))
+
+    def test_stale_owner_model_blocks_broad_claim(self):
+        report = review_behavior_commitment_ledger(
+            ledger(commitments=(commitment(model_sync_state=BCL_MODEL_SYNC_OWNER_STALE),))
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("commitment_model_sync_not_current", codes(report))
+
+    def test_missing_test_mesh_shard_blocks_broad_claim(self):
+        report = review_behavior_commitment_ledger(
+            ledger(commitments=(commitment(evidence=evidence(test_mesh_state=BCL_TEST_MESH_SHARD_MISSING)),))
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("commitment_test_mesh_not_current", codes(report))
+
+    def test_model_miss_backfeed_requires_existing_commitment_model_and_dcar_case(self):
+        report = review_behavior_commitment_ledger(
+            ledger(
+                commitments=(
+                    commitment(
+                        miss_origin_state=BCL_MISS_ORIGIN_OBSERVED,
+                        model_sync_state=BCL_MODEL_SYNC_OWNER_STALE,
+                        evidence=evidence(coverage_case_ids=()),
+                    ),
+                )
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("commitment_model_miss_backfeed_incomplete", codes(report))
+
+    def test_model_miss_on_existing_commitment_must_not_create_duplicate_commitment(self):
+        report = review_behavior_commitment_ledger(
+            ledger(
+                commitments=(
+                    commitment(miss_origin_state=BCL_MISS_ORIGIN_OBSERVED),
+                    commitment(
+                        label="duplicate point-fix commitment",
+                        miss_origin_state=BCL_MISS_ORIGIN_OBSERVED,
+                    ),
+                )
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("duplicate_commitment_id", codes(report))
 
 
 if __name__ == "__main__":

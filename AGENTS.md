@@ -45,14 +45,12 @@ Before non-trivial work:
 
 FlowGuard runtime guidance is latest-schema-first: old artifacts may be
 detected and upgraded at project/tool boundaries, but normal route logic should
-not preserve long-lived compatibility branches for obsolete fields, aliases, or
-wrappers.
+not keep long-lived old branches for obsolete fields, aliases, or wrappers.
 
 Default replacement means dispose the old path, old field, alias, wrapper, or
-fallback unless compatibility or preservation is explicitly requested. If
-compatibility is explicit, record the preserved surface, compatibility intent,
-and current evidence; otherwise delete, block, migrate, delegate, repair, or
-scope it out with a concrete reason.
+alternate success path. Delete, block, migrate, delegate, repair, replace, or
+scope it out with a concrete reason; do not leave it as a second successful
+route.
 
 Broad behavior work should use or update BehaviorCommitmentLedger before
 claiming full coverage: register external behavior promises, map source
@@ -60,6 +58,14 @@ surfaces to commitments, assign exactly one primary owner model per
 commitment, record dependencies/evidence, and hand `path_sensitive=true`
 commitments to Primary Path Authority. Do not treat every helper function,
 file, field, or model as a behavior commitment.
+Before changing or claiming behavior coverage, classify the behavior-ledger
+mode: `bootstrap_ledger`, `add_behavior`, `change_behavior`,
+`remove_or_replace_behavior`, `coverage_gap_backfill`, or `model_miss_check`.
+Only bootstrap and gap backfill require broad historical source discovery.
+Ordinary add/change/remove work updates affected commitments, owner models,
+DCAR cases, and TestMesh evidence. Model-miss checks first map the failure to
+an existing commitment and owner model; create/backfill a commitment only when
+the observed external behavior was not registered.
 
 Field-bearing work should use or update FieldLifecycleMesh: high-level behavior
 models include behavior-bearing fields, while child/leaf field rows account all
@@ -71,7 +77,7 @@ or artifact-payload evidence gates before broad done/release confidence.
 
 Path-sensitive behavior commitments need Primary Path Authority evidence before
 broad confidence: one primary runtime authority per business intent, visible
-primary failure, no automatic fallback success, ContractExhaustionMesh
+primary failure, no automatic alternate success, ContractExhaustionMesh
 coverage, TestMesh shards, and Risk Evidence Ledger gates.
 
 Non-trivial rough-plan discussion, multi-skill/tool workflow setup, staged

@@ -48,7 +48,7 @@ externalized.
 - **THEN** the ledger review SHALL report `commitment_dependency_unknown`
 
 ### Requirement: Scoped-out behavior remains accountable
-FlowGuard SHALL require scoped-out, deferred, removed, or compatibility
+FlowGuard SHALL require scoped-out, deferred, removed, deprecated, or replaced
 behavior rows to record owner, reason, validation boundary, and rationale.
 
 #### Scenario: Scoped-out row lacks reason
@@ -84,3 +84,37 @@ groups for behavior commitment coverage.
 #### Scenario: Coverage universe includes PPA axis
 - **WHEN** a ledger coverage plan is generated
 - **THEN** the plan SHALL include source mapping, owner state, evidence state, dependency state, path sensitivity, PPA result, and release gate axes
+
+### Requirement: Ledger classifies behavior change mode
+FlowGuard SHALL classify behavior-ledger work as bootstrap, add, change,
+remove/replace, historical gap backfill, or model-miss check before broad
+behavior claims.
+
+#### Scenario: Unknown change mode blocks
+- **WHEN** a ledger carries an unknown change mode
+- **THEN** the ledger review SHALL report `ledger_unknown_change_mode`
+
+### Requirement: Source freshness blocks stale broad claims
+FlowGuard SHALL require in-scope behavior source surfaces to be current before
+broad behavior confidence.
+
+#### Scenario: Source changed after ledger review
+- **WHEN** an in-scope source surface is marked changed, missing, or unchecked
+- **THEN** the ledger review SHALL report `source_surface_freshness_not_current`
+
+### Requirement: Replaced behavior has no alternate success surface
+FlowGuard SHALL require replaced or removed behavior to be explicitly disposed
+instead of preserved as an alternate successful path.
+
+#### Scenario: Replaced behavior lacks replacement disposition
+- **WHEN** a commitment is marked replaced without a replacement commitment id or excluded behavior ids
+- **THEN** the ledger review SHALL report `commitment_replacement_disposition_missing`
+
+### Requirement: Model miss backfeed checks existing commitments first
+FlowGuard SHALL treat model misses as a backfeed check against existing
+commitments and SHALL only backfill a commitment when no existing commitment
+covers the observed external behavior.
+
+#### Scenario: Model miss backfeed lacks current owner or DCAR coverage
+- **WHEN** a commitment records a model miss origin without current model-sync and coverage-case evidence
+- **THEN** the ledger review SHALL report `commitment_model_miss_backfeed_incomplete`

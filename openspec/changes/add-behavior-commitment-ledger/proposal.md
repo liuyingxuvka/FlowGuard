@@ -1,15 +1,15 @@
 ## Why
 
 FlowGuard already has model ownership, coverage evidence, risk gates, and the
-new Primary Path Authority rule for rejecting fallback success paths. Those
+new Primary Path Authority rule for rejecting alternate success paths. Those
 pieces still start from local work units: a model, a route, a field, a runtime
 path, or a test gate. That leaves one upstream gap: an agent can modify or
 validate a local path while never stating the complete set of user-visible
 behaviors the project promises to cover.
 
 That gap is exactly where long-lived maintenance debt enters. If an AI does
-not know the full behavior inventory, it may add a helper branch, compatibility
-surface, backup read, or alternate implementation and call the local change
+not know the full behavior inventory, it may add a helper branch, backup read,
+or alternate implementation and call the local change
 safe. The path may pass locally while the product now has duplicated,
 overlapping, or extra behavior that no single owner can maintain.
 
@@ -18,7 +18,7 @@ full account book of external behavioral promises. Each commitment has one
 primary owner model, explicit source evidence, explicit dependencies, explicit
 test/evidence bindings, and a current disposition. When a commitment is
 path-sensitive, the ledger must hand it to Primary Path Authority rather than
-letting the ledger invent another fallback-path checker.
+letting the ledger invent another alternate-path checker.
 
 ## What Changes
 
