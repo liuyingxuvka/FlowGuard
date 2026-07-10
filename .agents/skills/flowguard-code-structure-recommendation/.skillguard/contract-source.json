@@ -1,0 +1,107 @@
+{
+  "activation_keywords": [
+    "module split recommendation",
+    "FunctionBlock ownership",
+    "facade design",
+    "pre-code architecture"
+  ],
+  "claim_boundary": "The output is a current model-derived recommendation only; implementation and parity remain unproven until downstream evidence exists.",
+  "default_route": false,
+  "direct_references": [
+    "references/code_structure_recommendation_protocol.md"
+  ],
+  "do_not_use_when": [
+    "Existing code is already being refactored, behavior requirements are missing, or runtime/test parity is the actual question."
+  ],
+  "downstream_targets": [
+    {
+      "claim_scope": "existing-code structure parity",
+      "condition": "The recommendation will refactor an existing large or public code surface.",
+      "target_id": "flowguard-structure-mesh",
+      "target_kind": "skill"
+    },
+    {
+      "claim_scope": "model-code-test alignment",
+      "condition": "Validation boundaries need owner-code/test evidence.",
+      "target_id": "flowguard-model-test-alignment",
+      "target_kind": "skill"
+    },
+    {
+      "claim_scope": "field lifecycle",
+      "condition": "Fields, aliases, migrations, or reader/writer ownership are in scope.",
+      "target_id": "flowguard-field-lifecycle-mesh",
+      "target_kind": "skill"
+    }
+  ],
+  "layout_profiles": {
+    "installed": ".codex/skills/flowguard-code-structure-recommendation",
+    "source": ".agents/skills/flowguard-code-structure-recommendation"
+  },
+  "native_checks": [
+    {
+      "binding_id": "code_structure_pytest",
+      "command": "python -m pytest tests/test_code_structure.py -q",
+      "evidence_source": "current pytest receipt",
+      "kind": "pytest",
+      "native_check_id": "code_structure_tests",
+      "summary": "Run model-derived code structure recommendation tests."
+    }
+  ],
+  "native_owner": "code_structure_recommendation",
+  "output_fields": [
+    "evidence",
+    "failures",
+    "blockers",
+    "skipped_checks",
+    "residual_risk",
+    "claim_boundary",
+    "typed_next_actions"
+  ],
+  "route_id": "code_structure_recommendation",
+  "route_role": "public_owner",
+  "route_summary": "Derive cohesive module, facade, ownership, and validation boundaries from a named functional model before code edits.",
+  "schema_version": "flowguard.skill_contract_source.v1",
+  "skill_id": "flowguard-code-structure-recommendation",
+  "source_requirements": [
+    {
+      "category": "inventory",
+      "requirement_id": "code_structure.named_source_model",
+      "summary": "Every target module and owner must derive from a named FlowGuard functional model."
+    },
+    {
+      "category": "evidence",
+      "requirement_id": "code_structure.single_ownership",
+      "summary": "State, behavior-bearing fields, side effects, config, and public facades require explicit non-duplicated ownership."
+    },
+    {
+      "category": "closure",
+      "requirement_id": "code_structure.recommendation_only",
+      "summary": "The route recommends structure and hands existing-code work to StructureMesh; it does not refactor production code."
+    }
+  ],
+  "use_when": [
+    "A functional model exists but target implementation modules, owners, facades, adapters, or validation boundaries are unclear."
+  ],
+  "workflow": [
+    {
+      "phase_id": "intake",
+      "summary": "Confirm recommendation-only scope and name the source functional model."
+    },
+    {
+      "phase_id": "inventory",
+      "summary": "Inventory FunctionBlocks, state, fields, side effects, config, public entrypoints, and validation boundaries."
+    },
+    {
+      "phase_id": "execution",
+      "summary": "Map cohesive target modules, single owners, facades, adapters, and observable leaf boundaries."
+    },
+    {
+      "phase_id": "checks",
+      "summary": "Run owner-specific structure tests and reject source-less, duplicate-owner, or hidden-boundary recommendations."
+    },
+    {
+      "phase_id": "closure",
+      "summary": "Return a recommendation and typed StructureMesh, MTA, or FieldLifecycleMesh handoffs without code edits."
+    }
+  ]
+}

@@ -1,60 +1,40 @@
 ---
 name: flowguard-model-mesh
-description: Use when a FlowGuard project has three or more local models, an oversized model, stale child model evidence, parent/child model partitioning, target model split derivation, or hierarchical model-mesh governance needs.
+description: Use when a FlowGuard project has three or more local models, an oversized model, stale child evidence, parent/child partitioning, target split derivation, child reattachment, affected siblings, or whole-flow mesh closure risk.
 ---
 
 # FlowGuard Model Mesh
 
-Standalone FlowGuard satellite skill for parent/child model governance when
-evidence is oversized, stale, split across local models, or needs child
-reattachment and affected sibling review. Return to `model-first-function-flow`
-for ordinary single-model work; use TestMesh for tests and StructureMesh for code.
+## Purpose
+Govern parent/child model ownership, evidence freshness, reattachment, and closure without expanding every child state graph into the parent.
 
-## First Read
+## Entrypoint Scope
+Route id: `model_mesh_maintenance`; role: `public_owner`; native owner: `model_mesh_maintenance`. This standalone FlowGuard satellite skill owns model hierarchy, not test or code splits.
 
-- Route id: `model_mesh_maintenance`.
-- Core helpers: `review_hierarchical_mesh()`,
-  `review_mesh_closure_model()`, `model_mesh_closure_to_contract_cases()`,
-  Child Reattachment Gate.
-- Report evidence tiers/freshness before broad parent confidence.
-- Reference: `references/model_mesh_protocol.md`.
+## Local Material Routing
+Read `references/model_mesh_protocol.md` for inventory, target split derivation, partition rules, Child Reattachment Gate, mesh closure, and evidence tiers/freshness.
+
+## Entrypoint Acceptance Map
+Accept a parent and bounded children; derive/verify partitions and current receipts; block overlap, stale/unconsumed child evidence, missing closure/liveness, or incomplete leaf boundaries; hand test/alignment/closure gaps to typed owners.
+
+## Use When
+- Use for 3+ models, oversized/incomplete model groups, changed child boundaries, stale child evidence, coverage receipts, affected siblings, or parent whole-flow claims.
+
+## Do Not Use When
+- Do not split tests or code, trust child-local green as parent proof, or use for ordinary single-model work; return that work to `model-first-function-flow`.
+
+## Required Workflow
+1. Inventory parent/children, risk boundaries, target split derivation, ownership partitions, evidence tiers, and freshness.
+2. Review child disjointness, current reattachment, affected siblings, coverage receipts, leaf boundaries, and closure/liveness.
+3. Preserve scoped/stale gaps and project cases/receipts to Model-Test Alignment, TestMesh, and closure owners.
 
 ## Hard Gates
+- Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
+- Parent confidence requires complete partition ownership, legal overlap, current child evidence/receipts, and current parent consumption.
+- Background progress is liveness only; missing closure feedback/bounds or template harvest closure blocks broad mesh confidence.
 
-- Verify FlowGuard check engine before claiming FlowGuard use.
-- Keep the AGENTS.md managed block/version record current or record why not.
-- Do not create a fake mini-framework.
-- Parent confidence needs parent coverage, legal child disjointness, current
-  child reattachment, and leaf boundary-matrix evidence.
-- Background or stale child evidence is scoped, not pass.
-- Old parent/child artifacts must be upgraded, replaced, or blocked.
-- Parent/child stale evidence, unconsumed child output, and retry/no-delta
-  loop hazards should be projected to ContractExhaustionMesh. Child-local green
-  is not parent proof until those generated case ids are consumed by MTA,
-  TestMesh, and risk evidence where relevant.
-- Child-local Cartesian coverage is not parent coverage. Parent ModelMesh must
-  consume child `ModelContractCoverageReceipt` ids before broad confidence.
-- New/deepened child or parent models need template harvest closure before broad claims.
+## Output Requirements
+- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`, plus a mesh diagram, reattachment, siblings, and receipt status.
 
-## Minimum Workflow
-
-1. Identify parent model, child models, partition items, and target split.
-2. Classify old-shape parent/child evidence as upgraded, replaced, or blocked.
-3. Review required hazards and child ownership boundaries.
-4. Check parent coverage, child disjointness, and child reattachment.
-5. Review affected siblings when a child boundary changed.
-6. Project closure hazards to ContractExhaustionMesh and keep whole-flow
-   closure separate from local child green.
-7. Require current child and parent coverage receipts; stale, missing,
-   duplicate, incomplete, or unconsumed receipts block parent confidence.
-
-## Snapshot
-
-Show a mesh diagram with parent/children/cases; edges mean delegates, reattaches, consumes output, or blocks claim boundary.
-Status note: parent, children, stale/missing evidence, reattachment, next mesh check.
-
-## Non-Goals
-
-- Do not split tests; use TestMesh.
-- Do not split code; use StructureMesh.
-- Do not claim parent confidence from child-local green alone.
+## SkillGuard Maintenance
+- Edit `.skillguard/contract-source.json`, then regenerate derived contracts; SkillGuard checks the native mesh contract and cannot reattach children or manufacture receipts.

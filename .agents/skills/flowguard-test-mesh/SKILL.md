@@ -1,47 +1,40 @@
 ---
 name: flowguard-test-mesh
-description: Use when tests/checks/evidence are large, slow, layered, stale, skipped, release-only, or need parent/child freshness.
+description: Use when tests, checks, transition cells, payload cases, or evidence are large, slow, layered, stale, skipped, backgrounded, release-only, or require parent/child suite ownership and freshness proof.
 ---
 
 # FlowGuard Test Mesh
 
-Standalone FlowGuard satellite skill for parent/child test hierarchy and evidence freshness. Use for large, slow, stale, skipped, background, layered, release-only checks and child test scripts. Return to `model-first-function-flow` for small tests.
+## Purpose
+Govern parent/child test hierarchy, explicit validation partitions, result artifacts, and evidence freshness without inlining every child test.
 
-## First Read
+## Entrypoint Scope
+Route id: `test_mesh_maintenance`; role: `public_owner`; native owner: `test_mesh_maintenance`. This standalone FlowGuard satellite skill owns validation hierarchy, not semantic obligations or test execution.
 
-- Route id: `test_mesh_maintenance`.
-- Helpers: `review_test_mesh()`, `TestTargetSplitDerivation`, `TestSuiteEvidence`, transition/case/shard projection helpers.
-- Reference: `references/test_mesh_protocol.md`.
+## Local Material Routing
+Read `references/test_mesh_protocol.md` for target split derivation, ownership/evidence rows, reuse proof, transition/payload matrices, and routine/release scope.
+
+## Entrypoint Acceptance Map
+Accept a parent gate and model-derived child split; review child ownership/status/freshness; block hidden skip/timeout/progress/release gaps or unowned cells; hand semantic bindings and lifecycle/risk decisions to typed owners.
+
+## Use When
+- Use for large/slow/background validation, child test scripts, stale/reused evidence, release-only gates, or transition/artifact-payload matrices.
+
+## Do Not Use When
+- Do not split production code/models, decide semantic obligations, run tests directly, or treat release-only/background progress as routine proof; return small ordinary tests to `model-first-function-flow`.
+
+## Required Workflow
+1. Define the parent gate and derive target child suites/scripts from a FlowGuard validation-structure model.
+2. Map partitions/cells/shards to owners and attach status, freshness, proof artifacts, reuse tickets, skips, timeouts, and result paths.
+3. Review routine/release scope and return current child evidence plus Model-Test Alignment, process, and risk handoffs.
 
 ## Hard Gates
+- Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
+- Background progress is liveness only; reuse requires current `TestResultReuseTicket` and `ProofArtifactRef`.
+- Every required cell/shard needs a registered current passing owner; missing target derivation, hidden skips, or template harvest closure blocks broad parent confidence.
 
-- Verify FlowGuard check engine and AGENTS.md managed records; no fake mini-framework.
-- Background runs are liveness, not pass evidence.
-- Reused child-suite results need current `TestResultReuseTicket` and `ProofArtifactRef`.
-- Parent confidence needs current child evidence and target split derivation.
-- Large transition or artifact-payload matrices can feed required child ids; each cell needs a current child owner.
-- ContractExhaustionMesh is canonical for same-class, payload, transition, parent/child, no-delta case ids, and shards; TestMesh reviews freshness/ownership.
-- Parent claims using model-local combinations list `required_coverage_shard_ids`; child suites own those shards with current passing, non-progress-only evidence.
-- MTA owns cell binding to model obligation, owner code contract, and external-contract test evidence.
-- New/deepened model-derived test meshes need template harvest closure.
-- PPA matrices are shard inputs for single-path confidence; primary-failure, old-path, field, facade, runtime, and release shards need owners.
-- BCL matrices feed shards for missing, extra, overlap, dependency, evidence, source freshness, replacement/model-sync, model-miss backfeed, and PPA handoff cases.
+## Output Requirements
+- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`, plus a validation mesh diagram and child freshness.
 
-## Minimum Workflow
-
-1. Identify parent suite/check and partition items.
-2. Derive target child suites or child test scripts from model risk.
-3. Include transition, payload, same-class, no-delta, contract-exhaustion case ids, and shard ids when parent confidence depends on them.
-4. Attach result status, evidence tier, result path, freshness, reuse proof.
-5. Scope or block parent confidence when child evidence is stale or missing.
-6. For BCL, child evidence covers required commitment shards; stale/missing/progress-only/release-only blocks broad/full/release confidence.
-7. For PPA, child evidence proves no automatic alternate success and keeps skipped/stale/progress-only/release-only shards visible.
-
-## Snapshot
-
-Show a validation mesh diagram with parent gates, child tests, evidence, freshness, background status, and gaps.
-
-## Non-Goals
-
-- Do not split production code or models.
-- Do not treat release-only evidence as routine proof.
+## SkillGuard Maintenance
+- Edit `.skillguard/contract-source.json`, then regenerate derived contracts; SkillGuard validates test-mesh governance and cannot turn liveness into native pass evidence.

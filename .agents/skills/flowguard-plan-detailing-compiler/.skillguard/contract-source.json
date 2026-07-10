@@ -1,0 +1,113 @@
+{
+  "activation_keywords": [
+    "plan_detailing",
+    "rough plan compiler",
+    "PlanDetail",
+    "step receipts"
+  ],
+  "claim_boundary": "The compiler proves only that the plan is structured enough for its stated scope; it does not execute steps or produce final evidence.",
+  "default_route": false,
+  "direct_references": [
+    "references/plan_detailing_compiler_protocol.md"
+  ],
+  "do_not_use_when": [
+    "The request is generic planning, plan execution, or downstream evidence validation rather than structured detail."
+  ],
+  "downstream_targets": [
+    {
+      "claim_scope": "process continuation",
+      "condition": "Detailed rows return to lifecycle execution/freshness governance.",
+      "target_id": "flowguard-development-process-flow",
+      "target_kind": "skill"
+    },
+    {
+      "claim_scope": "workflow rehearsal",
+      "condition": "The detailed plan uses multiple skills, tools, plugins, or external actions.",
+      "target_id": "flowguard-agent-workflow-rehearsal",
+      "target_kind": "skill"
+    },
+    {
+      "claim_scope": "UI behavior/evidence",
+      "condition": "Visible UI actions, tasks, or human-operability evidence are required.",
+      "target_id": "flowguard-ui-flow-structure",
+      "target_kind": "skill"
+    },
+    {
+      "claim_scope": "planned alignment",
+      "condition": "Real payload surfaces or planned obligations need owner-code/test binding.",
+      "target_id": "flowguard-model-test-alignment",
+      "target_kind": "skill"
+    }
+  ],
+  "layout_profiles": {
+    "installed": ".codex/skills/flowguard-plan-detailing-compiler",
+    "source": ".agents/skills/flowguard-plan-detailing-compiler"
+  },
+  "native_checks": [
+    {
+      "binding_id": "plan_detail_pytest",
+      "command": "python -m pytest tests/test_plan_detailing.py -q",
+      "evidence_source": "current owner-specific pytest receipt",
+      "kind": "pytest",
+      "native_check_id": "plan_detailing_compiler_tests",
+      "summary": "Run the tracked plan-detail compilation and coverage tests."
+    }
+  ],
+  "native_owner": "development_process_flow",
+  "output_fields": [
+    "evidence",
+    "failures",
+    "blockers",
+    "skipped_checks",
+    "residual_risk",
+    "claim_boundary",
+    "typed_next_actions"
+  ],
+  "route_id": "plan_detailing_compiler",
+  "route_role": "delegated_mode",
+  "route_summary": "Compile an explicit/delegated rough plan into checkable artifacts, steps, receipts, validations, failures, rework, questions, and claim boundaries.",
+  "schema_version": "flowguard.skill_contract_source.v1",
+  "skill_id": "flowguard-plan-detailing-compiler",
+  "source_requirements": [
+    {
+      "category": "activation-boundary",
+      "requirement_id": "plan_detail.delegated_activation",
+      "summary": "Generic rough plans enter DevelopmentProcessFlow; this route requires explicit or delegated activation."
+    },
+    {
+      "category": "evidence",
+      "requirement_id": "plan_detail.checkable_rows",
+      "summary": "Artifacts, state, steps, receipts, validations, failures, rework, UI/payload gates, and final evidence are structured rows."
+    },
+    {
+      "category": "closure",
+      "requirement_id": "plan_detail.no_execution_claim",
+      "summary": "Plan-detail pass proves readiness to proceed, not implementation, test, release, or production completion."
+    }
+  ],
+  "use_when": [
+    "DevelopmentProcessFlow delegates plan_detailing or the user explicitly requests PlanDetailing for a non-trivial rough plan."
+  ],
+  "workflow": [
+    {
+      "phase_id": "intake",
+      "summary": "Confirm explicit/delegated activation, goal, sources, assumptions, scope, and claim intent."
+    },
+    {
+      "phase_id": "inventory",
+      "summary": "Inventory risk surfaces, artifacts, state/side effects, UI actions, real payload surfaces, and human questions."
+    },
+    {
+      "phase_id": "execution",
+      "summary": "Compile ordered steps, receipts, validations, failure/rework/continue branches, freshness rules, and final evidence."
+    },
+    {
+      "phase_id": "checks",
+      "summary": "Run the plan-detail model and reject missing rows, unsafe side effects, unresolved questions, or overclaimed detail."
+    },
+    {
+      "phase_id": "closure",
+      "summary": "Return pass/scoped/revision/blocked detail and typed projections without executing the plan."
+    }
+  ]
+}

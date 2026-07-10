@@ -1,5 +1,32 @@
 # Changelog
 
+## v0.54.0 - 2026-07-10
+
+FlowGuard skill-suite governance and verified distribution release.
+
+- Rebuilt the canonical seventeen-skill agent suite around concise,
+  route-specific prompts, typed ownership, deterministic contract sources,
+  generated native-integrated SkillGuard records, and 17/17 deep checks.
+- Added immutable evidence receipts whose freshness, covered obligations,
+  producer/checker context, child consumption, and proof-artifact bindings are
+  independently recomputed instead of accepted from caller-supplied flags.
+- Hardened FlowGuard self-governance so broad success requires current exact
+  child passes, a complete parent receipt, and visible blocked/scoped/stale or
+  skipped states; synthetic in-memory green reports no longer satisfy closure.
+- Added a typed route topology with unique owners, bounded cycles, route-parity
+  checks, and explicit delegated/internal/public handoffs.
+- Productized local model validation with a checked-in inventory, fast,
+  focused, and full tiers, filters, shards, bounded parallelism, per-runner
+  timeouts, mutation detection, progress events, isolated artifacts, and
+  terminal receipts.
+- Added safe, idempotent skill install/check/uninstall/parity commands with
+  ownership manifests, explicit legacy adoption, user-change conflict
+  protection, temporary-home tests, and complete source/shadow/installed tree
+  comparison.
+- Repaired project adoption integrity, stable rule identities, dry-run
+  guarantees, concise validation output, bilingual documentation, and
+  OpenSpec verification contracts for the complete upgrade program.
+
 ## v0.53.1 - 2026-07-09
 
 FlowGuard self-maintenance gate hardening.

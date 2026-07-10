@@ -10,6 +10,7 @@ from flowguard import (
     StateClosureDimension,
     StateClosurePlan,
     review_state_closure,
+    run_exact_sequence,
 )
 from flowguard.formal_runner import FormalWorkflowCase, run_formal_workflow_suite
 import model
@@ -25,8 +26,26 @@ REQUIRED_LABELS = (
 
 
 def run_workflow_suite() -> bool:
-    cases = [FormalWorkflowCase("correct_state_closure_gate", model.build_correct_workflow(), True)]
-    cases.extend(FormalWorkflowCase(broken.name, broken, False) for broken in model.build_broken_workflows())
+    exact = run_exact_sequence(
+        workflow=model.build_correct_workflow(),
+        initial_state=model.initial_state(),
+        external_input_sequence=tuple(
+            input_obj
+            for input_obj in model.EXTERNAL_INPUTS
+            if input_obj.action_type != "observe_side_effect_before_resolution"
+        ),
+        invariants=model.INVARIANTS,
+    )
+    exact_ok = (
+        exact.model_report.ok
+        and len(exact.final_states) == 1
+        and exact.final_states[0].final_claim == "full"
+    )
+    print(
+        "correct_state_closure_gate: "
+        + ("observed=OK expected=OK match=yes exact=yes" if exact_ok else "observed=VIOLATION expected=OK match=no")
+    )
+    cases = [FormalWorkflowCase(broken.name, broken, False) for broken in model.build_broken_workflows()]
     report = run_formal_workflow_suite(
         "state_closure_gate",
         tuple(cases),
@@ -38,7 +57,7 @@ def run_workflow_suite() -> bool:
         required_labels=REQUIRED_LABELS,
         protected_error_class="unknown_state_not_safely_closed",
     )
-    return report.ok
+    return exact_ok and report.ok
 
 
 def helper_case(name: str, plan: StateClosurePlan, *, expect_ok: bool) -> bool:

@@ -1,58 +1,40 @@
 ---
 name: flowguard-agent-workflow-rehearsal
-description: Use when explicitly requested or delegated by flowguard-development-process-flow's agent_workflow simulator mode for multi-skill/tool/plugin/external-action rehearsal. Generic multi-skill workflow routing should enter flowguard-development-process-flow first.
+description: Use only when explicitly requested or delegated by flowguard-development-process-flow's agent_workflow mode to rehearse a multi-skill, tool, plugin, or external-action workflow from a fresh inventory; generic workflow planning enters flowguard-development-process-flow first.
 ---
 
 # FlowGuard Agent Workflow Rehearsal
 
-Delegated FlowGuard mode skill for multi-skill/tool workflow planning. It
-remains directly invokable when the user names AgentWorkflowRehearsal or
-another route delegates `agent_workflow`; ordinary multi-skill setup enters
-`flowguard-development-process-flow` first.
+## Purpose
+Rehearse capability selection, order, side effects, evidence gates, and rework before execution; never execute or supervise the selected tools.
 
-Return to `model-first-function-flow` when the FlowGuard route itself is unclear.
-Return to DevelopmentProcessFlow for generic multi-skill process planning. This
-skill rehearses before execution; it does not execute the workflow.
+## Entrypoint Scope
+Route id: `agent_workflow_rehearsal`; role: `delegated_mode`; native owner: `development_process_flow`. Direct use requires an explicit request; generic multi-skill work enters `flowguard-development-process-flow` first.
 
-## First Read
+## Local Material Routing
+Read `references/agent_workflow_rehearsal_protocol.md` for `SkillInventorySnapshot`, plan rows, finding codes, and completion decisions.
 
-- Route id: `agent_workflow_rehearsal`.
-- Simulator mode: `agent_workflow`; front door: `flowguard-development-process-flow`.
-- Required input: fresh `SkillInventorySnapshot`; cached skill lists are history only.
-- Core helpers: `AgentWorkflowPlan`, `SkippedSkill`,
-  `review_agent_workflow_rehearsal()`.
-- Reference: `references/agent_workflow_rehearsal_protocol.md`.
+## Entrypoint Acceptance Map
+Accept a fresh current-machine inventory and explicit/delegated scope; produce an `AgentWorkflowPlan`; block stale inventory, unsafe side effects, or unsupported full claims; return execution and final evidence to DevelopmentProcessFlow.
+
+## Use When
+- Use for delegated `agent_workflow` planning where selected/skipped skills, plugins, tools, external actions, or continue/rework gates change confidence.
+
+## Do Not Use When
+- Do not use as a generic router, execute the workflow, or replace route-native validation; return unclear routing to `model-first-function-flow`.
+
+## Required Workflow
+1. Capture a fresh `SkillInventorySnapshot` and mark required/candidate skills.
+2. Rehearse ordered steps, skipped consequences, prior evidence gates, side effects, compensating checks, and rework paths.
+3. Return selected/skipped skills, candidate skills, continue/rework gates, validation gaps, and final claim scope.
 
 ## Hard Gates
+- Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
+- Require explicit delegation/direct request, current inventory, accepted skip boundaries, and evidence before every irreversible side effect.
+- Progress, weak guidance, or missing UI/payload/manual/install evidence cannot satisfy a full claim.
 
-- Verify FlowGuard check engine, AGENTS.md managed record, and no fake mini-framework.
-- Do not present this as the generic first entry for multi-skill setup.
-- Skipped candidate skills need reason, consequence, and accepted scope.
-- Weak validation guidance needs a compensating check before broad confidence.
-- UI click-through, real-surface artifact payload proof, manual review, and
-  installed-skill sync are explicit evidence surfaces when relevant.
-- Full UI claims need `ui_inventory`, `ui_source_baseline`,
-  `ui_human_operability`, and `ui_implementation_validation` evidence roles.
-- Workflow models need template-harvest closure.
+## Output Requirements
+- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`, including selected/skipped skills and side effects.
 
-## Minimum Workflow
-
-1. Capture a fresh current-machine skill/tool/plugin inventory.
-2. Mark required and candidate skills.
-3. Rehearse selected skills, skipped candidates, order, evidence surfaces,
-   side effects, and continue/rework gates.
-4. For UI work, assign inventory, source-baseline, human-operability, and
-   implementation-validation evidence roles before a full claim.
-5. Treat blocked or scoped findings as claim boundaries.
-
-## Snapshot
-
-Show candidate skills, selected skills, skipped skills, continue/rework gates,
-side effects, validation gaps, and final claim boundary.
-Status note: inventory, selected/skipped skills, side effects, validation gaps, next gate.
-
-## Non-Goals
-
-- Do not execute the selected skills.
-- Do not replace DevelopmentProcessFlow or route-specific validation.
-- Do not treat an old inventory as current evidence.
+## SkillGuard Maintenance
+- Edit `.skillguard/contract-source.json`, then regenerate derived contracts; SkillGuard validates this native delegated route and cannot create an alternate executor.

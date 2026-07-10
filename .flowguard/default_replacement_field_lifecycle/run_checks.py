@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from flowguard.formal_runner import FormalWorkflowCase, run_formal_workflow_suite
+from flowguard.formal_runner import FormalWorkflowCase, run_exact_workflow_case, run_formal_workflow_suite
 
 import model
 
@@ -17,11 +17,18 @@ REQUIRED_LABELS = (
 
 
 def main() -> int:
+    exact_ok = run_exact_workflow_case(
+        "correct_default_replacement_field_lifecycle",
+        workflow=model.build_correct_workflow(),
+        initial_state=model.initial_state(),
+        external_input_sequence=model.EXTERNAL_INPUTS,
+        invariants=model.INVARIANTS,
+        final_state_predicate=lambda state: state.final_claim == "full",
+    )
     cases = [
-        FormalWorkflowCase("correct_default_replacement_field_lifecycle", model.build_correct_workflow(), True, required_labels=REQUIRED_LABELS)
+        FormalWorkflowCase(workflow.name, workflow, False, required_labels=REQUIRED_LABELS)
+        for workflow in model.build_broken_workflows()
     ]
-    for workflow in model.build_broken_workflows():
-        cases.append(FormalWorkflowCase(workflow.name, workflow, False, required_labels=REQUIRED_LABELS))
     report = run_formal_workflow_suite(
         "default_replacement_field_lifecycle",
         tuple(cases),
@@ -32,9 +39,9 @@ def main() -> int:
         terminal_predicate=model.terminal_predicate,
         protected_error_class="old_field_disposition_gap",
     )
-    if report.ok:
+    if exact_ok and report.ok:
         print("default replacement field lifecycle model checks passed")
-    return 0 if report.ok else 1
+    return 0 if exact_ok and report.ok else 1
 
 
 if __name__ == "__main__":

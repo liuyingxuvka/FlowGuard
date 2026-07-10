@@ -1,41 +1,33 @@
 {
   "blockers": [],
-  "checks": [
-    {
-      "check_id": "direct-closure-evidence",
-      "name": "Direct closure evidence",
-      "required": true,
-      "status": "pass",
-      "summary": "Closure references direct installed files and reports."
-    }
-  ],
-  "claim_boundary": "This record covers only the installed skill entrypoint, local SkillGuard records, and current files inspected for this target. It does not prove runtime checker execution, fixture coverage, CLI checks, tests, suite automation, package publication, code-contract validation, release readiness, or future AI behavior without separate current evidence.",
-  "closure_decision": "closed_with_evidence",
-  "closure_scope": "flowguard-model-test-alignment installed skill contract only",
-  "decision_reason": "Installed skill contract-layer closure is bounded to direct local entrypoint, contract, and report files.",
+  "checks": [],
+  "claim_boundary": "This record covers only the current skill entrypoint and local SkillGuard contract files. It does not prove runtime checker execution, fixture coverage, CLI checks, tests, suite automation, package publication, code-contract validation, release readiness, or future AI behavior without separate current evidence.",
+  "closure_decision": "needs-review",
+  "closure_scope": "flowguard-model-test-alignment structural contract files only",
+  "decision_reason": "Native commands and immutable receipts have not been inferred from static records.",
   "evidence": [
     {
       "evidence_id": "check-report",
       "fresh": true,
       "kind": "json",
       "source_path": ".skillguard/reports/current_check_report.json",
-      "summary": "Current check summary."
+      "summary": "Structural check status."
     },
     {
       "evidence_id": "current-evidence-manifest",
       "fresh": true,
       "kind": "json",
       "source_path": ".skillguard/evidence/current_evidence_manifest.json",
-      "summary": "Evidence manifest."
+      "summary": "Static evidence inventory."
     }
   ],
   "failures": [],
   "residual_risk": [
-    "This static record must be refreshed when the skill entrypoint, route contract, or validation rules change."
+    "Native commands and immutable receipts are intentionally outside this static record."
   ],
   "schema_version": "1.0",
   "skipped_checks": [],
-  "status": "closed_with_evidence",
+  "status": "needs-review",
   "target_path": "..",
   "target_type": "skill"
 }

@@ -1,4 +1,4 @@
 interface:
-  display_name: "FlowGuard UI Flow"
-  short_description: "Model UI flows, visible surface, and human-operability"
-  default_prompt: "Use $flowguard-ui-flow-structure to model UI interactions first, review user-visible surface and evidence kinds, require reachable enabled controls to be clicked or scoped, add task coverage and human-operability evidence, derive stable menu/region/control hierarchy, then produce a UI text hierarchy blueprint with calm visual handoff guidance."
+  display_name: "FlowGuard UI Flow Structure"
+  short_description: "Model UI behavior, surface, and operability proof"
+  default_prompt: "Use $flowguard-ui-flow-structure for route_id=ui_flow_structure, role=public_owner, native_owner=ui_flow_structure; require work mode, observed surface, capability/task coverage, UI event/state model, recovery, human operability, and screenshot/DOM/click evidence for runnable claims; do not style first or treat labels/API routes as functional proof; output evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, and typed_next_actions; claim only the evidenced UI boundary."

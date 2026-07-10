@@ -1,47 +1,728 @@
 {
+  "acceptance_obligations": [
+    {
+      "covered_by_checks": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r001_plan_detail_checkable_rows_obligation",
+      "required": true,
+      "requirement_ids": [
+        "plan_detail.checkable_rows"
+      ],
+      "summary": "Native FlowGuard coverage for plan_detail.checkable_rows."
+    },
+    {
+      "covered_by_checks": [
+        "check_route"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r002_plan_detail_delegated_activation_obligation",
+      "required": true,
+      "requirement_ids": [
+        "plan_detail.delegated_activation"
+      ],
+      "summary": "Native FlowGuard coverage for plan_detail.delegated_activation."
+    },
+    {
+      "covered_by_checks": [
+        "check_closure"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r003_plan_detail_no_execution_claim_obligation",
+      "required": true,
+      "requirement_ids": [
+        "plan_detail.no_execution_claim"
+      ],
+      "summary": "Native FlowGuard coverage for plan_detail.no_execution_claim."
+    },
+    {
+      "covered_by_checks": [
+        "check_route"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r004_target_activation_boundary_accept_an_expli_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.activation-boundary.accept-an-explicit-delegated-rough-plan-and-sources"
+      ],
+      "summary": "Native FlowGuard coverage for target.activation-boundary.accept-an-explicit-delegated-rough-plan-and-sources."
+    },
+    {
+      "covered_by_checks": [
+        "check_route"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r005_target_activation_boundary_route_id_plan_d_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.activation-boundary.route-id-plan-detailing-compiler-role-delegated-mode"
+      ],
+      "summary": "Native FlowGuard coverage for target.activation-boundary.route-id-plan-detailing-compiler-role-delegated-mode."
+    },
+    {
+      "covered_by_checks": [
+        "check_route"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r006_target_activation_boundary_use_for_delegat_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.activation-boundary.use-for-delegated-plan-detailing-where-scope-steps"
+      ],
+      "summary": "Native FlowGuard coverage for target.activation-boundary.use-for-delegated-plan-detailing-where-scope-steps."
+    },
+    {
+      "covered_by_checks": [
+        "check_route"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r007_target_activation_boundary_use_when_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.activation-boundary.use-when"
+      ],
+      "summary": "Native FlowGuard coverage for target.activation-boundary.use-when."
+    },
+    {
+      "covered_by_checks": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r008_target_check_gate_edit_skillguard_contract_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.check-gate.edit-skillguard-contract-source-json-then-regenerate-derived"
+      ],
+      "summary": "Native FlowGuard coverage for target.check-gate.edit-skillguard-contract-source-json-then-regenerate-derived."
+    },
+    {
+      "covered_by_checks": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r009_target_check_gate_hard_gates_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.check-gate.hard-gates"
+      ],
+      "summary": "Native FlowGuard coverage for target.check-gate.hard-gates."
+    },
+    {
+      "covered_by_checks": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r010_target_check_gate_long_prose_checkboxes_or_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.check-gate.long-prose-checkboxes-or-plan-progress-cannot-satisfy"
+      ],
+      "summary": "Native FlowGuard coverage for target.check-gate.long-prose-checkboxes-or-plan-progress-cannot-satisfy."
+    },
+    {
+      "covered_by_checks": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r011_target_check_gate_return_evidence_failures_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.check-gate.return-evidence-failures-blockers-skipped-checks-residual-risk"
+      ],
+      "summary": "Native FlowGuard coverage for target.check-gate.return-evidence-failures-blockers-skipped-checks-residual-risk."
+    },
+    {
+      "covered_by_checks": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r012_target_check_gate_turn_rough_plan_prose_in_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.check-gate.turn-rough-plan-prose-into-checkable-plandetail-rows"
+      ],
+      "summary": "Native FlowGuard coverage for target.check-gate.turn-rough-plan-prose-into-checkable-plandetail-rows."
+    },
+    {
+      "covered_by_checks": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r013_target_check_gate_verify_the_real_flowguar_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.check-gate.verify-the-real-flowguard-check-engine-and-agents"
+      ],
+      "summary": "Native FlowGuard coverage for target.check-gate.verify-the-real-flowguard-check-engine-and-agents."
+    },
+    {
+      "covered_by_checks": [
+        "check_route"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r014_target_description_use_only_when_explicitl_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.description.use-only-when-explicitly-requested-or-delegated-by"
+      ],
+      "summary": "Native FlowGuard coverage for target.description.use-only-when-explicitly-requested-or-delegated-by."
+    },
+    {
+      "covered_by_checks": [
+        "check_route"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r015_target_entrypoint_acceptance_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.entrypoint.acceptance"
+      ],
+      "summary": "Native FlowGuard coverage for target.entrypoint.acceptance."
+    },
+    {
+      "covered_by_checks": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r016_target_hard_gates_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.hard_gates"
+      ],
+      "summary": "Native FlowGuard coverage for target.hard_gates."
+    },
+    {
+      "covered_by_checks": [
+        "check_route"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r017_target_non_use_boundary_do_not_activate_as_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.non-use-boundary.do-not-activate-as-a-generic-planner-execute"
+      ],
+      "summary": "Native FlowGuard coverage for target.non-use-boundary.do-not-activate-as-a-generic-planner-execute."
+    },
+    {
+      "covered_by_checks": [
+        "check_route"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r018_target_non_use_boundary_do_not_use_when_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.non-use-boundary.do-not-use-when"
+      ],
+      "summary": "Native FlowGuard coverage for target.non-use-boundary.do-not-use-when."
+    },
+    {
+      "covered_by_checks": [
+        "check_closure"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r019_target_output_output_requirements_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.output.output-requirements"
+      ],
+      "summary": "Native FlowGuard coverage for target.output.output-requirements."
+    },
+    {
+      "covered_by_checks": [
+        "check_evidence"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r020_target_target_rule_read_references_plan_de_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.target-rule.read-references-plan-detailing-compiler-protocol-md-for"
+      ],
+      "summary": "Native FlowGuard coverage for target.target-rule.read-references-plan-detailing-compiler-protocol-md-for."
+    },
+    {
+      "covered_by_checks": [
+        "check_evidence"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r021_target_workflow_route_add_ordered_steps_st_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.workflow-route.add-ordered-steps-step-receipts-validations-failure-rework"
+      ],
+      "summary": "Native FlowGuard coverage for target.workflow-route.add-ordered-steps-step-receipts-validations-failure-rework."
+    },
+    {
+      "covered_by_checks": [
+        "check_evidence"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r022_target_workflow_route_capture_goal_assumpt_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.workflow-route.capture-goal-assumptions-sources-risk-surfaces-state-side"
+      ],
+      "summary": "Native FlowGuard coverage for target.workflow-route.capture-goal-assumptions-sources-risk-surfaces-state-side."
+    },
+    {
+      "covered_by_checks": [
+        "check_evidence"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r023_target_workflow_route_description_use_only_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.workflow-route.description-use-only-when-explicitly-requested-or-delegated"
+      ],
+      "summary": "Native FlowGuard coverage for target.workflow-route.description-use-only-when-explicitly-requested-or-delegated."
+    },
+    {
+      "covered_by_checks": [
+        "check_evidence"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r024_target_workflow_route_full_claims_require__obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.workflow-route.full-claims-require-resolved-questions-final-evidence-ids"
+      ],
+      "summary": "Native FlowGuard coverage for target.workflow-route.full-claims-require-resolved-questions-final-evidence-ids."
+    },
+    {
+      "covered_by_checks": [
+        "check_evidence"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r025_target_workflow_route_project_passing_scop_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.workflow-route.project-passing-scoped-rows-to-process-agent-workflow"
+      ],
+      "summary": "Native FlowGuard coverage for target.workflow-route.project-passing-scoped-rows-to-process-agent-workflow."
+    },
+    {
+      "covered_by_checks": [
+        "check_evidence"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r026_target_workflow_route_required_workflow_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.workflow-route.required-workflow"
+      ],
+      "summary": "Native FlowGuard coverage for target.workflow-route.required-workflow."
+    }
+  ],
   "check_scripts": [
     {
       "check_id": "check_route",
-      "command": "python .skillguard/checks/check_route.py",
+      "command": "python .skillguard/check.py --phase intake",
       "failure_class": "route",
       "phase_id": "intake",
       "required": true,
-      "script_path": ".skillguard/checks/check_route.py"
+      "script_path": ".skillguard/check.py"
     },
     {
       "check_id": "check_phase_order",
-      "command": "python .skillguard/checks/check_phase_order.py",
+      "command": "python .skillguard/check.py --phase inventory",
       "failure_class": "phase_order",
       "phase_id": "inventory",
       "required": true,
-      "script_path": ".skillguard/checks/check_phase_order.py"
+      "script_path": ".skillguard/check.py"
     },
     {
       "check_id": "check_evidence",
-      "command": "python .skillguard/checks/check_evidence.py",
+      "command": "python .skillguard/check.py --phase execution",
       "failure_class": "evidence",
       "phase_id": "execution",
       "required": true,
-      "script_path": ".skillguard/checks/check_evidence.py"
+      "script_path": ".skillguard/check.py"
     },
     {
       "check_id": "check_quality_floor",
-      "command": "python .skillguard/checks/check_quality_floor.py",
+      "command": "python .skillguard/check.py --phase checks",
       "failure_class": "quality_floor",
       "phase_id": "checks",
       "required": true,
-      "script_path": ".skillguard/checks/check_quality_floor.py"
+      "script_path": ".skillguard/check.py"
     },
     {
       "check_id": "check_closure",
-      "command": "python .skillguard/checks/check_closure.py",
+      "command": "python .skillguard/check.py --phase closure",
       "failure_class": "closure",
       "phase_id": "closure",
       "required": true,
-      "script_path": ".skillguard/checks/check_closure.py"
+      "script_path": ".skillguard/check.py"
     }
   ],
-  "claim_boundary": "This work contract governs only SkillGuard overlay evidence for the declared target skill. It does not replace the target skill's native router/check system and does not prove external services, package publication, GitHub release readiness, or future AI correctness.",
+  "claim_boundary": "The compiler proves only that the plan is structured enough for its stated scope; it does not execute steps or produce final evidence.",
+  "cleanup_required": [],
+  "closure_blockers": [
+    {
+      "blocker_id": "r001_plan_detail_checkable_rows_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "evidence",
+      "obligation_ids": [
+        "r001_plan_detail_checkable_rows_obligation"
+      ],
+      "summary": "Block checked/accepted closure when plan_detail.checkable_rows lacks current native evidence."
+    },
+    {
+      "blocker_id": "r002_plan_detail_delegated_activation_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "activation-boundary",
+      "obligation_ids": [
+        "r002_plan_detail_delegated_activation_obligation"
+      ],
+      "summary": "Block checked/accepted closure when plan_detail.delegated_activation lacks current native evidence."
+    },
+    {
+      "blocker_id": "r003_plan_detail_no_execution_claim_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "closure",
+      "obligation_ids": [
+        "r003_plan_detail_no_execution_claim_obligation"
+      ],
+      "summary": "Block checked/accepted closure when plan_detail.no_execution_claim lacks current native evidence."
+    },
+    {
+      "blocker_id": "r004_target_activation_boundary_accept_an_expli_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "activation-boundary",
+      "obligation_ids": [
+        "r004_target_activation_boundary_accept_an_expli_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.activation-boundary.accept-an-explicit-delegated-rough-plan-and-sources lacks current native evidence."
+    },
+    {
+      "blocker_id": "r005_target_activation_boundary_route_id_plan_d_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "activation-boundary",
+      "obligation_ids": [
+        "r005_target_activation_boundary_route_id_plan_d_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.activation-boundary.route-id-plan-detailing-compiler-role-delegated-mode lacks current native evidence."
+    },
+    {
+      "blocker_id": "r006_target_activation_boundary_use_for_delegat_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "activation-boundary",
+      "obligation_ids": [
+        "r006_target_activation_boundary_use_for_delegat_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.activation-boundary.use-for-delegated-plan-detailing-where-scope-steps lacks current native evidence."
+    },
+    {
+      "blocker_id": "r007_target_activation_boundary_use_when_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "activation-boundary",
+      "obligation_ids": [
+        "r007_target_activation_boundary_use_when_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.activation-boundary.use-when lacks current native evidence."
+    },
+    {
+      "blocker_id": "r008_target_check_gate_edit_skillguard_contract_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "check-gate",
+      "obligation_ids": [
+        "r008_target_check_gate_edit_skillguard_contract_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.check-gate.edit-skillguard-contract-source-json-then-regenerate-derived lacks current native evidence."
+    },
+    {
+      "blocker_id": "r009_target_check_gate_hard_gates_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "check-gate",
+      "obligation_ids": [
+        "r009_target_check_gate_hard_gates_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.check-gate.hard-gates lacks current native evidence."
+    },
+    {
+      "blocker_id": "r010_target_check_gate_long_prose_checkboxes_or_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "check-gate",
+      "obligation_ids": [
+        "r010_target_check_gate_long_prose_checkboxes_or_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.check-gate.long-prose-checkboxes-or-plan-progress-cannot-satisfy lacks current native evidence."
+    },
+    {
+      "blocker_id": "r011_target_check_gate_return_evidence_failures_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "check-gate",
+      "obligation_ids": [
+        "r011_target_check_gate_return_evidence_failures_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.check-gate.return-evidence-failures-blockers-skipped-checks-residual-risk lacks current native evidence."
+    },
+    {
+      "blocker_id": "r012_target_check_gate_turn_rough_plan_prose_in_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "check-gate",
+      "obligation_ids": [
+        "r012_target_check_gate_turn_rough_plan_prose_in_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.check-gate.turn-rough-plan-prose-into-checkable-plandetail-rows lacks current native evidence."
+    },
+    {
+      "blocker_id": "r013_target_check_gate_verify_the_real_flowguar_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "check-gate",
+      "obligation_ids": [
+        "r013_target_check_gate_verify_the_real_flowguar_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.check-gate.verify-the-real-flowguard-check-engine-and-agents lacks current native evidence."
+    },
+    {
+      "blocker_id": "r014_target_description_use_only_when_explicitl_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "entrypoint-description",
+      "obligation_ids": [
+        "r014_target_description_use_only_when_explicitl_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.description.use-only-when-explicitly-requested-or-delegated-by lacks current native evidence."
+    },
+    {
+      "blocker_id": "r015_target_entrypoint_acceptance_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "entrypoint",
+      "obligation_ids": [
+        "r015_target_entrypoint_acceptance_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.entrypoint.acceptance lacks current native evidence."
+    },
+    {
+      "blocker_id": "r016_target_hard_gates_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "quality-gate",
+      "obligation_ids": [
+        "r016_target_hard_gates_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.hard_gates lacks current native evidence."
+    },
+    {
+      "blocker_id": "r017_target_non_use_boundary_do_not_activate_as_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "non-use-boundary",
+      "obligation_ids": [
+        "r017_target_non_use_boundary_do_not_activate_as_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.non-use-boundary.do-not-activate-as-a-generic-planner-execute lacks current native evidence."
+    },
+    {
+      "blocker_id": "r018_target_non_use_boundary_do_not_use_when_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "non-use-boundary",
+      "obligation_ids": [
+        "r018_target_non_use_boundary_do_not_use_when_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.non-use-boundary.do-not-use-when lacks current native evidence."
+    },
+    {
+      "blocker_id": "r019_target_output_output_requirements_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "output",
+      "obligation_ids": [
+        "r019_target_output_output_requirements_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.output.output-requirements lacks current native evidence."
+    },
+    {
+      "blocker_id": "r020_target_target_rule_read_references_plan_de_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "target-rule",
+      "obligation_ids": [
+        "r020_target_target_rule_read_references_plan_de_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.target-rule.read-references-plan-detailing-compiler-protocol-md-for lacks current native evidence."
+    },
+    {
+      "blocker_id": "r021_target_workflow_route_add_ordered_steps_st_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "workflow-route",
+      "obligation_ids": [
+        "r021_target_workflow_route_add_ordered_steps_st_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.workflow-route.add-ordered-steps-step-receipts-validations-failure-rework lacks current native evidence."
+    },
+    {
+      "blocker_id": "r022_target_workflow_route_capture_goal_assumpt_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "workflow-route",
+      "obligation_ids": [
+        "r022_target_workflow_route_capture_goal_assumpt_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.workflow-route.capture-goal-assumptions-sources-risk-surfaces-state-side lacks current native evidence."
+    },
+    {
+      "blocker_id": "r023_target_workflow_route_description_use_only_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "workflow-route",
+      "obligation_ids": [
+        "r023_target_workflow_route_description_use_only_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.workflow-route.description-use-only-when-explicitly-requested-or-delegated lacks current native evidence."
+    },
+    {
+      "blocker_id": "r024_target_workflow_route_full_claims_require__blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "workflow-route",
+      "obligation_ids": [
+        "r024_target_workflow_route_full_claims_require__obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.workflow-route.full-claims-require-resolved-questions-final-evidence-ids lacks current native evidence."
+    },
+    {
+      "blocker_id": "r025_target_workflow_route_project_passing_scop_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "workflow-route",
+      "obligation_ids": [
+        "r025_target_workflow_route_project_passing_scop_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.workflow-route.project-passing-scoped-rows-to-process-agent-workflow lacks current native evidence."
+    },
+    {
+      "blocker_id": "r026_target_workflow_route_required_workflow_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "workflow-route",
+      "obligation_ids": [
+        "r026_target_workflow_route_required_workflow_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.workflow-route.required-workflow lacks current native evidence."
+    }
+  ],
   "closure_rules": [
     {
       "allowed_decision": "accepted",
@@ -53,77 +734,641 @@
         "check_closure"
       ],
       "required_evidence": [
-        "task_summary",
-        "target_inventory",
-        "direct_evidence",
-        "check_output",
-        "closure_report"
+        "plan_detailing_compiler_intake_evidence",
+        "plan_detailing_compiler_inventory_evidence",
+        "plan_detailing_compiler_execution_evidence",
+        "plan_detailing_compiler_checks_evidence",
+        "plan_detailing_compiler_closure_evidence"
       ],
-      "rule_id": "accepted_requires_all_required_checks",
-      "scope": "declared run scope only"
+      "rule_id": "plan_detailing_compiler.accepted_requires_all_gates",
+      "scope": "current target revision and declared route only"
     }
   ],
-  "contract_hash": "9350D0F5F244C9BAC1234427CD577B22CC4F384E80912D791808804D45C0210A",
-  "contract_version": "3",
+  "contract_hash": "3BE8ED4917DCC6A1F35E7EF7E6C1EBFE4B643436080A0DE70E6ED848362AFA78",
+  "contract_version": "flowguard.skill_contract_compiler.v1+50AEFED985DE7B1D",
+  "coverage_matrix": [
+    {
+      "check_ids": [
+        "check_quality_floor"
+      ],
+      "closure_blocker_id": "r001_plan_detail_checkable_rows_blocker",
+      "evidence_ids": [
+        "plan_detailing_compiler_checks_evidence"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r001_plan_detail_checkable_rows_obligation",
+      "required": true,
+      "requirement_id": "plan_detail.checkable_rows",
+      "route_id": "plan_detailing_compiler",
+      "row_id": "r001_plan_detail_checkable_rows_coverage",
+      "rule_id": "r001_plan_detail_checkable_rows_rule",
+      "source_path": ".skillguard/contract-source.json#source_requirements",
+      "stage_id": "plan_detailing_compiler_checks"
+    },
+    {
+      "check_ids": [
+        "check_route"
+      ],
+      "closure_blocker_id": "r002_plan_detail_delegated_activation_blocker",
+      "evidence_ids": [
+        "plan_detailing_compiler_intake_evidence"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r002_plan_detail_delegated_activation_obligation",
+      "required": true,
+      "requirement_id": "plan_detail.delegated_activation",
+      "route_id": "plan_detailing_compiler",
+      "row_id": "r002_plan_detail_delegated_activation_coverage",
+      "rule_id": "r002_plan_detail_delegated_activation_rule",
+      "source_path": ".skillguard/contract-source.json#source_requirements",
+      "stage_id": "plan_detailing_compiler_intake"
+    },
+    {
+      "check_ids": [
+        "check_closure"
+      ],
+      "closure_blocker_id": "r003_plan_detail_no_execution_claim_blocker",
+      "evidence_ids": [
+        "plan_detailing_compiler_closure_evidence"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r003_plan_detail_no_execution_claim_obligation",
+      "required": true,
+      "requirement_id": "plan_detail.no_execution_claim",
+      "route_id": "plan_detailing_compiler",
+      "row_id": "r003_plan_detail_no_execution_claim_coverage",
+      "rule_id": "r003_plan_detail_no_execution_claim_rule",
+      "source_path": ".skillguard/contract-source.json#source_requirements",
+      "stage_id": "plan_detailing_compiler_closure"
+    },
+    {
+      "check_ids": [
+        "check_route"
+      ],
+      "closure_blocker_id": "r004_target_activation_boundary_accept_an_expli_blocker",
+      "evidence_ids": [
+        "plan_detailing_compiler_intake_evidence"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r004_target_activation_boundary_accept_an_expli_obligation",
+      "required": true,
+      "requirement_id": "target.activation-boundary.accept-an-explicit-delegated-rough-plan-and-sources",
+      "route_id": "plan_detailing_compiler",
+      "row_id": "r004_target_activation_boundary_accept_an_expli_coverage",
+      "rule_id": "r004_target_activation_boundary_accept_an_expli_rule",
+      "source_path": "SKILL.md#L18",
+      "stage_id": "plan_detailing_compiler_intake"
+    },
+    {
+      "check_ids": [
+        "check_route"
+      ],
+      "closure_blocker_id": "r005_target_activation_boundary_route_id_plan_d_blocker",
+      "evidence_ids": [
+        "plan_detailing_compiler_intake_evidence"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r005_target_activation_boundary_route_id_plan_d_obligation",
+      "required": true,
+      "requirement_id": "target.activation-boundary.route-id-plan-detailing-compiler-role-delegated-mode",
+      "route_id": "plan_detailing_compiler",
+      "row_id": "r005_target_activation_boundary_route_id_plan_d_coverage",
+      "rule_id": "r005_target_activation_boundary_route_id_plan_d_rule",
+      "source_path": "SKILL.md#L12",
+      "stage_id": "plan_detailing_compiler_intake"
+    },
+    {
+      "check_ids": [
+        "check_route"
+      ],
+      "closure_blocker_id": "r006_target_activation_boundary_use_for_delegat_blocker",
+      "evidence_ids": [
+        "plan_detailing_compiler_intake_evidence"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r006_target_activation_boundary_use_for_delegat_obligation",
+      "required": true,
+      "requirement_id": "target.activation-boundary.use-for-delegated-plan-detailing-where-scope-steps",
+      "route_id": "plan_detailing_compiler",
+      "row_id": "r006_target_activation_boundary_use_for_delegat_coverage",
+      "rule_id": "r006_target_activation_boundary_use_for_delegat_rule",
+      "source_path": "SKILL.md#L21",
+      "stage_id": "plan_detailing_compiler_intake"
+    },
+    {
+      "check_ids": [
+        "check_route"
+      ],
+      "closure_blocker_id": "r007_target_activation_boundary_use_when_blocker",
+      "evidence_ids": [
+        "plan_detailing_compiler_intake_evidence"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r007_target_activation_boundary_use_when_obligation",
+      "required": true,
+      "requirement_id": "target.activation-boundary.use-when",
+      "route_id": "plan_detailing_compiler",
+      "row_id": "r007_target_activation_boundary_use_when_coverage",
+      "rule_id": "r007_target_activation_boundary_use_when_rule",
+      "source_path": "SKILL.md#L20",
+      "stage_id": "plan_detailing_compiler_intake"
+    },
+    {
+      "check_ids": [
+        "check_quality_floor"
+      ],
+      "closure_blocker_id": "r008_target_check_gate_edit_skillguard_contract_blocker",
+      "evidence_ids": [
+        "plan_detailing_compiler_checks_evidence"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r008_target_check_gate_edit_skillguard_contract_obligation",
+      "required": true,
+      "requirement_id": "target.check-gate.edit-skillguard-contract-source-json-then-regenerate-derived",
+      "route_id": "plan_detailing_compiler",
+      "row_id": "r008_target_check_gate_edit_skillguard_contract_coverage",
+      "rule_id": "r008_target_check_gate_edit_skillguard_contract_rule",
+      "source_path": "SKILL.md#L40",
+      "stage_id": "plan_detailing_compiler_checks"
+    },
+    {
+      "check_ids": [
+        "check_quality_floor"
+      ],
+      "closure_blocker_id": "r009_target_check_gate_hard_gates_blocker",
+      "evidence_ids": [
+        "plan_detailing_compiler_checks_evidence"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r009_target_check_gate_hard_gates_obligation",
+      "required": true,
+      "requirement_id": "target.check-gate.hard-gates",
+      "route_id": "plan_detailing_compiler",
+      "row_id": "r009_target_check_gate_hard_gates_coverage",
+      "rule_id": "r009_target_check_gate_hard_gates_rule",
+      "source_path": "SKILL.md#L31",
+      "stage_id": "plan_detailing_compiler_checks"
+    },
+    {
+      "check_ids": [
+        "check_quality_floor"
+      ],
+      "closure_blocker_id": "r010_target_check_gate_long_prose_checkboxes_or_blocker",
+      "evidence_ids": [
+        "plan_detailing_compiler_checks_evidence"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r010_target_check_gate_long_prose_checkboxes_or_obligation",
+      "required": true,
+      "requirement_id": "target.check-gate.long-prose-checkboxes-or-plan-progress-cannot-satisfy",
+      "route_id": "plan_detailing_compiler",
+      "row_id": "r010_target_check_gate_long_prose_checkboxes_or_coverage",
+      "rule_id": "r010_target_check_gate_long_prose_checkboxes_or_rule",
+      "source_path": "SKILL.md#L33",
+      "stage_id": "plan_detailing_compiler_checks"
+    },
+    {
+      "check_ids": [
+        "check_quality_floor"
+      ],
+      "closure_blocker_id": "r011_target_check_gate_return_evidence_failures_blocker",
+      "evidence_ids": [
+        "plan_detailing_compiler_checks_evidence"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r011_target_check_gate_return_evidence_failures_obligation",
+      "required": true,
+      "requirement_id": "target.check-gate.return-evidence-failures-blockers-skipped-checks-residual-risk",
+      "route_id": "plan_detailing_compiler",
+      "row_id": "r011_target_check_gate_return_evidence_failures_coverage",
+      "rule_id": "r011_target_check_gate_return_evidence_failures_rule",
+      "source_path": "SKILL.md#L37",
+      "stage_id": "plan_detailing_compiler_checks"
+    },
+    {
+      "check_ids": [
+        "check_quality_floor"
+      ],
+      "closure_blocker_id": "r012_target_check_gate_turn_rough_plan_prose_in_blocker",
+      "evidence_ids": [
+        "plan_detailing_compiler_checks_evidence"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r012_target_check_gate_turn_rough_plan_prose_in_obligation",
+      "required": true,
+      "requirement_id": "target.check-gate.turn-rough-plan-prose-into-checkable-plandetail-rows",
+      "route_id": "plan_detailing_compiler",
+      "row_id": "r012_target_check_gate_turn_rough_plan_prose_in_coverage",
+      "rule_id": "r012_target_check_gate_turn_rough_plan_prose_in_rule",
+      "source_path": "SKILL.md#L9",
+      "stage_id": "plan_detailing_compiler_checks"
+    },
+    {
+      "check_ids": [
+        "check_quality_floor"
+      ],
+      "closure_blocker_id": "r013_target_check_gate_verify_the_real_flowguar_blocker",
+      "evidence_ids": [
+        "plan_detailing_compiler_checks_evidence"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r013_target_check_gate_verify_the_real_flowguar_obligation",
+      "required": true,
+      "requirement_id": "target.check-gate.verify-the-real-flowguard-check-engine-and-agents",
+      "route_id": "plan_detailing_compiler",
+      "row_id": "r013_target_check_gate_verify_the_real_flowguar_coverage",
+      "rule_id": "r013_target_check_gate_verify_the_real_flowguar_rule",
+      "source_path": "SKILL.md#L32",
+      "stage_id": "plan_detailing_compiler_checks"
+    },
+    {
+      "check_ids": [
+        "check_route"
+      ],
+      "closure_blocker_id": "r014_target_description_use_only_when_explicitl_blocker",
+      "evidence_ids": [
+        "plan_detailing_compiler_intake_evidence"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r014_target_description_use_only_when_explicitl_obligation",
+      "required": true,
+      "requirement_id": "target.description.use-only-when-explicitly-requested-or-delegated-by",
+      "route_id": "plan_detailing_compiler",
+      "row_id": "r014_target_description_use_only_when_explicitl_coverage",
+      "rule_id": "r014_target_description_use_only_when_explicitl_rule",
+      "source_path": "SKILL.md frontmatter",
+      "stage_id": "plan_detailing_compiler_intake"
+    },
+    {
+      "check_ids": [
+        "check_route"
+      ],
+      "closure_blocker_id": "r015_target_entrypoint_acceptance_blocker",
+      "evidence_ids": [
+        "plan_detailing_compiler_intake_evidence"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r015_target_entrypoint_acceptance_obligation",
+      "required": true,
+      "requirement_id": "target.entrypoint.acceptance",
+      "route_id": "plan_detailing_compiler",
+      "row_id": "r015_target_entrypoint_acceptance_coverage",
+      "rule_id": "r015_target_entrypoint_acceptance_rule",
+      "source_path": "SKILL.md",
+      "stage_id": "plan_detailing_compiler_intake"
+    },
+    {
+      "check_ids": [
+        "check_quality_floor"
+      ],
+      "closure_blocker_id": "r016_target_hard_gates_blocker",
+      "evidence_ids": [
+        "plan_detailing_compiler_checks_evidence"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r016_target_hard_gates_obligation",
+      "required": true,
+      "requirement_id": "target.hard_gates",
+      "route_id": "plan_detailing_compiler",
+      "row_id": "r016_target_hard_gates_coverage",
+      "rule_id": "r016_target_hard_gates_rule",
+      "source_path": "SKILL.md",
+      "stage_id": "plan_detailing_compiler_checks"
+    },
+    {
+      "check_ids": [
+        "check_route"
+      ],
+      "closure_blocker_id": "r017_target_non_use_boundary_do_not_activate_as_blocker",
+      "evidence_ids": [
+        "plan_detailing_compiler_intake_evidence"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r017_target_non_use_boundary_do_not_activate_as_obligation",
+      "required": true,
+      "requirement_id": "target.non-use-boundary.do-not-activate-as-a-generic-planner-execute",
+      "route_id": "plan_detailing_compiler",
+      "row_id": "r017_target_non_use_boundary_do_not_activate_as_coverage",
+      "rule_id": "r017_target_non_use_boundary_do_not_activate_as_rule",
+      "source_path": "SKILL.md#L24",
+      "stage_id": "plan_detailing_compiler_intake"
+    },
+    {
+      "check_ids": [
+        "check_route"
+      ],
+      "closure_blocker_id": "r018_target_non_use_boundary_do_not_use_when_blocker",
+      "evidence_ids": [
+        "plan_detailing_compiler_intake_evidence"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r018_target_non_use_boundary_do_not_use_when_obligation",
+      "required": true,
+      "requirement_id": "target.non-use-boundary.do-not-use-when",
+      "route_id": "plan_detailing_compiler",
+      "row_id": "r018_target_non_use_boundary_do_not_use_when_coverage",
+      "rule_id": "r018_target_non_use_boundary_do_not_use_when_rule",
+      "source_path": "SKILL.md#L23",
+      "stage_id": "plan_detailing_compiler_intake"
+    },
+    {
+      "check_ids": [
+        "check_closure"
+      ],
+      "closure_blocker_id": "r019_target_output_output_requirements_blocker",
+      "evidence_ids": [
+        "plan_detailing_compiler_closure_evidence"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r019_target_output_output_requirements_obligation",
+      "required": true,
+      "requirement_id": "target.output.output-requirements",
+      "route_id": "plan_detailing_compiler",
+      "row_id": "r019_target_output_output_requirements_coverage",
+      "rule_id": "r019_target_output_output_requirements_rule",
+      "source_path": "SKILL.md#L36",
+      "stage_id": "plan_detailing_compiler_closure"
+    },
+    {
+      "check_ids": [
+        "check_evidence"
+      ],
+      "closure_blocker_id": "r020_target_target_rule_read_references_plan_de_blocker",
+      "evidence_ids": [
+        "plan_detailing_compiler_execution_evidence"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r020_target_target_rule_read_references_plan_de_obligation",
+      "required": true,
+      "requirement_id": "target.target-rule.read-references-plan-detailing-compiler-protocol-md-for",
+      "route_id": "plan_detailing_compiler",
+      "row_id": "r020_target_target_rule_read_references_plan_de_coverage",
+      "rule_id": "r020_target_target_rule_read_references_plan_de_rule",
+      "source_path": "SKILL.md#L15",
+      "stage_id": "plan_detailing_compiler_execution"
+    },
+    {
+      "check_ids": [
+        "check_evidence"
+      ],
+      "closure_blocker_id": "r021_target_workflow_route_add_ordered_steps_st_blocker",
+      "evidence_ids": [
+        "plan_detailing_compiler_execution_evidence"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r021_target_workflow_route_add_ordered_steps_st_obligation",
+      "required": true,
+      "requirement_id": "target.workflow-route.add-ordered-steps-step-receipts-validations-failure-rework",
+      "route_id": "plan_detailing_compiler",
+      "row_id": "r021_target_workflow_route_add_ordered_steps_st_coverage",
+      "rule_id": "r021_target_workflow_route_add_ordered_steps_st_rule",
+      "source_path": "SKILL.md#L28",
+      "stage_id": "plan_detailing_compiler_execution"
+    },
+    {
+      "check_ids": [
+        "check_evidence"
+      ],
+      "closure_blocker_id": "r022_target_workflow_route_capture_goal_assumpt_blocker",
+      "evidence_ids": [
+        "plan_detailing_compiler_execution_evidence"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r022_target_workflow_route_capture_goal_assumpt_obligation",
+      "required": true,
+      "requirement_id": "target.workflow-route.capture-goal-assumptions-sources-risk-surfaces-state-side",
+      "route_id": "plan_detailing_compiler",
+      "row_id": "r022_target_workflow_route_capture_goal_assumpt_coverage",
+      "rule_id": "r022_target_workflow_route_capture_goal_assumpt_rule",
+      "source_path": "SKILL.md#L27",
+      "stage_id": "plan_detailing_compiler_execution"
+    },
+    {
+      "check_ids": [
+        "check_evidence"
+      ],
+      "closure_blocker_id": "r023_target_workflow_route_description_use_only_blocker",
+      "evidence_ids": [
+        "plan_detailing_compiler_execution_evidence"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r023_target_workflow_route_description_use_only_obligation",
+      "required": true,
+      "requirement_id": "target.workflow-route.description-use-only-when-explicitly-requested-or-delegated",
+      "route_id": "plan_detailing_compiler",
+      "row_id": "r023_target_workflow_route_description_use_only_coverage",
+      "rule_id": "r023_target_workflow_route_description_use_only_rule",
+      "source_path": "SKILL.md#L3",
+      "stage_id": "plan_detailing_compiler_execution"
+    },
+    {
+      "check_ids": [
+        "check_evidence"
+      ],
+      "closure_blocker_id": "r024_target_workflow_route_full_claims_require__blocker",
+      "evidence_ids": [
+        "plan_detailing_compiler_execution_evidence"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r024_target_workflow_route_full_claims_require__obligation",
+      "required": true,
+      "requirement_id": "target.workflow-route.full-claims-require-resolved-questions-final-evidence-ids",
+      "route_id": "plan_detailing_compiler",
+      "row_id": "r024_target_workflow_route_full_claims_require__coverage",
+      "rule_id": "r024_target_workflow_route_full_claims_require__rule",
+      "source_path": "SKILL.md#L34",
+      "stage_id": "plan_detailing_compiler_execution"
+    },
+    {
+      "check_ids": [
+        "check_evidence"
+      ],
+      "closure_blocker_id": "r025_target_workflow_route_project_passing_scop_blocker",
+      "evidence_ids": [
+        "plan_detailing_compiler_execution_evidence"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r025_target_workflow_route_project_passing_scop_obligation",
+      "required": true,
+      "requirement_id": "target.workflow-route.project-passing-scoped-rows-to-process-agent-workflow",
+      "route_id": "plan_detailing_compiler",
+      "row_id": "r025_target_workflow_route_project_passing_scop_coverage",
+      "rule_id": "r025_target_workflow_route_project_passing_scop_rule",
+      "source_path": "SKILL.md#L29",
+      "stage_id": "plan_detailing_compiler_execution"
+    },
+    {
+      "check_ids": [
+        "check_evidence"
+      ],
+      "closure_blocker_id": "r026_target_workflow_route_required_workflow_blocker",
+      "evidence_ids": [
+        "plan_detailing_compiler_execution_evidence"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_id": "r026_target_workflow_route_required_workflow_obligation",
+      "required": true,
+      "requirement_id": "target.workflow-route.required-workflow",
+      "route_id": "plan_detailing_compiler",
+      "row_id": "r026_target_workflow_route_required_workflow_coverage",
+      "rule_id": "r026_target_workflow_route_required_workflow_rule",
+      "source_path": "SKILL.md#L26",
+      "stage_id": "plan_detailing_compiler_execution"
+    }
+  ],
   "forbidden_shortcuts": [
     {
+      "shortcut_id": "parallel_skillguard_route",
+      "summary": "Do not create a SkillGuard-owned alternate execution route."
+    },
+    {
+      "shortcut_id": "synthetic_native_pass",
+      "summary": "Do not convert configured booleans, generated JSON, or progress into native pass evidence."
+    },
+    {
       "shortcut_id": "skip_to_closure",
-      "summary": "Do not move directly from intake or planning to closure without current phase evidence and required checks."
-    },
-    {
-      "shortcut_id": "reuse_stale_evidence",
-      "summary": "Do not treat old reports, prior chat summaries, or progress ledger entries as current closure evidence."
-    },
-    {
-      "shortcut_id": "downgrade_quality_floor",
-      "summary": "Do not weaken required checks, evidence, or quality floors to make a run pass."
+      "summary": "Do not skip required stages, checks, receipts, or blockers."
     }
   ],
-  "integration_claim_boundary": "SkillGuard executes the runtime contract against the native route/check system owned by FlowGuard skill route map plus the real flowguard package/model checks. Duplicate SkillGuard-owned execution paths are invalid; it may enforce contract gates before progress or closure, but must not create a competing execution router or bypass the native controller/checker.",
+  "integration_claim_boundary": "SkillGuard gates the target-native FlowGuard route; it does not execute a parallel controller or replace native model/test evidence.",
   "integration_mode": "native-integrated",
   "may_define_parallel_execution_route": false,
   "may_define_skillguard_runtime_route": false,
   "native_check_bindings": [
     {
-      "binding_id": "flowguard_package_import_native_check",
-      "evidence_source": "FlowGuard skill route map plus the real flowguard package/model checks",
-      "native_check_id": "flowguard_package_import",
+      "binding_id": "plan_detail_pytest",
+      "command": "python -m pytest tests/test_plan_detailing.py -q",
+      "evidence_source": "current owner-specific pytest receipt",
+      "native_check_id": "plan_detailing_compiler_tests",
       "required": true
-    },
+    }
+  ],
+  "native_check_inventory": [
     {
-      "binding_id": "flowguard_model_or_project_audit_native_check",
-      "evidence_source": "FlowGuard skill route map plus the real flowguard package/model checks",
-      "native_check_id": "flowguard_model_or_project_audit",
-      "required": true
+      "check_id": "plan_detailing_compiler_tests",
+      "command": "python -m pytest tests/test_plan_detailing.py -q",
+      "kind": "pytest",
+      "required": true,
+      "source_path": ".skillguard/contract-source.json",
+      "summary": "Run the tracked plan-detail compilation and coverage tests."
     }
   ],
   "native_route_bindings": [
     {
-      "binding_id": "model_preflight_native_route",
-      "native_route_id": "flowguard.model_preflight",
+      "binding_id": "plan_detailing_compiler.native_route",
+      "native_route_id": "plan_detailing_compiler",
       "required_before_closure": true,
-      "source": "FlowGuard skill route map plus the real flowguard package/model checks"
-    },
-    {
-      "binding_id": "process_review_native_route",
-      "native_route_id": "flowguard.process_review",
-      "required_before_closure": true,
-      "source": "FlowGuard skill route map plus the real flowguard package/model checks"
-    },
-    {
-      "binding_id": "evidence_alignment_native_route",
-      "native_route_id": "flowguard.evidence_alignment",
-      "required_before_closure": true,
-      "source": "FlowGuard skill route map plus the real flowguard package/model checks"
-    },
-    {
-      "binding_id": "closure_native_route",
-      "native_route_id": "flowguard.closure",
-      "required_before_closure": true,
-      "source": "FlowGuard skill route map plus the real flowguard package/model checks"
+      "source": "FlowGuard canonical route registry and target contract source"
     }
   ],
-  "native_route_owner": "FlowGuard skill route map plus the real flowguard package/model checks",
+  "native_route_owner": "development_process_flow",
+  "not_parallel_route_proof": {
+    "evidence_source": "Canonical route registry, contract source, and may_define_* false gates",
+    "native_route_binding_ids": [
+      "plan_detailing_compiler.native_route"
+    ],
+    "proof_id": "plan_detailing_compiler.native_owner_proof",
+    "summary": "SkillGuard only validates the FlowGuard-owned route and cannot define an alternate successful execution path."
+  },
+  "phase_native_bindings": [
+    {
+      "evidence_source": ".skillguard/contract-source.json and current native command receipts",
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "native_route_binding_id": "plan_detailing_compiler.native_route",
+      "phase_id": "intake",
+      "required": true
+    },
+    {
+      "evidence_source": ".skillguard/contract-source.json and current native command receipts",
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "native_route_binding_id": "plan_detailing_compiler.native_route",
+      "phase_id": "inventory",
+      "required": true
+    },
+    {
+      "evidence_source": ".skillguard/contract-source.json and current native command receipts",
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "native_route_binding_id": "plan_detailing_compiler.native_route",
+      "phase_id": "execution",
+      "required": true
+    },
+    {
+      "evidence_source": ".skillguard/contract-source.json and current native command receipts",
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "native_route_binding_id": "plan_detailing_compiler.native_route",
+      "phase_id": "checks",
+      "required": true
+    },
+    {
+      "evidence_source": ".skillguard/contract-source.json and current native command receipts",
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "native_route_binding_id": "plan_detailing_compiler.native_route",
+      "phase_id": "closure",
+      "required": true
+    }
+  ],
   "phases": [
     {
       "allowed_next": [
@@ -134,9 +1379,9 @@
         "check_route"
       ],
       "required_evidence": [
-        "task_summary"
+        "plan_detailing_compiler_intake_evidence"
       ],
-      "summary": "Confirm target, requested outcome, route, scope, and claim boundary."
+      "summary": "Confirm explicit/delegated activation, goal, sources, assumptions, scope, and claim intent."
     },
     {
       "allowed_next": [
@@ -147,9 +1392,9 @@
         "check_phase_order"
       ],
       "required_evidence": [
-        "target_inventory"
+        "plan_detailing_compiler_inventory_evidence"
       ],
-      "summary": "Inspect current target files, local materials, source ownership, and activation boundary."
+      "summary": "Inventory risk surfaces, artifacts, state/side effects, UI actions, real payload surfaces, and human questions."
     },
     {
       "allowed_next": [
@@ -160,9 +1405,9 @@
         "check_evidence"
       ],
       "required_evidence": [
-        "direct_evidence"
+        "plan_detailing_compiler_execution_evidence"
       ],
-      "summary": "Perform the skill work inside the selected route without skipping declared gates."
+      "summary": "Compile ordered steps, receipts, validations, failure/rework/continue branches, freshness rules, and final evidence."
     },
     {
       "allowed_next": [
@@ -173,9 +1418,9 @@
         "check_quality_floor"
       ],
       "required_evidence": [
-        "check_output"
+        "plan_detailing_compiler_checks_evidence"
       ],
-      "summary": "Run required checks, quality floors, freshness checks, and negative-case gates when applicable."
+      "summary": "Run the plan-detail model and reject missing rows, unsafe side effects, unresolved questions, or overclaimed detail."
     },
     {
       "allowed_next": [],
@@ -184,9 +1429,9 @@
         "check_closure"
       ],
       "required_evidence": [
-        "closure_report"
+        "plan_detailing_compiler_closure_evidence"
       ],
-      "summary": "Close only inside the evidence-backed claim boundary."
+      "summary": "Return pass/scoped/revision/blocked detail and typed projections without executing the plan."
     }
   ],
   "quality_floors": [
@@ -197,71 +1442,75 @@
         "check_evidence",
         "check_quality_floor"
       ],
-      "summary": "Required checks and file evidence cannot be replaced by prose-only claims."
+      "summary": "Prompt prose, progress, or generated records cannot replace native evidence."
     },
     {
-      "failure_effect": "block accepted closure",
-      "floor_id": "no_quality_downgrade",
+      "failure_effect": "block broad done/release/archive/publish claims",
+      "floor_id": "no_partial_broad_claim",
       "required_checks": [
         "check_quality_floor",
         "check_closure"
       ],
-      "summary": "Do not weaken required workflow, evidence, freshness, or validation expectations to make a run pass."
+      "summary": "Missing, stale, skipped, scoped, progress-only, or pass-with-gaps evidence cannot support broad closure."
     }
   ],
   "required_evidence": [
     {
-      "evidence_id": "task_summary",
-      "kind": "task_record",
+      "evidence_id": "plan_detailing_compiler_intake_evidence",
+      "kind": "plan_detailing_compiler_intake_evidence",
       "phase_id": "intake",
       "required": true,
-      "source": ".skillguard/runs/"
+      "source": "FlowGuard native command receipt or direct target artifact"
     },
     {
-      "evidence_id": "target_inventory",
-      "kind": "file_inventory",
+      "evidence_id": "plan_detailing_compiler_inventory_evidence",
+      "kind": "plan_detailing_compiler_inventory_evidence",
       "phase_id": "inventory",
       "required": true,
-      "source": ".skillguard/runs/"
+      "source": "FlowGuard native command receipt or direct target artifact"
     },
     {
-      "evidence_id": "direct_evidence",
-      "kind": "direct_evidence",
+      "evidence_id": "plan_detailing_compiler_execution_evidence",
+      "kind": "plan_detailing_compiler_execution_evidence",
       "phase_id": "execution",
       "required": true,
-      "source": ".skillguard/runs/"
+      "source": "FlowGuard native command receipt or direct target artifact"
     },
     {
-      "evidence_id": "check_output",
-      "kind": "command_output",
+      "evidence_id": "plan_detailing_compiler_checks_evidence",
+      "kind": "plan_detailing_compiler_checks_evidence",
       "phase_id": "checks",
       "required": true,
-      "source": ".skillguard/runs/"
+      "source": "FlowGuard native command receipt or direct target artifact"
     },
     {
-      "evidence_id": "closure_report",
-      "kind": "closure_record",
+      "evidence_id": "plan_detailing_compiler_closure_evidence",
+      "kind": "plan_detailing_compiler_closure_evidence",
       "phase_id": "closure",
       "required": true,
-      "source": ".skillguard/runs/"
+      "source": "FlowGuard native command receipt or direct target artifact"
+    }
+  ],
+  "route_inventory": [
+    {
+      "native_binding_id": "plan_detailing_compiler.native_route",
+      "required": true,
+      "route_id": "plan_detailing_compiler",
+      "source_path": ".skillguard/contract-source.json",
+      "summary": "Compile an explicit/delegated rough plan into checkable artifacts, steps, receipts, validations, failures, rework, questions, and claim boundaries."
     }
   ],
   "routes": [
     {
       "activation_keywords": [
-        "model_preflight",
-        "model preflight",
-        "model-preflight",
-        "model",
-        "\u6a21\u578b",
-        "\u5efa\u6a21",
-        "preflight",
-        "\u9884\u68c0",
-        "\u524d\u7f6e\u68c0\u67e5"
+        "plan_detailing",
+        "rough plan compiler",
+        "PlanDetail",
+        "step receipts"
       ],
-      "default_route": true,
+      "default_route": false,
       "do_not_use_when": [
-        "The task is outside this skill's activation boundary."
+        "The request is generic planning, plan execution, or downstream evidence validation rather than structured detail."
       ],
       "phase_order": [
         "intake",
@@ -270,117 +1519,1167 @@
         "checks",
         "closure"
       ],
-      "route_id": "model_preflight",
+      "route_id": "plan_detailing_compiler",
       "route_priority": 0,
       "route_source": "native_binding",
-      "summary": "SkillGuard runtime contract executor for the target skill's native model preflight route/check surface. Duplicate SkillGuard-owned execution paths are invalid; evidence, required checks, blockers, and closure run through the target skill's own workflow."
-    },
-    {
-      "activation_keywords": [
-        "process_review",
-        "process review",
-        "process-review",
-        "process",
-        "\u6d41\u7a0b",
-        "\u8fc7\u7a0b",
-        "review",
-        "\u590d\u6838",
-        "\u5ba1\u67e5",
-        "\u8bc4\u5ba1"
-      ],
-      "default_route": false,
-      "do_not_use_when": [
-        "The task is outside this skill's activation boundary."
-      ],
-      "phase_order": [
-        "intake",
-        "inventory",
-        "execution",
-        "checks",
-        "closure"
-      ],
-      "route_id": "process_review",
-      "route_priority": 1,
-      "route_source": "native_binding",
-      "summary": "SkillGuard runtime contract executor for the target skill's native process review route/check surface. Duplicate SkillGuard-owned execution paths are invalid; evidence, required checks, blockers, and closure run through the target skill's own workflow."
-    },
-    {
-      "activation_keywords": [
-        "evidence_alignment",
-        "evidence alignment",
-        "evidence-alignment",
-        "evidence",
-        "\u8bc1\u636e",
-        "\u6750\u6599",
-        "alignment",
-        "\u5bf9\u9f50",
-        "\u4e00\u81f4\u6027"
-      ],
-      "default_route": false,
-      "do_not_use_when": [
-        "The task is outside this skill's activation boundary."
-      ],
-      "phase_order": [
-        "intake",
-        "inventory",
-        "execution",
-        "checks",
-        "closure"
-      ],
-      "route_id": "evidence_alignment",
-      "route_priority": 2,
-      "route_source": "native_binding",
-      "summary": "SkillGuard runtime contract executor for the target skill's native evidence alignment route/check surface. Duplicate SkillGuard-owned execution paths are invalid; evidence, required checks, blockers, and closure run through the target skill's own workflow."
-    },
-    {
-      "activation_keywords": [
-        "closure",
-        "close",
-        "\u6536\u5c3e",
-        "\u95ed\u73af",
-        "\u5b8c\u6210",
-        "\u5f52\u6863",
-        "\u53d1\u5e03"
-      ],
-      "default_route": false,
-      "do_not_use_when": [
-        "The task is outside this skill's activation boundary."
-      ],
-      "phase_order": [
-        "intake",
-        "inventory",
-        "execution",
-        "checks",
-        "closure"
-      ],
-      "route_id": "closure",
-      "route_priority": 3,
-      "route_source": "native_binding",
-      "summary": "SkillGuard runtime contract executor for the target skill's native closure route/check surface. Duplicate SkillGuard-owned execution paths are invalid; evidence, required checks, blockers, and closure run through the target skill's own workflow."
+      "summary": "Compile an explicit/delegated rough plan into checkable artifacts, steps, receipts, validations, failures, rework, questions, and claim boundaries."
     }
   ],
-  "schema_version": "1.0",
+  "run_record_required": false,
+  "runtime_lock_policy": {
+    "applies_when": "The flowguard-plan-detailing-compiler skill is selected or delegated.",
+    "checks_before_closure": true,
+    "coverage_matrix_required": true,
+    "evidence_before_closure": true,
+    "global_skillguard_pregate_required": false,
+    "policy_id": "plan_detailing_compiler.target_local_runtime_lock",
+    "route_selection_required": true,
+    "stage_sequence_required": true,
+    "summary": "The target-local contract, route, stage order, checks, evidence, and coverage matrix gate closure.",
+    "target_local_contract_required": true
+  },
+  "schema_version": "skillguard.work_contract.v1",
   "skill_id": "flowguard-plan-detailing-compiler",
+  "skill_specific_checks": [
+    {
+      "check_id": "r001_plan_detail_checkable_rows_check",
+      "check_manifest_ids": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_ids": [
+        "r001_plan_detail_checkable_rows_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for plan_detail.checkable_rows."
+    },
+    {
+      "check_id": "r002_plan_detail_delegated_activation_check",
+      "check_manifest_ids": [
+        "check_route"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_ids": [
+        "r002_plan_detail_delegated_activation_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for plan_detail.delegated_activation."
+    },
+    {
+      "check_id": "r003_plan_detail_no_execution_claim_check",
+      "check_manifest_ids": [
+        "check_closure"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_ids": [
+        "r003_plan_detail_no_execution_claim_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for plan_detail.no_execution_claim."
+    },
+    {
+      "check_id": "r004_target_activation_boundary_accept_an_expli_check",
+      "check_manifest_ids": [
+        "check_route"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_ids": [
+        "r004_target_activation_boundary_accept_an_expli_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.activation-boundary.accept-an-explicit-delegated-rough-plan-and-sources."
+    },
+    {
+      "check_id": "r005_target_activation_boundary_route_id_plan_d_check",
+      "check_manifest_ids": [
+        "check_route"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_ids": [
+        "r005_target_activation_boundary_route_id_plan_d_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.activation-boundary.route-id-plan-detailing-compiler-role-delegated-mode."
+    },
+    {
+      "check_id": "r006_target_activation_boundary_use_for_delegat_check",
+      "check_manifest_ids": [
+        "check_route"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_ids": [
+        "r006_target_activation_boundary_use_for_delegat_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.activation-boundary.use-for-delegated-plan-detailing-where-scope-steps."
+    },
+    {
+      "check_id": "r007_target_activation_boundary_use_when_check",
+      "check_manifest_ids": [
+        "check_route"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_ids": [
+        "r007_target_activation_boundary_use_when_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.activation-boundary.use-when."
+    },
+    {
+      "check_id": "r008_target_check_gate_edit_skillguard_contract_check",
+      "check_manifest_ids": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_ids": [
+        "r008_target_check_gate_edit_skillguard_contract_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.check-gate.edit-skillguard-contract-source-json-then-regenerate-derived."
+    },
+    {
+      "check_id": "r009_target_check_gate_hard_gates_check",
+      "check_manifest_ids": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_ids": [
+        "r009_target_check_gate_hard_gates_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.check-gate.hard-gates."
+    },
+    {
+      "check_id": "r010_target_check_gate_long_prose_checkboxes_or_check",
+      "check_manifest_ids": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_ids": [
+        "r010_target_check_gate_long_prose_checkboxes_or_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.check-gate.long-prose-checkboxes-or-plan-progress-cannot-satisfy."
+    },
+    {
+      "check_id": "r011_target_check_gate_return_evidence_failures_check",
+      "check_manifest_ids": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_ids": [
+        "r011_target_check_gate_return_evidence_failures_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.check-gate.return-evidence-failures-blockers-skipped-checks-residual-risk."
+    },
+    {
+      "check_id": "r012_target_check_gate_turn_rough_plan_prose_in_check",
+      "check_manifest_ids": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_ids": [
+        "r012_target_check_gate_turn_rough_plan_prose_in_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.check-gate.turn-rough-plan-prose-into-checkable-plandetail-rows."
+    },
+    {
+      "check_id": "r013_target_check_gate_verify_the_real_flowguar_check",
+      "check_manifest_ids": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_ids": [
+        "r013_target_check_gate_verify_the_real_flowguar_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.check-gate.verify-the-real-flowguard-check-engine-and-agents."
+    },
+    {
+      "check_id": "r014_target_description_use_only_when_explicitl_check",
+      "check_manifest_ids": [
+        "check_route"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_ids": [
+        "r014_target_description_use_only_when_explicitl_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.description.use-only-when-explicitly-requested-or-delegated-by."
+    },
+    {
+      "check_id": "r015_target_entrypoint_acceptance_check",
+      "check_manifest_ids": [
+        "check_route"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_ids": [
+        "r015_target_entrypoint_acceptance_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.entrypoint.acceptance."
+    },
+    {
+      "check_id": "r016_target_hard_gates_check",
+      "check_manifest_ids": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_ids": [
+        "r016_target_hard_gates_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.hard_gates."
+    },
+    {
+      "check_id": "r017_target_non_use_boundary_do_not_activate_as_check",
+      "check_manifest_ids": [
+        "check_route"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_ids": [
+        "r017_target_non_use_boundary_do_not_activate_as_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.non-use-boundary.do-not-activate-as-a-generic-planner-execute."
+    },
+    {
+      "check_id": "r018_target_non_use_boundary_do_not_use_when_check",
+      "check_manifest_ids": [
+        "check_route"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_ids": [
+        "r018_target_non_use_boundary_do_not_use_when_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.non-use-boundary.do-not-use-when."
+    },
+    {
+      "check_id": "r019_target_output_output_requirements_check",
+      "check_manifest_ids": [
+        "check_closure"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_ids": [
+        "r019_target_output_output_requirements_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.output.output-requirements."
+    },
+    {
+      "check_id": "r020_target_target_rule_read_references_plan_de_check",
+      "check_manifest_ids": [
+        "check_evidence"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_ids": [
+        "r020_target_target_rule_read_references_plan_de_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.target-rule.read-references-plan-detailing-compiler-protocol-md-for."
+    },
+    {
+      "check_id": "r021_target_workflow_route_add_ordered_steps_st_check",
+      "check_manifest_ids": [
+        "check_evidence"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_ids": [
+        "r021_target_workflow_route_add_ordered_steps_st_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.workflow-route.add-ordered-steps-step-receipts-validations-failure-rework."
+    },
+    {
+      "check_id": "r022_target_workflow_route_capture_goal_assumpt_check",
+      "check_manifest_ids": [
+        "check_evidence"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_ids": [
+        "r022_target_workflow_route_capture_goal_assumpt_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.workflow-route.capture-goal-assumptions-sources-risk-surfaces-state-side."
+    },
+    {
+      "check_id": "r023_target_workflow_route_description_use_only_check",
+      "check_manifest_ids": [
+        "check_evidence"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_ids": [
+        "r023_target_workflow_route_description_use_only_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.workflow-route.description-use-only-when-explicitly-requested-or-delegated."
+    },
+    {
+      "check_id": "r024_target_workflow_route_full_claims_require__check",
+      "check_manifest_ids": [
+        "check_evidence"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_ids": [
+        "r024_target_workflow_route_full_claims_require__obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.workflow-route.full-claims-require-resolved-questions-final-evidence-ids."
+    },
+    {
+      "check_id": "r025_target_workflow_route_project_passing_scop_check",
+      "check_manifest_ids": [
+        "check_evidence"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_ids": [
+        "r025_target_workflow_route_project_passing_scop_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.workflow-route.project-passing-scoped-rows-to-process-agent-workflow."
+    },
+    {
+      "check_id": "r026_target_workflow_route_required_workflow_check",
+      "check_manifest_ids": [
+        "check_evidence"
+      ],
+      "native_check_binding_ids": [
+        "plan_detail_pytest"
+      ],
+      "obligation_ids": [
+        "r026_target_workflow_route_required_workflow_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.workflow-route.required-workflow."
+    }
+  ],
   "skillguard_role": "native_contract_executor",
+  "source_requirements": [
+    {
+      "category": "evidence",
+      "required": true,
+      "requirement_id": "plan_detail.checkable_rows",
+      "source_path": ".skillguard/contract-source.json#source_requirements",
+      "summary": "Artifacts, state, steps, receipts, validations, failures, rework, UI/payload gates, and final evidence are structured rows."
+    },
+    {
+      "category": "activation-boundary",
+      "required": true,
+      "requirement_id": "plan_detail.delegated_activation",
+      "source_path": ".skillguard/contract-source.json#source_requirements",
+      "summary": "Generic rough plans enter DevelopmentProcessFlow; this route requires explicit or delegated activation."
+    },
+    {
+      "category": "closure",
+      "required": true,
+      "requirement_id": "plan_detail.no_execution_claim",
+      "source_path": ".skillguard/contract-source.json#source_requirements",
+      "summary": "Plan-detail pass proves readiness to proceed, not implementation, test, release, or production completion."
+    },
+    {
+      "category": "activation-boundary",
+      "required": true,
+      "requirement_id": "target.activation-boundary.accept-an-explicit-delegated-rough-plan-and-sources",
+      "source_path": "SKILL.md#L18",
+      "summary": "Accept an explicit/delegated rough plan and sources; compile scope/state/artifact/receipt/validation rows; block missing rework, payload/UI, or final evidence detail; return structured proj."
+    },
+    {
+      "category": "activation-boundary",
+      "required": true,
+      "requirement_id": "target.activation-boundary.route-id-plan-detailing-compiler-role-delegated-mode",
+      "source_path": "SKILL.md#L12",
+      "summary": "Route id: plan_detailing_compiler; role: delegated_mode; native owner: development_process_flow. Direct use requires an explicit request; generic rough-plan work enters flowguard-developmen."
+    },
+    {
+      "category": "activation-boundary",
+      "required": true,
+      "requirement_id": "target.activation-boundary.use-for-delegated-plan-detailing-where-scope-steps",
+      "source_path": "SKILL.md#L21",
+      "summary": "Use for delegated plan_detailing where scope, steps, artifacts, side effects, UI actions, real payload surfaces, validation, or rework are underspecified."
+    },
+    {
+      "category": "activation-boundary",
+      "required": true,
+      "requirement_id": "target.activation-boundary.use-when",
+      "source_path": "SKILL.md#L20",
+      "summary": "The target section 'Use When' must be represented by route, check, evidence, or closure coverage."
+    },
+    {
+      "category": "check-gate",
+      "required": true,
+      "requirement_id": "target.check-gate.edit-skillguard-contract-source-json-then-regenerate-derived",
+      "source_path": "SKILL.md#L40",
+      "summary": "Edit .skillguard/contract-source.json, then regenerate derived contracts; SkillGuard validates this delegated compiler and cannot execute steps or manufacture receipts."
+    },
+    {
+      "category": "check-gate",
+      "required": true,
+      "requirement_id": "target.check-gate.hard-gates",
+      "source_path": "SKILL.md#L31",
+      "summary": "The target section 'Hard Gates' must be represented by route, check, evidence, or closure coverage."
+    },
+    {
+      "category": "check-gate",
+      "required": true,
+      "requirement_id": "target.check-gate.long-prose-checkboxes-or-plan-progress-cannot-satisfy",
+      "source_path": "SKILL.md#L33",
+      "summary": "Long prose, checkboxes, or plan progress cannot satisfy structured detail or terminal evidence."
+    },
+    {
+      "category": "check-gate",
+      "required": true,
+      "requirement_id": "target.check-gate.return-evidence-failures-blockers-skipped-checks-residual-risk",
+      "source_path": "SKILL.md#L37",
+      "summary": "Return evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, and typed_next_actions, plus PlanDetail rows, gaps, and projections."
+    },
+    {
+      "category": "check-gate",
+      "required": true,
+      "requirement_id": "target.check-gate.turn-rough-plan-prose-into-checkable-plandetail-rows",
+      "source_path": "SKILL.md#L9",
+      "summary": "Turn rough plan prose into checkable PlanDetail rows before execution; never execute the plan or treat detail as implementation proof."
+    },
+    {
+      "category": "check-gate",
+      "required": true,
+      "requirement_id": "target.check-gate.verify-the-real-flowguard-check-engine-and-agents",
+      "source_path": "SKILL.md#L32",
+      "summary": "Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework."
+    },
+    {
+      "category": "entrypoint-description",
+      "required": true,
+      "requirement_id": "target.description.use-only-when-explicitly-requested-or-delegated-by",
+      "source_path": "SKILL.md frontmatter",
+      "summary": "The target skill description must be represented in the contract: Use only when explicitly requested or delegated by flowguard-development-process-flow's plan_detailing mode to compile a ro."
+    },
+    {
+      "category": "entrypoint",
+      "required": true,
+      "requirement_id": "target.entrypoint.acceptance",
+      "source_path": "SKILL.md",
+      "summary": "The target skill entrypoint and hard gates must be represented by the runtime contract."
+    },
+    {
+      "category": "quality-gate",
+      "required": true,
+      "requirement_id": "target.hard_gates",
+      "source_path": "SKILL.md",
+      "summary": "Declared hard gates and required workflow steps must be represented by checks and closure blockers."
+    },
+    {
+      "category": "non-use-boundary",
+      "required": true,
+      "requirement_id": "target.non-use-boundary.do-not-activate-as-a-generic-planner-execute",
+      "source_path": "SKILL.md#L24",
+      "summary": "Do not activate as a generic planner, execute work, or replace downstream route evidence; return unclear FlowGuard routing to model-first-function-flow."
+    },
+    {
+      "category": "non-use-boundary",
+      "required": true,
+      "requirement_id": "target.non-use-boundary.do-not-use-when",
+      "source_path": "SKILL.md#L23",
+      "summary": "The target section 'Do Not Use When' must be represented by route, check, evidence, or closure coverage."
+    },
+    {
+      "category": "output",
+      "required": true,
+      "requirement_id": "target.output.output-requirements",
+      "source_path": "SKILL.md#L36",
+      "summary": "The target section 'Output Requirements' must be represented by route, check, evidence, or closure coverage."
+    },
+    {
+      "category": "target-rule",
+      "required": true,
+      "requirement_id": "target.target-rule.read-references-plan-detailing-compiler-protocol-md-for",
+      "source_path": "SKILL.md#L15",
+      "summary": "Read references/plan_detailing_compiler_protocol.md for required rows, finding codes, projection order, and confidence decisions."
+    },
+    {
+      "category": "workflow-route",
+      "required": true,
+      "requirement_id": "target.workflow-route.add-ordered-steps-step-receipts-validations-failure-rework",
+      "source_path": "SKILL.md#L28",
+      "summary": "Add ordered steps, step receipts, validations, failure/rework/continue gates, freshness rules, and human questions; run review_plan_detail()."
+    },
+    {
+      "category": "workflow-route",
+      "required": true,
+      "requirement_id": "target.workflow-route.capture-goal-assumptions-sources-risk-surfaces-state-side",
+      "source_path": "SKILL.md#L27",
+      "summary": "Capture goal, assumptions, sources, risk surfaces, state/side effects, artifacts, UI actions, and payload/work-package surfaces."
+    },
+    {
+      "category": "workflow-route",
+      "required": true,
+      "requirement_id": "target.workflow-route.description-use-only-when-explicitly-requested-or-delegated",
+      "source_path": "SKILL.md#L3",
+      "summary": "description: Use only when explicitly requested or delegated by flowguard-development-process-flow's plan_detailing mode to compile a rough non-trivial plan into structured FlowGuard artifa."
+    },
+    {
+      "category": "workflow-route",
+      "required": true,
+      "requirement_id": "target.workflow-route.full-claims-require-resolved-questions-final-evidence-ids",
+      "source_path": "SKILL.md#L34",
+      "summary": "Full claims require resolved questions, final evidence ids, real-surface payload cases, relevant human-operability gates, and template harvest closure for deepened models."
+    },
+    {
+      "category": "workflow-route",
+      "required": true,
+      "requirement_id": "target.workflow-route.project-passing-scoped-rows-to-process-agent-workflow",
+      "source_path": "SKILL.md#L29",
+      "summary": "Project passing/scoped rows to process, agent workflow, UI, Model-Test Alignment, and TestMesh owners."
+    },
+    {
+      "category": "workflow-route",
+      "required": true,
+      "requirement_id": "target.workflow-route.required-workflow",
+      "source_path": "SKILL.md#L26",
+      "summary": "The target section 'Required Workflow' must be represented by route, check, evidence, or closure coverage."
+    }
+  ],
   "stale_bindings": [
     {
-      "binding_id": "target_skill_prompt",
+      "binding_id": "skill_prompt",
       "path": "SKILL.md",
       "stales": [
-        "overlay_selection",
-        "run_record",
-        "closure_report"
+        "work_contract",
+        "check_manifest",
+        "closure"
       ]
     },
     {
-      "binding_id": "work_contract",
-      "path": ".skillguard/work-contract.json",
+      "binding_id": "contract_source",
+      "path": ".skillguard/contract-source.json",
       "stales": [
-        "overlay_selection",
-        "run_record",
-        "closure_report"
+        "work_contract",
+        "check_manifest",
+        "closure"
+      ]
+    },
+    {
+      "binding_id": "route_registry",
+      "path": "flowguard/self_maintenance.py",
+      "stales": [
+        "route_binding",
+        "work_contract",
+        "closure"
       ]
     }
   ],
-  "target_path": ".codex/skills/flowguard-plan-detailing-compiler"
+  "target_path": ".agents/skills/flowguard-plan-detailing-compiler",
+  "target_rule_inventory": [
+    {
+      "category": "evidence",
+      "required": true,
+      "requirement_id": "plan_detail.checkable_rows",
+      "rule_id": "r001_plan_detail_checkable_rows_rule",
+      "source_path": ".skillguard/contract-source.json#source_requirements",
+      "summary": "Artifacts, state, steps, receipts, validations, failures, rework, UI/payload gates, and final evidence are structured rows."
+    },
+    {
+      "category": "activation-boundary",
+      "required": true,
+      "requirement_id": "plan_detail.delegated_activation",
+      "rule_id": "r002_plan_detail_delegated_activation_rule",
+      "source_path": ".skillguard/contract-source.json#source_requirements",
+      "summary": "Generic rough plans enter DevelopmentProcessFlow; this route requires explicit or delegated activation."
+    },
+    {
+      "category": "closure",
+      "required": true,
+      "requirement_id": "plan_detail.no_execution_claim",
+      "rule_id": "r003_plan_detail_no_execution_claim_rule",
+      "source_path": ".skillguard/contract-source.json#source_requirements",
+      "summary": "Plan-detail pass proves readiness to proceed, not implementation, test, release, or production completion."
+    },
+    {
+      "category": "activation-boundary",
+      "required": true,
+      "requirement_id": "target.activation-boundary.accept-an-explicit-delegated-rough-plan-and-sources",
+      "rule_id": "r004_target_activation_boundary_accept_an_expli_rule",
+      "source_path": "SKILL.md#L18",
+      "summary": "Accept an explicit/delegated rough plan and sources; compile scope/state/artifact/receipt/validation rows; block missing rework, payload/UI, or final evidence detail; return structured proj."
+    },
+    {
+      "category": "activation-boundary",
+      "required": true,
+      "requirement_id": "target.activation-boundary.route-id-plan-detailing-compiler-role-delegated-mode",
+      "rule_id": "r005_target_activation_boundary_route_id_plan_d_rule",
+      "source_path": "SKILL.md#L12",
+      "summary": "Route id: plan_detailing_compiler; role: delegated_mode; native owner: development_process_flow. Direct use requires an explicit request; generic rough-plan work enters flowguard-developmen."
+    },
+    {
+      "category": "activation-boundary",
+      "required": true,
+      "requirement_id": "target.activation-boundary.use-for-delegated-plan-detailing-where-scope-steps",
+      "rule_id": "r006_target_activation_boundary_use_for_delegat_rule",
+      "source_path": "SKILL.md#L21",
+      "summary": "Use for delegated plan_detailing where scope, steps, artifacts, side effects, UI actions, real payload surfaces, validation, or rework are underspecified."
+    },
+    {
+      "category": "activation-boundary",
+      "required": true,
+      "requirement_id": "target.activation-boundary.use-when",
+      "rule_id": "r007_target_activation_boundary_use_when_rule",
+      "source_path": "SKILL.md#L20",
+      "summary": "The target section 'Use When' must be represented by route, check, evidence, or closure coverage."
+    },
+    {
+      "category": "check-gate",
+      "required": true,
+      "requirement_id": "target.check-gate.edit-skillguard-contract-source-json-then-regenerate-derived",
+      "rule_id": "r008_target_check_gate_edit_skillguard_contract_rule",
+      "source_path": "SKILL.md#L40",
+      "summary": "Edit .skillguard/contract-source.json, then regenerate derived contracts; SkillGuard validates this delegated compiler and cannot execute steps or manufacture receipts."
+    },
+    {
+      "category": "check-gate",
+      "required": true,
+      "requirement_id": "target.check-gate.hard-gates",
+      "rule_id": "r009_target_check_gate_hard_gates_rule",
+      "source_path": "SKILL.md#L31",
+      "summary": "The target section 'Hard Gates' must be represented by route, check, evidence, or closure coverage."
+    },
+    {
+      "category": "check-gate",
+      "required": true,
+      "requirement_id": "target.check-gate.long-prose-checkboxes-or-plan-progress-cannot-satisfy",
+      "rule_id": "r010_target_check_gate_long_prose_checkboxes_or_rule",
+      "source_path": "SKILL.md#L33",
+      "summary": "Long prose, checkboxes, or plan progress cannot satisfy structured detail or terminal evidence."
+    },
+    {
+      "category": "check-gate",
+      "required": true,
+      "requirement_id": "target.check-gate.return-evidence-failures-blockers-skipped-checks-residual-risk",
+      "rule_id": "r011_target_check_gate_return_evidence_failures_rule",
+      "source_path": "SKILL.md#L37",
+      "summary": "Return evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, and typed_next_actions, plus PlanDetail rows, gaps, and projections."
+    },
+    {
+      "category": "check-gate",
+      "required": true,
+      "requirement_id": "target.check-gate.turn-rough-plan-prose-into-checkable-plandetail-rows",
+      "rule_id": "r012_target_check_gate_turn_rough_plan_prose_in_rule",
+      "source_path": "SKILL.md#L9",
+      "summary": "Turn rough plan prose into checkable PlanDetail rows before execution; never execute the plan or treat detail as implementation proof."
+    },
+    {
+      "category": "check-gate",
+      "required": true,
+      "requirement_id": "target.check-gate.verify-the-real-flowguard-check-engine-and-agents",
+      "rule_id": "r013_target_check_gate_verify_the_real_flowguar_rule",
+      "source_path": "SKILL.md#L32",
+      "summary": "Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework."
+    },
+    {
+      "category": "entrypoint-description",
+      "required": true,
+      "requirement_id": "target.description.use-only-when-explicitly-requested-or-delegated-by",
+      "rule_id": "r014_target_description_use_only_when_explicitl_rule",
+      "source_path": "SKILL.md frontmatter",
+      "summary": "The target skill description must be represented in the contract: Use only when explicitly requested or delegated by flowguard-development-process-flow's plan_detailing mode to compile a ro."
+    },
+    {
+      "category": "entrypoint",
+      "required": true,
+      "requirement_id": "target.entrypoint.acceptance",
+      "rule_id": "r015_target_entrypoint_acceptance_rule",
+      "source_path": "SKILL.md",
+      "summary": "The target skill entrypoint and hard gates must be represented by the runtime contract."
+    },
+    {
+      "category": "quality-gate",
+      "required": true,
+      "requirement_id": "target.hard_gates",
+      "rule_id": "r016_target_hard_gates_rule",
+      "source_path": "SKILL.md",
+      "summary": "Declared hard gates and required workflow steps must be represented by checks and closure blockers."
+    },
+    {
+      "category": "non-use-boundary",
+      "required": true,
+      "requirement_id": "target.non-use-boundary.do-not-activate-as-a-generic-planner-execute",
+      "rule_id": "r017_target_non_use_boundary_do_not_activate_as_rule",
+      "source_path": "SKILL.md#L24",
+      "summary": "Do not activate as a generic planner, execute work, or replace downstream route evidence; return unclear FlowGuard routing to model-first-function-flow."
+    },
+    {
+      "category": "non-use-boundary",
+      "required": true,
+      "requirement_id": "target.non-use-boundary.do-not-use-when",
+      "rule_id": "r018_target_non_use_boundary_do_not_use_when_rule",
+      "source_path": "SKILL.md#L23",
+      "summary": "The target section 'Do Not Use When' must be represented by route, check, evidence, or closure coverage."
+    },
+    {
+      "category": "output",
+      "required": true,
+      "requirement_id": "target.output.output-requirements",
+      "rule_id": "r019_target_output_output_requirements_rule",
+      "source_path": "SKILL.md#L36",
+      "summary": "The target section 'Output Requirements' must be represented by route, check, evidence, or closure coverage."
+    },
+    {
+      "category": "target-rule",
+      "required": true,
+      "requirement_id": "target.target-rule.read-references-plan-detailing-compiler-protocol-md-for",
+      "rule_id": "r020_target_target_rule_read_references_plan_de_rule",
+      "source_path": "SKILL.md#L15",
+      "summary": "Read references/plan_detailing_compiler_protocol.md for required rows, finding codes, projection order, and confidence decisions."
+    },
+    {
+      "category": "workflow-route",
+      "required": true,
+      "requirement_id": "target.workflow-route.add-ordered-steps-step-receipts-validations-failure-rework",
+      "rule_id": "r021_target_workflow_route_add_ordered_steps_st_rule",
+      "source_path": "SKILL.md#L28",
+      "summary": "Add ordered steps, step receipts, validations, failure/rework/continue gates, freshness rules, and human questions; run review_plan_detail()."
+    },
+    {
+      "category": "workflow-route",
+      "required": true,
+      "requirement_id": "target.workflow-route.capture-goal-assumptions-sources-risk-surfaces-state-side",
+      "rule_id": "r022_target_workflow_route_capture_goal_assumpt_rule",
+      "source_path": "SKILL.md#L27",
+      "summary": "Capture goal, assumptions, sources, risk surfaces, state/side effects, artifacts, UI actions, and payload/work-package surfaces."
+    },
+    {
+      "category": "workflow-route",
+      "required": true,
+      "requirement_id": "target.workflow-route.description-use-only-when-explicitly-requested-or-delegated",
+      "rule_id": "r023_target_workflow_route_description_use_only_rule",
+      "source_path": "SKILL.md#L3",
+      "summary": "description: Use only when explicitly requested or delegated by flowguard-development-process-flow's plan_detailing mode to compile a rough non-trivial plan into structured FlowGuard artifa."
+    },
+    {
+      "category": "workflow-route",
+      "required": true,
+      "requirement_id": "target.workflow-route.full-claims-require-resolved-questions-final-evidence-ids",
+      "rule_id": "r024_target_workflow_route_full_claims_require__rule",
+      "source_path": "SKILL.md#L34",
+      "summary": "Full claims require resolved questions, final evidence ids, real-surface payload cases, relevant human-operability gates, and template harvest closure for deepened models."
+    },
+    {
+      "category": "workflow-route",
+      "required": true,
+      "requirement_id": "target.workflow-route.project-passing-scoped-rows-to-process-agent-workflow",
+      "rule_id": "r025_target_workflow_route_project_passing_scop_rule",
+      "source_path": "SKILL.md#L29",
+      "summary": "Project passing/scoped rows to process, agent workflow, UI, Model-Test Alignment, and TestMesh owners."
+    },
+    {
+      "category": "workflow-route",
+      "required": true,
+      "requirement_id": "target.workflow-route.required-workflow",
+      "rule_id": "r026_target_workflow_route_required_workflow_rule",
+      "source_path": "SKILL.md#L26",
+      "summary": "The target section 'Required Workflow' must be represented by route, check, evidence, or closure coverage."
+    }
+  ],
+  "test_gap_plan": [
+    {
+      "gap_id": "r001_plan_detail_checkable_rows_test_gap",
+      "planned_check_ids": [
+        "check_quality_floor",
+        "plan_detailing_compiler_tests"
+      ],
+      "requirement_ids": [
+        "plan_detail.checkable_rows"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for plan_detail.checkable_rows."
+    },
+    {
+      "gap_id": "r002_plan_detail_delegated_activation_test_gap",
+      "planned_check_ids": [
+        "check_route",
+        "plan_detailing_compiler_tests"
+      ],
+      "requirement_ids": [
+        "plan_detail.delegated_activation"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for plan_detail.delegated_activation."
+    },
+    {
+      "gap_id": "r003_plan_detail_no_execution_claim_test_gap",
+      "planned_check_ids": [
+        "check_closure",
+        "plan_detailing_compiler_tests"
+      ],
+      "requirement_ids": [
+        "plan_detail.no_execution_claim"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for plan_detail.no_execution_claim."
+    },
+    {
+      "gap_id": "r004_target_activation_boundary_accept_an_expli_test_gap",
+      "planned_check_ids": [
+        "check_route",
+        "plan_detailing_compiler_tests"
+      ],
+      "requirement_ids": [
+        "target.activation-boundary.accept-an-explicit-delegated-rough-plan-and-sources"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.activation-boundary.accept-an-explicit-delegated-rough-plan-and-sources."
+    },
+    {
+      "gap_id": "r005_target_activation_boundary_route_id_plan_d_test_gap",
+      "planned_check_ids": [
+        "check_route",
+        "plan_detailing_compiler_tests"
+      ],
+      "requirement_ids": [
+        "target.activation-boundary.route-id-plan-detailing-compiler-role-delegated-mode"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.activation-boundary.route-id-plan-detailing-compiler-role-delegated-mode."
+    },
+    {
+      "gap_id": "r006_target_activation_boundary_use_for_delegat_test_gap",
+      "planned_check_ids": [
+        "check_route",
+        "plan_detailing_compiler_tests"
+      ],
+      "requirement_ids": [
+        "target.activation-boundary.use-for-delegated-plan-detailing-where-scope-steps"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.activation-boundary.use-for-delegated-plan-detailing-where-scope-steps."
+    },
+    {
+      "gap_id": "r007_target_activation_boundary_use_when_test_gap",
+      "planned_check_ids": [
+        "check_route",
+        "plan_detailing_compiler_tests"
+      ],
+      "requirement_ids": [
+        "target.activation-boundary.use-when"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.activation-boundary.use-when."
+    },
+    {
+      "gap_id": "r008_target_check_gate_edit_skillguard_contract_test_gap",
+      "planned_check_ids": [
+        "check_quality_floor",
+        "plan_detailing_compiler_tests"
+      ],
+      "requirement_ids": [
+        "target.check-gate.edit-skillguard-contract-source-json-then-regenerate-derived"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.check-gate.edit-skillguard-contract-source-json-then-regenerate-derived."
+    },
+    {
+      "gap_id": "r009_target_check_gate_hard_gates_test_gap",
+      "planned_check_ids": [
+        "check_quality_floor",
+        "plan_detailing_compiler_tests"
+      ],
+      "requirement_ids": [
+        "target.check-gate.hard-gates"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.check-gate.hard-gates."
+    },
+    {
+      "gap_id": "r010_target_check_gate_long_prose_checkboxes_or_test_gap",
+      "planned_check_ids": [
+        "check_quality_floor",
+        "plan_detailing_compiler_tests"
+      ],
+      "requirement_ids": [
+        "target.check-gate.long-prose-checkboxes-or-plan-progress-cannot-satisfy"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.check-gate.long-prose-checkboxes-or-plan-progress-cannot-satisfy."
+    },
+    {
+      "gap_id": "r011_target_check_gate_return_evidence_failures_test_gap",
+      "planned_check_ids": [
+        "check_quality_floor",
+        "plan_detailing_compiler_tests"
+      ],
+      "requirement_ids": [
+        "target.check-gate.return-evidence-failures-blockers-skipped-checks-residual-risk"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.check-gate.return-evidence-failures-blockers-skipped-checks-residual-risk."
+    },
+    {
+      "gap_id": "r012_target_check_gate_turn_rough_plan_prose_in_test_gap",
+      "planned_check_ids": [
+        "check_quality_floor",
+        "plan_detailing_compiler_tests"
+      ],
+      "requirement_ids": [
+        "target.check-gate.turn-rough-plan-prose-into-checkable-plandetail-rows"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.check-gate.turn-rough-plan-prose-into-checkable-plandetail-rows."
+    },
+    {
+      "gap_id": "r013_target_check_gate_verify_the_real_flowguar_test_gap",
+      "planned_check_ids": [
+        "check_quality_floor",
+        "plan_detailing_compiler_tests"
+      ],
+      "requirement_ids": [
+        "target.check-gate.verify-the-real-flowguard-check-engine-and-agents"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.check-gate.verify-the-real-flowguard-check-engine-and-agents."
+    },
+    {
+      "gap_id": "r014_target_description_use_only_when_explicitl_test_gap",
+      "planned_check_ids": [
+        "check_route",
+        "plan_detailing_compiler_tests"
+      ],
+      "requirement_ids": [
+        "target.description.use-only-when-explicitly-requested-or-delegated-by"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.description.use-only-when-explicitly-requested-or-delegated-by."
+    },
+    {
+      "gap_id": "r015_target_entrypoint_acceptance_test_gap",
+      "planned_check_ids": [
+        "check_route",
+        "plan_detailing_compiler_tests"
+      ],
+      "requirement_ids": [
+        "target.entrypoint.acceptance"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.entrypoint.acceptance."
+    },
+    {
+      "gap_id": "r016_target_hard_gates_test_gap",
+      "planned_check_ids": [
+        "check_quality_floor",
+        "plan_detailing_compiler_tests"
+      ],
+      "requirement_ids": [
+        "target.hard_gates"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.hard_gates."
+    },
+    {
+      "gap_id": "r017_target_non_use_boundary_do_not_activate_as_test_gap",
+      "planned_check_ids": [
+        "check_route",
+        "plan_detailing_compiler_tests"
+      ],
+      "requirement_ids": [
+        "target.non-use-boundary.do-not-activate-as-a-generic-planner-execute"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.non-use-boundary.do-not-activate-as-a-generic-planner-execute."
+    },
+    {
+      "gap_id": "r018_target_non_use_boundary_do_not_use_when_test_gap",
+      "planned_check_ids": [
+        "check_route",
+        "plan_detailing_compiler_tests"
+      ],
+      "requirement_ids": [
+        "target.non-use-boundary.do-not-use-when"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.non-use-boundary.do-not-use-when."
+    },
+    {
+      "gap_id": "r019_target_output_output_requirements_test_gap",
+      "planned_check_ids": [
+        "check_closure",
+        "plan_detailing_compiler_tests"
+      ],
+      "requirement_ids": [
+        "target.output.output-requirements"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.output.output-requirements."
+    },
+    {
+      "gap_id": "r020_target_target_rule_read_references_plan_de_test_gap",
+      "planned_check_ids": [
+        "check_evidence",
+        "plan_detailing_compiler_tests"
+      ],
+      "requirement_ids": [
+        "target.target-rule.read-references-plan-detailing-compiler-protocol-md-for"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.target-rule.read-references-plan-detailing-compiler-protocol-md-for."
+    },
+    {
+      "gap_id": "r021_target_workflow_route_add_ordered_steps_st_test_gap",
+      "planned_check_ids": [
+        "check_evidence",
+        "plan_detailing_compiler_tests"
+      ],
+      "requirement_ids": [
+        "target.workflow-route.add-ordered-steps-step-receipts-validations-failure-rework"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.workflow-route.add-ordered-steps-step-receipts-validations-failure-rework."
+    },
+    {
+      "gap_id": "r022_target_workflow_route_capture_goal_assumpt_test_gap",
+      "planned_check_ids": [
+        "check_evidence",
+        "plan_detailing_compiler_tests"
+      ],
+      "requirement_ids": [
+        "target.workflow-route.capture-goal-assumptions-sources-risk-surfaces-state-side"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.workflow-route.capture-goal-assumptions-sources-risk-surfaces-state-side."
+    },
+    {
+      "gap_id": "r023_target_workflow_route_description_use_only_test_gap",
+      "planned_check_ids": [
+        "check_evidence",
+        "plan_detailing_compiler_tests"
+      ],
+      "requirement_ids": [
+        "target.workflow-route.description-use-only-when-explicitly-requested-or-delegated"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.workflow-route.description-use-only-when-explicitly-requested-or-delegated."
+    },
+    {
+      "gap_id": "r024_target_workflow_route_full_claims_require__test_gap",
+      "planned_check_ids": [
+        "check_evidence",
+        "plan_detailing_compiler_tests"
+      ],
+      "requirement_ids": [
+        "target.workflow-route.full-claims-require-resolved-questions-final-evidence-ids"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.workflow-route.full-claims-require-resolved-questions-final-evidence-ids."
+    },
+    {
+      "gap_id": "r025_target_workflow_route_project_passing_scop_test_gap",
+      "planned_check_ids": [
+        "check_evidence",
+        "plan_detailing_compiler_tests"
+      ],
+      "requirement_ids": [
+        "target.workflow-route.project-passing-scoped-rows-to-process-agent-workflow"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.workflow-route.project-passing-scoped-rows-to-process-agent-workflow."
+    },
+    {
+      "gap_id": "r026_target_workflow_route_required_workflow_test_gap",
+      "planned_check_ids": [
+        "check_evidence",
+        "plan_detailing_compiler_tests"
+      ],
+      "requirement_ids": [
+        "target.workflow-route.required-workflow"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.workflow-route.required-workflow."
+    }
+  ],
+  "workflow_stage_inventory": [
+    {
+      "required": true,
+      "route_id": "plan_detailing_compiler",
+      "source_path": ".skillguard/contract-source.json",
+      "stage_id": "plan_detailing_compiler_intake",
+      "summary": "Confirm explicit/delegated activation, goal, sources, assumptions, scope, and claim intent."
+    },
+    {
+      "required": true,
+      "route_id": "plan_detailing_compiler",
+      "source_path": ".skillguard/contract-source.json",
+      "stage_id": "plan_detailing_compiler_inventory",
+      "summary": "Inventory risk surfaces, artifacts, state/side effects, UI actions, real payload surfaces, and human questions."
+    },
+    {
+      "required": true,
+      "route_id": "plan_detailing_compiler",
+      "source_path": ".skillguard/contract-source.json",
+      "stage_id": "plan_detailing_compiler_execution",
+      "summary": "Compile ordered steps, receipts, validations, failure/rework/continue branches, freshness rules, and final evidence."
+    },
+    {
+      "required": true,
+      "route_id": "plan_detailing_compiler",
+      "source_path": ".skillguard/contract-source.json",
+      "stage_id": "plan_detailing_compiler_checks",
+      "summary": "Run the plan-detail model and reject missing rows, unsafe side effects, unresolved questions, or overclaimed detail."
+    },
+    {
+      "required": true,
+      "route_id": "plan_detailing_compiler",
+      "source_path": ".skillguard/contract-source.json",
+      "stage_id": "plan_detailing_compiler_closure",
+      "summary": "Return pass/scoped/revision/blocked detail and typed projections without executing the plan."
+    }
+  ]
 }

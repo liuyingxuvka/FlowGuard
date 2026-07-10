@@ -1,50 +1,40 @@
 ---
 name: flowguard-contract-exhaustion-mesh
-description: Generate canonical bad cases from finite boundaries, families, payloads, transitions, mesh closure, universes, or feed.
+description: Use to generate canonical bad cases, Cartesian combinations, oracles, coverage shards, and receipts from a declared finite boundary, family seed, payload, transition, model mesh, coverage universe, or observed-problem backfeed.
 ---
 
-# FlowGuard ContractExhaustionMesh
+# FlowGuard Contract Exhaustion Mesh
 
-Standalone FlowGuard satellite skill for canonical coverage from a declared finite boundary, family, payload, transition, parent/child contract, or universe. Return to `model-first-function-flow` if unclear.
+## Purpose
+Turn an owner-declared finite boundary into canonical mutation/combination cases and typed evidence handoffs; never act as a global bug oracle.
 
-## First Read
+## Entrypoint Scope
+Route id: `contract_exhaustion_mesh`; role: `public_owner`; native owner: `contract_exhaustion_mesh`. This standalone FlowGuard satellite skill owns canonical finite-case generation.
 
-- Route: `contract_exhaustion_mesh`.
-- Starter: `ROUTE_STARTER_API["contract_exhaustion_mesh"]`.
-- Core helpers: `ContractDimension`, `ContractMutationCase`, `ContractCoverageUniverse`, `ContractExhaustionPlan`, `review_contract_exhaustion()`.
-- Reference: `references/contract_exhaustion_mesh_protocol.md`.
+## Local Material Routing
+Read `references/contract_exhaustion_mesh_protocol.md` for feeders, universes, `ContractDimension`, `ContractMutationCase`, oracles, receipts, and consumers.
+
+## Entrypoint Acceptance Map
+Accept declared finite dimensions/seeds; generate reviewable cases with oracles; block unbounded broad claims, missing feedback, stale/incomplete receipts, or missing universe items; hand obligations/cells/shards/receipts/risk gates to their owners.
+
+## Use When
+- Use for same-class, payload, transition, state-closure, PPA, BCL, parent/child closure, no-delta, or model-scoped Cartesian coverage.
+
+## Do Not Use When
+- Do not invent a boundary from prose, run tests, replace sibling routes, or claim all bugs are covered; return unclear ownership to `model-first-function-flow`.
+
+## Required Workflow
+1. Identify the declaring owner, finite dimensions/seeds, model scope, universe, exclusions, and required consumers.
+2. Build a `ContractExhaustionPlan`, run `review_contract_exhaustion()`, and repair oracle, feedback, matrix, receipt, and backfeed gaps.
+3. Project stable case ids to Model-Test Alignment, TestMesh, ModelMesh, DevelopmentProcessFlow, and Risk Evidence Ledger.
 
 ## Hard Gates
+- Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
+- Broad/full claims require a complete `ContractCoverageUniverse`; reject/block/repair cases require actionable oracle feedback.
+- Matrix ready is not whole-chain ready; current composite handoff acceptance and template harvest closure remain required where applicable.
 
-- Verify FlowGuard check engine and AGENTS.md managed records; no fake mini-framework.
-- Do not invent cases from prose; declare the finite boundary or seed.
-- Cartesian coverage is model-scoped: model id, finite axes, interaction groups.
-- Broad/full claims need `ContractCoverageUniverse`; missing items are gaps.
-- Required cases need `ContractOracle`; reject/block/repair cases need feedback fields.
-- Hand-written same-class examples are seeds, not canonical coverage.
-- Real misses map to generated, same-class, and receipt evidence or stay gaps.
-- Matrix ready is not whole-chain ready; broad claims need handoff.
-- ModelMesh consumes child receipts; TestMesh owns shards; MTA owns generated obligations.
-- New/deepened routes need template harvest closure.
-- PPA single-path claims need intent, result, candidate surface/trigger/behavior, disposition, evidence axes; A-failed/B-succeeded examples are seeds.
-- BCL broad claims add source, owner, evidence, dependency, path, PPA, release, change-mode, source-freshness, replacement, model-sync, TestMesh, and model-miss axes.
+## Output Requirements
+- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`, plus canonical cases, gaps, shards, and receipts.
 
-## Minimum Workflow
-
-1. Identify the owning route declaration.
-2. Convert it to `ContractDimension`, feeder `ContractMutationCase`, or axes/groups.
-3. For broad/full claims, declare `ContractCoverageUniverse` and exclusions.
-4. Run `review_contract_exhaustion()` and fix universe/model/oracle/feedback/receipt/shard gaps.
-5. Project cases to MTA, TestMesh, ModelMesh, and Risk Ledger.
-6. Remove old hand-written generators that duplicate canonical coverage.
-7. For BCL, generate commitment coverage first, then let path-sensitive rows consume PPA coverage.
-8. For PPA, prove primary failure cannot auto-return alternate success, then project ids.
-
-## Snapshot
-
-Show universe -> case id -> oracle/fault profile -> observed-backfeed -> downstream route. Status: boundary, cases, gaps, next.
-
-## Non-Goals
-
-- Do not replace sibling routes or RiskLedger.
-- Do not run tests directly or claim all software bugs are covered.
+## SkillGuard Maintenance
+- Edit `.skillguard/contract-source.json`, then regenerate derived contracts; SkillGuard checks this native generator contract and cannot synthesize passing downstream evidence.

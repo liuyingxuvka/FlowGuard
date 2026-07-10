@@ -1,20 +1,20 @@
 {
   "blockers": [],
   "checks": [],
-  "claim_boundary": "This record covers only the installed skill entrypoint, local SkillGuard records, and current files inspected for this target. It does not prove runtime checker execution, fixture coverage, CLI checks, tests, suite automation, package publication, code-contract validation, release readiness, or future AI behavior without separate current evidence.",
+  "claim_boundary": "This record covers only the current skill entrypoint and local SkillGuard contract files. It does not prove runtime checker execution, fixture coverage, CLI checks, tests, suite automation, package publication, code-contract validation, release readiness, or future AI behavior without separate current evidence.",
   "confidence": {
     "level": "medium",
-    "rationale": "Based on installed files generated during the upgrade."
+    "rationale": "Based on current prompt and generated structural records only."
   },
   "decision": "bounded_support_only",
   "evidence": [],
   "failures": [],
   "findings": [
     {
-      "claim": "The installed skill has a SkillGuard contract layer and runnable contract files.",
-      "finding_id": "installed-contract-layer-present",
+      "claim": "The skill has a target-specific native-integrated structural contract.",
+      "finding_id": "native-integrated-contract-present",
       "limits": [
-        "This advisory judgment does not replace current command output."
+        "This judgment is not a native command receipt and cannot close broad confidence."
       ],
       "severity": "informational",
       "supporting_evidence": [
@@ -24,34 +24,34 @@
     }
   ],
   "human_review": {
-    "reason": "AI judgment cannot approve broad skill-readiness claims by itself.",
+    "reason": "AI judgment cannot approve broad skill-governance claims by itself.",
     "required": true
   },
   "input_evidence": [
     {
       "evidence_id": "skill-entrypoint",
       "path": "../SKILL.md",
-      "summary": "Installed skill entrypoint."
+      "summary": "Current skill entrypoint."
     },
     {
       "evidence_id": "runtime-work-contract",
       "path": ".skillguard/work-contract.json",
-      "summary": "Runnable work contract."
+      "summary": "Generated work contract."
     }
   ],
   "residual_risk": [
-    "This static record must be refreshed when the skill entrypoint, route contract, or validation rules change."
+    "Native commands and immutable receipts are intentionally outside this static record."
   ],
   "schema_version": "1.0",
   "skipped_checks": [],
-  "status": "checked",
+  "status": "needs-review",
   "target_path": "..",
   "target_type": "ai_judgment",
   "uncertainty": [
     {
-      "impact": "The contract may need route refinement.",
-      "question": "Will future skill behavior require more specific routes?",
-      "resolution_path": "Rerun SkillGuard checks after skill changes."
+      "impact": "Broad closure remains unavailable.",
+      "question": "Are current native receipts available?",
+      "resolution_path": "Run the self-governance native receipt gate."
     }
   ]
 }

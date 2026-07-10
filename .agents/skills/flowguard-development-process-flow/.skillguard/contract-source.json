@@ -1,0 +1,114 @@
+{
+  "activation_keywords": [
+    "rough plan",
+    "multi-skill workflow",
+    "execution freshness",
+    "install sync",
+    "release archive publish"
+  ],
+  "claim_boundary": "The route proves only current lifecycle ordering and evidence freshness; sibling route semantics and external publication authority remain separate.",
+  "default_route": false,
+  "direct_references": [
+    "references/development_process_flow_protocol.md"
+  ],
+  "do_not_use_when": [
+    "A sibling route's internal model/test/code/UI evidence is the only question or the work is truly single-step and low risk."
+  ],
+  "downstream_targets": [
+    {
+      "claim_scope": "delegated plan detail",
+      "condition": "The plan_detailing mode requires full structured row construction.",
+      "target_id": "flowguard-plan-detailing-compiler",
+      "target_kind": "skill"
+    },
+    {
+      "claim_scope": "delegated workflow rehearsal",
+      "condition": "The agent_workflow mode requires fresh capability rehearsal.",
+      "target_id": "flowguard-agent-workflow-rehearsal",
+      "target_kind": "skill"
+    },
+    {
+      "claim_scope": "post-change owner scan",
+      "condition": "Changed artifacts reopen route-owned maintenance obligations.",
+      "target_id": "maintenance_scan_router",
+      "target_kind": "internal_route"
+    },
+    {
+      "claim_scope": "final risk confidence",
+      "condition": "Broad done/release/archive/publish confidence is requested.",
+      "target_id": "risk_evidence_ledger",
+      "target_kind": "internal_route"
+    }
+  ],
+  "layout_profiles": {
+    "installed": ".codex/skills/flowguard-development-process-flow",
+    "source": ".agents/skills/flowguard-development-process-flow"
+  },
+  "native_checks": [
+    {
+      "binding_id": "development_process_pytest",
+      "command": "python -m pytest tests/test_development_process_flow.py tests/test_development_process_simulator.py -q",
+      "evidence_source": "current owner-specific pytest receipt",
+      "kind": "pytest",
+      "native_check_id": "development_process_tests",
+      "summary": "Run the tracked development-process owner tests and simulator variants."
+    }
+  ],
+  "native_owner": "development_process_flow",
+  "output_fields": [
+    "evidence",
+    "failures",
+    "blockers",
+    "skipped_checks",
+    "residual_risk",
+    "claim_boundary",
+    "typed_next_actions"
+  ],
+  "route_id": "development_process_flow",
+  "route_role": "public_owner",
+  "route_summary": "Select process simulator modes and govern staged actions, artifact/evidence freshness, synchronization, and final lifecycle claims.",
+  "schema_version": "flowguard.skill_contract_source.v1",
+  "skill_id": "flowguard-development-process-flow",
+  "source_requirements": [
+    {
+      "category": "activation-boundary",
+      "requirement_id": "development_process.mode_order",
+      "summary": "Applicable simulator modes must be selected in plan_detailing, agent_workflow, execution_freshness order."
+    },
+    {
+      "category": "evidence",
+      "requirement_id": "development_process.current_evidence",
+      "summary": "Artifacts, verifier versions, proof refs, peer writes, triage, and revalidation must be current for the claim."
+    },
+    {
+      "category": "closure",
+      "requirement_id": "development_process.no_progress_closure",
+      "summary": "Skipped, stale, failed, running, progress-only, scoped, or pass-with-gaps evidence cannot support broad lifecycle closure."
+    }
+  ],
+  "use_when": [
+    "Non-trivial plan, workflow, staged execution, evidence freshness, synchronization, or lifecycle claims need one process front door."
+  ],
+  "workflow": [
+    {
+      "phase_id": "intake",
+      "summary": "Select plan_detailing, agent_workflow, and execution_freshness modes in the required order."
+    },
+    {
+      "phase_id": "inventory",
+      "summary": "Register artifacts, versions, ordered actions, reads/writes/invalidations, peer changes, evidence, and claims."
+    },
+    {
+      "phase_id": "execution",
+      "summary": "Delegate detailed modes when required and model execution-freshness and minimum revalidation."
+    },
+    {
+      "phase_id": "checks",
+      "summary": "Run the process model; triage every failed, stale, skipped, running, timeout, or ambiguous validation."
+    },
+    {
+      "phase_id": "closure",
+      "summary": "Require current proof artifacts and owner-route evidence for the requested routine/release/archive/publish scope."
+    }
+  ]
+}

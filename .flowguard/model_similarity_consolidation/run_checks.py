@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import model
@@ -16,7 +17,9 @@ def main() -> int:
     print(f"cases: {len(rows)}")
     for name, row_ok, summary in rows:
         print(f"- {name}: {'OK' if row_ok else 'BLOCKED'} :: {summary}")
-    result_path = Path(__file__).with_name("result.json")
+    output_dir = Path(os.environ.get("FLOWGUARD_OUTPUT_DIR", Path(__file__).parent))
+    output_dir.mkdir(parents=True, exist_ok=True)
+    result_path = output_dir / "result.json"
     result_path.write_text(
         json.dumps(
             {

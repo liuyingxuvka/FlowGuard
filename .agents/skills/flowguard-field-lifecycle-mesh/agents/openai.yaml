@@ -1,4 +1,4 @@
 interface:
-  display_name: "FlowGuard FieldLifecycleMesh"
-  short_description: "Account fields and old-field disposition"
-  default_prompt: "Use $flowguard-field-lifecycle-mesh to account fields, project behavior-bearing fields, and close old-field disposition."
+  display_name: "FlowGuard Field Lifecycle Mesh"
+  short_description: "Account fields, projections, and replacement closure"
+  default_prompt: "Use $flowguard-field-lifecycle-mesh for route_id=field_lifecycle_mesh, role=public_owner, native_owner=field_lifecycle_mesh; require complete leaf rows, behavior projections, single owners, and explicit old-field disposition; do not treat inventory as behavior proof or replace MTA/TestMesh; output evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, and typed_next_actions; claim only the declared field boundary."

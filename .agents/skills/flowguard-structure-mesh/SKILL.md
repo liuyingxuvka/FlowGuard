@@ -1,50 +1,40 @@
 ---
 name: flowguard-structure-mesh
-description: "Use when a large script, module, package, command, or public API split needs StructureMesh governance, including facade compatibility, dependency cycles, config boundaries, ownership, target structure derivation, parity evidence, and release refactor gates."
+description: Use when an existing large script, module, package, command, public API, facade, config surface, or plugin entrypoint split needs model-derived ownership, dependency, compatibility, parity, and release gates.
 ---
 
 # FlowGuard Structure Mesh
 
-Standalone FlowGuard satellite skill for existing code structure splits. Use it
-for large modules, scripts, commands, packages, dependency cycles, config
-boundaries, public entrypoints, facades, and parity evidence.
+## Purpose
+Govern an existing-code parent/child structural split while preserving public entrypoints, facades, configuration, side effects, and observable parity.
 
-Return to `model-first-function-flow` when the behavior model is unclear. Use
-Code Structure Recommendation before StructureMesh when target ownership still
-needs derivation.
+## Entrypoint Scope
+Route id: `structure_mesh_maintenance`; role: `public_owner`; native owner: `structure_mesh_maintenance`. This standalone FlowGuard satellite skill owns refactor structure evidence, not behavior invention or code edits.
 
-## First Read
+## Local Material Routing
+Read `references/structure_mesh_protocol.md` for target derivation, partition items, module/public-entrypoint evidence, routine/release scopes, and layered handoff.
 
-- Route id: `structure_mesh_maintenance`.
-- Core helpers: `review_structure_mesh()`, `StructurePartitionItem`,
-  `ModuleStructureEvidence`, `PublicEntrypointEvidence`.
-- Reference: `references/structure_mesh_protocol.md`.
+## Entrypoint Acceptance Map
+Accept a named source model and existing parent surface; derive child ownership; block missing facade, duplicate owner, cycle/config drift, or stale parity; hand validation/freshness/risk evidence to typed owners.
+
+## Use When
+- Use for splitting large code surfaces, moving public imports/CLI/API/data/plugin entrypoints, dividing state/config/side effects, or checking dependency cycles and parity.
+
+## Do Not Use When
+- Do not derive behavior requirements from scratch, recommend greenfield modules, refactor code directly, or claim parity from internal/formatting checks; return unclear models to `model-first-function-flow`.
+
+## Required Workflow
+1. Derive target modules from a named FlowGuard model with FunctionBlock/state/side-effect/facade/validation maps.
+2. Partition functions, state, config, side effects, contracts, dependencies, public entrypoints, and facades to single owners.
+3. Attach current routine/release parity evidence and export gaps/obligations downstream.
 
 ## Hard Gates
+- Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
+- Missing model-derived target structure, public facade, owner, compatibility, or current parity blocks the matching scope.
+- Dependency/config drift and release-only gaps remain visible; new/deepened models require template harvest closure.
 
-- Verify FlowGuard check engine before claiming FlowGuard use.
-- For real target-project work, keep the AGENTS.md managed block/version record
-  current or record why it was not updated.
-- Do not create a fake mini-framework.
-- Existing public entrypoints need facade/parity evidence.
-- Stale parity or facade gaps should remain maintenance obligations for later scans.
-- Dependency cycles and config boundaries must stay visible.
-- New/deepened models need template harvest closure before broad claims.
+## Output Requirements
+- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`, plus a structure mesh diagram and parity status.
 
-## Minimum Workflow
-
-1. Name the parent module/script/API and target structure derivation.
-2. Partition child modules and ownership.
-3. Preserve public entrypoints, facades, side effects, and config boundaries.
-4. Attach parity evidence and route stale gaps back to validation.
-
-## Snapshot
-
-Show a structure mesh diagram with parent, child modules, public entrypoints,
-facades, dependency cycles, ownership, parity evidence, and gaps.
-Status note: parent structure, entrypoints, parity evidence, gaps, next check.
-
-## Non-Goals
-
-- Do not derive behavior requirements from scratch.
-- Do not claim parity from formatting-only or internal-path checks.
+## SkillGuard Maintenance
+- Edit `.skillguard/contract-source.json`, then regenerate derived contracts; SkillGuard checks native mesh evidence and cannot perform the refactor or invent parity.

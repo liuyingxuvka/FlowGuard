@@ -1,0 +1,114 @@
+{
+  "activation_keywords": [
+    "topology hazard",
+    "future-use risk",
+    "business path",
+    "broad terminal",
+    "old new paths"
+  ],
+  "claim_boundary": "The review proves only current topology-anchored hazard accounting; it does not establish factual future failures or replace downstream evidence.",
+  "default_route": false,
+  "direct_references": [
+    "references/topology_hazard_protocol.md"
+  ],
+  "do_not_use_when": [
+    "No current topology/usage intent exists or the task is generic risk brainstorming with unanchored concerns."
+  ],
+  "downstream_targets": [
+    {
+      "claim_scope": "model upgrade",
+      "condition": "Topology shows coarse state, terminal, branch, or closure shape.",
+      "target_id": "model_maturation_loop",
+      "target_kind": "internal_route"
+    },
+    {
+      "claim_scope": "hazard alignment",
+      "condition": "An anchored hazard needs ordinary model/code/test evidence.",
+      "target_id": "flowguard-model-test-alignment",
+      "target_kind": "skill"
+    },
+    {
+      "claim_scope": "path reduction",
+      "condition": "Old/new, duplicate, or conflicting business paths need contraction/disposition.",
+      "target_id": "flowguard-architecture-reduction",
+      "target_kind": "skill"
+    },
+    {
+      "claim_scope": "final risk confidence",
+      "condition": "Anchored hazards affect broad user confidence.",
+      "target_id": "risk_evidence_ledger",
+      "target_kind": "internal_route"
+    }
+  ],
+  "layout_profiles": {
+    "installed": ".codex/skills/flowguard-model-topology-hazard-review",
+    "source": ".agents/skills/flowguard-model-topology-hazard-review"
+  },
+  "native_checks": [
+    {
+      "binding_id": "topology_hazard_model",
+      "command": "python .flowguard/model_topology_hazard_review/run_checks.py",
+      "evidence_source": "current model runner receipt and final report",
+      "kind": "flowguard_model",
+      "native_check_id": "model_topology_hazard_review",
+      "summary": "Run topology-grounded hazard review and known-bad cases."
+    }
+  ],
+  "native_owner": "model_topology_hazard_review",
+  "output_fields": [
+    "evidence",
+    "failures",
+    "blockers",
+    "skipped_checks",
+    "residual_risk",
+    "claim_boundary",
+    "typed_next_actions"
+  ],
+  "route_id": "model_topology_hazard_review",
+  "route_role": "public_owner",
+  "route_summary": "Infer future-use hazards from current model topology and usage intent, then route anchored gaps to their native owners.",
+  "schema_version": "flowguard.skill_contract_source.v1",
+  "skill_id": "flowguard-model-topology-hazard-review",
+  "source_requirements": [
+    {
+      "category": "evidence",
+      "requirement_id": "topology_hazard.anchor_required",
+      "summary": "Every hard hazard names a current topology anchor and plausible future real-use failure."
+    },
+    {
+      "category": "evidence",
+      "requirement_id": "topology_hazard.business_path_liveness",
+      "summary": "Important business paths, terminals, side effects, compatibility, and loop progress have evidence or typed dispositions."
+    },
+    {
+      "category": "closure",
+      "requirement_id": "topology_hazard.no_unanchored_blocker",
+      "summary": "Unanchored concerns remain observations and cannot be promoted to blockers or broad confidence evidence."
+    }
+  ],
+  "use_when": [
+    "A locally green model may hide broad-claim risk in paths, terminals, loops, side effects, external boundaries, compatibility, or parent/child compression."
+  ],
+  "workflow": [
+    {
+      "phase_id": "intake",
+      "summary": "Define usage intent, final claim, compatibility/history policy, and model evidence scope."
+    },
+    {
+      "phase_id": "inventory",
+      "summary": "Build a topology digest with states, edges, terminals, side effects, paths, boundaries, and parent/child landmarks."
+    },
+    {
+      "phase_id": "execution",
+      "summary": "Classify each candidate by topology anchor, real-use failure, affected element, disposition, and confidence effect."
+    },
+    {
+      "phase_id": "checks",
+      "summary": "Run topology hazard checks and downgrade unanchored concerns while blocking unresolved anchored hazards."
+    },
+    {
+      "phase_id": "closure",
+      "summary": "Return handled/scoped hazards, maintenance obligations, and typed model/test/reduction/process/risk handoffs."
+    }
+  ]
+}

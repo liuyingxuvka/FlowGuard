@@ -407,7 +407,11 @@ def _run_project_adoption_command(args: argparse.Namespace) -> int:
     elif args.project_action == "adopt":
         report = adopt_project(args.root)
     elif args.project_action == "upgrade":
-        report = upgrade_project(args.root, records_only=args.records_only)
+        report = upgrade_project(
+            args.root,
+            records_only=args.records_only,
+            dry_run=args.dry_run,
+        )
     else:  # pragma: no cover
         raise ValueError(f"unknown project adoption action: {args.project_action}")
     print(report.to_json_text() if args.json else report.format_text())
@@ -568,8 +572,13 @@ def _add_project_adoption_parser(
             action="store_true",
             help="Only update AGENTS/manifest/adoption records; skip artifact/model/test upgrade scanning.",
         )
+        parser.add_argument(
+            "--dry-run",
+            action="store_true",
+            help="Preview files, semantic rule changes, suite findings, and revalidation without writing.",
+        )
     else:
-        parser.set_defaults(records_only=False)
+        parser.set_defaults(records_only=False, dry_run=False)
     parser.set_defaults(handler=_run_project_adoption_command, project_action=action)
 
 

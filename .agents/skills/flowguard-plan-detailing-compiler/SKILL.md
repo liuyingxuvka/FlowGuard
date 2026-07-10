@@ -1,59 +1,40 @@
 ---
 name: flowguard-plan-detailing-compiler
-description: Use when explicitly requested or delegated by flowguard-development-process-flow's plan_detailing simulator mode to turn rough plans into detailed FlowGuard process rows. Generic rough-plan routing should enter flowguard-development-process-flow first.
+description: Use only when explicitly requested or delegated by flowguard-development-process-flow's plan_detailing mode to compile a rough non-trivial plan into structured FlowGuard artifacts, steps, receipts, validations, failure/rework branches, and claim boundaries.
 ---
 
 # FlowGuard Plan Detailing Compiler
 
-Delegated FlowGuard mode skill for structured plan rows. It remains directly
-invokable when the user names PlanDetailing or another route delegates
-`plan_detailing`; ordinary plan discussion enters
-`flowguard-development-process-flow` first.
+## Purpose
+Turn rough plan prose into checkable `PlanDetail` rows before execution; never execute the plan or treat detail as implementation proof.
 
-Return to `model-first-function-flow` when the FlowGuard route itself is unclear.
-Return to DevelopmentProcessFlow for generic "make a better plan" requests.
+## Entrypoint Scope
+Route id: `plan_detailing_compiler`; role: `delegated_mode`; native owner: `development_process_flow`. Direct use requires an explicit request; generic rough-plan work enters `flowguard-development-process-flow` first.
 
-## First Read
+## Local Material Routing
+Read `references/plan_detailing_compiler_protocol.md` for required rows, finding codes, projection order, and confidence decisions.
 
-- Route id: `plan_detailing_compiler`.
-- Simulator mode: `plan_detailing`; front door: `flowguard-development-process-flow`.
-- Core helpers: `PlanDetail`, `PlanDetailStep`, `PlanDetailValidation`,
-  `PlanDetailFailureBranch`, `review_plan_detail()`.
-- Projections: `plan_detail_to_plan_intake()`,
-  `plan_detail_to_step_contracts()`,
-  `plan_detail_to_development_process()`,
-  `plan_detail_to_agent_workflow_plan()`.
-- Reference: `references/plan_detailing_compiler_protocol.md`.
+## Entrypoint Acceptance Map
+Accept an explicit/delegated rough plan and sources; compile scope/state/artifact/receipt/validation rows; block missing rework, payload/UI, or final evidence detail; return structured projections to DevelopmentProcessFlow and typed satellites.
+
+## Use When
+- Use for delegated `plan_detailing` where scope, steps, artifacts, side effects, UI actions, real payload surfaces, validation, or rework are underspecified.
+
+## Do Not Use When
+- Do not activate as a generic planner, execute work, or replace downstream route evidence; return unclear FlowGuard routing to `model-first-function-flow`.
+
+## Required Workflow
+1. Capture goal, assumptions, sources, risk surfaces, state/side effects, artifacts, UI actions, and payload/work-package surfaces.
+2. Add ordered steps, step receipts, validations, failure/rework/continue gates, freshness rules, and human questions; run `review_plan_detail()`.
+3. Project passing/scoped rows to process, agent workflow, UI, Model-Test Alignment, and TestMesh owners.
 
 ## Hard Gates
+- Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
+- Long prose, checkboxes, or plan progress cannot satisfy structured detail or terminal evidence.
+- Full claims require resolved questions, final evidence ids, real-surface payload cases, relevant human-operability gates, and template harvest closure for deepened models.
 
-- Verify FlowGuard check engine, AGENTS.md managed record, and no fake mini-framework.
-- Do not present this as the generic first entry for rough-plan discussion.
-- Long prose is not structured plan detail.
-- Plan-detail pass is not implementation, release, or production proof.
-- Full claims require final evidence ids and no scoped detail gaps.
-- New/deepened models need template harvest closure.
-- UI, import/export, generated artifact, and AI work-package plans need
-  task/action coverage, human-operability evidence, payload cases for the real surface,
-  execution proof refs, and manual review gates.
+## Output Requirements
+- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`, plus PlanDetail rows, gaps, and projections.
 
-## Minimum Workflow
-
-1. Capture goal, assumptions, scope, sources, and risk surfaces.
-2. List artifacts, UI tasks/actions, payload/work-package surfaces, state,
-   side effects, steps, receipts, validation, failures, questions, and claim boundary.
-3. Run `review_plan_detail()`.
-4. Project passing/scoped rows to downstream routes as needed.
-5. Keep missing/scoped rows visible before downstream claims.
-
-## Snapshot
-
-Show goal, state/artifact surfaces, step receipts, validation evidence,
-failure/rework branches, human questions, and claim scope.
-Status note: plan goal, missing row, validation/rework gap, question, next step.
-
-## Non-Goals
-
-- Do not execute the work plan.
-- Do not call LLM APIs from the model.
-- Do not replace downstream route evidence or final closure contracts.
+## SkillGuard Maintenance
+- Edit `.skillguard/contract-source.json`, then regenerate derived contracts; SkillGuard validates this delegated compiler and cannot execute steps or manufacture receipts.

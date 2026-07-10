@@ -1,8 +1,18 @@
 # FlowGuard Concept
 
-FlowGuard is a lightweight Python framework for model-first software engineering. It gives AI coding agents an executable abstract model of a feature before they write production code.
+FlowGuard is an AI-agent skill suite powered by an executable check engine. The skills tell an agent when to model a risky workflow, which route owns the problem, what evidence is required, and where a safe claim must stop. The Python engine makes those selected obligations executable before or after production code changes.
 
-It is not a normal test framework, not a prompt-engineering tool, and not an LLM wrapper. It does not call model APIs. Its purpose is to make function-flow behavior explicit, finite, repeatable, and checkable before implementation.
+It is not a normal test framework, not a prompt-engineering trick, and not an LLM wrapper. It does not call model APIs. Its purpose is to make function-flow behavior, process order, evidence freshness, and claim boundaries explicit, finite, repeatable, and checkable. The installable product surface is the complete 17-member tree under `.agents/skills/`; the `flowguard` package and scripts are its executable support layer.
+
+## Three Different Meanings Of Green
+
+FlowGuard keeps three governance layers separate because each answers a different question:
+
+1. **Prompt and contract structure:** Does a skill say the right things, reference resolvable material, and satisfy its static/depth contract?
+2. **Native evidence receipt:** Did that route's real executable command run against the declared current inputs and end with an independently verifiable exact-pass receipt?
+3. **Self-governance parent closure:** Did the parent consume every required current child receipt and check inventory, freshness, and distribution boundaries before making a suite-level claim?
+
+A layer-one pass is not a layer-two run. One layer-two receipt is not layer-three closure. Any changed prompt, contract, native checker, model, test, or covered input may make older evidence stale. This separation is the practical defense against a local green result being promoted into an unsupported full or release claim.
 
 ## Why Agents Need an Executable Model
 
@@ -78,6 +88,12 @@ Good invariants are concrete:
 FlowGuard is not a complete formal proof system. The MVP explores finite abstract inputs up to finite sequence bounds. It can find counterexamples inside the model, but it cannot prove unbounded production correctness.
 
 FlowGuard is also not a replacement for unit tests. Unit tests still verify production code. FlowGuard sits earlier: it models the intended functional flow before production code is written or changed.
+
+## Validation And Distribution Surface
+
+Repository model checks are owned by an explicit manifest rather than implicit file discovery. `fast` gives scoped development feedback, `focused` covers a wider selected surface, and only a current terminal `full` run can contribute to release evidence. Default output is concise; JSON and full human projections preserve the same status semantics and point to complete artifacts.
+
+The skill distribution lifecycle is also explicit: install, check, parity, and uninstall operate on the complete 17-member tree, use ownership metadata, preserve modified user files, and report missing, extra, raw-hash, semantic-hash, and explicit exclusion results separately. See [Validation and Skill Distribution](./validation_and_distribution.md) for safe commands, evidence locations, background progress, and claim boundaries.
 
 ## MVP Limits
 

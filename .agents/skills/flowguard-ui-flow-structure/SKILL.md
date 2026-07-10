@@ -1,50 +1,40 @@
 ---
 name: flowguard-ui-flow-structure
-description: Use for UI behavior, surface, operability evidence.
+description: Use for UI behavior, observed surface, capabilities, interaction states, journeys, structure/text, human operability, runnable evidence, geometry, responsiveness, or transition coverage.
 ---
 
 # FlowGuard UI Flow Structure
 
-Standalone FlowGuard satellite skill for UI states, journeys, operability, structure, and evidence. Return to `model-first-function-flow` when non-UI.
+## Purpose
+Model UI event x UI state behavior and prove the declared boundary from observed surface through runnable evidence.
 
-## First Read
+## Entrypoint Scope
+Route id: `ui_flow_structure`; role: `public_owner`; native owner: `ui_flow_structure`. This standalone FlowGuard satellite skill owns UI behavior/surface evidence, not visual styling or code structure.
 
-- Route id: `ui_flow_structure`.
-- Starter: `ROUTE_STARTER_API["ui_flow_structure"]`; templates: compact/full.
-- Shape: UI event x UI state -> controls, displays, overlays, recovery, feedback.
-- Helpers: inventory, capability coverage, model, Visible surface, journey, task/human, implementation, render/geometry, text.
-- Reference: `references/ui_flow_structure_protocol.md`.
+## Local Material Routing
+Read `references/ui_flow_structure_protocol.md` as the index; load `references/ui_observed_surface_protocol.md`, `references/ui_capability_interaction_protocol.md`, `references/ui_journey_structure_text_protocol.md`, `references/ui_human_operability_protocol.md`, `references/ui_implementation_evidence_protocol.md`, and `references/ui_geometry_transition_protocol.md` only when that boundary is in scope.
+
+## Entrypoint Acceptance Map
+Accept `greenfield`, `source_based`, or `mixed` scope; inventory surface/capabilities; block unowned enabled actions, missing recovery, or design-only runnable claims; hand transitions to MTA/TestMesh.
+
+## Use When
+- Use for UI controls, displays, dialogs, menus, navigation, visible surface, tasks, blindspots, reachable enabled action chains, implementation runs, or layout/responsiveness evidence.
+
+## Do Not Use When
+- Do not style first, prose-validate, treat labels/API routes as functional proof, or replace frontend/design/code-structure workflows; return non-UI work to `model-first-function-flow`.
+
+## Required Workflow
+1. Declare work mode; inventory observed surface and required capabilities when a UI exists or runs.
+2. Build UI states/events/controls/displays, journey coverage, structure, text hierarchy, task coverage, and human-operability evidence.
+3. For runnable claims, bind screenshot/DOM/event/result evidence, click chains, geometry/transitions, blindspots, and tests.
 
 ## Hard Gates
+- Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
+- Every reachable enabled action needs control -> event -> owner -> function -> UI update -> click/test evidence, pure-UI disposition, or owned blindspot.
+- Design evidence cannot prove runnable UI; source/mixed work needs baseline alignment, failures/recovery stay explicit, and deepened UI models require template harvest closure.
 
-- Verify FlowGuard check engine and AGENTS.md managed records; no fake mini-framework.
-- Work mode first: `greenfield`, `source_based`, or `mixed`; source-based/mixed need baseline -> mapping -> observed alignment.
-- Existing/runnable UI: observed surface first. Map controls, fields, status, dialogs, menus, toolbars, and regions to owner or blindspot.
-- Non-trivial UI claims need capability coverage: capability -> feature, task, UI path, owner/chain, output, evidence or blindspot.
-- UI-visible external promises need Behavior Commitment Ledger rows; duplicate UI ownership blocks broad confidence.
-- Each reachable enabled action needs control -> event -> owner -> function -> UI update -> click/test evidence. Label proof is not enough.
-- Supported tasks need path, primary control, chain, feedback, cancel/error, keyboard/focus, walkthrough, and affordance/grammar/dialog behavior.
-- Source-based scopes need generic source branches and approved differences.
-- Complete/runnable/button-wired claims need `UIImplementationValidation` with evidence kind such as screenshot/DOM text, event, result, ref, and boundary.
-- Branches, recovery/cancel, ownership, typography guidance, and blindspots stay explicit.
-- Broad transition-test claims need owner cells, then MTA or TestMesh.
-- New/deepened UI models need harvest closure before broad claims.
+## Output Requirements
+- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`, plus a UI state diagram, task/control coverage, and blindspots.
 
-## Minimum Workflow
-
-1. Declare work mode.
-2. Inventory real UI surface when it exists or runs.
-3. For source-based/mixed scope, inventory source, map target differences, and align observed UI.
-4. Model states, events, controls, displays, overlays, transitions, availability.
-5. Add capability coverage: capabilities, scoped gaps, outputs, feature/task/UI path/owner/evidence, and commitment ids.
-6. Review visible surface, chains, source branches, duplicates, blindspots.
-7. Add task coverage and human-operability evidence.
-8. Derive regions, controls, text hierarchy, calm typography guidance.
-9. Add journey, evidence-kind, geometry, transition-cell, and implementation validation as needed.
-
-Snapshot: UI state diagram; edges mean reachable controls, interaction transitions, recovery, text ownership, evidence, blindspots.
-Status: surface, task/control, evidence/gap, next UI check.
-
-## Non-Goals
-
-- Do not style-first or prose-validate.
+## SkillGuard Maintenance
+- Edit `.skillguard/contract-source.json`, then regenerate derived contracts; SkillGuard checks the UI route contract and cannot fabricate click-through, screenshot, DOM, or human evidence.

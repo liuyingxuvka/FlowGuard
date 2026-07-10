@@ -1,24 +1,18 @@
 {
   "blockers": [],
   "checks": [],
-  "claim_boundary": "This record covers only the installed skill entrypoint, local SkillGuard records, and current files inspected for this target. It does not prove runtime checker execution, fixture coverage, CLI checks, tests, suite automation, package publication, code-contract validation, release readiness, or future AI behavior without separate current evidence.",
+  "claim_boundary": "This record covers only the current skill entrypoint and local SkillGuard contract files. It does not prove runtime checker execution, fixture coverage, CLI checks, tests, suite automation, package publication, code-contract validation, release readiness, or future AI behavior without separate current evidence.",
   "control_root": ".skillguard",
-  "evidence": [
-    {
-      "evidence_id": "current-evidence-manifest",
-      "path": ".skillguard/evidence/current_evidence_manifest.json",
-      "summary": "Direct current evidence manifest."
-    }
-  ],
+  "evidence": [],
   "failures": [],
-  "profile_version": "installed-skill-upgrade.v2",
-  "purpose": "Maintain SkillGuard readiness for the installed flowguard-ui-flow-structure skill.",
+  "profile_version": "flowguard.skill_contract_compiler.v1",
+  "purpose": "Maintain target-specific native-integrated contract readiness for flowguard-ui-flow-structure.",
   "residual_risk": [
-    "This static record must be refreshed when the skill entrypoint, route contract, or validation rules change."
+    "Native commands and immutable receipts are intentionally outside this static record."
   ],
   "schema_version": "1.0",
   "skipped_checks": [],
-  "status": "checked",
+  "status": "needs-review",
   "target_path": "../SKILL.md",
   "target_type": "skill"
 }

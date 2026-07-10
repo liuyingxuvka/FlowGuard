@@ -1,0 +1,129 @@
+contract_version: 1
+change: upgrade-flowguard-skill-contract-governance
+obligations:
+  - id: req.skill-contract.entrypoint
+    source: "specs/flowguard-skill-contract-governance/spec.md#Requirement: Standard Skill Entrypoint Contract"
+    claim: "All seventeen prompts have required route-specific sections and no generic duplicate contract."
+    required: true
+    evidence: [check.skill.docs, check.skillguard.suite]
+  - id: req.skill-contract.prompt-parity
+    source: "specs/flowguard-skill-contract-governance/spec.md#Requirement: Prompt Metadata Parity"
+    claim: "SKILL, openai.yaml, route registry, and contract source agree for every member."
+    required: true
+    evidence: [check.skill.docs, check.contract.compiler]
+  - id: req.skill-contract.sources
+    source: "specs/flowguard-skill-contract-governance/spec.md#Requirement: Target-Specific Contract Source"
+    claim: "Every skill, including BCL, has a complete target-specific contract source and control root."
+    required: true
+    evidence: [check.contract.compiler, check.skillguard.suite]
+  - id: req.skill-contract.generation
+    source: "specs/flowguard-skill-contract-governance/spec.md#Requirement: Deterministic Deep Contract Generation"
+    claim: "Contracts/manifests are deterministic and check mode detects stale or manual edits."
+    required: true
+    evidence: [check.contract.compiler, check.contract.check]
+  - id: req.skill-contract.native-owner
+    source: "specs/flowguard-skill-contract-governance/spec.md#Requirement: Native Integrated Ownership"
+    claim: "SkillGuard gates native FlowGuard routes and no parallel execution owner passes."
+    required: true
+    evidence: [check.skillguard.suite]
+  - id: req.skill-contract.deep-pass
+    source: "specs/flowguard-skill-contract-governance/spec.md#Requirement: Seventeen Skill Deep Certification"
+    claim: "17/17 skills pass static, contract, and depth checks with zero risk/hollow/legacy findings."
+    required: true
+    evidence: [check.skillguard.suite]
+  - id: req.kernel.compact
+    source: "specs/flowguard-skill-kernel/spec.md#Requirement: Compact Kernel Entrypoint"
+    claim: "Kernel remains within budget and directly routes detailed references."
+    required: true
+    evidence: [check.skill.docs]
+  - id: req.kernel.route-index
+    source: "specs/flowguard-skill-kernel/spec.md#Requirement: Generated Route Index"
+    claim: "Kernel route index matches canonical route and suite registries."
+    required: true
+    evidence: [check.skill.docs, check.contract.compiler]
+  - id: req.kernel.claim-boundary
+    source: "specs/flowguard-skill-kernel/spec.md#Requirement: Strict Broad Claim Boundary"
+    claim: "Non-current and partial evidence cannot satisfy broad closure."
+    required: true
+    evidence: [check.skill.docs]
+  - id: req.satellites.boundaries
+    source: "specs/flowguard-codex-skill-satellites/spec.md#Requirement: Satellite Activation And Non-Use Boundaries"
+    claim: "Every satellite has precise activation/non-use semantics."
+    required: true
+    evidence: [check.skill.docs, check.skillguard.suite]
+  - id: req.satellites.outputs
+    source: "specs/flowguard-codex-skill-satellites/spec.md#Requirement: Satellite Workflow And Evidence Output"
+    claim: "Satellite outputs include evidence, blockers, skipped checks, residual risk, claim boundary, and typed next actions."
+    required: true
+    evidence: [check.skill.docs, check.skillguard.suite]
+  - id: req.satellites.layout
+    source: "specs/flowguard-codex-skill-satellites/spec.md#Requirement: Prompt Size And Routed References"
+    claim: "Prompt budgets and both source/installed reference layouts pass."
+    required: true
+    evidence: [check.skill.docs, check.layout.temp-home]
+  - id: req.satellites.specific-checks
+    source: "specs/flowguard-codex-skill-satellites/spec.md#Requirement: Satellite Specific Contract Checks"
+    claim: "Every satellite has at least one owner-specific check or explicit test-gap plan."
+    required: true
+    evidence: [check.skillguard.suite]
+checks:
+  - id: check.skill.docs
+    kind: command
+    command: python
+    args: [-m, pytest, tests/test_skill_docs.py, tests/test_skill_prompt_parity.py, -q]
+    required: true
+    covers: [req.skill-contract.entrypoint, req.skill-contract.prompt-parity, req.kernel.compact, req.kernel.route-index, req.kernel.claim-boundary, req.satellites.boundaries, req.satellites.outputs, req.satellites.layout]
+    expected: {exit_code: 0}
+  - id: check.contract.compiler
+    kind: command
+    command: python
+    args: [-m, pytest, tests/test_skill_contract_compiler.py, -q]
+    required: true
+    covers: [req.skill-contract.prompt-parity, req.skill-contract.sources, req.skill-contract.generation, req.kernel.route-index]
+    expected: {exit_code: 0}
+  - id: check.contract.check
+    kind: command
+    command: python
+    args: [scripts/compile_flowguard_skill_contracts.py, --root, ., --check, --json]
+    required: true
+    covers: [req.skill-contract.generation]
+    expected: {exit_code: 0}
+  - id: check.skillguard.suite
+    kind: command
+    command: python
+    args: [scripts/check_flowguard_skill_suite.py, --root, ., --skillguard, all, --json]
+    required: true
+    covers: [req.skill-contract.entrypoint, req.skill-contract.sources, req.skill-contract.native-owner, req.skill-contract.deep-pass, req.satellites.boundaries, req.satellites.outputs, req.satellites.specific-checks]
+    expected: {exit_code: 0}
+  - id: check.layout.temp-home
+    kind: command
+    command: python
+    args: [-m, pytest, tests/test_skill_installed_layout.py, -q]
+    required: true
+    covers: [req.satellites.layout]
+    expected: {exit_code: 0}
+  - id: check.openspec.strict
+    kind: command
+    command: openspec
+    args: [validate, upgrade-flowguard-skill-contract-governance, --strict]
+    required: true
+    covers: [req.skill-contract.entrypoint, req.skill-contract.prompt-parity, req.skill-contract.sources, req.skill-contract.generation, req.skill-contract.native-owner, req.skill-contract.deep-pass, req.kernel.compact, req.kernel.route-index, req.kernel.claim-boundary, req.satellites.boundaries, req.satellites.outputs, req.satellites.layout, req.satellites.specific-checks]
+    expected: {exit_code: 0}
+freshness:
+  watch:
+    - openspec/changes/upgrade-flowguard-skill-contract-governance/**/*.md
+    - openspec/changes/upgrade-flowguard-skill-contract-governance/verification-contract.yaml
+    - .skillguard/flowguard-suite/suite-map.json
+    - .agents/skills/*/SKILL.md
+    - .agents/skills/*/agents/openai.yaml
+    - .agents/skills/*/references/**/*.md
+    - .agents/skills/*/.skillguard/contract-source.json
+    - .agents/skills/*/.skillguard/work-contract.json
+    - .agents/skills/*/.skillguard/check_manifest.json
+    - flowguard/skill_contracts.py
+    - scripts/compile_flowguard_skill_contracts.py
+    - scripts/check_flowguard_skill_suite.py
+    - tests/test_skill_docs.py
+    - tests/test_skill_prompt_parity.py
+    - tests/test_skill_contract_compiler.py
+    - tests/test_skill_installed_layout.py

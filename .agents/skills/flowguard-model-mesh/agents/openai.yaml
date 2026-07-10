@@ -1,4 +1,4 @@
 interface:
-  display_name: "FlowGuard ModelMesh"
-  short_description: "Split oversized FlowGuard models safely"
-  default_prompt: "Use $flowguard-model-mesh when a FlowGuard model set needs parent and child model partitioning."
+  display_name: "FlowGuard Model Mesh"
+  short_description: "Govern parent-child model evidence and closure"
+  default_prompt: "Use $flowguard-model-mesh for route_id=model_mesh_maintenance, role=public_owner, native_owner=model_mesh_maintenance; require model-derived partitions, legal ownership, current child reattachment/receipts, affected-sibling review, and closure liveness; do not split tests/code or count child-local green as parent proof; output evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, and typed_next_actions; claim only current mesh scope."

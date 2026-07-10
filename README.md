@@ -10,19 +10,19 @@
 </p>
 
 <p align="center">
-  <strong>An AI-agent skill suite with executable check scripts for risky workflow changes.</strong>
+  <strong>An AI-agent skill suite powered by an executable check engine.</strong>
 </p>
 <!-- README HERO END -->
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.53.1` | `1.0` | Python standard library only | MIT |
+| `v0.54.0` | `1.0` | Python standard library only | MIT |
 
 English comes first. A Chinese mirror follows below.
 
 ## What FlowGuard Is
 
-FlowGuard is an AI-agent skill suite for checking the risky part of a software change before an agent writes more code. Its primary agent surface is `.agents/skills/`: `SKILL.md` files, references, assets, and check scripts that tell an AI when and how to use FlowGuard.
+An AI-agent skill suite with executable check scripts, FlowGuard checks the risky part of a software change before an agent writes more code. The suite is powered by an executable check engine. Its primary agent surface is `.agents/skills/`: `SKILL.md` files, references, assets, and check scripts that tell an AI when and how to use FlowGuard.
 
 It asks the agent to turn the danger zone into a finite state model, run that model, and inspect counterexample traces. That makes problems such as duplicate side effects, stale test evidence, broken UI recovery paths, or unsupported "done" claims visible before they become maintenance debt.
 
@@ -218,6 +218,7 @@ You can skip this section if you are only trying the first example.
 
 FlowGuard has one model-first kernel and route-specific skills. These are the skills an AI agent should load as the FlowGuard suite:
 
+<!-- FLOWGUARD SKILL TABLE EN START -->
 | Skill | Use it when |
 | --- | --- |
 | `model-first-function-flow` | ordinary behavior or state modeling is enough |
@@ -225,6 +226,7 @@ FlowGuard has one model-first kernel and route-specific skills. These are the sk
 | `flowguard-development-process-flow` | staged work, multi-skill setup, install, archive, publish, release, or done confidence depends on evidence freshness |
 | `flowguard-agent-workflow-rehearsal` | DevelopmentProcessFlow delegates agent workflow rehearsal, skill order, and skipped-skill evidence |
 | `flowguard-plan-detailing-compiler` | DevelopmentProcessFlow delegates rough-plan detailing into scoped rows |
+| `flowguard-behavior-commitment-ledger` | broad behavior promises need source coverage, one primary owner model, and Primary Path Authority handoff for path-sensitive behavior |
 | `flowguard-field-lifecycle-mesh` | fields, schemas, modes, prompt/config keys, or old-field disposition need ownership |
 | `flowguard-contract-exhaustion-mesh` | finite bad-case generation, same-class families, payloads, or transition cases need canonical coverage |
 | `flowguard-ui-flow-structure` | UI controls, visible surface, journeys, overlays, recovery, and implementation evidence need modeling |
@@ -236,6 +238,49 @@ FlowGuard has one model-first kernel and route-specific skills. These are the sk
 | `flowguard-model-topology-hazard-review` | a locally green model may still imply future-use hazards |
 | `flowguard-architecture-reduction` | duplicated handlers, adapters, modules, branches, or validation layers may be contracted without changing behavior |
 | `flowguard-model-miss-review` | runtime, tests, replay, logs, or manual checks failed after a FlowGuard model passed |
+<!-- FLOWGUARD SKILL TABLE EN END -->
+
+The table is parity-checked against `.skillguard/flowguard-suite/suite-map.json`; a missing or extra route fails the documentation test.
+
+### Three Evidence Layers
+
+FlowGuard deliberately keeps three different meanings of “green” separate:
+
+| Layer | What passed | What it does not prove |
+| --- | --- | --- |
+| Prompt and contract structure | the skill prompt, generated contract, references, and SkillGuard static/depth rules agree | the route's executable check did not necessarily run |
+| Native evidence receipt | the route-owned command ran against declared current inputs and produced a terminal, freshness-verifiable receipt | one route receipt does not close the other sixteen routes or the parent claim |
+| Self-governance parent closure | the parent consumed current exact-pass receipts for all required members and checked inventory, freshness, and distribution boundaries | it still proves only the declared suite obligations, not future AI behavior or production correctness |
+
+If a prompt, contract, native checker, model, test, or covered input changes, older evidence may become stale. A previous pass is not silently carried forward.
+
+### Validation And Distribution
+
+Model regressions use an explicit manifest and three tiers: `fast` for narrow development feedback, `focused` for a wider selected surface, and `full` for every required non-excluded model. Only a current, terminal full-tier pass can contribute to a release claim.
+
+```powershell
+python scripts/run_flowguard_model_regressions.py --audit-only --json
+python scripts/run_flowguard_model_regressions.py --tier fast --output-dir .flowguard/evidence/model-regressions/fast-local
+python scripts/run_flowguard_model_regressions.py --tier focused --model "ui_*" --shard 1/2 --jobs 1 --output-dir .flowguard/evidence/model-regressions/focused-1 --json
+python scripts/run_flowguard_model_regressions.py --tier full --jobs 1 --timeout 900 --output-dir .flowguard/evidence/model-regressions/full-local --full
+```
+
+Default human output is concise. `--json` emits the canonical machine result, while `--full` expands human-readable child details; neither option upgrades the evidence scope. During a long foreground or background run, progress events show liveness only. Completion requires the final `report.json` and terminal child receipts in the selected output directory.
+
+The skill installer manages the complete 17-member tree and records which files it owns:
+
+```powershell
+python scripts/install_flowguard_skills.py install --source . --codex-home $env:CODEX_HOME --dry-run --json
+python scripts/install_flowguard_skills.py install --source . --codex-home $env:CODEX_HOME --json
+python scripts/install_flowguard_skills.py check --source . --codex-home $env:CODEX_HOME --json
+python scripts/install_flowguard_skills.py parity --source . --formal .agents/skills --shadow $env:FLOWGUARD_SHADOW\.agents\skills --installed $env:CODEX_HOME\skills --json
+python scripts/install_flowguard_skills.py uninstall --codex-home $env:CODEX_HOME --dry-run --json
+python scripts/install_flowguard_skills.py uninstall --codex-home $env:CODEX_HOME --json
+```
+
+`check` and `parity` are read-only, so they do not accept `--dry-run`. Uninstall removes only unchanged installer-owned files and preserves modified or unowned files as conflicts. Current receipts live under `.flowguard/evidence/skill-suite`; model-run artifacts live in the chosen regression `--output-dir`. Environment-local receipts are explicitly excluded from the distributed skill tree and must be regenerated where claims are made.
+
+See [`docs/validation_and_distribution.md`](./docs/validation_and_distribution.md) for the command contract, exit/status meanings, background-monitoring boundary, evidence locations, and safe install lifecycle.
 
 Useful check and template commands:
 
@@ -285,6 +330,7 @@ Run `python -m flowguard --help` for the full compatibility command list.
 | [`docs/flowguard_closure_contract.md`](./docs/flowguard_closure_contract.md) | closure contract for complete FlowGuard use |
 | [`docs/risk_evidence_ledger.md`](./docs/risk_evidence_ledger.md) | risk-to-model-to-code-to-evidence confidence boundary |
 | [`docs/runtime_gateway_adoption.md`](./docs/runtime_gateway_adoption.md) | runtime gateway adoption levels and critical-state writer inventory |
+| [`docs/validation_and_distribution.md`](./docs/validation_and_distribution.md) | tiered validation, evidence layers, background progress, and skill distribution lifecycle |
 
 ## Repository Layout
 
@@ -310,7 +356,7 @@ MIT. See [`LICENSE`](./LICENSE).
 
 ## 中文说明
 
-FlowGuard 是给 AI 编程 agent 用的技能套件，附带可执行检查脚本。它的主要 agent surface 是 `.agents/skills/`：里面的 `SKILL.md`、references、assets 和检查脚本会告诉 AI 什么时候该用 FlowGuard、该走哪个子技能、怎么拿到当前证据。
+FlowGuard 是一套由可执行检查引擎驱动的 AI-agent 技能套件，同时附带可执行检查脚本。它的主要 agent surface 是 `.agents/skills/`：里面的 `SKILL.md`、references、assets 和检查脚本会告诉 AI 什么时候该用 FlowGuard、该走哪个子技能、怎么拿到当前证据。
 
 它的核心不是让 agent “小心一点”，而是让 agent 把危险路径写成一个小型可执行状态模型。模型跑起来以后，可以提前暴露重复副作用、过期证据、缺失恢复路径、或者 `done` / `release` 声明已经不成立这类问题。
 
@@ -499,6 +545,7 @@ class ProcessJob:
 
 FlowGuard 有一个 model-first kernel 和多条 route-specific 技能。AI agent 应该把下面这些一起当作 FlowGuard 技能套件来加载：
 
+<!-- FLOWGUARD SKILL TABLE ZH START -->
 | Skill | 什么时候用 |
 | --- | --- |
 | `model-first-function-flow` | 普通行为/状态建模就够了 |
@@ -506,6 +553,7 @@ FlowGuard 有一个 model-first kernel 和多条 route-specific 技能。AI agen
 | `flowguard-development-process-flow` | staged work、multi-skill setup、install、archive、publish、release 或 done confidence 取决于证据新鲜度 |
 | `flowguard-agent-workflow-rehearsal` | DevelopmentProcessFlow 委托 agent workflow rehearsal、技能顺序和 skipped-skill evidence |
 | `flowguard-plan-detailing-compiler` | DevelopmentProcessFlow 委托把粗计划拆成有 scope 的 rows |
+| `flowguard-behavior-commitment-ledger` | 广泛行为承诺需要源覆盖、唯一主 owner model，以及 path-sensitive 行为的 Primary Path Authority 交接 |
 | `flowguard-field-lifecycle-mesh` | field、schema、mode、prompt/config key 或 old-field disposition 需要 ownership |
 | `flowguard-contract-exhaustion-mesh` | 有限坏例、same-class family、payload 或 transition case 需要 canonical coverage |
 | `flowguard-ui-flow-structure` | UI 控件、可见表面、journey、overlay、恢复路径和实现证据需要建模 |
@@ -517,6 +565,49 @@ FlowGuard 有一个 model-first kernel 和多条 route-specific 技能。AI agen
 | `flowguard-model-topology-hazard-review` | 本地 green 模型仍可能有未来复发风险 |
 | `flowguard-architecture-reduction` | 重复 handler、adapter、module、branch 或 validation layer 可能可以安全收缩 |
 | `flowguard-model-miss-review` | runtime、test、replay、log 或人工检查在 FlowGuard 通过后仍然失败 |
+<!-- FLOWGUARD SKILL TABLE ZH END -->
+
+这张表会由测试和 `.skillguard/flowguard-suite/suite-map.json` 做一致性校验；少一项或多一项都会失败。Behavior Commitment Ledger 是正式的 17 项成员之一，不是隐藏 helper。
+
+### 三层证据状态
+
+FlowGuard 刻意把三种不同的“通过”分开：
+
+| 层级 | 真正通过了什么 | 还没有证明什么 |
+| --- | --- | --- |
+| 提示词与合同结构 | 技能提示词、生成合同、引用和 SkillGuard 静态/深度规则一致 | 该路线的原生可执行检查不一定运行过 |
+| 原生证据回执 | 路线 owner 的命令针对声明的当前输入运行，并产生可独立验证新鲜度的终态回执 | 一条路线的回执不能替代其他 16 条路线，也不能自动关闭父级声明 |
+| 自治理父闭环 | 父级消费了所有必需成员的当前 exact-pass 回执，并核对 inventory、freshness 和分发边界 | 它仍只证明声明过的技能套件义务，不证明未来 AI 行为或生产系统整体正确 |
+
+如果提示词、合同、原生检查器、模型、测试或被覆盖输入发生变化，旧证据可能立刻过期。以前绿过，不会被自动续期。
+
+### 验证与分发
+
+模型回归由显式清单管理，并分为三档：`fast` 给日常窄范围反馈，`focused` 检查更宽的选定范围，`full` 运行所有必需且未明确排除的模型。只有当前、全部终态且通过的 full-tier 结果，才能参与 release 声明。
+
+```powershell
+python scripts/run_flowguard_model_regressions.py --audit-only --json
+python scripts/run_flowguard_model_regressions.py --tier fast --output-dir .flowguard/evidence/model-regressions/fast-local
+python scripts/run_flowguard_model_regressions.py --tier focused --model "ui_*" --shard 1/2 --jobs 1 --output-dir .flowguard/evidence/model-regressions/focused-1 --json
+python scripts/run_flowguard_model_regressions.py --tier full --jobs 1 --timeout 900 --output-dir .flowguard/evidence/model-regressions/full-local --full
+```
+
+默认的人类输出是精简摘要；`--json` 输出稳定的机器结果，`--full` 展开人类可读的子项详情，它们都不会改变证据范围。长任务在前台或后台运行时，progress event 只代表“还活着”，不代表完成。真正完成需要选定输出目录里的最终 `report.json` 和所有子任务终态回执。
+
+技能安装器管理完整的 17 项文件树，并记录自己拥有的文件：
+
+```powershell
+python scripts/install_flowguard_skills.py install --source . --codex-home $env:CODEX_HOME --dry-run --json
+python scripts/install_flowguard_skills.py install --source . --codex-home $env:CODEX_HOME --json
+python scripts/install_flowguard_skills.py check --source . --codex-home $env:CODEX_HOME --json
+python scripts/install_flowguard_skills.py parity --source . --formal .agents/skills --shadow $env:FLOWGUARD_SHADOW\.agents\skills --installed $env:CODEX_HOME\skills --json
+python scripts/install_flowguard_skills.py uninstall --codex-home $env:CODEX_HOME --dry-run --json
+python scripts/install_flowguard_skills.py uninstall --codex-home $env:CODEX_HOME --json
+```
+
+`check` 和 `parity` 本身只读，因此不接受 `--dry-run`。卸载只删除未被用户改动、且有 installer ownership 记录的文件；修改过或不归安装器拥有的文件会保留并报告 conflict。当前技能回执放在 `.flowguard/evidence/skill-suite`，模型运行产物放在回归命令指定的 `--output-dir`。环境本地回执会被明确排除在技能分发树之外，需要在提出声明的环境中重新生成。
+
+更完整的命令契约、状态/退出码、后台监控边界、证据目录和安全安装生命周期，见 [`docs/validation_and_distribution.md`](./docs/validation_and_distribution.md)。
 
 常用检查和模板命令：
 
@@ -570,6 +661,7 @@ python -m flowguard --help
 | [`docs/flowguard_closure_contract.md`](./docs/flowguard_closure_contract.md) | 完整 FlowGuard 使用的 closure contract |
 | [`docs/risk_evidence_ledger.md`](./docs/risk_evidence_ledger.md) | risk-to-model-to-code-to-evidence 信心边界 |
 | [`docs/runtime_gateway_adoption.md`](./docs/runtime_gateway_adoption.md) | runtime gateway adoption level 和 critical-state writer inventory |
+| [`docs/validation_and_distribution.md`](./docs/validation_and_distribution.md) | 分层验证、三层证据、后台进度和技能分发生命周期 |
 
 ## 仓库结构
 

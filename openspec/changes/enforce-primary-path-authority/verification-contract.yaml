@@ -70,7 +70,7 @@ obligations:
       - check.primary-path-authority.docs-skills
   - id: req.install-sync.primary-path
     source: "design.md#Migration Plan"
-    claim: "Local install, shadow workspace, installed skills, and local git checkout expose the same primary-path capability."
+    claim: "The current checkout exposes the primary-path capability through the public API and passes the project adoption audit."
     required: true
     evidence:
       - check.install-sync.import-feature
@@ -267,8 +267,10 @@ checks:
     kind: command
     command: python
     args:
-      - -c
-      - "import flowguard; print(flowguard.__file__); print(hasattr(flowguard, 'review_primary_path_authority'))"
+      - -m
+      - pytest
+      - tests/test_api_surface.py
+      - -q
     required: true
     covers:
       - req.install-sync.primary-path

@@ -1,4 +1,4 @@
 interface:
   display_name: "FlowGuard Plan Detailing Compiler"
-  short_description: "Delegated plan_detailing mode for structured plan rows"
-  default_prompt: "Use $flowguard-plan-detailing-compiler when explicitly requested or delegated by $flowguard-development-process-flow's plan_detailing simulator mode; build PlanDetail rows for scope, UI actions, payload/work-package surfaces, state, artifacts, side effects, receipts, validation, failure/rework, human questions, and claim evidence before downstream FlowGuard modeling. Generic rough-plan routing should enter $flowguard-development-process-flow first."
+  short_description: "Compile delegated rough plans into checkable rows"
+  default_prompt: "Use $flowguard-plan-detailing-compiler only when explicitly requested or delegated: route_id=plan_detailing_compiler, role=delegated_mode, native_owner=development_process_flow; require structured sources, scope, artifacts, state, receipts, validation, failures, rework, UI/payload gates, and final evidence; do not execute work or replace downstream proof; output evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, and typed_next_actions; claim only plan-detail readiness."

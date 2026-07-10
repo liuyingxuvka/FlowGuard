@@ -1,0 +1,427 @@
+{
+  "version": 1,
+  "change": "enforce-primary-path-authority",
+  "status": "pass",
+  "generatedAt": "2026-07-09T21:12:24.119Z",
+  "contractPath": "openspec/changes/enforce-primary-path-authority/verification-contract.yaml",
+  "reportPath": "openspec/changes/enforce-primary-path-authority/verification-report.json",
+  "contractHash": "776dc847998852f3089500b71ec576881b106ef6cda688677ee3fce4f3c9b71f",
+  "sourceHashes": {
+    ".agents/skills/flowguard-agent-workflow-rehearsal/SKILL.md": "41bd235e7f61f35fc03aaea5e7fc62b5b298a1942e600ccc5baa16ed276b92f5",
+    ".agents/skills/flowguard-agent-workflow-rehearsal/references/agent_workflow_rehearsal_protocol.md": "0e2ce90a744f035d46f97301fba303d1279b0f7b3b04476087c2dbab2d155e72",
+    ".agents/skills/flowguard-architecture-reduction/SKILL.md": "25b3255eec028577c5b11701efc6cd402db363ab253803d2608daad11877a34a",
+    ".agents/skills/flowguard-architecture-reduction/references/architecture_reduction_protocol.md": "d19ac74ddce0dc7a1b6aa6484e4d6e6a2f5da338538888e1ef441493f072f79c",
+    ".agents/skills/flowguard-behavior-commitment-ledger/SKILL.md": "1ccd561598f76d3b346bd2fac7ac03e8dea03ab0c760c5be042da2f24259c5b2",
+    ".agents/skills/flowguard-behavior-commitment-ledger/references/behavior_commitment_ledger_protocol.md": "a54e997bcfa299d76fb36544437a41eee87e680a31ad8576062771b5113a07e2",
+    ".agents/skills/flowguard-code-structure-recommendation/SKILL.md": "63fc03aac4fa3242cccf42dfd6a4b1a9ce41d6f7e9428a3750f2fce194ea245b",
+    ".agents/skills/flowguard-code-structure-recommendation/references/code_structure_recommendation_protocol.md": "111a9b84ce286a74989a5113ebe78fda4317d5aa74e42972eb23bc6534ba7469",
+    ".agents/skills/flowguard-contract-exhaustion-mesh/SKILL.md": "ac47e6ca3af9e5b61df7f3c66e3721c2db5c2dafd16f5f44016c84b3302de6c3",
+    ".agents/skills/flowguard-contract-exhaustion-mesh/references/contract_exhaustion_mesh_protocol.md": "aa7a508e6776d53f361d5d4c173f6c1edf31337bfd43f2769dda13e9694aa857",
+    ".agents/skills/flowguard-development-process-flow/SKILL.md": "e0b66c9d28457199ec09c022d63c5b8db2299e242d4d7cdf9e6e0f132a963008",
+    ".agents/skills/flowguard-development-process-flow/references/development_process_flow_protocol.md": "65fee080b37ab9b324e43e17fa96e8b991a4e5695513db16cd4e9491bc653eac",
+    ".agents/skills/flowguard-existing-model-preflight/SKILL.md": "d7bebae8e7433616061b625a8ed3f4e9bee4085eca58addc81002a83a88455ac",
+    ".agents/skills/flowguard-existing-model-preflight/references/existing_model_preflight_protocol.md": "215a4772afb41d942b1fc51dc18aac721e20fea8886b5080d4c9a4f4bc5026a5",
+    ".agents/skills/flowguard-field-lifecycle-mesh/SKILL.md": "023bc33e7303ca198fd691a33d91372b9f976104483ffa3dc4b8f6642efe35f2",
+    ".agents/skills/flowguard-field-lifecycle-mesh/references/field_lifecycle_mesh_protocol.md": "6dda14d46e024610c831351ffba19a9bd23e9cc98a0946ea2d547e567c26669f",
+    ".agents/skills/flowguard-model-mesh/SKILL.md": "8b308a255221b0c725a7b24086ee77bc15c6a764e3d30a39b61cb5b47b5b6d7d",
+    ".agents/skills/flowguard-model-mesh/references/model_mesh_protocol.md": "ba6a7f1354f8d0d6835de6f793386e4405c62d4399590673edfd80b76bbfc975",
+    ".agents/skills/flowguard-model-mesh/references/templates/model_mesh_prompt_template.md": "2a4eafed05f2c029cc36485ccd585d71e042340ccb8f9beeae794123f80e1b53",
+    ".agents/skills/flowguard-model-miss-review/SKILL.md": "2929886620da5c708472aa549bbc5c0926a1f080c522f3625dfeb50200dce7b3",
+    ".agents/skills/flowguard-model-miss-review/references/model_miss_protocol.md": "1d4fe7bcdc5a51f9d85b46cfe1cb7fa0e41f30518ab22dbdc8ace919cf22cc17",
+    ".agents/skills/flowguard-model-test-alignment/SKILL.md": "77c27e799072d7374e730548f4b2d98e3005ed53ee192c3832dfe3344ff474f5",
+    ".agents/skills/flowguard-model-test-alignment/references/model_test_alignment_protocol.md": "fac1581167068d19fdcb5f2f4ce93bcc518010fc4afef45e5658a8fca7f37889",
+    ".agents/skills/flowguard-model-test-alignment/references/templates/model_test_alignment_prompt_template.md": "93eb5361f0be5ed406074c11a5359f4c6bf92d41f0f671139ab2ad8d2deb2005",
+    ".agents/skills/flowguard-model-topology-hazard-review/SKILL.md": "95eb448d54e4a61ed24fad7e75a0f954be66b1eab37f154abe63c012e585b430",
+    ".agents/skills/flowguard-model-topology-hazard-review/references/templates/topology_hazard_prompt_template.md": "c8fd65a1715aecc7e393dc09c44efdf4520ab01bb2a137a2c5b2694c5efd62ed",
+    ".agents/skills/flowguard-model-topology-hazard-review/references/topology_hazard_protocol.md": "9dc78d4ce33096d1c0ba9e702ce4c003ba4c85a4b7e31797d74991496fc6ca32",
+    ".agents/skills/flowguard-plan-detailing-compiler/SKILL.md": "ab14f3a317c35c806832bc76ac442c3e347387bf59a941d524baa10a7c2c670c",
+    ".agents/skills/flowguard-plan-detailing-compiler/references/plan_detailing_compiler_protocol.md": "d5fc3d258cc17de3f85a08219865eb18b96cd5e8c469b7a456265c8c9105c802",
+    ".agents/skills/flowguard-structure-mesh/SKILL.md": "026057e3f0edceed02399ac037f14d8465486b610309e1c66bed5efbd61ad9b7",
+    ".agents/skills/flowguard-structure-mesh/references/structure_mesh_protocol.md": "7b8b7199f367867c634dafaa6e94c1a9f05582af3cee078a23e7e72b9453c91e",
+    ".agents/skills/flowguard-test-mesh/SKILL.md": "cd927ec6ab483fb0e80d4a3292f7dbb3ab99cab355b91fc81a9a6fab2d77043d",
+    ".agents/skills/flowguard-test-mesh/references/test_mesh_protocol.md": "4e59b31263da532eb9bc146db3f89f3f0b8a8f695e81c3b46867b7813b001a5e",
+    ".agents/skills/flowguard-ui-flow-structure/SKILL.md": "6599984dfa0b200d78be02835fec94398701db195c856f539e029ac162f16776",
+    ".agents/skills/flowguard-ui-flow-structure/references/ui_flow_structure_protocol.md": "f2bb025d28d25da3f55766d4180730efff02e337a5d6cfdf37bb41c7ef18618d",
+    ".agents/skills/model-first-function-flow/SKILL.md": "25c68b4af84510b62d8256ad15916daf620f8f01f32cf18f284d8e9962263090",
+    ".agents/skills/model-first-function-flow/assets/adoption_log_template.md": "918e3fe8d680dc7872c4c1f0b4b05362c18f6fd5d78b2c79ada0459a92591fde",
+    ".agents/skills/model-first-function-flow/references/adoption_protocol.md": "ad8760e59ee6bdb433ee87131a53b6667dd0bfb33c0eef7ff8b17ff8706a9be7",
+    ".agents/skills/model-first-function-flow/references/code_structure_recommendation_protocol.md": "d159f2a98aa20687c94cc513b6df8455b46bc20d30fdecb143b4d82916ad1db1",
+    ".agents/skills/model-first-function-flow/references/conformance_adoption_protocol.md": "0ca87161f373d9b833980079e3d7506553e2e2d2d3dfeb84888a26751690fbd2",
+    ".agents/skills/model-first-function-flow/references/development_process_flow_protocol.md": "ebd3ed3d34598af33d47018b217d650cc2b644b88b6262171a624ee35d7f0078",
+    ".agents/skills/model-first-function-flow/references/framework_upgrade_protocol.md": "092d55e16f02d25ee2ba5df88633fd94413eaa135f6bf6bc0d76fc068cc8e1f6",
+    ".agents/skills/model-first-function-flow/references/invariant_examples.md": "04a2cd7f22a4c1ea5432095e5e9f3e39154ac8b8576ac6aa3b52b85d0061f927",
+    ".agents/skills/model-first-function-flow/references/long_check_protocol.md": "8461aa172bc9a9a22309b50011b2a529476cd35c15b78c4dcb234c5de4691167",
+    ".agents/skills/model-first-function-flow/references/model_mesh_protocol.md": "af24130169da38578caf66895902e67bbcec552f431972d945b85de1c16cda82",
+    ".agents/skills/model-first-function-flow/references/model_miss_protocol.md": "c7fe1c652ea8ce46f445a7a123c26e543d87ad9f7282ccf711884cf9e7e9a71d",
+    ".agents/skills/model-first-function-flow/references/model_test_alignment_protocol.md": "428e117bfce663de65fde3921b2d7ac28d4410513108cd759c47d26b9a6daa54",
+    ".agents/skills/model-first-function-flow/references/modeling_protocol.md": "2f721707816683a7148201315af7912711451dcc1daa8fd5308cac5d3d828795",
+    ".agents/skills/model-first-function-flow/references/project_integration.md": "b7fd9feceaa520d470314a5f2f2f55d8a5043532da7fa0da5352f9e3944d01fd",
+    ".agents/skills/model-first-function-flow/references/skill_kernel_protocol.md": "0e2ce0e46101c6e0a0646d66762e3aeecc9a86d9bbf706804ef3d9161feb7c41",
+    ".agents/skills/model-first-function-flow/references/structure_mesh_protocol.md": "e292165dd761b439bdc9e4321fecc374d96cbececacbbf68c85e41792eb9a994",
+    ".agents/skills/model-first-function-flow/references/test_mesh_protocol.md": "46f8608841dcd4b49d70af7d9275b8c0b0b78352032be57945092b7c8d8ba0d7",
+    ".flowguard/primary_path_authority/__pycache__/model.cpython-312.pyc": "b54488d6183074002a2295b5e4ca940a57c26480a83915fa3034094f96005353",
+    ".flowguard/primary_path_authority/model.py": "58a5e281be5ebabf1cc2f34ab71cf9b6e64feac4ae95b3ab65a4f3db3c869ec4",
+    ".flowguard/primary_path_authority/run_checks.py": "23393649e6b0f9e4ee65abdf755a630c88a5dcc4b3abc3ef4b70b76725f508b8",
+    "AGENTS.md": "5e549fb537cf432e017f3b969f94896c6c889a04f05d17afcbf3ad3a891d8ceb",
+    "docs/agents_snippet.md": "57d0d9e2203c0a05ba5413ae5f995d318fd9478c8faff7a65018b013d41d6d22",
+    "flowguard/__init__.py": "2aa3d78fb6c81200dc31b48a1816d4394f3a643f33901ad54b29c49676864aae",
+    "flowguard/__main__.py": "82e0fc87ea2f0ae44a478617b861c3f0c3d35d81d4f5fc028b76d44c641f43c5",
+    "flowguard/primary_path_authority.py": "95952a245964c54597ef078e568f349004411b7febe98e79eda13f963b85547e",
+    "flowguard/risk_evidence_ledger.py": "e7d6fb5c9c948ed6e6749526a4488bd0a3a873ad68ed7c2519c1387f5775214e",
+    "flowguard/runtime_path.py": "55fbb44e4d59531f39b180ee053dc89a1552802fd072fa45df6b72559f21b2ae",
+    "flowguard/template_text/primary_path_authority.py": "f6c31382ded2fea3726276d0f8172254c881a13ec5c7eda75b8f13a60b2c539a",
+    "flowguard/templates.py": "aa23b2d0054909032a52cbf213e25b0410123f13ca2948e52b71fe4b21b944cb",
+    "flowguard/topology_hazard.py": "ab247519481e2821c1e2eb48cfbde859bb3aeb8d508ee998f3fb143a36a6bff6",
+    "openspec/changes/enforce-primary-path-authority/design.md": "cb13aaced26770f65b172c6aa30ba88c650aa0ba3b9dbd5640c6427070b63060",
+    "openspec/changes/enforce-primary-path-authority/proposal.md": "bed34afa652ea8af2fca7eccb68f5fb3cca0ffcf0c8d4a3fe224b44c783b0541",
+    "openspec/changes/enforce-primary-path-authority/specs/architecture-reduction/spec.md": "a9ba5a5d2459e3eb09729cb3aa9cb666998c480986a6f6bca3535ecd23d4cfb7",
+    "openspec/changes/enforce-primary-path-authority/specs/contract-exhaustion-mesh/spec.md": "8c12693d8ff150388ea404728768995610bf09ba4c756a09f7a43aaa08e515c2",
+    "openspec/changes/enforce-primary-path-authority/specs/development-process-flow/spec.md": "307bbf6f447d55de33eed6ffa91bd07153cbe6e035f1be0efcc9f35e032a5e2d",
+    "openspec/changes/enforce-primary-path-authority/specs/field-lifecycle-mesh/spec.md": "eb88d2ce483ac9d97d99ecec66b48e5a869d177b0a58c55f5fe959473af6d899",
+    "openspec/changes/enforce-primary-path-authority/specs/flowguard-api-registry/spec.md": "3a8e0b4cd2c2f118800665eca74b4f215e1747c7961ec66ab2af53ebf3226bd9",
+    "openspec/changes/enforce-primary-path-authority/specs/flowguard-codex-skill-satellites/spec.md": "40afa9923f59308a3860ec90fbeadc96f189069d9d43605cc018598606bae14a",
+    "openspec/changes/enforce-primary-path-authority/specs/post-runtime-model-miss-review/spec.md": "b04c9b7015068c3de7ba3fb0ad607efe6bef8e9fdff49680700212c5aae4364a",
+    "openspec/changes/enforce-primary-path-authority/specs/primary-path-authority/spec.md": "0604015ccced4a01fc646e6f1f59dde6cc46f8f885766fa2e9f0c2309664e756",
+    "openspec/changes/enforce-primary-path-authority/specs/risk-evidence-ledger/spec.md": "fa111a96724ed3cf8bbae8c706fe609cb59b966ac13399bd18ca5c53b0be3acc",
+    "openspec/changes/enforce-primary-path-authority/specs/runtime-path-evidence/spec.md": "136f5b42ec748bb52813c4a50f1711906ba45fbbe459597f14b531ef78d033ae",
+    "openspec/changes/enforce-primary-path-authority/specs/test-evidence-mesh/spec.md": "5c0acbd433906abb1407d853919b6a3d4dfda48c0cf90c2dfbff8fb15ac057f7",
+    "openspec/changes/enforce-primary-path-authority/tasks.md": "62ae1f24f54def4ed0ed3acd4bd6136135313246b5cb7d4bc962bf3a5bd06269",
+    "openspec/changes/enforce-primary-path-authority/verification-contract.yaml": "776dc847998852f3089500b71ec576881b106ef6cda688677ee3fce4f3c9b71f",
+    "tests/test_api_surface.py": "122da8930306f879faa029e14708a2708775ba24d7c5a01662126d956f0933a8",
+    "tests/test_primary_path_authority.py": "9f384b8d1a245e0a7e63dc2e1bfa81e60c12798eb7e67917d2e3d4124cc10827",
+    "tests/test_primary_path_authority_compatibility_matrix.py": "847a1fcc3adea4f437e82d8329f904f28038cbb887007c842a888d9a5191df6a",
+    "tests/test_primary_path_authority_contract_exhaustion.py": "a95cdbdd5989f6180732680f14635fd691ba1260f047a6729d927fa825573c8f",
+    "tests/test_primary_path_authority_core_matrix.py": "06ff03adc92a8c5cd3445d57d90d107ec742b6fe6537bd0166fbadd574ebce36",
+    "tests/test_primary_path_authority_docs.py": "3f41c8899114870c967bb93c0e67455135fc83647b92dbcc7711bb7916d97715",
+    "tests/test_primary_path_authority_facade_matrix.py": "e85432726adf2784603adc5d3fd85c4bd789eb7881f91039300f6dea78f66bb4",
+    "tests/test_primary_path_authority_field_matrix.py": "dff6f73b771fe9e54870b349760364f6605dee00f0c1abf91a46455f7913b1db",
+    "tests/test_primary_path_authority_release_gate_matrix.py": "299b1810058648f8a56a1c7c598d99b40eb49f0abd4e7d21371650014d27873d",
+    "tests/test_primary_path_authority_runtime_matrix.py": "1e973f0e4a293b04e4420b0022f85855f63c4423baa5942aea9eb7652d7b1abd",
+    "tests/test_public_templates.py": "2b1f9545a484ca1991b1de03795bc1ac048f85d968cc00b21465ef6adc78cda6",
+    "tests/test_risk_evidence_ledger.py": "0a5ead436116ae47dba3f9a85f85df5da85b6bbf2b8df90f33fbb8640b726269",
+    "tests/test_runtime_path_evidence.py": "089c988f0e4f9b0cfd5e2625c4780a037913275aae78702161133fde48ce86c3"
+  },
+  "issues": [],
+  "checks": [
+    {
+      "id": "check.primary-path-authority.model",
+      "kind": "command",
+      "required": true,
+      "covers": [
+        "req.primary-path-authority.contracts"
+      ],
+      "status": "passed",
+      "command": "python",
+      "args": [
+        ".flowguard/primary_path_authority/run_checks.py"
+      ],
+      "expectedExitCode": 0,
+      "exitCode": 0,
+      "durationMs": 1714,
+      "stdout": "=== flowguard primary path authority ===\r\nstatus: OK\r\nplan: complete-primary-path-authority\r\ndecision: primary_path_authority_green\r\nconfidence: full\r\nprimary_paths: 1\r\nfallback_candidates: 1\r\ncoverage_receipts: 1\r\nfindings: 0\r\nPrimary Path Authority self-model checks passed\r\n",
+      "stderr": ""
+    },
+    {
+      "id": "check.primary-path-authority.unit",
+      "kind": "command",
+      "required": true,
+      "covers": [
+        "req.primary-path-authority.contracts",
+        "req.primary-path-authority.disposition"
+      ],
+      "status": "passed",
+      "command": "python",
+      "args": [
+        "-m",
+        "pytest",
+        "tests/test_primary_path_authority.py",
+        "-q"
+      ],
+      "expectedExitCode": 0,
+      "exitCode": 0,
+      "durationMs": 2577,
+      "stdout": "....                                                                     [100%]\r\n4 passed in 1.42s\r\n",
+      "stderr": ""
+    },
+    {
+      "id": "check.primary-path-authority.core-matrix",
+      "kind": "command",
+      "required": true,
+      "covers": [
+        "req.primary-path-authority.no-fallback-success"
+      ],
+      "status": "passed",
+      "command": "python",
+      "args": [
+        "-m",
+        "pytest",
+        "tests/test_primary_path_authority_core_matrix.py",
+        "-q"
+      ],
+      "expectedExitCode": 0,
+      "exitCode": 0,
+      "durationMs": 2789,
+      "stdout": ".                                                                        [100%]\r\n1 passed in 1.42s\r\n",
+      "stderr": ""
+    },
+    {
+      "id": "check.primary-path-authority.compatibility-matrix",
+      "kind": "command",
+      "required": true,
+      "covers": [
+        "req.primary-path-authority.disposition"
+      ],
+      "status": "passed",
+      "command": "python",
+      "args": [
+        "-m",
+        "pytest",
+        "tests/test_primary_path_authority_compatibility_matrix.py",
+        "tests/test_primary_path_authority_facade_matrix.py",
+        "-q"
+      ],
+      "expectedExitCode": 0,
+      "exitCode": 0,
+      "durationMs": 2990,
+      "stdout": "..                                                                       [100%]\r\n2 passed in 1.33s\r\n",
+      "stderr": ""
+    },
+    {
+      "id": "check.primary-path-authority.field-matrix",
+      "kind": "command",
+      "required": true,
+      "covers": [
+        "req.primary-path-authority.disposition"
+      ],
+      "status": "passed",
+      "command": "python",
+      "args": [
+        "-m",
+        "pytest",
+        "tests/test_primary_path_authority_field_matrix.py",
+        "-q"
+      ],
+      "expectedExitCode": 0,
+      "exitCode": 0,
+      "durationMs": 2099,
+      "stdout": ".                                                                        [100%]\r\n1 passed in 1.12s\r\n",
+      "stderr": ""
+    },
+    {
+      "id": "check.primary-path-authority.contract-exhaustion",
+      "kind": "command",
+      "required": true,
+      "covers": [
+        "req.primary-path-authority.coverage",
+        "req.contract-exhaustion.primary-path-universe"
+      ],
+      "status": "passed",
+      "command": "python",
+      "args": [
+        "-m",
+        "pytest",
+        "tests/test_primary_path_authority_contract_exhaustion.py",
+        "-q"
+      ],
+      "expectedExitCode": 0,
+      "exitCode": 0,
+      "durationMs": 9541,
+      "stdout": ".                                                                        [100%]\r\n1 passed in 8.36s\r\n",
+      "stderr": ""
+    },
+    {
+      "id": "check.primary-path-authority.test-mesh",
+      "kind": "command",
+      "required": true,
+      "covers": [
+        "req.primary-path-authority.coverage",
+        "req.test-mesh.primary-path-shards"
+      ],
+      "status": "passed",
+      "command": "python",
+      "args": [
+        "-m",
+        "pytest",
+        "tests/test_primary_path_authority_release_gate_matrix.py",
+        "-q"
+      ],
+      "expectedExitCode": 0,
+      "exitCode": 0,
+      "durationMs": 2362,
+      "stdout": "..                                                                       [100%]\r\n2 passed in 1.21s\r\n",
+      "stderr": ""
+    },
+    {
+      "id": "check.runtime-path-evidence.unit",
+      "kind": "command",
+      "required": true,
+      "covers": [
+        "req.primary-path-authority.no-fallback-success",
+        "req.runtime-path-evidence.fallback-signals"
+      ],
+      "status": "passed",
+      "command": "python",
+      "args": [
+        "-m",
+        "pytest",
+        "tests/test_runtime_path_evidence.py",
+        "tests/test_primary_path_authority_runtime_matrix.py",
+        "-q"
+      ],
+      "expectedExitCode": 0,
+      "exitCode": 0,
+      "durationMs": 2313,
+      "stdout": "..........                                                               [100%]\r\n10 passed in 1.25s\r\n",
+      "stderr": ""
+    },
+    {
+      "id": "check.risk-evidence-ledger.unit",
+      "kind": "command",
+      "required": true,
+      "covers": [
+        "req.primary-path-authority.coverage",
+        "req.risk-evidence-ledger.primary-path-gates"
+      ],
+      "status": "passed",
+      "command": "python",
+      "args": [
+        "-m",
+        "pytest",
+        "tests/test_risk_evidence_ledger.py",
+        "-q"
+      ],
+      "expectedExitCode": 0,
+      "exitCode": 0,
+      "durationMs": 2494,
+      "stdout": ".......................... [ 96%]\r\n.                                                                        [100%]\r\n27 passed, 46 subtests passed in 1.35s\r\n",
+      "stderr": ""
+    },
+    {
+      "id": "check.test-mesh.unit",
+      "kind": "command",
+      "required": true,
+      "covers": [
+        "req.test-mesh.primary-path-shards"
+      ],
+      "status": "passed",
+      "command": "python",
+      "args": [
+        "-m",
+        "pytest",
+        "tests/test_test_mesh.py",
+        "-q"
+      ],
+      "expectedExitCode": 0,
+      "exitCode": 0,
+      "durationMs": 2590,
+      "stdout": "....................                                                   [100%]\r\n20 passed, 2 subtests passed in 1.42s\r\n",
+      "stderr": ""
+    },
+    {
+      "id": "check.api-surface.unit",
+      "kind": "command",
+      "required": true,
+      "covers": [
+        "req.api-registry.primary-path"
+      ],
+      "status": "passed",
+      "command": "python",
+      "args": [
+        "-m",
+        "pytest",
+        "tests/test_api_surface.py",
+        "-q"
+      ],
+      "expectedExitCode": 0,
+      "exitCode": 0,
+      "durationMs": 2580,
+      "stdout": "......................              [100%]\r\n22 passed, 37 subtests passed in 1.34s\r\n",
+      "stderr": ""
+    },
+    {
+      "id": "check.templates.unit",
+      "kind": "command",
+      "required": true,
+      "covers": [
+        "req.api-registry.primary-path"
+      ],
+      "status": "passed",
+      "command": "python",
+      "args": [
+        "-m",
+        "pytest",
+        "tests/test_public_templates.py",
+        "-q"
+      ],
+      "expectedExitCode": 0,
+      "exitCode": 0,
+      "durationMs": 147671,
+      "stdout": "...........................................                               [100%]\r\n43 passed, 71 subtests passed in 146.52s (0:02:26)\r\n",
+      "stderr": ""
+    },
+    {
+      "id": "check.primary-path-authority.docs-skills",
+      "kind": "command",
+      "required": true,
+      "covers": [
+        "req.skills.primary-path-guidance"
+      ],
+      "status": "passed",
+      "command": "python",
+      "args": [
+        "-m",
+        "pytest",
+        "tests/test_primary_path_authority_docs.py",
+        "-q"
+      ],
+      "expectedExitCode": 0,
+      "exitCode": 0,
+      "durationMs": 1198,
+      "stdout": ".                                                                        [100%]\r\n1 passed in 0.13s\r\n",
+      "stderr": ""
+    },
+    {
+      "id": "check.project-audit",
+      "kind": "command",
+      "required": true,
+      "covers": [
+        "req.install-sync.primary-path"
+      ],
+      "status": "passed",
+      "command": "python",
+      "args": [
+        "-m",
+        "flowguard",
+        "project-audit",
+        "--root",
+        "."
+      ],
+      "expectedExitCode": 0,
+      "exitCode": 0,
+      "durationMs": 1292,
+      "stdout": "=== flowguard project adoption ===\r\naction: audit\r\nstatus: pass\r\nrepository: https://github.com/liuyingxuvka/FlowGuard\r\ninstalled_package_version: 0.53.1\r\nschema_version: 1.0\r\nmanifest_package_version: 0.53.1\r\n",
+      "stderr": ""
+    },
+    {
+      "id": "check.install-sync.import-feature",
+      "kind": "command",
+      "required": true,
+      "covers": [
+        "req.install-sync.primary-path"
+      ],
+      "status": "passed",
+      "command": "python",
+      "args": [
+        "-m",
+        "pytest",
+        "tests/test_api_surface.py",
+        "-q"
+      ],
+      "expectedExitCode": 0,
+      "exitCode": 0,
+      "durationMs": 2729,
+      "stdout": "......................              [100%]\r\n22 passed, 37 subtests passed in 1.66s\r\n",
+      "stderr": ""
+    }
+  ]
+}

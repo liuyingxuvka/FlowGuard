@@ -25,24 +25,32 @@ from .artifact_upgrade import (
 from .project_adoption import (
     FLOWGUARD_AGENTS_BEGIN,
     FLOWGUARD_AGENTS_END,
+    FLOWGUARD_MANAGED_RULES,
     FLOWGUARD_PROJECT_LOG,
     FLOWGUARD_PROJECT_MANIFEST,
     FLOWGUARD_PROJECT_MARKDOWN_LOG,
     FLOWGUARD_REPOSITORY_URL,
+    FLOWGUARD_REQUIRED_RULE_IDS,
     PROJECT_ADOPTION_ACTION_ADOPT,
     PROJECT_ADOPTION_ACTION_AUDIT,
     PROJECT_ADOPTION_ACTION_UPGRADE,
+    PROJECT_ADOPTION_CLAIM_BOUNDARY,
     PROJECT_ADOPTION_STATUS_BLOCKED,
     PROJECT_ADOPTION_STATUS_PASS,
     PROJECT_ADOPTION_STATUS_PASS_WITH_GAPS,
     ProjectAdoptionFinding,
     ProjectAdoptionReport,
+    ManagedAdoptionRule,
     adopt_project,
     audit_project_adoption,
     build_flowguard_agents_block,
     compare_versions,
     current_project_manifest_text,
+    extract_managed_agents_block,
     installed_flowguard_package_version,
+    managed_block_semantic_hash,
+    managed_rule_ids_in_block,
+    normalize_managed_agents_block,
     update_agents_text,
     upgrade_project,
 )
@@ -767,6 +775,7 @@ from . import behavior_commitment as _behavior_commitment
 from . import recurring_model_miss as _recurring_model_miss
 from . import risk_evidence_ledger as _risk_evidence_ledger
 from . import risk_templates as _risk_templates
+from . import route_topology as _route_topology
 from . import self_maintenance as _self_maintenance
 from . import state_closure as _state_closure
 from . import structuremesh as _structuremesh
@@ -775,6 +784,15 @@ from . import topology_hazard as _topology_hazard
 from . import ui_structure as _ui_structure
 from . import model_freshness as _model_freshness
 from . import model_maturation as _model_maturation
+from . import distribution_sync as _distribution_sync
+from . import evidence_receipts as _evidence_receipts
+from . import model_regressions as _model_regressions
+from . import release_verification as _release_verification
+from . import skill_contracts as _skill_contracts
+from . import skill_native_checks as _skill_native_checks
+from . import skill_self_governance as _skill_self_governance
+from . import skill_suite as _skill_suite
+from . import validation_results as _validation_results
 from .self_maintenance import *  # noqa: F403
 from .closure_contract import *  # noqa: F403
 from .contract_exhaustion import *  # noqa: F403
@@ -787,6 +805,7 @@ from .state_closure import *  # noqa: F403
 from .topology_hazard import *  # noqa: F403
 from .model_freshness import *  # noqa: F403
 from .model_maturation import *  # noqa: F403
+from .route_topology import *  # noqa: F403
 from .development_process_simulator import *  # noqa: F403
 from .development_process_flow import (
     PROCESS_ARTIFACT_ADAPTER,
@@ -1165,6 +1184,30 @@ from .templates import (
 from .trace import Trace, TraceStep
 from .workflow import Workflow, WorkflowPath, WorkflowRun
 
+_GOVERNANCE_MODULES = (
+    _evidence_receipts,
+    _skill_self_governance,
+    _skill_native_checks,
+    _skill_suite,
+    _skill_contracts,
+    _validation_results,
+    _model_regressions,
+    _distribution_sync,
+    _release_verification,
+)
+_GOVERNANCE_EXCLUDED_TOP_LEVEL_NAMES = {"MANIFEST_SCHEMA"}
+for _governance_module in _GOVERNANCE_MODULES:
+    for _name in _governance_module.__all__:
+        if _name not in _GOVERNANCE_EXCLUDED_TOP_LEVEL_NAMES:
+            globals()[_name] = getattr(_governance_module, _name)
+
+FLOWGUARD_GOVERNANCE_API = tuple(
+    name
+    for module in _GOVERNANCE_MODULES
+    for name in module.__all__
+    if name not in _GOVERNANCE_EXCLUDED_TOP_LEVEL_NAMES
+)
+
 PLAN_INTAKE_CLAIM_API = tuple(_plan_intake.__all__)
 for _name in _primary_path_authority.__all__:
     globals()[_name] = getattr(_primary_path_authority, _name)
@@ -1198,6 +1241,7 @@ PRIMARY_PATH_AUTHORITY_ROUTE_API = tuple(name for name in _primary_path_authorit
 BEHAVIOR_COMMITMENT_LEDGER_ROUTE_API = tuple(name for name in _behavior_commitment.__all__ if name in globals())
 RISK_EVIDENCE_LEDGER_ROUTE_API = tuple(name for name in _risk_evidence_ledger.__all__ if name in globals())
 RISK_TEMPLATE_LIBRARY_API = tuple(_risk_templates.__all__)
+ROUTE_TOPOLOGY_API = tuple(_route_topology.__all__)
 FLOWGUARD_SELF_MAINTENANCE_ROUTE_API = (
     *tuple(_self_maintenance.__all__),
     "default_flowguard_self_maintenance_plan",
@@ -1295,6 +1339,7 @@ MODELING_HELPER_API = (
     "scenario_status_ok",
     "ScenarioMatrixBuilder",
     *FLOWGUARD_SELF_MAINTENANCE_ROUTE_API,
+    *ROUTE_TOPOLOGY_API,
     *MODEL_ANGLE_DELIBERATION_API,
     *CONTRACT_EXHAUSTION_MESH_API,
     *BEHAVIOR_COMMITMENT_LEDGER_ROUTE_API,
@@ -2169,23 +2214,31 @@ REPORTING_HELPER_API = (
     "audit_flowguard_adoption",
     "ProjectAdoptionFinding",
     "ProjectAdoptionReport",
+    "ManagedAdoptionRule",
     "adopt_project",
     "audit_project_adoption",
     "build_flowguard_agents_block",
     "compare_versions",
     "current_project_manifest_text",
+    "extract_managed_agents_block",
     "installed_flowguard_package_version",
+    "managed_block_semantic_hash",
+    "managed_rule_ids_in_block",
+    "normalize_managed_agents_block",
     "update_agents_text",
     "upgrade_project",
     "FLOWGUARD_AGENTS_BEGIN",
     "FLOWGUARD_AGENTS_END",
+    "FLOWGUARD_MANAGED_RULES",
     "FLOWGUARD_PROJECT_LOG",
     "FLOWGUARD_PROJECT_MANIFEST",
     "FLOWGUARD_PROJECT_MARKDOWN_LOG",
     "FLOWGUARD_REPOSITORY_URL",
+    "FLOWGUARD_REQUIRED_RULE_IDS",
     "PROJECT_ADOPTION_ACTION_ADOPT",
     "PROJECT_ADOPTION_ACTION_AUDIT",
     "PROJECT_ADOPTION_ACTION_UPGRADE",
+    "PROJECT_ADOPTION_CLAIM_BOUNDARY",
     "PROJECT_ADOPTION_STATUS_BLOCKED",
     "PROJECT_ADOPTION_STATUS_PASS",
     "PROJECT_ADOPTION_STATUS_PASS_WITH_GAPS",
@@ -2406,6 +2459,7 @@ PLAN_DETAILING_ROUTE_API = (
 )
 
 _FLOWGUARD_ROUTE_API_GROUPS = {
+    "model_first_function_flow": AGENT_DEFAULT_API,
     "flowguard_self_maintenance": FLOWGUARD_SELF_MAINTENANCE_ROUTE_API,
     "template_structure": TEMPLATE_STRUCTURE_API,
     "evidence_field_structure": EVIDENCE_FIELD_STRUCTURE_API,
@@ -2435,26 +2489,24 @@ _FLOWGUARD_ROUTE_API_GROUPS = {
     "flowguard_closure_contract": FLOWGUARD_CLOSURE_CONTRACT_API,
     "state_closure": STATE_CLOSURE_ROUTE_API,
     "model_topology_hazard_review": TOPOLOGY_HAZARD_ROUTE_API,
+    "model_maturation_loop": MODEL_MATURATION_API,
 }
 
 PUBLIC_FLOWGUARD_ROUTE_GROUPS = (
-    "flowguard_self_maintenance",
+    "model_first_function_flow",
     "existing_model_preflight",
     "behavior_commitment_ledger",
-    "primary_path_authority",
     "architecture_reduction",
     "code_structure_recommendation",
+    "contract_exhaustion_mesh",
+    "development_process_flow",
     "model_test_alignment",
     "field_lifecycle_mesh",
-    "contract_exhaustion_mesh",
-    "risk_template_library",
     "ui_flow_structure",
     "model_mesh_maintenance",
     "test_mesh_maintenance",
     "structure_mesh_maintenance",
-    "development_process_flow",
     "model_miss_review",
-    "risk_evidence_ledger",
     "model_topology_hazard_review",
 )
 
@@ -2470,6 +2522,20 @@ FLOWGUARD_INTERNAL_ROUTE_API = {
 }
 
 _ROUTE_STARTER_API_GROUPS = {
+    "model_first_function_flow": (
+        "Workflow",
+        "Invariant",
+        "FunctionBlock",
+        "FunctionResult",
+        "RiskIntent",
+        "RiskProfile",
+        "FlowGuardCheckPlan",
+        "MinimumModelContract",
+        "KnownBadProof",
+        "review_known_bad_proofs",
+        "run_model_first_checks",
+        "default_flowguard_route_profiles",
+    ),
     "flowguard_self_maintenance": (
         "default_flowguard_self_maintenance_plan",
         "review_flowguard_self_maintenance",
@@ -2746,6 +2812,7 @@ API_SURFACE = {
     "modeling_helpers_full": MODELING_HELPER_API,
     "reporting_helpers_full": REPORTING_HELPER_API,
     "evidence": EVIDENCE_API,
+    "governance_and_distribution": FLOWGUARD_GOVERNANCE_API,
 }
 
 _PUBLIC_API_SUPPLEMENT = (
@@ -2762,6 +2829,7 @@ _PUBLIC_API_SUPPLEMENT = (
     "EVIDENCE_API",
     "EXISTING_MODEL_PREFLIGHT_ROUTE_API",
     "FLOWGUARD_INTERNAL_ROUTE_API",
+    "FLOWGUARD_GOVERNANCE_API",
     "FLOWGUARD_ROUTE_API",
     "BEHAVIOR_COMMITMENT_LEDGER_ROUTE_API",
     "FLOWGUARD_CLOSURE_CONTRACT_API",
@@ -2780,6 +2848,7 @@ _PUBLIC_API_SUPPLEMENT = (
     "PLAN_INTAKE_ADVANCED_API",
     "PRIMARY_PATH_AUTHORITY_ROUTE_API",
     "PUBLIC_FLOWGUARD_ROUTE_GROUPS",
+    "ROUTE_TOPOLOGY_API",
     "RISK_EVIDENCE_LEDGER_ROUTE_API",
     "RISK_TEMPLATE_LIBRARY_API",
     "ROUTE_ADVANCED_API",
@@ -2840,5 +2909,6 @@ __all__ = _dedupe_public_names(
     MODELING_HELPER_API,
     REPORTING_HELPER_API,
     EVIDENCE_API,
+    FLOWGUARD_GOVERNANCE_API,
     _PUBLIC_API_SUPPLEMENT,
 )

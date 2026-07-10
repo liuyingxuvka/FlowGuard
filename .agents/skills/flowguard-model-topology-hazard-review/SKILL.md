@@ -1,65 +1,40 @@
 ---
 name: flowguard-model-topology-hazard-review
-description: Use when a locally green FlowGuard model still needs future-use hazard review from topology, usage intent, claim scope, old/new path disposition, business-path risk, side effects, terminals, loops, or parent/child compression.
+description: Use when a locally green FlowGuard model needs topology-grounded future-use hazard review for broad claims, business paths, old/new disposition, side effects, terminals, loops, external boundaries, or parent/child compression.
 ---
 
 # FlowGuard Model Topology Hazard Review
 
-Standalone FlowGuard satellite skill for topology-grounded future-use hazards.
-Return to `model-first-function-flow` when topology, intent, or ownership is unclear.
+## Purpose
+Infer actionable future-use hazards from the actual model topology and usage intent; keep unanchored AI concerns observation-only.
 
-## First Read
+## Entrypoint Scope
+Route id: `model_topology_hazard_review`; role: `public_owner`; native owner: `model_topology_hazard_review`. This standalone FlowGuard satellite skill owns topology-anchored risk routing, not generic brainstorming.
 
-- Route id: `model_topology_hazard_review`.
-- Helpers: `infer_topology_digest()`, `infer_topology_hazard_plan()`,
-  `review_topology_hazards()`, `UsageIntent`, `BusinessPathIdentity`,
-  `TopologyHazardCandidate`.
-- Reference: `references/topology_hazard_protocol.md`.
+## Local Material Routing
+Read `references/topology_hazard_protocol.md` for `TopologyDigest`, `UsageIntent`, business-path identity, anchors, dispositions, and completion rules.
+
+## Entrypoint Acceptance Map
+Accept a current topology digest, usage intent, and evidence boundary; promote only anchored hazards; block unresolved high-impact paths/loops/side effects; hand model, test, reduction, process, and risk work to typed owners.
+
+## Use When
+- Use before broad done/release/publish confidence when local green may hide duplicate/conflicting paths, broad terminals, repeatable side effects, compatibility paths, or closure/liveness hazards.
+
+## Do Not Use When
+- Do not use for generic risk lists, unmodeled systems, or as a replacement for maturation, alignment, Risk Evidence Ledger, or Architecture Reduction; return unclear topology to `model-first-function-flow`.
+
+## Required Workflow
+1. Record usage intent, claim scope, topology landmarks, business paths, current evidence, and stale/skipped gaps.
+2. For each candidate, name the topology anchor, real-use failure, affected element, confidence effect, and disposition.
+3. Resolve, scope with rationale, or issue typed owner-route handoffs and maintenance obligations.
 
 ## Hard Gates
+- Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
+- Unanchored concerns cannot block confidence; anchored hazards need current evidence, owner route, or explicit scoped disposition.
+- Important path conflicts, loop liveness, compatibility/history, and template harvest closure must remain visible before broad confidence.
 
-- Verify FlowGuard check engine before claiming FlowGuard use.
-- Keep the AGENTS.md managed block/version record current, or record why not.
-- Do not create a fake mini-framework.
-- Read topology before naming hazards; this is not a fixed risk checklist.
-- Unanchored AI concerns are observations only.
-- Hazard models need template-harvest closure.
+## Output Requirements
+- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`, plus anchored candidates and confidence effects.
 
-## Inputs
-
-- `TopologyDigest`: states, edges, side effects, terminals, old/new paths, business paths, external boundaries, parent/child compression, landmarks.
-- `BusinessPathIdentity`: intent, trigger, terminal, writes, side effects,
-  equivalent/exclusive/superseded paths, compatibility disposition, evidence.
-- `UsageIntent`: use mode, final claim, history/compatibility, and goal.
-- Current evidence: model pass, tests, replay, runner summary, skipped gaps.
-
-## Review Rule
-
-Every hard hazard names:
-
-1. Topology anchor.
-2. Future real-use failure mode.
-3. Affected state, edge, side effect, terminal, legacy path, business path, or external boundary.
-4. Disposition: model/test work, Risk Evidence Ledger, compatibility, scope, or blocker.
-
-Generic warnings cannot block confidence without a topology anchor.
-
-## Route Handoffs
-
-- Coarse terminal, hidden post-success state, parent/child compression: `model_maturation_loop`.
-- Model obligation or ordinary test gap: `model_test_alignment`.
-- Broad final confidence or external proof gap: `risk_evidence_ledger`.
-- Release/process/local-only evidence gap: `development_process_flow`.
-- Old/new path or compatibility disposition: `architecture_reduction`, `risk_evidence_ledger`.
-- Duplicate/conflicting/unproven business path: `architecture_reduction`,
-  `model_similarity_consolidation`, `model_maturation_loop`,
-  `model_test_alignment`, `risk_evidence_ledger`.
-
-## Prompt
-
-Use the protocol/template for full prompts. Output candidates with anchors,
-rationale, future failure, disposition, route, confidence effect, and a status note.
-
-## Non-Goals
-- Do not replace Model Maturation, Model-Test Alignment, Risk Evidence Ledger, DevelopmentProcessFlow, or Architecture Reduction.
-- Do not run LLM calls inside the Python package helper.
+## SkillGuard Maintenance
+- Edit `.skillguard/contract-source.json`, then regenerate derived contracts; SkillGuard validates hazard structure and cannot promote unanchored prose into proof.

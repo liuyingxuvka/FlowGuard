@@ -1,18 +1,23 @@
 {
   "blockers": [],
   "checks": [],
-  "claim_boundary": "This record covers only the installed skill entrypoint, local SkillGuard records, and current files inspected for this target. It does not prove runtime checker execution, fixture coverage, CLI checks, tests, suite automation, package publication, code-contract validation, release readiness, or future AI behavior without separate current evidence.",
-  "contract_version": "installed-skill-upgrade.v2",
+  "claim_boundary": "This record covers only the current skill entrypoint and local SkillGuard contract files. It does not prove runtime checker execution, fixture coverage, CLI checks, tests, suite automation, package publication, code-contract validation, release readiness, or future AI behavior without separate current evidence.",
+  "contract_version": "flowguard.skill_contract_compiler.v1",
   "evidence": [
     {
       "evidence_id": "skill-entrypoint",
       "path": "../SKILL.md",
-      "summary": "Installed skill entrypoint with SkillGuard sections."
+      "summary": "Current skill entrypoint."
     },
     {
       "evidence_id": "runtime-work-contract",
       "path": ".skillguard/work-contract.json",
-      "summary": "Compiled runnable work contract."
+      "summary": "Generated native-integrated work contract."
+    },
+    {
+      "evidence_id": "contract-source",
+      "path": ".skillguard/contract-source.json",
+      "summary": "Editable target-specific contract source."
     }
   ],
   "failures": [],
@@ -29,17 +34,14 @@
     "SkillGuard Maintenance"
   ],
   "residual_risk": [
-    "This static record must be refreshed when the skill entrypoint, route contract, or validation rules change."
+    "Native commands and immutable receipts are intentionally outside this static record."
   ],
   "routes": [
-    "model_preflight",
-    "process_review",
-    "evidence_alignment",
-    "closure"
+    "contract_exhaustion_mesh"
   ],
   "schema_version": "1.0",
   "skipped_checks": [],
-  "status": "checked",
+  "status": "needs-review",
   "target_path": "../SKILL.md",
   "target_type": "skill_contract"
 }

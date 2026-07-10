@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, fields, is_dataclass
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Callable, Iterable, Mapping, Sequence
 
 from .explorer import Explorer
 from .plan import FlowGuardCheckPlan
@@ -16,6 +16,7 @@ from .risk_templates import (
     TemplateReuseReview,
 )
 from .runner import run_model_first_checks
+from .scenario import run_exact_sequence
 from .summary_report import FlowGuardSummaryReport
 
 
@@ -47,6 +48,7 @@ class FormalWorkflowCase:
     terminal_predicate: Any = None
     protected_error_class: str = ""
     known_bad_labels: tuple[str, ...] = ()
+    allowed_success_statuses: tuple[str, ...] = ("pass",)
 
     def __init__(
         self,
@@ -60,6 +62,7 @@ class FormalWorkflowCase:
         terminal_predicate: Any = None,
         protected_error_class: str = "",
         known_bad_labels: Sequence[str] = (),
+        allowed_success_statuses: Sequence[str] = ("pass",),
     ) -> None:
         object.__setattr__(self, "name", str(name))
         object.__setattr__(self, "workflow", workflow)
@@ -74,6 +77,10 @@ class FormalWorkflowCase:
         object.__setattr__(self, "terminal_predicate", terminal_predicate)
         object.__setattr__(self, "protected_error_class", str(protected_error_class or ""))
         object.__setattr__(self, "known_bad_labels", tuple(str(label) for label in known_bad_labels))
+        statuses = tuple(str(status).lower() for status in allowed_success_statuses)
+        if not statuses:
+            raise ValueError("allowed_success_statuses must not be empty")
+        object.__setattr__(self, "allowed_success_statuses", statuses)
 
 
 @dataclass(frozen=True)
@@ -84,6 +91,7 @@ class FormalWorkflowCaseResult:
     expected_ok: bool
     observed_ok: bool
     summary: FlowGuardSummaryReport
+    allowed_success_statuses: tuple[str, ...] = ("pass",)
 
     @property
     def ok(self) -> bool:
@@ -121,6 +129,48 @@ class FormalWorkflowSuiteReport:
             if verbose or not result.ok:
                 lines.extend("  " + line for line in result.summary.format_text(verbose=verbose).splitlines())
         return "\n".join(lines)
+
+
+def run_exact_workflow_case(
+    name: str,
+    *,
+    workflow: Any,
+    initial_state: Any,
+    external_input_sequence: Sequence[Any],
+    invariants: Sequence[Any] = (),
+    final_state_predicate: Callable[[Any], bool] | None = None,
+    print_report: bool = True,
+) -> bool:
+    """Prove one canonical successful sequence without accepting scoped evidence.
+
+    Broad self-model runners use this for their positive oracle and keep finite
+    exploration in ``run_formal_workflow_suite`` for every known-bad workflow.
+    A sequence is successful only when it has no model failure, produces at
+    least one final state, and every final state satisfies the declared terminal
+    predicate when one is supplied.
+    """
+
+    result = run_exact_sequence(
+        workflow=workflow,
+        initial_state=initial_state,
+        external_input_sequence=tuple(external_input_sequence),
+        invariants=tuple(invariants),
+    )
+    terminal_ok = bool(result.final_states) and (
+        final_state_predicate is None
+        or all(final_state_predicate(state) for state in result.final_states)
+    )
+    ok = result.model_report.ok and terminal_ok
+    if print_report:
+        observed = "OK" if ok else "VIOLATION"
+        print(
+            f"{name}: observed={observed} expected=OK "
+            f"match={'yes' if ok else 'no'} formal={'pass' if ok else 'failed'} exact=yes"
+        )
+        if not ok:
+            print(result.model_report.format_text())
+        print()
+    return ok
 
 
 def run_formal_workflow_suite(
@@ -188,8 +238,9 @@ def run_formal_workflow_suite(
             FormalWorkflowCaseResult(
                 name=case.name,
                 expected_ok=case.expect_ok,
-                observed_ok=_summary_observed_ok(summary),
+                observed_ok=_summary_observed_ok(summary, case.allowed_success_statuses),
                 summary=summary,
+                allowed_success_statuses=case.allowed_success_statuses,
             )
         )
 
@@ -387,7 +438,10 @@ def _run_probe(
     ).explore()
 
 
-def _summary_observed_ok(summary: FlowGuardSummaryReport) -> bool:
+def _summary_observed_ok(
+    summary: FlowGuardSummaryReport,
+    allowed_success_statuses: Sequence[str] = ("pass",),
+) -> bool:
     sections = {section.name: section for section in summary.sections}
     model_section = sections.get("model_check")
     if model_section is None or model_section.status != "pass":
@@ -396,7 +450,7 @@ def _summary_observed_ok(summary: FlowGuardSummaryReport) -> bool:
         section = sections.get(section_name)
         if section is None or section.status in BLOCKING_STATUSES:
             return False
-    return summary.overall_status not in BLOCKING_STATUSES
+    return summary.overall_status in {str(status).lower() for status in allowed_success_statuses}
 
 
 def _case_required_labels(case: FormalWorkflowCase, fallback: tuple[str, ...]) -> tuple[str, ...]:

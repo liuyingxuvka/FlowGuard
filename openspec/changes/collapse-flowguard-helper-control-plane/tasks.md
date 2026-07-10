@@ -37,7 +37,7 @@
 
 - [x] 6.1 Run OpenSpec strict validation, FlowGuard project audit, and focused/full pytest validation.
 - [x] 6.2 Run FlowGuard self-maintenance and structure/cleanup checks, then update adoption/topology evidence.
-- [ ] 6.3 Sync source, shadow workspace, and installed skill copies; verify imports and expected version from each location.
-- [ ] 6.4 Bump version, update changelog and README version row, then verify package metadata.
-- [ ] 6.5 Commit scoped release changes, tag, push to GitHub, and create the GitHub release.
-- [ ] 6.6 Confirm GitHub release, tag, README version, package version, and local install all agree.
+- [x] 6.3 Sync source, shadow workspace, and installed skill copies; verify imports and expected version from each location.
+- [x] 6.4 Bump version, update changelog and README version row, then verify package metadata.
+- [x] 6.5 Commit scoped release changes, tag, push to GitHub, and create the GitHub release.
+- [x] 6.6 Confirm GitHub release, tag, README version, package version, and local install all agree.

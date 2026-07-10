@@ -6,8 +6,11 @@ Build a FlowGuard Model-Test Alignment review for this repository.
 Treat the FlowGuard model as the obligation source, owner code contracts as the
 implementation binding, and ordinary tests as evidence. Include owner code
 external contracts as plain alignment rows between the model obligations and
-tests. Do not invoke TestMesh, StructureMesh, ModelMesh, split tests, split
-code, split models, or read mesh reports.
+tests. Keep test/code/model partition ownership with TestMesh, StructureMesh,
+and ModelMesh. When evidence hierarchy is large, slow, layered, backgrounded,
+stale-prone, or release-only, issue a typed TestMesh handoff with target ids;
+TestMesh executes its own route while this review retains semantic alignment
+ownership. Do not split tests, code, or models here or read mesh internals.
 If the coverage claim includes state transitions, first derive a transition
 coverage matrix and project its required cells into Model-Test Alignment
 obligations and code contracts. For large or slow transition matrices, keep the

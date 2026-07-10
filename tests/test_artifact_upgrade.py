@@ -8,6 +8,7 @@ from pathlib import Path
 import flowguard
 from flowguard.artifact_upgrade import (
     ARTIFACT_UPGRADE_STATUS_BLOCKED,
+    ARTIFACT_UPGRADE_STATUS_UNCHANGED,
     ARTIFACT_UPGRADE_STATUS_UPGRADED,
     review_artifact_upgrades,
 )
@@ -62,6 +63,45 @@ class ArtifactUpgradeTests(unittest.TestCase):
             self.assertTrue(report.ok, report.format_text())
             self.assertEqual((artifact.relative_to(root).as_posix(),), report.changed_files)
             self.assertEqual(flowguard.SCHEMA_VERSION, json.loads(artifact.read_text(encoding="utf-8"))["schema_version"])
+
+    def test_namespaced_flowguard_and_skillguard_schemas_are_never_rewritten(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            flowguard_receipt = root / ".flowguard" / "receipt.json"
+            skillguard_contract = root / ".agents" / "skills" / "sample" / ".skillguard" / "work-contract.json"
+            flowguard_receipt.parent.mkdir(parents=True)
+            skillguard_contract.parent.mkdir(parents=True)
+            flowguard_receipt.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "flowguard.evidence_receipt.v1",
+                        "artifact_type": "flowguard_evidence_receipt",
+                        "status": "pass",
+                    },
+                    sort_keys=True,
+                ),
+                encoding="utf-8",
+            )
+            skillguard_contract.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "skillguard.work_contract.v1",
+                        "target_type": "skill",
+                    },
+                    sort_keys=True,
+                ),
+                encoding="utf-8",
+            )
+            before = (flowguard_receipt.read_bytes(), skillguard_contract.read_bytes())
+
+            report = review_artifact_upgrades(root, apply=True)
+
+            self.assertTrue(report.ok, report.format_text())
+            self.assertEqual((), report.changed_files)
+            self.assertEqual(before, (flowguard_receipt.read_bytes(), skillguard_contract.read_bytes()))
+            receipt_item = next(item for item in report.items if item.path.endswith("receipt.json"))
+            self.assertEqual(ARTIFACT_UPGRADE_STATUS_UNCHANGED, receipt_item.status)
+            self.assertEqual("namespaced_json_artifact", receipt_item.item_kind)
 
     def test_scan_ignores_project_tmp_not_system_tmp_root(self):
         with tempfile.TemporaryDirectory() as directory:

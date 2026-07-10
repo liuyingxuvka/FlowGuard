@@ -1,0 +1,180 @@
+contract_version: 1
+change: repair-flowguard-adoption-integrity
+obligations:
+  - id: req.suite-inventory.canonical
+    source: "specs/flowguard-suite-inventory/spec.md#Requirement: Canonical Skill Suite Inventory"
+    claim: "The canonical inventory identifies exactly one kernel and sixteen unique satellites with stable metadata."
+    required: true
+    evidence:
+      - check.adoption.tests
+      - check.suite.inventory
+  - id: req.suite-inventory.reconciliation
+    source: "specs/flowguard-suite-inventory/spec.md#Requirement: Bidirectional Membership Reconciliation"
+    claim: "Declared and discovered SKILL.md membership is equal in both directions and missing controls remain visible failures."
+    required: true
+    evidence:
+      - check.adoption.tests
+      - check.suite.inventory
+      - check.readiness
+  - id: req.suite-inventory.projections
+    source: "specs/flowguard-suite-inventory/spec.md#Requirement: Canonical Inventory Projections"
+    claim: "Legacy suite/readiness commands consume the canonical inventory and report its deterministic hash."
+    required: true
+    evidence:
+      - check.suite.inventory
+      - check.readiness
+  - id: req.adoption.semantic-parity
+    source: "specs/project-adoption-version-gate/spec.md#Requirement: Managed Adoption Semantic Parity"
+    claim: "Project audit rejects stale versions and missing governance rules in the generated AGENTS block."
+    required: true
+    evidence:
+      - check.adoption.tests
+      - check.project.audit
+  - id: req.adoption.dry-run
+    source: "specs/project-adoption-version-gate/spec.md#Requirement: Non-Mutating Upgrade Preview"
+    claim: "Project-upgrade dry-run reports semantic changes and is proven non-mutating."
+    required: true
+    evidence:
+      - check.adoption.tests
+      - check.project.upgrade-dry-run
+  - id: req.adoption.no-regression
+    source: "specs/project-adoption-version-gate/spec.md#Requirement: Upgrade Must Not Weaken Governance"
+    claim: "A writing upgrade refuses rule loss, older engines, or unresolved inventory and preserves all required governance clauses."
+    required: true
+    evidence:
+      - check.adoption.tests
+      - check.project.audit
+  - id: req.adoption.decision-evidence
+    source: "specs/project-adoption-version-gate/spec.md#Requirement: Adoption Decision Evidence"
+    claim: "Audit/upgrade JSON and logs contain hashes, versions, findings, revalidation, and claim boundary without promoting failure."
+    required: true
+    evidence:
+      - check.adoption.tests
+      - check.project.audit
+checks:
+  - id: check.adoption.tests
+    kind: command
+    command: python
+    args:
+      - -m
+      - pytest
+      - tests/test_skill_suite_inventory.py
+      - tests/test_project_adoption.py
+      - tests/test_adoption_audit.py
+      - tests/test_adoption_cli.py
+      - tests/test_adoption_logging.py
+      - -q
+    required: true
+    covers:
+      - req.suite-inventory.canonical
+      - req.suite-inventory.reconciliation
+      - req.suite-inventory.projections
+      - req.adoption.semantic-parity
+      - req.adoption.dry-run
+      - req.adoption.no-regression
+      - req.adoption.decision-evidence
+    expected:
+      exit_code: 0
+  - id: check.suite.inventory
+    kind: command
+    command: python
+    args:
+      - scripts/verify_skill_suite_markers.py
+      - --root
+      - .
+      - --json
+    required: true
+    covers:
+      - req.suite-inventory.canonical
+      - req.suite-inventory.reconciliation
+      - req.suite-inventory.projections
+    expected:
+      exit_code: 0
+  - id: check.readiness
+    kind: command
+    command: python
+    args:
+      - scripts/verify_guard_simulation_readiness.py
+      - --root
+      - .
+      - --json
+    required: true
+    covers:
+      - req.suite-inventory.reconciliation
+      - req.suite-inventory.projections
+    expected:
+      exit_code: 0
+  - id: check.project.audit
+    kind: command
+    command: python
+    args:
+      - -m
+      - flowguard
+      - project-audit
+      - --root
+      - .
+      - --json
+    required: true
+    covers:
+      - req.adoption.semantic-parity
+      - req.adoption.no-regression
+      - req.adoption.decision-evidence
+    expected:
+      exit_code: 0
+  - id: check.project.upgrade-dry-run
+    kind: command
+    command: python
+    args:
+      - -m
+      - flowguard
+      - project-upgrade
+      - --root
+      - .
+      - --dry-run
+      - --json
+    required: true
+    covers:
+      - req.adoption.dry-run
+      - req.adoption.no-regression
+    expected:
+      exit_code: 0
+  - id: check.openspec.strict
+    kind: command
+    command: openspec
+    args:
+      - validate
+      - repair-flowguard-adoption-integrity
+      - --strict
+    required: true
+    covers:
+      - req.suite-inventory.canonical
+      - req.suite-inventory.reconciliation
+      - req.suite-inventory.projections
+      - req.adoption.semantic-parity
+      - req.adoption.dry-run
+      - req.adoption.no-regression
+      - req.adoption.decision-evidence
+    expected:
+      exit_code: 0
+freshness:
+  watch:
+    - openspec/changes/repair-flowguard-adoption-integrity/proposal.md
+    - openspec/changes/repair-flowguard-adoption-integrity/design.md
+    - openspec/changes/repair-flowguard-adoption-integrity/tasks.md
+    - openspec/changes/repair-flowguard-adoption-integrity/specs/**/*.md
+    - openspec/changes/repair-flowguard-adoption-integrity/verification-contract.yaml
+    - pyproject.toml
+    - AGENTS.md
+    - .flowguard/project.toml
+    - .skillguard/flowguard-suite/suite-map.json
+    - flowguard/project_adoption.py
+    - flowguard/skill_suite.py
+    - flowguard/__main__.py
+    - scripts/verify_skill_suite_markers.py
+    - scripts/verify_guard_simulation_readiness.py
+    - .agents/skills/*/SKILL.md
+    - tests/test_skill_suite_inventory.py
+    - tests/test_project_adoption.py
+    - tests/test_adoption_audit.py
+    - tests/test_adoption_cli.py
+    - tests/test_adoption_logging.py

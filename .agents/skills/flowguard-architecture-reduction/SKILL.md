@@ -1,65 +1,40 @@
 ---
 name: flowguard-architecture-reduction
-description: Use when a FlowGuard model should drive behavior-preserving architecture simplification, including merging duplicate handlers/modules, collapsing adapters, removing dead branches, or producing a StructureMesh-ready contraction plan.
+description: Use when an existing FlowGuard model and code map should drive behavior-preserving architecture contraction, including merging duplicate handlers or modules, collapsing adapters, removing dead branches, or preparing a StructureMesh refactor.
 ---
 
 # FlowGuard Architecture Reduction
 
-Standalone FlowGuard satellite skill for model-backed contraction. Use it when
-code, prompt, skill, or workflow structure can shrink without behavior drift.
+## Purpose
+Classify model-backed contraction candidates without changing the declared observable contract or editing production code.
 
-Return to `model-first-function-flow` when the model is unclear. Hand concrete
-public-entrypoint refactors to Code Structure Recommendation, StructureMesh, and
-DevelopmentProcessFlow.
+## Entrypoint Scope
+Route id: `architecture_reduction`; role: `public_owner`; native owner: `architecture_reduction`. This standalone FlowGuard satellite skill owns reduction proof, not implementation.
 
-## First Read
+## Local Material Routing
+Read `references/architecture_reduction_protocol.md` for observable contracts, compatibility classifications, proof statuses, and target actions.
 
-- Route id: `architecture_reduction`.
-- Contract first: entrypoints, outputs, state, side effects, gates, rationale.
-- Core helpers: `ObservableArchitectureContract`,
-  `ArchitectureReductionCandidate`, `review_architecture_reduction()`.
-- Classify contraction candidates with proof status and required next route.
-- Similarity handoff: cite relation/code obligation ids for duplicate
-  boundaries or adapter-only differences.
-- Reference: `references/architecture_reduction_protocol.md`.
+## Entrypoint Acceptance Map
+Accept existing-model ownership plus code mapping; classify contraction candidates; block missing equivalence/facade evidence; hand ready public-entrypoint work to Code Structure Recommendation, StructureMesh, and DevelopmentProcessFlow.
+
+## Use When
+- Use for merge, collapse, remove, keep-facade, or manual-review decisions over duplicate handlers, modules, adapters, branches, fields, or validations.
+
+## Do Not Use When
+- Do not use for greenfield module planning, direct refactoring, or behavior change; return unclear models to `model-first-function-flow`.
+
+## Required Workflow
+1. Ground existing ownership and declare an `ObservableArchitectureContract`.
+2. Map FunctionBlocks, state, side effects, public entrypoints, and contraction candidates.
+3. Record proof status, target action, compatibility disposition, risks, and required next route.
 
 ## Hard Gates
+- Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
+- Only equivalence or current facade proof can make a contraction ready; risky, scoped, stale, and property-only candidates remain visible.
+- Public entrypoints require StructureMesh parity, duplicate generators route to ContractExhaustionMesh, and new/deepened models require template harvest closure.
 
-- Verify FlowGuard check engine, keep AGENTS.md managed records current, and do not
-  create a fake mini-framework.
-- Every candidate needs target action, proof status, next route, and scoped or
-  risky obligations.
-- Public entrypoints need StructureMesh or equivalent parity evidence.
-- Compatibility-only branches, aliases, wrappers, old prompt fields, and
-  replaced field aliases are removal candidates unless current contract,
-  safety, facade, compatibility, archive, or negative-test evidence proves
-  otherwise.
-- Older same-class, analogous-bug, fallback prompt, or boundary-case generator
-  paths that duplicate ContractExhaustionMesh are contraction candidates. Keep
-  declaration owners and evidence consumers; remove parallel canonical
-  generation paths.
-- Reduction models need template-harvest closure.
+## Output Requirements
+- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`, plus contraction candidates and proof status.
 
-## Minimum Workflow
-
-1. Ground existing model ownership and duplicate-boundary risk.
-2. Declare the observable contract.
-3. Map FunctionBlock, state, side effect, and public entrypoint ownership.
-4. Classify candidates as merge, collapse, remove, keep facade, or review.
-5. Separate explicit safety/compatibility fields from removable surfaces.
-6. Mark duplicate bad-case generators for ContractExhaustionMesh absorption or
-   deletion; do not leave fallback routes unless explicitly required.
-7. Separate ready, scoped, risky, and blocked candidates.
-
-## Snapshot
-
-Show boundary, observable contract, contraction candidates,
-ContractExhaustionMesh absorption/deletion candidates, proof status, target
-action, and required next route.
-Status: contract, candidate, proof, risks, next route.
-
-## Non-Goals
-
-- Do not rewrite production code directly.
-- Do not delete compatibility facades from property-only evidence.
-- Do not hide skipped or stale conformance evidence.
+## SkillGuard Maintenance
+- Edit `.skillguard/contract-source.json`, then regenerate derived contracts; SkillGuard gates the native reduction review and cannot refactor code or invent equivalence.

@@ -1,4 +1,4 @@
 interface:
   display_name: "FlowGuard Existing Model Preflight"
-  short_description: "Ground changes in existing FlowGuard models"
-  default_prompt: "Use $flowguard-existing-model-preflight to inspect current FlowGuard model ownership before proposing or changing an existing modeled system."
+  short_description: "Ground changes in current modeled ownership"
+  default_prompt: "Use $flowguard-existing-model-preflight for route_id=existing_model_preflight, role=public_owner, native_owner=existing_model_preflight; require current model search, ownership, reuse decision, duplicate-risk review, and typed handoff; do not implement or validate the downstream change; output evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, and typed_next_actions; claim only preflight completeness."

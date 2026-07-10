@@ -2,7 +2,13 @@ import unittest
 from dataclasses import dataclass
 
 from flowguard import FunctionResult, Invariant, InvariantResult, Workflow
-from flowguard.formal_runner import FormalWorkflowCase, run_formal_workflow_suite
+from flowguard.formal_runner import (
+    FormalWorkflowCase,
+    run_exact_workflow_case,
+    run_formal_workflow_suite,
+)
+from flowguard.formal_runner import _summary_observed_ok
+from flowguard.summary_report import FlowGuardSection, FlowGuardSummaryReport
 
 
 @dataclass(frozen=True)
@@ -43,6 +49,53 @@ INVARIANTS = (Invariant("no_duplicates", "records are unique", no_duplicates),)
 
 
 class FormalRunnerTests(unittest.TestCase):
+    def test_exact_workflow_case_requires_declared_terminal_state(self):
+        accepted = run_exact_workflow_case(
+            "accepted",
+            workflow=Workflow((RecordOnce(),)),
+            initial_state=State(),
+            external_input_sequence=("record",),
+            invariants=(),
+            final_state_predicate=lambda state: state.records == ("record",),
+            print_report=False,
+        )
+        rejected = run_exact_workflow_case(
+            "rejected",
+            workflow=Workflow((RecordOnce(),)),
+            initial_state=State(),
+            external_input_sequence=("record",),
+            invariants=(),
+            final_state_predicate=lambda state: False,
+            print_report=False,
+        )
+
+        self.assertTrue(accepted)
+        self.assertFalse(rejected)
+
+    def test_default_success_requires_exact_pass_not_pass_with_gaps(self):
+        summary = FlowGuardSummaryReport(
+            "pass_with_gaps",
+            (
+                FlowGuardSection("model_check", "pass"),
+                FlowGuardSection("minimum_model_review", "pass"),
+                FlowGuardSection("known_bad_proof", "pass"),
+                FlowGuardSection("template_harvest_review", "pass_with_gaps"),
+            ),
+        )
+        self.assertFalse(_summary_observed_ok(summary))
+        self.assertTrue(_summary_observed_ok(summary, ("pass", "pass_with_gaps")))
+
+    def test_scoped_status_must_be_explicit_on_case(self):
+        strict = FormalWorkflowCase("strict", Workflow((RecordOnce(),)), True)
+        scoped = FormalWorkflowCase(
+            "scoped",
+            Workflow((RecordOnce(),)),
+            True,
+            allowed_success_statuses=("pass", "pass_with_gaps"),
+        )
+        self.assertEqual(("pass",), strict.allowed_success_statuses)
+        self.assertEqual(("pass", "pass_with_gaps"), scoped.allowed_success_statuses)
+
     def test_suite_proves_expected_bad_workflow_before_correct_claim(self):
         report = run_formal_workflow_suite(
             "record-once",
@@ -52,6 +105,7 @@ class FormalRunnerTests(unittest.TestCase):
                     Workflow((RecordOnce(),), name="record_once"),
                     True,
                     required_labels=("recorded", "duplicate_rejected"),
+                    allowed_success_statuses=("pass", "pass_with_gaps"),
                 ),
                 FormalWorkflowCase(
                     "broken_records_duplicate",

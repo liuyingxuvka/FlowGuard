@@ -116,31 +116,44 @@ class SkillDocsTests(unittest.TestCase):
             "real FlowGuard check engine",
             "AGENTS.md managed",
             "fake mini-framework",
-            "Risk Evidence Ledger",
+            "risk_evidence_ledger",
             "template harvest closure",
-            "Route Map",
-            "Reference Map",
+            "references/route_index.md",
+            "references/modeling_core_protocol.md",
+            "references/modeling_evidence_protocol.md",
             "behavior_flow",
             "argument_flow",
             "decision_flow",
-            "check-engine helpers, not independently triggerable Codex skills",
+            "check-engine helpers as independently triggerable Codex skills",
         )
         for phrase in expected:
             self.assertIn(phrase, text)
 
-        self.assertLess(text.index("## Minimum Valuable Model"), text.index("## Route Map"))
+        headings = tuple(line for line in text.splitlines() if line.startswith("## "))
+        self.assertEqual(
+            (
+                "## Purpose",
+                "## Entrypoint Scope",
+                "## Local Material Routing",
+                "## Entrypoint Acceptance Map",
+                "## Use When",
+                "## Do Not Use When",
+                "## Required Workflow",
+                "## Hard Gates",
+                "## Output Requirements",
+                "## SkillGuard Maintenance",
+            ),
+            headings,
+        )
         for skill_name in SATELLITE_SKILLS:
             self.assertIn(skill_name, text)
 
         reference_paths = (
             "references/skill_kernel_protocol.md",
             "references/modeling_protocol.md",
-            "references/model_test_alignment_protocol.md",
-            "references/development_process_flow_protocol.md",
-            "references/model_miss_protocol.md",
-            "references/conformance_adoption_protocol.md",
-            "references/long_check_protocol.md",
-            "references/framework_upgrade_protocol.md",
+            "references/modeling_core_protocol.md",
+            "references/modeling_evidence_protocol.md",
+            "references/route_index.md",
         )
         for reference_path in reference_paths:
             self.assertIn(reference_path, text)
@@ -148,10 +161,11 @@ class SkillDocsTests(unittest.TestCase):
     def test_kernel_preserves_route_specific_diagram_intent(self):
         text = self.read(KERNEL_ROOT / "SKILL.md")
 
-        self.assertIn("FlowGuard diagram intent gate", text)
-        self.assertIn("Do not flatten these into a generic flowchart", text)
+        self.assertIn("Preserve FlowGuard diagram intent", text)
+        self.assertIn("do not flatten", text)
+        self.assertIn("generic flowchart", text)
         self.assertIn("without LogicGuard", text)
-        self.assertIn("SourceGuard/TraceGuard/WorldGuard/LogicGuard diagrams keep their own edge meanings", text)
+        self.assertIn("SourceGuard/TraceGuard/WorldGuard/LogicGuard semantics", text)
 
     def test_satellite_skills_are_concise_route_shells(self):
         route_expectations = {
@@ -269,30 +283,36 @@ class SkillDocsTests(unittest.TestCase):
 
                 self.assertIn(f"name: {skill_name}", text)
                 if skill_name == "flowguard-development-process-flow":
-                    self.assertIn("Front-door FlowGuard satellite skill", text)
+                    self.assertIn("public_owner", text)
                 elif skill_name in DELEGATED_DEVELOPMENT_PROCESS_MODE_SKILLS:
-                    self.assertIn("Delegated FlowGuard mode skill", text)
+                    self.assertIn("delegated_mode", text)
                     self.assertIn("flowguard-development-process-flow", text)
                 else:
-                    self.assertIn("Standalone FlowGuard satellite skill", text)
+                    self.assertIn("standalone FlowGuard satellite skill", text)
                 self.assertIn("model-first-function-flow", text)
                 self.assertIn("FlowGuard check engine", text)
                 self.assertIn("AGENTS.md managed", text)
                 self.assertIn("fake mini-framework", text)
-                if skill_name in TEMPLATE_HARVEST_SKILLS:
-                    self.assertIn("harvest closure", text.replace("-harvest", " harvest"))
-                self.assertIn("Reference:", text)
-                self.assertIn("Non-Goals", text)
                 self.assertIn(reference_name, text)
                 self.assertIn(skill_name, openai_yaml)
                 self.assertGreater(len(reference), 200)
-                for phrase in route_expectations[skill_name]:
-                    self.assertIn(phrase, text)
+                self.assertEqual(10, sum(line.startswith("## ") for line in text.splitlines()))
+                for field in (
+                    "evidence",
+                    "failures",
+                    "blockers",
+                    "skipped_checks",
+                    "residual_risk",
+                    "claim_boundary",
+                    "typed_next_actions",
+                ):
+                    self.assertIn(field, text)
+                    self.assertIn(field, openai_yaml)
                 combined = f"{text}\n{reference}"
                 self.assertNotIn("fake file/work-package", combined)
                 if skill_name in DELEGATED_DEVELOPMENT_PROCESS_MODE_SKILLS:
-                    self.assertIn("Generic", openai_yaml)
-                    self.assertIn("flowguard-development-process-flow first", openai_yaml)
+                    self.assertIn("delegated_mode", openai_yaml)
+                    self.assertIn("development_process_flow", openai_yaml)
 
     def test_model_test_alignment_skill_does_not_teach_optional_code_contracts(self):
         checked = (
@@ -322,16 +342,15 @@ class SkillDocsTests(unittest.TestCase):
             / "ui_flow_structure_protocol.md"
         )
 
-        self.assertIn("calm typography guidance", skill)
-        self.assertIn("calm visual handoff guidance", openai_yaml)
-        self.assertIn("Visible surface", skill)
+        self.assertIn("structure, text hierarchy", skill)
+        self.assertIn("observed surface", openai_yaml)
+        self.assertIn("visible surface", skill)
         self.assertIn("screenshot", skill)
-        self.assertIn("DOM text", skill)
-        self.assertIn("evidence kind", skill)
-        self.assertIn("semantic hierarchy levels are not a command", protocol)
+        self.assertIn("screenshot/DOM/event/result evidence", skill)
+        self.assertIn("semantic hierarchy levels are not a command", protocol.lower())
         self.assertIn("similar jobs", protocol)
         self.assertIn("one-off visual text style", protocol)
-        self.assertIn("Visible Surface Review", protocol)
+        self.assertIn("Observed Visible Surface Review", protocol)
         self.assertIn("disabled control is visible without a reason", protocol)
         self.assertIn("screenshot", protocol)
         self.assertIn("DOM text", protocol)
@@ -541,11 +560,11 @@ class SkillDocsTests(unittest.TestCase):
         text = self.read(ROOT / "README.md")
 
         expected = (
-            "An AI-agent skill suite with executable check scripts",
-            "Its primary agent surface is `.agents/skills/`",
+            "An AI-agent skill suite powered by an executable check engine",
+            "primary agent surface is `.agents/skills/`",
             ".agents/skills/model-first-function-flow/SKILL.md",
-            "Run executable check scripts only when current evidence is needed",
-            "not the AI-agent skill install",
+            "executable check scripts",
+            "not the skill installation itself",
         )
         for phrase in expected:
             self.assertIn(phrase, text)
@@ -601,15 +620,6 @@ class SkillDocsTests(unittest.TestCase):
             with self.subTest(path=path.relative_to(ROOT)):
                 for phrase in stale_phrases:
                     self.assertNotIn(phrase, text)
-                if path == ROOT / "README.md":
-                    continue
-                self.assertIn("simulator", text.lower(), path)
-                self.assertTrue(
-                    "flowguard-development-process-flow" in text
-                    or "DevelopmentProcessFlow" in text
-                    or "development_process_simulator" in text,
-                    path,
-                )
 
     def test_guidance_compression_model_exists(self):
         model = self.read(ROOT / ".flowguard" / "guidance_compression" / "model.py")

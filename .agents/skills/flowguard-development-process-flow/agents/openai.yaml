@@ -1,4 +1,4 @@
 interface:
   display_name: "FlowGuard Development Process Flow"
-  short_description: "Front door for plan, workflow, and execution process simulation"
-  default_prompt: "Use $flowguard-development-process-flow as the development-process simulator front door for non-trivial plan discussion, multi-skill/tool workflow setup, staged development, install/sync, release, archive, or publish work; record plan_detailing, agent_workflow, and execution_freshness modes, touched artifacts, validation evidence, freshness risks, peer writes, and minimum revalidation before claiming done."
+  short_description: "Simulate plan, workflow, freshness, and release gates"
+  default_prompt: "Use $flowguard-development-process-flow for route_id=development_process_flow, role=public_owner, native_owner=development_process_flow; select plan_detailing, agent_workflow, and execution_freshness modes, then require current artifacts, triage, proof, and minimum revalidation; do not replace specialist routes or product modeling; output evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, and typed_next_actions; claim lifecycle readiness only for the current evidence scope."

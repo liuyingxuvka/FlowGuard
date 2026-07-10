@@ -1,4 +1,4 @@
 interface:
   display_name: "FlowGuard Agent Workflow Rehearsal"
-  short_description: "Delegated agent_workflow mode for skill/tool rehearsal"
-  default_prompt: "Use $flowguard-agent-workflow-rehearsal when explicitly requested or delegated by $flowguard-development-process-flow's agent_workflow simulator mode for multi-skill/tool/plugin/external-action planning; start with a fresh current-machine SkillInventorySnapshot and review selected skills, skipped candidates, gates, validation gaps, side effects, and the final evidence claim. Generic multi-skill workflow routing should enter $flowguard-development-process-flow first."
+  short_description: "Rehearse delegated skill and tool workflows"
+  default_prompt: "Use $flowguard-agent-workflow-rehearsal only when explicitly requested or delegated: route_id=agent_workflow_rehearsal, role=delegated_mode, native_owner=development_process_flow; require a fresh inventory, accepted skips, prior side-effect gates, and rework paths; do not execute tools or replace native validation; output evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, and typed_next_actions; claim only rehearsal readiness, never workflow completion."

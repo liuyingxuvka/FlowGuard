@@ -1,4 +1,4 @@
 interface:
   display_name: "FlowGuard Model-Test Alignment"
-  short_description: "Align FlowGuard model obligations with tests"
-  default_prompt: "Use $flowguard-model-test-alignment to compare FlowGuard model obligations, code contracts, test evidence, code-boundary observations, and artifact payload cases for files or AI work packages."
+  short_description: "Bind obligations, owner code, and current tests"
+  default_prompt: "Use $flowguard-model-test-alignment for route_id=model_test_alignment, role=public_owner, native_owner=model_test_alignment; require each obligation to bind an owner external CodeContract and current same-behavior evidence, with typed TestMesh handoff for large/slow evidence; do not own test/code/model partitioning or conformance replay; output evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, and typed_next_actions; claim only row-level alignment coverage."

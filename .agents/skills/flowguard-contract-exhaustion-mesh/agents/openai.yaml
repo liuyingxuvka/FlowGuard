@@ -1,4 +1,4 @@
 interface:
-  display_name: "FlowGuard Contract Exhaustion"
-  short_description: "Canonical FlowGuard bad-case matrix"
-  default_prompt: "Use $flowguard-contract-exhaustion-mesh to generate canonical bad cases, oracles, and route handoffs from declared FlowGuard boundaries."
+  display_name: "FlowGuard Contract Exhaustion Mesh"
+  short_description: "Generate canonical finite-boundary bad cases"
+  default_prompt: "Use $flowguard-contract-exhaustion-mesh for route_id=contract_exhaustion_mesh, role=public_owner, native_owner=contract_exhaustion_mesh; require a declared finite boundary, coverage universe for broad scope, actionable oracles, and typed consumers; do not act as a global bug oracle or run tests; output evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, and typed_next_actions; claim only generated-matrix readiness until downstream receipts close."

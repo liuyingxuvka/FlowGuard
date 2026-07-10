@@ -1,7 +1,7 @@
 {
   "blockers": [],
   "checks": [],
-  "claim_boundary": "This record covers only the installed skill entrypoint, local SkillGuard records, and current files inspected for this target. It does not prove runtime checker execution, fixture coverage, CLI checks, tests, suite automation, package publication, code-contract validation, release readiness, or future AI behavior without separate current evidence.",
+  "claim_boundary": "This record covers only the current skill entrypoint and local SkillGuard contract files. It does not prove runtime checker execution, fixture coverage, CLI checks, tests, suite automation, package publication, code-contract validation, release readiness, or future AI behavior without separate current evidence.",
   "closure_states": [
     "open",
     "blocked",
@@ -12,18 +12,18 @@
     {
       "evidence_id": "current-closure",
       "path": ".skillguard/reports/current_closure.json",
-      "summary": "Bounded closure record."
+      "summary": "Conservative structural closure status."
     }
   ],
   "failures": [],
   "hard_gates": [
     {
-      "condition": "No route was selected.",
+      "condition": "No canonical native route is selected.",
       "gate_id": "route-selected",
       "required_disposition": "open or blocked"
     },
     {
-      "condition": "Required evidence is absent or stale.",
+      "condition": "Required native evidence is absent or stale.",
       "gate_id": "direct-evidence",
       "required_disposition": "open or blocked"
     },
@@ -34,11 +34,11 @@
     }
   ],
   "residual_risk": [
-    "This static record must be refreshed when the skill entrypoint, route contract, or validation rules change."
+    "Native commands and immutable receipts are intentionally outside this static record."
   ],
   "schema_version": "1.0",
   "skipped_checks": [],
-  "status": "checked",
+  "status": "needs-review",
   "target_path": "..",
   "target_type": "closure_policy"
 }

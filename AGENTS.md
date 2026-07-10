@@ -1,12 +1,19 @@
 <!-- BEGIN FLOWGUARD PROJECT RULES -->
+
+<!-- flowguard-rule:project.scope -->
+
 ## FlowGuard Project Rules
 
 This project uses FlowGuard for non-trivial maintenance, feature work, bug
 fixes, refactors, tests, release work, project upgrades, and evidence-sensitive
 process changes.
 
+<!-- flowguard-rule:project.repository -->
+
 FlowGuard repository:
 https://github.com/liuyingxuvka/FlowGuard
+
+<!-- flowguard-rule:skill_suite.agent_surface -->
 
 FlowGuard agent skill suite:
 - Primary agent surface: `.agents/skills/`
@@ -16,14 +23,20 @@ FlowGuard agent skill suite:
 - The Python `flowguard` module/CLI is executable check support, not the
   AI-agent skill installation surface.
 
+<!-- flowguard-rule:project.record_locations -->
+
 Project FlowGuard record:
 - Manifest: `.flowguard/project.toml`
 - Machine log: `.flowguard/adoption_log.jsonl`
 - Human log: `docs/flowguard_adoption_log.md`
 
+<!-- flowguard-rule:project.rendered_versions -->
+
 Current adoption record:
-- FlowGuard check-engine version: `0.53.0`
+- FlowGuard check-engine version: `0.54.0`
 - FlowGuard schema version: `1.0`
+
+<!-- flowguard-rule:project.preflight_version_gate -->
 
 Before non-trivial work:
 1. Verify the real FlowGuard check engine:
@@ -43,14 +56,20 @@ Before non-trivial work:
 6. If the installed version is older than the project record, stop and connect
    a current FlowGuard check engine before claiming FlowGuard confidence.
 
+<!-- flowguard-rule:runtime.latest_schema_first -->
+
 FlowGuard runtime guidance is latest-schema-first: old artifacts may be
 detected and upgraded at project/tool boundaries, but normal route logic should
 not keep long-lived old branches for obsolete fields, aliases, or wrappers.
+
+<!-- flowguard-rule:lifecycle.default_replacement -->
 
 Default replacement means dispose the old path, old field, alias, wrapper, or
 alternate success path. Delete, block, migrate, delegate, repair, replace, or
 scope it out with a concrete reason; do not leave it as a second successful
 route.
+
+<!-- flowguard-rule:behavior.commitment_ledger -->
 
 Broad behavior work should use or update BehaviorCommitmentLedger before
 claiming full coverage: register external behavior promises, map source
@@ -58,6 +77,9 @@ surfaces to commitments, assign exactly one primary owner model per
 commitment, record dependencies/evidence, and hand `path_sensitive=true`
 commitments to Primary Path Authority. Do not treat every helper function,
 file, field, or model as a behavior commitment.
+
+<!-- flowguard-rule:behavior.commitment_ledger_modes -->
+
 Before changing or claiming behavior coverage, classify the behavior-ledger
 mode: `bootstrap_ledger`, `add_behavior`, `change_behavior`,
 `remove_or_replace_behavior`, `coverage_gap_backfill`, or `model_miss_check`.
@@ -67,18 +89,26 @@ DCAR cases, and TestMesh evidence. Model-miss checks first map the failure to
 an existing commitment and owner model; create/backfill a commitment only when
 the observed external behavior was not registered.
 
+<!-- flowguard-rule:lifecycle.field_mesh -->
+
 Field-bearing work should use or update FieldLifecycleMesh: high-level behavior
 models include behavior-bearing fields, while child/leaf field rows account all
 discovered fields and record owner, readers, writers, projection, lifecycle,
 and old-field disposition.
 
+<!-- flowguard-rule:evidence.ui_and_payload -->
+
 UI runnable claims and file/work-package claims need current UI click-through
 or artifact-payload evidence gates before broad done/release confidence.
+
+<!-- flowguard-rule:behavior.primary_path_authority -->
 
 Path-sensitive behavior commitments need Primary Path Authority evidence before
 broad confidence: one primary runtime authority per business intent, visible
 primary failure, no automatic alternate success, ContractExhaustionMesh
 coverage, TestMesh shards, and Risk Evidence Ledger gates.
+
+<!-- flowguard-rule:process.development_process_flow -->
 
 Non-trivial rough-plan discussion, multi-skill/tool workflow setup, staged
 execution, install/sync, release/archive/publish, post-change owner scans, and
@@ -87,13 +117,18 @@ development-process simulator. Record `plan_detailing`, `agent_workflow`, and
 `execution_freshness` modes; delegate to PlanDetailing or
 AgentWorkflowRehearsal only when explicit or simulator-selected.
 
+<!-- flowguard-rule:process.post_change_scan -->
+
 After non-trivial FlowGuard-managed work, let DevelopmentProcessFlow consume
 post-change scan signals for changed artifacts, skipped routes, stale evidence,
 open obligations, or split/reduction pressure. The scan output routes each gap
 to the owning specialist, such as Model-Test Alignment, Architecture
 Reduction, StructureMesh, ModelMesh, TestMesh, or AgentWorkflowRehearsal.
 
+<!-- flowguard-rule:claim.no_fake_adoption -->
+
 Do not create a fake local FlowGuard replacement. Do not claim full FlowGuard
 completion from an AGENTS/manifest/log update alone; executable model checks,
 tests, replay, and closure evidence still need to be current for the claim.
+
 <!-- END FLOWGUARD PROJECT RULES -->

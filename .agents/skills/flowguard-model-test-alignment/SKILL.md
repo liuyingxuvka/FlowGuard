@@ -1,50 +1,40 @@
 ---
 name: flowguard-model-test-alignment
-description: Use when obligations, tests, code contracts, or source audits need comparison.
+description: Use when model obligations, owner external CodeContracts, source audits, transition cells, boundary observations, payload cases, closure targets, or ordinary test evidence need direct current comparison.
 ---
 
 # FlowGuard Model-Test Alignment
 
-Standalone FlowGuard satellite skill for obligations, tests, owner `CodeContract`s, source audits, boundary observations, payloads, and fields. Return to `model-first-function-flow` when obligations are undefined. Do not invoke TestMesh, ModelMesh, or StructureMesh.
+## Purpose
+Compare declared model obligations, owner code external contracts, and current test evidence for the same behavior without owning test/code/model partitioning.
 
-## First Read
+## Entrypoint Scope
+Route id: `model_test_alignment`; role: `public_owner`; native owner: `model_test_alignment`. This standalone FlowGuard satellite skill owns alignment rows; it sends large/slow evidence to TestMesh through a typed handoff while TestMesh retains its own execution and freshness authority.
 
-- Route id: `model_test_alignment`.
-- Starter: `ROUTE_STARTER_API["model_test_alignment"]`, `model-test-alignment-template`.
-- Helpers: `review_model_test_alignment()`, `TransitionCoverageMatrix`, `CodeContract`, `ArtifactPayloadContract`.
-- Reference: `references/model_test_alignment_protocol.md`.
+## Local Material Routing
+Read `references/model_test_alignment_protocol.md` for `CodeContract`, `ArtifactPayloadContract`, source audits, transition/leaf matrices, closure targets, and binding rows.
+
+## Entrypoint Acceptance Map
+Accept explicit obligations, owner contracts, and evidence; compare bindings/freshness; block missing external-contract proof, stale audits, or orphan/duplicate rows; hand evidence hierarchy, model gaps, and final risk decisions to typed owners.
+
+## Use When
+- Use for model-code-test coverage, transition/closure cells, field projections, real-code boundaries, counterexample targets, or file/generated/AI work-package payload evidence.
+
+## Do Not Use When
+- Do not split tests, code, or models, run mesh ownership, or replace conformance replay; return undefined obligations to `model-first-function-flow`.
+
+## Required Workflow
+1. List obligations, commitment ids, transitions/fields/payloads, owner `CodeContract` rows, and required evidence kinds.
+2. Consume canonical ContractExhaustionMesh ids, source/boundary observations, and current test evidence; build `ModelCodeTestBindingRow` closure summaries.
+3. Classify gaps and issue typed TestMesh, maturation, risk-ledger, or closure handoffs.
 
 ## Hard Gates
+- Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
+- Full confidence requires each required obligation to bind one owner external code contract and current same-contract test evidence.
+- Missing/stale/skipped/source-audit/payload/target evidence or template harvest closure blocks broad alignment; large evidence may be delegated, never silently counted.
 
-- Verify FlowGuard check engine and AGENTS.md managed records; no fake mini-framework.
-- Tests cover declared obligations, not just helper/internal paths.
-- Full confidence requires each obligation to bind an owner `CodeContract` and current external-contract test evidence.
-- Broad behavior claims bind test/code/model rows to commitment ids, not only local model ids.
-- BCL change-mode, source-freshness, replacement/model-sync, and model-miss cases bind to the same commitment id as repaired model obligation and owner code contract.
-- Real code claims with paths/symbols require green `source_audit_reports` when `require_source_audit=True`.
-- Counterexample repairs require target-aware replay/regression tests bound to owner code.
-- Final claims cite `ModelCodeTestBindingRow` closure summaries and open gaps.
-- Transition coverage needs cells plus evidence targets, or scoped-out boundary.
-- Behavior fields need FieldLifecycleMesh projection or scoped-out reason.
-- Reused results need current `TestResultReuseTicket` and `ProofArtifactRef`.
-- File/work-package claims need `ArtifactPayloadContract` plus real evidence.
-- Same-class, payload, transition, mesh-closure, and Cartesian bad cases require ContractExhaustionMesh projection.
-- New/deepened obligations need template harvest closure.
+## Output Requirements
+- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`, plus coverage bindings and open gap codes.
 
-## Minimum Workflow
-
-1. List obligations, scenarios, hazards, transitions, fields, affected commitment ids.
-2. Project transition matrices into obligations when coverage is claimed.
-3. Feed finite bad-case groups through ContractExhaustionMesh, including BCL DCAR cases.
-4. Add owner code contracts, boundary observations, same-contract tests, commitment-id bindings.
-5. Add payload cases for the real file/work-package surface.
-6. Compare rows, classify gaps, route split needs outward.
-
-## Snapshot
-
-Show coverage from model obligations to code contracts to tests; edges mean covers, partially covers, or leaves scoped gaps.
-
-## Non-Goals
-
-- Do not split tests, code, or models.
-- Do not replace conformance replay for production-facing validation.
+## SkillGuard Maintenance
+- Edit `.skillguard/contract-source.json`, then regenerate derived contracts; SkillGuard checks native alignment parity and cannot run TestMesh or manufacture code/test proof.

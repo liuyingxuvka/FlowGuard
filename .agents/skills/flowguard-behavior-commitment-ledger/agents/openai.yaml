@@ -1,4 +1,4 @@
 interface:
   display_name: "FlowGuard Behavior Commitment Ledger"
-  short_description: "Register external behavior commitments"
-  default_prompt: "Use $flowguard-behavior-commitment-ledger to register external behavior commitments, owner models, evidence, dependencies, and PPA handoffs before broad FlowGuard claims."
+  short_description: "Register behavior, owners, evidence, and path authority"
+  default_prompt: "Use $flowguard-behavior-commitment-ledger for route_id=behavior_commitment_ledger, role=public_owner, native_owner=behavior_commitment_ledger; require bidirectional source coverage, one primary model owner, current evidence, and internal primary_path_authority handoff for path-sensitive rows; do not replace PPA, MTA, TestMesh, or Risk Ledger; output evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, and typed_next_actions; broad claims remain blocked by any ledger or PPA gap."

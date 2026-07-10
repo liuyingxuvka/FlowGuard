@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from flowguard import run_exact_sequence
 from flowguard.formal_runner import FormalWorkflowCase, run_formal_workflow_suite
 import model
 
@@ -10,10 +11,24 @@ REQUIRED_LABELS = ("template_search_done", "minimum_model_accepted", "local_cand
 
 
 def main() -> int:
+    correct = run_exact_sequence(
+        workflow=model.correct_workflow(),
+        initial_state=model.initial_state(),
+        external_input_sequence=tuple(
+            request
+            for request in model.EXTERNAL_INPUTS
+            if request.protected_error_class
+            and request.completion_evidence
+            and request.known_bad_case
+            and request.portable_local_root
+        ),
+        invariants=model.INVARIANTS,
+    )
+    correct_ok = correct.model_report.ok and len(correct.final_states) == 1
+    print(f"correct_minimum_valuable_model: {'exact model pass' if correct_ok else 'failed'}")
     report = run_formal_workflow_suite(
         "minimum_valuable_model_entry",
         (
-            FormalWorkflowCase("correct_minimum_valuable_model", model.correct_workflow(), True),
             FormalWorkflowCase("broken_without_evidence", model.broken_without_evidence_workflow(), False),
             FormalWorkflowCase("broken_hardcoded_root", model.broken_hardcoded_root_workflow(), False),
         ),
@@ -25,7 +40,7 @@ def main() -> int:
         required_labels=REQUIRED_LABELS,
         protected_error_class="minimum_valuable_model_missing_evidence",
     )
-    return 0 if report.ok else 1
+    return 0 if correct_ok and report.ok else 1
 
 
 if __name__ == "__main__":

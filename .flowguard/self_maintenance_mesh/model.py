@@ -25,6 +25,8 @@ from flowguard import FunctionResult, Invariant, InvariantResult, Workflow
 @dataclass(frozen=True)
 class SelfMaintenanceAction:
     action_type: str
+    verified_child_receipt_ids: tuple[str, ...] = ()
+    verification_set_fingerprint: str = ""
 
 
 @dataclass(frozen=True)
@@ -35,6 +37,9 @@ class SelfMaintenanceOutput:
 @dataclass(frozen=True)
 class SelfMaintenanceState:
     route_graph_connected: bool = False
+    route_handoffs_typed: bool = False
+    route_owners_unique: bool = False
+    route_cycles_bounded: bool = False
     ai_profiles_declared: bool = False
     field_layers_declared: bool = False
     child_reports_current: bool = False
@@ -47,11 +52,16 @@ class SelfMaintenanceState:
     install_sync_verified: bool = False
     shadow_sync_checked: bool = False
     git_status_checked: bool = False
+    consumed_child_receipt_ids: tuple[str, ...] = ()
+    receipt_set_fingerprint: str = ""
     done_claim: str = "none"
 
     def ready_for_done(self) -> bool:
         return (
             self.route_graph_connected
+            and self.route_handoffs_typed
+            and self.route_owners_unique
+            and self.route_cycles_bounded
             and self.ai_profiles_declared
             and self.field_layers_declared
             and self.child_reports_current
@@ -71,6 +81,9 @@ class CorrectSelfMaintenance:
     name = "CorrectSelfMaintenance"
     reads = (
         "route_graph_connected",
+        "route_handoffs_typed",
+        "route_owners_unique",
+        "route_cycles_bounded",
         "ai_profiles_declared",
         "field_layers_declared",
         "child_reports_current",
@@ -96,26 +109,111 @@ class CorrectSelfMaintenance:
 
     def apply(self, input_obj: SelfMaintenanceAction, state: SelfMaintenanceState) -> Iterable[FunctionResult]:
         action = input_obj.action_type
-        if action == "connect_route_graph":
+        if action == "advance_receipt_bound_workflow":
+            if not state.route_graph_connected:
+                yield FunctionResult(
+                    SelfMaintenanceOutput("route_graph_connected"),
+                    replace(
+                        state,
+                        route_graph_connected=True,
+                        route_handoffs_typed=True,
+                        route_owners_unique=True,
+                        route_cycles_bounded=True,
+                        ai_profiles_declared=True,
+                    ),
+                    label="route_graph_connected",
+                )
+            elif not state.field_layers_declared:
+                yield FunctionResult(
+                    SelfMaintenanceOutput("field_layers_declared"),
+                    replace(state, field_layers_declared=True),
+                    label="field_layers_declared",
+                )
+            elif not state.child_reports_current:
+                receipt_ids = tuple(input_obj.verified_child_receipt_ids)
+                exact_set = (
+                    len(receipt_ids) == REQUIRED_RECEIPT_COUNT
+                    and len(set(receipt_ids)) == REQUIRED_RECEIPT_COUNT
+                    and bool(input_obj.verification_set_fingerprint)
+                )
+                yield FunctionResult(
+                    SelfMaintenanceOutput("receipt_set_consumed" if exact_set else "receipt_set_rejected"),
+                    replace(
+                        state,
+                        child_reports_current=exact_set,
+                        behavior_ledger_current=exact_set,
+                        dcar_coverage_current=exact_set,
+                        test_mesh_shards_current=exact_set,
+                        model_miss_backfeed_current=exact_set,
+                        route_api_tested=exact_set,
+                        consumed_child_receipt_ids=receipt_ids if exact_set else (),
+                        receipt_set_fingerprint=input_obj.verification_set_fingerprint if exact_set else "",
+                    ),
+                    label="receipt_set_consumed" if exact_set else "receipt_set_rejected",
+                )
+            elif not state.focused_validation_passed:
+                yield FunctionResult(
+                    SelfMaintenanceOutput("focused_validation_passed"),
+                    replace(state, focused_validation_passed=True),
+                    label="focused_validation_passed",
+                )
+            elif not (state.install_sync_verified and state.shadow_sync_checked and state.git_status_checked):
+                yield FunctionResult(
+                    SelfMaintenanceOutput("local_surfaces_synced"),
+                    replace(
+                        state,
+                        install_sync_verified=True,
+                        shadow_sync_checked=True,
+                        git_status_checked=True,
+                    ),
+                    label="local_surfaces_synced",
+                )
+            else:
+                yield FunctionResult(
+                    SelfMaintenanceOutput("done_accepted"),
+                    replace(state, done_claim="accepted"),
+                    label="done_accepted",
+                )
+        elif action == "connect_route_graph":
             yield FunctionResult(
                 SelfMaintenanceOutput("route_graph_connected"),
-                replace(state, route_graph_connected=True, ai_profiles_declared=True),
+                replace(
+                    state,
+                    route_graph_connected=True,
+                    route_handoffs_typed=True,
+                    route_owners_unique=True,
+                    route_cycles_bounded=True,
+                    ai_profiles_declared=True,
+                ),
                 label="route_graph_connected",
             )
         elif action == "declare_field_layers":
             yield FunctionResult(
                 SelfMaintenanceOutput("field_layers_declared"),
+                replace(state, field_layers_declared=True),
+                label="field_layers_declared",
+            )
+        elif action == "consume_verified_receipt_set":
+            receipt_ids = tuple(input_obj.verified_child_receipt_ids)
+            exact_set = (
+                len(receipt_ids) == REQUIRED_RECEIPT_COUNT
+                and len(set(receipt_ids)) == REQUIRED_RECEIPT_COUNT
+                and bool(input_obj.verification_set_fingerprint)
+            )
+            yield FunctionResult(
+                SelfMaintenanceOutput("receipt_set_consumed" if exact_set else "receipt_set_rejected"),
                 replace(
                     state,
-                    field_layers_declared=True,
-                    child_reports_current=True,
-                    behavior_ledger_current=True,
-                    dcar_coverage_current=True,
-                    test_mesh_shards_current=True,
-                    model_miss_backfeed_current=True,
-                    route_api_tested=True,
+                    child_reports_current=exact_set,
+                    behavior_ledger_current=exact_set,
+                    dcar_coverage_current=exact_set,
+                    test_mesh_shards_current=exact_set,
+                    model_miss_backfeed_current=exact_set,
+                    route_api_tested=exact_set,
+                    consumed_child_receipt_ids=receipt_ids if exact_set else (),
+                    receipt_set_fingerprint=input_obj.verification_set_fingerprint if exact_set else "",
                 ),
-                label="field_layers_declared",
+                label="receipt_set_consumed" if exact_set else "receipt_set_rejected",
             )
         elif action == "run_focused_validation":
             yield FunctionResult(
@@ -184,6 +282,30 @@ class BrokenMissingSync(CorrectSelfMaintenance):
         yield from super().apply(input_obj, state)
 
 
+class BrokenSyntheticAllFlags(CorrectSelfMaintenance):
+    name = "BrokenSyntheticAllFlags"
+    idempotency = "Broken variant manufactures current evidence flags without consuming receipts."
+
+    def apply(self, input_obj: SelfMaintenanceAction, state: SelfMaintenanceState) -> Iterable[FunctionResult]:
+        if input_obj.action_type == "declare_field_layers":
+            yield FunctionResult(
+                SelfMaintenanceOutput("field_layers_declared"),
+                replace(
+                    state,
+                    field_layers_declared=True,
+                    child_reports_current=True,
+                    behavior_ledger_current=True,
+                    dcar_coverage_current=True,
+                    test_mesh_shards_current=True,
+                    model_miss_backfeed_current=True,
+                    route_api_tested=True,
+                ),
+                label="synthetic_all_flags",
+            )
+            return
+        yield from super().apply(input_obj, state)
+
+
 class BrokenMissingCoverageGate(CorrectSelfMaintenance):
     name = "BrokenMissingCoverageGate"
     omitted_gate = ""
@@ -211,6 +333,9 @@ class BrokenMissingCoverageGate(CorrectSelfMaintenance):
         if input_obj.action_type == "claim_done":
             checks = {
                 "route_graph_connected": state.route_graph_connected,
+                "route_handoffs_typed": state.route_handoffs_typed,
+                "route_owners_unique": state.route_owners_unique,
+                "route_cycles_bounded": state.route_cycles_bounded,
                 "ai_profiles_declared": state.ai_profiles_declared,
                 "field_layers_declared": state.field_layers_declared,
                 "child_reports_current": state.child_reports_current,
@@ -265,7 +390,28 @@ def no_done_without_full_route_and_sync(state: SelfMaintenanceState, trace) -> I
     del trace
     if state.done_claim == "accepted" and not state.ready_for_done():
         return InvariantResult.fail(
-            "self-maintenance done accepted before route graph, profiles, field layers, child reports, behavior ledger, DCAR, TestMesh, model-miss backfeed, tests, install, shadow, and git gates"
+            "self-maintenance done accepted before typed route handoffs, unique owners, bounded cycles, profiles, field layers, child reports, behavior ledger, DCAR, TestMesh, model-miss backfeed, tests, install, shadow, and git gates"
+        )
+    return InvariantResult.pass_()
+
+
+def no_evidence_flags_without_exact_receipt_set(state: SelfMaintenanceState, trace) -> InvariantResult:
+    del trace
+    evidence_flags = (
+        state.child_reports_current,
+        state.behavior_ledger_current,
+        state.dcar_coverage_current,
+        state.test_mesh_shards_current,
+        state.model_miss_backfeed_current,
+        state.route_api_tested,
+    )
+    if any(evidence_flags) and not (
+        len(state.consumed_child_receipt_ids) == REQUIRED_RECEIPT_COUNT
+        and len(set(state.consumed_child_receipt_ids)) == REQUIRED_RECEIPT_COUNT
+        and bool(state.receipt_set_fingerprint)
+    ):
+        return InvariantResult.fail(
+            "self-maintenance evidence flags became true without an exact independently verified receipt set"
         )
     return InvariantResult.pass_()
 
@@ -280,7 +426,7 @@ def route_graph_does_not_replace_field_layers(state: SelfMaintenanceState, trace
 INVARIANTS = (
     Invariant(
         "no_done_without_full_route_and_sync",
-        "Self-maintenance done claims require route graph, AI profiles, field layers, child reports, behavior ledger, DCAR, TestMesh, model-miss backfeed, validation, install, shadow, and git gates.",
+        "Self-maintenance done claims require typed route handoffs, unique owners, bounded cycles, AI profiles, field layers, child reports, behavior ledger, DCAR, TestMesh, model-miss backfeed, validation, install, shadow, and git gates.",
         no_done_without_full_route_and_sync,
     ),
     Invariant(
@@ -288,17 +434,25 @@ INVARIANTS = (
         "Route graph completion cannot replace field layer evidence.",
         route_graph_does_not_replace_field_layers,
     ),
+    Invariant(
+        "no_evidence_flags_without_exact_receipt_set",
+        "Evidence views require exact receipt identities and an aggregate verifier fingerprint.",
+        no_evidence_flags_without_exact_receipt_set,
+    ),
 )
+
+REQUIRED_RECEIPT_COUNT = 17
+ABSTRACT_RECEIPT_IDS = tuple(f"verified-child-{index:02d}" for index in range(REQUIRED_RECEIPT_COUNT))
 
 EXTERNAL_INPUTS = (
-    SelfMaintenanceAction("connect_route_graph"),
-    SelfMaintenanceAction("declare_field_layers"),
-    SelfMaintenanceAction("run_focused_validation"),
-    SelfMaintenanceAction("sync_local_surfaces"),
-    SelfMaintenanceAction("claim_done"),
+    SelfMaintenanceAction(
+        "advance_receipt_bound_workflow",
+        verified_child_receipt_ids=ABSTRACT_RECEIPT_IDS,
+        verification_set_fingerprint="sha256:abstract-current-receipt-set",
+    ),
 )
 
-MAX_SEQUENCE_LENGTH = 5
+MAX_SEQUENCE_LENGTH = 6
 
 
 def initial_state() -> SelfMaintenanceState:
@@ -315,6 +469,10 @@ def build_broken_route_graph_only_workflow() -> Workflow:
 
 def build_broken_missing_sync_workflow() -> Workflow:
     return Workflow((BrokenMissingSync(),), name="self_maintenance_broken_missing_sync")
+
+
+def build_broken_synthetic_all_flags_workflow() -> Workflow:
+    return Workflow((BrokenSyntheticAllFlags(),), name="self_maintenance_broken_synthetic_all_flags")
 
 
 def build_broken_missing_behavior_ledger_workflow() -> Workflow:
@@ -344,6 +502,7 @@ __all__ = [
     "build_broken_missing_dcar_coverage_workflow",
     "build_broken_missing_model_miss_backfeed_workflow",
     "build_broken_missing_sync_workflow",
+    "build_broken_synthetic_all_flags_workflow",
     "build_broken_missing_test_mesh_shards_workflow",
     "build_broken_route_graph_only_workflow",
     "build_correct_workflow",

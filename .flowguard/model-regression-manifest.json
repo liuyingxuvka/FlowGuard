@@ -1,0 +1,1143 @@
+{
+  "default_mutation_policy": "none",
+  "models": [
+    {
+      "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
+      "distribution_policy": "optional_local",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/adversarial_scenario_synthesis/model.py",
+        ".flowguard/adversarial_scenario_synthesis/run_checks.py"
+      ],
+      "model_id": "adversarial_scenario_synthesis",
+      "model_path": ".flowguard/adversarial_scenario_synthesis/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/adversarial_scenario_synthesis/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "focused",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
+      "distribution_policy": "optional_local",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/ai_entry_surface_reduction/model.py",
+        ".flowguard/ai_entry_surface_reduction/run_checks.py"
+      ],
+      "model_id": "ai_entry_surface_reduction",
+      "model_path": ".flowguard/ai_entry_surface_reduction/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/ai_entry_surface_reduction/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "focused",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "",
+      "distribution_policy": "required_public",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/ai_route_handoffs/model.py",
+        ".flowguard/ai_route_handoffs/run_checks.py"
+      ],
+      "model_id": "ai_route_handoffs",
+      "model_path": ".flowguard/ai_route_handoffs/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/ai_route_handoffs/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "focused",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "",
+      "distribution_policy": "required_public",
+      "exclusion_reason": "",
+      "expected_artifacts": [
+        "result.json"
+      ],
+      "input_globs": [
+        ".flowguard/ai_surface_streamlining/model.py",
+        ".flowguard/ai_surface_streamlining/run_checks.py"
+      ],
+      "model_id": "ai_surface_streamlining",
+      "model_path": ".flowguard/ai_surface_streamlining/model.py",
+      "mutation_policy": "isolated_output",
+      "runner": [
+        "{python}",
+        ".flowguard/ai_surface_streamlining/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "full",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
+      "distribution_policy": "optional_local",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/architecture_reduction/model.py",
+        ".flowguard/architecture_reduction/run_checks.py"
+      ],
+      "model_id": "architecture_reduction",
+      "model_path": ".flowguard/architecture_reduction/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/architecture_reduction/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "fast",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "",
+      "distribution_policy": "required_public",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/behavior_commitment_ledger/model.py",
+        ".flowguard/behavior_commitment_ledger/run_checks.py"
+      ],
+      "model_id": "behavior_commitment_ledger",
+      "model_path": ".flowguard/behavior_commitment_ledger/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/behavior_commitment_ledger/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "fast",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
+      "distribution_policy": "optional_local",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/code_boundary_conformance/model.py",
+        ".flowguard/code_boundary_conformance/run_checks.py"
+      ],
+      "model_id": "code_boundary_conformance",
+      "model_path": ".flowguard/code_boundary_conformance/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/code_boundary_conformance/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "focused",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "",
+      "distribution_policy": "required_public",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/codex_skill_satellites/model.py",
+        ".flowguard/codex_skill_satellites/run_checks.py"
+      ],
+      "model_id": "codex_skill_satellites",
+      "model_path": ".flowguard/codex_skill_satellites/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/codex_skill_satellites/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "fast",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
+      "distribution_policy": "optional_local",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/contract_source_audit/model.py",
+        ".flowguard/contract_source_audit/run_checks.py"
+      ],
+      "model_id": "contract_source_audit",
+      "model_path": ".flowguard/contract_source_audit/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/contract_source_audit/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "fast",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "",
+      "distribution_policy": "required_public",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/default_replacement_field_lifecycle/model.py",
+        ".flowguard/default_replacement_field_lifecycle/run_checks.py"
+      ],
+      "model_id": "default_replacement_field_lifecycle",
+      "model_path": ".flowguard/default_replacement_field_lifecycle/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/default_replacement_field_lifecycle/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "focused",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
+      "distribution_policy": "optional_local",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/development_process_flow/model.py",
+        ".flowguard/development_process_flow/run_checks.py"
+      ],
+      "model_id": "development_process_flow",
+      "model_path": ".flowguard/development_process_flow/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/development_process_flow/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "fast",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
+      "distribution_policy": "optional_local",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/existing_model_preflight/model.py",
+        ".flowguard/existing_model_preflight/run_checks.py"
+      ],
+      "model_id": "existing_model_preflight",
+      "model_path": ".flowguard/existing_model_preflight/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/existing_model_preflight/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "fast",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "",
+      "distribution_policy": "required_public",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/field_prompt_reduction/model.py",
+        ".flowguard/field_prompt_reduction/run_checks.py"
+      ],
+      "model_id": "field_prompt_reduction",
+      "model_path": ".flowguard/field_prompt_reduction/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/field_prompt_reduction/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "full",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
+      "distribution_policy": "optional_local",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/flowguard_closure_contract/model.py",
+        ".flowguard/flowguard_closure_contract/run_checks.py"
+      ],
+      "model_id": "flowguard_closure_contract",
+      "model_path": ".flowguard/flowguard_closure_contract/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/flowguard_closure_contract/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "fast",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
+      "distribution_policy": "optional_local",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/guard_closure_contract/model.py",
+        ".flowguard/guard_closure_contract/run_checks.py"
+      ],
+      "model_id": "guard_closure_contract",
+      "model_path": ".flowguard/guard_closure_contract/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/guard_closure_contract/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "focused",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "",
+      "distribution_policy": "required_public",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/guidance_compression/model.py",
+        ".flowguard/guidance_compression/run_checks.py"
+      ],
+      "model_id": "guidance_compression",
+      "model_path": ".flowguard/guidance_compression/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/guidance_compression/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "full",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "",
+      "distribution_policy": "required_public",
+      "exclusion_reason": "",
+      "expected_artifacts": [
+        "result.json"
+      ],
+      "input_globs": [
+        ".flowguard/harden_ui_real_surface_validation/model.py",
+        ".flowguard/harden_ui_real_surface_validation/run_checks.py"
+      ],
+      "model_id": "harden_ui_real_surface_validation",
+      "model_path": ".flowguard/harden_ui_real_surface_validation/model.py",
+      "mutation_policy": "isolated_output",
+      "runner": [
+        "{python}",
+        ".flowguard/harden_ui_real_surface_validation/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "full",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
+      "distribution_policy": "optional_local",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/hierarchical_model_mesh/model.py",
+        ".flowguard/hierarchical_model_mesh/run_checks.py"
+      ],
+      "model_id": "hierarchical_model_mesh",
+      "model_path": ".flowguard/hierarchical_model_mesh/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/hierarchical_model_mesh/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "focused",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "",
+      "distribution_policy": "required_public",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/legacy_compatibility_cleanup/model.py",
+        ".flowguard/legacy_compatibility_cleanup/run_checks.py"
+      ],
+      "model_id": "legacy_compatibility_cleanup",
+      "model_path": ".flowguard/legacy_compatibility_cleanup/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/legacy_compatibility_cleanup/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "full",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
+      "distribution_policy": "optional_local",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/lightweight_model_miss_review/model.py",
+        ".flowguard/lightweight_model_miss_review/run_checks.py"
+      ],
+      "model_id": "lightweight_model_miss_review",
+      "model_path": ".flowguard/lightweight_model_miss_review/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/lightweight_model_miss_review/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "focused",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "",
+      "distribution_policy": "required_public",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/maintenance_obligation_memory/model.py",
+        ".flowguard/maintenance_obligation_memory/run_checks.py"
+      ],
+      "model_id": "maintenance_obligation_memory",
+      "model_path": ".flowguard/maintenance_obligation_memory/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/maintenance_obligation_memory/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "focused",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "",
+      "distribution_policy": "required_public",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/maintenance_scan_router/model.py",
+        ".flowguard/maintenance_scan_router/run_checks.py"
+      ],
+      "model_id": "maintenance_scan_router",
+      "model_path": ".flowguard/maintenance_scan_router/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/maintenance_scan_router/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "focused",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
+      "distribution_policy": "optional_local",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/mesh_target_split_derivation/model.py",
+        ".flowguard/mesh_target_split_derivation/run_checks.py"
+      ],
+      "model_id": "mesh_target_split_derivation",
+      "model_path": ".flowguard/mesh_target_split_derivation/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/mesh_target_split_derivation/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "focused",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "",
+      "distribution_policy": "required_public",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/minimum_valuable_model_entry/model.py",
+        ".flowguard/minimum_valuable_model_entry/run_checks.py"
+      ],
+      "model_id": "minimum_valuable_model_entry",
+      "model_path": ".flowguard/minimum_valuable_model_entry/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/minimum_valuable_model_entry/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "focused",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "",
+      "distribution_policy": "required_public",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/model_angle_deliberation/model.py",
+        ".flowguard/model_angle_deliberation/run_checks.py"
+      ],
+      "model_id": "model_angle_deliberation",
+      "model_path": ".flowguard/model_angle_deliberation/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/model_angle_deliberation/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "focused",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
+      "distribution_policy": "optional_local",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/model_impact_freshness_gate/model.py",
+        ".flowguard/model_impact_freshness_gate/run_checks.py"
+      ],
+      "model_id": "model_impact_freshness_gate",
+      "model_path": ".flowguard/model_impact_freshness_gate/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/model_impact_freshness_gate/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "focused",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
+      "distribution_policy": "optional_local",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/model_mesh_closure_model/model.py",
+        ".flowguard/model_mesh_closure_model/run_checks.py"
+      ],
+      "model_id": "model_mesh_closure_model",
+      "model_path": ".flowguard/model_mesh_closure_model/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/model_mesh_closure_model/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "focused",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "",
+      "distribution_policy": "required_public",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/model_miss_review/model.py",
+        ".flowguard/model_miss_review/run_checks.py"
+      ],
+      "model_id": "model_miss_review",
+      "model_path": ".flowguard/model_miss_review/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/model_miss_review/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "focused",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "",
+      "distribution_policy": "required_public",
+      "exclusion_reason": "",
+      "expected_artifacts": [
+        "result.json"
+      ],
+      "input_globs": [
+        ".flowguard/model_similarity_consolidation/model.py",
+        ".flowguard/model_similarity_consolidation/run_checks.py"
+      ],
+      "model_id": "model_similarity_consolidation",
+      "model_path": ".flowguard/model_similarity_consolidation/model.py",
+      "mutation_policy": "isolated_output",
+      "runner": [
+        "{python}",
+        ".flowguard/model_similarity_consolidation/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "full",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "",
+      "distribution_policy": "required_public",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/model_test_code_alignment/model.py",
+        ".flowguard/model_test_code_alignment/run_checks.py"
+      ],
+      "model_id": "model_test_code_alignment",
+      "model_path": ".flowguard/model_test_code_alignment/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/model_test_code_alignment/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "fast",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "",
+      "distribution_policy": "required_public",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/model_topology_hazard_review/model.py",
+        ".flowguard/model_topology_hazard_review/run_checks.py"
+      ],
+      "model_id": "model_topology_hazard_review",
+      "model_path": ".flowguard/model_topology_hazard_review/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/model_topology_hazard_review/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "fast",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
+      "distribution_policy": "optional_local",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/model_visibility/model.py",
+        ".flowguard/model_visibility/run_checks.py"
+      ],
+      "model_id": "model_visibility",
+      "model_path": ".flowguard/model_visibility/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/model_visibility/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "full",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
+      "distribution_policy": "optional_local",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/openspec_archive_cleanup/model.py",
+        ".flowguard/openspec_archive_cleanup/run_checks.py"
+      ],
+      "model_id": "openspec_archive_cleanup",
+      "model_path": ".flowguard/openspec_archive_cleanup/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/openspec_archive_cleanup/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "full",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
+      "distribution_policy": "optional_local",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/plan_detailing_compiler/model.py",
+        ".flowguard/plan_detailing_compiler/run_checks.py"
+      ],
+      "model_id": "plan_detailing_compiler",
+      "model_path": ".flowguard/plan_detailing_compiler/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/plan_detailing_compiler/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "focused",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
+      "distribution_policy": "optional_local",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/primary_path_authority/model.py",
+        ".flowguard/primary_path_authority/run_checks.py"
+      ],
+      "model_id": "primary_path_authority",
+      "model_path": ".flowguard/primary_path_authority/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/primary_path_authority/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "focused",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
+      "distribution_policy": "optional_local",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/project_adoption_version_gate/model.py",
+        ".flowguard/project_adoption_version_gate/run_checks.py"
+      ],
+      "model_id": "project_adoption_version_gate",
+      "model_path": ".flowguard/project_adoption_version_gate/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/project_adoption_version_gate/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "fast",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
+      "distribution_policy": "optional_local",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/readme_positioning_20260602/model.py",
+        ".flowguard/readme_positioning_20260602/run_checks.py"
+      ],
+      "model_id": "readme_positioning_20260602",
+      "model_path": ".flowguard/readme_positioning_20260602/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/readme_positioning_20260602/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "full",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
+      "distribution_policy": "optional_local",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/reduce_architecture_surface/model.py",
+        ".flowguard/reduce_architecture_surface/run_checks.py"
+      ],
+      "model_id": "reduce_architecture_surface",
+      "model_path": ".flowguard/reduce_architecture_surface/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/reduce_architecture_surface/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "full",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
+      "distribution_policy": "optional_local",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/release_visibility_process/model.py",
+        ".flowguard/release_visibility_process/run_checks.py"
+      ],
+      "model_id": "release_visibility_process",
+      "model_path": ".flowguard/release_visibility_process/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/release_visibility_process/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "full",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
+      "distribution_policy": "optional_local",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/risk_purpose_header/model.py",
+        ".flowguard/risk_purpose_header/run_checks.py"
+      ],
+      "model_id": "risk_purpose_header",
+      "model_path": ".flowguard/risk_purpose_header/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/risk_purpose_header/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "full",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "",
+      "distribution_policy": "required_public",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/runtime_gateway_adoption/model.py",
+        ".flowguard/runtime_gateway_adoption/run_checks.py"
+      ],
+      "model_id": "runtime_gateway_adoption",
+      "model_path": ".flowguard/runtime_gateway_adoption/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/runtime_gateway_adoption/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "focused",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
+      "distribution_policy": "optional_local",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/runtime_path_evidence/model.py",
+        ".flowguard/runtime_path_evidence/run_checks.py"
+      ],
+      "model_id": "runtime_path_evidence",
+      "model_path": ".flowguard/runtime_path_evidence/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/runtime_path_evidence/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "focused",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "",
+      "distribution_policy": "required_public",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/self_maintenance_mesh/model.py",
+        ".flowguard/self_maintenance_mesh/run_checks.py"
+      ],
+      "model_id": "self_maintenance_mesh",
+      "model_path": ".flowguard/self_maintenance_mesh/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/self_maintenance_mesh/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "fast",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
+      "distribution_policy": "optional_local",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/simplify_field_schema/model.py",
+        ".flowguard/simplify_field_schema/run_checks.py"
+      ],
+      "model_id": "simplify_field_schema",
+      "model_path": ".flowguard/simplify_field_schema/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/simplify_field_schema/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "full",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
+      "distribution_policy": "optional_local",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/simplify_flowguard_structure/model.py",
+        ".flowguard/simplify_flowguard_structure/run_checks.py"
+      ],
+      "model_id": "simplify_flowguard_structure",
+      "model_path": ".flowguard/simplify_flowguard_structure/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/simplify_flowguard_structure/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "full",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
+      "distribution_policy": "optional_local",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/skill_kernel_modularization/model.py",
+        ".flowguard/skill_kernel_modularization/run_checks.py"
+      ],
+      "model_id": "skill_kernel_modularization",
+      "model_path": ".flowguard/skill_kernel_modularization/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/skill_kernel_modularization/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "focused",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "",
+      "distribution_policy": "required_public",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/state_closure_gate/model.py",
+        ".flowguard/state_closure_gate/run_checks.py"
+      ],
+      "model_id": "state_closure_gate",
+      "model_path": ".flowguard/state_closure_gate/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/state_closure_gate/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "focused",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
+      "distribution_policy": "optional_local",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/structure_refactor_mesh/model.py",
+        ".flowguard/structure_refactor_mesh/run_checks.py"
+      ],
+      "model_id": "structure_refactor_mesh",
+      "model_path": ".flowguard/structure_refactor_mesh/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/structure_refactor_mesh/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "focused",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "",
+      "distribution_policy": "required_public",
+      "exclusion_reason": "",
+      "expected_artifacts": [
+        "result.json"
+      ],
+      "input_globs": [
+        ".flowguard/structure_surface_simplification/model.py",
+        ".flowguard/structure_surface_simplification/run_checks.py"
+      ],
+      "model_id": "structure_surface_simplification",
+      "model_path": ".flowguard/structure_surface_simplification/model.py",
+      "mutation_policy": "isolated_output",
+      "runner": [
+        "{python}",
+        ".flowguard/structure_surface_simplification/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "full",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "",
+      "distribution_policy": "required_public",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/template_harvest_closure/model.py",
+        ".flowguard/template_harvest_closure/run_checks.py"
+      ],
+      "model_id": "template_harvest_closure",
+      "model_path": ".flowguard/template_harvest_closure/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/template_harvest_closure/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "full",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "",
+      "distribution_policy": "required_public",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/template_public_release/model.py",
+        ".flowguard/template_public_release/run_checks.py"
+      ],
+      "model_id": "template_public_release",
+      "model_path": ".flowguard/template_public_release/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/template_public_release/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "full",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
+      "distribution_policy": "optional_local",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/test_evidence_mesh/model.py",
+        ".flowguard/test_evidence_mesh/run_checks.py"
+      ],
+      "model_id": "test_evidence_mesh",
+      "model_path": ".flowguard/test_evidence_mesh/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/test_evidence_mesh/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "fast",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "",
+      "distribution_policy": "required_public",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/ui_flow_structure_skill/model.py",
+        ".flowguard/ui_flow_structure_skill/run_checks.py"
+      ],
+      "model_id": "ui_flow_structure_skill",
+      "model_path": ".flowguard/ui_flow_structure_skill/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/ui_flow_structure_skill/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "fast",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "",
+      "distribution_policy": "required_public",
+      "exclusion_reason": "",
+      "expected_artifacts": [
+        "result.json"
+      ],
+      "input_globs": [
+        ".flowguard/ui_human_operability_gate/model.py",
+        ".flowguard/ui_human_operability_gate/run_checks.py"
+      ],
+      "model_id": "ui_human_operability_gate",
+      "model_path": ".flowguard/ui_human_operability_gate/model.py",
+      "mutation_policy": "isolated_output",
+      "runner": [
+        "{python}",
+        ".flowguard/ui_human_operability_gate/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "full",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
+      "distribution_policy": "optional_local",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/user_facing_model_diagrams/model.py",
+        ".flowguard/user_facing_model_diagrams/run_checks.py"
+      ],
+      "model_id": "user_facing_model_diagrams",
+      "model_path": ".flowguard/user_facing_model_diagrams/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/user_facing_model_diagrams/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "full",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
+      "distribution_policy": "optional_local",
+      "exclusion_reason": "",
+      "expected_artifacts": [
+        "result.json"
+      ],
+      "input_globs": [
+        ".flowguard/validation_evidence_gates/model.py",
+        ".flowguard/validation_evidence_gates/run_checks.py"
+      ],
+      "model_id": "validation_evidence_gates",
+      "model_path": ".flowguard/validation_evidence_gates/model.py",
+      "mutation_policy": "isolated_output",
+      "runner": [
+        "{python}",
+        ".flowguard/validation_evidence_gates/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "full",
+      "timeout_seconds": 300
+    }
+  ],
+  "schema_version": "flowguard.model_regression_manifest.v1",
+  "tier_semantics": {
+    "fast": "fast entries only",
+    "focused": "fast plus focused entries",
+    "full": "all non-excluded entries"
+  }
+}

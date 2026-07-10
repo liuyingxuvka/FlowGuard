@@ -1,50 +1,40 @@
 ---
 name: flowguard-existing-model-preflight
-description: Use before discussion, proposal, feature, bug, refactor, UI, test, prompt, skill, or workflow change in an existing modeled system.
+description: Use before non-trivial discussion, proposal, feature, bug, refactor, UI, test, prompt, skill, workflow, or process work in an existing modeled system to identify current ownership and duplicate-boundary risk.
 ---
 
 # FlowGuard Existing Model Preflight
 
-Standalone FlowGuard satellite skill for grounding work in current model ownership before changing a boundary. If it resembles another workflow, include Model Similarity Consolidation before reuse, extension, child model, or new boundary.
+## Purpose
+Ground new work in existing model, behavior, field, state, side-effect, and entrypoint ownership before another route changes the boundary.
 
-Return to `model-first-function-flow` when the route is unclear. Pair this preflight with the downstream route that owns the actual work.
+## Entrypoint Scope
+Route id: `existing_model_preflight`; role: `public_owner`; native owner: `existing_model_preflight`. This standalone FlowGuard satellite skill is a companion preflight, not the downstream change owner.
 
-## First Read
+## Local Material Routing
+Read `references/existing_model_preflight_protocol.md` for light/full search, ownership snapshots, reuse decisions, duplicate risks, and layered proof status.
 
-- Route id: `existing_model_preflight`.
-- Helpers: `ExistingModelPreflight`, `ModelContextHit`, `ExistingOwnershipSnapshot`, `DuplicateBoundaryRisk`, `existing_model_preflight_from_project()`, `review_existing_model_preflight()`.
-- Behavior companion: identify affected commitment ids and owner models before creating a new boundary.
-- Model-angle companion: `ModelAngleDeliberation`, `review_model_angle_deliberations()`.
-- Similarity handoff: cite relation ids, maintenance groups, change-impact ids, sibling model ids.
-- Reference: `references/existing_model_preflight_protocol.md`.
+## Entrypoint Acceptance Map
+Accept a target change boundary and project root; search current models/sources; choose reuse, extend, child, new boundary, or no-model-found; block unsupported ownership; hand typed work to the actual satellite owner.
+
+## Use When
+- Use before proposals or implementation in an existing modeled system, especially where behavior commitments, fields, similar models, or parent/child evidence may already own the change.
+
+## Do Not Use When
+- Do not implement, split code/tests/models, or replace route-native validation; skip typo/format/read-only work with no model context and return unclear work to `model-first-function-flow`.
+
+## Required Workflow
+1. Search model records, specs, docs, source surfaces, and repository-local FlowGuard records; classify old-shape evidence.
+2. Extract existing FunctionBlock, state, field, side-effect, entrypoint, commitment, and parent/child ownership.
+3. Record reuse decision, duplicate-boundary risks, affected siblings/commitments, stale gaps, and typed downstream route.
 
 ## Hard Gates
+- Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
+- Full mode is required before proposal/implementation/major change; light notes cannot prove readiness.
+- Missing search, stale ownership, unresolved model angles, duplicate owners, or unreviewed layered-proof status blocks full preflight.
 
-- Verify FlowGuard check engine and AGENTS.md managed records; no fake mini-framework.
-- Prefer existing modeled responsibilities and field lifecycle ownership over parallel ownership.
-- Prefer existing commitments; overlap or unregistered external behavior routes to BCL.
-- For add/change/remove/model-miss, identify affected commitment ids before creating or deepening a model boundary.
-- Model misses first map to the existing owner model; ledger backfill only when no existing commitment covers the behavior.
-- Keep stale, skipped, missing, and no-model-found evidence visible.
-- Treat older model artifacts as upgrade-boundary inputs before trusting old-shape evidence.
+## Output Requirements
+- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`, plus model hits, ownership, reuse decision, and duplicate risks.
 
-## Minimum Workflow
-
-1. Search model records, docs, spec-tool records, and `.flowguard/`.
-2. Extract FunctionBlock, state, side-effect, public-entrypoint, and field lifecycle owners.
-3. Classify old-shape models as upgraded, blocked, or current before reuse.
-4. Decide reuse, extend, add child model, new boundary, or no model found.
-5. Record affected commitment ids, owner model, siblings, and downstream route.
-6. For replacements/removals, record old owner and old-path disposition to BCL, FieldLifecycleMesh, PPA.
-7. Record model-angle deliberation; unresolved required angles block full preflight.
-8. Route duplicate-boundary shrinkage to Architecture Reduction.
-
-## Snapshot
-
-Show existing model boundaries, field owners/gaps, model-angle gaps, reuse decision, duplicate-boundary risks, downstream route.
-
-## Non-Goals
-
-- Do not implement production changes.
-- Do not split code, tests, or models directly.
-- Do not replace route-specific validation evidence.
+## SkillGuard Maintenance
+- Edit `.skillguard/contract-source.json`, then regenerate derived contracts; SkillGuard checks preflight coverage and cannot approve the downstream change.

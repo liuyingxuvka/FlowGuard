@@ -11,7 +11,19 @@ import json
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
+from .evidence_receipts import (
+    EvidenceReceipt,
+    ReceiptVerificationResult,
+    fingerprint_value,
+)
 from .export import to_jsonable
+from .route_topology import (
+    RouteHandoff,
+    external_action_handoff,
+    helper_handoff,
+    require_typed_handoff,
+    route_handoffs,
+)
 
 
 SELF_MAINTENANCE_ROUTE = "flowguard_self_maintenance"
@@ -38,16 +50,26 @@ SELF_MAINTENANCE_REQUIRED_CHILD_REPORTS = (
 )
 
 SELF_MAINTENANCE_STATUS_PASS = "pass"
+SELF_MAINTENANCE_STATUS_PASS_WITH_GAPS = "pass_with_gaps"
 SELF_MAINTENANCE_STATUS_SCOPED = "scoped"
 SELF_MAINTENANCE_STATUS_BLOCKED = "blocked"
 SELF_MAINTENANCE_STATUS_STALE = "stale"
 SELF_MAINTENANCE_STATUS_SKIPPED = "skipped"
+SELF_MAINTENANCE_STATUS_NOT_RUN = "not_run"
+SELF_MAINTENANCE_STATUS_PROGRESS_ONLY = "progress_only"
+SELF_MAINTENANCE_STATUS_FAIL = "fail"
+SELF_MAINTENANCE_STATUS_ERROR = "error"
 SELF_MAINTENANCE_STATUSES = (
     SELF_MAINTENANCE_STATUS_PASS,
+    SELF_MAINTENANCE_STATUS_PASS_WITH_GAPS,
     SELF_MAINTENANCE_STATUS_SCOPED,
     SELF_MAINTENANCE_STATUS_BLOCKED,
     SELF_MAINTENANCE_STATUS_STALE,
     SELF_MAINTENANCE_STATUS_SKIPPED,
+    SELF_MAINTENANCE_STATUS_NOT_RUN,
+    SELF_MAINTENANCE_STATUS_PROGRESS_ONLY,
+    SELF_MAINTENANCE_STATUS_FAIL,
+    SELF_MAINTENANCE_STATUS_ERROR,
 )
 
 SELF_MAINTENANCE_DECISION_FULL = "self_maintenance_full"
@@ -104,7 +126,7 @@ def _coerce_child_report(value: Any) -> "SelfMaintenanceChildReport":
     if isinstance(value, SelfMaintenanceChildReport):
         return value
     if isinstance(value, Mapping):
-        return SelfMaintenanceChildReport(**dict(value))
+        return SelfMaintenanceChildReport.from_dict(value)
     raise TypeError(f"cannot coerce {type(value).__name__} to SelfMaintenanceChildReport")
 
 
@@ -117,7 +139,7 @@ class RouteProfile:
     minimal_inputs: tuple[str, ...] = ()
     outputs: tuple[str, ...] = ()
     evidence_owner: str = ""
-    next_actions: tuple[str, ...] = ()
+    next_actions: tuple[RouteHandoff, ...] = ()
     api_group: str = ""
     template_factory: str = ""
     skill_name: str = ""
@@ -135,7 +157,11 @@ class RouteProfile:
         object.__setattr__(self, "minimal_inputs", _as_tuple(self.minimal_inputs))
         object.__setattr__(self, "outputs", _as_tuple(self.outputs))
         object.__setattr__(self, "evidence_owner", str(self.evidence_owner or self.route_id))
-        object.__setattr__(self, "next_actions", _as_tuple(self.next_actions))
+        object.__setattr__(
+            self,
+            "next_actions",
+            tuple(require_typed_handoff(value) for value in self.next_actions),
+        )
         object.__setattr__(self, "api_group", str(self.api_group or self.route_id))
         object.__setattr__(self, "template_factory", str(self.template_factory))
         object.__setattr__(self, "skill_name", str(self.skill_name))
@@ -163,7 +189,7 @@ class RouteProfile:
             "minimal_inputs": list(self.minimal_inputs),
             "outputs": list(self.outputs),
             "evidence_owner": self.evidence_owner,
-            "next_actions": list(self.next_actions),
+            "next_actions": [handoff.to_dict() for handoff in self.next_actions],
             "api_group": self.api_group,
             "template_factory": self.template_factory,
             "skill_name": self.skill_name,
@@ -246,12 +272,26 @@ class FieldLayerProfile:
 
 @dataclass(frozen=True)
 class SelfMaintenanceChildReport:
-    """Closure report from one self-maintenance child route."""
+    """Derived view of one independently verified child receipt.
+
+    This object is deliberately not evidence authority.  ``current`` and
+    ``closure_status`` are read-only projections of the verifier result, while
+    full self-governance re-verifies the underlying ``EvidenceReceipt``.
+    """
 
     child_id: str
     owner_guard: str
     artifact_kind: str
-    closure_status: str = SELF_MAINTENANCE_STATUS_SKIPPED
+    receipt_id: str = ""
+    receipt_fingerprint: str = ""
+    input_fingerprint: str = ""
+    claim_scope: str = ""
+    covered_obligations: tuple[str, ...] = ()
+    verification_status: str = SELF_MAINTENANCE_STATUS_NOT_RUN
+    verification_current: bool = False
+    verification_eligible: bool = False
+    verification_finding_codes: tuple[str, ...] = ()
+    minimum_revalidation: tuple[str, ...] = ()
     findings: tuple[str, ...] = ()
     missing_inputs: tuple[str, ...] = ()
     stale_evidence: tuple[str, ...] = ()
@@ -259,17 +299,25 @@ class SelfMaintenanceChildReport:
     next_actions: tuple[str, ...] = ()
     safe_claim: str = ""
     unsafe_claim_boundary: str = ""
-    current: bool = False
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "child_id", str(self.child_id))
         object.__setattr__(self, "owner_guard", str(self.owner_guard))
         object.__setattr__(self, "artifact_kind", str(self.artifact_kind))
-        status = str(self.closure_status or SELF_MAINTENANCE_STATUS_SKIPPED)
+        object.__setattr__(self, "receipt_id", str(self.receipt_id))
+        object.__setattr__(self, "receipt_fingerprint", str(self.receipt_fingerprint))
+        object.__setattr__(self, "input_fingerprint", str(self.input_fingerprint))
+        object.__setattr__(self, "claim_scope", str(self.claim_scope))
+        object.__setattr__(self, "covered_obligations", _as_tuple(self.covered_obligations))
+        status = str(self.verification_status or SELF_MAINTENANCE_STATUS_NOT_RUN)
         if status not in SELF_MAINTENANCE_STATUSES:
             raise ValueError(f"unknown self-maintenance status: {status}")
-        object.__setattr__(self, "closure_status", status)
+        object.__setattr__(self, "verification_status", status)
+        object.__setattr__(self, "verification_current", bool(self.verification_current))
+        object.__setattr__(self, "verification_eligible", bool(self.verification_eligible))
+        object.__setattr__(self, "verification_finding_codes", _as_tuple(self.verification_finding_codes))
+        object.__setattr__(self, "minimum_revalidation", _as_tuple(self.minimum_revalidation))
         object.__setattr__(self, "findings", _as_tuple(self.findings))
         object.__setattr__(self, "missing_inputs", _as_tuple(self.missing_inputs))
         object.__setattr__(self, "stale_evidence", _as_tuple(self.stale_evidence))
@@ -277,11 +325,28 @@ class SelfMaintenanceChildReport:
         object.__setattr__(self, "next_actions", _as_tuple(self.next_actions))
         object.__setattr__(self, "safe_claim", str(self.safe_claim))
         object.__setattr__(self, "unsafe_claim_boundary", str(self.unsafe_claim_boundary))
-        object.__setattr__(self, "current", bool(self.current))
         object.__setattr__(self, "metadata", dict(self.metadata))
 
+    @property
+    def closure_status(self) -> str:
+        return self.verification_status
+
+    @property
+    def current(self) -> bool:
+        return self.verification_current
+
     def is_current_pass(self) -> bool:
-        return self.current and self.closure_status == SELF_MAINTENANCE_STATUS_PASS
+        return (
+            bool(self.receipt_id)
+            and bool(self.receipt_fingerprint)
+            and bool(self.input_fingerprint)
+            and self.claim_scope == "full"
+            and bool(self.covered_obligations)
+            and self.verification_current
+            and self.verification_eligible
+            and self.verification_status == SELF_MAINTENANCE_STATUS_PASS
+            and not self.skipped_checks
+        )
 
     def is_scoped_or_pass(self) -> bool:
         return self.current and self.closure_status in {
@@ -289,12 +354,104 @@ class SelfMaintenanceChildReport:
             SELF_MAINTENANCE_STATUS_SCOPED,
         }
 
+    @classmethod
+    def from_verified_receipt(
+        cls,
+        receipt: EvidenceReceipt,
+        verification: ReceiptVerificationResult,
+        *,
+        child_id: str | None = None,
+        owner_guard: str = "",
+        artifact_kind: str = "evidence_receipt",
+        safe_claim: str = "",
+        unsafe_claim_boundary: str = "",
+    ) -> "SelfMaintenanceChildReport":
+        fingerprint_matches = (
+            verification.receipt_id == receipt.receipt_id
+            and verification.receipt_fingerprint == receipt.fingerprint
+        )
+        status = verification.status if fingerprint_matches else SELF_MAINTENANCE_STATUS_BLOCKED
+        finding_codes = verification.finding_codes + (() if fingerprint_matches else ("receipt_identity_mismatch",))
+        return cls(
+            child_id=child_id or receipt.subject_id,
+            owner_guard=owner_guard or receipt.producer_id,
+            artifact_kind=artifact_kind,
+            receipt_id=receipt.receipt_id,
+            receipt_fingerprint=receipt.fingerprint,
+            input_fingerprint=fingerprint_value([item.to_dict() for item in receipt.input_snapshots]),
+            claim_scope=receipt.claim_scope,
+            covered_obligations=receipt.covered_obligations,
+            verification_status=status,
+            verification_current=verification.current and fingerprint_matches,
+            verification_eligible=verification.eligible and fingerprint_matches,
+            verification_finding_codes=finding_codes,
+            minimum_revalidation=verification.minimum_revalidation,
+            findings=tuple(finding.message for finding in verification.findings),
+            stale_evidence=tuple(
+                finding.artifact_id or finding.code
+                for finding in verification.findings
+                if "stale" in finding.code or "mismatch" in finding.code or finding.code.startswith("input_")
+            ),
+            skipped_checks=receipt.skipped_checks,
+            next_actions=verification.minimum_revalidation,
+            safe_claim=safe_claim or receipt.claim_boundary,
+            unsafe_claim_boundary=unsafe_claim_boundary or receipt.claim_boundary,
+            metadata={"derived_freshness": True},
+        )
+
+    @classmethod
+    def unbound(
+        cls,
+        *,
+        child_id: str,
+        owner_guard: str,
+        artifact_kind: str,
+        missing_inputs: Sequence[str] = (),
+        next_actions: Sequence[str] = (),
+        unsafe_claim_boundary: str = "",
+    ) -> "SelfMaintenanceChildReport":
+        return cls(
+            child_id=child_id,
+            owner_guard=owner_guard,
+            artifact_kind=artifact_kind,
+            verification_status=SELF_MAINTENANCE_STATUS_NOT_RUN,
+            missing_inputs=tuple(missing_inputs),
+            next_actions=tuple(next_actions),
+            unsafe_claim_boundary=unsafe_claim_boundary,
+            metadata={"derived_freshness": False, "unbound": True},
+        )
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "SelfMaintenanceChildReport":
+        values = dict(data)
+        # Historical caller-authored status/current fields remain visible only
+        # as unbound diagnostics; they can never become current pass evidence.
+        legacy_status = values.pop("closure_status", "")
+        legacy_current = values.pop("current", None)
+        if legacy_status or legacy_current is not None:
+            values["verification_status"] = SELF_MAINTENANCE_STATUS_BLOCKED
+            values["verification_current"] = False
+            values["verification_eligible"] = False
+            metadata = dict(values.get("metadata", {}))
+            metadata["legacy_authority_rejected"] = True
+            values["metadata"] = metadata
+        return cls(**values)
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "child_id": self.child_id,
             "owner_guard": self.owner_guard,
             "artifact_kind": self.artifact_kind,
+            "receipt_id": self.receipt_id,
+            "receipt_fingerprint": self.receipt_fingerprint,
+            "input_fingerprint": self.input_fingerprint,
+            "claim_scope": self.claim_scope,
+            "covered_obligations": list(self.covered_obligations),
             "closure_status": self.closure_status,
+            "derived_current": self.current,
+            "verification_eligible": self.verification_eligible,
+            "verification_finding_codes": list(self.verification_finding_codes),
+            "minimum_revalidation": list(self.minimum_revalidation),
             "findings": list(self.findings),
             "missing_inputs": list(self.missing_inputs),
             "stale_evidence": list(self.stale_evidence),
@@ -302,7 +459,6 @@ class SelfMaintenanceChildReport:
             "next_actions": list(self.next_actions),
             "safe_claim": self.safe_claim,
             "unsafe_claim_boundary": self.unsafe_claim_boundary,
-            "current": self.current,
             "metadata": to_jsonable(dict(self.metadata)),
         }
 
@@ -444,18 +600,35 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
 
     return (
         RouteProfile(
+            "model_first_function_flow",
+            "Ordinary behavior/state modeling, unclear route choice, or cross-route coordination needs the kernel front door.",
+            ("task intent", "observable behavior boundary", "existing model evidence"),
+            ("kernel model", "selected owner route", "claim boundary"),
+            "model_first_function_flow",
+            (),
+            "model_first_function_flow",
+            "",
+            "model-first-function-flow",
+        ),
+        RouteProfile(
             "template_structure",
             "Project, route, or evidence templates need route-scoped public facade discovery.",
             ("template purpose", "target root"),
             ("template files", "write target", "route-owned template text"),
             "template_structure",
-            ("development_process_flow", "flowguard-codex-skill-satellites"),
+            route_handoffs("development_process_flow", "model_first_function_flow")
+            + (
+                helper_handoff(
+                    "write_template_files",
+                    condition="when route-owned template files are ready to materialize",
+                ),
+            ),
             "template_structure",
             "write_template_files",
             route_role=ROUTE_ROLE_DATA_HELPER,
             entry_policy=ENTRY_POLICY_INTERNAL_ONLY,
-            canonical_owner_route=SELF_MAINTENANCE_ROUTE,
-            absorbed_by_route=SELF_MAINTENANCE_ROUTE,
+            canonical_owner_route="model_first_function_flow",
+            absorbed_by_route="model_first_function_flow",
             cleanup_disposition=CLEANUP_DISPOSITION_ABSORB,
         ),
         RouteProfile(
@@ -464,7 +637,7 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             ("process-like evidence", "gate statuses"),
             ("evidence gates", "background detail", "mesh split detail"),
             "evidence_field_structure",
-            ("development_process_flow", "risk_evidence_ledger"),
+            route_handoffs("development_process_flow", "risk_evidence_ledger"),
             "evidence_field_structure",
             route_role=ROUTE_ROLE_DATA_HELPER,
             entry_policy=ENTRY_POLICY_INTERNAL_ONLY,
@@ -478,7 +651,12 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             ("project root", "candidate change boundary"),
             ("reuse decision", "duplicate-boundary risks", "affected commitment ids", "downstream route"),
             "existing_model_preflight",
-            ("behavior_commitment_ledger", "model_similarity_consolidation", "architecture_reduction", "field_lifecycle_mesh"),
+            route_handoffs(
+                "behavior_commitment_ledger",
+                "model_similarity_consolidation",
+                "architecture_reduction",
+                "field_lifecycle_mesh",
+            ),
             "existing_model_preflight",
             "existing_model_preflight_template_files",
             "flowguard-existing-model-preflight",
@@ -499,7 +677,7 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
                 "risk gate ids",
             ),
             "behavior_commitment_ledger",
-            (
+            route_handoffs(
                 "primary_path_authority",
                 "contract_exhaustion_mesh",
                 "model_test_alignment",
@@ -526,10 +704,10 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             ("business intent", "primary path", "old or alternate path candidates", "coverage receipts"),
             ("authority decision", "old-path disposition gaps", "coverage gate ids", "risk gate ids"),
             "primary_path_authority",
-            ("contract_exhaustion_mesh", "test_mesh_maintenance", "risk_evidence_ledger"),
+            route_handoffs("contract_exhaustion_mesh", "test_mesh_maintenance", "risk_evidence_ledger"),
             "primary_path_authority",
             "primary_path_authority_template_files",
-            "flowguard-development-process-flow",
+            "",
             metadata={
                 "checklist": (
                     "enumerate runtime paths, aliases, wrappers, helper routes, old fields, recovery paths, and migrations",
@@ -538,6 +716,11 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
                     "require ContractExhaustionMesh axes, TestMesh shards, and RiskLedger gates for broad claims",
                 )
             },
+            route_role=ROUTE_ROLE_INTERNAL_FEEDER,
+            entry_policy=ENTRY_POLICY_VIA_OWNER,
+            canonical_owner_route="behavior_commitment_ledger",
+            absorbed_by_route="behavior_commitment_ledger",
+            cleanup_disposition=CLEANUP_DISPOSITION_KEEP,
         ),
         RouteProfile(
             "model_angle_deliberation",
@@ -545,7 +728,7 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             ("candidate angle rows", "current model coverage", "miss risk"),
             ("model angle decision", "owner route", "unresolved angle ids"),
             "model_angle_deliberation",
-            ("existing_model_preflight", "model_maturation_loop", "model_mesh_maintenance"),
+            route_handoffs("existing_model_preflight", "model_maturation_loop", "model_mesh_maintenance"),
             "model_angle_deliberation",
             "model_angle_deliberation_template_files",
             route_role=ROUTE_ROLE_INTERNAL_FEEDER,
@@ -555,14 +738,36 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             cleanup_disposition=CLEANUP_DISPOSITION_ABSORB,
         ),
         RouteProfile(
+            "model_maturation_loop",
+            "A model needs bounded deepening or repair before its downstream claim can continue.",
+            ("model gaps", "accepted evidence delta", "re-entry count"),
+            ("deepened model", "terminal success", "typed blocked terminal"),
+            "model_first_function_flow",
+            (),
+            "model_maturation_loop",
+            "",
+            "",
+            route_role=ROUTE_ROLE_INTERNAL_FEEDER,
+            entry_policy=ENTRY_POLICY_VIA_OWNER,
+            canonical_owner_route="model_first_function_flow",
+            absorbed_by_route="model_first_function_flow",
+            cleanup_disposition=CLEANUP_DISPOSITION_KEEP,
+        ),
+        RouteProfile(
             "risk_template_library",
             "New or deepened models need reusable public/local risk templates and local harvest candidates.",
             ("risk query", "public templates", "local template root"),
             ("template matches", "reuse review", "candidate harvest report"),
             "risk_template_library",
-            ("model_maturation_loop", "model_similarity_consolidation", "development_process_flow"),
+            route_handoffs("model_maturation_loop", "model_similarity_consolidation", "development_process_flow"),
             "risk_template_library",
             "risk_template_library_template_files",
+            "",
+            route_role=ROUTE_ROLE_INTERNAL_FEEDER,
+            entry_policy=ENTRY_POLICY_VIA_OWNER,
+            canonical_owner_route="model_first_function_flow",
+            absorbed_by_route="model_first_function_flow",
+            cleanup_disposition=CLEANUP_DISPOSITION_KEEP,
         ),
         RouteProfile(
             "maintenance_scan_router",
@@ -570,7 +775,7 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             ("changed artifacts", "signals", "prior obligations"),
             ("maintenance actions", "owner routes", "reopened obligations"),
             "maintenance_scan_router",
-            ("development_process_flow", "model_test_alignment", "structure_mesh_maintenance"),
+            route_handoffs("development_process_flow", "model_test_alignment", "structure_mesh_maintenance"),
             "maintenance_scan_router",
             "maintenance_scan_template_files",
             route_role=ROUTE_ROLE_INTERNAL_FEEDER,
@@ -585,12 +790,12 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             ("obligation rows", "owner route", "artifact anchors"),
             ("obligation report", "active obligations", "handoff inputs"),
             "maintenance_obligation_memory",
-            ("maintenance_scan_router", "risk_evidence_ledger"),
+            route_handoffs("maintenance_scan_router", "risk_evidence_ledger"),
             "maintenance_obligation_memory",
             route_role=ROUTE_ROLE_DATA_HELPER,
             entry_policy=ENTRY_POLICY_INTERNAL_ONLY,
-            canonical_owner_route="risk_evidence_ledger",
-            absorbed_by_route="risk_evidence_ledger",
+            canonical_owner_route="model_first_function_flow",
+            absorbed_by_route="model_first_function_flow",
             cleanup_disposition=CLEANUP_DISPOSITION_ABSORB,
         ),
         RouteProfile(
@@ -599,7 +804,7 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             ("field boundary", "field rows", "field groups"),
             ("field projections", "old-field dispositions", "downstream obligations"),
             "field_lifecycle_mesh",
-            ("model_test_alignment", "development_process_flow", "architecture_reduction"),
+            route_handoffs("model_test_alignment", "development_process_flow", "architecture_reduction"),
             "field_lifecycle_mesh",
             "field_lifecycle_template_files",
             "flowguard-field-lifecycle-mesh",
@@ -610,7 +815,7 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             ("contract dimensions", "coverage universe", "seed cases", "oracles", "model axes", "interaction groups"),
             ("mutation cases", "combination cases", "coverage shards", "coverage receipts", "fault profiles", "backfeed report", "route case ids"),
             "contract_exhaustion_mesh",
-            (
+            route_handoffs(
                 "model_test_alignment",
                 "test_mesh_maintenance",
                 "model_mesh_maintenance",
@@ -650,7 +855,7 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             ("model signatures", "relation evidence", "changed member"),
             ("similarity handoff", "maintenance group", "shared/variant obligations"),
             "model_similarity_consolidation",
-            ("existing_model_preflight", "architecture_reduction", "model_test_alignment"),
+            route_handoffs("existing_model_preflight", "architecture_reduction", "model_test_alignment"),
             "model_similarity_consolidation",
             "model_similarity_consolidation_template_files",
             route_role=ROUTE_ROLE_INTERNAL_FEEDER,
@@ -665,7 +870,7 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             ("observable contract", "candidate reductions"),
             ("proof status", "target action", "required next route"),
             "architecture_reduction",
-            ("code_structure_recommendation", "structure_mesh_maintenance", "development_process_flow"),
+            route_handoffs("code_structure_recommendation", "structure_mesh_maintenance", "development_process_flow"),
             "architecture_reduction",
             "",
             "flowguard-architecture-reduction",
@@ -676,7 +881,7 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             ("FunctionBlocks", "state owners", "field owners"),
             ("target module recommendations", "facade map", "validation boundary"),
             "code_structure_recommendation",
-            ("structure_mesh_maintenance", "model_test_alignment"),
+            route_handoffs("structure_mesh_maintenance", "model_test_alignment"),
             "code_structure_recommendation",
             "code_structure_recommendation_template_files",
             "flowguard-code-structure-recommendation",
@@ -687,7 +892,7 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             ("parent module", "partition items", "public entrypoints"),
             ("module ownership", "facade parity", "dependency/config gaps"),
             "structure_mesh_maintenance",
-            ("development_process_flow", "model_test_alignment", "risk_evidence_ledger"),
+            route_handoffs("development_process_flow", "model_test_alignment", "risk_evidence_ledger"),
             "structure_mesh_maintenance",
             "structure_mesh_template_files",
             "flowguard-structure-mesh",
@@ -698,7 +903,7 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             ("model obligations", "code contracts", "test evidence", "contract-exhaustion obligation ids"),
             ("binding rows", "coverage gaps", "boundary observations", "combination obligation coverage"),
             "model_test_alignment",
-            ("test_mesh_maintenance", "risk_evidence_ledger", "flowguard_closure_contract"),
+            route_handoffs("test_mesh_maintenance", "risk_evidence_ledger", "flowguard_closure_contract"),
             "model_test_alignment",
             "model_test_alignment_template_files",
             "flowguard-model-test-alignment",
@@ -709,7 +914,7 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             ("parent suite", "child suites", "freshness evidence", "required case ids", "required shard ids"),
             ("parent/child test mesh", "result artifacts", "case evidence", "shard evidence", "scoped gaps"),
             "test_mesh_maintenance",
-            ("model_test_alignment", "development_process_flow", "risk_evidence_ledger"),
+            route_handoffs("model_test_alignment", "development_process_flow", "risk_evidence_ledger"),
             "test_mesh_maintenance",
             "test_mesh_template_files",
             "flowguard-test-mesh",
@@ -720,7 +925,7 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             ("parent model", "child models", "partition items", "coverage receipts", "required child receipt ids"),
             ("mesh evidence", "reattachment status", "coverage receipt status", "affected siblings"),
             "model_mesh_maintenance",
-            ("model_test_alignment", "test_mesh_maintenance", "flowguard_closure_contract"),
+            route_handoffs("model_test_alignment", "test_mesh_maintenance", "flowguard_closure_contract"),
             "model_mesh_maintenance",
             "",
             "flowguard-model-mesh",
@@ -731,7 +936,7 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             ("task intent", "risk flags", "candidate modes"),
             ("selected modes", "delegated mode owners", "claim boundary"),
             "development_process_flow",
-            ("plan_detailing_compiler", "agent_workflow_rehearsal", "development_process_flow"),
+            route_handoffs("plan_detailing_compiler", "agent_workflow_rehearsal", "development_process_flow"),
             "development_process_simulator",
             "",
             "flowguard-development-process-flow",
@@ -751,7 +956,14 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             ("process actions", "artifacts", "evidence"),
             ("minimum revalidation", "freshness gaps", "blocked claims"),
             "development_process_flow",
-            ("maintenance_scan_router", "risk_evidence_ledger", "flowguard_closure_contract"),
+            route_handoffs("maintenance_scan_router", "risk_evidence_ledger", "flowguard_closure_contract")
+            + (
+                external_action_handoff(
+                    "publish_release",
+                    condition="only after release evidence, install parity, and user authority are current",
+                    claim_scope="external publication side effect only",
+                ),
+            ),
             "development_process_flow",
             "development_process_flow_template_files",
             "flowguard-development-process-flow",
@@ -762,9 +974,15 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             ("risk rows", "proof refs", "route evidence", "cartesian coverage gates"),
             ("confidence decision", "unsupported claims", "proof gaps", "coverage gate gaps"),
             "risk_evidence_ledger",
-            ("flowguard_closure_contract", "development_process_flow"),
+            route_handoffs("flowguard_closure_contract", "development_process_flow"),
             "risk_evidence_ledger",
             "risk_evidence_ledger_template_files",
+            "",
+            route_role=ROUTE_ROLE_INTERNAL_FEEDER,
+            entry_policy=ENTRY_POLICY_VIA_OWNER,
+            canonical_owner_route="model_first_function_flow",
+            absorbed_by_route="model_first_function_flow",
+            cleanup_disposition=CLEANUP_DISPOSITION_KEEP,
         ),
         RouteProfile(
             "flowguard_closure_contract",
@@ -772,13 +990,13 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             ("child reports", "runtime mappings", "ledger support"),
             ("safe claim", "unsafe claim boundary", "closure decision"),
             "flowguard_closure_contract",
-            ("maintenance_scan_router", "development_process_flow"),
+            route_handoffs("maintenance_scan_router", "development_process_flow"),
             "flowguard_closure_contract",
             "closure_contract_template_files",
             route_role=ROUTE_ROLE_INTERNAL_FEEDER,
             entry_policy=ENTRY_POLICY_VIA_OWNER,
-            canonical_owner_route="risk_evidence_ledger",
-            absorbed_by_route="risk_evidence_ledger",
+            canonical_owner_route="model_first_function_flow",
+            absorbed_by_route="model_first_function_flow",
             cleanup_disposition=CLEANUP_DISPOSITION_ABSORB,
         ),
         RouteProfile(
@@ -787,7 +1005,7 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             ("candidate skills", "tool actions", "claim boundary"),
             ("workflow findings", "required rework", "final claim scope"),
             "agent_workflow_rehearsal",
-            ("development_process_flow", "maintenance_scan_router"),
+            route_handoffs("development_process_flow", "maintenance_scan_router"),
             "agent_workflow_rehearsal",
             "",
             "flowguard-agent-workflow-rehearsal",
@@ -803,7 +1021,7 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             ("UI states", "controls", "journeys"),
             ("transition coverage", "blindspots", "structure/text handoff"),
             "ui_flow_structure",
-            ("model_test_alignment", "test_mesh_maintenance"),
+            route_handoffs("model_test_alignment", "test_mesh_maintenance"),
             "ui_flow_structure",
             "ui_flow_structure_template_files",
             "flowguard-ui-flow-structure",
@@ -814,7 +1032,7 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             ("observed miss", "root cause", "same-class bad case", "combination case id"),
             ("defect family gate", "analogous defect scan", "interaction group upgrade", "coverage receipt", "closure evidence"),
             "model_miss_review",
-            ("model_test_alignment", "risk_evidence_ledger", "flowguard_closure_contract"),
+            route_handoffs("model_test_alignment", "risk_evidence_ledger", "flowguard_closure_contract"),
             "model_miss_review",
             "model_miss_review_template_files",
             "flowguard-model-miss-review",
@@ -825,7 +1043,7 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             ("rough plan", "sources", "state surfaces"),
             ("plan detail rows", "step contracts", "validation requirements"),
             "plan_detailing_compiler",
-            ("development_process_flow", "agent_workflow_rehearsal"),
+            route_handoffs("development_process_flow", "agent_workflow_rehearsal"),
             "plan_detailing_compiler",
             "plan_detailing_template_files",
             "flowguard-plan-detailing-compiler",
@@ -841,7 +1059,7 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             ("state dimensions", "input dimensions", "closure policy"),
             ("closure cases", "handling policy", "blocked unknowns"),
             "state_closure",
-            ("model_maturation_loop", "model_test_alignment"),
+            route_handoffs("model_maturation_loop", "model_test_alignment"),
             "state_closure",
             route_role=ROUTE_ROLE_INTERNAL_FEEDER,
             entry_policy=ENTRY_POLICY_VIA_OWNER,
@@ -855,7 +1073,7 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             ("usage intent", "topology digest", "hazard candidates"),
             ("hazard report", "unresolved hazards", "claim boundary"),
             "model_topology_hazard_review",
-            ("risk_evidence_ledger", "flowguard_closure_contract"),
+            route_handoffs("risk_evidence_ledger", "flowguard_closure_contract"),
             "model_topology_hazard_review",
             "topology_hazard_template_files",
             "flowguard-model-topology-hazard-review",
@@ -866,8 +1084,15 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             ("route profiles", "AI profiles", "field layers", "child reports"),
             ("self-maintenance decision", "route graph gaps", "next route actions"),
             SELF_MAINTENANCE_ROUTE,
-            ("maintenance_scan_router", "development_process_flow", "flowguard_closure_contract"),
+            route_handoffs("maintenance_scan_router", "development_process_flow", "flowguard_closure_contract"),
             SELF_MAINTENANCE_ROUTE,
+            "",
+            "",
+            route_role=ROUTE_ROLE_INTERNAL_FEEDER,
+            entry_policy=ENTRY_POLICY_VIA_OWNER,
+            canonical_owner_route="model_first_function_flow",
+            absorbed_by_route="model_first_function_flow",
+            cleanup_disposition=CLEANUP_DISPOSITION_KEEP,
         ),
     )
 
@@ -1141,6 +1366,11 @@ def review_flowguard_self_maintenance(plan: SelfMaintenancePlan) -> SelfMaintena
         confidence = SELF_MAINTENANCE_STATUS_BLOCKED
         ok = False
         summary = "Self-maintenance has blockers before broad confidence."
+    elif not plan.broad_claim:
+        decision = SELF_MAINTENANCE_DECISION_SCOPED
+        confidence = SELF_MAINTENANCE_STATUS_SCOPED
+        ok = plan.allow_scoped_confidence
+        summary = "Route, profile, and field structure review is scoped; no broad child-receipt claim was requested."
     elif gaps:
         decision = SELF_MAINTENANCE_DECISION_SCOPED
         confidence = SELF_MAINTENANCE_STATUS_SCOPED
@@ -1196,7 +1426,12 @@ __all__ = [
     "SELF_MAINTENANCE_REQUIRED_CHILD_REPORTS",
     "SELF_MAINTENANCE_ROUTE",
     "SELF_MAINTENANCE_STATUS_BLOCKED",
+    "SELF_MAINTENANCE_STATUS_ERROR",
+    "SELF_MAINTENANCE_STATUS_FAIL",
+    "SELF_MAINTENANCE_STATUS_NOT_RUN",
     "SELF_MAINTENANCE_STATUS_PASS",
+    "SELF_MAINTENANCE_STATUS_PASS_WITH_GAPS",
+    "SELF_MAINTENANCE_STATUS_PROGRESS_ONLY",
     "SELF_MAINTENANCE_STATUS_SCOPED",
     "SELF_MAINTENANCE_STATUS_SKIPPED",
     "SELF_MAINTENANCE_STATUS_STALE",

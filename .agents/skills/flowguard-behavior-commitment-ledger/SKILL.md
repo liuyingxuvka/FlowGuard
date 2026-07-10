@@ -1,53 +1,40 @@
 ---
 name: flowguard-behavior-commitment-ledger
-description: Use for behavior registration, source coverage, one owner model, PPA handoff, or broad release confidence.
+description: Use for external behavior registration, bidirectional source coverage, exactly one primary owner model, change-mode accounting, internal Primary Path Authority handoff, or broad done/release/archive/publish confidence.
 ---
 
 # FlowGuard Behavior Commitment Ledger
 
-Standalone FlowGuard satellite skill for the external behavior account book. Use before broad behavior, release, archive, publish, or done claims.
+## Purpose
+Maintain the external behavior account book that binds promised behavior to current sources, one primary model owner, dependencies, evidence, and path authority.
 
-Return to `model-first-function-flow` when no behavior inventory is in scope. Use Primary Path Authority after `path_sensitive=true`.
+## Entrypoint Scope
+Route id: `behavior_commitment_ledger`; role: `public_owner`; native owner: `behavior_commitment_ledger`. This standalone FlowGuard satellite skill internally owns the `primary_path_authority` handoff for `path_sensitive=true` rows.
 
-## First Read
+## Local Material Routing
+Read `references/behavior_commitment_ledger_protocol.md` for commitment fields, six ledger modes, PPA binding, and broad-claim projections.
 
-- Route id: `behavior_commitment_ledger`.
-- Starter: `ROUTE_STARTER_API["behavior_commitment_ledger"]`.
-- Helpers: `BehaviorCommitmentLedger`, `BehaviorCommitment`, `BehaviorSourceSurface`, `BehaviorPathAuthorityBinding`, `review_behavior_commitment_ledger()`.
-- Template: `behavior-commitment-ledger-template`.
-- Reference: `references/behavior_commitment_ledger_protocol.md`.
+## Entrypoint Acceptance Map
+Accept a bounded source/behavior inventory and selected mode; register commitments and one owner each; block missing/extra/overlapping/stale rows or blocked PPA; hand canonical cases, shards, alignment rows, and risk gates downstream.
+
+## Use When
+- Use for `bootstrap_ledger`, `add_behavior`, `change_behavior`, `remove_or_replace_behavior`, `coverage_gap_backfill`, or `model_miss_check`.
+
+## Do Not Use When
+- Do not inventory helper internals or replace PPA, Model-Test Alignment, TestMesh, or Risk Evidence Ledger; return no-inventory ordinary modeling to `model-first-function-flow`.
+
+## Required Workflow
+1. Define the boundary, choose the mode, and inventory fresh source surfaces bidirectionally.
+2. Register external `BehaviorCommitmentLedger` rows with exactly one primary owner, dependencies, replacement/model-sync state, and evidence.
+3. Bind path-sensitive rows through Primary Path Authority, run `review_behavior_commitment_ledger()`, and project DCAR/TestMesh/risk evidence.
 
 ## Hard Gates
+- Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
+- Default replacement leaves no second successful path; scoped rows still need owner, reason, validation boundary, and disposition.
+- Missing source coverage, owner overlap, unknown dependency, stale evidence, blocked PPA, or absent broad-claim shards/gates blocks broad confidence.
 
-- Verify FlowGuard check engine and AGENTS.md managed records; no fake mini-framework.
-- Commitment means external promise: UI, API, CLI, skill, workflow, release, process, docs, or visible behavior; not helper internals.
-- Current source evidence is bidirectional: source -> commitment and commitment -> source.
-- Pick mode before edits: `bootstrap_ledger`, `add_behavior`, `change_behavior`, `remove_or_replace_behavior`, `coverage_gap_backfill`, or `model_miss_check`.
-- Use broad historical discovery only for bootstrap or coverage-gap backfill.
-- Every commitment has one primary owner model; child/supporting models are subordinate.
-- Replacement is single-path: active, deprecated, replaced, or removed/scoped out; no second successful route.
-- Model miss is backfeed: map to existing commitment/owner first; backfill only if behavior was unregistered.
-- Missing/extra commitments, overlaps, unknown deps, stale evidence, and scoped rows without disposition block broad confidence.
-- Path-sensitive rows require Primary Path Authority; blocked PPA blocks the commitment.
-- Broad claims need DCAR cases, TestMesh shards, MTA rows, Risk gates, and template harvest closure.
+## Output Requirements
+- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`, plus commitment/source/owner/PPA status.
 
-## Minimum Workflow
-
-1. Define project/work-package boundary.
-2. Pick the change mode.
-3. Inventory source surfaces and freshness.
-4. Register only external behavior commitments.
-5. Record actor, trigger, result, failure boundary, owner, dependency, replacement/model-sync state, evidence, validation, rationale.
-6. Send `path_sensitive=true` rows to PPA.
-7. Route DCAR cases, TestMesh shards, and MTA rows.
-8. Run `review_behavior_commitment_ledger()` and repair gaps before broad claims.
-
-## Snapshot
-
-Show sources -> commitments -> primary owner models -> PPA -> evidence/risk gates. Status: missing, extra, overlap, dependency, evidence, PPA.
-
-## Non-Goals
-
-- Do not replace PPA, MTA, TestMesh, or Risk Evidence Ledger.
-- Do not treat a model list as complete behavior coverage.
-- Do not certify future AI behavior; report current evidence and blockers.
+## SkillGuard Maintenance
+- Edit `.skillguard/contract-source.json`, then regenerate derived contracts; SkillGuard validates ledger ownership but cannot manufacture commitments, PPA evidence, or release confidence.

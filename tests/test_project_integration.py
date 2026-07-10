@@ -50,16 +50,16 @@ class ProjectIntegrationTests(unittest.TestCase):
             / "SKILL.md"
         ).read_text(encoding="utf-8")
 
-        self.assertIn("default entrypoint for the FlowGuard AI-agent skill suite", text)
-        self.assertIn("all sibling FlowGuard", text)
-        self.assertIn("Skill availability and executable evidence are separate", text)
-        self.assertIn('python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"', text)
-        self.assertIn("do not write a temporary mini-framework", text)
-        self.assertIn("assets/toolchain_preflight.py", text)
+        self.assertIn("FlowGuard kernel", text)
+        self.assertIn("use the matching satellite directly", text)
+        self.assertIn("verify adoption", text)
+        self.assertIn("Verify the real FlowGuard check engine", text)
+        self.assertIn("never create a fake mini-framework", text)
+        self.assertIn("references/modeling_protocol.md", text)
         self.assertIn("blocked/partial", text)
-        self.assertIn("FlowGuard AGENTS.md managed block/version record", text)
-        self.assertIn("latest-schema-first", text)
-        self.assertIn("artifact/model/test upgrade scanning", text)
+        self.assertIn("AGENTS.md managed record", text)
+        self.assertIn("Missing, stale, skipped", text)
+        self.assertIn("cannot support broad done", text)
 
     def test_import_preflight_command_works_in_this_environment(self):
         completed = subprocess.run(

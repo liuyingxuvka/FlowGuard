@@ -52,6 +52,17 @@ It keeps the normal path short:
 Use this group before expanding to `FLOWGUARD_ROUTE_API` or the complete
 `MODELING_HELPER_API` inventory.
 
+## Governance And Distribution API
+
+`FLOWGUARD_GOVERNANCE_API` groups the release-facing control plane, including
+local/published release verification, without
+turning it into another modeling route. It exposes immutable evidence receipts,
+seventeen-skill inventory and contract compilation, receipt-bound self
+governance, canonical validation results, manifest-owned model regressions, and
+safe skill install/check/uninstall/parity helpers. Import route behavior from
+the owning route group; use this group to verify that current route evidence is
+complete, fresh, consumed, and synchronized.
+
 ## Route Starter API
 
 `ROUTE_STARTER_API` is the default second step after `AGENT_DEFAULT_API`.

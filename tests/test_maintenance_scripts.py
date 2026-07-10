@@ -50,6 +50,19 @@ class MaintenanceScriptTests(unittest.TestCase):
             self.assertTrue((target / "flowguard" / "module.py").exists())
             self.assertEqual("keep me\n", shadow_only.read_text(encoding="utf-8"))
 
+    def test_default_shadow_sync_includes_canonical_skillguard_inventory(self):
+        with tempfile.TemporaryDirectory() as source_dir, tempfile.TemporaryDirectory() as target_dir:
+            source = Path(source_dir)
+            target = Path(target_dir)
+            suite_map = source / ".skillguard" / "flowguard-suite" / "suite-map.json"
+            suite_map.parent.mkdir(parents=True)
+            suite_map.write_text('{"schema_version":"flowguard.skill_suite.v1"}\n', encoding="utf-8")
+
+            result = sync_workspace(source, target)
+
+            self.assertIn(".skillguard/flowguard-suite/suite-map.json", result.copied_files)
+            self.assertEqual(suite_map.read_bytes(), (target / ".skillguard" / "flowguard-suite" / "suite-map.json").read_bytes())
+
     def test_shadow_verify_checks_import_path_version_and_helper(self):
         with tempfile.TemporaryDirectory() as target_dir:
             target = Path(target_dir)

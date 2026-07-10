@@ -1,34 +1,34 @@
 {
   "blockers": [],
   "checks": [],
-  "claim_boundary": "This record covers only the installed skill entrypoint, local SkillGuard records, and current files inspected for this target. It does not prove runtime checker execution, fixture coverage, CLI checks, tests, suite automation, package publication, code-contract validation, release readiness, or future AI behavior without separate current evidence.",
+  "claim_boundary": "This record covers only the current skill entrypoint and local SkillGuard contract files. It does not prove runtime checker execution, fixture coverage, CLI checks, tests, suite automation, package publication, code-contract validation, release readiness, or future AI behavior without separate current evidence.",
   "evidence": [
     {
       "evidence_id": "current-evidence-manifest",
       "path": ".skillguard/evidence/current_evidence_manifest.json",
-      "summary": "Direct evidence manifest."
+      "summary": "Static evidence inventory; not a native pass receipt."
     }
   ],
   "failures": [],
   "forbidden_closure_inputs": [
     "Chat-only claims",
+    "Generated booleans",
     "Stale reports",
-    "Progress-ledger-only proof",
-    "Skipped checks reported as passed"
+    "Progress-only evidence",
+    "Skipped checks as pass"
   ],
   "required_evidence": [
-    "Task summary",
-    "Target inventory",
-    "Direct evidence",
+    "Current native command receipt",
+    "Artifact fingerprints",
     "Check output",
     "Closure report"
   ],
   "residual_risk": [
-    "This static record must be refreshed when the skill entrypoint, route contract, or validation rules change."
+    "Native commands and immutable receipts are intentionally outside this static record."
   ],
   "schema_version": "1.0",
   "skipped_checks": [],
-  "status": "checked",
+  "status": "needs-review",
   "target_path": "..",
   "target_type": "evidence_rules"
 }

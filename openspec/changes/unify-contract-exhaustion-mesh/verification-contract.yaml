@@ -1,0 +1,233 @@
+contract_version: 1
+change: unify-contract-exhaustion-mesh
+obligations:
+  - id: req.scenario-synthesis.feeds-contract-exhaustion
+    source: "specs/adversarial-scenario-synthesis/spec.md#Requirement: Challenge scenarios feed contract exhaustion"
+    claim: "Challenge patterns become canonical contract mutation cases and remain scoped without an oracle."
+    required: true
+    evidence: [check.contract-exhaustion.core-and-feeders]
+  - id: req.architecture-reduction.obsolete-generators-are-candidates
+    source: "specs/architecture-reduction/spec.md#Requirement: Obsolete case-generation surfaces are cleanup candidates"
+    claim: "Duplicate legacy generators, aliases, wrappers, and fallback paths receive an explicit cleanup or facade disposition."
+    required: true
+    evidence: [check.contract-exhaustion.cleanup]
+  - id: req.contract-exhaustion.canonical-dimensions
+    source: "specs/contract-exhaustion-mesh/spec.md#Requirement: Canonical finite contract dimensions"
+    claim: "Required finite boundaries are declared as ContractDimension rows and undeclared risks remain model gaps."
+    required: true
+    evidence: [check.contract-exhaustion.core-and-feeders]
+  - id: req.contract-exhaustion.canonical-mutation-cases
+    source: "specs/contract-exhaustion-mesh/spec.md#Requirement: Canonical mutation cases"
+    claim: "Applicable finite boundaries produce stable ContractMutationCase ids."
+    required: true
+    evidence: [check.contract-exhaustion.core-and-feeders]
+  - id: req.contract-exhaustion.oracles-required
+    source: "specs/contract-exhaustion-mesh/spec.md#Requirement: Oracles are required for required cases"
+    claim: "Every required case has an explicit oracle and missing oracles block or scope confidence."
+    required: true
+    evidence: [check.contract-exhaustion.core-and-feeders]
+  - id: req.contract-exhaustion.feeders-not-generators
+    source: "specs/contract-exhaustion-mesh/spec.md#Requirement: Feeders do not become canonical generators"
+    claim: "State, scenario, family, payload, transition, and mesh helpers project seeds into one canonical case language."
+    required: true
+    evidence: [check.contract-exhaustion.core-and-feeders]
+  - id: req.contract-exhaustion.proof-route-handoffs
+    source: "specs/contract-exhaustion-mesh/spec.md#Requirement: Reports expose proof-route handoffs"
+    claim: "Reports expose required downstream MTA, TestMesh, ModelMesh, layered proof, and risk evidence handoffs."
+    required: true
+    evidence: [check.contract-exhaustion.core-and-feeders, check.contract-exhaustion.consumers]
+  - id: req.contract-exhaustion.composite-acceptance-separate
+    source: "specs/contract-exhaustion-mesh/spec.md#Requirement: Composite handoff acceptance is separate from matrix readiness"
+    claim: "Multi-route acceptance is a separate gate from a passing local case/oracle matrix."
+    required: true
+    evidence: [check.contract-exhaustion.core-and-feeders, check.contract-exhaustion.consumers]
+  - id: req.contract-exhaustion.no-fallback-generator
+    source: "specs/contract-exhaustion-mesh/spec.md#Requirement: No fallback case-generation path"
+    claim: "Legacy handwritten same-class cases and compatibility-like paths cannot act as parallel canonical generators."
+    required: true
+    evidence: [check.contract-exhaustion.core-and-feeders, check.contract-exhaustion.cleanup]
+  - id: req.development-process.contract-evidence-freshness
+    source: "specs/development-process-flow/spec.md#Requirement: Contract-exhaustion evidence is freshness-sensitive"
+    claim: "Model, field, payload, transition, or mesh changes stale related contract-exhaustion evidence before broad lifecycle claims."
+    required: true
+    evidence: [check.contract-exhaustion.process-and-fields]
+  - id: req.field-lifecycle.projects-dimensions
+    source: "specs/field-lifecycle-mesh/spec.md#Requirement: Behavior fields project contract-exhaustion dimensions"
+    claim: "Behavior-bearing and legacy field lifecycle rows project finite mutation dimensions and dispositions."
+    required: true
+    evidence: [check.contract-exhaustion.process-and-fields]
+  - id: req.skills.thin-contract-exhaustion-route
+    source: "specs/flowguard-codex-skill-satellites/spec.md#Requirement: Contract-exhaustion route has a thin satellite skill"
+    claim: "The thin satellite routes finite bad-case generation to ContractExhaustionMesh and preserves proof-route ownership."
+    required: true
+    evidence: [check.contract-exhaustion.skills-and-api]
+  - id: req.model-mesh.projects-closure-hazards
+    source: "specs/hierarchical-model-mesh/spec.md#Requirement: Mesh closure hazards feed contract exhaustion"
+    claim: "Stale/unconsumed child evidence and repeat-without-delta hazards project to canonical cases."
+    required: true
+    evidence: [check.contract-exhaustion.core-and-feeders, check.contract-exhaustion.model-proof]
+  - id: req.layered-proof.consumes-canonical-cases
+    source: "specs/layered-boundary-proof/spec.md#Requirement: Leaf boundary proof consumes canonical finite cases"
+    claim: "Leaf proof cells cite required canonical cases and missing case proof scopes parent confidence."
+    required: true
+    evidence: [check.contract-exhaustion.model-proof]
+  - id: req.model-test-alignment.consumes-case-ids
+    source: "specs/model-test-alignment/spec.md#Requirement: Alignment consumes contract-exhaustion case ids"
+    claim: "Model obligations, owner code contracts, and test evidence bind to canonical case ids."
+    required: true
+    evidence: [check.contract-exhaustion.consumers]
+  - id: req.obligation-family.seeds-canonical-expansion
+    source: "specs/obligation-family-parity-provenance/spec.md#Requirement: Family seeds feed canonical bad-case expansion"
+    claim: "Family seeds expand through ContractExhaustionMesh and undeclared sibling relations remain model gaps."
+    required: true
+    evidence: [check.contract-exhaustion.model-miss-and-family]
+  - id: req.model-miss.upgrades-model-before-exhaustion
+    source: "specs/post-runtime-model-miss-review/spec.md#Requirement: Model misses upgrade the model before same-class exhaustion"
+    claim: "Observed misses update the model boundary before canonical same-class cases support closure."
+    required: true
+    evidence: [check.contract-exhaustion.model-miss-and-family]
+  - id: req.risk-ledger.consumes-contract-exhaustion
+    source: "specs/risk-evidence-ledger/spec.md#Requirement: Risk rows consume contract-exhaustion evidence"
+    claim: "Missing oracles or model gaps prevent full risk confidence and only current case evidence supports closure."
+    required: true
+    evidence: [check.contract-exhaustion.consumers]
+  - id: req.test-mesh.owns-contract-case-evidence
+    source: "specs/test-evidence-mesh/spec.md#Requirement: TestMesh owns required contract-exhaustion child evidence"
+    claim: "Required case ids have current child-suite ownership and progress-only evidence is insufficient."
+    required: true
+    evidence: [check.contract-exhaustion.consumers]
+checks:
+  - id: check.contract-exhaustion.core-and-feeders
+    kind: command
+    command: python
+    args: [-m, pytest, tests/test_contract_exhaustion.py, -q]
+    required: true
+    covers:
+      - req.scenario-synthesis.feeds-contract-exhaustion
+      - req.contract-exhaustion.canonical-dimensions
+      - req.contract-exhaustion.canonical-mutation-cases
+      - req.contract-exhaustion.oracles-required
+      - req.contract-exhaustion.feeders-not-generators
+      - req.contract-exhaustion.proof-route-handoffs
+      - req.contract-exhaustion.composite-acceptance-separate
+      - req.contract-exhaustion.no-fallback-generator
+      - req.model-mesh.projects-closure-hazards
+    expected: {exit_code: 0}
+  - id: check.contract-exhaustion.cleanup
+    kind: command
+    command: python
+    args: [-m, pytest, tests/test_architecture_reduction.py, -q]
+    required: true
+    covers:
+      - req.architecture-reduction.obsolete-generators-are-candidates
+      - req.contract-exhaustion.no-fallback-generator
+    expected: {exit_code: 0}
+  - id: check.contract-exhaustion.process-and-fields
+    kind: command
+    command: python
+    args: [-m, pytest, tests/test_development_process_flow.py, tests/test_field_lifecycle.py, -q]
+    required: true
+    covers:
+      - req.development-process.contract-evidence-freshness
+      - req.field-lifecycle.projects-dimensions
+    expected: {exit_code: 0}
+  - id: check.contract-exhaustion.model-proof
+    kind: command
+    command: python
+    args: [-m, pytest, tests/test_hierarchical_mesh.py, tests/test_layered_boundary_proof.py, -q]
+    required: true
+    covers:
+      - req.model-mesh.projects-closure-hazards
+      - req.layered-proof.consumes-canonical-cases
+    expected: {exit_code: 0}
+  - id: check.contract-exhaustion.consumers
+    kind: command
+    command: python
+    args:
+      - -m
+      - pytest
+      - tests/test_model_test_alignment.py
+      - tests/test_test_mesh.py
+      - tests/test_risk_evidence_ledger.py
+      - -q
+    required: true
+    covers:
+      - req.contract-exhaustion.proof-route-handoffs
+      - req.contract-exhaustion.composite-acceptance-separate
+      - req.model-test-alignment.consumes-case-ids
+      - req.risk-ledger.consumes-contract-exhaustion
+      - req.test-mesh.owns-contract-case-evidence
+    expected: {exit_code: 0}
+  - id: check.contract-exhaustion.model-miss-and-family
+    kind: command
+    command: python
+    args: [-m, pytest, tests/test_obligation_family.py, tests/test_recurring_model_miss.py, -q]
+    required: true
+    covers:
+      - req.obligation-family.seeds-canonical-expansion
+      - req.model-miss.upgrades-model-before-exhaustion
+    expected: {exit_code: 0}
+  - id: check.contract-exhaustion.skills-and-api
+    kind: command
+    command: python
+    args: [-m, pytest, tests/test_skill_docs.py, tests/test_api_surface.py, tests/test_public_templates.py, -q]
+    required: true
+    covers:
+      - req.skills.thin-contract-exhaustion-route
+    expected: {exit_code: 0}
+  - id: check.contract-exhaustion.openspec-strict
+    kind: command
+    command: openspec
+    args: [validate, unify-contract-exhaustion-mesh, --strict]
+    required: true
+    covers:
+      - req.contract-exhaustion.canonical-dimensions
+      - req.contract-exhaustion.no-fallback-generator
+    expected: {exit_code: 0}
+  - id: check.contract-exhaustion.project-audit
+    kind: command
+    command: python
+    args: [-m, flowguard, project-audit, --root, .]
+    required: true
+    covers:
+      - req.skills.thin-contract-exhaustion-route
+      - req.development-process.contract-evidence-freshness
+    expected: {exit_code: 0}
+freshness:
+  watch:
+    - openspec/changes/unify-contract-exhaustion-mesh/proposal.md
+    - openspec/changes/unify-contract-exhaustion-mesh/design.md
+    - openspec/changes/unify-contract-exhaustion-mesh/tasks.md
+    - openspec/changes/unify-contract-exhaustion-mesh/specs/**/*.md
+    - openspec/changes/unify-contract-exhaustion-mesh/verification-contract.yaml
+    - flowguard/contract_exhaustion.py
+    - flowguard/state_closure.py
+    - flowguard/scenario_matrix.py
+    - flowguard/obligation_family.py
+    - flowguard/model_test_alignment.py
+    - flowguard/testmesh.py
+    - flowguard/hierarchy.py
+    - flowguard/risk_evidence_ledger.py
+    - flowguard/development_process_flow.py
+    - flowguard/field_lifecycle.py
+    - flowguard/architecture_reduction.py
+    - flowguard/recurring_model_miss.py
+    - flowguard/__init__.py
+    - tests/test_contract_exhaustion.py
+    - tests/test_architecture_reduction.py
+    - tests/test_development_process_flow.py
+    - tests/test_field_lifecycle.py
+    - tests/test_hierarchical_mesh.py
+    - tests/test_layered_boundary_proof.py
+    - tests/test_model_test_alignment.py
+    - tests/test_test_mesh.py
+    - tests/test_risk_evidence_ledger.py
+    - tests/test_obligation_family.py
+    - tests/test_recurring_model_miss.py
+    - tests/test_skill_docs.py
+    - tests/test_api_surface.py
+    - tests/test_public_templates.py
+    - .agents/skills/**/*.md
+    - docs/**/*.md
+    - AGENTS.md
+    - .flowguard/project.toml

@@ -16,6 +16,7 @@ from flowguard import (
     MaintenanceSignal,
     MaintenanceSkippedRoute,
     review_maintenance_scan,
+    run_exact_sequence,
 )
 from flowguard.formal_runner import FormalWorkflowCase, run_formal_workflow_suite
 import model
@@ -31,8 +32,22 @@ REQUIRED_LABELS = (
 
 
 def run_workflow_suite() -> bool:
-    cases = [FormalWorkflowCase("correct_maintenance_scan_router", model.build_correct_workflow(), True)]
-    cases.extend(FormalWorkflowCase(broken.name, broken, False) for broken in model.build_broken_workflows())
+    exact = run_exact_sequence(
+        workflow=model.build_correct_workflow(),
+        initial_state=model.initial_state(),
+        external_input_sequence=model.EXTERNAL_INPUTS,
+        invariants=model.INVARIANTS,
+    )
+    exact_ok = (
+        exact.model_report.ok
+        and len(exact.final_states) == 1
+        and exact.final_states[0].broad_claim == "full_accepted"
+    )
+    print(
+        "correct_maintenance_scan_router: "
+        + ("observed=OK expected=OK match=yes exact=yes" if exact_ok else "observed=VIOLATION expected=OK match=no")
+    )
+    cases = [FormalWorkflowCase(broken.name, broken, False) for broken in model.build_broken_workflows()]
     report = run_formal_workflow_suite(
         "maintenance_scan_router",
         tuple(cases),
@@ -44,7 +59,7 @@ def run_workflow_suite() -> bool:
         required_labels=REQUIRED_LABELS,
         protected_error_class="maintenance_scan_route_missing",
     )
-    return report.ok
+    return exact_ok and report.ok
 
 
 def helper_case(name: str, plan: MaintenanceScanPlan, expected_decision: str, expected_routes: tuple[str, ...]) -> bool:

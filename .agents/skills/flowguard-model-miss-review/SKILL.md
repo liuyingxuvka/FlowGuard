@@ -1,48 +1,40 @@
 ---
 name: flowguard-model-miss-review
-description: Use when runtime, tests, replay, logs, or manual validation fails after FlowGuard passed.
+description: Use when runtime, tests, replay, logs, manual validation, production evidence, or a user-visible UI failure exposes a missed behavior class after FlowGuard passed, or when a non-trivial repair needs generalized closure.
 ---
 
 # FlowGuard Model Miss Review
 
-Standalone FlowGuard satellite skill for repairs where real failure shows the model, code contract, tests, or final claim is too narrow. Return to `model-first-function-flow` only when no concrete failure evidence exists.
+## Purpose
+Backpropagate a real post-green failure into the owning commitment, model boundary, owner code contract, canonical same-class cases, tests, and final claim.
 
-## First Read
+## Entrypoint Scope
+Route id: `model_miss_review`; role: `public_owner`; native owner: `model_miss_review`. This standalone FlowGuard satellite skill owns miss classification and repair closure, not ungrounded feature creation.
 
-- Route id: `model_miss_review`.
-- Entry: `ROUTE_STARTER_API["model_miss_review"]`, `model-miss-template`, or full variant.
-- Concepts: observed failure, contract-exhaustion same-class case, `boundary_missing`, root-cause backpropagation, owner code contract, disposition, coverage receipt, defect-family gate.
-- Reference: `references/model_miss_protocol.md`.
+## Local Material Routing
+Read `references/model_miss_protocol.md` for miss types, root-cause backpropagation, field/UI handling, same-class evidence, reattachment, and closure.
+
+## Entrypoint Acceptance Map
+Accept concrete failure evidence and prior claim state; classify and generalize the miss; block point-fix-only or stale closure; hand commitments, canonical cases, alignment, field, mesh, process, and risk work to typed owners.
+
+## Use When
+- Use after a FlowGuard-green runtime/test/replay/log/manual/UI failure or for a repair needing `boundary_missing`, root-cause backpropagation, and bug-class evidence.
+
+## Do Not Use When
+- Do not patch only the observed instance, invent a new feature commitment, or use without concrete failure evidence; return ordinary unclear modeling to `model-first-function-flow`.
+
+## Required Workflow
+1. Run existing-model preflight, identify the affected commitment/owner, and classify the miss.
+2. Backpropagate root cause; add one family seed/finite boundary through ContractExhaustionMesh and bind fields/old paths where relevant.
+3. Add observed and same-class owner-code evidence, rerun alignment/mesh/freshness/risk gates, and close or scope the class.
 
 ## Hard Gates
+- Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
+- A later green command or point regression alone cannot close the class; target-aware replay and owner code binding remain required when applicable.
+- Unknown old-path/field disposition, stale parent reattachment, open same-family scan, or missing template harvest closure blocks broad repair confidence.
 
-- Verify FlowGuard check engine and AGENTS.md managed records; no fake mini-framework.
-- A user-observed UI failure after green is a model miss.
-- Preserve prior claim, failure, same-class surface, tests, backpropagation, and code owner.
-- Model miss is BCL backfeed, not a new-feature factory: map to existing commitment/owner first; backfill only if behavior was unregistered.
-- Observed instance and bug-class responsibility are separate.
-- Same-class generation is seed evidence; route through ContractExhaustionMesh.
-- Root cause, model obligation, owner code contract, observed test, and same-class test bind to the same repaired behavior.
-- Counterexample/known-bad misses need target-aware owner-code replay evidence.
-- Old or alternate paths and field misses need disposition/projection.
-- A later green runtime check does not close a miss without current class evidence.
-- Deepened miss models need template harvest closure.
+## Output Requirements
+- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`, plus a miss-repair diagram and generalized-case status.
 
-## Minimum Workflow
-
-1. Run existing-model preflight when inside a modeled system.
-2. Identify affected commitment id; if none exists for external behavior, route to BCL coverage-gap backfill.
-3. Classify the miss and backpropagate root cause into model/test gap.
-4. For UI misses, run `review_ui_model_misses()` before fixing one control.
-5. Add one family seed or interaction group, then use ContractExhaustionMesh.
-6. Update model or FieldLifecycleMesh and bind the owner code contract.
-7. Add observed-regression and contract-exhaustion evidence, then rerun alignment, disposition, mesh, maturation, freshness, risk gates.
-
-## Snapshot
-
-Show a miss-repair diagram with failure, boundary_missing, contract-exhaustion case ids, root cause, field gap, code owner, tests, old-path disposition, gaps.
-
-## Non-Goals
-
-- Do not close the class by patching only the observed instance.
-- Do not treat production prose or progress logs as closure evidence.
+## SkillGuard Maintenance
+- Edit `.skillguard/contract-source.json`, then regenerate derived contracts; SkillGuard gates miss closure and cannot convert a patch or progress log into native evidence.

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import model
@@ -51,7 +52,9 @@ def main() -> int:
     )
     ok = all(bool(case["ok"]) for case in cases)
     payload = {"ok": ok, "cases": cases}
-    Path(__file__).with_name("result.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    output_dir = Path(os.environ.get("FLOWGUARD_OUTPUT_DIR", Path(__file__).parent))
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir.joinpath("result.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
     print("=== flowguard UI human-operability hardening self-model ===")
     print("status:", "OK" if ok else "FAILED")

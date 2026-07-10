@@ -1,58 +1,40 @@
 ---
 name: flowguard-code-structure-recommendation
-description: Use when a FlowGuard model should drive pre-code architecture, module split planning, function/block ownership, facade design, implementation boundaries, or code structure recommendations before editing production code.
+description: Use when a FlowGuard model should drive pre-code module and function boundaries, FunctionBlock ownership, field/state/side-effect owners, facade design, adapter boundaries, or validation structure before production edits.
 ---
 
 # FlowGuard Code Structure Recommendation
 
-Standalone FlowGuard satellite skill for deriving target implementation
-structure from a model before code edits. Use it for FunctionBlock-to-module
-ownership, facade planning, adapter boundaries, and validation boundaries.
-When fields matter, include FieldLifecycleMesh reader/writer/owner maps so code
-structure has a single field owner and explicit field readers/writers.
-When modules look like similar A/B/C workflows, consume Model Similarity
-Consolidation maintenance groups and code obligations instead of inventing a
-second shared-kernel rationale.
+## Purpose
+Derive a target implementation structure from a named functional model without refactoring existing production code.
 
-Return to `model-first-function-flow` when the behavior model is missing. Use
-StructureMesh when refactoring existing large code or public APIs.
+## Entrypoint Scope
+Route id: `code_structure_recommendation`; role: `public_owner`; native owner: `code_structure_recommendation`. This standalone FlowGuard satellite skill owns recommendation-only architecture.
 
-## First Read
+## Local Material Routing
+Read `references/code_structure_recommendation_protocol.md` for model inputs, recommendation shape, field ownership, leaf boundaries, and StructureMesh handoff.
 
-- Route id: `code_structure_recommendation`.
-- Core helper: `review_code_structure_recommendation()`.
-- Required shape: FunctionBlock-to-module ownership, state owner map,
-  field owner/reader/writer map when fields are in scope, public-entrypoint
-  map, and validation boundaries.
-- Similarity handoff: cite maintenance group ids, code obligation ids, shared
-  kernel owner, and adapter owners when model similarity drives the split.
-- Reference: `references/code_structure_recommendation_protocol.md`.
+## Entrypoint Acceptance Map
+Accept a source model and named responsibilities; produce FunctionBlock-to-module ownership, state/field/side-effect maps, facade plan, and validation boundaries; block source-less or duplicate ownership; hand existing-code refactors to StructureMesh.
+
+## Use When
+- Use before code when module split, function ownership, facade, adapter, field reader/writer, or validation boundary is unclear.
+
+## Do Not Use When
+- Do not perform existing-code refactors, invent behavior, or replace parity/alignment evidence; return missing models to `model-first-function-flow`.
+
+## Required Workflow
+1. Name the source model, FunctionBlocks, state, fields, side effects, and public entrypoints.
+2. Recommend cohesive target modules, single owners, facades, adapters, and observable leaf boundaries.
+3. Record rationale plus StructureMesh, Model-Test Alignment, or FieldLifecycleMesh handoffs.
 
 ## Hard Gates
+- Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
+- Do not invent modules before responsibilities; require one owner per state/field write, explicit public facade, and validation boundaries.
+- A too-large leaf must split or remain scoped; new/deepened models require template harvest closure.
 
-- Verify FlowGuard check engine before claiming FlowGuard use.
-- For real target-project work, keep the AGENTS.md managed block/version record
-  current or record why it was not updated.
-- Do not create a fake mini-framework.
-- Do not invent modules before model responsibilities are named.
-- Public facades and validation boundaries must stay explicit.
-- New/deepened models need template harvest closure before broad claims.
+## Output Requirements
+- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`, plus a code structure diagram and ownership map.
 
-## Minimum Workflow
-
-1. Name the source model and relevant FunctionBlocks.
-2. Map state, fields, side effects, public entrypoints, and validation boundaries.
-3. Recommend target modules and facades.
-4. Mark refactor parity or StructureMesh needs before implementation.
-
-## Snapshot
-
-Show a code structure diagram with FunctionBlock-to-module ownership, state
-owners, facade boundary, and validation boundaries.
-When drawing the snapshot, edges mean owns, calls, adapts, exposes, or validates.
-Status note: source model, FunctionBlock owner, state/side effect owner, boundary, next decision.
-
-## Non-Goals
-
-- Do not perform existing-code refactors; route those to StructureMesh.
-- Do not replace Model-Test Alignment or runtime conformance evidence.
+## SkillGuard Maintenance
+- Edit `.skillguard/contract-source.json`, then regenerate derived contracts; SkillGuard checks recommendation inputs/outputs and cannot implement the proposed structure.

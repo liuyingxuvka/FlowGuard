@@ -1,0 +1,114 @@
+{
+  "activation_keywords": [
+    "canonical bad cases",
+    "finite boundary",
+    "coverage universe",
+    "Cartesian combinations",
+    "coverage receipt"
+  ],
+  "claim_boundary": "The route proves only canonical generation and review for the declared finite universe; downstream execution and broad confidence remain separate.",
+  "default_route": false,
+  "direct_references": [
+    "references/contract_exhaustion_mesh_protocol.md"
+  ],
+  "do_not_use_when": [
+    "The boundary is undeclared or unbounded, the task is test execution, or another route's semantic ownership would be duplicated."
+  ],
+  "downstream_targets": [
+    {
+      "claim_scope": "semantic alignment",
+      "condition": "Generated cases must become model obligations and owner-code test targets.",
+      "target_id": "flowguard-model-test-alignment",
+      "target_kind": "skill"
+    },
+    {
+      "claim_scope": "test hierarchy",
+      "condition": "Cases/shards need layered child-suite evidence.",
+      "target_id": "flowguard-test-mesh",
+      "target_kind": "skill"
+    },
+    {
+      "claim_scope": "model mesh receipts",
+      "condition": "Parent confidence must consume child coverage receipts.",
+      "target_id": "flowguard-model-mesh",
+      "target_kind": "skill"
+    },
+    {
+      "claim_scope": "risk gate consumption",
+      "condition": "Generated coverage supports a broad final claim.",
+      "target_id": "risk_evidence_ledger",
+      "target_kind": "internal_route"
+    }
+  ],
+  "layout_profiles": {
+    "installed": ".codex/skills/flowguard-contract-exhaustion-mesh",
+    "source": ".agents/skills/flowguard-contract-exhaustion-mesh"
+  },
+  "native_checks": [
+    {
+      "binding_id": "contract_exhaustion_pytest",
+      "command": "python -m pytest tests/test_contract_exhaustion.py -q",
+      "evidence_source": "current pytest receipt",
+      "kind": "pytest",
+      "native_check_id": "contract_exhaustion_tests",
+      "summary": "Run canonical contract-exhaustion behavior tests."
+    }
+  ],
+  "native_owner": "contract_exhaustion_mesh",
+  "output_fields": [
+    "evidence",
+    "failures",
+    "blockers",
+    "skipped_checks",
+    "residual_risk",
+    "claim_boundary",
+    "typed_next_actions"
+  ],
+  "route_id": "contract_exhaustion_mesh",
+  "route_role": "public_owner",
+  "route_summary": "Generate canonical finite-boundary cases, oracles, Cartesian combinations, shards, receipts, and typed consumers.",
+  "schema_version": "flowguard.skill_contract_source.v1",
+  "skill_id": "flowguard-contract-exhaustion-mesh",
+  "source_requirements": [
+    {
+      "category": "inventory",
+      "requirement_id": "contract_exhaustion.declared_boundary",
+      "summary": "Every case must derive from an owner-declared finite dimension, seed, axis/group, or universe item."
+    },
+    {
+      "category": "evidence",
+      "requirement_id": "contract_exhaustion.oracle_and_receipts",
+      "summary": "Required cases need actionable oracles and current shards/receipts/backfeed mappings for the claimed scope."
+    },
+    {
+      "category": "closure",
+      "requirement_id": "contract_exhaustion.downstream_boundary",
+      "summary": "Generated matrix readiness cannot be reported as MTA, TestMesh, ModelMesh, or risk-ledger closure."
+    }
+  ],
+  "use_when": [
+    "An owner has declared a finite boundary, family seed, payload, transition, mesh hazard, universe, or observed-problem backfeed."
+  ],
+  "workflow": [
+    {
+      "phase_id": "intake",
+      "summary": "Identify the declaring owner, model scope, finite boundary, claim scope, and required consumers."
+    },
+    {
+      "phase_id": "inventory",
+      "summary": "Inventory dimensions, seeds, axes/groups, coverage universe, exclusions, oracles, child receipts, and backfeed."
+    },
+    {
+      "phase_id": "execution",
+      "summary": "Generate stable mutation/combination cases, feedback fields, shards, receipts, and composite acceptances."
+    },
+    {
+      "phase_id": "checks",
+      "summary": "Run contract-exhaustion tests and reject missing universe items, incomplete oracles, stale receipts, or unmapped misses."
+    },
+    {
+      "phase_id": "closure",
+      "summary": "Project case/obligation/cell/shard/receipt/risk ids to typed consumers without claiming downstream pass."
+    }
+  ]
+}

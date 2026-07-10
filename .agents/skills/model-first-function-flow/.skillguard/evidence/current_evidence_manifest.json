@@ -1,41 +1,46 @@
 {
   "blockers": [],
   "checks": [],
-  "claim_boundary": "This record covers only the installed skill entrypoint, local SkillGuard records, and current files inspected for this target. It does not prove runtime checker execution, fixture coverage, CLI checks, tests, suite automation, package publication, code-contract validation, release readiness, or future AI behavior without separate current evidence.",
+  "claim_boundary": "This record covers only the current skill entrypoint and local SkillGuard contract files. It does not prove runtime checker execution, fixture coverage, CLI checks, tests, suite automation, package publication, code-contract validation, release readiness, or future AI behavior without separate current evidence.",
   "evidence": [
     {
       "evidence_id": "skill-entrypoint",
       "path": "../SKILL.md",
-      "summary": "Installed skill entrypoint."
+      "summary": "Current skill entrypoint."
+    },
+    {
+      "evidence_id": "contract-source",
+      "path": ".skillguard/contract-source.json",
+      "summary": "Target-specific semantic source."
     },
     {
       "evidence_id": "runtime-work-contract",
       "path": ".skillguard/work-contract.json",
-      "summary": "Runnable work contract."
+      "summary": "Generated work contract; not native execution proof."
     },
     {
       "evidence_id": "check-manifest",
       "path": ".skillguard/check_manifest.json",
-      "summary": "Runtime check manifest."
+      "summary": "Generated check manifest."
     },
     {
       "evidence_id": "check-report",
       "path": ".skillguard/reports/current_check_report.json",
-      "summary": "Current check summary."
+      "summary": "Structural check status."
     },
     {
       "evidence_id": "closure-record",
       "path": ".skillguard/reports/current_closure.json",
-      "summary": "Current closure summary."
+      "summary": "Structural closure boundary."
     }
   ],
   "failures": [],
   "residual_risk": [
-    "This static record must be refreshed when the skill entrypoint, route contract, or validation rules change."
+    "Native commands and immutable receipts are intentionally outside this static record."
   ],
   "schema_version": "1.0",
   "skipped_checks": [],
-  "status": "checked",
+  "status": "needs-review",
   "target_path": "..",
   "target_type": "evidence_manifest"
 }

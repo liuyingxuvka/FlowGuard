@@ -1,0 +1,114 @@
+{
+  "activation_keywords": [
+    "UI flow",
+    "observed surface",
+    "human operability",
+    "runnable UI evidence",
+    "UI transition coverage"
+  ],
+  "claim_boundary": "The route proves only the declared UI states, tasks, paths, and current observed/implementation evidence; it does not certify unvisited behavior, future AI behavior, or visual design quality.",
+  "default_route": false,
+  "direct_references": [
+    "references/ui_flow_structure_protocol.md",
+    "references/ui_observed_surface_protocol.md",
+    "references/ui_capability_interaction_protocol.md",
+    "references/ui_journey_structure_text_protocol.md",
+    "references/ui_human_operability_protocol.md",
+    "references/ui_implementation_evidence_protocol.md",
+    "references/ui_geometry_transition_protocol.md"
+  ],
+  "do_not_use_when": [
+    "The work is visual styling only, non-UI, code-structure planning, or prose/label/API evidence is being substituted for UI behavior proof."
+  ],
+  "downstream_targets": [
+    {
+      "claim_scope": "UI model-code-test alignment",
+      "condition": "UI transition/capability/payload targets need semantic obligation, owner code, and test binding.",
+      "target_id": "flowguard-model-test-alignment",
+      "target_kind": "skill"
+    },
+    {
+      "claim_scope": "UI evidence hierarchy",
+      "condition": "Browser/manual/transition evidence is large, slow, layered, stale-prone, background, or release-only.",
+      "target_id": "flowguard-test-mesh",
+      "target_kind": "skill"
+    },
+    {
+      "claim_scope": "UI code structure recommendation",
+      "condition": "Reviewed UI behavior must become implementation module/component ownership.",
+      "target_id": "flowguard-code-structure-recommendation",
+      "target_kind": "skill"
+    }
+  ],
+  "layout_profiles": {
+    "installed": ".codex/skills/flowguard-ui-flow-structure",
+    "source": ".agents/skills/flowguard-ui-flow-structure"
+  },
+  "native_checks": [
+    {
+      "binding_id": "ui_flow_model",
+      "command": "python .flowguard/ui_flow_structure_skill/run_checks.py",
+      "evidence_source": "current model runner receipt and final report",
+      "kind": "flowguard_model",
+      "native_check_id": "ui_flow_structure_skill",
+      "summary": "Run UI flow, visible-surface, operability, and implementation evidence model checks."
+    }
+  ],
+  "native_owner": "ui_flow_structure",
+  "output_fields": [
+    "evidence",
+    "failures",
+    "blockers",
+    "skipped_checks",
+    "residual_risk",
+    "claim_boundary",
+    "typed_next_actions"
+  ],
+  "route_id": "ui_flow_structure",
+  "route_role": "public_owner",
+  "route_summary": "Model UI behavior and prove observed surface, capability/task coverage, journeys, operability, implementation evidence, geometry, and transition scope.",
+  "schema_version": "flowguard.skill_contract_source.v1",
+  "skill_id": "flowguard-ui-flow-structure",
+  "source_requirements": [
+    {
+      "category": "inventory",
+      "requirement_id": "ui.observed_surface_and_capabilities",
+      "summary": "Existing/runnable UI claims require complete observed-surface and user-visible capability/output accounting."
+    },
+    {
+      "category": "evidence",
+      "requirement_id": "ui.enabled_action_chain",
+      "summary": "Every reachable enabled action has a modeled event and current functional chain/click evidence, pure-UI disposition, or owned blindspot."
+    },
+    {
+      "category": "closure",
+      "requirement_id": "ui.design_runtime_boundary",
+      "summary": "Model/design evidence cannot prove implemented/runnable completion; source alignment, recovery, human, and current evidence-kind gates remain explicit."
+    }
+  ],
+  "use_when": [
+    "UI controls, displays, states, journeys, visible surface, capabilities, tasks, click-through, layout/responsiveness, or transition evidence are in scope."
+  ],
+  "workflow": [
+    {
+      "phase_id": "intake",
+      "summary": "Declare greenfield, source_based, or mixed mode; product/user scope; source authority; and requested UI claim."
+    },
+    {
+      "phase_id": "inventory",
+      "summary": "Inventory observed visible items, required capabilities/outputs, tasks, controls, displays, states, events, source mappings, and blindspots."
+    },
+    {
+      "phase_id": "execution",
+      "summary": "Build interaction/journey/structure/text/task contracts and current functional chains, implementation runs, geometry, and transition targets as required."
+    },
+    {
+      "phase_id": "checks",
+      "summary": "Run the UI Flow model and reject unowned enabled actions, missing recovery, stale/weak evidence, or design-only runnable claims."
+    },
+    {
+      "phase_id": "closure",
+      "summary": "Return current UI evidence and gaps; hand semantic transition cells and large evidence matrices to MTA/TestMesh."
+    }
+  ]
+}

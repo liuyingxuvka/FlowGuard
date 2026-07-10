@@ -1,0 +1,107 @@
+{
+  "activation_keywords": [
+    "existing modeled system",
+    "ownership lookup",
+    "duplicate boundary",
+    "reuse existing model"
+  ],
+  "claim_boundary": "The report proves only current ownership understanding and route selection; it does not validate the downstream proposal or implementation.",
+  "default_route": false,
+  "direct_references": [
+    "references/existing_model_preflight_protocol.md"
+  ],
+  "do_not_use_when": [
+    "The task is typo/format-only, greenfield with no model context, or asks for downstream implementation/validation rather than ownership grounding."
+  ],
+  "downstream_targets": [
+    {
+      "claim_scope": "behavior ownership",
+      "condition": "External behavior overlaps, changes, or lacks registration.",
+      "target_id": "flowguard-behavior-commitment-ledger",
+      "target_kind": "skill"
+    },
+    {
+      "claim_scope": "field ownership",
+      "condition": "Behavior-bearing, replaced, or compatibility-like fields are in scope.",
+      "target_id": "flowguard-field-lifecycle-mesh",
+      "target_kind": "skill"
+    },
+    {
+      "claim_scope": "reduction review",
+      "condition": "Duplicate model/code boundaries may be contracted.",
+      "target_id": "flowguard-architecture-reduction",
+      "target_kind": "skill"
+    }
+  ],
+  "layout_profiles": {
+    "installed": ".codex/skills/flowguard-existing-model-preflight",
+    "source": ".agents/skills/flowguard-existing-model-preflight"
+  },
+  "native_checks": [
+    {
+      "binding_id": "existing_preflight_pytest",
+      "command": "python -m pytest tests/test_existing_model_preflight.py -q",
+      "evidence_source": "current owner-specific pytest receipt",
+      "kind": "pytest",
+      "native_check_id": "existing_model_preflight_tests",
+      "summary": "Run the tracked existing-model-preflight owner and ownership tests."
+    }
+  ],
+  "native_owner": "existing_model_preflight",
+  "output_fields": [
+    "evidence",
+    "failures",
+    "blockers",
+    "skipped_checks",
+    "residual_risk",
+    "claim_boundary",
+    "typed_next_actions"
+  ],
+  "route_id": "existing_model_preflight",
+  "route_role": "public_owner",
+  "route_summary": "Search current modeled ownership, classify reuse, expose duplicate boundaries, and select the typed downstream owner.",
+  "schema_version": "flowguard.skill_contract_source.v1",
+  "skill_id": "flowguard-existing-model-preflight",
+  "source_requirements": [
+    {
+      "category": "inventory",
+      "requirement_id": "existing_preflight.current_search",
+      "summary": "Full preflight must search current model and source records and classify old-shape evidence before reuse."
+    },
+    {
+      "category": "evidence",
+      "requirement_id": "existing_preflight.ownership_and_duplicates",
+      "summary": "FunctionBlock, state, field, side-effect, entrypoint, commitment, and layered ownership gaps remain visible."
+    },
+    {
+      "category": "closure",
+      "requirement_id": "existing_preflight.companion_only",
+      "summary": "Preflight selects reuse and downstream ownership but cannot prove or implement the planned change."
+    }
+  ],
+  "use_when": [
+    "Non-trivial discussion, proposal, feature, bug, refactor, UI, test, prompt, skill, workflow, or process work touches an existing modeled system."
+  ],
+  "workflow": [
+    {
+      "phase_id": "intake",
+      "summary": "Define the candidate change boundary and whether light or full preflight is required."
+    },
+    {
+      "phase_id": "inventory",
+      "summary": "Search models, specs, docs, source surfaces, commitments, fields, and parent/child evidence."
+    },
+    {
+      "phase_id": "execution",
+      "summary": "Build ownership snapshots, model-angle/similarity rows, reuse decision, and duplicate-boundary risks."
+    },
+    {
+      "phase_id": "checks",
+      "summary": "Run the native preflight model and reject stale, missing, duplicate, or unsupported ownership."
+    },
+    {
+      "phase_id": "closure",
+      "summary": "Return affected commitments/siblings, stale gaps, reuse decision, and typed downstream owner without implementing."
+    }
+  ]
+}

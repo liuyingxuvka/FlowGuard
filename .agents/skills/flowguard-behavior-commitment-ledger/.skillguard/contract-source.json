@@ -1,0 +1,120 @@
+{
+  "activation_keywords": [
+    "behavior inventory",
+    "behavior commitment",
+    "source coverage",
+    "primary path authority",
+    "broad release confidence"
+  ],
+  "claim_boundary": "The ledger proves only current registered behavior/source/owner/path accounting; sibling evidence and final release authority remain separate.",
+  "default_route": false,
+  "direct_references": [
+    "references/behavior_commitment_ledger_protocol.md"
+  ],
+  "do_not_use_when": [
+    "The scope is helper internals, no external behavior inventory exists, or a sibling evidence route owns the question."
+  ],
+  "downstream_targets": [
+    {
+      "claim_scope": "single primary runtime authority",
+      "condition": "A commitment is path_sensitive=true.",
+      "target_id": "primary_path_authority",
+      "target_kind": "internal_route"
+    },
+    {
+      "claim_scope": "canonical case generation",
+      "condition": "Commitment/DCAR/PPA finite coverage must be generated.",
+      "target_id": "flowguard-contract-exhaustion-mesh",
+      "target_kind": "skill"
+    },
+    {
+      "claim_scope": "alignment rows",
+      "condition": "Commitments must bind model, owner code, and tests.",
+      "target_id": "flowguard-model-test-alignment",
+      "target_kind": "skill"
+    },
+    {
+      "claim_scope": "validation hierarchy",
+      "condition": "Commitment shards need child-suite ownership and freshness.",
+      "target_id": "flowguard-test-mesh",
+      "target_kind": "skill"
+    },
+    {
+      "claim_scope": "final risk confidence",
+      "condition": "Broad done/release/archive/publish confidence is requested.",
+      "target_id": "risk_evidence_ledger",
+      "target_kind": "internal_route"
+    }
+  ],
+  "layout_profiles": {
+    "installed": ".codex/skills/flowguard-behavior-commitment-ledger",
+    "source": ".agents/skills/flowguard-behavior-commitment-ledger"
+  },
+  "native_checks": [
+    {
+      "binding_id": "behavior_ledger_model",
+      "command": "python .flowguard/behavior_commitment_ledger/run_checks.py",
+      "evidence_source": "current model runner receipt and final report",
+      "kind": "flowguard_model",
+      "native_check_id": "behavior_commitment_ledger",
+      "summary": "Run the behavior commitment ledger model and failure variants."
+    }
+  ],
+  "native_owner": "behavior_commitment_ledger",
+  "output_fields": [
+    "evidence",
+    "failures",
+    "blockers",
+    "skipped_checks",
+    "residual_risk",
+    "claim_boundary",
+    "typed_next_actions"
+  ],
+  "route_id": "behavior_commitment_ledger",
+  "route_role": "public_owner",
+  "route_summary": "Bind external behavior commitments to fresh sources, exactly one primary owner model, dependencies, evidence, and path authority.",
+  "schema_version": "flowguard.skill_contract_source.v1",
+  "skill_id": "flowguard-behavior-commitment-ledger",
+  "source_requirements": [
+    {
+      "category": "inventory",
+      "requirement_id": "behavior_ledger.bidirectional_coverage",
+      "summary": "Every current source maps to commitments and every commitment maps back to fresh source evidence."
+    },
+    {
+      "category": "evidence",
+      "requirement_id": "behavior_ledger.single_owner_and_ppa",
+      "summary": "Each commitment has exactly one primary owner and path-sensitive rows consume internal Primary Path Authority evidence."
+    },
+    {
+      "category": "closure",
+      "requirement_id": "behavior_ledger.broad_gate",
+      "summary": "Missing DCAR, TestMesh, alignment, risk, replacement, dependency, or PPA evidence blocks broad confidence."
+    }
+  ],
+  "use_when": [
+    "External behavior must be added, changed, removed, backfilled, miss-checked, or fully accounted before a broad claim."
+  ],
+  "workflow": [
+    {
+      "phase_id": "intake",
+      "summary": "Define the work-package boundary and select one of the six ledger modes."
+    },
+    {
+      "phase_id": "inventory",
+      "summary": "Inventory fresh source surfaces and external commitments bidirectionally with one primary owner each."
+    },
+    {
+      "phase_id": "execution",
+      "summary": "Record dependencies, replacement/model-sync state, evidence, and internal PPA bindings for path-sensitive rows."
+    },
+    {
+      "phase_id": "checks",
+      "summary": "Run ledger and Primary Path Authority checks plus required DCAR/shard/risk projections."
+    },
+    {
+      "phase_id": "closure",
+      "summary": "Block broad confidence on any missing, extra, overlap, stale, dependency, disposition, or PPA gap."
+    }
+  ]
+}

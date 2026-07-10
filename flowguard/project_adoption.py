@@ -1,21 +1,33 @@
-"""Project-local FlowGuard adoption and version gate helpers."""
+"""Project-local FlowGuard adoption and version gate helpers.
+
+The managed ``AGENTS.md`` block is a generated semantic contract.  This
+module deliberately plans every adoption write before mutating the target so
+that version, suite-membership, and governance-regression gates can fail
+closed.
+"""
 
 from __future__ import annotations
 
+import hashlib
 import importlib.metadata
 import json
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 try:  # pragma: no cover - Python 3.10 fallback
     import tomllib
 except ModuleNotFoundError:  # pragma: no cover
     tomllib = None  # type: ignore[assignment]
 
-from .adoption import append_jsonl, append_markdown_log, make_adoption_log_entry
+from .adoption import (
+    AdoptionCommandResult,
+    append_jsonl,
+    append_markdown_log,
+    make_adoption_log_entry,
+)
 from .artifact_upgrade import ArtifactUpgradeReport, review_artifact_upgrades
 from .core import FrozenMetadata, freeze_metadata
 from .export import to_jsonable
@@ -37,10 +49,195 @@ PROJECT_ADOPTION_STATUS_PASS = "pass"
 PROJECT_ADOPTION_STATUS_PASS_WITH_GAPS = "pass_with_gaps"
 PROJECT_ADOPTION_STATUS_BLOCKED = "blocked"
 
+PROJECT_ADOPTION_CLAIM_BOUNDARY = (
+    "Project adoption evidence covers the generated AGENTS policy, version records, "
+    "and canonical skill-suite reconciliation. It does not replace current executable "
+    "model checks, tests, replay, UI click-through, release, or business-path evidence."
+)
+
+_RULE_MARKER_RE = re.compile(r"<!--\s*flowguard-rule:([a-z0-9_.-]+)\s*-->", re.IGNORECASE)
+_RULE_SECTION_RE = re.compile(
+    r"<!--\s*flowguard-rule:([a-z0-9_.-]+)\s*-->\s*"
+    r"(.*?)"
+    r"(?=<!--\s*flowguard-rule:[a-z0-9_.-]+\s*-->|"
+    + re.escape(FLOWGUARD_AGENTS_END)
+    + r"|\Z)",
+    re.IGNORECASE | re.DOTALL,
+)
+_MANAGED_BLOCK_RE = re.compile(
+    re.escape(FLOWGUARD_AGENTS_BEGIN) + r".*?" + re.escape(FLOWGUARD_AGENTS_END),
+    re.DOTALL,
+)
+_RENDERED_PACKAGE_RE = re.compile(
+    r"FlowGuard check-engine version:\s*`([^`]+)`", re.IGNORECASE
+)
+_RENDERED_SCHEMA_RE = re.compile(
+    r"FlowGuard schema version:\s*`([^`]+)`", re.IGNORECASE
+)
+
+
+@dataclass(frozen=True)
+class ManagedAdoptionRule:
+    """One stable, generated rule in the managed project prompt."""
+
+    rule_id: str
+    text_template: str
+
+    def render(self, *, package_version: str, schema_version: str) -> str:
+        return self.text_template.format(
+            package_version=package_version,
+            schema_version=schema_version,
+            repository=FLOWGUARD_REPOSITORY_URL,
+            manifest=FLOWGUARD_PROJECT_MANIFEST,
+            machine_log=FLOWGUARD_PROJECT_LOG,
+            markdown_log=FLOWGUARD_PROJECT_MARKDOWN_LOG,
+        ).strip()
+
+
+# Stable ids make rule loss observable without turning wording fragments into
+# a second, private policy inventory.  The rendered text intentionally mirrors
+# the complete current project rules, including the BCL and PPA additions that
+# pre-date this generator refactor.
+FLOWGUARD_MANAGED_RULES: tuple[ManagedAdoptionRule, ...] = (
+    ManagedAdoptionRule(
+        "project.scope",
+        """## FlowGuard Project Rules
+
+This project uses FlowGuard for non-trivial maintenance, feature work, bug
+fixes, refactors, tests, release work, project upgrades, and evidence-sensitive
+process changes.""",
+    ),
+    ManagedAdoptionRule(
+        "project.repository",
+        """FlowGuard repository:
+{repository}""",
+    ),
+    ManagedAdoptionRule(
+        "skill_suite.agent_surface",
+        """FlowGuard agent skill suite:
+- Primary agent surface: `.agents/skills/`
+- Default entry skill: `.agents/skills/model-first-function-flow/SKILL.md`
+- Complete AI-agent setup means the agent can read `AGENTS.md` and all
+  FlowGuard sibling `SKILL.md` files under `.agents/skills/`.
+- The Python `flowguard` module/CLI is executable check support, not the
+  AI-agent skill installation surface.""",
+    ),
+    ManagedAdoptionRule(
+        "project.record_locations",
+        """Project FlowGuard record:
+- Manifest: `{manifest}`
+- Machine log: `{machine_log}`
+- Human log: `{markdown_log}`""",
+    ),
+    ManagedAdoptionRule(
+        "project.rendered_versions",
+        """Current adoption record:
+- FlowGuard check-engine version: `{package_version}`
+- FlowGuard schema version: `{schema_version}`""",
+    ),
+    ManagedAdoptionRule(
+        "project.preflight_version_gate",
+        """Before non-trivial work:
+1. Verify the real FlowGuard check engine:
+   `python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"`
+2. Check the installed check-engine version:
+   `python -c "import importlib.metadata as m; print(m.version('flowguard'))"`
+3. Audit the project record:
+   `python -m flowguard project-audit --root .`
+4. Compare the installed version with `{manifest}`.
+5. If the installed version is newer, run:
+   `python -m flowguard project-upgrade --root .`
+   This updates the project record and scans existing FlowGuard artifacts,
+   model evidence, tests, docs, and guidance for deterministic upgrades into
+   the current FlowGuard shape. Use `--records-only` only when intentionally
+   scoping out artifact/model/test upgrade scanning.
+   Then rerun affected models/tests before broad confidence and record the result.
+6. If the installed version is older than the project record, stop and connect
+   a current FlowGuard check engine before claiming FlowGuard confidence.""",
+    ),
+    ManagedAdoptionRule(
+        "runtime.latest_schema_first",
+        """FlowGuard runtime guidance is latest-schema-first: old artifacts may be
+detected and upgraded at project/tool boundaries, but normal route logic should
+not keep long-lived old branches for obsolete fields, aliases, or wrappers.""",
+    ),
+    ManagedAdoptionRule(
+        "lifecycle.default_replacement",
+        """Default replacement means dispose the old path, old field, alias, wrapper, or
+alternate success path. Delete, block, migrate, delegate, repair, replace, or
+scope it out with a concrete reason; do not leave it as a second successful
+route.""",
+    ),
+    ManagedAdoptionRule(
+        "behavior.commitment_ledger",
+        """Broad behavior work should use or update BehaviorCommitmentLedger before
+claiming full coverage: register external behavior promises, map source
+surfaces to commitments, assign exactly one primary owner model per
+commitment, record dependencies/evidence, and hand `path_sensitive=true`
+commitments to Primary Path Authority. Do not treat every helper function,
+file, field, or model as a behavior commitment.""",
+    ),
+    ManagedAdoptionRule(
+        "behavior.commitment_ledger_modes",
+        """Before changing or claiming behavior coverage, classify the behavior-ledger
+mode: `bootstrap_ledger`, `add_behavior`, `change_behavior`,
+`remove_or_replace_behavior`, `coverage_gap_backfill`, or `model_miss_check`.
+Only bootstrap and gap backfill require broad historical source discovery.
+Ordinary add/change/remove work updates affected commitments, owner models,
+DCAR cases, and TestMesh evidence. Model-miss checks first map the failure to
+an existing commitment and owner model; create/backfill a commitment only when
+the observed external behavior was not registered.""",
+    ),
+    ManagedAdoptionRule(
+        "lifecycle.field_mesh",
+        """Field-bearing work should use or update FieldLifecycleMesh: high-level behavior
+models include behavior-bearing fields, while child/leaf field rows account all
+discovered fields and record owner, readers, writers, projection, lifecycle,
+and old-field disposition.""",
+    ),
+    ManagedAdoptionRule(
+        "evidence.ui_and_payload",
+        """UI runnable claims and file/work-package claims need current UI click-through
+or artifact-payload evidence gates before broad done/release confidence.""",
+    ),
+    ManagedAdoptionRule(
+        "behavior.primary_path_authority",
+        """Path-sensitive behavior commitments need Primary Path Authority evidence before
+broad confidence: one primary runtime authority per business intent, visible
+primary failure, no automatic alternate success, ContractExhaustionMesh
+coverage, TestMesh shards, and Risk Evidence Ledger gates.""",
+    ),
+    ManagedAdoptionRule(
+        "process.development_process_flow",
+        """Non-trivial rough-plan discussion, multi-skill/tool workflow setup, staged
+execution, install/sync, release/archive/publish, post-change owner scans, and
+final process claims enter `flowguard-development-process-flow` first as the
+development-process simulator. Record `plan_detailing`, `agent_workflow`, and
+`execution_freshness` modes; delegate to PlanDetailing or
+AgentWorkflowRehearsal only when explicit or simulator-selected.""",
+    ),
+    ManagedAdoptionRule(
+        "process.post_change_scan",
+        """After non-trivial FlowGuard-managed work, let DevelopmentProcessFlow consume
+post-change scan signals for changed artifacts, skipped routes, stale evidence,
+open obligations, or split/reduction pressure. The scan output routes each gap
+to the owning specialist, such as Model-Test Alignment, Architecture
+Reduction, StructureMesh, ModelMesh, TestMesh, or AgentWorkflowRehearsal.""",
+    ),
+    ManagedAdoptionRule(
+        "claim.no_fake_adoption",
+        """Do not create a fake local FlowGuard replacement. Do not claim full FlowGuard
+completion from an AGENTS/manifest/log update alone; executable model checks,
+tests, replay, and closure evidence still need to be current for the claim.""",
+    ),
+)
+
+FLOWGUARD_REQUIRED_RULE_IDS = tuple(rule.rule_id for rule in FLOWGUARD_MANAGED_RULES)
+
 
 @dataclass(frozen=True)
 class ProjectAdoptionFinding:
-    """One finding from project adoption audit/adopt/upgrade work."""
+    """One deterministic finding from project adoption work."""
 
     severity: str
     category: str
@@ -60,8 +257,13 @@ class ProjectAdoptionFinding:
         object.__setattr__(self, "file_path", str(self.file_path or ""))
         object.__setattr__(self, "metadata", freeze_metadata(self.metadata))
 
+    @property
+    def code(self) -> str:
+        return self.category
+
     def to_dict(self) -> dict[str, Any]:
         return {
+            "code": self.code,
             "severity": self.severity,
             "category": self.category,
             "message": self.message,
@@ -72,8 +274,24 @@ class ProjectAdoptionFinding:
 
 
 @dataclass(frozen=True)
+class _SuiteEvidence:
+    ok: bool
+    status: str
+    inventory_hash: str = ""
+    semantic_hash: str = ""
+    findings: tuple[Mapping[str, Any], ...] = ()
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "ok", bool(self.ok))
+        object.__setattr__(self, "status", str(self.status or ("pass" if self.ok else "blocked")))
+        object.__setattr__(self, "inventory_hash", str(self.inventory_hash or ""))
+        object.__setattr__(self, "semantic_hash", str(self.semantic_hash or ""))
+        object.__setattr__(self, "findings", tuple(dict(item) for item in self.findings))
+
+
+@dataclass(frozen=True)
 class ProjectAdoptionReport:
-    """Structured report for a project adoption command."""
+    """Structured, evidence-rich report for a project adoption command."""
 
     root: str
     action: str
@@ -81,9 +299,42 @@ class ProjectAdoptionReport:
     schema_version: str
     manifest_package_version: str = ""
     manifest_schema_version: str = ""
+    rendered_package_version: str = ""
+    rendered_schema_version: str = ""
+    inventory_hash: str = ""
+    suite_semantic_hash: str = ""
+    suite_status: str = "unresolved"
+    suite_findings: tuple[Mapping[str, Any], ...] = ()
+    managed_block_semantic_hash: str = ""
+    proposed_managed_block_semantic_hash: str = ""
+    required_rule_ids: tuple[str, ...] = FLOWGUARD_REQUIRED_RULE_IDS
+    observed_rule_ids: tuple[str, ...] = ()
+    missing_rule_ids: tuple[str, ...] = ()
+    semantic_rule_changes: FrozenMetadata = field(default_factory=tuple, compare=False)
+    proposed_files: tuple[str, ...] = ()
+    required_revalidation: tuple[str, ...] = ()
+    checks: tuple[str, ...] = ()
+    skipped_steps: tuple[str, ...] = ()
+    claim_boundary: str = PROJECT_ADOPTION_CLAIM_BOUNDARY
+    dry_run: bool = False
+    before_state: FrozenMetadata = field(default_factory=tuple, compare=False)
+    after_state: FrozenMetadata = field(default_factory=tuple, compare=False)
     findings: tuple[ProjectAdoptionFinding, ...] = ()
     written_files: tuple[str, ...] = ()
     artifact_upgrade_report: ArtifactUpgradeReport | None = None
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "suite_findings", tuple(dict(item) for item in self.suite_findings))
+        object.__setattr__(self, "required_rule_ids", tuple(str(item) for item in self.required_rule_ids))
+        object.__setattr__(self, "observed_rule_ids", tuple(str(item) for item in self.observed_rule_ids))
+        object.__setattr__(self, "missing_rule_ids", tuple(str(item) for item in self.missing_rule_ids))
+        object.__setattr__(self, "semantic_rule_changes", freeze_metadata(self.semantic_rule_changes))
+        object.__setattr__(self, "proposed_files", tuple(str(item) for item in self.proposed_files))
+        object.__setattr__(self, "required_revalidation", tuple(str(item) for item in self.required_revalidation))
+        object.__setattr__(self, "checks", tuple(str(item) for item in self.checks))
+        object.__setattr__(self, "skipped_steps", tuple(str(item) for item in self.skipped_steps))
+        object.__setattr__(self, "before_state", freeze_metadata(self.before_state))
+        object.__setattr__(self, "after_state", freeze_metadata(self.after_state))
 
     @property
     def ok(self) -> bool:
@@ -97,20 +348,65 @@ class ProjectAdoptionReport:
             return PROJECT_ADOPTION_STATUS_PASS_WITH_GAPS
         return PROJECT_ADOPTION_STATUS_PASS
 
+    @property
+    def blockers(self) -> tuple[ProjectAdoptionFinding, ...]:
+        return tuple(finding for finding in self.findings if finding.severity == "blocked")
+
     def to_dict(self) -> dict[str, Any]:
+        versions = {
+            "installed_package_version": self.installed_package_version,
+            "installed_schema_version": self.schema_version,
+            "manifest_package_version": self.manifest_package_version,
+            "manifest_schema_version": self.manifest_schema_version,
+            "rendered_package_version": self.rendered_package_version,
+            "rendered_schema_version": self.rendered_schema_version,
+        }
         return {
             "artifact_type": "flowguard_project_adoption_report",
             "root": self.root,
             "action": self.action,
+            "mode": "dry_run" if self.dry_run else self.action,
+            "dry_run": self.dry_run,
             "ok": self.ok,
             "status": self.status,
+            "canonical_status": self.status,
             "repository": FLOWGUARD_REPOSITORY_URL,
             "installed_package_version": self.installed_package_version,
             "schema_version": self.schema_version,
             "manifest_package_version": self.manifest_package_version,
             "manifest_schema_version": self.manifest_schema_version,
+            "rendered_package_version": self.rendered_package_version,
+            "rendered_schema_version": self.rendered_schema_version,
+            "versions": versions,
+            "inventory_hash": self.inventory_hash,
+            "suite_semantic_hash": self.suite_semantic_hash,
+            "suite_status": self.suite_status,
+            "suite_ok": self.suite_status == PROJECT_ADOPTION_STATUS_PASS,
+            "suite_findings": [dict(item) for item in self.suite_findings],
+            "suite": {
+                "ok": self.suite_status == PROJECT_ADOPTION_STATUS_PASS,
+                "status": self.suite_status,
+                "inventory_hash": self.inventory_hash,
+                "semantic_hash": self.suite_semantic_hash,
+                "findings": [dict(item) for item in self.suite_findings],
+            },
+            "managed_block_semantic_hash": self.managed_block_semantic_hash,
+            "proposed_managed_block_semantic_hash": self.proposed_managed_block_semantic_hash,
+            "required_rule_ids": list(self.required_rule_ids),
+            "observed_rule_ids": list(self.observed_rule_ids),
+            "missing_rule_ids": list(self.missing_rule_ids),
+            "semantic_rule_changes": to_jsonable(dict(self.semantic_rule_changes)),
+            "proposed_files": list(self.proposed_files),
+            "required_revalidation": list(self.required_revalidation),
+            "minimum_revalidation": list(self.required_revalidation),
+            "checks": list(self.checks),
+            "skipped_steps": list(self.skipped_steps),
+            "claim_boundary": self.claim_boundary,
+            "before": to_jsonable(dict(self.before_state)),
+            "after": to_jsonable(dict(self.after_state)),
             "written_files": list(self.written_files),
             "findings": [finding.to_dict() for finding in self.findings],
+            "blockers": [finding.to_dict() for finding in self.blockers],
             "artifact_upgrade_report": (
                 self.artifact_upgrade_report.to_dict()
                 if self.artifact_upgrade_report is not None
@@ -125,16 +421,26 @@ class ProjectAdoptionReport:
         lines = [
             "=== flowguard project adoption ===",
             f"action: {self.action}",
+            f"mode: {'dry_run' if self.dry_run else self.action}",
             f"status: {self.status}",
             f"repository: {FLOWGUARD_REPOSITORY_URL}",
             f"installed_package_version: {self.installed_package_version}",
+            f"manifest_package_version: {self.manifest_package_version or 'missing'}",
+            f"rendered_package_version: {self.rendered_package_version or 'missing'}",
             f"schema_version: {self.schema_version}",
+            f"suite_status: {self.suite_status}",
+            f"inventory_hash: {self.inventory_hash or 'unavailable'}",
+            f"managed_block_semantic_hash: {self.managed_block_semantic_hash or 'unavailable'}",
         ]
-        if self.manifest_package_version:
-            lines.append(f"manifest_package_version: {self.manifest_package_version}")
+        if self.proposed_files:
+            lines.append("proposed_files:")
+            lines.extend(f"- {path}" for path in self.proposed_files)
         if self.written_files:
             lines.append("written_files:")
             lines.extend(f"- {path}" for path in self.written_files)
+        if self.required_revalidation:
+            lines.append("required_revalidation:")
+            lines.extend(f"- {item}" for item in self.required_revalidation)
         if self.artifact_upgrade_report is not None:
             lines.extend(
                 [
@@ -156,11 +462,12 @@ class ProjectAdoptionReport:
                 lines.append(f"file: {finding.file_path}")
             if finding.recommendation:
                 lines.append(f"recommendation: {finding.recommendation}")
+        lines.extend(["", f"claim_boundary: {self.claim_boundary}"])
         return "\n".join(lines)
 
 
 def installed_flowguard_package_version() -> str:
-    """Return the installed FlowGuard check-engine package version, or an empty string."""
+    """Return the installed FlowGuard check-engine package version, or empty."""
 
     try:
         return importlib.metadata.version("flowguard")
@@ -174,7 +481,7 @@ def current_project_manifest_text(
     schema_version: str = SCHEMA_VERSION,
     verified_by: str = "FlowGuard project-adopt",
 ) -> str:
-    """Build the canonical `.flowguard/project.toml` text."""
+    """Build the canonical ``.flowguard/project.toml`` text."""
 
     package = package_version if package_version is not None else installed_flowguard_package_version()
     verified_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
@@ -201,117 +508,132 @@ def build_flowguard_agents_block(
     package_version: str | None = None,
     schema_version: str = SCHEMA_VERSION,
 ) -> str:
-    """Build the managed AGENTS.md block for target projects."""
+    """Build the managed AGENTS block from the stable rule inventory."""
 
     package = package_version if package_version is not None else installed_flowguard_package_version()
-    return f"""{FLOWGUARD_AGENTS_BEGIN}
-## FlowGuard Project Rules
+    parts = [FLOWGUARD_AGENTS_BEGIN]
+    for rule in FLOWGUARD_MANAGED_RULES:
+        parts.append(f"<!-- flowguard-rule:{rule.rule_id} -->")
+        parts.append(rule.render(package_version=package, schema_version=schema_version))
+    parts.append(FLOWGUARD_AGENTS_END)
+    return "\n\n".join(parts)
 
-This project uses FlowGuard for non-trivial maintenance, feature work, bug
-fixes, refactors, tests, release work, project upgrades, and evidence-sensitive
-process changes.
 
-FlowGuard repository:
-{FLOWGUARD_REPOSITORY_URL}
+def extract_managed_agents_block(text: str) -> str:
+    """Return the first complete managed block, or an empty string."""
 
-FlowGuard agent skill suite:
-- Primary agent surface: `.agents/skills/`
-- Default entry skill: `.agents/skills/model-first-function-flow/SKILL.md`
-- Complete AI-agent setup means the agent can read `AGENTS.md` and all
-  FlowGuard sibling `SKILL.md` files under `.agents/skills/`.
-- The Python `flowguard` module/CLI is executable check support, not the
-  AI-agent skill installation surface.
+    match = _MANAGED_BLOCK_RE.search(str(text or ""))
+    return match.group(0) if match is not None else ""
 
-Project FlowGuard record:
-- Manifest: `{FLOWGUARD_PROJECT_MANIFEST}`
-- Machine log: `{FLOWGUARD_PROJECT_LOG}`
-- Human log: `{FLOWGUARD_PROJECT_MARKDOWN_LOG}`
 
-Current adoption record:
-- FlowGuard check-engine version: `{package}`
-- FlowGuard schema version: `{schema_version}`
+def normalize_managed_agents_block(text: str) -> str:
+    """Normalize insignificant formatting and dynamic version values."""
 
-Before non-trivial work:
-1. Verify the real FlowGuard check engine:
-   `python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"`
-2. Check the installed check-engine version:
-   `python -c "import importlib.metadata as m; print(m.version('flowguard'))"`
-3. Audit the project record:
-   `python -m flowguard project-audit --root .`
-4. Compare the installed version with `{FLOWGUARD_PROJECT_MANIFEST}`.
-5. If the installed version is newer, run:
-   `python -m flowguard project-upgrade --root .`
-   This updates the project record and scans existing FlowGuard artifacts,
-   model evidence, tests, docs, and guidance for deterministic upgrades into
-   the current FlowGuard shape. Use `--records-only` only when intentionally
-   scoping out artifact/model/test upgrade scanning.
-   Then rerun affected models/tests before broad confidence and record the result.
-6. If the installed version is older than the project record, stop and connect
-   a current FlowGuard check engine before claiming FlowGuard confidence.
+    value = str(text or "").replace("\r\n", "\n").replace("\r", "\n")
+    value = _RULE_MARKER_RE.sub("", value)
+    value = _RENDERED_PACKAGE_RE.sub(
+        "FlowGuard check-engine version: `{package_version}`", value
+    )
+    value = _RENDERED_SCHEMA_RE.sub(
+        "FlowGuard schema version: `{schema_version}`", value
+    )
+    return re.sub(r"\s+", " ", value).strip()
 
-FlowGuard runtime guidance is latest-schema-first: old artifacts may be
-detected and upgraded at project/tool boundaries, but normal route logic should
-not preserve long-lived compatibility branches for obsolete fields, aliases, or
-wrappers.
 
-Default replacement means dispose the old path, old field, alias, wrapper, or
-fallback unless compatibility or preservation is explicitly requested. If
-compatibility is explicit, record the preserved surface, compatibility intent,
-and current evidence; otherwise delete, block, migrate, delegate, repair, or
-scope it out with a concrete reason.
+def managed_block_semantic_hash(text: str) -> str:
+    """Return a deterministic hash of normalized managed-block semantics."""
 
-Field-bearing work should use or update FieldLifecycleMesh: high-level behavior
-models include behavior-bearing fields, while child/leaf field rows account all
-discovered fields and record owner, readers, writers, projection, lifecycle,
-and old-field disposition.
+    normalized = normalize_managed_agents_block(text)
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest() if normalized else ""
 
-UI runnable claims and file/work-package claims need current UI click-through
-or artifact-payload evidence gates before broad done/release confidence.
 
-Non-trivial rough-plan discussion, multi-skill/tool workflow setup, staged
-execution, install/sync, release/archive/publish, post-change owner scans, and
-final process claims enter `flowguard-development-process-flow` first as the
-development-process simulator. Record `plan_detailing`, `agent_workflow`, and
-`execution_freshness` modes; delegate to PlanDetailing or
-AgentWorkflowRehearsal only when explicit or simulator-selected.
+def managed_rule_ids_in_block(text: str) -> tuple[str, ...]:
+    """Return rule ids whose marker and complete generated clause agree.
 
-After non-trivial FlowGuard-managed work, let DevelopmentProcessFlow consume
-post-change scan signals for changed artifacts, skipped routes, stale evidence,
-open obligations, or split/reduction pressure. The scan output routes each gap
-to the owning specialist, such as Model-Test Alignment, Architecture
-Reduction, StructureMesh, ModelMesh, TestMesh, or AgentWorkflowRehearsal.
+    The stable id is part of the semantic contract rather than a decorative
+    comment.  Looking for clause text anywhere in the block would allow a
+    missing or relabelled marker to pass and is ambiguous when one rule names
+    another (for example, the BCL handoff names Primary Path Authority).
+    """
 
-Do not create a fake local FlowGuard replacement. Do not claim full FlowGuard
-completion from an AGENTS/manifest/log update alone; executable model checks,
-tests, replay, and closure evidence still need to be current for the claim.
-{FLOWGUARD_AGENTS_END}"""
+    managed_block = extract_managed_agents_block(text) or str(text or "")
+    if not managed_block.strip():
+        return ()
+
+    expected = {
+        rule.rule_id: normalize_managed_agents_block(
+            rule.render(
+                package_version="{package_version}",
+                schema_version="{schema_version}",
+            )
+        )
+        for rule in FLOWGUARD_MANAGED_RULES
+    }
+    marker_counts: dict[str, int] = {}
+    matching_counts: dict[str, int] = {}
+    for match in _RULE_SECTION_RE.finditer(managed_block):
+        rule_id = match.group(1).lower()
+        clause = normalize_managed_agents_block(match.group(2))
+        marker_counts[rule_id] = marker_counts.get(rule_id, 0) + 1
+        if rule_id in expected and clause == expected[rule_id]:
+            matching_counts[rule_id] = matching_counts.get(rule_id, 0) + 1
+
+    return tuple(
+        rule.rule_id
+        for rule in FLOWGUARD_MANAGED_RULES
+        if marker_counts.get(rule.rule_id) == 1
+        and matching_counts.get(rule.rule_id) == 1
+    )
 
 
 def update_agents_text(existing_text: str, managed_block: str) -> str:
     """Insert or replace the managed FlowGuard AGENTS block."""
 
     if FLOWGUARD_AGENTS_BEGIN in existing_text and FLOWGUARD_AGENTS_END in existing_text:
-        pattern = re.compile(
-            re.escape(FLOWGUARD_AGENTS_BEGIN)
-            + r".*?"
-            + re.escape(FLOWGUARD_AGENTS_END),
-            re.DOTALL,
-        )
-        return pattern.sub(managed_block, existing_text, count=1)
+        return _MANAGED_BLOCK_RE.sub(managed_block, existing_text, count=1)
     if not existing_text.strip():
         return managed_block + "\n"
     return existing_text.rstrip() + "\n\n" + managed_block + "\n"
 
 
 def audit_project_adoption(root: str | Path = ".") -> ProjectAdoptionReport:
-    """Read-only audit of target-project FlowGuard adoption/version records."""
+    """Read-only semantic audit of project adoption and suite state."""
 
     root_path = Path(root).resolve()
     package_version = installed_flowguard_package_version()
     manifest = _read_manifest(root_path / FLOWGUARD_PROJECT_MANIFEST)
     manifest_package = str(manifest.get("adopted_package_version", ""))
     manifest_schema = str(manifest.get("schema_version", ""))
-    findings = _audit_findings(root_path, package_version, manifest, manifest_package, manifest_schema)
+    agents_text = _read_text(root_path / "AGENTS.md")
+    managed_block = extract_managed_agents_block(agents_text)
+    expected_block = build_flowguard_agents_block(
+        package_version=package_version,
+        schema_version=SCHEMA_VERSION,
+    )
+    suite = _load_suite_evidence(root_path)
+    findings = _audit_findings(
+        root_path,
+        package_version,
+        manifest,
+        manifest_package,
+        manifest_schema,
+        agents_text,
+        managed_block,
+        expected_block,
+        suite,
+    )
+    rendered_package, rendered_schema = _rendered_versions(managed_block)
+    observed_ids = managed_rule_ids_in_block(managed_block)
+    missing_ids = tuple(rule_id for rule_id in FLOWGUARD_REQUIRED_RULE_IDS if rule_id not in observed_ids)
+    state = _adoption_state(
+        package_version=package_version,
+        manifest_package=manifest_package,
+        manifest_schema=manifest_schema,
+        rendered_package=rendered_package,
+        rendered_schema=rendered_schema,
+        semantic_hash=managed_block_semantic_hash(managed_block),
+        inventory_hash=suite.inventory_hash,
+    )
     return ProjectAdoptionReport(
         root=str(root_path),
         action=PROJECT_ADOPTION_ACTION_AUDIT,
@@ -319,6 +641,22 @@ def audit_project_adoption(root: str | Path = ".") -> ProjectAdoptionReport:
         schema_version=SCHEMA_VERSION,
         manifest_package_version=manifest_package,
         manifest_schema_version=manifest_schema,
+        rendered_package_version=rendered_package,
+        rendered_schema_version=rendered_schema,
+        inventory_hash=suite.inventory_hash,
+        suite_semantic_hash=suite.semantic_hash,
+        suite_status=suite.status,
+        suite_findings=suite.findings,
+        managed_block_semantic_hash=managed_block_semantic_hash(managed_block),
+        proposed_managed_block_semantic_hash=managed_block_semantic_hash(expected_block),
+        observed_rule_ids=observed_ids,
+        missing_rule_ids=missing_ids,
+        semantic_rule_changes=_semantic_rule_changes(managed_block, expected_block),
+        required_revalidation=_minimum_revalidation(root_path),
+        checks=("managed_block_semantic_parity", "adoption_version_parity", "skill_suite_inventory"),
+        skipped_steps=("Audit is read-only; no project file or adoption log was written.",),
+        before_state=state,
+        after_state=state,
         findings=tuple(findings),
     )
 
@@ -328,9 +666,13 @@ def adopt_project(
     *,
     verified_by: str = "FlowGuard project-adopt",
 ) -> ProjectAdoptionReport:
-    """Write target-project FlowGuard AGENTS, manifest, and adoption logs."""
+    """Write target-project FlowGuard records after generator preflight."""
 
-    return _write_project_adoption(root, action=PROJECT_ADOPTION_ACTION_ADOPT, verified_by=verified_by)
+    return _write_project_adoption(
+        root,
+        action=PROJECT_ADOPTION_ACTION_ADOPT,
+        verified_by=verified_by,
+    )
 
 
 def upgrade_project(
@@ -338,14 +680,16 @@ def upgrade_project(
     *,
     verified_by: str = "FlowGuard project-upgrade",
     records_only: bool = False,
+    dry_run: bool = False,
 ) -> ProjectAdoptionReport:
-    """Explicitly update target-project FlowGuard records to the installed version."""
+    """Preview or write an explicit project upgrade through hard gates."""
 
     return _write_project_adoption(
         root,
         action=PROJECT_ADOPTION_ACTION_UPGRADE,
         verified_by=verified_by,
         records_only=records_only,
+        dry_run=dry_run,
     )
 
 
@@ -355,6 +699,7 @@ def _write_project_adoption(
     action: str,
     verified_by: str,
     records_only: bool = False,
+    dry_run: bool = False,
 ) -> ProjectAdoptionReport:
     root_path = Path(root).resolve()
     package_version = installed_flowguard_package_version()
@@ -362,28 +707,163 @@ def _write_project_adoption(
     manifest = _read_manifest(manifest_path)
     manifest_package = str(manifest.get("adopted_package_version", ""))
     manifest_schema = str(manifest.get("schema_version", ""))
-    preflight_findings = _audit_findings(root_path, package_version, manifest, manifest_package, manifest_schema)
-    blocked = [finding for finding in preflight_findings if finding.severity == "blocked"]
-    if blocked:
-        return ProjectAdoptionReport(
-            root=str(root_path),
-            action=action,
-            installed_package_version=package_version,
-            schema_version=SCHEMA_VERSION,
-            manifest_package_version=manifest_package,
-            manifest_schema_version=manifest_schema,
-            findings=tuple(blocked),
-        )
-
-    artifact_upgrade_report: ArtifactUpgradeReport | None = None
-    upgrade_needed = _project_upgrade_scan_needed(package_version, manifest_package, manifest_schema)
-    if action == PROJECT_ADOPTION_ACTION_UPGRADE and upgrade_needed and not records_only:
-        artifact_upgrade_report = review_artifact_upgrades(root_path, apply=True)
-
     agents_path = root_path / "AGENTS.md"
     existing_agents = _read_text(agents_path)
-    agents_block = build_flowguard_agents_block(package_version=package_version, schema_version=SCHEMA_VERSION)
-    updated_agents = update_agents_text(existing_agents, agents_block)
+    current_block = extract_managed_agents_block(existing_agents)
+    proposed_block = build_flowguard_agents_block(
+        package_version=package_version,
+        schema_version=SCHEMA_VERSION,
+    )
+    updated_agents = update_agents_text(existing_agents, proposed_block)
+    manifest_text = current_project_manifest_text(
+        package_version=package_version,
+        schema_version=SCHEMA_VERSION,
+        verified_by=verified_by,
+    )
+    suite = _load_suite_evidence(root_path)
+    audit_findings = _audit_findings(
+        root_path,
+        package_version,
+        manifest,
+        manifest_package,
+        manifest_schema,
+        existing_agents,
+        current_block,
+        proposed_block,
+        suite,
+    )
+    rendered_package, rendered_schema = _rendered_versions(current_block)
+    observed_ids = managed_rule_ids_in_block(current_block)
+    missing_ids = tuple(rule_id for rule_id in FLOWGUARD_REQUIRED_RULE_IDS if rule_id not in observed_ids)
+    proposed_ids = managed_rule_ids_in_block(proposed_block)
+    proposed_missing_ids = tuple(
+        rule_id for rule_id in FLOWGUARD_REQUIRED_RULE_IDS if rule_id not in proposed_ids
+    )
+
+    blockers = _write_preflight_blockers(
+        action=action,
+        package_version=package_version,
+        manifest_package=manifest_package,
+        suite=suite,
+        proposed_missing_ids=proposed_missing_ids,
+        root_path=root_path,
+    )
+    findings = _projected_upgrade_findings(audit_findings, action=action)
+    findings.extend(blockers)
+    findings = _dedupe_findings(findings)
+
+    upgrade_needed = _project_upgrade_scan_needed(package_version, manifest_package, manifest_schema)
+    artifact_upgrade_report: ArtifactUpgradeReport | None = None
+    if (
+        action == PROJECT_ADOPTION_ACTION_UPGRADE
+        and upgrade_needed
+        and not records_only
+        and (dry_run or not blockers)
+    ):
+        artifact_upgrade_report = review_artifact_upgrades(root_path, apply=False)
+        if not artifact_upgrade_report.ok:
+            findings.append(
+                ProjectAdoptionFinding(
+                    "blocked",
+                    "artifact_upgrade_blocked",
+                    "Artifact/model/test upgrade preview found blocked items.",
+                    "Review blocked paths before writing the project upgrade.",
+                    metadata={"blocked_paths": artifact_upgrade_report.blocked_paths},
+                )
+            )
+
+    proposed_files = _proposed_files(
+        root_path=root_path,
+        agents_changed=updated_agents != existing_agents,
+        manifest_changed=_read_text(manifest_path) != manifest_text,
+        artifact_report=artifact_upgrade_report,
+        include_logs=True,
+    )
+    before_state = _adoption_state(
+        package_version=package_version,
+        manifest_package=manifest_package,
+        manifest_schema=manifest_schema,
+        rendered_package=rendered_package,
+        rendered_schema=rendered_schema,
+        semantic_hash=managed_block_semantic_hash(current_block),
+        inventory_hash=suite.inventory_hash,
+    )
+    after_state = _adoption_state(
+        package_version=package_version,
+        manifest_package=package_version,
+        manifest_schema=SCHEMA_VERSION,
+        rendered_package=package_version,
+        rendered_schema=SCHEMA_VERSION,
+        semantic_hash=managed_block_semantic_hash(proposed_block),
+        inventory_hash=suite.inventory_hash,
+    )
+    skipped_steps = [
+        "Project adoption does not replace executable model checks, tests, replay, or closure evidence."
+    ]
+    if records_only and action == PROJECT_ADOPTION_ACTION_UPGRADE:
+        skipped_steps.append(
+            "Artifact/model/test upgrade scanning was scoped out by records-only mode."
+        )
+
+    if dry_run:
+        skipped_steps.append("Dry-run is non-mutating; no project file or adoption log was written.")
+        findings.append(
+            ProjectAdoptionFinding(
+                "info",
+                "project_upgrade_preview",
+                "Project upgrade preview was computed without writing files or logs.",
+                "Review semantic changes and blockers before running the writing upgrade.",
+            )
+        )
+        return _build_report(
+            root_path=root_path,
+            action=action,
+            dry_run=True,
+            package_version=package_version,
+            manifest_package=manifest_package,
+            manifest_schema=manifest_schema,
+            rendered_package=rendered_package,
+            rendered_schema=rendered_schema,
+            suite=suite,
+            current_block=current_block,
+            proposed_block=proposed_block,
+            observed_ids=observed_ids,
+            missing_ids=missing_ids,
+            proposed_files=proposed_files,
+            skipped_steps=tuple(skipped_steps),
+            before_state=before_state,
+            after_state=after_state,
+            findings=tuple(_dedupe_findings(findings)),
+            artifact_upgrade_report=artifact_upgrade_report,
+        )
+
+    if any(finding.severity == "blocked" for finding in findings):
+        skipped_steps.append("Writing stopped before mutation because a hard preflight gate failed.")
+        return _build_report(
+            root_path=root_path,
+            action=action,
+            dry_run=False,
+            package_version=package_version,
+            manifest_package=manifest_package,
+            manifest_schema=manifest_schema,
+            rendered_package=rendered_package,
+            rendered_schema=rendered_schema,
+            suite=suite,
+            current_block=current_block,
+            proposed_block=proposed_block,
+            observed_ids=observed_ids,
+            missing_ids=missing_ids,
+            proposed_files=proposed_files,
+            skipped_steps=tuple(skipped_steps),
+            before_state=before_state,
+            after_state=before_state,
+            findings=tuple(_dedupe_findings(findings)),
+            artifact_upgrade_report=artifact_upgrade_report,
+        )
+
+    # Every hard gate above runs before this first possible mutation.
+    if action == PROJECT_ADOPTION_ACTION_UPGRADE and upgrade_needed and not records_only:
+        artifact_upgrade_report = review_artifact_upgrades(root_path, apply=True)
 
     written: list[str] = []
     if updated_agents != existing_agents:
@@ -391,81 +871,95 @@ def _write_project_adoption(
         written.append(str(agents_path))
 
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    manifest_text = current_project_manifest_text(
-        package_version=package_version,
-        schema_version=SCHEMA_VERSION,
-        verified_by=verified_by,
-    )
     if _read_text(manifest_path) != manifest_text:
         manifest_path.write_text(manifest_text, encoding="utf-8")
         written.append(str(manifest_path))
 
+    post_audit = audit_project_adoption(root_path)
+    post_findings = list(post_audit.findings)
+    if action == PROJECT_ADOPTION_ACTION_ADOPT:
+        post_findings = [
+            _with_severity(finding, "warning")
+            if finding.category == "suite_inventory_unresolved"
+            else finding
+            for finding in post_findings
+        ]
+    if records_only and action == PROJECT_ADOPTION_ACTION_UPGRADE:
+        post_findings.append(
+            ProjectAdoptionFinding(
+                "warning",
+                "artifact_upgrade_scan_scoped_out",
+                "Artifact/model/test upgrade scanning was scoped out by records-only mode.",
+                "Run project-upgrade without --records-only before broad confidence claims.",
+            )
+        )
+    if artifact_upgrade_report is not None and not artifact_upgrade_report.ok:
+        post_findings.append(
+            ProjectAdoptionFinding(
+                "blocked",
+                "artifact_upgrade_blocked",
+                "Artifact/model/test upgrade application reported blocked items.",
+                "Review blocked paths before claiming the project is current.",
+                metadata={"blocked_paths": artifact_upgrade_report.blocked_paths},
+            )
+        )
+    post_findings.append(
+        ProjectAdoptionFinding(
+            "info",
+            "adoption_record_written",
+            "FlowGuard project AGENTS block and manifest were written or refreshed.",
+            "Run the required revalidation before broad confidence claims.",
+        )
+    )
+    post_findings = _dedupe_findings(post_findings)
+    post_ok = not any(finding.severity == "blocked" for finding in post_findings)
     log_jsonl = root_path / FLOWGUARD_PROJECT_LOG
     log_markdown = root_path / FLOWGUARD_PROJECT_MARKDOWN_LOG
+    checks = (
+        AdoptionCommandResult(
+            "managed adoption rule-set preflight",
+            not proposed_missing_ids,
+            summary="generated block contains every required stable rule",
+        ),
+        AdoptionCommandResult(
+            "canonical FlowGuard skill-suite validation",
+            suite.ok if action == PROJECT_ADOPTION_ACTION_UPGRADE else True,
+            summary=suite.status,
+        ),
+        AdoptionCommandResult(
+            "post-write project adoption audit",
+            post_ok,
+            summary="semantic and version parity after write",
+        ),
+    )
     log_entry = make_adoption_log_entry(
         task_id=f"flowguard-project-{action}",
         project=root_path.name,
         task_summary=f"FlowGuard project {action} record update",
-        trigger_reason="target project uses FlowGuard and needs durable AGENTS/version records",
-        status="completed",
-        findings=(
-            f"FlowGuard repository recorded: {FLOWGUARD_REPOSITORY_URL}",
-            f"FlowGuard check-engine version recorded: {package_version}",
-            f"FlowGuard schema version recorded: {SCHEMA_VERSION}",
-            *(
-                (f"Artifact upgrade scan: {artifact_upgrade_report.summary}",)
-                if artifact_upgrade_report is not None
-                else ()
-            ),
-        ),
-        skipped_steps=(
-            "Project adoption record does not replace executable model checks, tests, replay, or closure evidence.",
-            *(
-                ("Artifact/model/test upgrade scan was scoped out by records-only mode.",)
-                if action == PROJECT_ADOPTION_ACTION_UPGRADE and records_only
-                else ()
-            ),
-        ),
-        next_actions=(
-            "Rerun affected FlowGuard models/tests before broad completion claims when behavior, tests, or version records change.",
-        ),
+        trigger_reason="target project requires current semantic adoption and version records",
+        status="completed" if post_ok else "blocked",
+        commands=checks,
+        findings=tuple(f"{item.category}: {item.message}" for item in post_findings),
+        skipped_steps=tuple(skipped_steps),
+        next_actions=_minimum_revalidation(root_path),
+        metadata={
+            "actual_mode": action,
+            "dry_run": False,
+            "before": before_state,
+            "after": after_state,
+            "inventory_hash": suite.inventory_hash,
+            "suite_semantic_hash": suite.semantic_hash,
+            "managed_block_semantic_hash_before": managed_block_semantic_hash(current_block),
+            "managed_block_semantic_hash_after": managed_block_semantic_hash(proposed_block),
+            "required_rule_ids": FLOWGUARD_REQUIRED_RULE_IDS,
+            "checks": tuple(command.command for command in checks),
+            "claim_boundary": PROJECT_ADOPTION_CLAIM_BOUNDARY,
+        },
     )
     append_jsonl(log_jsonl, log_entry)
     append_markdown_log(log_markdown, log_entry)
     written.extend((str(log_jsonl), str(log_markdown)))
 
-    findings = [
-        finding
-        for finding in preflight_findings
-        if finding.category not in {"missing_agents_block", "missing_project_manifest", "project_flowguard_upgrade_available"}
-    ]
-    if action == PROJECT_ADOPTION_ACTION_UPGRADE and records_only:
-        findings.append(
-            ProjectAdoptionFinding(
-                "warning",
-                "artifact_upgrade_scan_scoped_out",
-                "Artifact/model/test upgrade scanning was scoped out by records-only mode.",
-                "Run project-upgrade without --records-only or run artifact-upgrade before broad confidence claims.",
-            )
-        )
-    if artifact_upgrade_report is not None and not artifact_upgrade_report.ok:
-        findings.append(
-            ProjectAdoptionFinding(
-                "blocked",
-                "artifact_upgrade_blocked",
-                "Artifact/model/test upgrade scan found blocked items.",
-                "Review blocked paths before claiming the project is current.",
-                metadata={"blocked_paths": artifact_upgrade_report.blocked_paths},
-            )
-        )
-    findings.append(
-        ProjectAdoptionFinding(
-            "info",
-            "adoption_record_written",
-            "FlowGuard project AGENTS block, manifest, and adoption log were written or refreshed.",
-            "Run affected model/test validation before broad confidence claims.",
-        )
-    )
     return ProjectAdoptionReport(
         root=str(root_path),
         action=action,
@@ -473,10 +967,583 @@ def _write_project_adoption(
         schema_version=SCHEMA_VERSION,
         manifest_package_version=package_version,
         manifest_schema_version=SCHEMA_VERSION,
-        findings=tuple(findings),
+        rendered_package_version=package_version,
+        rendered_schema_version=SCHEMA_VERSION,
+        inventory_hash=suite.inventory_hash,
+        suite_semantic_hash=suite.semantic_hash,
+        suite_status=suite.status,
+        suite_findings=suite.findings,
+        managed_block_semantic_hash=managed_block_semantic_hash(proposed_block),
+        proposed_managed_block_semantic_hash=managed_block_semantic_hash(proposed_block),
+        observed_rule_ids=FLOWGUARD_REQUIRED_RULE_IDS,
+        missing_rule_ids=(),
+        semantic_rule_changes=_semantic_rule_changes(current_block, proposed_block),
+        proposed_files=proposed_files,
+        required_revalidation=_minimum_revalidation(root_path),
+        checks=(
+            "managed_block_semantic_parity",
+            "adoption_version_parity",
+            "skill_suite_inventory",
+            "post_write_project_audit",
+        ),
+        skipped_steps=tuple(skipped_steps),
+        before_state=before_state,
+        after_state=after_state,
+        findings=tuple(post_findings),
         written_files=tuple(written),
         artifact_upgrade_report=artifact_upgrade_report,
     )
+
+
+def _build_report(
+    *,
+    root_path: Path,
+    action: str,
+    dry_run: bool,
+    package_version: str,
+    manifest_package: str,
+    manifest_schema: str,
+    rendered_package: str,
+    rendered_schema: str,
+    suite: _SuiteEvidence,
+    current_block: str,
+    proposed_block: str,
+    observed_ids: tuple[str, ...],
+    missing_ids: tuple[str, ...],
+    proposed_files: tuple[str, ...],
+    skipped_steps: tuple[str, ...],
+    before_state: Mapping[str, Any],
+    after_state: Mapping[str, Any],
+    findings: tuple[ProjectAdoptionFinding, ...],
+    artifact_upgrade_report: ArtifactUpgradeReport | None,
+) -> ProjectAdoptionReport:
+    return ProjectAdoptionReport(
+        root=str(root_path),
+        action=action,
+        installed_package_version=package_version,
+        schema_version=SCHEMA_VERSION,
+        manifest_package_version=manifest_package,
+        manifest_schema_version=manifest_schema,
+        rendered_package_version=rendered_package,
+        rendered_schema_version=rendered_schema,
+        inventory_hash=suite.inventory_hash,
+        suite_semantic_hash=suite.semantic_hash,
+        suite_status=suite.status,
+        suite_findings=suite.findings,
+        managed_block_semantic_hash=managed_block_semantic_hash(current_block),
+        proposed_managed_block_semantic_hash=managed_block_semantic_hash(proposed_block),
+        observed_rule_ids=observed_ids,
+        missing_rule_ids=missing_ids,
+        semantic_rule_changes=_semantic_rule_changes(current_block, proposed_block),
+        proposed_files=proposed_files,
+        required_revalidation=_minimum_revalidation(root_path),
+        checks=("managed_block_semantic_parity", "adoption_version_parity", "skill_suite_inventory"),
+        skipped_steps=skipped_steps,
+        dry_run=dry_run,
+        before_state=before_state,
+        after_state=after_state,
+        findings=findings,
+        artifact_upgrade_report=artifact_upgrade_report,
+    )
+
+
+def _managed_block_shape_findings(
+    agents_text: str,
+    agents_path: Path,
+) -> list[ProjectAdoptionFinding]:
+    """Reject ambiguous ownership markers before any generated rewrite."""
+
+    begin_count = str(agents_text or "").count(FLOWGUARD_AGENTS_BEGIN)
+    end_count = str(agents_text or "").count(FLOWGUARD_AGENTS_END)
+    complete_count = len(_MANAGED_BLOCK_RE.findall(str(agents_text or "")))
+    if begin_count == end_count == complete_count == 0:
+        return []
+    if begin_count == end_count == complete_count == 1:
+        return []
+    return [
+        ProjectAdoptionFinding(
+            "blocked",
+            "managed_block_cardinality_mismatch",
+            "AGENTS.md does not contain exactly one unambiguous managed FlowGuard block.",
+            "Repair duplicate or unmatched managed markers before running a writing upgrade.",
+            str(agents_path),
+            {
+                "begin_marker_count": begin_count,
+                "end_marker_count": end_count,
+                "complete_block_count": complete_count,
+            },
+        )
+    ]
+
+
+def _audit_findings(
+    root_path: Path,
+    package_version: str,
+    manifest: dict[str, Any],
+    manifest_package: str,
+    manifest_schema: str,
+    agents_text: str,
+    managed_block: str,
+    expected_block: str,
+    suite: _SuiteEvidence,
+) -> list[ProjectAdoptionFinding]:
+    findings: list[ProjectAdoptionFinding] = []
+    agents_path = root_path / "AGENTS.md"
+    manifest_path = root_path / FLOWGUARD_PROJECT_MANIFEST
+    findings.extend(_managed_block_shape_findings(agents_text, agents_path))
+    if not managed_block:
+        findings.append(
+            ProjectAdoptionFinding(
+                "blocked",
+                "missing_agents_block",
+                "Target project does not have one complete managed FlowGuard AGENTS block.",
+                "Run project-adopt or preview project-upgrade before non-trivial FlowGuard work.",
+                str(agents_path),
+            )
+        )
+    if not manifest:
+        findings.append(
+            ProjectAdoptionFinding(
+                "blocked",
+                "missing_project_manifest",
+                "Target project does not have a readable .flowguard/project.toml.",
+                "Run project-adopt or preview project-upgrade to establish the version record.",
+                str(manifest_path),
+            )
+        )
+    if not package_version:
+        findings.append(
+            ProjectAdoptionFinding(
+                "blocked",
+                "flowguard_package_unavailable",
+                "The real FlowGuard check-engine version could not be found.",
+                f"Connect FlowGuard check execution from {FLOWGUARD_REPOSITORY_URL}.",
+            )
+        )
+    if manifest and str(manifest.get("repository", "")) != FLOWGUARD_REPOSITORY_URL:
+        findings.append(
+            ProjectAdoptionFinding(
+                "blocked",
+                "repository_url_mismatch",
+                "Project manifest does not point to the canonical FlowGuard repository.",
+                f"Use {FLOWGUARD_REPOSITORY_URL}.",
+                str(manifest_path),
+            )
+        )
+    if manifest and not manifest_package:
+        findings.append(
+            ProjectAdoptionFinding(
+                "blocked",
+                "manifest_package_version_missing",
+                "Project manifest does not record the adopted FlowGuard package version.",
+                "Preview project-upgrade and restore the canonical version record.",
+                str(manifest_path),
+            )
+        )
+    if manifest and not manifest_schema:
+        findings.append(
+            ProjectAdoptionFinding(
+                "blocked",
+                "manifest_schema_version_missing",
+                "Project manifest does not record the adopted FlowGuard schema version.",
+                "Preview project-upgrade and restore the canonical schema record.",
+                str(manifest_path),
+            )
+        )
+    if manifest_schema and manifest_schema != SCHEMA_VERSION:
+        findings.append(
+            ProjectAdoptionFinding(
+                "blocked",
+                "schema_version_mismatch",
+                "Project manifest schema version differs from the installed FlowGuard schema.",
+                "Preview project-upgrade and rerun affected evidence before broad confidence.",
+                str(manifest_path),
+                {"manifest_schema_version": manifest_schema, "installed_schema_version": SCHEMA_VERSION},
+            )
+        )
+    if manifest_package and package_version:
+        comparison = compare_versions(package_version, manifest_package)
+        if comparison is None:
+            findings.append(
+                ProjectAdoptionFinding(
+                    "blocked",
+                    "unknown_flowguard_version_comparison",
+                    "Installed and manifest FlowGuard versions could not be compared safely.",
+                    "Use comparable release versions before writing adoption records.",
+                    str(manifest_path),
+                    {"installed_package_version": package_version, "manifest_package_version": manifest_package},
+                )
+            )
+        elif comparison < 0:
+            findings.append(
+                ProjectAdoptionFinding(
+                    "blocked",
+                    "installed_flowguard_older",
+                    "Installed FlowGuard check engine is older than the project-recorded version.",
+                    "Connect the current FlowGuard check engine before writing or claiming confidence.",
+                    str(manifest_path),
+                    {"installed_package_version": package_version, "manifest_package_version": manifest_package},
+                )
+            )
+        elif comparison > 0:
+            findings.append(
+                ProjectAdoptionFinding(
+                    "blocked",
+                    "project_flowguard_upgrade_available",
+                    "Installed FlowGuard is newer than the project-recorded version.",
+                    "Preview and run project-upgrade, then rerun the minimum revalidation.",
+                    str(manifest_path),
+                    {"installed_package_version": package_version, "manifest_package_version": manifest_package},
+                )
+            )
+
+    if managed_block:
+        rendered_package, rendered_schema = _rendered_versions(managed_block)
+        if not rendered_package:
+            findings.append(
+                ProjectAdoptionFinding(
+                    "blocked",
+                    "rendered_version_missing",
+                    "Managed AGENTS block does not record a FlowGuard package version.",
+                    "Regenerate the managed block with the current generator.",
+                    str(agents_path),
+                )
+            )
+        elif rendered_package != package_version or (
+            manifest_package and rendered_package != manifest_package
+        ):
+            findings.append(
+                ProjectAdoptionFinding(
+                    "blocked",
+                    "rendered_version_mismatch",
+                    "Managed AGENTS version does not agree with installed and manifest versions.",
+                    "Preview project-upgrade and inspect the semantic diff before writing.",
+                    str(agents_path),
+                    {
+                        "rendered_package_version": rendered_package,
+                        "installed_package_version": package_version,
+                        "manifest_package_version": manifest_package,
+                    },
+                )
+            )
+        if not rendered_schema:
+            findings.append(
+                ProjectAdoptionFinding(
+                    "blocked",
+                    "rendered_schema_version_missing",
+                    "Managed AGENTS block does not record a FlowGuard schema version.",
+                    "Regenerate the managed block with the current generator.",
+                    str(agents_path),
+                )
+            )
+        elif rendered_schema != SCHEMA_VERSION or (
+            manifest_schema and rendered_schema != manifest_schema
+        ):
+            findings.append(
+                ProjectAdoptionFinding(
+                    "blocked",
+                    "rendered_schema_version_mismatch",
+                    "Managed AGENTS schema version does not agree with installed and manifest schemas.",
+                    "Regenerate the managed block and rerun project-audit.",
+                    str(agents_path),
+                    {
+                        "rendered_schema_version": rendered_schema,
+                        "installed_schema_version": SCHEMA_VERSION,
+                        "manifest_schema_version": manifest_schema,
+                    },
+                )
+            )
+
+        observed_ids = managed_rule_ids_in_block(managed_block)
+        missing_ids = tuple(
+            rule_id for rule_id in FLOWGUARD_REQUIRED_RULE_IDS if rule_id not in observed_ids
+        )
+        for rule_id in missing_ids:
+            findings.append(
+                ProjectAdoptionFinding(
+                    "blocked",
+                    "missing_managed_rule",
+                    f"Managed AGENTS block is missing required rule {rule_id}.",
+                    "Regenerate the managed block; do not hand-edit away required governance.",
+                    str(agents_path),
+                    {"rule_id": rule_id},
+                )
+            )
+        if not missing_ids and normalize_managed_agents_block(managed_block) != normalize_managed_agents_block(expected_block):
+            findings.append(
+                ProjectAdoptionFinding(
+                    "blocked",
+                    "managed_block_semantic_drift",
+                    "Managed AGENTS block differs semantically from the installed generator.",
+                    "Review project-upgrade --dry-run --json before replacing the managed block.",
+                    str(agents_path),
+                    {
+                        "actual_semantic_hash": managed_block_semantic_hash(managed_block),
+                        "expected_semantic_hash": managed_block_semantic_hash(expected_block),
+                    },
+                )
+            )
+
+    if not suite.ok:
+        findings.append(
+            ProjectAdoptionFinding(
+                "blocked",
+                "suite_inventory_unresolved",
+                "Canonical FlowGuard skill-suite validation is unresolved.",
+                "Resolve every canonical suite finding before a writing project upgrade.",
+                metadata={
+                    "suite_status": suite.status,
+                    "inventory_hash": suite.inventory_hash,
+                    "finding_codes": tuple(str(item.get("code", "")) for item in suite.findings),
+                },
+            )
+        )
+    return _dedupe_findings(findings)
+
+
+def _write_preflight_blockers(
+    *,
+    action: str,
+    package_version: str,
+    manifest_package: str,
+    suite: _SuiteEvidence,
+    proposed_missing_ids: tuple[str, ...],
+    root_path: Path,
+) -> list[ProjectAdoptionFinding]:
+    blockers: list[ProjectAdoptionFinding] = []
+    if not package_version:
+        blockers.append(
+            ProjectAdoptionFinding(
+                "blocked",
+                "flowguard_package_unavailable",
+                "Writing adoption records requires an importable installed FlowGuard engine.",
+                f"Connect FlowGuard from {FLOWGUARD_REPOSITORY_URL}.",
+            )
+        )
+    comparison = compare_versions(package_version, manifest_package) if package_version and manifest_package else 0
+    if comparison is None:
+        blockers.append(
+            ProjectAdoptionFinding(
+                "blocked",
+                "unknown_flowguard_version_comparison",
+                "Writing stopped because installed and manifest versions are not safely comparable.",
+                "Use comparable release versions before retrying.",
+                str(root_path / FLOWGUARD_PROJECT_MANIFEST),
+            )
+        )
+    elif comparison < 0:
+        blockers.append(
+            ProjectAdoptionFinding(
+                "blocked",
+                "installed_flowguard_older",
+                "Writing stopped because the installed engine is older than the project record.",
+                "Connect a current FlowGuard engine before retrying.",
+                str(root_path / FLOWGUARD_PROJECT_MANIFEST),
+            )
+        )
+    if proposed_missing_ids:
+        blockers.append(
+            ProjectAdoptionFinding(
+                "blocked",
+                "governance_regression",
+                "Proposed managed block loses required governance rules.",
+                "Repair the generator before any project adoption write.",
+                str(root_path / "AGENTS.md"),
+                {"missing_rule_ids": proposed_missing_ids},
+            )
+        )
+    if action == PROJECT_ADOPTION_ACTION_UPGRADE and not suite.ok:
+        blockers.append(
+            ProjectAdoptionFinding(
+                "blocked",
+                "suite_inventory_unresolved",
+                "Writing project-upgrade is blocked until canonical suite validation passes.",
+                "Resolve suite membership and required-file findings before retrying.",
+                metadata={"suite_status": suite.status, "inventory_hash": suite.inventory_hash},
+            )
+        )
+    return _dedupe_findings(blockers)
+
+
+def _load_suite_evidence(root_path: Path) -> _SuiteEvidence:
+    """Load the canonical suite validator lazily to avoid import cycles."""
+
+    try:
+        from .skill_suite import validate_skill_suite
+    except (ImportError, ModuleNotFoundError) as exc:
+        return _SuiteEvidence(
+            False,
+            "blocked",
+            findings=(
+                {
+                    "code": "suite_validator_unavailable",
+                    "message": str(exc),
+                    "member_id": "",
+                    "file_path": "",
+                },
+            ),
+        )
+    try:
+        report = validate_skill_suite(root_path)
+    except Exception as exc:  # validator failures must remain visible, not crash writes
+        return _SuiteEvidence(
+            False,
+            "blocked",
+            findings=(
+                {
+                    "code": "suite_validation_error",
+                    "message": f"{type(exc).__name__}: {exc}",
+                    "member_id": "",
+                    "file_path": "",
+                },
+            ),
+        )
+    findings: list[Mapping[str, Any]] = []
+    for finding in getattr(report, "findings", ()):
+        payload = finding.to_dict() if hasattr(finding, "to_dict") else dict(finding)
+        findings.append(payload)
+    return _SuiteEvidence(
+        bool(getattr(report, "ok", False)),
+        str(getattr(report, "status", "blocked")),
+        str(getattr(report, "inventory_hash", "")),
+        str(getattr(report, "semantic_hash", "")),
+        tuple(findings),
+    )
+
+
+def _projected_upgrade_findings(
+    findings: list[ProjectAdoptionFinding],
+    *,
+    action: str,
+) -> list[ProjectAdoptionFinding]:
+    repairable = {
+        "missing_agents_block",
+        "missing_project_manifest",
+        "repository_url_mismatch",
+        "schema_version_mismatch",
+        "project_flowguard_upgrade_available",
+        "rendered_version_missing",
+        "rendered_version_mismatch",
+        "rendered_schema_version_missing",
+        "rendered_schema_version_mismatch",
+        "missing_managed_rule",
+        "managed_block_semantic_drift",
+        "manifest_package_version_missing",
+        "manifest_schema_version_missing",
+    }
+    projected: list[ProjectAdoptionFinding] = []
+    for finding in findings:
+        if finding.category in repairable:
+            projected.append(_with_severity(finding, "warning"))
+        elif action == PROJECT_ADOPTION_ACTION_ADOPT and finding.category == "suite_inventory_unresolved":
+            projected.append(_with_severity(finding, "warning"))
+        else:
+            projected.append(finding)
+    return projected
+
+
+def _with_severity(finding: ProjectAdoptionFinding, severity: str) -> ProjectAdoptionFinding:
+    return ProjectAdoptionFinding(
+        severity,
+        finding.category,
+        finding.message,
+        finding.recommendation,
+        finding.file_path,
+        finding.metadata,
+    )
+
+
+def _dedupe_findings(findings: list[ProjectAdoptionFinding]) -> list[ProjectAdoptionFinding]:
+    result: list[ProjectAdoptionFinding] = []
+    seen: set[tuple[str, str, str]] = set()
+    for finding in findings:
+        key = (finding.severity, finding.category, finding.message)
+        if key not in seen:
+            seen.add(key)
+            result.append(finding)
+    return result
+
+
+def _semantic_rule_changes(before: str, after: str) -> dict[str, Any]:
+    before_ids = set(managed_rule_ids_in_block(before))
+    after_ids = set(managed_rule_ids_in_block(after))
+    return {
+        "added_rule_ids": sorted(after_ids - before_ids),
+        "removed_rule_ids": sorted(before_ids - after_ids),
+        "missing_before": [item for item in FLOWGUARD_REQUIRED_RULE_IDS if item not in before_ids],
+        "missing_after": [item for item in FLOWGUARD_REQUIRED_RULE_IDS if item not in after_ids],
+        "content_changed": normalize_managed_agents_block(before) != normalize_managed_agents_block(after),
+        "before_semantic_hash": managed_block_semantic_hash(before),
+        "after_semantic_hash": managed_block_semantic_hash(after),
+    }
+
+
+def _rendered_versions(managed_block: str) -> tuple[str, str]:
+    package_match = _RENDERED_PACKAGE_RE.search(managed_block)
+    schema_match = _RENDERED_SCHEMA_RE.search(managed_block)
+    return (
+        package_match.group(1).strip() if package_match else "",
+        schema_match.group(1).strip() if schema_match else "",
+    )
+
+
+def _adoption_state(
+    *,
+    package_version: str,
+    manifest_package: str,
+    manifest_schema: str,
+    rendered_package: str,
+    rendered_schema: str,
+    semantic_hash: str,
+    inventory_hash: str,
+) -> dict[str, str]:
+    return {
+        "installed_package_version": package_version,
+        "installed_schema_version": SCHEMA_VERSION,
+        "manifest_package_version": manifest_package,
+        "manifest_schema_version": manifest_schema,
+        "rendered_package_version": rendered_package,
+        "rendered_schema_version": rendered_schema,
+        "managed_block_semantic_hash": semantic_hash,
+        "inventory_hash": inventory_hash,
+    }
+
+
+def _minimum_revalidation(root_path: Path) -> tuple[str, ...]:
+    return (
+        f"python -m flowguard project-audit --root {root_path} --json",
+        f"python scripts/verify_skill_suite_markers.py --root {root_path} --json",
+        "Rerun affected FlowGuard model checks and focused tests before broad confidence.",
+    )
+
+
+def _proposed_files(
+    *,
+    root_path: Path,
+    agents_changed: bool,
+    manifest_changed: bool,
+    artifact_report: ArtifactUpgradeReport | None,
+    include_logs: bool,
+) -> tuple[str, ...]:
+    paths: list[str] = []
+    if agents_changed:
+        paths.append(str(root_path / "AGENTS.md"))
+    if manifest_changed:
+        paths.append(str(root_path / FLOWGUARD_PROJECT_MANIFEST))
+    if artifact_report is not None:
+        paths.extend(
+            item.path
+            for item in artifact_report.items
+            if item.status == "upgraded"
+        )
+    if include_logs:
+        paths.extend(
+            (
+                str(root_path / FLOWGUARD_PROJECT_LOG),
+                str(root_path / FLOWGUARD_PROJECT_MARKDOWN_LOG),
+            )
+        )
+    return tuple(dict.fromkeys(paths))
 
 
 def _project_upgrade_scan_needed(package_version: str, manifest_package: str, manifest_schema: str) -> bool:
@@ -486,104 +1553,6 @@ def _project_upgrade_scan_needed(package_version: str, manifest_package: str, ma
         comparison = compare_versions(package_version, manifest_package)
         return comparison is not None and comparison > 0
     return False
-
-
-def _audit_findings(
-    root_path: Path,
-    package_version: str,
-    manifest: dict[str, Any],
-    manifest_package: str,
-    manifest_schema: str,
-) -> list[ProjectAdoptionFinding]:
-    findings: list[ProjectAdoptionFinding] = []
-    agents_path = root_path / "AGENTS.md"
-    agents_text = _read_text(agents_path)
-    if not agents_text or FLOWGUARD_AGENTS_BEGIN not in agents_text or FLOWGUARD_AGENTS_END not in agents_text:
-        findings.append(
-            ProjectAdoptionFinding(
-                "warning",
-                "missing_agents_block",
-                "target project does not have a managed FlowGuard AGENTS.md block",
-                "Run `python -m flowguard project-adopt --root .` before non-trivial FlowGuard work.",
-                str(agents_path),
-            )
-        )
-    if not manifest:
-        findings.append(
-            ProjectAdoptionFinding(
-                "warning",
-                "missing_project_manifest",
-                "target project does not have .flowguard/project.toml",
-                "Run `python -m flowguard project-adopt --root .` to record the adopted FlowGuard version.",
-                str(root_path / FLOWGUARD_PROJECT_MANIFEST),
-            )
-        )
-    if not package_version:
-        findings.append(
-            ProjectAdoptionFinding(
-                "blocked",
-                "flowguard_package_unavailable",
-                "the real FlowGuard check-engine version could not be found",
-                f"Connect FlowGuard check execution from {FLOWGUARD_REPOSITORY_URL}.",
-            )
-        )
-    if manifest and str(manifest.get("repository", "")) != FLOWGUARD_REPOSITORY_URL:
-        findings.append(
-            ProjectAdoptionFinding(
-                "warning",
-                "repository_url_mismatch",
-                "project manifest does not point to the canonical FlowGuard repository",
-                f"Use {FLOWGUARD_REPOSITORY_URL}.",
-                str(root_path / FLOWGUARD_PROJECT_MANIFEST),
-            )
-        )
-    if manifest_schema and manifest_schema != SCHEMA_VERSION:
-        findings.append(
-            ProjectAdoptionFinding(
-                "warning",
-                "schema_version_mismatch",
-                "project manifest schema version differs from the installed FlowGuard schema",
-                "Run project-upgrade and rerun affected model/test evidence before broad confidence claims.",
-                str(root_path / FLOWGUARD_PROJECT_MANIFEST),
-                {"manifest_schema_version": manifest_schema, "installed_schema_version": SCHEMA_VERSION},
-            )
-        )
-    if manifest_package and package_version:
-        comparison = compare_versions(package_version, manifest_package)
-        if comparison is None:
-            findings.append(
-                ProjectAdoptionFinding(
-                    "warning",
-                    "unknown_flowguard_version_comparison",
-                    "could not compare installed FlowGuard check-engine version with the project manifest",
-                    "Review package release notes and update the project manifest manually if needed.",
-                    str(root_path / FLOWGUARD_PROJECT_MANIFEST),
-                    {"installed_package_version": package_version, "manifest_package_version": manifest_package},
-                )
-            )
-        elif comparison < 0:
-            findings.append(
-                ProjectAdoptionFinding(
-                    "blocked",
-                    "installed_flowguard_older",
-                    "installed FlowGuard check engine is older than the project-recorded version",
-                    "Connect the current FlowGuard check engine before claiming FlowGuard confidence.",
-                    str(root_path / FLOWGUARD_PROJECT_MANIFEST),
-                    {"installed_package_version": package_version, "manifest_package_version": manifest_package},
-                )
-            )
-        elif comparison > 0:
-            findings.append(
-                ProjectAdoptionFinding(
-                    "warning",
-                    "project_flowguard_upgrade_available",
-                    "installed FlowGuard check engine is newer than the project-recorded version",
-                    "Run project-upgrade, check release notes/changelog, and rerun affected model/test evidence before broad confidence.",
-                    str(root_path / FLOWGUARD_PROJECT_MANIFEST),
-                    {"installed_package_version": package_version, "manifest_package_version": manifest_package},
-                )
-            )
-    return findings
 
 
 def _read_manifest(path: Path) -> dict[str, Any]:
@@ -625,7 +1594,7 @@ def _read_text(path: Path) -> str:
 
 
 def compare_versions(left: str, right: str) -> int | None:
-    """Compare simple release versions. Return -1, 0, 1, or None if unknown."""
+    """Compare simple release versions. Return -1, 0, 1, or None."""
 
     left_parts = _version_parts(left)
     right_parts = _version_parts(right)
@@ -659,16 +1628,20 @@ def _version_parts(value: str) -> tuple[int, ...] | None:
 __all__ = [
     "FLOWGUARD_AGENTS_BEGIN",
     "FLOWGUARD_AGENTS_END",
+    "FLOWGUARD_MANAGED_RULES",
     "FLOWGUARD_PROJECT_LOG",
     "FLOWGUARD_PROJECT_MANIFEST",
     "FLOWGUARD_PROJECT_MARKDOWN_LOG",
     "FLOWGUARD_REPOSITORY_URL",
+    "FLOWGUARD_REQUIRED_RULE_IDS",
     "PROJECT_ADOPTION_ACTION_ADOPT",
     "PROJECT_ADOPTION_ACTION_AUDIT",
     "PROJECT_ADOPTION_ACTION_UPGRADE",
+    "PROJECT_ADOPTION_CLAIM_BOUNDARY",
     "PROJECT_ADOPTION_STATUS_BLOCKED",
     "PROJECT_ADOPTION_STATUS_PASS",
     "PROJECT_ADOPTION_STATUS_PASS_WITH_GAPS",
+    "ManagedAdoptionRule",
     "ProjectAdoptionFinding",
     "ProjectAdoptionReport",
     "adopt_project",
@@ -676,7 +1649,11 @@ __all__ = [
     "build_flowguard_agents_block",
     "compare_versions",
     "current_project_manifest_text",
+    "extract_managed_agents_block",
     "installed_flowguard_package_version",
+    "managed_block_semantic_hash",
+    "managed_rule_ids_in_block",
+    "normalize_managed_agents_block",
     "update_agents_text",
     "upgrade_project",
 ]

@@ -30,4 +30,4 @@
 - [x] 5.2 Run focused tests for affected modules and repair failures.
 - [x] 5.3 Run OpenSpec strict validation, FlowGuard project audit, and full pytest.
 - [x] 5.4 Sync source repo, shadow workspace, installed skill copies, and local package install; verify imports and versions.
-- [ ] 5.5 Commit scoped changes, push to GitHub, and confirm Git state.
+- [x] 5.5 Commit scoped changes, push to GitHub, and confirm Git state.

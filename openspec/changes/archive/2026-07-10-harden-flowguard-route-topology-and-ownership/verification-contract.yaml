@@ -1,0 +1,90 @@
+contract_version: 1
+change: harden-flowguard-route-topology-and-ownership
+obligations:
+  - id: req.topology.typed-handoffs
+    source: "specs/flowguard-route-topology-governance/spec.md#Requirement: Typed Route Handoffs"
+    claim: "Every handoff has a valid discriminated target and dangling or mistyped targets fail."
+    required: true
+    evidence: [check.topology.tests, check.topology.audit]
+  - id: req.topology.unique-ownership
+    source: "specs/flowguard-route-topology-governance/spec.md#Requirement: Unique Route Ownership"
+    claim: "Every public/internal route has exactly one canonical owner."
+    required: true
+    evidence: [check.topology.tests, check.topology.audit]
+  - id: req.topology.cycle-liveness
+    source: "specs/flowguard-route-topology-governance/spec.md#Requirement: Bounded Cycle Liveness"
+    claim: "Every route SCC has a progress delta, terminals, and a finite re-entry bound."
+    required: true
+    evidence: [check.topology.tests, check.topology.audit, check.route.model]
+  - id: req.topology.diagnostics
+    source: "specs/flowguard-route-topology-governance/spec.md#Requirement: Deterministic Topology Diagnostics"
+    claim: "All topology hazards are reported deterministically and block broad confidence."
+    required: true
+    evidence: [check.topology.tests, check.topology.audit]
+  - id: req.routing.projection
+    source: "specs/flowguard-global-routing/spec.md#Requirement: Canonical Route Ownership Projection"
+    claim: "Registry, skill metadata, and kernel route projection agree."
+    required: true
+    evidence: [check.topology.tests, check.route.parity]
+  - id: req.routing.internal-owners
+    source: "specs/flowguard-global-routing/spec.md#Requirement: Internal Ownership For Cross-Cutting Helpers"
+    claim: "PPA and kernel/delegated helpers resolve to the specified internal owners."
+    required: true
+    evidence: [check.topology.tests, check.route.parity]
+  - id: req.routing.legacy-disposition
+    source: "specs/flowguard-global-routing/spec.md#Requirement: Default Replacement Of Legacy Handoffs"
+    claim: "Untyped legacy handoffs have no alternate successful execution path."
+    required: true
+    evidence: [check.topology.tests]
+checks:
+  - id: check.topology.tests
+    kind: command
+    command: python
+    args: [-m, pytest, tests/test_route_topology_governance.py, tests/test_topology_hazard.py, tests/test_route_profiles.py, -q]
+    required: true
+    covers: [req.topology.typed-handoffs, req.topology.unique-ownership, req.topology.cycle-liveness, req.topology.diagnostics, req.routing.projection, req.routing.internal-owners, req.routing.legacy-disposition]
+    expected: {exit_code: 0}
+  - id: check.topology.audit
+    kind: command
+    command: python
+    args: [scripts/check_flowguard_route_topology.py, --root, ., --json]
+    required: true
+    covers: [req.topology.typed-handoffs, req.topology.unique-ownership, req.topology.cycle-liveness, req.topology.diagnostics]
+    expected: {exit_code: 0}
+  - id: check.route.parity
+    kind: command
+    command: python
+    args: [scripts/check_flowguard_route_parity.py, --root, ., --json]
+    required: true
+    covers: [req.routing.projection, req.routing.internal-owners]
+    expected: {exit_code: 0}
+  - id: check.route.model
+    kind: command
+    command: python
+    args: [.flowguard/self_maintenance_mesh/run_checks.py]
+    required: true
+    covers: [req.topology.cycle-liveness]
+    expected: {exit_code: 0}
+  - id: check.openspec.strict
+    kind: command
+    command: openspec
+    args: [validate, harden-flowguard-route-topology-and-ownership, --strict]
+    required: true
+    covers: [req.topology.typed-handoffs, req.topology.unique-ownership, req.topology.cycle-liveness, req.topology.diagnostics, req.routing.projection, req.routing.internal-owners, req.routing.legacy-disposition]
+    expected: {exit_code: 0}
+freshness:
+  watch:
+    - openspec/changes/harden-flowguard-route-topology-and-ownership/**/*.md
+    - openspec/changes/harden-flowguard-route-topology-and-ownership/verification-contract.yaml
+    - .skillguard/flowguard-suite/suite-map.json
+    - flowguard/**/*route*.py
+    - flowguard/**/*topolog*.py
+    - flowguard/self_maintenance.py
+    - .agents/skills/*/SKILL.md
+    - .agents/skills/*/agents/openai.yaml
+    - .flowguard/self_maintenance_mesh/**/*.py
+    - tests/test_route_topology_governance.py
+    - tests/test_topology_hazard.py
+    - tests/test_route_profiles.py
+    - scripts/check_flowguard_route_topology.py
+    - scripts/check_flowguard_route_parity.py

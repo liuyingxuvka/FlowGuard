@@ -1,0 +1,116 @@
+{
+  "activation_keywords": [
+    "ordinary behavior modeling",
+    "unclear FlowGuard route",
+    "cross-route coordination",
+    "kernel closure"
+  ],
+  "claim_boundary": "Only the current route decision, executable model boundary, and consumed current evidence are claimed; no future behavior or unrun route is certified.",
+  "default_route": true,
+  "direct_references": [
+    "references/route_index.md",
+    "references/modeling_protocol.md",
+    "references/modeling_core_protocol.md",
+    "references/modeling_evidence_protocol.md",
+    "references/skill_kernel_protocol.md",
+    "references/adoption_protocol.md",
+    "references/conformance_adoption_protocol.md",
+    "references/long_check_protocol.md",
+    "references/framework_upgrade_protocol.md",
+    "references/invariant_examples.md"
+  ],
+  "do_not_use_when": [
+    "A direct satellite already owns the boundary or the task is trivial and has no behavior, state, process, or evidence risk."
+  ],
+  "downstream_targets": [
+    {
+      "claim_scope": "preflight only",
+      "condition": "Existing modeled ownership may already cover the boundary.",
+      "target_id": "flowguard-existing-model-preflight",
+      "target_kind": "skill"
+    },
+    {
+      "claim_scope": "process evidence",
+      "condition": "Plan, workflow, lifecycle freshness, synchronization, or release scope controls confidence.",
+      "target_id": "flowguard-development-process-flow",
+      "target_kind": "skill"
+    },
+    {
+      "claim_scope": "final risk confidence",
+      "condition": "A broad done, release, archive, publish, or production claim is requested.",
+      "target_id": "risk_evidence_ledger",
+      "target_kind": "internal_route"
+    }
+  ],
+  "layout_profiles": {
+    "installed": ".codex/skills/model-first-function-flow",
+    "source": ".agents/skills/model-first-function-flow"
+  },
+  "native_checks": [
+    {
+      "binding_id": "model_first_entry_model",
+      "command": "python .flowguard/minimum_valuable_model_entry/run_checks.py",
+      "evidence_source": "current model runner receipt and final report",
+      "kind": "flowguard_model",
+      "native_check_id": "minimum_valuable_model_entry",
+      "summary": "Run the minimum valuable model-first entry model."
+    }
+  ],
+  "native_owner": "model_first_function_flow",
+  "output_fields": [
+    "evidence",
+    "failures",
+    "blockers",
+    "skipped_checks",
+    "residual_risk",
+    "claim_boundary",
+    "typed_next_actions"
+  ],
+  "route_id": "model_first_function_flow",
+  "route_role": "kernel",
+  "route_summary": "Select the owning FlowGuard route and execute the minimum valuable model-first kernel workflow.",
+  "schema_version": "flowguard.skill_contract_source.v1",
+  "skill_id": "model-first-function-flow",
+  "source_requirements": [
+    {
+      "category": "activation-boundary",
+      "requirement_id": "kernel.route_selection",
+      "summary": "The kernel must defer to a clear public owner and coordinate only unclear, ordinary, or cross-route work."
+    },
+    {
+      "category": "evidence",
+      "requirement_id": "kernel.executable_model",
+      "summary": "Executable Input x State modeling and a representative known-bad proof are required before model confidence."
+    },
+    {
+      "category": "closure",
+      "requirement_id": "kernel.broad_claim_boundary",
+      "summary": "Missing, stale, skipped, scoped, progress-only, not-run, or pass-with-gaps evidence blocks broad closure."
+    }
+  ],
+  "use_when": [
+    "No direct satellite clearly owns the risk or ordinary finite behavior/state modeling is required."
+  ],
+  "workflow": [
+    {
+      "phase_id": "intake",
+      "summary": "Decide applicability, flow lens, protected error class, and claim boundary."
+    },
+    {
+      "phase_id": "inventory",
+      "summary": "Inspect adoption, existing models, templates, state, side effects, and route ownership."
+    },
+    {
+      "phase_id": "execution",
+      "summary": "Build or update the minimum faithful Input x State model and representative known-bad path."
+    },
+    {
+      "phase_id": "checks",
+      "summary": "Run formal model-first checks, inspect counterexamples, and invoke only triggered owner routes."
+    },
+    {
+      "phase_id": "closure",
+      "summary": "Preserve every gap and close only with current model, route, and claim evidence."
+    }
+  ]
+}

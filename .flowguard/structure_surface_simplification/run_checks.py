@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -36,7 +37,9 @@ def main() -> int:
         else:
             rows.append({"case": name, "ok": True, "result": repr(result)})
     payload = {"ok": ok, "cases": rows}
-    Path(__file__).with_name("result.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    output_dir = Path(os.environ.get("FLOWGUARD_OUTPUT_DIR", Path(__file__).parent))
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir.joinpath("result.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
     print("=== flowguard structure surface simplification self-model ===")
     print("status:", "OK" if ok else "FAILED")
     for row in rows:

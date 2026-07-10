@@ -1,0 +1,108 @@
+{
+  "activation_keywords": [
+    "large slow tests",
+    "background validation",
+    "child test suite",
+    "stale test evidence",
+    "release-only checks"
+  ],
+  "claim_boundary": "The route proves only current parent/child validation ownership and evidence freshness; it does not execute tests or decide semantic behavior coverage.",
+  "default_route": false,
+  "direct_references": [
+    "references/test_mesh_protocol.md"
+  ],
+  "do_not_use_when": [
+    "The task is ordinary small tests, semantic obligation definition, test execution itself, or a production code/model split."
+  ],
+  "downstream_targets": [
+    {
+      "claim_scope": "semantic alignment",
+      "condition": "Cell/shard evidence must bind semantic obligations and owner code contracts.",
+      "target_id": "flowguard-model-test-alignment",
+      "target_kind": "skill"
+    },
+    {
+      "claim_scope": "process freshness",
+      "condition": "Background completion, reruns, freshness, or release lifecycle must be governed.",
+      "target_id": "flowguard-development-process-flow",
+      "target_kind": "skill"
+    },
+    {
+      "claim_scope": "final risk confidence",
+      "condition": "Child evidence supports broad final confidence.",
+      "target_id": "risk_evidence_ledger",
+      "target_kind": "internal_route"
+    }
+  ],
+  "layout_profiles": {
+    "installed": ".codex/skills/flowguard-test-mesh",
+    "source": ".agents/skills/flowguard-test-mesh"
+  },
+  "native_checks": [
+    {
+      "binding_id": "test_mesh_pytest",
+      "command": "python -m pytest tests/test_test_mesh.py -q",
+      "evidence_source": "current owner-specific pytest receipt",
+      "kind": "pytest",
+      "native_check_id": "test_mesh_tests",
+      "summary": "Run the tracked test-mesh owner and child-evidence tests."
+    }
+  ],
+  "native_owner": "test_mesh_maintenance",
+  "output_fields": [
+    "evidence",
+    "failures",
+    "blockers",
+    "skipped_checks",
+    "residual_risk",
+    "claim_boundary",
+    "typed_next_actions"
+  ],
+  "route_id": "test_mesh_maintenance",
+  "route_role": "public_owner",
+  "route_summary": "Govern parent/child validation ownership, cell/shard coverage, final result artifacts, freshness, reuse, and routine/release scope.",
+  "schema_version": "flowguard.skill_contract_source.v1",
+  "skill_id": "flowguard-test-mesh",
+  "source_requirements": [
+    {
+      "category": "inventory",
+      "requirement_id": "test_mesh.model_derived_split",
+      "summary": "Child suites/scripts derive from a named validation-structure model and cover the parent partitions."
+    },
+    {
+      "category": "evidence",
+      "requirement_id": "test_mesh.current_child_evidence",
+      "summary": "Required suites/cells/shards have current final pass artifacts, visible skips, and valid reuse proof when reused."
+    },
+    {
+      "category": "closure",
+      "requirement_id": "test_mesh.no_progress_pass",
+      "summary": "Running/background progress, release-only evidence in routine scope, stale, skipped, timeout, or missing child results cannot satisfy parent confidence."
+    }
+  ],
+  "use_when": [
+    "Validation is large, slow, layered, backgrounded, stale-prone, skipped, release-only, or requires child ownership for transition/payload/leaf cells."
+  ],
+  "workflow": [
+    {
+      "phase_id": "intake",
+      "summary": "Define parent gate, routine/release scope, split trigger, and required validation/cell/shard ids."
+    },
+    {
+      "phase_id": "inventory",
+      "summary": "Derive child suites from a FlowGuard validation model and inventory ownership, status, freshness, skips, results, and reuse proof."
+    },
+    {
+      "phase_id": "execution",
+      "summary": "Map every partition/cell/shard to a registered child and assess current final artifacts for the requested scope."
+    },
+    {
+      "phase_id": "checks",
+      "summary": "Run TestMesh checks and reject hidden skips/timeouts, progress-only/background results, stale reuse, or unowned required cells."
+    },
+    {
+      "phase_id": "closure",
+      "summary": "Return parent confidence only from current child evidence and typed MTA/process/risk handoffs."
+    }
+  ]
+}

@@ -282,6 +282,14 @@ def _review_json_path(path: Path, *, rel_path: str, apply: bool) -> ArtifactUpgr
         return None
 
     schema_version = str(data.get("schema_version", ""))
+    if schema_version and not _is_numeric_schema_version(schema_version):
+        return ArtifactUpgradeItem(
+            rel_path,
+            "namespaced_json_artifact",
+            ARTIFACT_UPGRADE_STATUS_UNCHANGED,
+            detected_shape=f"schema_version:{schema_version}",
+            message="namespaced artifact schema is owned by its producer and is not a FlowGuard envelope migration target",
+        )
     if schema_version == SCHEMA_VERSION:
         return ArtifactUpgradeItem(
             rel_path,
@@ -323,7 +331,17 @@ def _review_json_path(path: Path, *, rel_path: str, apply: bool) -> ArtifactUpgr
 def _looks_like_flowguard_json(data: Mapping[str, Any]) -> bool:
     artifact_type = str(data.get("artifact_type", ""))
     created_by = str(data.get("created_by", ""))
-    return artifact_type.startswith("flowguard") or created_by == "flowguard" or "schema_version" in data
+    schema_version = str(data.get("schema_version", ""))
+    return (
+        artifact_type.startswith("flowguard")
+        or created_by == "flowguard"
+        or _is_numeric_schema_version(schema_version)
+    )
+
+
+def _is_numeric_schema_version(value: str) -> bool:
+    parts = value.split(".")
+    return bool(value) and all(part.isdigit() for part in parts)
 
 
 def _review_text_path(path: Path, *, rel_path: str, apply: bool) -> ArtifactUpgradeItem | None:

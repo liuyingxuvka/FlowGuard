@@ -1,47 +1,780 @@
 {
+  "acceptance_obligations": [
+    {
+      "covered_by_checks": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r001_mta_real_surface_evidence_obligation",
+      "required": true,
+      "requirement_ids": [
+        "mta.real_surface_evidence"
+      ],
+      "summary": "Native FlowGuard coverage for mta.real_surface_evidence."
+    },
+    {
+      "covered_by_checks": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r002_mta_three_way_binding_obligation",
+      "required": true,
+      "requirement_ids": [
+        "mta.three_way_binding"
+      ],
+      "summary": "Native FlowGuard coverage for mta.three_way_binding."
+    },
+    {
+      "covered_by_checks": [
+        "check_closure"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r003_mta_typed_testmesh_handoff_obligation",
+      "required": true,
+      "requirement_ids": [
+        "mta.typed_testmesh_handoff"
+      ],
+      "summary": "Native FlowGuard coverage for mta.typed_testmesh_handoff."
+    },
+    {
+      "covered_by_checks": [
+        "check_route"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r004_target_activation_boundary_accept_explicit_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.activation-boundary.accept-explicit-obligations-owner-contracts-and-evidence-compare"
+      ],
+      "summary": "Native FlowGuard coverage for target.activation-boundary.accept-explicit-obligations-owner-contracts-and-evidence-compare."
+    },
+    {
+      "covered_by_checks": [
+        "check_route"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r005_target_activation_boundary_description_use_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.activation-boundary.description-use-when-model-obligations-owner-external-codecontracts"
+      ],
+      "summary": "Native FlowGuard coverage for target.activation-boundary.description-use-when-model-obligations-owner-external-codecontracts."
+    },
+    {
+      "covered_by_checks": [
+        "check_route"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r006_target_activation_boundary_route_id_model__obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.activation-boundary.route-id-model-test-alignment-role-public-owner"
+      ],
+      "summary": "Native FlowGuard coverage for target.activation-boundary.route-id-model-test-alignment-role-public-owner."
+    },
+    {
+      "covered_by_checks": [
+        "check_route"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r007_target_activation_boundary_use_for_model_c_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.activation-boundary.use-for-model-code-test-coverage-transition-closure"
+      ],
+      "summary": "Native FlowGuard coverage for target.activation-boundary.use-for-model-code-test-coverage-transition-closure."
+    },
+    {
+      "covered_by_checks": [
+        "check_route"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r008_target_activation_boundary_use_when_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.activation-boundary.use-when"
+      ],
+      "summary": "Native FlowGuard coverage for target.activation-boundary.use-when."
+    },
+    {
+      "covered_by_checks": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r009_target_check_gate_edit_skillguard_contract_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.check-gate.edit-skillguard-contract-source-json-then-regenerate-derived"
+      ],
+      "summary": "Native FlowGuard coverage for target.check-gate.edit-skillguard-contract-source-json-then-regenerate-derived."
+    },
+    {
+      "covered_by_checks": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r010_target_check_gate_full_confidence_requires_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.check-gate.full-confidence-requires-each-required-obligation-to-bind"
+      ],
+      "summary": "Native FlowGuard coverage for target.check-gate.full-confidence-requires-each-required-obligation-to-bind."
+    },
+    {
+      "covered_by_checks": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r011_target_check_gate_hard_gates_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.check-gate.hard-gates"
+      ],
+      "summary": "Native FlowGuard coverage for target.check-gate.hard-gates."
+    },
+    {
+      "covered_by_checks": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r012_target_check_gate_missing_stale_skipped_so_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.check-gate.missing-stale-skipped-source-audit-payload-target-evidence"
+      ],
+      "summary": "Native FlowGuard coverage for target.check-gate.missing-stale-skipped-source-audit-payload-target-evidence."
+    },
+    {
+      "covered_by_checks": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r013_target_check_gate_return_evidence_failures_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.check-gate.return-evidence-failures-blockers-skipped-checks-residual-risk"
+      ],
+      "summary": "Native FlowGuard coverage for target.check-gate.return-evidence-failures-blockers-skipped-checks-residual-risk."
+    },
+    {
+      "covered_by_checks": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r014_target_check_gate_verify_the_real_flowguar_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.check-gate.verify-the-real-flowguard-check-engine-and-agents"
+      ],
+      "summary": "Native FlowGuard coverage for target.check-gate.verify-the-real-flowguard-check-engine-and-agents."
+    },
+    {
+      "covered_by_checks": [
+        "check_route"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r015_target_description_use_when_model_obligati_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.description.use-when-model-obligations-owner-external-codecontracts-source"
+      ],
+      "summary": "Native FlowGuard coverage for target.description.use-when-model-obligations-owner-external-codecontracts-source."
+    },
+    {
+      "covered_by_checks": [
+        "check_route"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r016_target_entrypoint_acceptance_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.entrypoint.acceptance"
+      ],
+      "summary": "Native FlowGuard coverage for target.entrypoint.acceptance."
+    },
+    {
+      "covered_by_checks": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r017_target_hard_gates_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.hard_gates"
+      ],
+      "summary": "Native FlowGuard coverage for target.hard_gates."
+    },
+    {
+      "covered_by_checks": [
+        "check_route"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r018_target_non_use_boundary_do_not_split_tests_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.non-use-boundary.do-not-split-tests-code-or-models-run"
+      ],
+      "summary": "Native FlowGuard coverage for target.non-use-boundary.do-not-split-tests-code-or-models-run."
+    },
+    {
+      "covered_by_checks": [
+        "check_route"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r019_target_non_use_boundary_do_not_use_when_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.non-use-boundary.do-not-use-when"
+      ],
+      "summary": "Native FlowGuard coverage for target.non-use-boundary.do-not-use-when."
+    },
+    {
+      "covered_by_checks": [
+        "check_closure"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r020_target_output_output_requirements_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.output.output-requirements"
+      ],
+      "summary": "Native FlowGuard coverage for target.output.output-requirements."
+    },
+    {
+      "covered_by_checks": [
+        "check_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r021_target_workflow_route_classify_gaps_and_is_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.workflow-route.classify-gaps-and-issue-typed-testmesh-maturation-risk"
+      ],
+      "summary": "Native FlowGuard coverage for target.workflow-route.classify-gaps-and-issue-typed-testmesh-maturation-risk."
+    },
+    {
+      "covered_by_checks": [
+        "check_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r022_target_workflow_route_compare_declared_mod_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.workflow-route.compare-declared-model-obligations-owner-code-external-contracts"
+      ],
+      "summary": "Native FlowGuard coverage for target.workflow-route.compare-declared-model-obligations-owner-code-external-contracts."
+    },
+    {
+      "covered_by_checks": [
+        "check_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r023_target_workflow_route_consume_canonical_co_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.workflow-route.consume-canonical-contractexhaustionmesh-ids-source-boundary-observations-and"
+      ],
+      "summary": "Native FlowGuard coverage for target.workflow-route.consume-canonical-contractexhaustionmesh-ids-source-boundary-observations-and."
+    },
+    {
+      "covered_by_checks": [
+        "check_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r024_target_workflow_route_flowguard_model_test_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.workflow-route.flowguard-model-test-alignment"
+      ],
+      "summary": "Native FlowGuard coverage for target.workflow-route.flowguard-model-test-alignment."
+    },
+    {
+      "covered_by_checks": [
+        "check_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r025_target_workflow_route_list_obligations_com_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.workflow-route.list-obligations-commitment-ids-transitions-fields-payloads-owner"
+      ],
+      "summary": "Native FlowGuard coverage for target.workflow-route.list-obligations-commitment-ids-transitions-fields-payloads-owner."
+    },
+    {
+      "covered_by_checks": [
+        "check_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r026_target_workflow_route_name_flowguard_model_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.workflow-route.name-flowguard-model-test-alignment"
+      ],
+      "summary": "Native FlowGuard coverage for target.workflow-route.name-flowguard-model-test-alignment."
+    },
+    {
+      "covered_by_checks": [
+        "check_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r027_target_workflow_route_read_references_mode_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.workflow-route.read-references-model-test-alignment-protocol-md-for"
+      ],
+      "summary": "Native FlowGuard coverage for target.workflow-route.read-references-model-test-alignment-protocol-md-for."
+    },
+    {
+      "covered_by_checks": [
+        "check_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r028_target_workflow_route_required_workflow_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.workflow-route.required-workflow"
+      ],
+      "summary": "Native FlowGuard coverage for target.workflow-route.required-workflow."
+    }
+  ],
   "check_scripts": [
     {
       "check_id": "check_route",
-      "command": "python .skillguard/checks/check_route.py",
+      "command": "python .skillguard/check.py --phase intake",
       "failure_class": "route",
       "phase_id": "intake",
       "required": true,
-      "script_path": ".skillguard/checks/check_route.py"
+      "script_path": ".skillguard/check.py"
     },
     {
       "check_id": "check_phase_order",
-      "command": "python .skillguard/checks/check_phase_order.py",
+      "command": "python .skillguard/check.py --phase inventory",
       "failure_class": "phase_order",
       "phase_id": "inventory",
       "required": true,
-      "script_path": ".skillguard/checks/check_phase_order.py"
+      "script_path": ".skillguard/check.py"
     },
     {
       "check_id": "check_evidence",
-      "command": "python .skillguard/checks/check_evidence.py",
+      "command": "python .skillguard/check.py --phase execution",
       "failure_class": "evidence",
       "phase_id": "execution",
       "required": true,
-      "script_path": ".skillguard/checks/check_evidence.py"
+      "script_path": ".skillguard/check.py"
     },
     {
       "check_id": "check_quality_floor",
-      "command": "python .skillguard/checks/check_quality_floor.py",
+      "command": "python .skillguard/check.py --phase checks",
       "failure_class": "quality_floor",
       "phase_id": "checks",
       "required": true,
-      "script_path": ".skillguard/checks/check_quality_floor.py"
+      "script_path": ".skillguard/check.py"
     },
     {
       "check_id": "check_closure",
-      "command": "python .skillguard/checks/check_closure.py",
+      "command": "python .skillguard/check.py --phase closure",
       "failure_class": "closure",
       "phase_id": "closure",
       "required": true,
-      "script_path": ".skillguard/checks/check_closure.py"
+      "script_path": ".skillguard/check.py"
     }
   ],
-  "claim_boundary": "This work contract governs only SkillGuard overlay evidence for the declared target skill. It does not replace the target skill's native router/check system and does not prove external services, package publication, GitHub release readiness, or future AI correctness.",
+  "claim_boundary": "Alignment proves only current row-level parity among declared obligations, owner code, and supplied evidence; it does not prove unmodeled behavior or production conformance.",
+  "cleanup_required": [],
+  "closure_blockers": [
+    {
+      "blocker_id": "r001_mta_real_surface_evidence_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "evidence",
+      "obligation_ids": [
+        "r001_mta_real_surface_evidence_obligation"
+      ],
+      "summary": "Block checked/accepted closure when mta.real_surface_evidence lacks current native evidence."
+    },
+    {
+      "blocker_id": "r002_mta_three_way_binding_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "evidence",
+      "obligation_ids": [
+        "r002_mta_three_way_binding_obligation"
+      ],
+      "summary": "Block checked/accepted closure when mta.three_way_binding lacks current native evidence."
+    },
+    {
+      "blocker_id": "r003_mta_typed_testmesh_handoff_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "closure",
+      "obligation_ids": [
+        "r003_mta_typed_testmesh_handoff_obligation"
+      ],
+      "summary": "Block checked/accepted closure when mta.typed_testmesh_handoff lacks current native evidence."
+    },
+    {
+      "blocker_id": "r004_target_activation_boundary_accept_explicit_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "activation-boundary",
+      "obligation_ids": [
+        "r004_target_activation_boundary_accept_explicit_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.activation-boundary.accept-explicit-obligations-owner-contracts-and-evidence-compare lacks current native evidence."
+    },
+    {
+      "blocker_id": "r005_target_activation_boundary_description_use_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "activation-boundary",
+      "obligation_ids": [
+        "r005_target_activation_boundary_description_use_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.activation-boundary.description-use-when-model-obligations-owner-external-codecontracts lacks current native evidence."
+    },
+    {
+      "blocker_id": "r006_target_activation_boundary_route_id_model__blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "activation-boundary",
+      "obligation_ids": [
+        "r006_target_activation_boundary_route_id_model__obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.activation-boundary.route-id-model-test-alignment-role-public-owner lacks current native evidence."
+    },
+    {
+      "blocker_id": "r007_target_activation_boundary_use_for_model_c_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "activation-boundary",
+      "obligation_ids": [
+        "r007_target_activation_boundary_use_for_model_c_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.activation-boundary.use-for-model-code-test-coverage-transition-closure lacks current native evidence."
+    },
+    {
+      "blocker_id": "r008_target_activation_boundary_use_when_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "activation-boundary",
+      "obligation_ids": [
+        "r008_target_activation_boundary_use_when_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.activation-boundary.use-when lacks current native evidence."
+    },
+    {
+      "blocker_id": "r009_target_check_gate_edit_skillguard_contract_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "check-gate",
+      "obligation_ids": [
+        "r009_target_check_gate_edit_skillguard_contract_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.check-gate.edit-skillguard-contract-source-json-then-regenerate-derived lacks current native evidence."
+    },
+    {
+      "blocker_id": "r010_target_check_gate_full_confidence_requires_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "check-gate",
+      "obligation_ids": [
+        "r010_target_check_gate_full_confidence_requires_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.check-gate.full-confidence-requires-each-required-obligation-to-bind lacks current native evidence."
+    },
+    {
+      "blocker_id": "r011_target_check_gate_hard_gates_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "check-gate",
+      "obligation_ids": [
+        "r011_target_check_gate_hard_gates_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.check-gate.hard-gates lacks current native evidence."
+    },
+    {
+      "blocker_id": "r012_target_check_gate_missing_stale_skipped_so_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "check-gate",
+      "obligation_ids": [
+        "r012_target_check_gate_missing_stale_skipped_so_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.check-gate.missing-stale-skipped-source-audit-payload-target-evidence lacks current native evidence."
+    },
+    {
+      "blocker_id": "r013_target_check_gate_return_evidence_failures_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "check-gate",
+      "obligation_ids": [
+        "r013_target_check_gate_return_evidence_failures_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.check-gate.return-evidence-failures-blockers-skipped-checks-residual-risk lacks current native evidence."
+    },
+    {
+      "blocker_id": "r014_target_check_gate_verify_the_real_flowguar_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "check-gate",
+      "obligation_ids": [
+        "r014_target_check_gate_verify_the_real_flowguar_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.check-gate.verify-the-real-flowguard-check-engine-and-agents lacks current native evidence."
+    },
+    {
+      "blocker_id": "r015_target_description_use_when_model_obligati_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "entrypoint-description",
+      "obligation_ids": [
+        "r015_target_description_use_when_model_obligati_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.description.use-when-model-obligations-owner-external-codecontracts-source lacks current native evidence."
+    },
+    {
+      "blocker_id": "r016_target_entrypoint_acceptance_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "entrypoint",
+      "obligation_ids": [
+        "r016_target_entrypoint_acceptance_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.entrypoint.acceptance lacks current native evidence."
+    },
+    {
+      "blocker_id": "r017_target_hard_gates_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "quality-gate",
+      "obligation_ids": [
+        "r017_target_hard_gates_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.hard_gates lacks current native evidence."
+    },
+    {
+      "blocker_id": "r018_target_non_use_boundary_do_not_split_tests_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "non-use-boundary",
+      "obligation_ids": [
+        "r018_target_non_use_boundary_do_not_split_tests_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.non-use-boundary.do-not-split-tests-code-or-models-run lacks current native evidence."
+    },
+    {
+      "blocker_id": "r019_target_non_use_boundary_do_not_use_when_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "non-use-boundary",
+      "obligation_ids": [
+        "r019_target_non_use_boundary_do_not_use_when_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.non-use-boundary.do-not-use-when lacks current native evidence."
+    },
+    {
+      "blocker_id": "r020_target_output_output_requirements_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "output",
+      "obligation_ids": [
+        "r020_target_output_output_requirements_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.output.output-requirements lacks current native evidence."
+    },
+    {
+      "blocker_id": "r021_target_workflow_route_classify_gaps_and_is_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "workflow-route",
+      "obligation_ids": [
+        "r021_target_workflow_route_classify_gaps_and_is_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.workflow-route.classify-gaps-and-issue-typed-testmesh-maturation-risk lacks current native evidence."
+    },
+    {
+      "blocker_id": "r022_target_workflow_route_compare_declared_mod_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "workflow-route",
+      "obligation_ids": [
+        "r022_target_workflow_route_compare_declared_mod_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.workflow-route.compare-declared-model-obligations-owner-code-external-contracts lacks current native evidence."
+    },
+    {
+      "blocker_id": "r023_target_workflow_route_consume_canonical_co_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "workflow-route",
+      "obligation_ids": [
+        "r023_target_workflow_route_consume_canonical_co_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.workflow-route.consume-canonical-contractexhaustionmesh-ids-source-boundary-observations-and lacks current native evidence."
+    },
+    {
+      "blocker_id": "r024_target_workflow_route_flowguard_model_test_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "workflow-route",
+      "obligation_ids": [
+        "r024_target_workflow_route_flowguard_model_test_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.workflow-route.flowguard-model-test-alignment lacks current native evidence."
+    },
+    {
+      "blocker_id": "r025_target_workflow_route_list_obligations_com_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "workflow-route",
+      "obligation_ids": [
+        "r025_target_workflow_route_list_obligations_com_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.workflow-route.list-obligations-commitment-ids-transitions-fields-payloads-owner lacks current native evidence."
+    },
+    {
+      "blocker_id": "r026_target_workflow_route_name_flowguard_model_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "workflow-route",
+      "obligation_ids": [
+        "r026_target_workflow_route_name_flowguard_model_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.workflow-route.name-flowguard-model-test-alignment lacks current native evidence."
+    },
+    {
+      "blocker_id": "r027_target_workflow_route_read_references_mode_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "workflow-route",
+      "obligation_ids": [
+        "r027_target_workflow_route_read_references_mode_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.workflow-route.read-references-model-test-alignment-protocol-md-for lacks current native evidence."
+    },
+    {
+      "blocker_id": "r028_target_workflow_route_required_workflow_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "workflow-route",
+      "obligation_ids": [
+        "r028_target_workflow_route_required_workflow_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.workflow-route.required-workflow lacks current native evidence."
+    }
+  ],
   "closure_rules": [
     {
       "allowed_decision": "accepted",
@@ -53,77 +786,681 @@
         "check_closure"
       ],
       "required_evidence": [
-        "task_summary",
-        "target_inventory",
-        "direct_evidence",
-        "check_output",
-        "closure_report"
+        "model_test_alignment_intake_evidence",
+        "model_test_alignment_inventory_evidence",
+        "model_test_alignment_execution_evidence",
+        "model_test_alignment_checks_evidence",
+        "model_test_alignment_closure_evidence"
       ],
-      "rule_id": "accepted_requires_all_required_checks",
-      "scope": "declared run scope only"
+      "rule_id": "model_test_alignment.accepted_requires_all_gates",
+      "scope": "current target revision and declared route only"
     }
   ],
-  "contract_hash": "5FE70B0C237531350F07B8E13177CBB877D72573E0BA143DB1FE5D1E8E1579A9",
-  "contract_version": "3",
+  "contract_hash": "BDCC3512442F80F2EA2034D0C280E93C1BF18944EE7C774990C22B5F74BB6487",
+  "contract_version": "flowguard.skill_contract_compiler.v1+A9FEFDAB1C7A0ED3",
+  "coverage_matrix": [
+    {
+      "check_ids": [
+        "check_quality_floor"
+      ],
+      "closure_blocker_id": "r001_mta_real_surface_evidence_blocker",
+      "evidence_ids": [
+        "model_test_alignment_checks_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r001_mta_real_surface_evidence_obligation",
+      "required": true,
+      "requirement_id": "mta.real_surface_evidence",
+      "route_id": "model_test_alignment",
+      "row_id": "r001_mta_real_surface_evidence_coverage",
+      "rule_id": "r001_mta_real_surface_evidence_rule",
+      "source_path": ".skillguard/contract-source.json#source_requirements",
+      "stage_id": "model_test_alignment_checks"
+    },
+    {
+      "check_ids": [
+        "check_quality_floor"
+      ],
+      "closure_blocker_id": "r002_mta_three_way_binding_blocker",
+      "evidence_ids": [
+        "model_test_alignment_checks_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r002_mta_three_way_binding_obligation",
+      "required": true,
+      "requirement_id": "mta.three_way_binding",
+      "route_id": "model_test_alignment",
+      "row_id": "r002_mta_three_way_binding_coverage",
+      "rule_id": "r002_mta_three_way_binding_rule",
+      "source_path": ".skillguard/contract-source.json#source_requirements",
+      "stage_id": "model_test_alignment_checks"
+    },
+    {
+      "check_ids": [
+        "check_closure"
+      ],
+      "closure_blocker_id": "r003_mta_typed_testmesh_handoff_blocker",
+      "evidence_ids": [
+        "model_test_alignment_closure_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r003_mta_typed_testmesh_handoff_obligation",
+      "required": true,
+      "requirement_id": "mta.typed_testmesh_handoff",
+      "route_id": "model_test_alignment",
+      "row_id": "r003_mta_typed_testmesh_handoff_coverage",
+      "rule_id": "r003_mta_typed_testmesh_handoff_rule",
+      "source_path": ".skillguard/contract-source.json#source_requirements",
+      "stage_id": "model_test_alignment_closure"
+    },
+    {
+      "check_ids": [
+        "check_route"
+      ],
+      "closure_blocker_id": "r004_target_activation_boundary_accept_explicit_blocker",
+      "evidence_ids": [
+        "model_test_alignment_intake_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r004_target_activation_boundary_accept_explicit_obligation",
+      "required": true,
+      "requirement_id": "target.activation-boundary.accept-explicit-obligations-owner-contracts-and-evidence-compare",
+      "route_id": "model_test_alignment",
+      "row_id": "r004_target_activation_boundary_accept_explicit_coverage",
+      "rule_id": "r004_target_activation_boundary_accept_explicit_rule",
+      "source_path": "SKILL.md#L18",
+      "stage_id": "model_test_alignment_intake"
+    },
+    {
+      "check_ids": [
+        "check_route"
+      ],
+      "closure_blocker_id": "r005_target_activation_boundary_description_use_blocker",
+      "evidence_ids": [
+        "model_test_alignment_intake_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r005_target_activation_boundary_description_use_obligation",
+      "required": true,
+      "requirement_id": "target.activation-boundary.description-use-when-model-obligations-owner-external-codecontracts",
+      "route_id": "model_test_alignment",
+      "row_id": "r005_target_activation_boundary_description_use_coverage",
+      "rule_id": "r005_target_activation_boundary_description_use_rule",
+      "source_path": "SKILL.md#L3",
+      "stage_id": "model_test_alignment_intake"
+    },
+    {
+      "check_ids": [
+        "check_route"
+      ],
+      "closure_blocker_id": "r006_target_activation_boundary_route_id_model__blocker",
+      "evidence_ids": [
+        "model_test_alignment_intake_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r006_target_activation_boundary_route_id_model__obligation",
+      "required": true,
+      "requirement_id": "target.activation-boundary.route-id-model-test-alignment-role-public-owner",
+      "route_id": "model_test_alignment",
+      "row_id": "r006_target_activation_boundary_route_id_model__coverage",
+      "rule_id": "r006_target_activation_boundary_route_id_model__rule",
+      "source_path": "SKILL.md#L12",
+      "stage_id": "model_test_alignment_intake"
+    },
+    {
+      "check_ids": [
+        "check_route"
+      ],
+      "closure_blocker_id": "r007_target_activation_boundary_use_for_model_c_blocker",
+      "evidence_ids": [
+        "model_test_alignment_intake_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r007_target_activation_boundary_use_for_model_c_obligation",
+      "required": true,
+      "requirement_id": "target.activation-boundary.use-for-model-code-test-coverage-transition-closure",
+      "route_id": "model_test_alignment",
+      "row_id": "r007_target_activation_boundary_use_for_model_c_coverage",
+      "rule_id": "r007_target_activation_boundary_use_for_model_c_rule",
+      "source_path": "SKILL.md#L21",
+      "stage_id": "model_test_alignment_intake"
+    },
+    {
+      "check_ids": [
+        "check_route"
+      ],
+      "closure_blocker_id": "r008_target_activation_boundary_use_when_blocker",
+      "evidence_ids": [
+        "model_test_alignment_intake_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r008_target_activation_boundary_use_when_obligation",
+      "required": true,
+      "requirement_id": "target.activation-boundary.use-when",
+      "route_id": "model_test_alignment",
+      "row_id": "r008_target_activation_boundary_use_when_coverage",
+      "rule_id": "r008_target_activation_boundary_use_when_rule",
+      "source_path": "SKILL.md#L20",
+      "stage_id": "model_test_alignment_intake"
+    },
+    {
+      "check_ids": [
+        "check_quality_floor"
+      ],
+      "closure_blocker_id": "r009_target_check_gate_edit_skillguard_contract_blocker",
+      "evidence_ids": [
+        "model_test_alignment_checks_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r009_target_check_gate_edit_skillguard_contract_obligation",
+      "required": true,
+      "requirement_id": "target.check-gate.edit-skillguard-contract-source-json-then-regenerate-derived",
+      "route_id": "model_test_alignment",
+      "row_id": "r009_target_check_gate_edit_skillguard_contract_coverage",
+      "rule_id": "r009_target_check_gate_edit_skillguard_contract_rule",
+      "source_path": "SKILL.md#L40",
+      "stage_id": "model_test_alignment_checks"
+    },
+    {
+      "check_ids": [
+        "check_quality_floor"
+      ],
+      "closure_blocker_id": "r010_target_check_gate_full_confidence_requires_blocker",
+      "evidence_ids": [
+        "model_test_alignment_checks_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r010_target_check_gate_full_confidence_requires_obligation",
+      "required": true,
+      "requirement_id": "target.check-gate.full-confidence-requires-each-required-obligation-to-bind",
+      "route_id": "model_test_alignment",
+      "row_id": "r010_target_check_gate_full_confidence_requires_coverage",
+      "rule_id": "r010_target_check_gate_full_confidence_requires_rule",
+      "source_path": "SKILL.md#L33",
+      "stage_id": "model_test_alignment_checks"
+    },
+    {
+      "check_ids": [
+        "check_quality_floor"
+      ],
+      "closure_blocker_id": "r011_target_check_gate_hard_gates_blocker",
+      "evidence_ids": [
+        "model_test_alignment_checks_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r011_target_check_gate_hard_gates_obligation",
+      "required": true,
+      "requirement_id": "target.check-gate.hard-gates",
+      "route_id": "model_test_alignment",
+      "row_id": "r011_target_check_gate_hard_gates_coverage",
+      "rule_id": "r011_target_check_gate_hard_gates_rule",
+      "source_path": "SKILL.md#L31",
+      "stage_id": "model_test_alignment_checks"
+    },
+    {
+      "check_ids": [
+        "check_quality_floor"
+      ],
+      "closure_blocker_id": "r012_target_check_gate_missing_stale_skipped_so_blocker",
+      "evidence_ids": [
+        "model_test_alignment_checks_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r012_target_check_gate_missing_stale_skipped_so_obligation",
+      "required": true,
+      "requirement_id": "target.check-gate.missing-stale-skipped-source-audit-payload-target-evidence",
+      "route_id": "model_test_alignment",
+      "row_id": "r012_target_check_gate_missing_stale_skipped_so_coverage",
+      "rule_id": "r012_target_check_gate_missing_stale_skipped_so_rule",
+      "source_path": "SKILL.md#L34",
+      "stage_id": "model_test_alignment_checks"
+    },
+    {
+      "check_ids": [
+        "check_quality_floor"
+      ],
+      "closure_blocker_id": "r013_target_check_gate_return_evidence_failures_blocker",
+      "evidence_ids": [
+        "model_test_alignment_checks_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r013_target_check_gate_return_evidence_failures_obligation",
+      "required": true,
+      "requirement_id": "target.check-gate.return-evidence-failures-blockers-skipped-checks-residual-risk",
+      "route_id": "model_test_alignment",
+      "row_id": "r013_target_check_gate_return_evidence_failures_coverage",
+      "rule_id": "r013_target_check_gate_return_evidence_failures_rule",
+      "source_path": "SKILL.md#L37",
+      "stage_id": "model_test_alignment_checks"
+    },
+    {
+      "check_ids": [
+        "check_quality_floor"
+      ],
+      "closure_blocker_id": "r014_target_check_gate_verify_the_real_flowguar_blocker",
+      "evidence_ids": [
+        "model_test_alignment_checks_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r014_target_check_gate_verify_the_real_flowguar_obligation",
+      "required": true,
+      "requirement_id": "target.check-gate.verify-the-real-flowguard-check-engine-and-agents",
+      "route_id": "model_test_alignment",
+      "row_id": "r014_target_check_gate_verify_the_real_flowguar_coverage",
+      "rule_id": "r014_target_check_gate_verify_the_real_flowguar_rule",
+      "source_path": "SKILL.md#L32",
+      "stage_id": "model_test_alignment_checks"
+    },
+    {
+      "check_ids": [
+        "check_route"
+      ],
+      "closure_blocker_id": "r015_target_description_use_when_model_obligati_blocker",
+      "evidence_ids": [
+        "model_test_alignment_intake_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r015_target_description_use_when_model_obligati_obligation",
+      "required": true,
+      "requirement_id": "target.description.use-when-model-obligations-owner-external-codecontracts-source",
+      "route_id": "model_test_alignment",
+      "row_id": "r015_target_description_use_when_model_obligati_coverage",
+      "rule_id": "r015_target_description_use_when_model_obligati_rule",
+      "source_path": "SKILL.md frontmatter",
+      "stage_id": "model_test_alignment_intake"
+    },
+    {
+      "check_ids": [
+        "check_route"
+      ],
+      "closure_blocker_id": "r016_target_entrypoint_acceptance_blocker",
+      "evidence_ids": [
+        "model_test_alignment_intake_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r016_target_entrypoint_acceptance_obligation",
+      "required": true,
+      "requirement_id": "target.entrypoint.acceptance",
+      "route_id": "model_test_alignment",
+      "row_id": "r016_target_entrypoint_acceptance_coverage",
+      "rule_id": "r016_target_entrypoint_acceptance_rule",
+      "source_path": "SKILL.md",
+      "stage_id": "model_test_alignment_intake"
+    },
+    {
+      "check_ids": [
+        "check_quality_floor"
+      ],
+      "closure_blocker_id": "r017_target_hard_gates_blocker",
+      "evidence_ids": [
+        "model_test_alignment_checks_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r017_target_hard_gates_obligation",
+      "required": true,
+      "requirement_id": "target.hard_gates",
+      "route_id": "model_test_alignment",
+      "row_id": "r017_target_hard_gates_coverage",
+      "rule_id": "r017_target_hard_gates_rule",
+      "source_path": "SKILL.md",
+      "stage_id": "model_test_alignment_checks"
+    },
+    {
+      "check_ids": [
+        "check_route"
+      ],
+      "closure_blocker_id": "r018_target_non_use_boundary_do_not_split_tests_blocker",
+      "evidence_ids": [
+        "model_test_alignment_intake_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r018_target_non_use_boundary_do_not_split_tests_obligation",
+      "required": true,
+      "requirement_id": "target.non-use-boundary.do-not-split-tests-code-or-models-run",
+      "route_id": "model_test_alignment",
+      "row_id": "r018_target_non_use_boundary_do_not_split_tests_coverage",
+      "rule_id": "r018_target_non_use_boundary_do_not_split_tests_rule",
+      "source_path": "SKILL.md#L24",
+      "stage_id": "model_test_alignment_intake"
+    },
+    {
+      "check_ids": [
+        "check_route"
+      ],
+      "closure_blocker_id": "r019_target_non_use_boundary_do_not_use_when_blocker",
+      "evidence_ids": [
+        "model_test_alignment_intake_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r019_target_non_use_boundary_do_not_use_when_obligation",
+      "required": true,
+      "requirement_id": "target.non-use-boundary.do-not-use-when",
+      "route_id": "model_test_alignment",
+      "row_id": "r019_target_non_use_boundary_do_not_use_when_coverage",
+      "rule_id": "r019_target_non_use_boundary_do_not_use_when_rule",
+      "source_path": "SKILL.md#L23",
+      "stage_id": "model_test_alignment_intake"
+    },
+    {
+      "check_ids": [
+        "check_closure"
+      ],
+      "closure_blocker_id": "r020_target_output_output_requirements_blocker",
+      "evidence_ids": [
+        "model_test_alignment_closure_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r020_target_output_output_requirements_obligation",
+      "required": true,
+      "requirement_id": "target.output.output-requirements",
+      "route_id": "model_test_alignment",
+      "row_id": "r020_target_output_output_requirements_coverage",
+      "rule_id": "r020_target_output_output_requirements_rule",
+      "source_path": "SKILL.md#L36",
+      "stage_id": "model_test_alignment_closure"
+    },
+    {
+      "check_ids": [
+        "check_evidence"
+      ],
+      "closure_blocker_id": "r021_target_workflow_route_classify_gaps_and_is_blocker",
+      "evidence_ids": [
+        "model_test_alignment_execution_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r021_target_workflow_route_classify_gaps_and_is_obligation",
+      "required": true,
+      "requirement_id": "target.workflow-route.classify-gaps-and-issue-typed-testmesh-maturation-risk",
+      "route_id": "model_test_alignment",
+      "row_id": "r021_target_workflow_route_classify_gaps_and_is_coverage",
+      "rule_id": "r021_target_workflow_route_classify_gaps_and_is_rule",
+      "source_path": "SKILL.md#L29",
+      "stage_id": "model_test_alignment_execution"
+    },
+    {
+      "check_ids": [
+        "check_evidence"
+      ],
+      "closure_blocker_id": "r022_target_workflow_route_compare_declared_mod_blocker",
+      "evidence_ids": [
+        "model_test_alignment_execution_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r022_target_workflow_route_compare_declared_mod_obligation",
+      "required": true,
+      "requirement_id": "target.workflow-route.compare-declared-model-obligations-owner-code-external-contracts",
+      "route_id": "model_test_alignment",
+      "row_id": "r022_target_workflow_route_compare_declared_mod_coverage",
+      "rule_id": "r022_target_workflow_route_compare_declared_mod_rule",
+      "source_path": "SKILL.md#L9",
+      "stage_id": "model_test_alignment_execution"
+    },
+    {
+      "check_ids": [
+        "check_evidence"
+      ],
+      "closure_blocker_id": "r023_target_workflow_route_consume_canonical_co_blocker",
+      "evidence_ids": [
+        "model_test_alignment_execution_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r023_target_workflow_route_consume_canonical_co_obligation",
+      "required": true,
+      "requirement_id": "target.workflow-route.consume-canonical-contractexhaustionmesh-ids-source-boundary-observations-and",
+      "route_id": "model_test_alignment",
+      "row_id": "r023_target_workflow_route_consume_canonical_co_coverage",
+      "rule_id": "r023_target_workflow_route_consume_canonical_co_rule",
+      "source_path": "SKILL.md#L28",
+      "stage_id": "model_test_alignment_execution"
+    },
+    {
+      "check_ids": [
+        "check_evidence"
+      ],
+      "closure_blocker_id": "r024_target_workflow_route_flowguard_model_test_blocker",
+      "evidence_ids": [
+        "model_test_alignment_execution_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r024_target_workflow_route_flowguard_model_test_obligation",
+      "required": true,
+      "requirement_id": "target.workflow-route.flowguard-model-test-alignment",
+      "route_id": "model_test_alignment",
+      "row_id": "r024_target_workflow_route_flowguard_model_test_coverage",
+      "rule_id": "r024_target_workflow_route_flowguard_model_test_rule",
+      "source_path": "SKILL.md#L6",
+      "stage_id": "model_test_alignment_execution"
+    },
+    {
+      "check_ids": [
+        "check_evidence"
+      ],
+      "closure_blocker_id": "r025_target_workflow_route_list_obligations_com_blocker",
+      "evidence_ids": [
+        "model_test_alignment_execution_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r025_target_workflow_route_list_obligations_com_obligation",
+      "required": true,
+      "requirement_id": "target.workflow-route.list-obligations-commitment-ids-transitions-fields-payloads-owner",
+      "route_id": "model_test_alignment",
+      "row_id": "r025_target_workflow_route_list_obligations_com_coverage",
+      "rule_id": "r025_target_workflow_route_list_obligations_com_rule",
+      "source_path": "SKILL.md#L27",
+      "stage_id": "model_test_alignment_execution"
+    },
+    {
+      "check_ids": [
+        "check_evidence"
+      ],
+      "closure_blocker_id": "r026_target_workflow_route_name_flowguard_model_blocker",
+      "evidence_ids": [
+        "model_test_alignment_execution_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r026_target_workflow_route_name_flowguard_model_obligation",
+      "required": true,
+      "requirement_id": "target.workflow-route.name-flowguard-model-test-alignment",
+      "route_id": "model_test_alignment",
+      "row_id": "r026_target_workflow_route_name_flowguard_model_coverage",
+      "rule_id": "r026_target_workflow_route_name_flowguard_model_rule",
+      "source_path": "SKILL.md#L2",
+      "stage_id": "model_test_alignment_execution"
+    },
+    {
+      "check_ids": [
+        "check_evidence"
+      ],
+      "closure_blocker_id": "r027_target_workflow_route_read_references_mode_blocker",
+      "evidence_ids": [
+        "model_test_alignment_execution_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r027_target_workflow_route_read_references_mode_obligation",
+      "required": true,
+      "requirement_id": "target.workflow-route.read-references-model-test-alignment-protocol-md-for",
+      "route_id": "model_test_alignment",
+      "row_id": "r027_target_workflow_route_read_references_mode_coverage",
+      "rule_id": "r027_target_workflow_route_read_references_mode_rule",
+      "source_path": "SKILL.md#L15",
+      "stage_id": "model_test_alignment_execution"
+    },
+    {
+      "check_ids": [
+        "check_evidence"
+      ],
+      "closure_blocker_id": "r028_target_workflow_route_required_workflow_blocker",
+      "evidence_ids": [
+        "model_test_alignment_execution_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_id": "r028_target_workflow_route_required_workflow_obligation",
+      "required": true,
+      "requirement_id": "target.workflow-route.required-workflow",
+      "route_id": "model_test_alignment",
+      "row_id": "r028_target_workflow_route_required_workflow_coverage",
+      "rule_id": "r028_target_workflow_route_required_workflow_rule",
+      "source_path": "SKILL.md#L26",
+      "stage_id": "model_test_alignment_execution"
+    }
+  ],
   "forbidden_shortcuts": [
     {
+      "shortcut_id": "parallel_skillguard_route",
+      "summary": "Do not create a SkillGuard-owned alternate execution route."
+    },
+    {
+      "shortcut_id": "synthetic_native_pass",
+      "summary": "Do not convert configured booleans, generated JSON, or progress into native pass evidence."
+    },
+    {
       "shortcut_id": "skip_to_closure",
-      "summary": "Do not move directly from intake or planning to closure without current phase evidence and required checks."
-    },
-    {
-      "shortcut_id": "reuse_stale_evidence",
-      "summary": "Do not treat old reports, prior chat summaries, or progress ledger entries as current closure evidence."
-    },
-    {
-      "shortcut_id": "downgrade_quality_floor",
-      "summary": "Do not weaken required checks, evidence, or quality floors to make a run pass."
+      "summary": "Do not skip required stages, checks, receipts, or blockers."
     }
   ],
-  "integration_claim_boundary": "SkillGuard executes the runtime contract against the native route/check system owned by FlowGuard skill route map plus the real flowguard package/model checks. Duplicate SkillGuard-owned execution paths are invalid; it may enforce contract gates before progress or closure, but must not create a competing execution router or bypass the native controller/checker.",
+  "integration_claim_boundary": "SkillGuard gates the target-native FlowGuard route; it does not execute a parallel controller or replace native model/test evidence.",
   "integration_mode": "native-integrated",
   "may_define_parallel_execution_route": false,
   "may_define_skillguard_runtime_route": false,
   "native_check_bindings": [
     {
-      "binding_id": "flowguard_package_import_native_check",
-      "evidence_source": "FlowGuard skill route map plus the real flowguard package/model checks",
-      "native_check_id": "flowguard_package_import",
+      "binding_id": "model_test_alignment_model",
+      "command": "python .flowguard/model_test_code_alignment/run_checks.py",
+      "evidence_source": "current model runner receipt and final report",
+      "native_check_id": "model_test_code_alignment",
       "required": true
-    },
+    }
+  ],
+  "native_check_inventory": [
     {
-      "binding_id": "flowguard_model_or_project_audit_native_check",
-      "evidence_source": "FlowGuard skill route map plus the real flowguard package/model checks",
-      "native_check_id": "flowguard_model_or_project_audit",
-      "required": true
+      "check_id": "model_test_code_alignment",
+      "command": "python .flowguard/model_test_code_alignment/run_checks.py",
+      "kind": "flowguard_model",
+      "required": true,
+      "source_path": ".skillguard/contract-source.json",
+      "summary": "Run the model-code-test alignment model and known-bad bindings."
     }
   ],
   "native_route_bindings": [
     {
-      "binding_id": "model_preflight_native_route",
-      "native_route_id": "flowguard.model_preflight",
+      "binding_id": "model_test_alignment.native_route",
+      "native_route_id": "model_test_alignment",
       "required_before_closure": true,
-      "source": "FlowGuard skill route map plus the real flowguard package/model checks"
-    },
-    {
-      "binding_id": "process_review_native_route",
-      "native_route_id": "flowguard.process_review",
-      "required_before_closure": true,
-      "source": "FlowGuard skill route map plus the real flowguard package/model checks"
-    },
-    {
-      "binding_id": "evidence_alignment_native_route",
-      "native_route_id": "flowguard.evidence_alignment",
-      "required_before_closure": true,
-      "source": "FlowGuard skill route map plus the real flowguard package/model checks"
-    },
-    {
-      "binding_id": "closure_native_route",
-      "native_route_id": "flowguard.closure",
-      "required_before_closure": true,
-      "source": "FlowGuard skill route map plus the real flowguard package/model checks"
+      "source": "FlowGuard canonical route registry and target contract source"
     }
   ],
-  "native_route_owner": "FlowGuard skill route map plus the real flowguard package/model checks",
+  "native_route_owner": "model_test_alignment",
+  "not_parallel_route_proof": {
+    "evidence_source": "Canonical route registry, contract source, and may_define_* false gates",
+    "native_route_binding_ids": [
+      "model_test_alignment.native_route"
+    ],
+    "proof_id": "model_test_alignment.native_owner_proof",
+    "summary": "SkillGuard only validates the FlowGuard-owned route and cannot define an alternate successful execution path."
+  },
+  "phase_native_bindings": [
+    {
+      "evidence_source": ".skillguard/contract-source.json and current native command receipts",
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "native_route_binding_id": "model_test_alignment.native_route",
+      "phase_id": "intake",
+      "required": true
+    },
+    {
+      "evidence_source": ".skillguard/contract-source.json and current native command receipts",
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "native_route_binding_id": "model_test_alignment.native_route",
+      "phase_id": "inventory",
+      "required": true
+    },
+    {
+      "evidence_source": ".skillguard/contract-source.json and current native command receipts",
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "native_route_binding_id": "model_test_alignment.native_route",
+      "phase_id": "execution",
+      "required": true
+    },
+    {
+      "evidence_source": ".skillguard/contract-source.json and current native command receipts",
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "native_route_binding_id": "model_test_alignment.native_route",
+      "phase_id": "checks",
+      "required": true
+    },
+    {
+      "evidence_source": ".skillguard/contract-source.json and current native command receipts",
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "native_route_binding_id": "model_test_alignment.native_route",
+      "phase_id": "closure",
+      "required": true
+    }
+  ],
   "phases": [
     {
       "allowed_next": [
@@ -134,9 +1471,9 @@
         "check_route"
       ],
       "required_evidence": [
-        "task_summary"
+        "model_test_alignment_intake_evidence"
       ],
-      "summary": "Confirm target, requested outcome, route, scope, and claim boundary."
+      "summary": "Define claim scope, commitments, obligations, required test kinds, and external behavior boundaries."
     },
     {
       "allowed_next": [
@@ -147,9 +1484,9 @@
         "check_phase_order"
       ],
       "required_evidence": [
-        "target_inventory"
+        "model_test_alignment_inventory_evidence"
       ],
-      "summary": "Inspect current target files, local materials, source ownership, and activation boundary."
+      "summary": "Inventory owner CodeContracts, tests, source audits, transitions/fields/payloads, boundary observations, and evidence targets."
     },
     {
       "allowed_next": [
@@ -160,9 +1497,9 @@
         "check_evidence"
       ],
       "required_evidence": [
-        "direct_evidence"
+        "model_test_alignment_execution_evidence"
       ],
-      "summary": "Perform the skill work inside the selected route without skipping declared gates."
+      "summary": "Consume canonical cases and build row-level model-code-test bindings with stable target ids and gaps."
     },
     {
       "allowed_next": [
@@ -173,9 +1510,9 @@
         "check_quality_floor"
       ],
       "required_evidence": [
-        "check_output"
+        "model_test_alignment_checks_evidence"
       ],
-      "summary": "Run required checks, quality floors, freshness checks, and negative-case gates when applicable."
+      "summary": "Run the alignment model; send large/slow evidence to TestMesh through typed handoff while retaining semantic ownership."
     },
     {
       "allowed_next": [],
@@ -184,9 +1521,9 @@
         "check_closure"
       ],
       "required_evidence": [
-        "closure_report"
+        "model_test_alignment_closure_evidence"
       ],
-      "summary": "Close only inside the evidence-backed claim boundary."
+      "summary": "Return binding summaries and block broad coverage on stale, missing, orphan, duplicate, internal-only, or overclaimed rows."
     }
   ],
   "quality_floors": [
@@ -197,71 +1534,76 @@
         "check_evidence",
         "check_quality_floor"
       ],
-      "summary": "Required checks and file evidence cannot be replaced by prose-only claims."
+      "summary": "Prompt prose, progress, or generated records cannot replace native evidence."
     },
     {
-      "failure_effect": "block accepted closure",
-      "floor_id": "no_quality_downgrade",
+      "failure_effect": "block broad done/release/archive/publish claims",
+      "floor_id": "no_partial_broad_claim",
       "required_checks": [
         "check_quality_floor",
         "check_closure"
       ],
-      "summary": "Do not weaken required workflow, evidence, freshness, or validation expectations to make a run pass."
+      "summary": "Missing, stale, skipped, scoped, progress-only, or pass-with-gaps evidence cannot support broad closure."
     }
   ],
   "required_evidence": [
     {
-      "evidence_id": "task_summary",
-      "kind": "task_record",
+      "evidence_id": "model_test_alignment_intake_evidence",
+      "kind": "model_test_alignment_intake_evidence",
       "phase_id": "intake",
       "required": true,
-      "source": ".skillguard/runs/"
+      "source": "FlowGuard native command receipt or direct target artifact"
     },
     {
-      "evidence_id": "target_inventory",
-      "kind": "file_inventory",
+      "evidence_id": "model_test_alignment_inventory_evidence",
+      "kind": "model_test_alignment_inventory_evidence",
       "phase_id": "inventory",
       "required": true,
-      "source": ".skillguard/runs/"
+      "source": "FlowGuard native command receipt or direct target artifact"
     },
     {
-      "evidence_id": "direct_evidence",
-      "kind": "direct_evidence",
+      "evidence_id": "model_test_alignment_execution_evidence",
+      "kind": "model_test_alignment_execution_evidence",
       "phase_id": "execution",
       "required": true,
-      "source": ".skillguard/runs/"
+      "source": "FlowGuard native command receipt or direct target artifact"
     },
     {
-      "evidence_id": "check_output",
-      "kind": "command_output",
+      "evidence_id": "model_test_alignment_checks_evidence",
+      "kind": "model_test_alignment_checks_evidence",
       "phase_id": "checks",
       "required": true,
-      "source": ".skillguard/runs/"
+      "source": "FlowGuard native command receipt or direct target artifact"
     },
     {
-      "evidence_id": "closure_report",
-      "kind": "closure_record",
+      "evidence_id": "model_test_alignment_closure_evidence",
+      "kind": "model_test_alignment_closure_evidence",
       "phase_id": "closure",
       "required": true,
-      "source": ".skillguard/runs/"
+      "source": "FlowGuard native command receipt or direct target artifact"
+    }
+  ],
+  "route_inventory": [
+    {
+      "native_binding_id": "model_test_alignment.native_route",
+      "required": true,
+      "route_id": "model_test_alignment",
+      "source_path": ".skillguard/contract-source.json",
+      "summary": "Bind explicit model obligations to owner external code contracts and current same-behavior test, source, boundary, transition, payload, or replay evidence."
     }
   ],
   "routes": [
     {
       "activation_keywords": [
-        "model_preflight",
-        "model preflight",
-        "model-preflight",
-        "model",
-        "\u6a21\u578b",
-        "\u5efa\u6a21",
-        "preflight",
-        "\u9884\u68c0",
-        "\u524d\u7f6e\u68c0\u67e5"
+        "model test alignment",
+        "CodeContract",
+        "source audit",
+        "transition cell",
+        "artifact payload"
       ],
-      "default_route": true,
+      "default_route": false,
       "do_not_use_when": [
-        "The task is outside this skill's activation boundary."
+        "The task is test/code/model partitioning, conformance replay, or the obligations have not yet been defined."
       ],
       "phase_order": [
         "intake",
@@ -270,117 +1612,1249 @@
         "checks",
         "closure"
       ],
-      "route_id": "model_preflight",
+      "route_id": "model_test_alignment",
       "route_priority": 0,
       "route_source": "native_binding",
-      "summary": "SkillGuard runtime contract executor for the target skill's native model preflight route/check surface. Duplicate SkillGuard-owned execution paths are invalid; evidence, required checks, blockers, and closure run through the target skill's own workflow."
-    },
-    {
-      "activation_keywords": [
-        "process_review",
-        "process review",
-        "process-review",
-        "process",
-        "\u6d41\u7a0b",
-        "\u8fc7\u7a0b",
-        "review",
-        "\u590d\u6838",
-        "\u5ba1\u67e5",
-        "\u8bc4\u5ba1"
-      ],
-      "default_route": false,
-      "do_not_use_when": [
-        "The task is outside this skill's activation boundary."
-      ],
-      "phase_order": [
-        "intake",
-        "inventory",
-        "execution",
-        "checks",
-        "closure"
-      ],
-      "route_id": "process_review",
-      "route_priority": 1,
-      "route_source": "native_binding",
-      "summary": "SkillGuard runtime contract executor for the target skill's native process review route/check surface. Duplicate SkillGuard-owned execution paths are invalid; evidence, required checks, blockers, and closure run through the target skill's own workflow."
-    },
-    {
-      "activation_keywords": [
-        "evidence_alignment",
-        "evidence alignment",
-        "evidence-alignment",
-        "evidence",
-        "\u8bc1\u636e",
-        "\u6750\u6599",
-        "alignment",
-        "\u5bf9\u9f50",
-        "\u4e00\u81f4\u6027"
-      ],
-      "default_route": false,
-      "do_not_use_when": [
-        "The task is outside this skill's activation boundary."
-      ],
-      "phase_order": [
-        "intake",
-        "inventory",
-        "execution",
-        "checks",
-        "closure"
-      ],
-      "route_id": "evidence_alignment",
-      "route_priority": 2,
-      "route_source": "native_binding",
-      "summary": "SkillGuard runtime contract executor for the target skill's native evidence alignment route/check surface. Duplicate SkillGuard-owned execution paths are invalid; evidence, required checks, blockers, and closure run through the target skill's own workflow."
-    },
-    {
-      "activation_keywords": [
-        "closure",
-        "close",
-        "\u6536\u5c3e",
-        "\u95ed\u73af",
-        "\u5b8c\u6210",
-        "\u5f52\u6863",
-        "\u53d1\u5e03"
-      ],
-      "default_route": false,
-      "do_not_use_when": [
-        "The task is outside this skill's activation boundary."
-      ],
-      "phase_order": [
-        "intake",
-        "inventory",
-        "execution",
-        "checks",
-        "closure"
-      ],
-      "route_id": "closure",
-      "route_priority": 3,
-      "route_source": "native_binding",
-      "summary": "SkillGuard runtime contract executor for the target skill's native closure route/check surface. Duplicate SkillGuard-owned execution paths are invalid; evidence, required checks, blockers, and closure run through the target skill's own workflow."
+      "summary": "Bind explicit model obligations to owner external code contracts and current same-behavior test, source, boundary, transition, payload, or replay evidence."
     }
   ],
-  "schema_version": "1.0",
+  "run_record_required": false,
+  "runtime_lock_policy": {
+    "applies_when": "The flowguard-model-test-alignment skill is selected or delegated.",
+    "checks_before_closure": true,
+    "coverage_matrix_required": true,
+    "evidence_before_closure": true,
+    "global_skillguard_pregate_required": false,
+    "policy_id": "model_test_alignment.target_local_runtime_lock",
+    "route_selection_required": true,
+    "stage_sequence_required": true,
+    "summary": "The target-local contract, route, stage order, checks, evidence, and coverage matrix gate closure.",
+    "target_local_contract_required": true
+  },
+  "schema_version": "skillguard.work_contract.v1",
   "skill_id": "flowguard-model-test-alignment",
+  "skill_specific_checks": [
+    {
+      "check_id": "r001_mta_real_surface_evidence_check",
+      "check_manifest_ids": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_ids": [
+        "r001_mta_real_surface_evidence_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for mta.real_surface_evidence."
+    },
+    {
+      "check_id": "r002_mta_three_way_binding_check",
+      "check_manifest_ids": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_ids": [
+        "r002_mta_three_way_binding_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for mta.three_way_binding."
+    },
+    {
+      "check_id": "r003_mta_typed_testmesh_handoff_check",
+      "check_manifest_ids": [
+        "check_closure"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_ids": [
+        "r003_mta_typed_testmesh_handoff_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for mta.typed_testmesh_handoff."
+    },
+    {
+      "check_id": "r004_target_activation_boundary_accept_explicit_check",
+      "check_manifest_ids": [
+        "check_route"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_ids": [
+        "r004_target_activation_boundary_accept_explicit_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.activation-boundary.accept-explicit-obligations-owner-contracts-and-evidence-compare."
+    },
+    {
+      "check_id": "r005_target_activation_boundary_description_use_check",
+      "check_manifest_ids": [
+        "check_route"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_ids": [
+        "r005_target_activation_boundary_description_use_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.activation-boundary.description-use-when-model-obligations-owner-external-codecontracts."
+    },
+    {
+      "check_id": "r006_target_activation_boundary_route_id_model__check",
+      "check_manifest_ids": [
+        "check_route"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_ids": [
+        "r006_target_activation_boundary_route_id_model__obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.activation-boundary.route-id-model-test-alignment-role-public-owner."
+    },
+    {
+      "check_id": "r007_target_activation_boundary_use_for_model_c_check",
+      "check_manifest_ids": [
+        "check_route"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_ids": [
+        "r007_target_activation_boundary_use_for_model_c_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.activation-boundary.use-for-model-code-test-coverage-transition-closure."
+    },
+    {
+      "check_id": "r008_target_activation_boundary_use_when_check",
+      "check_manifest_ids": [
+        "check_route"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_ids": [
+        "r008_target_activation_boundary_use_when_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.activation-boundary.use-when."
+    },
+    {
+      "check_id": "r009_target_check_gate_edit_skillguard_contract_check",
+      "check_manifest_ids": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_ids": [
+        "r009_target_check_gate_edit_skillguard_contract_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.check-gate.edit-skillguard-contract-source-json-then-regenerate-derived."
+    },
+    {
+      "check_id": "r010_target_check_gate_full_confidence_requires_check",
+      "check_manifest_ids": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_ids": [
+        "r010_target_check_gate_full_confidence_requires_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.check-gate.full-confidence-requires-each-required-obligation-to-bind."
+    },
+    {
+      "check_id": "r011_target_check_gate_hard_gates_check",
+      "check_manifest_ids": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_ids": [
+        "r011_target_check_gate_hard_gates_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.check-gate.hard-gates."
+    },
+    {
+      "check_id": "r012_target_check_gate_missing_stale_skipped_so_check",
+      "check_manifest_ids": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_ids": [
+        "r012_target_check_gate_missing_stale_skipped_so_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.check-gate.missing-stale-skipped-source-audit-payload-target-evidence."
+    },
+    {
+      "check_id": "r013_target_check_gate_return_evidence_failures_check",
+      "check_manifest_ids": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_ids": [
+        "r013_target_check_gate_return_evidence_failures_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.check-gate.return-evidence-failures-blockers-skipped-checks-residual-risk."
+    },
+    {
+      "check_id": "r014_target_check_gate_verify_the_real_flowguar_check",
+      "check_manifest_ids": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_ids": [
+        "r014_target_check_gate_verify_the_real_flowguar_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.check-gate.verify-the-real-flowguard-check-engine-and-agents."
+    },
+    {
+      "check_id": "r015_target_description_use_when_model_obligati_check",
+      "check_manifest_ids": [
+        "check_route"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_ids": [
+        "r015_target_description_use_when_model_obligati_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.description.use-when-model-obligations-owner-external-codecontracts-source."
+    },
+    {
+      "check_id": "r016_target_entrypoint_acceptance_check",
+      "check_manifest_ids": [
+        "check_route"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_ids": [
+        "r016_target_entrypoint_acceptance_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.entrypoint.acceptance."
+    },
+    {
+      "check_id": "r017_target_hard_gates_check",
+      "check_manifest_ids": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_ids": [
+        "r017_target_hard_gates_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.hard_gates."
+    },
+    {
+      "check_id": "r018_target_non_use_boundary_do_not_split_tests_check",
+      "check_manifest_ids": [
+        "check_route"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_ids": [
+        "r018_target_non_use_boundary_do_not_split_tests_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.non-use-boundary.do-not-split-tests-code-or-models-run."
+    },
+    {
+      "check_id": "r019_target_non_use_boundary_do_not_use_when_check",
+      "check_manifest_ids": [
+        "check_route"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_ids": [
+        "r019_target_non_use_boundary_do_not_use_when_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.non-use-boundary.do-not-use-when."
+    },
+    {
+      "check_id": "r020_target_output_output_requirements_check",
+      "check_manifest_ids": [
+        "check_closure"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_ids": [
+        "r020_target_output_output_requirements_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.output.output-requirements."
+    },
+    {
+      "check_id": "r021_target_workflow_route_classify_gaps_and_is_check",
+      "check_manifest_ids": [
+        "check_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_ids": [
+        "r021_target_workflow_route_classify_gaps_and_is_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.workflow-route.classify-gaps-and-issue-typed-testmesh-maturation-risk."
+    },
+    {
+      "check_id": "r022_target_workflow_route_compare_declared_mod_check",
+      "check_manifest_ids": [
+        "check_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_ids": [
+        "r022_target_workflow_route_compare_declared_mod_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.workflow-route.compare-declared-model-obligations-owner-code-external-contracts."
+    },
+    {
+      "check_id": "r023_target_workflow_route_consume_canonical_co_check",
+      "check_manifest_ids": [
+        "check_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_ids": [
+        "r023_target_workflow_route_consume_canonical_co_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.workflow-route.consume-canonical-contractexhaustionmesh-ids-source-boundary-observations-and."
+    },
+    {
+      "check_id": "r024_target_workflow_route_flowguard_model_test_check",
+      "check_manifest_ids": [
+        "check_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_ids": [
+        "r024_target_workflow_route_flowguard_model_test_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.workflow-route.flowguard-model-test-alignment."
+    },
+    {
+      "check_id": "r025_target_workflow_route_list_obligations_com_check",
+      "check_manifest_ids": [
+        "check_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_ids": [
+        "r025_target_workflow_route_list_obligations_com_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.workflow-route.list-obligations-commitment-ids-transitions-fields-payloads-owner."
+    },
+    {
+      "check_id": "r026_target_workflow_route_name_flowguard_model_check",
+      "check_manifest_ids": [
+        "check_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_ids": [
+        "r026_target_workflow_route_name_flowguard_model_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.workflow-route.name-flowguard-model-test-alignment."
+    },
+    {
+      "check_id": "r027_target_workflow_route_read_references_mode_check",
+      "check_manifest_ids": [
+        "check_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_ids": [
+        "r027_target_workflow_route_read_references_mode_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.workflow-route.read-references-model-test-alignment-protocol-md-for."
+    },
+    {
+      "check_id": "r028_target_workflow_route_required_workflow_check",
+      "check_manifest_ids": [
+        "check_evidence"
+      ],
+      "native_check_binding_ids": [
+        "model_test_alignment_model"
+      ],
+      "obligation_ids": [
+        "r028_target_workflow_route_required_workflow_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.workflow-route.required-workflow."
+    }
+  ],
   "skillguard_role": "native_contract_executor",
+  "source_requirements": [
+    {
+      "category": "evidence",
+      "required": true,
+      "requirement_id": "mta.real_surface_evidence",
+      "source_path": ".skillguard/contract-source.json#source_requirements",
+      "summary": "Concrete source/payload/counterexample claims require current target-aware audit, boundary, or external execution evidence."
+    },
+    {
+      "category": "evidence",
+      "required": true,
+      "requirement_id": "mta.three_way_binding",
+      "source_path": ".skillguard/contract-source.json#source_requirements",
+      "summary": "Every required behavior binds one model obligation, owner external code contract, and current same-contract test evidence."
+    },
+    {
+      "category": "closure",
+      "required": true,
+      "requirement_id": "mta.typed_testmesh_handoff",
+      "source_path": ".skillguard/contract-source.json#source_requirements",
+      "summary": "Large or slow evidence is handed to TestMesh with target ids; MTA retains semantic binding ownership and does not count delegated work as pass."
+    },
+    {
+      "category": "activation-boundary",
+      "required": true,
+      "requirement_id": "target.activation-boundary.accept-explicit-obligations-owner-contracts-and-evidence-compare",
+      "source_path": "SKILL.md#L18",
+      "summary": "Accept explicit obligations, owner contracts, and evidence; compare bindings/freshness; block missing external-contract proof, stale audits, or orphan/duplicate rows; hand evidence hierarch."
+    },
+    {
+      "category": "activation-boundary",
+      "required": true,
+      "requirement_id": "target.activation-boundary.description-use-when-model-obligations-owner-external-codecontracts",
+      "source_path": "SKILL.md#L3",
+      "summary": "description: Use when model obligations, owner external CodeContracts, source audits, transition cells, boundary observations, payload cases, closure targets, or ordinary test evidence need."
+    },
+    {
+      "category": "activation-boundary",
+      "required": true,
+      "requirement_id": "target.activation-boundary.route-id-model-test-alignment-role-public-owner",
+      "source_path": "SKILL.md#L12",
+      "summary": "Route id: model_test_alignment; role: public_owner; native owner: model_test_alignment. This standalone FlowGuard satellite skill owns alignment rows; it sends large/slow evidence to TestMe."
+    },
+    {
+      "category": "activation-boundary",
+      "required": true,
+      "requirement_id": "target.activation-boundary.use-for-model-code-test-coverage-transition-closure",
+      "source_path": "SKILL.md#L21",
+      "summary": "Use for model-code-test coverage, transition/closure cells, field projections, real-code boundaries, counterexample targets, or file/generated/AI work-package payload evidence."
+    },
+    {
+      "category": "activation-boundary",
+      "required": true,
+      "requirement_id": "target.activation-boundary.use-when",
+      "source_path": "SKILL.md#L20",
+      "summary": "The target section 'Use When' must be represented by route, check, evidence, or closure coverage."
+    },
+    {
+      "category": "check-gate",
+      "required": true,
+      "requirement_id": "target.check-gate.edit-skillguard-contract-source-json-then-regenerate-derived",
+      "source_path": "SKILL.md#L40",
+      "summary": "Edit .skillguard/contract-source.json, then regenerate derived contracts; SkillGuard checks native alignment parity and cannot run TestMesh or manufacture code/test proof."
+    },
+    {
+      "category": "check-gate",
+      "required": true,
+      "requirement_id": "target.check-gate.full-confidence-requires-each-required-obligation-to-bind",
+      "source_path": "SKILL.md#L33",
+      "summary": "Full confidence requires each required obligation to bind one owner external code contract and current same-contract test evidence."
+    },
+    {
+      "category": "check-gate",
+      "required": true,
+      "requirement_id": "target.check-gate.hard-gates",
+      "source_path": "SKILL.md#L31",
+      "summary": "The target section 'Hard Gates' must be represented by route, check, evidence, or closure coverage."
+    },
+    {
+      "category": "check-gate",
+      "required": true,
+      "requirement_id": "target.check-gate.missing-stale-skipped-source-audit-payload-target-evidence",
+      "source_path": "SKILL.md#L34",
+      "summary": "Missing/stale/skipped/source-audit/payload/target evidence or template harvest closure blocks broad alignment; large evidence may be delegated, never silently counted."
+    },
+    {
+      "category": "check-gate",
+      "required": true,
+      "requirement_id": "target.check-gate.return-evidence-failures-blockers-skipped-checks-residual-risk",
+      "source_path": "SKILL.md#L37",
+      "summary": "Return evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, and typed_next_actions, plus coverage bindings and open gap codes."
+    },
+    {
+      "category": "check-gate",
+      "required": true,
+      "requirement_id": "target.check-gate.verify-the-real-flowguard-check-engine-and-agents",
+      "source_path": "SKILL.md#L32",
+      "summary": "Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework."
+    },
+    {
+      "category": "entrypoint-description",
+      "required": true,
+      "requirement_id": "target.description.use-when-model-obligations-owner-external-codecontracts-source",
+      "source_path": "SKILL.md frontmatter",
+      "summary": "The target skill description must be represented in the contract: Use when model obligations, owner external CodeContracts, source audits, transition cells, boundary observations, payload c."
+    },
+    {
+      "category": "entrypoint",
+      "required": true,
+      "requirement_id": "target.entrypoint.acceptance",
+      "source_path": "SKILL.md",
+      "summary": "The target skill entrypoint and hard gates must be represented by the runtime contract."
+    },
+    {
+      "category": "quality-gate",
+      "required": true,
+      "requirement_id": "target.hard_gates",
+      "source_path": "SKILL.md",
+      "summary": "Declared hard gates and required workflow steps must be represented by checks and closure blockers."
+    },
+    {
+      "category": "non-use-boundary",
+      "required": true,
+      "requirement_id": "target.non-use-boundary.do-not-split-tests-code-or-models-run",
+      "source_path": "SKILL.md#L24",
+      "summary": "Do not split tests, code, or models, run mesh ownership, or replace conformance replay; return undefined obligations to model-first-function-flow."
+    },
+    {
+      "category": "non-use-boundary",
+      "required": true,
+      "requirement_id": "target.non-use-boundary.do-not-use-when",
+      "source_path": "SKILL.md#L23",
+      "summary": "The target section 'Do Not Use When' must be represented by route, check, evidence, or closure coverage."
+    },
+    {
+      "category": "output",
+      "required": true,
+      "requirement_id": "target.output.output-requirements",
+      "source_path": "SKILL.md#L36",
+      "summary": "The target section 'Output Requirements' must be represented by route, check, evidence, or closure coverage."
+    },
+    {
+      "category": "workflow-route",
+      "required": true,
+      "requirement_id": "target.workflow-route.classify-gaps-and-issue-typed-testmesh-maturation-risk",
+      "source_path": "SKILL.md#L29",
+      "summary": "Classify gaps and issue typed TestMesh, maturation, risk-ledger, or closure handoffs."
+    },
+    {
+      "category": "workflow-route",
+      "required": true,
+      "requirement_id": "target.workflow-route.compare-declared-model-obligations-owner-code-external-contracts",
+      "source_path": "SKILL.md#L9",
+      "summary": "Compare declared model obligations, owner code external contracts, and current test evidence for the same behavior without owning test/code/model partitioning."
+    },
+    {
+      "category": "workflow-route",
+      "required": true,
+      "requirement_id": "target.workflow-route.consume-canonical-contractexhaustionmesh-ids-source-boundary-observations-and",
+      "source_path": "SKILL.md#L28",
+      "summary": "Consume canonical ContractExhaustionMesh ids, source/boundary observations, and current test evidence; build ModelCodeTestBindingRow closure summaries."
+    },
+    {
+      "category": "workflow-route",
+      "required": true,
+      "requirement_id": "target.workflow-route.flowguard-model-test-alignment",
+      "source_path": "SKILL.md#L6",
+      "summary": "The target section 'FlowGuard Model-Test Alignment' must be represented by route, check, evidence, or closure coverage."
+    },
+    {
+      "category": "workflow-route",
+      "required": true,
+      "requirement_id": "target.workflow-route.list-obligations-commitment-ids-transitions-fields-payloads-owner",
+      "source_path": "SKILL.md#L27",
+      "summary": "List obligations, commitment ids, transitions/fields/payloads, owner CodeContract rows, and required evidence kinds."
+    },
+    {
+      "category": "workflow-route",
+      "required": true,
+      "requirement_id": "target.workflow-route.name-flowguard-model-test-alignment",
+      "source_path": "SKILL.md#L2",
+      "summary": "name: flowguard-model-test-alignment"
+    },
+    {
+      "category": "workflow-route",
+      "required": true,
+      "requirement_id": "target.workflow-route.read-references-model-test-alignment-protocol-md-for",
+      "source_path": "SKILL.md#L15",
+      "summary": "Read references/model_test_alignment_protocol.md for CodeContract, ArtifactPayloadContract, source audits, transition/leaf matrices, closure targets, and binding rows."
+    },
+    {
+      "category": "workflow-route",
+      "required": true,
+      "requirement_id": "target.workflow-route.required-workflow",
+      "source_path": "SKILL.md#L26",
+      "summary": "The target section 'Required Workflow' must be represented by route, check, evidence, or closure coverage."
+    }
+  ],
   "stale_bindings": [
     {
-      "binding_id": "target_skill_prompt",
+      "binding_id": "skill_prompt",
       "path": "SKILL.md",
       "stales": [
-        "overlay_selection",
-        "run_record",
-        "closure_report"
+        "work_contract",
+        "check_manifest",
+        "closure"
       ]
     },
     {
-      "binding_id": "work_contract",
-      "path": ".skillguard/work-contract.json",
+      "binding_id": "contract_source",
+      "path": ".skillguard/contract-source.json",
       "stales": [
-        "overlay_selection",
-        "run_record",
-        "closure_report"
+        "work_contract",
+        "check_manifest",
+        "closure"
+      ]
+    },
+    {
+      "binding_id": "route_registry",
+      "path": "flowguard/self_maintenance.py",
+      "stales": [
+        "route_binding",
+        "work_contract",
+        "closure"
       ]
     }
   ],
-  "target_path": ".codex/skills/flowguard-model-test-alignment"
+  "target_path": ".agents/skills/flowguard-model-test-alignment",
+  "target_rule_inventory": [
+    {
+      "category": "evidence",
+      "required": true,
+      "requirement_id": "mta.real_surface_evidence",
+      "rule_id": "r001_mta_real_surface_evidence_rule",
+      "source_path": ".skillguard/contract-source.json#source_requirements",
+      "summary": "Concrete source/payload/counterexample claims require current target-aware audit, boundary, or external execution evidence."
+    },
+    {
+      "category": "evidence",
+      "required": true,
+      "requirement_id": "mta.three_way_binding",
+      "rule_id": "r002_mta_three_way_binding_rule",
+      "source_path": ".skillguard/contract-source.json#source_requirements",
+      "summary": "Every required behavior binds one model obligation, owner external code contract, and current same-contract test evidence."
+    },
+    {
+      "category": "closure",
+      "required": true,
+      "requirement_id": "mta.typed_testmesh_handoff",
+      "rule_id": "r003_mta_typed_testmesh_handoff_rule",
+      "source_path": ".skillguard/contract-source.json#source_requirements",
+      "summary": "Large or slow evidence is handed to TestMesh with target ids; MTA retains semantic binding ownership and does not count delegated work as pass."
+    },
+    {
+      "category": "activation-boundary",
+      "required": true,
+      "requirement_id": "target.activation-boundary.accept-explicit-obligations-owner-contracts-and-evidence-compare",
+      "rule_id": "r004_target_activation_boundary_accept_explicit_rule",
+      "source_path": "SKILL.md#L18",
+      "summary": "Accept explicit obligations, owner contracts, and evidence; compare bindings/freshness; block missing external-contract proof, stale audits, or orphan/duplicate rows; hand evidence hierarch."
+    },
+    {
+      "category": "activation-boundary",
+      "required": true,
+      "requirement_id": "target.activation-boundary.description-use-when-model-obligations-owner-external-codecontracts",
+      "rule_id": "r005_target_activation_boundary_description_use_rule",
+      "source_path": "SKILL.md#L3",
+      "summary": "description: Use when model obligations, owner external CodeContracts, source audits, transition cells, boundary observations, payload cases, closure targets, or ordinary test evidence need."
+    },
+    {
+      "category": "activation-boundary",
+      "required": true,
+      "requirement_id": "target.activation-boundary.route-id-model-test-alignment-role-public-owner",
+      "rule_id": "r006_target_activation_boundary_route_id_model__rule",
+      "source_path": "SKILL.md#L12",
+      "summary": "Route id: model_test_alignment; role: public_owner; native owner: model_test_alignment. This standalone FlowGuard satellite skill owns alignment rows; it sends large/slow evidence to TestMe."
+    },
+    {
+      "category": "activation-boundary",
+      "required": true,
+      "requirement_id": "target.activation-boundary.use-for-model-code-test-coverage-transition-closure",
+      "rule_id": "r007_target_activation_boundary_use_for_model_c_rule",
+      "source_path": "SKILL.md#L21",
+      "summary": "Use for model-code-test coverage, transition/closure cells, field projections, real-code boundaries, counterexample targets, or file/generated/AI work-package payload evidence."
+    },
+    {
+      "category": "activation-boundary",
+      "required": true,
+      "requirement_id": "target.activation-boundary.use-when",
+      "rule_id": "r008_target_activation_boundary_use_when_rule",
+      "source_path": "SKILL.md#L20",
+      "summary": "The target section 'Use When' must be represented by route, check, evidence, or closure coverage."
+    },
+    {
+      "category": "check-gate",
+      "required": true,
+      "requirement_id": "target.check-gate.edit-skillguard-contract-source-json-then-regenerate-derived",
+      "rule_id": "r009_target_check_gate_edit_skillguard_contract_rule",
+      "source_path": "SKILL.md#L40",
+      "summary": "Edit .skillguard/contract-source.json, then regenerate derived contracts; SkillGuard checks native alignment parity and cannot run TestMesh or manufacture code/test proof."
+    },
+    {
+      "category": "check-gate",
+      "required": true,
+      "requirement_id": "target.check-gate.full-confidence-requires-each-required-obligation-to-bind",
+      "rule_id": "r010_target_check_gate_full_confidence_requires_rule",
+      "source_path": "SKILL.md#L33",
+      "summary": "Full confidence requires each required obligation to bind one owner external code contract and current same-contract test evidence."
+    },
+    {
+      "category": "check-gate",
+      "required": true,
+      "requirement_id": "target.check-gate.hard-gates",
+      "rule_id": "r011_target_check_gate_hard_gates_rule",
+      "source_path": "SKILL.md#L31",
+      "summary": "The target section 'Hard Gates' must be represented by route, check, evidence, or closure coverage."
+    },
+    {
+      "category": "check-gate",
+      "required": true,
+      "requirement_id": "target.check-gate.missing-stale-skipped-source-audit-payload-target-evidence",
+      "rule_id": "r012_target_check_gate_missing_stale_skipped_so_rule",
+      "source_path": "SKILL.md#L34",
+      "summary": "Missing/stale/skipped/source-audit/payload/target evidence or template harvest closure blocks broad alignment; large evidence may be delegated, never silently counted."
+    },
+    {
+      "category": "check-gate",
+      "required": true,
+      "requirement_id": "target.check-gate.return-evidence-failures-blockers-skipped-checks-residual-risk",
+      "rule_id": "r013_target_check_gate_return_evidence_failures_rule",
+      "source_path": "SKILL.md#L37",
+      "summary": "Return evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, and typed_next_actions, plus coverage bindings and open gap codes."
+    },
+    {
+      "category": "check-gate",
+      "required": true,
+      "requirement_id": "target.check-gate.verify-the-real-flowguard-check-engine-and-agents",
+      "rule_id": "r014_target_check_gate_verify_the_real_flowguar_rule",
+      "source_path": "SKILL.md#L32",
+      "summary": "Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework."
+    },
+    {
+      "category": "entrypoint-description",
+      "required": true,
+      "requirement_id": "target.description.use-when-model-obligations-owner-external-codecontracts-source",
+      "rule_id": "r015_target_description_use_when_model_obligati_rule",
+      "source_path": "SKILL.md frontmatter",
+      "summary": "The target skill description must be represented in the contract: Use when model obligations, owner external CodeContracts, source audits, transition cells, boundary observations, payload c."
+    },
+    {
+      "category": "entrypoint",
+      "required": true,
+      "requirement_id": "target.entrypoint.acceptance",
+      "rule_id": "r016_target_entrypoint_acceptance_rule",
+      "source_path": "SKILL.md",
+      "summary": "The target skill entrypoint and hard gates must be represented by the runtime contract."
+    },
+    {
+      "category": "quality-gate",
+      "required": true,
+      "requirement_id": "target.hard_gates",
+      "rule_id": "r017_target_hard_gates_rule",
+      "source_path": "SKILL.md",
+      "summary": "Declared hard gates and required workflow steps must be represented by checks and closure blockers."
+    },
+    {
+      "category": "non-use-boundary",
+      "required": true,
+      "requirement_id": "target.non-use-boundary.do-not-split-tests-code-or-models-run",
+      "rule_id": "r018_target_non_use_boundary_do_not_split_tests_rule",
+      "source_path": "SKILL.md#L24",
+      "summary": "Do not split tests, code, or models, run mesh ownership, or replace conformance replay; return undefined obligations to model-first-function-flow."
+    },
+    {
+      "category": "non-use-boundary",
+      "required": true,
+      "requirement_id": "target.non-use-boundary.do-not-use-when",
+      "rule_id": "r019_target_non_use_boundary_do_not_use_when_rule",
+      "source_path": "SKILL.md#L23",
+      "summary": "The target section 'Do Not Use When' must be represented by route, check, evidence, or closure coverage."
+    },
+    {
+      "category": "output",
+      "required": true,
+      "requirement_id": "target.output.output-requirements",
+      "rule_id": "r020_target_output_output_requirements_rule",
+      "source_path": "SKILL.md#L36",
+      "summary": "The target section 'Output Requirements' must be represented by route, check, evidence, or closure coverage."
+    },
+    {
+      "category": "workflow-route",
+      "required": true,
+      "requirement_id": "target.workflow-route.classify-gaps-and-issue-typed-testmesh-maturation-risk",
+      "rule_id": "r021_target_workflow_route_classify_gaps_and_is_rule",
+      "source_path": "SKILL.md#L29",
+      "summary": "Classify gaps and issue typed TestMesh, maturation, risk-ledger, or closure handoffs."
+    },
+    {
+      "category": "workflow-route",
+      "required": true,
+      "requirement_id": "target.workflow-route.compare-declared-model-obligations-owner-code-external-contracts",
+      "rule_id": "r022_target_workflow_route_compare_declared_mod_rule",
+      "source_path": "SKILL.md#L9",
+      "summary": "Compare declared model obligations, owner code external contracts, and current test evidence for the same behavior without owning test/code/model partitioning."
+    },
+    {
+      "category": "workflow-route",
+      "required": true,
+      "requirement_id": "target.workflow-route.consume-canonical-contractexhaustionmesh-ids-source-boundary-observations-and",
+      "rule_id": "r023_target_workflow_route_consume_canonical_co_rule",
+      "source_path": "SKILL.md#L28",
+      "summary": "Consume canonical ContractExhaustionMesh ids, source/boundary observations, and current test evidence; build ModelCodeTestBindingRow closure summaries."
+    },
+    {
+      "category": "workflow-route",
+      "required": true,
+      "requirement_id": "target.workflow-route.flowguard-model-test-alignment",
+      "rule_id": "r024_target_workflow_route_flowguard_model_test_rule",
+      "source_path": "SKILL.md#L6",
+      "summary": "The target section 'FlowGuard Model-Test Alignment' must be represented by route, check, evidence, or closure coverage."
+    },
+    {
+      "category": "workflow-route",
+      "required": true,
+      "requirement_id": "target.workflow-route.list-obligations-commitment-ids-transitions-fields-payloads-owner",
+      "rule_id": "r025_target_workflow_route_list_obligations_com_rule",
+      "source_path": "SKILL.md#L27",
+      "summary": "List obligations, commitment ids, transitions/fields/payloads, owner CodeContract rows, and required evidence kinds."
+    },
+    {
+      "category": "workflow-route",
+      "required": true,
+      "requirement_id": "target.workflow-route.name-flowguard-model-test-alignment",
+      "rule_id": "r026_target_workflow_route_name_flowguard_model_rule",
+      "source_path": "SKILL.md#L2",
+      "summary": "name: flowguard-model-test-alignment"
+    },
+    {
+      "category": "workflow-route",
+      "required": true,
+      "requirement_id": "target.workflow-route.read-references-model-test-alignment-protocol-md-for",
+      "rule_id": "r027_target_workflow_route_read_references_mode_rule",
+      "source_path": "SKILL.md#L15",
+      "summary": "Read references/model_test_alignment_protocol.md for CodeContract, ArtifactPayloadContract, source audits, transition/leaf matrices, closure targets, and binding rows."
+    },
+    {
+      "category": "workflow-route",
+      "required": true,
+      "requirement_id": "target.workflow-route.required-workflow",
+      "rule_id": "r028_target_workflow_route_required_workflow_rule",
+      "source_path": "SKILL.md#L26",
+      "summary": "The target section 'Required Workflow' must be represented by route, check, evidence, or closure coverage."
+    }
+  ],
+  "test_gap_plan": [
+    {
+      "gap_id": "r001_mta_real_surface_evidence_test_gap",
+      "planned_check_ids": [
+        "check_quality_floor",
+        "model_test_code_alignment"
+      ],
+      "requirement_ids": [
+        "mta.real_surface_evidence"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for mta.real_surface_evidence."
+    },
+    {
+      "gap_id": "r002_mta_three_way_binding_test_gap",
+      "planned_check_ids": [
+        "check_quality_floor",
+        "model_test_code_alignment"
+      ],
+      "requirement_ids": [
+        "mta.three_way_binding"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for mta.three_way_binding."
+    },
+    {
+      "gap_id": "r003_mta_typed_testmesh_handoff_test_gap",
+      "planned_check_ids": [
+        "check_closure",
+        "model_test_code_alignment"
+      ],
+      "requirement_ids": [
+        "mta.typed_testmesh_handoff"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for mta.typed_testmesh_handoff."
+    },
+    {
+      "gap_id": "r004_target_activation_boundary_accept_explicit_test_gap",
+      "planned_check_ids": [
+        "check_route",
+        "model_test_code_alignment"
+      ],
+      "requirement_ids": [
+        "target.activation-boundary.accept-explicit-obligations-owner-contracts-and-evidence-compare"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.activation-boundary.accept-explicit-obligations-owner-contracts-and-evidence-compare."
+    },
+    {
+      "gap_id": "r005_target_activation_boundary_description_use_test_gap",
+      "planned_check_ids": [
+        "check_route",
+        "model_test_code_alignment"
+      ],
+      "requirement_ids": [
+        "target.activation-boundary.description-use-when-model-obligations-owner-external-codecontracts"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.activation-boundary.description-use-when-model-obligations-owner-external-codecontracts."
+    },
+    {
+      "gap_id": "r006_target_activation_boundary_route_id_model__test_gap",
+      "planned_check_ids": [
+        "check_route",
+        "model_test_code_alignment"
+      ],
+      "requirement_ids": [
+        "target.activation-boundary.route-id-model-test-alignment-role-public-owner"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.activation-boundary.route-id-model-test-alignment-role-public-owner."
+    },
+    {
+      "gap_id": "r007_target_activation_boundary_use_for_model_c_test_gap",
+      "planned_check_ids": [
+        "check_route",
+        "model_test_code_alignment"
+      ],
+      "requirement_ids": [
+        "target.activation-boundary.use-for-model-code-test-coverage-transition-closure"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.activation-boundary.use-for-model-code-test-coverage-transition-closure."
+    },
+    {
+      "gap_id": "r008_target_activation_boundary_use_when_test_gap",
+      "planned_check_ids": [
+        "check_route",
+        "model_test_code_alignment"
+      ],
+      "requirement_ids": [
+        "target.activation-boundary.use-when"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.activation-boundary.use-when."
+    },
+    {
+      "gap_id": "r009_target_check_gate_edit_skillguard_contract_test_gap",
+      "planned_check_ids": [
+        "check_quality_floor",
+        "model_test_code_alignment"
+      ],
+      "requirement_ids": [
+        "target.check-gate.edit-skillguard-contract-source-json-then-regenerate-derived"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.check-gate.edit-skillguard-contract-source-json-then-regenerate-derived."
+    },
+    {
+      "gap_id": "r010_target_check_gate_full_confidence_requires_test_gap",
+      "planned_check_ids": [
+        "check_quality_floor",
+        "model_test_code_alignment"
+      ],
+      "requirement_ids": [
+        "target.check-gate.full-confidence-requires-each-required-obligation-to-bind"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.check-gate.full-confidence-requires-each-required-obligation-to-bind."
+    },
+    {
+      "gap_id": "r011_target_check_gate_hard_gates_test_gap",
+      "planned_check_ids": [
+        "check_quality_floor",
+        "model_test_code_alignment"
+      ],
+      "requirement_ids": [
+        "target.check-gate.hard-gates"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.check-gate.hard-gates."
+    },
+    {
+      "gap_id": "r012_target_check_gate_missing_stale_skipped_so_test_gap",
+      "planned_check_ids": [
+        "check_quality_floor",
+        "model_test_code_alignment"
+      ],
+      "requirement_ids": [
+        "target.check-gate.missing-stale-skipped-source-audit-payload-target-evidence"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.check-gate.missing-stale-skipped-source-audit-payload-target-evidence."
+    },
+    {
+      "gap_id": "r013_target_check_gate_return_evidence_failures_test_gap",
+      "planned_check_ids": [
+        "check_quality_floor",
+        "model_test_code_alignment"
+      ],
+      "requirement_ids": [
+        "target.check-gate.return-evidence-failures-blockers-skipped-checks-residual-risk"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.check-gate.return-evidence-failures-blockers-skipped-checks-residual-risk."
+    },
+    {
+      "gap_id": "r014_target_check_gate_verify_the_real_flowguar_test_gap",
+      "planned_check_ids": [
+        "check_quality_floor",
+        "model_test_code_alignment"
+      ],
+      "requirement_ids": [
+        "target.check-gate.verify-the-real-flowguard-check-engine-and-agents"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.check-gate.verify-the-real-flowguard-check-engine-and-agents."
+    },
+    {
+      "gap_id": "r015_target_description_use_when_model_obligati_test_gap",
+      "planned_check_ids": [
+        "check_route",
+        "model_test_code_alignment"
+      ],
+      "requirement_ids": [
+        "target.description.use-when-model-obligations-owner-external-codecontracts-source"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.description.use-when-model-obligations-owner-external-codecontracts-source."
+    },
+    {
+      "gap_id": "r016_target_entrypoint_acceptance_test_gap",
+      "planned_check_ids": [
+        "check_route",
+        "model_test_code_alignment"
+      ],
+      "requirement_ids": [
+        "target.entrypoint.acceptance"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.entrypoint.acceptance."
+    },
+    {
+      "gap_id": "r017_target_hard_gates_test_gap",
+      "planned_check_ids": [
+        "check_quality_floor",
+        "model_test_code_alignment"
+      ],
+      "requirement_ids": [
+        "target.hard_gates"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.hard_gates."
+    },
+    {
+      "gap_id": "r018_target_non_use_boundary_do_not_split_tests_test_gap",
+      "planned_check_ids": [
+        "check_route",
+        "model_test_code_alignment"
+      ],
+      "requirement_ids": [
+        "target.non-use-boundary.do-not-split-tests-code-or-models-run"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.non-use-boundary.do-not-split-tests-code-or-models-run."
+    },
+    {
+      "gap_id": "r019_target_non_use_boundary_do_not_use_when_test_gap",
+      "planned_check_ids": [
+        "check_route",
+        "model_test_code_alignment"
+      ],
+      "requirement_ids": [
+        "target.non-use-boundary.do-not-use-when"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.non-use-boundary.do-not-use-when."
+    },
+    {
+      "gap_id": "r020_target_output_output_requirements_test_gap",
+      "planned_check_ids": [
+        "check_closure",
+        "model_test_code_alignment"
+      ],
+      "requirement_ids": [
+        "target.output.output-requirements"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.output.output-requirements."
+    },
+    {
+      "gap_id": "r021_target_workflow_route_classify_gaps_and_is_test_gap",
+      "planned_check_ids": [
+        "check_evidence",
+        "model_test_code_alignment"
+      ],
+      "requirement_ids": [
+        "target.workflow-route.classify-gaps-and-issue-typed-testmesh-maturation-risk"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.workflow-route.classify-gaps-and-issue-typed-testmesh-maturation-risk."
+    },
+    {
+      "gap_id": "r022_target_workflow_route_compare_declared_mod_test_gap",
+      "planned_check_ids": [
+        "check_evidence",
+        "model_test_code_alignment"
+      ],
+      "requirement_ids": [
+        "target.workflow-route.compare-declared-model-obligations-owner-code-external-contracts"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.workflow-route.compare-declared-model-obligations-owner-code-external-contracts."
+    },
+    {
+      "gap_id": "r023_target_workflow_route_consume_canonical_co_test_gap",
+      "planned_check_ids": [
+        "check_evidence",
+        "model_test_code_alignment"
+      ],
+      "requirement_ids": [
+        "target.workflow-route.consume-canonical-contractexhaustionmesh-ids-source-boundary-observations-and"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.workflow-route.consume-canonical-contractexhaustionmesh-ids-source-boundary-observations-and."
+    },
+    {
+      "gap_id": "r024_target_workflow_route_flowguard_model_test_test_gap",
+      "planned_check_ids": [
+        "check_evidence",
+        "model_test_code_alignment"
+      ],
+      "requirement_ids": [
+        "target.workflow-route.flowguard-model-test-alignment"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.workflow-route.flowguard-model-test-alignment."
+    },
+    {
+      "gap_id": "r025_target_workflow_route_list_obligations_com_test_gap",
+      "planned_check_ids": [
+        "check_evidence",
+        "model_test_code_alignment"
+      ],
+      "requirement_ids": [
+        "target.workflow-route.list-obligations-commitment-ids-transitions-fields-payloads-owner"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.workflow-route.list-obligations-commitment-ids-transitions-fields-payloads-owner."
+    },
+    {
+      "gap_id": "r026_target_workflow_route_name_flowguard_model_test_gap",
+      "planned_check_ids": [
+        "check_evidence",
+        "model_test_code_alignment"
+      ],
+      "requirement_ids": [
+        "target.workflow-route.name-flowguard-model-test-alignment"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.workflow-route.name-flowguard-model-test-alignment."
+    },
+    {
+      "gap_id": "r027_target_workflow_route_read_references_mode_test_gap",
+      "planned_check_ids": [
+        "check_evidence",
+        "model_test_code_alignment"
+      ],
+      "requirement_ids": [
+        "target.workflow-route.read-references-model-test-alignment-protocol-md-for"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.workflow-route.read-references-model-test-alignment-protocol-md-for."
+    },
+    {
+      "gap_id": "r028_target_workflow_route_required_workflow_test_gap",
+      "planned_check_ids": [
+        "check_evidence",
+        "model_test_code_alignment"
+      ],
+      "requirement_ids": [
+        "target.workflow-route.required-workflow"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.workflow-route.required-workflow."
+    }
+  ],
+  "workflow_stage_inventory": [
+    {
+      "required": true,
+      "route_id": "model_test_alignment",
+      "source_path": ".skillguard/contract-source.json",
+      "stage_id": "model_test_alignment_intake",
+      "summary": "Define claim scope, commitments, obligations, required test kinds, and external behavior boundaries."
+    },
+    {
+      "required": true,
+      "route_id": "model_test_alignment",
+      "source_path": ".skillguard/contract-source.json",
+      "stage_id": "model_test_alignment_inventory",
+      "summary": "Inventory owner CodeContracts, tests, source audits, transitions/fields/payloads, boundary observations, and evidence targets."
+    },
+    {
+      "required": true,
+      "route_id": "model_test_alignment",
+      "source_path": ".skillguard/contract-source.json",
+      "stage_id": "model_test_alignment_execution",
+      "summary": "Consume canonical cases and build row-level model-code-test bindings with stable target ids and gaps."
+    },
+    {
+      "required": true,
+      "route_id": "model_test_alignment",
+      "source_path": ".skillguard/contract-source.json",
+      "stage_id": "model_test_alignment_checks",
+      "summary": "Run the alignment model; send large/slow evidence to TestMesh through typed handoff while retaining semantic ownership."
+    },
+    {
+      "required": true,
+      "route_id": "model_test_alignment",
+      "source_path": ".skillguard/contract-source.json",
+      "stage_id": "model_test_alignment_closure",
+      "summary": "Return binding summaries and block broad coverage on stale, missing, orphan, duplicate, internal-only, or overclaimed rows."
+    }
+  ]
 }

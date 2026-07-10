@@ -1,9 +1,4 @@
-"""Run every present FlowGuard local model regression runner.
-
-The public repository tracks some `.flowguard` models and a local checkout may
-also contain ignored adoption models. This command treats every present
-`run_checks.py` as release evidence and fails if any runner fails.
-"""
+"""Run manifest-owned FlowGuard model regressions with bounded evidence."""
 
 from __future__ import annotations
 
@@ -11,14 +6,27 @@ import argparse
 import json
 import subprocess
 import sys
+import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
 
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+if str(REPOSITORY_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPOSITORY_ROOT))
+
+from flowguard.model_regressions import (
+    ModelRegressionManifest,
+    audit_manifest,
+    run_manifest_regressions,
+)
+
 
 @dataclass(frozen=True)
 class RunnerResult:
+    """Compatibility result for callers that use a repository without a manifest."""
+
     path: str
     exit_code: int
     seconds: float
@@ -29,29 +37,10 @@ class RunnerResult:
     def ok(self) -> bool:
         return self.exit_code == 0
 
-    def to_dict(self) -> dict[str, object]:
-        return {
-            "path": self.path,
-            "exit_code": self.exit_code,
-            "ok": self.ok,
-            "seconds": self.seconds,
-            "stdout_tail": list(self.stdout_tail),
-            "stderr_tail": list(self.stderr_tail),
-        }
-
 
 def discover_runners(root: str | Path = ".") -> tuple[Path, ...]:
-    root_path = Path(root).resolve()
-    flowguard_dir = root_path / ".flowguard"
-    if not flowguard_dir.is_dir():
-        return ()
-    return tuple(sorted(path for path in flowguard_dir.rglob("run_checks.py") if path.is_file()))
-
-
-def _tail(text: str, *, lines: int) -> tuple[str, ...]:
-    if lines <= 0:
-        return ()
-    return tuple(text.splitlines()[-lines:])
+    base = Path(root).resolve() / ".flowguard"
+    return tuple(sorted(base.rglob("run_checks.py"))) if base.is_dir() else ()
 
 
 def run_regressions(
@@ -60,85 +49,107 @@ def run_regressions(
     fail_fast: bool = False,
     tail_lines: int = 20,
 ) -> tuple[RunnerResult, ...]:
+    """Preserve the pre-manifest helper for small external fixtures.
+
+    Repository release execution goes through :func:`run_manifest_regressions`.
+    """
+
     root_path = Path(root).resolve()
-    results: list[RunnerResult] = []
+    rows: list[RunnerResult] = []
     for runner in discover_runners(root_path):
         started = time.monotonic()
         completed = subprocess.run(
             [sys.executable, str(runner)],
             cwd=root_path,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             capture_output=True,
             check=False,
         )
-        elapsed = round(time.monotonic() - started, 3)
-        rel_path = runner.relative_to(root_path).as_posix()
-        result = RunnerResult(
-            path=rel_path,
-            exit_code=completed.returncode,
-            seconds=elapsed,
-            stdout_tail=_tail(completed.stdout, lines=tail_lines),
-            stderr_tail=_tail(completed.stderr, lines=tail_lines),
+        rows.append(
+            RunnerResult(
+                path=runner.relative_to(root_path).as_posix(),
+                exit_code=completed.returncode,
+                seconds=round(time.monotonic() - started, 3),
+                stdout_tail=tuple(completed.stdout.splitlines()[-tail_lines:]),
+                stderr_tail=tuple(completed.stderr.splitlines()[-tail_lines:]),
+            )
         )
-        results.append(result)
-        if fail_fast and not result.ok:
+        if fail_fast and completed.returncode:
             break
-    return tuple(results)
+    return tuple(rows)
 
 
-def build_report(results: Sequence[RunnerResult], *, root: str | Path) -> dict[str, object]:
-    failed = [result for result in results if not result.ok]
-    return {
-        "artifact_type": "flowguard_model_regression_report",
-        "root": str(Path(root).resolve()),
-        "runner_count": len(results),
-        "failed_count": len(failed),
-        "ok": not failed,
-        "results": [result.to_dict() for result in results],
-    }
-
-
-def format_report(report: dict[str, object]) -> str:
-    lines = [
-        "=== flowguard local model regressions ===",
-        f"root: {report['root']}",
-        f"runner_count: {report['runner_count']}",
-        f"failed_count: {report['failed_count']}",
-        f"status: {'pass' if report['ok'] else 'blocked'}",
-    ]
-    for item in report["results"]:
-        assert isinstance(item, dict)
-        lines.append(
-            f"{'OK' if item['ok'] else 'FAIL'} {item['path']} "
-            f"exit={item['exit_code']} seconds={item['seconds']}"
+def _progress(payload: dict[str, object]) -> None:
+    event = payload.get("event")
+    model_id = payload.get("model_id")
+    if event == "started":
+        print(f"START {model_id} timeout={payload.get('timeout_seconds')}s", file=sys.stderr, flush=True)
+    else:
+        print(
+            f"DONE  {model_id} status={payload.get('status')} seconds={payload.get('seconds')}",
+            file=sys.stderr,
+            flush=True,
         )
-        if not item["ok"]:
-            stdout_tail = item.get("stdout_tail") or ()
-            stderr_tail = item.get("stderr_tail") or ()
-            if stdout_tail:
-                lines.append("stdout_tail:")
-                lines.extend(f"  {line}" for line in stdout_tail)
-            if stderr_tail:
-                lines.append("stderr_tail:")
-                lines.extend(f"  {line}" for line in stderr_tail)
-    return "\n".join(lines)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--root", default=".", help="Repository root to scan.")
-    parser.add_argument("--json", action="store_true", help="Print a JSON report.")
-    parser.add_argument("--fail-fast", action="store_true", help="Stop after the first failed runner.")
-    parser.add_argument("--tail-lines", type=int, default=20, help="Output lines retained for failed runners.")
+    parser.add_argument("--root", default=".")
+    parser.add_argument("--tier", choices=("fast", "focused", "full"), default="fast")
+    parser.add_argument("--model", action="append", default=[], help="Exact id or glob; repeatable.")
+    parser.add_argument("--shard", help="Stable shard in N/M form.")
+    parser.add_argument("--jobs", type=int, default=1)
+    parser.add_argument("--timeout", type=float, help="Override each child timeout in seconds.")
+    parser.add_argument("--output-dir")
+    parser.add_argument("--json", action="store_true")
+    parser.add_argument("--full", action="store_true")
+    parser.add_argument("--audit-only", action="store_true")
     args = parser.parse_args(argv)
 
-    results = run_regressions(args.root, fail_fast=args.fail_fast, tail_lines=args.tail_lines)
-    report = build_report(results, root=args.root)
+    try:
+        manifest = ModelRegressionManifest.load(args.root)
+        if args.audit_only:
+            audit = audit_manifest(args.root, manifest)
+            payload = {
+                "schema_version": "flowguard.model_regression_audit.v1",
+                **audit.to_dict(),
+            }
+            print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) if args.json else "\n".join(
+                [f"status: {'pass' if audit.ok else 'blocked'}", f"registered: {len(audit.registered_model_ids)}"]
+                + [f"error: {item}" for item in audit.errors]
+            ))
+            return 0 if audit.ok else 2
+        cancel = threading.Event()
+        report = run_manifest_regressions(
+            args.root,
+            tier=args.tier,
+            model_patterns=args.model,
+            shard=args.shard,
+            jobs=args.jobs,
+            timeout=args.timeout,
+            output_dir=args.output_dir,
+            cancel_event=cancel,
+            progress=None if args.json else _progress,
+        )
+    except (ValueError, OSError) as exc:
+        payload = {
+            "schema_version": "flowguard.validation_result.v1",
+            "command": "flowguard-model-regressions",
+            "status": "invalid_input",
+            "exit_code": 3,
+            "message": str(exc),
+        }
+        print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) if args.json else f"status: invalid_input\nerror: {exc}")
+        return 3
+
+    validation = report.to_validation_result()
     if args.json:
-        print(json.dumps(report, ensure_ascii=False, indent=2))
+        print(json.dumps(report.to_dict(), ensure_ascii=False, indent=2, sort_keys=True))
     else:
-        print(format_report(report))
-    return 0 if report["ok"] else 1
+        print(validation.format_text(full=args.full))
+    return validation.exit_code
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
 interface:
-  display_name: "FlowGuard Code Structure"
-  short_description: "Derive code structure from FlowGuard models"
-  default_prompt: "Use $flowguard-code-structure-recommendation to derive module and ownership structure from a FlowGuard model."
+  display_name: "FlowGuard Code Structure Recommendation"
+  short_description: "Derive implementation ownership from a model"
+  default_prompt: "Use $flowguard-code-structure-recommendation for route_id=code_structure_recommendation, role=public_owner, native_owner=code_structure_recommendation; require a named model, single ownership, facade, and validation boundaries; do not refactor existing code or replace parity evidence; output evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, and typed_next_actions; claim only recommendation readiness."

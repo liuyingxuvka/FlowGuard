@@ -21,6 +21,7 @@ from typing import Iterable, Sequence
 
 DEFAULT_SOURCE_SETS = (
     ".agents",
+    ".skillguard",
     ".github",
     ".flowguard",
     "assets",

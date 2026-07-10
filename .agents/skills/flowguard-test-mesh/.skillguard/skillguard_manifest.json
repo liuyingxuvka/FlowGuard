@@ -3,61 +3,70 @@
     {
       "path": "skillguard_profile.json",
       "required": true,
-      "role": "Installed profile"
+      "role": "Static profile"
     },
     {
       "path": "skillguard_skill_contract.json",
       "required": true,
-      "role": "Installed skill contract"
+      "role": "Static target contract"
     },
     {
       "path": "skillguard_evidence_rules.json",
       "required": true,
-      "role": "Installed evidence rules"
+      "role": "Evidence rules"
     },
     {
       "path": "skillguard_closure_policy.json",
       "required": true,
-      "role": "Installed closure policy"
+      "role": "Closure policy"
+    },
+    {
+      "path": "contract-source.json",
+      "required": true,
+      "role": "Editable semantic source"
     },
     {
       "path": "work-contract.json",
       "required": true,
-      "role": "Runnable work contract"
+      "role": "Generated deep work contract"
     },
     {
       "path": "check_manifest.json",
       "required": true,
-      "role": "Runnable check manifest"
+      "role": "Generated check manifest"
+    },
+    {
+      "path": "check.py",
+      "required": true,
+      "role": "Thin shared-check adapter"
+    },
+    {
+      "path": "evidence/current_evidence_manifest.json",
+      "required": true,
+      "role": "Static evidence inventory"
     },
     {
       "path": "reports/current_check_report.json",
       "required": true,
-      "role": "Current check summary"
+      "role": "Structural check status"
     },
     {
       "path": "reports/current_closure.json",
       "required": true,
-      "role": "Current closure summary"
+      "role": "Structural closure boundary"
     }
   ],
   "blockers": [],
   "checks": [],
-  "claim_boundary": "This record covers only the installed skill entrypoint, local SkillGuard records, and current files inspected for this target. It does not prove runtime checker execution, fixture coverage, CLI checks, tests, suite automation, package publication, code-contract validation, release readiness, or future AI behavior without separate current evidence.",
-  "evidence": [
-    {
-      "evidence_id": "current-evidence-manifest",
-      "path": ".skillguard/evidence/current_evidence_manifest.json",
-      "summary": "Direct evidence manifest."
-    }
-  ],
+  "claim_boundary": "This record covers only the current skill entrypoint and local SkillGuard contract files. It does not prove runtime checker execution, fixture coverage, CLI checks, tests, suite automation, package publication, code-contract validation, release readiness, or future AI behavior without separate current evidence.",
+  "evidence": [],
   "failures": [],
   "residual_risk": [
-    "This static record must be refreshed when the skill entrypoint, route contract, or validation rules change."
+    "Native commands and immutable receipts are intentionally outside this static record."
   ],
   "schema_version": "1.0",
   "skipped_checks": [],
-  "status": "checked",
+  "status": "needs-review",
   "target_path": "..",
   "target_type": "control_manifest"
 }

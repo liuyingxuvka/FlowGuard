@@ -1,0 +1,185 @@
+{
+  "version": 1,
+  "change": "harden-flowguard-route-topology-and-ownership",
+  "status": "pass",
+  "generatedAt": "2026-07-10T08:18:37.362Z",
+  "contractPath": "openspec/changes/harden-flowguard-route-topology-and-ownership/verification-contract.yaml",
+  "reportPath": "openspec/changes/harden-flowguard-route-topology-and-ownership/verification-report.json",
+  "contractHash": "5fd86420297cd9b946edf47db67b5773dc5bd798e50c85f49f6b401a88c01f8f",
+  "sourceHashes": {
+    ".agents/skills/flowguard-agent-workflow-rehearsal/SKILL.md": "a9756fd8ad08888c8e37f7a0f3965eb11ec201bf874d8791f287d36ca7095cc3",
+    ".agents/skills/flowguard-agent-workflow-rehearsal/agents/openai.yaml": "68da6b090b596e078b7050674268b3821c3aa1cdef69538b871d5247a103ed3c",
+    ".agents/skills/flowguard-architecture-reduction/SKILL.md": "5e038bff039ee25d4a3edff890f6b851fea3c541cbb3e1360bbeeb76b38b726b",
+    ".agents/skills/flowguard-architecture-reduction/agents/openai.yaml": "1aaf907b7c5609ffc5870be1e2d50e7cac9be49cfae2787899fbc0a6f6f26234",
+    ".agents/skills/flowguard-behavior-commitment-ledger/SKILL.md": "4a1b06f34c1a52f0cdf7838447f6e3ad9ec3ce1936d349f485965721ca72517d",
+    ".agents/skills/flowguard-behavior-commitment-ledger/agents/openai.yaml": "191215d8cd47d56b62c0dcf8de8948fc9be02ab88790b570b458afa1f0f7fccb",
+    ".agents/skills/flowguard-code-structure-recommendation/SKILL.md": "3e6ae992a0e2fd2e8cacc1a70f739e907d30adb7c6ac4979f515748fe2df435b",
+    ".agents/skills/flowguard-code-structure-recommendation/agents/openai.yaml": "84e99e4d204c8ec12460837998a39260f8a27462eeb55412ff4d0bf7c075a9bd",
+    ".agents/skills/flowguard-contract-exhaustion-mesh/SKILL.md": "7ea33edc53a9bd77a17e25c989c266b6c225b32a29c21dbd4f019a24bd63253a",
+    ".agents/skills/flowguard-contract-exhaustion-mesh/agents/openai.yaml": "b060ba11b5761028b1a604f5afce9318fd5a131e50e553aa29dc894c1c90cd21",
+    ".agents/skills/flowguard-development-process-flow/SKILL.md": "333672461b0f777eb7648682ff0739a1ff128dd49f4adfcd97f4567f5e32dbe0",
+    ".agents/skills/flowguard-development-process-flow/agents/openai.yaml": "274d6993bb5aef55132cbc39fcf3954da7fdcc90259759b4541bcb192a01a06d",
+    ".agents/skills/flowguard-existing-model-preflight/SKILL.md": "5c985a74b43b02cc3e414e05889631926c9a6db7eb88e40395ed585cd188ed1c",
+    ".agents/skills/flowguard-existing-model-preflight/agents/openai.yaml": "3ca8f557104be703373ef060b05edd010f2c117f89b707612e00308665cf6f46",
+    ".agents/skills/flowguard-field-lifecycle-mesh/SKILL.md": "d3012535700256dd404f8ff183d47f68bd15fb061ad4e0176b8c6c96b602f575",
+    ".agents/skills/flowguard-field-lifecycle-mesh/agents/openai.yaml": "eb3d0ec3e7833813c45e8f040b4e039c7e83f47930f180cb32666a303750b93e",
+    ".agents/skills/flowguard-model-mesh/SKILL.md": "1ae810f447656231a0f31326aed0fe2f3362ff58d3261c61d1f20c4626df728a",
+    ".agents/skills/flowguard-model-mesh/agents/openai.yaml": "80f14825ee7da747f0107a9053cb77f23f8a17d3a33b66b8b6ce40bea98ac13d",
+    ".agents/skills/flowguard-model-miss-review/SKILL.md": "3c53e78cf237a62a1d4b62899fa7386bd7cf1bdc5fd71e53df5a69eddc6ae888",
+    ".agents/skills/flowguard-model-miss-review/agents/openai.yaml": "ed6f70577d8715ecaf846bb768cec69fea9789be4f5e269ab563b15f3ab070e3",
+    ".agents/skills/flowguard-model-test-alignment/SKILL.md": "aa8d4a17f66b9d85a4556c9ebba81e25e82c3f125a57ea9093c4c9cd3748e5bc",
+    ".agents/skills/flowguard-model-test-alignment/agents/openai.yaml": "4aca349e12f358312f30f496097c9bd4292e73278acf0e4123920c506020809b",
+    ".agents/skills/flowguard-model-topology-hazard-review/SKILL.md": "5a8457f38ac3d2132680f43757b322e88cddcba46a91b8017d6de9714d9c3c03",
+    ".agents/skills/flowguard-model-topology-hazard-review/agents/openai.yaml": "983b8fa8104c464b04f6891ec25e8c75227b206337c4065133d6addf3e681bf9",
+    ".agents/skills/flowguard-plan-detailing-compiler/SKILL.md": "6f6bc27c609c0436bcf1362e83a2e6d37665d3d394fd559f1f49c5e1a293042b",
+    ".agents/skills/flowguard-plan-detailing-compiler/agents/openai.yaml": "2aabab9dd373f514e9490510c77b888d6ef9056848085af2a67ff55332bc6787",
+    ".agents/skills/flowguard-structure-mesh/SKILL.md": "2d65294f9f71246c9d8ef8ca8b733832b5b303e23b72a9a7651613282de537b7",
+    ".agents/skills/flowguard-structure-mesh/agents/openai.yaml": "2eb96506d139bbbeeb314867c336dbcdcdb64975e1523d6c3eb0d4bbc32b62e0",
+    ".agents/skills/flowguard-test-mesh/SKILL.md": "82c66bb44916ded754d90d6001acba0f16c7b36d7acb904f85e19daf1d2acf7e",
+    ".agents/skills/flowguard-test-mesh/agents/openai.yaml": "57222703d6bd3dfecf68c9f9c317d284b486027d1a74d189c9851d41d3615a6e",
+    ".agents/skills/flowguard-ui-flow-structure/SKILL.md": "a7527f75cc31fbc2e7474c9fa100dce24c1267aee36fb51705f15cb59056b277",
+    ".agents/skills/flowguard-ui-flow-structure/agents/openai.yaml": "1d4113835e7fe3b3bcb359f164f6f900b923ea739ccfbe3dc549accab4261a10",
+    ".agents/skills/model-first-function-flow/SKILL.md": "b9ff4ed0d93fffe931a1f744ab0cee59f77185e0367760cedd7e7f32f54888d1",
+    ".agents/skills/model-first-function-flow/agents/openai.yaml": "a0995b818bc6f74a4fed58d94356212968a04aa7828159cf69d8a3e943c666d9",
+    ".flowguard/self_maintenance_mesh/model.py": "56f99e8ab7d75e31673708cf8a08607d2f99ba72913ced6ce76ba65d0cfd7ecb",
+    ".flowguard/self_maintenance_mesh/run_checks.py": "e2f93701637de36c8fdab3a73281b30cf5d77956a0d62cd33262bd8082adc14e",
+    ".skillguard/flowguard-suite/suite-map.json": "672b17f53631e583d37ce89b5b00fa0aba29fce8a03b5a1e142aa22073dd9b97",
+    "flowguard/route_topology.py": "3ba01fd913ef85a4b98b945045b61bd7c2a945cfb4fae89e2f86a9c9730947ca",
+    "flowguard/self_maintenance.py": "72e926d2bc7398f7cc68f7996c8c7baa7807164610da41533d8bcc081badad61",
+    "flowguard/template_text/topology_hazard.py": "8107f57266b6f468916b8492a2b369db208a2b1e11ec4d3a7021bce4951099dd",
+    "flowguard/topology_hazard.py": "ab247519481e2821c1e2eb48cfbde859bb3aeb8d508ee998f3fb143a36a6bff6",
+    "openspec/changes/harden-flowguard-route-topology-and-ownership/design.md": "3c8676862dd80dc7a06deeba42d4440aa2981a149151200417793b2d88de2ba2",
+    "openspec/changes/harden-flowguard-route-topology-and-ownership/proposal.md": "31a6bbe34bb9febc15b85346a51357142688f403ea5ae34c01a9ab5251f75203",
+    "openspec/changes/harden-flowguard-route-topology-and-ownership/specs/flowguard-global-routing/spec.md": "2845ed69baed8667ca4593bf21c978697cde278ad5feef545ecbfd51ccc233cd",
+    "openspec/changes/harden-flowguard-route-topology-and-ownership/specs/flowguard-route-topology-governance/spec.md": "9f53418a148bc5c2d082f9c0f727b0193345c54efb2b98519ed9200fe1f5207d",
+    "openspec/changes/harden-flowguard-route-topology-and-ownership/tasks.md": "ddccaa1da01012df77bbfc2755721e0d5e072def321d2ea273a63e4770c878b0",
+    "openspec/changes/harden-flowguard-route-topology-and-ownership/verification-contract.yaml": "5fd86420297cd9b946edf47db67b5773dc5bd798e50c85f49f6b401a88c01f8f",
+    "scripts/check_flowguard_route_parity.py": "cb69babcce605d7902499f421c0b5a2fe09c901952337d39a94cacccc9e4d153",
+    "scripts/check_flowguard_route_topology.py": "5209477539e66fe85b91be5149001fd8725e2fc0ccc27458fd7441c2cb8dca40",
+    "tests/test_route_profiles.py": "8a3410f41c13839b6bf051dd2c42f24d3dcda211ccbba4fcb6d7deee58c897de",
+    "tests/test_route_topology_governance.py": "accc4ba1aab6b84dd41e80ff628ec70b48ec3f92cddfa42ef4ef212821f8c644",
+    "tests/test_topology_hazard.py": "345a06c4e602dc8a8cda55d07b308a2e2dd3ae3efe99c5bd6a78f588b0deecdf"
+  },
+  "issues": [],
+  "checks": [
+    {
+      "id": "check.topology.tests",
+      "kind": "command",
+      "required": true,
+      "covers": [
+        "req.topology.typed-handoffs",
+        "req.topology.unique-ownership",
+        "req.topology.cycle-liveness",
+        "req.topology.diagnostics",
+        "req.routing.projection",
+        "req.routing.internal-owners",
+        "req.routing.legacy-disposition"
+      ],
+      "status": "passed",
+      "command": "python",
+      "args": [
+        "-m",
+        "pytest",
+        "tests/test_route_topology_governance.py",
+        "tests/test_topology_hazard.py",
+        "tests/test_route_profiles.py",
+        "-q"
+      ],
+      "expectedExitCode": 0,
+      "exitCode": 0,
+      "durationMs": 48419,
+      "stdout": ".......................                                              [100%]\r\n23 passed, 4 subtests passed in 47.28s\r\n",
+      "stderr": ""
+    },
+    {
+      "id": "check.topology.audit",
+      "kind": "command",
+      "required": true,
+      "covers": [
+        "req.topology.typed-handoffs",
+        "req.topology.unique-ownership",
+        "req.topology.cycle-liveness",
+        "req.topology.diagnostics"
+      ],
+      "status": "passed",
+      "command": "python",
+      "args": [
+        "scripts/check_flowguard_route_topology.py",
+        "--root",
+        ".",
+        "--json"
+      ],
+      "expectedExitCode": 0,
+      "exitCode": 0,
+      "durationMs": 2089,
+      "stdout": "{\r\n  \"artifact_type\": \"flowguard_route_topology_report\",\r\n  \"claim_boundary\": \"This report proves typed target resolution, canonical ownership, and declared cycle liveness for the inspected registry. It does not execute target routes or prove their evidence freshness.\",\r\n  \"cycle_components\": [\r\n    [\r\n      \"development_process_flow\",\r\n      \"flowguard_closure_contract\",\r\n      \"maintenance_scan_router\",\r\n      \"model_test_alignment\",\r\n      \"risk_evidence_ledger\",\r\n      \"structure_mesh_maintenance\",\r\n      \"test_mesh_maintenance\"\r\n    ],\r\n    [\r\n      \"existing_model_preflight\",\r\n      \"model_similarity_consolidation\"\r\n    ]\r\n  ],\r\n  \"cycle_probes\": [\r\n    {\r\n      \"component_id\": \"development_closure_rework\",\r\n      \"decision\": \"blocked_unchanged_progress\",\r\n      \"progress_changed\": false,\r\n      \"reentries\": 3,\r\n      \"terminal\": \"blocked_no_evidence_delta\"\r\n    },\r\n    {\r\n      \"component_id\": \"development_closure_rework\",\r\n      \"decision\": \"continue\",\r\n      \"progress_changed\": true,\r\n      \"reentries\": 0,\r\n      \"terminal\": \"\"\r\n    },\r\n    {\r\n      \"component_id\": \"existing_model_similarity_rework\",\r\n      \"decision\": \"blocked_unchanged_progress\",\r\n      \"progress_changed\": false,\r\n      \"reentries\": 2,\r\n      \"terminal\": \"blocked_unchanged_model_evidence\"\r\n    },\r\n    {\r\n      \"component_id\": \"existing_model_similarity_rework\",\r\n      \"decision\": \"continue\",\r\n      \"progress_changed\": true,\r\n      \"reentries\": 0,\r\n      \"terminal\": \"\"\r\n    }\r\n  ],\r\n  \"edge_count\": 83,\r\n  \"findings\": [],\r\n  \"inventory_hash\": \"6A6714395329EC89E5A603C116BF9F8CB1135EF4C602F0D3D991276AD903CDDD\",\r\n  \"ok\": true,\r\n  \"registry_hash\": \"14B62C247FAD5752137D44C856AF2D5597322A99C268DD7DAA6487A909908BA7\",\r\n  \"route_count\": 31,\r\n  \"route_ids\": [\r\n    \"agent_workflow_rehearsal\",\r\n    \"architecture_reduction\",\r\n    \"behavior_commitment_ledger\",\r\n    \"code_structure_recommendation\",\r\n    \"contract_exhaustion_mesh\",\r\n    \"development_process_flow\",\r\n    \"development_process_simulator\",\r\n    \"evidence_field_structure\",\r\n    \"existing_model_preflight\",\r\n    \"field_lifecycle_mesh\",\r\n    \"flowguard_closure_contract\",\r\n    \"flowguard_self_maintenance\",\r\n    \"maintenance_obligation_memory\",\r\n    \"maintenance_scan_router\",\r\n    \"model_angle_deliberation\",\r\n    \"model_first_function_flow\",\r\n    \"model_maturation_loop\",\r\n    \"model_mesh_maintenance\",\r\n    \"model_miss_review\",\r\n    \"model_similarity_consolidation\",\r\n    \"model_test_alignment\",\r\n    \"model_topology_hazard_review\",\r\n    \"plan_detailing_compiler\",\r\n    \"primary_path_authority\",\r\n    \"risk_evidence_ledger\",\r\n    \"risk_template_library\",\r\n    \"state_closure\",\r\n    \"structure_mesh_maintenance\",\r\n    \"template_structure\",\r\n    \"test_mesh_maintenance\",\r\n    \"ui_flow_structure\"\r\n  ],\r\n  \"status\": \"pass\"\r\n}\r\n",
+      "stderr": ""
+    },
+    {
+      "id": "check.route.parity",
+      "kind": "command",
+      "required": true,
+      "covers": [
+        "req.routing.projection",
+        "req.routing.internal-owners"
+      ],
+      "status": "passed",
+      "command": "python",
+      "args": [
+        "scripts/check_flowguard_route_parity.py",
+        "--root",
+        ".",
+        "--json"
+      ],
+      "expectedExitCode": 0,
+      "exitCode": 0,
+      "durationMs": 1871,
+      "stdout": "{\r\n  \"artifact_type\": \"flowguard_route_parity_report\",\r\n  \"findings\": [],\r\n  \"inventory_hash\": \"6A6714395329EC89E5A603C116BF9F8CB1135EF4C602F0D3D991276AD903CDDD\",\r\n  \"ok\": true,\r\n  \"registry_hash\": \"14B62C247FAD5752137D44C856AF2D5597322A99C268DD7DAA6487A909908BA7\",\r\n  \"status\": \"pass\"\r\n}\r\n",
+      "stderr": ""
+    },
+    {
+      "id": "check.route.model",
+      "kind": "command",
+      "required": true,
+      "covers": [
+        "req.topology.cycle-liveness"
+      ],
+      "status": "passed",
+      "command": "python",
+      "args": [
+        ".flowguard/self_maintenance_mesh/run_checks.py"
+      ],
+      "expectedExitCode": 0,
+      "exitCode": 0,
+      "durationMs": 19961,
+      "stdout": "=== flowguard route topology ===\r\nstatus: pass\r\nroutes: 31\r\nedges: 83\r\ncycles: 2\r\nregistry_hash: 14B62C247FAD5752137D44C856AF2D5597322A99C268DD7DAA6487A909908BA7\r\n\r\nreceipt-bound correct model: observed=OK expected=OK match=yes formal=pass exact=yes\r\n\r\n=== flowguard formal workflow suite: self_maintenance_mesh ===\r\nstatus: pass\r\nknown_bad_proofs: 7\r\n- broken_synthetic_all_flags: observed=VIOLATION expected=VIOLATION match=yes formal=failed\r\n- broken_route_graph_only: observed=VIOLATION expected=VIOLATION match=yes formal=failed\r\n- broken_missing_behavior_ledger: observed=VIOLATION expected=VIOLATION match=yes formal=failed\r\n- broken_missing_dcar_coverage: observed=VIOLATION expected=VIOLATION match=yes formal=failed\r\n- broken_missing_test_mesh_shards: observed=VIOLATION expected=VIOLATION match=yes formal=failed\r\n- broken_missing_model_miss_backfeed: observed=VIOLATION expected=VIOLATION match=yes formal=failed\r\n- broken_missing_sync: observed=VIOLATION expected=VIOLATION match=yes formal=failed\r\n\r\n=== flowguard self-maintenance mesh ===\r\nstatus: pass\r\nplan_id: self-maintenance-route-profile-review\r\ndecision: self_maintenance_scoped\r\nconfidence: scoped\r\nroutes: 31\r\nchild_reports: 0\r\nsummary: Route, profile, and field structure review is scoped; no broad child-receipt claim was requested.\r\n\r\n=== FlowGuard skill self-governance ===\r\nstatus: pass\r\nrequired_children: 17\r\n- engine_and_core_tests: pass\r\n- skill_contract_governance: pass\r\n- full_self_governance: pass\r\nreceipt_hash: sha256:27c1436d410ae38eb675858a2c8537ac38e34b19a35f5934a9c205ef99073896\r\nclaim_boundary: A full result proves only the exact seventeen receipt-bound skill contracts in the current repository; release, installation, distribution, or future agent behavior need their own current evidence.\r\n\r\nself_maintenance_mesh checks passed\r\n",
+      "stderr": ""
+    },
+    {
+      "id": "check.openspec.strict",
+      "kind": "command",
+      "required": true,
+      "covers": [
+        "req.topology.typed-handoffs",
+        "req.topology.unique-ownership",
+        "req.topology.cycle-liveness",
+        "req.topology.diagnostics",
+        "req.routing.projection",
+        "req.routing.internal-owners",
+        "req.routing.legacy-disposition"
+      ],
+      "status": "passed",
+      "command": "openspec",
+      "args": [
+        "validate",
+        "harden-flowguard-route-topology-and-ownership",
+        "--strict"
+      ],
+      "expectedExitCode": 0,
+      "exitCode": 0,
+      "durationMs": 1852,
+      "stdout": "Change 'harden-flowguard-route-topology-and-ownership' is valid\n",
+      "stderr": ""
+    }
+  ]
+}

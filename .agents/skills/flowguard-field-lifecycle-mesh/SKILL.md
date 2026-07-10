@@ -1,62 +1,40 @@
 ---
 name: flowguard-field-lifecycle-mesh
-description: Use when a FlowGuard change adds, removes, renames, migrates, externalizes, replaces, preserves, or audits fields, schema keys, config flags, prompt/config fields, payload columns, or compatibility aliases.
+description: Use when a change adds, removes, renames, migrates, replaces, externalizes, preserves, or audits fields, schema keys, config flags, prompt fields, payload columns, persisted attributes, defaults, aliases, or fallbacks.
 ---
 
-# FlowGuard FieldLifecycleMesh
+# FlowGuard Field Lifecycle Mesh
 
-Standalone FlowGuard satellite skill for field-level coverage. It accounts
-leaf fields, projects behavior-bearing fields, and closes old-field disposition
-before broad confidence.
+## Purpose
+Account every discovered leaf field, project behavior-bearing fields upward, and close old-field disposition before broad confidence.
 
-Return to `model-first-function-flow` when the behavior model is missing. Pair
-with downstream evidence routes as needed.
+## Entrypoint Scope
+Route id: `field_lifecycle_mesh`; role: `public_owner`; native owner: `field_lifecycle_mesh`. This standalone FlowGuard satellite skill owns field boundaries and projections, not downstream behavior proof.
 
-## First Read
+## Local Material Routing
+Read `references/field_lifecycle_mesh_protocol.md` for `FieldLifecyclePlan`, grouped leaf rows, projections, replacement policy, and handoffs.
 
-- Route id: `field_lifecycle_mesh`.
-- Core helpers: `FieldLifecyclePlan`, `FieldLifecycleGroup`,
-  `FieldLifecycleRow`, `FieldProjection`, `review_field_lifecycle()`,
-  `field_lifecycle_to_model_obligations()`,
-  `field_lifecycle_to_code_contracts()`.
-- Contract exhaustion handoff: use `ContractDimension` when missing, empty,
-  wrong-type, unknown enum, or old-field cases need canonical bad-case ids.
-- Template: `field-lifecycle-template`.
-- Reference: `references/field_lifecycle_mesh_protocol.md`.
+## Entrypoint Acceptance Map
+Accept a bounded field inventory; create leaf rows and behavior projections; block missing fields or unknown old-field disposition; hand canonical malformed cases, owners, obligations, and repair evidence to their routes.
+
+## Use When
+- Use for schema/payload/config/prompt/persisted/UI/runtime fields, migrations, aliases, defaults, fallbacks, or field-rooted model misses.
+
+## Do Not Use When
+- Do not put every field in the high-level model, treat inventory as behavior proof, or replace alignment/testing; return missing behavior models to `model-first-function-flow`.
+
+## Required Workflow
+1. Define the field boundary, parent groups, and every discovered `FieldLifecycleRow`.
+2. Add `FieldProjection` rows only for behavior-bearing fields and route invalid/old cases to ContractExhaustionMesh.
+3. Close replacement disposition and send owners, readers/writers, projections, cases, and gaps downstream.
 
 ## Hard Gates
+- Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
+- Default replacement requires delete, block, migrate, delegate, repair, explicit preserve, or scoped reason; unknown disposition blocks full confidence.
+- Behavior claims still require current obligations, owner code contracts, tests, freshness, and template harvest closure where the model deepens.
 
-- Verify FlowGuard check engine, keep AGENTS.md managed records current, and do not
-  create a fake mini-framework.
-- Do not put every field into the high-level behavior model. Leaf rows account
-  every field; only behavior-bearing fields project upward.
-- Default replacement means cleanup. Old fields, aliases, fallbacks, wrappers,
-  and compatibility-like fields need a concrete disposition.
-- Explicit preservation requires compatibility intent and current evidence.
-- Field inventory is not proof; behavior claims still need obligations, owner
-  code contracts, tests, freshness, and closure evidence.
-- FieldLifecycleMesh declares field boundaries and projections; ContractExhaustionMesh
-  generates canonical malformed/missing/old-field case ids and oracle handoff.
-- New/deepened models need template harvest closure before broad claims.
+## Output Requirements
+- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`, plus leaf rows, projections, owners, and dispositions.
 
-## Minimum Workflow
-
-1. Name the field boundary and discovered field ids.
-2. Group parent/child rows so the high-level view stays readable.
-3. Add one `FieldLifecycleRow` per discovered field.
-4. Project behavior-bearing fields with `FieldProjection` rows.
-5. Send missing/empty/wrong-type/unknown/old-field cases to ContractExhaustionMesh.
-6. Close old/replaced/deprecated field disposition or block full confidence.
-7. Send projections, canonical case ids, and dispositions to downstream routes.
-
-## Snapshot
-
-Show parent groups, leaf rows, behavior-bearing projections,
-contract-exhaustion case ids, old field dispositions, and route handoffs.
-Status note: field boundary, projection, old-field disposition, gap, next handoff.
-
-## Non-Goals
-
-- Do not replace Model-Test Alignment, TestMesh, Architecture Reduction,
-  Model-Miss Review, DevelopmentProcessFlow, or Closure Contract.
-- Do not treat scoped-out display or metadata fields as behavior proof.
+## SkillGuard Maintenance
+- Edit `.skillguard/contract-source.json`, then regenerate derived contracts; SkillGuard validates field accounting and cannot fabricate behavior or compatibility evidence.
