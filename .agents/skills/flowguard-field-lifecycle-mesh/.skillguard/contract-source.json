@@ -81,6 +81,11 @@
       "summary": "Behavior-bearing fields require projections, single owners/readers/writers, and canonical invalid/old cases."
     },
     {
+      "category": "handoff",
+      "requirement_id": "field_lifecycle.ui_reader_handoff",
+      "summary": "Every field whose reader reaches an ordinary UI boundary hands off to UI content admission regardless of source role; fields with no ordinary-UI reader remain internally accounted."
+    },
+    {
       "category": "closure",
       "requirement_id": "field_lifecycle.replacement_disposition",
       "summary": "Old, replaced, deprecated, alias, or fallback fields require a concrete disposition before broad confidence."
@@ -100,11 +105,11 @@
     },
     {
       "phase_id": "execution",
-      "summary": "Project behavior-bearing fields and route invalid/old-field finite cases to ContractExhaustionMesh."
+      "summary": "Project behavior-bearing fields, hand all ordinary-UI-reader fields to UI content admission, and route invalid/old-field finite cases to ContractExhaustionMesh."
     },
     {
       "phase_id": "checks",
-      "summary": "Run field lifecycle tests and reject missing rows, projection gaps, duplicate owners, or unknown dispositions."
+      "summary": "Run field lifecycle tests and reject missing rows, UI-reader handoff gaps, projection gaps, duplicate owners, or unknown dispositions."
     },
     {
       "phase_id": "closure",

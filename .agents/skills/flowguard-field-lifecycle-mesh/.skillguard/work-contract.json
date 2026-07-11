@@ -44,12 +44,26 @@
     },
     {
       "covered_by_checks": [
+        "check_evidence"
+      ],
+      "native_check_binding_ids": [
+        "field_lifecycle_pytest"
+      ],
+      "obligation_id": "r004_field_lifecycle_ui_reader_handoff_obligation",
+      "required": true,
+      "requirement_ids": [
+        "field_lifecycle.ui_reader_handoff"
+      ],
+      "summary": "Native FlowGuard coverage for field_lifecycle.ui_reader_handoff."
+    },
+    {
+      "covered_by_checks": [
         "check_route"
       ],
       "native_check_binding_ids": [
         "field_lifecycle_pytest"
       ],
-      "obligation_id": "r004_target_activation_boundary_accept_a_bounde_obligation",
+      "obligation_id": "r005_target_activation_boundary_accept_a_bounde_obligation",
       "required": true,
       "requirement_ids": [
         "target.activation-boundary.accept-a-bounded-field-inventory-create-leaf-rows"
@@ -63,7 +77,7 @@
       "native_check_binding_ids": [
         "field_lifecycle_pytest"
       ],
-      "obligation_id": "r005_target_activation_boundary_route_id_field__obligation",
+      "obligation_id": "r006_target_activation_boundary_route_id_field__obligation",
       "required": true,
       "requirement_ids": [
         "target.activation-boundary.route-id-field-lifecycle-mesh-role-public-owner"
@@ -77,7 +91,7 @@
       "native_check_binding_ids": [
         "field_lifecycle_pytest"
       ],
-      "obligation_id": "r006_target_activation_boundary_use_for_schema__obligation",
+      "obligation_id": "r007_target_activation_boundary_use_for_schema__obligation",
       "required": true,
       "requirement_ids": [
         "target.activation-boundary.use-for-schema-payload-config-prompt-persisted-ui"
@@ -91,7 +105,7 @@
       "native_check_binding_ids": [
         "field_lifecycle_pytest"
       ],
-      "obligation_id": "r007_target_activation_boundary_use_when_obligation",
+      "obligation_id": "r008_target_activation_boundary_use_when_obligation",
       "required": true,
       "requirement_ids": [
         "target.activation-boundary.use-when"
@@ -105,7 +119,7 @@
       "native_check_binding_ids": [
         "field_lifecycle_pytest"
       ],
-      "obligation_id": "r008_target_check_gate_default_replacement_requ_obligation",
+      "obligation_id": "r009_target_check_gate_default_replacement_requ_obligation",
       "required": true,
       "requirement_ids": [
         "target.check-gate.default-replacement-requires-delete-block-migrate-delegate-repair"
@@ -119,7 +133,7 @@
       "native_check_binding_ids": [
         "field_lifecycle_pytest"
       ],
-      "obligation_id": "r009_target_check_gate_hard_gates_obligation",
+      "obligation_id": "r010_target_check_gate_hard_gates_obligation",
       "required": true,
       "requirement_ids": [
         "target.check-gate.hard-gates"
@@ -133,7 +147,7 @@
       "native_check_binding_ids": [
         "field_lifecycle_pytest"
       ],
-      "obligation_id": "r010_target_check_gate_return_evidence_failures_obligation",
+      "obligation_id": "r011_target_check_gate_return_evidence_failures_obligation",
       "required": true,
       "requirement_ids": [
         "target.check-gate.return-evidence-failures-blockers-skipped-checks-residual-risk"
@@ -147,7 +161,7 @@
       "native_check_binding_ids": [
         "field_lifecycle_pytest"
       ],
-      "obligation_id": "r011_target_check_gate_verify_the_real_flowguar_obligation",
+      "obligation_id": "r012_target_check_gate_verify_the_real_flowguar_obligation",
       "required": true,
       "requirement_ids": [
         "target.check-gate.verify-the-real-flowguard-check-engine-and-agents"
@@ -161,7 +175,7 @@
       "native_check_binding_ids": [
         "field_lifecycle_pytest"
       ],
-      "obligation_id": "r012_target_description_use_when_a_change_adds__obligation",
+      "obligation_id": "r013_target_description_use_when_a_change_adds__obligation",
       "required": true,
       "requirement_ids": [
         "target.description.use-when-a-change-adds-removes-renames-migrates"
@@ -175,7 +189,7 @@
       "native_check_binding_ids": [
         "field_lifecycle_pytest"
       ],
-      "obligation_id": "r013_target_entrypoint_acceptance_obligation",
+      "obligation_id": "r014_target_entrypoint_acceptance_obligation",
       "required": true,
       "requirement_ids": [
         "target.entrypoint.acceptance"
@@ -189,7 +203,7 @@
       "native_check_binding_ids": [
         "field_lifecycle_pytest"
       ],
-      "obligation_id": "r014_target_evidence_edit_skillguard_contract_s_obligation",
+      "obligation_id": "r015_target_evidence_edit_skillguard_contract_s_obligation",
       "required": true,
       "requirement_ids": [
         "target.evidence.edit-skillguard-contract-source-json-then-regenerate-derived"
@@ -203,7 +217,7 @@
       "native_check_binding_ids": [
         "field_lifecycle_pytest"
       ],
-      "obligation_id": "r015_target_hard_gates_obligation",
+      "obligation_id": "r016_target_hard_gates_obligation",
       "required": true,
       "requirement_ids": [
         "target.hard_gates"
@@ -217,7 +231,7 @@
       "native_check_binding_ids": [
         "field_lifecycle_pytest"
       ],
-      "obligation_id": "r016_target_non_use_boundary_do_not_put_every_f_obligation",
+      "obligation_id": "r017_target_non_use_boundary_do_not_put_every_f_obligation",
       "required": true,
       "requirement_ids": [
         "target.non-use-boundary.do-not-put-every-field-in-the-high"
@@ -231,7 +245,7 @@
       "native_check_binding_ids": [
         "field_lifecycle_pytest"
       ],
-      "obligation_id": "r017_target_non_use_boundary_do_not_use_when_obligation",
+      "obligation_id": "r018_target_non_use_boundary_do_not_use_when_obligation",
       "required": true,
       "requirement_ids": [
         "target.non-use-boundary.do-not-use-when"
@@ -245,7 +259,7 @@
       "native_check_binding_ids": [
         "field_lifecycle_pytest"
       ],
-      "obligation_id": "r018_target_output_output_requirements_obligation",
+      "obligation_id": "r019_target_output_output_requirements_obligation",
       "required": true,
       "requirement_ids": [
         "target.output.output-requirements"
@@ -259,7 +273,7 @@
       "native_check_binding_ids": [
         "field_lifecycle_pytest"
       ],
-      "obligation_id": "r019_target_workflow_route_add_fieldprojection__obligation",
+      "obligation_id": "r020_target_workflow_route_add_fieldprojection__obligation",
       "required": true,
       "requirement_ids": [
         "target.workflow-route.add-fieldprojection-rows-only-for-behavior-bearing-fields"
@@ -273,7 +287,7 @@
       "native_check_binding_ids": [
         "field_lifecycle_pytest"
       ],
-      "obligation_id": "r020_target_workflow_route_behavior_claims_stil_obligation",
+      "obligation_id": "r021_target_workflow_route_behavior_claims_stil_obligation",
       "required": true,
       "requirement_ids": [
         "target.workflow-route.behavior-claims-still-require-current-obligations-owner-code"
@@ -287,7 +301,7 @@
       "native_check_binding_ids": [
         "field_lifecycle_pytest"
       ],
-      "obligation_id": "r021_target_workflow_route_close_replacement_di_obligation",
+      "obligation_id": "r022_target_workflow_route_close_replacement_di_obligation",
       "required": true,
       "requirement_ids": [
         "target.workflow-route.close-replacement-disposition-and-send-owners-readers-writers"
@@ -301,7 +315,7 @@
       "native_check_binding_ids": [
         "field_lifecycle_pytest"
       ],
-      "obligation_id": "r022_target_workflow_route_define_the_field_bou_obligation",
+      "obligation_id": "r023_target_workflow_route_define_the_field_bou_obligation",
       "required": true,
       "requirement_ids": [
         "target.workflow-route.define-the-field-boundary-parent-groups-and-every"
@@ -315,7 +329,7 @@
       "native_check_binding_ids": [
         "field_lifecycle_pytest"
       ],
-      "obligation_id": "r023_target_workflow_route_required_workflow_obligation",
+      "obligation_id": "r024_target_workflow_route_required_workflow_obligation",
       "required": true,
       "requirement_ids": [
         "target.workflow-route.required-workflow"
@@ -405,242 +419,254 @@
       "summary": "Block checked/accepted closure when field_lifecycle.replacement_disposition lacks current native evidence."
     },
     {
-      "blocker_id": "r004_target_activation_boundary_accept_a_bounde_blocker",
+      "blocker_id": "r004_field_lifecycle_ui_reader_handoff_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "handoff",
+      "obligation_ids": [
+        "r004_field_lifecycle_ui_reader_handoff_obligation"
+      ],
+      "summary": "Block checked/accepted closure when field_lifecycle.ui_reader_handoff lacks current native evidence."
+    },
+    {
+      "blocker_id": "r005_target_activation_boundary_accept_a_bounde_blocker",
       "blocks_decisions": [
         "checked",
         "accepted"
       ],
       "failure_class": "activation-boundary",
       "obligation_ids": [
-        "r004_target_activation_boundary_accept_a_bounde_obligation"
+        "r005_target_activation_boundary_accept_a_bounde_obligation"
       ],
       "summary": "Block checked/accepted closure when target.activation-boundary.accept-a-bounded-field-inventory-create-leaf-rows lacks current native evidence."
     },
     {
-      "blocker_id": "r005_target_activation_boundary_route_id_field__blocker",
+      "blocker_id": "r006_target_activation_boundary_route_id_field__blocker",
       "blocks_decisions": [
         "checked",
         "accepted"
       ],
       "failure_class": "activation-boundary",
       "obligation_ids": [
-        "r005_target_activation_boundary_route_id_field__obligation"
+        "r006_target_activation_boundary_route_id_field__obligation"
       ],
       "summary": "Block checked/accepted closure when target.activation-boundary.route-id-field-lifecycle-mesh-role-public-owner lacks current native evidence."
     },
     {
-      "blocker_id": "r006_target_activation_boundary_use_for_schema__blocker",
+      "blocker_id": "r007_target_activation_boundary_use_for_schema__blocker",
       "blocks_decisions": [
         "checked",
         "accepted"
       ],
       "failure_class": "activation-boundary",
       "obligation_ids": [
-        "r006_target_activation_boundary_use_for_schema__obligation"
+        "r007_target_activation_boundary_use_for_schema__obligation"
       ],
       "summary": "Block checked/accepted closure when target.activation-boundary.use-for-schema-payload-config-prompt-persisted-ui lacks current native evidence."
     },
     {
-      "blocker_id": "r007_target_activation_boundary_use_when_blocker",
+      "blocker_id": "r008_target_activation_boundary_use_when_blocker",
       "blocks_decisions": [
         "checked",
         "accepted"
       ],
       "failure_class": "activation-boundary",
       "obligation_ids": [
-        "r007_target_activation_boundary_use_when_obligation"
+        "r008_target_activation_boundary_use_when_obligation"
       ],
       "summary": "Block checked/accepted closure when target.activation-boundary.use-when lacks current native evidence."
     },
     {
-      "blocker_id": "r008_target_check_gate_default_replacement_requ_blocker",
+      "blocker_id": "r009_target_check_gate_default_replacement_requ_blocker",
       "blocks_decisions": [
         "checked",
         "accepted"
       ],
       "failure_class": "check-gate",
       "obligation_ids": [
-        "r008_target_check_gate_default_replacement_requ_obligation"
+        "r009_target_check_gate_default_replacement_requ_obligation"
       ],
       "summary": "Block checked/accepted closure when target.check-gate.default-replacement-requires-delete-block-migrate-delegate-repair lacks current native evidence."
     },
     {
-      "blocker_id": "r009_target_check_gate_hard_gates_blocker",
+      "blocker_id": "r010_target_check_gate_hard_gates_blocker",
       "blocks_decisions": [
         "checked",
         "accepted"
       ],
       "failure_class": "check-gate",
       "obligation_ids": [
-        "r009_target_check_gate_hard_gates_obligation"
+        "r010_target_check_gate_hard_gates_obligation"
       ],
       "summary": "Block checked/accepted closure when target.check-gate.hard-gates lacks current native evidence."
     },
     {
-      "blocker_id": "r010_target_check_gate_return_evidence_failures_blocker",
+      "blocker_id": "r011_target_check_gate_return_evidence_failures_blocker",
       "blocks_decisions": [
         "checked",
         "accepted"
       ],
       "failure_class": "check-gate",
       "obligation_ids": [
-        "r010_target_check_gate_return_evidence_failures_obligation"
+        "r011_target_check_gate_return_evidence_failures_obligation"
       ],
       "summary": "Block checked/accepted closure when target.check-gate.return-evidence-failures-blockers-skipped-checks-residual-risk lacks current native evidence."
     },
     {
-      "blocker_id": "r011_target_check_gate_verify_the_real_flowguar_blocker",
+      "blocker_id": "r012_target_check_gate_verify_the_real_flowguar_blocker",
       "blocks_decisions": [
         "checked",
         "accepted"
       ],
       "failure_class": "check-gate",
       "obligation_ids": [
-        "r011_target_check_gate_verify_the_real_flowguar_obligation"
+        "r012_target_check_gate_verify_the_real_flowguar_obligation"
       ],
       "summary": "Block checked/accepted closure when target.check-gate.verify-the-real-flowguard-check-engine-and-agents lacks current native evidence."
     },
     {
-      "blocker_id": "r012_target_description_use_when_a_change_adds__blocker",
+      "blocker_id": "r013_target_description_use_when_a_change_adds__blocker",
       "blocks_decisions": [
         "checked",
         "accepted"
       ],
       "failure_class": "entrypoint-description",
       "obligation_ids": [
-        "r012_target_description_use_when_a_change_adds__obligation"
+        "r013_target_description_use_when_a_change_adds__obligation"
       ],
       "summary": "Block checked/accepted closure when target.description.use-when-a-change-adds-removes-renames-migrates lacks current native evidence."
     },
     {
-      "blocker_id": "r013_target_entrypoint_acceptance_blocker",
+      "blocker_id": "r014_target_entrypoint_acceptance_blocker",
       "blocks_decisions": [
         "checked",
         "accepted"
       ],
       "failure_class": "entrypoint",
       "obligation_ids": [
-        "r013_target_entrypoint_acceptance_obligation"
+        "r014_target_entrypoint_acceptance_obligation"
       ],
       "summary": "Block checked/accepted closure when target.entrypoint.acceptance lacks current native evidence."
     },
     {
-      "blocker_id": "r014_target_evidence_edit_skillguard_contract_s_blocker",
+      "blocker_id": "r015_target_evidence_edit_skillguard_contract_s_blocker",
       "blocks_decisions": [
         "checked",
         "accepted"
       ],
       "failure_class": "evidence",
       "obligation_ids": [
-        "r014_target_evidence_edit_skillguard_contract_s_obligation"
+        "r015_target_evidence_edit_skillguard_contract_s_obligation"
       ],
       "summary": "Block checked/accepted closure when target.evidence.edit-skillguard-contract-source-json-then-regenerate-derived lacks current native evidence."
     },
     {
-      "blocker_id": "r015_target_hard_gates_blocker",
+      "blocker_id": "r016_target_hard_gates_blocker",
       "blocks_decisions": [
         "checked",
         "accepted"
       ],
       "failure_class": "quality-gate",
       "obligation_ids": [
-        "r015_target_hard_gates_obligation"
+        "r016_target_hard_gates_obligation"
       ],
       "summary": "Block checked/accepted closure when target.hard_gates lacks current native evidence."
     },
     {
-      "blocker_id": "r016_target_non_use_boundary_do_not_put_every_f_blocker",
+      "blocker_id": "r017_target_non_use_boundary_do_not_put_every_f_blocker",
       "blocks_decisions": [
         "checked",
         "accepted"
       ],
       "failure_class": "non-use-boundary",
       "obligation_ids": [
-        "r016_target_non_use_boundary_do_not_put_every_f_obligation"
+        "r017_target_non_use_boundary_do_not_put_every_f_obligation"
       ],
       "summary": "Block checked/accepted closure when target.non-use-boundary.do-not-put-every-field-in-the-high lacks current native evidence."
     },
     {
-      "blocker_id": "r017_target_non_use_boundary_do_not_use_when_blocker",
+      "blocker_id": "r018_target_non_use_boundary_do_not_use_when_blocker",
       "blocks_decisions": [
         "checked",
         "accepted"
       ],
       "failure_class": "non-use-boundary",
       "obligation_ids": [
-        "r017_target_non_use_boundary_do_not_use_when_obligation"
+        "r018_target_non_use_boundary_do_not_use_when_obligation"
       ],
       "summary": "Block checked/accepted closure when target.non-use-boundary.do-not-use-when lacks current native evidence."
     },
     {
-      "blocker_id": "r018_target_output_output_requirements_blocker",
+      "blocker_id": "r019_target_output_output_requirements_blocker",
       "blocks_decisions": [
         "checked",
         "accepted"
       ],
       "failure_class": "output",
       "obligation_ids": [
-        "r018_target_output_output_requirements_obligation"
+        "r019_target_output_output_requirements_obligation"
       ],
       "summary": "Block checked/accepted closure when target.output.output-requirements lacks current native evidence."
     },
     {
-      "blocker_id": "r019_target_workflow_route_add_fieldprojection__blocker",
+      "blocker_id": "r020_target_workflow_route_add_fieldprojection__blocker",
       "blocks_decisions": [
         "checked",
         "accepted"
       ],
       "failure_class": "workflow-route",
       "obligation_ids": [
-        "r019_target_workflow_route_add_fieldprojection__obligation"
+        "r020_target_workflow_route_add_fieldprojection__obligation"
       ],
       "summary": "Block checked/accepted closure when target.workflow-route.add-fieldprojection-rows-only-for-behavior-bearing-fields lacks current native evidence."
     },
     {
-      "blocker_id": "r020_target_workflow_route_behavior_claims_stil_blocker",
+      "blocker_id": "r021_target_workflow_route_behavior_claims_stil_blocker",
       "blocks_decisions": [
         "checked",
         "accepted"
       ],
       "failure_class": "workflow-route",
       "obligation_ids": [
-        "r020_target_workflow_route_behavior_claims_stil_obligation"
+        "r021_target_workflow_route_behavior_claims_stil_obligation"
       ],
       "summary": "Block checked/accepted closure when target.workflow-route.behavior-claims-still-require-current-obligations-owner-code lacks current native evidence."
     },
     {
-      "blocker_id": "r021_target_workflow_route_close_replacement_di_blocker",
+      "blocker_id": "r022_target_workflow_route_close_replacement_di_blocker",
       "blocks_decisions": [
         "checked",
         "accepted"
       ],
       "failure_class": "workflow-route",
       "obligation_ids": [
-        "r021_target_workflow_route_close_replacement_di_obligation"
+        "r022_target_workflow_route_close_replacement_di_obligation"
       ],
       "summary": "Block checked/accepted closure when target.workflow-route.close-replacement-disposition-and-send-owners-readers-writers lacks current native evidence."
     },
     {
-      "blocker_id": "r022_target_workflow_route_define_the_field_bou_blocker",
+      "blocker_id": "r023_target_workflow_route_define_the_field_bou_blocker",
       "blocks_decisions": [
         "checked",
         "accepted"
       ],
       "failure_class": "workflow-route",
       "obligation_ids": [
-        "r022_target_workflow_route_define_the_field_bou_obligation"
+        "r023_target_workflow_route_define_the_field_bou_obligation"
       ],
       "summary": "Block checked/accepted closure when target.workflow-route.define-the-field-boundary-parent-groups-and-every lacks current native evidence."
     },
     {
-      "blocker_id": "r023_target_workflow_route_required_workflow_blocker",
+      "blocker_id": "r024_target_workflow_route_required_workflow_blocker",
       "blocks_decisions": [
         "checked",
         "accepted"
       ],
       "failure_class": "workflow-route",
       "obligation_ids": [
-        "r023_target_workflow_route_required_workflow_obligation"
+        "r024_target_workflow_route_required_workflow_obligation"
       ],
       "summary": "Block checked/accepted closure when target.workflow-route.required-workflow lacks current native evidence."
     }
@@ -666,8 +692,8 @@
       "scope": "current target revision and declared route only"
     }
   ],
-  "contract_hash": "44B044F1A0A3E3F3C220519BA3716E8037F408FD9BB5D5CE798E623145404124",
-  "contract_version": "flowguard.skill_contract_compiler.v1+23563C519746B79E",
+  "contract_hash": "7E571134224FEB783724D96EB9AC663BC63DA606B87F51775598A148D11DDCB0",
+  "contract_version": "flowguard.skill_contract_compiler.v1+EED1CE34ED7BC69D",
   "coverage_matrix": [
     {
       "check_ids": [
@@ -731,21 +757,41 @@
     },
     {
       "check_ids": [
+        "check_evidence"
+      ],
+      "closure_blocker_id": "r004_field_lifecycle_ui_reader_handoff_blocker",
+      "evidence_ids": [
+        "field_lifecycle_mesh_execution_evidence"
+      ],
+      "native_check_binding_ids": [
+        "field_lifecycle_pytest"
+      ],
+      "obligation_id": "r004_field_lifecycle_ui_reader_handoff_obligation",
+      "required": true,
+      "requirement_id": "field_lifecycle.ui_reader_handoff",
+      "route_id": "field_lifecycle_mesh",
+      "row_id": "r004_field_lifecycle_ui_reader_handoff_coverage",
+      "rule_id": "r004_field_lifecycle_ui_reader_handoff_rule",
+      "source_path": ".skillguard/contract-source.json#source_requirements",
+      "stage_id": "field_lifecycle_mesh_execution"
+    },
+    {
+      "check_ids": [
         "check_route"
       ],
-      "closure_blocker_id": "r004_target_activation_boundary_accept_a_bounde_blocker",
+      "closure_blocker_id": "r005_target_activation_boundary_accept_a_bounde_blocker",
       "evidence_ids": [
         "field_lifecycle_mesh_intake_evidence"
       ],
       "native_check_binding_ids": [
         "field_lifecycle_pytest"
       ],
-      "obligation_id": "r004_target_activation_boundary_accept_a_bounde_obligation",
+      "obligation_id": "r005_target_activation_boundary_accept_a_bounde_obligation",
       "required": true,
       "requirement_id": "target.activation-boundary.accept-a-bounded-field-inventory-create-leaf-rows",
       "route_id": "field_lifecycle_mesh",
-      "row_id": "r004_target_activation_boundary_accept_a_bounde_coverage",
-      "rule_id": "r004_target_activation_boundary_accept_a_bounde_rule",
+      "row_id": "r005_target_activation_boundary_accept_a_bounde_coverage",
+      "rule_id": "r005_target_activation_boundary_accept_a_bounde_rule",
       "source_path": "SKILL.md#L18",
       "stage_id": "field_lifecycle_mesh_intake"
     },
@@ -753,19 +799,19 @@
       "check_ids": [
         "check_route"
       ],
-      "closure_blocker_id": "r005_target_activation_boundary_route_id_field__blocker",
+      "closure_blocker_id": "r006_target_activation_boundary_route_id_field__blocker",
       "evidence_ids": [
         "field_lifecycle_mesh_intake_evidence"
       ],
       "native_check_binding_ids": [
         "field_lifecycle_pytest"
       ],
-      "obligation_id": "r005_target_activation_boundary_route_id_field__obligation",
+      "obligation_id": "r006_target_activation_boundary_route_id_field__obligation",
       "required": true,
       "requirement_id": "target.activation-boundary.route-id-field-lifecycle-mesh-role-public-owner",
       "route_id": "field_lifecycle_mesh",
-      "row_id": "r005_target_activation_boundary_route_id_field__coverage",
-      "rule_id": "r005_target_activation_boundary_route_id_field__rule",
+      "row_id": "r006_target_activation_boundary_route_id_field__coverage",
+      "rule_id": "r006_target_activation_boundary_route_id_field__rule",
       "source_path": "SKILL.md#L12",
       "stage_id": "field_lifecycle_mesh_intake"
     },
@@ -773,19 +819,19 @@
       "check_ids": [
         "check_route"
       ],
-      "closure_blocker_id": "r006_target_activation_boundary_use_for_schema__blocker",
+      "closure_blocker_id": "r007_target_activation_boundary_use_for_schema__blocker",
       "evidence_ids": [
         "field_lifecycle_mesh_intake_evidence"
       ],
       "native_check_binding_ids": [
         "field_lifecycle_pytest"
       ],
-      "obligation_id": "r006_target_activation_boundary_use_for_schema__obligation",
+      "obligation_id": "r007_target_activation_boundary_use_for_schema__obligation",
       "required": true,
       "requirement_id": "target.activation-boundary.use-for-schema-payload-config-prompt-persisted-ui",
       "route_id": "field_lifecycle_mesh",
-      "row_id": "r006_target_activation_boundary_use_for_schema__coverage",
-      "rule_id": "r006_target_activation_boundary_use_for_schema__rule",
+      "row_id": "r007_target_activation_boundary_use_for_schema__coverage",
+      "rule_id": "r007_target_activation_boundary_use_for_schema__rule",
       "source_path": "SKILL.md#L21",
       "stage_id": "field_lifecycle_mesh_intake"
     },
@@ -793,19 +839,19 @@
       "check_ids": [
         "check_route"
       ],
-      "closure_blocker_id": "r007_target_activation_boundary_use_when_blocker",
+      "closure_blocker_id": "r008_target_activation_boundary_use_when_blocker",
       "evidence_ids": [
         "field_lifecycle_mesh_intake_evidence"
       ],
       "native_check_binding_ids": [
         "field_lifecycle_pytest"
       ],
-      "obligation_id": "r007_target_activation_boundary_use_when_obligation",
+      "obligation_id": "r008_target_activation_boundary_use_when_obligation",
       "required": true,
       "requirement_id": "target.activation-boundary.use-when",
       "route_id": "field_lifecycle_mesh",
-      "row_id": "r007_target_activation_boundary_use_when_coverage",
-      "rule_id": "r007_target_activation_boundary_use_when_rule",
+      "row_id": "r008_target_activation_boundary_use_when_coverage",
+      "rule_id": "r008_target_activation_boundary_use_when_rule",
       "source_path": "SKILL.md#L20",
       "stage_id": "field_lifecycle_mesh_intake"
     },
@@ -813,19 +859,19 @@
       "check_ids": [
         "check_quality_floor"
       ],
-      "closure_blocker_id": "r008_target_check_gate_default_replacement_requ_blocker",
+      "closure_blocker_id": "r009_target_check_gate_default_replacement_requ_blocker",
       "evidence_ids": [
         "field_lifecycle_mesh_checks_evidence"
       ],
       "native_check_binding_ids": [
         "field_lifecycle_pytest"
       ],
-      "obligation_id": "r008_target_check_gate_default_replacement_requ_obligation",
+      "obligation_id": "r009_target_check_gate_default_replacement_requ_obligation",
       "required": true,
       "requirement_id": "target.check-gate.default-replacement-requires-delete-block-migrate-delegate-repair",
       "route_id": "field_lifecycle_mesh",
-      "row_id": "r008_target_check_gate_default_replacement_requ_coverage",
-      "rule_id": "r008_target_check_gate_default_replacement_requ_rule",
+      "row_id": "r009_target_check_gate_default_replacement_requ_coverage",
+      "rule_id": "r009_target_check_gate_default_replacement_requ_rule",
       "source_path": "SKILL.md#L33",
       "stage_id": "field_lifecycle_mesh_checks"
     },
@@ -833,19 +879,19 @@
       "check_ids": [
         "check_quality_floor"
       ],
-      "closure_blocker_id": "r009_target_check_gate_hard_gates_blocker",
+      "closure_blocker_id": "r010_target_check_gate_hard_gates_blocker",
       "evidence_ids": [
         "field_lifecycle_mesh_checks_evidence"
       ],
       "native_check_binding_ids": [
         "field_lifecycle_pytest"
       ],
-      "obligation_id": "r009_target_check_gate_hard_gates_obligation",
+      "obligation_id": "r010_target_check_gate_hard_gates_obligation",
       "required": true,
       "requirement_id": "target.check-gate.hard-gates",
       "route_id": "field_lifecycle_mesh",
-      "row_id": "r009_target_check_gate_hard_gates_coverage",
-      "rule_id": "r009_target_check_gate_hard_gates_rule",
+      "row_id": "r010_target_check_gate_hard_gates_coverage",
+      "rule_id": "r010_target_check_gate_hard_gates_rule",
       "source_path": "SKILL.md#L31",
       "stage_id": "field_lifecycle_mesh_checks"
     },
@@ -853,19 +899,19 @@
       "check_ids": [
         "check_quality_floor"
       ],
-      "closure_blocker_id": "r010_target_check_gate_return_evidence_failures_blocker",
+      "closure_blocker_id": "r011_target_check_gate_return_evidence_failures_blocker",
       "evidence_ids": [
         "field_lifecycle_mesh_checks_evidence"
       ],
       "native_check_binding_ids": [
         "field_lifecycle_pytest"
       ],
-      "obligation_id": "r010_target_check_gate_return_evidence_failures_obligation",
+      "obligation_id": "r011_target_check_gate_return_evidence_failures_obligation",
       "required": true,
       "requirement_id": "target.check-gate.return-evidence-failures-blockers-skipped-checks-residual-risk",
       "route_id": "field_lifecycle_mesh",
-      "row_id": "r010_target_check_gate_return_evidence_failures_coverage",
-      "rule_id": "r010_target_check_gate_return_evidence_failures_rule",
+      "row_id": "r011_target_check_gate_return_evidence_failures_coverage",
+      "rule_id": "r011_target_check_gate_return_evidence_failures_rule",
       "source_path": "SKILL.md#L37",
       "stage_id": "field_lifecycle_mesh_checks"
     },
@@ -873,19 +919,19 @@
       "check_ids": [
         "check_quality_floor"
       ],
-      "closure_blocker_id": "r011_target_check_gate_verify_the_real_flowguar_blocker",
+      "closure_blocker_id": "r012_target_check_gate_verify_the_real_flowguar_blocker",
       "evidence_ids": [
         "field_lifecycle_mesh_checks_evidence"
       ],
       "native_check_binding_ids": [
         "field_lifecycle_pytest"
       ],
-      "obligation_id": "r011_target_check_gate_verify_the_real_flowguar_obligation",
+      "obligation_id": "r012_target_check_gate_verify_the_real_flowguar_obligation",
       "required": true,
       "requirement_id": "target.check-gate.verify-the-real-flowguard-check-engine-and-agents",
       "route_id": "field_lifecycle_mesh",
-      "row_id": "r011_target_check_gate_verify_the_real_flowguar_coverage",
-      "rule_id": "r011_target_check_gate_verify_the_real_flowguar_rule",
+      "row_id": "r012_target_check_gate_verify_the_real_flowguar_coverage",
+      "rule_id": "r012_target_check_gate_verify_the_real_flowguar_rule",
       "source_path": "SKILL.md#L32",
       "stage_id": "field_lifecycle_mesh_checks"
     },
@@ -893,19 +939,19 @@
       "check_ids": [
         "check_route"
       ],
-      "closure_blocker_id": "r012_target_description_use_when_a_change_adds__blocker",
+      "closure_blocker_id": "r013_target_description_use_when_a_change_adds__blocker",
       "evidence_ids": [
         "field_lifecycle_mesh_intake_evidence"
       ],
       "native_check_binding_ids": [
         "field_lifecycle_pytest"
       ],
-      "obligation_id": "r012_target_description_use_when_a_change_adds__obligation",
+      "obligation_id": "r013_target_description_use_when_a_change_adds__obligation",
       "required": true,
       "requirement_id": "target.description.use-when-a-change-adds-removes-renames-migrates",
       "route_id": "field_lifecycle_mesh",
-      "row_id": "r012_target_description_use_when_a_change_adds__coverage",
-      "rule_id": "r012_target_description_use_when_a_change_adds__rule",
+      "row_id": "r013_target_description_use_when_a_change_adds__coverage",
+      "rule_id": "r013_target_description_use_when_a_change_adds__rule",
       "source_path": "SKILL.md frontmatter",
       "stage_id": "field_lifecycle_mesh_intake"
     },
@@ -913,19 +959,19 @@
       "check_ids": [
         "check_route"
       ],
-      "closure_blocker_id": "r013_target_entrypoint_acceptance_blocker",
+      "closure_blocker_id": "r014_target_entrypoint_acceptance_blocker",
       "evidence_ids": [
         "field_lifecycle_mesh_intake_evidence"
       ],
       "native_check_binding_ids": [
         "field_lifecycle_pytest"
       ],
-      "obligation_id": "r013_target_entrypoint_acceptance_obligation",
+      "obligation_id": "r014_target_entrypoint_acceptance_obligation",
       "required": true,
       "requirement_id": "target.entrypoint.acceptance",
       "route_id": "field_lifecycle_mesh",
-      "row_id": "r013_target_entrypoint_acceptance_coverage",
-      "rule_id": "r013_target_entrypoint_acceptance_rule",
+      "row_id": "r014_target_entrypoint_acceptance_coverage",
+      "rule_id": "r014_target_entrypoint_acceptance_rule",
       "source_path": "SKILL.md",
       "stage_id": "field_lifecycle_mesh_intake"
     },
@@ -933,19 +979,19 @@
       "check_ids": [
         "check_quality_floor"
       ],
-      "closure_blocker_id": "r014_target_evidence_edit_skillguard_contract_s_blocker",
+      "closure_blocker_id": "r015_target_evidence_edit_skillguard_contract_s_blocker",
       "evidence_ids": [
         "field_lifecycle_mesh_checks_evidence"
       ],
       "native_check_binding_ids": [
         "field_lifecycle_pytest"
       ],
-      "obligation_id": "r014_target_evidence_edit_skillguard_contract_s_obligation",
+      "obligation_id": "r015_target_evidence_edit_skillguard_contract_s_obligation",
       "required": true,
       "requirement_id": "target.evidence.edit-skillguard-contract-source-json-then-regenerate-derived",
       "route_id": "field_lifecycle_mesh",
-      "row_id": "r014_target_evidence_edit_skillguard_contract_s_coverage",
-      "rule_id": "r014_target_evidence_edit_skillguard_contract_s_rule",
+      "row_id": "r015_target_evidence_edit_skillguard_contract_s_coverage",
+      "rule_id": "r015_target_evidence_edit_skillguard_contract_s_rule",
       "source_path": "SKILL.md#L40",
       "stage_id": "field_lifecycle_mesh_checks"
     },
@@ -953,19 +999,19 @@
       "check_ids": [
         "check_quality_floor"
       ],
-      "closure_blocker_id": "r015_target_hard_gates_blocker",
+      "closure_blocker_id": "r016_target_hard_gates_blocker",
       "evidence_ids": [
         "field_lifecycle_mesh_checks_evidence"
       ],
       "native_check_binding_ids": [
         "field_lifecycle_pytest"
       ],
-      "obligation_id": "r015_target_hard_gates_obligation",
+      "obligation_id": "r016_target_hard_gates_obligation",
       "required": true,
       "requirement_id": "target.hard_gates",
       "route_id": "field_lifecycle_mesh",
-      "row_id": "r015_target_hard_gates_coverage",
-      "rule_id": "r015_target_hard_gates_rule",
+      "row_id": "r016_target_hard_gates_coverage",
+      "rule_id": "r016_target_hard_gates_rule",
       "source_path": "SKILL.md",
       "stage_id": "field_lifecycle_mesh_checks"
     },
@@ -973,19 +1019,19 @@
       "check_ids": [
         "check_route"
       ],
-      "closure_blocker_id": "r016_target_non_use_boundary_do_not_put_every_f_blocker",
+      "closure_blocker_id": "r017_target_non_use_boundary_do_not_put_every_f_blocker",
       "evidence_ids": [
         "field_lifecycle_mesh_intake_evidence"
       ],
       "native_check_binding_ids": [
         "field_lifecycle_pytest"
       ],
-      "obligation_id": "r016_target_non_use_boundary_do_not_put_every_f_obligation",
+      "obligation_id": "r017_target_non_use_boundary_do_not_put_every_f_obligation",
       "required": true,
       "requirement_id": "target.non-use-boundary.do-not-put-every-field-in-the-high",
       "route_id": "field_lifecycle_mesh",
-      "row_id": "r016_target_non_use_boundary_do_not_put_every_f_coverage",
-      "rule_id": "r016_target_non_use_boundary_do_not_put_every_f_rule",
+      "row_id": "r017_target_non_use_boundary_do_not_put_every_f_coverage",
+      "rule_id": "r017_target_non_use_boundary_do_not_put_every_f_rule",
       "source_path": "SKILL.md#L24",
       "stage_id": "field_lifecycle_mesh_intake"
     },
@@ -993,19 +1039,19 @@
       "check_ids": [
         "check_route"
       ],
-      "closure_blocker_id": "r017_target_non_use_boundary_do_not_use_when_blocker",
+      "closure_blocker_id": "r018_target_non_use_boundary_do_not_use_when_blocker",
       "evidence_ids": [
         "field_lifecycle_mesh_intake_evidence"
       ],
       "native_check_binding_ids": [
         "field_lifecycle_pytest"
       ],
-      "obligation_id": "r017_target_non_use_boundary_do_not_use_when_obligation",
+      "obligation_id": "r018_target_non_use_boundary_do_not_use_when_obligation",
       "required": true,
       "requirement_id": "target.non-use-boundary.do-not-use-when",
       "route_id": "field_lifecycle_mesh",
-      "row_id": "r017_target_non_use_boundary_do_not_use_when_coverage",
-      "rule_id": "r017_target_non_use_boundary_do_not_use_when_rule",
+      "row_id": "r018_target_non_use_boundary_do_not_use_when_coverage",
+      "rule_id": "r018_target_non_use_boundary_do_not_use_when_rule",
       "source_path": "SKILL.md#L23",
       "stage_id": "field_lifecycle_mesh_intake"
     },
@@ -1013,19 +1059,19 @@
       "check_ids": [
         "check_closure"
       ],
-      "closure_blocker_id": "r018_target_output_output_requirements_blocker",
+      "closure_blocker_id": "r019_target_output_output_requirements_blocker",
       "evidence_ids": [
         "field_lifecycle_mesh_closure_evidence"
       ],
       "native_check_binding_ids": [
         "field_lifecycle_pytest"
       ],
-      "obligation_id": "r018_target_output_output_requirements_obligation",
+      "obligation_id": "r019_target_output_output_requirements_obligation",
       "required": true,
       "requirement_id": "target.output.output-requirements",
       "route_id": "field_lifecycle_mesh",
-      "row_id": "r018_target_output_output_requirements_coverage",
-      "rule_id": "r018_target_output_output_requirements_rule",
+      "row_id": "r019_target_output_output_requirements_coverage",
+      "rule_id": "r019_target_output_output_requirements_rule",
       "source_path": "SKILL.md#L36",
       "stage_id": "field_lifecycle_mesh_closure"
     },
@@ -1033,19 +1079,19 @@
       "check_ids": [
         "check_evidence"
       ],
-      "closure_blocker_id": "r019_target_workflow_route_add_fieldprojection__blocker",
+      "closure_blocker_id": "r020_target_workflow_route_add_fieldprojection__blocker",
       "evidence_ids": [
         "field_lifecycle_mesh_execution_evidence"
       ],
       "native_check_binding_ids": [
         "field_lifecycle_pytest"
       ],
-      "obligation_id": "r019_target_workflow_route_add_fieldprojection__obligation",
+      "obligation_id": "r020_target_workflow_route_add_fieldprojection__obligation",
       "required": true,
       "requirement_id": "target.workflow-route.add-fieldprojection-rows-only-for-behavior-bearing-fields",
       "route_id": "field_lifecycle_mesh",
-      "row_id": "r019_target_workflow_route_add_fieldprojection__coverage",
-      "rule_id": "r019_target_workflow_route_add_fieldprojection__rule",
+      "row_id": "r020_target_workflow_route_add_fieldprojection__coverage",
+      "rule_id": "r020_target_workflow_route_add_fieldprojection__rule",
       "source_path": "SKILL.md#L28",
       "stage_id": "field_lifecycle_mesh_execution"
     },
@@ -1053,19 +1099,19 @@
       "check_ids": [
         "check_evidence"
       ],
-      "closure_blocker_id": "r020_target_workflow_route_behavior_claims_stil_blocker",
+      "closure_blocker_id": "r021_target_workflow_route_behavior_claims_stil_blocker",
       "evidence_ids": [
         "field_lifecycle_mesh_execution_evidence"
       ],
       "native_check_binding_ids": [
         "field_lifecycle_pytest"
       ],
-      "obligation_id": "r020_target_workflow_route_behavior_claims_stil_obligation",
+      "obligation_id": "r021_target_workflow_route_behavior_claims_stil_obligation",
       "required": true,
       "requirement_id": "target.workflow-route.behavior-claims-still-require-current-obligations-owner-code",
       "route_id": "field_lifecycle_mesh",
-      "row_id": "r020_target_workflow_route_behavior_claims_stil_coverage",
-      "rule_id": "r020_target_workflow_route_behavior_claims_stil_rule",
+      "row_id": "r021_target_workflow_route_behavior_claims_stil_coverage",
+      "rule_id": "r021_target_workflow_route_behavior_claims_stil_rule",
       "source_path": "SKILL.md#L34",
       "stage_id": "field_lifecycle_mesh_execution"
     },
@@ -1073,19 +1119,19 @@
       "check_ids": [
         "check_evidence"
       ],
-      "closure_blocker_id": "r021_target_workflow_route_close_replacement_di_blocker",
+      "closure_blocker_id": "r022_target_workflow_route_close_replacement_di_blocker",
       "evidence_ids": [
         "field_lifecycle_mesh_execution_evidence"
       ],
       "native_check_binding_ids": [
         "field_lifecycle_pytest"
       ],
-      "obligation_id": "r021_target_workflow_route_close_replacement_di_obligation",
+      "obligation_id": "r022_target_workflow_route_close_replacement_di_obligation",
       "required": true,
       "requirement_id": "target.workflow-route.close-replacement-disposition-and-send-owners-readers-writers",
       "route_id": "field_lifecycle_mesh",
-      "row_id": "r021_target_workflow_route_close_replacement_di_coverage",
-      "rule_id": "r021_target_workflow_route_close_replacement_di_rule",
+      "row_id": "r022_target_workflow_route_close_replacement_di_coverage",
+      "rule_id": "r022_target_workflow_route_close_replacement_di_rule",
       "source_path": "SKILL.md#L29",
       "stage_id": "field_lifecycle_mesh_execution"
     },
@@ -1093,19 +1139,19 @@
       "check_ids": [
         "check_evidence"
       ],
-      "closure_blocker_id": "r022_target_workflow_route_define_the_field_bou_blocker",
+      "closure_blocker_id": "r023_target_workflow_route_define_the_field_bou_blocker",
       "evidence_ids": [
         "field_lifecycle_mesh_execution_evidence"
       ],
       "native_check_binding_ids": [
         "field_lifecycle_pytest"
       ],
-      "obligation_id": "r022_target_workflow_route_define_the_field_bou_obligation",
+      "obligation_id": "r023_target_workflow_route_define_the_field_bou_obligation",
       "required": true,
       "requirement_id": "target.workflow-route.define-the-field-boundary-parent-groups-and-every",
       "route_id": "field_lifecycle_mesh",
-      "row_id": "r022_target_workflow_route_define_the_field_bou_coverage",
-      "rule_id": "r022_target_workflow_route_define_the_field_bou_rule",
+      "row_id": "r023_target_workflow_route_define_the_field_bou_coverage",
+      "rule_id": "r023_target_workflow_route_define_the_field_bou_rule",
       "source_path": "SKILL.md#L27",
       "stage_id": "field_lifecycle_mesh_execution"
     },
@@ -1113,19 +1159,19 @@
       "check_ids": [
         "check_evidence"
       ],
-      "closure_blocker_id": "r023_target_workflow_route_required_workflow_blocker",
+      "closure_blocker_id": "r024_target_workflow_route_required_workflow_blocker",
       "evidence_ids": [
         "field_lifecycle_mesh_execution_evidence"
       ],
       "native_check_binding_ids": [
         "field_lifecycle_pytest"
       ],
-      "obligation_id": "r023_target_workflow_route_required_workflow_obligation",
+      "obligation_id": "r024_target_workflow_route_required_workflow_obligation",
       "required": true,
       "requirement_id": "target.workflow-route.required-workflow",
       "route_id": "field_lifecycle_mesh",
-      "row_id": "r023_target_workflow_route_required_workflow_coverage",
-      "rule_id": "r023_target_workflow_route_required_workflow_rule",
+      "row_id": "r024_target_workflow_route_required_workflow_coverage",
+      "rule_id": "r024_target_workflow_route_required_workflow_rule",
       "source_path": "SKILL.md#L26",
       "stage_id": "field_lifecycle_mesh_execution"
     }
@@ -1269,7 +1315,7 @@
       "required_evidence": [
         "field_lifecycle_mesh_execution_evidence"
       ],
-      "summary": "Project behavior-bearing fields and route invalid/old-field finite cases to ContractExhaustionMesh."
+      "summary": "Project behavior-bearing fields, hand all ordinary-UI-reader fields to UI content admission, and route invalid/old-field finite cases to ContractExhaustionMesh."
     },
     {
       "allowed_next": [
@@ -1282,7 +1328,7 @@
       "required_evidence": [
         "field_lifecycle_mesh_checks_evidence"
       ],
-      "summary": "Run field lifecycle tests and reject missing rows, projection gaps, duplicate owners, or unknown dispositions."
+      "summary": "Run field lifecycle tests and reject missing rows, UI-reader handoff gaps, projection gaps, duplicate owners, or unknown dispositions."
     },
     {
       "allowed_next": [],
@@ -1447,7 +1493,21 @@
       "summary": "Target-specific gate for field_lifecycle.replacement_disposition."
     },
     {
-      "check_id": "r004_target_activation_boundary_accept_a_bounde_check",
+      "check_id": "r004_field_lifecycle_ui_reader_handoff_check",
+      "check_manifest_ids": [
+        "check_evidence"
+      ],
+      "native_check_binding_ids": [
+        "field_lifecycle_pytest"
+      ],
+      "obligation_ids": [
+        "r004_field_lifecycle_ui_reader_handoff_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for field_lifecycle.ui_reader_handoff."
+    },
+    {
+      "check_id": "r005_target_activation_boundary_accept_a_bounde_check",
       "check_manifest_ids": [
         "check_route"
       ],
@@ -1455,13 +1515,13 @@
         "field_lifecycle_pytest"
       ],
       "obligation_ids": [
-        "r004_target_activation_boundary_accept_a_bounde_obligation"
+        "r005_target_activation_boundary_accept_a_bounde_obligation"
       ],
       "required": true,
       "summary": "Target-specific gate for target.activation-boundary.accept-a-bounded-field-inventory-create-leaf-rows."
     },
     {
-      "check_id": "r005_target_activation_boundary_route_id_field__check",
+      "check_id": "r006_target_activation_boundary_route_id_field__check",
       "check_manifest_ids": [
         "check_route"
       ],
@@ -1469,13 +1529,13 @@
         "field_lifecycle_pytest"
       ],
       "obligation_ids": [
-        "r005_target_activation_boundary_route_id_field__obligation"
+        "r006_target_activation_boundary_route_id_field__obligation"
       ],
       "required": true,
       "summary": "Target-specific gate for target.activation-boundary.route-id-field-lifecycle-mesh-role-public-owner."
     },
     {
-      "check_id": "r006_target_activation_boundary_use_for_schema__check",
+      "check_id": "r007_target_activation_boundary_use_for_schema__check",
       "check_manifest_ids": [
         "check_route"
       ],
@@ -1483,13 +1543,13 @@
         "field_lifecycle_pytest"
       ],
       "obligation_ids": [
-        "r006_target_activation_boundary_use_for_schema__obligation"
+        "r007_target_activation_boundary_use_for_schema__obligation"
       ],
       "required": true,
       "summary": "Target-specific gate for target.activation-boundary.use-for-schema-payload-config-prompt-persisted-ui."
     },
     {
-      "check_id": "r007_target_activation_boundary_use_when_check",
+      "check_id": "r008_target_activation_boundary_use_when_check",
       "check_manifest_ids": [
         "check_route"
       ],
@@ -1497,13 +1557,13 @@
         "field_lifecycle_pytest"
       ],
       "obligation_ids": [
-        "r007_target_activation_boundary_use_when_obligation"
+        "r008_target_activation_boundary_use_when_obligation"
       ],
       "required": true,
       "summary": "Target-specific gate for target.activation-boundary.use-when."
     },
     {
-      "check_id": "r008_target_check_gate_default_replacement_requ_check",
+      "check_id": "r009_target_check_gate_default_replacement_requ_check",
       "check_manifest_ids": [
         "check_quality_floor"
       ],
@@ -1511,13 +1571,13 @@
         "field_lifecycle_pytest"
       ],
       "obligation_ids": [
-        "r008_target_check_gate_default_replacement_requ_obligation"
+        "r009_target_check_gate_default_replacement_requ_obligation"
       ],
       "required": true,
       "summary": "Target-specific gate for target.check-gate.default-replacement-requires-delete-block-migrate-delegate-repair."
     },
     {
-      "check_id": "r009_target_check_gate_hard_gates_check",
+      "check_id": "r010_target_check_gate_hard_gates_check",
       "check_manifest_ids": [
         "check_quality_floor"
       ],
@@ -1525,13 +1585,13 @@
         "field_lifecycle_pytest"
       ],
       "obligation_ids": [
-        "r009_target_check_gate_hard_gates_obligation"
+        "r010_target_check_gate_hard_gates_obligation"
       ],
       "required": true,
       "summary": "Target-specific gate for target.check-gate.hard-gates."
     },
     {
-      "check_id": "r010_target_check_gate_return_evidence_failures_check",
+      "check_id": "r011_target_check_gate_return_evidence_failures_check",
       "check_manifest_ids": [
         "check_quality_floor"
       ],
@@ -1539,13 +1599,13 @@
         "field_lifecycle_pytest"
       ],
       "obligation_ids": [
-        "r010_target_check_gate_return_evidence_failures_obligation"
+        "r011_target_check_gate_return_evidence_failures_obligation"
       ],
       "required": true,
       "summary": "Target-specific gate for target.check-gate.return-evidence-failures-blockers-skipped-checks-residual-risk."
     },
     {
-      "check_id": "r011_target_check_gate_verify_the_real_flowguar_check",
+      "check_id": "r012_target_check_gate_verify_the_real_flowguar_check",
       "check_manifest_ids": [
         "check_quality_floor"
       ],
@@ -1553,13 +1613,13 @@
         "field_lifecycle_pytest"
       ],
       "obligation_ids": [
-        "r011_target_check_gate_verify_the_real_flowguar_obligation"
+        "r012_target_check_gate_verify_the_real_flowguar_obligation"
       ],
       "required": true,
       "summary": "Target-specific gate for target.check-gate.verify-the-real-flowguard-check-engine-and-agents."
     },
     {
-      "check_id": "r012_target_description_use_when_a_change_adds__check",
+      "check_id": "r013_target_description_use_when_a_change_adds__check",
       "check_manifest_ids": [
         "check_route"
       ],
@@ -1567,13 +1627,13 @@
         "field_lifecycle_pytest"
       ],
       "obligation_ids": [
-        "r012_target_description_use_when_a_change_adds__obligation"
+        "r013_target_description_use_when_a_change_adds__obligation"
       ],
       "required": true,
       "summary": "Target-specific gate for target.description.use-when-a-change-adds-removes-renames-migrates."
     },
     {
-      "check_id": "r013_target_entrypoint_acceptance_check",
+      "check_id": "r014_target_entrypoint_acceptance_check",
       "check_manifest_ids": [
         "check_route"
       ],
@@ -1581,13 +1641,13 @@
         "field_lifecycle_pytest"
       ],
       "obligation_ids": [
-        "r013_target_entrypoint_acceptance_obligation"
+        "r014_target_entrypoint_acceptance_obligation"
       ],
       "required": true,
       "summary": "Target-specific gate for target.entrypoint.acceptance."
     },
     {
-      "check_id": "r014_target_evidence_edit_skillguard_contract_s_check",
+      "check_id": "r015_target_evidence_edit_skillguard_contract_s_check",
       "check_manifest_ids": [
         "check_quality_floor"
       ],
@@ -1595,13 +1655,13 @@
         "field_lifecycle_pytest"
       ],
       "obligation_ids": [
-        "r014_target_evidence_edit_skillguard_contract_s_obligation"
+        "r015_target_evidence_edit_skillguard_contract_s_obligation"
       ],
       "required": true,
       "summary": "Target-specific gate for target.evidence.edit-skillguard-contract-source-json-then-regenerate-derived."
     },
     {
-      "check_id": "r015_target_hard_gates_check",
+      "check_id": "r016_target_hard_gates_check",
       "check_manifest_ids": [
         "check_quality_floor"
       ],
@@ -1609,13 +1669,13 @@
         "field_lifecycle_pytest"
       ],
       "obligation_ids": [
-        "r015_target_hard_gates_obligation"
+        "r016_target_hard_gates_obligation"
       ],
       "required": true,
       "summary": "Target-specific gate for target.hard_gates."
     },
     {
-      "check_id": "r016_target_non_use_boundary_do_not_put_every_f_check",
+      "check_id": "r017_target_non_use_boundary_do_not_put_every_f_check",
       "check_manifest_ids": [
         "check_route"
       ],
@@ -1623,13 +1683,13 @@
         "field_lifecycle_pytest"
       ],
       "obligation_ids": [
-        "r016_target_non_use_boundary_do_not_put_every_f_obligation"
+        "r017_target_non_use_boundary_do_not_put_every_f_obligation"
       ],
       "required": true,
       "summary": "Target-specific gate for target.non-use-boundary.do-not-put-every-field-in-the-high."
     },
     {
-      "check_id": "r017_target_non_use_boundary_do_not_use_when_check",
+      "check_id": "r018_target_non_use_boundary_do_not_use_when_check",
       "check_manifest_ids": [
         "check_route"
       ],
@@ -1637,13 +1697,13 @@
         "field_lifecycle_pytest"
       ],
       "obligation_ids": [
-        "r017_target_non_use_boundary_do_not_use_when_obligation"
+        "r018_target_non_use_boundary_do_not_use_when_obligation"
       ],
       "required": true,
       "summary": "Target-specific gate for target.non-use-boundary.do-not-use-when."
     },
     {
-      "check_id": "r018_target_output_output_requirements_check",
+      "check_id": "r019_target_output_output_requirements_check",
       "check_manifest_ids": [
         "check_closure"
       ],
@@ -1651,13 +1711,13 @@
         "field_lifecycle_pytest"
       ],
       "obligation_ids": [
-        "r018_target_output_output_requirements_obligation"
+        "r019_target_output_output_requirements_obligation"
       ],
       "required": true,
       "summary": "Target-specific gate for target.output.output-requirements."
     },
     {
-      "check_id": "r019_target_workflow_route_add_fieldprojection__check",
+      "check_id": "r020_target_workflow_route_add_fieldprojection__check",
       "check_manifest_ids": [
         "check_evidence"
       ],
@@ -1665,13 +1725,13 @@
         "field_lifecycle_pytest"
       ],
       "obligation_ids": [
-        "r019_target_workflow_route_add_fieldprojection__obligation"
+        "r020_target_workflow_route_add_fieldprojection__obligation"
       ],
       "required": true,
       "summary": "Target-specific gate for target.workflow-route.add-fieldprojection-rows-only-for-behavior-bearing-fields."
     },
     {
-      "check_id": "r020_target_workflow_route_behavior_claims_stil_check",
+      "check_id": "r021_target_workflow_route_behavior_claims_stil_check",
       "check_manifest_ids": [
         "check_evidence"
       ],
@@ -1679,13 +1739,13 @@
         "field_lifecycle_pytest"
       ],
       "obligation_ids": [
-        "r020_target_workflow_route_behavior_claims_stil_obligation"
+        "r021_target_workflow_route_behavior_claims_stil_obligation"
       ],
       "required": true,
       "summary": "Target-specific gate for target.workflow-route.behavior-claims-still-require-current-obligations-owner-code."
     },
     {
-      "check_id": "r021_target_workflow_route_close_replacement_di_check",
+      "check_id": "r022_target_workflow_route_close_replacement_di_check",
       "check_manifest_ids": [
         "check_evidence"
       ],
@@ -1693,13 +1753,13 @@
         "field_lifecycle_pytest"
       ],
       "obligation_ids": [
-        "r021_target_workflow_route_close_replacement_di_obligation"
+        "r022_target_workflow_route_close_replacement_di_obligation"
       ],
       "required": true,
       "summary": "Target-specific gate for target.workflow-route.close-replacement-disposition-and-send-owners-readers-writers."
     },
     {
-      "check_id": "r022_target_workflow_route_define_the_field_bou_check",
+      "check_id": "r023_target_workflow_route_define_the_field_bou_check",
       "check_manifest_ids": [
         "check_evidence"
       ],
@@ -1707,13 +1767,13 @@
         "field_lifecycle_pytest"
       ],
       "obligation_ids": [
-        "r022_target_workflow_route_define_the_field_bou_obligation"
+        "r023_target_workflow_route_define_the_field_bou_obligation"
       ],
       "required": true,
       "summary": "Target-specific gate for target.workflow-route.define-the-field-boundary-parent-groups-and-every."
     },
     {
-      "check_id": "r023_target_workflow_route_required_workflow_check",
+      "check_id": "r024_target_workflow_route_required_workflow_check",
       "check_manifest_ids": [
         "check_evidence"
       ],
@@ -1721,7 +1781,7 @@
         "field_lifecycle_pytest"
       ],
       "obligation_ids": [
-        "r023_target_workflow_route_required_workflow_obligation"
+        "r024_target_workflow_route_required_workflow_obligation"
       ],
       "required": true,
       "summary": "Target-specific gate for target.workflow-route.required-workflow."
@@ -1749,6 +1809,13 @@
       "requirement_id": "field_lifecycle.replacement_disposition",
       "source_path": ".skillguard/contract-source.json#source_requirements",
       "summary": "Old, replaced, deprecated, alias, or fallback fields require a concrete disposition before broad confidence."
+    },
+    {
+      "category": "handoff",
+      "required": true,
+      "requirement_id": "field_lifecycle.ui_reader_handoff",
+      "source_path": ".skillguard/contract-source.json#source_requirements",
+      "summary": "Every field whose reader reaches an ordinary UI boundary hands off to UI content admission regardless of source role; fields with no ordinary-UI reader remain internally accounted."
     },
     {
       "category": "activation-boundary",
@@ -1947,10 +2014,18 @@
       "summary": "Old, replaced, deprecated, alias, or fallback fields require a concrete disposition before broad confidence."
     },
     {
+      "category": "handoff",
+      "required": true,
+      "requirement_id": "field_lifecycle.ui_reader_handoff",
+      "rule_id": "r004_field_lifecycle_ui_reader_handoff_rule",
+      "source_path": ".skillguard/contract-source.json#source_requirements",
+      "summary": "Every field whose reader reaches an ordinary UI boundary hands off to UI content admission regardless of source role; fields with no ordinary-UI reader remain internally accounted."
+    },
+    {
       "category": "activation-boundary",
       "required": true,
       "requirement_id": "target.activation-boundary.accept-a-bounded-field-inventory-create-leaf-rows",
-      "rule_id": "r004_target_activation_boundary_accept_a_bounde_rule",
+      "rule_id": "r005_target_activation_boundary_accept_a_bounde_rule",
       "source_path": "SKILL.md#L18",
       "summary": "Accept a bounded field inventory; create leaf rows and behavior projections; block missing fields or unknown old-field disposition; hand canonical malformed cases, owners, obligations, and."
     },
@@ -1958,7 +2033,7 @@
       "category": "activation-boundary",
       "required": true,
       "requirement_id": "target.activation-boundary.route-id-field-lifecycle-mesh-role-public-owner",
-      "rule_id": "r005_target_activation_boundary_route_id_field__rule",
+      "rule_id": "r006_target_activation_boundary_route_id_field__rule",
       "source_path": "SKILL.md#L12",
       "summary": "Route id: field_lifecycle_mesh; role: public_owner; native owner: field_lifecycle_mesh. This standalone FlowGuard satellite skill owns field boundaries and projections, not downstream behav."
     },
@@ -1966,7 +2041,7 @@
       "category": "activation-boundary",
       "required": true,
       "requirement_id": "target.activation-boundary.use-for-schema-payload-config-prompt-persisted-ui",
-      "rule_id": "r006_target_activation_boundary_use_for_schema__rule",
+      "rule_id": "r007_target_activation_boundary_use_for_schema__rule",
       "source_path": "SKILL.md#L21",
       "summary": "Use for schema/payload/config/prompt/persisted/UI/runtime fields, migrations, aliases, defaults, fallbacks, or field-rooted model misses."
     },
@@ -1974,7 +2049,7 @@
       "category": "activation-boundary",
       "required": true,
       "requirement_id": "target.activation-boundary.use-when",
-      "rule_id": "r007_target_activation_boundary_use_when_rule",
+      "rule_id": "r008_target_activation_boundary_use_when_rule",
       "source_path": "SKILL.md#L20",
       "summary": "The target section 'Use When' must be represented by route, check, evidence, or closure coverage."
     },
@@ -1982,7 +2057,7 @@
       "category": "check-gate",
       "required": true,
       "requirement_id": "target.check-gate.default-replacement-requires-delete-block-migrate-delegate-repair",
-      "rule_id": "r008_target_check_gate_default_replacement_requ_rule",
+      "rule_id": "r009_target_check_gate_default_replacement_requ_rule",
       "source_path": "SKILL.md#L33",
       "summary": "Default replacement requires delete, block, migrate, delegate, repair, explicit preserve, or scoped reason; unknown disposition blocks full confidence."
     },
@@ -1990,7 +2065,7 @@
       "category": "check-gate",
       "required": true,
       "requirement_id": "target.check-gate.hard-gates",
-      "rule_id": "r009_target_check_gate_hard_gates_rule",
+      "rule_id": "r010_target_check_gate_hard_gates_rule",
       "source_path": "SKILL.md#L31",
       "summary": "The target section 'Hard Gates' must be represented by route, check, evidence, or closure coverage."
     },
@@ -1998,7 +2073,7 @@
       "category": "check-gate",
       "required": true,
       "requirement_id": "target.check-gate.return-evidence-failures-blockers-skipped-checks-residual-risk",
-      "rule_id": "r010_target_check_gate_return_evidence_failures_rule",
+      "rule_id": "r011_target_check_gate_return_evidence_failures_rule",
       "source_path": "SKILL.md#L37",
       "summary": "Return evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, and typed_next_actions, plus leaf rows, projections, owners, and dispositions."
     },
@@ -2006,7 +2081,7 @@
       "category": "check-gate",
       "required": true,
       "requirement_id": "target.check-gate.verify-the-real-flowguard-check-engine-and-agents",
-      "rule_id": "r011_target_check_gate_verify_the_real_flowguar_rule",
+      "rule_id": "r012_target_check_gate_verify_the_real_flowguar_rule",
       "source_path": "SKILL.md#L32",
       "summary": "Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework."
     },
@@ -2014,7 +2089,7 @@
       "category": "entrypoint-description",
       "required": true,
       "requirement_id": "target.description.use-when-a-change-adds-removes-renames-migrates",
-      "rule_id": "r012_target_description_use_when_a_change_adds__rule",
+      "rule_id": "r013_target_description_use_when_a_change_adds__rule",
       "source_path": "SKILL.md frontmatter",
       "summary": "The target skill description must be represented in the contract: Use when a change adds, removes, renames, migrates, replaces, externalizes, preserves, or audits fields, schema keys, confi."
     },
@@ -2022,7 +2097,7 @@
       "category": "entrypoint",
       "required": true,
       "requirement_id": "target.entrypoint.acceptance",
-      "rule_id": "r013_target_entrypoint_acceptance_rule",
+      "rule_id": "r014_target_entrypoint_acceptance_rule",
       "source_path": "SKILL.md",
       "summary": "The target skill entrypoint and hard gates must be represented by the runtime contract."
     },
@@ -2030,7 +2105,7 @@
       "category": "evidence",
       "required": true,
       "requirement_id": "target.evidence.edit-skillguard-contract-source-json-then-regenerate-derived",
-      "rule_id": "r014_target_evidence_edit_skillguard_contract_s_rule",
+      "rule_id": "r015_target_evidence_edit_skillguard_contract_s_rule",
       "source_path": "SKILL.md#L40",
       "summary": "Edit .skillguard/contract-source.json, then regenerate derived contracts; SkillGuard validates field accounting and cannot fabricate behavior or compatibility evidence."
     },
@@ -2038,7 +2113,7 @@
       "category": "quality-gate",
       "required": true,
       "requirement_id": "target.hard_gates",
-      "rule_id": "r015_target_hard_gates_rule",
+      "rule_id": "r016_target_hard_gates_rule",
       "source_path": "SKILL.md",
       "summary": "Declared hard gates and required workflow steps must be represented by checks and closure blockers."
     },
@@ -2046,7 +2121,7 @@
       "category": "non-use-boundary",
       "required": true,
       "requirement_id": "target.non-use-boundary.do-not-put-every-field-in-the-high",
-      "rule_id": "r016_target_non_use_boundary_do_not_put_every_f_rule",
+      "rule_id": "r017_target_non_use_boundary_do_not_put_every_f_rule",
       "source_path": "SKILL.md#L24",
       "summary": "Do not put every field in the high-level model, treat inventory as behavior proof, or replace alignment/testing; return missing behavior models to model-first-function-flow."
     },
@@ -2054,7 +2129,7 @@
       "category": "non-use-boundary",
       "required": true,
       "requirement_id": "target.non-use-boundary.do-not-use-when",
-      "rule_id": "r017_target_non_use_boundary_do_not_use_when_rule",
+      "rule_id": "r018_target_non_use_boundary_do_not_use_when_rule",
       "source_path": "SKILL.md#L23",
       "summary": "The target section 'Do Not Use When' must be represented by route, check, evidence, or closure coverage."
     },
@@ -2062,7 +2137,7 @@
       "category": "output",
       "required": true,
       "requirement_id": "target.output.output-requirements",
-      "rule_id": "r018_target_output_output_requirements_rule",
+      "rule_id": "r019_target_output_output_requirements_rule",
       "source_path": "SKILL.md#L36",
       "summary": "The target section 'Output Requirements' must be represented by route, check, evidence, or closure coverage."
     },
@@ -2070,7 +2145,7 @@
       "category": "workflow-route",
       "required": true,
       "requirement_id": "target.workflow-route.add-fieldprojection-rows-only-for-behavior-bearing-fields",
-      "rule_id": "r019_target_workflow_route_add_fieldprojection__rule",
+      "rule_id": "r020_target_workflow_route_add_fieldprojection__rule",
       "source_path": "SKILL.md#L28",
       "summary": "Add FieldProjection rows only for behavior-bearing fields and route invalid/old cases to ContractExhaustionMesh."
     },
@@ -2078,7 +2153,7 @@
       "category": "workflow-route",
       "required": true,
       "requirement_id": "target.workflow-route.behavior-claims-still-require-current-obligations-owner-code",
-      "rule_id": "r020_target_workflow_route_behavior_claims_stil_rule",
+      "rule_id": "r021_target_workflow_route_behavior_claims_stil_rule",
       "source_path": "SKILL.md#L34",
       "summary": "Behavior claims still require current obligations, owner code contracts, tests, freshness, and template harvest closure where the model deepens."
     },
@@ -2086,7 +2161,7 @@
       "category": "workflow-route",
       "required": true,
       "requirement_id": "target.workflow-route.close-replacement-disposition-and-send-owners-readers-writers",
-      "rule_id": "r021_target_workflow_route_close_replacement_di_rule",
+      "rule_id": "r022_target_workflow_route_close_replacement_di_rule",
       "source_path": "SKILL.md#L29",
       "summary": "Close replacement disposition and send owners, readers/writers, projections, cases, and gaps downstream."
     },
@@ -2094,7 +2169,7 @@
       "category": "workflow-route",
       "required": true,
       "requirement_id": "target.workflow-route.define-the-field-boundary-parent-groups-and-every",
-      "rule_id": "r022_target_workflow_route_define_the_field_bou_rule",
+      "rule_id": "r023_target_workflow_route_define_the_field_bou_rule",
       "source_path": "SKILL.md#L27",
       "summary": "Define the field boundary, parent groups, and every discovered FieldLifecycleRow."
     },
@@ -2102,7 +2177,7 @@
       "category": "workflow-route",
       "required": true,
       "requirement_id": "target.workflow-route.required-workflow",
-      "rule_id": "r023_target_workflow_route_required_workflow_rule",
+      "rule_id": "r024_target_workflow_route_required_workflow_rule",
       "source_path": "SKILL.md#L26",
       "summary": "The target section 'Required Workflow' must be represented by route, check, evidence, or closure coverage."
     }
@@ -2145,7 +2220,19 @@
       "summary": "Native and structural check coverage for field_lifecycle.replacement_disposition."
     },
     {
-      "gap_id": "r004_target_activation_boundary_accept_a_bounde_test_gap",
+      "gap_id": "r004_field_lifecycle_ui_reader_handoff_test_gap",
+      "planned_check_ids": [
+        "check_evidence",
+        "field_lifecycle_tests"
+      ],
+      "requirement_ids": [
+        "field_lifecycle.ui_reader_handoff"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for field_lifecycle.ui_reader_handoff."
+    },
+    {
+      "gap_id": "r005_target_activation_boundary_accept_a_bounde_test_gap",
       "planned_check_ids": [
         "check_route",
         "field_lifecycle_tests"
@@ -2157,7 +2244,7 @@
       "summary": "Native and structural check coverage for target.activation-boundary.accept-a-bounded-field-inventory-create-leaf-rows."
     },
     {
-      "gap_id": "r005_target_activation_boundary_route_id_field__test_gap",
+      "gap_id": "r006_target_activation_boundary_route_id_field__test_gap",
       "planned_check_ids": [
         "check_route",
         "field_lifecycle_tests"
@@ -2169,7 +2256,7 @@
       "summary": "Native and structural check coverage for target.activation-boundary.route-id-field-lifecycle-mesh-role-public-owner."
     },
     {
-      "gap_id": "r006_target_activation_boundary_use_for_schema__test_gap",
+      "gap_id": "r007_target_activation_boundary_use_for_schema__test_gap",
       "planned_check_ids": [
         "check_route",
         "field_lifecycle_tests"
@@ -2181,7 +2268,7 @@
       "summary": "Native and structural check coverage for target.activation-boundary.use-for-schema-payload-config-prompt-persisted-ui."
     },
     {
-      "gap_id": "r007_target_activation_boundary_use_when_test_gap",
+      "gap_id": "r008_target_activation_boundary_use_when_test_gap",
       "planned_check_ids": [
         "check_route",
         "field_lifecycle_tests"
@@ -2193,7 +2280,7 @@
       "summary": "Native and structural check coverage for target.activation-boundary.use-when."
     },
     {
-      "gap_id": "r008_target_check_gate_default_replacement_requ_test_gap",
+      "gap_id": "r009_target_check_gate_default_replacement_requ_test_gap",
       "planned_check_ids": [
         "check_quality_floor",
         "field_lifecycle_tests"
@@ -2205,7 +2292,7 @@
       "summary": "Native and structural check coverage for target.check-gate.default-replacement-requires-delete-block-migrate-delegate-repair."
     },
     {
-      "gap_id": "r009_target_check_gate_hard_gates_test_gap",
+      "gap_id": "r010_target_check_gate_hard_gates_test_gap",
       "planned_check_ids": [
         "check_quality_floor",
         "field_lifecycle_tests"
@@ -2217,7 +2304,7 @@
       "summary": "Native and structural check coverage for target.check-gate.hard-gates."
     },
     {
-      "gap_id": "r010_target_check_gate_return_evidence_failures_test_gap",
+      "gap_id": "r011_target_check_gate_return_evidence_failures_test_gap",
       "planned_check_ids": [
         "check_quality_floor",
         "field_lifecycle_tests"
@@ -2229,7 +2316,7 @@
       "summary": "Native and structural check coverage for target.check-gate.return-evidence-failures-blockers-skipped-checks-residual-risk."
     },
     {
-      "gap_id": "r011_target_check_gate_verify_the_real_flowguar_test_gap",
+      "gap_id": "r012_target_check_gate_verify_the_real_flowguar_test_gap",
       "planned_check_ids": [
         "check_quality_floor",
         "field_lifecycle_tests"
@@ -2241,7 +2328,7 @@
       "summary": "Native and structural check coverage for target.check-gate.verify-the-real-flowguard-check-engine-and-agents."
     },
     {
-      "gap_id": "r012_target_description_use_when_a_change_adds__test_gap",
+      "gap_id": "r013_target_description_use_when_a_change_adds__test_gap",
       "planned_check_ids": [
         "check_route",
         "field_lifecycle_tests"
@@ -2253,7 +2340,7 @@
       "summary": "Native and structural check coverage for target.description.use-when-a-change-adds-removes-renames-migrates."
     },
     {
-      "gap_id": "r013_target_entrypoint_acceptance_test_gap",
+      "gap_id": "r014_target_entrypoint_acceptance_test_gap",
       "planned_check_ids": [
         "check_route",
         "field_lifecycle_tests"
@@ -2265,7 +2352,7 @@
       "summary": "Native and structural check coverage for target.entrypoint.acceptance."
     },
     {
-      "gap_id": "r014_target_evidence_edit_skillguard_contract_s_test_gap",
+      "gap_id": "r015_target_evidence_edit_skillguard_contract_s_test_gap",
       "planned_check_ids": [
         "check_quality_floor",
         "field_lifecycle_tests"
@@ -2277,7 +2364,7 @@
       "summary": "Native and structural check coverage for target.evidence.edit-skillguard-contract-source-json-then-regenerate-derived."
     },
     {
-      "gap_id": "r015_target_hard_gates_test_gap",
+      "gap_id": "r016_target_hard_gates_test_gap",
       "planned_check_ids": [
         "check_quality_floor",
         "field_lifecycle_tests"
@@ -2289,7 +2376,7 @@
       "summary": "Native and structural check coverage for target.hard_gates."
     },
     {
-      "gap_id": "r016_target_non_use_boundary_do_not_put_every_f_test_gap",
+      "gap_id": "r017_target_non_use_boundary_do_not_put_every_f_test_gap",
       "planned_check_ids": [
         "check_route",
         "field_lifecycle_tests"
@@ -2301,7 +2388,7 @@
       "summary": "Native and structural check coverage for target.non-use-boundary.do-not-put-every-field-in-the-high."
     },
     {
-      "gap_id": "r017_target_non_use_boundary_do_not_use_when_test_gap",
+      "gap_id": "r018_target_non_use_boundary_do_not_use_when_test_gap",
       "planned_check_ids": [
         "check_route",
         "field_lifecycle_tests"
@@ -2313,7 +2400,7 @@
       "summary": "Native and structural check coverage for target.non-use-boundary.do-not-use-when."
     },
     {
-      "gap_id": "r018_target_output_output_requirements_test_gap",
+      "gap_id": "r019_target_output_output_requirements_test_gap",
       "planned_check_ids": [
         "check_closure",
         "field_lifecycle_tests"
@@ -2325,7 +2412,7 @@
       "summary": "Native and structural check coverage for target.output.output-requirements."
     },
     {
-      "gap_id": "r019_target_workflow_route_add_fieldprojection__test_gap",
+      "gap_id": "r020_target_workflow_route_add_fieldprojection__test_gap",
       "planned_check_ids": [
         "check_evidence",
         "field_lifecycle_tests"
@@ -2337,7 +2424,7 @@
       "summary": "Native and structural check coverage for target.workflow-route.add-fieldprojection-rows-only-for-behavior-bearing-fields."
     },
     {
-      "gap_id": "r020_target_workflow_route_behavior_claims_stil_test_gap",
+      "gap_id": "r021_target_workflow_route_behavior_claims_stil_test_gap",
       "planned_check_ids": [
         "check_evidence",
         "field_lifecycle_tests"
@@ -2349,7 +2436,7 @@
       "summary": "Native and structural check coverage for target.workflow-route.behavior-claims-still-require-current-obligations-owner-code."
     },
     {
-      "gap_id": "r021_target_workflow_route_close_replacement_di_test_gap",
+      "gap_id": "r022_target_workflow_route_close_replacement_di_test_gap",
       "planned_check_ids": [
         "check_evidence",
         "field_lifecycle_tests"
@@ -2361,7 +2448,7 @@
       "summary": "Native and structural check coverage for target.workflow-route.close-replacement-disposition-and-send-owners-readers-writers."
     },
     {
-      "gap_id": "r022_target_workflow_route_define_the_field_bou_test_gap",
+      "gap_id": "r023_target_workflow_route_define_the_field_bou_test_gap",
       "planned_check_ids": [
         "check_evidence",
         "field_lifecycle_tests"
@@ -2373,7 +2460,7 @@
       "summary": "Native and structural check coverage for target.workflow-route.define-the-field-boundary-parent-groups-and-every."
     },
     {
-      "gap_id": "r023_target_workflow_route_required_workflow_test_gap",
+      "gap_id": "r024_target_workflow_route_required_workflow_test_gap",
       "planned_check_ids": [
         "check_evidence",
         "field_lifecycle_tests"
@@ -2405,14 +2492,14 @@
       "route_id": "field_lifecycle_mesh",
       "source_path": ".skillguard/contract-source.json",
       "stage_id": "field_lifecycle_mesh_execution",
-      "summary": "Project behavior-bearing fields and route invalid/old-field finite cases to ContractExhaustionMesh."
+      "summary": "Project behavior-bearing fields, hand all ordinary-UI-reader fields to UI content admission, and route invalid/old-field finite cases to ContractExhaustionMesh."
     },
     {
       "required": true,
       "route_id": "field_lifecycle_mesh",
       "source_path": ".skillguard/contract-source.json",
       "stage_id": "field_lifecycle_mesh_checks",
-      "summary": "Run field lifecycle tests and reject missing rows, projection gaps, duplicate owners, or unknown dispositions."
+      "summary": "Run field lifecycle tests and reject missing rows, UI-reader handoff gaps, projection gaps, duplicate owners, or unknown dispositions."
     },
     {
       "required": true,

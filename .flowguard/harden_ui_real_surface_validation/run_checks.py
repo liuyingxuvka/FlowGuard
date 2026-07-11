@@ -28,7 +28,12 @@ def run_block(block, actions: tuple[str, ...]):
 
 def run_case(name: str, block, *, expect_done: str, expect_invariant: bool = True) -> dict[str, object]:
     state, rows = run_block(block, model.HAPPY_PATH)
-    invariant = model.no_full_done_without_last_mile_evidence(state, ()).passed
+    invariant = all(
+        (
+            model.no_full_done_without_allowed_observed_content(state, ()).passed,
+            model.no_full_done_without_last_mile_evidence(state, ()).passed,
+        )
+    )
     ok = state.done_claim == expect_done and invariant is expect_invariant
     return {
         "case": name,
@@ -52,6 +57,12 @@ def main() -> int:
     cases = (
         run_case("correct_ui_last_mile_hardening", model.CorrectUILastMileHardening(), expect_done="accepted"),
         run_case("broken_no_observed_inventory", model.BrokenNoObservedInventory(), expect_done="rejected"),
+        run_case(
+            "broken_observed_mapping_grants_permission",
+            model.BrokenObservedMappingGrantsPermission(),
+            expect_done="accepted",
+            expect_invariant=False,
+        ),
         run_case("broken_api_only_functional_chain", model.BrokenApiOnlyFunctionalChain(), expect_done="rejected"),
         run_case("broken_source_cancel_branch_missing", model.BrokenSourceBranchMissing(), expect_done="rejected"),
         run_case(

@@ -9,8 +9,24 @@ observed-source alignment. For an existing or runnable UI, it first inventories
 the real visible surface: buttons, inputs, dropdowns, tables, displayed fields,
 status text, dialogs, menus, panels, and regions. Every observed item must map
 to a `UIControl`, `UIDisplayElement`, or `UIVisibleSurfaceItem`, or be recorded
-as a blindspot with owner and validation boundary. Before broad UI completion
-claims, it also accounts the user-visible functional capabilities the UI is
+as a blindspot with owner and validation boundary. This observation records
+reality; it does not authorize displayed content to remain visible.
+
+Before displayed values, status/helper/metadata content, non-action labels,
+optional details, or other state-exposing content enter display/text/surface
+modeling, the route creates a content-visibility plan. The conceptual model has
+only user content and internal content; the executable values are exactly
+`user_visible`, `user_on_demand`, and `internal`. Unclassified content fails
+closed, internal content cannot map to ordinary UI, and user content needs a
+typed `task:`, `state:`, `recovery:`, or `safety:` reference. `user_on_demand`
+is hidden across display, text, visible-surface, and observed mappings and
+requires visible/enabled reveal and return controls; hover uses a distinct
+keyboard/focus event. This is an admission model, not a user-role or permission
+taxonomy. Only a registered control's normal label, owned by an in-scope task
+and carrying no extra state, disabled reason, or metadata, remains exempt from
+a duplicate content row.
+
+Before broad UI completion claims, the route also accounts the user-visible functional capabilities the UI is
 supposed to provide. Each required capability must bind to existing feature
 contracts, user tasks, journeys, controls/events, code or functional-chain
 owners, expected outputs, and current evidence, or be explicitly scoped out
@@ -38,11 +54,12 @@ to follow the product behavior instead of being placed arbitrarily.
 It also reviews information and control redundancy: the same semantic
 information or same-level function can be repeated only when the model records
 why the repetition is intentional.
-The final blueprint stage keeps headings, labels, action text, status
+The final blueprint stage keeps approved headings, labels, action text, status
 messages, helper text, and error/recovery copy slots tied to modeled UI states
 and owned regions before visual design or frontend implementation begins.
-Visible-surface review keeps controls, status text, helper copy, placeholders,
-metadata, and disabled reasons owned by user-facing state or control purpose.
+Visible-surface review keeps admitted controls, status text, helper copy,
+placeholders, metadata, and disabled reasons owned by user-facing state or
+control purpose without using that purpose to bypass admission.
 
 ## Use Cases
 
@@ -65,6 +82,11 @@ Use it when:
   hierarchy level and need an explicit reason to remain separate;
 - helper copy, placeholders, metadata, status text, or disabled reasons need to
   be checked for user-facing purpose instead of leaking implementation terms;
+- displayed values, non-action labels, optional details, or other
+  state-exposing content need a pre-display `user_visible`, `user_on_demand`,
+  or `internal` decision rather than inheriting visibility from a display;
+- optional details need a default-hidden state, explicit reveal, close or
+  collapse path, and keyboard/focus equivalence when hover is supported;
 - implemented UI claims need to name what kind of evidence supports the claim,
   including screenshots when screenshots are the right evidence;
 - runnable/existing UI work needs a real-surface inventory before the model can
@@ -113,9 +135,11 @@ The UI interaction model objects are:
   overlap.
 - `UIDisplayElement`: one modeled information item, such as a text summary,
   chart, metric card, table, status line, image, or diagram. It carries a
-  `semantic_key` so FlowGuard can detect repeated information.
+  `semantic_key` so FlowGuard can detect repeated information and an optional
+  `content_visibility_id` to prove that state-exposing content was admitted.
 - `UIStateNode`: one abstract UI state with visible, enabled, disabled, hidden,
-  recovery, terminal, failure-state, and visible-display information.
+  recovery, terminal, failure-state, visible-display, and `hidden_displays`
+  information for closed on-demand states.
 - `UITransition`: one modeled event that moves from a source UI state to a
   target UI state.
 - `UIInteractionModel`: the complete UI flow model.
@@ -132,7 +156,9 @@ The observed real-surface and functional-chain objects are:
 - `UIObservedSurfaceInventory`: the observed visible item inventory for a UI
   boundary.
 - `review_ui_observed_surface_inventory(inventory)`: blocks model completion
-  when observed visible items are unmapped or enabled controls are blindspots.
+  when observed visible items are unmapped, non-action content lacks approved
+  admission, or enabled controls are blindspots. An observed display mapping is
+  ownership evidence, not display permission.
 - `UIControlFunctionalChain`: one enabled control's chain from visible control
   through UI event, code owner, backend/local function, UI state update, and
   click/test evidence.
@@ -160,6 +186,30 @@ The observed real-surface and functional-chain objects are:
   interaction semantics such as file/directory pickers, save/custom dialogs,
   external opens, navigation, commands, cancel, selected value, success
   feedback, error, and no-handler dispositions during source-based work.
+
+The content-admission objects are:
+
+- `UI_CONTENT_VISIBILITY_CLASSES`: the only executable values,
+  `user_visible`, `user_on_demand`, and `internal`. The first two form one
+  ordinary user-content group; this is not an audience-role taxonomy.
+- `UIContentVisibilityItem`: one candidate-content decision with content id,
+  grouped source field ids, visibility class, typed and resolvable user-need
+  references, reveal/keyboard/dismiss event ids, and rationale.
+- `UIContentVisibilityEvidence`: one current per-content implementation row for
+  default-visible, default-hidden, reveal, revealed, return-hidden, or
+  internal-absent evidence. Positive rows resolve to that exact content item
+  in the declared state; another item's observation is not interchangeable.
+- `UIContentVisibilityPlan`: the candidate inventory, decisions, model/revision
+  boundary, validation boundaries, and rationale for one UI surface.
+- `UIContentVisibilityReport` and `review_ui_content_visibility(...)`: reject
+  unknown/unclassified content, user content without a task/state/recovery/
+  safety need, overbroad control-label exemptions, internal ordinary-UI
+  mappings, and invalid on-demand state paths on any mapping target.
+
+FieldLifecycleMesh hands every source field or grouped id whose reader reaches
+an ordinary UI boundary to this plan, regardless of source field role. It does
+not choose the visibility class and does not push fields with no ordinary-UI
+reader into the UI model.
 
 The human-operability objects are:
 
@@ -235,7 +285,9 @@ The implementation validation objects are:
 The visible-surface objects are:
 
 - `UIVisibleSurfaceItem`: one user-facing item, such as control text, helper
-  copy, placeholder text, metadata, status text, or disabled reason.
+  copy, placeholder text, metadata, status text, or disabled reason. Candidate
+  state-exposing items bind to `content_visibility_id`; ordinary task-owned
+  control labels remain exempt from duplicate rows.
 - `UIVisibleSurface`: the complete visible-surface inventory for a UI boundary.
 - `UIVisibleSurfaceReport`: structured review output.
 - `review_ui_visible_surface(surface, interaction_model=...)`: checks that
@@ -289,7 +341,7 @@ The text hierarchy blueprint objects are:
   semantic tokens, not final brand font choices.
 - `UITextElement`: one modeled text slot with role, token, semantic key,
   region, parent text, source state/control/display, state visibility, and
-  redundancy rationale.
+  redundancy rationale. State-exposing text binds to approved content admission.
 - `UITextHierarchyBlueprint`: the complete text hierarchy derivation, including
   source interaction model id, source structure derivation id, parent surface,
   typography tokens, text elements, validation boundaries, and rationale.
@@ -302,10 +354,15 @@ The text hierarchy blueprint objects are:
 
 ```text
 product/workflow intent
+-> observed real surface first when a UI exists or runs
+-> record what is visible without treating observation as permission
+-> UI content visibility plan
+-> classify candidate content as user_visible, user_on_demand, or internal
+-> reject unclassified/internal ordinary-UI mapping; model hidden/reveal/return
 -> UI interaction model
 -> review UI controls, states, transitions, availability, failures
 -> visible surface review
--> review helper copy, status text, placeholders, metadata, disabled reasons
+-> review admitted helper copy, status text, placeholders, metadata, disabled reasons
 -> UI journey coverage when claiming complete app-level UI coverage
 -> review launch entry points, feature paths, terminal/recovery behavior, blindspots
 -> UI structure derivation
@@ -329,10 +386,42 @@ The first stage models the UI as:
 UI event x UI state -> Set(UI output x UI state)
 ```
 
+Before content enters that interaction/display model, the content-admission
+stage models:
+
+```text
+candidate content x UI state -> Set(admission decision x UI state)
+```
+
+It applies to displayed values, status/helper/metadata content, non-action
+labels, optional details, and other content that can expose system state. Every
+in-scope candidate has exactly one executable value:
+
+- `user_visible`: ordinary user content that needs default visibility for a
+  task, current-state, recovery, or safety reason;
+- `user_on_demand`: ordinary user content that is hidden in the default/closed
+  state, revealed explicitly, and returned through close, collapse, blur,
+  Escape, or an equivalent path; reveal/return controls are visible and enabled
+  in their source states, and hover has a distinct keyboard/focus event;
+- `internal`: non-user content that remains available to internal logic,
+  evidence, audit, model, test, routing, or diagnostics but cannot map to the
+  ordinary UI.
+
+There is no fourth `unclassified` rendering state: missing or unknown
+classification fails closed. A free-text purpose, hierarchy token, or direct
+display mapping cannot grant permission. Normal labels for task-owned
+registered controls do not need duplicate admission rows only when the label
+matches the control and exposes no extra state, disabled reason, or metadata.
+
 The visible-surface stage checks:
 
 - controls, helper copy, status text, placeholders, metadata, and disabled
-  reasons have an owner and a user-facing purpose;
+  reasons have an owner, an approved content id when required, and a
+  user-facing purpose;
+- observed visibility is compared with the approved content set rather than
+  accepted because the current implementation already shows it;
+- internal/unclassified content is absent, and on-demand content is absent in
+  the default/closed state until its reveal event;
 - disabled controls explain availability in terms the user can understand;
 - placeholder text is guidance, not proof that a feature is complete;
 - implementation-facing terms such as mock, backend, hydration, debug route,
@@ -383,6 +472,12 @@ structure:
 - repeated text intent needs a rationale when it appears in more than one
   region or hierarchy level.
 
+Text hierarchy consumes admission; it does not create it. Only `user_visible`
+content and revealed-state `user_on_demand` content may enter visible text
+hierarchy. Internal or unclassified content cannot become visible through a
+text owner, typography token, priority, purpose, or rationale. On-demand text
+is absent from the default hierarchy and appears only in the revealed state.
+
 The redundancy review is intentionally conservative:
 
 - two display elements with the same `semantic_key` in one state need a
@@ -430,6 +525,10 @@ operated as a task system:
   disabled-control skip policy, focus return, and error focus;
 - each in-scope task has a passing walkthrough, and any confusion note has a
   mitigation before human-operable UI confidence is claimed.
+- every on-demand item binds to an in-scope task, discoverable reveal
+  affordance, action grammar whose feedback resolves to the revealed content,
+  explicit dismiss/return path, and keyboard/focus-equivalent behavior for
+  hover disclosure.
 
 The evidence and implementation stages are only for implemented/runnable UI
 claims. They check:
@@ -445,6 +544,11 @@ claims. They check:
 - each run records the model or implementation revision it validates;
 - each render evidence row declares an evidence kind, including screenshot when
   screenshot evidence is used;
+- implementation evidence binds the current content-visibility plan and
+  observed inventory, then uses structured per-content rows to prove
+  default-visible content, the closed/reveal/revealed/returned on-demand path,
+  and the absence of internal content from the ordinary observed surface; one
+  opaque reference or boolean review flag is insufficient;
 - geometry/layout claims have current evidence for overflow, overlap, bounds,
   focus/keyboard reachability, and scroll ownership;
 - responsiveness claims have immediate hot-path feedback and stale-result
@@ -796,6 +900,12 @@ telemetry, or release conformance. Together, the route produces visible-surface,
 structure/text, geometry/responsiveness, and optional implementation evidence
 boundaries that frontend, Figma, browser, copy, and design-review workflows can
 use.
+
+FieldLifecycleMesh remains the field inventory owner. When presentation or
+metadata fields have readers that reach an ordinary UI adapter/view model/output
+boundary, it hands only those candidate field ids or grouped source ids to UI
+Flow Structure. UI Flow Structure remains the sole owner of the three-value
+admission decision; unrelated backend fields stay internally accounted.
 
 Use Code Structure Recommendation when the question is how to split
 implementation modules or files. Use StructureMesh when an existing codebase

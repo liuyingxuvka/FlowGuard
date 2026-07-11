@@ -29,6 +29,7 @@ Collect:
 - leaf rows for every discovered field;
 - role, lifecycle, behavior impacts, readers, writers, and owner routes;
 - projection rows for behavior-bearing fields;
+- every field id or grouped source id whose readers reach an ordinary UI adapter, view model, display, text, or output boundary;
 - old-field disposition and evidence refs for old, replaced, deprecated,
   alias, fallback, or compatibility-like fields.
 
@@ -39,6 +40,8 @@ inventory. A behavior model should include only fields that affect routing,
 state, permissions, side effects, schema, replay, migration, or external
 contracts. Presentation-only or metadata fields can stay out of the high-level
 model if the leaf row records why.
+
+FieldLifecycleMesh accounts fields and identifies the UI candidate boundary; it does not decide UI admission. Hand every field with an ordinary UI reader, or a justified grouped set of source ids, to the `ui_flow_structure` owner regardless of source role. Do not force fields with no ordinary-UI reader into a UI plan, and do not add an audience or role taxonomy here.
 
 ## Default Replacement Policy
 
@@ -57,6 +60,7 @@ FieldLifecycleMesh does not prove behavior alone. Send:
 
 - projections to Model-Test Alignment as model obligations and owner code
   contracts;
+- all ordinary-UI-reader candidates to UI Flow Structure as field ids or grouped source ids for `UIContentVisibilityPlan`; UI Flow Structure alone selects `user_visible`, `user_on_demand`, or `internal` and proves ordinary-surface behavior;
 - reader/writer/owner maps to Code Structure Recommendation;
 - old field disposition to Legacy Path Disposition and Architecture Reduction;
 - field root cause ids and same-class field ids to Model-Miss Review;
@@ -70,6 +74,7 @@ A field lifecycle review is complete when:
 
 - every discovered field has a leaf row or the discovery boundary is narrowed;
 - every behavior-bearing field has a projection or a scoped-out reason;
+- every field whose reader reaches an ordinary UI boundary is handed to UI Flow Structure, while fields with no ordinary-UI reader remain internally accounted without UI rows;
 - old/replaced/deprecated/compatibility-like fields have a closing disposition;
 - downstream handoffs are named;
 - stale field rows are blocked or rerun;

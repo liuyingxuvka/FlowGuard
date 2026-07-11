@@ -9,6 +9,8 @@ state, branch, or feature.
 - every discovered field at the lowest useful field group;
 - behavior-bearing fields in high-level models through `FieldProjection`;
 - field owners, readers, and writers;
+- a UI-boundary handoff for every field whose readers reach an ordinary UI
+  adapter, view model, display, text, or output boundary;
 - lifecycle state: new, active, old, replaced, deprecated, derived, or
   archive-only;
 - old-field disposition: deleted, blocked, migrated, delegated,
@@ -25,11 +27,21 @@ groups to account for all fields, including display-only and metadata fields.
 Leaf coverage can mark non-behavior fields as scoped out, but it must do so
 explicitly.
 
+A field role does not decide user visibility. Whenever a reader reaches the
+ordinary UI boundary, FieldLifecycleMesh hands the field id or a justified
+grouped set of source ids to the `ui_flow_structure` owner as candidate
+content—even when the source role is state, permission, routing, presentation,
+or metadata. UI Flow Structure alone chooses `user_visible`,
+`user_on_demand`, or `internal`. FieldLifecycleMesh does not create audience
+roles, does not grant display permission, and does not force fields with no
+ordinary-UI reader into the UI plan.
+
 ```text
 feature model
 -> important behavior fields projected to obligations/contracts
 -> child field group
 -> every discovered field accounted
+-> every ordinary-UI-reader candidate handed to UI Flow Structure
 -> old fields closed by disposition evidence
 ```
 
@@ -77,6 +89,9 @@ old-field case ids with explicit oracle reactions.
 
 - Existing Model Preflight records behavior field ids and existing field owners.
 - Code Structure Recommendation records field owner/reader/writer maps.
+- UI Flow Structure receives every field id or grouped source id whose readers
+  reach an ordinary UI boundary, then owns the
+  content-admission decision and visible behavior evidence.
 - Model-Test Alignment consumes field projections as model obligations and code
   contracts.
 - Architecture Reduction and Legacy Path Disposition close old fields.

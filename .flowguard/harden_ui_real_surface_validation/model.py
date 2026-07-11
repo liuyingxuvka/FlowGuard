@@ -3,8 +3,8 @@
 FlowGuard Risk Purpose Header
 Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
 Purpose: prevent UI completion claims from passing when the real rendered UI,
-enabled-control behavior, source-baseline interaction semantics, or final claim evidence is
-missing.
+allowed-versus-observed content comparison, enabled-control behavior,
+source-baseline interaction semantics, or final claim evidence is missing.
 Modeled block shape: Input x State -> Set(Output x State).
 Run: python .flowguard/harden_ui_real_surface_validation/run_checks.py
 """
@@ -34,12 +34,13 @@ class UIHardeningState:
     existing_model_preflight_current: bool = False
     observed_inventory_gate: bool = False
     all_visible_items_mapped: bool = False
+    allowed_vs_observed_content_gate: bool = False
     functional_chain_gate: bool = False
     source_baseline_gate: bool = False
     ui_model_miss_gate: bool = False
     task_evidence_gate: bool = False
     final_done_claim_gate: bool = False
-    agent_role_evidence_gate: bool = False
+    workflow_coverage_evidence_gate: bool = False
     tests_current: bool = False
     installed_skills_synced: bool = False
     shadow_and_git_synced: bool = False
@@ -51,12 +52,13 @@ class UIHardeningState:
             and self.existing_model_preflight_current
             and self.observed_inventory_gate
             and self.all_visible_items_mapped
+            and self.allowed_vs_observed_content_gate
             and self.functional_chain_gate
             and self.source_baseline_gate
             and self.ui_model_miss_gate
             and self.task_evidence_gate
             and self.final_done_claim_gate
-            and self.agent_role_evidence_gate
+            and self.workflow_coverage_evidence_gate
             and self.tests_current
             and self.installed_skills_synced
             and self.shadow_and_git_synced
@@ -70,12 +72,13 @@ class CorrectUILastMileHardening:
         "existing_model_preflight_current",
         "observed_inventory_gate",
         "all_visible_items_mapped",
+        "allowed_vs_observed_content_gate",
         "functional_chain_gate",
         "source_baseline_gate",
         "ui_model_miss_gate",
         "task_evidence_gate",
         "final_done_claim_gate",
-        "agent_role_evidence_gate",
+        "workflow_coverage_evidence_gate",
         "tests_current",
         "installed_skills_synced",
         "shadow_and_git_synced",
@@ -87,7 +90,8 @@ class CorrectUILastMileHardening:
     output_description = "UI last-mile hardening state or claim decision"
     idempotency = (
         "Full claim requires observed inventory, mapping, function chains, "
-        "source-baseline semantics, model miss, task evidence, final claim, agent roles, "
+        "allowed-versus-observed content comparison, source-baseline semantics, model miss, "
+        "task evidence, final claim, workflow coverage, "
         "tests, installed skill sync, and shadow/git sync."
     )
 
@@ -123,8 +127,21 @@ class CorrectUILastMileHardening:
                 replace(state, all_visible_items_mapped=ok),
                 label="visible_items_mapped" if ok else "mapping_blocked",
             )
-        elif action == "add_functional_chain_gate":
+        elif action == "compare_allowed_and_observed_content":
             ok = state.observed_inventory_gate and state.all_visible_items_mapped
+            yield FunctionResult(
+                UIHardeningOutput(
+                    "allowed_observed_content_compared" if ok else "allowed_observed_comparison_blocked"
+                ),
+                replace(state, allowed_vs_observed_content_gate=ok),
+                label="allowed_observed_content_compared" if ok else "allowed_observed_comparison_blocked",
+            )
+        elif action == "add_functional_chain_gate":
+            ok = (
+                state.observed_inventory_gate
+                and state.all_visible_items_mapped
+                and state.allowed_vs_observed_content_gate
+            )
             yield FunctionResult(
                 UIHardeningOutput("functional_chain_gate_added" if ok else "functional_chain_blocked"),
                 replace(state, functional_chain_gate=ok),
@@ -145,7 +162,11 @@ class CorrectUILastMileHardening:
                 label="model_miss_gate_added" if ok else "model_miss_gate_blocked",
             )
         elif action == "add_task_evidence_gate":
-            ok = state.observed_inventory_gate and state.functional_chain_gate
+            ok = (
+                state.observed_inventory_gate
+                and state.allowed_vs_observed_content_gate
+                and state.functional_chain_gate
+            )
             yield FunctionResult(
                 UIHardeningOutput("task_evidence_gate_added" if ok else "task_evidence_blocked"),
                 replace(state, task_evidence_gate=ok),
@@ -158,24 +179,25 @@ class CorrectUILastMileHardening:
                 replace(state, final_done_claim_gate=ok),
                 label="final_done_claim_gate_added" if ok else "done_claim_gate_blocked",
             )
-        elif action == "add_agent_role_gate":
+        elif action == "add_workflow_coverage_gate":
             ok = state.observed_inventory_gate and state.functional_chain_gate
             yield FunctionResult(
-                UIHardeningOutput("agent_role_gate_added" if ok else "agent_role_gate_blocked"),
-                replace(state, agent_role_evidence_gate=ok),
-                label="agent_role_gate_added" if ok else "agent_role_gate_blocked",
+                UIHardeningOutput("workflow_coverage_gate_added" if ok else "workflow_coverage_gate_blocked"),
+                replace(state, workflow_coverage_evidence_gate=ok),
+                label="workflow_coverage_gate_added" if ok else "workflow_coverage_gate_blocked",
             )
         elif action == "run_tests":
             ok = (
                 state.openspec_valid
                 and state.observed_inventory_gate
                 and state.all_visible_items_mapped
+                and state.allowed_vs_observed_content_gate
                 and state.functional_chain_gate
                 and state.source_baseline_gate
                 and state.ui_model_miss_gate
                 and state.task_evidence_gate
                 and state.final_done_claim_gate
-                and state.agent_role_evidence_gate
+                and state.workflow_coverage_evidence_gate
             )
             yield FunctionResult(
                 UIHardeningOutput("tests_current" if ok else "tests_blocked"),
@@ -215,6 +237,78 @@ class BrokenNoObservedInventory(CorrectUILastMileHardening):
                 UIHardeningOutput("inventory_gate_missing_but_accepted"),
                 replace(state, observed_inventory_gate=False, all_visible_items_mapped=False),
                 label="inventory_gate_missing_but_accepted",
+            )
+            return
+        yield from super().apply(input_obj, state)
+
+
+class BrokenObservedMappingGrantsPermission(CorrectUILastMileHardening):
+    name = "BrokenObservedMappingGrantsPermission"
+    idempotency = "Broken variant treats an existing visible mapping as permission without admission."
+
+    def apply(self, input_obj: UIHardeningAction, state: UIHardeningState) -> Iterable[FunctionResult]:
+        action = input_obj.action_type
+        if action == "compare_allowed_and_observed_content":
+            yield FunctionResult(
+                UIHardeningOutput("observed_mapping_treated_as_permission"),
+                replace(state, allowed_vs_observed_content_gate=False),
+                label="observed_mapping_treated_as_permission",
+            )
+            return
+        if action == "add_functional_chain_gate":
+            ok = state.observed_inventory_gate and state.all_visible_items_mapped
+            yield FunctionResult(
+                UIHardeningOutput("functional_chain_gate_added" if ok else "functional_chain_blocked"),
+                replace(state, functional_chain_gate=ok),
+                label="functional_chain_gate_added" if ok else "functional_chain_blocked",
+            )
+            return
+        if action == "add_task_evidence_gate":
+            ok = state.observed_inventory_gate and state.functional_chain_gate
+            yield FunctionResult(
+                UIHardeningOutput("task_evidence_gate_added" if ok else "task_evidence_blocked"),
+                replace(state, task_evidence_gate=ok),
+                label="task_evidence_gate_added" if ok else "task_evidence_blocked",
+            )
+            return
+        if action == "run_tests":
+            ok = (
+                state.openspec_valid
+                and state.observed_inventory_gate
+                and state.all_visible_items_mapped
+                and state.functional_chain_gate
+                and state.source_baseline_gate
+                and state.ui_model_miss_gate
+                and state.task_evidence_gate
+                and state.final_done_claim_gate
+                and state.workflow_coverage_evidence_gate
+            )
+            yield FunctionResult(
+                UIHardeningOutput("tests_current" if ok else "tests_blocked"),
+                replace(state, tests_current=ok),
+                label="tests_current" if ok else "tests_blocked",
+            )
+            return
+        if action == "claim_done":
+            accepted = (
+                state.openspec_valid
+                and state.existing_model_preflight_current
+                and state.observed_inventory_gate
+                and state.all_visible_items_mapped
+                and state.functional_chain_gate
+                and state.source_baseline_gate
+                and state.ui_model_miss_gate
+                and state.task_evidence_gate
+                and state.final_done_claim_gate
+                and state.workflow_coverage_evidence_gate
+                and state.tests_current
+                and state.installed_skills_synced
+                and state.shadow_and_git_synced
+            )
+            yield FunctionResult(
+                UIHardeningOutput("done_accepted" if accepted else "done_rejected"),
+                replace(state, done_claim="accepted" if accepted else "rejected"),
+                label="done_accepted" if accepted else "done_rejected",
             )
             return
         yield from super().apply(input_obj, state)
@@ -277,12 +371,13 @@ HAPPY_PATH = (
     "run_existing_model_preflight",
     "add_observed_inventory_gate",
     "map_visible_items",
+    "compare_allowed_and_observed_content",
     "add_functional_chain_gate",
     "add_source_baseline_gate",
     "add_model_miss_gate",
     "add_task_evidence_gate",
     "add_final_done_claim_gate",
-    "add_agent_role_gate",
+    "add_workflow_coverage_gate",
     "run_tests",
     "sync_installed_skills",
     "sync_shadow_and_git",
@@ -299,12 +394,26 @@ def no_full_done_without_last_mile_evidence(state: UIHardeningState, trace) -> I
     del trace
     if state.done_claim == "accepted" and not state.ready_for_full_claim():
         return InvariantResult.fail(
-            "full UI done accepted without observed inventory, mapping, functional chain, source-baseline semantics, miss, task, final-claim, agent-role, test, install, shadow, and git evidence"
+            "full UI done accepted without observed inventory, mapping, allowed-observed comparison, functional chain, source-baseline semantics, miss, task, final-claim, workflow coverage, test, install, shadow, and git evidence"
+        )
+    return InvariantResult.pass_()
+
+
+def no_full_done_without_allowed_observed_content(state: UIHardeningState, trace) -> InvariantResult:
+    del trace
+    if state.done_claim == "accepted" and not state.allowed_vs_observed_content_gate:
+        return InvariantResult.fail(
+            "full UI done accepted before actual visible content was proven within the allowed content set"
         )
     return InvariantResult.pass_()
 
 
 INVARIANTS = (
+    Invariant(
+        "no_full_done_without_allowed_observed_content",
+        "Observed visibility and direct mapping do not grant ordinary UI display permission.",
+        no_full_done_without_allowed_observed_content,
+    ),
     Invariant(
         "no_full_done_without_last_mile_evidence",
         "Full UI completion requires observed real surface, functional chain, source-baseline semantics, closure, validation, and sync evidence.",
@@ -326,6 +435,13 @@ def build_correct_workflow() -> Workflow:
 
 def build_broken_no_inventory_workflow() -> Workflow:
     return Workflow((BrokenNoObservedInventory(),), name="ui_last_mile_hardening_no_inventory")
+
+
+def build_broken_observed_mapping_permission_workflow() -> Workflow:
+    return Workflow(
+        (BrokenObservedMappingGrantsPermission(),),
+        name="ui_last_mile_hardening_observed_mapping_permission_broken",
+    )
 
 
 def build_broken_api_only_workflow() -> Workflow:

@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import json
+import os
+from pathlib import Path
+
 from flowguard import run_exact_sequence
 import model
 
@@ -39,12 +43,13 @@ def run_rejected_release_sequence(name: str, workflow, sequence: tuple[model.Rol
 DESIGN_SEQUENCE = (
     model.RolloutAction("create_ui_model"),
     model.RolloutAction("review_ui_model"),
+    model.RolloutAction("review_content_visibility_plan"),
     model.RolloutAction("review_journey_coverage"),
     model.RolloutAction("derive_structure"),
     model.RolloutAction("document_skill"),
 )
 
-IMPLEMENTATION_SEQUENCE = DESIGN_SEQUENCE[:4] + (
+IMPLEMENTATION_SEQUENCE = DESIGN_SEQUENCE[:-1] + (
     model.RolloutAction("review_implementation_validation"),
     model.RolloutAction("document_skill"),
     model.RolloutAction("claim_implemented_ui"),
@@ -62,6 +67,66 @@ def main() -> int:
         run_sequence(
             "broken_layout_only_without_ui_model",
             model.build_broken_layout_only_workflow(),
+            expect_ok=False,
+            sequence=model.RELEASE_INPUTS,
+        ),
+        run_sequence(
+            "broken_missing_content_visibility_plan",
+            model.build_broken_missing_visibility_plan_workflow(),
+            expect_ok=False,
+            sequence=model.RELEASE_INPUTS,
+        ),
+        run_sequence(
+            "broken_unclassified_content_accepted",
+            model.build_broken_unclassified_content_workflow(),
+            expect_ok=False,
+            sequence=model.RELEASE_INPUTS,
+        ),
+        run_sequence(
+            "broken_untyped_user_need_accepted",
+            model.build_broken_untyped_user_need_workflow(),
+            expect_ok=False,
+            sequence=model.RELEASE_INPUTS,
+        ),
+        run_sequence(
+            "broken_overbroad_control_label_exemption_accepted",
+            model.build_broken_overbroad_control_label_exemption_workflow(),
+            expect_ok=False,
+            sequence=model.RELEASE_INPUTS,
+        ),
+        run_sequence(
+            "broken_internal_content_mapped_to_ui",
+            model.build_broken_internal_content_mapping_workflow(),
+            expect_ok=False,
+            sequence=model.RELEASE_INPUTS,
+        ),
+        run_sequence(
+            "broken_on_demand_content_visible_by_default",
+            model.build_broken_on_demand_default_visible_workflow(),
+            expect_ok=False,
+            sequence=model.RELEASE_INPUTS,
+        ),
+        run_sequence(
+            "broken_on_demand_non_display_state_bypass",
+            model.build_broken_on_demand_mapping_state_bypass_workflow(),
+            expect_ok=False,
+            sequence=model.RELEASE_INPUTS,
+        ),
+        run_sequence(
+            "broken_on_demand_content_missing_reveal",
+            model.build_broken_on_demand_missing_reveal_workflow(),
+            expect_ok=False,
+            sequence=model.RELEASE_INPUTS,
+        ),
+        run_sequence(
+            "broken_on_demand_content_missing_return",
+            model.build_broken_on_demand_no_return_workflow(),
+            expect_ok=False,
+            sequence=model.RELEASE_INPUTS,
+        ),
+        run_sequence(
+            "broken_on_demand_affordance_or_feedback_gap",
+            model.build_broken_on_demand_affordance_feedback_workflow(),
             expect_ok=False,
             sequence=model.RELEASE_INPUTS,
         ),
@@ -112,8 +177,29 @@ def main() -> int:
             expect_ok=False,
             sequence=IMPLEMENTATION_SEQUENCE,
         ),
+        run_sequence(
+            "broken_opaque_content_visibility_evidence_sequence",
+            model.build_broken_opaque_content_visibility_evidence_workflow(),
+            expect_ok=False,
+            sequence=IMPLEMENTATION_SEQUENCE,
+        ),
+        run_sequence(
+            "broken_cross_content_visibility_evidence_sequence",
+            model.build_broken_cross_content_visibility_evidence_workflow(),
+            expect_ok=False,
+            sequence=IMPLEMENTATION_SEQUENCE,
+        ),
     )
-    return 0 if all(checks) else 1
+    ok = all(checks)
+    payload = {
+        "ok": ok,
+        "check_count": len(checks),
+        "passed_expectations": sum(1 for check in checks if check),
+    }
+    output_dir = Path(os.environ.get("FLOWGUARD_OUTPUT_DIR", Path(__file__).parent))
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir.joinpath("result.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    return 0 if ok else 1
 
 
 if __name__ == "__main__":

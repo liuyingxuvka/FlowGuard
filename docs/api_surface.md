@@ -473,7 +473,10 @@ inventory.
   decisions depend on cross-model comparison. For field-bearing changes it
   also records behavior field ids, field owners, existing field lifecycle
   model ids, and unresolved field lifecycle gaps before downstream work starts.
-- optional UI Flow Structure helpers such as `UIInteractionModel`,
+- optional UI Flow Structure helpers such as `UIContentVisibilityItem`,
+  `UIContentVisibilityPlan`, `UIContentVisibilityEvidence`,
+  `UIContentVisibilityReport`, `UI_CONTENT_VISIBILITY_CLASSES`,
+  `UI_CONTENT_NEED_KINDS`, `UI_CONTENT_VISIBILITY_EVIDENCE_KINDS`, `UIInteractionModel`,
   `UIControl`, `UIDisplayElement`, `UIStateNode`, `UITransition`,
   `UIObservedSurfaceItem`, `UIObservedSurfaceInventory`,
   `UIControlFunctionalChain`, `UIControlFunctionalChainSet`,
@@ -503,6 +506,8 @@ inventory.
   `UIResponsivenessContractReport`,
   `UIStructureDerivation`, `UIRegionRecommendation`,
   `UITextHierarchyBlueprint`, `UITextElement`, `UITypographyToken`,
+  `review_ui_content_visibility()`,
+  `ui_content_visibility_candidate_ids_from_field_lifecycle()`,
   `review_ui_observed_surface_inventory()`,
   `review_ui_control_functional_chains()`,
   `review_ui_source_baseline_alignment()`,
@@ -515,14 +520,19 @@ inventory.
   `review_ui_geometry_layout_evidence()`,
   `review_ui_responsiveness_contract()`,
   `review_ui_structure_derivation()`, and `review_ui_text_hierarchy()` for
-  inventorying the real visible UI first, modeling UI interactions, proving
+  admitting UI-boundary content as `user_visible`, `user_on_demand`, or
+  `internal` before display/text mapping, validating typed user needs and the
+  narrow task-control-label exemption, inventorying the real visible UI
+  without treating existing visibility as permission, modeling UI interactions, proving
   enabled-control functional chains, aligning source-baseline interactions when
   work is source-based or mixed,
   accounting required user-visible capabilities and result/output contracts
   before broad UI completion claims,
   proving launch-to-terminal journey coverage and reachable visible-control/event coverage when complete app UI is claimed,
   validating task coverage, region semantics, affordance, action grammar,
-  native/dialog returns, keyboard/focus, and human walkthroughs before
+  native/dialog returns, keyboard/focus, all-target default-hidden behavior,
+  task-owned affordance and content-specific feedback for on-demand details,
+  structured per-content implementation evidence, and human walkthroughs before
   human-operable UI confidence is claimed,
   reviewing visible controls/helper/status/placeholder/metadata surface,
   validating implemented/runnable UI claims against feature contracts and real

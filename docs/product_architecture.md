@@ -114,9 +114,15 @@ Broken variants caught:
 
 UI Text Hierarchy Blueprint is the text-facing sibling of UI Flow Structure.
 It does not write final marketing copy or localize strings. It inventories the
-text a UI exposes in each state and region, then assigns roles, owners,
+approved text a UI exposes in each state and region, then assigns roles, owners,
 semantic keys, hierarchy priority, duplication rationale, and warning/error
 escalation rules.
+
+Text ownership cannot grant display admission. The blueprint consumes
+`user_visible` content and revealed-state `user_on_demand` content from the UI
+content-visibility plan; `internal` and unclassified content remain outside the
+ordinary hierarchy. On-demand text is absent from the default hierarchy until
+its explicit reveal event.
 
 This closes a gap that remains after interaction structure is correct: a UI can
 have the right controls and still bury the primary state message under helper
@@ -139,7 +145,19 @@ claims.
 ## UI Flow Structure
 
 UI Flow Structure is the UI-facing sibling of Code Structure Recommendation.
-It does not start by arranging buttons on a screen. It first builds or reviews
+It does not start by arranging buttons on a screen. For an existing UI it first
+records the observed surface, but observation does not authorize content. It
+then admits state-exposing candidate content before display modeling using
+exactly `user_visible`, `user_on_demand`, or `internal`. The first two form one
+ordinary user-content group; this is not a user-role taxonomy. Unclassified and
+internal content cannot render on ordinary UI, while on-demand content is
+default hidden on every mapping target and requires visible/enabled reveal and
+return controls, content-bound feedback, and a distinct keyboard/focus event
+for hover. User needs are typed and resolvable. Only exact normal labels for
+registered, in-scope task-owned controls with no extra state or metadata need
+no duplicate content row.
+
+After content admission, it builds or reviews
 a UI interaction model: initial UI state, controls, information displays,
 events, state transitions, failure/recovery paths, terminal states, state
 availability, and intentional redundancy. For complete app-level UI claims, it
@@ -153,6 +171,10 @@ and stable placement rules from that model.
 This keeps workflow-heavy UI design from drifting into arbitrary placement. The
 visual design and frontend implementation can still be creative, but they
 receive a stable structure contract first.
+
+FieldLifecycleMesh supplies every field candidate whose reader reaches the
+ordinary UI boundary, regardless of source role. UI Flow Structure owns final
+admission; fields with no ordinary-UI reader remain internally accounted.
 
 ## Skill Trigger Self-Review
 

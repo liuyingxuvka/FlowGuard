@@ -32,6 +32,8 @@ class LifecycleOutput:
 class LifecycleState:
     fields_discovered: bool = False
     all_fields_accounted: bool = False
+    ui_reader_fields_handed_to_content_admission: bool = False
+    non_ui_fields_kept_out_of_ui_plan: bool = False
     behavior_fields_projected: bool = False
     field_evidence_route_bound: bool = False
     old_paths_disposed: bool = False
@@ -48,6 +50,8 @@ class LifecycleState:
         return (
             self.fields_discovered
             and self.all_fields_accounted
+            and self.ui_reader_fields_handed_to_content_admission
+            and self.non_ui_fields_kept_out_of_ui_plan
             and self.behavior_fields_projected
             and self.field_evidence_route_bound
             and self.old_paths_disposed
@@ -66,6 +70,8 @@ class CorrectReplacementFieldLifecycle:
     reads = (
         "fields_discovered",
         "all_fields_accounted",
+        "ui_reader_fields_handed_to_content_admission",
+        "non_ui_fields_kept_out_of_ui_plan",
         "behavior_fields_projected",
         "field_evidence_route_bound",
         "old_paths_disposed",
@@ -101,6 +107,24 @@ class CorrectReplacementFieldLifecycle:
                     final_claim="none",
                 ),
                 label="fields_accounted",
+            )
+        elif action == "handoff_ui_reader_fields":
+            if not state.all_fields_accounted:
+                yield FunctionResult(
+                    LifecycleOutput("ui_reader_handoff_rejected"),
+                    state,
+                    label="ui_reader_handoff_rejected",
+                )
+                return
+            yield FunctionResult(
+                LifecycleOutput("ui_reader_fields_handed_to_content_admission"),
+                replace(
+                    state,
+                    ui_reader_fields_handed_to_content_admission=True,
+                    non_ui_fields_kept_out_of_ui_plan=True,
+                    final_claim="none",
+                ),
+                label="ui_reader_fields_handed_to_content_admission",
             )
         elif action == "project_and_dispose":
             yield FunctionResult(
@@ -178,6 +202,48 @@ class BrokenMissingProjection(CorrectReplacementFieldLifecycle):
     def apply(self, input_obj: LifecycleAction, state: LifecycleState) -> Iterable[FunctionResult]:
         if input_obj.action_type == "claim_full_done":
             claim = "full" if state.fields_discovered and state.all_fields_accounted else "blocked"
+            yield FunctionResult(
+                LifecycleOutput(f"claim_{claim}"),
+                replace(state, final_claim=claim),
+                label=f"claim_{claim}",
+            )
+            return
+        yield from super().apply(input_obj, state)
+
+
+class BrokenMissingUIReaderHandoff(CorrectReplacementFieldLifecycle):
+    name = "BrokenMissingUIReaderHandoff"
+    idempotency = "Broken variant claims full closure without handing ordinary-UI reader fields to content admission."
+
+    def apply(self, input_obj: LifecycleAction, state: LifecycleState) -> Iterable[FunctionResult]:
+        if input_obj.action_type == "handoff_ui_reader_fields":
+            yield FunctionResult(
+                LifecycleOutput("ui_reader_handoff_skipped"),
+                replace(
+                    state,
+                    ui_reader_fields_handed_to_content_admission=False,
+                    non_ui_fields_kept_out_of_ui_plan=True,
+                    final_claim="none",
+                ),
+                label="ui_reader_handoff_skipped",
+            )
+            return
+        if input_obj.action_type == "claim_full_done":
+            legacy_ready = (
+                state.fields_discovered
+                and state.all_fields_accounted
+                and state.behavior_fields_projected
+                and state.field_evidence_route_bound
+                and state.old_paths_disposed
+                and state.old_fields_disposed
+                and state.model_code_test_aligned
+                and state.observed_bug_recorded
+                and state.same_class_bug_case_added
+                and state.field_root_cause_backpropagated
+                and state.freshness_current
+                and state.closure_review_passed
+            )
+            claim = "full" if legacy_ready else "blocked"
             yield FunctionResult(
                 LifecycleOutput(f"claim_{claim}"),
                 replace(state, final_claim=claim),
@@ -337,7 +403,7 @@ def no_full_claim_without_complete_loop(state: LifecycleState, trace) -> Invaria
     del trace
     if state.final_claim == "full" and not state.ready_for_full_claim():
         return InvariantResult.fail(
-            "full replacement claim accepted before field inventory, behavior projection, field evidence route refs, old path/field disposition, model-code-test alignment, same-class bug repair, freshness, and closure evidence"
+            "full replacement claim accepted before field inventory, ordinary-UI reader handoff, backend-field exclusion, behavior projection, field evidence route refs, old path/field disposition, model-code-test alignment, same-class bug repair, freshness, and closure evidence"
         )
     return InvariantResult.pass_()
 
@@ -352,12 +418,20 @@ INVARIANTS = (
 
 EXTERNAL_INPUTS = (
     LifecycleAction("inventory_fields"),
+    LifecycleAction("handoff_ui_reader_fields"),
     LifecycleAction("project_and_dispose"),
     LifecycleAction("align_and_repair"),
     LifecycleAction("refresh_and_close"),
     LifecycleAction("claim_full_done"),
 )
 
+BAD_CASE_EXTERNAL_INPUTS = tuple(
+    action for action in EXTERNAL_INPUTS if action.action_type != "handoff_ui_reader_fields"
+)
+
+# The exact happy path above executes all six stages. The exhaustive known-bad
+# search stays bounded at five steps so it can find the unsafe legacy shortcut
+# that claims completion while omitting the new UI-reader handoff stage.
 MAX_SEQUENCE_LENGTH = 5
 
 
@@ -372,6 +446,7 @@ def build_correct_workflow() -> Workflow:
 def build_broken_workflows() -> tuple[Workflow, ...]:
     return (
         Workflow((BrokenMissingFieldAccounting(),), name="field_lifecycle_missing_field_accounting"),
+        Workflow((BrokenMissingUIReaderHandoff(),), name="field_lifecycle_missing_ui_reader_handoff"),
         Workflow((BrokenMissingProjection(),), name="field_lifecycle_missing_projection"),
         Workflow((BrokenMissingFieldEvidenceRoute(),), name="field_lifecycle_missing_evidence_route"),
         Workflow((BrokenUnknownOldFieldDisposition(),), name="field_lifecycle_unknown_old_field_disposition"),
@@ -381,6 +456,7 @@ def build_broken_workflows() -> tuple[Workflow, ...]:
 
 
 __all__ = [
+    "BAD_CASE_EXTERNAL_INPUTS",
     "EXTERNAL_INPUTS",
     "INVARIANTS",
     "MAX_SEQUENCE_LENGTH",

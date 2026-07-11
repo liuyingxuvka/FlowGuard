@@ -208,6 +208,50 @@ class FieldLifecycleTests(unittest.TestCase):
         self.assertFalse(report.ok)
         self.assertIn("old_field_disposition_open", {finding.code for finding in report.findings})
 
+    def test_every_field_with_an_ordinary_ui_reader_hands_off_for_content_admission(self):
+        plan = flowguard.FieldLifecyclePlan(
+            "ordinary-ui-reader-fields",
+            discovered_field_ids=(
+                "field:title",
+                "field:phase",
+                "field:permission",
+                "field:audit_trace",
+            ),
+            fields=(
+                flowguard.FieldLifecycleRow(
+                    "field:title",
+                    role=flowguard.FIELD_ROLE_PRESENTATION,
+                    reader_ids=("ordinary-ui-view",),
+                ),
+                flowguard.FieldLifecycleRow(
+                    "field:phase",
+                    role=flowguard.FIELD_ROLE_STATE,
+                    reader_ids=("ordinary-ui-view",),
+                ),
+                flowguard.FieldLifecycleRow(
+                    "field:permission",
+                    role=flowguard.FIELD_ROLE_PERMISSION,
+                    reader_ids=("ordinary-ui-view",),
+                ),
+                flowguard.FieldLifecycleRow(
+                    "field:audit_trace",
+                    role=flowguard.FIELD_ROLE_METADATA,
+                    reader_ids=("audit-log",),
+                ),
+            ),
+        )
+
+        candidate_ids = flowguard.ui_content_visibility_candidate_ids_from_field_lifecycle(
+            plan,
+            ui_reader_ids=("ordinary-ui-view",),
+        )
+
+        self.assertEqual(
+            ("field:title", "field:phase", "field:permission"),
+            candidate_ids,
+        )
+        self.assertNotIn("field:audit_trace", candidate_ids)
+
     def test_field_lifecycle_api_is_route_scoped_not_core(self):
         for name in ("FieldLifecyclePlan", "FieldLifecycleRow", "review_field_lifecycle"):
             self.assertIn(name, flowguard.FIELD_LIFECYCLE_MESH_API)

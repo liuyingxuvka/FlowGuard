@@ -1,0 +1,231 @@
+contract_version: 1
+change: harden-ui-content-visibility
+obligations:
+  - id: req.ui.admission
+    source: "specs/flowguard-ui-flow-structure/spec.md#Requirement: UI candidate content is admitted before display modeling"
+    claim: "Every in-scope state-exposing UI candidate has exactly one supported visibility class before display mapping, while ordinary task-owned controls remain lightweight."
+    required: true
+    evidence: [check.ui.core, check.matrix.ui, check.templates.ui, check.model.ui, check.model.surface, check.model.ledger, check.model.closure, check.models.full]
+  - id: req.ui.user-content
+    source: "specs/flowguard-ui-flow-structure/spec.md#Requirement: Ordinary UI admits only user-facing content"
+    claim: "User content has a typed user need and internal content cannot map to ordinary UI surfaces."
+    required: true
+    evidence: [check.ui.core, check.matrix.ui, check.model.ui, check.model.surface, check.model.ledger, check.model.closure, check.models.full]
+  - id: req.ui.on-demand
+    source: "specs/flowguard-ui-flow-structure/spec.md#Requirement: On-demand user content is default hidden"
+    claim: "On-demand content is hidden before reveal, explicitly revealed, keyboard/focus equivalent, and closable."
+    required: true
+    evidence: [check.ui.core, check.matrix.ui, check.templates.ui, check.model.ui, check.model.surface, check.model.closure]
+  - id: req.ui.observed
+    source: "specs/flowguard-ui-flow-structure/spec.md#Requirement: Observed visibility does not grant display permission"
+    claim: "Observed non-action content resolves to approved admission instead of using display mapping as permission."
+    required: true
+    evidence: [check.ui.core, check.matrix.ui, check.model.ui, check.model.surface, check.model.closure]
+  - id: req.ui.no-taxonomy
+    source: "specs/flowguard-ui-flow-structure/spec.md#Requirement: Content admission does not create an audience-role taxonomy"
+    claim: "Content admission keeps exactly three visibility classes in two conceptual groups and does not grow audience, role, persona, or authorization categories."
+    required: true
+    evidence: [check.ui.core, check.skill.docs, check.skill.contract, check.openspec.strict]
+  - id: req.text.approved
+    source: "specs/ui-text-hierarchy-blueprint/spec.md#Requirement: Text hierarchy consumes approved content"
+    claim: "Text hierarchy cannot promote internal/unclassified content and only includes on-demand content in revealed states."
+    required: true
+    evidence: [check.ui.core, check.matrix.ui, check.skill.docs, check.skill.contract]
+  - id: req.human.on-demand
+    source: "specs/ui-human-operability-validation/spec.md#Requirement: On-demand disclosure remains human-operable"
+    claim: "On-demand disclosure is discoverable, dismissible, and keyboard/focus equivalent."
+    required: true
+    evidence: [check.ui.core, check.templates.ui, check.model.closure, check.skill.inventory.core, check.skill.inventory.compat, check.skill.static]
+  - id: req.implementation.visibility
+    source: "specs/ui-implementation-validation/spec.md#Requirement: Runnable UI proves content admission behavior"
+    claim: "Current evidence proves default-hidden/reveal/return behavior and internal-content absence for the declared implementation boundary."
+    required: true
+    evidence: [check.ui.core, check.templates.ui, check.model.ui, check.model.surface, check.model.closure, check.pytest.full]
+  - id: req.fields.handoff
+    source: "specs/field-lifecycle-mesh/spec.md#Requirement: UI-boundary fields hand off to content admission"
+    claim: "UI-reader field candidates hand off to UI Flow Structure without classifying unrelated backend fields."
+    required: true
+    evidence: [check.ui.core, check.model.field, check.model.closure, check.skill.contract]
+  - id: req.distribution.parity
+    source: "proposal.md#Impact"
+    claim: "Repository-managed, shadow, and installed FlowGuard skill trees remain in parity after the change."
+    required: true
+    evidence: [check.distribution.parity, check.project.audit]
+checks:
+  - id: check.ui.core
+    kind: command
+    command: python
+    args: [-m, pytest, tests/test_ui_structure.py, tests/test_api_surface.py, tests/test_behavior_commitment_ledger.py, tests/test_field_lifecycle.py, -q, --junitxml=.flowguard/evidence/harden-ui-content-visibility/focused-ui-core.junit.xml]
+    required: true
+    covers: [req.ui.admission, req.ui.user-content, req.ui.on-demand, req.ui.observed, req.ui.no-taxonomy, req.text.approved, req.human.on-demand, req.implementation.visibility, req.fields.handoff]
+    expected: {exit_code: 0}
+  - id: check.templates.ui
+    kind: command
+    command: python
+    args: [-m, pytest, tests/test_public_templates.py, -q, -k, ui_flow_structure, --junitxml=.flowguard/evidence/harden-ui-content-visibility/ui-templates.junit.xml]
+    required: true
+    covers: [req.ui.admission, req.ui.on-demand, req.human.on-demand, req.implementation.visibility]
+    expected: {exit_code: 0}
+  - id: check.matrix.ui
+    kind: command
+    command: python
+    args:
+      - -m
+      - pytest
+      - tests/test_ui_structure.py::UIContentVisibilityTests::test_visibility_contract_exhaustion_declares_finite_matrix_and_shard
+      - tests/test_ui_structure.py::UIContentVisibilityTests::test_content_visibility_matrix_executes_all_80_combinations
+      - -q
+      - --junitxml=.flowguard/evidence/harden-ui-content-visibility/contract-matrix.junit.xml
+    required: true
+    covers: [req.ui.admission, req.ui.user-content, req.ui.on-demand, req.ui.observed, req.text.approved]
+    expected: {exit_code: 0}
+  - id: check.skill.docs
+    kind: command
+    command: python
+    args: [-m, pytest, tests/test_skill_docs.py, -q]
+    required: true
+    covers: [req.ui.no-taxonomy, req.text.approved, req.human.on-demand]
+    expected: {exit_code: 0}
+  - id: check.skill.inventory.core
+    kind: command
+    command: python
+    args: [-m, pytest, tests/test_skill_suite_inventory.py, -q, -k, "not(test_compatibility_scripts_project_the_same_inventory)"]
+    required: true
+    covers: [req.human.on-demand]
+    expected: {exit_code: 0}
+  - id: check.skill.inventory.compat
+    kind: command
+    command: python
+    args: [-m, pytest, tests/test_skill_suite_inventory.py::SkillSuiteInventoryTests::test_compatibility_scripts_project_the_same_inventory, -q]
+    required: true
+    covers: [req.human.on-demand]
+    expected: {exit_code: 0}
+  - id: check.model.ui
+    kind: command
+    command: python
+    args: [.flowguard/ui_flow_structure_skill/run_checks.py]
+    required: true
+    covers: [req.ui.admission, req.ui.user-content, req.ui.on-demand, req.ui.observed, req.implementation.visibility]
+    expected: {exit_code: 0}
+  - id: check.model.surface
+    kind: command
+    command: python
+    args: [.flowguard/harden_ui_real_surface_validation/run_checks.py]
+    required: true
+    covers: [req.ui.admission, req.ui.user-content, req.ui.on-demand, req.ui.observed, req.implementation.visibility]
+    expected: {exit_code: 0}
+  - id: check.model.ledger
+    kind: command
+    command: python
+    args: [.flowguard/behavior_commitment_ledger/run_checks.py]
+    required: true
+    covers: [req.ui.admission, req.ui.user-content]
+    expected: {exit_code: 0}
+  - id: check.model.field
+    kind: command
+    command: python
+    args: [.flowguard/default_replacement_field_lifecycle/run_checks.py]
+    required: true
+    covers: [req.fields.handoff]
+    expected: {exit_code: 0}
+  - id: check.model.closure
+    kind: command
+    command: python
+    args: [.flowguard/harden_ui_content_visibility_validation/run_checks.py]
+    required: true
+    covers: [req.ui.admission, req.ui.user-content, req.ui.on-demand, req.ui.observed, req.human.on-demand, req.implementation.visibility, req.fields.handoff]
+    expected: {exit_code: 0}
+  - id: check.models.full
+    kind: command
+    command: python
+    args: [scripts/run_flowguard_model_regressions.py, --root, ., --tier, full, --jobs, "1", --timeout, "300", --output-dir, .flowguard/evidence/model-regressions/harden-ui-content-visibility-final, --json]
+    required: true
+    covers: [req.ui.admission, req.ui.user-content]
+    expected: {exit_code: 0}
+  - id: check.skill.contract
+    kind: command
+    command: python
+    args: [scripts/compile_flowguard_skill_contracts.py, --root, ., --check, --json]
+    required: true
+    covers: [req.ui.no-taxonomy, req.text.approved, req.fields.handoff]
+    expected: {exit_code: 0}
+  - id: check.skill.static
+    kind: command
+    command: python
+    args: [scripts/check_flowguard_skill_suite.py, --scope, static, --root, ., --skillguard, all, --json]
+    required: true
+    covers: [req.human.on-demand]
+    expected: {exit_code: 0}
+  - id: check.pytest.full
+    kind: command
+    command: python
+    args: [openspec/changes/harden-ui-content-visibility/run_full_pytest.py]
+    required: true
+    covers: [req.implementation.visibility]
+    expected: {exit_code: 0}
+  - id: check.project.audit
+    kind: command
+    command: python
+    args: [-m, flowguard, project-audit, --root, ., --json]
+    required: true
+    covers: [req.distribution.parity]
+    expected: {exit_code: 0}
+  - id: check.distribution.parity
+    kind: command
+    command: python
+    args: [scripts/install_flowguard_skills.py, parity, --formal, ../FlowGuard/.agents/skills, --shadow, .agents/skills, --installed, ../../.codex/skills, --json]
+    required: true
+    covers: [req.distribution.parity]
+    expected: {exit_code: 0}
+  - id: check.openspec.strict
+    kind: command
+    command: openspec
+    args: [validate, harden-ui-content-visibility, --strict]
+    required: true
+    covers: [req.ui.admission, req.ui.user-content, req.ui.on-demand, req.ui.observed, req.ui.no-taxonomy, req.text.approved, req.human.on-demand, req.implementation.visibility, req.fields.handoff, req.distribution.parity]
+    expected: {exit_code: 0}
+freshness:
+  watch:
+    - openspec/changes/harden-ui-content-visibility/**/*.md
+    - openspec/changes/harden-ui-content-visibility/verification-contract.yaml
+    - openspec/changes/harden-ui-content-visibility/run_full_pytest.py
+    - flowguard/ui_structure.py
+    - flowguard/__init__.py
+    - flowguard/template_text/ui_flow_structure.py
+    - .flowguard/ui_flow_structure_skill/model.py
+    - .flowguard/ui_flow_structure_skill/run_checks.py
+    - .flowguard/harden_ui_real_surface_validation/model.py
+    - .flowguard/harden_ui_real_surface_validation/run_checks.py
+    - .flowguard/behavior_commitment_ledger/model.py
+    - .flowguard/behavior_commitment_ledger/run_checks.py
+    - .flowguard/harden_ui_content_visibility_validation/model.py
+    - .flowguard/harden_ui_content_visibility_validation/run_checks.py
+    - .flowguard/default_replacement_field_lifecycle/model.py
+    - .flowguard/default_replacement_field_lifecycle/run_checks.py
+    - .flowguard/model-regression-manifest.json
+    - .agents/skills/flowguard-ui-flow-structure/SKILL.md
+    - .agents/skills/flowguard-ui-flow-structure/agents/**/*
+    - .agents/skills/flowguard-ui-flow-structure/references/**/*
+    - .agents/skills/flowguard-ui-flow-structure/.skillguard/*.json
+    - .agents/skills/flowguard-ui-flow-structure/.skillguard/*.py
+    - .agents/skills/flowguard-ui-flow-structure/.skillguard/checks/**/*
+    - .agents/skills/flowguard-field-lifecycle-mesh/SKILL.md
+    - .agents/skills/flowguard-field-lifecycle-mesh/agents/**/*
+    - .agents/skills/flowguard-field-lifecycle-mesh/references/**/*
+    - .agents/skills/flowguard-field-lifecycle-mesh/.skillguard/*.json
+    - .agents/skills/flowguard-field-lifecycle-mesh/.skillguard/*.py
+    - .agents/skills/flowguard-field-lifecycle-mesh/.skillguard/checks/**/*
+    - docs/ui_flow_structure.md
+    - docs/field_lifecycle_mesh.md
+    - docs/api_surface.md
+    - docs/product_architecture.md
+    - docs/agents_snippet.md
+    - README.md
+    - tests/test_ui_structure.py
+    - tests/test_public_templates.py
+    - tests/test_skill_docs.py
+    - tests/test_api_surface.py
+    - tests/test_skill_suite_inventory.py
+    - tests/test_behavior_commitment_ledger.py
+    - tests/test_field_lifecycle.py
+    - flowguard/field_lifecycle.py

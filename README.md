@@ -200,7 +200,8 @@ Good fits:
 
 - AI-agent coding work with multiple stages, handoffs, or validation gates;
 - retries, deduplication, cache refresh, queues, ingestion, and repeated jobs;
-- UI flows where visible controls do not prove recovery paths;
+- UI flows where visible controls do not prove recovery paths or internal
+  status/audit/diagnostic content has reached the ordinary user surface;
 - refactors where public entrypoints and side effects must stay compatible;
 - test or release processes where old evidence can be mistaken for current proof;
 - parent/child model chains where local evidence must be reattached before broad confidence.
@@ -227,9 +228,9 @@ FlowGuard has one model-first kernel and route-specific skills. These are the sk
 | `flowguard-agent-workflow-rehearsal` | DevelopmentProcessFlow delegates agent workflow rehearsal, skill order, and skipped-skill evidence |
 | `flowguard-plan-detailing-compiler` | DevelopmentProcessFlow delegates rough-plan detailing into scoped rows |
 | `flowguard-behavior-commitment-ledger` | broad behavior promises need source coverage, one primary owner model, and Primary Path Authority handoff for path-sensitive behavior |
-| `flowguard-field-lifecycle-mesh` | fields, schemas, modes, prompt/config keys, or old-field disposition need ownership |
+| `flowguard-field-lifecycle-mesh` | fields, schemas, modes, prompt/config keys, old-field disposition, or UI-boundary candidate-field handoff need ownership |
 | `flowguard-contract-exhaustion-mesh` | finite bad-case generation, same-class families, payloads, or transition cases need canonical coverage |
-| `flowguard-ui-flow-structure` | UI controls, visible surface, journeys, overlays, recovery, and implementation evidence need modeling |
+| `flowguard-ui-flow-structure` | UI candidate content admission, controls, visible surface, on-demand details, journeys, recovery, and implementation evidence need modeling |
 | `flowguard-code-structure-recommendation` | a functional model should drive module, facade, owner, side-effect, config, or validation boundaries |
 | `flowguard-structure-mesh` | a large script, package, command, or public API split needs compatibility and parity evidence |
 | `flowguard-test-mesh` | validation is slow, layered, stale, skipped, release-only, or split across child suites |
@@ -241,6 +242,18 @@ FlowGuard has one model-first kernel and route-specific skills. These are the sk
 <!-- FLOWGUARD SKILL TABLE EN END -->
 
 The table is parity-checked against `.skillguard/flowguard-suite/suite-map.json`; a missing or extra route fails the documentation test.
+
+For ordinary UI, FlowGuard uses two conceptual groups and three executable
+values: `user_visible` and `user_on_demand` are user content; `internal` is not.
+Unclassified/internal content cannot render. On-demand content is hidden by
+default across every mapping target and needs visible/enabled reveal and return
+controls, content-specific feedback, and a distinct keyboard/focus event for
+hover. User needs use typed task/state/recovery/safety references. Observing
+content in an existing UI does not grant permission to keep it. Only the exact
+normal label of a registered, in-scope task-owned control with no extra state or
+metadata avoids a duplicate row. Runnable claims use an observed inventory and
+structured per-content evidence. This model does not introduce audience/role/
+persona or admin/operator/developer/auditor classes.
 
 ### Three Evidence Layers
 
@@ -527,7 +540,7 @@ class ProcessJob:
 
 - 有多个阶段、handoff 或 validation gate 的 AI-agent coding work；
 - retry、deduplication、cache refresh、queue、ingestion 和重复 job；
-- 可见控件不等于合法恢复路径的 UI flow；
+- 可见控件不等于合法恢复路径，或内部 status/audit/diagnostic 内容已经跑到普通用户表面的 UI flow；
 - 公开入口和 side effect 必须保持兼容的 refactor；
 - 旧 evidence 可能被误当作当前 proof 的测试或发布流程；
 - child green 需要重新接回 parent 才能支持 broad confidence 的父子模型。
@@ -554,9 +567,9 @@ FlowGuard 有一个 model-first kernel 和多条 route-specific 技能。AI agen
 | `flowguard-agent-workflow-rehearsal` | DevelopmentProcessFlow 委托 agent workflow rehearsal、技能顺序和 skipped-skill evidence |
 | `flowguard-plan-detailing-compiler` | DevelopmentProcessFlow 委托把粗计划拆成有 scope 的 rows |
 | `flowguard-behavior-commitment-ledger` | 广泛行为承诺需要源覆盖、唯一主 owner model，以及 path-sensitive 行为的 Primary Path Authority 交接 |
-| `flowguard-field-lifecycle-mesh` | field、schema、mode、prompt/config key 或 old-field disposition 需要 ownership |
+| `flowguard-field-lifecycle-mesh` | field、schema、mode、prompt/config key、old-field disposition 或 UI 边界候选字段交接需要 ownership |
 | `flowguard-contract-exhaustion-mesh` | 有限坏例、same-class family、payload 或 transition case 需要 canonical coverage |
-| `flowguard-ui-flow-structure` | UI 控件、可见表面、journey、overlay、恢复路径和实现证据需要建模 |
+| `flowguard-ui-flow-structure` | UI 候选内容准入、控件、可见表面、按需详情、journey、恢复路径和实现证据需要建模 |
 | `flowguard-code-structure-recommendation` | function model 要推导 module、facade、owner、side-effect、config 或 validation boundary |
 | `flowguard-structure-mesh` | 大脚本、包、命令或 public API 拆分需要兼容性和 parity evidence |
 | `flowguard-test-mesh` | 验证很慢、分层、过期、被 skip、release-only，或分散在 child suite |
@@ -568,6 +581,16 @@ FlowGuard 有一个 model-first kernel 和多条 route-specific 技能。AI agen
 <!-- FLOWGUARD SKILL TABLE ZH END -->
 
 这张表会由测试和 `.skillguard/flowguard-suite/suite-map.json` 做一致性校验；少一项或多一项都会失败。Behavior Commitment Ledger 是正式的 17 项成员之一，不是隐藏 helper。
+
+对于普通 UI，FlowGuard 只有两个概念组、三个执行值：`user_visible` 和
+`user_on_demand` 属于用户内容，`internal` 不属于。未分类或内部内容不能
+渲染；按需内容默认隐藏，必须有显式 reveal、键盘/焦点等价操作和返回路径。
+这套约束同时覆盖 display、text、visible surface 和 observed surface；展开和
+返回控件必须在来源状态可见、可用，hover 还要使用独立的键盘/焦点事件。用户
+需要采用 task/state/recovery/safety 类型引用。旧界面里“已经显示”不代表允许
+继续显示。只有与注册控件完全匹配、由范围内任务拥有且不夹带状态或元数据的
+正常标签不用重复登记；可运行声明还要有 observed inventory 和逐内容结构化证据。
+这里也不引入 audience/role/persona 或 admin/operator/developer/auditor 角色体系。
 
 ### 三层证据状态
 

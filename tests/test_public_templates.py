@@ -416,6 +416,7 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("flowguard UI structure derivation", output)
         self.assertIn("flowguard UI text hierarchy", output)
         self.assertIn("flowguard UI visible surface", output)
+        self.assertIn("flowguard UI content visibility", output)
         self.assertIn("missing_state_availability_matrix", output)
         self.assertIn("feature_entry_point_not_declared", output)
         self.assertIn("required_capability_missing_binding", output)
@@ -428,6 +429,20 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("visible_internal_terminology", output)
         self.assertIn("missing_disabled_reason", output)
         self.assertIn("missing_render_evidence_kind", output)
+        self.assertIn("internal_content_mapped_to_ui", output)
+        self.assertIn("unknown_content_visibility_class", output)
+        self.assertIn("on_demand_content_visible_in_default_state", output)
+
+    def test_ui_flow_structure_full_template_executes_content_visibility_cases(self):
+        output = self.run_written_template(
+            ui_flow_structure_full_template_files(),
+            (".flowguard", "ui_flow_structure"),
+        )
+
+        self.assertIn("flowguard UI content visibility review", output)
+        self.assertIn("internal_content_mapped_to_ui", output)
+        self.assertIn("unknown_content_visibility_class", output)
+        self.assertIn("on_demand_content_visible_in_default_state", output)
 
     def test_ui_flow_structure_template_uses_visual_job_typography_scale(self):
         files = ui_flow_structure_template_files()
@@ -440,7 +455,19 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("The text hierarchy contract is semantic", combined)
         self.assertIn("similar text jobs should usually reuse visual treatments", combined)
         self.assertIn("ui-flow-structure-full-template", combined)
-        self.assertLessEqual(next(file for file in files if file.path.endswith("model.py")).content.count("\n"), 205)
+        self.assertIn("candidate_content_ids", combined)
+        self.assertIn("content_visibility_items", combined)
+        self.assertIn("default_visible_content_ids", combined)
+        self.assertIn("default_hidden_content_ids", combined)
+        self.assertIn('"user_visible"', combined)
+        self.assertIn('"user_on_demand"', combined)
+        self.assertIn('"internal"', combined)
+        self.assertIn("click_show_details", combined)
+        self.assertIn("registered in-scope task", combined)
+        self.assertIn("carry no extra state/metadata", combined)
+        self.assertIn("structured_content_visibility", combined)
+        self.assertIn("unknown_user_content_need_kind", combined)
+        self.assertLessEqual(next(file for file in files if file.path.endswith("model.py")).content.count("\n"), 245)
         self.assertNotIn('scale=f"level-{level}"', combined)
 
     def test_ui_flow_structure_full_template_keeps_deep_route_material(self):
@@ -458,14 +485,23 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("UIFunctionalCapabilityInventory", combined)
         self.assertIn("review_ui_functional_capability_coverage", combined)
         self.assertIn("UIVisibleSurface", combined)
+        self.assertIn("UIContentVisibilityItem", combined)
+        self.assertIn("UIContentVisibilityPlan", combined)
         self.assertIn("UIRenderEvidenceSet", combined)
         self.assertIn("UIGeometryLayoutEvidenceSet", combined)
         self.assertIn("UIResponsivenessContract", combined)
         self.assertIn("review_ui_visible_surface", combined)
+        self.assertIn("review_ui_content_visibility", combined)
         self.assertIn("review_ui_render_evidence", combined)
         self.assertIn("review_ui_geometry_layout_evidence", combined)
         self.assertIn("review_ui_responsiveness_contract", combined)
         self.assertIn('"screenshot"', combined)
+        self.assertIn("hidden_displays", combined)
+        self.assertIn("content_visibility_id", combined)
+        self.assertIn("content_visibility_plan_id", combined)
+        self.assertIn("broken_internal_visible_content_plan", combined)
+        self.assertIn("broken_missing_content_class_plan", combined)
+        self.assertIn("broken_on_demand_visible_before_reveal_plan", combined)
         self.assertIn("analysis_refresh_no_guard", combined)
         self.assertIn("old cold results can overwrite newer state", combined)
 

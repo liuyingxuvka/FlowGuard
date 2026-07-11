@@ -41,6 +41,44 @@ def _as_int(value: Any, default: int = 0) -> int:
         return default
 
 
+UI_CONTENT_VISIBILITY_USER_VISIBLE = "user_visible"
+UI_CONTENT_VISIBILITY_USER_ON_DEMAND = "user_on_demand"
+UI_CONTENT_VISIBILITY_INTERNAL = "internal"
+UI_CONTENT_VISIBILITY_CLASSES = (
+    UI_CONTENT_VISIBILITY_USER_VISIBLE,
+    UI_CONTENT_VISIBILITY_USER_ON_DEMAND,
+    UI_CONTENT_VISIBILITY_INTERNAL,
+)
+
+UI_CONTENT_NEED_TASK = "task"
+UI_CONTENT_NEED_STATE = "state"
+UI_CONTENT_NEED_RECOVERY = "recovery"
+UI_CONTENT_NEED_SAFETY = "safety"
+UI_CONTENT_NEED_KINDS = (
+    UI_CONTENT_NEED_TASK,
+    UI_CONTENT_NEED_STATE,
+    UI_CONTENT_NEED_RECOVERY,
+    UI_CONTENT_NEED_SAFETY,
+)
+
+UI_CONTENT_EVIDENCE_DEFAULT_VISIBLE = "default_visible"
+UI_CONTENT_EVIDENCE_DEFAULT_HIDDEN = "default_hidden"
+UI_CONTENT_EVIDENCE_REVEAL = "reveal"
+UI_CONTENT_EVIDENCE_REVEALED = "revealed"
+UI_CONTENT_EVIDENCE_RETURN_HIDDEN = "return_hidden"
+UI_CONTENT_EVIDENCE_INTERNAL_ABSENT = "internal_absent"
+UI_CONTENT_VISIBILITY_EVIDENCE_KINDS = (
+    UI_CONTENT_EVIDENCE_DEFAULT_VISIBLE,
+    UI_CONTENT_EVIDENCE_DEFAULT_HIDDEN,
+    UI_CONTENT_EVIDENCE_REVEAL,
+    UI_CONTENT_EVIDENCE_REVEALED,
+    UI_CONTENT_EVIDENCE_RETURN_HIDDEN,
+    UI_CONTENT_EVIDENCE_INTERNAL_ABSENT,
+)
+
+UI_VISIBLE_SURFACE_PRIORITIES = ("primary", "secondary")
+
+
 @dataclass(frozen=True)
 class UIControl:
     """One visible or invokable control in a UI interaction model."""
@@ -105,6 +143,7 @@ class UIStateNode:
     failure: bool = False
     rationale: str = ""
     visible_displays: tuple[str, ...] = ()
+    hidden_displays: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "state_id", str(self.state_id))
@@ -112,6 +151,7 @@ class UIStateNode:
         object.__setattr__(self, "role", str(self.role))
         object.__setattr__(self, "visible_controls", _as_tuple(self.visible_controls))
         object.__setattr__(self, "visible_displays", _as_tuple(self.visible_displays))
+        object.__setattr__(self, "hidden_displays", _as_tuple(self.hidden_displays))
         object.__setattr__(self, "enabled_controls", _as_tuple(self.enabled_controls))
         object.__setattr__(self, "disabled_controls", _as_tuple(self.disabled_controls))
         object.__setattr__(self, "hidden_controls", _as_tuple(self.hidden_controls))
@@ -126,6 +166,8 @@ class UIStateNode:
             or self.enabled_controls
             or self.disabled_controls
             or self.hidden_controls
+            or self.visible_displays
+            or self.hidden_displays
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -135,6 +177,7 @@ class UIStateNode:
             "role": self.role,
             "visible_controls": list(self.visible_controls),
             "visible_displays": list(self.visible_displays),
+            "hidden_displays": list(self.hidden_displays),
             "enabled_controls": list(self.enabled_controls),
             "disabled_controls": list(self.disabled_controls),
             "hidden_controls": list(self.hidden_controls),
@@ -188,6 +231,95 @@ class UITransition:
 
 
 @dataclass(frozen=True)
+class UIContentVisibilityItem:
+    """One UI-boundary content admission decision.
+
+    ``user_visible`` and ``user_on_demand`` are both ordinary user-facing
+    content. ``internal`` content never belongs on an ordinary visible UI.
+    """
+
+    content_id: str
+    source_field_ids: tuple[str, ...] = ()
+    visibility_class: str = ""
+    user_need_refs: tuple[str, ...] = ()
+    reveal_event_ids: tuple[str, ...] = ()
+    keyboard_focus_event_ids: tuple[str, ...] = ()
+    dismiss_event_ids: tuple[str, ...] = ()
+    hover_reveal: bool = False
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "content_id", str(self.content_id))
+        object.__setattr__(self, "source_field_ids", _as_tuple(self.source_field_ids))
+        object.__setattr__(self, "visibility_class", str(self.visibility_class))
+        object.__setattr__(self, "user_need_refs", _as_tuple(self.user_need_refs))
+        object.__setattr__(self, "reveal_event_ids", _as_tuple(self.reveal_event_ids))
+        object.__setattr__(self, "keyboard_focus_event_ids", _as_tuple(self.keyboard_focus_event_ids))
+        object.__setattr__(self, "dismiss_event_ids", _as_tuple(self.dismiss_event_ids))
+        object.__setattr__(self, "hover_reveal", bool(self.hover_reveal))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    @property
+    def user_facing(self) -> bool:
+        return self.visibility_class in {
+            UI_CONTENT_VISIBILITY_USER_VISIBLE,
+            UI_CONTENT_VISIBILITY_USER_ON_DEMAND,
+        }
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "content_id": self.content_id,
+            "source_field_ids": list(self.source_field_ids),
+            "visibility_class": self.visibility_class,
+            "user_need_refs": list(self.user_need_refs),
+            "reveal_event_ids": list(self.reveal_event_ids),
+            "keyboard_focus_event_ids": list(self.keyboard_focus_event_ids),
+            "dismiss_event_ids": list(self.dismiss_event_ids),
+            "hover_reveal": self.hover_reveal,
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class UIContentVisibilityPlan:
+    """Admission plan for content that has reached the UI candidate boundary."""
+
+    plan_id: str
+    source_interaction_model_id: str = ""
+    current_revision: str = ""
+    candidate_content_ids: tuple[str, ...] = ()
+    items: tuple[UIContentVisibilityItem, ...] = ()
+    validation_boundaries: tuple[str, ...] = ()
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "plan_id", str(self.plan_id))
+        object.__setattr__(self, "source_interaction_model_id", str(self.source_interaction_model_id))
+        object.__setattr__(self, "current_revision", str(self.current_revision))
+        object.__setattr__(self, "candidate_content_ids", _as_tuple(self.candidate_content_ids))
+        object.__setattr__(self, "items", tuple(self.items))
+        object.__setattr__(self, "validation_boundaries", _as_tuple(self.validation_boundaries))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def item_ids(self) -> tuple[str, ...]:
+        return tuple(item.content_id for item in self.items)
+
+    def items_by_id(self) -> dict[str, UIContentVisibilityItem]:
+        return {item.content_id: item for item in self.items}
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "plan_id": self.plan_id,
+            "source_interaction_model_id": self.source_interaction_model_id,
+            "current_revision": self.current_revision,
+            "candidate_content_ids": list(self.candidate_content_ids),
+            "items": [item.to_dict() for item in self.items],
+            "validation_boundaries": list(self.validation_boundaries),
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
 class UIDisplayElement:
     """One modeled information element shown by the UI."""
 
@@ -199,6 +331,7 @@ class UIDisplayElement:
     region_hint: str = ""
     duplicate_group: str = ""
     redundancy_rationale: str = ""
+    content_visibility_id: str = ""
     rationale: str = ""
 
     def __post_init__(self) -> None:
@@ -210,6 +343,7 @@ class UIDisplayElement:
         object.__setattr__(self, "region_hint", str(self.region_hint))
         object.__setattr__(self, "duplicate_group", str(self.duplicate_group))
         object.__setattr__(self, "redundancy_rationale", str(self.redundancy_rationale))
+        object.__setattr__(self, "content_visibility_id", str(self.content_visibility_id))
         object.__setattr__(self, "rationale", str(self.rationale))
 
     def to_dict(self) -> dict[str, Any]:
@@ -222,6 +356,7 @@ class UIDisplayElement:
             "region_hint": self.region_hint,
             "duplicate_group": self.duplicate_group,
             "redundancy_rationale": self.redundancy_rationale,
+            "content_visibility_id": self.content_visibility_id,
             "rationale": self.rationale,
         }
 
@@ -238,6 +373,7 @@ class UIInteractionModel:
     displays: tuple[UIDisplayElement, ...] = ()
     source_product_model_id: str = ""
     source_product_model_path: str = ""
+    content_visibility_plan_id: str = ""
     validation_boundaries: tuple[str, ...] = ()
     rationale: str = ""
 
@@ -250,6 +386,7 @@ class UIInteractionModel:
         object.__setattr__(self, "displays", tuple(self.displays))
         object.__setattr__(self, "source_product_model_id", str(self.source_product_model_id))
         object.__setattr__(self, "source_product_model_path", str(self.source_product_model_path))
+        object.__setattr__(self, "content_visibility_plan_id", str(self.content_visibility_plan_id))
         object.__setattr__(self, "validation_boundaries", _as_tuple(self.validation_boundaries))
         object.__setattr__(self, "rationale", str(self.rationale))
 
@@ -281,6 +418,7 @@ class UIInteractionModel:
             "transitions": [transition.to_dict() for transition in self.transitions],
             "source_product_model_id": self.source_product_model_id,
             "source_product_model_path": self.source_product_model_path,
+            "content_visibility_plan_id": self.content_visibility_plan_id,
             "validation_boundaries": list(self.validation_boundaries),
             "rationale": self.rationale,
         }
@@ -896,6 +1034,48 @@ class UIImplementationJourneyRun:
 
 
 @dataclass(frozen=True)
+class UIContentVisibilityEvidence:
+    """One structured observation for a content-admission implementation claim."""
+
+    evidence_id: str
+    content_id: str
+    evidence_kind: str
+    current_revision: str = ""
+    state_id: str = ""
+    event_id: str = ""
+    observed_item_ids: tuple[str, ...] = ()
+    result: str = "passed"
+    evidence_ref: str = ""
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "evidence_id", str(self.evidence_id))
+        object.__setattr__(self, "content_id", str(self.content_id))
+        object.__setattr__(self, "evidence_kind", str(self.evidence_kind))
+        object.__setattr__(self, "current_revision", str(self.current_revision))
+        object.__setattr__(self, "state_id", str(self.state_id))
+        object.__setattr__(self, "event_id", str(self.event_id))
+        object.__setattr__(self, "observed_item_ids", _as_tuple(self.observed_item_ids))
+        object.__setattr__(self, "result", str(self.result))
+        object.__setattr__(self, "evidence_ref", str(self.evidence_ref))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "evidence_id": self.evidence_id,
+            "content_id": self.content_id,
+            "evidence_kind": self.evidence_kind,
+            "current_revision": self.current_revision,
+            "state_id": self.state_id,
+            "event_id": self.event_id,
+            "observed_item_ids": list(self.observed_item_ids),
+            "result": self.result,
+            "evidence_ref": self.evidence_ref,
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
 class UIImplementationValidation:
     """Real UI validation aligned to feature contracts and UI journeys."""
 
@@ -915,6 +1095,9 @@ class UIImplementationValidation:
     implementation_blindspots: tuple[UIBlindspot, ...] = ()
     capability_coverage_reviewed: bool = False
     journey_coverage_reviewed: bool = False
+    content_visibility_plan_id: str = ""
+    content_visibility_reviewed: bool = False
+    content_visibility_evidence: tuple[UIContentVisibilityEvidence, ...] = ()
     validation_boundaries: tuple[str, ...] = ()
     rationale: str = ""
 
@@ -935,6 +1118,9 @@ class UIImplementationValidation:
         object.__setattr__(self, "implementation_blindspots", tuple(self.implementation_blindspots))
         object.__setattr__(self, "capability_coverage_reviewed", bool(self.capability_coverage_reviewed))
         object.__setattr__(self, "journey_coverage_reviewed", bool(self.journey_coverage_reviewed))
+        object.__setattr__(self, "content_visibility_plan_id", str(self.content_visibility_plan_id))
+        object.__setattr__(self, "content_visibility_reviewed", bool(self.content_visibility_reviewed))
+        object.__setattr__(self, "content_visibility_evidence", tuple(self.content_visibility_evidence))
         object.__setattr__(self, "validation_boundaries", _as_tuple(self.validation_boundaries))
         object.__setattr__(self, "rationale", str(self.rationale))
 
@@ -973,6 +1159,9 @@ class UIImplementationValidation:
             ],
             "capability_coverage_reviewed": self.capability_coverage_reviewed,
             "journey_coverage_reviewed": self.journey_coverage_reviewed,
+            "content_visibility_plan_id": self.content_visibility_plan_id,
+            "content_visibility_reviewed": self.content_visibility_reviewed,
+            "content_visibility_evidence": [item.to_dict() for item in self.content_visibility_evidence],
             "validation_boundaries": list(self.validation_boundaries),
             "rationale": self.rationale,
         }
@@ -1148,6 +1337,7 @@ class UITextElement:
     visible_in_states: tuple[str, ...] = ()
     duplicate_group: str = ""
     redundancy_rationale: str = ""
+    content_visibility_id: str = ""
     rationale: str = ""
 
     def __post_init__(self) -> None:
@@ -1164,6 +1354,7 @@ class UITextElement:
         object.__setattr__(self, "visible_in_states", _as_tuple(self.visible_in_states))
         object.__setattr__(self, "duplicate_group", str(self.duplicate_group))
         object.__setattr__(self, "redundancy_rationale", str(self.redundancy_rationale))
+        object.__setattr__(self, "content_visibility_id", str(self.content_visibility_id))
         object.__setattr__(self, "rationale", str(self.rationale))
 
     def state_scope(self) -> tuple[str, ...]:
@@ -1184,6 +1375,7 @@ class UITextElement:
             "visible_in_states": list(self.visible_in_states),
             "duplicate_group": self.duplicate_group,
             "redundancy_rationale": self.redundancy_rationale,
+            "content_visibility_id": self.content_visibility_id,
             "rationale": self.rationale,
         }
 
@@ -1199,6 +1391,7 @@ class UITextHierarchyBlueprint:
     typography_tokens: tuple[UITypographyToken, ...] = ()
     text_elements: tuple[UITextElement, ...] = ()
     structure_derivation_reviewed: bool = False
+    content_visibility_plan_id: str = ""
     validation_boundaries: tuple[str, ...] = ()
     rationale: str = ""
 
@@ -1210,6 +1403,7 @@ class UITextHierarchyBlueprint:
         object.__setattr__(self, "typography_tokens", tuple(self.typography_tokens))
         object.__setattr__(self, "text_elements", tuple(self.text_elements))
         object.__setattr__(self, "structure_derivation_reviewed", bool(self.structure_derivation_reviewed))
+        object.__setattr__(self, "content_visibility_plan_id", str(self.content_visibility_plan_id))
         object.__setattr__(self, "validation_boundaries", _as_tuple(self.validation_boundaries))
         object.__setattr__(self, "rationale", str(self.rationale))
 
@@ -1234,6 +1428,7 @@ class UITextHierarchyBlueprint:
             "typography_tokens": [token.to_dict() for token in self.typography_tokens],
             "text_elements": [text.to_dict() for text in self.text_elements],
             "structure_derivation_reviewed": self.structure_derivation_reviewed,
+            "content_visibility_plan_id": self.content_visibility_plan_id,
             "validation_boundaries": list(self.validation_boundaries),
             "rationale": self.rationale,
         }
@@ -1257,6 +1452,7 @@ class UIVisibleSurfaceItem:
     presents_as_functionality: bool = False
     internal_term_rationale: str = ""
     redundancy_rationale: str = ""
+    content_visibility_id: str = ""
     rationale: str = ""
 
     def __post_init__(self) -> None:
@@ -1274,6 +1470,7 @@ class UIVisibleSurfaceItem:
         object.__setattr__(self, "presents_as_functionality", bool(self.presents_as_functionality))
         object.__setattr__(self, "internal_term_rationale", str(self.internal_term_rationale))
         object.__setattr__(self, "redundancy_rationale", str(self.redundancy_rationale))
+        object.__setattr__(self, "content_visibility_id", str(self.content_visibility_id))
         object.__setattr__(self, "rationale", str(self.rationale))
 
     def to_dict(self) -> dict[str, Any]:
@@ -1292,6 +1489,7 @@ class UIVisibleSurfaceItem:
             "presents_as_functionality": self.presents_as_functionality,
             "internal_term_rationale": self.internal_term_rationale,
             "redundancy_rationale": self.redundancy_rationale,
+            "content_visibility_id": self.content_visibility_id,
             "rationale": self.rationale,
         }
 
@@ -1303,6 +1501,7 @@ class UIVisibleSurface:
     surface_id: str
     source_interaction_model_id: str = ""
     items: tuple[UIVisibleSurfaceItem, ...] = ()
+    content_visibility_plan_id: str = ""
     validation_boundaries: tuple[str, ...] = ()
     rationale: str = ""
 
@@ -1310,6 +1509,7 @@ class UIVisibleSurface:
         object.__setattr__(self, "surface_id", str(self.surface_id))
         object.__setattr__(self, "source_interaction_model_id", str(self.source_interaction_model_id))
         object.__setattr__(self, "items", tuple(self.items))
+        object.__setattr__(self, "content_visibility_plan_id", str(self.content_visibility_plan_id))
         object.__setattr__(self, "validation_boundaries", _as_tuple(self.validation_boundaries))
         object.__setattr__(self, "rationale", str(self.rationale))
 
@@ -1321,6 +1521,7 @@ class UIVisibleSurface:
             "surface_id": self.surface_id,
             "source_interaction_model_id": self.source_interaction_model_id,
             "items": [item.to_dict() for item in self.items],
+            "content_visibility_plan_id": self.content_visibility_plan_id,
             "validation_boundaries": list(self.validation_boundaries),
             "rationale": self.rationale,
         }
@@ -1617,6 +1818,7 @@ class UIObservedSurfaceItem:
     mapped_control_id: str = ""
     mapped_display_id: str = ""
     mapped_visible_item_id: str = ""
+    content_visibility_id: str = ""
     blindspot_id: str = ""
     evidence_ref: str = ""
     evidence_kind: str = "manual_observation"
@@ -1637,6 +1839,7 @@ class UIObservedSurfaceItem:
         object.__setattr__(self, "mapped_control_id", str(self.mapped_control_id))
         object.__setattr__(self, "mapped_display_id", str(self.mapped_display_id))
         object.__setattr__(self, "mapped_visible_item_id", str(self.mapped_visible_item_id))
+        object.__setattr__(self, "content_visibility_id", str(self.content_visibility_id))
         object.__setattr__(self, "blindspot_id", str(self.blindspot_id))
         object.__setattr__(self, "evidence_ref", str(self.evidence_ref))
         object.__setattr__(self, "evidence_kind", str(self.evidence_kind))
@@ -1670,6 +1873,7 @@ class UIObservedSurfaceItem:
             "mapped_control_id": self.mapped_control_id,
             "mapped_display_id": self.mapped_display_id,
             "mapped_visible_item_id": self.mapped_visible_item_id,
+            "content_visibility_id": self.content_visibility_id,
             "blindspot_id": self.blindspot_id,
             "evidence_ref": self.evidence_ref,
             "evidence_kind": self.evidence_kind,
@@ -1690,6 +1894,7 @@ class UIObservedSurfaceInventory:
     observation_method: str = ""
     source_interaction_model_id: str = ""
     source_visible_surface_id: str = ""
+    content_visibility_plan_id: str = ""
     evidence_ref: str = ""
     items: tuple[UIObservedSurfaceItem, ...] = ()
     scoped_blindspots: tuple[UIBlindspot, ...] = ()
@@ -1703,6 +1908,7 @@ class UIObservedSurfaceInventory:
         object.__setattr__(self, "observation_method", str(self.observation_method))
         object.__setattr__(self, "source_interaction_model_id", str(self.source_interaction_model_id))
         object.__setattr__(self, "source_visible_surface_id", str(self.source_visible_surface_id))
+        object.__setattr__(self, "content_visibility_plan_id", str(self.content_visibility_plan_id))
         object.__setattr__(self, "evidence_ref", str(self.evidence_ref))
         object.__setattr__(self, "items", tuple(self.items))
         object.__setattr__(self, "scoped_blindspots", tuple(self.scoped_blindspots))
@@ -1723,6 +1929,7 @@ class UIObservedSurfaceInventory:
             "observation_method": self.observation_method,
             "source_interaction_model_id": self.source_interaction_model_id,
             "source_visible_surface_id": self.source_visible_surface_id,
+            "content_visibility_plan_id": self.content_visibility_plan_id,
             "evidence_ref": self.evidence_ref,
             "items": [item.to_dict() for item in self.items],
             "scoped_blindspots": [blindspot.to_dict() for blindspot in self.scoped_blindspots],
@@ -2594,6 +2801,7 @@ class UIHumanOperabilityAssessment:
     task_coverage: UIUserTaskCoverageLedger
     source_interaction_model_id: str = ""
     current_revision: str = ""
+    content_visibility_plan_id: str = ""
     region_maps: tuple[UIRegionSemanticMap, ...] = ()
     affordance_contracts: tuple[UIAffordanceContract, ...] = ()
     action_grammars: tuple[UIActionGrammar, ...] = ()
@@ -2607,6 +2815,7 @@ class UIHumanOperabilityAssessment:
         object.__setattr__(self, "assessment_id", str(self.assessment_id))
         object.__setattr__(self, "source_interaction_model_id", str(self.source_interaction_model_id))
         object.__setattr__(self, "current_revision", str(self.current_revision))
+        object.__setattr__(self, "content_visibility_plan_id", str(self.content_visibility_plan_id))
         object.__setattr__(self, "region_maps", tuple(self.region_maps))
         object.__setattr__(self, "affordance_contracts", tuple(self.affordance_contracts))
         object.__setattr__(self, "action_grammars", tuple(self.action_grammars))
@@ -2622,6 +2831,7 @@ class UIHumanOperabilityAssessment:
             "task_coverage": self.task_coverage.to_dict(),
             "source_interaction_model_id": self.source_interaction_model_id,
             "current_revision": self.current_revision,
+            "content_visibility_plan_id": self.content_visibility_plan_id,
             "region_maps": [item.to_dict() for item in self.region_maps],
             "affordance_contracts": [item.to_dict() for item in self.affordance_contracts],
             "action_grammars": [item.to_dict() for item in self.action_grammars],
@@ -2949,6 +3159,60 @@ class UIFlowStructureFinding:
             "severity": self.severity,
             "item_id": self.item_id,
             "metadata": to_jsonable(dict(self.metadata)),
+        }
+
+
+@dataclass(frozen=True)
+class UIContentVisibilityReport:
+    """Structured result for the pre-display content admission gate."""
+
+    ok: bool
+    plan_id: str
+    findings: tuple[UIFlowStructureFinding, ...] = ()
+    admitted_content_ids: tuple[str, ...] = ()
+    internal_content_ids: tuple[str, ...] = ()
+    summary: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "plan_id", str(self.plan_id))
+        object.__setattr__(self, "findings", tuple(self.findings))
+        object.__setattr__(self, "admitted_content_ids", _as_tuple(self.admitted_content_ids))
+        object.__setattr__(self, "internal_content_ids", _as_tuple(self.internal_content_ids))
+        if not self.summary:
+            status = "OK" if self.ok else "BLOCKED"
+            object.__setattr__(
+                self,
+                "summary",
+                f"{status}: ui_content_visibility={self.plan_id} findings={len(self.findings)}",
+            )
+
+    def blocker_count(self) -> int:
+        return sum(1 for finding in self.findings if finding.severity == "blocker")
+
+    def format_text(self, max_findings: int = 10) -> str:
+        lines = [
+            "=== flowguard UI content visibility review ===",
+            f"status: {'OK' if self.ok else 'BLOCKED'}",
+            f"plan: {self.plan_id}",
+            f"admitted: {len(self.admitted_content_ids)}",
+            f"internal: {len(self.internal_content_ids)}",
+            f"findings: {len(self.findings)}",
+        ]
+        for finding in self.findings[:max_findings]:
+            lines.append(
+                f"- [{finding.severity}] {finding.code} "
+                f"item={finding.item_id or '(none)'}: {finding.message}"
+            )
+        return "\n".join(lines)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "ok": self.ok,
+            "plan_id": self.plan_id,
+            "findings": [finding.to_dict() for finding in self.findings],
+            "admitted_content_ids": list(self.admitted_content_ids),
+            "internal_content_ids": list(self.internal_content_ids),
+            "summary": self.summary,
         }
 
 
@@ -3948,6 +4212,702 @@ def _text_contains_internal_term(value: str) -> str:
     return ""
 
 
+def ui_content_visibility_candidate_ids_from_field_lifecycle(
+    field_lifecycle_plan: Any,
+    *,
+    ui_reader_ids: Sequence[str],
+) -> tuple[str, ...]:
+    """Project only fields that have an in-scope ordinary-UI reader.
+
+    FieldLifecycleMesh remains the field inventory owner. This helper performs
+    the narrow handoff to UI Flow Structure and deliberately does not assign a
+    visibility class or pull unrelated backend fields into the UI model.
+    """
+
+    reader_ids = set(_as_tuple(ui_reader_ids))
+    if not reader_ids:
+        return ()
+    fields = tuple(getattr(field_lifecycle_plan, "fields", ()) or ())
+    return tuple(
+        dict.fromkeys(
+            str(field_row.field_id)
+            for field_row in fields
+            if set(_as_tuple(getattr(field_row, "reader_ids", ()))) & reader_ids
+        )
+    )
+
+
+def _content_need_ref_parts(reference: str) -> tuple[str, str]:
+    kind, separator, target_id = str(reference).partition(":")
+    if not separator:
+        return "", ""
+    return kind.strip(), target_id.strip()
+
+
+def _in_scope_task_owned_control_ids(
+    task_coverage: UIUserTaskCoverageLedger | None,
+) -> set[str] | None:
+    if task_coverage is None:
+        return None
+    in_scope_task_ids = set(task_coverage.task_ids()) - set(task_coverage.out_of_scope_task_ids)
+    return {
+        control_id
+        for task_id, control_id in task_coverage.task_control_links
+        if task_id in in_scope_task_ids
+    }
+
+
+def _is_normal_visible_control_label(
+    item: UIVisibleSurfaceItem,
+    *,
+    controls_by_id: Mapping[str, UIControl],
+    task_owned_control_ids: set[str] | None,
+) -> bool:
+    control = controls_by_id.get(item.owner_control_id)
+    if control is None:
+        return False
+    if task_owned_control_ids is not None and item.owner_control_id not in task_owned_control_ids:
+        return False
+    return bool(
+        item.item_kind in {"control", "disabled_control"}
+        and not item.owner_display_id
+        and not item.disabled_reason
+        and not item.placeholder
+        and _norm_text(item.text)
+        and _norm_text(item.text) == _norm_text(control.label)
+    )
+
+
+def _is_normal_text_control_label(
+    text: UITextElement,
+    *,
+    controls_by_id: Mapping[str, UIControl],
+    task_owned_control_ids: set[str] | None,
+) -> bool:
+    control = controls_by_id.get(text.source_control_id)
+    if control is None:
+        return False
+    if task_owned_control_ids is not None and text.source_control_id not in task_owned_control_ids:
+        return False
+    return bool(
+        text.role in {"button_label", "menu_label", "tab_label", "control_label"}
+        and not text.source_display_id
+        and _norm_text(text.label)
+        and _norm_text(text.label) == _norm_text(control.label)
+    )
+
+
+def _resolved_observed_content_ids(
+    observed: UIObservedSurfaceItem,
+    *,
+    displays_by_id: Mapping[str, UIDisplayElement],
+    visible_items_by_id: Mapping[str, UIVisibleSurfaceItem],
+) -> set[str]:
+    """Resolve one observed item to its exact content-admission decisions."""
+
+    resolved_ids: set[str] = set()
+    if observed.content_visibility_id:
+        resolved_ids.add(observed.content_visibility_id)
+    if observed.mapped_display_id and observed.mapped_display_id in displays_by_id:
+        display_content_id = displays_by_id[observed.mapped_display_id].content_visibility_id
+        if display_content_id:
+            resolved_ids.add(display_content_id)
+    if observed.mapped_visible_item_id and observed.mapped_visible_item_id in visible_items_by_id:
+        visible_content_id = visible_items_by_id[observed.mapped_visible_item_id].content_visibility_id
+        if visible_content_id:
+            resolved_ids.add(visible_content_id)
+    return resolved_ids
+
+
+def _content_visibility_ref_finding(
+    *,
+    artifact_name: str,
+    artifact_id: str,
+    referenced_plan_id: str,
+    expected_plan_id: str,
+) -> UIFlowStructureFinding | None:
+    if referenced_plan_id == expected_plan_id:
+        return None
+    code = "missing_content_visibility_plan_ref" if not referenced_plan_id else "content_visibility_plan_ref_mismatch"
+    return UIFlowStructureFinding(
+        code,
+        f"{artifact_name} {artifact_id or '(unnamed)'} must reference content visibility plan {expected_plan_id}",
+        item_id=artifact_id,
+        metadata={"expected_plan_id": expected_plan_id, "actual_plan_id": referenced_plan_id},
+    )
+
+
+def review_ui_content_visibility(
+    plan: UIContentVisibilityPlan,
+    *,
+    interaction_model: UIInteractionModel | None = None,
+    visible_surface: UIVisibleSurface | None = None,
+    text_blueprint: UITextHierarchyBlueprint | None = None,
+    observed_inventory: UIObservedSurfaceInventory | None = None,
+    task_coverage: UIUserTaskCoverageLedger | None = None,
+) -> UIContentVisibilityReport:
+    """Review pre-display admission and progressive disclosure for UI content."""
+
+    findings: list[UIFlowStructureFinding] = []
+    candidate_ids = tuple(plan.candidate_content_ids)
+    item_ids = tuple(plan.item_ids())
+    item_map = plan.items_by_id()
+
+    if not plan.plan_id:
+        findings.append(UIFlowStructureFinding("missing_content_visibility_plan_id", "UI content visibility plan has no id"))
+    if not plan.current_revision:
+        findings.append(
+            UIFlowStructureFinding(
+                "missing_content_visibility_revision",
+                "UI content visibility plan has no current model or implementation revision",
+                item_id=plan.plan_id,
+            )
+        )
+    if not plan.validation_boundaries:
+        findings.append(
+            UIFlowStructureFinding(
+                "missing_content_visibility_boundary",
+                "UI content visibility plan has no declared validation boundary",
+                item_id=plan.plan_id,
+            )
+        )
+    if not candidate_ids:
+        findings.append(
+            UIFlowStructureFinding(
+                "missing_content_visibility_candidates",
+                "UI content visibility plan has no in-scope candidate content inventory",
+                item_id=plan.plan_id,
+            )
+        )
+
+    findings.extend(
+        _duplicate_values(
+            candidate_ids,
+            code="duplicate_content_visibility_candidate",
+            noun="content visibility candidate",
+        )
+    )
+    findings.extend(
+        _duplicate_values(
+            item_ids,
+            code="duplicate_content_visibility_item",
+            noun="content visibility item",
+        )
+    )
+
+    candidate_set = set(candidate_ids)
+    item_set = set(item_ids)
+    for content_id in sorted(candidate_set - item_set):
+        findings.append(
+            UIFlowStructureFinding(
+                "unclassified_ui_candidate_content",
+                "in-scope UI candidate content has no visibility classification and must not render",
+                item_id=content_id,
+            )
+        )
+    for content_id in sorted(item_set - candidate_set):
+        findings.append(
+            UIFlowStructureFinding(
+                "content_visibility_item_not_candidate",
+                "content visibility item is not present in the declared UI candidate inventory",
+                item_id=content_id,
+            )
+        )
+
+    if interaction_model is not None:
+        if plan.source_interaction_model_id != interaction_model.model_id:
+            findings.append(
+                UIFlowStructureFinding(
+                    "content_visibility_source_model_mismatch",
+                    "content visibility plan does not reference the reviewed interaction model",
+                    item_id=plan.plan_id,
+                    metadata={
+                        "expected_model_id": interaction_model.model_id,
+                        "actual_model_id": plan.source_interaction_model_id,
+                    },
+                )
+            )
+        ref_finding = _content_visibility_ref_finding(
+            artifact_name="interaction model",
+            artifact_id=interaction_model.model_id,
+            referenced_plan_id=interaction_model.content_visibility_plan_id,
+            expected_plan_id=plan.plan_id,
+        )
+        if ref_finding is not None:
+            findings.append(ref_finding)
+
+    artifact_refs = (
+        ("visible surface", getattr(visible_surface, "surface_id", ""), getattr(visible_surface, "content_visibility_plan_id", "")),
+        ("text blueprint", getattr(text_blueprint, "blueprint_id", ""), getattr(text_blueprint, "content_visibility_plan_id", "")),
+        ("observed inventory", getattr(observed_inventory, "inventory_id", ""), getattr(observed_inventory, "content_visibility_plan_id", "")),
+    )
+    for artifact_name, artifact_id, referenced_plan_id in artifact_refs:
+        if not artifact_id:
+            continue
+        ref_finding = _content_visibility_ref_finding(
+            artifact_name=artifact_name,
+            artifact_id=artifact_id,
+            referenced_plan_id=referenced_plan_id,
+            expected_plan_id=plan.plan_id,
+        )
+        if ref_finding is not None:
+            findings.append(ref_finding)
+
+    mappings: dict[str, list[tuple[str, str]]] = {}
+
+    def add_mapping(content_id: str, mapping_kind: str, mapping_id: str) -> None:
+        if content_id:
+            mappings.setdefault(content_id, []).append((mapping_kind, mapping_id))
+
+    displays_by_id = interaction_model.displays_by_id() if interaction_model is not None else {}
+    controls_by_id = interaction_model.controls_by_id() if interaction_model is not None else {}
+    task_owned_control_ids = _in_scope_task_owned_control_ids(task_coverage)
+    if interaction_model is not None:
+        for display in interaction_model.displays:
+            if not display.content_visibility_id:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "display_missing_content_visibility",
+                        "display content must be admitted before display modeling",
+                        item_id=display.display_id,
+                    )
+                )
+            add_mapping(display.content_visibility_id, "display", display.display_id)
+
+    visible_items_by_id = {item.item_id: item for item in visible_surface.items} if visible_surface is not None else {}
+    if visible_surface is not None:
+        for item in visible_surface.items:
+            ordinary_control_label = _is_normal_visible_control_label(
+                item,
+                controls_by_id=controls_by_id,
+                task_owned_control_ids=task_owned_control_ids,
+            )
+            if not item.content_visibility_id and not ordinary_control_label:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "visible_item_missing_content_visibility",
+                        "non-control visible content must be admitted before it appears on the visible surface",
+                        item_id=item.item_id,
+                    )
+                )
+            add_mapping(item.content_visibility_id, "visible_surface", item.item_id)
+
+    text_items_by_id = {item.text_id: item for item in text_blueprint.text_elements} if text_blueprint is not None else {}
+    if text_blueprint is not None:
+        for text in text_blueprint.text_elements:
+            ordinary_control_label = _is_normal_text_control_label(
+                text,
+                controls_by_id=controls_by_id,
+                task_owned_control_ids=task_owned_control_ids,
+            )
+            if not text.content_visibility_id and not ordinary_control_label:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "text_missing_content_visibility",
+                        "non-control visible text must be admitted before text hierarchy modeling",
+                        item_id=text.text_id,
+                    )
+                )
+            add_mapping(text.content_visibility_id, "text", text.text_id)
+
+    observed_items_by_id = {item.item_id: item for item in observed_inventory.items} if observed_inventory is not None else {}
+    if observed_inventory is not None:
+        for observed in observed_inventory.items:
+            if not observed.visible or observed.item_kind in OBSERVED_UI_ACTIONABLE_KINDS or observed.blindspot_id:
+                continue
+            resolved_ids = _resolved_observed_content_ids(
+                observed,
+                displays_by_id=displays_by_id,
+                visible_items_by_id=visible_items_by_id,
+            )
+            if not resolved_ids:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "observed_non_action_content_not_admitted",
+                        "observed non-action content cannot use existing visibility or direct display mapping as permission",
+                        item_id=observed.item_id,
+                    )
+                )
+            elif len(resolved_ids) > 1:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "observed_content_visibility_conflict",
+                        "observed content resolves to multiple admission decisions",
+                        item_id=observed.item_id,
+                        metadata={"content_visibility_ids": sorted(resolved_ids)},
+                    )
+                )
+            for content_id in resolved_ids:
+                add_mapping(content_id, "observed", observed.item_id)
+
+    known_event_ids = set(interaction_model.transition_event_ids()) if interaction_model is not None else set()
+    transitions_by_event = _transitions_by_event(interaction_model) if interaction_model is not None else {}
+    states_by_id = {state.state_id: state for state in interaction_model.states} if interaction_model is not None else {}
+    in_scope_task_ids = (
+        set(task_coverage.task_ids()) - set(task_coverage.out_of_scope_task_ids)
+        if task_coverage is not None
+        else set()
+    )
+
+    for item in plan.items:
+        if not item.content_id:
+            findings.append(UIFlowStructureFinding("missing_content_visibility_item_id", "content visibility item has no id"))
+            continue
+        if item.visibility_class not in UI_CONTENT_VISIBILITY_CLASSES:
+            findings.append(
+                UIFlowStructureFinding(
+                    "unknown_content_visibility_class",
+                    "content visibility class must be user_visible, user_on_demand, or internal",
+                    item_id=item.content_id,
+                    metadata={"visibility_class": item.visibility_class},
+                )
+            )
+            continue
+        if item.user_facing:
+            if not item.user_need_refs:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "user_content_missing_need_ref",
+                        "user-facing content needs a task, current-state, recovery, or safety reference",
+                        item_id=item.content_id,
+                    )
+                )
+            for reference in item.user_need_refs:
+                need_kind, target_id = _content_need_ref_parts(reference)
+                if need_kind not in UI_CONTENT_NEED_KINDS:
+                    findings.append(
+                        UIFlowStructureFinding(
+                            "unknown_user_content_need_kind",
+                            "user need references must use task:, state:, recovery:, or safety:",
+                            item_id=item.content_id,
+                            metadata={"reference": reference},
+                        )
+                    )
+                    continue
+                if not target_id:
+                    findings.append(
+                        UIFlowStructureFinding(
+                            "empty_user_content_need_target",
+                            "typed user need references need a non-empty target id",
+                            item_id=item.content_id,
+                            metadata={"reference": reference},
+                        )
+                    )
+                    continue
+                if need_kind == UI_CONTENT_NEED_TASK and task_coverage is not None and target_id not in in_scope_task_ids:
+                    findings.append(
+                        UIFlowStructureFinding(
+                            "user_content_need_task_not_registered",
+                            "task user need reference does not resolve to an in-scope user task",
+                            item_id=item.content_id,
+                            metadata={"reference": reference, "task_id": target_id},
+                        )
+                    )
+                if need_kind == UI_CONTENT_NEED_STATE and interaction_model is not None and target_id not in states_by_id:
+                    findings.append(
+                        UIFlowStructureFinding(
+                            "user_content_need_state_not_registered",
+                            "state user need reference does not resolve to the reviewed interaction model",
+                            item_id=item.content_id,
+                            metadata={"reference": reference, "state_id": target_id},
+                        )
+                    )
+        item_mappings = mappings.get(item.content_id, [])
+        if item.visibility_class == UI_CONTENT_VISIBILITY_INTERNAL and item_mappings:
+            findings.append(
+                UIFlowStructureFinding(
+                    "internal_content_mapped_to_ui",
+                    "internal content must not map to an ordinary display, text, visible-surface, or observed item",
+                    item_id=item.content_id,
+                    metadata={"mappings": [list(mapping) for mapping in item_mappings]},
+                )
+            )
+        if item.visibility_class != UI_CONTENT_VISIBILITY_USER_ON_DEMAND:
+            continue
+        if not item.reveal_event_ids:
+            findings.append(
+                UIFlowStructureFinding(
+                    "on_demand_content_missing_reveal_event",
+                    "user_on_demand content needs an explicit reveal event",
+                    item_id=item.content_id,
+                )
+            )
+        if not item.dismiss_event_ids:
+            findings.append(
+                UIFlowStructureFinding(
+                    "on_demand_content_missing_dismiss_event",
+                    "user_on_demand content needs a close, collapse, blur, Escape, or equivalent return event",
+                    item_id=item.content_id,
+                )
+            )
+        if item.hover_reveal and not item.keyboard_focus_event_ids:
+            findings.append(
+                UIFlowStructureFinding(
+                    "hover_reveal_missing_keyboard_focus_equivalent",
+                    "hover-revealed content needs an equivalent keyboard or focus reveal event",
+                    item_id=item.content_id,
+                )
+            )
+        if item.hover_reveal and set(item.reveal_event_ids) & set(item.keyboard_focus_event_ids):
+            findings.append(
+                UIFlowStructureFinding(
+                    "hover_reveal_reuses_untyped_pointer_event",
+                    "hover disclosure needs a distinct keyboard or focus event, not the same untyped reveal event",
+                    item_id=item.content_id,
+                    metadata={
+                        "reused_event_ids": sorted(set(item.reveal_event_ids) & set(item.keyboard_focus_event_ids))
+                    },
+                )
+            )
+
+        referenced_events = item.reveal_event_ids + item.keyboard_focus_event_ids + item.dismiss_event_ids
+        for event_id in sorted(set(referenced_events) - known_event_ids) if interaction_model is not None else ():
+            findings.append(
+                UIFlowStructureFinding(
+                    "unknown_content_visibility_event",
+                    "content visibility item references an event outside the interaction model",
+                    item_id=item.content_id,
+                    metadata={"event_id": event_id},
+                )
+            )
+
+        if interaction_model is None:
+            continue
+        bound_display_ids = {
+            mapping_id for mapping_kind, mapping_id in item_mappings if mapping_kind == "display"
+        }
+        reveal_transitions = tuple(
+            transition
+            for event_id in item.reveal_event_ids + item.keyboard_focus_event_ids
+            for transition in (transitions_by_event.get(event_id),)
+            if transition is not None
+        )
+        dismiss_transitions = tuple(
+            transition
+            for event_id in item.dismiss_event_ids
+            for transition in (transitions_by_event.get(event_id),)
+            if transition is not None
+        )
+        revealed_state_ids = {transition.target_state_id for transition in reveal_transitions}
+
+        for phase, transitions in (("reveal", reveal_transitions), ("dismiss", dismiss_transitions)):
+            for transition in transitions:
+                control = controls_by_id.get(transition.control_id)
+                source_state = states_by_id.get(transition.source_state_id)
+                if control is None:
+                    findings.append(
+                        UIFlowStructureFinding(
+                            f"on_demand_{phase}_control_not_registered",
+                            f"on-demand {phase} event needs a registered UI control",
+                            item_id=item.content_id,
+                            metadata={"event_id": transition.event_id, "control_id": transition.control_id},
+                        )
+                    )
+                    continue
+                if not control.label:
+                    findings.append(
+                        UIFlowStructureFinding(
+                            f"on_demand_{phase}_control_missing_label",
+                            f"on-demand {phase} control needs a discoverable user-facing label",
+                            item_id=item.content_id,
+                            metadata={"event_id": transition.event_id, "control_id": transition.control_id},
+                        )
+                    )
+                if source_state is not None and transition.control_id not in source_state.visible_controls:
+                    findings.append(
+                        UIFlowStructureFinding(
+                            f"on_demand_{phase}_control_not_visible",
+                            f"on-demand {phase} control is not visible in the event source state",
+                            item_id=item.content_id,
+                            metadata={"event_id": transition.event_id, "control_id": transition.control_id, "state_id": source_state.state_id},
+                        )
+                    )
+                if source_state is not None and transition.control_id not in source_state.enabled_controls:
+                    findings.append(
+                        UIFlowStructureFinding(
+                            f"on_demand_{phase}_control_not_enabled",
+                            f"on-demand {phase} control is not operable in the event source state",
+                            item_id=item.content_id,
+                            metadata={"event_id": transition.event_id, "control_id": transition.control_id, "state_id": source_state.state_id},
+                        )
+                    )
+
+        initial_state = states_by_id.get(interaction_model.initial_state_id)
+        for display_id in sorted(bound_display_ids):
+            if initial_state is None:
+                continue
+            if display_id in initial_state.visible_displays:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "on_demand_content_visible_in_default_state",
+                        "user_on_demand content is visible before an explicit reveal event",
+                        item_id=item.content_id,
+                        metadata={"display_id": display_id, "state_id": initial_state.state_id},
+                    )
+                )
+            if display_id not in initial_state.hidden_displays:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "on_demand_default_hidden_not_explicit",
+                        "user_on_demand display must be explicitly hidden in the default state",
+                        item_id=item.content_id,
+                        metadata={"display_id": display_id, "state_id": initial_state.state_id},
+                    )
+                )
+
+        for event_id in item.reveal_event_ids + item.keyboard_focus_event_ids:
+            transition = transitions_by_event.get(event_id)
+            if transition is None or not bound_display_ids:
+                continue
+            source_state = states_by_id.get(transition.source_state_id)
+            target_state = states_by_id.get(transition.target_state_id)
+            for display_id in sorted(bound_display_ids):
+                if source_state is not None and display_id not in source_state.hidden_displays:
+                    findings.append(
+                        UIFlowStructureFinding(
+                            "on_demand_reveal_source_not_hidden",
+                            "on-demand reveal must start from a state that explicitly hides the display",
+                            item_id=item.content_id,
+                            metadata={"event_id": event_id, "display_id": display_id},
+                        )
+                    )
+                if target_state is not None and display_id not in target_state.visible_displays:
+                    findings.append(
+                        UIFlowStructureFinding(
+                            "on_demand_reveal_target_not_visible",
+                            "on-demand reveal event must reach a state that shows the display",
+                            item_id=item.content_id,
+                            metadata={"event_id": event_id, "display_id": display_id},
+                        )
+                    )
+
+        for event_id in item.dismiss_event_ids:
+            transition = transitions_by_event.get(event_id)
+            if transition is None or not bound_display_ids:
+                continue
+            source_state = states_by_id.get(transition.source_state_id)
+            target_state = states_by_id.get(transition.target_state_id)
+            for display_id in sorted(bound_display_ids):
+                if source_state is not None and display_id not in source_state.visible_displays:
+                    findings.append(
+                        UIFlowStructureFinding(
+                            "on_demand_dismiss_source_not_visible",
+                            "on-demand dismiss event must start from a state that shows the display",
+                            item_id=item.content_id,
+                            metadata={"event_id": event_id, "display_id": display_id},
+                        )
+                    )
+                if target_state is not None and display_id not in target_state.hidden_displays:
+                    findings.append(
+                        UIFlowStructureFinding(
+                            "on_demand_dismiss_target_not_hidden",
+                            "on-demand dismiss event must return to a state that hides the display",
+                            item_id=item.content_id,
+                            metadata={"event_id": event_id, "display_id": display_id},
+                        )
+                    )
+
+        for mapping_kind, mapping_id in item_mappings:
+            if mapping_kind == "visible_surface":
+                visible_item = visible_items_by_id.get(mapping_id)
+                if visible_item is None:
+                    continue
+                if not visible_item.state_ids:
+                    if visible_item.owner_display_id not in bound_display_ids:
+                        findings.append(
+                            UIFlowStructureFinding(
+                                "on_demand_visible_surface_missing_state_scope",
+                                "on-demand visible-surface content needs revealed-state scope or an owning gated display",
+                                item_id=item.content_id,
+                                metadata={"visible_item_id": mapping_id},
+                            )
+                        )
+                    continue
+                outside_states = sorted(set(visible_item.state_ids) - revealed_state_ids)
+                if outside_states:
+                    findings.append(
+                        UIFlowStructureFinding(
+                            "on_demand_visible_surface_outside_revealed_state",
+                            "on-demand visible-surface content is declared visible outside a reveal target state",
+                            item_id=item.content_id,
+                            metadata={"visible_item_id": mapping_id, "state_ids": outside_states},
+                        )
+                    )
+            elif mapping_kind == "text":
+                text_item = text_items_by_id.get(mapping_id)
+                if text_item is None:
+                    continue
+                state_scope = text_item.state_scope()
+                if state_scope == ("*",):
+                    if text_item.source_display_id not in bound_display_ids:
+                        findings.append(
+                            UIFlowStructureFinding(
+                                "on_demand_text_missing_state_scope",
+                                "on-demand text needs revealed-state scope or an owning gated display",
+                                item_id=item.content_id,
+                                metadata={"text_id": mapping_id},
+                            )
+                        )
+                    continue
+                outside_states = sorted(set(state_scope) - revealed_state_ids)
+                if outside_states:
+                    findings.append(
+                        UIFlowStructureFinding(
+                            "on_demand_text_outside_revealed_state",
+                            "on-demand text is declared visible outside a reveal target state",
+                            item_id=item.content_id,
+                            metadata={"text_id": mapping_id, "state_ids": outside_states},
+                        )
+                    )
+            elif mapping_kind == "observed":
+                observed_item = observed_items_by_id.get(mapping_id)
+                if observed_item is None:
+                    continue
+                if not observed_item.state_id:
+                    findings.append(
+                        UIFlowStructureFinding(
+                            "on_demand_observed_content_missing_state",
+                            "observed on-demand content needs the state in which it was visible",
+                            item_id=item.content_id,
+                            metadata={"observed_item_id": mapping_id},
+                        )
+                    )
+                elif observed_item.state_id not in revealed_state_ids:
+                    findings.append(
+                        UIFlowStructureFinding(
+                            "on_demand_observed_content_outside_revealed_state",
+                            "observed on-demand content is visible outside a reveal target state",
+                            item_id=item.content_id,
+                            metadata={"observed_item_id": mapping_id, "state_id": observed_item.state_id},
+                        )
+                    )
+
+    for content_id in sorted(set(mappings) - item_set):
+        findings.append(
+            UIFlowStructureFinding(
+                "ui_mapping_without_content_classification",
+                "UI mapping references content that has no visibility classification",
+                item_id=content_id,
+                metadata={"mappings": [list(mapping) for mapping in mappings[content_id]]},
+            )
+        )
+
+    blockers = _blocker_findings(findings)
+    return UIContentVisibilityReport(
+        ok=not blockers,
+        plan_id=plan.plan_id,
+        findings=tuple(findings),
+        admitted_content_ids=tuple(
+            item.content_id for item in plan.items if item.user_facing
+        ),
+        internal_content_ids=tuple(
+            item.content_id
+            for item in plan.items
+            if item.visibility_class == UI_CONTENT_VISIBILITY_INTERNAL
+        ),
+    )
+
+
 def _scoped_groups_by_key(text_elements: Sequence[UITextElement], key_name: str) -> dict[tuple[str, str, str], list[UITextElement]]:
     groups: dict[tuple[str, str, str], list[UITextElement]] = {}
     for text in text_elements:
@@ -3968,6 +4928,7 @@ def review_ui_visible_surface(
     surface: UIVisibleSurface,
     *,
     interaction_model: UIInteractionModel | None = None,
+    content_visibility_plan: UIContentVisibilityPlan | None = None,
 ) -> UIVisibleSurfaceReport:
     """Review user-facing visible UI surface inventory."""
 
@@ -4053,6 +5014,15 @@ def review_ui_visible_surface(
                     item_id=item.item_id,
                 )
             )
+        if item.priority not in UI_VISIBLE_SURFACE_PRIORITIES:
+            findings.append(
+                UIFlowStructureFinding(
+                    "unknown_visible_surface_priority",
+                    "visible surface priority must be primary or secondary",
+                    item_id=item.item_id,
+                    metadata={"priority": item.priority},
+                )
+            )
         for state_id in item.state_ids:
             if interaction_model is not None and state_id not in known_states:
                 findings.append(
@@ -4129,6 +5099,14 @@ def review_ui_visible_surface(
                 )
             )
 
+    if content_visibility_plan is not None:
+        visibility_report = review_ui_content_visibility(
+            content_visibility_plan,
+            interaction_model=interaction_model,
+            visible_surface=surface,
+        )
+        findings.extend(visibility_report.findings)
+
     blockers = _blocker_findings(findings)
     return UIVisibleSurfaceReport(ok=not blockers, surface_id=surface.surface_id, findings=tuple(findings))
 
@@ -4138,6 +5116,7 @@ def review_ui_observed_surface_inventory(
     *,
     interaction_model: UIInteractionModel | None = None,
     visible_surface: UIVisibleSurface | None = None,
+    content_visibility_plan: UIContentVisibilityPlan | None = None,
 ) -> UIObservedSurfaceInventoryReport:
     """Review real rendered UI inventory before a UI model is called complete."""
 
@@ -4359,6 +5338,15 @@ def review_ui_observed_surface_inventory(
                     item_id=item.item_id,
                 )
             )
+
+    if content_visibility_plan is not None:
+        visibility_report = review_ui_content_visibility(
+            content_visibility_plan,
+            interaction_model=interaction_model,
+            visible_surface=visible_surface,
+            observed_inventory=inventory,
+        )
+        findings.extend(visibility_report.findings)
 
     blockers = _blocker_findings(findings)
     return UIObservedSurfaceInventoryReport(
@@ -5160,6 +6148,7 @@ def review_ui_human_operability(
     functional_chains: UIControlFunctionalChainSet | None = None,
     capability_inventory: UIFunctionalCapabilityInventory | None = None,
     capability_coverage: UIFunctionalCapabilityCoverageReport | None = None,
+    content_visibility_plan: UIContentVisibilityPlan | None = None,
 ) -> UIHumanOperabilityReport:
     """Review whether a UI is understandable and operable for user tasks."""
 
@@ -5552,6 +6541,152 @@ def review_ui_human_operability(
                 findings.append(UIFlowStructureFinding("walkthrough_step_missing_evidence_ref", f"walkthrough step {step.step_id} has no evidence reference", item_id=step.step_id))
             if step.confusion and not step.mitigation:
                 findings.append(UIFlowStructureFinding("walkthrough_step_confusion_unmitigated", f"walkthrough step {step.step_id} reports confusion without mitigation", item_id=step.step_id))
+
+    if content_visibility_plan is not None:
+        ref_finding = _content_visibility_ref_finding(
+            artifact_name="human operability assessment",
+            artifact_id=assessment.assessment_id,
+            referenced_plan_id=assessment.content_visibility_plan_id,
+            expected_plan_id=content_visibility_plan.plan_id,
+        )
+        if ref_finding is not None:
+            findings.append(ref_finding)
+        visibility_report = review_ui_content_visibility(
+            content_visibility_plan,
+            interaction_model=interaction_model,
+            visible_surface=visible_surface,
+            task_coverage=ledger,
+        )
+        findings.extend(visibility_report.findings)
+
+        transitions_by_event = _transitions_by_event(interaction_model) if interaction_model is not None else {}
+        control_to_task_ids: dict[str, set[str]] = {}
+        for task_id, control_ids in task_to_controls.items():
+            if task_id not in in_scope_task_ids:
+                continue
+            for control_id in control_ids:
+                control_to_task_ids.setdefault(control_id, set()).add(task_id)
+        content_visible_item_ids: dict[str, set[str]] = {}
+        if visible_surface is not None:
+            for visible_item in visible_surface.items:
+                if visible_item.content_visibility_id:
+                    content_visible_item_ids.setdefault(visible_item.content_visibility_id, set()).add(
+                        visible_item.item_id
+                    )
+
+        for content_item in content_visibility_plan.items:
+            if content_item.visibility_class != UI_CONTENT_VISIBILITY_USER_ON_DEMAND:
+                continue
+            reveal_transitions = tuple(
+                transition
+                for event_id in content_item.reveal_event_ids + content_item.keyboard_focus_event_ids
+                for transition in (transitions_by_event.get(event_id),)
+                if transition is not None
+            )
+            dismiss_transitions = tuple(
+                transition
+                for event_id in content_item.dismiss_event_ids
+                for transition in (transitions_by_event.get(event_id),)
+                if transition is not None
+            )
+            reveal_control_ids = {transition.control_id for transition in reveal_transitions if transition.control_id}
+            dismiss_control_ids = {transition.control_id for transition in dismiss_transitions if transition.control_id}
+            owned_task_ids = {
+                task_id
+                for control_id in reveal_control_ids | dismiss_control_ids
+                for task_id in control_to_task_ids.get(control_id, set())
+            }
+            for control_id in sorted(reveal_control_ids | dismiss_control_ids):
+                if control_id not in control_to_task_ids:
+                    findings.append(
+                        UIFlowStructureFinding(
+                            "on_demand_control_without_user_task_owner",
+                            "on-demand reveal and return controls must be owned by an in-scope user task",
+                            item_id=content_item.content_id,
+                            metadata={"control_id": control_id},
+                        )
+                    )
+
+            need_task_ids = {
+                target_id
+                for reference in content_item.user_need_refs
+                for need_kind, target_id in (_content_need_ref_parts(reference),)
+                if need_kind == UI_CONTENT_NEED_TASK and target_id
+            }
+            if need_task_ids and not (need_task_ids & owned_task_ids):
+                findings.append(
+                    UIFlowStructureFinding(
+                        "on_demand_need_task_does_not_own_disclosure",
+                        "the task used to justify on-demand content does not own its reveal or return controls",
+                        item_id=content_item.content_id,
+                        metadata={"need_task_ids": sorted(need_task_ids), "owner_task_ids": sorted(owned_task_ids)},
+                    )
+                )
+
+            discoverable_affordance = any(
+                affordance.control_id in reveal_control_ids
+                and affordance.task_id in owned_task_ids
+                and affordance.perceived_role in UI_PERCEIVED_ACTIONABLE_ROLES
+                and affordance.actual_role in UI_ACTUAL_ACTIONABLE_ROLES
+                and bool(affordance.visual_cues)
+                and bool(affordance.expected_user_action)
+                and bool(affordance.expected_result)
+                for affordance in assessment.affordance_contracts
+            )
+            if not discoverable_affordance:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "on_demand_content_missing_discoverable_affordance",
+                        "on-demand content needs a task-owned reveal affordance with visible cues and a truthful result",
+                        item_id=content_item.content_id,
+                        metadata={"reveal_control_ids": sorted(reveal_control_ids)},
+                    )
+                )
+
+            expected_feedback_item_ids = content_visible_item_ids.get(content_item.content_id, set())
+            truthful_feedback = any(
+                (
+                    grammar.primary_control_id in reveal_control_ids
+                    or bool(set(grammar.alternate_control_ids) & reveal_control_ids)
+                )
+                and grammar.task_id in owned_task_ids
+                and bool(set(grammar.expected_feedback_item_ids) & expected_feedback_item_ids)
+                for grammar in assessment.action_grammars
+            )
+            if not truthful_feedback:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "on_demand_content_missing_truthful_feedback",
+                        "on-demand reveal action needs feedback that resolves to the revealed content item",
+                        item_id=content_item.content_id,
+                        metadata={"expected_feedback_item_ids": sorted(expected_feedback_item_ids)},
+                    )
+                )
+
+            if content_item.hover_reveal:
+                keyboard_control_ids = {
+                    transition.control_id
+                    for event_id in content_item.keyboard_focus_event_ids
+                    for transition in (transitions_by_event.get(event_id),)
+                    if transition is not None and transition.control_id
+                }
+                keyboard_equivalent = any(
+                    keyboard.task_id in owned_task_ids
+                    and bool(
+                        keyboard_control_ids
+                        & (set(keyboard.tab_order_control_ids) | {keyboard.default_enter_control_id})
+                    )
+                    for keyboard in assessment.keyboard_contracts
+                )
+                if not keyboard_equivalent:
+                    findings.append(
+                        UIFlowStructureFinding(
+                            "on_demand_hover_missing_operable_keyboard_equivalent",
+                            "hover disclosure needs a task-owned keyboard or focus path to the same content",
+                            item_id=content_item.content_id,
+                            metadata={"keyboard_control_ids": sorted(keyboard_control_ids)},
+                        )
+                    )
 
     blockers = _blocker_findings(findings)
     return UIHumanOperabilityReport(
@@ -5993,7 +7128,11 @@ def review_ui_responsiveness_contract(
     )
 
 
-def review_ui_interaction_model(model: UIInteractionModel) -> UIInteractionModelReport:
+def review_ui_interaction_model(
+    model: UIInteractionModel,
+    *,
+    content_visibility_plan: UIContentVisibilityPlan | None = None,
+) -> UIInteractionModelReport:
     """Review whether a UI interaction model is complete enough for derivation."""
 
     findings: list[UIFlowStructureFinding] = []
@@ -6085,6 +7224,35 @@ def review_ui_interaction_model(model: UIInteractionModel) -> UIInteractionModel
                         item_id=display_id,
                     )
                 )
+        for display_id in state.hidden_displays:
+            if display_id not in display_ids:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "state_hidden_display_not_registered",
+                        f"state {state.state_id} hides unknown display {display_id}",
+                        item_id=display_id,
+                    )
+                )
+        hidden_control_conflicts = set(state.hidden_controls) & (
+            set(state.visible_controls) | set(state.enabled_controls) | set(state.disabled_controls)
+        )
+        enabled_disabled_conflicts = set(state.enabled_controls) & set(state.disabled_controls)
+        for control_id in sorted(hidden_control_conflicts | enabled_disabled_conflicts):
+            findings.append(
+                UIFlowStructureFinding(
+                    "conflicting_control_availability",
+                    f"state {state.state_id} gives control {control_id} conflicting visible/enabled/disabled/hidden dispositions",
+                    item_id=control_id,
+                )
+            )
+        for display_id in sorted(set(state.visible_displays) & set(state.hidden_displays)):
+            findings.append(
+                UIFlowStructureFinding(
+                    "conflicting_display_visibility",
+                    f"state {state.state_id} marks display {display_id} both visible and hidden",
+                    item_id=display_id,
+                )
+            )
         if state.failure and not state.terminal and not state.recovery_controls and not outgoing_by_state.get(state.state_id):
             findings.append(
                 UIFlowStructureFinding(
@@ -6254,6 +7422,13 @@ def review_ui_interaction_model(model: UIInteractionModel) -> UIInteractionModel
                     item_id=transition.event_id,
                 )
             )
+
+    if content_visibility_plan is not None:
+        visibility_report = review_ui_content_visibility(
+            content_visibility_plan,
+            interaction_model=model,
+        )
+        findings.extend(visibility_report.findings)
 
     blockers = _blocker_findings(findings)
     return UIInteractionModelReport(
@@ -6790,6 +7965,9 @@ def review_ui_implementation_validation(
     journey_coverage: UIJourneyCoverage,
     capability_inventory: UIFunctionalCapabilityInventory | None = None,
     capability_coverage: UIFunctionalCapabilityCoverageReport | None = None,
+    visible_surface: UIVisibleSurface | None = None,
+    observed_inventory: UIObservedSurfaceInventory | None = None,
+    content_visibility_plan: UIContentVisibilityPlan | None = None,
 ) -> UIImplementationValidationReport:
     """Review real UI evidence against feature contracts and UI journey coverage."""
 
@@ -7464,6 +8642,352 @@ def review_ui_implementation_validation(
                 )
             )
 
+    if content_visibility_plan is not None:
+        ref_finding = _content_visibility_ref_finding(
+            artifact_name="implementation validation",
+            artifact_id=validation.validation_id,
+            referenced_plan_id=validation.content_visibility_plan_id,
+            expected_plan_id=content_visibility_plan.plan_id,
+        )
+        if ref_finding is not None:
+            findings.append(ref_finding)
+        if not validation.content_visibility_reviewed:
+            findings.append(
+                UIFlowStructureFinding(
+                    "implementation_content_visibility_not_reviewed",
+                    "runnable UI validation has not reviewed the current content visibility plan",
+                    item_id=validation.validation_id,
+                )
+            )
+        if observed_inventory is None:
+            findings.append(
+                UIFlowStructureFinding(
+                    "implementation_content_visibility_observed_inventory_missing",
+                    "runnable content-admission validation needs a current observed UI inventory",
+                    item_id=validation.validation_id,
+                )
+            )
+        evidence_rows = tuple(validation.content_visibility_evidence)
+        if not evidence_rows:
+            findings.append(
+                UIFlowStructureFinding(
+                    "implementation_content_visibility_evidence_missing",
+                    "runnable UI validation needs structured per-content visibility evidence",
+                    item_id=validation.validation_id,
+                )
+            )
+        findings.extend(
+            _duplicate_values(
+                tuple(row.evidence_id for row in evidence_rows),
+                code="duplicate_content_visibility_evidence_id",
+                noun="content visibility evidence",
+            )
+        )
+        plan_items_by_id = content_visibility_plan.items_by_id()
+        observed_items_by_id = (
+            {item.item_id: item for item in observed_inventory.items}
+            if observed_inventory is not None
+            else {}
+        )
+        observed_item_ids = set(observed_items_by_id)
+        implementation_displays_by_id = interaction_model.displays_by_id()
+        implementation_visible_items_by_id = (
+            {item.item_id: item for item in visible_surface.items}
+            if visible_surface is not None
+            else {}
+        )
+        resolved_content_ids_by_observed_id = {
+            observed_id: _resolved_observed_content_ids(
+                observed_item,
+                displays_by_id=implementation_displays_by_id,
+                visible_items_by_id=implementation_visible_items_by_id,
+            )
+            for observed_id, observed_item in observed_items_by_id.items()
+        }
+        required_evidence_kinds = {
+            UI_CONTENT_VISIBILITY_USER_VISIBLE: (UI_CONTENT_EVIDENCE_DEFAULT_VISIBLE,),
+            UI_CONTENT_VISIBILITY_USER_ON_DEMAND: (
+                UI_CONTENT_EVIDENCE_DEFAULT_HIDDEN,
+                UI_CONTENT_EVIDENCE_REVEAL,
+                UI_CONTENT_EVIDENCE_REVEALED,
+                UI_CONTENT_EVIDENCE_RETURN_HIDDEN,
+            ),
+            UI_CONTENT_VISIBILITY_INTERNAL: (UI_CONTENT_EVIDENCE_INTERNAL_ABSENT,),
+        }
+        evidence_by_content_kind: dict[tuple[str, str], list[UIContentVisibilityEvidence]] = {}
+        for evidence_row in evidence_rows:
+            evidence_by_content_kind.setdefault(
+                (evidence_row.content_id, evidence_row.evidence_kind), []
+            ).append(evidence_row)
+            content_item = plan_items_by_id.get(evidence_row.content_id)
+            if content_item is None:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "content_visibility_evidence_unknown_content",
+                        "implementation visibility evidence references content outside the reviewed plan",
+                        item_id=evidence_row.evidence_id,
+                        metadata={"content_id": evidence_row.content_id},
+                    )
+                )
+                continue
+            if evidence_row.evidence_kind not in UI_CONTENT_VISIBILITY_EVIDENCE_KINDS:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "unknown_content_visibility_evidence_kind",
+                        "implementation visibility evidence uses an unsupported evidence kind",
+                        item_id=evidence_row.evidence_id,
+                        metadata={"evidence_kind": evidence_row.evidence_kind},
+                    )
+                )
+            elif evidence_row.evidence_kind not in required_evidence_kinds.get(
+                content_item.visibility_class,
+                (),
+            ):
+                findings.append(
+                    UIFlowStructureFinding(
+                        "content_visibility_evidence_kind_mismatch",
+                        "implementation visibility evidence kind does not belong to the content visibility class",
+                        item_id=evidence_row.evidence_id,
+                        metadata={
+                            "content_id": content_item.content_id,
+                            "visibility_class": content_item.visibility_class,
+                            "evidence_kind": evidence_row.evidence_kind,
+                        },
+                    )
+                )
+            if evidence_row.result.lower() not in _PASSED_IMPLEMENTATION_RESULTS:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "content_visibility_evidence_not_passed",
+                        "implementation visibility evidence is not passing",
+                        item_id=evidence_row.evidence_id,
+                        metadata={"result": evidence_row.result},
+                    )
+                )
+            if not evidence_row.evidence_ref:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "content_visibility_evidence_ref_missing",
+                        "implementation visibility evidence needs a screenshot, DOM, click, trace, or test reference",
+                        item_id=evidence_row.evidence_id,
+                    )
+                )
+            if not evidence_row.rationale:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "content_visibility_evidence_rationale_missing",
+                        "implementation visibility evidence needs an interpretation rationale",
+                        item_id=evidence_row.evidence_id,
+                    )
+                )
+            if (
+                content_visibility_plan.current_revision
+                and evidence_row.current_revision != content_visibility_plan.current_revision
+            ):
+                findings.append(
+                    UIFlowStructureFinding(
+                        "content_visibility_evidence_revision_mismatch",
+                        "implementation visibility evidence is not bound to the current visibility-plan revision",
+                        item_id=evidence_row.evidence_id,
+                        metadata={
+                            "expected_revision": content_visibility_plan.current_revision,
+                            "actual_revision": evidence_row.current_revision,
+                        },
+                    )
+                )
+            for observed_item_id in evidence_row.observed_item_ids:
+                if observed_inventory is not None and observed_item_id not in observed_item_ids:
+                    findings.append(
+                        UIFlowStructureFinding(
+                            "content_visibility_evidence_observed_item_unknown",
+                            "implementation visibility evidence references an item outside the observed inventory",
+                            item_id=evidence_row.evidence_id,
+                            metadata={"observed_item_id": observed_item_id},
+                        )
+                    )
+                elif (
+                    observed_item_id in observed_items_by_id
+                    and not observed_items_by_id[observed_item_id].visible
+                ):
+                    findings.append(
+                        UIFlowStructureFinding(
+                            "content_visibility_evidence_observed_item_not_visible",
+                            "positive implementation visibility evidence cannot cite a non-visible observed item",
+                            item_id=evidence_row.evidence_id,
+                            metadata={"observed_item_id": observed_item_id},
+                        )
+                    )
+
+            reveal_target_ids = {
+                events_by_id[event_id].target_state_id
+                for event_id in content_item.reveal_event_ids + content_item.keyboard_focus_event_ids
+                if event_id in events_by_id
+            }
+            return_target_ids = {
+                events_by_id[event_id].target_state_id
+                for event_id in content_item.dismiss_event_ids
+                if event_id in events_by_id
+            }
+            if evidence_row.evidence_kind == UI_CONTENT_EVIDENCE_DEFAULT_HIDDEN:
+                if evidence_row.state_id != interaction_model.initial_state_id:
+                    findings.append(
+                        UIFlowStructureFinding(
+                            "default_hidden_evidence_wrong_state",
+                            "default-hidden evidence must observe the interaction model's initial state",
+                            item_id=evidence_row.evidence_id,
+                            metadata={"state_id": evidence_row.state_id},
+                        )
+                    )
+            elif evidence_row.evidence_kind == UI_CONTENT_EVIDENCE_REVEAL:
+                if evidence_row.event_id not in set(content_item.reveal_event_ids + content_item.keyboard_focus_event_ids):
+                    findings.append(
+                        UIFlowStructureFinding(
+                            "reveal_evidence_wrong_event",
+                            "reveal evidence must reference a declared reveal or keyboard/focus event",
+                            item_id=evidence_row.evidence_id,
+                            metadata={"event_id": evidence_row.event_id},
+                        )
+                    )
+            elif evidence_row.evidence_kind == UI_CONTENT_EVIDENCE_REVEALED:
+                if evidence_row.state_id not in reveal_target_ids or not evidence_row.observed_item_ids:
+                    findings.append(
+                        UIFlowStructureFinding(
+                            "revealed_evidence_not_bound_to_visible_target",
+                            "revealed evidence needs a reveal-target state and observed content item",
+                            item_id=evidence_row.evidence_id,
+                            metadata={"state_id": evidence_row.state_id},
+                        )
+                    )
+            elif evidence_row.evidence_kind == UI_CONTENT_EVIDENCE_RETURN_HIDDEN:
+                if evidence_row.state_id not in return_target_ids:
+                    findings.append(
+                        UIFlowStructureFinding(
+                            "return_hidden_evidence_wrong_state",
+                            "return-hidden evidence must observe a declared dismiss target state",
+                            item_id=evidence_row.evidence_id,
+                            metadata={"state_id": evidence_row.state_id},
+                        )
+                    )
+            elif evidence_row.evidence_kind == UI_CONTENT_EVIDENCE_DEFAULT_VISIBLE:
+                if evidence_row.state_id not in state_ids or not evidence_row.observed_item_ids:
+                    findings.append(
+                        UIFlowStructureFinding(
+                            "default_visible_evidence_not_bound_to_observation",
+                            "default-visible evidence needs a registered state and observed content item",
+                            item_id=evidence_row.evidence_id,
+                            metadata={"state_id": evidence_row.state_id},
+                        )
+                    )
+
+            if evidence_row.evidence_kind in {
+                UI_CONTENT_EVIDENCE_DEFAULT_VISIBLE,
+                UI_CONTENT_EVIDENCE_REVEALED,
+            }:
+                exact_observed_ids = tuple(
+                    observed_item_id
+                    for observed_item_id in evidence_row.observed_item_ids
+                    if observed_item_id in observed_items_by_id
+                    and observed_items_by_id[observed_item_id].visible
+                    and observed_items_by_id[observed_item_id].state_id == evidence_row.state_id
+                    and evidence_row.content_id
+                    in resolved_content_ids_by_observed_id.get(observed_item_id, set())
+                )
+                if not exact_observed_ids:
+                    findings.append(
+                        UIFlowStructureFinding(
+                            "positive_content_visibility_evidence_not_content_exact",
+                            "visible evidence must resolve to the same content item in the declared state",
+                            item_id=evidence_row.evidence_id,
+                            metadata={
+                                "content_id": evidence_row.content_id,
+                                "state_id": evidence_row.state_id,
+                                "observed_item_ids": list(evidence_row.observed_item_ids),
+                            },
+                        )
+                    )
+            if evidence_row.evidence_kind in {
+                UI_CONTENT_EVIDENCE_DEFAULT_HIDDEN,
+                UI_CONTENT_EVIDENCE_RETURN_HIDDEN,
+                UI_CONTENT_EVIDENCE_INTERNAL_ABSENT,
+            } and evidence_row.observed_item_ids:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "absence_content_visibility_evidence_lists_observed_items",
+                        "hidden or absent evidence must use its state and evidence reference rather than cite unrelated visible items",
+                        item_id=evidence_row.evidence_id,
+                        metadata={"observed_item_ids": list(evidence_row.observed_item_ids)},
+                    )
+                )
+
+            absence_state_id = ""
+            if evidence_row.evidence_kind == UI_CONTENT_EVIDENCE_DEFAULT_HIDDEN:
+                absence_state_id = interaction_model.initial_state_id
+            elif evidence_row.evidence_kind == UI_CONTENT_EVIDENCE_RETURN_HIDDEN:
+                absence_state_id = evidence_row.state_id
+            contradicting_observed_ids = tuple(
+                observed_item_id
+                for observed_item_id, observed_item in observed_items_by_id.items()
+                if observed_item.visible
+                and evidence_row.content_id
+                in resolved_content_ids_by_observed_id.get(observed_item_id, set())
+                and (
+                    evidence_row.evidence_kind == UI_CONTENT_EVIDENCE_INTERNAL_ABSENT
+                    or (absence_state_id and observed_item.state_id == absence_state_id)
+                )
+            )
+            if evidence_row.evidence_kind in {
+                UI_CONTENT_EVIDENCE_DEFAULT_HIDDEN,
+                UI_CONTENT_EVIDENCE_RETURN_HIDDEN,
+                UI_CONTENT_EVIDENCE_INTERNAL_ABSENT,
+            } and contradicting_observed_ids:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "content_visibility_absence_evidence_contradicted",
+                        "hidden or internal-absence evidence is contradicted by the observed UI inventory",
+                        item_id=evidence_row.evidence_id,
+                        metadata={
+                            "content_id": evidence_row.content_id,
+                            "state_id": absence_state_id,
+                            "observed_item_ids": list(contradicting_observed_ids),
+                        },
+                    )
+                )
+
+        for content_item in content_visibility_plan.items:
+            for evidence_kind in required_evidence_kinds.get(content_item.visibility_class, ()):
+                if not evidence_by_content_kind.get((content_item.content_id, evidence_kind)):
+                    findings.append(
+                        UIFlowStructureFinding(
+                            "required_content_visibility_evidence_missing",
+                            "implementation validation is missing a required per-content visibility observation",
+                            item_id=content_item.content_id,
+                            metadata={"evidence_kind": evidence_kind},
+                        )
+                    )
+        if (
+            content_visibility_plan.current_revision
+            and validation.current_model_revision
+            and content_visibility_plan.current_revision != validation.current_model_revision
+        ):
+            findings.append(
+                UIFlowStructureFinding(
+                    "implementation_content_visibility_evidence_stale",
+                    "content visibility plan and implementation validation reference different revisions",
+                    item_id=validation.validation_id,
+                    metadata={
+                        "visibility_revision": content_visibility_plan.current_revision,
+                        "implementation_revision": validation.current_model_revision,
+                    },
+                )
+            )
+        visibility_report = review_ui_content_visibility(
+            content_visibility_plan,
+            interaction_model=interaction_model,
+            visible_surface=visible_surface,
+            observed_inventory=observed_inventory,
+        )
+        findings.extend(visibility_report.findings)
+
     blockers = _blocker_findings(findings)
     return UIImplementationValidationReport(
         ok=not blockers,
@@ -7782,6 +9306,7 @@ def review_ui_text_hierarchy(
     *,
     interaction_model: UIInteractionModel | None = None,
     structure_derivation: UIStructureDerivation | None = None,
+    content_visibility_plan: UIContentVisibilityPlan | None = None,
 ) -> UITextHierarchyReport:
     """Review whether UI text hierarchy follows from the modeled UI structure."""
 
@@ -8152,6 +9677,14 @@ def review_ui_text_hierarchy(
                 )
             )
 
+    if content_visibility_plan is not None:
+        visibility_report = review_ui_content_visibility(
+            content_visibility_plan,
+            interaction_model=interaction_model,
+            text_blueprint=blueprint,
+        )
+        findings.extend(visibility_report.findings)
+
     blockers = _blocker_findings(findings)
     return UITextHierarchyReport(
         ok=not blockers,
@@ -8162,6 +9695,27 @@ def review_ui_text_hierarchy(
 
 __all__ = [
     "UIControl",
+    "UIContentVisibilityEvidence",
+    "UIContentVisibilityItem",
+    "UIContentVisibilityPlan",
+    "UIContentVisibilityReport",
+    "UI_CONTENT_VISIBILITY_CLASSES",
+    "UI_CONTENT_NEED_KINDS",
+    "UI_CONTENT_NEED_RECOVERY",
+    "UI_CONTENT_NEED_SAFETY",
+    "UI_CONTENT_NEED_STATE",
+    "UI_CONTENT_NEED_TASK",
+    "UI_CONTENT_EVIDENCE_DEFAULT_HIDDEN",
+    "UI_CONTENT_EVIDENCE_DEFAULT_VISIBLE",
+    "UI_CONTENT_EVIDENCE_INTERNAL_ABSENT",
+    "UI_CONTENT_EVIDENCE_REVEAL",
+    "UI_CONTENT_EVIDENCE_REVEALED",
+    "UI_CONTENT_EVIDENCE_RETURN_HIDDEN",
+    "UI_CONTENT_VISIBILITY_EVIDENCE_KINDS",
+    "UI_CONTENT_VISIBILITY_INTERNAL",
+    "UI_CONTENT_VISIBILITY_USER_ON_DEMAND",
+    "UI_CONTENT_VISIBILITY_USER_VISIBLE",
+    "UI_VISIBLE_SURFACE_PRIORITIES",
     "UIDisplayElement",
     "UIFeatureJourney",
     "UIFeatureContract",
@@ -8256,6 +9810,7 @@ __all__ = [
     "review_ui_source_baseline_alignment",
     "review_ui_source_baseline_interactions",
     "review_ui_control_functional_chains",
+    "review_ui_content_visibility",
     "review_ui_functional_capability_coverage",
     "review_ui_geometry_layout_evidence",
     "review_ui_human_operability",
@@ -8268,4 +9823,5 @@ __all__ = [
     "review_ui_structure_derivation",
     "review_ui_text_hierarchy",
     "review_ui_visible_surface",
+    "ui_content_visibility_candidate_ids_from_field_lifecycle",
 ]

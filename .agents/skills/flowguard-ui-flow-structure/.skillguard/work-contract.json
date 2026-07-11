@@ -7,12 +7,12 @@
       "native_check_binding_ids": [
         "ui_flow_model"
       ],
-      "obligation_id": "r001_target_activation_boundary_accept_greenfie_obligation",
+      "obligation_id": "r001_target_activation_boundary_accept_typed_ad_obligation",
       "required": true,
       "requirement_ids": [
-        "target.activation-boundary.accept-greenfield-source-based-or-mixed-scope-inventory"
+        "target.activation-boundary.accept-typed-admission-a-complete-ui-state-model"
       ],
-      "summary": "Native FlowGuard coverage for target.activation-boundary.accept-greenfield-source-based-or-mixed-scope-inventory."
+      "summary": "Native FlowGuard coverage for target.activation-boundary.accept-typed-admission-a-complete-ui-state-model."
     },
     {
       "covered_by_checks": [
@@ -21,12 +21,12 @@
       "native_check_binding_ids": [
         "ui_flow_model"
       ],
-      "obligation_id": "r002_target_activation_boundary_route_id_ui_flo_obligation",
+      "obligation_id": "r002_target_activation_boundary_route_ui_flow_s_obligation",
       "required": true,
       "requirement_ids": [
-        "target.activation-boundary.route-id-ui-flow-structure-role-public-owner"
+        "target.activation-boundary.route-ui-flow-structure-role-public-owner-native"
       ],
-      "summary": "Native FlowGuard coverage for target.activation-boundary.route-id-ui-flow-structure-role-public-owner."
+      "summary": "Native FlowGuard coverage for target.activation-boundary.route-ui-flow-structure-role-public-owner-native."
     },
     {
       "covered_by_checks": [
@@ -35,12 +35,12 @@
       "native_check_binding_ids": [
         "ui_flow_model"
       ],
-      "obligation_id": "r003_target_activation_boundary_use_for_ui_cont_obligation",
+      "obligation_id": "r003_target_activation_boundary_use_for_display_obligation",
       "required": true,
       "requirement_ids": [
-        "target.activation-boundary.use-for-ui-controls-displays-dialogs-menus-navigation"
+        "target.activation-boundary.use-for-displayed-status-helper-metadata-content-optional"
       ],
-      "summary": "Native FlowGuard coverage for target.activation-boundary.use-for-ui-controls-displays-dialogs-menus-navigation."
+      "summary": "Native FlowGuard coverage for target.activation-boundary.use-for-displayed-status-helper-metadata-content-optional."
     },
     {
       "covered_by_checks": [
@@ -63,7 +63,21 @@
       "native_check_binding_ids": [
         "ui_flow_model"
       ],
-      "obligation_id": "r005_target_check_gate_every_reachable_enabled__obligation",
+      "obligation_id": "r005_target_check_gate_design_evidence_cannot_p_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.check-gate.design-evidence-cannot-prove-runnable-ui-source-recovery"
+      ],
+      "summary": "Native FlowGuard coverage for target.check-gate.design-evidence-cannot-prove-runnable-ui-source-recovery."
+    },
+    {
+      "covered_by_checks": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "ui_flow_model"
+      ],
+      "obligation_id": "r006_target_check_gate_every_reachable_enabled__obligation",
       "required": true,
       "requirement_ids": [
         "target.check-gate.every-reachable-enabled-action-needs-control-event-owner"
@@ -77,7 +91,7 @@
       "native_check_binding_ids": [
         "ui_flow_model"
       ],
-      "obligation_id": "r006_target_check_gate_hard_gates_obligation",
+      "obligation_id": "r007_target_check_gate_hard_gates_obligation",
       "required": true,
       "requirement_ids": [
         "target.check-gate.hard-gates"
@@ -91,12 +105,12 @@
       "native_check_binding_ids": [
         "ui_flow_model"
       ],
-      "obligation_id": "r007_target_check_gate_return_evidence_failures_obligation",
+      "obligation_id": "r008_target_check_gate_return_the_visibility_pl_obligation",
       "required": true,
       "requirement_ids": [
-        "target.check-gate.return-evidence-failures-blockers-skipped-checks-residual-risk"
+        "target.check-gate.return-the-visibility-plan-ui-state-diagram-task"
       ],
-      "summary": "Native FlowGuard coverage for target.check-gate.return-evidence-failures-blockers-skipped-checks-residual-risk."
+      "summary": "Native FlowGuard coverage for target.check-gate.return-the-visibility-plan-ui-state-diagram-task."
     },
     {
       "covered_by_checks": [
@@ -105,7 +119,35 @@
       "native_check_binding_ids": [
         "ui_flow_model"
       ],
-      "obligation_id": "r008_target_check_gate_verify_the_real_flowguar_obligation",
+      "obligation_id": "r009_target_check_gate_unclassified_internal_co_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.check-gate.unclassified-internal-content-cannot-render-do-not-add"
+      ],
+      "summary": "Native FlowGuard coverage for target.check-gate.unclassified-internal-content-cannot-render-do-not-add."
+    },
+    {
+      "covered_by_checks": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "ui_flow_model"
+      ],
+      "obligation_id": "r010_target_check_gate_user_on_demand_stays_hid_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.check-gate.user-on-demand-stays-hidden-across-display-text"
+      ],
+      "summary": "Native FlowGuard coverage for target.check-gate.user-on-demand-stays-hidden-across-display-text."
+    },
+    {
+      "covered_by_checks": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "ui_flow_model"
+      ],
+      "obligation_id": "r011_target_check_gate_verify_the_real_flowguar_obligation",
       "required": true,
       "requirement_ids": [
         "target.check-gate.verify-the-real-flowguard-check-engine-and-agents"
@@ -119,12 +161,12 @@
       "native_check_binding_ids": [
         "ui_flow_model"
       ],
-      "obligation_id": "r009_target_description_use_for_ui_behavior_obs_obligation",
+      "obligation_id": "r012_target_description_use_for_ui_content_admi_obligation",
       "required": true,
       "requirement_ids": [
-        "target.description.use-for-ui-behavior-observed-surface-capabilities-interaction"
+        "target.description.use-for-ui-content-admission-observed-surface-behavior"
       ],
-      "summary": "Native FlowGuard coverage for target.description.use-for-ui-behavior-observed-surface-capabilities-interaction."
+      "summary": "Native FlowGuard coverage for target.description.use-for-ui-content-admission-observed-surface-behavior."
     },
     {
       "covered_by_checks": [
@@ -133,7 +175,7 @@
       "native_check_binding_ids": [
         "ui_flow_model"
       ],
-      "obligation_id": "r010_target_entrypoint_acceptance_obligation",
+      "obligation_id": "r013_target_entrypoint_acceptance_obligation",
       "required": true,
       "requirement_ids": [
         "target.entrypoint.acceptance"
@@ -147,12 +189,12 @@
       "native_check_binding_ids": [
         "ui_flow_model"
       ],
-      "obligation_id": "r011_target_evidence_description_use_for_ui_beh_obligation",
+      "obligation_id": "r014_target_evidence_description_use_for_ui_con_obligation",
       "required": true,
       "requirement_ids": [
-        "target.evidence.description-use-for-ui-behavior-observed-surface-capabilities"
+        "target.evidence.description-use-for-ui-content-admission-observed-surface"
       ],
-      "summary": "Native FlowGuard coverage for target.evidence.description-use-for-ui-behavior-observed-surface-capabilities."
+      "summary": "Native FlowGuard coverage for target.evidence.description-use-for-ui-content-admission-observed-surface."
     },
     {
       "covered_by_checks": [
@@ -161,7 +203,21 @@
       "native_check_binding_ids": [
         "ui_flow_model"
       ],
-      "obligation_id": "r012_target_hard_gates_obligation",
+      "obligation_id": "r015_target_evidence_edit_skillguard_contract_s_obligation",
+      "required": true,
+      "requirement_ids": [
+        "target.evidence.edit-skillguard-contract-source-json-regenerate-derived-contracts"
+      ],
+      "summary": "Native FlowGuard coverage for target.evidence.edit-skillguard-contract-source-json-regenerate-derived-contracts."
+    },
+    {
+      "covered_by_checks": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "ui_flow_model"
+      ],
+      "obligation_id": "r016_target_hard_gates_obligation",
       "required": true,
       "requirement_ids": [
         "target.hard_gates"
@@ -175,12 +231,12 @@
       "native_check_binding_ids": [
         "ui_flow_model"
       ],
-      "obligation_id": "r013_target_non_use_boundary_do_not_style_first_obligation",
+      "obligation_id": "r017_target_non_use_boundary_do_not_style_first_obligation",
       "required": true,
       "requirement_ids": [
-        "target.non-use-boundary.do-not-style-first-prose-validate-treat-labels"
+        "target.non-use-boundary.do-not-style-first-invent-roles-or-treat"
       ],
-      "summary": "Native FlowGuard coverage for target.non-use-boundary.do-not-style-first-prose-validate-treat-labels."
+      "summary": "Native FlowGuard coverage for target.non-use-boundary.do-not-style-first-invent-roles-or-treat."
     },
     {
       "covered_by_checks": [
@@ -189,7 +245,7 @@
       "native_check_binding_ids": [
         "ui_flow_model"
       ],
-      "obligation_id": "r014_target_non_use_boundary_do_not_use_when_obligation",
+      "obligation_id": "r018_target_non_use_boundary_do_not_use_when_obligation",
       "required": true,
       "requirement_ids": [
         "target.non-use-boundary.do-not-use-when"
@@ -203,7 +259,7 @@
       "native_check_binding_ids": [
         "ui_flow_model"
       ],
-      "obligation_id": "r015_target_output_output_requirements_obligation",
+      "obligation_id": "r019_target_output_output_requirements_obligation",
       "required": true,
       "requirement_ids": [
         "target.output.output-requirements"
@@ -217,12 +273,12 @@
       "native_check_binding_ids": [
         "ui_flow_model"
       ],
-      "obligation_id": "r016_target_workflow_route_build_ui_states_even_obligation",
+      "obligation_id": "r020_target_workflow_route_admit_content_model__obligation",
       "required": true,
       "requirement_ids": [
-        "target.workflow-route.build-ui-states-events-controls-displays-journey-coverage"
+        "target.workflow-route.admit-content-model-ui-event-x-ui-state"
       ],
-      "summary": "Native FlowGuard coverage for target.workflow-route.build-ui-states-events-controls-displays-journey-coverage."
+      "summary": "Native FlowGuard coverage for target.workflow-route.admit-content-model-ui-event-x-ui-state."
     },
     {
       "covered_by_checks": [
@@ -231,12 +287,12 @@
       "native_check_binding_ids": [
         "ui_flow_model"
       ],
-      "obligation_id": "r017_target_workflow_route_declare_work_mode_in_obligation",
+      "obligation_id": "r021_target_workflow_route_bind_claims_to_the_p_obligation",
       "required": true,
       "requirement_ids": [
-        "target.workflow-route.declare-work-mode-inventory-observed-surface-and-required"
+        "target.workflow-route.bind-claims-to-the-plan-observed-inventory-structured"
       ],
-      "summary": "Native FlowGuard coverage for target.workflow-route.declare-work-mode-inventory-observed-surface-and-required."
+      "summary": "Native FlowGuard coverage for target.workflow-route.bind-claims-to-the-plan-observed-inventory-structured."
     },
     {
       "covered_by_checks": [
@@ -245,12 +301,12 @@
       "native_check_binding_ids": [
         "ui_flow_model"
       ],
-      "obligation_id": "r018_target_workflow_route_design_evidence_cann_obligation",
+      "obligation_id": "r022_target_workflow_route_classify_candidates__obligation",
       "required": true,
       "requirement_ids": [
-        "target.workflow-route.design-evidence-cannot-prove-runnable-ui-source-mixed"
+        "target.workflow-route.classify-candidates-only-as-user-visible-user-on"
       ],
-      "summary": "Native FlowGuard coverage for target.workflow-route.design-evidence-cannot-prove-runnable-ui-source-mixed."
+      "summary": "Native FlowGuard coverage for target.workflow-route.classify-candidates-only-as-user-visible-user-on."
     },
     {
       "covered_by_checks": [
@@ -259,12 +315,12 @@
       "native_check_binding_ids": [
         "ui_flow_model"
       ],
-      "obligation_id": "r019_target_workflow_route_edit_skillguard_cont_obligation",
+      "obligation_id": "r023_target_workflow_route_declare_greenfield_s_obligation",
       "required": true,
       "requirement_ids": [
-        "target.workflow-route.edit-skillguard-contract-source-json-then-regenerate-derived"
+        "target.workflow-route.declare-greenfield-source-based-or-mixed-observation-never"
       ],
-      "summary": "Native FlowGuard coverage for target.workflow-route.edit-skillguard-contract-source-json-then-regenerate-derived."
+      "summary": "Native FlowGuard coverage for target.workflow-route.declare-greenfield-source-based-or-mixed-observation-never."
     },
     {
       "covered_by_checks": [
@@ -273,12 +329,12 @@
       "native_check_binding_ids": [
         "ui_flow_model"
       ],
-      "obligation_id": "r020_target_workflow_route_for_runnable_claims__obligation",
+      "obligation_id": "r024_target_workflow_route_read_references_ui_f_obligation",
       "required": true,
       "requirement_ids": [
-        "target.workflow-route.for-runnable-claims-bind-screenshot-dom-event-result"
+        "target.workflow-route.read-references-ui-flow-structure-protocol-md-it"
       ],
-      "summary": "Native FlowGuard coverage for target.workflow-route.for-runnable-claims-bind-screenshot-dom-event-result."
+      "summary": "Native FlowGuard coverage for target.workflow-route.read-references-ui-flow-structure-protocol-md-it."
     },
     {
       "covered_by_checks": [
@@ -287,21 +343,7 @@
       "native_check_binding_ids": [
         "ui_flow_model"
       ],
-      "obligation_id": "r021_target_workflow_route_model_ui_event_x_ui__obligation",
-      "required": true,
-      "requirement_ids": [
-        "target.workflow-route.model-ui-event-x-ui-state-behavior-and"
-      ],
-      "summary": "Native FlowGuard coverage for target.workflow-route.model-ui-event-x-ui-state-behavior-and."
-    },
-    {
-      "covered_by_checks": [
-        "check_evidence"
-      ],
-      "native_check_binding_ids": [
-        "ui_flow_model"
-      ],
-      "obligation_id": "r022_target_workflow_route_required_workflow_obligation",
+      "obligation_id": "r025_target_workflow_route_required_workflow_obligation",
       "required": true,
       "requirement_ids": [
         "target.workflow-route.required-workflow"
@@ -310,12 +352,26 @@
     },
     {
       "covered_by_checks": [
+        "check_evidence"
+      ],
+      "native_check_binding_ids": [
+        "ui_flow_model"
+      ],
+      "obligation_id": "r026_ui_content_admission_obligation",
+      "required": true,
+      "requirement_ids": [
+        "ui.content_admission"
+      ],
+      "summary": "Native FlowGuard coverage for ui.content_admission."
+    },
+    {
+      "covered_by_checks": [
         "check_closure"
       ],
       "native_check_binding_ids": [
         "ui_flow_model"
       ],
-      "obligation_id": "r023_ui_design_runtime_boundary_obligation",
+      "obligation_id": "r027_ui_design_runtime_boundary_obligation",
       "required": true,
       "requirement_ids": [
         "ui.design_runtime_boundary"
@@ -329,7 +385,7 @@
       "native_check_binding_ids": [
         "ui_flow_model"
       ],
-      "obligation_id": "r024_ui_enabled_action_chain_obligation",
+      "obligation_id": "r028_ui_enabled_action_chain_obligation",
       "required": true,
       "requirement_ids": [
         "ui.enabled_action_chain"
@@ -343,12 +399,54 @@
       "native_check_binding_ids": [
         "ui_flow_model"
       ],
-      "obligation_id": "r025_ui_observed_surface_and_capabilities_obligation",
+      "obligation_id": "r029_ui_no_audience_role_taxonomy_obligation",
+      "required": true,
+      "requirement_ids": [
+        "ui.no_audience_role_taxonomy"
+      ],
+      "summary": "Native FlowGuard coverage for ui.no_audience_role_taxonomy."
+    },
+    {
+      "covered_by_checks": [
+        "check_evidence"
+      ],
+      "native_check_binding_ids": [
+        "ui_flow_model"
+      ],
+      "obligation_id": "r030_ui_observed_surface_and_capabilities_obligation",
       "required": true,
       "requirement_ids": [
         "ui.observed_surface_and_capabilities"
       ],
       "summary": "Native FlowGuard coverage for ui.observed_surface_and_capabilities."
+    },
+    {
+      "covered_by_checks": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "ui_flow_model"
+      ],
+      "obligation_id": "r031_ui_on_demand_disclosure_obligation",
+      "required": true,
+      "requirement_ids": [
+        "ui.on_demand_disclosure"
+      ],
+      "summary": "Native FlowGuard coverage for ui.on_demand_disclosure."
+    },
+    {
+      "covered_by_checks": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "ui_flow_model"
+      ],
+      "obligation_id": "r032_ui_structured_content_evidence_obligation",
+      "required": true,
+      "requirement_ids": [
+        "ui.structured_content_evidence"
+      ],
+      "summary": "Native FlowGuard coverage for ui.structured_content_evidence."
     }
   ],
   "check_scripts": [
@@ -393,44 +491,44 @@
       "script_path": ".skillguard/check.py"
     }
   ],
-  "claim_boundary": "The route proves only the declared UI states, tasks, paths, and current observed/implementation evidence; it does not certify unvisited behavior, future AI behavior, or visual design quality.",
+  "claim_boundary": "The route proves only the declared three-value content-admission boundary, UI states, tasks, paths, and current observed/implementation evidence; it does not certify unvisited behavior, authorization roles, future AI behavior, or visual design quality.",
   "cleanup_required": [],
   "closure_blockers": [
     {
-      "blocker_id": "r001_target_activation_boundary_accept_greenfie_blocker",
+      "blocker_id": "r001_target_activation_boundary_accept_typed_ad_blocker",
       "blocks_decisions": [
         "checked",
         "accepted"
       ],
       "failure_class": "activation-boundary",
       "obligation_ids": [
-        "r001_target_activation_boundary_accept_greenfie_obligation"
+        "r001_target_activation_boundary_accept_typed_ad_obligation"
       ],
-      "summary": "Block checked/accepted closure when target.activation-boundary.accept-greenfield-source-based-or-mixed-scope-inventory lacks current native evidence."
+      "summary": "Block checked/accepted closure when target.activation-boundary.accept-typed-admission-a-complete-ui-state-model lacks current native evidence."
     },
     {
-      "blocker_id": "r002_target_activation_boundary_route_id_ui_flo_blocker",
+      "blocker_id": "r002_target_activation_boundary_route_ui_flow_s_blocker",
       "blocks_decisions": [
         "checked",
         "accepted"
       ],
       "failure_class": "activation-boundary",
       "obligation_ids": [
-        "r002_target_activation_boundary_route_id_ui_flo_obligation"
+        "r002_target_activation_boundary_route_ui_flow_s_obligation"
       ],
-      "summary": "Block checked/accepted closure when target.activation-boundary.route-id-ui-flow-structure-role-public-owner lacks current native evidence."
+      "summary": "Block checked/accepted closure when target.activation-boundary.route-ui-flow-structure-role-public-owner-native lacks current native evidence."
     },
     {
-      "blocker_id": "r003_target_activation_boundary_use_for_ui_cont_blocker",
+      "blocker_id": "r003_target_activation_boundary_use_for_display_blocker",
       "blocks_decisions": [
         "checked",
         "accepted"
       ],
       "failure_class": "activation-boundary",
       "obligation_ids": [
-        "r003_target_activation_boundary_use_for_ui_cont_obligation"
+        "r003_target_activation_boundary_use_for_display_obligation"
       ],
-      "summary": "Block checked/accepted closure when target.activation-boundary.use-for-ui-controls-displays-dialogs-menus-navigation lacks current native evidence."
+      "summary": "Block checked/accepted closure when target.activation-boundary.use-for-displayed-status-helper-metadata-content-optional lacks current native evidence."
     },
     {
       "blocker_id": "r004_target_activation_boundary_use_when_blocker",
@@ -445,256 +543,340 @@
       "summary": "Block checked/accepted closure when target.activation-boundary.use-when lacks current native evidence."
     },
     {
-      "blocker_id": "r005_target_check_gate_every_reachable_enabled__blocker",
+      "blocker_id": "r005_target_check_gate_design_evidence_cannot_p_blocker",
       "blocks_decisions": [
         "checked",
         "accepted"
       ],
       "failure_class": "check-gate",
       "obligation_ids": [
-        "r005_target_check_gate_every_reachable_enabled__obligation"
+        "r005_target_check_gate_design_evidence_cannot_p_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.check-gate.design-evidence-cannot-prove-runnable-ui-source-recovery lacks current native evidence."
+    },
+    {
+      "blocker_id": "r006_target_check_gate_every_reachable_enabled__blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "check-gate",
+      "obligation_ids": [
+        "r006_target_check_gate_every_reachable_enabled__obligation"
       ],
       "summary": "Block checked/accepted closure when target.check-gate.every-reachable-enabled-action-needs-control-event-owner lacks current native evidence."
     },
     {
-      "blocker_id": "r006_target_check_gate_hard_gates_blocker",
+      "blocker_id": "r007_target_check_gate_hard_gates_blocker",
       "blocks_decisions": [
         "checked",
         "accepted"
       ],
       "failure_class": "check-gate",
       "obligation_ids": [
-        "r006_target_check_gate_hard_gates_obligation"
+        "r007_target_check_gate_hard_gates_obligation"
       ],
       "summary": "Block checked/accepted closure when target.check-gate.hard-gates lacks current native evidence."
     },
     {
-      "blocker_id": "r007_target_check_gate_return_evidence_failures_blocker",
+      "blocker_id": "r008_target_check_gate_return_the_visibility_pl_blocker",
       "blocks_decisions": [
         "checked",
         "accepted"
       ],
       "failure_class": "check-gate",
       "obligation_ids": [
-        "r007_target_check_gate_return_evidence_failures_obligation"
+        "r008_target_check_gate_return_the_visibility_pl_obligation"
       ],
-      "summary": "Block checked/accepted closure when target.check-gate.return-evidence-failures-blockers-skipped-checks-residual-risk lacks current native evidence."
+      "summary": "Block checked/accepted closure when target.check-gate.return-the-visibility-plan-ui-state-diagram-task lacks current native evidence."
     },
     {
-      "blocker_id": "r008_target_check_gate_verify_the_real_flowguar_blocker",
+      "blocker_id": "r009_target_check_gate_unclassified_internal_co_blocker",
       "blocks_decisions": [
         "checked",
         "accepted"
       ],
       "failure_class": "check-gate",
       "obligation_ids": [
-        "r008_target_check_gate_verify_the_real_flowguar_obligation"
+        "r009_target_check_gate_unclassified_internal_co_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.check-gate.unclassified-internal-content-cannot-render-do-not-add lacks current native evidence."
+    },
+    {
+      "blocker_id": "r010_target_check_gate_user_on_demand_stays_hid_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "check-gate",
+      "obligation_ids": [
+        "r010_target_check_gate_user_on_demand_stays_hid_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.check-gate.user-on-demand-stays-hidden-across-display-text lacks current native evidence."
+    },
+    {
+      "blocker_id": "r011_target_check_gate_verify_the_real_flowguar_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "check-gate",
+      "obligation_ids": [
+        "r011_target_check_gate_verify_the_real_flowguar_obligation"
       ],
       "summary": "Block checked/accepted closure when target.check-gate.verify-the-real-flowguard-check-engine-and-agents lacks current native evidence."
     },
     {
-      "blocker_id": "r009_target_description_use_for_ui_behavior_obs_blocker",
+      "blocker_id": "r012_target_description_use_for_ui_content_admi_blocker",
       "blocks_decisions": [
         "checked",
         "accepted"
       ],
       "failure_class": "entrypoint-description",
       "obligation_ids": [
-        "r009_target_description_use_for_ui_behavior_obs_obligation"
+        "r012_target_description_use_for_ui_content_admi_obligation"
       ],
-      "summary": "Block checked/accepted closure when target.description.use-for-ui-behavior-observed-surface-capabilities-interaction lacks current native evidence."
+      "summary": "Block checked/accepted closure when target.description.use-for-ui-content-admission-observed-surface-behavior lacks current native evidence."
     },
     {
-      "blocker_id": "r010_target_entrypoint_acceptance_blocker",
+      "blocker_id": "r013_target_entrypoint_acceptance_blocker",
       "blocks_decisions": [
         "checked",
         "accepted"
       ],
       "failure_class": "entrypoint",
       "obligation_ids": [
-        "r010_target_entrypoint_acceptance_obligation"
+        "r013_target_entrypoint_acceptance_obligation"
       ],
       "summary": "Block checked/accepted closure when target.entrypoint.acceptance lacks current native evidence."
     },
     {
-      "blocker_id": "r011_target_evidence_description_use_for_ui_beh_blocker",
+      "blocker_id": "r014_target_evidence_description_use_for_ui_con_blocker",
       "blocks_decisions": [
         "checked",
         "accepted"
       ],
       "failure_class": "evidence",
       "obligation_ids": [
-        "r011_target_evidence_description_use_for_ui_beh_obligation"
+        "r014_target_evidence_description_use_for_ui_con_obligation"
       ],
-      "summary": "Block checked/accepted closure when target.evidence.description-use-for-ui-behavior-observed-surface-capabilities lacks current native evidence."
+      "summary": "Block checked/accepted closure when target.evidence.description-use-for-ui-content-admission-observed-surface lacks current native evidence."
     },
     {
-      "blocker_id": "r012_target_hard_gates_blocker",
+      "blocker_id": "r015_target_evidence_edit_skillguard_contract_s_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "evidence",
+      "obligation_ids": [
+        "r015_target_evidence_edit_skillguard_contract_s_obligation"
+      ],
+      "summary": "Block checked/accepted closure when target.evidence.edit-skillguard-contract-source-json-regenerate-derived-contracts lacks current native evidence."
+    },
+    {
+      "blocker_id": "r016_target_hard_gates_blocker",
       "blocks_decisions": [
         "checked",
         "accepted"
       ],
       "failure_class": "quality-gate",
       "obligation_ids": [
-        "r012_target_hard_gates_obligation"
+        "r016_target_hard_gates_obligation"
       ],
       "summary": "Block checked/accepted closure when target.hard_gates lacks current native evidence."
     },
     {
-      "blocker_id": "r013_target_non_use_boundary_do_not_style_first_blocker",
+      "blocker_id": "r017_target_non_use_boundary_do_not_style_first_blocker",
       "blocks_decisions": [
         "checked",
         "accepted"
       ],
       "failure_class": "non-use-boundary",
       "obligation_ids": [
-        "r013_target_non_use_boundary_do_not_style_first_obligation"
+        "r017_target_non_use_boundary_do_not_style_first_obligation"
       ],
-      "summary": "Block checked/accepted closure when target.non-use-boundary.do-not-style-first-prose-validate-treat-labels lacks current native evidence."
+      "summary": "Block checked/accepted closure when target.non-use-boundary.do-not-style-first-invent-roles-or-treat lacks current native evidence."
     },
     {
-      "blocker_id": "r014_target_non_use_boundary_do_not_use_when_blocker",
+      "blocker_id": "r018_target_non_use_boundary_do_not_use_when_blocker",
       "blocks_decisions": [
         "checked",
         "accepted"
       ],
       "failure_class": "non-use-boundary",
       "obligation_ids": [
-        "r014_target_non_use_boundary_do_not_use_when_obligation"
+        "r018_target_non_use_boundary_do_not_use_when_obligation"
       ],
       "summary": "Block checked/accepted closure when target.non-use-boundary.do-not-use-when lacks current native evidence."
     },
     {
-      "blocker_id": "r015_target_output_output_requirements_blocker",
+      "blocker_id": "r019_target_output_output_requirements_blocker",
       "blocks_decisions": [
         "checked",
         "accepted"
       ],
       "failure_class": "output",
       "obligation_ids": [
-        "r015_target_output_output_requirements_obligation"
+        "r019_target_output_output_requirements_obligation"
       ],
       "summary": "Block checked/accepted closure when target.output.output-requirements lacks current native evidence."
     },
     {
-      "blocker_id": "r016_target_workflow_route_build_ui_states_even_blocker",
+      "blocker_id": "r020_target_workflow_route_admit_content_model__blocker",
       "blocks_decisions": [
         "checked",
         "accepted"
       ],
       "failure_class": "workflow-route",
       "obligation_ids": [
-        "r016_target_workflow_route_build_ui_states_even_obligation"
+        "r020_target_workflow_route_admit_content_model__obligation"
       ],
-      "summary": "Block checked/accepted closure when target.workflow-route.build-ui-states-events-controls-displays-journey-coverage lacks current native evidence."
+      "summary": "Block checked/accepted closure when target.workflow-route.admit-content-model-ui-event-x-ui-state lacks current native evidence."
     },
     {
-      "blocker_id": "r017_target_workflow_route_declare_work_mode_in_blocker",
+      "blocker_id": "r021_target_workflow_route_bind_claims_to_the_p_blocker",
       "blocks_decisions": [
         "checked",
         "accepted"
       ],
       "failure_class": "workflow-route",
       "obligation_ids": [
-        "r017_target_workflow_route_declare_work_mode_in_obligation"
+        "r021_target_workflow_route_bind_claims_to_the_p_obligation"
       ],
-      "summary": "Block checked/accepted closure when target.workflow-route.declare-work-mode-inventory-observed-surface-and-required lacks current native evidence."
+      "summary": "Block checked/accepted closure when target.workflow-route.bind-claims-to-the-plan-observed-inventory-structured lacks current native evidence."
     },
     {
-      "blocker_id": "r018_target_workflow_route_design_evidence_cann_blocker",
+      "blocker_id": "r022_target_workflow_route_classify_candidates__blocker",
       "blocks_decisions": [
         "checked",
         "accepted"
       ],
       "failure_class": "workflow-route",
       "obligation_ids": [
-        "r018_target_workflow_route_design_evidence_cann_obligation"
+        "r022_target_workflow_route_classify_candidates__obligation"
       ],
-      "summary": "Block checked/accepted closure when target.workflow-route.design-evidence-cannot-prove-runnable-ui-source-mixed lacks current native evidence."
+      "summary": "Block checked/accepted closure when target.workflow-route.classify-candidates-only-as-user-visible-user-on lacks current native evidence."
     },
     {
-      "blocker_id": "r019_target_workflow_route_edit_skillguard_cont_blocker",
+      "blocker_id": "r023_target_workflow_route_declare_greenfield_s_blocker",
       "blocks_decisions": [
         "checked",
         "accepted"
       ],
       "failure_class": "workflow-route",
       "obligation_ids": [
-        "r019_target_workflow_route_edit_skillguard_cont_obligation"
+        "r023_target_workflow_route_declare_greenfield_s_obligation"
       ],
-      "summary": "Block checked/accepted closure when target.workflow-route.edit-skillguard-contract-source-json-then-regenerate-derived lacks current native evidence."
+      "summary": "Block checked/accepted closure when target.workflow-route.declare-greenfield-source-based-or-mixed-observation-never lacks current native evidence."
     },
     {
-      "blocker_id": "r020_target_workflow_route_for_runnable_claims__blocker",
+      "blocker_id": "r024_target_workflow_route_read_references_ui_f_blocker",
       "blocks_decisions": [
         "checked",
         "accepted"
       ],
       "failure_class": "workflow-route",
       "obligation_ids": [
-        "r020_target_workflow_route_for_runnable_claims__obligation"
+        "r024_target_workflow_route_read_references_ui_f_obligation"
       ],
-      "summary": "Block checked/accepted closure when target.workflow-route.for-runnable-claims-bind-screenshot-dom-event-result lacks current native evidence."
+      "summary": "Block checked/accepted closure when target.workflow-route.read-references-ui-flow-structure-protocol-md-it lacks current native evidence."
     },
     {
-      "blocker_id": "r021_target_workflow_route_model_ui_event_x_ui__blocker",
+      "blocker_id": "r025_target_workflow_route_required_workflow_blocker",
       "blocks_decisions": [
         "checked",
         "accepted"
       ],
       "failure_class": "workflow-route",
       "obligation_ids": [
-        "r021_target_workflow_route_model_ui_event_x_ui__obligation"
-      ],
-      "summary": "Block checked/accepted closure when target.workflow-route.model-ui-event-x-ui-state-behavior-and lacks current native evidence."
-    },
-    {
-      "blocker_id": "r022_target_workflow_route_required_workflow_blocker",
-      "blocks_decisions": [
-        "checked",
-        "accepted"
-      ],
-      "failure_class": "workflow-route",
-      "obligation_ids": [
-        "r022_target_workflow_route_required_workflow_obligation"
+        "r025_target_workflow_route_required_workflow_obligation"
       ],
       "summary": "Block checked/accepted closure when target.workflow-route.required-workflow lacks current native evidence."
     },
     {
-      "blocker_id": "r023_ui_design_runtime_boundary_blocker",
-      "blocks_decisions": [
-        "checked",
-        "accepted"
-      ],
-      "failure_class": "closure",
-      "obligation_ids": [
-        "r023_ui_design_runtime_boundary_obligation"
-      ],
-      "summary": "Block checked/accepted closure when ui.design_runtime_boundary lacks current native evidence."
-    },
-    {
-      "blocker_id": "r024_ui_enabled_action_chain_blocker",
-      "blocks_decisions": [
-        "checked",
-        "accepted"
-      ],
-      "failure_class": "evidence",
-      "obligation_ids": [
-        "r024_ui_enabled_action_chain_obligation"
-      ],
-      "summary": "Block checked/accepted closure when ui.enabled_action_chain lacks current native evidence."
-    },
-    {
-      "blocker_id": "r025_ui_observed_surface_and_capabilities_blocker",
+      "blocker_id": "r026_ui_content_admission_blocker",
       "blocks_decisions": [
         "checked",
         "accepted"
       ],
       "failure_class": "inventory",
       "obligation_ids": [
-        "r025_ui_observed_surface_and_capabilities_obligation"
+        "r026_ui_content_admission_obligation"
+      ],
+      "summary": "Block checked/accepted closure when ui.content_admission lacks current native evidence."
+    },
+    {
+      "blocker_id": "r027_ui_design_runtime_boundary_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "closure",
+      "obligation_ids": [
+        "r027_ui_design_runtime_boundary_obligation"
+      ],
+      "summary": "Block checked/accepted closure when ui.design_runtime_boundary lacks current native evidence."
+    },
+    {
+      "blocker_id": "r028_ui_enabled_action_chain_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "evidence",
+      "obligation_ids": [
+        "r028_ui_enabled_action_chain_obligation"
+      ],
+      "summary": "Block checked/accepted closure when ui.enabled_action_chain lacks current native evidence."
+    },
+    {
+      "blocker_id": "r029_ui_no_audience_role_taxonomy_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "boundary",
+      "obligation_ids": [
+        "r029_ui_no_audience_role_taxonomy_obligation"
+      ],
+      "summary": "Block checked/accepted closure when ui.no_audience_role_taxonomy lacks current native evidence."
+    },
+    {
+      "blocker_id": "r030_ui_observed_surface_and_capabilities_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "inventory",
+      "obligation_ids": [
+        "r030_ui_observed_surface_and_capabilities_obligation"
       ],
       "summary": "Block checked/accepted closure when ui.observed_surface_and_capabilities lacks current native evidence."
+    },
+    {
+      "blocker_id": "r031_ui_on_demand_disclosure_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "evidence",
+      "obligation_ids": [
+        "r031_ui_on_demand_disclosure_obligation"
+      ],
+      "summary": "Block checked/accepted closure when ui.on_demand_disclosure lacks current native evidence."
+    },
+    {
+      "blocker_id": "r032_ui_structured_content_evidence_blocker",
+      "blocks_decisions": [
+        "checked",
+        "accepted"
+      ],
+      "failure_class": "evidence",
+      "obligation_ids": [
+        "r032_ui_structured_content_evidence_obligation"
+      ],
+      "summary": "Block checked/accepted closure when ui.structured_content_evidence lacks current native evidence."
     }
   ],
   "closure_rules": [
@@ -718,26 +900,26 @@
       "scope": "current target revision and declared route only"
     }
   ],
-  "contract_hash": "12DFE549195345469FBCF1FFB2F0C81A3F26069CAAC8281C9F7E59A065A4E27E",
-  "contract_version": "flowguard.skill_contract_compiler.v1+6434B1E1FFFB44D3",
+  "contract_hash": "02D769779E5FFF343C60C2BE240D10E6E7A6F8F4B87F3F20D935F311CD3F6513",
+  "contract_version": "flowguard.skill_contract_compiler.v1+0DFF24A0AFC352E5",
   "coverage_matrix": [
     {
       "check_ids": [
         "check_route"
       ],
-      "closure_blocker_id": "r001_target_activation_boundary_accept_greenfie_blocker",
+      "closure_blocker_id": "r001_target_activation_boundary_accept_typed_ad_blocker",
       "evidence_ids": [
         "ui_flow_structure_intake_evidence"
       ],
       "native_check_binding_ids": [
         "ui_flow_model"
       ],
-      "obligation_id": "r001_target_activation_boundary_accept_greenfie_obligation",
+      "obligation_id": "r001_target_activation_boundary_accept_typed_ad_obligation",
       "required": true,
-      "requirement_id": "target.activation-boundary.accept-greenfield-source-based-or-mixed-scope-inventory",
+      "requirement_id": "target.activation-boundary.accept-typed-admission-a-complete-ui-state-model",
       "route_id": "ui_flow_structure",
-      "row_id": "r001_target_activation_boundary_accept_greenfie_coverage",
-      "rule_id": "r001_target_activation_boundary_accept_greenfie_rule",
+      "row_id": "r001_target_activation_boundary_accept_typed_ad_coverage",
+      "rule_id": "r001_target_activation_boundary_accept_typed_ad_rule",
       "source_path": "SKILL.md#L18",
       "stage_id": "ui_flow_structure_intake"
     },
@@ -745,19 +927,19 @@
       "check_ids": [
         "check_route"
       ],
-      "closure_blocker_id": "r002_target_activation_boundary_route_id_ui_flo_blocker",
+      "closure_blocker_id": "r002_target_activation_boundary_route_ui_flow_s_blocker",
       "evidence_ids": [
         "ui_flow_structure_intake_evidence"
       ],
       "native_check_binding_ids": [
         "ui_flow_model"
       ],
-      "obligation_id": "r002_target_activation_boundary_route_id_ui_flo_obligation",
+      "obligation_id": "r002_target_activation_boundary_route_ui_flow_s_obligation",
       "required": true,
-      "requirement_id": "target.activation-boundary.route-id-ui-flow-structure-role-public-owner",
+      "requirement_id": "target.activation-boundary.route-ui-flow-structure-role-public-owner-native",
       "route_id": "ui_flow_structure",
-      "row_id": "r002_target_activation_boundary_route_id_ui_flo_coverage",
-      "rule_id": "r002_target_activation_boundary_route_id_ui_flo_rule",
+      "row_id": "r002_target_activation_boundary_route_ui_flow_s_coverage",
+      "rule_id": "r002_target_activation_boundary_route_ui_flow_s_rule",
       "source_path": "SKILL.md#L12",
       "stage_id": "ui_flow_structure_intake"
     },
@@ -765,19 +947,19 @@
       "check_ids": [
         "check_route"
       ],
-      "closure_blocker_id": "r003_target_activation_boundary_use_for_ui_cont_blocker",
+      "closure_blocker_id": "r003_target_activation_boundary_use_for_display_blocker",
       "evidence_ids": [
         "ui_flow_structure_intake_evidence"
       ],
       "native_check_binding_ids": [
         "ui_flow_model"
       ],
-      "obligation_id": "r003_target_activation_boundary_use_for_ui_cont_obligation",
+      "obligation_id": "r003_target_activation_boundary_use_for_display_obligation",
       "required": true,
-      "requirement_id": "target.activation-boundary.use-for-ui-controls-displays-dialogs-menus-navigation",
+      "requirement_id": "target.activation-boundary.use-for-displayed-status-helper-metadata-content-optional",
       "route_id": "ui_flow_structure",
-      "row_id": "r003_target_activation_boundary_use_for_ui_cont_coverage",
-      "rule_id": "r003_target_activation_boundary_use_for_ui_cont_rule",
+      "row_id": "r003_target_activation_boundary_use_for_display_coverage",
+      "rule_id": "r003_target_activation_boundary_use_for_display_rule",
       "source_path": "SKILL.md#L21",
       "stage_id": "ui_flow_structure_intake"
     },
@@ -805,39 +987,59 @@
       "check_ids": [
         "check_quality_floor"
       ],
-      "closure_blocker_id": "r005_target_check_gate_every_reachable_enabled__blocker",
+      "closure_blocker_id": "r005_target_check_gate_design_evidence_cannot_p_blocker",
       "evidence_ids": [
         "ui_flow_structure_checks_evidence"
       ],
       "native_check_binding_ids": [
         "ui_flow_model"
       ],
-      "obligation_id": "r005_target_check_gate_every_reachable_enabled__obligation",
+      "obligation_id": "r005_target_check_gate_design_evidence_cannot_p_obligation",
       "required": true,
-      "requirement_id": "target.check-gate.every-reachable-enabled-action-needs-control-event-owner",
+      "requirement_id": "target.check-gate.design-evidence-cannot-prove-runnable-ui-source-recovery",
       "route_id": "ui_flow_structure",
-      "row_id": "r005_target_check_gate_every_reachable_enabled__coverage",
-      "rule_id": "r005_target_check_gate_every_reachable_enabled__rule",
-      "source_path": "SKILL.md#L33",
+      "row_id": "r005_target_check_gate_design_evidence_cannot_p_coverage",
+      "rule_id": "r005_target_check_gate_design_evidence_cannot_p_rule",
+      "source_path": "SKILL.md#L36",
       "stage_id": "ui_flow_structure_checks"
     },
     {
       "check_ids": [
         "check_quality_floor"
       ],
-      "closure_blocker_id": "r006_target_check_gate_hard_gates_blocker",
+      "closure_blocker_id": "r006_target_check_gate_every_reachable_enabled__blocker",
       "evidence_ids": [
         "ui_flow_structure_checks_evidence"
       ],
       "native_check_binding_ids": [
         "ui_flow_model"
       ],
-      "obligation_id": "r006_target_check_gate_hard_gates_obligation",
+      "obligation_id": "r006_target_check_gate_every_reachable_enabled__obligation",
+      "required": true,
+      "requirement_id": "target.check-gate.every-reachable-enabled-action-needs-control-event-owner",
+      "route_id": "ui_flow_structure",
+      "row_id": "r006_target_check_gate_every_reachable_enabled__coverage",
+      "rule_id": "r006_target_check_gate_every_reachable_enabled__rule",
+      "source_path": "SKILL.md#L35",
+      "stage_id": "ui_flow_structure_checks"
+    },
+    {
+      "check_ids": [
+        "check_quality_floor"
+      ],
+      "closure_blocker_id": "r007_target_check_gate_hard_gates_blocker",
+      "evidence_ids": [
+        "ui_flow_structure_checks_evidence"
+      ],
+      "native_check_binding_ids": [
+        "ui_flow_model"
+      ],
+      "obligation_id": "r007_target_check_gate_hard_gates_obligation",
       "required": true,
       "requirement_id": "target.check-gate.hard-gates",
       "route_id": "ui_flow_structure",
-      "row_id": "r006_target_check_gate_hard_gates_coverage",
-      "rule_id": "r006_target_check_gate_hard_gates_rule",
+      "row_id": "r007_target_check_gate_hard_gates_coverage",
+      "rule_id": "r007_target_check_gate_hard_gates_rule",
       "source_path": "SKILL.md#L31",
       "stage_id": "ui_flow_structure_checks"
     },
@@ -845,39 +1047,79 @@
       "check_ids": [
         "check_quality_floor"
       ],
-      "closure_blocker_id": "r007_target_check_gate_return_evidence_failures_blocker",
+      "closure_blocker_id": "r008_target_check_gate_return_the_visibility_pl_blocker",
       "evidence_ids": [
         "ui_flow_structure_checks_evidence"
       ],
       "native_check_binding_ids": [
         "ui_flow_model"
       ],
-      "obligation_id": "r007_target_check_gate_return_evidence_failures_obligation",
+      "obligation_id": "r008_target_check_gate_return_the_visibility_pl_obligation",
       "required": true,
-      "requirement_id": "target.check-gate.return-evidence-failures-blockers-skipped-checks-residual-risk",
+      "requirement_id": "target.check-gate.return-the-visibility-plan-ui-state-diagram-task",
       "route_id": "ui_flow_structure",
-      "row_id": "r007_target_check_gate_return_evidence_failures_coverage",
-      "rule_id": "r007_target_check_gate_return_evidence_failures_rule",
-      "source_path": "SKILL.md#L37",
+      "row_id": "r008_target_check_gate_return_the_visibility_pl_coverage",
+      "rule_id": "r008_target_check_gate_return_the_visibility_pl_rule",
+      "source_path": "SKILL.md#L39",
       "stage_id": "ui_flow_structure_checks"
     },
     {
       "check_ids": [
         "check_quality_floor"
       ],
-      "closure_blocker_id": "r008_target_check_gate_verify_the_real_flowguar_blocker",
+      "closure_blocker_id": "r009_target_check_gate_unclassified_internal_co_blocker",
       "evidence_ids": [
         "ui_flow_structure_checks_evidence"
       ],
       "native_check_binding_ids": [
         "ui_flow_model"
       ],
-      "obligation_id": "r008_target_check_gate_verify_the_real_flowguar_obligation",
+      "obligation_id": "r009_target_check_gate_unclassified_internal_co_obligation",
+      "required": true,
+      "requirement_id": "target.check-gate.unclassified-internal-content-cannot-render-do-not-add",
+      "route_id": "ui_flow_structure",
+      "row_id": "r009_target_check_gate_unclassified_internal_co_coverage",
+      "rule_id": "r009_target_check_gate_unclassified_internal_co_rule",
+      "source_path": "SKILL.md#L33",
+      "stage_id": "ui_flow_structure_checks"
+    },
+    {
+      "check_ids": [
+        "check_quality_floor"
+      ],
+      "closure_blocker_id": "r010_target_check_gate_user_on_demand_stays_hid_blocker",
+      "evidence_ids": [
+        "ui_flow_structure_checks_evidence"
+      ],
+      "native_check_binding_ids": [
+        "ui_flow_model"
+      ],
+      "obligation_id": "r010_target_check_gate_user_on_demand_stays_hid_obligation",
+      "required": true,
+      "requirement_id": "target.check-gate.user-on-demand-stays-hidden-across-display-text",
+      "route_id": "ui_flow_structure",
+      "row_id": "r010_target_check_gate_user_on_demand_stays_hid_coverage",
+      "rule_id": "r010_target_check_gate_user_on_demand_stays_hid_rule",
+      "source_path": "SKILL.md#L34",
+      "stage_id": "ui_flow_structure_checks"
+    },
+    {
+      "check_ids": [
+        "check_quality_floor"
+      ],
+      "closure_blocker_id": "r011_target_check_gate_verify_the_real_flowguar_blocker",
+      "evidence_ids": [
+        "ui_flow_structure_checks_evidence"
+      ],
+      "native_check_binding_ids": [
+        "ui_flow_model"
+      ],
+      "obligation_id": "r011_target_check_gate_verify_the_real_flowguar_obligation",
       "required": true,
       "requirement_id": "target.check-gate.verify-the-real-flowguard-check-engine-and-agents",
       "route_id": "ui_flow_structure",
-      "row_id": "r008_target_check_gate_verify_the_real_flowguar_coverage",
-      "rule_id": "r008_target_check_gate_verify_the_real_flowguar_rule",
+      "row_id": "r011_target_check_gate_verify_the_real_flowguar_coverage",
+      "rule_id": "r011_target_check_gate_verify_the_real_flowguar_rule",
       "source_path": "SKILL.md#L32",
       "stage_id": "ui_flow_structure_checks"
     },
@@ -885,19 +1127,19 @@
       "check_ids": [
         "check_route"
       ],
-      "closure_blocker_id": "r009_target_description_use_for_ui_behavior_obs_blocker",
+      "closure_blocker_id": "r012_target_description_use_for_ui_content_admi_blocker",
       "evidence_ids": [
         "ui_flow_structure_intake_evidence"
       ],
       "native_check_binding_ids": [
         "ui_flow_model"
       ],
-      "obligation_id": "r009_target_description_use_for_ui_behavior_obs_obligation",
+      "obligation_id": "r012_target_description_use_for_ui_content_admi_obligation",
       "required": true,
-      "requirement_id": "target.description.use-for-ui-behavior-observed-surface-capabilities-interaction",
+      "requirement_id": "target.description.use-for-ui-content-admission-observed-surface-behavior",
       "route_id": "ui_flow_structure",
-      "row_id": "r009_target_description_use_for_ui_behavior_obs_coverage",
-      "rule_id": "r009_target_description_use_for_ui_behavior_obs_rule",
+      "row_id": "r012_target_description_use_for_ui_content_admi_coverage",
+      "rule_id": "r012_target_description_use_for_ui_content_admi_rule",
       "source_path": "SKILL.md frontmatter",
       "stage_id": "ui_flow_structure_intake"
     },
@@ -905,19 +1147,19 @@
       "check_ids": [
         "check_route"
       ],
-      "closure_blocker_id": "r010_target_entrypoint_acceptance_blocker",
+      "closure_blocker_id": "r013_target_entrypoint_acceptance_blocker",
       "evidence_ids": [
         "ui_flow_structure_intake_evidence"
       ],
       "native_check_binding_ids": [
         "ui_flow_model"
       ],
-      "obligation_id": "r010_target_entrypoint_acceptance_obligation",
+      "obligation_id": "r013_target_entrypoint_acceptance_obligation",
       "required": true,
       "requirement_id": "target.entrypoint.acceptance",
       "route_id": "ui_flow_structure",
-      "row_id": "r010_target_entrypoint_acceptance_coverage",
-      "rule_id": "r010_target_entrypoint_acceptance_rule",
+      "row_id": "r013_target_entrypoint_acceptance_coverage",
+      "rule_id": "r013_target_entrypoint_acceptance_rule",
       "source_path": "SKILL.md",
       "stage_id": "ui_flow_structure_intake"
     },
@@ -925,19 +1167,19 @@
       "check_ids": [
         "check_quality_floor"
       ],
-      "closure_blocker_id": "r011_target_evidence_description_use_for_ui_beh_blocker",
+      "closure_blocker_id": "r014_target_evidence_description_use_for_ui_con_blocker",
       "evidence_ids": [
         "ui_flow_structure_checks_evidence"
       ],
       "native_check_binding_ids": [
         "ui_flow_model"
       ],
-      "obligation_id": "r011_target_evidence_description_use_for_ui_beh_obligation",
+      "obligation_id": "r014_target_evidence_description_use_for_ui_con_obligation",
       "required": true,
-      "requirement_id": "target.evidence.description-use-for-ui-behavior-observed-surface-capabilities",
+      "requirement_id": "target.evidence.description-use-for-ui-content-admission-observed-surface",
       "route_id": "ui_flow_structure",
-      "row_id": "r011_target_evidence_description_use_for_ui_beh_coverage",
-      "rule_id": "r011_target_evidence_description_use_for_ui_beh_rule",
+      "row_id": "r014_target_evidence_description_use_for_ui_con_coverage",
+      "rule_id": "r014_target_evidence_description_use_for_ui_con_rule",
       "source_path": "SKILL.md#L3",
       "stage_id": "ui_flow_structure_checks"
     },
@@ -945,19 +1187,39 @@
       "check_ids": [
         "check_quality_floor"
       ],
-      "closure_blocker_id": "r012_target_hard_gates_blocker",
+      "closure_blocker_id": "r015_target_evidence_edit_skillguard_contract_s_blocker",
       "evidence_ids": [
         "ui_flow_structure_checks_evidence"
       ],
       "native_check_binding_ids": [
         "ui_flow_model"
       ],
-      "obligation_id": "r012_target_hard_gates_obligation",
+      "obligation_id": "r015_target_evidence_edit_skillguard_contract_s_obligation",
+      "required": true,
+      "requirement_id": "target.evidence.edit-skillguard-contract-source-json-regenerate-derived-contracts",
+      "route_id": "ui_flow_structure",
+      "row_id": "r015_target_evidence_edit_skillguard_contract_s_coverage",
+      "rule_id": "r015_target_evidence_edit_skillguard_contract_s_rule",
+      "source_path": "SKILL.md#L42",
+      "stage_id": "ui_flow_structure_checks"
+    },
+    {
+      "check_ids": [
+        "check_quality_floor"
+      ],
+      "closure_blocker_id": "r016_target_hard_gates_blocker",
+      "evidence_ids": [
+        "ui_flow_structure_checks_evidence"
+      ],
+      "native_check_binding_ids": [
+        "ui_flow_model"
+      ],
+      "obligation_id": "r016_target_hard_gates_obligation",
       "required": true,
       "requirement_id": "target.hard_gates",
       "route_id": "ui_flow_structure",
-      "row_id": "r012_target_hard_gates_coverage",
-      "rule_id": "r012_target_hard_gates_rule",
+      "row_id": "r016_target_hard_gates_coverage",
+      "rule_id": "r016_target_hard_gates_rule",
       "source_path": "SKILL.md",
       "stage_id": "ui_flow_structure_checks"
     },
@@ -965,19 +1227,19 @@
       "check_ids": [
         "check_route"
       ],
-      "closure_blocker_id": "r013_target_non_use_boundary_do_not_style_first_blocker",
+      "closure_blocker_id": "r017_target_non_use_boundary_do_not_style_first_blocker",
       "evidence_ids": [
         "ui_flow_structure_intake_evidence"
       ],
       "native_check_binding_ids": [
         "ui_flow_model"
       ],
-      "obligation_id": "r013_target_non_use_boundary_do_not_style_first_obligation",
+      "obligation_id": "r017_target_non_use_boundary_do_not_style_first_obligation",
       "required": true,
-      "requirement_id": "target.non-use-boundary.do-not-style-first-prose-validate-treat-labels",
+      "requirement_id": "target.non-use-boundary.do-not-style-first-invent-roles-or-treat",
       "route_id": "ui_flow_structure",
-      "row_id": "r013_target_non_use_boundary_do_not_style_first_coverage",
-      "rule_id": "r013_target_non_use_boundary_do_not_style_first_rule",
+      "row_id": "r017_target_non_use_boundary_do_not_style_first_coverage",
+      "rule_id": "r017_target_non_use_boundary_do_not_style_first_rule",
       "source_path": "SKILL.md#L24",
       "stage_id": "ui_flow_structure_intake"
     },
@@ -985,19 +1247,19 @@
       "check_ids": [
         "check_route"
       ],
-      "closure_blocker_id": "r014_target_non_use_boundary_do_not_use_when_blocker",
+      "closure_blocker_id": "r018_target_non_use_boundary_do_not_use_when_blocker",
       "evidence_ids": [
         "ui_flow_structure_intake_evidence"
       ],
       "native_check_binding_ids": [
         "ui_flow_model"
       ],
-      "obligation_id": "r014_target_non_use_boundary_do_not_use_when_obligation",
+      "obligation_id": "r018_target_non_use_boundary_do_not_use_when_obligation",
       "required": true,
       "requirement_id": "target.non-use-boundary.do-not-use-when",
       "route_id": "ui_flow_structure",
-      "row_id": "r014_target_non_use_boundary_do_not_use_when_coverage",
-      "rule_id": "r014_target_non_use_boundary_do_not_use_when_rule",
+      "row_id": "r018_target_non_use_boundary_do_not_use_when_coverage",
+      "rule_id": "r018_target_non_use_boundary_do_not_use_when_rule",
       "source_path": "SKILL.md#L23",
       "stage_id": "ui_flow_structure_intake"
     },
@@ -1005,139 +1267,39 @@
       "check_ids": [
         "check_closure"
       ],
-      "closure_blocker_id": "r015_target_output_output_requirements_blocker",
+      "closure_blocker_id": "r019_target_output_output_requirements_blocker",
       "evidence_ids": [
         "ui_flow_structure_closure_evidence"
       ],
       "native_check_binding_ids": [
         "ui_flow_model"
       ],
-      "obligation_id": "r015_target_output_output_requirements_obligation",
+      "obligation_id": "r019_target_output_output_requirements_obligation",
       "required": true,
       "requirement_id": "target.output.output-requirements",
       "route_id": "ui_flow_structure",
-      "row_id": "r015_target_output_output_requirements_coverage",
-      "rule_id": "r015_target_output_output_requirements_rule",
-      "source_path": "SKILL.md#L36",
+      "row_id": "r019_target_output_output_requirements_coverage",
+      "rule_id": "r019_target_output_output_requirements_rule",
+      "source_path": "SKILL.md#L38",
       "stage_id": "ui_flow_structure_closure"
     },
     {
       "check_ids": [
         "check_evidence"
       ],
-      "closure_blocker_id": "r016_target_workflow_route_build_ui_states_even_blocker",
+      "closure_blocker_id": "r020_target_workflow_route_admit_content_model__blocker",
       "evidence_ids": [
         "ui_flow_structure_execution_evidence"
       ],
       "native_check_binding_ids": [
         "ui_flow_model"
       ],
-      "obligation_id": "r016_target_workflow_route_build_ui_states_even_obligation",
+      "obligation_id": "r020_target_workflow_route_admit_content_model__obligation",
       "required": true,
-      "requirement_id": "target.workflow-route.build-ui-states-events-controls-displays-journey-coverage",
+      "requirement_id": "target.workflow-route.admit-content-model-ui-event-x-ui-state",
       "route_id": "ui_flow_structure",
-      "row_id": "r016_target_workflow_route_build_ui_states_even_coverage",
-      "rule_id": "r016_target_workflow_route_build_ui_states_even_rule",
-      "source_path": "SKILL.md#L28",
-      "stage_id": "ui_flow_structure_execution"
-    },
-    {
-      "check_ids": [
-        "check_evidence"
-      ],
-      "closure_blocker_id": "r017_target_workflow_route_declare_work_mode_in_blocker",
-      "evidence_ids": [
-        "ui_flow_structure_execution_evidence"
-      ],
-      "native_check_binding_ids": [
-        "ui_flow_model"
-      ],
-      "obligation_id": "r017_target_workflow_route_declare_work_mode_in_obligation",
-      "required": true,
-      "requirement_id": "target.workflow-route.declare-work-mode-inventory-observed-surface-and-required",
-      "route_id": "ui_flow_structure",
-      "row_id": "r017_target_workflow_route_declare_work_mode_in_coverage",
-      "rule_id": "r017_target_workflow_route_declare_work_mode_in_rule",
-      "source_path": "SKILL.md#L27",
-      "stage_id": "ui_flow_structure_execution"
-    },
-    {
-      "check_ids": [
-        "check_evidence"
-      ],
-      "closure_blocker_id": "r018_target_workflow_route_design_evidence_cann_blocker",
-      "evidence_ids": [
-        "ui_flow_structure_execution_evidence"
-      ],
-      "native_check_binding_ids": [
-        "ui_flow_model"
-      ],
-      "obligation_id": "r018_target_workflow_route_design_evidence_cann_obligation",
-      "required": true,
-      "requirement_id": "target.workflow-route.design-evidence-cannot-prove-runnable-ui-source-mixed",
-      "route_id": "ui_flow_structure",
-      "row_id": "r018_target_workflow_route_design_evidence_cann_coverage",
-      "rule_id": "r018_target_workflow_route_design_evidence_cann_rule",
-      "source_path": "SKILL.md#L34",
-      "stage_id": "ui_flow_structure_execution"
-    },
-    {
-      "check_ids": [
-        "check_evidence"
-      ],
-      "closure_blocker_id": "r019_target_workflow_route_edit_skillguard_cont_blocker",
-      "evidence_ids": [
-        "ui_flow_structure_execution_evidence"
-      ],
-      "native_check_binding_ids": [
-        "ui_flow_model"
-      ],
-      "obligation_id": "r019_target_workflow_route_edit_skillguard_cont_obligation",
-      "required": true,
-      "requirement_id": "target.workflow-route.edit-skillguard-contract-source-json-then-regenerate-derived",
-      "route_id": "ui_flow_structure",
-      "row_id": "r019_target_workflow_route_edit_skillguard_cont_coverage",
-      "rule_id": "r019_target_workflow_route_edit_skillguard_cont_rule",
-      "source_path": "SKILL.md#L40",
-      "stage_id": "ui_flow_structure_execution"
-    },
-    {
-      "check_ids": [
-        "check_evidence"
-      ],
-      "closure_blocker_id": "r020_target_workflow_route_for_runnable_claims__blocker",
-      "evidence_ids": [
-        "ui_flow_structure_execution_evidence"
-      ],
-      "native_check_binding_ids": [
-        "ui_flow_model"
-      ],
-      "obligation_id": "r020_target_workflow_route_for_runnable_claims__obligation",
-      "required": true,
-      "requirement_id": "target.workflow-route.for-runnable-claims-bind-screenshot-dom-event-result",
-      "route_id": "ui_flow_structure",
-      "row_id": "r020_target_workflow_route_for_runnable_claims__coverage",
-      "rule_id": "r020_target_workflow_route_for_runnable_claims__rule",
-      "source_path": "SKILL.md#L29",
-      "stage_id": "ui_flow_structure_execution"
-    },
-    {
-      "check_ids": [
-        "check_evidence"
-      ],
-      "closure_blocker_id": "r021_target_workflow_route_model_ui_event_x_ui__blocker",
-      "evidence_ids": [
-        "ui_flow_structure_execution_evidence"
-      ],
-      "native_check_binding_ids": [
-        "ui_flow_model"
-      ],
-      "obligation_id": "r021_target_workflow_route_model_ui_event_x_ui__obligation",
-      "required": true,
-      "requirement_id": "target.workflow-route.model-ui-event-x-ui-state-behavior-and",
-      "route_id": "ui_flow_structure",
-      "row_id": "r021_target_workflow_route_model_ui_event_x_ui__coverage",
-      "rule_id": "r021_target_workflow_route_model_ui_event_x_ui__rule",
+      "row_id": "r020_target_workflow_route_admit_content_model__coverage",
+      "rule_id": "r020_target_workflow_route_admit_content_model__rule",
       "source_path": "SKILL.md#L9",
       "stage_id": "ui_flow_structure_execution"
     },
@@ -1145,39 +1307,139 @@
       "check_ids": [
         "check_evidence"
       ],
-      "closure_blocker_id": "r022_target_workflow_route_required_workflow_blocker",
+      "closure_blocker_id": "r021_target_workflow_route_bind_claims_to_the_p_blocker",
       "evidence_ids": [
         "ui_flow_structure_execution_evidence"
       ],
       "native_check_binding_ids": [
         "ui_flow_model"
       ],
-      "obligation_id": "r022_target_workflow_route_required_workflow_obligation",
+      "obligation_id": "r021_target_workflow_route_bind_claims_to_the_p_obligation",
+      "required": true,
+      "requirement_id": "target.workflow-route.bind-claims-to-the-plan-observed-inventory-structured",
+      "route_id": "ui_flow_structure",
+      "row_id": "r021_target_workflow_route_bind_claims_to_the_p_coverage",
+      "rule_id": "r021_target_workflow_route_bind_claims_to_the_p_rule",
+      "source_path": "SKILL.md#L29",
+      "stage_id": "ui_flow_structure_execution"
+    },
+    {
+      "check_ids": [
+        "check_evidence"
+      ],
+      "closure_blocker_id": "r022_target_workflow_route_classify_candidates__blocker",
+      "evidence_ids": [
+        "ui_flow_structure_execution_evidence"
+      ],
+      "native_check_binding_ids": [
+        "ui_flow_model"
+      ],
+      "obligation_id": "r022_target_workflow_route_classify_candidates__obligation",
+      "required": true,
+      "requirement_id": "target.workflow-route.classify-candidates-only-as-user-visible-user-on",
+      "route_id": "ui_flow_structure",
+      "row_id": "r022_target_workflow_route_classify_candidates__coverage",
+      "rule_id": "r022_target_workflow_route_classify_candidates__rule",
+      "source_path": "SKILL.md#L28",
+      "stage_id": "ui_flow_structure_execution"
+    },
+    {
+      "check_ids": [
+        "check_evidence"
+      ],
+      "closure_blocker_id": "r023_target_workflow_route_declare_greenfield_s_blocker",
+      "evidence_ids": [
+        "ui_flow_structure_execution_evidence"
+      ],
+      "native_check_binding_ids": [
+        "ui_flow_model"
+      ],
+      "obligation_id": "r023_target_workflow_route_declare_greenfield_s_obligation",
+      "required": true,
+      "requirement_id": "target.workflow-route.declare-greenfield-source-based-or-mixed-observation-never",
+      "route_id": "ui_flow_structure",
+      "row_id": "r023_target_workflow_route_declare_greenfield_s_coverage",
+      "rule_id": "r023_target_workflow_route_declare_greenfield_s_rule",
+      "source_path": "SKILL.md#L27",
+      "stage_id": "ui_flow_structure_execution"
+    },
+    {
+      "check_ids": [
+        "check_evidence"
+      ],
+      "closure_blocker_id": "r024_target_workflow_route_read_references_ui_f_blocker",
+      "evidence_ids": [
+        "ui_flow_structure_execution_evidence"
+      ],
+      "native_check_binding_ids": [
+        "ui_flow_model"
+      ],
+      "obligation_id": "r024_target_workflow_route_read_references_ui_f_obligation",
+      "required": true,
+      "requirement_id": "target.workflow-route.read-references-ui-flow-structure-protocol-md-it",
+      "route_id": "ui_flow_structure",
+      "row_id": "r024_target_workflow_route_read_references_ui_f_coverage",
+      "rule_id": "r024_target_workflow_route_read_references_ui_f_rule",
+      "source_path": "SKILL.md#L15",
+      "stage_id": "ui_flow_structure_execution"
+    },
+    {
+      "check_ids": [
+        "check_evidence"
+      ],
+      "closure_blocker_id": "r025_target_workflow_route_required_workflow_blocker",
+      "evidence_ids": [
+        "ui_flow_structure_execution_evidence"
+      ],
+      "native_check_binding_ids": [
+        "ui_flow_model"
+      ],
+      "obligation_id": "r025_target_workflow_route_required_workflow_obligation",
       "required": true,
       "requirement_id": "target.workflow-route.required-workflow",
       "route_id": "ui_flow_structure",
-      "row_id": "r022_target_workflow_route_required_workflow_coverage",
-      "rule_id": "r022_target_workflow_route_required_workflow_rule",
+      "row_id": "r025_target_workflow_route_required_workflow_coverage",
+      "rule_id": "r025_target_workflow_route_required_workflow_rule",
       "source_path": "SKILL.md#L26",
+      "stage_id": "ui_flow_structure_execution"
+    },
+    {
+      "check_ids": [
+        "check_evidence"
+      ],
+      "closure_blocker_id": "r026_ui_content_admission_blocker",
+      "evidence_ids": [
+        "ui_flow_structure_execution_evidence"
+      ],
+      "native_check_binding_ids": [
+        "ui_flow_model"
+      ],
+      "obligation_id": "r026_ui_content_admission_obligation",
+      "required": true,
+      "requirement_id": "ui.content_admission",
+      "route_id": "ui_flow_structure",
+      "row_id": "r026_ui_content_admission_coverage",
+      "rule_id": "r026_ui_content_admission_rule",
+      "source_path": ".skillguard/contract-source.json#source_requirements",
       "stage_id": "ui_flow_structure_execution"
     },
     {
       "check_ids": [
         "check_closure"
       ],
-      "closure_blocker_id": "r023_ui_design_runtime_boundary_blocker",
+      "closure_blocker_id": "r027_ui_design_runtime_boundary_blocker",
       "evidence_ids": [
         "ui_flow_structure_closure_evidence"
       ],
       "native_check_binding_ids": [
         "ui_flow_model"
       ],
-      "obligation_id": "r023_ui_design_runtime_boundary_obligation",
+      "obligation_id": "r027_ui_design_runtime_boundary_obligation",
       "required": true,
       "requirement_id": "ui.design_runtime_boundary",
       "route_id": "ui_flow_structure",
-      "row_id": "r023_ui_design_runtime_boundary_coverage",
-      "rule_id": "r023_ui_design_runtime_boundary_rule",
+      "row_id": "r027_ui_design_runtime_boundary_coverage",
+      "rule_id": "r027_ui_design_runtime_boundary_rule",
       "source_path": ".skillguard/contract-source.json#source_requirements",
       "stage_id": "ui_flow_structure_closure"
     },
@@ -1185,19 +1447,19 @@
       "check_ids": [
         "check_quality_floor"
       ],
-      "closure_blocker_id": "r024_ui_enabled_action_chain_blocker",
+      "closure_blocker_id": "r028_ui_enabled_action_chain_blocker",
       "evidence_ids": [
         "ui_flow_structure_checks_evidence"
       ],
       "native_check_binding_ids": [
         "ui_flow_model"
       ],
-      "obligation_id": "r024_ui_enabled_action_chain_obligation",
+      "obligation_id": "r028_ui_enabled_action_chain_obligation",
       "required": true,
       "requirement_id": "ui.enabled_action_chain",
       "route_id": "ui_flow_structure",
-      "row_id": "r024_ui_enabled_action_chain_coverage",
-      "rule_id": "r024_ui_enabled_action_chain_rule",
+      "row_id": "r028_ui_enabled_action_chain_coverage",
+      "rule_id": "r028_ui_enabled_action_chain_rule",
       "source_path": ".skillguard/contract-source.json#source_requirements",
       "stage_id": "ui_flow_structure_checks"
     },
@@ -1205,21 +1467,81 @@
       "check_ids": [
         "check_evidence"
       ],
-      "closure_blocker_id": "r025_ui_observed_surface_and_capabilities_blocker",
+      "closure_blocker_id": "r029_ui_no_audience_role_taxonomy_blocker",
       "evidence_ids": [
         "ui_flow_structure_execution_evidence"
       ],
       "native_check_binding_ids": [
         "ui_flow_model"
       ],
-      "obligation_id": "r025_ui_observed_surface_and_capabilities_obligation",
+      "obligation_id": "r029_ui_no_audience_role_taxonomy_obligation",
+      "required": true,
+      "requirement_id": "ui.no_audience_role_taxonomy",
+      "route_id": "ui_flow_structure",
+      "row_id": "r029_ui_no_audience_role_taxonomy_coverage",
+      "rule_id": "r029_ui_no_audience_role_taxonomy_rule",
+      "source_path": ".skillguard/contract-source.json#source_requirements",
+      "stage_id": "ui_flow_structure_execution"
+    },
+    {
+      "check_ids": [
+        "check_evidence"
+      ],
+      "closure_blocker_id": "r030_ui_observed_surface_and_capabilities_blocker",
+      "evidence_ids": [
+        "ui_flow_structure_execution_evidence"
+      ],
+      "native_check_binding_ids": [
+        "ui_flow_model"
+      ],
+      "obligation_id": "r030_ui_observed_surface_and_capabilities_obligation",
       "required": true,
       "requirement_id": "ui.observed_surface_and_capabilities",
       "route_id": "ui_flow_structure",
-      "row_id": "r025_ui_observed_surface_and_capabilities_coverage",
-      "rule_id": "r025_ui_observed_surface_and_capabilities_rule",
+      "row_id": "r030_ui_observed_surface_and_capabilities_coverage",
+      "rule_id": "r030_ui_observed_surface_and_capabilities_rule",
       "source_path": ".skillguard/contract-source.json#source_requirements",
       "stage_id": "ui_flow_structure_execution"
+    },
+    {
+      "check_ids": [
+        "check_quality_floor"
+      ],
+      "closure_blocker_id": "r031_ui_on_demand_disclosure_blocker",
+      "evidence_ids": [
+        "ui_flow_structure_checks_evidence"
+      ],
+      "native_check_binding_ids": [
+        "ui_flow_model"
+      ],
+      "obligation_id": "r031_ui_on_demand_disclosure_obligation",
+      "required": true,
+      "requirement_id": "ui.on_demand_disclosure",
+      "route_id": "ui_flow_structure",
+      "row_id": "r031_ui_on_demand_disclosure_coverage",
+      "rule_id": "r031_ui_on_demand_disclosure_rule",
+      "source_path": ".skillguard/contract-source.json#source_requirements",
+      "stage_id": "ui_flow_structure_checks"
+    },
+    {
+      "check_ids": [
+        "check_quality_floor"
+      ],
+      "closure_blocker_id": "r032_ui_structured_content_evidence_blocker",
+      "evidence_ids": [
+        "ui_flow_structure_checks_evidence"
+      ],
+      "native_check_binding_ids": [
+        "ui_flow_model"
+      ],
+      "obligation_id": "r032_ui_structured_content_evidence_obligation",
+      "required": true,
+      "requirement_id": "ui.structured_content_evidence",
+      "route_id": "ui_flow_structure",
+      "row_id": "r032_ui_structured_content_evidence_coverage",
+      "rule_id": "r032_ui_structured_content_evidence_rule",
+      "source_path": ".skillguard/contract-source.json#source_requirements",
+      "stage_id": "ui_flow_structure_checks"
     }
   ],
   "forbidden_shortcuts": [
@@ -1256,7 +1578,7 @@
       "kind": "flowguard_model",
       "required": true,
       "source_path": ".skillguard/contract-source.json",
-      "summary": "Run UI flow, visible-surface, operability, and implementation evidence model checks."
+      "summary": "Run UI content-admission, flow, visible-surface, on-demand operability, and implementation evidence model checks."
     }
   ],
   "native_route_bindings": [
@@ -1335,7 +1657,7 @@
       "required_evidence": [
         "ui_flow_structure_intake_evidence"
       ],
-      "summary": "Declare greenfield, source_based, or mixed mode; product/user scope; source authority; and requested UI claim."
+      "summary": "Declare greenfield, source_based, or mixed mode; product/user scope; UI candidate boundary; source authority; and requested UI claim, without inventing audience roles."
     },
     {
       "allowed_next": [
@@ -1348,7 +1670,7 @@
       "required_evidence": [
         "ui_flow_structure_inventory_evidence"
       ],
-      "summary": "Inventory observed visible items, required capabilities/outputs, tasks, controls, displays, states, events, source mappings, and blindspots."
+      "summary": "Inventory observed visible items without granting permission; inventory candidate displayed/status/helper/metadata/detail content, required capabilities/outputs, tasks, controls, displays, states, events, source mappings, and blindspots."
     },
     {
       "allowed_next": [
@@ -1361,7 +1683,7 @@
       "required_evidence": [
         "ui_flow_structure_execution_evidence"
       ],
-      "summary": "Build interaction/journey/structure/text/task contracts and current functional chains, implementation runs, geometry, and transition targets as required."
+      "summary": "Classify candidate content with the exact three values and typed resolvable needs; narrow control-label exemptions; bind all-target disclosure state, task-owned affordance, item feedback, observed inventory, and structured per-content evidence into downstream contracts."
     },
     {
       "allowed_next": [
@@ -1374,7 +1696,7 @@
       "required_evidence": [
         "ui_flow_structure_checks_evidence"
       ],
-      "summary": "Run the UI Flow model and reject unowned enabled actions, missing recovery, stale/weak evidence, or design-only runnable claims."
+      "summary": "Run the UI Flow model and reject unclassified/internal mappings, overbroad control-label exemptions, direct observed/display bypass, invalid all-target on-demand state/accessibility, missing item feedback, unowned enabled actions, stale/opaque/cross-content evidence, or design-only runnable claims."
     },
     {
       "allowed_next": [],
@@ -1385,7 +1707,7 @@
       "required_evidence": [
         "ui_flow_structure_closure_evidence"
       ],
-      "summary": "Return current UI evidence and gaps; hand semantic transition cells and large evidence matrices to MTA/TestMesh."
+      "summary": "Return the current content-visibility plan, UI evidence, and gaps; hand semantic transition cells and large evidence matrices to MTA/TestMesh."
     }
   ],
   "quality_floors": [
@@ -1451,13 +1773,16 @@
       "required": true,
       "route_id": "ui_flow_structure",
       "source_path": ".skillguard/contract-source.json",
-      "summary": "Model UI behavior and prove observed surface, capability/task coverage, journeys, operability, implementation evidence, geometry, and transition scope."
+      "summary": "Admit candidate UI content, model UI behavior, and prove observed surface, capability/task coverage, journeys, on-demand operability, implementation evidence, geometry, and transition scope."
     }
   ],
   "routes": [
     {
       "activation_keywords": [
         "UI flow",
+        "UI content admission",
+        "UI content visibility",
+        "on-demand disclosure",
         "observed surface",
         "human operability",
         "runnable UI evidence",
@@ -1465,7 +1790,7 @@
       ],
       "default_route": false,
       "do_not_use_when": [
-        "The work is visual styling only, non-UI, code-structure planning, or prose/label/API evidence is being substituted for UI behavior proof."
+        "The work is visual styling only, non-UI, code-structure planning, audience/permission taxonomy design, or prose/observed visibility/label/API evidence is being substituted for content admission or UI behavior proof."
       ],
       "phase_order": [
         "intake",
@@ -1477,7 +1802,7 @@
       "route_id": "ui_flow_structure",
       "route_priority": 0,
       "route_source": "native_binding",
-      "summary": "Model UI behavior and prove observed surface, capability/task coverage, journeys, operability, implementation evidence, geometry, and transition scope."
+      "summary": "Admit candidate UI content, model UI behavior, and prove observed surface, capability/task coverage, journeys, on-demand operability, implementation evidence, geometry, and transition scope."
     }
   ],
   "run_record_required": false,
@@ -1497,7 +1822,7 @@
   "skill_id": "flowguard-ui-flow-structure",
   "skill_specific_checks": [
     {
-      "check_id": "r001_target_activation_boundary_accept_greenfie_check",
+      "check_id": "r001_target_activation_boundary_accept_typed_ad_check",
       "check_manifest_ids": [
         "check_route"
       ],
@@ -1505,13 +1830,13 @@
         "ui_flow_model"
       ],
       "obligation_ids": [
-        "r001_target_activation_boundary_accept_greenfie_obligation"
+        "r001_target_activation_boundary_accept_typed_ad_obligation"
       ],
       "required": true,
-      "summary": "Target-specific gate for target.activation-boundary.accept-greenfield-source-based-or-mixed-scope-inventory."
+      "summary": "Target-specific gate for target.activation-boundary.accept-typed-admission-a-complete-ui-state-model."
     },
     {
-      "check_id": "r002_target_activation_boundary_route_id_ui_flo_check",
+      "check_id": "r002_target_activation_boundary_route_ui_flow_s_check",
       "check_manifest_ids": [
         "check_route"
       ],
@@ -1519,13 +1844,13 @@
         "ui_flow_model"
       ],
       "obligation_ids": [
-        "r002_target_activation_boundary_route_id_ui_flo_obligation"
+        "r002_target_activation_boundary_route_ui_flow_s_obligation"
       ],
       "required": true,
-      "summary": "Target-specific gate for target.activation-boundary.route-id-ui-flow-structure-role-public-owner."
+      "summary": "Target-specific gate for target.activation-boundary.route-ui-flow-structure-role-public-owner-native."
     },
     {
-      "check_id": "r003_target_activation_boundary_use_for_ui_cont_check",
+      "check_id": "r003_target_activation_boundary_use_for_display_check",
       "check_manifest_ids": [
         "check_route"
       ],
@@ -1533,10 +1858,10 @@
         "ui_flow_model"
       ],
       "obligation_ids": [
-        "r003_target_activation_boundary_use_for_ui_cont_obligation"
+        "r003_target_activation_boundary_use_for_display_obligation"
       ],
       "required": true,
-      "summary": "Target-specific gate for target.activation-boundary.use-for-ui-controls-displays-dialogs-menus-navigation."
+      "summary": "Target-specific gate for target.activation-boundary.use-for-displayed-status-helper-metadata-content-optional."
     },
     {
       "check_id": "r004_target_activation_boundary_use_when_check",
@@ -1553,7 +1878,7 @@
       "summary": "Target-specific gate for target.activation-boundary.use-when."
     },
     {
-      "check_id": "r005_target_check_gate_every_reachable_enabled__check",
+      "check_id": "r005_target_check_gate_design_evidence_cannot_p_check",
       "check_manifest_ids": [
         "check_quality_floor"
       ],
@@ -1561,13 +1886,27 @@
         "ui_flow_model"
       ],
       "obligation_ids": [
-        "r005_target_check_gate_every_reachable_enabled__obligation"
+        "r005_target_check_gate_design_evidence_cannot_p_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.check-gate.design-evidence-cannot-prove-runnable-ui-source-recovery."
+    },
+    {
+      "check_id": "r006_target_check_gate_every_reachable_enabled__check",
+      "check_manifest_ids": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "ui_flow_model"
+      ],
+      "obligation_ids": [
+        "r006_target_check_gate_every_reachable_enabled__obligation"
       ],
       "required": true,
       "summary": "Target-specific gate for target.check-gate.every-reachable-enabled-action-needs-control-event-owner."
     },
     {
-      "check_id": "r006_target_check_gate_hard_gates_check",
+      "check_id": "r007_target_check_gate_hard_gates_check",
       "check_manifest_ids": [
         "check_quality_floor"
       ],
@@ -1575,13 +1914,13 @@
         "ui_flow_model"
       ],
       "obligation_ids": [
-        "r006_target_check_gate_hard_gates_obligation"
+        "r007_target_check_gate_hard_gates_obligation"
       ],
       "required": true,
       "summary": "Target-specific gate for target.check-gate.hard-gates."
     },
     {
-      "check_id": "r007_target_check_gate_return_evidence_failures_check",
+      "check_id": "r008_target_check_gate_return_the_visibility_pl_check",
       "check_manifest_ids": [
         "check_quality_floor"
       ],
@@ -1589,13 +1928,13 @@
         "ui_flow_model"
       ],
       "obligation_ids": [
-        "r007_target_check_gate_return_evidence_failures_obligation"
+        "r008_target_check_gate_return_the_visibility_pl_obligation"
       ],
       "required": true,
-      "summary": "Target-specific gate for target.check-gate.return-evidence-failures-blockers-skipped-checks-residual-risk."
+      "summary": "Target-specific gate for target.check-gate.return-the-visibility-plan-ui-state-diagram-task."
     },
     {
-      "check_id": "r008_target_check_gate_verify_the_real_flowguar_check",
+      "check_id": "r009_target_check_gate_unclassified_internal_co_check",
       "check_manifest_ids": [
         "check_quality_floor"
       ],
@@ -1603,13 +1942,41 @@
         "ui_flow_model"
       ],
       "obligation_ids": [
-        "r008_target_check_gate_verify_the_real_flowguar_obligation"
+        "r009_target_check_gate_unclassified_internal_co_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.check-gate.unclassified-internal-content-cannot-render-do-not-add."
+    },
+    {
+      "check_id": "r010_target_check_gate_user_on_demand_stays_hid_check",
+      "check_manifest_ids": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "ui_flow_model"
+      ],
+      "obligation_ids": [
+        "r010_target_check_gate_user_on_demand_stays_hid_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.check-gate.user-on-demand-stays-hidden-across-display-text."
+    },
+    {
+      "check_id": "r011_target_check_gate_verify_the_real_flowguar_check",
+      "check_manifest_ids": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "ui_flow_model"
+      ],
+      "obligation_ids": [
+        "r011_target_check_gate_verify_the_real_flowguar_obligation"
       ],
       "required": true,
       "summary": "Target-specific gate for target.check-gate.verify-the-real-flowguard-check-engine-and-agents."
     },
     {
-      "check_id": "r009_target_description_use_for_ui_behavior_obs_check",
+      "check_id": "r012_target_description_use_for_ui_content_admi_check",
       "check_manifest_ids": [
         "check_route"
       ],
@@ -1617,13 +1984,13 @@
         "ui_flow_model"
       ],
       "obligation_ids": [
-        "r009_target_description_use_for_ui_behavior_obs_obligation"
+        "r012_target_description_use_for_ui_content_admi_obligation"
       ],
       "required": true,
-      "summary": "Target-specific gate for target.description.use-for-ui-behavior-observed-surface-capabilities-interaction."
+      "summary": "Target-specific gate for target.description.use-for-ui-content-admission-observed-surface-behavior."
     },
     {
-      "check_id": "r010_target_entrypoint_acceptance_check",
+      "check_id": "r013_target_entrypoint_acceptance_check",
       "check_manifest_ids": [
         "check_route"
       ],
@@ -1631,13 +1998,13 @@
         "ui_flow_model"
       ],
       "obligation_ids": [
-        "r010_target_entrypoint_acceptance_obligation"
+        "r013_target_entrypoint_acceptance_obligation"
       ],
       "required": true,
       "summary": "Target-specific gate for target.entrypoint.acceptance."
     },
     {
-      "check_id": "r011_target_evidence_description_use_for_ui_beh_check",
+      "check_id": "r014_target_evidence_description_use_for_ui_con_check",
       "check_manifest_ids": [
         "check_quality_floor"
       ],
@@ -1645,13 +2012,13 @@
         "ui_flow_model"
       ],
       "obligation_ids": [
-        "r011_target_evidence_description_use_for_ui_beh_obligation"
+        "r014_target_evidence_description_use_for_ui_con_obligation"
       ],
       "required": true,
-      "summary": "Target-specific gate for target.evidence.description-use-for-ui-behavior-observed-surface-capabilities."
+      "summary": "Target-specific gate for target.evidence.description-use-for-ui-content-admission-observed-surface."
     },
     {
-      "check_id": "r012_target_hard_gates_check",
+      "check_id": "r015_target_evidence_edit_skillguard_contract_s_check",
       "check_manifest_ids": [
         "check_quality_floor"
       ],
@@ -1659,13 +2026,27 @@
         "ui_flow_model"
       ],
       "obligation_ids": [
-        "r012_target_hard_gates_obligation"
+        "r015_target_evidence_edit_skillguard_contract_s_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for target.evidence.edit-skillguard-contract-source-json-regenerate-derived-contracts."
+    },
+    {
+      "check_id": "r016_target_hard_gates_check",
+      "check_manifest_ids": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "ui_flow_model"
+      ],
+      "obligation_ids": [
+        "r016_target_hard_gates_obligation"
       ],
       "required": true,
       "summary": "Target-specific gate for target.hard_gates."
     },
     {
-      "check_id": "r013_target_non_use_boundary_do_not_style_first_check",
+      "check_id": "r017_target_non_use_boundary_do_not_style_first_check",
       "check_manifest_ids": [
         "check_route"
       ],
@@ -1673,13 +2054,13 @@
         "ui_flow_model"
       ],
       "obligation_ids": [
-        "r013_target_non_use_boundary_do_not_style_first_obligation"
+        "r017_target_non_use_boundary_do_not_style_first_obligation"
       ],
       "required": true,
-      "summary": "Target-specific gate for target.non-use-boundary.do-not-style-first-prose-validate-treat-labels."
+      "summary": "Target-specific gate for target.non-use-boundary.do-not-style-first-invent-roles-or-treat."
     },
     {
-      "check_id": "r014_target_non_use_boundary_do_not_use_when_check",
+      "check_id": "r018_target_non_use_boundary_do_not_use_when_check",
       "check_manifest_ids": [
         "check_route"
       ],
@@ -1687,13 +2068,13 @@
         "ui_flow_model"
       ],
       "obligation_ids": [
-        "r014_target_non_use_boundary_do_not_use_when_obligation"
+        "r018_target_non_use_boundary_do_not_use_when_obligation"
       ],
       "required": true,
       "summary": "Target-specific gate for target.non-use-boundary.do-not-use-when."
     },
     {
-      "check_id": "r015_target_output_output_requirements_check",
+      "check_id": "r019_target_output_output_requirements_check",
       "check_manifest_ids": [
         "check_closure"
       ],
@@ -1701,13 +2082,13 @@
         "ui_flow_model"
       ],
       "obligation_ids": [
-        "r015_target_output_output_requirements_obligation"
+        "r019_target_output_output_requirements_obligation"
       ],
       "required": true,
       "summary": "Target-specific gate for target.output.output-requirements."
     },
     {
-      "check_id": "r016_target_workflow_route_build_ui_states_even_check",
+      "check_id": "r020_target_workflow_route_admit_content_model__check",
       "check_manifest_ids": [
         "check_evidence"
       ],
@@ -1715,13 +2096,13 @@
         "ui_flow_model"
       ],
       "obligation_ids": [
-        "r016_target_workflow_route_build_ui_states_even_obligation"
+        "r020_target_workflow_route_admit_content_model__obligation"
       ],
       "required": true,
-      "summary": "Target-specific gate for target.workflow-route.build-ui-states-events-controls-displays-journey-coverage."
+      "summary": "Target-specific gate for target.workflow-route.admit-content-model-ui-event-x-ui-state."
     },
     {
-      "check_id": "r017_target_workflow_route_declare_work_mode_in_check",
+      "check_id": "r021_target_workflow_route_bind_claims_to_the_p_check",
       "check_manifest_ids": [
         "check_evidence"
       ],
@@ -1729,13 +2110,13 @@
         "ui_flow_model"
       ],
       "obligation_ids": [
-        "r017_target_workflow_route_declare_work_mode_in_obligation"
+        "r021_target_workflow_route_bind_claims_to_the_p_obligation"
       ],
       "required": true,
-      "summary": "Target-specific gate for target.workflow-route.declare-work-mode-inventory-observed-surface-and-required."
+      "summary": "Target-specific gate for target.workflow-route.bind-claims-to-the-plan-observed-inventory-structured."
     },
     {
-      "check_id": "r018_target_workflow_route_design_evidence_cann_check",
+      "check_id": "r022_target_workflow_route_classify_candidates__check",
       "check_manifest_ids": [
         "check_evidence"
       ],
@@ -1743,13 +2124,13 @@
         "ui_flow_model"
       ],
       "obligation_ids": [
-        "r018_target_workflow_route_design_evidence_cann_obligation"
+        "r022_target_workflow_route_classify_candidates__obligation"
       ],
       "required": true,
-      "summary": "Target-specific gate for target.workflow-route.design-evidence-cannot-prove-runnable-ui-source-mixed."
+      "summary": "Target-specific gate for target.workflow-route.classify-candidates-only-as-user-visible-user-on."
     },
     {
-      "check_id": "r019_target_workflow_route_edit_skillguard_cont_check",
+      "check_id": "r023_target_workflow_route_declare_greenfield_s_check",
       "check_manifest_ids": [
         "check_evidence"
       ],
@@ -1757,13 +2138,13 @@
         "ui_flow_model"
       ],
       "obligation_ids": [
-        "r019_target_workflow_route_edit_skillguard_cont_obligation"
+        "r023_target_workflow_route_declare_greenfield_s_obligation"
       ],
       "required": true,
-      "summary": "Target-specific gate for target.workflow-route.edit-skillguard-contract-source-json-then-regenerate-derived."
+      "summary": "Target-specific gate for target.workflow-route.declare-greenfield-source-based-or-mixed-observation-never."
     },
     {
-      "check_id": "r020_target_workflow_route_for_runnable_claims__check",
+      "check_id": "r024_target_workflow_route_read_references_ui_f_check",
       "check_manifest_ids": [
         "check_evidence"
       ],
@@ -1771,13 +2152,13 @@
         "ui_flow_model"
       ],
       "obligation_ids": [
-        "r020_target_workflow_route_for_runnable_claims__obligation"
+        "r024_target_workflow_route_read_references_ui_f_obligation"
       ],
       "required": true,
-      "summary": "Target-specific gate for target.workflow-route.for-runnable-claims-bind-screenshot-dom-event-result."
+      "summary": "Target-specific gate for target.workflow-route.read-references-ui-flow-structure-protocol-md-it."
     },
     {
-      "check_id": "r021_target_workflow_route_model_ui_event_x_ui__check",
+      "check_id": "r025_target_workflow_route_required_workflow_check",
       "check_manifest_ids": [
         "check_evidence"
       ],
@@ -1785,27 +2166,27 @@
         "ui_flow_model"
       ],
       "obligation_ids": [
-        "r021_target_workflow_route_model_ui_event_x_ui__obligation"
-      ],
-      "required": true,
-      "summary": "Target-specific gate for target.workflow-route.model-ui-event-x-ui-state-behavior-and."
-    },
-    {
-      "check_id": "r022_target_workflow_route_required_workflow_check",
-      "check_manifest_ids": [
-        "check_evidence"
-      ],
-      "native_check_binding_ids": [
-        "ui_flow_model"
-      ],
-      "obligation_ids": [
-        "r022_target_workflow_route_required_workflow_obligation"
+        "r025_target_workflow_route_required_workflow_obligation"
       ],
       "required": true,
       "summary": "Target-specific gate for target.workflow-route.required-workflow."
     },
     {
-      "check_id": "r023_ui_design_runtime_boundary_check",
+      "check_id": "r026_ui_content_admission_check",
+      "check_manifest_ids": [
+        "check_evidence"
+      ],
+      "native_check_binding_ids": [
+        "ui_flow_model"
+      ],
+      "obligation_ids": [
+        "r026_ui_content_admission_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for ui.content_admission."
+    },
+    {
+      "check_id": "r027_ui_design_runtime_boundary_check",
       "check_manifest_ids": [
         "check_closure"
       ],
@@ -1813,13 +2194,13 @@
         "ui_flow_model"
       ],
       "obligation_ids": [
-        "r023_ui_design_runtime_boundary_obligation"
+        "r027_ui_design_runtime_boundary_obligation"
       ],
       "required": true,
       "summary": "Target-specific gate for ui.design_runtime_boundary."
     },
     {
-      "check_id": "r024_ui_enabled_action_chain_check",
+      "check_id": "r028_ui_enabled_action_chain_check",
       "check_manifest_ids": [
         "check_quality_floor"
       ],
@@ -1827,13 +2208,13 @@
         "ui_flow_model"
       ],
       "obligation_ids": [
-        "r024_ui_enabled_action_chain_obligation"
+        "r028_ui_enabled_action_chain_obligation"
       ],
       "required": true,
       "summary": "Target-specific gate for ui.enabled_action_chain."
     },
     {
-      "check_id": "r025_ui_observed_surface_and_capabilities_check",
+      "check_id": "r029_ui_no_audience_role_taxonomy_check",
       "check_manifest_ids": [
         "check_evidence"
       ],
@@ -1841,10 +2222,52 @@
         "ui_flow_model"
       ],
       "obligation_ids": [
-        "r025_ui_observed_surface_and_capabilities_obligation"
+        "r029_ui_no_audience_role_taxonomy_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for ui.no_audience_role_taxonomy."
+    },
+    {
+      "check_id": "r030_ui_observed_surface_and_capabilities_check",
+      "check_manifest_ids": [
+        "check_evidence"
+      ],
+      "native_check_binding_ids": [
+        "ui_flow_model"
+      ],
+      "obligation_ids": [
+        "r030_ui_observed_surface_and_capabilities_obligation"
       ],
       "required": true,
       "summary": "Target-specific gate for ui.observed_surface_and_capabilities."
+    },
+    {
+      "check_id": "r031_ui_on_demand_disclosure_check",
+      "check_manifest_ids": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "ui_flow_model"
+      ],
+      "obligation_ids": [
+        "r031_ui_on_demand_disclosure_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for ui.on_demand_disclosure."
+    },
+    {
+      "check_id": "r032_ui_structured_content_evidence_check",
+      "check_manifest_ids": [
+        "check_quality_floor"
+      ],
+      "native_check_binding_ids": [
+        "ui_flow_model"
+      ],
+      "obligation_ids": [
+        "r032_ui_structured_content_evidence_obligation"
+      ],
+      "required": true,
+      "summary": "Target-specific gate for ui.structured_content_evidence."
     }
   ],
   "skillguard_role": "native_contract_executor",
@@ -1852,23 +2275,23 @@
     {
       "category": "activation-boundary",
       "required": true,
-      "requirement_id": "target.activation-boundary.accept-greenfield-source-based-or-mixed-scope-inventory",
+      "requirement_id": "target.activation-boundary.accept-typed-admission-a-complete-ui-state-model",
       "source_path": "SKILL.md#L18",
-      "summary": "Accept greenfield, source_based, or mixed scope; inventory surface/capabilities; block unowned enabled actions, missing recovery, or design-only runnable claims; hand transitions to MTA/Tes."
+      "summary": "Accept typed admission, a complete UI state model, task/control coverage, and current evidence; block leaks, unsafe disclosure, blindspots, or stale proof."
     },
     {
       "category": "activation-boundary",
       "required": true,
-      "requirement_id": "target.activation-boundary.route-id-ui-flow-structure-role-public-owner",
+      "requirement_id": "target.activation-boundary.route-ui-flow-structure-role-public-owner-native",
       "source_path": "SKILL.md#L12",
-      "summary": "Route id: ui_flow_structure; role: public_owner; native owner: ui_flow_structure. This standalone FlowGuard satellite skill owns UI behavior/surface evidence, not visual styling or code str."
+      "summary": "Route ui_flow_structure; role public_owner; native owner ui_flow_structure. This standalone FlowGuard satellite skill owns content admission and UI evidence, not styling, code structure, or."
     },
     {
       "category": "activation-boundary",
       "required": true,
-      "requirement_id": "target.activation-boundary.use-for-ui-controls-displays-dialogs-menus-navigation",
+      "requirement_id": "target.activation-boundary.use-for-displayed-status-helper-metadata-content-optional",
       "source_path": "SKILL.md#L21",
-      "summary": "Use for UI controls, displays, dialogs, menus, navigation, visible surface, tasks, blindspots, reachable enabled action chains, implementation runs, or layout/responsiveness evidence."
+      "summary": "Use for displayed/status/helper/metadata content, optional details, controls, visible surface, tasks, actions, runs, or layout evidence."
     },
     {
       "category": "activation-boundary",
@@ -1880,9 +2303,16 @@
     {
       "category": "check-gate",
       "required": true,
+      "requirement_id": "target.check-gate.design-evidence-cannot-prove-runnable-ui-source-recovery",
+      "source_path": "SKILL.md#L36",
+      "summary": "Design evidence cannot prove runnable UI; source, recovery, freshness, and harvest gaps stay explicit."
+    },
+    {
+      "category": "check-gate",
+      "required": true,
       "requirement_id": "target.check-gate.every-reachable-enabled-action-needs-control-event-owner",
-      "source_path": "SKILL.md#L33",
-      "summary": "Every reachable enabled action needs control -> event -> owner -> function -> UI update -> click/test evidence, pure-UI disposition, or owned blindspot."
+      "source_path": "SKILL.md#L35",
+      "summary": "Every reachable enabled action needs control -> event -> owner -> function -> UI update -> evidence, a pure-UI disposition, or a blindspot."
     },
     {
       "category": "check-gate",
@@ -1894,23 +2324,37 @@
     {
       "category": "check-gate",
       "required": true,
-      "requirement_id": "target.check-gate.return-evidence-failures-blockers-skipped-checks-residual-risk",
-      "source_path": "SKILL.md#L37",
-      "summary": "Return evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, and typed_next_actions, plus a UI state diagram, task/control coverage, and blindspots."
+      "requirement_id": "target.check-gate.return-the-visibility-plan-ui-state-diagram-task",
+      "source_path": "SKILL.md#L39",
+      "summary": "Return the visibility plan, UI state diagram, task/control coverage, blindspots, evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, and typed_next_actions."
+    },
+    {
+      "category": "check-gate",
+      "required": true,
+      "requirement_id": "target.check-gate.unclassified-internal-content-cannot-render-do-not-add",
+      "source_path": "SKILL.md#L33",
+      "summary": "Unclassified/internal content cannot render; do not add audience/role/persona categories."
+    },
+    {
+      "category": "check-gate",
+      "required": true,
+      "requirement_id": "target.check-gate.user-on-demand-stays-hidden-across-display-text",
+      "source_path": "SKILL.md#L34",
+      "summary": "user_on_demand stays hidden across display/text/visible/observed mappings. Reveal/return controls are visible, enabled, labeled, task-owned, and tied to content feedback; hover uses a disti."
     },
     {
       "category": "check-gate",
       "required": true,
       "requirement_id": "target.check-gate.verify-the-real-flowguard-check-engine-and-agents",
       "source_path": "SKILL.md#L32",
-      "summary": "Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework."
+      "summary": "Verify the real FlowGuard check engine and AGENTS.md managed project record; never create a fake mini-framework."
     },
     {
       "category": "entrypoint-description",
       "required": true,
-      "requirement_id": "target.description.use-for-ui-behavior-observed-surface-capabilities-interaction",
+      "requirement_id": "target.description.use-for-ui-content-admission-observed-surface-behavior",
       "source_path": "SKILL.md frontmatter",
-      "summary": "The target skill description must be represented in the contract: Use for UI behavior, observed surface, capabilities, interaction states, journeys, structure/text, human operability, runna."
+      "summary": "The target skill description must be represented in the contract: Use for UI content admission, observed surface, behavior, structure/text, operability, evidence, or transitions."
     },
     {
       "category": "entrypoint",
@@ -1922,9 +2366,16 @@
     {
       "category": "evidence",
       "required": true,
-      "requirement_id": "target.evidence.description-use-for-ui-behavior-observed-surface-capabilities",
+      "requirement_id": "target.evidence.description-use-for-ui-content-admission-observed-surface",
       "source_path": "SKILL.md#L3",
-      "summary": "description: Use for UI behavior, observed surface, capabilities, interaction states, journeys, structure/text, human operability, runnable evidence, geometry, responsiveness, or transition."
+      "summary": "description: Use for UI content admission, observed surface, behavior, structure/text, operability, evidence, or transitions."
+    },
+    {
+      "category": "evidence",
+      "required": true,
+      "requirement_id": "target.evidence.edit-skillguard-contract-source-json-regenerate-derived-contracts",
+      "source_path": "SKILL.md#L42",
+      "summary": "Edit .skillguard/contract-source.json, regenerate derived contracts, and never treat SkillGuard as click/screenshot/DOM/human evidence."
     },
     {
       "category": "quality-gate",
@@ -1936,9 +2387,9 @@
     {
       "category": "non-use-boundary",
       "required": true,
-      "requirement_id": "target.non-use-boundary.do-not-style-first-prose-validate-treat-labels",
+      "requirement_id": "target.non-use-boundary.do-not-style-first-invent-roles-or-treat",
       "source_path": "SKILL.md#L24",
-      "summary": "Do not style first, prose-validate, treat labels/API routes as functional proof, or replace frontend/design/code-structure workflows; return non-UI work to model-first-function-flow."
+      "summary": "Do not style first, invent roles, or treat observed visibility, labels, APIs, or prose as permission/proof; return non-UI work to model-first-function-flow."
     },
     {
       "category": "non-use-boundary",
@@ -1951,50 +2402,43 @@
       "category": "output",
       "required": true,
       "requirement_id": "target.output.output-requirements",
-      "source_path": "SKILL.md#L36",
+      "source_path": "SKILL.md#L38",
       "summary": "The target section 'Output Requirements' must be represented by route, check, evidence, or closure coverage."
     },
     {
       "category": "workflow-route",
       "required": true,
-      "requirement_id": "target.workflow-route.build-ui-states-events-controls-displays-journey-coverage",
-      "source_path": "SKILL.md#L28",
-      "summary": "Build UI states/events/controls/displays, journey coverage, structure, text hierarchy, task coverage, and human-operability evidence."
-    },
-    {
-      "category": "workflow-route",
-      "required": true,
-      "requirement_id": "target.workflow-route.declare-work-mode-inventory-observed-surface-and-required",
-      "source_path": "SKILL.md#L27",
-      "summary": "Declare work mode; inventory observed surface and required capabilities when a UI exists or runs."
-    },
-    {
-      "category": "workflow-route",
-      "required": true,
-      "requirement_id": "target.workflow-route.design-evidence-cannot-prove-runnable-ui-source-mixed",
-      "source_path": "SKILL.md#L34",
-      "summary": "Design evidence cannot prove runnable UI; source/mixed work needs baseline alignment, failures/recovery stay explicit, and deepened UI models require template harvest closure."
-    },
-    {
-      "category": "workflow-route",
-      "required": true,
-      "requirement_id": "target.workflow-route.edit-skillguard-contract-source-json-then-regenerate-derived",
-      "source_path": "SKILL.md#L40",
-      "summary": "Edit .skillguard/contract-source.json, then regenerate derived contracts; SkillGuard checks the UI route contract and cannot fabricate click-through, screenshot, DOM, or human evidence."
-    },
-    {
-      "category": "workflow-route",
-      "required": true,
-      "requirement_id": "target.workflow-route.for-runnable-claims-bind-screenshot-dom-event-result",
-      "source_path": "SKILL.md#L29",
-      "summary": "For runnable claims, bind screenshot/DOM/event/result evidence, click chains, geometry/transitions, blindspots, and tests."
-    },
-    {
-      "category": "workflow-route",
-      "required": true,
-      "requirement_id": "target.workflow-route.model-ui-event-x-ui-state-behavior-and",
+      "requirement_id": "target.workflow-route.admit-content-model-ui-event-x-ui-state",
       "source_path": "SKILL.md#L9",
-      "summary": "Model UI event x UI state behavior and prove the declared boundary from observed surface through runnable evidence."
+      "summary": "Admit content, model UI event x UI state behavior, and prove runnable evidence."
+    },
+    {
+      "category": "workflow-route",
+      "required": true,
+      "requirement_id": "target.workflow-route.bind-claims-to-the-plan-observed-inventory-structured",
+      "source_path": "SKILL.md#L29",
+      "summary": "Bind claims to the plan, observed inventory, structured content rows, screenshot/DOM/event/result evidence, click chains, blindspots, and tests."
+    },
+    {
+      "category": "workflow-route",
+      "required": true,
+      "requirement_id": "target.workflow-route.classify-candidates-only-as-user-visible-user-on",
+      "source_path": "SKILL.md#L28",
+      "summary": "Classify candidates only as user_visible, user_on_demand, or internal; require typed/resolvable task/state/recovery/safety needs. Exempt only the exact normal label of a registered, in-scop."
+    },
+    {
+      "category": "workflow-route",
+      "required": true,
+      "requirement_id": "target.workflow-route.declare-greenfield-source-based-or-mixed-observation-never",
+      "source_path": "SKILL.md#L27",
+      "summary": "Declare greenfield, source_based, or mixed; observation never grants display permission."
+    },
+    {
+      "category": "workflow-route",
+      "required": true,
+      "requirement_id": "target.workflow-route.read-references-ui-flow-structure-protocol-md-it",
+      "source_path": "SKILL.md#L15",
+      "summary": "Read references/ui_flow_structure_protocol.md; it routes observed surface, interaction, journey/structure/text, human, implementation, and geometry protocols."
     },
     {
       "category": "workflow-route",
@@ -2002,6 +2446,13 @@
       "requirement_id": "target.workflow-route.required-workflow",
       "source_path": "SKILL.md#L26",
       "summary": "The target section 'Required Workflow' must be represented by route, check, evidence, or closure coverage."
+    },
+    {
+      "category": "inventory",
+      "required": true,
+      "requirement_id": "ui.content_admission",
+      "source_path": ".skillguard/contract-source.json#source_requirements",
+      "summary": "Two conceptual groups use exactly user_visible, user_on_demand, or internal for every in-scope state-exposing candidate; typed needs must resolve, unclassified/internal content cannot render, and only exact labels for registered in-scope task-owned controls without extra state or metadata need no duplicate row."
     },
     {
       "category": "closure",
@@ -2018,11 +2469,32 @@
       "summary": "Every reachable enabled action has a modeled event and current functional chain/click evidence, pure-UI disposition, or owned blindspot."
     },
     {
+      "category": "boundary",
+      "required": true,
+      "requirement_id": "ui.no_audience_role_taxonomy",
+      "source_path": ".skillguard/contract-source.json#source_requirements",
+      "summary": "Content admission keeps exactly three visibility values in two conceptual groups and does not add audience, role, persona, expert-mode, or authorization categories."
+    },
+    {
       "category": "inventory",
       "required": true,
       "requirement_id": "ui.observed_surface_and_capabilities",
       "source_path": ".skillguard/contract-source.json#source_requirements",
-      "summary": "Existing/runnable UI claims require complete observed-surface and user-visible capability/output accounting."
+      "summary": "Existing/runnable UI claims require complete observed-surface and user-visible capability/output accounting, while observation itself grants no display permission."
+    },
+    {
+      "category": "evidence",
+      "required": true,
+      "requirement_id": "ui.on_demand_disclosure",
+      "source_path": ".skillguard/contract-source.json#source_requirements",
+      "summary": "User_on_demand stays hidden across display/text/visible/observed mappings until visible/enabled task-owned reveal with item-bound feedback, has an operable return path, and uses a distinct keyboard/focus event for hover."
+    },
+    {
+      "category": "evidence",
+      "required": true,
+      "requirement_id": "ui.structured_content_evidence",
+      "source_path": ".skillguard/contract-source.json#source_requirements",
+      "summary": "Runnable claims bind the current plan and observed inventory to structured per-content default/reveal/revealed/return/internal-absence evidence; positive rows resolve to the exact content and state, and a boolean, opaque, or unrelated observation is insufficient."
     }
   ],
   "stale_bindings": [
@@ -2059,26 +2531,26 @@
     {
       "category": "activation-boundary",
       "required": true,
-      "requirement_id": "target.activation-boundary.accept-greenfield-source-based-or-mixed-scope-inventory",
-      "rule_id": "r001_target_activation_boundary_accept_greenfie_rule",
+      "requirement_id": "target.activation-boundary.accept-typed-admission-a-complete-ui-state-model",
+      "rule_id": "r001_target_activation_boundary_accept_typed_ad_rule",
       "source_path": "SKILL.md#L18",
-      "summary": "Accept greenfield, source_based, or mixed scope; inventory surface/capabilities; block unowned enabled actions, missing recovery, or design-only runnable claims; hand transitions to MTA/Tes."
+      "summary": "Accept typed admission, a complete UI state model, task/control coverage, and current evidence; block leaks, unsafe disclosure, blindspots, or stale proof."
     },
     {
       "category": "activation-boundary",
       "required": true,
-      "requirement_id": "target.activation-boundary.route-id-ui-flow-structure-role-public-owner",
-      "rule_id": "r002_target_activation_boundary_route_id_ui_flo_rule",
+      "requirement_id": "target.activation-boundary.route-ui-flow-structure-role-public-owner-native",
+      "rule_id": "r002_target_activation_boundary_route_ui_flow_s_rule",
       "source_path": "SKILL.md#L12",
-      "summary": "Route id: ui_flow_structure; role: public_owner; native owner: ui_flow_structure. This standalone FlowGuard satellite skill owns UI behavior/surface evidence, not visual styling or code str."
+      "summary": "Route ui_flow_structure; role public_owner; native owner ui_flow_structure. This standalone FlowGuard satellite skill owns content admission and UI evidence, not styling, code structure, or."
     },
     {
       "category": "activation-boundary",
       "required": true,
-      "requirement_id": "target.activation-boundary.use-for-ui-controls-displays-dialogs-menus-navigation",
-      "rule_id": "r003_target_activation_boundary_use_for_ui_cont_rule",
+      "requirement_id": "target.activation-boundary.use-for-displayed-status-helper-metadata-content-optional",
+      "rule_id": "r003_target_activation_boundary_use_for_display_rule",
       "source_path": "SKILL.md#L21",
-      "summary": "Use for UI controls, displays, dialogs, menus, navigation, visible surface, tasks, blindspots, reachable enabled action chains, implementation runs, or layout/responsiveness evidence."
+      "summary": "Use for displayed/status/helper/metadata content, optional details, controls, visible surface, tasks, actions, runs, or layout evidence."
     },
     {
       "category": "activation-boundary",
@@ -2091,80 +2563,112 @@
     {
       "category": "check-gate",
       "required": true,
+      "requirement_id": "target.check-gate.design-evidence-cannot-prove-runnable-ui-source-recovery",
+      "rule_id": "r005_target_check_gate_design_evidence_cannot_p_rule",
+      "source_path": "SKILL.md#L36",
+      "summary": "Design evidence cannot prove runnable UI; source, recovery, freshness, and harvest gaps stay explicit."
+    },
+    {
+      "category": "check-gate",
+      "required": true,
       "requirement_id": "target.check-gate.every-reachable-enabled-action-needs-control-event-owner",
-      "rule_id": "r005_target_check_gate_every_reachable_enabled__rule",
-      "source_path": "SKILL.md#L33",
-      "summary": "Every reachable enabled action needs control -> event -> owner -> function -> UI update -> click/test evidence, pure-UI disposition, or owned blindspot."
+      "rule_id": "r006_target_check_gate_every_reachable_enabled__rule",
+      "source_path": "SKILL.md#L35",
+      "summary": "Every reachable enabled action needs control -> event -> owner -> function -> UI update -> evidence, a pure-UI disposition, or a blindspot."
     },
     {
       "category": "check-gate",
       "required": true,
       "requirement_id": "target.check-gate.hard-gates",
-      "rule_id": "r006_target_check_gate_hard_gates_rule",
+      "rule_id": "r007_target_check_gate_hard_gates_rule",
       "source_path": "SKILL.md#L31",
       "summary": "The target section 'Hard Gates' must be represented by route, check, evidence, or closure coverage."
     },
     {
       "category": "check-gate",
       "required": true,
-      "requirement_id": "target.check-gate.return-evidence-failures-blockers-skipped-checks-residual-risk",
-      "rule_id": "r007_target_check_gate_return_evidence_failures_rule",
-      "source_path": "SKILL.md#L37",
-      "summary": "Return evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, and typed_next_actions, plus a UI state diagram, task/control coverage, and blindspots."
+      "requirement_id": "target.check-gate.return-the-visibility-plan-ui-state-diagram-task",
+      "rule_id": "r008_target_check_gate_return_the_visibility_pl_rule",
+      "source_path": "SKILL.md#L39",
+      "summary": "Return the visibility plan, UI state diagram, task/control coverage, blindspots, evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, and typed_next_actions."
+    },
+    {
+      "category": "check-gate",
+      "required": true,
+      "requirement_id": "target.check-gate.unclassified-internal-content-cannot-render-do-not-add",
+      "rule_id": "r009_target_check_gate_unclassified_internal_co_rule",
+      "source_path": "SKILL.md#L33",
+      "summary": "Unclassified/internal content cannot render; do not add audience/role/persona categories."
+    },
+    {
+      "category": "check-gate",
+      "required": true,
+      "requirement_id": "target.check-gate.user-on-demand-stays-hidden-across-display-text",
+      "rule_id": "r010_target_check_gate_user_on_demand_stays_hid_rule",
+      "source_path": "SKILL.md#L34",
+      "summary": "user_on_demand stays hidden across display/text/visible/observed mappings. Reveal/return controls are visible, enabled, labeled, task-owned, and tied to content feedback; hover uses a disti."
     },
     {
       "category": "check-gate",
       "required": true,
       "requirement_id": "target.check-gate.verify-the-real-flowguard-check-engine-and-agents",
-      "rule_id": "r008_target_check_gate_verify_the_real_flowguar_rule",
+      "rule_id": "r011_target_check_gate_verify_the_real_flowguar_rule",
       "source_path": "SKILL.md#L32",
-      "summary": "Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework."
+      "summary": "Verify the real FlowGuard check engine and AGENTS.md managed project record; never create a fake mini-framework."
     },
     {
       "category": "entrypoint-description",
       "required": true,
-      "requirement_id": "target.description.use-for-ui-behavior-observed-surface-capabilities-interaction",
-      "rule_id": "r009_target_description_use_for_ui_behavior_obs_rule",
+      "requirement_id": "target.description.use-for-ui-content-admission-observed-surface-behavior",
+      "rule_id": "r012_target_description_use_for_ui_content_admi_rule",
       "source_path": "SKILL.md frontmatter",
-      "summary": "The target skill description must be represented in the contract: Use for UI behavior, observed surface, capabilities, interaction states, journeys, structure/text, human operability, runna."
+      "summary": "The target skill description must be represented in the contract: Use for UI content admission, observed surface, behavior, structure/text, operability, evidence, or transitions."
     },
     {
       "category": "entrypoint",
       "required": true,
       "requirement_id": "target.entrypoint.acceptance",
-      "rule_id": "r010_target_entrypoint_acceptance_rule",
+      "rule_id": "r013_target_entrypoint_acceptance_rule",
       "source_path": "SKILL.md",
       "summary": "The target skill entrypoint and hard gates must be represented by the runtime contract."
     },
     {
       "category": "evidence",
       "required": true,
-      "requirement_id": "target.evidence.description-use-for-ui-behavior-observed-surface-capabilities",
-      "rule_id": "r011_target_evidence_description_use_for_ui_beh_rule",
+      "requirement_id": "target.evidence.description-use-for-ui-content-admission-observed-surface",
+      "rule_id": "r014_target_evidence_description_use_for_ui_con_rule",
       "source_path": "SKILL.md#L3",
-      "summary": "description: Use for UI behavior, observed surface, capabilities, interaction states, journeys, structure/text, human operability, runnable evidence, geometry, responsiveness, or transition."
+      "summary": "description: Use for UI content admission, observed surface, behavior, structure/text, operability, evidence, or transitions."
+    },
+    {
+      "category": "evidence",
+      "required": true,
+      "requirement_id": "target.evidence.edit-skillguard-contract-source-json-regenerate-derived-contracts",
+      "rule_id": "r015_target_evidence_edit_skillguard_contract_s_rule",
+      "source_path": "SKILL.md#L42",
+      "summary": "Edit .skillguard/contract-source.json, regenerate derived contracts, and never treat SkillGuard as click/screenshot/DOM/human evidence."
     },
     {
       "category": "quality-gate",
       "required": true,
       "requirement_id": "target.hard_gates",
-      "rule_id": "r012_target_hard_gates_rule",
+      "rule_id": "r016_target_hard_gates_rule",
       "source_path": "SKILL.md",
       "summary": "Declared hard gates and required workflow steps must be represented by checks and closure blockers."
     },
     {
       "category": "non-use-boundary",
       "required": true,
-      "requirement_id": "target.non-use-boundary.do-not-style-first-prose-validate-treat-labels",
-      "rule_id": "r013_target_non_use_boundary_do_not_style_first_rule",
+      "requirement_id": "target.non-use-boundary.do-not-style-first-invent-roles-or-treat",
+      "rule_id": "r017_target_non_use_boundary_do_not_style_first_rule",
       "source_path": "SKILL.md#L24",
-      "summary": "Do not style first, prose-validate, treat labels/API routes as functional proof, or replace frontend/design/code-structure workflows; return non-UI work to model-first-function-flow."
+      "summary": "Do not style first, invent roles, or treat observed visibility, labels, APIs, or prose as permission/proof; return non-UI work to model-first-function-flow."
     },
     {
       "category": "non-use-boundary",
       "required": true,
       "requirement_id": "target.non-use-boundary.do-not-use-when",
-      "rule_id": "r014_target_non_use_boundary_do_not_use_when_rule",
+      "rule_id": "r018_target_non_use_boundary_do_not_use_when_rule",
       "source_path": "SKILL.md#L23",
       "summary": "The target section 'Do Not Use When' must be represented by route, check, evidence, or closure coverage."
     },
@@ -2172,71 +2676,71 @@
       "category": "output",
       "required": true,
       "requirement_id": "target.output.output-requirements",
-      "rule_id": "r015_target_output_output_requirements_rule",
-      "source_path": "SKILL.md#L36",
+      "rule_id": "r019_target_output_output_requirements_rule",
+      "source_path": "SKILL.md#L38",
       "summary": "The target section 'Output Requirements' must be represented by route, check, evidence, or closure coverage."
     },
     {
       "category": "workflow-route",
       "required": true,
-      "requirement_id": "target.workflow-route.build-ui-states-events-controls-displays-journey-coverage",
-      "rule_id": "r016_target_workflow_route_build_ui_states_even_rule",
-      "source_path": "SKILL.md#L28",
-      "summary": "Build UI states/events/controls/displays, journey coverage, structure, text hierarchy, task coverage, and human-operability evidence."
-    },
-    {
-      "category": "workflow-route",
-      "required": true,
-      "requirement_id": "target.workflow-route.declare-work-mode-inventory-observed-surface-and-required",
-      "rule_id": "r017_target_workflow_route_declare_work_mode_in_rule",
-      "source_path": "SKILL.md#L27",
-      "summary": "Declare work mode; inventory observed surface and required capabilities when a UI exists or runs."
-    },
-    {
-      "category": "workflow-route",
-      "required": true,
-      "requirement_id": "target.workflow-route.design-evidence-cannot-prove-runnable-ui-source-mixed",
-      "rule_id": "r018_target_workflow_route_design_evidence_cann_rule",
-      "source_path": "SKILL.md#L34",
-      "summary": "Design evidence cannot prove runnable UI; source/mixed work needs baseline alignment, failures/recovery stay explicit, and deepened UI models require template harvest closure."
-    },
-    {
-      "category": "workflow-route",
-      "required": true,
-      "requirement_id": "target.workflow-route.edit-skillguard-contract-source-json-then-regenerate-derived",
-      "rule_id": "r019_target_workflow_route_edit_skillguard_cont_rule",
-      "source_path": "SKILL.md#L40",
-      "summary": "Edit .skillguard/contract-source.json, then regenerate derived contracts; SkillGuard checks the UI route contract and cannot fabricate click-through, screenshot, DOM, or human evidence."
-    },
-    {
-      "category": "workflow-route",
-      "required": true,
-      "requirement_id": "target.workflow-route.for-runnable-claims-bind-screenshot-dom-event-result",
-      "rule_id": "r020_target_workflow_route_for_runnable_claims__rule",
-      "source_path": "SKILL.md#L29",
-      "summary": "For runnable claims, bind screenshot/DOM/event/result evidence, click chains, geometry/transitions, blindspots, and tests."
-    },
-    {
-      "category": "workflow-route",
-      "required": true,
-      "requirement_id": "target.workflow-route.model-ui-event-x-ui-state-behavior-and",
-      "rule_id": "r021_target_workflow_route_model_ui_event_x_ui__rule",
+      "requirement_id": "target.workflow-route.admit-content-model-ui-event-x-ui-state",
+      "rule_id": "r020_target_workflow_route_admit_content_model__rule",
       "source_path": "SKILL.md#L9",
-      "summary": "Model UI event x UI state behavior and prove the declared boundary from observed surface through runnable evidence."
+      "summary": "Admit content, model UI event x UI state behavior, and prove runnable evidence."
+    },
+    {
+      "category": "workflow-route",
+      "required": true,
+      "requirement_id": "target.workflow-route.bind-claims-to-the-plan-observed-inventory-structured",
+      "rule_id": "r021_target_workflow_route_bind_claims_to_the_p_rule",
+      "source_path": "SKILL.md#L29",
+      "summary": "Bind claims to the plan, observed inventory, structured content rows, screenshot/DOM/event/result evidence, click chains, blindspots, and tests."
+    },
+    {
+      "category": "workflow-route",
+      "required": true,
+      "requirement_id": "target.workflow-route.classify-candidates-only-as-user-visible-user-on",
+      "rule_id": "r022_target_workflow_route_classify_candidates__rule",
+      "source_path": "SKILL.md#L28",
+      "summary": "Classify candidates only as user_visible, user_on_demand, or internal; require typed/resolvable task/state/recovery/safety needs. Exempt only the exact normal label of a registered, in-scop."
+    },
+    {
+      "category": "workflow-route",
+      "required": true,
+      "requirement_id": "target.workflow-route.declare-greenfield-source-based-or-mixed-observation-never",
+      "rule_id": "r023_target_workflow_route_declare_greenfield_s_rule",
+      "source_path": "SKILL.md#L27",
+      "summary": "Declare greenfield, source_based, or mixed; observation never grants display permission."
+    },
+    {
+      "category": "workflow-route",
+      "required": true,
+      "requirement_id": "target.workflow-route.read-references-ui-flow-structure-protocol-md-it",
+      "rule_id": "r024_target_workflow_route_read_references_ui_f_rule",
+      "source_path": "SKILL.md#L15",
+      "summary": "Read references/ui_flow_structure_protocol.md; it routes observed surface, interaction, journey/structure/text, human, implementation, and geometry protocols."
     },
     {
       "category": "workflow-route",
       "required": true,
       "requirement_id": "target.workflow-route.required-workflow",
-      "rule_id": "r022_target_workflow_route_required_workflow_rule",
+      "rule_id": "r025_target_workflow_route_required_workflow_rule",
       "source_path": "SKILL.md#L26",
       "summary": "The target section 'Required Workflow' must be represented by route, check, evidence, or closure coverage."
+    },
+    {
+      "category": "inventory",
+      "required": true,
+      "requirement_id": "ui.content_admission",
+      "rule_id": "r026_ui_content_admission_rule",
+      "source_path": ".skillguard/contract-source.json#source_requirements",
+      "summary": "Two conceptual groups use exactly user_visible, user_on_demand, or internal for every in-scope state-exposing candidate; typed needs must resolve, unclassified/internal content cannot render, and only exact labels for registered in-scope task-owned controls without extra state or metadata need no duplicate row."
     },
     {
       "category": "closure",
       "required": true,
       "requirement_id": "ui.design_runtime_boundary",
-      "rule_id": "r023_ui_design_runtime_boundary_rule",
+      "rule_id": "r027_ui_design_runtime_boundary_rule",
       "source_path": ".skillguard/contract-source.json#source_requirements",
       "summary": "Model/design evidence cannot prove implemented/runnable completion; source alignment, recovery, human, and current evidence-kind gates remain explicit."
     },
@@ -2244,55 +2748,79 @@
       "category": "evidence",
       "required": true,
       "requirement_id": "ui.enabled_action_chain",
-      "rule_id": "r024_ui_enabled_action_chain_rule",
+      "rule_id": "r028_ui_enabled_action_chain_rule",
       "source_path": ".skillguard/contract-source.json#source_requirements",
       "summary": "Every reachable enabled action has a modeled event and current functional chain/click evidence, pure-UI disposition, or owned blindspot."
+    },
+    {
+      "category": "boundary",
+      "required": true,
+      "requirement_id": "ui.no_audience_role_taxonomy",
+      "rule_id": "r029_ui_no_audience_role_taxonomy_rule",
+      "source_path": ".skillguard/contract-source.json#source_requirements",
+      "summary": "Content admission keeps exactly three visibility values in two conceptual groups and does not add audience, role, persona, expert-mode, or authorization categories."
     },
     {
       "category": "inventory",
       "required": true,
       "requirement_id": "ui.observed_surface_and_capabilities",
-      "rule_id": "r025_ui_observed_surface_and_capabilities_rule",
+      "rule_id": "r030_ui_observed_surface_and_capabilities_rule",
       "source_path": ".skillguard/contract-source.json#source_requirements",
-      "summary": "Existing/runnable UI claims require complete observed-surface and user-visible capability/output accounting."
+      "summary": "Existing/runnable UI claims require complete observed-surface and user-visible capability/output accounting, while observation itself grants no display permission."
+    },
+    {
+      "category": "evidence",
+      "required": true,
+      "requirement_id": "ui.on_demand_disclosure",
+      "rule_id": "r031_ui_on_demand_disclosure_rule",
+      "source_path": ".skillguard/contract-source.json#source_requirements",
+      "summary": "User_on_demand stays hidden across display/text/visible/observed mappings until visible/enabled task-owned reveal with item-bound feedback, has an operable return path, and uses a distinct keyboard/focus event for hover."
+    },
+    {
+      "category": "evidence",
+      "required": true,
+      "requirement_id": "ui.structured_content_evidence",
+      "rule_id": "r032_ui_structured_content_evidence_rule",
+      "source_path": ".skillguard/contract-source.json#source_requirements",
+      "summary": "Runnable claims bind the current plan and observed inventory to structured per-content default/reveal/revealed/return/internal-absence evidence; positive rows resolve to the exact content and state, and a boolean, opaque, or unrelated observation is insufficient."
     }
   ],
   "test_gap_plan": [
     {
-      "gap_id": "r001_target_activation_boundary_accept_greenfie_test_gap",
+      "gap_id": "r001_target_activation_boundary_accept_typed_ad_test_gap",
       "planned_check_ids": [
         "check_route",
         "ui_flow_structure_skill"
       ],
       "requirement_ids": [
-        "target.activation-boundary.accept-greenfield-source-based-or-mixed-scope-inventory"
+        "target.activation-boundary.accept-typed-admission-a-complete-ui-state-model"
       ],
       "status": "complete",
-      "summary": "Native and structural check coverage for target.activation-boundary.accept-greenfield-source-based-or-mixed-scope-inventory."
+      "summary": "Native and structural check coverage for target.activation-boundary.accept-typed-admission-a-complete-ui-state-model."
     },
     {
-      "gap_id": "r002_target_activation_boundary_route_id_ui_flo_test_gap",
+      "gap_id": "r002_target_activation_boundary_route_ui_flow_s_test_gap",
       "planned_check_ids": [
         "check_route",
         "ui_flow_structure_skill"
       ],
       "requirement_ids": [
-        "target.activation-boundary.route-id-ui-flow-structure-role-public-owner"
+        "target.activation-boundary.route-ui-flow-structure-role-public-owner-native"
       ],
       "status": "complete",
-      "summary": "Native and structural check coverage for target.activation-boundary.route-id-ui-flow-structure-role-public-owner."
+      "summary": "Native and structural check coverage for target.activation-boundary.route-ui-flow-structure-role-public-owner-native."
     },
     {
-      "gap_id": "r003_target_activation_boundary_use_for_ui_cont_test_gap",
+      "gap_id": "r003_target_activation_boundary_use_for_display_test_gap",
       "planned_check_ids": [
         "check_route",
         "ui_flow_structure_skill"
       ],
       "requirement_ids": [
-        "target.activation-boundary.use-for-ui-controls-displays-dialogs-menus-navigation"
+        "target.activation-boundary.use-for-displayed-status-helper-metadata-content-optional"
       ],
       "status": "complete",
-      "summary": "Native and structural check coverage for target.activation-boundary.use-for-ui-controls-displays-dialogs-menus-navigation."
+      "summary": "Native and structural check coverage for target.activation-boundary.use-for-displayed-status-helper-metadata-content-optional."
     },
     {
       "gap_id": "r004_target_activation_boundary_use_when_test_gap",
@@ -2307,7 +2835,19 @@
       "summary": "Native and structural check coverage for target.activation-boundary.use-when."
     },
     {
-      "gap_id": "r005_target_check_gate_every_reachable_enabled__test_gap",
+      "gap_id": "r005_target_check_gate_design_evidence_cannot_p_test_gap",
+      "planned_check_ids": [
+        "check_quality_floor",
+        "ui_flow_structure_skill"
+      ],
+      "requirement_ids": [
+        "target.check-gate.design-evidence-cannot-prove-runnable-ui-source-recovery"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.check-gate.design-evidence-cannot-prove-runnable-ui-source-recovery."
+    },
+    {
+      "gap_id": "r006_target_check_gate_every_reachable_enabled__test_gap",
       "planned_check_ids": [
         "check_quality_floor",
         "ui_flow_structure_skill"
@@ -2319,7 +2859,7 @@
       "summary": "Native and structural check coverage for target.check-gate.every-reachable-enabled-action-needs-control-event-owner."
     },
     {
-      "gap_id": "r006_target_check_gate_hard_gates_test_gap",
+      "gap_id": "r007_target_check_gate_hard_gates_test_gap",
       "planned_check_ids": [
         "check_quality_floor",
         "ui_flow_structure_skill"
@@ -2331,19 +2871,43 @@
       "summary": "Native and structural check coverage for target.check-gate.hard-gates."
     },
     {
-      "gap_id": "r007_target_check_gate_return_evidence_failures_test_gap",
+      "gap_id": "r008_target_check_gate_return_the_visibility_pl_test_gap",
       "planned_check_ids": [
         "check_quality_floor",
         "ui_flow_structure_skill"
       ],
       "requirement_ids": [
-        "target.check-gate.return-evidence-failures-blockers-skipped-checks-residual-risk"
+        "target.check-gate.return-the-visibility-plan-ui-state-diagram-task"
       ],
       "status": "complete",
-      "summary": "Native and structural check coverage for target.check-gate.return-evidence-failures-blockers-skipped-checks-residual-risk."
+      "summary": "Native and structural check coverage for target.check-gate.return-the-visibility-plan-ui-state-diagram-task."
     },
     {
-      "gap_id": "r008_target_check_gate_verify_the_real_flowguar_test_gap",
+      "gap_id": "r009_target_check_gate_unclassified_internal_co_test_gap",
+      "planned_check_ids": [
+        "check_quality_floor",
+        "ui_flow_structure_skill"
+      ],
+      "requirement_ids": [
+        "target.check-gate.unclassified-internal-content-cannot-render-do-not-add"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.check-gate.unclassified-internal-content-cannot-render-do-not-add."
+    },
+    {
+      "gap_id": "r010_target_check_gate_user_on_demand_stays_hid_test_gap",
+      "planned_check_ids": [
+        "check_quality_floor",
+        "ui_flow_structure_skill"
+      ],
+      "requirement_ids": [
+        "target.check-gate.user-on-demand-stays-hidden-across-display-text"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.check-gate.user-on-demand-stays-hidden-across-display-text."
+    },
+    {
+      "gap_id": "r011_target_check_gate_verify_the_real_flowguar_test_gap",
       "planned_check_ids": [
         "check_quality_floor",
         "ui_flow_structure_skill"
@@ -2355,19 +2919,19 @@
       "summary": "Native and structural check coverage for target.check-gate.verify-the-real-flowguard-check-engine-and-agents."
     },
     {
-      "gap_id": "r009_target_description_use_for_ui_behavior_obs_test_gap",
+      "gap_id": "r012_target_description_use_for_ui_content_admi_test_gap",
       "planned_check_ids": [
         "check_route",
         "ui_flow_structure_skill"
       ],
       "requirement_ids": [
-        "target.description.use-for-ui-behavior-observed-surface-capabilities-interaction"
+        "target.description.use-for-ui-content-admission-observed-surface-behavior"
       ],
       "status": "complete",
-      "summary": "Native and structural check coverage for target.description.use-for-ui-behavior-observed-surface-capabilities-interaction."
+      "summary": "Native and structural check coverage for target.description.use-for-ui-content-admission-observed-surface-behavior."
     },
     {
-      "gap_id": "r010_target_entrypoint_acceptance_test_gap",
+      "gap_id": "r013_target_entrypoint_acceptance_test_gap",
       "planned_check_ids": [
         "check_route",
         "ui_flow_structure_skill"
@@ -2379,19 +2943,31 @@
       "summary": "Native and structural check coverage for target.entrypoint.acceptance."
     },
     {
-      "gap_id": "r011_target_evidence_description_use_for_ui_beh_test_gap",
+      "gap_id": "r014_target_evidence_description_use_for_ui_con_test_gap",
       "planned_check_ids": [
         "check_quality_floor",
         "ui_flow_structure_skill"
       ],
       "requirement_ids": [
-        "target.evidence.description-use-for-ui-behavior-observed-surface-capabilities"
+        "target.evidence.description-use-for-ui-content-admission-observed-surface"
       ],
       "status": "complete",
-      "summary": "Native and structural check coverage for target.evidence.description-use-for-ui-behavior-observed-surface-capabilities."
+      "summary": "Native and structural check coverage for target.evidence.description-use-for-ui-content-admission-observed-surface."
     },
     {
-      "gap_id": "r012_target_hard_gates_test_gap",
+      "gap_id": "r015_target_evidence_edit_skillguard_contract_s_test_gap",
+      "planned_check_ids": [
+        "check_quality_floor",
+        "ui_flow_structure_skill"
+      ],
+      "requirement_ids": [
+        "target.evidence.edit-skillguard-contract-source-json-regenerate-derived-contracts"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for target.evidence.edit-skillguard-contract-source-json-regenerate-derived-contracts."
+    },
+    {
+      "gap_id": "r016_target_hard_gates_test_gap",
       "planned_check_ids": [
         "check_quality_floor",
         "ui_flow_structure_skill"
@@ -2403,19 +2979,19 @@
       "summary": "Native and structural check coverage for target.hard_gates."
     },
     {
-      "gap_id": "r013_target_non_use_boundary_do_not_style_first_test_gap",
+      "gap_id": "r017_target_non_use_boundary_do_not_style_first_test_gap",
       "planned_check_ids": [
         "check_route",
         "ui_flow_structure_skill"
       ],
       "requirement_ids": [
-        "target.non-use-boundary.do-not-style-first-prose-validate-treat-labels"
+        "target.non-use-boundary.do-not-style-first-invent-roles-or-treat"
       ],
       "status": "complete",
-      "summary": "Native and structural check coverage for target.non-use-boundary.do-not-style-first-prose-validate-treat-labels."
+      "summary": "Native and structural check coverage for target.non-use-boundary.do-not-style-first-invent-roles-or-treat."
     },
     {
-      "gap_id": "r014_target_non_use_boundary_do_not_use_when_test_gap",
+      "gap_id": "r018_target_non_use_boundary_do_not_use_when_test_gap",
       "planned_check_ids": [
         "check_route",
         "ui_flow_structure_skill"
@@ -2427,7 +3003,7 @@
       "summary": "Native and structural check coverage for target.non-use-boundary.do-not-use-when."
     },
     {
-      "gap_id": "r015_target_output_output_requirements_test_gap",
+      "gap_id": "r019_target_output_output_requirements_test_gap",
       "planned_check_ids": [
         "check_closure",
         "ui_flow_structure_skill"
@@ -2439,79 +3015,67 @@
       "summary": "Native and structural check coverage for target.output.output-requirements."
     },
     {
-      "gap_id": "r016_target_workflow_route_build_ui_states_even_test_gap",
+      "gap_id": "r020_target_workflow_route_admit_content_model__test_gap",
       "planned_check_ids": [
         "check_evidence",
         "ui_flow_structure_skill"
       ],
       "requirement_ids": [
-        "target.workflow-route.build-ui-states-events-controls-displays-journey-coverage"
+        "target.workflow-route.admit-content-model-ui-event-x-ui-state"
       ],
       "status": "complete",
-      "summary": "Native and structural check coverage for target.workflow-route.build-ui-states-events-controls-displays-journey-coverage."
+      "summary": "Native and structural check coverage for target.workflow-route.admit-content-model-ui-event-x-ui-state."
     },
     {
-      "gap_id": "r017_target_workflow_route_declare_work_mode_in_test_gap",
+      "gap_id": "r021_target_workflow_route_bind_claims_to_the_p_test_gap",
       "planned_check_ids": [
         "check_evidence",
         "ui_flow_structure_skill"
       ],
       "requirement_ids": [
-        "target.workflow-route.declare-work-mode-inventory-observed-surface-and-required"
+        "target.workflow-route.bind-claims-to-the-plan-observed-inventory-structured"
       ],
       "status": "complete",
-      "summary": "Native and structural check coverage for target.workflow-route.declare-work-mode-inventory-observed-surface-and-required."
+      "summary": "Native and structural check coverage for target.workflow-route.bind-claims-to-the-plan-observed-inventory-structured."
     },
     {
-      "gap_id": "r018_target_workflow_route_design_evidence_cann_test_gap",
+      "gap_id": "r022_target_workflow_route_classify_candidates__test_gap",
       "planned_check_ids": [
         "check_evidence",
         "ui_flow_structure_skill"
       ],
       "requirement_ids": [
-        "target.workflow-route.design-evidence-cannot-prove-runnable-ui-source-mixed"
+        "target.workflow-route.classify-candidates-only-as-user-visible-user-on"
       ],
       "status": "complete",
-      "summary": "Native and structural check coverage for target.workflow-route.design-evidence-cannot-prove-runnable-ui-source-mixed."
+      "summary": "Native and structural check coverage for target.workflow-route.classify-candidates-only-as-user-visible-user-on."
     },
     {
-      "gap_id": "r019_target_workflow_route_edit_skillguard_cont_test_gap",
+      "gap_id": "r023_target_workflow_route_declare_greenfield_s_test_gap",
       "planned_check_ids": [
         "check_evidence",
         "ui_flow_structure_skill"
       ],
       "requirement_ids": [
-        "target.workflow-route.edit-skillguard-contract-source-json-then-regenerate-derived"
+        "target.workflow-route.declare-greenfield-source-based-or-mixed-observation-never"
       ],
       "status": "complete",
-      "summary": "Native and structural check coverage for target.workflow-route.edit-skillguard-contract-source-json-then-regenerate-derived."
+      "summary": "Native and structural check coverage for target.workflow-route.declare-greenfield-source-based-or-mixed-observation-never."
     },
     {
-      "gap_id": "r020_target_workflow_route_for_runnable_claims__test_gap",
+      "gap_id": "r024_target_workflow_route_read_references_ui_f_test_gap",
       "planned_check_ids": [
         "check_evidence",
         "ui_flow_structure_skill"
       ],
       "requirement_ids": [
-        "target.workflow-route.for-runnable-claims-bind-screenshot-dom-event-result"
+        "target.workflow-route.read-references-ui-flow-structure-protocol-md-it"
       ],
       "status": "complete",
-      "summary": "Native and structural check coverage for target.workflow-route.for-runnable-claims-bind-screenshot-dom-event-result."
+      "summary": "Native and structural check coverage for target.workflow-route.read-references-ui-flow-structure-protocol-md-it."
     },
     {
-      "gap_id": "r021_target_workflow_route_model_ui_event_x_ui__test_gap",
-      "planned_check_ids": [
-        "check_evidence",
-        "ui_flow_structure_skill"
-      ],
-      "requirement_ids": [
-        "target.workflow-route.model-ui-event-x-ui-state-behavior-and"
-      ],
-      "status": "complete",
-      "summary": "Native and structural check coverage for target.workflow-route.model-ui-event-x-ui-state-behavior-and."
-    },
-    {
-      "gap_id": "r022_target_workflow_route_required_workflow_test_gap",
+      "gap_id": "r025_target_workflow_route_required_workflow_test_gap",
       "planned_check_ids": [
         "check_evidence",
         "ui_flow_structure_skill"
@@ -2523,7 +3087,19 @@
       "summary": "Native and structural check coverage for target.workflow-route.required-workflow."
     },
     {
-      "gap_id": "r023_ui_design_runtime_boundary_test_gap",
+      "gap_id": "r026_ui_content_admission_test_gap",
+      "planned_check_ids": [
+        "check_evidence",
+        "ui_flow_structure_skill"
+      ],
+      "requirement_ids": [
+        "ui.content_admission"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for ui.content_admission."
+    },
+    {
+      "gap_id": "r027_ui_design_runtime_boundary_test_gap",
       "planned_check_ids": [
         "check_closure",
         "ui_flow_structure_skill"
@@ -2535,7 +3111,7 @@
       "summary": "Native and structural check coverage for ui.design_runtime_boundary."
     },
     {
-      "gap_id": "r024_ui_enabled_action_chain_test_gap",
+      "gap_id": "r028_ui_enabled_action_chain_test_gap",
       "planned_check_ids": [
         "check_quality_floor",
         "ui_flow_structure_skill"
@@ -2547,7 +3123,19 @@
       "summary": "Native and structural check coverage for ui.enabled_action_chain."
     },
     {
-      "gap_id": "r025_ui_observed_surface_and_capabilities_test_gap",
+      "gap_id": "r029_ui_no_audience_role_taxonomy_test_gap",
+      "planned_check_ids": [
+        "check_evidence",
+        "ui_flow_structure_skill"
+      ],
+      "requirement_ids": [
+        "ui.no_audience_role_taxonomy"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for ui.no_audience_role_taxonomy."
+    },
+    {
+      "gap_id": "r030_ui_observed_surface_and_capabilities_test_gap",
       "planned_check_ids": [
         "check_evidence",
         "ui_flow_structure_skill"
@@ -2557,6 +3145,30 @@
       ],
       "status": "complete",
       "summary": "Native and structural check coverage for ui.observed_surface_and_capabilities."
+    },
+    {
+      "gap_id": "r031_ui_on_demand_disclosure_test_gap",
+      "planned_check_ids": [
+        "check_quality_floor",
+        "ui_flow_structure_skill"
+      ],
+      "requirement_ids": [
+        "ui.on_demand_disclosure"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for ui.on_demand_disclosure."
+    },
+    {
+      "gap_id": "r032_ui_structured_content_evidence_test_gap",
+      "planned_check_ids": [
+        "check_quality_floor",
+        "ui_flow_structure_skill"
+      ],
+      "requirement_ids": [
+        "ui.structured_content_evidence"
+      ],
+      "status": "complete",
+      "summary": "Native and structural check coverage for ui.structured_content_evidence."
     }
   ],
   "workflow_stage_inventory": [
@@ -2565,35 +3177,35 @@
       "route_id": "ui_flow_structure",
       "source_path": ".skillguard/contract-source.json",
       "stage_id": "ui_flow_structure_intake",
-      "summary": "Declare greenfield, source_based, or mixed mode; product/user scope; source authority; and requested UI claim."
+      "summary": "Declare greenfield, source_based, or mixed mode; product/user scope; UI candidate boundary; source authority; and requested UI claim, without inventing audience roles."
     },
     {
       "required": true,
       "route_id": "ui_flow_structure",
       "source_path": ".skillguard/contract-source.json",
       "stage_id": "ui_flow_structure_inventory",
-      "summary": "Inventory observed visible items, required capabilities/outputs, tasks, controls, displays, states, events, source mappings, and blindspots."
+      "summary": "Inventory observed visible items without granting permission; inventory candidate displayed/status/helper/metadata/detail content, required capabilities/outputs, tasks, controls, displays, states, events, source mappings, and blindspots."
     },
     {
       "required": true,
       "route_id": "ui_flow_structure",
       "source_path": ".skillguard/contract-source.json",
       "stage_id": "ui_flow_structure_execution",
-      "summary": "Build interaction/journey/structure/text/task contracts and current functional chains, implementation runs, geometry, and transition targets as required."
+      "summary": "Classify candidate content with the exact three values and typed resolvable needs; narrow control-label exemptions; bind all-target disclosure state, task-owned affordance, item feedback, observed inventory, and structured per-content evidence into downstream contracts."
     },
     {
       "required": true,
       "route_id": "ui_flow_structure",
       "source_path": ".skillguard/contract-source.json",
       "stage_id": "ui_flow_structure_checks",
-      "summary": "Run the UI Flow model and reject unowned enabled actions, missing recovery, stale/weak evidence, or design-only runnable claims."
+      "summary": "Run the UI Flow model and reject unclassified/internal mappings, overbroad control-label exemptions, direct observed/display bypass, invalid all-target on-demand state/accessibility, missing item feedback, unowned enabled actions, stale/opaque/cross-content evidence, or design-only runnable claims."
     },
     {
       "required": true,
       "route_id": "ui_flow_structure",
       "source_path": ".skillguard/contract-source.json",
       "stage_id": "ui_flow_structure_closure",
-      "summary": "Return current UI evidence and gaps; hand semantic transition cells and large evidence matrices to MTA/TestMesh."
+      "summary": "Return the current content-visibility plan, UI evidence, and gaps; hand semantic transition cells and large evidence matrices to MTA/TestMesh."
     }
   ]
 }

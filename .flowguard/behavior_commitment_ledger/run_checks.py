@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import os
 from pathlib import Path
 import sys
 
@@ -16,6 +18,10 @@ from model import build_flowguard_behavior_commitment_ledger
 
 def main() -> int:
     report = review_behavior_commitment_ledger(build_flowguard_behavior_commitment_ledger())
+    payload = {"ok": report.ok, "report": report.to_dict()}
+    output_dir = Path(os.environ.get("FLOWGUARD_OUTPUT_DIR", Path(__file__).parent))
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir.joinpath("result.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
     print(report.format_text())
     print()
     if report.ok:

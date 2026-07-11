@@ -1,4 +1,7 @@
+import importlib.util
+import sys
 import unittest
+from pathlib import Path
 
 from flowguard import (
     BCL_COMMITMENT_WORKFLOW,
@@ -89,6 +92,17 @@ def codes(report):
     return {finding.code for finding in report.findings}
 
 
+def load_repo_model(relative_path: str, module_name: str):
+    path = Path(__file__).resolve().parents[1] / relative_path
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    if spec is None or spec.loader is None:
+        raise AssertionError(f"cannot load {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
 class BehaviorCommitmentLedgerTests(unittest.TestCase):
     def test_complete_ledger_passes_and_exposes_downstream_ids(self):
         report = review_behavior_commitment_ledger(ledger())
@@ -98,6 +112,60 @@ class BehaviorCommitmentLedgerTests(unittest.TestCase):
         self.assertIn("commitment:workflow", report.covered_commitment_ids)
         self.assertIn("risk_gate:behavior_commitment_coverage:ledger", report.required_risk_gate_ids)
         self.assertIn("contract_coverage:behavior_commitment_ledger", report.coverage_receipt_ids)
+
+    def test_ui_content_admission_has_single_primary_owner(self):
+        ledger_model = load_repo_model(
+            ".flowguard/behavior_commitment_ledger/model.py",
+            "flowguard_behavior_commitment_ledger_model_for_test",
+        )
+        closure_model = load_repo_model(
+            ".flowguard/harden_ui_content_visibility_validation/model.py",
+            "flowguard_ui_content_visibility_closure_model_for_test",
+        )
+        project_ledger = ledger_model.build_flowguard_behavior_commitment_ledger()
+        commitments = tuple(
+            item
+            for item in project_ledger.commitments
+            if item.commitment_id == closure_model.OBLIGATION_ID
+        )
+
+        self.assertEqual(1, len(commitments))
+        commitment_row = commitments[0]
+        self.assertEqual(
+            ".flowguard/ui_flow_structure_skill/model.py",
+            commitment_row.primary_owner_model_id,
+        )
+        self.assertNotIn(
+            commitment_row.primary_owner_model_id,
+            commitment_row.supporting_model_ids,
+        )
+        self.assertEqual(
+            (closure_model.OBLIGATION_ID,),
+            commitment_row.evidence.model_obligation_ids,
+        )
+        self.assertEqual(
+            (closure_model.CODE_CONTRACT_ID,),
+            commitment_row.evidence.code_contract_ids,
+        )
+        self.assertEqual(
+            closure_model.TEST_EVIDENCE_IDS,
+            commitment_row.evidence.test_evidence_ids,
+        )
+
+        contract_report = closure_model.contract_exhaustion_report()
+        self.assertTrue(contract_report.ok, contract_report.format_text())
+        self.assertEqual(
+            tuple(case.case_id for case in contract_report.generated_cases),
+            commitment_row.evidence.coverage_case_ids,
+        )
+        self.assertEqual(
+            (closure_model.CONTRACT_SHARD_ID,),
+            commitment_row.evidence.coverage_shard_ids,
+        )
+        self.assertEqual(
+            (closure_model.CONTRACT_COVERAGE_RECEIPT_ID,),
+            commitment_row.evidence.coverage_receipt_ids,
+        )
 
     def test_missing_expected_commitment_blocks(self):
         report = review_behavior_commitment_ledger(ledger(expected=("commitment:missing",)))

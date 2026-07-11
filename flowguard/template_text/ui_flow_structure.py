@@ -6,7 +6,7 @@ UI_FLOW_STRUCTURE_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header
 
 Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
 Purpose: Model UI-level interaction behavior first, derive parent/child UI structure and text hierarchy from that model, then project transitions into coverage cells when test coverage is claimed.
-Guards against: layout-only UI plans, unmodeled controls, missing recovery actions, drifting menu levels, unstable global controls, duplicate information, overlapping same-level controls, ad hoc headings, over-prominent button text, untested transition cells, and hierarchy recommendations that are not tied to UI state.
+Guards against: layout-only UI plans, unmodeled controls, missing recovery actions, internal or unclassified content on ordinary UI, on-demand details visible before reveal, drifting menu levels, duplicate information, ad hoc headings, untested transition cells, and hierarchy recommendations that are not tied to UI state.
 Use before editing: Ask for this route before visual design or frontend implementation when UI controls, states, navigation, panels, menus, overlays, or parent/child UI topology matter.
 Run: python .flowguard/ui_flow_structure/run_checks.py
 """
@@ -14,10 +14,15 @@ Run: python .flowguard/ui_flow_structure/run_checks.py
 from __future__ import annotations
 
 from flowguard import (
+    UI_CONTENT_VISIBILITY_INTERNAL,
+    UI_CONTENT_VISIBILITY_USER_ON_DEMAND,
+    UI_CONTENT_VISIBILITY_USER_VISIBLE,
     UIControl,
     UIColdPathWork,
     UICapabilityCoverageBinding,
     UICapabilityOutputContract,
+    UIContentVisibilityItem,
+    UIContentVisibilityPlan,
     UIDisplayElement,
     UIFeatureContract,
     UIFeatureJourney,
@@ -51,6 +56,7 @@ from flowguard import (
     transition_coverage_to_required_leaf_cell_ids,
     ui_interaction_model_to_transition_coverage,
     review_ui_geometry_layout_evidence,
+    review_ui_content_visibility,
     review_ui_functional_capability_coverage,
     review_ui_implementation_validation,
     review_ui_interaction_model,
@@ -61,6 +67,9 @@ from flowguard import (
     review_ui_text_hierarchy,
     review_ui_visible_surface,
 )
+
+
+CONTENT_VISIBILITY_PLAN_ID = "project-details-content-visibility"
 
 
 def interaction_model() -> UIInteractionModel:
@@ -236,6 +245,138 @@ def interaction_model() -> UIInteractionModel:
         ),
         validation_boundaries=("UI scenario review", "browser state transition test"),
         rationale="The model separates launch, new-project, load-existing, loaded, running, result, failure, cancel, and exit UI states before any layout is derived.",
+    )
+
+
+def content_visibility_interaction_model() -> UIInteractionModel:
+    """Small disclosure flow kept separate from the main starter journey."""
+
+    return UIInteractionModel(
+        "project-details-disclosure-flow",
+        initial_state_id="details_closed",
+        content_visibility_plan_id=CONTENT_VISIBILITY_PLAN_ID,
+        states=(
+            UIStateNode(
+                "details_closed",
+                visible_controls=("show_details",),
+                enabled_controls=("show_details",),
+                visible_displays=("project_status",),
+                hidden_displays=("project_details",),
+                rationale="The ordinary surface shows current status and keeps optional details closed.",
+            ),
+            UIStateNode(
+                "details_open",
+                visible_controls=("hide_details",),
+                enabled_controls=("hide_details",),
+                visible_displays=("project_status", "project_details"),
+                rationale="An explicit reveal event exposes optional details until the user dismisses them.",
+            ),
+        ),
+        # These registered controls are owned by the disclosure task and their
+        # exact labels carry no extra state/metadata, so they stay lightweight;
+        # the visibility plan classifies the state-exposing content, not buttons.
+        controls=(
+            UIControl("show_details", label="Show details", function_key="reveal_project_details", rationale="The control explicitly reveals optional user details."),
+            UIControl("hide_details", label="Hide details", function_key="dismiss_project_details", rationale="The control returns optional details to the closed state."),
+        ),
+        displays=(
+            UIDisplayElement(
+                "project_status",
+                "current_project_status",
+                label="Project ready",
+                content_visibility_id="current_project_status",
+                rationale="Current status supports the user's next action.",
+            ),
+            UIDisplayElement(
+                "project_details",
+                "optional_project_details",
+                label="Project details",
+                content_visibility_id="optional_project_details",
+                rationale="Detailed context is useful only when the user asks for it.",
+            ),
+        ),
+        transitions=(
+            UITransition("click_show_details", "show_details", "details_closed", "details_open", function_block="RevealProjectDetails", output="details_open", rationale="Click reveals the optional detail panel."),
+            UITransition("focus_show_details", "show_details", "details_closed", "details_open", function_block="RevealProjectDetails", output="details_open", rationale="Keyboard focus provides the equivalent accessible reveal path."),
+            UITransition("click_hide_details", "hide_details", "details_open", "details_closed", function_block="DismissProjectDetails", output="details_closed", rationale="Click collapses the optional detail panel."),
+            UITransition("press_escape_details", "hide_details", "details_open", "details_closed", function_block="DismissProjectDetails", output="details_closed", rationale="Escape returns to the closed state."),
+        ),
+        validation_boundaries=("content admission review", "keyboard disclosure review"),
+        rationale="Candidate content is classified before display mapping, and optional details use a real closed/open state transition.",
+    )
+
+
+def content_visibility_plan(
+    *,
+    status_visibility_class: str = UI_CONTENT_VISIBILITY_USER_VISIBLE,
+    status_reveal_event_ids: tuple[str, ...] = (),
+) -> UIContentVisibilityPlan:
+    return UIContentVisibilityPlan(
+        CONTENT_VISIBILITY_PLAN_ID,
+        source_interaction_model_id="project-details-disclosure-flow",
+        current_revision="template-ui-rev-1",
+        candidate_content_ids=("current_project_status", "optional_project_details", "internal_audit_trace"),
+        items=(
+            UIContentVisibilityItem(
+                "current_project_status",
+                source_field_ids=("view.current_project_status",),
+                visibility_class=status_visibility_class,
+                user_need_refs=("state:details_closed",),
+                reveal_event_ids=status_reveal_event_ids,
+                rationale="The user needs the current state before choosing the next action.",
+            ),
+            UIContentVisibilityItem(
+                "optional_project_details",
+                source_field_ids=("view.project_details",),
+                visibility_class=UI_CONTENT_VISIBILITY_USER_ON_DEMAND,
+                user_need_refs=("task:inspect_project_details",),
+                reveal_event_ids=("click_show_details",),
+                keyboard_focus_event_ids=("focus_show_details",),
+                dismiss_event_ids=("click_hide_details", "press_escape_details"),
+                rationale="Detailed context is user-facing but stays hidden until requested.",
+            ),
+            UIContentVisibilityItem(
+                "internal_audit_trace",
+                source_field_ids=("audit.owner_model_id", "audit.evidence_count"),
+                visibility_class=UI_CONTENT_VISIBILITY_INTERNAL,
+                rationale="Internal audit evidence remains in the implementation and never maps to ordinary UI.",
+            ),
+        ),
+        validation_boundaries=("candidate classification", "closed/open disclosure states"),
+        rationale="Every UI-boundary content candidate has one admission decision before display modeling.",
+    )
+
+
+def content_visibility_surface() -> UIVisibleSurface:
+    return UIVisibleSurface(
+        "project-details-visible-surface",
+        source_interaction_model_id="project-details-disclosure-flow",
+        content_visibility_plan_id=CONTENT_VISIBILITY_PLAN_ID,
+        items=(
+            UIVisibleSurfaceItem(
+                "project_status_copy",
+                "status",
+                "Project ready",
+                state_ids=("details_closed", "details_open"),
+                owner_display_id="project_status",
+                content_visibility_id="current_project_status",
+                purpose="Tells the user the project is ready for the next action.",
+                priority="primary",
+                rationale="Default-visible status is backed by a typed current-state need.",
+            ),
+            UIVisibleSurfaceItem(
+                "project_details_copy",
+                "metadata",
+                "Project detail summary",
+                state_ids=("details_open",),
+                owner_display_id="project_details",
+                content_visibility_id="optional_project_details",
+                purpose="Provides optional detail after an explicit reveal action.",
+                rationale="The detail is absent from the closed state and dismissible from the open state.",
+            ),
+        ),
+        validation_boundaries=("visible content admission",),
+        rationale="Only admitted user content appears on the ordinary visible surface.",
     )
 
 
@@ -1135,6 +1276,21 @@ def broken_visible_surface() -> UIVisibleSurface:
     )
 
 
+def broken_internal_visible_content_plan() -> UIContentVisibilityPlan:
+    return content_visibility_plan(status_visibility_class=UI_CONTENT_VISIBILITY_INTERNAL)
+
+
+def broken_missing_content_class_plan() -> UIContentVisibilityPlan:
+    return content_visibility_plan(status_visibility_class="")
+
+
+def broken_on_demand_visible_before_reveal_plan() -> UIContentVisibilityPlan:
+    return content_visibility_plan(
+        status_visibility_class=UI_CONTENT_VISIBILITY_USER_ON_DEMAND,
+        status_reveal_event_ids=("click_show_details",),
+    )
+
+
 def broken_render_evidence() -> UIRenderEvidenceSet:
     return UIRenderEvidenceSet(
         "broken-render-evidence",
@@ -1266,6 +1422,8 @@ def broken_text_hierarchy() -> UITextHierarchyBlueprint:
 def run_checks():
     model = interaction_model()
     structure = structure_derivation()
+    visibility_model = content_visibility_interaction_model()
+    visibility_surface = content_visibility_surface()
     model_report = review_ui_interaction_model(model)
     journey_report = review_ui_journey_coverage(journey_coverage(), interaction_model=model)
     capability_report = review_ui_functional_capability_coverage(
@@ -1293,6 +1451,11 @@ def run_checks():
     render_evidence_report = review_ui_render_evidence(render_evidence(), interaction_model=model)
     geometry_report = review_ui_geometry_layout_evidence(geometry_evidence(), interaction_model=model)
     responsiveness_report = review_ui_responsiveness_contract(responsiveness_contract(), interaction_model=model)
+    content_visibility_report = review_ui_content_visibility(
+        content_visibility_plan(),
+        interaction_model=visibility_model,
+        visible_surface=visibility_surface,
+    )
     broken_model_report = review_ui_interaction_model(broken_interaction_model())
     broken_journey_report = review_ui_journey_coverage(broken_journey_coverage(), interaction_model=model)
     broken_implementation_report = review_ui_implementation_validation(
@@ -1315,6 +1478,21 @@ def run_checks():
     broken_render_evidence_report = review_ui_render_evidence(broken_render_evidence(), interaction_model=model)
     broken_geometry_report = review_ui_geometry_layout_evidence(broken_geometry_evidence(), interaction_model=model)
     broken_responsiveness_report = review_ui_responsiveness_contract(broken_responsiveness_contract(), interaction_model=model)
+    broken_internal_visible_report = review_ui_content_visibility(
+        broken_internal_visible_content_plan(),
+        interaction_model=visibility_model,
+        visible_surface=visibility_surface,
+    )
+    broken_missing_content_class_report = review_ui_content_visibility(
+        broken_missing_content_class_plan(),
+        interaction_model=visibility_model,
+        visible_surface=visibility_surface,
+    )
+    broken_on_demand_visible_report = review_ui_content_visibility(
+        broken_on_demand_visible_before_reveal_plan(),
+        interaction_model=visibility_model,
+        visible_surface=visibility_surface,
+    )
     return (
         model_report,
         journey_report,
@@ -1326,6 +1504,7 @@ def run_checks():
         render_evidence_report,
         geometry_report,
         responsiveness_report,
+        content_visibility_report,
         broken_model_report,
         broken_journey_report,
         broken_implementation_report,
@@ -1335,6 +1514,9 @@ def run_checks():
         broken_render_evidence_report,
         broken_geometry_report,
         broken_responsiveness_report,
+        broken_internal_visible_report,
+        broken_missing_content_class_report,
+        broken_on_demand_visible_report,
     )
 '''
 
@@ -1357,6 +1539,7 @@ def main() -> int:
         render_evidence_report,
         geometry_report,
         responsiveness_report,
+        content_visibility_report,
         broken_model,
         broken_journey,
         broken_implementation,
@@ -1366,6 +1549,9 @@ def main() -> int:
         broken_render_evidence,
         broken_geometry,
         broken_responsiveness,
+        broken_internal_visible,
+        broken_missing_content_class,
+        broken_on_demand_visible,
     ) = run_checks()
     print(model_report.format_text())
     print()
@@ -1387,6 +1573,8 @@ def main() -> int:
     print()
     print(responsiveness_report.format_text())
     print()
+    print(content_visibility_report.format_text())
+    print()
     print(broken_model.format_text(max_findings=5))
     print()
     print(broken_journey.format_text(max_findings=5))
@@ -1404,6 +1592,12 @@ def main() -> int:
     print(broken_geometry.format_text(max_findings=10))
     print()
     print(broken_responsiveness.format_text(max_findings=10))
+    print()
+    print(broken_internal_visible.format_text(max_findings=10))
+    print()
+    print(broken_missing_content_class.format_text(max_findings=10))
+    print()
+    print(broken_on_demand_visible.format_text(max_findings=10))
     return 0 if (
         model_report.ok
         and journey_report.ok
@@ -1415,6 +1609,7 @@ def main() -> int:
         and render_evidence_report.ok
         and geometry_report.ok
         and responsiveness_report.ok
+        and content_visibility_report.ok
         and not broken_model.ok
         and not broken_journey.ok
         and not broken_implementation.ok
@@ -1424,6 +1619,9 @@ def main() -> int:
         and not broken_render_evidence.ok
         and not broken_geometry.ok
         and not broken_responsiveness.ok
+        and not broken_internal_visible.ok
+        and not broken_missing_content_class.ok
+        and not broken_on_demand_visible.ok
     ) else 1
 
 
@@ -1467,6 +1665,12 @@ itself needs a model-first interaction flow.
   action is clicked, classified as pure UI, or scoped as a blindspot;
 - visible-surface review for user-facing controls, status text, helper copy,
   placeholders, metadata, and disabled-state reasons;
+- pre-display content admission with exactly one `user_visible`,
+  `user_on_demand`, or `internal` class per UI-boundary candidate, typed and
+  resolvable task/state/recovery/safety need for ordinary content, and
+  closed/revealed/dismissed states across display/text/visible/observed mappings
+  for optional details; only exact normal labels for registered, in-scope
+  task-owned controls with no extra state or metadata remain exempt;
 - render evidence kinds such as screenshot, browser click-through, DOM text,
   computed style, geometry, accessibility/ARIA, runtime trace/log, test result,
   or manual observation;
@@ -1491,6 +1695,12 @@ itself needs a model-first interaction flow.
   disabled controls lack a user-understandable reason, placeholders are treated
   as product functionality, helper copy repeats labels without value, or one
   state has competing primary empty/loading/error/status messages;
+- content-visibility findings when internal or unclassified content maps to the
+  ordinary UI, user content lacks a typed/resolvable task/state/recovery/safety
+  need, a control-label exemption carries extra state or metadata, on-demand
+  details are visible before reveal on any mapping target, reveal/return
+  controls are not operable, item-bound feedback is missing, or implementation
+  evidence is opaque rather than structured per content item;
 - render/geometry/responsiveness findings when evidence lacks a kind, evidence
   is stale, layout evidence reports overflow or overlap, hot-path feedback is
   missing, or cold-path work can overwrite newer state;
@@ -1527,7 +1737,8 @@ Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
 Purpose: compact UI model for real surface inventory, functional chains,
 two transitions, one journey, and implementation validation.
 Guards against: claiming UI completion without real visible items,
-functional chains, journey evidence, visible surface, or text hierarchy.
+functional chains, journey evidence, content admission, default-hidden optional
+details, visible surface, or text hierarchy.
 Use before editing: frontend work where controls, state, navigation,
 validation, source interactions, or visible text affect behavior.
 Run: python .flowguard/ui_flow_structure/run_checks.py
@@ -1556,7 +1767,12 @@ class UICompactPlan:
     human_operability_evidence: tuple[str, ...]
     source_interaction_branches: tuple[str, ...]
     ui_done_claim_reviewed: bool
-    visible_surface_items: tuple[tuple[str, str, str], ...]
+    visible_surface_items: tuple[tuple[str, str, str, str], ...]
+    candidate_content_ids: tuple[str, ...]
+    # Rows: content id, visibility class, user-need ref, optional reveal event.
+    content_visibility_items: tuple[tuple[str, str, str, str], ...]
+    default_visible_content_ids: tuple[str, ...]
+    default_hidden_content_ids: tuple[str, ...]
     evidence_kinds: tuple[str, ...]
     source_interaction_model_reviewed: bool
     text_roles: dict[str, str]
@@ -1616,6 +1832,8 @@ def review_implementation(plan: UICompactPlan) -> UICompactReport:
     findings += ["missing_implementation_run_for_journey"] if not plan.implementation_run_ids else []
     findings += ["missing_render_evidence_kind"] if not plan.evidence_kinds else []
     findings += ["missing_capability_coverage_evidence_kind"] if "ui_functional_capability_coverage" not in plan.evidence_kinds else []
+    findings += ["missing_observed_content_inventory_evidence"] if "observed_content_inventory" not in plan.evidence_kinds else []
+    findings += ["missing_structured_content_visibility_evidence"] if "structured_content_visibility" not in plan.evidence_kinds else []
     findings += ["ui_done_claim_review_missing"] if not plan.ui_done_claim_reviewed else []
     return report("flowguard UI implementation validation", findings)
 
@@ -1639,15 +1857,38 @@ def review_human_operability(plan: UICompactPlan) -> UICompactReport:
     findings = ["feature_without_user_task"] if not features else []
     findings += ["orphan_primary_control" for control_id in plan.controls if control_id not in controls]
     findings += ["missing_human_walkthrough"] if "walkthrough" not in plan.human_operability_evidence else []
+    findings += ["on_demand_content_missing_truthful_feedback"] if "content_bound_feedback" not in plan.human_operability_evidence else []
     return report("flowguard UI human operability", findings)
 
 
 def review_visible_surface(plan: UICompactPlan) -> UICompactReport:
     findings = ["missing_visible_surface_items"] if not plan.visible_surface_items else []
-    for item_id, item_kind, text in plan.visible_surface_items:
+    for item_id, item_kind, text, _content_id in plan.visible_surface_items:
         findings += ["visible_internal_terminology"] if "mock" in text.lower() or "backend" in text.lower() else []
         findings += ["missing_disabled_reason"] if item_kind == "disabled_control" and "because" not in text.lower() else []
     return report("flowguard UI visible surface", findings)
+
+
+def review_content_visibility(plan: UICompactPlan) -> UICompactReport:
+    findings = []
+    known_task_ids = {task_id for task_id, _control_id, _evidence in plan.user_tasks}
+    known_state_ids = set(plan.states)
+    items = {content_id: (visibility_class, need_ref, reveal_event) for content_id, visibility_class, need_ref, reveal_event in plan.content_visibility_items}
+    findings += ["unclassified_ui_candidate_content" for content_id in plan.candidate_content_ids if content_id not in items]
+    for content_id, (visibility_class, need_ref, reveal_event) in items.items():
+        findings += ["unknown_content_visibility_class"] if visibility_class not in {"user_visible", "user_on_demand", "internal"} else []
+        findings += ["user_content_missing_need_ref"] if visibility_class in {"user_visible", "user_on_demand"} and not need_ref else []
+        need_kind, separator, need_target = need_ref.partition(":")
+        findings += ["unknown_user_content_need_kind"] if visibility_class in {"user_visible", "user_on_demand"} and need_kind not in {"task", "state", "recovery", "safety"} else []
+        findings += ["empty_user_content_need_target"] if visibility_class in {"user_visible", "user_on_demand"} and (not separator or not need_target) else []
+        findings += ["user_content_need_task_not_registered"] if need_kind == "task" and need_target not in known_task_ids else []
+        findings += ["user_content_need_state_not_registered"] if need_kind == "state" and need_target not in known_state_ids else []
+        findings += ["internal_content_mapped_to_ui"] if visibility_class == "internal" and content_id in plan.default_visible_content_ids else []
+        if visibility_class == "user_on_demand":
+            findings += ["on_demand_content_missing_reveal_event"] if not reveal_event else []
+            findings += ["on_demand_content_visible_in_default_state"] if content_id in plan.default_visible_content_ids else []
+            findings += ["on_demand_default_hidden_not_explicit"] if content_id not in plan.default_hidden_content_ids else []
+    return report("flowguard UI content visibility", findings)
 
 
 def review_structure(plan: UICompactPlan) -> UICompactReport:
@@ -1674,11 +1915,18 @@ def correct_plan() -> UICompactPlan:
         capability_output_contracts=(("capability:create_item", "state", "editing state is visible"), ("capability:submit_item", "status", "submitted state is visible"), ("capability:reset_item", "state", "empty state is restored")),
         functional_chains=(("add", "click_add", "ui.add_item", "add_item", "editing"), ("submit", "click_submit", "ui.submit", "submit_item", "submitted"), ("reset", "click_reset", "ui.reset", "reset_item", "empty")),
         user_tasks=(("create_item", "add", "walkthrough:add-submit"), ("submit_item", "submit", "walkthrough:add-submit"), ("reset_item", "reset", "walkthrough:reset")),
-        human_operability_evidence=("task_coverage", "affordance_review", "action_grammar", "dialog_return", "keyboard_focus", "walkthrough"),
+        human_operability_evidence=("task_coverage", "affordance_review", "action_grammar", "content_bound_feedback", "dialog_return", "keyboard_focus", "walkthrough"),
         source_interaction_branches=("trigger", "confirm", "cancel", "value_selected", "success_feedback", "error_path"),
         ui_done_claim_reviewed=True,
-        visible_surface_items=(("submit_disabled", "disabled_control", "Submit is disabled because nothing has been added."),),
-        evidence_kinds=("screenshot", "ui_functional_capability_coverage"),
+        # Exact Add/Submit/Reset labels belong to registered in-scope task
+        # controls and carry no extra state/metadata, so they need no duplicate
+        # admission rows; state-exposing content does.
+        visible_surface_items=(("submit_disabled", "disabled_control", "Submit is disabled because nothing has been added.", "submit_availability"),),
+        candidate_content_ids=("submit_availability", "submission_details", "internal_audit_trace"),
+        content_visibility_items=(("submit_availability", "user_visible", "state:empty", ""), ("submission_details", "user_on_demand", "task:submit_item", "click_show_details"), ("internal_audit_trace", "internal", "", "")),
+        default_visible_content_ids=("submit_availability",),
+        default_hidden_content_ids=("submission_details",),
+        evidence_kinds=("screenshot", "ui_functional_capability_coverage", "observed_content_inventory", "structured_content_visibility"),
         source_interaction_model_reviewed=True,
         text_roles={"title": "surface-title", "section": "region-heading", "body": "standard-text", "hint": "supporting-text", "button": "standard-text"},
     )
@@ -1701,7 +1949,11 @@ def broken_plan() -> UICompactPlan:
         human_operability_evidence=("task_coverage",),
         source_interaction_branches=("trigger",),
         ui_done_claim_reviewed=False,
-        visible_surface_items=(("debug", "status", "mock backend route pending"), ("submit", "disabled_control", "Submit"),),
+        visible_surface_items=(("debug", "status", "mock backend route pending", "internal_audit_trace"), ("submit", "disabled_control", "Submit", "missing_class"), ("details", "metadata", "Diagnostic details", "optional_diagnostics")),
+        candidate_content_ids=("internal_audit_trace", "missing_class", "optional_diagnostics"),
+        content_visibility_items=(("internal_audit_trace", "internal", "", ""), ("missing_class", "", "state:empty", ""), ("optional_diagnostics", "user_on_demand", "task:inspect_details", "click_show_details")),
+        default_visible_content_ids=("internal_audit_trace", "missing_class", "optional_diagnostics"),
+        default_hidden_content_ids=(),
         evidence_kinds=(),
         source_interaction_model_reviewed=False,
         text_roles={"button": "surface-title"},
@@ -1716,7 +1968,7 @@ def run_checks():
         review_capability_coverage,
         review_functional_chains, review_ui_source_baseline_gate,
         review_human_operability,
-        review_implementation, review_visible_surface, review_structure,
+        review_implementation, review_visible_surface, review_content_visibility, review_structure,
         review_text,
     )
     return tuple(reviewer(good) for reviewer in reviewers) + tuple(reviewer(bad) for reviewer in reviewers)
@@ -1732,8 +1984,8 @@ def main() -> int:
     for report in reports:
         print(report.format_text())
         print()
-    good = reports[:11]
-    broken = reports[11:]
+    good = reports[:12]
+    broken = reports[12:]
     return 0 if all(report.ok for report in good) and all(not report.ok for report in broken) else 1
 
 
@@ -1748,8 +2000,12 @@ surface inventory, three states, three visible controls, a required functional
 capability inventory with output contracts, enabled-control functional chains,
 source-baseline interaction semantics when relevant, two transitions, one
 journey, task coverage plus human-operability, one implementation run, one
-visible-surface check, capability evidence kind, one UI done-claim review, and
-one text hierarchy check. For greenfield UI work,
+visible-surface check, one compact content-admission plan, capability evidence
+kind, one UI done-claim review, and one text hierarchy check. The compact plan
+shows default-visible user status, default-hidden on-demand detail with an
+explicit reveal, and an internal item that never maps to ordinary UI. Only
+exact normal labels for registered, in-scope task-owned controls with no extra
+state or metadata remain lightweight. For greenfield UI work,
 source-baseline interaction branches are not required; use user tasks, observed
 surface inventory, functional chains, and implementation validation as the
 hard evidence path.

@@ -16,8 +16,9 @@ Run: python .flowguard/behavior_commitment_ledger/run_checks.py
 from __future__ import annotations
 
 from flowguard import (
-    BCL_CHANGE_BOOTSTRAP_LEDGER,
+    BCL_CHANGE_ADD_BEHAVIOR,
     BCL_COMMITMENT_PROCESS,
+    BCL_COMMITMENT_UI,
     BCL_COMMITMENT_WORKFLOW,
     BCL_EVIDENCE_CURRENT_PASS,
     BCL_MISS_ORIGIN_NONE,
@@ -36,6 +37,20 @@ from flowguard import (
     BehaviorCommitmentLedger,
     BehaviorEvidenceBinding,
     BehaviorSourceSurface,
+)
+
+
+UI_CONTENT_COMMITMENT_ID = "commitment:ordinary-ui-content-admission"
+UI_CONTENT_CODE_CONTRACT_ID = "contract:review-ui-content-visibility"
+UI_CONTENT_TEST_EVIDENCE_IDS = (
+    "test:ui-content-admission:happy",
+    "test:ui-content-admission:failure",
+)
+UI_CONTENT_CONTRACT_SHARD_ID = "contract_shard:ui_flow_structure_skill:content-admission"
+UI_CONTENT_COVERAGE_RECEIPT_ID = "contract_coverage:ui_flow_structure_skill"
+UI_CONTENT_COVERAGE_CASE_IDS = tuple(
+    f"cartesian:ui_flow_structure_skill:content-admission:{index}"
+    for index in range(1, 81)
 )
 
 
@@ -61,6 +76,7 @@ def _evidence(
     tests: tuple[str, ...],
     coverage_cases: tuple[str, ...],
     shards: tuple[str, ...],
+    coverage_receipts: tuple[str, ...] = ("contract_coverage:behavior_commitment_ledger:self_maintenance",),
 ) -> BehaviorEvidenceBinding:
     return BehaviorEvidenceBinding(
         model_obligation_ids=model_obligations,
@@ -70,7 +86,7 @@ def _evidence(
         risk_gate_ids=(f"risk_gate:flowguard_self_maintenance:{commitment_key}",),
         coverage_case_ids=coverage_cases,
         coverage_shard_ids=shards,
-        coverage_receipt_ids=("contract_coverage:behavior_commitment_ledger:self_maintenance",),
+        coverage_receipt_ids=coverage_receipts,
         evidence_state=BCL_EVIDENCE_CURRENT_PASS,
         test_mesh_state=BCL_TEST_MESH_SHARD_CURRENT,
         current=True,
@@ -89,8 +105,11 @@ def _commitment(
     tests: tuple[str, ...],
     coverage_cases: tuple[str, ...],
     shards: tuple[str, ...],
+    model_obligations: tuple[str, ...] = (),
+    code_contracts: tuple[str, ...] = (),
     kind: str = BCL_COMMITMENT_WORKFLOW,
     supporting_model_ids: tuple[str, ...] = (),
+    coverage_receipts: tuple[str, ...] = ("contract_coverage:behavior_commitment_ledger:self_maintenance",),
 ) -> BehaviorCommitment:
     commitment_key = commitment_id.removeprefix("commitment:").replace(":", "-")
     return BehaviorCommitment(
@@ -111,11 +130,13 @@ def _commitment(
         rationale="external FlowGuard maintenance behavior, not a private helper detail",
         evidence=_evidence(
             commitment_key,
-            model_obligations=(f"obligation:{primary_owner_model_id}:{commitment_key}",),
-            code_contracts=(f"contract:{commitment_key}",),
+            model_obligations=model_obligations
+            or (f"obligation:{primary_owner_model_id}:{commitment_key}",),
+            code_contracts=code_contracts or (f"contract:{commitment_key}",),
             tests=tests,
             coverage_cases=coverage_cases,
             shards=shards,
+            coverage_receipts=coverage_receipts,
         ),
     )
 
@@ -151,6 +172,43 @@ def build_flowguard_behavior_commitment_ledger() -> BehaviorCommitmentLedger:
             ),
             shards=("contract_shard:behavior_commitment_ledger:self-current",),
             supporting_model_ids=(".flowguard/self_maintenance_mesh/model.py",),
+        ),
+        _commitment(
+            UI_CONTENT_COMMITMENT_ID,
+            label="ordinary UI admits only classified user-facing content",
+            kind=BCL_COMMITMENT_UI,
+            trigger=(
+                "an agent models displayed values, status, helper or metadata content, "
+                "non-action labels, or optional details for an ordinary UI surface"
+            ),
+            expected_result=(
+                "every in-scope candidate has exactly one supported visibility class; "
+                "internal content never maps to ordinary UI; user-on-demand content is "
+                "hidden before an explicit reveal and can return to the hidden state; "
+                "actual visible content is compared with the allowed content set"
+            ),
+            failure_boundary=(
+                "unclassified or internal mappings, premature on-demand visibility, "
+                "missing reveal or return paths, and observed mapping bypass block broad UI claims"
+            ),
+            source_surface_ids=(
+                "surface:ui-content-visibility-openspec",
+                "surface:ui-flow-structure-skill",
+                "surface:ui-content-visibility-models",
+                "surface:ui-content-visibility-tests",
+            ),
+            primary_owner_model_id=".flowguard/ui_flow_structure_skill/model.py",
+            supporting_model_ids=(".flowguard/harden_ui_real_surface_validation/model.py",),
+            model_obligations=(
+                UI_CONTENT_COMMITMENT_ID,
+            ),
+            code_contracts=(
+                UI_CONTENT_CODE_CONTRACT_ID,
+            ),
+            tests=UI_CONTENT_TEST_EVIDENCE_IDS,
+            coverage_cases=UI_CONTENT_COVERAGE_CASE_IDS,
+            shards=(UI_CONTENT_CONTRACT_SHARD_ID,),
+            coverage_receipts=(UI_CONTENT_COVERAGE_RECEIPT_ID,),
         ),
         _commitment(
             "commitment:behavior-dcar-full-axis",
@@ -299,6 +357,30 @@ def build_flowguard_behavior_commitment_ledger() -> BehaviorCommitmentLedger:
             ("commitment:behavior-ledger-current",),
         ),
         _surface(
+            "surface:ui-content-visibility-openspec",
+            BCL_SOURCE_OPENSPEC,
+            "openspec/changes/harden-ui-content-visibility/specs/flowguard-ui-flow-structure/spec.md; openspec/changes/harden-ui-content-visibility/verification-contract.yaml",
+            ("commitment:ordinary-ui-content-admission",),
+        ),
+        _surface(
+            "surface:ui-flow-structure-skill",
+            BCL_SOURCE_SKILL,
+            ".agents/skills/flowguard-ui-flow-structure/SKILL.md",
+            ("commitment:ordinary-ui-content-admission",),
+        ),
+        _surface(
+            "surface:ui-content-visibility-models",
+            BCL_SOURCE_CODE,
+            ".flowguard/ui_flow_structure_skill/model.py; .flowguard/harden_ui_real_surface_validation/model.py",
+            ("commitment:ordinary-ui-content-admission",),
+        ),
+        _surface(
+            "surface:ui-content-visibility-tests",
+            BCL_SOURCE_TEST,
+            ".flowguard/ui_flow_structure_skill/run_checks.py; .flowguard/harden_ui_real_surface_validation/run_checks.py; tests/test_ui_structure.py; tests/test_behavior_commitment_ledger.py",
+            ("commitment:ordinary-ui-content-admission",),
+        ),
+        _surface(
             "surface:contract-exhaustion-skill",
             BCL_SOURCE_SKILL,
             ".agents/skills/flowguard-contract-exhaustion-mesh/SKILL.md",
@@ -385,18 +467,19 @@ def build_flowguard_behavior_commitment_ledger() -> BehaviorCommitmentLedger:
     return BehaviorCommitmentLedger(
         "flowguard-self-maintenance-ledger",
         project_boundary="FlowGuard self-maintenance behavior registration hardening",
-        current_revision="2026-07-09-bcl-dcar-testmesh-modelmiss-self-maintenance",
+        current_revision="2026-07-11-ui-content-admission-add-behavior",
         commitments=commitments,
         source_surfaces=source_surfaces,
         expected_commitment_ids=tuple(commitment.commitment_id for commitment in commitments),
         claim_scope=BCL_SCOPE_FULL,
-        change_mode=BCL_CHANGE_BOOTSTRAP_LEDGER,
+        change_mode=BCL_CHANGE_ADD_BEHAVIOR,
         require_current_evidence=True,
         owner="flowguard_self_maintenance",
         validation_boundary="behavior ledger review plus focused self-maintenance, API, template, and OpenSpec checks",
         rationale="FlowGuard should maintain its own behavior registration using the same hard gates it teaches agents",
         metadata={
             "spec_tooling_policy": "tool-agnostic source surfaces; OpenSpec is one current source, not the only supported spec workflow",
+            "change_mode_rationale": "add_behavior registers one new ordinary-UI content-admission promise without re-bootstrapping historical commitments",
             "no_alternate_success_surface": True,
         },
     )

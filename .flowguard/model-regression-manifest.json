@@ -331,6 +331,42 @@
         "result.json"
       ],
       "input_globs": [
+        ".flowguard/harden_ui_content_visibility_validation/model.py",
+        ".flowguard/harden_ui_content_visibility_validation/run_checks.py",
+        ".flowguard/ui_flow_structure_skill/model.py",
+        ".flowguard/ui_flow_structure_skill/run_checks.py",
+        ".flowguard/harden_ui_real_surface_validation/model.py",
+        ".flowguard/harden_ui_real_surface_validation/run_checks.py",
+        ".flowguard/behavior_commitment_ledger/model.py",
+        ".flowguard/behavior_commitment_ledger/run_checks.py",
+        ".flowguard/default_replacement_field_lifecycle/model.py",
+        ".flowguard/default_replacement_field_lifecycle/run_checks.py",
+        "flowguard/ui_structure.py",
+        "tests/test_ui_structure.py",
+        "tests/test_api_surface.py",
+        "tests/test_behavior_commitment_ledger.py",
+        "tests/test_field_lifecycle.py",
+        "tests/test_public_templates.py"
+      ],
+      "model_id": "harden_ui_content_visibility_validation",
+      "model_path": ".flowguard/harden_ui_content_visibility_validation/model.py",
+      "mutation_policy": "isolated_output",
+      "runner": [
+        "{python}",
+        ".flowguard/harden_ui_content_visibility_validation/run_checks.py"
+      ],
+      "shard_safe": false,
+      "tier": "full",
+      "timeout_seconds": 300
+    },
+    {
+      "absence_reason": "",
+      "distribution_policy": "required_public",
+      "exclusion_reason": "",
+      "expected_artifacts": [
+        "result.json"
+      ],
+      "input_globs": [
         ".flowguard/harden_ui_real_surface_validation/model.py",
         ".flowguard/harden_ui_real_surface_validation/run_checks.py"
       ],

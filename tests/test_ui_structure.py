@@ -1,12 +1,21 @@
 import unittest
 from dataclasses import replace
+from itertools import product
 
 from flowguard import (
+    ContractAxis,
+    ContractExhaustionPlan,
+    ContractInteractionGroup,
+    FieldLifecyclePlan,
+    FieldLifecycleRow,
     UISourceBaselineInteractionGate,
     UISourceInteractionSemantics,
     SUPPORTED_UI_EVIDENCE_KINDS,
     UIColdPathWork,
     UIControl,
+    UIContentVisibilityItem,
+    UIContentVisibilityEvidence,
+    UIContentVisibilityPlan,
     UIControlFunctionalChain,
     UIControlFunctionalChainSet,
     UICapabilityCoverageBinding,
@@ -57,11 +66,21 @@ from flowguard import (
     UIUserTaskFrame,
     UIVisibleSurface,
     UIVisibleSurfaceItem,
+    UI_CONTENT_VISIBILITY_INTERNAL,
+    UI_CONTENT_VISIBILITY_USER_ON_DEMAND,
+    UI_CONTENT_VISIBILITY_USER_VISIBLE,
+    UI_CONTENT_EVIDENCE_DEFAULT_HIDDEN,
+    UI_CONTENT_EVIDENCE_DEFAULT_VISIBLE,
+    UI_CONTENT_EVIDENCE_INTERNAL_ABSENT,
+    UI_CONTENT_EVIDENCE_REVEAL,
+    UI_CONTENT_EVIDENCE_REVEALED,
+    UI_CONTENT_EVIDENCE_RETURN_HIDDEN,
     review_ui_functional_capability_coverage,
     review_ui_human_operability,
     review_ui_source_baseline_alignment,
     review_ui_source_baseline_interactions,
     review_ui_control_functional_chains,
+    review_ui_content_visibility,
     review_ui_geometry_layout_evidence,
     review_ui_implementation_validation,
     review_ui_interaction_model,
@@ -72,6 +91,16 @@ from flowguard import (
     review_ui_structure_derivation,
     review_ui_text_hierarchy,
     review_ui_visible_surface,
+    contract_exhaustion_to_test_mesh_shard_ids,
+    review_contract_exhaustion,
+    ui_content_visibility_candidate_ids_from_field_lifecycle,
+)
+from flowguard.contract_exhaustion import (
+    CONTRACT_ORACLE_NEEDS_HUMAN_REVIEW,
+    CONTRACT_ROUTE_MODEL_TEST_ALIGNMENT,
+    CONTRACT_ROUTE_RISK_EVIDENCE_LEDGER,
+    CONTRACT_ROUTE_TEST_MESH,
+    ContractCoverageUniverse,
 )
 
 
@@ -2892,6 +2921,1232 @@ class UIHumanOperabilityTests(unittest.TestCase):
 
         self.assertFalse(report.ok)
         self.assertIn("walkthrough_step_confusion_unmitigated", finding_codes(report))
+
+
+def content_visibility_model() -> UIInteractionModel:
+    return UIInteractionModel(
+        "content-visibility-ui",
+        initial_state_id="details_closed",
+        content_visibility_plan_id="content-visibility-plan",
+        states=(
+            UIStateNode(
+                "details_closed",
+                visible_controls=("show_details",),
+                enabled_controls=("show_details",),
+                hidden_controls=("hide_details",),
+                visible_displays=("result_status",),
+                hidden_displays=("optional_details",),
+                rationale="The ordinary surface shows the result and keeps optional details closed.",
+            ),
+            UIStateNode(
+                "details_open",
+                visible_controls=("hide_details",),
+                enabled_controls=("hide_details",),
+                hidden_controls=("show_details",),
+                visible_displays=("result_status", "optional_details"),
+                rationale="The user explicitly opened the optional details.",
+            ),
+        ),
+        controls=(
+            UIControl(
+                "show_details",
+                label="Show details",
+                function_key="reveal_optional_details",
+                rationale="The user can request an explanation.",
+            ),
+            UIControl(
+                "hide_details",
+                label="Hide details",
+                function_key="dismiss_optional_details",
+                rationale="The user can return to the calm default surface.",
+            ),
+        ),
+        displays=(
+            UIDisplayElement(
+                "result_status",
+                "current_result",
+                label="Completed",
+                content_visibility_id="content:result-status",
+                rationale="The user needs the current result.",
+            ),
+            UIDisplayElement(
+                "optional_details",
+                "result_explanation",
+                label="Why this result occurred",
+                content_visibility_id="content:optional-details",
+                rationale="The explanation is useful only when requested.",
+            ),
+        ),
+        transitions=(
+            UITransition(
+                "reveal_details",
+                "show_details",
+                "details_closed",
+                "details_open",
+                function_block="reveal_optional_details",
+                output="details_visible",
+                rationale="An explicit user event reveals the optional content.",
+            ),
+            UITransition(
+                "dismiss_details",
+                "hide_details",
+                "details_open",
+                "details_closed",
+                function_block="dismiss_optional_details",
+                output="details_hidden",
+                rationale="The user returns to the default hidden state.",
+            ),
+        ),
+        validation_boundaries=("content admission review", "reveal and dismiss state review"),
+        rationale="The model separates default-visible results from optional details.",
+    )
+
+
+def content_visibility_plan(**kwargs) -> UIContentVisibilityPlan:
+    defaults = {
+        "source_interaction_model_id": "content-visibility-ui",
+        "current_revision": "visibility-rev-1",
+        "candidate_content_ids": (
+            "content:result-status",
+            "content:optional-details",
+            "content:internal-trace",
+        ),
+        "items": (
+            UIContentVisibilityItem(
+                "content:result-status",
+                source_field_ids=("field:result_status",),
+                visibility_class=UI_CONTENT_VISIBILITY_USER_VISIBLE,
+                user_need_refs=("state:details_closed", "state:details_open"),
+                rationale="Users need the current result without taking another action.",
+            ),
+            UIContentVisibilityItem(
+                "content:optional-details",
+                source_field_ids=("field:result_explanation",),
+                visibility_class=UI_CONTENT_VISIBILITY_USER_ON_DEMAND,
+                user_need_refs=("task:understand-result",),
+                reveal_event_ids=("reveal_details",),
+                dismiss_event_ids=("dismiss_details",),
+                rationale="Detailed explanation stays closed until requested.",
+            ),
+            UIContentVisibilityItem(
+                "content:internal-trace",
+                source_field_ids=("field:trace_id", "field:model_revision"),
+                visibility_class=UI_CONTENT_VISIBILITY_INTERNAL,
+                rationale="Trace and model data remain internal evidence.",
+            ),
+        ),
+        "validation_boundaries": ("ordinary user surface",),
+        "rationale": "Only user-needed content may enter the ordinary visible UI.",
+    }
+    defaults.update(kwargs)
+    return UIContentVisibilityPlan("content-visibility-plan", **defaults)
+
+
+def content_visible_surface(**kwargs) -> UIVisibleSurface:
+    defaults = {
+        "source_interaction_model_id": "content-visibility-ui",
+        "content_visibility_plan_id": "content-visibility-plan",
+        "items": (
+            UIVisibleSurfaceItem(
+                "result_status_item",
+                item_kind="status",
+                text="Completed",
+                state_ids=("details_closed", "details_open"),
+                owner_display_id="result_status",
+                purpose="Tell the user the current result.",
+                content_visibility_id="content:result-status",
+                rationale="The current result belongs on the ordinary surface.",
+            ),
+            UIVisibleSurfaceItem(
+                "optional_details_item",
+                item_kind="helper",
+                text="Why this result occurred",
+                state_ids=("details_open",),
+                owner_display_id="optional_details",
+                purpose="Explain the result when the user asks.",
+                content_visibility_id="content:optional-details",
+                rationale="The detail appears only in the revealed state.",
+            ),
+            UIVisibleSurfaceItem(
+                "show_details_label",
+                item_kind="control",
+                text="Show details",
+                state_ids=("details_closed",),
+                owner_control_id="show_details",
+                purpose="Expose the task-owned reveal action.",
+                rationale="Normal task control labels do not need duplicate content rows.",
+            ),
+        ),
+        "validation_boundaries": ("visible content admission",),
+        "rationale": "The surface includes one default result and one optional explanation.",
+    }
+    defaults.update(kwargs)
+    return UIVisibleSurface("content-visible-surface", **defaults)
+
+
+def content_visibility_matrix_review(
+    visibility_class: str,
+    mapping_target: str,
+    ui_state: str,
+    user_need_ref: str,
+):
+    content_id = "content:matrix-detail"
+    closed_state_id = "details_closed"
+    revealed_state_id = "details_open"
+    mapped_state_id = closed_state_id if ui_state == "closed" else revealed_state_id
+    display_id = "matrix_detail"
+    maps_display = mapping_target == "display"
+    model = UIInteractionModel(
+        "matrix-ui",
+        initial_state_id=closed_state_id,
+        content_visibility_plan_id="matrix-visibility-plan",
+        states=(
+            UIStateNode(
+                closed_state_id,
+                visible_controls=("show_details",),
+                enabled_controls=("show_details",),
+                hidden_controls=("hide_details",),
+                visible_displays=(display_id,) if maps_display and ui_state == "closed" else (),
+                hidden_displays=(display_id,) if maps_display and ui_state == "revealed" else (),
+                rationale="Closed state exposes only the reveal action.",
+            ),
+            UIStateNode(
+                revealed_state_id,
+                visible_controls=("hide_details",),
+                enabled_controls=("hide_details",),
+                hidden_controls=("show_details",),
+                visible_displays=(display_id,) if maps_display else (),
+                rationale="Revealed state exposes the detail and return action.",
+            ),
+        ),
+        controls=(
+            UIControl("show_details", label="Show details", rationale="Reveals optional details."),
+            UIControl("hide_details", label="Hide details", rationale="Returns to the closed state."),
+        ),
+        displays=(
+            UIDisplayElement(
+                display_id,
+                "matrix_detail",
+                label="Details",
+                content_visibility_id=content_id,
+                rationale="Matrix display mapping target.",
+            ),
+        )
+        if maps_display
+        else (),
+        transitions=(
+            UITransition(
+                "reveal_details",
+                "show_details",
+                closed_state_id,
+                revealed_state_id,
+                function_block="reveal_details",
+                output="details_visible",
+                rationale="Explicit reveal transition.",
+            ),
+            UITransition(
+                "dismiss_details",
+                "hide_details",
+                revealed_state_id,
+                closed_state_id,
+                function_block="dismiss_details",
+                output="details_hidden",
+                rationale="Explicit return transition.",
+            ),
+        ),
+        validation_boundaries=("matrix interaction",),
+        rationale="Finite content-admission matrix interaction model.",
+    )
+    item_kwargs = {
+        "visibility_class": visibility_class,
+        "user_need_refs": ("task:inspect-details",) if user_need_ref == "present" else (),
+        "rationale": "Finite matrix content item.",
+    }
+    if visibility_class == UI_CONTENT_VISIBILITY_USER_ON_DEMAND:
+        item_kwargs.update(
+            reveal_event_ids=("reveal_details",),
+            dismiss_event_ids=("dismiss_details",),
+        )
+    plan = UIContentVisibilityPlan(
+        "matrix-visibility-plan",
+        source_interaction_model_id="matrix-ui",
+        current_revision="matrix-rev-1",
+        candidate_content_ids=(content_id,),
+        items=(UIContentVisibilityItem(content_id, **item_kwargs),),
+        validation_boundaries=("finite content matrix",),
+        rationale="Every combination is executed through the real reviewer.",
+    )
+    visible_surface = None
+    text_blueprint = None
+    observed_inventory = None
+    if mapping_target == "visible_surface":
+        visible_surface = UIVisibleSurface(
+            "matrix-surface",
+            source_interaction_model_id="matrix-ui",
+            content_visibility_plan_id="matrix-visibility-plan",
+            items=(
+                UIVisibleSurfaceItem(
+                    "matrix-visible-item",
+                    item_kind="helper",
+                    text="Details",
+                    state_ids=(mapped_state_id,),
+                    content_visibility_id=content_id,
+                    purpose="Finite matrix visible-surface mapping.",
+                    rationale="Matrix case.",
+                ),
+            ),
+            validation_boundaries=("matrix surface",),
+            rationale="Finite matrix visible surface.",
+        )
+    elif mapping_target == "text":
+        text_blueprint = UITextHierarchyBlueprint(
+            "matrix-text",
+            "matrix-ui",
+            "matrix-structure",
+            "matrix-surface",
+            text_elements=(
+                UITextElement(
+                    "matrix-text-item",
+                    "helper_text",
+                    "body-text",
+                    "matrix_detail",
+                    label="Details",
+                    visible_in_states=(mapped_state_id,),
+                    content_visibility_id=content_id,
+                    rationale="Finite matrix text mapping.",
+                ),
+            ),
+            content_visibility_plan_id="matrix-visibility-plan",
+            validation_boundaries=("matrix text",),
+            rationale="Finite matrix text hierarchy.",
+        )
+    elif mapping_target == "observed":
+        observed_inventory = UIObservedSurfaceInventory(
+            "matrix-observed",
+            "matrix target",
+            "matrix-rev-1",
+            observation_method="test",
+            source_interaction_model_id="matrix-ui",
+            content_visibility_plan_id="matrix-visibility-plan",
+            evidence_ref="test://matrix-observed",
+            items=(
+                UIObservedSurfaceItem(
+                    "matrix-observed-item",
+                    "helper_text",
+                    label="Details",
+                    state_id=mapped_state_id,
+                    content_visibility_id=content_id,
+                    evidence_ref="test://matrix-item",
+                    rationale="Finite matrix observed mapping.",
+                ),
+            ),
+            validation_boundaries=("matrix observation",),
+            rationale="Finite matrix observed inventory.",
+        )
+    return review_ui_content_visibility(
+        plan,
+        interaction_model=model,
+        visible_surface=visible_surface,
+        text_blueprint=text_blueprint,
+        observed_inventory=observed_inventory,
+    )
+
+
+def content_visibility_matrix_expected(
+    visibility_class: str,
+    mapping_target: str,
+    ui_state: str,
+    user_need_ref: str,
+) -> bool:
+    if visibility_class not in {
+        UI_CONTENT_VISIBILITY_USER_VISIBLE,
+        UI_CONTENT_VISIBILITY_USER_ON_DEMAND,
+        UI_CONTENT_VISIBILITY_INTERNAL,
+    }:
+        return False
+    if visibility_class == UI_CONTENT_VISIBILITY_INTERNAL:
+        return mapping_target == "none"
+    if user_need_ref != "present":
+        return False
+    if visibility_class == UI_CONTENT_VISIBILITY_USER_ON_DEMAND:
+        return mapping_target == "none" or ui_state == "revealed"
+    return True
+
+
+def content_human_operability_assessment(**kwargs) -> UIHumanOperabilityAssessment:
+    task_id = "understand-result"
+    defaults = {
+        "task_coverage": UIUserTaskCoverageLedger(
+            "content-task-coverage",
+            source_interaction_model_id="content-visibility-ui",
+            feature_ids=("inspect-details",),
+            task_frames=(
+                UIUserTaskFrame(
+                    task_id,
+                    "Understand why the current result occurred.",
+                    source_feature_ids=("inspect-details",),
+                    entry_state_ids=("details_closed",),
+                    main_path_event_ids=("reveal_details",),
+                    cancel_event_ids=("dismiss_details",),
+                    success_state_ids=("details_open",),
+                    required_control_ids=("show_details", "hide_details"),
+                    required_display_ids=("optional_details",),
+                    required_feedback_item_ids=("optional_details_item",),
+                    keyboard_contract_id="details-keyboard",
+                    error_behavior="Disclosure has no backend error path; invalid events leave details closed.",
+                    evidence_refs=("test://details-task",),
+                    rationale="The task owns reveal, feedback, and return.",
+                ),
+            ),
+            feature_task_links=(("inspect-details", task_id),),
+            task_control_links=(
+                (task_id, "show_details"),
+                (task_id, "hide_details"),
+            ),
+            primary_control_ids=("show_details",),
+            validation_boundaries=("content disclosure task",),
+            rationale="The optional-detail controls belong to one ordinary user task.",
+        ),
+        "source_interaction_model_id": "content-visibility-ui",
+        "current_revision": "visibility-rev-1",
+        "content_visibility_plan_id": "content-visibility-plan",
+        "affordance_contracts": (
+            UIAffordanceContract(
+                "show-details-affordance",
+                "show_details_label",
+                "button",
+                "actionable",
+                task_id=task_id,
+                control_id="show_details",
+                visual_cues=("button_shape", "show_details_label"),
+                interaction_cues=("click", "enter"),
+                expected_user_action="Activate Show details.",
+                expected_result="The optional detail becomes visible and Hide details replaces the reveal action.",
+                evidence_ref="test://details-affordance",
+                rationale="The reveal action is visible, labeled, and matches its result.",
+            ),
+        ),
+        "action_grammars": (
+            UIActionGrammar(
+                "reveal-details-action",
+                task_id,
+                "understand result details",
+                source_state_ids=("details_closed",),
+                primary_control_id="show_details",
+                expected_next_state_id="details_open",
+                expected_feedback_item_ids=("optional_details_item",),
+                rationale="The reveal action points to the exact content item that appears.",
+            ),
+        ),
+        "keyboard_contracts": (
+            UIKeyboardFocusContract(
+                "details-keyboard",
+                task_id,
+                state_id="details_closed",
+                tab_order_control_ids=("show_details", "hide_details"),
+                default_enter_control_id="show_details",
+                escape_behavior="Escape after reveal activates the same return-to-hidden behavior.",
+                focus_return_rules=(("details_open", "show_details"),),
+                disabled_skip_policy="Hidden disclosure controls are not focusable.",
+                evidence_ref="test://details-keyboard",
+                rationale="Keyboard users can reveal the same content and return focus.",
+            ),
+        ),
+        "walkthroughs": (
+            UIHumanWalkthroughScenario(
+                "inspect-details-walkthrough",
+                task_id,
+                steps=(
+                    UIHumanWalkthroughStep(
+                        "reveal-details-step",
+                        "Show details is visible while details are closed.",
+                        "Activate Show details.",
+                        "Optional details appear and Hide details becomes available.",
+                        "Optional details appeared in details_open.",
+                        "test://details-walkthrough",
+                        rationale="The walkthrough observes prompt, action, and truthful feedback.",
+                    ),
+                ),
+                evidence_ref="test://details-walkthrough",
+                rationale="A user can discover and operate the disclosure without explanation.",
+            ),
+        ),
+        "validation_boundaries": ("content disclosure human operability",),
+        "rationale": "Each on-demand content item is tied to task, affordance, feedback, keyboard, and walkthrough evidence.",
+    }
+    defaults.update(kwargs)
+    return UIHumanOperabilityAssessment("content-human-operability", **defaults)
+
+
+def content_implementation_context():
+    coverage = UIJourneyCoverage(
+        "content-journeys",
+        source_interaction_model_id="content-visibility-ui",
+        launch_state_id="details_closed",
+        entry_points=(
+            UIJourneyEntryPoint(
+                "inspect-details",
+                "show_details",
+                "reveal_details",
+                label="Inspect details",
+                source_state_ids=("details_closed",),
+                rationale="The reveal action enters the optional-detail journey.",
+            ),
+        ),
+        feature_journeys=(
+            UIFeatureJourney(
+                "inspect-details",
+                label="Inspect details",
+                entry_point_ids=("inspect-details",),
+                required_state_ids=("details_closed", "details_open"),
+                required_event_ids=("reveal_details", "dismiss_details"),
+                success_terminal_state_ids=("details_open",),
+                cancel_event_ids=("dismiss_details",),
+                validation_boundaries=("content journey",),
+                rationale="The journey covers reveal and return-to-hidden behavior.",
+            ),
+        ),
+        interaction_model_reviewed=True,
+        validation_boundaries=("content journey implementation",),
+        rationale="Runnable content evidence follows the modeled reveal and return path.",
+    )
+    observed = UIObservedSurfaceInventory(
+        "content-implementation-observed",
+        "local content UI",
+        "visibility-rev-1",
+        observation_method="browser_click",
+        source_interaction_model_id="content-visibility-ui",
+        source_visible_surface_id="content-visible-surface",
+        content_visibility_plan_id="content-visibility-plan",
+        evidence_ref="test://content-observed",
+        items=(
+            UIObservedSurfaceItem(
+                "observed-result-status",
+                "status_text",
+                label="Completed",
+                state_id="details_closed",
+                content_visibility_id="content:result-status",
+                evidence_ref="test://observed-result-status",
+                rationale="Default-visible result observed in the closed state.",
+            ),
+            UIObservedSurfaceItem(
+                "observed-optional-details",
+                "helper_text",
+                label="Why this result occurred",
+                state_id="details_open",
+                content_visibility_id="content:optional-details",
+                evidence_ref="test://observed-optional-details",
+                rationale="On-demand detail observed only after reveal.",
+            ),
+        ),
+        validation_boundaries=("content observation",),
+        rationale="Observed inventory records visible user content and omits internal content.",
+    )
+    evidence = (
+        UIContentVisibilityEvidence(
+            "evidence-result-default",
+            "content:result-status",
+            UI_CONTENT_EVIDENCE_DEFAULT_VISIBLE,
+            current_revision="visibility-rev-1",
+            state_id="details_closed",
+            observed_item_ids=("observed-result-status",),
+            evidence_ref="test://result-default-visible",
+            rationale="The current result is visible without an extra reveal action.",
+        ),
+        UIContentVisibilityEvidence(
+            "evidence-detail-hidden",
+            "content:optional-details",
+            UI_CONTENT_EVIDENCE_DEFAULT_HIDDEN,
+            current_revision="visibility-rev-1",
+            state_id="details_closed",
+            evidence_ref="test://details-default-hidden",
+            rationale="The detail is absent before the reveal action.",
+        ),
+        UIContentVisibilityEvidence(
+            "evidence-detail-reveal",
+            "content:optional-details",
+            UI_CONTENT_EVIDENCE_REVEAL,
+            current_revision="visibility-rev-1",
+            event_id="reveal_details",
+            evidence_ref="test://details-reveal-click",
+            rationale="The explicit reveal event was executed.",
+        ),
+        UIContentVisibilityEvidence(
+            "evidence-detail-revealed",
+            "content:optional-details",
+            UI_CONTENT_EVIDENCE_REVEALED,
+            current_revision="visibility-rev-1",
+            state_id="details_open",
+            observed_item_ids=("observed-optional-details",),
+            evidence_ref="test://details-revealed",
+            rationale="The optional detail is visible in the reveal target state.",
+        ),
+        UIContentVisibilityEvidence(
+            "evidence-detail-returned",
+            "content:optional-details",
+            UI_CONTENT_EVIDENCE_RETURN_HIDDEN,
+            current_revision="visibility-rev-1",
+            state_id="details_closed",
+            evidence_ref="test://details-return-hidden",
+            rationale="Dismiss returns the detail to the hidden state.",
+        ),
+        UIContentVisibilityEvidence(
+            "evidence-trace-absent",
+            "content:internal-trace",
+            UI_CONTENT_EVIDENCE_INTERNAL_ABSENT,
+            current_revision="visibility-rev-1",
+            evidence_ref="test://internal-trace-absent",
+            rationale="The internal trace is absent from the ordinary observed UI.",
+        ),
+    )
+    validation = UIImplementationValidation(
+        "content-implementation-validation",
+        "content-feature-model",
+        "content-visibility-ui",
+        "content-journeys",
+        implementation_target="local content UI",
+        current_model_revision="visibility-rev-1",
+        feature_contracts=(
+            UIFeatureContract(
+                "inspect-details",
+                label="Inspect details",
+                journey_ids=("inspect-details",),
+                required_control_ids=("show_details", "hide_details"),
+                required_event_ids=("reveal_details", "dismiss_details"),
+                validation_boundaries=("content feature",),
+                rationale="The feature contract owns reveal and return behavior.",
+            ),
+        ),
+        journey_runs=(
+            UIImplementationJourneyRun(
+                "inspect-details-run",
+                "inspect-details",
+                journey_id="inspect-details",
+                entry_point_id="inspect-details",
+                steps=(
+                    UIImplementationStepEvidence(
+                        "reveal-details-step",
+                        "reveal_details",
+                        control_id="show_details",
+                        source_state_id="details_closed",
+                        target_state_id="details_open",
+                        method="browser_click",
+                        result="passed",
+                        evidence_ref="test://details-reveal-click",
+                        observed_state_id="details_open",
+                        observed_output="details_visible",
+                        rationale="The reveal click reached details_open.",
+                    ),
+                    UIImplementationStepEvidence(
+                        "dismiss-details-step",
+                        "dismiss_details",
+                        control_id="hide_details",
+                        source_state_id="details_open",
+                        target_state_id="details_closed",
+                        method="browser_click",
+                        result="passed",
+                        evidence_ref="test://details-dismiss-click",
+                        observed_state_id="details_closed",
+                        observed_output="details_hidden",
+                        rationale="The dismiss click returned to details_closed.",
+                    ),
+                ),
+                method="browser_click",
+                result="passed",
+                evidence_ref="test://inspect-details-run",
+                model_revision="visibility-rev-1",
+                validation_boundaries=("content click-through",),
+                rationale="The run executes reveal and return against the current model.",
+            ),
+        ),
+        journey_coverage_reviewed=True,
+        content_visibility_plan_id="content-visibility-plan",
+        content_visibility_reviewed=True,
+        content_visibility_evidence=evidence,
+        validation_boundaries=("content implementation evidence",),
+        rationale="Runnable evidence is structured per content item and visibility phase.",
+    )
+    return coverage, observed, validation
+
+
+class UIContentVisibilityTests(unittest.TestCase):
+    def test_visibility_contract_exhaustion_declares_finite_matrix_and_shard(self):
+        axis_ids = (
+            "visibility_class",
+            "mapping_target",
+            "ui_state",
+            "user_need_ref",
+        )
+        report = review_contract_exhaustion(
+            ContractExhaustionPlan(
+                "ui-content-visibility-matrix",
+                model_id="ui_flow_structure_skill",
+                axes=(
+                    ContractAxis(
+                        "visibility_class",
+                        model_id="ui_flow_structure_skill",
+                        values=("user_visible", "user_on_demand", "internal", "unknown"),
+                    ),
+                    ContractAxis(
+                        "mapping_target",
+                        model_id="ui_flow_structure_skill",
+                        values=("none", "display", "visible_surface", "text", "observed"),
+                    ),
+                    ContractAxis(
+                        "ui_state",
+                        model_id="ui_flow_structure_skill",
+                        values=("closed", "revealed"),
+                    ),
+                    ContractAxis(
+                        "user_need_ref",
+                        model_id="ui_flow_structure_skill",
+                        values=("absent", "present"),
+                    ),
+                ),
+                interaction_groups=(
+                    ContractInteractionGroup(
+                        "content-admission",
+                        model_id="ui_flow_structure_skill",
+                        axis_ids=axis_ids,
+                        required_routes=(
+                            CONTRACT_ROUTE_MODEL_TEST_ALIGNMENT,
+                            CONTRACT_ROUTE_TEST_MESH,
+                            CONTRACT_ROUTE_RISK_EVIDENCE_LEDGER,
+                        ),
+                        oracle_status=CONTRACT_ORACLE_NEEDS_HUMAN_REVIEW,
+                    ),
+                ),
+                require_model_coverage_receipt=True,
+                coverage_universe=ContractCoverageUniverse(
+                    "ui-content-admission-universe",
+                    claim_scope="finite-matrix",
+                    source_refs=(
+                        "openspec:ui-content-visibility-classification",
+                        "openspec:ui-content-visibility-enforcement",
+                    ),
+                    required_axis_ids=axis_ids,
+                    required_interaction_group_ids=("content-admission",),
+                    required_coverage_receipt_ids=("contract_coverage:ui_flow_structure_skill",),
+                ),
+                require_coverage_universe=True,
+            )
+        )
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual(80, len(report.combination_cases))
+        self.assertEqual(
+            ("contract_shard:ui_flow_structure_skill:content-admission",),
+            contract_exhaustion_to_test_mesh_shard_ids(report),
+        )
+        self.assertEqual(
+            ("contract_coverage:ui_flow_structure_skill",),
+            tuple(receipt.receipt_id for receipt in report.coverage_receipts),
+        )
+
+    def test_content_visibility_matrix_executes_all_80_combinations(self):
+        combinations = tuple(
+            product(
+                ("user_visible", "user_on_demand", "internal", "unknown"),
+                ("none", "display", "visible_surface", "text", "observed"),
+                ("closed", "revealed"),
+                ("absent", "present"),
+            )
+        )
+
+        self.assertEqual(80, len(combinations))
+        for visibility_class, mapping_target, ui_state, user_need_ref in combinations:
+            with self.subTest(
+                visibility_class=visibility_class,
+                mapping_target=mapping_target,
+                ui_state=ui_state,
+                user_need_ref=user_need_ref,
+            ):
+                report = content_visibility_matrix_review(
+                    visibility_class,
+                    mapping_target,
+                    ui_state,
+                    user_need_ref,
+                )
+                self.assertEqual(
+                    content_visibility_matrix_expected(
+                        visibility_class,
+                        mapping_target,
+                        ui_state,
+                        user_need_ref,
+                    ),
+                    report.ok,
+                    report.format_text(),
+                )
+
+    def test_valid_plan_admits_default_and_on_demand_content(self):
+        model = content_visibility_model()
+        surface = content_visible_surface()
+
+        report = review_ui_content_visibility(
+            content_visibility_plan(),
+            interaction_model=model,
+            visible_surface=surface,
+        )
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual(
+            ("content:result-status", "content:optional-details"),
+            report.admitted_content_ids,
+        )
+        self.assertEqual(("content:internal-trace",), report.internal_content_ids)
+
+    def test_ordinary_task_control_label_needs_no_duplicate_visibility_row(self):
+        report = review_ui_visible_surface(
+            content_visible_surface(),
+            interaction_model=content_visibility_model(),
+            content_visibility_plan=content_visibility_plan(),
+        )
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertNotIn("visible_item_missing_content_visibility", finding_codes(report))
+
+    def test_unclassified_candidate_is_blocked(self):
+        plan = content_visibility_plan(items=content_visibility_plan().items[:-1])
+
+        report = review_ui_content_visibility(plan, interaction_model=content_visibility_model())
+
+        self.assertFalse(report.ok)
+        self.assertIn("unclassified_ui_candidate_content", finding_codes(report))
+
+    def test_user_content_without_need_reference_is_blocked(self):
+        items = content_visibility_plan().items
+        plan = content_visibility_plan(items=(replace(items[0], user_need_refs=()),) + items[1:])
+
+        report = review_ui_content_visibility(plan, interaction_model=content_visibility_model())
+
+        self.assertFalse(report.ok)
+        self.assertIn("user_content_missing_need_ref", finding_codes(report))
+
+    def test_user_need_reference_must_be_typed_and_resolve_when_model_is_available(self):
+        items = content_visibility_plan().items
+        invalid_kind = replace(items[0], user_need_refs=("anything-at-all",))
+        unknown_state = replace(items[0], user_need_refs=("state:missing-state",))
+
+        invalid_kind_report = review_ui_content_visibility(
+            content_visibility_plan(items=(invalid_kind, items[1], items[2])),
+            interaction_model=content_visibility_model(),
+        )
+        unknown_state_report = review_ui_content_visibility(
+            content_visibility_plan(items=(unknown_state, items[1], items[2])),
+            interaction_model=content_visibility_model(),
+        )
+
+        self.assertFalse(invalid_kind_report.ok)
+        self.assertIn("unknown_user_content_need_kind", finding_codes(invalid_kind_report))
+        self.assertFalse(unknown_state_report.ok)
+        self.assertIn("user_content_need_state_not_registered", finding_codes(unknown_state_report))
+
+    def test_content_visibility_schema_does_not_grow_an_audience_or_role_taxonomy(self):
+        forbidden_fields = {"audience", "audiences", "role", "roles", "persona", "personas"}
+
+        self.assertFalse(forbidden_fields & set(UIContentVisibilityItem.__dataclass_fields__))
+
+    def test_control_label_exemption_requires_a_normal_label_and_task_owner_when_supplied(self):
+        task_frame = UIUserTaskFrame("understand-result", "Understand the optional result details.")
+        owned = UIUserTaskCoverageLedger(
+            "content-task-coverage",
+            task_frames=(task_frame,),
+            task_control_links=(
+                ("understand-result", "show_details"),
+                ("understand-result", "hide_details"),
+            ),
+        )
+        unowned = replace(owned, task_control_links=())
+        surface_items = content_visible_surface().items
+        spoofed_surface = content_visible_surface(
+            items=surface_items[:-1]
+            + (
+                replace(
+                    surface_items[-1],
+                    item_kind="status",
+                    text="Phase 7 / trace 123",
+                ),
+            )
+        )
+
+        owned_report = review_ui_content_visibility(
+            content_visibility_plan(),
+            interaction_model=content_visibility_model(),
+            visible_surface=content_visible_surface(),
+            task_coverage=owned,
+        )
+        unowned_report = review_ui_content_visibility(
+            content_visibility_plan(),
+            interaction_model=content_visibility_model(),
+            visible_surface=content_visible_surface(),
+            task_coverage=unowned,
+        )
+        spoofed_report = review_ui_content_visibility(
+            content_visibility_plan(),
+            interaction_model=content_visibility_model(),
+            visible_surface=spoofed_surface,
+            task_coverage=owned,
+        )
+
+        self.assertTrue(owned_report.ok, owned_report.format_text())
+        self.assertFalse(unowned_report.ok)
+        self.assertIn("visible_item_missing_content_visibility", finding_codes(unowned_report))
+        self.assertFalse(spoofed_report.ok)
+        self.assertIn("visible_item_missing_content_visibility", finding_codes(spoofed_report))
+
+    def test_control_owned_text_cannot_disguise_state_or_metadata_as_a_label(self):
+        blueprint = UITextHierarchyBlueprint(
+            "spoofed-control-text",
+            "content-visibility-ui",
+            "content-structure",
+            "content-visible-surface",
+            text_elements=(
+                UITextElement(
+                    "spoofed-label",
+                    "status_text",
+                    "body-text",
+                    "trace_state",
+                    label="Phase 7 / trace 123",
+                    source_control_id="show_details",
+                    rationale="This is deliberately not a normal control label.",
+                ),
+            ),
+            content_visibility_plan_id="content-visibility-plan",
+            validation_boundaries=("spoof regression",),
+            rationale="Control ownership must not bypass content admission.",
+        )
+
+        report = review_ui_content_visibility(
+            content_visibility_plan(),
+            interaction_model=content_visibility_model(),
+            text_blueprint=blueprint,
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("text_missing_content_visibility", finding_codes(report))
+
+    def test_internal_chinese_diagnostic_content_cannot_map_to_ui(self):
+        model = content_visibility_model()
+        internal_display = UIDisplayElement(
+            "internal_trace",
+            "internal_trace",
+            label="内部审计状态和证据编号",
+            content_visibility_id="content:internal-trace",
+            rationale="This deliberately exercises a language-independent internal classification.",
+        )
+        closed = replace(
+            model.states[0],
+            visible_displays=model.states[0].visible_displays + ("internal_trace",),
+        )
+        broken_model = replace(model, states=(closed, model.states[1]), displays=model.displays + (internal_display,))
+
+        report = review_ui_content_visibility(content_visibility_plan(), interaction_model=broken_model)
+
+        self.assertFalse(report.ok)
+        self.assertIn("internal_content_mapped_to_ui", finding_codes(report))
+
+    def test_direct_display_mapping_cannot_bypass_classification(self):
+        model = content_visibility_model()
+        broken_display = replace(model.displays[0], content_visibility_id="")
+        broken_model = replace(model, displays=(broken_display, model.displays[1]))
+
+        report = review_ui_content_visibility(content_visibility_plan(), interaction_model=broken_model)
+
+        self.assertFalse(report.ok)
+        self.assertIn("display_missing_content_visibility", finding_codes(report))
+
+    def test_on_demand_content_visible_in_default_state_is_blocked(self):
+        model = content_visibility_model()
+        closed = replace(
+            model.states[0],
+            visible_displays=("result_status", "optional_details"),
+            hidden_displays=(),
+        )
+
+        report = review_ui_content_visibility(
+            content_visibility_plan(),
+            interaction_model=replace(model, states=(closed, model.states[1])),
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("on_demand_content_visible_in_default_state", finding_codes(report))
+
+    def test_on_demand_content_needs_reveal_and_dismiss_events(self):
+        items = content_visibility_plan().items
+        broken_detail = replace(items[1], reveal_event_ids=(), dismiss_event_ids=())
+
+        report = review_ui_content_visibility(
+            content_visibility_plan(items=(items[0], broken_detail, items[2])),
+            interaction_model=content_visibility_model(),
+        )
+
+        codes = finding_codes(report)
+        self.assertFalse(report.ok)
+        self.assertIn("on_demand_content_missing_reveal_event", codes)
+        self.assertIn("on_demand_content_missing_dismiss_event", codes)
+
+    def test_hover_reveal_needs_keyboard_focus_equivalent(self):
+        items = content_visibility_plan().items
+        broken_detail = replace(items[1], hover_reveal=True, keyboard_focus_event_ids=())
+
+        report = review_ui_content_visibility(
+            content_visibility_plan(items=(items[0], broken_detail, items[2])),
+            interaction_model=content_visibility_model(),
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("hover_reveal_missing_keyboard_focus_equivalent", finding_codes(report))
+
+    def test_hover_reveal_cannot_reuse_the_same_untyped_pointer_event(self):
+        items = content_visibility_plan().items
+        broken_detail = replace(
+            items[1],
+            hover_reveal=True,
+            keyboard_focus_event_ids=("reveal_details",),
+        )
+
+        report = review_ui_content_visibility(
+            content_visibility_plan(items=(items[0], broken_detail, items[2])),
+            interaction_model=content_visibility_model(),
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("hover_reveal_reuses_untyped_pointer_event", finding_codes(report))
+
+    def test_hidden_or_disabled_reveal_control_is_not_discoverable(self):
+        model = content_visibility_model()
+        closed = replace(
+            model.states[0],
+            visible_controls=(),
+            enabled_controls=(),
+            hidden_controls=("show_details", "hide_details"),
+        )
+
+        report = review_ui_content_visibility(
+            content_visibility_plan(),
+            interaction_model=replace(model, states=(closed, model.states[1])),
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("on_demand_reveal_control_not_visible", finding_codes(report))
+        self.assertIn("on_demand_reveal_control_not_enabled", finding_codes(report))
+
+    def test_human_operability_binds_on_demand_content_to_affordance_and_feedback(self):
+        assessment = content_human_operability_assessment()
+
+        report = review_ui_human_operability(
+            assessment,
+            interaction_model=content_visibility_model(),
+            visible_surface=content_visible_surface(),
+            content_visibility_plan=content_visibility_plan(),
+        )
+
+        self.assertTrue(report.ok, report.format_text())
+
+    def test_human_operability_blocks_missing_on_demand_affordance_or_feedback(self):
+        assessment = content_human_operability_assessment()
+        missing_affordance = review_ui_human_operability(
+            replace(assessment, affordance_contracts=()),
+            interaction_model=content_visibility_model(),
+            visible_surface=content_visible_surface(),
+            content_visibility_plan=content_visibility_plan(),
+        )
+        missing_feedback = review_ui_human_operability(
+            replace(assessment, action_grammars=()),
+            interaction_model=content_visibility_model(),
+            visible_surface=content_visible_surface(),
+            content_visibility_plan=content_visibility_plan(),
+        )
+
+        self.assertFalse(missing_affordance.ok)
+        self.assertIn(
+            "on_demand_content_missing_discoverable_affordance",
+            finding_codes(missing_affordance),
+        )
+        self.assertFalse(missing_feedback.ok)
+        self.assertIn(
+            "on_demand_content_missing_truthful_feedback",
+            finding_codes(missing_feedback),
+        )
+
+    def test_implementation_validation_requires_structured_per_content_evidence(self):
+        coverage, observed, validation = content_implementation_context()
+
+        report = review_ui_implementation_validation(
+            validation,
+            interaction_model=content_visibility_model(),
+            journey_coverage=coverage,
+            visible_surface=content_visible_surface(),
+            observed_inventory=observed,
+            content_visibility_plan=content_visibility_plan(),
+        )
+
+        self.assertTrue(report.ok, report.format_text())
+
+    def test_opaque_or_incomplete_implementation_visibility_evidence_is_blocked(self):
+        coverage, observed, validation = content_implementation_context()
+        opaque_report = review_ui_implementation_validation(
+            replace(validation, content_visibility_evidence=()),
+            interaction_model=content_visibility_model(),
+            journey_coverage=coverage,
+            visible_surface=content_visible_surface(),
+            observed_inventory=None,
+            content_visibility_plan=content_visibility_plan(),
+        )
+        incomplete_report = review_ui_implementation_validation(
+            replace(
+                validation,
+                content_visibility_evidence=validation.content_visibility_evidence[:-1],
+            ),
+            interaction_model=content_visibility_model(),
+            journey_coverage=coverage,
+            visible_surface=content_visible_surface(),
+            observed_inventory=observed,
+            content_visibility_plan=content_visibility_plan(),
+        )
+
+        self.assertFalse(opaque_report.ok)
+        self.assertIn(
+            "implementation_content_visibility_observed_inventory_missing",
+            finding_codes(opaque_report),
+        )
+        self.assertIn(
+            "implementation_content_visibility_evidence_missing",
+            finding_codes(opaque_report),
+        )
+        self.assertFalse(incomplete_report.ok)
+        self.assertIn(
+            "required_content_visibility_evidence_missing",
+            finding_codes(incomplete_report),
+        )
+
+    def test_implementation_visibility_evidence_must_match_exact_content_and_state(self):
+        coverage, observed, validation = content_implementation_context()
+        evidence = list(validation.content_visibility_evidence)
+        evidence[0] = replace(
+            evidence[0],
+            observed_item_ids=("observed-optional-details",),
+        )
+        evidence[1] = replace(
+            evidence[1],
+            observed_item_ids=("observed-result-status",),
+        )
+
+        report = review_ui_implementation_validation(
+            replace(validation, content_visibility_evidence=tuple(evidence)),
+            interaction_model=content_visibility_model(),
+            journey_coverage=coverage,
+            visible_surface=content_visible_surface(),
+            observed_inventory=observed,
+            content_visibility_plan=content_visibility_plan(),
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn(
+            "positive_content_visibility_evidence_not_content_exact",
+            finding_codes(report),
+        )
+        self.assertIn(
+            "absence_content_visibility_evidence_lists_observed_items",
+            finding_codes(report),
+        )
+
+    def test_unknown_visible_surface_priority_is_blocked(self):
+        items = content_visible_surface().items
+        broken_surface = content_visible_surface(items=(replace(items[0], priority="maximally_loud"),) + items[1:])
+
+        report = review_ui_visible_surface(
+            broken_surface,
+            interaction_model=content_visibility_model(),
+            content_visibility_plan=content_visibility_plan(),
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("unknown_visible_surface_priority", finding_codes(report))
+
+    def test_observed_direct_display_mapping_still_needs_admission(self):
+        inventory = UIObservedSurfaceInventory(
+            "observed-content-surface",
+            "local test UI",
+            "visibility-rev-1",
+            observation_method="test",
+            source_interaction_model_id="content-visibility-ui",
+            source_visible_surface_id="content-visible-surface",
+            content_visibility_plan_id="content-visibility-plan",
+            evidence_ref="test://observed-content",
+            items=(
+                UIObservedSurfaceItem(
+                    "observed_result",
+                    "status_text",
+                    label="Completed",
+                    state_id="details_closed",
+                    mapped_display_id="result_status",
+                    evidence_ref="test://result",
+                    rationale="The observed result maps to admitted user content.",
+                ),
+            ),
+            validation_boundaries=("test observation",),
+            rationale="Observed visibility is checked against the admission plan.",
+        )
+
+        report = review_ui_observed_surface_inventory(
+            inventory,
+            interaction_model=content_visibility_model(),
+            visible_surface=content_visible_surface(),
+            content_visibility_plan=content_visibility_plan(),
+        )
+
+        self.assertTrue(report.ok, report.format_text())
+
+    def test_observed_internal_content_is_blocked_even_with_a_direct_content_id(self):
+        inventory = UIObservedSurfaceInventory(
+            "observed-internal-content",
+            "local test UI",
+            "visibility-rev-1",
+            observation_method="test",
+            source_interaction_model_id="content-visibility-ui",
+            content_visibility_plan_id="content-visibility-plan",
+            evidence_ref="test://observed-internal",
+            items=(
+                UIObservedSurfaceItem(
+                    "observed-trace",
+                    "status_text",
+                    label="trace=abc123",
+                    state_id="details_closed",
+                    content_visibility_id="content:internal-trace",
+                    evidence_ref="test://observed-trace",
+                    rationale="Deliberate internal-content leak regression.",
+                ),
+            ),
+            validation_boundaries=("observed internal regression",),
+            rationale="Observed content still needs admission.",
+        )
+
+        report = review_ui_content_visibility(
+            content_visibility_plan(),
+            interaction_model=content_visibility_model(),
+            observed_inventory=inventory,
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("internal_content_mapped_to_ui", finding_codes(report))
+
+    def test_field_lifecycle_handoff_only_projects_ui_reader_fields(self):
+        field_plan = FieldLifecyclePlan(
+            "ui-candidate-fields",
+            discovered_field_ids=("field:result", "field:trace"),
+            fields=(
+                FieldLifecycleRow("field:result", reader_ids=("ordinary-ui-view",)),
+                FieldLifecycleRow("field:trace", reader_ids=("audit-log",)),
+            ),
+        )
+
+        candidate_ids = ui_content_visibility_candidate_ids_from_field_lifecycle(
+            field_plan,
+            ui_reader_ids=("ordinary-ui-view",),
+        )
+
+        self.assertEqual(("field:result",), candidate_ids)
 
 
 if __name__ == "__main__":
