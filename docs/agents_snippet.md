@@ -106,6 +106,5 @@ coverage. Record whether the relation creates a maintenance group, which
 sibling models/code/tests must be checked, which tests are shared versus
 variant-specific, and whether shared-kernel/adapter work or false-friend
 separation applies.
-
 Do not require ordinary project work to run FlowGuard's internal framework evidence suites; reserve them for FlowGuard upgrades, benchmark claims, or broad capability claims.
 ```

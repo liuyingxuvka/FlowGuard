@@ -101,7 +101,7 @@ class BehaviorPlaneUpgradeTests(unittest.TestCase):
         self.assertIn("cannot guarantee", combined)
         self.assertNotIn("evidence engine, or\n  CLI command", (ROOT / "CHANGELOG.md").read_text(encoding="utf-8"))
 
-    def test_verification_contract_covers_declared_models_skills_and_fingerprint(self):
+    def test_verification_contract_uses_receipt_authority_without_self_maintenance_hash_coupling(self):
         contract_path = (
             ROOT
             / "openspec"
@@ -114,22 +114,21 @@ class BehaviorPlaneUpgradeTests(unittest.TestCase):
         for value in (
             "default_replacement_field_lifecycle",
             "model_test_code_alignment",
-            "tests/test_skill_contract_v2_projection.py",
-            "tests/test_skill_installed_layout.py",
-            "tests/test_skill_suite_inventory.py",
+            "owner.models.full",
+            "owner.tests.full",
+            "owner.change.aggregate",
+            "portable-receipt.v1",
             ".flowguard/default_replacement_field_lifecycle/**/*.py",
             ".flowguard/model_test_code_alignment/**/*.py",
             "README.md",
             "CHANGELOG.md",
         ):
             self.assertIn(value, contract)
-        expected = "sha256:" + hashlib.sha256(contract_path.read_bytes()).hexdigest().upper()
-        self.assertIn(
-            expected,
-            (ROOT / ".flowguard" / "self_maintenance_mesh" / "model.py").read_text(
-                encoding="utf-8"
-            ),
-        )
+        self_maintenance_model = (
+            ROOT / ".flowguard" / "self_maintenance_mesh" / "model.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("verification_contract_sha256", self_maintenance_model)
+        self.assertNotIn("required_verification_check_ids", self_maintenance_model)
 
     def test_relation_matrix_preserves_directional_layer_ownership(self):
         self.assertTrue(

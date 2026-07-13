@@ -57,35 +57,40 @@ class SkillPromptParityTests(unittest.TestCase):
             skill = SKILL_ROOT / skill_id
             prompt = (skill / "agents" / "openai.yaml").read_text(encoding="utf-8")
             source = json.loads((skill / ".skillguard" / "contract-source.json").read_text(encoding="utf-8"))
+            compiled = json.loads((skill / ".skillguard" / "compiled-contract.json").read_text(encoding="utf-8"))
+            manifest = json.loads((skill / ".skillguard" / "check-manifest.json").read_text(encoding="utf-8"))
             with self.subTest(skill=skill_id):
                 self.assertEqual(skill_id, source["skill_id"])
-                self.assertEqual(member["owner"], source["native_owner"])
-                self.assertEqual(5, len(source["workflow"]))
-                self.assertTrue(source["native_checks"])
-                self.assertEqual(list(OUTPUT_FIELDS), source["output_fields"])
+                self.assertEqual("skillguard.contract_source.v2", source["schema_version"])
+                self.assertEqual(skill_id, compiled["skill_id"])
+                self.assertEqual(skill_id, manifest["skill_id"])
+                self.assertEqual(3, len(source["step_bindings"]))
+                self.assertTrue(source["checks"])
+                self.assertTrue(source["closure_profiles"])
                 self.assertIn(f"${skill_id}", prompt)
-                self.assertIn(f"route_id={source['route_id']}", prompt)
-                self.assertIn(f"native_owner={source['native_owner']}", prompt)
+                self.assertIn("route_id=", prompt)
+                self.assertIn(f"native_owner={member['owner']}", prompt)
                 for field in OUTPUT_FIELDS:
                     self.assertIn(field, prompt)
-                for reference in source["direct_references"]:
-                    self.assertTrue((skill / reference).is_file(), reference)
+                self.assertTrue((ROOT / source["model_path"]).is_file())
+                for implementation_path in source["implementation_paths"]:
+                    self.assertTrue((ROOT / implementation_path).exists(), implementation_path)
 
     def test_delegated_modes_and_mta_testmesh_handoff_are_not_parallel_owners(self):
         for skill_id in ("flowguard-agent-workflow-rehearsal", "flowguard-plan-detailing-compiler"):
-            source = json.loads(
-                (SKILL_ROOT / skill_id / ".skillguard" / "contract-source.json").read_text(encoding="utf-8")
-            )
-            self.assertEqual("delegated_mode", source["route_role"])
-            self.assertEqual("development_process_flow", source["native_owner"])
+            skill_root = SKILL_ROOT / skill_id
+            skill_text = (skill_root / "SKILL.md").read_text(encoding="utf-8")
+            prompt = (skill_root / "agents" / "openai.yaml").read_text(encoding="utf-8")
+            self.assertIn("`delegated_mode`", skill_text)
+            self.assertIn("native owner `development_process_flow`", skill_text)
+            self.assertIn("role=delegated_mode", prompt)
+            self.assertIn("native_owner=development_process_flow", prompt)
         mta_root = SKILL_ROOT / "flowguard-model-test-alignment"
         mta_text = (mta_root / "SKILL.md").read_text(encoding="utf-8")
-        mta_source = json.loads((mta_root / ".skillguard" / "contract-source.json").read_text(encoding="utf-8"))
+        mta_prompt = (mta_root / "agents" / "openai.yaml").read_text(encoding="utf-8")
         self.assertNotIn("Do not invoke TestMesh", mta_text)
-        self.assertIn(
-            "flowguard-test-mesh",
-            {item["target_id"] for item in mta_source["downstream_targets"]},
-        )
+        self.assertIn("hands large evidence to TestMesh", mta_text)
+        self.assertIn("typed TestMesh handoff", mta_prompt)
 
     def test_every_declared_native_python_surface_is_in_the_public_git_tree(self):
         git = shutil.which("git")
@@ -113,13 +118,15 @@ class SkillPromptParityTests(unittest.TestCase):
             source = json.loads(
                 (SKILL_ROOT / skill_id / ".skillguard" / "contract-source.json").read_text(encoding="utf-8")
             )
-            for check in source["native_checks"]:
+            for check in source["checks"]:
+                if check["kind"] != "command" or check.get("command") != "python":
+                    continue
                 python_paths = tuple(
                     token.replace("\\", "/")
-                    for token in check["command"].split()
+                    for token in check.get("args", ())
                     if token.endswith(".py") and (token.startswith("tests/") or token.startswith(".flowguard/"))
                 )
-                with self.subTest(skill=skill_id, command=check["command"]):
+                with self.subTest(skill=skill_id, command=(check["command"], *check.get("args", ()))):
                     self.assertTrue(python_paths)
                     self.assertTrue(set(python_paths) <= tracked, set(python_paths) - tracked)
 
