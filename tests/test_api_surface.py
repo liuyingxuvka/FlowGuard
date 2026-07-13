@@ -916,6 +916,7 @@ class ApiSurfaceTests(unittest.TestCase):
             "ROUTE_STARTER_API",
             "PLAN_INTAKE_STARTER_API",
             "STATE_CLOSURE_ROUTE_API",
+            "SPEC_WORK_PACKAGE_API",
             "STRUCTURE_MESH_ROUTE_API",
             "TEST_MESH_ROUTE_API",
             "TOPOLOGY_HAZARD_ROUTE_API",
@@ -944,12 +945,6 @@ class ApiSurfaceTests(unittest.TestCase):
             "LEGACY_PATH_SAME_CONTRACT_REPAIRED",
             "LEGACY_PATH_OUT_OF_SCOPE",
             "LEGACY_PATH_UNKNOWN",
-            "ARTIFACT_UPGRADE_STATUS_BLOCKED",
-            "ARTIFACT_UPGRADE_STATUS_SKIPPED",
-            "ARTIFACT_UPGRADE_STATUS_UNCHANGED",
-            "ARTIFACT_UPGRADE_STATUS_UPGRADED",
-            "ARTIFACT_UPGRADE_STATUSES",
-            "ARTIFACT_UPGRADE_TEXT_REPLACEMENTS",
         )
         self.assertEqual(flowguard._PUBLIC_API_SUPPLEMENT, expected_supplement)
 
