@@ -87,6 +87,7 @@ SPEC_TERMINAL_NOT_RUN_DEPENDENCY = "not_run_due_to_dependency"
 
 SPEC_CHECK_CLAIM_SCOPE = "spec_check_execution"
 SPEC_EVIDENCE_ROOT = Path(".flowguard/evidence/spec-work-packages")
+SPEC_EVIDENCE_ROOT_ENV = "FLOWGUARD_SPEC_EVIDENCE_ROOT"
 SPEC_RECEIPT_SCHEMA = "spec-check-receipt.v1"
 SPEC_SESSION_SCHEMA = "spec-work-package-session.v1"
 SPEC_MANIFEST_SCHEMA = "spec-governed-input-manifest.v1"
@@ -2316,9 +2317,15 @@ def _run_command_tree(
     timeout_seconds: int,
 ) -> subprocess.CompletedProcess[bytes]:
     creationflags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) if os.name == "nt" else 0
+    child_environment = dict(os.environ)
+    # The persistent evidence root belongs to this orchestration process.  A
+    # nested test/project must resolve its own evidence boundary instead of
+    # reading or writing the parent's receipts.
+    child_environment.pop(SPEC_EVIDENCE_ROOT_ENV, None)
     process = subprocess.Popen(
         [str(value) for value in command],
         cwd=cwd,
+        env=child_environment,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         start_new_session=os.name != "nt",

@@ -537,6 +537,28 @@ class PortableReceiptWireTests(unittest.TestCase):
 
 
 class SpecReceiptReuseTests(unittest.TestCase):
+    def test_orchestrator_evidence_root_is_not_inherited_by_check_process(self) -> None:
+        temporary = _project()
+        self.addCleanup(temporary.cleanup)
+        root = Path(temporary.name)
+        evidence_root = (root / ".persistent-spec-evidence").resolve()
+        command = (
+            sys.executable,
+            "-c",
+            "import os; raise SystemExit('FLOWGUARD_SPEC_EVIDENCE_ROOT' in os.environ)",
+        )
+
+        with patch.dict(
+            os.environ,
+            {"FLOWGUARD_SPEC_EVIDENCE_ROOT": str(evidence_root)},
+            clear=False,
+        ):
+            begin_spec_session(root, "openspec", "change-one")
+            result = _run(root, command=command)
+
+        self.assertEqual(SPEC_CHECK_STATE_EXECUTED, result.state)
+        self.assertEqual(0, result.exit_code)
+
     def test_parent_aggregation_verifies_exact_children_and_reuses_only_identical_parent(self) -> None:
         temporary = _aggregate_project()
         self.addCleanup(temporary.cleanup)
