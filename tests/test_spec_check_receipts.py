@@ -954,6 +954,26 @@ class SpecReceiptReuseTests(unittest.TestCase):
         matching = next(item for item in reversed(receipts) if item.receipt_id == recovered.receipt_id)
         self.assertTrue(dict(matching.metadata).get("recovered_abandoned_lock"))
 
+    def test_confirmed_dead_execution_lock_is_recovered_without_age_delay(self) -> None:
+        temporary = _project()
+        self.addCleanup(temporary.cleanup)
+        root = Path(temporary.name)
+        begin_spec_session(root, "openspec", "change-one")
+        failing = (sys.executable, "-c", "raise SystemExit(3)")
+        first = _run(root, command=failing)
+        lock = root / ".flowguard/evidence/spec-work-packages/locks" / f"{first.execution_key.removeprefix('sha256:')}.lock"
+        _write(lock, json.dumps({"pid": 999999, "started_at": "current"}) + "\n")
+
+        with patch("flowguard.spec_check_cache._pid_alive", return_value=False):
+            recovered = _run(root, command=failing)
+
+        receipts = list_evidence_receipts(
+            root,
+            output_directory=root / ".flowguard/evidence/spec-work-packages/receipts",
+        )
+        matching = next(item for item in reversed(receipts) if item.receipt_id == recovered.receipt_id)
+        self.assertTrue(dict(matching.metadata).get("recovered_abandoned_lock"))
+
     def test_proof_projection_binds_exact_execution_session(self) -> None:
         temporary = _project()
         self.addCleanup(temporary.cleanup)

@@ -2213,7 +2213,12 @@ class _ExecutionLock:
                 age = time.time() - self.path.stat().st_mtime
             except (OSError, ValueError):
                 pid, age = 0, self.stale_after_seconds + 1
-            if _pid_alive(pid) or age <= self.stale_after_seconds:
+            if pid > 0:
+                if _pid_alive(pid):
+                    raise RuntimeError("identical spec check is already executing")
+            elif age <= self.stale_after_seconds:
+                # A malformed or identity-free lock cannot be proven abandoned
+                # until its bounded recovery window has elapsed.
                 raise RuntimeError("identical spec check is already executing")
             abandoned = self.path.with_suffix(f".abandoned-{int(time.time())}.json")
             os.replace(self.path, abandoned)
