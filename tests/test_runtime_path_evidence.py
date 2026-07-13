@@ -20,6 +20,11 @@ def contract(node_id, **kwargs):
         "model_obligation_id": "accept_valid_order",
         "code_contract_id": "checkout.submit",
         "boundary_id": "checkout.submit.boundary",
+        "business_intent_id": "intent:checkout.submit-order",
+        "behavior_commitment_id": "commitment:checkout.submit-order",
+        "primary_path_id": "path:checkout.submit-order",
+        "surface_id": "surface:checkout.submit",
+        "candidate_id": "candidate:checkout.primary",
         "allowed_outputs": ("accepted",),
         "allowed_state_writes": ("order_status",),
         "sequence_index": 0,
@@ -38,6 +43,11 @@ def observation(node_id, **kwargs):
         "model_obligation_id": "accept_valid_order",
         "code_contract_id": "checkout.submit",
         "boundary_id": "checkout.submit.boundary",
+        "business_intent_id": "intent:checkout.submit-order",
+        "behavior_commitment_id": "commitment:checkout.submit-order",
+        "primary_path_id": "path:checkout.submit-order",
+        "surface_id": "surface:checkout.submit",
+        "candidate_id": "candidate:checkout.primary",
         "observed_output": "accepted",
         "observed_state_writes": ("order_status",),
         "evidence_id": f"evidence:{node_id}",
@@ -224,6 +234,92 @@ class RuntimePathEvidenceTests(unittest.TestCase):
         self.assertFalse(report.ok)
         self.assertIn("runtime_path_order_mismatch", codes)
         self.assertIn("uncontracted_runtime_node_observed", codes)
+
+    def test_broad_runtime_claim_requires_stable_authority_ids(self):
+        report = review_runtime_path_alignment(
+            RuntimePathAlignmentPlan(
+                "checkout-missing-authority",
+                node_contracts=(
+                    contract(
+                        "validate_order",
+                        business_intent_id="",
+                        behavior_commitment_id="",
+                        primary_path_id="",
+                    ),
+                ),
+                observations=(
+                    observation(
+                        "validate_order",
+                        business_intent_id="",
+                        behavior_commitment_id="",
+                        primary_path_id="",
+                    ),
+                ),
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("runtime_path_business_intent_id_missing", finding_codes(report))
+        self.assertIn("runtime_path_behavior_commitment_id_missing", finding_codes(report))
+        self.assertIn("runtime_path_primary_path_id_missing", finding_codes(report))
+
+    def test_expected_runtime_inventory_reports_covered_scoped_and_missing_ids(self):
+        report = review_runtime_path_alignment(
+            RuntimePathAlignmentPlan(
+                "checkout-inventory",
+                node_contracts=(contract("validate_order"),),
+                observations=(observation("validate_order"),),
+                inventory_revision="inventory:v1",
+                expected_surface_ids=("surface:checkout.submit", "surface:checkout.cli"),
+                expected_candidate_ids=("candidate:checkout.primary", "candidate:checkout.legacy"),
+                scoped_surface_reasons={"surface:checkout.cli": "CLI is release-only in this review"},
+                require_complete_inventory=True,
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertEqual(("surface:checkout.submit",), report.covered_surface_ids)
+        self.assertEqual(("surface:checkout.cli",), report.scoped_surface_ids)
+        self.assertEqual(("candidate:checkout.legacy",), report.missing_candidate_ids)
+        self.assertIn("expected_runtime_candidate_unaccounted", finding_codes(report))
+
+    def test_runtime_facade_requires_current_delegation_and_no_alternate_success(self):
+        facade_contract = contract(
+            "public_facade",
+            surface_role="facade",
+            delegates_to_primary_path_id="path:checkout.submit-order",
+            delegation_evidence_id="delegation:facade:v1",
+            delegation_evidence_current=True,
+            delegation_only=True,
+        )
+        good = observation(
+            "public_facade",
+            surface_role="facade",
+            delegates_to_primary_path_id="path:checkout.submit-order",
+            delegation_evidence_id="delegation:facade:v1",
+            delegation_evidence_current=True,
+            delegation_observed=True,
+        )
+        bad = observation(
+            "public_facade",
+            surface_role="facade",
+            delegates_to_primary_path_id="path:checkout.submit-order",
+            delegation_evidence_id="delegation:facade:v1",
+            delegation_evidence_current=True,
+            delegation_observed=True,
+            independent_business_success=True,
+        )
+
+        self.assertTrue(
+            review_runtime_path_alignment(
+                RuntimePathAlignmentPlan("facade-ok", node_contracts=(facade_contract,), observations=(good,))
+            ).ok
+        )
+        bad_report = review_runtime_path_alignment(
+            RuntimePathAlignmentPlan("facade-bad", node_contracts=(facade_contract,), observations=(bad,))
+        )
+        self.assertFalse(bad_report.ok)
+        self.assertIn("runtime_facade_alternate_success", finding_codes(bad_report))
 
     def test_strict_path_requires_matching_proof_artifact(self):
         ok_report = review_runtime_path_alignment(

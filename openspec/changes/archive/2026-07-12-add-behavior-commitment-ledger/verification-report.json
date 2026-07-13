@@ -1,0 +1,164 @@
+{
+  "version": 1,
+  "change": "add-behavior-commitment-ledger",
+  "status": "pass",
+  "generatedAt": "2026-07-12T06:55:06.210Z",
+  "contractPath": "openspec/changes/add-behavior-commitment-ledger/verification-contract.yaml",
+  "reportPath": "openspec/changes/add-behavior-commitment-ledger/verification-report.json",
+  "contractHash": "fc15bc7e67d3fc4534ec1c807c82ba3643e800b1be5aba6354a09d6e7ffb77c1",
+  "sourceHashes": {
+    ".agents/skills/flowguard-agent-workflow-rehearsal/SKILL.md": "a9756fd8ad08888c8e37f7a0f3965eb11ec201bf874d8791f287d36ca7095cc3",
+    ".agents/skills/flowguard-architecture-reduction/SKILL.md": "5e038bff039ee25d4a3edff890f6b851fea3c541cbb3e1360bbeeb76b38b726b",
+    ".agents/skills/flowguard-behavior-commitment-ledger/SKILL.md": "4a1b06f34c1a52f0cdf7838447f6e3ad9ec3ce1936d349f485965721ca72517d",
+    ".agents/skills/flowguard-code-structure-recommendation/SKILL.md": "3e6ae992a0e2fd2e8cacc1a70f739e907d30adb7c6ac4979f515748fe2df435b",
+    ".agents/skills/flowguard-contract-exhaustion-mesh/SKILL.md": "7ea33edc53a9bd77a17e25c989c266b6c225b32a29c21dbd4f019a24bd63253a",
+    ".agents/skills/flowguard-development-process-flow/SKILL.md": "333672461b0f777eb7648682ff0739a1ff128dd49f4adfcd97f4567f5e32dbe0",
+    ".agents/skills/flowguard-existing-model-preflight/SKILL.md": "5c985a74b43b02cc3e414e05889631926c9a6db7eb88e40395ed585cd188ed1c",
+    ".agents/skills/flowguard-field-lifecycle-mesh/SKILL.md": "d3012535700256dd404f8ff183d47f68bd15fb061ad4e0176b8c6c96b602f575",
+    ".agents/skills/flowguard-model-mesh/SKILL.md": "1ae810f447656231a0f31326aed0fe2f3362ff58d3261c61d1f20c4626df728a",
+    ".agents/skills/flowguard-model-miss-review/SKILL.md": "3c53e78cf237a62a1d4b62899fa7386bd7cf1bdc5fd71e53df5a69eddc6ae888",
+    ".agents/skills/flowguard-model-test-alignment/SKILL.md": "aa8d4a17f66b9d85a4556c9ebba81e25e82c3f125a57ea9093c4c9cd3748e5bc",
+    ".agents/skills/flowguard-model-topology-hazard-review/SKILL.md": "5a8457f38ac3d2132680f43757b322e88cddcba46a91b8017d6de9714d9c3c03",
+    ".agents/skills/flowguard-plan-detailing-compiler/SKILL.md": "6f6bc27c609c0436bcf1362e83a2e6d37665d3d394fd559f1f49c5e1a293042b",
+    ".agents/skills/flowguard-structure-mesh/SKILL.md": "2d65294f9f71246c9d8ef8ca8b733832b5b303e23b72a9a7651613282de537b7",
+    ".agents/skills/flowguard-test-mesh/SKILL.md": "82c66bb44916ded754d90d6001acba0f16c7b36d7acb904f85e19daf1d2acf7e",
+    ".agents/skills/flowguard-ui-flow-structure/SKILL.md": "0754b9acbc2b1f35f95f3839e6e14ed93015d138d117d5b4057dfe17ad4c0297",
+    ".agents/skills/model-first-function-flow/SKILL.md": "b9ff4ed0d93fffe931a1f744ab0cee59f77185e0367760cedd7e7f32f54888d1",
+    "docs/behavior_commitment_ledger.md": "4455dc321c183743386b9fec4927f1f9123d44eb6edd8b8d15bff7e371e23459",
+    "flowguard/behavior_commitment.py": "19dacf75fdb34d21088e8e52d0fce4ed8034f3614aa52dcf0507fc492f7f77ca",
+    "flowguard/contract_exhaustion.py": "6a6d73023867fb8ed2206fd01446c7699a56ce4e0097155927d11a05389cfb69",
+    "flowguard/development_process_flow.py": "05d834341c937abd650b67c350428dfca913a20f12b84df5f83fadb4bc904d7d",
+    "flowguard/primary_path_authority.py": "95952a245964c54597ef078e568f349004411b7febe98e79eda13f963b85547e",
+    "flowguard/risk_evidence_ledger.py": "e7d6fb5c9c948ed6e6749526a4488bd0a3a873ad68ed7c2519c1387f5775214e",
+    "flowguard/template_text/behavior_commitment_ledger.py": "44bc631ed7664e2a97c623db2d8b780e7589147233c6594fa3cdffc80286c48b",
+    "flowguard/templates.py": "aa23b2d0054909032a52cbf213e25b0410123f13ca2948e52b71fe4b21b944cb",
+    "openspec/changes/add-behavior-commitment-ledger/design.md": "6ade3b7ed80438f618fee0d5be20376cfdf2617f6ff9c7a38d494875128fbf6e",
+    "openspec/changes/add-behavior-commitment-ledger/proposal.md": "4feb6512e0637acb0100a0b61ce33d4177c4bbd992f3a517d0be2149c0e03dff",
+    "openspec/changes/add-behavior-commitment-ledger/specs/behavior-commitment-ledger/spec.md": "a14c40714104e80d0034866500f38a2b52015410a37117e5af1e5e93fb0ea5b2",
+    "openspec/changes/add-behavior-commitment-ledger/specs/contract-exhaustion-mesh/spec.md": "ba9190149208002274237930dc9913850f4046a05467eafe37c316a6ec946dae",
+    "openspec/changes/add-behavior-commitment-ledger/specs/development-process-flow/spec.md": "f6d8855e352e39e15380f56fbc29e657e8f11e0186279a778deab01ef40212a6",
+    "openspec/changes/add-behavior-commitment-ledger/specs/existing-model-preflight/spec.md": "eb23a4397ba969e35d4e05ca70400142c09c8bd30e193bb816640f1883852266",
+    "openspec/changes/add-behavior-commitment-ledger/specs/flowguard-codex-skill-satellites/spec.md": "94423f12c9ab8ccc15b6e7bfdcf5af76ce40d3bee5b60689adbb01792f50db7b",
+    "openspec/changes/add-behavior-commitment-ledger/specs/flowguard-ui-flow-structure/spec.md": "0789232ce82840dfb762605bc5badaad7f3573a41b219587034647b8b8f76909",
+    "openspec/changes/add-behavior-commitment-ledger/specs/model-first-function-flow/spec.md": "cdeea793cce00bc694110c1d85d08cdfc9a499d37ab9b42089a057b977237d8f",
+    "openspec/changes/add-behavior-commitment-ledger/specs/model-miss-review/spec.md": "05c7d464db3c2295e5d004bdb1d6f137b8be46803e7d858bb8e68eee0522172e",
+    "openspec/changes/add-behavior-commitment-ledger/specs/model-test-alignment/spec.md": "f8fcccc5ce7e6f3bba7b1d983b6715c25d6ebe32d2c3c332e8168341a3cb1906",
+    "openspec/changes/add-behavior-commitment-ledger/specs/primary-path-authority/spec.md": "acfb79ec6907668686596e0069f4d693a17a6ec7bad1c90986942b6b2b7f1f3c",
+    "openspec/changes/add-behavior-commitment-ledger/specs/risk-evidence-ledger/spec.md": "9f0bbbffeb553cb047df2dd151f902d9f2eb23520ff1aed32d75a0470c67e0d0",
+    "openspec/changes/add-behavior-commitment-ledger/specs/test-evidence-mesh/spec.md": "b686ef086ce3f434954412c2e8fce181ff9ea91ff2984d84a3d2e2ae0387114b",
+    "openspec/changes/add-behavior-commitment-ledger/tasks.md": "727dd22e26ffa029b6220b05b323cd084f64af5619589c3e4ad88c66e98a06bd",
+    "openspec/changes/add-behavior-commitment-ledger/verification-contract.yaml": "fc15bc7e67d3fc4534ec1c807c82ba3643e800b1be5aba6354a09d6e7ffb77c1",
+    "tests/test_api_surface.py": "3272fbc4d9e070c770661210aab8801e67b14cbb185a37470da332f5e297b5e1",
+    "tests/test_behavior_commitment_contract_exhaustion.py": "540341b9f029a5e17c3988d4fc7880e6ceabc8207ba7e9356e2b88cfd892c514",
+    "tests/test_behavior_commitment_ledger.py": "b635d51e3a7194e831f0571a67265cf2ab9b78c7a3cee58c8f7fe8c1c9575aea",
+    "tests/test_behavior_commitment_primary_path.py": "0c7af2f4e14a13c7ae54b10cb124de0d6035b51f90169ef8782b3f6503688b6a",
+    "tests/test_behavior_commitment_release_gate.py": "5dfebeb82106364fc1f4a8b5075a09239d9eb169c3b0a62a6454fd2e8953f8f1",
+    "tests/test_public_templates.py": "68d33eec9dbef93ea56d035c8849f932f16f1db2829c82dbf0f6858bb5342588"
+  },
+  "issues": [],
+  "checks": [
+    {
+      "id": "check.behavior_ledger.core_matrix",
+      "kind": "command",
+      "required": true,
+      "covers": [
+        "req.behavior_ledger.full_coverage",
+        "req.behavior_ledger.bidirectional_mapping",
+        "req.behavior_ledger.primary_owner"
+      ],
+      "status": "passed",
+      "command": "python",
+      "args": [
+        "-m",
+        "pytest",
+        "tests/test_behavior_commitment_ledger.py"
+      ],
+      "expectedExitCode": 0,
+      "exitCode": 0,
+      "durationMs": 3523,
+      "stdout": "============================= test session starts =============================\r\nplatform win32 -- Python 3.12.10, pytest-9.0.3, pluggy-1.6.0\r\nrootdir: C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\r\nconfigfile: pyproject.toml\r\ncollected 14 items\r\n\r\ntests\\test_behavior_commitment_ledger.py ..............                  [100%]\r\n\r\n============================= 14 passed in 1.84s ==============================\r\n",
+      "stderr": ""
+    },
+    {
+      "id": "check.behavior_ledger.ppa_matrix",
+      "kind": "command",
+      "required": true,
+      "covers": [
+        "req.behavior_ledger.path_sensitive_ppa"
+      ],
+      "status": "passed",
+      "command": "python",
+      "args": [
+        "-m",
+        "pytest",
+        "tests/test_behavior_commitment_primary_path.py"
+      ],
+      "expectedExitCode": 0,
+      "exitCode": 0,
+      "durationMs": 3045,
+      "stdout": "============================= test session starts =============================\r\nplatform win32 -- Python 3.12.10, pytest-9.0.3, pluggy-1.6.0\r\nrootdir: C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\r\nconfigfile: pyproject.toml\r\ncollected 3 items\r\n\r\ntests\\test_behavior_commitment_primary_path.py ...                       [100%]\r\n\r\n============================== 3 passed in 1.73s ==============================\r\n",
+      "stderr": ""
+    },
+    {
+      "id": "check.behavior_ledger.contract_exhaustion",
+      "kind": "command",
+      "required": true,
+      "covers": [
+        "req.behavior_ledger.cartesian"
+      ],
+      "status": "passed",
+      "command": "python",
+      "args": [
+        "-m",
+        "pytest",
+        "tests/test_behavior_commitment_contract_exhaustion.py"
+      ],
+      "expectedExitCode": 0,
+      "exitCode": 0,
+      "durationMs": 3405,
+      "stdout": "============================= test session starts =============================\r\nplatform win32 -- Python 3.12.10, pytest-9.0.3, pluggy-1.6.0\r\nrootdir: C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\r\nconfigfile: pyproject.toml\r\ncollected 3 items\r\n\r\ntests\\test_behavior_commitment_contract_exhaustion.py ...                [100%]\r\n\r\n============================== 3 passed in 1.94s ==============================\r\n",
+      "stderr": ""
+    },
+    {
+      "id": "check.behavior_ledger.release_gate",
+      "kind": "command",
+      "required": true,
+      "covers": [
+        "req.integrations.risk_release"
+      ],
+      "status": "passed",
+      "command": "python",
+      "args": [
+        "-m",
+        "pytest",
+        "tests/test_behavior_commitment_release_gate.py"
+      ],
+      "expectedExitCode": 0,
+      "exitCode": 0,
+      "durationMs": 3591,
+      "stdout": "============================= test session starts =============================\r\nplatform win32 -- Python 3.12.10, pytest-9.0.3, pluggy-1.6.0\r\nrootdir: C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\r\nconfigfile: pyproject.toml\r\ncollected 1 item\r\n\r\ntests\\test_behavior_commitment_release_gate.py .                         [100%]\r\n\r\n============================== 1 passed in 1.84s ==============================\r\n",
+      "stderr": ""
+    },
+    {
+      "id": "check.behavior_ledger.docs",
+      "kind": "command",
+      "required": true,
+      "covers": [
+        "req.integrations.skills_docs"
+      ],
+      "status": "passed",
+      "command": "python",
+      "args": [
+        "-m",
+        "pytest",
+        "tests/test_public_templates.py",
+        "tests/test_api_surface.py"
+      ],
+      "expectedExitCode": 0,
+      "exitCode": 0,
+      "durationMs": 282947,
+      "stdout": "============================= test session starts =============================\r\nplatform win32 -- Python 3.12.10, pytest-9.0.3, pluggy-1.6.0\r\nrootdir: C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\r\nconfigfile: pyproject.toml\r\ncollected 66 items\r\n\r\ntests\\test_public_templates.py ......................................... [ 62%]\r\n...                                                                      [ 66%]\r\ntests\\test_api_surface.py ......................                         [100%]\r\n\r\n======================= 66 passed in 281.42s (0:04:41) ========================\r\n",
+      "stderr": ""
+    }
+  ]
+}

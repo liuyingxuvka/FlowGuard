@@ -41,6 +41,7 @@ from flowguard import (
     StateClosureCase,
     TransitionCoverageCell,
     TransitionCoverageMatrix,
+    TEST_KIND_REPLAY,
     artifact_payload_cases_to_contract_cases,
     contract_fault_profiles_from_report,
     contract_exhaustion_to_composite_handoff_acceptance_ids,
@@ -97,6 +98,83 @@ class ContractExhaustionTests(unittest.TestCase):
         obligations = contract_exhaustion_to_model_obligations(report)
         self.assertEqual(3, len(obligations))
         self.assertTrue(all("contract_exhaustion:" in obligation.obligation_id for obligation in obligations))
+
+    def test_omitted_family_member_and_reduction_candidate_generate_downstream_cases(self):
+        report = review_contract_exhaustion(
+            ContractExhaustionPlan(
+                "owner-inventory",
+                model_id="router",
+                inventory_revision="owner-inventory:v1",
+                expected_family_member_ids=("ui", "cli"),
+                materialized_family_member_ids=("ui",),
+                require_family_inventory=True,
+                expected_reduction_candidate_ids=("primary", "legacy-facade"),
+                materialized_reduction_candidate_ids=("primary",),
+                require_reduction_inventory=True,
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertEqual(("cli",), report.omitted_family_member_ids)
+        self.assertEqual(("legacy-facade",), report.omitted_reduction_candidate_ids)
+        self.assertIn("expected_family_member_omitted", {finding.code for finding in report.findings})
+        self.assertIn("expected_reduction_candidate_omitted", {finding.code for finding in report.findings})
+        self.assertTrue(contract_exhaustion_to_test_mesh_cell_ids(report))
+        self.assertTrue(contract_exhaustion_to_test_mesh_shard_ids(report))
+        obligations = contract_exhaustion_to_model_obligations(report)
+        self.assertEqual(2, len(obligations))
+        self.assertTrue(all(obligation.required_test_kinds == (TEST_KIND_REPLAY,) for obligation in obligations))
+
+    def test_similarity_handoff_materializes_typed_mta_obligations_and_testmesh_shard(self):
+        relation_id = "similarity:router-duplicate"
+        test_obligation_id = "similarity-test:router-duplicate"
+        code_obligation_id = "similarity-code:router-duplicate"
+        report = review_contract_exhaustion(
+            ContractExhaustionPlan(
+                "similarity-materialization",
+                model_id="router",
+                inventory_revision="similarity:v1",
+                similarity_handoff={
+                    "relation_ids": (relation_id,),
+                    "test_obligation_ids": (test_obligation_id,),
+                    "code_obligation_ids": (code_obligation_id,),
+                },
+                similarity_materializations={
+                    relation_id: ("candidate:merge-handlers",),
+                    test_obligation_id: ("member:ui",),
+                    code_obligation_id: ("candidate:merge-handlers",),
+                },
+            )
+        )
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual(
+            (relation_id, test_obligation_id, code_obligation_id),
+            report.materialized_similarity_ids,
+        )
+        self.assertEqual(3, len(report.downstream_similarity_obligation_ids))
+        self.assertTrue(contract_exhaustion_to_test_mesh_shard_ids(report))
+        obligations = contract_exhaustion_to_model_obligations(report)
+        relation_obligation = next(
+            obligation for obligation in obligations if relation_id in obligation.similarity_relation_ids
+        )
+        self.assertIn(relation_id, relation_obligation.similarity_relation_ids)
+
+    def test_opaque_similarity_handoff_id_blocks_exhaustion_confidence(self):
+        report = review_contract_exhaustion(
+            ContractExhaustionPlan(
+                "opaque-similarity",
+                model_id="router",
+                inventory_revision="similarity:v2",
+                similarity_handoff={"relation_ids": ("similarity:opaque",)},
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertEqual(("similarity:opaque",), report.unmaterialized_similarity_ids)
+        self.assertIn("unmaterialized_similarity_id", {finding.code for finding in report.findings})
+        self.assertEqual(1, len(contract_exhaustion_to_model_obligations(report)))
+        self.assertTrue(contract_exhaustion_to_test_mesh_shard_ids(report))
 
     def test_model_local_cartesian_interaction_group_generates_receipt_and_route_obligations(self):
         report = review_contract_exhaustion(

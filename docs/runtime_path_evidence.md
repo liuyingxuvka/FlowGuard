@@ -9,6 +9,13 @@ Use it when tests, replay, a runtime gateway, a leaf boundary matrix, a parent
 mesh, or a final closure claim needs to compare real execution with a
 FlowGuard model.
 
+Path-sensitive evidence also preserves `business_intent_id`,
+`behavior_commitment_id`, and the selected `primary_path_id` through contracts,
+observations, and runs. A broad plan declares every expected same-intent surface
+and candidate. Retained aliases, adapters, wrappers, and facades need a current
+trace that reaches the selected primary path; independent facade success is a
+second-authority failure, not compatibility evidence.
+
 ## Required Row Shape
 
 Every runtime node observation should carry:

@@ -38,6 +38,10 @@ from flowguard import (
     UIInteractionModel,
     UIJourneyCoverage,
     UIJourneyEntryPoint,
+    UIProductConsistencyObservation,
+    UIProductConsistencyPlan,
+    UIProductConsistencyRule,
+    UIProductSurface,
     UIRegionRecommendation,
     UIRenderEvidence,
     UIRenderEvidenceSet,
@@ -52,6 +56,9 @@ from flowguard import (
     UITransition,
     UIVisibleSurface,
     UIVisibleSurfaceItem,
+    UI_PRODUCT_CLAIM_COMPLETE,
+    UI_PRODUCT_CONSISTENCY_KINDS,
+    UI_PRODUCT_CONSISTENCY_TYPOGRAPHY,
     transition_coverage_to_model_obligations,
     transition_coverage_to_required_leaf_cell_ids,
     ui_interaction_model_to_transition_coverage,
@@ -61,6 +68,7 @@ from flowguard import (
     review_ui_implementation_validation,
     review_ui_interaction_model,
     review_ui_journey_coverage,
+    review_ui_product_consistency,
     review_ui_render_evidence,
     review_ui_responsiveness_contract,
     review_ui_structure_derivation,
@@ -1419,6 +1427,93 @@ def broken_text_hierarchy() -> UITextHierarchyBlueprint:
     )
 
 
+def product_consistency_plan(*, drift: bool = False) -> UIProductConsistencyPlan:
+    intent_id = "intent:run-project"
+    commitment_id = "commitment:run-project"
+    primary_path_id = "path:run-project"
+    revision = "project-ui-language:v1"
+    surface_ids = ("surface:workbench", "surface:run-dialog")
+    rule_ids = tuple(f"rule:{kind}" for kind in UI_PRODUCT_CONSISTENCY_KINDS)
+    canonical_values = {
+        "component": "primary-run-action",
+        "navigation": "workbench-action-area",
+        "interaction": "invoke-run-project",
+        "feedback": "run-started",
+        "recovery": "return-to-loaded",
+        "transition": "loaded-to-running",
+    }
+    surfaces = tuple(
+        UIProductSurface(
+            surface_id,
+            surface_kind,
+            business_bearing=True,
+            business_intent_id=intent_id,
+            behavior_commitment_id=commitment_id,
+            primary_path_id=primary_path_id,
+            consistency_rule_ids=rule_ids,
+            current_revision=revision,
+            evidence_refs=(f"evidence:{surface_id}",),
+            rationale="Repeated run surfaces share the same behavior and product language.",
+        )
+        for surface_id, surface_kind in zip(surface_ids, ("page", "dialog"))
+    )
+    rules = tuple(
+        UIProductConsistencyRule(
+            f"rule:{kind}",
+            kind,
+            f"run-project:{kind}",
+            canonical_surface_id=surface_ids[0],
+            expected_surface_ids=surface_ids,
+            canonical_value=canonical_values.get(kind, ""),
+            hierarchy_role="primary_action_label" if kind == UI_PRODUCT_CONSISTENCY_TYPOGRAPHY else "",
+            typography_token_id="action-primary" if kind == UI_PRODUCT_CONSISTENCY_TYPOGRAPHY else "",
+            typography_scale="1rem" if kind == UI_PRODUCT_CONSISTENCY_TYPOGRAPHY else "",
+            typography_weight="600" if kind == UI_PRODUCT_CONSISTENCY_TYPOGRAPHY else "",
+            business_intent_id=intent_id,
+            behavior_commitment_id=commitment_id,
+            primary_path_id=primary_path_id,
+            rationale="Canonical semantic rule for the repeated run action.",
+        )
+        for kind in UI_PRODUCT_CONSISTENCY_KINDS
+    )
+    observations = tuple(
+        UIProductConsistencyObservation(
+            f"observation:{kind}:{surface_id}",
+            f"rule:{kind}",
+            surface_id,
+            observed_value=(
+                "open-independent-handler"
+                if drift and kind == "interaction" and surface_id == surface_ids[1]
+                else canonical_values.get(kind, "")
+            ),
+            hierarchy_role="primary_action_label" if kind == UI_PRODUCT_CONSISTENCY_TYPOGRAPHY else "",
+            typography_token_id="action-primary" if kind == UI_PRODUCT_CONSISTENCY_TYPOGRAPHY else "",
+            typography_scale="1rem" if kind == UI_PRODUCT_CONSISTENCY_TYPOGRAPHY else "",
+            typography_weight="600" if kind == UI_PRODUCT_CONSISTENCY_TYPOGRAPHY else "",
+            business_intent_id=intent_id,
+            behavior_commitment_id=commitment_id,
+            primary_path_id=primary_path_id,
+            evidence_ref=f"evidence:{kind}:{surface_id}",
+            covered_revision=revision,
+            rationale="Observed surface is compared with the canonical semantic rule.",
+        )
+        for kind in UI_PRODUCT_CONSISTENCY_KINDS
+        for surface_id in surface_ids
+    )
+    return UIProductConsistencyPlan(
+        "project-product-language",
+        claim_scope=UI_PRODUCT_CLAIM_COMPLETE,
+        current_revision=revision,
+        expected_surface_ids=surface_ids,
+        surfaces=surfaces,
+        rules=rules,
+        observations=observations,
+        source_interaction_model_id="project-workbench-ui-flow",
+        validation_boundaries=("cross-surface product-language review",),
+        rationale="Complete review compares all declared surfaces and seven semantic kinds.",
+    )
+
+
 def run_checks():
     model = interaction_model()
     structure = structure_derivation()
@@ -1456,6 +1551,7 @@ def run_checks():
         interaction_model=visibility_model,
         visible_surface=visibility_surface,
     )
+    product_consistency_report = review_ui_product_consistency(product_consistency_plan())
     broken_model_report = review_ui_interaction_model(broken_interaction_model())
     broken_journey_report = review_ui_journey_coverage(broken_journey_coverage(), interaction_model=model)
     broken_implementation_report = review_ui_implementation_validation(
@@ -1493,6 +1589,9 @@ def run_checks():
         interaction_model=visibility_model,
         visible_surface=visibility_surface,
     )
+    broken_product_consistency_report = review_ui_product_consistency(
+        product_consistency_plan(drift=True)
+    )
     return (
         model_report,
         journey_report,
@@ -1505,6 +1604,7 @@ def run_checks():
         geometry_report,
         responsiveness_report,
         content_visibility_report,
+        product_consistency_report,
         broken_model_report,
         broken_journey_report,
         broken_implementation_report,
@@ -1517,6 +1617,7 @@ def run_checks():
         broken_internal_visible_report,
         broken_missing_content_class_report,
         broken_on_demand_visible_report,
+        broken_product_consistency_report,
     )
 '''
 
@@ -1540,6 +1641,7 @@ def main() -> int:
         geometry_report,
         responsiveness_report,
         content_visibility_report,
+        product_consistency_report,
         broken_model,
         broken_journey,
         broken_implementation,
@@ -1552,6 +1654,7 @@ def main() -> int:
         broken_internal_visible,
         broken_missing_content_class,
         broken_on_demand_visible,
+        broken_product_consistency,
     ) = run_checks()
     print(model_report.format_text())
     print()
@@ -1574,6 +1677,8 @@ def main() -> int:
     print(responsiveness_report.format_text())
     print()
     print(content_visibility_report.format_text())
+    print()
+    print(product_consistency_report.format_text())
     print()
     print(broken_model.format_text(max_findings=5))
     print()
@@ -1598,6 +1703,8 @@ def main() -> int:
     print(broken_missing_content_class.format_text(max_findings=10))
     print()
     print(broken_on_demand_visible.format_text(max_findings=10))
+    print()
+    print(broken_product_consistency.format_text(max_findings=10))
     return 0 if (
         model_report.ok
         and journey_report.ok
@@ -1610,6 +1717,7 @@ def main() -> int:
         and geometry_report.ok
         and responsiveness_report.ok
         and content_visibility_report.ok
+        and product_consistency_report.ok
         and not broken_model.ok
         and not broken_journey.ok
         and not broken_implementation.ok
@@ -1622,6 +1730,7 @@ def main() -> int:
         and not broken_internal_visible.ok
         and not broken_missing_content_class.ok
         and not broken_on_demand_visible.ok
+        and not broken_product_consistency.ok
     ) else 1
 
 
@@ -1652,6 +1761,10 @@ itself needs a model-first interaction flow.
   section titles, panel titles, labels, button text, status text, captions,
   semantic text keys, typography tokens, parent/child text priority, and
   redundancy rationale;
+- a product-scope UI consistency plan that compares declared page, dialog,
+  capsule, menu, and repeated-component surfaces against canonical typography,
+  component, navigation, interaction, feedback, recovery, and transition
+  rules;
 - human-operability validation with `UIHumanOperabilityAssessment` and
   `review_ui_human_operability`: task coverage, primary controls, affordance,
   action grammar, region semantics, dialog/window returns, keyboard/focus,
@@ -1701,6 +1814,9 @@ itself needs a model-first interaction flow.
   details are visible before reveal on any mapping target, reveal/return
   controls are not operable, item-bound feedback is missing, or implementation
   evidence is opaque rather than structured per content item;
+- consistency findings when an expected surface is omitted, an equal semantic
+  role uses a one-off token or interaction, or an exception changes behavior
+  authority instead of staying bounded and presentation-only;
 - render/geometry/responsiveness findings when evidence lacks a kind, evidence
   is stale, layout evidence reports overflow or overlap, hot-path feedback is
   missing, or cold-path work can overwrite newer state;
@@ -1725,6 +1841,13 @@ differences should have a clear attention or meaning role. Treat excessive
 one-off text sizes, weights, or color roles as typography noise to review and
 consolidate unless the exception has an explicit hero, editorial, brand,
 warning, or state-critical purpose.
+
+Keep `business_intent_id`, `behavior_commitment_id`, `primary_path_id`,
+similarity ids, audit/evidence ids, and diagnostic routing fields inside the
+model. A UI feature may bind to them for validation, but ordinary UI copy does
+not render them. Repeated business actions across surfaces share the same
+commitment and primary path; expand/collapse, focus, and selection may remain
+pure UI behavior.
 """
 
 UI_FLOW_STRUCTURE_FULL_MODEL_TEMPLATE = UI_FLOW_STRUCTURE_MODEL_TEMPLATE
@@ -2015,6 +2138,12 @@ The text hierarchy contract is semantic. Use stable roles such as
 `"supporting-text"`; similar text jobs should usually reuse visual treatments
 unless the exception has an explicit hero, editorial, brand, warning, or
 state-critical purpose.
+
+Treat the declared pages, dialogs, capsules, menus, and repeated components as
+one product language: equal semantic roles reuse the same typography,
+component, navigation, interaction, feedback, recovery, and transition rules.
+Keep internal authority/audit/diagnostic ids out of ordinary UI, and allow only
+bounded presentation exceptions that do not change behavior or visibility.
 
 Escalate to `ui-flow-structure-full-template` when the work needs complete
 journey coverage, region derivation, overlays, redundancy analysis, full text

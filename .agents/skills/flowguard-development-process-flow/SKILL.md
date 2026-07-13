@@ -6,35 +6,39 @@ description: Use as the FlowGuard process-simulator front door for non-trivial r
 # FlowGuard Development Process Flow
 
 ## Purpose
-Model the development lifecycle and evidence freshness across plan, execution, validation, synchronization, and final claims without replacing specialist routes.
+Run the development-process simulator for lifecycle order and evidence freshness without replacing specialists.
 
 ## Entrypoint Scope
-Route id: `development_process_flow`; role: `public_owner`; native owner: `development_process_flow`. This front-door FlowGuard satellite skill owns the simulator and `execution_freshness`; it may delegate `plan_detailing` and `agent_workflow`.
+Front-door FlowGuard satellite skill; route/native `development_process_flow` (`public_owner`). It delegates `plan_detailing` and `agent_workflow`, and owns `execution_freshness`.
 
 ## Local Material Routing
-Read `references/development_process_flow_protocol.md` for simulator modes, artifact/evidence rows, triage classes, freshness rules, and completion gates.
+Read `references/development_process_flow_protocol.md` for modes, rows, triage, freshness, and closure.
 
 ## Entrypoint Acceptance Map
-Accept non-trivial process intent; select `plan_detailing`, `agent_workflow`, `execution_freshness` in order; block out-of-order/stale/progress-only evidence; hand detailed modes to delegated skills and gaps to native owners.
+Accept process intent; order three modes; block stale/progress-only evidence; delegate details and route gaps.
 
 ## Use When
-- Use for rough plans, cross-skill order, plan/edit/test/fix/verify work, background checks, install/shadow sync, version/release/archive/publish, or broad done claims.
+- Use for rough plans, cross-skill/staged work, background checks, sync, version/release/archive/publish, or broad claims.
 
 ## Do Not Use When
-- Do not replace ModelMesh, TestMesh, StructureMesh, Model-Test Alignment, ContractExhaustionMesh, or product behavior modeling; return unclear FlowGuard routing to `model-first-function-flow`.
+- Do not replace mesh/alignment/exhaustion/product owners; return unclear routing to `model-first-function-flow`.
 
 ## Required Workflow
-1. Select simulator modes and register artifact versions, ordered actions, writes, invalidations, peer changes, and evidence ids.
-2. Triage every failed/stale/skipped/running/ambiguous result and invoke the owning route for non-ordinary gaps.
-3. Derive minimum revalidation and close only after current proof artifacts support the requested scope.
+1. Select modes; classify the change subject as `skill_runtime` or `ordinary_software`; register artifact versions, ordered `development_process` actions, typed targets, writes, peer changes, payload schemas, and evidence.
+2. Triage non-pass results and invoke their native owners.
+3. Post-change, run `review_auto_mesh_splits`, scan owners, and derive minimum revalidation.
+4. Track source/shadow/repository/package/skills/Git separately; merge peer writes without rollback.
+5. Close only with current terminal proof per in-scope domain/owner.
 
 ## Hard Gates
-- Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
-- Skipped, stale, failed, running, progress-only, `pass_with_gaps`, or release-only evidence is not current pass evidence.
-- Broad behavior needs current ledger/PPA/coverage/risk gates; background liveness is not completion; new/deepened process models require template harvest closure.
+- Use the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework. Non-pass/progress/release-only evidence is not current pass.
+- Broad claims need owner gates; liveness is not completion; one domain receipt proves only that domain.
+- Projection preserves receipts/continue/rework. Peer writes stale evidence but are merged, not rolled back; target refs never transfer behavior ownership.
+- A `skill_runtime` upgrade has one current authority: replace the former shape directly and reject it in negative fixtures; do not add a fallback, compatibility reader, migration command, converter, alias, or parallel success path.
+- An `ordinary_software` compatibility branch is admitted only by an explicit requirement naming the historical document/data/interface and its bounded reader owner; otherwise use direct current replacement.
 
 ## Output Requirements
-- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`, plus modes, artifact versions, invalidations, triage, and minimum revalidation.
+- Return evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, typed_next_actions, modes, versions, and a diagram whose edges mean order, invalidation, or required revalidation.
 
 ## SkillGuard Maintenance
-- Edit `.skillguard/contract-source.json`, then regenerate derived contracts; SkillGuard validates lifecycle gates and cannot manufacture specialist evidence or release authority.
+- Edit contract source, regenerate; SkillGuard cannot manufacture evidence.

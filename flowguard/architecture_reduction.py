@@ -283,6 +283,19 @@ class ArchitectureReductionCandidate:
     similarity_handoff: SimilarityHandoff | Mapping[str, Any] | None = None
     lifecycle_disposition: str = CANDIDATE_DISPOSITION_ACTIVE
     completion_evidence_refs: tuple[str, ...] = ()
+    business_intent_id: str = ""
+    behavior_commitment_id: str = ""
+    primary_path_id: str = ""
+    inventory_revision: str = ""
+    materialized_similarity_relation_ids: tuple[str, ...] = ()
+    materialized_similarity_code_obligation_ids: tuple[str, ...] = ()
+    owner_code_contract_id: str = ""
+    delegates_to_code_contract_id: str = ""
+    delegates_to_primary_path_id: str = ""
+    delegation_evidence_id: str = ""
+    delegation_evidence_current: bool = False
+    delegation_only: bool = False
+    independent_business_authority: bool = False
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -301,6 +314,27 @@ class ArchitectureReductionCandidate:
         object.__setattr__(self, "similarity_handoff", normalize_similarity_handoff(self.similarity_handoff))
         object.__setattr__(self, "lifecycle_disposition", str(self.lifecycle_disposition))
         object.__setattr__(self, "completion_evidence_refs", _as_tuple(self.completion_evidence_refs))
+        object.__setattr__(self, "business_intent_id", str(self.business_intent_id))
+        object.__setattr__(self, "behavior_commitment_id", str(self.behavior_commitment_id))
+        object.__setattr__(self, "primary_path_id", str(self.primary_path_id))
+        object.__setattr__(self, "inventory_revision", str(self.inventory_revision))
+        object.__setattr__(
+            self,
+            "materialized_similarity_relation_ids",
+            _as_tuple(self.materialized_similarity_relation_ids),
+        )
+        object.__setattr__(
+            self,
+            "materialized_similarity_code_obligation_ids",
+            _as_tuple(self.materialized_similarity_code_obligation_ids),
+        )
+        object.__setattr__(self, "owner_code_contract_id", str(self.owner_code_contract_id))
+        object.__setattr__(self, "delegates_to_code_contract_id", str(self.delegates_to_code_contract_id))
+        object.__setattr__(self, "delegates_to_primary_path_id", str(self.delegates_to_primary_path_id))
+        object.__setattr__(self, "delegation_evidence_id", str(self.delegation_evidence_id))
+        object.__setattr__(self, "delegation_evidence_current", bool(self.delegation_evidence_current))
+        object.__setattr__(self, "delegation_only", bool(self.delegation_only))
+        object.__setattr__(self, "independent_business_authority", bool(self.independent_business_authority))
         object.__setattr__(self, "metadata", dict(self.metadata))
 
     @property
@@ -336,6 +370,19 @@ class ArchitectureReductionCandidate:
             else None,
             "lifecycle_disposition": self.lifecycle_disposition,
             "completion_evidence_refs": list(self.completion_evidence_refs),
+            "business_intent_id": self.business_intent_id,
+            "behavior_commitment_id": self.behavior_commitment_id,
+            "primary_path_id": self.primary_path_id,
+            "inventory_revision": self.inventory_revision,
+            "materialized_similarity_relation_ids": list(self.materialized_similarity_relation_ids),
+            "materialized_similarity_code_obligation_ids": list(self.materialized_similarity_code_obligation_ids),
+            "owner_code_contract_id": self.owner_code_contract_id,
+            "delegates_to_code_contract_id": self.delegates_to_code_contract_id,
+            "delegates_to_primary_path_id": self.delegates_to_primary_path_id,
+            "delegation_evidence_id": self.delegation_evidence_id,
+            "delegation_evidence_current": self.delegation_evidence_current,
+            "delegation_only": self.delegation_only,
+            "independent_business_authority": self.independent_business_authority,
             "metadata": to_jsonable(dict(self.metadata)),
         }
 
@@ -405,6 +452,14 @@ class ArchitectureReductionPlan:
     target_structure: CodeStructureRecommendation | None = None
     rationale: str = ""
     compatibility_surfaces: tuple[CompatibilitySurfaceClassification, ...] = ()
+    inventory_revision: str = ""
+    inventory_source_ref: str = ""
+    inventory_current: bool = True
+    expected_candidate_ids: tuple[str, ...] = ()
+    scoped_candidate_reasons: Mapping[str, str] = field(default_factory=dict)
+    require_complete_inventory: bool = False
+    similarity_handoff: SimilarityHandoff | Mapping[str, Any] | None = None
+    scoped_similarity_reasons: Mapping[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "reduction_id", str(self.reduction_id))
@@ -412,6 +467,22 @@ class ArchitectureReductionPlan:
         object.__setattr__(self, "companion_route_triggers", tuple(self.companion_route_triggers))
         object.__setattr__(self, "compatibility_surfaces", tuple(self.compatibility_surfaces))
         object.__setattr__(self, "rationale", str(self.rationale))
+        object.__setattr__(self, "inventory_revision", str(self.inventory_revision))
+        object.__setattr__(self, "inventory_source_ref", str(self.inventory_source_ref))
+        object.__setattr__(self, "inventory_current", bool(self.inventory_current))
+        object.__setattr__(self, "expected_candidate_ids", _as_tuple(self.expected_candidate_ids))
+        object.__setattr__(
+            self,
+            "scoped_candidate_reasons",
+            {str(key): str(value) for key, value in dict(self.scoped_candidate_reasons).items()},
+        )
+        object.__setattr__(self, "require_complete_inventory", bool(self.require_complete_inventory))
+        object.__setattr__(self, "similarity_handoff", normalize_similarity_handoff(self.similarity_handoff))
+        object.__setattr__(
+            self,
+            "scoped_similarity_reasons",
+            {str(key): str(value) for key, value in dict(self.scoped_similarity_reasons).items()},
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -422,6 +493,14 @@ class ArchitectureReductionPlan:
             "compatibility_surfaces": [surface.to_dict() for surface in self.compatibility_surfaces],
             "target_structure": self.target_structure.to_dict() if self.target_structure else None,
             "rationale": self.rationale,
+            "inventory_revision": self.inventory_revision,
+            "inventory_source_ref": self.inventory_source_ref,
+            "inventory_current": self.inventory_current,
+            "expected_candidate_ids": list(self.expected_candidate_ids),
+            "scoped_candidate_reasons": to_jsonable(dict(self.scoped_candidate_reasons)),
+            "require_complete_inventory": self.require_complete_inventory,
+            "similarity_handoff": self.similarity_handoff.to_dict() if self.similarity_handoff else None,
+            "scoped_similarity_reasons": to_jsonable(dict(self.scoped_similarity_reasons)),
         }
 
 
@@ -469,6 +548,13 @@ class ArchitectureReductionReport:
     required_next_routes: tuple[str, ...] = ()
     summary: str = ""
     compatibility_surfaces: tuple[CompatibilitySurfaceClassification, ...] = ()
+    inventory_revision: str = ""
+    covered_candidate_ids: tuple[str, ...] = ()
+    scoped_candidate_ids: tuple[str, ...] = ()
+    missing_candidate_ids: tuple[str, ...] = ()
+    unexpected_candidate_ids: tuple[str, ...] = ()
+    materialized_similarity_relation_ids: tuple[str, ...] = ()
+    materialized_similarity_code_obligation_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "reduction_id", str(self.reduction_id))
@@ -479,6 +565,21 @@ class ArchitectureReductionReport:
         object.__setattr__(self, "target_actions", tuple(self.target_actions))
         object.__setattr__(self, "required_next_routes", _as_tuple(self.required_next_routes))
         object.__setattr__(self, "compatibility_surfaces", tuple(self.compatibility_surfaces))
+        object.__setattr__(self, "inventory_revision", str(self.inventory_revision))
+        object.__setattr__(self, "covered_candidate_ids", _as_tuple(self.covered_candidate_ids))
+        object.__setattr__(self, "scoped_candidate_ids", _as_tuple(self.scoped_candidate_ids))
+        object.__setattr__(self, "missing_candidate_ids", _as_tuple(self.missing_candidate_ids))
+        object.__setattr__(self, "unexpected_candidate_ids", _as_tuple(self.unexpected_candidate_ids))
+        object.__setattr__(
+            self,
+            "materialized_similarity_relation_ids",
+            _as_tuple(self.materialized_similarity_relation_ids),
+        )
+        object.__setattr__(
+            self,
+            "materialized_similarity_code_obligation_ids",
+            _as_tuple(self.materialized_similarity_code_obligation_ids),
+        )
         if not self.summary:
             status = "OK" if self.ok else "BLOCKED"
             object.__setattr__(
@@ -538,6 +639,13 @@ class ArchitectureReductionReport:
             "target_actions": [action.to_dict() for action in self.target_actions],
             "required_next_routes": list(self.required_next_routes),
             "compatibility_surfaces": [surface.to_dict() for surface in self.compatibility_surfaces],
+            "inventory_revision": self.inventory_revision,
+            "covered_candidate_ids": list(self.covered_candidate_ids),
+            "scoped_candidate_ids": list(self.scoped_candidate_ids),
+            "missing_candidate_ids": list(self.missing_candidate_ids),
+            "unexpected_candidate_ids": list(self.unexpected_candidate_ids),
+            "materialized_similarity_relation_ids": list(self.materialized_similarity_relation_ids),
+            "materialized_similarity_code_obligation_ids": list(self.materialized_similarity_code_obligation_ids),
             "summary": self.summary,
         }
 
@@ -560,6 +668,19 @@ def _decision_for_findings(
     blockers = _blockers(findings)
     if blockers:
         priority = [
+            ("candidate_inventory_revision_missing", "candidate_inventory_blocked"),
+            ("candidate_inventory_provenance_missing", "candidate_inventory_blocked"),
+            ("candidate_inventory_stale", "candidate_inventory_blocked"),
+            ("expected_candidate_inventory_missing", "candidate_inventory_blocked"),
+            ("expected_reduction_candidate_missing", "candidate_inventory_blocked"),
+            ("unexpected_reduction_candidate", "candidate_inventory_blocked"),
+            ("similarity_candidate_inventory_empty", "candidate_inventory_blocked"),
+            ("unmaterialized_similarity_reduction_relation", "candidate_inventory_blocked"),
+            ("unmaterialized_similarity_reduction_code_obligation", "candidate_inventory_blocked"),
+            ("facade_delegation_contract_incomplete", "facade_delegation_blocked"),
+            ("facade_delegation_target_mismatch", "facade_delegation_blocked"),
+            ("facade_delegation_evidence_stale", "facade_delegation_blocked"),
+            ("facade_independent_business_authority", "facade_delegation_blocked"),
             ("missing_observable_contract", "missing_observable_contract"),
             ("incomplete_candidate", "candidate_blocked"),
             ("invalid_candidate_type", "candidate_blocked"),
@@ -637,6 +758,170 @@ def _surfaces_by_candidate(
     return {candidate_id: tuple(items) for candidate_id, items in grouped.items()}
 
 
+def _candidate_inventory_findings(
+    plan: ArchitectureReductionPlan,
+) -> tuple[
+    list[ArchitectureReductionFinding],
+    tuple[str, ...],
+    tuple[str, ...],
+    tuple[str, ...],
+    tuple[str, ...],
+]:
+    findings: list[ArchitectureReductionFinding] = []
+    expected = set(plan.expected_candidate_ids)
+    materialized = {candidate.candidate_id for candidate in plan.candidates if candidate.candidate_id}
+    scoped = set(plan.scoped_candidate_reasons)
+    inventory_claimed = bool(plan.require_complete_inventory or expected or plan.similarity_handoff)
+    if inventory_claimed and not plan.inventory_revision:
+        findings.append(
+            ArchitectureReductionFinding(
+                "candidate_inventory_revision_missing",
+                "architecture-reduction candidate completeness requires an inventory revision",
+            )
+        )
+    if inventory_claimed and not plan.inventory_source_ref:
+        findings.append(
+            ArchitectureReductionFinding(
+                "candidate_inventory_provenance_missing",
+                "architecture-reduction expected inventory lacks source provenance",
+            )
+        )
+    if inventory_claimed and not plan.inventory_current:
+        findings.append(
+            ArchitectureReductionFinding(
+                "candidate_inventory_stale",
+                "architecture-reduction candidate inventory is stale",
+            )
+        )
+    if plan.require_complete_inventory and not expected:
+        findings.append(
+            ArchitectureReductionFinding(
+                "expected_candidate_inventory_missing",
+                "complete architecture-reduction review has no independently declared expected candidates",
+            )
+        )
+    for candidate_id, reason in plan.scoped_candidate_reasons.items():
+        if not reason:
+            findings.append(
+                ArchitectureReductionFinding(
+                    "candidate_scoped_reason_missing",
+                    "scoped candidate disposition requires a reason",
+                    candidate_id=candidate_id,
+                )
+            )
+    missing = expected - materialized - scoped
+    for candidate_id in sorted(missing):
+        findings.append(
+            ArchitectureReductionFinding(
+                "expected_reduction_candidate_missing",
+                "expected architecture-reduction candidate is omitted without scoped disposition",
+                candidate_id=candidate_id,
+                metadata={"inventory_revision": plan.inventory_revision},
+            )
+        )
+    unexpected = materialized - expected if plan.require_complete_inventory else set()
+    for candidate_id in sorted(unexpected):
+        findings.append(
+            ArchitectureReductionFinding(
+                "unexpected_reduction_candidate",
+                "materialized architecture-reduction candidate is outside the complete expected inventory",
+                candidate_id=candidate_id,
+                metadata={"inventory_revision": plan.inventory_revision},
+            )
+        )
+    for candidate in plan.candidates:
+        if plan.inventory_revision and candidate.inventory_revision != plan.inventory_revision:
+            findings.append(
+                ArchitectureReductionFinding(
+                    "candidate_inventory_revision_mismatch",
+                    "candidate was derived from a different or missing inventory revision",
+                    candidate_id=candidate.candidate_id,
+                    metadata={"expected": plan.inventory_revision, "actual": candidate.inventory_revision},
+                )
+            )
+    return (
+        findings,
+        tuple(sorted(expected & materialized)),
+        tuple(sorted(expected & scoped)),
+        tuple(sorted(missing)),
+        tuple(sorted(unexpected)),
+    )
+
+
+def _plan_similarity_findings(
+    plan: ArchitectureReductionPlan,
+) -> tuple[list[ArchitectureReductionFinding], tuple[str, ...], tuple[str, ...]]:
+    handoff = plan.similarity_handoff
+    materialized_relations = {
+        item_id
+        for candidate in plan.candidates
+        for item_id in (
+            candidate.materialized_similarity_relation_ids
+            + (candidate.similarity_handoff.relation_ids if candidate.similarity_handoff else ())
+        )
+    }
+    materialized_code = {
+        item_id
+        for candidate in plan.candidates
+        for item_id in (
+            candidate.materialized_similarity_code_obligation_ids
+            + (candidate.similarity_handoff.code_obligation_ids if candidate.similarity_handoff else ())
+        )
+    }
+    if handoff is None:
+        return [], tuple(sorted(materialized_relations)), tuple(sorted(materialized_code))
+    findings: list[ArchitectureReductionFinding] = []
+    scoped = set(plan.scoped_similarity_reasons)
+    for item_id, reason in plan.scoped_similarity_reasons.items():
+        if not reason:
+            findings.append(
+                ArchitectureReductionFinding(
+                    "similarity_scoped_reason_missing",
+                    "scoped similarity candidate disposition requires a reason",
+                    item_id=item_id,
+                )
+            )
+    if not handoff.evidence_current:
+        findings.append(
+            ArchitectureReductionFinding(
+                "stale_similarity_candidate_provenance",
+                "architecture-reduction similarity handoff evidence is stale",
+                metadata=handoff.to_dict(),
+            )
+        )
+    if (handoff.relation_ids or handoff.code_obligation_ids) and not plan.candidates:
+        findings.append(
+            ArchitectureReductionFinding(
+                "similarity_candidate_inventory_empty",
+                "duplicate/same-intent similarity handoff produced no concrete reduction candidates",
+                metadata=handoff.to_dict(),
+            )
+        )
+    for relation_id in handoff.relation_ids:
+        if relation_id in materialized_relations or relation_id in scoped:
+            continue
+        findings.append(
+            ArchitectureReductionFinding(
+                "unmaterialized_similarity_reduction_relation",
+                "similarity relation id is not bound to a concrete reduction candidate",
+                item_id=relation_id,
+                metadata=handoff.to_dict(),
+            )
+        )
+    for obligation_id in handoff.code_obligation_ids:
+        if obligation_id in materialized_code or obligation_id in scoped:
+            continue
+        findings.append(
+            ArchitectureReductionFinding(
+                "unmaterialized_similarity_reduction_code_obligation",
+                "similarity code-obligation id is not bound to a concrete reduction candidate",
+                item_id=obligation_id,
+                metadata=handoff.to_dict(),
+            )
+        )
+    return findings, tuple(sorted(materialized_relations)), tuple(sorted(materialized_code))
+
+
 def review_architecture_reduction(plan: ArchitectureReductionPlan) -> ArchitectureReductionReport:
     """Review whether modeled flow evidence supports code architecture contraction."""
 
@@ -647,6 +932,10 @@ def review_architecture_reduction(plan: ArchitectureReductionPlan) -> Architectu
     required_routes: set[str] = set()
     compatibility_blocked_candidate_ids: set[str] = set()
     surfaces_by_candidate = _surfaces_by_candidate(plan.compatibility_surfaces)
+    inventory_values = _candidate_inventory_findings(plan)
+    findings.extend(inventory_values[0])
+    similarity_values = _plan_similarity_findings(plan)
+    findings.extend(similarity_values[0])
 
     if not plan.reduction_id:
         findings.append(
@@ -854,6 +1143,73 @@ def review_architecture_reduction(plan: ArchitectureReductionPlan) -> Architectu
                     metadata={"similarity_relation_ids": list(similarity_relation_ids)},
                 )
             )
+        if similarity_handoff is not None and not similarity_handoff.evidence_current:
+            findings.append(
+                ArchitectureReductionFinding(
+                    "candidate_similarity_evidence_stale",
+                    "candidate similarity provenance is stale",
+                    candidate_id=candidate.candidate_id,
+                    metadata=similarity_handoff.to_dict(),
+                )
+            )
+        retained_facade = (
+            candidate.candidate_type == CANDIDATE_KEEP_PUBLIC_FACADE
+            or candidate.target_action == TARGET_ACTION_KEEP_FACADE
+            or candidate.proof_status == PROOF_SAFE_BY_PUBLIC_FACADE
+        )
+        if retained_facade:
+            missing_authority = tuple(
+                field_name
+                for field_name in (
+                    "business_intent_id",
+                    "behavior_commitment_id",
+                    "primary_path_id",
+                    "owner_code_contract_id",
+                    "delegates_to_code_contract_id",
+                    "delegates_to_primary_path_id",
+                    "delegation_evidence_id",
+                )
+                if not getattr(candidate, field_name)
+            )
+            if missing_authority:
+                findings.append(
+                    ArchitectureReductionFinding(
+                        "facade_delegation_contract_incomplete",
+                        "retained facade lacks stable authority or delegation fields",
+                        candidate_id=candidate.candidate_id,
+                        metadata={"missing_fields": missing_authority},
+                    )
+                )
+            if (
+                candidate.delegates_to_code_contract_id != candidate.owner_code_contract_id
+                or candidate.delegates_to_primary_path_id != candidate.primary_path_id
+            ):
+                findings.append(
+                    ArchitectureReductionFinding(
+                        "facade_delegation_target_mismatch",
+                        "retained facade does not delegate to the selected owner contract and primary path",
+                        candidate_id=candidate.candidate_id,
+                        metadata=candidate.to_dict(),
+                    )
+                )
+            if not candidate.delegation_evidence_current:
+                findings.append(
+                    ArchitectureReductionFinding(
+                        "facade_delegation_evidence_stale",
+                        "retained facade delegation evidence is missing or stale",
+                        candidate_id=candidate.candidate_id,
+                        metadata=candidate.to_dict(),
+                    )
+                )
+            if not candidate.delegation_only or candidate.independent_business_authority:
+                findings.append(
+                    ArchitectureReductionFinding(
+                        "facade_independent_business_authority",
+                        "retained facade owns independent success or primary side-effect authority",
+                        candidate_id=candidate.candidate_id,
+                        metadata=candidate.to_dict(),
+                    )
+                )
 
         if (
             candidate.lifecycle_disposition == CANDIDATE_DISPOSITION_ACTIVE
@@ -1019,6 +1375,13 @@ def review_architecture_reduction(plan: ArchitectureReductionPlan) -> Architectu
         target_actions=tuple(target_actions),
         required_next_routes=tuple(sorted(required_routes)),
         compatibility_surfaces=plan.compatibility_surfaces,
+        inventory_revision=plan.inventory_revision,
+        covered_candidate_ids=inventory_values[1],
+        scoped_candidate_ids=inventory_values[2],
+        missing_candidate_ids=inventory_values[3],
+        unexpected_candidate_ids=inventory_values[4],
+        materialized_similarity_relation_ids=similarity_values[1],
+        materialized_similarity_code_obligation_ids=similarity_values[2],
     )
 
 

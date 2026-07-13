@@ -35,7 +35,8 @@ generic first entry for all rough plans.
 - `PlanDetailStateSurface`: durable state, facts, or side effects that must be
   visible to the model.
 - `PlanDetailStep`: ordered work with prerequisites, receipts, evidence gates,
-  validation flags, and rework targets.
+  validation flags, rework targets, `agent_operation` ownership, and separate
+  target commitment/plane/typed-relation references.
 - `PlanDetailValidation`: validation obligations with evidence kinds, artifact
   ids, evidence ids, and commands.
 - UI/action validation rows when a plan has visible controls: reachable
@@ -79,9 +80,11 @@ After `review_plan_detail()`:
    surfaces.
 2. Use `plan_detail_to_step_contracts()` to create receipt gates.
 3. Use `plan_detail_to_development_process()` to review artifact freshness and
-   completion claims.
+   completion claims. Projection changes lifecycle action ownership to
+   `development_process` while retaining target references.
 4. Use `plan_detail_to_agent_workflow_plan()` when the work involves multiple
-   installed skills or external actions.
+   installed skills or external actions. Projection keeps AI steps in
+   `agent_operation` and preserves receipts/continue/rework gates.
 5. Send UI controls to UI Flow Structure and real-surface payload case evidence
    to Model-Test Alignment or TestMesh before any broad implementation claim.
 
@@ -91,3 +94,8 @@ After `review_plan_detail()`:
 the plan may continue only with an explicit boundary. `needs_revision` means
 the plan should be expanded before execution. `blocked` means a broad claim or
 irreversible action is unsupported.
+
+A product target never becomes an AI/process owner through projection. Missing
+target commitment ids or typed cross-plane relations blocks plane-aware detail;
+legacy/trivial plans remain opt-in so this does not become a universal action
+gate.

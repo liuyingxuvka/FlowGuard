@@ -1,159 +1,126 @@
-contract_version: 1
+contract_version: 3
 change: productize-flowguard-validation-and-distribution
+evidence_roots:
+  SPEC_EVIDENCE: .flowguard/evidence/spec-work-packages
 obligations:
   - id: req.regression.manifest
     source: "specs/flowguard-model-regression-orchestration/spec.md#Requirement: Explicit Model Regression Manifest"
     claim: "Every model/executable entry is registered or explicitly excluded."
     required: true
-    evidence: [check.regression.tests, check.regression.inventory]
+    evidence: [owner.change.aggregate]
+
   - id: req.regression.tiers
     source: "specs/flowguard-model-regression-orchestration/spec.md#Requirement: Tiered And Selectable Regression Execution"
     claim: "Fast/focused/full/filter/shard execution preserves tier claim boundaries."
     required: true
-    evidence: [check.regression.tests, check.regression.full]
+    evidence: [owner.change.aggregate]
+
   - id: req.regression.observability
     source: "specs/flowguard-model-regression-orchestration/spec.md#Requirement: Bounded Observable Runner Execution"
     claim: "Each runner is bounded, observable, isolated, cancellable, and receipt-producing."
     required: true
-    evidence: [check.regression.tests, check.regression.full]
+    evidence: [owner.change.aggregate]
+
   - id: req.regression.read-only
     source: "specs/flowguard-model-regression-orchestration/spec.md#Requirement: Non-Mutating Default"
     claim: "Default regression is proven non-mutating and rejects tracked writes."
     required: true
-    evidence: [check.regression.tests, check.regression.full]
+    evidence: [owner.change.aggregate]
+
   - id: req.commands.result
     source: "specs/flowguard-validation-command-surface/spec.md#Requirement: Canonical Validation Result Model"
     claim: "Human and JSON projections share canonical status/evidence semantics."
     required: true
-    evidence: [check.command.tests, check.validation.suite]
+    evidence: [owner.change.aggregate]
+
   - id: req.commands.concise
     source: "specs/flowguard-validation-command-surface/spec.md#Requirement: Concise Default And Full Trace Access"
     claim: "Default output is concise and full traces remain accessible."
     required: true
-    evidence: [check.command.tests]
+    evidence: [owner.change.aggregate]
+
   - id: req.commands.exit
     source: "specs/flowguard-validation-command-surface/spec.md#Requirement: Composable Exit And Status Semantics"
     claim: "Exit/status values distinguish pass, partial, blocked, timeout, cancel, invalid, and internal error."
     required: true
-    evidence: [check.command.tests]
+    evidence: [owner.change.aggregate]
+
   - id: req.commands.unified
     source: "specs/flowguard-validation-command-surface/spec.md#Requirement: Unified Suite Validation Entrypoint"
     claim: "One entrypoint composes all child validations without flattening their receipts."
     required: true
-    evidence: [check.validation.suite]
+    evidence: [owner.change.aggregate]
+
   - id: req.distribution.lifecycle
     source: "specs/flowguard-skill-suite-distribution/spec.md#Requirement: Idempotent Skill Lifecycle Commands"
     claim: "Install/check/uninstall/dry-run are idempotent and preserve modified user files."
     required: true
-    evidence: [check.distribution.tests, check.install.temp-home]
+    evidence: [owner.change.aggregate]
+
   - id: req.distribution.parity
     source: "specs/flowguard-skill-suite-distribution/spec.md#Requirement: Complete Tree Parity"
     claim: "Source/formal/shadow/installed complete trees have required path/hash parity."
     required: true
-    evidence: [check.distribution.tests, check.distribution.parity]
+    evidence: [owner.change.aggregate]
+
   - id: req.distribution.layout
     source: "specs/flowguard-skill-suite-distribution/spec.md#Requirement: Layout Neutral References"
     claim: "Every direct reference resolves in repository and installed layouts."
     required: true
-    evidence: [check.install.temp-home]
+    evidence: [owner.change.aggregate]
+
   - id: req.distribution.release
     source: "specs/flowguard-skill-suite-distribution/spec.md#Requirement: Release Distribution Closure"
     claim: "Local and published artifacts pass the full post-publication contract before release closure."
     required: true
-    evidence: [check.release.local, check.release.remote]
+    evidence: [owner.change.aggregate]
+
   - id: req.long.progress
     source: "specs/long-check-observability/spec.md#Requirement: Model Shard Progress Events"
     claim: "Long model runs emit bounded progress that is not completion evidence."
     required: true
-    evidence: [check.regression.tests]
+    evidence: [owner.change.aggregate]
+
   - id: req.long.bounds
     source: "specs/long-check-observability/spec.md#Requirement: Per Runner And Parent Time Bounds"
     claim: "Timeout/cancel paths terminate safely and remain non-pass."
     required: true
-    evidence: [check.regression.tests]
+    evidence: [owner.change.aggregate]
+
   - id: req.long.terminals
     source: "specs/long-check-observability/spec.md#Requirement: Terminal Receipt Completeness"
     claim: "Parent receipt is final only after every selected child has a classified terminal."
     required: true
-    evidence: [check.regression.tests, check.regression.full]
+    evidence: [owner.change.aggregate]
+
 checks:
-  - id: check.regression.tests
-    kind: command
-    command: python
-    args: [-m, pytest, tests/test_model_regression_manifest.py, tests/test_model_regression_orchestrator.py, tests/test_long_check_observability.py, -q]
+  - id: owner.change.aggregate
+    kind: receipt
+    semantic_check_id: flowguard.openspec.productize-flowguard-validation-and-distribution.aggregate
+    execution_id: flowguard.owner.productize-flowguard-validation-and-distribution.aggregate.current
+    receipt_ref:
+      provider_id: openspec
+      work_package_id: productize-flowguard-validation-and-distribution
+      adapter: portable-receipt.v1
+      ref_path: "<SPEC_EVIDENCE>/portable-refs/openspec/productize-flowguard-validation-and-distribution/owner.change.aggregate.json"
+    consumer: openspec.change.productize-flowguard-validation-and-distribution
     required: true
-    covers: [req.regression.manifest, req.regression.tiers, req.regression.observability, req.regression.read-only, req.long.progress, req.long.bounds, req.long.terminals]
-    expected: {exit_code: 0}
-  - id: check.regression.inventory
-    kind: command
-    command: python
-    args: [scripts/run_flowguard_model_regressions.py, --root, ., --audit-only, --json]
-    required: true
-    covers: [req.regression.manifest]
-    expected: {exit_code: 0}
-  - id: check.regression.full
-    kind: command
-    command: python
-    args: [scripts/run_flowguard_model_regressions.py, --root, ., --tier, full, --jobs, "4", --timeout, "300", --output-dir, .flowguard/evidence/model-regressions/openspec, --json]
-    required: true
-    covers: [req.regression.tiers, req.regression.observability, req.regression.read-only, req.long.terminals]
-    expected: {exit_code: 0}
-  - id: check.command.tests
-    kind: command
-    command: python
-    args: [-m, pytest, tests/test_validation_command_surface.py, -q]
-    required: true
-    covers: [req.commands.result, req.commands.concise, req.commands.exit]
-    expected: {exit_code: 0}
-  - id: check.validation.suite
-    kind: command
-    command: python
-    args: [scripts/check_flowguard_skill_suite.py, --root, ., --scope, full, --output-dir, .flowguard/evidence/release/openspec-local, --formal-root, ., --shadow-root, ../FlowGuard_20260427, --installed-root, ../../.codex/skills, --model-jobs, "4", --model-timeout, "300", --json]
-    required: true
-    covers: [req.commands.result, req.commands.unified]
-    expected: {exit_code: 0}
-  - id: check.distribution.tests
-    kind: command
-    command: python
-    args: [-m, pytest, tests/test_distribution_sync.py, tests/test_skill_installer.py, -q]
-    required: true
-    covers: [req.distribution.lifecycle, req.distribution.parity]
-    expected: {exit_code: 0}
-  - id: check.install.temp-home
-    kind: command
-    command: python
-    args: [-m, pytest, tests/test_skill_installer.py::SkillInstallerCommandTests::test_temporary_codex_home_install_check_uninstall_lifecycle, -q]
-    required: true
-    covers: [req.distribution.lifecycle, req.distribution.layout]
-    expected: {exit_code: 0}
-  - id: check.distribution.parity
-    kind: command
-    command: python
-    args: [scripts/install_flowguard_skills.py, parity, --formal, .agents/skills, --shadow, ../FlowGuard_20260427/.agents/skills, --installed, ../../.codex/skills, --json]
-    required: true
-    covers: [req.distribution.parity]
-    expected: {exit_code: 0}
-  - id: check.release.local
-    kind: command
-    command: python
-    args: [scripts/verify_flowguard_release.py, --root, ., --phase, local, --json]
-    required: true
-    covers: [req.distribution.release]
-    expected: {exit_code: 0}
-  - id: check.release.remote
-    kind: command
-    command: python
-    args: [scripts/verify_flowguard_release.py, --root, ., --phase, published, --json]
-    required: true
-    covers: [req.distribution.release]
-    expected: {exit_code: 0}
-  - id: check.openspec.strict
-    kind: command
-    command: openspec
-    args: [validate, productize-flowguard-validation-and-distribution, --strict]
-    required: true
-    covers: [req.regression.manifest, req.regression.tiers, req.regression.observability, req.regression.read-only, req.commands.result, req.commands.concise, req.commands.exit, req.commands.unified, req.distribution.lifecycle, req.distribution.parity, req.distribution.layout, req.distribution.release, req.long.progress, req.long.bounds, req.long.terminals]
-    expected: {exit_code: 0}
+    covers:
+      - req.regression.manifest
+      - req.regression.tiers
+      - req.regression.observability
+      - req.regression.read-only
+      - req.commands.result
+      - req.commands.concise
+      - req.commands.exit
+      - req.commands.unified
+      - req.distribution.lifecycle
+      - req.distribution.parity
+      - req.distribution.layout
+      - req.distribution.release
+      - req.long.progress
+      - req.long.bounds
+      - req.long.terminals
 freshness:
   watch:
     - openspec/changes/productize-flowguard-validation-and-distribution/**/*.md

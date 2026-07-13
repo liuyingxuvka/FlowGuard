@@ -1,114 +1,174 @@
 {
-  "activation_keywords": [
-    "rough plan",
-    "multi-skill workflow",
-    "execution freshness",
-    "install sync",
-    "release archive publish"
-  ],
-  "claim_boundary": "The route proves only current lifecycle ordering and evidence freshness; sibling route semantics and external publication authority remain separate.",
-  "default_route": false,
-  "direct_references": [
-    "references/development_process_flow_protocol.md"
-  ],
-  "do_not_use_when": [
-    "A sibling route's internal model/test/code/UI evidence is the only question or the work is truly single-step and low risk."
-  ],
-  "downstream_targets": [
+  "artifacts": [],
+  "checks": [
     {
-      "claim_scope": "delegated plan detail",
-      "condition": "The plan_detailing mode requires full structured row construction.",
-      "target_id": "flowguard-plan-detailing-compiler",
-      "target_kind": "skill"
+      "check_id": "check:flowguard-development-process-flow:plane-boundary",
+      "covers_obligation_ids": [
+        "obligation:flowguard-development-process-flow:plane-boundary"
+      ],
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "flowguard-development-process-flow:functional",
+      "execution_owner_id": "owner:flowguard-development-process-flow:flowguard-development-process-flow-plane-boundary",
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": ".flowguard/development_process_flow/model.py"
+        }
+      ],
+      "kind": "model_assertion",
+      "timeout_seconds": 30
     },
     {
-      "claim_scope": "delegated workflow rehearsal",
-      "condition": "The agent_workflow mode requires fresh capability rehearsal.",
-      "target_id": "flowguard-agent-workflow-rehearsal",
-      "target_kind": "skill"
+      "args": [
+        "-m",
+        "pytest",
+        "tests/test_development_process_flow.py",
+        "tests/test_development_process_simulator.py",
+        "-q"
+      ],
+      "check_id": "check:flowguard-development-process-flow:native-authority",
+      "command": "python",
+      "covers_obligation_ids": [
+        "obligation:flowguard-development-process-flow:native-authority"
+      ],
+      "cwd_token": "repository_root",
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "flowguard-development-process-flow:functional",
+      "execution_owner_id": "owner:flowguard-development-process-flow:flowguard-development-process-flow-native-authority",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": ".flowguard/development_process_flow/model.py"
+        },
+        {
+          "kind": "path",
+          "path": ".flowguard/development_process_flow/run_checks.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/development_process_flow.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/skill_contract_model.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_development_process_flow.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_development_process_simulator.py"
+        }
+      ],
+      "kind": "command",
+      "timeout_seconds": 300
     },
     {
-      "claim_scope": "post-change owner scan",
-      "condition": "Changed artifacts reopen route-owned maintenance obligations.",
-      "target_id": "maintenance_scan_router",
-      "target_kind": "internal_route"
-    },
-    {
-      "claim_scope": "final risk confidence",
-      "condition": "Broad done/release/archive/publish confidence is requested.",
-      "target_id": "risk_evidence_ledger",
-      "target_kind": "internal_route"
+      "check_id": "check:flowguard-development-process-flow:evidence-closure",
+      "covers_obligation_ids": [
+        "obligation:flowguard-development-process-flow:evidence-closure"
+      ],
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "flowguard-development-process-flow:functional",
+      "execution_owner_id": "owner:flowguard-development-process-flow:flowguard-development-process-flow-evidence-closure",
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": ".flowguard/development_process_flow/model.py"
+        }
+      ],
+      "kind": "model_assertion",
+      "timeout_seconds": 30
     }
   ],
-  "layout_profiles": {
-    "installed": ".codex/skills/flowguard-development-process-flow",
-    "source": ".agents/skills/flowguard-development-process-flow"
-  },
-  "native_checks": [
+  "claim_boundary": "The route proves only current lifecycle ordering, post-change routing, and independent source/shadow/formal/install/skill/Git freshness; sibling route semantics and external publication authority remain separate.",
+  "closure_profiles": [
     {
-      "binding_id": "development_process_pytest",
-      "command": "python -m pytest tests/test_development_process_flow.py tests/test_development_process_simulator.py -q",
-      "evidence_source": "current owner-specific pytest receipt",
-      "kind": "pytest",
-      "native_check_id": "development_process_tests",
-      "summary": "Run the tracked development-process owner tests and simulator variants."
+      "profile_id": "routine",
+      "required_obligation_ids": [
+        "obligation:flowguard-development-process-flow:plane-boundary"
+      ]
+    },
+    {
+      "profile_id": "functional",
+      "required_obligation_ids": [
+        "obligation:flowguard-development-process-flow:plane-boundary",
+        "obligation:flowguard-development-process-flow:native-authority"
+      ]
+    },
+    {
+      "profile_id": "release",
+      "required_obligation_ids": [
+        "obligation:flowguard-development-process-flow:plane-boundary",
+        "obligation:flowguard-development-process-flow:native-authority",
+        "obligation:flowguard-development-process-flow:evidence-closure"
+      ]
+    },
+    {
+      "profile_id": "highest_quality",
+      "required_obligation_ids": [
+        "obligation:flowguard-development-process-flow:plane-boundary",
+        "obligation:flowguard-development-process-flow:native-authority",
+        "obligation:flowguard-development-process-flow:evidence-closure"
+      ]
     }
   ],
-  "native_owner": "development_process_flow",
-  "output_fields": [
-    "evidence",
-    "failures",
-    "blockers",
-    "skipped_checks",
-    "residual_risk",
-    "claim_boundary",
-    "typed_next_actions"
+  "confirmed": true,
+  "implementation_paths": [
+    ".agents/skills/flowguard-development-process-flow",
+    ".flowguard/development_process_flow",
+    "flowguard/development_process_flow.py",
+    "flowguard/skill_contract_model.py",
+    "tests/test_development_process_flow.py",
+    "tests/test_development_process_simulator.py"
   ],
-  "route_id": "development_process_flow",
-  "route_role": "public_owner",
-  "route_summary": "Select process simulator modes and govern staged actions, artifact/evidence freshness, synchronization, and final lifecycle claims.",
-  "schema_version": "flowguard.skill_contract_source.v1",
+  "judgment_rubrics": [],
+  "model_id": "flowguard.development_process_flow.skill_contract.v2",
+  "model_path": ".flowguard/development_process_flow/model.py",
+  "release_eligible": false,
+  "schema_version": "skillguard.contract_source.v2",
   "skill_id": "flowguard-development-process-flow",
-  "source_requirements": [
+  "step_bindings": [
     {
-      "category": "activation-boundary",
-      "requirement_id": "development_process.mode_order",
-      "summary": "Applicable simulator modes must be selected in plan_detailing, agent_workflow, execution_freshness order."
+      "step_id": "step:flowguard-development-process-flow:intake",
+      "action": {
+        "kind": "inventory",
+        "summary": "Classify development-process ownership and retain product or agent commitments only as typed targets."
+      },
+      "check_ids": [
+        "check:flowguard-development-process-flow:plane-boundary"
+      ],
+      "output_artifact_ids": []
     },
     {
-      "category": "evidence",
-      "requirement_id": "development_process.current_evidence",
-      "summary": "Artifacts, verifier versions, proof refs, peer writes, triage, and revalidation must be current for the claim."
+      "step_id": "step:flowguard-development-process-flow:execute",
+      "action": {
+        "kind": "native",
+        "summary": "Run the existing lifecycle simulator with continue, rework, peer-write, install, and background-liveness gates."
+      },
+      "check_ids": [
+        "check:flowguard-development-process-flow:native-authority"
+      ],
+      "output_artifact_ids": []
     },
     {
-      "category": "closure",
-      "requirement_id": "development_process.no_progress_closure",
-      "summary": "Skipped, stale, failed, running, progress-only, scoped, or pass-with-gaps evidence cannot support broad lifecycle closure."
-    }
-  ],
-  "use_when": [
-    "Non-trivial plan, workflow, staged execution, evidence freshness, synchronization, or lifecycle claims need one process front door."
-  ],
-  "workflow": [
-    {
-      "phase_id": "intake",
-      "summary": "Select plan_detailing, agent_workflow, and execution_freshness modes in the required order."
-    },
-    {
-      "phase_id": "inventory",
-      "summary": "Register artifacts, versions, ordered actions, reads/writes/invalidations, peer changes, evidence, and claims."
-    },
-    {
-      "phase_id": "execution",
-      "summary": "Delegate detailed modes when required and model execution-freshness and minimum revalidation."
-    },
-    {
-      "phase_id": "checks",
-      "summary": "Run the process model; triage every failed, stale, skipped, running, timeout, or ambiguous validation."
-    },
-    {
-      "phase_id": "closure",
-      "summary": "Require current proof artifacts and owner-route evidence for the requested routine/release/archive/publish scope."
+      "step_id": "step:flowguard-development-process-flow:verify",
+      "action": {
+        "kind": "verifier",
+        "summary": "Accept closure only from current final receipts; progress-only evidence remains liveness."
+      },
+      "check_ids": [
+        "check:flowguard-development-process-flow:evidence-closure"
+      ],
+      "output_artifact_ids": []
     }
   ]
 }
+

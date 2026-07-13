@@ -1,6 +1,7 @@
 import subprocess
 import sys
 import unittest
+from dataclasses import replace
 
 import flowguard
 from examples.plan_detailing_compiler.model import (
@@ -200,6 +201,47 @@ class PlanDetailingTests(unittest.TestCase):
         self.assertTrue(flowguard.review_development_process_flow(process).ok)
         self.assertEqual(GOOD_PLAN.plan_id, workflow_plan.plan_id)
         self.assertEqual(flowguard.FINAL_CLAIM_FULL, workflow_plan.final_claim)
+
+    def test_plane_aware_projection_keeps_product_behavior_as_target_context(self):
+        relation_ref = "commitment:agent-ui-change|validates|commitment:product-ui"
+        steps = tuple(
+            replace(
+                step,
+                behavior_plane="agent_operation",
+                target_behavior_planes=("product_runtime",),
+                target_commitment_ids=("commitment:product-ui",),
+                typed_commitment_relation_refs=(relation_ref,),
+            )
+            for step in GOOD_PLAN.steps
+        )
+        plan = replace(
+            GOOD_PLAN,
+            plan_id="plane-aware-projection",
+            steps=steps,
+            require_behavior_plane_boundary=True,
+        )
+
+        detail_report = flowguard.review_plan_detail(plan)
+        self.assertEqual(flowguard.PLAN_DETAIL_STATUS_PASS, detail_report.status, detail_report.format_text())
+
+        process = flowguard.plan_detail_to_development_process(plan)
+        self.assertEqual("development_process", process.behavior_plane)
+        self.assertTrue(all(action.behavior_plane == "development_process" for action in process.actions))
+        self.assertTrue(all("product_runtime" in action.target_behavior_planes for action in process.actions))
+        self.assertTrue(flowguard.review_development_process_flow(process).ok)
+
+        inventory = flowguard.SkillInventorySnapshot("current", current=True, from_cache=False)
+        workflow = flowguard.plan_detail_to_agent_workflow_plan(plan, inventory)
+        self.assertEqual("agent_operation", workflow.behavior_plane)
+        self.assertTrue(all(step.behavior_plane == "agent_operation" for step in workflow.steps))
+        self.assertTrue(all("product_runtime" in step.target_behavior_planes for step in workflow.steps))
+
+        bad = replace(plan, steps=(replace(steps[0], behavior_plane="product_runtime"),) + steps[1:])
+        bad_report = flowguard.review_plan_detail(bad)
+        self.assertIn(
+            "plan_step_absorbs_target_behavior_plane",
+            {finding.code for finding in bad_report.findings},
+        )
 
     def test_plan_detailing_script_succeeds(self):
         completed = subprocess.run(

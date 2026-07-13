@@ -1,119 +1,172 @@
 {
-  "activation_keywords": [
-    "field lifecycle",
-    "schema migration",
-    "prompt field",
-    "old field disposition",
-    "payload column"
+  "artifacts": [],
+  "checks": [
+    {
+      "check_id": "check:flowguard-field-lifecycle-mesh:plane-boundary",
+      "covers_obligation_ids": [
+        "obligation:flowguard-field-lifecycle-mesh:plane-boundary"
+      ],
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "flowguard-field-lifecycle-mesh:functional",
+      "execution_owner_id": "owner:flowguard-field-lifecycle-mesh:flowguard-field-lifecycle-mesh-plane-boundary",
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": ".flowguard/default_replacement_field_lifecycle/model.py"
+        }
+      ],
+      "kind": "model_assertion",
+      "timeout_seconds": 30
+    },
+    {
+      "args": [
+        "-m",
+        "pytest",
+        "tests/test_field_lifecycle.py",
+        "-q"
+      ],
+      "check_id": "check:flowguard-field-lifecycle-mesh:native-authority",
+      "command": "python",
+      "covers_obligation_ids": [
+        "obligation:flowguard-field-lifecycle-mesh:native-authority"
+      ],
+      "cwd_token": "repository_root",
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "flowguard-field-lifecycle-mesh:functional",
+      "execution_owner_id": "owner:flowguard-field-lifecycle-mesh:flowguard-field-lifecycle-mesh-native-authority",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": ".flowguard/default_replacement_field_lifecycle/model.py"
+        },
+        {
+          "kind": "path",
+          "path": ".flowguard/default_replacement_field_lifecycle/result.json"
+        },
+        {
+          "kind": "path",
+          "path": ".flowguard/default_replacement_field_lifecycle/run_checks.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/field_lifecycle.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/skill_contract_model.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_field_lifecycle.py"
+        }
+      ],
+      "kind": "command",
+      "timeout_seconds": 300
+    },
+    {
+      "check_id": "check:flowguard-field-lifecycle-mesh:evidence-closure",
+      "covers_obligation_ids": [
+        "obligation:flowguard-field-lifecycle-mesh:evidence-closure"
+      ],
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "flowguard-field-lifecycle-mesh:functional",
+      "execution_owner_id": "owner:flowguard-field-lifecycle-mesh:flowguard-field-lifecycle-mesh-evidence-closure",
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": ".flowguard/default_replacement_field_lifecycle/model.py"
+        }
+      ],
+      "kind": "model_assertion",
+      "timeout_seconds": 30
+    }
   ],
   "claim_boundary": "The route proves field inventory, projections, and disposition only; behavior implementation and test closure require downstream current evidence.",
-  "default_route": false,
-  "direct_references": [
-    "references/field_lifecycle_mesh_protocol.md"
-  ],
-  "do_not_use_when": [
-    "No field-like surface is in scope or the question is downstream behavior/test proof rather than field ownership and disposition."
-  ],
-  "downstream_targets": [
+  "closure_profiles": [
     {
-      "claim_scope": "finite field cases",
-      "condition": "Missing, empty, wrong-type, unknown-enum, old-field, or migration cases need canonical ids.",
-      "target_id": "flowguard-contract-exhaustion-mesh",
-      "target_kind": "skill"
+      "profile_id": "routine",
+      "required_obligation_ids": [
+        "obligation:flowguard-field-lifecycle-mesh:plane-boundary"
+      ]
     },
     {
-      "claim_scope": "field code ownership",
-      "condition": "Field owner/reader/writer maps must shape implementation structure.",
-      "target_id": "flowguard-code-structure-recommendation",
-      "target_kind": "skill"
+      "profile_id": "functional",
+      "required_obligation_ids": [
+        "obligation:flowguard-field-lifecycle-mesh:plane-boundary",
+        "obligation:flowguard-field-lifecycle-mesh:native-authority"
+      ]
     },
     {
-      "claim_scope": "field behavior alignment",
-      "condition": "Field projections need owner-code and test binding.",
-      "target_id": "flowguard-model-test-alignment",
-      "target_kind": "skill"
+      "profile_id": "release",
+      "required_obligation_ids": [
+        "obligation:flowguard-field-lifecycle-mesh:plane-boundary",
+        "obligation:flowguard-field-lifecycle-mesh:native-authority",
+        "obligation:flowguard-field-lifecycle-mesh:evidence-closure"
+      ]
     },
     {
-      "claim_scope": "process freshness",
-      "condition": "Field evidence freshness or replacement closure affects lifecycle claims.",
-      "target_id": "flowguard-development-process-flow",
-      "target_kind": "skill"
+      "profile_id": "highest_quality",
+      "required_obligation_ids": [
+        "obligation:flowguard-field-lifecycle-mesh:plane-boundary",
+        "obligation:flowguard-field-lifecycle-mesh:native-authority",
+        "obligation:flowguard-field-lifecycle-mesh:evidence-closure"
+      ]
     }
   ],
-  "layout_profiles": {
-    "installed": ".codex/skills/flowguard-field-lifecycle-mesh",
-    "source": ".agents/skills/flowguard-field-lifecycle-mesh"
-  },
-  "native_checks": [
-    {
-      "binding_id": "field_lifecycle_pytest",
-      "command": "python -m pytest tests/test_field_lifecycle.py -q",
-      "evidence_source": "current pytest receipt",
-      "kind": "pytest",
-      "native_check_id": "field_lifecycle_tests",
-      "summary": "Run field lifecycle, projection, and disposition tests."
-    }
+  "confirmed": true,
+  "implementation_paths": [
+    ".agents/skills/flowguard-field-lifecycle-mesh",
+    ".flowguard/default_replacement_field_lifecycle",
+    "flowguard/field_lifecycle.py",
+    "flowguard/skill_contract_model.py",
+    "tests/test_field_lifecycle.py"
   ],
-  "native_owner": "field_lifecycle_mesh",
-  "output_fields": [
-    "evidence",
-    "failures",
-    "blockers",
-    "skipped_checks",
-    "residual_risk",
-    "claim_boundary",
-    "typed_next_actions"
-  ],
-  "route_id": "field_lifecycle_mesh",
-  "route_role": "public_owner",
-  "route_summary": "Account all discovered leaf fields, project behavior-bearing fields, and close replacement/compatibility disposition.",
-  "schema_version": "flowguard.skill_contract_source.v1",
+  "judgment_rubrics": [],
+  "model_id": "flowguard.field_lifecycle_mesh.skill_contract.v2",
+  "model_path": ".flowguard/default_replacement_field_lifecycle/model.py",
+  "release_eligible": false,
+  "schema_version": "skillguard.contract_source.v2",
   "skill_id": "flowguard-field-lifecycle-mesh",
-  "source_requirements": [
+  "step_bindings": [
     {
-      "category": "inventory",
-      "requirement_id": "field_lifecycle.complete_leaf_inventory",
-      "summary": "Every discovered field requires a leaf row or a narrower documented discovery boundary."
+      "step_id": "step:flowguard-field-lifecycle-mesh:intake",
+      "action": {
+        "kind": "inventory",
+        "summary": "Declare the bounded field inventory, change intent, compatibility policy, and ordinary-UI-reader boundary."
+      },
+      "check_ids": [
+        "check:flowguard-field-lifecycle-mesh:plane-boundary"
+      ],
+      "output_artifact_ids": []
     },
     {
-      "category": "evidence",
-      "requirement_id": "field_lifecycle.behavior_projection",
-      "summary": "Behavior-bearing fields require projections, single owners/readers/writers, and canonical invalid/old cases."
+      "step_id": "step:flowguard-field-lifecycle-mesh:execute",
+      "action": {
+        "kind": "native",
+        "summary": "Run the existing field-lifecycle owner to materialize leaf rows, behavior projections, owners, readers, writers, and dispositions."
+      },
+      "check_ids": [
+        "check:flowguard-field-lifecycle-mesh:native-authority"
+      ],
+      "output_artifact_ids": []
     },
     {
-      "category": "handoff",
-      "requirement_id": "field_lifecycle.ui_reader_handoff",
-      "summary": "Every field whose reader reaches an ordinary UI boundary hands off to UI content admission regardless of source role; fields with no ordinary-UI reader remain internally accounted."
-    },
-    {
-      "category": "closure",
-      "requirement_id": "field_lifecycle.replacement_disposition",
-      "summary": "Old, replaced, deprecated, alias, or fallback fields require a concrete disposition before broad confidence."
-    }
-  ],
-  "use_when": [
-    "A field, schema key, config flag, prompt field, payload column, persisted attribute, alias, default, migration, or fallback changes."
-  ],
-  "workflow": [
-    {
-      "phase_id": "intake",
-      "summary": "Define the field boundary, change intent, compatibility policy, and claim scope."
-    },
-    {
-      "phase_id": "inventory",
-      "summary": "Create parent groups and one leaf row for every discovered field with owner/readers/writers/lifecycle."
-    },
-    {
-      "phase_id": "execution",
-      "summary": "Project behavior-bearing fields, hand all ordinary-UI-reader fields to UI content admission, and route invalid/old-field finite cases to ContractExhaustionMesh."
-    },
-    {
-      "phase_id": "checks",
-      "summary": "Run field lifecycle tests and reject missing rows, UI-reader handoff gaps, projection gaps, duplicate owners, or unknown dispositions."
-    },
-    {
-      "phase_id": "closure",
-      "summary": "Return projections, canonical cases, owner maps, dispositions, and typed downstream evidence obligations."
+      "step_id": "step:flowguard-field-lifecycle-mesh:verify",
+      "action": {
+        "kind": "verifier",
+        "summary": "Reject missing fields, projection gaps, duplicate owners, UI-reader handoff gaps, or unknown old-field dispositions."
+      },
+      "check_ids": [
+        "check:flowguard-field-lifecycle-mesh:evidence-closure"
+      ],
+      "output_artifact_ids": []
     }
   ]
 }
+

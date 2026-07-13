@@ -1,0 +1,46 @@
+contract_version: 1
+change: make-project-adoption-revalidation-executable
+obligations:
+  - id: req.project-adoption-version-gate.executable-revalidation
+    source: "specs/project-adoption-version-gate/spec.md#Requirement: Generated revalidation commands are project-relative"
+    claim: Generated target-project revalidation has one package-owned executable audit command, excludes FlowGuard source-layout-only commands, and remains path-private.
+    required: true
+    evidence:
+      - check.project-adoption-version-gate.focused-tests
+      - check.project-adoption-version-gate.flowguard-model
+checks:
+  - id: check.project-adoption-version-gate.focused-tests
+    kind: command
+    command: python
+    args:
+      - -m
+      - pytest
+      - tests/test_project_adoption.py
+      - -q
+    required: true
+    covers:
+      - req.project-adoption-version-gate.executable-revalidation
+    expected:
+      exit_code: 0
+  - id: check.project-adoption-version-gate.flowguard-model
+    kind: command
+    command: python
+    args:
+      - .flowguard/project_adoption_version_gate/run_checks.py
+    required: true
+    covers:
+      - req.project-adoption-version-gate.executable-revalidation
+    expected:
+      exit_code: 0
+freshness:
+  watch:
+    - openspec/changes/make-project-adoption-revalidation-executable/proposal.md
+    - openspec/changes/make-project-adoption-revalidation-executable/design.md
+    - openspec/changes/make-project-adoption-revalidation-executable/tasks.md
+    - openspec/changes/make-project-adoption-revalidation-executable/specs/project-adoption-version-gate/spec.md
+    - openspec/changes/make-project-adoption-revalidation-executable/verification-contract.yaml
+    - openspec/specs/project-adoption-version-gate/spec.md
+    - flowguard/project_adoption.py
+    - tests/test_project_adoption.py
+    - .flowguard/project_adoption_version_gate/model.py
+    - .flowguard/project_adoption_version_gate/run_checks.py

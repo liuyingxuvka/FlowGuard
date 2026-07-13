@@ -90,7 +90,30 @@ review; `PLAN_INTAKE_ADVANCED_API` remains the complete plan-intake inventory.
 claims. Use `ROUTE_STARTER_API["behavior_commitment_ledger"]` before claiming a
 project, release, UI/API/CLI behavior, skill, workflow, or process boundary is
 covered. Path-sensitive commitments then hand off to
-`primary_path_authority`.
+`primary_path_authority`. `BEHAVIOR_COMMITMENT_LOOKUP_API` extends those same
+owners with plane-first read-only lookup (`BehaviorLookupQuery`,
+`BehaviorCommitmentHit`, `BehaviorLookupReport`,
+`query_behavior_commitments()`, and
+`query_behavior_commitments_from_path()`) rather than adding a route. The BCL
+surface also exports `BehaviorLookupBinding`, `BehaviorCommitmentRelation`,
+plane/actor/relation/role constants, canonical ledger load/write helpers, and
+the ledger fingerprint. Exact external purposes keep one stable
+`business_intent_id`, one active commitment, and one singular
+`primary_path_id`; repeated UI/API/CLI/adapter surfaces delegate to that
+authority.
+
+The three canonical plane values are `product_runtime`, `agent_operation`, and
+`development_process`. Existing Model Preflight reports primary, related, and
+ambiguous candidate hits separately with lookup status and ledger fingerprint;
+typed related context cannot become a primary owner. The matching read-only CLI
+is:
+
+```powershell
+python -m flowguard behavior-commitment-query "start the UI test and check the port bridge" --root . --plane agent_operation --term port_bridge --json
+```
+
+The command explains recall; it does not execute a commitment, create a route,
+force every ordinary action to run a model, or guarantee future AI behavior.
 
 Template defaults follow the same rule. `model-miss-template`,
 `model-test-alignment-template`, and `ui-flow-structure-template` emit compact
@@ -114,9 +137,9 @@ checks:
 These APIs should stay small and semantically stable. New helpers should not
 change the meaning of `FunctionBlock` or `Workflow`, and obsolete
 compatibility-only aliases should not remain in the first-read surface.
-FlowGuard is latest-schema-first: old artifacts may be detected and upgraded at
-project/tool boundaries, but normal route logic should consume current-schema
-artifacts and current route-first APIs only.
+FlowGuard skill/runtime artifacts have one current authority. Former skill,
+model, check, receipt, and project-control shapes are rejected rather than read,
+converted, upgraded, aliased, renewed, or used as a fallback route.
 
 Formal runs emit minimal progress visibility by default through the internal
 finite runner: a start line and bounded progress lines on `stderr`, counted by
@@ -476,6 +499,10 @@ inventory.
 - optional UI Flow Structure helpers such as `UIContentVisibilityItem`,
   `UIContentVisibilityPlan`, `UIContentVisibilityEvidence`,
   `UIContentVisibilityReport`, `UI_CONTENT_VISIBILITY_CLASSES`,
+  `UIProductConsistencyRule`, `UIProductSurface`,
+  `UIProductConsistencyObservation`, `UIProductConsistencyException`,
+  `UIProductConsistencyPlan`, `UIProductConsistencyReport`,
+  `UIProductLanguageCaseSeed`,
   `UI_CONTENT_NEED_KINDS`, `UI_CONTENT_VISIBILITY_EVIDENCE_KINDS`, `UIInteractionModel`,
   `UIControl`, `UIDisplayElement`, `UIStateNode`, `UITransition`,
   `UIObservedSurfaceItem`, `UIObservedSurfaceInventory`,
@@ -507,6 +534,8 @@ inventory.
   `UIStructureDerivation`, `UIRegionRecommendation`,
   `UITextHierarchyBlueprint`, `UITextElement`, `UITypographyToken`,
   `review_ui_content_visibility()`,
+  `review_ui_product_consistency()`,
+  `default_ui_product_language_case_seeds()`,
   `ui_content_visibility_candidate_ids_from_field_lifecycle()`,
   `review_ui_observed_surface_inventory()`,
   `review_ui_control_functional_chains()`,
@@ -541,7 +570,11 @@ inventory.
   parent/child UI topology, menu levels, stable placement, overlays, control
   hierarchy, information-display ownership, and then deriving semantic text
   hierarchy tokens with calm visual handoff guidance before visual design or
-  frontend implementation.
+  frontend implementation. Product-scope consistency compares typography,
+  component, navigation, interaction, feedback, recovery, and transition rules
+  across every expected surface. Bounded exceptions are presentation-only;
+  internal intent/commitment/path, audit, evidence, and diagnostic identities
+  remain outside ordinary UI.
 - development-process owner helpers such as
   `DevelopmentProcessSimulationRequest`,
   `DevelopmentProcessSimulatorReport`,
@@ -556,6 +589,12 @@ inventory.
   artifacts, field projections, replacement disposition records, and
   bug-repair closure records have route-specific freshness codes so later
   writes cannot reuse stale field evidence.
+  `ProcessAction.behavior_plane` stays `development_process`; its
+  `target_behavior_planes`, `target_commitment_ids`, and
+  `typed_commitment_relation_refs` identify product/agent targets without
+  transferring their ownership. Background process evidence remains liveness
+  until TestMesh has a terminal run id, status, exit/result artifacts,
+  fingerprint, covered ids, inventory revision, and current versions.
 
 These helpers return or consume the same core model objects. They are route
 layers, not a new modeling language. For non-trivial model creation, the
@@ -632,18 +671,12 @@ Reporting helpers help an AI agent explain what was checked and what was not:
 - adoption logging and `audit_flowguard_adoption`
 - thin adoption logging commands such as `adoption-start` and
   `adoption-finish`
-- artifact/project upgrade helpers such as `ArtifactUpgradeReport`,
-  `review_artifact_upgrades()`, and `artifact-upgrade` for detecting old
-  FlowGuard artifacts, applying deterministic current-schema upgrades, and
-  reporting blocked/manual-review cases without adding runtime compatibility
-  branches
 - project adoption/version helpers such as `audit_project_adoption()`,
-  `adopt_project()`, and `upgrade_project()` for writing the managed
+  and `adopt_project()` for directly writing the current managed
   FlowGuard `AGENTS.md` block, `.flowguard/project.toml`, and adoption records
-  in target repositories. Project upgrade scans older adopted repositories for
-  deterministic artifact/model/test/guidance upgrades unless records-only mode
-  is explicitly requested. These helpers record FlowGuard's GitHub repository
-  and package/schema versions; they do not replace executable model checks.
+  in target repositories. These helpers do not read or convert former FlowGuard
+  shapes. They record FlowGuard's GitHub repository and package/schema versions;
+  they do not replace executable model checks.
 - schema, JSON artifact helpers, and explicit Mermaid source exporters for
   user-facing model explanations when a compact diagram helps clarify major
   states, branches, gates, evidence, and claim boundaries

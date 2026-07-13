@@ -1,0 +1,72 @@
+contract_version: 1
+change: restore-route-specific-diagram-semantics
+obligations:
+  - id: req.diagram.route_semantics
+    source: "specs/user-facing-model-diagrams/spec.md#Requirement: Route-Specific Diagram Semantics Survive Prompt Compaction"
+    claim: The kernel rejects generic cross-Guard flattening and each affected satellite prompt preserves its route-owned edge meanings.
+    required: true
+    evidence:
+      - check.diagram.skill_docs
+      - check.diagram.suite_markers
+  - id: req.diagram.compact_contract
+    source: "specs/user-facing-model-diagrams/spec.md#Scenario: Prompt compaction removes route meaning"
+    claim: Canonical prompts remain inside hot-path budgets and their deterministic SkillGuard contracts are current.
+    required: true
+    evidence:
+      - check.diagram.skill_docs
+      - check.diagram.contract_compiler
+      - check.diagram.suite_markers
+  - id: req.diagram.installed_sync
+    source: "specs/user-facing-model-diagrams/spec.md#Scenario: Installed suite is older than canonical prompts"
+    claim: The active global Codex FlowGuard suite is a complete content-exact installation of the canonical repository suite.
+    required: true
+    evidence:
+      - check.diagram.installed_parity
+checks:
+  - id: check.diagram.skill_docs
+    kind: command
+    command: python
+    args: [-m, pytest, tests/test_skill_docs.py, tests/test_skill_prompt_parity.py, -q]
+    required: true
+    covers: [req.diagram.route_semantics, req.diagram.compact_contract]
+    expected: {exit_code: 0}
+  - id: check.diagram.contract_compiler
+    kind: command
+    command: python
+    args: [scripts/compile_flowguard_skill_contracts.py, --root, ., --check, --json]
+    required: true
+    covers: [req.diagram.compact_contract]
+    expected: {exit_code: 0}
+  - id: check.diagram.suite_markers
+    kind: command
+    command: python
+    args: [scripts/verify_skill_suite_markers.py, --root, ., --json]
+    required: true
+    covers: [req.diagram.route_semantics, req.diagram.compact_contract]
+    expected: {exit_code: 0}
+  - id: check.diagram.installed_parity
+    kind: command
+    command: python
+    args: [scripts/install_flowguard_skills.py, check, --source, ., --json]
+    required: true
+    covers: [req.diagram.installed_sync]
+    expected: {exit_code: 0}
+freshness:
+  watch:
+    - openspec/changes/restore-route-specific-diagram-semantics/proposal.md
+    - openspec/changes/restore-route-specific-diagram-semantics/design.md
+    - openspec/changes/restore-route-specific-diagram-semantics/tasks.md
+    - openspec/changes/restore-route-specific-diagram-semantics/specs/**/*.md
+    - openspec/changes/restore-route-specific-diagram-semantics/verification-contract.yaml
+    - .agents/skills/model-first-function-flow/SKILL.md
+    - .agents/skills/flowguard-development-process-flow/SKILL.md
+    - .agents/skills/flowguard-ui-flow-structure/SKILL.md
+    - .agents/skills/flowguard-model-test-alignment/SKILL.md
+    - .agents/skills/flowguard-code-structure-recommendation/SKILL.md
+    - .agents/skills/flowguard-model-mesh/SKILL.md
+    - .agents/skills/*/.skillguard/**/*.json
+    - tests/test_skill_docs.py
+    - tests/test_skill_prompt_parity.py
+    - scripts/compile_flowguard_skill_contracts.py
+    - scripts/verify_skill_suite_markers.py
+    - scripts/install_flowguard_skills.py

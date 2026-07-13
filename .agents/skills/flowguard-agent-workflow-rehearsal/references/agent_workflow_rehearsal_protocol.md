@@ -26,6 +26,12 @@ an existing OpenSpec/FlowGuard artifact requires this exact route, or another
 FlowGuard route delegates the `agent_workflow` mode. Do not describe this
 protocol as the generic first entry for all multi-skill work.
 
+For non-trivial operations, lightly recall registered same-plane
+`agent_operation` commitments before selecting a new playbook. A hit makes the
+existing model visible; it does not force every trivial action through a model.
+When the AI action invokes or validates product/process behavior, record that
+row only as target context through commitment ids and typed BCL relations.
+
 ## Trigger
 
 Use this route when explicitly invoked or simulator-delegated and:
@@ -73,6 +79,9 @@ Build an `AgentWorkflowPlan` with:
 - skipped candidate skills with reason, consequence, accepted/not accepted, and
   scope boundary;
 - ordered `AgentWorkflowStep` rows;
+- plan/step `behavior_plane=agent_operation`, plus separately typed target
+  behavior planes, target commitment ids, and relation refs when sibling-plane
+  context is involved;
 - required completed step ids and required evidence ids;
 - produced evidence ids and continue evidence ids;
 - rework gates for failed validation, stale evidence, weak validation, or side
@@ -123,6 +132,10 @@ Keep these hazards visible:
 - `manual_review_boundary_missing`;
 - `installed_skill_sync_missing`;
 - `trivial_task_overtriggers_skills`.
+- `agent_workflow_behavior_plane_mismatch`;
+- `agent_step_absorbs_target_behavior_plane`;
+- `agent_step_target_commitment_missing`;
+- `agent_step_cross_plane_relation_missing`.
 
 ## Completion Standard
 

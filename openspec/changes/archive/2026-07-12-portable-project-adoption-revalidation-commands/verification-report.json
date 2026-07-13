@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "change": "portable-project-adoption-revalidation-commands",
+  "status": "pass",
+  "generatedAt": "2026-07-12T00:15:37.103Z",
+  "contractPath": "openspec/changes/portable-project-adoption-revalidation-commands/verification-contract.yaml",
+  "reportPath": "openspec/changes/portable-project-adoption-revalidation-commands/verification-report.json",
+  "contractHash": "901de31dad18cac64ebd1f68d8b6483ea57056434331d671a7e7d4163937698f",
+  "sourceHashes": {
+    ".flowguard/project_adoption_version_gate/model.py": "198e9b3185cb289a67a4bc2e7bb83a9edc804085c6cba9b7292cd09ab66455a6",
+    ".flowguard/project_adoption_version_gate/run_checks.py": "84b48dd70293a21783511cf07f8f851f8431ac8a7baac2959794a96583a08eae",
+    "flowguard/project_adoption.py": "6f8be1f3b3be6ea86a181066abc1552015c5c3e347accdc3e5143bc93f3327d3",
+    "openspec/changes/portable-project-adoption-revalidation-commands/.openspec.yaml": "a930f0a8718817146fcdd2b6ad34c3b36b3336a6f5bc0f99ff7fc07ffd517bfd",
+    "openspec/changes/portable-project-adoption-revalidation-commands/design.md": "c65a74a5f290752f8bddd585663cb63fad4d2d14c826c1159b3316782a843d9e",
+    "openspec/changes/portable-project-adoption-revalidation-commands/proposal.md": "a9d3d09dbc4a0808768173c4490ef63bc7b8cdc393bf340ce43511d0bf0a209f",
+    "openspec/changes/portable-project-adoption-revalidation-commands/specs/project-adoption-version-gate/spec.md": "7d985e35ec3967af02f2324deb6a0302ced18e2e3f478b6e66f43148092f1151",
+    "openspec/changes/portable-project-adoption-revalidation-commands/tasks.md": "fb7d517e4f66a621441e3a448f266381e33750d69b8693177a241d0d7e693c9c",
+    "openspec/changes/portable-project-adoption-revalidation-commands/verification-contract.yaml": "901de31dad18cac64ebd1f68d8b6483ea57056434331d671a7e7d4163937698f",
+    "openspec/specs/project-adoption-version-gate/spec.md": "16efe81f983cf36478a8278ac653e3ca56a5e0622f46a09a7ee86cb386ac8555",
+    "tests/test_project_adoption.py": "19b75857c7de99d8afdeb6edea6e22c7361f54d6eb1066291c54e6459fee4a7d"
+  },
+  "issues": [],
+  "checks": [
+    {
+      "id": "check.project-adoption.focused-tests",
+      "kind": "command",
+      "required": true,
+      "covers": [
+        "req.project-adoption.portable-report-commands",
+        "req.project-adoption.portable-human-log"
+      ],
+      "status": "passed",
+      "command": "python",
+      "args": [
+        "-m",
+        "pytest",
+        "tests/test_project_adoption.py",
+        "-q"
+      ],
+      "expectedExitCode": 0,
+      "exitCode": 0,
+      "durationMs": 14612,
+      "stdout": "........................                                             [100%]\r\n24 passed, 4 subtests passed in 13.33s\r\n",
+      "stderr": ""
+    },
+    {
+      "id": "check.project-adoption.model",
+      "kind": "command",
+      "required": true,
+      "covers": [
+        "req.project-adoption.lifecycle-preserved"
+      ],
+      "status": "passed",
+      "command": "python",
+      "args": [
+        ".flowguard/project_adoption_version_gate/run_checks.py"
+      ],
+      "expectedExitCode": 0,
+      "exitCode": 0,
+      "durationMs": 96247,
+      "stdout": "correct_project_adoption_gate: observed=OK expected=OK match=yes formal=pass exact=yes\r\n\r\n=== flowguard formal workflow suite: project_adoption_version_gate ===\r\nstatus: pass\r\nknown_bad_proofs: 3\r\n- broken_claim_without_agents: observed=VIOLATION expected=VIOLATION match=yes formal=failed\r\n- broken_upgrade_without_validation: observed=VIOLATION expected=VIOLATION match=yes formal=failed\r\n- broken_log_as_completion: observed=VIOLATION expected=VIOLATION match=yes formal=failed\r\n\r\n",
+      "stderr": ""
+    },
+    {
+      "id": "check.openspec.strict",
+      "kind": "command",
+      "required": true,
+      "covers": [
+        "req.change.openspec-valid"
+      ],
+      "status": "passed",
+      "command": "openspec",
+      "args": [
+        "validate",
+        "portable-project-adoption-revalidation-commands",
+        "--strict",
+        "--json"
+      ],
+      "expectedExitCode": 0,
+      "exitCode": 0,
+      "durationMs": 2094,
+      "stdout": "{\n  \"items\": [\n    {\n      \"id\": \"portable-project-adoption-revalidation-commands\",\n      \"type\": \"change\",\n      \"valid\": true,\n      \"issues\": [],\n      \"durationMs\": 3\n    }\n  ],\n  \"summary\": {\n    \"totals\": {\n      \"items\": 1,\n      \"passed\": 1,\n      \"failed\": 0\n    },\n    \"byType\": {\n      \"change\": {\n        \"items\": 1,\n        \"passed\": 1,\n        \"failed\": 0\n      }\n    }\n  },\n  \"version\": \"1.0\",\n  \"root\": {\n    \"path\": \"C:\\\\Users\\\\liu_y\\\\Documents\\\\FlowGuard\",\n    \"source\": \"nearest\"\n  }\n}\n",
+      "stderr": ""
+    }
+  ]
+}

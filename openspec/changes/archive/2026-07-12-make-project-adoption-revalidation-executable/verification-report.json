@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "change": "make-project-adoption-revalidation-executable",
+  "status": "pass",
+  "generatedAt": "2026-07-12T22:10:08.980Z",
+  "contractPath": "openspec/changes/make-project-adoption-revalidation-executable/verification-contract.yaml",
+  "reportPath": "openspec/changes/make-project-adoption-revalidation-executable/verification-report.json",
+  "contractHash": "469080bc290d018b7e7b54969c5671aae3078c13ce322854ff2306a06161f9b6",
+  "sourceHashes": {
+    ".flowguard/project_adoption_version_gate/model.py": "0a3509bc541c3280a146768168a3191c686ab1ab95f58f5cf907de3d8d484796",
+    ".flowguard/project_adoption_version_gate/run_checks.py": "3e4dd91d1224de2087727b28f30b36dfb13baca68351164ff6d3f67de3175373",
+    "flowguard/project_adoption.py": "239fade0eb6dc034af6fc457858f1958ff5bfd6f051f238e854d7489678cfbb9",
+    "openspec/changes/make-project-adoption-revalidation-executable/design.md": "ee13e2477c49d52bf718077aebf681c5cc2adf9b8c31d72835d9317c0d7d121f",
+    "openspec/changes/make-project-adoption-revalidation-executable/proposal.md": "39638261d8cef47019212953130e87bc3c0a546c5a3d60e13e3ce719c5c5d42f",
+    "openspec/changes/make-project-adoption-revalidation-executable/specs/project-adoption-version-gate/spec.md": "2be84d18b4f7507de8eb51f8bb55c3cbc82a850d5b59b3b0894aa8a1d223483e",
+    "openspec/changes/make-project-adoption-revalidation-executable/tasks.md": "a426f25644726ef82d7404f28edab5ea9af1b5f55b7260446c20f19030be9fff",
+    "openspec/changes/make-project-adoption-revalidation-executable/verification-contract.yaml": "469080bc290d018b7e7b54969c5671aae3078c13ce322854ff2306a06161f9b6",
+    "openspec/specs/project-adoption-version-gate/spec.md": "374b0af8b08a0b1ed3b35da67b9b477ce88d215bd081b4e87123f8f8830f7727",
+    "tests/test_project_adoption.py": "2120a10be5fe5ad6a6267d83ac50a17283a9ee9ee2bcfcfcc1e567d8bbcc3d3f"
+  },
+  "issues": [],
+  "checks": [
+    {
+      "id": "check.project-adoption-version-gate.focused-tests",
+      "kind": "command",
+      "required": true,
+      "covers": [
+        "req.project-adoption-version-gate.executable-revalidation"
+      ],
+      "status": "passed",
+      "command": "python",
+      "args": [
+        "-m",
+        "pytest",
+        "tests/test_project_adoption.py",
+        "-q"
+      ],
+      "expectedExitCode": 0,
+      "exitCode": 0,
+      "durationMs": 24433,
+      "stdout": ".........................                                           [100%]\r\n25 passed, 5 subtests passed in 23.22s\r\n",
+      "stderr": "",
+      "timeoutSeconds": 1800,
+      "attempt": 1,
+      "startedAt": "2026-07-12T22:08:07.527Z",
+      "completedAt": "2026-07-12T22:08:31.961Z"
+    },
+    {
+      "id": "check.project-adoption-version-gate.flowguard-model",
+      "kind": "command",
+      "required": true,
+      "covers": [
+        "req.project-adoption-version-gate.executable-revalidation"
+      ],
+      "status": "passed",
+      "command": "python",
+      "args": [
+        ".flowguard/project_adoption_version_gate/run_checks.py"
+      ],
+      "expectedExitCode": 0,
+      "exitCode": 0,
+      "durationMs": 96999,
+      "stdout": "correct_project_adoption_gate: observed=OK expected=OK match=yes formal=pass exact=yes\r\n\r\nsource_layout_revalidation_is_not_portable_proof: observed=VIOLATION expected=OK match=no formal=failed exact=yes\r\nstatus: VIOLATION\r\nexact_sequence_length=5 traces=1\r\ninvariant_violations: 1\r\ndead_branches: 0\r\nexceptions: 0\r\nreachability_failures: 0\r\n\r\ninvariant: complete_claim_requires_package_owned_revalidation\r\nmessage: complete claim without a package-owned target-project revalidation entrypoint\r\ncounterexample:\r\nexternal_inputs: (ProjectAction(kind='verify_real_package'), ProjectAction(kind='write_agents_block'), ProjectAction(kind='write_manifest'), ProjectAction(kind='rerun_validation'), ProjectAction(kind='claim_done'))\r\n1. BrokenSourceLayoutRevalidation [real_package_verified]: ProjectAction(kind='verify_real_package') -> ProjectAction(kind='verify_real_package'); state State(real_package_verified=False, agents_block_current=False, manifest_current=False, installed_version_relation='same', validation_current=False, revalidation_authority='none', adoption_log_recorded=False) -> State(real_package_verified=True, agents_block_current=False, manifest_current=False, installed_version_relation='same', validation_current=False, revalidation_authority='none', adoption_log_recorded=False)\r\n2. BrokenSourceLayoutRevalidation [agents_block_written]: ProjectAction(kind='write_agents_block') -> ProjectAction(kind='write_agents_block'); state State(real_package_verified=True, agents_block_current=False, manifest_current=False, installed_version_relation='same', validation_current=False, revalidation_authority='none', adoption_log_recorded=False) -> State(real_package_verified=True, agents_block_current=True, manifest_current=False, installed_version_relation='same', validation_current=False, revalidation_authority='none', adoption_log_recorded=False)\r\n3. BrokenSourceLayoutRevalidation [manifest_written]: ProjectAction(kind='write_manifest') -> ProjectAction(kind='write_manifest'); state State(real_package_verified=True, agents_block_current=True, manifest_current=False, installed_version_relation='same', validation_current=False, revalidation_authority='none', adoption_log_recorded=False) -> State(real_package_verified=True, agents_block_current=True, manifest_current=True, installed_version_relation='same', validation_current=False, revalidation_authority='none', adoption_log_recorded=False)\r\n4. BrokenSourceLayoutRevalidation [source_layout_revalidation_treated_current]: ProjectAction(kind='rerun_validation') -> ProjectAction(kind='rerun_validation'); state State(real_package_verified=True, agents_block_current=True, manifest_current=True, installed_version_relation='same', validation_current=False, revalidation_authority='none', adoption_log_recorded=False) -> State(real_package_verified=True, agents_block_current=True, manifest_current=True, installed_version_relation='same', validation_current=True, revalidation_authority='source-script', adoption_log_recorded=False)\r\n5. BrokenSourceLayoutRevalidation [broken_source_layout_claim_complete]: ProjectAction(kind='claim_done') -> Claim(status='complete', reason='source-layout-only command treated as portable proof'); state State(real_package_verified=True, agents_block_current=True, manifest_current=True, installed_version_relation='same', validation_current=True, revalidation_authority='source-script', adoption_log_recorded=False) -> State(real_package_verified=True, agents_block_current=True, manifest_current=True, installed_version_relation='same', validation_current=True, revalidation_authority='source-script', adoption_log_recorded=False)\r\n\r\n=== flowguard formal workflow suite: project_adoption_version_gate ===\r\nstatus: pass\r\nknown_bad_proofs: 3\r\n- broken_claim_without_agents: observed=VIOLATION expected=VIOLATION match=yes formal=failed\r\n- broken_upgrade_without_validation: observed=VIOLATION expected=VIOLATION match=yes formal=failed\r\n- broken_log_as_completion: observed=VIOLATION expect\n...[truncated]",
+      "stderr": "",
+      "timeoutSeconds": 1800,
+      "attempt": 1,
+      "startedAt": "2026-07-12T22:08:31.969Z",
+      "completedAt": "2026-07-12T22:10:08.968Z"
+    }
+  ],
+  "run": {
+    "id": "1579069d-455c-4ed0-a745-c54a43888bda",
+    "protocolVersion": 1,
+    "state": "completed",
+    "attempt": 1,
+    "startedAt": "2026-07-12T22:08:07.519Z",
+    "updatedAt": "2026-07-12T22:10:08.980Z",
+    "completedAt": "2026-07-12T22:10:08.980Z",
+    "planHash": "378b249c12e847bf32e3e3c343b19f8034fd3bd5d7060f0ce9210eda3be4ce0f",
+    "selection": {
+      "mode": "all",
+      "checkIds": [
+        "check.project-adoption-version-gate.focused-tests",
+        "check.project-adoption-version-gate.flowguard-model"
+      ]
+    },
+    "resumedFromRunId": null,
+    "cancellation": null
+  }
+}

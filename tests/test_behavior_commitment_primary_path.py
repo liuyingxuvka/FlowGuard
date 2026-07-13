@@ -1,7 +1,9 @@
 import unittest
 
 from flowguard import (
+    BCL_ACTOR_EXTERNAL_SYSTEM,
     BCL_EVIDENCE_CURRENT_PASS,
+    BCL_PLANE_PRODUCT_RUNTIME,
     BCL_SCOPE_FULL,
     BehaviorCommitment,
     BehaviorCommitmentLedger,
@@ -15,21 +17,47 @@ from flowguard import (
     PPA_TRIGGER_PRIMARY_FAILURE,
     PrimaryPathAuthorityPlan,
     PrimaryPathContract,
+    ProofArtifactRef,
     behavior_path_binding_from_primary_path_report,
     review_behavior_commitment_ledger,
     review_primary_path_authority,
 )
 
 
+INTENT_ID = "intent:submit-order"
+COMMITMENT_ID = "commitment:submit-order"
+PRIMARY_PATH_ID = "submit_order"
+
+
+def current_proof():
+    return ProofArtifactRef(
+        "proof:submit-order-primary",
+        producer_route="runtime_path_evidence",
+        command="python -m pytest tests/test_behavior_commitment_primary_path.py -q",
+        result_path=".flowguard/evidence/submit-order-primary.json",
+        result_status="passed",
+        exit_code=0,
+        artifact_fingerprints={"orders.submit.contract": "sha256:current"},
+        covered_obligation_ids=("obligation:submit-order-primary",),
+    )
+
+
 def primary_report(*, blocked=False):
     primary = PrimaryPathContract(
-        "submit_order",
+        PRIMARY_PATH_ID,
         business_intent="submit order",
+        business_intent_id=INTENT_ID,
+        behavior_commitment_id=COMMITMENT_ID,
         primary_entrypoint_id="orders.submit.primary",
         owner_model_id="orders.submit.model",
         owner_code_contract_id="orders.submit.contract",
         expected_terminal="accepted_or_visible_error",
         evidence_ids=("runtime:submit-order:no-fallback",),
+        runtime_evidence_state="current_pass",
+        runtime_observation_ids=("runtime:submit-order:no-fallback",),
+        required_obligation_ids=("obligation:submit-order-primary",),
+        proof_artifact=current_proof(),
+        source_surface_ids=("surface:api-submit-order",),
     )
     candidates = ()
     if blocked:
@@ -55,6 +83,13 @@ def primary_report(*, blocked=False):
             coverage_shard_ids=("contract_shard:primary_path_authority:core_no_fallback",),
             coverage_receipt_ids=("contract_coverage:primary_path_authority",),
             risk_gate_ids=("risk_gate:primary_path_authority", "risk_gate:primary_path_authority_cartesian_coverage"),
+            expected_business_intent_ids=(INTENT_ID,),
+            expected_surface_ids=("surface:api-submit-order",),
+            inventory_revision="orders-surface-inventory:v1",
+            inventory_evidence_ids=("inventory:orders-surfaces:v1",),
+            preflight_id="preflight:submit-order",
+            behavior_commitment_ledger_id="ledger:orders",
+            existing_current_path_ids=(PRIMARY_PATH_ID,),
         )
     )
 
@@ -69,12 +104,15 @@ def behavior_ledger(path_authority):
         validation_boundary="orders release",
         rationale="orders behavior ledger",
         expected_commitment_ids=("commitment:submit-order",),
+        expected_business_intent_ids=(INTENT_ID,),
         source_surfaces=(
             BehaviorSourceSurface(
                 "surface:api-submit-order",
                 surface_kind="api",
                 source_ref="orders/api.py",
                 commitment_ids=("commitment:submit-order",),
+                business_intent_ids=(INTENT_ID,),
+                primary_path_id=PRIMARY_PATH_ID,
                 owner="api-owner",
                 validation_boundary="API contract",
                 rationale="public API exposes submit order",
@@ -83,10 +121,14 @@ def behavior_ledger(path_authority):
         commitments=(
             BehaviorCommitment(
                 "commitment:submit-order",
+                business_intent_id=INTENT_ID,
                 label="submit order",
+                behavior_plane=BCL_PLANE_PRODUCT_RUNTIME,
+                actor_kind=BCL_ACTOR_EXTERNAL_SYSTEM,
                 actor="API client",
                 trigger="calls submit order",
                 expected_result="accepted order or visible error",
+                expected_terminal="accepted order or visible error",
                 failure_boundary="primary path failure is visible",
                 source_surface_ids=("surface:api-submit-order",),
                 primary_owner_model_id="orders.submit.model",
@@ -111,6 +153,22 @@ def codes(report):
 
 
 class BehaviorCommitmentPrimaryPathTests(unittest.TestCase):
+    def test_former_plural_path_field_is_rejected_instead_of_migrated(self):
+        with self.assertRaisesRegex(ValueError, "author primary_path_id directly"):
+            BehaviorCommitment(
+                COMMITMENT_ID,
+                path_authority={"primary_path_ids": [PRIMARY_PATH_ID]},
+            )
+
+    def test_former_plural_path_field_in_metadata_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "metadata.legacy_primary_path_ids"):
+            BehaviorCommitment(
+                COMMITMENT_ID,
+                path_authority={
+                    "metadata": {"legacy_primary_path_ids": [PRIMARY_PATH_ID]},
+                },
+            )
+
     def test_path_sensitive_commitment_requires_ppa_binding(self):
         report = review_behavior_commitment_ledger(
             behavior_ledger(BehaviorPathAuthorityBinding(path_sensitive=True))

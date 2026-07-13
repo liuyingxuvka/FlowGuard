@@ -136,6 +136,16 @@ def test_result_reuse_gap_codes(
         gaps.append(("test_reuse_missing_previous_evidence", "reuse ticket does not name previous evidence"))
     if not ticket.result_fingerprint:
         gaps.append(("test_reuse_missing_result_fingerprint", "reuse ticket has no result fingerprint"))
+    if not ticket.command_fingerprint:
+        gaps.append(("test_reuse_missing_command_fingerprint", "reuse ticket has no command fingerprint"))
+    if not ticket.test_source_fingerprint:
+        gaps.append(("test_reuse_missing_source_fingerprint", "reuse ticket has no test-source fingerprint"))
+    if not ticket.tested_artifact_fingerprint:
+        gaps.append(("test_reuse_missing_tested_artifact_fingerprint", "reuse ticket has no tested-artifact fingerprint"))
+    if not ticket.dependency_fingerprints:
+        gaps.append(("test_reuse_missing_dependency_fingerprints", "reuse ticket has no dependency fingerprints"))
+    if not ticket.environment_fingerprint:
+        gaps.append(("test_reuse_missing_environment_fingerprint", "reuse ticket has no environment fingerprint"))
     if not ticket.ticket_current:
         gaps.append(("test_reuse_ticket_not_current", "reuse ticket is not marked current"))
     if not ticket.command_current:

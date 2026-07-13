@@ -308,3 +308,19 @@ def broken_hardcoded_root_workflow() -> Workflow:
 
 def terminal_predicate(current_output, _state, _trace) -> bool:
     return isinstance(current_output, (Rejected, CandidateHarvested))
+
+
+from flowguard.skill_contract_model import build_skill_contract_model_export
+
+FLOWGUARD_MODEL_MARKER = "flowguard-executable-model"
+
+
+def export_contract_model():
+    return build_skill_contract_model_export(
+        skill_id="model-first-function-flow",
+        route_id="model_first_function_flow",
+        owner_id="model_first_function_flow",
+        parent_model_id="flowguard.root",
+        business_intent="Select or build the minimum useful FlowGuard model and route ordinary behavior work to its existing owner.",
+        claim_boundary="This kernel projection selects and validates a minimum model boundary; it does not replace satellite owners or make every trivial action execute a model.",
+    )

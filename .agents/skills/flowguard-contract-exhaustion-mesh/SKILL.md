@@ -18,7 +18,7 @@ Read `references/contract_exhaustion_mesh_protocol.md` for feeders, universes, `
 Accept declared finite dimensions/seeds; generate reviewable cases with oracles; block unbounded broad claims, missing feedback, stale/incomplete receipts, or missing universe items; hand obligations/cells/shards/receipts/risk gates to their owners.
 
 ## Use When
-- Use for same-class, payload, transition, state-closure, PPA, BCL, parent/child closure, no-delta, or model-scoped Cartesian coverage.
+- Use for same-class, payload, transition, state-closure, PPA, BCL, product-language, expected member/candidate inventory, facade delegation, parent/child closure, no-delta, or model-scoped Cartesian coverage.
 
 ## Do Not Use When
 - Do not invent a boundary from prose, run tests, replace sibling routes, or claim all bugs are covered; return unclear ownership to `model-first-function-flow`.
@@ -32,9 +32,10 @@ Accept declared finite dimensions/seeds; generate reviewable cases with oracles;
 - Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
 - Broad/full claims require a complete `ContractCoverageUniverse`; reject/block/repair cases require actionable oracle feedback.
 - Matrix ready is not whole-chain ready; current composite handoff acceptance and template harvest closure remain required where applicable.
+- When behavior authority is finite, generate missing/mismatched intent/commitment/path, wrong-path, parallel-success, stale-proof, omitted member/candidate, opaque-similarity, facade, and invalid UI-exception cases. Expected inventories come from their owners, never from the smaller observed set.
 
 ## Output Requirements
-- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`, plus canonical cases, gaps, shards, and receipts.
+- Return evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, typed_next_actions, canonical coverage cases, gaps, shards, and receipts.
 
 ## SkillGuard Maintenance
-- Edit `.skillguard/contract-source.json`, then regenerate derived contracts; SkillGuard checks this native generator contract and cannot synthesize passing downstream evidence.
+- Edit contract source, regenerate; SkillGuard cannot synthesize pass evidence.

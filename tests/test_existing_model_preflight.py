@@ -17,6 +17,7 @@ from flowguard import (
     existing_model_preflight_from_project,
     review_existing_model_preflight,
 )
+from flowguard.existing_model_preflight import ExistingIntentSurface
 
 
 def model_hit(**kwargs) -> ModelContextHit:
@@ -37,6 +38,102 @@ def model_hit(**kwargs) -> ModelContextHit:
 
 
 class ExistingModelPreflightTests(unittest.TestCase):
+    def test_same_intent_surface_inventory_reuses_one_commitment_and_primary_path(self):
+        surfaces = tuple(
+            ExistingIntentSurface(
+                surface_id,
+                surface_kind=surface_kind,
+                business_intent_id="intent:submit-order",
+                behavior_commitment_id="commitment:submit-order",
+                business_path_id="orders.submit",
+                primary_path_id="path:submit-order",
+                expected_terminal="accepted_or_visible_error",
+                state_writes=("orders",),
+                side_effects=("write_order",),
+                owner_id="orders.submit.model",
+                evidence_ids=(f"inventory:{surface_id}",),
+            )
+            for surface_id, surface_kind in (
+                ("surface:ui-submit", "ui"),
+                ("surface:api-submit", "api"),
+            )
+        )
+        report = review_existing_model_preflight(
+            ExistingModelPreflight(
+                "submit-order-preflight",
+                "Extend submit-order behavior without creating another authority",
+                mode="full",
+                model_search_performed=True,
+                search_paths=(".flowguard/orders",),
+                relevant_models=(model_hit(model_id="orders.submit.model"),),
+                ownership_snapshot=ExistingOwnershipSnapshot(
+                    function_block_owners=(("SubmitOrder", "orders.submit.model"),),
+                ),
+                reuse_decision=REUSE_DECISION_EXTEND_EXISTING,
+                downstream_routes=("model_similarity_consolidation", "primary_path_authority"),
+                rationale="All same-intent surfaces reuse the registered commitment and path.",
+                affected_business_intent_id="intent:submit-order",
+                selected_commitment_id="commitment:submit-order",
+                selected_primary_path_id="path:submit-order",
+                expected_surface_ids=("surface:ui-submit", "surface:api-submit"),
+                intent_surfaces=surfaces,
+                surface_inventory_revision="submit-order-surfaces:v1",
+                surface_inventory_evidence_ids=("inventory:submit-order-surfaces:v1",),
+                require_complete_surface_inventory=True,
+            )
+        )
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual(
+            {"surface:ui-submit", "surface:api-submit"},
+            set(report.covered_surface_ids),
+        )
+        self.assertEqual("path:submit-order", report.primary_path_id)
+
+    def test_same_intent_surface_inventory_blocks_omitted_surface(self):
+        report = review_existing_model_preflight(
+            ExistingModelPreflight(
+                "submit-order-preflight-omitted",
+                "Review submit-order surfaces",
+                mode="full",
+                model_search_performed=True,
+                search_paths=(".flowguard/orders",),
+                relevant_models=(model_hit(model_id="orders.submit.model"),),
+                ownership_snapshot=ExistingOwnershipSnapshot(
+                    function_block_owners=(("SubmitOrder", "orders.submit.model"),),
+                ),
+                reuse_decision=REUSE_DECISION_EXTEND_EXISTING,
+                downstream_routes=("model_similarity_consolidation",),
+                rationale="A complete same-intent inventory is required.",
+                affected_business_intent_id="intent:submit-order",
+                selected_commitment_id="commitment:submit-order",
+                selected_primary_path_id="path:submit-order",
+                expected_surface_ids=("surface:ui-submit", "surface:api-submit"),
+                intent_surfaces=(
+                    ExistingIntentSurface(
+                        "surface:ui-submit",
+                        surface_kind="ui",
+                        business_intent_id="intent:submit-order",
+                        behavior_commitment_id="commitment:submit-order",
+                        business_path_id="orders.submit",
+                        primary_path_id="path:submit-order",
+                        expected_terminal="accepted_or_visible_error",
+                        owner_id="orders.submit.model",
+                        evidence_ids=("inventory:ui-submit",),
+                    ),
+                ),
+                surface_inventory_revision="submit-order-surfaces:v1",
+                surface_inventory_evidence_ids=("inventory:submit-order-surfaces:v1",),
+                require_complete_surface_inventory=True,
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn(
+            "missing_expected_intent_surface",
+            {finding.code for finding in report.findings},
+        )
+
     def test_full_preflight_can_continue_when_existing_model_is_reused(self):
         preflight = ExistingModelPreflight(
             "router-preflight",

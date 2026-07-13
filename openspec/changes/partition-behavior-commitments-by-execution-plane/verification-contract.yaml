@@ -1,0 +1,177 @@
+contract_version: 3
+change: partition-behavior-commitments-by-execution-plane
+evidence_roots:
+  SPEC_EVIDENCE: .flowguard/evidence/spec-work-packages
+obligations:
+  - id: req.infrastructure.models-full
+    source: "proposal.md"
+    claim: "The registered FlowGuard model inventory is consumed from one exact current cross-change-safe owner receipt."
+    required: true
+    evidence: [owner.models.full]
+  - id: req.infrastructure.tests-full
+    source: "proposal.md"
+    claim: "Full pytest is consumed from one exact current cross-change-safe owner receipt after the model inventory."
+    required: true
+    evidence: [owner.tests.full]
+  - id: req.bcl.plane-actor-relations
+    source: "specs/behavior-commitment-ledger/spec.md#Requirement: Commitments declare one behavior plane"
+    claim: "Commitments require a production plane and actor kind, validate typed relation targets/directions/rationales, and reject former-only values at runtime."
+    required: true
+    evidence: [owner.change.aggregate]
+  - id: req.bcl.canonical-replacement
+    source: "specs/behavior-commitment-ledger/spec.md#Requirement: Canonical project ledger is machine-readable"
+    claim: "One canonical JSON ledger is loaded by the project adapter; former shapes are rejected and the old embedded inventory is retired."
+    required: true
+    evidence: [owner.change.aggregate]
+  - id: req.lookup.plane-first
+    source: "specs/behavior-commitment-lookup/spec.md#Requirement: Lookup filters by behavior plane before similarity"
+    claim: "Lookup selects/filter planes before scoring and cannot promote typed related context into primary instructions."
+    required: true
+    evidence: [owner.change.aggregate]
+  - id: req.lookup.explainable-cli
+    source: "specs/behavior-commitment-lookup/spec.md#Requirement: Lookup results are explainable and freshness-bound"
+    claim: "API and read-only CLI return deterministic explainable hits, relation roles, lookup status, and ledger fingerprint."
+    required: true
+    evidence: [owner.change.aggregate]
+  - id: req.preflight.commitment-first
+    source: "specs/existing-model-preflight/spec.md#Requirement: Project preflight queries commitments before path discovery"
+    claim: "Existing Model Preflight queries the ledger before path discovery, separates primary and related planes, and blocks rather than selecting an alternate authority."
+    required: true
+    evidence: [owner.change.aggregate]
+  - id: req.similarity.plane-quarantine
+    source: "specs/model-similarity-consolidation/spec.md#Requirement: Cross-plane language is false-friend evidence"
+    claim: "Cross-plane shared words cannot cause same-workflow/merge recommendations and typed relations preserve separate owners."
+    required: true
+    evidence: [owner.change.aggregate]
+  - id: req.miss.same-plane-backfeed
+    source: "specs/model-miss-review/spec.md#Requirement: Miss backfeed searches the same plane first"
+    claim: "Model Miss records whose promise failed, reuses same-plane commitments first, and keeps multi-plane incidents typed."
+    required: true
+    evidence: [owner.change.aggregate]
+  - id: req.fields.lifecycle
+    source: "specs/field-lifecycle-mesh/spec.md#Requirement: Behavior-plane replacement fields are fully accounted"
+    claim: "All new fields and the removed former dependency field have owner/reader/writer/projection/lifecycle/disposition evidence."
+    required: true
+    evidence: [owner.change.aggregate]
+  - id: req.contracts.finite-cases
+    source: "specs/contract-exhaustion-mesh/spec.md#Requirement: Behavior-plane boundary projects finite coverage axes"
+    claim: "Finite plane/actor/relation/lookup/former-shape cases have stable ids, actionable oracles, and downstream projections."
+    required: true
+    evidence: [owner.change.aggregate]
+  - id: req.alignment.owner-contracts
+    source: "specs/model-test-alignment/spec.md#Requirement: Plane-aware obligations bind model, owner code, and tests"
+    claim: "Required plane-aware obligations bind one public owner contract and that owner's native tests, including former-shape rejection and miss closure."
+    required: true
+    evidence: [owner.change.aggregate]
+  - id: req.testmesh.owner-receipts
+    source: "specs/test-evidence-mesh/spec.md#Requirement: Native model regressions have one execution owner"
+    claim: "Focused, model, installation, and frozen full-suite owner receipts remain distinct; consumers never copy or rerun owner commands."
+    required: true
+    evidence: [owner.change.aggregate]
+  - id: req.process.order-peer-writes
+    source: "specs/development-process-flow/spec.md#Requirement: Plane upgrade lifecycle is explicitly ordered"
+    claim: "The lifecycle orders specification through verification, preserves peer writes, and invalidates stale evidence."
+    required: true
+    evidence: [owner.change.aggregate]
+  - id: req.api.existing-owners
+    source: "specs/flowguard-api-registry/spec.md#Requirement: Plane-aware BCL APIs stay in existing route groups"
+    claim: "New public types/helpers and CLI are owned by existing API groups and add no route id."
+    required: true
+    evidence: [owner.change.aggregate]
+  - id: req.skills.guidance-parity
+    source: "specs/flowguard-codex-skill-satellites/spec.md#Requirement: Existing skills teach behavior-plane ownership"
+    claim: "Existing skill guidance preserves plane ownership and source/generated/shadow/installed parity without a parallel route."
+    required: true
+    evidence: [owner.change.aggregate]
+  - id: req.change.strict-valid
+    source: "proposal.md"
+    claim: "The OpenSpec change remains structurally strict-valid and all required implementation evidence is current."
+    required: true
+    evidence: [owner.change.aggregate]
+checks:
+  - id: owner.models.full
+    kind: receipt
+    semantic_check_id: flowguard.models.full
+    execution_id: flowguard.owner.models.full.v1
+    receipt_ref:
+      provider_id: openspec
+      work_package_id: partition-behavior-commitments-by-execution-plane
+      adapter: portable-receipt.v1
+      ref_path: "<SPEC_EVIDENCE>/portable-refs/openspec/partition-behavior-commitments-by-execution-plane/owner.models.full.json"
+    consumer: openspec.change.partition-behavior-commitments-by-execution-plane
+    required: true
+    covers: [req.infrastructure.models-full]
+  - id: owner.tests.full
+    kind: receipt
+    semantic_check_id: flowguard.tests.full
+    execution_id: flowguard.owner.tests.full.v1
+    receipt_ref:
+      provider_id: openspec
+      work_package_id: partition-behavior-commitments-by-execution-plane
+      adapter: portable-receipt.v1
+      ref_path: "<SPEC_EVIDENCE>/portable-refs/openspec/partition-behavior-commitments-by-execution-plane/owner.tests.full.json"
+    consumer: openspec.change.partition-behavior-commitments-by-execution-plane
+    required: true
+    covers: [req.infrastructure.tests-full]
+  - id: owner.change.aggregate
+    kind: receipt
+    semantic_check_id: flowguard.openspec.partition-behavior-commitments-by-execution-plane.aggregate
+    execution_id: flowguard.owner.partition-behavior-commitments-by-execution-plane.aggregate.current
+    receipt_ref:
+      provider_id: openspec
+      work_package_id: partition-behavior-commitments-by-execution-plane
+      adapter: portable-receipt.v1
+      ref_path: "<SPEC_EVIDENCE>/portable-refs/openspec/partition-behavior-commitments-by-execution-plane/owner.change.aggregate.json"
+    consumer: openspec.change.partition-behavior-commitments-by-execution-plane
+    required: true
+    covers:
+      - req.bcl.plane-actor-relations
+      - req.bcl.canonical-replacement
+      - req.lookup.plane-first
+      - req.lookup.explainable-cli
+      - req.preflight.commitment-first
+      - req.similarity.plane-quarantine
+      - req.miss.same-plane-backfeed
+      - req.fields.lifecycle
+      - req.contracts.finite-cases
+      - req.alignment.owner-contracts
+      - req.testmesh.owner-receipts
+      - req.process.order-peer-writes
+      - req.api.existing-owners
+      - req.skills.guidance-parity
+      - req.change.strict-valid
+freshness:
+  watch:
+    - openspec/changes/partition-behavior-commitments-by-execution-plane/proposal.md
+    - openspec/changes/partition-behavior-commitments-by-execution-plane/design.md
+    - openspec/changes/partition-behavior-commitments-by-execution-plane/tasks.md
+    - openspec/changes/partition-behavior-commitments-by-execution-plane/specs/**/*.md
+    - openspec/changes/partition-behavior-commitments-by-execution-plane/verification-contract.yaml
+    - openspec/specs/**/*.md
+    - flowguard/**/*.py
+    - flowguard/template_text/**/*.py
+    - .flowguard/behavior_commitment_ledger/ledger.json
+    - .flowguard/behavior_commitment_ledger/**/*.py
+    - .flowguard/existing_model_preflight/**/*.py
+    - .flowguard/model_similarity_consolidation/**/*.py
+    - .flowguard/model_miss_review/**/*.py
+    - .flowguard/lightweight_model_miss_review/**/*.py
+    - .flowguard/development_process_flow/**/*.py
+    - .flowguard/self_maintenance_mesh/**/*.py
+    - .flowguard/default_replacement_field_lifecycle/**/*.py
+    - .flowguard/model_test_code_alignment/**/*.py
+    - .flowguard/project.toml
+    - .agents/skills/flowguard-behavior-commitment-ledger/**/*
+    - .agents/skills/flowguard-existing-model-preflight/**/*
+    - .agents/skills/flowguard-model-miss-review/**/*
+    - .agents/skills/flowguard-development-process-flow/**/*
+    - .agents/skills/flowguard-agent-workflow-rehearsal/**/*
+    - .agents/skills/flowguard-plan-detailing-compiler/**/*
+    - .agents/skills/model-first-function-flow/**/*
+    - AGENTS.md
+    - README.md
+    - CHANGELOG.md
+    - docs/**/*.md
+    - scripts/**/*.py
+    - tests/**/*.py
+    - pyproject.toml

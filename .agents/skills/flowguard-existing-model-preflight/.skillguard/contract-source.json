@@ -1,107 +1,173 @@
 {
-  "activation_keywords": [
-    "existing modeled system",
-    "ownership lookup",
-    "duplicate boundary",
-    "reuse existing model"
-  ],
-  "claim_boundary": "The report proves only current ownership understanding and route selection; it does not validate the downstream proposal or implementation.",
-  "default_route": false,
-  "direct_references": [
-    "references/existing_model_preflight_protocol.md"
-  ],
-  "do_not_use_when": [
-    "The task is typo/format-only, greenfield with no model context, or asks for downstream implementation/validation rather than ownership grounding."
-  ],
-  "downstream_targets": [
+  "artifacts": [],
+  "checks": [
     {
-      "claim_scope": "behavior ownership",
-      "condition": "External behavior overlaps, changes, or lacks registration.",
-      "target_id": "flowguard-behavior-commitment-ledger",
-      "target_kind": "skill"
+      "check_id": "check:flowguard-existing-model-preflight:plane-boundary",
+      "covers_obligation_ids": [
+        "obligation:flowguard-existing-model-preflight:plane-boundary"
+      ],
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "flowguard-existing-model-preflight:functional",
+      "execution_owner_id": "owner:flowguard-existing-model-preflight:flowguard-existing-model-preflight-plane-boundary",
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": ".flowguard/existing_model_preflight/model.py"
+        }
+      ],
+      "kind": "model_assertion",
+      "timeout_seconds": 30
     },
     {
-      "claim_scope": "field ownership",
-      "condition": "Behavior-bearing, replaced, or compatibility-like fields are in scope.",
-      "target_id": "flowguard-field-lifecycle-mesh",
-      "target_kind": "skill"
+      "args": [
+        "-m",
+        "pytest",
+        "tests/test_existing_model_preflight.py",
+        "-q"
+      ],
+      "check_id": "check:flowguard-existing-model-preflight:native-authority",
+      "command": "python",
+      "covers_obligation_ids": [
+        "obligation:flowguard-existing-model-preflight:native-authority"
+      ],
+      "cwd_token": "repository_root",
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "flowguard-existing-model-preflight:functional",
+      "execution_owner_id": "owner:flowguard-existing-model-preflight:flowguard-existing-model-preflight-native-authority",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": ".flowguard/existing_model_preflight/model.py"
+        },
+        {
+          "kind": "path",
+          "path": ".flowguard/existing_model_preflight/run_checks.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/behavior_commitment_lookup.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/existing_model_preflight.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/skill_contract_model.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_existing_model_preflight.py"
+        }
+      ],
+      "kind": "command",
+      "timeout_seconds": 300
     },
     {
-      "claim_scope": "reduction review",
-      "condition": "Duplicate model/code boundaries may be contracted.",
-      "target_id": "flowguard-architecture-reduction",
-      "target_kind": "skill"
+      "check_id": "check:flowguard-existing-model-preflight:evidence-closure",
+      "covers_obligation_ids": [
+        "obligation:flowguard-existing-model-preflight:evidence-closure"
+      ],
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "flowguard-existing-model-preflight:functional",
+      "execution_owner_id": "owner:flowguard-existing-model-preflight:flowguard-existing-model-preflight-evidence-closure",
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": ".flowguard/existing_model_preflight/model.py"
+        }
+      ],
+      "kind": "model_assertion",
+      "timeout_seconds": 30
     }
   ],
-  "layout_profiles": {
-    "installed": ".codex/skills/flowguard-existing-model-preflight",
-    "source": ".agents/skills/flowguard-existing-model-preflight"
-  },
-  "native_checks": [
+  "claim_boundary": "The report proves only current ownership and affected-surface inventory understanding plus reuse/route selection; it does not validate the downstream proposal, runtime path, or implementation.",
+  "closure_profiles": [
     {
-      "binding_id": "existing_preflight_pytest",
-      "command": "python -m pytest tests/test_existing_model_preflight.py -q",
-      "evidence_source": "current owner-specific pytest receipt",
-      "kind": "pytest",
-      "native_check_id": "existing_model_preflight_tests",
-      "summary": "Run the tracked existing-model-preflight owner and ownership tests."
+      "profile_id": "routine",
+      "required_obligation_ids": [
+        "obligation:flowguard-existing-model-preflight:plane-boundary"
+      ]
+    },
+    {
+      "profile_id": "functional",
+      "required_obligation_ids": [
+        "obligation:flowguard-existing-model-preflight:plane-boundary",
+        "obligation:flowguard-existing-model-preflight:native-authority"
+      ]
+    },
+    {
+      "profile_id": "release",
+      "required_obligation_ids": [
+        "obligation:flowguard-existing-model-preflight:plane-boundary",
+        "obligation:flowguard-existing-model-preflight:native-authority",
+        "obligation:flowguard-existing-model-preflight:evidence-closure"
+      ]
+    },
+    {
+      "profile_id": "highest_quality",
+      "required_obligation_ids": [
+        "obligation:flowguard-existing-model-preflight:plane-boundary",
+        "obligation:flowguard-existing-model-preflight:native-authority",
+        "obligation:flowguard-existing-model-preflight:evidence-closure"
+      ]
     }
   ],
-  "native_owner": "existing_model_preflight",
-  "output_fields": [
-    "evidence",
-    "failures",
-    "blockers",
-    "skipped_checks",
-    "residual_risk",
-    "claim_boundary",
-    "typed_next_actions"
+  "confirmed": true,
+  "implementation_paths": [
+    ".agents/skills/flowguard-existing-model-preflight",
+    ".flowguard/existing_model_preflight",
+    "flowguard/existing_model_preflight.py",
+    "flowguard/behavior_commitment_lookup.py",
+    "flowguard/skill_contract_model.py",
+    "tests/test_existing_model_preflight.py"
   ],
-  "route_id": "existing_model_preflight",
-  "route_role": "public_owner",
-  "route_summary": "Search current modeled ownership, classify reuse, expose duplicate boundaries, and select the typed downstream owner.",
-  "schema_version": "flowguard.skill_contract_source.v1",
+  "judgment_rubrics": [],
+  "model_id": "flowguard.existing_model_preflight.skill_contract.v2",
+  "model_path": ".flowguard/existing_model_preflight/model.py",
+  "release_eligible": false,
+  "schema_version": "skillguard.contract_source.v2",
   "skill_id": "flowguard-existing-model-preflight",
-  "source_requirements": [
+  "step_bindings": [
     {
-      "category": "inventory",
-      "requirement_id": "existing_preflight.current_search",
-      "summary": "Full preflight must search current model and source records and classify old-shape evidence before reuse."
+      "step_id": "step:flowguard-existing-model-preflight:intake",
+      "action": {
+        "kind": "inventory",
+        "summary": "Classify the task plane and query same-plane commitments before filesystem discovery."
+      },
+      "check_ids": [
+        "check:flowguard-existing-model-preflight:plane-boundary"
+      ],
+      "output_artifact_ids": []
     },
     {
-      "category": "evidence",
-      "requirement_id": "existing_preflight.ownership_and_duplicates",
-      "summary": "FunctionBlock, state, field, side-effect, entrypoint, commitment, and layered ownership gaps remain visible."
+      "step_id": "step:flowguard-existing-model-preflight:execute",
+      "action": {
+        "kind": "native",
+        "summary": "Run the existing preflight owner and preserve typed related-plane context as non-owning context."
+      },
+      "check_ids": [
+        "check:flowguard-existing-model-preflight:native-authority"
+      ],
+      "output_artifact_ids": []
     },
     {
-      "category": "closure",
-      "requirement_id": "existing_preflight.companion_only",
-      "summary": "Preflight selects reuse and downstream ownership but cannot prove or implement the planned change."
-    }
-  ],
-  "use_when": [
-    "Non-trivial discussion, proposal, feature, bug, refactor, UI, test, prompt, skill, workflow, or process work touches an existing modeled system."
-  ],
-  "workflow": [
-    {
-      "phase_id": "intake",
-      "summary": "Define the candidate change boundary and whether light or full preflight is required."
-    },
-    {
-      "phase_id": "inventory",
-      "summary": "Search models, specs, docs, source surfaces, commitments, fields, and parent/child evidence."
-    },
-    {
-      "phase_id": "execution",
-      "summary": "Build ownership snapshots, model-angle/similarity rows, reuse decision, and duplicate-boundary risks."
-    },
-    {
-      "phase_id": "checks",
-      "summary": "Run the native preflight model and reject stale, missing, duplicate, or unsupported ownership."
-    },
-    {
-      "phase_id": "closure",
-      "summary": "Return affected commitments/siblings, stale gaps, reuse decision, and typed downstream owner without implementing."
+      "step_id": "step:flowguard-existing-model-preflight:verify",
+      "action": {
+        "kind": "verifier",
+        "summary": "Require an explainable owner selection or an explicit missing, stale, or ambiguous fallback."
+      },
+      "check_ids": [
+        "check:flowguard-existing-model-preflight:evidence-closure"
+      ],
+      "output_artifact_ids": []
     }
   ]
 }
+

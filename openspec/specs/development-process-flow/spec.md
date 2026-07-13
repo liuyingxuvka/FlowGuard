@@ -578,3 +578,51 @@ skills when those detailed reviews are required.
 - **THEN** `flowguard-agent-workflow-rehearsal` MAY produce workflow evidence
 - **AND** the delegated skill MUST NOT be a competing generic first stop
 
+### Requirement: Development process consumes primary path authority evidence
+DevelopmentProcessFlow SHALL include primary-path authority as a
+freshness-sensitive validation gate for staged implementation, install sync,
+and final done/release claims when path-sensitive behavior is in scope.
+
+#### Scenario: Changed fallback surface stales evidence
+- **WHEN** a changed artifact adds, removes, or modifies a path, alias,
+  wrapper, helper route, compatibility facade, old field, fallback candidate,
+  recovery path, or migration path
+- **THEN** DevelopmentProcessFlow SHALL treat prior primary-path authority,
+  runtime path, coverage, TestMesh, and RiskLedger evidence as stale
+
+#### Scenario: Final claim lacks authority evidence
+- **WHEN** a final claim depends on path-sensitive behavior and has no current
+  primary-path authority evidence consumed by RiskEvidenceLedger
+- **THEN** DevelopmentProcessFlow SHALL report the final claim as unsupported
+
+### Requirement: Broad process claims require current ledger coverage
+FlowGuard SHALL require DevelopmentProcessFlow to consume Behavior Commitment
+Ledger coverage before done, release, publish, archive, production, or
+full-confidence claims that cover non-trivial behavior.
+
+#### Scenario: Ledger evidence is current
+- **WHEN** a staged-work report has a current behavior ledger review with no blocking findings
+- **THEN** DevelopmentProcessFlow MAY treat behavior commitment coverage as satisfied for that boundary
+
+#### Scenario: Ledger evidence is missing
+- **WHEN** a broad process claim has no current behavior ledger review
+- **THEN** DevelopmentProcessFlow SHALL report a freshness-sensitive validation gap
+
+### Requirement: Behavior process work selects a ledger change mode
+FlowGuard SHALL require non-trivial behavior/API/CLI/skill/template/process
+work to select a behavior-ledger change mode before implementation or broad
+claims.
+
+#### Scenario: Behavior change routes to ledger mode
+- **WHEN** staged work affects external behavior or its source surfaces
+- **THEN** DevelopmentProcessFlow SHALL preserve the selected mode among bootstrap, add, change, remove/replace, coverage-gap backfill, or model-miss check
+- **AND** stale source surfaces SHALL invalidate broad behavior claims until ledger coverage is refreshed
+
+### Requirement: Path-sensitive process claims consume PPA through the ledger
+FlowGuard SHALL require path-sensitive behavior commitments to pass PPA before
+DevelopmentProcessFlow claims broad completion.
+
+#### Scenario: PPA blocks a ledger commitment
+- **WHEN** a ledger report lists a PPA-blocked commitment
+- **THEN** DevelopmentProcessFlow SHALL block done, release, publish, archive, production, and full-confidence claims for the affected boundary
+

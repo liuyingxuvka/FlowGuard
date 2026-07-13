@@ -1,137 +1,169 @@
 {
-  "activation_keywords": [
-    "UI flow",
-    "UI content admission",
-    "UI content visibility",
-    "on-demand disclosure",
-    "observed surface",
-    "human operability",
-    "runnable UI evidence",
-    "UI transition coverage"
-  ],
-  "claim_boundary": "The route proves only the declared three-value content-admission boundary, UI states, tasks, paths, and current observed/implementation evidence; it does not certify unvisited behavior, authorization roles, future AI behavior, or visual design quality.",
-  "default_route": false,
-  "direct_references": [
-    "references/ui_flow_structure_protocol.md",
-    "references/ui_observed_surface_protocol.md",
-    "references/ui_capability_interaction_protocol.md",
-    "references/ui_journey_structure_text_protocol.md",
-    "references/ui_human_operability_protocol.md",
-    "references/ui_implementation_evidence_protocol.md",
-    "references/ui_geometry_transition_protocol.md"
-  ],
-  "do_not_use_when": [
-    "The work is visual styling only, non-UI, code-structure planning, audience/permission taxonomy design, or prose/observed visibility/label/API evidence is being substituted for content admission or UI behavior proof."
-  ],
-  "downstream_targets": [
+  "artifacts": [],
+  "checks": [
     {
-      "claim_scope": "UI model-code-test alignment",
-      "condition": "UI transition/capability/payload targets need semantic obligation, owner code, and test binding.",
-      "target_id": "flowguard-model-test-alignment",
-      "target_kind": "skill"
+      "check_id": "check:flowguard-ui-flow-structure:plane-boundary",
+      "covers_obligation_ids": [
+        "obligation:flowguard-ui-flow-structure:plane-boundary"
+      ],
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "flowguard-ui-flow-structure:functional",
+      "execution_owner_id": "owner:flowguard-ui-flow-structure:flowguard-ui-flow-structure-plane-boundary",
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": ".flowguard/ui_flow_structure_skill/model.py"
+        }
+      ],
+      "kind": "model_assertion",
+      "timeout_seconds": 30
     },
     {
-      "claim_scope": "UI evidence hierarchy",
-      "condition": "Browser/manual/transition evidence is large, slow, layered, stale-prone, background, or release-only.",
-      "target_id": "flowguard-test-mesh",
-      "target_kind": "skill"
+      "args": [
+        ".flowguard/ui_flow_structure_skill/run_checks.py"
+      ],
+      "check_id": "check:flowguard-ui-flow-structure:native-authority",
+      "command": "python",
+      "covers_obligation_ids": [
+        "obligation:flowguard-ui-flow-structure:native-authority"
+      ],
+      "cwd_token": "repository_root",
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "flowguard-ui-flow-structure:functional",
+      "execution_owner_id": "owner:flowguard-ui-flow-structure:flowguard-ui-flow-structure-native-authority",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": ".flowguard/ui_flow_structure_skill/model.py"
+        },
+        {
+          "kind": "path",
+          "path": ".flowguard/ui_flow_structure_skill/result.json"
+        },
+        {
+          "kind": "path",
+          "path": ".flowguard/ui_flow_structure_skill/run_checks.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/skill_contract_model.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/ui_structure.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_ui_structure.py"
+        }
+      ],
+      "kind": "command",
+      "timeout_seconds": 300
     },
     {
-      "claim_scope": "UI code structure recommendation",
-      "condition": "Reviewed UI behavior must become implementation module/component ownership.",
-      "target_id": "flowguard-code-structure-recommendation",
-      "target_kind": "skill"
+      "check_id": "check:flowguard-ui-flow-structure:evidence-closure",
+      "covers_obligation_ids": [
+        "obligation:flowguard-ui-flow-structure:evidence-closure"
+      ],
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "flowguard-ui-flow-structure:functional",
+      "execution_owner_id": "owner:flowguard-ui-flow-structure:flowguard-ui-flow-structure-evidence-closure",
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": ".flowguard/ui_flow_structure_skill/model.py"
+        }
+      ],
+      "kind": "model_assertion",
+      "timeout_seconds": 30
     }
   ],
-  "layout_profiles": {
-    "installed": ".codex/skills/flowguard-ui-flow-structure",
-    "source": ".agents/skills/flowguard-ui-flow-structure"
-  },
-  "native_checks": [
+  "claim_boundary": "The route proves only the declared three-value content-admission boundary, product-scope semantic UI consistency boundary, UI states, tasks, paths, and current observed/implementation evidence; it does not certify unvisited behavior, authorization roles, future AI behavior, brand styling, or pixel-level visual quality.",
+  "closure_profiles": [
     {
-      "binding_id": "ui_flow_model",
-      "command": "python .flowguard/ui_flow_structure_skill/run_checks.py",
-      "evidence_source": "current model runner receipt and final report",
-      "kind": "flowguard_model",
-      "native_check_id": "ui_flow_structure_skill",
-      "summary": "Run UI content-admission, flow, visible-surface, on-demand operability, and implementation evidence model checks."
+      "profile_id": "routine",
+      "required_obligation_ids": [
+        "obligation:flowguard-ui-flow-structure:plane-boundary"
+      ]
+    },
+    {
+      "profile_id": "functional",
+      "required_obligation_ids": [
+        "obligation:flowguard-ui-flow-structure:plane-boundary",
+        "obligation:flowguard-ui-flow-structure:native-authority"
+      ]
+    },
+    {
+      "profile_id": "release",
+      "required_obligation_ids": [
+        "obligation:flowguard-ui-flow-structure:plane-boundary",
+        "obligation:flowguard-ui-flow-structure:native-authority",
+        "obligation:flowguard-ui-flow-structure:evidence-closure"
+      ]
+    },
+    {
+      "profile_id": "highest_quality",
+      "required_obligation_ids": [
+        "obligation:flowguard-ui-flow-structure:plane-boundary",
+        "obligation:flowguard-ui-flow-structure:native-authority",
+        "obligation:flowguard-ui-flow-structure:evidence-closure"
+      ]
     }
   ],
-  "native_owner": "ui_flow_structure",
-  "output_fields": [
-    "evidence",
-    "failures",
-    "blockers",
-    "skipped_checks",
-    "residual_risk",
-    "claim_boundary",
-    "typed_next_actions"
+  "confirmed": true,
+  "implementation_paths": [
+    ".agents/skills/flowguard-ui-flow-structure",
+    ".flowguard/ui_flow_structure_skill",
+    "flowguard/ui_structure.py",
+    "flowguard/skill_contract_model.py",
+    "tests/test_ui_structure.py"
   ],
-  "route_id": "ui_flow_structure",
-  "route_role": "public_owner",
-  "route_summary": "Admit candidate UI content, model UI behavior, and prove observed surface, capability/task coverage, journeys, on-demand operability, implementation evidence, geometry, and transition scope.",
-  "schema_version": "flowguard.skill_contract_source.v1",
+  "judgment_rubrics": [],
+  "model_id": "flowguard.ui_flow_structure.skill_contract.v2",
+  "model_path": ".flowguard/ui_flow_structure_skill/model.py",
+  "release_eligible": false,
+  "schema_version": "skillguard.contract_source.v2",
   "skill_id": "flowguard-ui-flow-structure",
-  "source_requirements": [
+  "step_bindings": [
     {
-      "category": "inventory",
-      "requirement_id": "ui.observed_surface_and_capabilities",
-      "summary": "Existing/runnable UI claims require complete observed-surface and user-visible capability/output accounting, while observation itself grants no display permission."
+      "step_id": "step:flowguard-ui-flow-structure:intake",
+      "action": {
+        "kind": "inventory",
+        "summary": "Declare UI work mode, product surface scope, candidate content boundary, source authority, and requested UI claim."
+      },
+      "check_ids": [
+        "check:flowguard-ui-flow-structure:plane-boundary"
+      ],
+      "output_artifact_ids": []
     },
     {
-      "category": "inventory",
-      "requirement_id": "ui.content_admission",
-      "summary": "Two conceptual groups use exactly user_visible, user_on_demand, or internal for every in-scope state-exposing candidate; typed needs must resolve, unclassified/internal content cannot render, and only exact labels for registered in-scope task-owned controls without extra state or metadata need no duplicate row."
+      "step_id": "step:flowguard-ui-flow-structure:execute",
+      "action": {
+        "kind": "native",
+        "summary": "Run the existing UI Flow owner to apply three-class content admission and one product-wide typography, component, navigation, interaction, feedback, recovery, and transition language."
+      },
+      "check_ids": [
+        "check:flowguard-ui-flow-structure:native-authority"
+      ],
+      "output_artifact_ids": []
     },
     {
-      "category": "evidence",
-      "requirement_id": "ui.on_demand_disclosure",
-      "summary": "User_on_demand stays hidden across display/text/visible/observed mappings until visible/enabled task-owned reveal with item-bound feedback, has an operable return path, and uses a distinct keyboard/focus event for hover."
-    },
-    {
-      "category": "boundary",
-      "requirement_id": "ui.no_audience_role_taxonomy",
-      "summary": "Content admission keeps exactly three visibility values in two conceptual groups and does not add audience, role, persona, expert-mode, or authorization categories."
-    },
-    {
-      "category": "evidence",
-      "requirement_id": "ui.structured_content_evidence",
-      "summary": "Runnable claims bind the current plan and observed inventory to structured per-content default/reveal/revealed/return/internal-absence evidence; positive rows resolve to the exact content and state, and a boolean, opaque, or unrelated observation is insufficient."
-    },
-    {
-      "category": "evidence",
-      "requirement_id": "ui.enabled_action_chain",
-      "summary": "Every reachable enabled action has a modeled event and current functional chain/click evidence, pure-UI disposition, or owned blindspot."
-    },
-    {
-      "category": "closure",
-      "requirement_id": "ui.design_runtime_boundary",
-      "summary": "Model/design evidence cannot prove implemented/runnable completion; source alignment, recovery, human, and current evidence-kind gates remain explicit."
-    }
-  ],
-  "use_when": [
-    "UI candidate content, controls, displays, states, journeys, visible surface, capabilities, tasks, on-demand disclosure, click-through, layout/responsiveness, or transition evidence are in scope."
-  ],
-  "workflow": [
-    {
-      "phase_id": "intake",
-      "summary": "Declare greenfield, source_based, or mixed mode; product/user scope; UI candidate boundary; source authority; and requested UI claim, without inventing audience roles."
-    },
-    {
-      "phase_id": "inventory",
-      "summary": "Inventory observed visible items without granting permission; inventory candidate displayed/status/helper/metadata/detail content, required capabilities/outputs, tasks, controls, displays, states, events, source mappings, and blindspots."
-    },
-    {
-      "phase_id": "execution",
-      "summary": "Classify candidate content with the exact three values and typed resolvable needs; narrow control-label exemptions; bind all-target disclosure state, task-owned affordance, item feedback, observed inventory, and structured per-content evidence into downstream contracts."
-    },
-    {
-      "phase_id": "checks",
-      "summary": "Run the UI Flow model and reject unclassified/internal mappings, overbroad control-label exemptions, direct observed/display bypass, invalid all-target on-demand state/accessibility, missing item feedback, unowned enabled actions, stale/opaque/cross-content evidence, or design-only runnable claims."
-    },
-    {
-      "phase_id": "closure",
-      "summary": "Return the current content-visibility plan, UI evidence, and gaps; hand semantic transition cells and large evidence matrices to MTA/TestMesh."
+      "step_id": "step:flowguard-ui-flow-structure:verify",
+      "action": {
+        "kind": "verifier",
+        "summary": "Reject internal leaks, unclassified content, invalid on-demand paths, semantic or typography drift, authority drift, and design-only runnable claims."
+      },
+      "check_ids": [
+        "check:flowguard-ui-flow-structure:evidence-closure"
+      ],
+      "output_artifact_ids": []
     }
   ]
 }
+

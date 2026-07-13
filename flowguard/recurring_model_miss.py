@@ -8,9 +8,20 @@ FlowGuard skill or product-specific closure route.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Mapping, Sequence
 
+from .behavior_commitment import (
+    BCL_BEHAVIOR_PLANES,
+    BCL_HIT_ROLE_PRIMARY,
+    BCL_LOOKUP_STATUS_PERFORMED,
+    BehaviorCommitmentLedger,
+)
+from .behavior_commitment_lookup import (
+    BehaviorCommitmentHit,
+    BehaviorLookupQuery,
+    query_behavior_commitments,
+)
 from .export import to_jsonable
 from .legacy_path_disposition import LEGACY_PATH_KIND_FIELD, LegacyPathDisposition, review_legacy_path_dispositions
 from .proof_artifact import ProofArtifactRef, coerce_proof_artifact_ref, proof_artifact_gap_codes
@@ -64,6 +75,17 @@ UI_MODEL_MISS_TYPES = (
 UI_MODEL_MISS_PROMISED_CAPABILITY_TYPES = (
     UI_MODEL_MISS_EVIDENCE_OVERCLAIMED,
     UI_MODEL_MISS_BOUNDARY_MISSING,
+)
+
+MODEL_MISS_BACKFEED_REUSE_EXISTING = "reuse_existing_commitment"
+MODEL_MISS_BACKFEED_COVERAGE_GAP = "coverage_gap_candidate"
+MODEL_MISS_BACKFEED_AMBIGUOUS = "plane_or_commitment_ambiguous"
+MODEL_MISS_BACKFEED_BLOCKED = "lookup_blocked"
+MODEL_MISS_BACKFEED_DISPOSITIONS = (
+    MODEL_MISS_BACKFEED_REUSE_EXISTING,
+    MODEL_MISS_BACKFEED_COVERAGE_GAP,
+    MODEL_MISS_BACKFEED_AMBIGUOUS,
+    MODEL_MISS_BACKFEED_BLOCKED,
 )
 
 PASSING_DEFECT_FAMILY_STATUSES = {RISK_PROOF_STATUS_PASSED}
@@ -193,6 +215,12 @@ class DefectFamilyGate:
     same_class_field_ids: tuple[str, ...] = ()
     old_field_ids: tuple[str, ...] = ()
     affected_model_ids: tuple[str, ...] = ()
+    affected_behavior_plane: str = ""
+    affected_commitment_id: str = ""
+    primary_owner_model_id: str = ""
+    related_commitment_ids: tuple[str, ...] = ()
+    error_signatures: tuple[str, ...] = ()
+    error_evidence_ids: tuple[str, ...] = ()
     root_cause_dimension_ids: tuple[str, ...] = ()
     interaction_group_ids: tuple[str, ...] = ()
     observed_combination_case_id: str = ""
@@ -223,6 +251,12 @@ class DefectFamilyGate:
         object.__setattr__(self, "same_class_field_ids", _as_tuple(self.same_class_field_ids))
         object.__setattr__(self, "old_field_ids", _as_tuple(self.old_field_ids))
         object.__setattr__(self, "affected_model_ids", _as_tuple(self.affected_model_ids))
+        object.__setattr__(self, "affected_behavior_plane", str(self.affected_behavior_plane))
+        object.__setattr__(self, "affected_commitment_id", str(self.affected_commitment_id))
+        object.__setattr__(self, "primary_owner_model_id", str(self.primary_owner_model_id))
+        object.__setattr__(self, "related_commitment_ids", _as_tuple(self.related_commitment_ids))
+        object.__setattr__(self, "error_signatures", _as_tuple(self.error_signatures))
+        object.__setattr__(self, "error_evidence_ids", _as_tuple(self.error_evidence_ids))
         object.__setattr__(self, "root_cause_dimension_ids", _as_tuple(self.root_cause_dimension_ids))
         object.__setattr__(self, "interaction_group_ids", _as_tuple(self.interaction_group_ids))
         object.__setattr__(self, "observed_combination_case_id", str(self.observed_combination_case_id))
@@ -260,6 +294,12 @@ class DefectFamilyGate:
             "same_class_field_ids": list(self.same_class_field_ids),
             "old_field_ids": list(self.old_field_ids),
             "affected_model_ids": list(self.affected_model_ids),
+            "affected_behavior_plane": self.affected_behavior_plane,
+            "affected_commitment_id": self.affected_commitment_id,
+            "primary_owner_model_id": self.primary_owner_model_id,
+            "related_commitment_ids": list(self.related_commitment_ids),
+            "error_signatures": list(self.error_signatures),
+            "error_evidence_ids": list(self.error_evidence_ids),
             "root_cause_dimension_ids": list(self.root_cause_dimension_ids),
             "interaction_group_ids": list(self.interaction_group_ids),
             "observed_combination_case_id": self.observed_combination_case_id,
@@ -281,11 +321,13 @@ class DefectFamilyGatePlan:
     require_proof_artifacts: bool = False
     require_legacy_path_dispositions: bool = False
     allow_scoped_confidence: bool = True
+    require_behavior_binding: bool = False
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "plan_id", str(self.plan_id))
         object.__setattr__(self, "gates", tuple(self.gates))
         object.__setattr__(self, "proof_evidence", tuple(self.proof_evidence))
+        object.__setattr__(self, "require_behavior_binding", bool(self.require_behavior_binding))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -295,6 +337,7 @@ class DefectFamilyGatePlan:
             "require_proof_artifacts": self.require_proof_artifacts,
             "require_legacy_path_dispositions": self.require_legacy_path_dispositions,
             "allow_scoped_confidence": self.allow_scoped_confidence,
+            "require_behavior_binding": self.require_behavior_binding,
         }
 
 
@@ -401,6 +444,91 @@ class DefectFamilyGateReport:
 
 
 @dataclass(frozen=True)
+class ModelMissBehaviorContext:
+    """One primary or typed-related commitment bound to an observed miss."""
+
+    commitment_id: str
+    behavior_plane: str
+    primary_owner_model_id: str
+    hit_role: str = BCL_HIT_ROLE_PRIMARY
+    relation_type: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "commitment_id", str(self.commitment_id))
+        object.__setattr__(self, "behavior_plane", str(self.behavior_plane))
+        object.__setattr__(self, "primary_owner_model_id", str(self.primary_owner_model_id))
+        object.__setattr__(self, "hit_role", str(self.hit_role))
+        object.__setattr__(self, "relation_type", str(self.relation_type))
+
+    @classmethod
+    def from_hit(cls, hit: BehaviorCommitmentHit) -> "ModelMissBehaviorContext":
+        return cls(
+            hit.commitment_id,
+            hit.behavior_plane,
+            hit.primary_owner_model_id,
+            hit.hit_role,
+            hit.relation_type,
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "commitment_id": self.commitment_id,
+            "behavior_plane": self.behavior_plane,
+            "primary_owner_model_id": self.primary_owner_model_id,
+            "hit_role": self.hit_role,
+            "relation_type": self.relation_type,
+        }
+
+
+def _coerce_behavior_context(
+    value: ModelMissBehaviorContext | Mapping[str, Any],
+) -> ModelMissBehaviorContext:
+    if isinstance(value, ModelMissBehaviorContext):
+        return value
+    return ModelMissBehaviorContext(**dict(value))
+
+
+@dataclass(frozen=True)
+class ModelMissBehaviorBackfeed:
+    """Same-plane-first Model Miss lookup and registration decision."""
+
+    disposition: str
+    lookup_status: str
+    primary_context: ModelMissBehaviorContext | None = None
+    related_context: tuple[ModelMissBehaviorContext, ...] = ()
+    candidate_context: tuple[ModelMissBehaviorContext, ...] = ()
+    ledger_fingerprint: str = ""
+    reason: str = ""
+
+    def __post_init__(self) -> None:
+        if self.disposition not in MODEL_MISS_BACKFEED_DISPOSITIONS:
+            raise ValueError(f"unknown model-miss backfeed disposition: {self.disposition!r}")
+        object.__setattr__(self, "lookup_status", str(self.lookup_status))
+        object.__setattr__(self, "related_context", tuple(self.related_context))
+        object.__setattr__(self, "candidate_context", tuple(self.candidate_context))
+        object.__setattr__(self, "ledger_fingerprint", str(self.ledger_fingerprint))
+        object.__setattr__(self, "reason", str(self.reason))
+
+    @property
+    def reuses_existing_commitment(self) -> bool:
+        return (
+            self.disposition == MODEL_MISS_BACKFEED_REUSE_EXISTING
+            and self.primary_context is not None
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "disposition": self.disposition,
+            "lookup_status": self.lookup_status,
+            "primary_context": self.primary_context.to_dict() if self.primary_context else None,
+            "related_context": [item.to_dict() for item in self.related_context],
+            "candidate_context": [item.to_dict() for item in self.candidate_context],
+            "ledger_fingerprint": self.ledger_fingerprint,
+            "reason": self.reason,
+        }
+
+
+@dataclass(frozen=True)
 class UIModelMissRecord:
     """User-observed UI failure after prior green FlowGuard evidence."""
 
@@ -419,6 +547,15 @@ class UIModelMissRecord:
     same_class_field_ids: tuple[str, ...] = ()
     required_test_ids: tuple[str, ...] = ()
     required_implementation_evidence_ids: tuple[str, ...] = ()
+    affected_behavior_plane: str = ""
+    affected_commitment_id: str = ""
+    primary_owner_model_id: str = ""
+    related_behavior_context: tuple[ModelMissBehaviorContext | Mapping[str, Any], ...] = ()
+    error_signatures: tuple[str, ...] = ()
+    error_evidence_ids: tuple[str, ...] = ()
+    behavior_lookup_status: str = ""
+    behavior_ledger_fingerprint: str = ""
+    behavior_coverage_gap_candidate: bool = False
     root_cause_backpropagation: str = ""
     code_owner: str = ""
     rationale: str = ""
@@ -447,6 +584,23 @@ class UIModelMissRecord:
             "required_implementation_evidence_ids",
             _as_tuple(self.required_implementation_evidence_ids),
         )
+        object.__setattr__(self, "affected_behavior_plane", str(self.affected_behavior_plane))
+        object.__setattr__(self, "affected_commitment_id", str(self.affected_commitment_id))
+        object.__setattr__(self, "primary_owner_model_id", str(self.primary_owner_model_id))
+        object.__setattr__(
+            self,
+            "related_behavior_context",
+            tuple(_coerce_behavior_context(value) for value in self.related_behavior_context),
+        )
+        object.__setattr__(self, "error_signatures", _as_tuple(self.error_signatures))
+        object.__setattr__(self, "error_evidence_ids", _as_tuple(self.error_evidence_ids))
+        object.__setattr__(self, "behavior_lookup_status", str(self.behavior_lookup_status))
+        object.__setattr__(self, "behavior_ledger_fingerprint", str(self.behavior_ledger_fingerprint))
+        object.__setattr__(
+            self,
+            "behavior_coverage_gap_candidate",
+            bool(self.behavior_coverage_gap_candidate),
+        )
         object.__setattr__(self, "root_cause_backpropagation", str(self.root_cause_backpropagation))
         object.__setattr__(self, "code_owner", str(self.code_owner))
         object.__setattr__(self, "rationale", str(self.rationale))
@@ -471,6 +625,17 @@ class UIModelMissRecord:
             "same_class_field_ids": list(self.same_class_field_ids),
             "required_test_ids": list(self.required_test_ids),
             "required_implementation_evidence_ids": list(self.required_implementation_evidence_ids),
+            "affected_behavior_plane": self.affected_behavior_plane,
+            "affected_commitment_id": self.affected_commitment_id,
+            "primary_owner_model_id": self.primary_owner_model_id,
+            "related_behavior_context": [
+                context.to_dict() for context in self.related_behavior_context
+            ],
+            "error_signatures": list(self.error_signatures),
+            "error_evidence_ids": list(self.error_evidence_ids),
+            "behavior_lookup_status": self.behavior_lookup_status,
+            "behavior_ledger_fingerprint": self.behavior_ledger_fingerprint,
+            "behavior_coverage_gap_candidate": self.behavior_coverage_gap_candidate,
             "root_cause_backpropagation": self.root_cause_backpropagation,
             "code_owner": self.code_owner,
             "rationale": self.rationale,
@@ -484,19 +649,99 @@ class UIModelMissReviewPlan:
     plan_id: str
     ui_misses: tuple[UIModelMissRecord, ...] = ()
     require_same_class_evidence: bool = True
+    require_behavior_binding: bool = False
     allow_scoped_confidence: bool = True
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "plan_id", str(self.plan_id))
         object.__setattr__(self, "ui_misses", tuple(self.ui_misses))
+        object.__setattr__(self, "require_behavior_binding", bool(self.require_behavior_binding))
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "plan_id": self.plan_id,
             "ui_misses": [miss.to_dict() for miss in self.ui_misses],
             "require_same_class_evidence": self.require_same_class_evidence,
+            "require_behavior_binding": self.require_behavior_binding,
             "allow_scoped_confidence": self.allow_scoped_confidence,
         }
+
+
+def backfeed_model_miss_to_behavior_ledger(
+    miss: UIModelMissRecord,
+    ledger: BehaviorCommitmentLedger | Mapping[str, Any],
+    *,
+    top_k: int = 5,
+) -> ModelMissBehaviorBackfeed:
+    """Find an existing same-plane commitment before proposing a new promise."""
+
+    canonical_terms = (
+        (miss.affected_commitment_id,) if miss.affected_commitment_id else ()
+    )
+    report = query_behavior_commitments(
+        ledger,
+        BehaviorLookupQuery(
+            task_summary=miss.observed_failure,
+            primary_plane=miss.affected_behavior_plane,
+            canonical_terms=canonical_terms,
+            error_signatures=miss.error_signatures,
+            top_k=top_k,
+        ),
+    )
+    related = tuple(ModelMissBehaviorContext.from_hit(hit) for hit in report.related_hits)
+    candidates = tuple(ModelMissBehaviorContext.from_hit(hit) for hit in report.candidate_hits)
+    if report.status != BCL_LOOKUP_STATUS_PERFORMED:
+        disposition = MODEL_MISS_BACKFEED_BLOCKED
+        reason = report.status_reason or "behavior ledger lookup did not run"
+        primary = None
+    elif report.plane_ambiguity:
+        disposition = MODEL_MISS_BACKFEED_AMBIGUOUS
+        reason = report.status_reason or "behavior plane or commitment is ambiguous"
+        primary = None
+    elif report.primary_hits:
+        disposition = MODEL_MISS_BACKFEED_REUSE_EXISTING
+        primary = ModelMissBehaviorContext.from_hit(report.primary_hits[0])
+        reason = "reuse the existing same-plane behavior commitment and owner model"
+    else:
+        disposition = MODEL_MISS_BACKFEED_COVERAGE_GAP
+        primary = None
+        reason = "no registered same-plane promise matched; coverage-gap registration is required"
+    return ModelMissBehaviorBackfeed(
+        disposition,
+        report.status,
+        primary_context=primary,
+        related_context=related,
+        candidate_context=candidates,
+        ledger_fingerprint=report.ledger_fingerprint,
+        reason=reason,
+    )
+
+
+def apply_model_miss_behavior_backfeed(
+    miss: UIModelMissRecord,
+    backfeed: ModelMissBehaviorBackfeed,
+) -> UIModelMissRecord:
+    """Return a record bound to lookup evidence; never creates a commitment."""
+
+    primary = backfeed.primary_context
+    return replace(
+        miss,
+        affected_behavior_plane=(
+            primary.behavior_plane if primary is not None else miss.affected_behavior_plane
+        ),
+        affected_commitment_id=(
+            primary.commitment_id if primary is not None else miss.affected_commitment_id
+        ),
+        primary_owner_model_id=(
+            primary.primary_owner_model_id if primary is not None else miss.primary_owner_model_id
+        ),
+        related_behavior_context=backfeed.related_context,
+        behavior_lookup_status=backfeed.lookup_status,
+        behavior_ledger_fingerprint=backfeed.ledger_fingerprint,
+        behavior_coverage_gap_candidate=(
+            backfeed.disposition == MODEL_MISS_BACKFEED_COVERAGE_GAP
+        ),
+    )
 
 
 @dataclass(frozen=True)
@@ -618,6 +863,114 @@ def review_ui_model_misses(plan: UIModelMissReviewPlan) -> UIModelMissReviewRepo
                     miss_id=miss.miss_id,
                 )
             )
+        behavior_binding_declared = bool(
+            miss.affected_behavior_plane
+            or miss.affected_commitment_id
+            or miss.primary_owner_model_id
+            or miss.related_behavior_context
+            or miss.error_signatures
+            or miss.error_evidence_ids
+            or miss.behavior_lookup_status
+            or miss.behavior_ledger_fingerprint
+            or miss.behavior_coverage_gap_candidate
+        )
+        if plan.require_behavior_binding or behavior_binding_declared:
+            if miss.affected_behavior_plane not in BCL_BEHAVIOR_PLANES:
+                findings.append(
+                    UIModelMissFinding(
+                        "ui_model_miss_behavior_plane_missing_or_invalid",
+                        "Model Miss must identify the execution plane whose promise failed.",
+                        miss_id=miss.miss_id,
+                        metadata={"affected_behavior_plane": miss.affected_behavior_plane},
+                    )
+                )
+            if miss.behavior_coverage_gap_candidate:
+                findings.append(
+                    UIModelMissFinding(
+                        "ui_model_miss_behavior_coverage_gap_unregistered",
+                        "No existing same-plane promise matched; register and model the coverage gap before closure.",
+                        miss_id=miss.miss_id,
+                    )
+                )
+            if not miss.affected_commitment_id:
+                findings.append(
+                    UIModelMissFinding(
+                        "ui_model_miss_commitment_missing",
+                        "Model Miss must map the failure to an existing commitment before creating a new one.",
+                        miss_id=miss.miss_id,
+                    )
+                )
+            if not miss.primary_owner_model_id:
+                findings.append(
+                    UIModelMissFinding(
+                        "ui_model_miss_owner_model_missing",
+                        "Model Miss must preserve the selected commitment's primary owner model.",
+                        miss_id=miss.miss_id,
+                    )
+                )
+            if miss.behavior_lookup_status != BCL_LOOKUP_STATUS_PERFORMED:
+                findings.append(
+                    UIModelMissFinding(
+                        "ui_model_miss_behavior_lookup_not_performed",
+                        "Model Miss behavior lookup must be performed before broad repair closure.",
+                        miss_id=miss.miss_id,
+                        metadata={"behavior_lookup_status": miss.behavior_lookup_status},
+                    )
+                )
+            if not miss.behavior_ledger_fingerprint:
+                findings.append(
+                    UIModelMissFinding(
+                        "ui_model_miss_behavior_ledger_fingerprint_missing",
+                        "Model Miss binding must identify the ledger revision it queried.",
+                        miss_id=miss.miss_id,
+                    )
+                )
+            if not miss.error_signatures:
+                findings.append(
+                    UIModelMissFinding(
+                        "ui_model_miss_error_signature_missing",
+                        "Model Miss binding must retain a bounded observed error signature.",
+                        miss_id=miss.miss_id,
+                    )
+                )
+            if miss.error_signatures and not miss.error_evidence_ids:
+                findings.append(
+                    UIModelMissFinding(
+                        "ui_model_miss_error_signature_evidence_missing",
+                        "Every error-signature set must be bound to observed evidence.",
+                        miss_id=miss.miss_id,
+                    )
+                )
+            related_ids: set[str] = set()
+            for context in miss.related_behavior_context:
+                if context.commitment_id == miss.affected_commitment_id:
+                    findings.append(
+                        UIModelMissFinding(
+                            "ui_model_miss_related_context_promoted_to_primary",
+                            "Typed related context must stay separate from the failed primary commitment.",
+                            miss_id=miss.miss_id,
+                            metadata={"context": context.to_dict()},
+                        )
+                    )
+                if context.commitment_id in related_ids:
+                    findings.append(
+                        UIModelMissFinding(
+                            "ui_model_miss_related_context_duplicate",
+                            "The same related commitment is recorded more than once.",
+                            miss_id=miss.miss_id,
+                            metadata={"context": context.to_dict()},
+                        )
+                    )
+                related_ids.add(context.commitment_id)
+                if context.behavior_plane not in BCL_BEHAVIOR_PLANES:
+                    findings.append(
+                        UIModelMissFinding(
+                            "ui_model_miss_related_context_plane_invalid",
+                            "Related commitment context must retain a valid execution plane.",
+                            miss_id=miss.miss_id,
+                            metadata={"context": context.to_dict()},
+                        )
+                    )
         if not (miss.affected_capability_ids or miss.affected_control_ids or miss.affected_field_ids):
             findings.append(
                 UIModelMissFinding(
@@ -827,6 +1180,84 @@ def review_defect_family_gates(plan: DefectFamilyGatePlan) -> DefectFamilyGateRe
         for field_name, code, message in required_fields:
             if not getattr(gate, field_name):
                 add_gap(gate.gate_id, _finding(code, message, gate_id=gate.gate_id))
+
+        behavior_binding_declared = bool(
+            gate.affected_behavior_plane
+            or gate.affected_commitment_id
+            or gate.primary_owner_model_id
+            or gate.related_commitment_ids
+            or gate.error_signatures
+            or gate.error_evidence_ids
+        )
+        if plan.require_behavior_binding or behavior_binding_declared:
+            if gate.affected_behavior_plane not in BCL_BEHAVIOR_PLANES:
+                add_gap(
+                    gate.gate_id,
+                    _finding(
+                        "defect_family_behavior_plane_missing_or_invalid",
+                        "recurring miss family must retain the execution plane whose promise failed",
+                        gate_id=gate.gate_id,
+                        metadata={"affected_behavior_plane": gate.affected_behavior_plane},
+                    ),
+                )
+            if not gate.affected_commitment_id:
+                add_gap(
+                    gate.gate_id,
+                    _finding(
+                        "defect_family_commitment_missing",
+                        "recurring miss family must bind to the existing behavior commitment",
+                        gate_id=gate.gate_id,
+                    ),
+                )
+            if not gate.primary_owner_model_id:
+                add_gap(
+                    gate.gate_id,
+                    _finding(
+                        "defect_family_primary_owner_model_missing",
+                        "recurring miss family must retain the commitment's primary owner model",
+                        gate_id=gate.gate_id,
+                    ),
+                )
+            if (
+                gate.primary_owner_model_id
+                and gate.affected_model_ids
+                and gate.primary_owner_model_id not in gate.affected_model_ids
+            ):
+                add_gap(
+                    gate.gate_id,
+                    _finding(
+                        "defect_family_primary_owner_not_affected",
+                        "the commitment owner model must be present in affected_model_ids",
+                        gate_id=gate.gate_id,
+                    ),
+                )
+            if not gate.error_signatures:
+                add_gap(
+                    gate.gate_id,
+                    _finding(
+                        "defect_family_error_signature_missing",
+                        "recurring miss family must retain bounded error signatures",
+                        gate_id=gate.gate_id,
+                    ),
+                )
+            if gate.error_signatures and not gate.error_evidence_ids:
+                add_gap(
+                    gate.gate_id,
+                    _finding(
+                        "defect_family_error_signature_evidence_missing",
+                        "recurring miss error signatures must be bound to observed evidence",
+                        gate_id=gate.gate_id,
+                    ),
+                )
+            if gate.affected_commitment_id in set(gate.related_commitment_ids):
+                add_gap(
+                    gate.gate_id,
+                    _finding(
+                        "defect_family_related_commitment_is_primary",
+                        "typed related commitments must stay separate from the failed primary commitment",
+                        gate_id=gate.gate_id,
+                    ),
+                )
 
         case_roles = {case.role for case in gate.cases}
         has_observed_case = bool(gate.observed_failure_case_id) or DEFECT_CASE_ROLE_OBSERVED_FAILURE in case_roles
@@ -1092,6 +1523,11 @@ __all__ = [
     "DEFECT_FAMILY_DECISION_BLOCKED",
     "DEFECT_FAMILY_DECISION_FULL",
     "DEFECT_FAMILY_DECISION_SCOPED",
+    "MODEL_MISS_BACKFEED_AMBIGUOUS",
+    "MODEL_MISS_BACKFEED_BLOCKED",
+    "MODEL_MISS_BACKFEED_COVERAGE_GAP",
+    "MODEL_MISS_BACKFEED_DISPOSITIONS",
+    "MODEL_MISS_BACKFEED_REUSE_EXISTING",
     "UI_MODEL_MISS_BOUNDARY_MISSING",
     "UI_MODEL_MISS_ACTION_GRAMMAR_CONFLICT",
     "UI_MODEL_MISS_AFFORDANCE_MISMATCH",
@@ -1114,10 +1550,14 @@ __all__ = [
     "DefectFamilyGateReport",
     "NON_PASSING_DEFECT_FAMILY_STATUSES",
     "PASSING_DEFECT_FAMILY_STATUSES",
+    "ModelMissBehaviorBackfeed",
+    "ModelMissBehaviorContext",
     "UIModelMissFinding",
     "UIModelMissRecord",
     "UIModelMissReviewPlan",
     "UIModelMissReviewReport",
+    "apply_model_miss_behavior_backfeed",
+    "backfeed_model_miss_to_behavior_ledger",
     "review_defect_family_gates",
     "review_ui_model_misses",
 ]

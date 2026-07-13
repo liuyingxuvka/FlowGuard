@@ -25,12 +25,13 @@ Accept existing-model ownership plus code mapping; classify contraction candidat
 
 ## Required Workflow
 1. Ground existing ownership and declare an `ObservableArchitectureContract`.
-2. Map FunctionBlocks, state, side effects, public entrypoints, and contraction candidates.
-3. Record proof status, target action, compatibility disposition, risks, and required next route.
+2. Consume the independently expected same-intent candidate inventory and materialized Similarity relations/code obligations; map FunctionBlocks, state, side effects, public entrypoints, and every candidate or typed keep/scoped disposition.
+3. Record stable intent/commitment/selected-path binding, proof status, target action, compatibility disposition, risks, and required next route.
 
 ## Hard Gates
 - Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
 - Only equivalence or current facade proof can make a contraction ready; risky, scoped, stale, and property-only candidates remain visible.
+- An empty/smaller candidate list cannot pass after Preflight or Similarity found duplicates. Retained facades require current evidence that they delegate to the selected primary path and cannot succeed independently.
 - Public entrypoints require StructureMesh parity, duplicate generators route to ContractExhaustionMesh, and new/deepened models require template harvest closure.
 
 ## Output Requirements

@@ -4,7 +4,8 @@ FlowGuard Risk Purpose Header
 Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
 Purpose: prevent UI completion claims from passing when the real rendered UI,
 allowed-versus-observed content comparison, enabled-control behavior,
-source-baseline interaction semantics, or final claim evidence is missing.
+source-baseline interaction semantics, product-language consistency, internal
+content exclusion, or final claim evidence is missing.
 Modeled block shape: Input x State -> Set(Output x State).
 Run: python .flowguard/harden_ui_real_surface_validation/run_checks.py
 """
@@ -35,6 +36,8 @@ class UIHardeningState:
     observed_inventory_gate: bool = False
     all_visible_items_mapped: bool = False
     allowed_vs_observed_content_gate: bool = False
+    product_language_gate: bool = False
+    no_internal_product_content_leaks: bool = False
     functional_chain_gate: bool = False
     source_baseline_gate: bool = False
     ui_model_miss_gate: bool = False
@@ -53,6 +56,8 @@ class UIHardeningState:
             and self.observed_inventory_gate
             and self.all_visible_items_mapped
             and self.allowed_vs_observed_content_gate
+            and self.product_language_gate
+            and self.no_internal_product_content_leaks
             and self.functional_chain_gate
             and self.source_baseline_gate
             and self.ui_model_miss_gate
@@ -73,6 +78,8 @@ class CorrectUILastMileHardening:
         "observed_inventory_gate",
         "all_visible_items_mapped",
         "allowed_vs_observed_content_gate",
+        "product_language_gate",
+        "no_internal_product_content_leaks",
         "functional_chain_gate",
         "source_baseline_gate",
         "ui_model_miss_gate",
@@ -136,6 +143,21 @@ class CorrectUILastMileHardening:
                 replace(state, allowed_vs_observed_content_gate=ok),
                 label="allowed_observed_content_compared" if ok else "allowed_observed_comparison_blocked",
             )
+        elif action == "add_product_language_gate":
+            ok = (
+                state.observed_inventory_gate
+                and state.all_visible_items_mapped
+                and state.allowed_vs_observed_content_gate
+            )
+            yield FunctionResult(
+                UIHardeningOutput("product_language_gate_added" if ok else "product_language_gate_blocked"),
+                replace(
+                    state,
+                    product_language_gate=ok,
+                    no_internal_product_content_leaks=ok,
+                ),
+                label="product_language_gate_added" if ok else "product_language_gate_blocked",
+            )
         elif action == "add_functional_chain_gate":
             ok = (
                 state.observed_inventory_gate
@@ -165,6 +187,8 @@ class CorrectUILastMileHardening:
             ok = (
                 state.observed_inventory_gate
                 and state.allowed_vs_observed_content_gate
+                and state.product_language_gate
+                and state.no_internal_product_content_leaks
                 and state.functional_chain_gate
             )
             yield FunctionResult(
@@ -314,6 +338,88 @@ class BrokenObservedMappingGrantsPermission(CorrectUILastMileHardening):
         yield from super().apply(input_obj, state)
 
 
+class BrokenInternalProductContentLeak(CorrectUILastMileHardening):
+    name = "BrokenInternalProductContentLeak"
+    idempotency = "Broken variant accepts internal identity, audit, evidence, or diagnostics as visible product content."
+
+    def apply(self, input_obj: UIHardeningAction, state: UIHardeningState) -> Iterable[FunctionResult]:
+        action = input_obj.action_type
+        if action == "add_product_language_gate":
+            ok = (
+                state.observed_inventory_gate
+                and state.all_visible_items_mapped
+                and state.allowed_vs_observed_content_gate
+            )
+            yield FunctionResult(
+                UIHardeningOutput("internal_product_content_leak_accepted" if ok else "product_language_gate_blocked"),
+                replace(
+                    state,
+                    product_language_gate=ok,
+                    no_internal_product_content_leaks=False,
+                ),
+                label="internal_product_content_leak_accepted" if ok else "product_language_gate_blocked",
+            )
+            return
+        if action == "add_task_evidence_gate":
+            ok = (
+                state.observed_inventory_gate
+                and state.allowed_vs_observed_content_gate
+                and state.product_language_gate
+                and state.functional_chain_gate
+            )
+            yield FunctionResult(
+                UIHardeningOutput("task_evidence_gate_added" if ok else "task_evidence_blocked"),
+                replace(state, task_evidence_gate=ok),
+                label="task_evidence_gate_added" if ok else "task_evidence_blocked",
+            )
+            return
+        if action == "run_tests":
+            ok = (
+                state.openspec_valid
+                and state.observed_inventory_gate
+                and state.all_visible_items_mapped
+                and state.allowed_vs_observed_content_gate
+                and state.product_language_gate
+                and state.functional_chain_gate
+                and state.source_baseline_gate
+                and state.ui_model_miss_gate
+                and state.task_evidence_gate
+                and state.final_done_claim_gate
+                and state.workflow_coverage_evidence_gate
+            )
+            yield FunctionResult(
+                UIHardeningOutput("tests_current" if ok else "tests_blocked"),
+                replace(state, tests_current=ok),
+                label="tests_current" if ok else "tests_blocked",
+            )
+            return
+        if action == "claim_done":
+            accepted = (
+                state.openspec_valid
+                and state.existing_model_preflight_current
+                and state.observed_inventory_gate
+                and state.all_visible_items_mapped
+                and state.allowed_vs_observed_content_gate
+                and state.product_language_gate
+                and state.functional_chain_gate
+                and state.source_baseline_gate
+                and state.ui_model_miss_gate
+                and state.task_evidence_gate
+                and state.final_done_claim_gate
+                and state.workflow_coverage_evidence_gate
+                and state.tests_current
+                and state.installed_skills_synced
+                and state.shadow_and_git_synced
+            )
+            yield FunctionResult(
+                UIHardeningOutput("done_accepted" if accepted else "done_rejected"),
+                replace(state, done_claim="accepted" if accepted else "rejected"),
+                label="done_accepted" if accepted else "done_rejected",
+            )
+            return
+        yield from super().apply(input_obj, state)
+
+
 class BrokenApiOnlyFunctionalChain(CorrectUILastMileHardening):
     name = "BrokenApiOnlyFunctionalChain"
     idempotency = "Broken variant accepts API/label evidence without click-to-effect proof."
@@ -372,6 +478,7 @@ HAPPY_PATH = (
     "add_observed_inventory_gate",
     "map_visible_items",
     "compare_allowed_and_observed_content",
+    "add_product_language_gate",
     "add_functional_chain_gate",
     "add_source_baseline_gate",
     "add_model_miss_gate",
@@ -408,7 +515,23 @@ def no_full_done_without_allowed_observed_content(state: UIHardeningState, trace
     return InvariantResult.pass_()
 
 
+def no_full_done_with_internal_product_content(state: UIHardeningState, trace) -> InvariantResult:
+    del trace
+    if state.done_claim == "accepted" and not (
+        state.product_language_gate and state.no_internal_product_content_leaks
+    ):
+        return InvariantResult.fail(
+            "full UI done accepted without current product-language review or while internal identity, audit, evidence, or diagnostics remain visible"
+        )
+    return InvariantResult.pass_()
+
+
 INVARIANTS = (
+    Invariant(
+        "no_full_done_with_internal_product_content",
+        "Full UI completion requires product-language consistency and absence of internal-content leaks.",
+        no_full_done_with_internal_product_content,
+    ),
     Invariant(
         "no_full_done_without_allowed_observed_content",
         "Observed visibility and direct mapping do not grant ordinary UI display permission.",
@@ -441,6 +564,13 @@ def build_broken_observed_mapping_permission_workflow() -> Workflow:
     return Workflow(
         (BrokenObservedMappingGrantsPermission(),),
         name="ui_last_mile_hardening_observed_mapping_permission_broken",
+    )
+
+
+def build_broken_internal_product_content_leak_workflow() -> Workflow:
+    return Workflow(
+        (BrokenInternalProductContentLeak(),),
+        name="ui_last_mile_hardening_internal_product_content_leak_broken",
     )
 
 

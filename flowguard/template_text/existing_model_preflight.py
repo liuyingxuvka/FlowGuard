@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from flowguard import (
     DuplicateBoundaryRisk,
+    ExistingIntentSurface,
     ExistingModelPreflight,
     ExistingOwnershipSnapshot,
     ModelContextHit,
@@ -57,6 +58,41 @@ def correct_preflight():
         downstream_routes=("field_lifecycle_mesh", "development_process_flow"),
         behavior_field_ids=("field:dispatch_mode",),
         field_lifecycle_model_ids=("router-flow",),
+        affected_business_intent_id="intent:route-task",
+        selected_commitment_id="commitment:route-task",
+        selected_primary_path_id="path:route-task",
+        expected_surface_ids=("surface:router-cli", "surface:router-api"),
+        intent_surfaces=(
+            ExistingIntentSurface(
+                "surface:router-cli",
+                surface_kind="cli",
+                business_intent_id="intent:route-task",
+                behavior_commitment_id="commitment:route-task",
+                business_path_id="router.dispatch",
+                primary_path_id="path:route-task",
+                expected_terminal="dispatched_or_visible_error",
+                state_writes=("pending_tasks",),
+                side_effects=("dispatch_task",),
+                owner_id="router-flow",
+                evidence_ids=("inventory:router-cli",),
+            ),
+            ExistingIntentSurface(
+                "surface:router-api",
+                surface_kind="api",
+                business_intent_id="intent:route-task",
+                behavior_commitment_id="commitment:route-task",
+                business_path_id="router.dispatch",
+                primary_path_id="path:route-task",
+                expected_terminal="dispatched_or_visible_error",
+                state_writes=("pending_tasks",),
+                side_effects=("dispatch_task",),
+                owner_id="router-flow",
+                evidence_ids=("inventory:router-api",),
+            ),
+        ),
+        surface_inventory_revision="router-surfaces:v1",
+        surface_inventory_evidence_ids=("inventory:router-surfaces:v1",),
+        require_complete_surface_inventory=True,
         rationale="The existing router model owns task dispatch, so extend that boundary instead of creating a parallel scheduler.",
     )
 
@@ -121,6 +157,9 @@ change in an existing modeled system.
 ## What Existing Model Preflight Reviews
 
 - which existing FlowGuard models were searched;
+- which affected UI, API, CLI, alias, adapter, wrapper, helper, and
+  compatibility surfaces belong to the same exact external purpose, and
+  whether the observed inventory matches the expected surface ids;
 - which model responsibilities, FunctionBlocks, state fields, side effects,
   public entrypoints, and behavior-bearing fields already own the requested
   behavior;
@@ -129,6 +168,12 @@ change in an existing modeled system.
 - whether duplicate model, state, side-effect, entrypoint, or responsibility
   ownership is resolved before downstream work starts;
 - which downstream FlowGuard route should handle the concrete work.
+
+For behavior-bearing work, hand downstream routes the same stable
+`business_intent_id`, `behavior_commitment_id`, and singular
+`primary_path_id`. Keep scoped dispositions for genuinely excluded surfaces;
+do not silently omit them or create a new owner route just to avoid the
+existing commitment/path boundary.
 
 For field-bearing work, include `behavior_field_ids`, `field_owners`, and
 `field_lifecycle_model_ids`, and name `field_lifecycle_mesh` as a downstream

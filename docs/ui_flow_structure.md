@@ -369,6 +369,9 @@ product/workflow intent
 -> review regions, menu levels, displays, overlays, stable placement, hierarchy
 -> UI text hierarchy blueprint
 -> review headings, labels, action text, status/helper/error/recovery slots
+-> product-scope UI language review when claiming complete-product consistency
+-> compare semantic typography, component, navigation, interaction, feedback, recovery, and transition rules across declared surfaces
+-> bind business-bearing UI rows to the existing intent, commitment, and singular primary path; keep those ids internal
 -> human-operability validation
 -> review user task coverage, region semantics, affordance, action grammar, dialog/window returns, keyboard/focus, walkthrough confusion
 -> render evidence kinds, geometry, and responsiveness when claimed
@@ -906,6 +909,12 @@ metadata fields have readers that reach an ordinary UI adapter/view model/output
 boundary, it hands only those candidate field ids or grouped source ids to UI
 Flow Structure. UI Flow Structure remains the sole owner of the three-value
 admission decision; unrelated backend fields stay internally accounted.
+
+Product-scope consistency does not add a fourth content class. It compares
+only content already admitted as `user_visible`, `user_on_demand`, or
+`internal`. Internal commitment ids, primary-path ids, evidence state, audit
+fields, and routing diagnostics remain absent from ordinary UI even when an
+observed legacy screen currently exposes them.
 
 Use Code Structure Recommendation when the question is how to split
 implementation modules or files. Use StructureMesh when an existing codebase

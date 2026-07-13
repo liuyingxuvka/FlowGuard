@@ -8,9 +8,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from flowguard.distribution_sync import OWNERSHIP_MANIFEST_NAME, OWNERSHIP_SCHEMA
 from flowguard.skill_suite import (
     FLOWGUARD_EXPECTED_MEMBER_COUNT,
     FLOWGUARD_EXPECTED_SATELLITE_COUNT,
+    FLOWGUARD_FORMER_MEMBER_PATHS,
     FLOWGUARD_KERNEL_ROLE,
     FLOWGUARD_REQUIRED_MEMBER_FILES,
     FLOWGUARD_SATELLITE_ROLE,
@@ -46,6 +48,35 @@ class SkillSuiteInventoryTests(unittest.TestCase):
                 path = skill_dir / relative
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(f"fixture for {member['name']} {relative}\n", encoding="utf-8")
+
+    def _write_ownership_manifest(
+        self,
+        *,
+        member_ids: list[str] | None = None,
+        schema_version: str = OWNERSHIP_SCHEMA,
+    ) -> None:
+        ids = member_ids or [member["name"] for member in self.map_data["included_skills"]]
+        path = self.root / ".agents" / "skills" / OWNERSHIP_MANIFEST_NAME
+        path.write_text(
+            json.dumps(
+                {
+                    "artifact_type": "flowguard_skill_distribution_ownership",
+                    "schema_version": schema_version,
+                    "member_ids": ids,
+                    "files": [
+                        {"relative_path": f"{member_id}/SKILL.md"}
+                        for member_id in ids
+                    ],
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+
+    def _write_extra_skill(self, skill_id: str) -> None:
+        path = self.root / ".agents" / "skills" / skill_id / "SKILL.md"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(f"---\nname: {skill_id}\n---\n", encoding="utf-8")
 
     def _codes(self) -> set[str]:
         return {finding.code for finding in validate_skill_suite(self.root).findings}
@@ -85,6 +116,69 @@ class SkillSuiteInventoryTests(unittest.TestCase):
             {(finding.code, finding.member_id) for finding in report.findings},
         )
 
+    def test_owned_mixed_root_reports_unrelated_skills_separately(self) -> None:
+        self._write_ownership_manifest()
+        self._write_extra_skill("skillguard")
+        self._write_extra_skill("skillguard-global-router")
+
+        report = validate_skill_suite(self.root)
+        payload = report.to_dict()
+
+        self.assertTrue(report.ok, report.to_json_text())
+        self.assertEqual(FLOWGUARD_EXPECTED_MEMBER_COUNT, len(report.discovered_member_ids))
+        self.assertEqual(
+            ("skillguard", "skillguard-global-router"),
+            report.co_located_skill_ids,
+        )
+        self.assertEqual(2, payload["co_located_skill_count"])
+        self.assertIn("not validated as part of FlowGuard", payload["claim_boundary"])
+
+    def test_unowned_or_invalidly_owned_foreign_skill_remains_strict_extra(self) -> None:
+        self._write_extra_skill("skillguard")
+        report_without_manifest = validate_skill_suite(self.root)
+        self.assertIn(
+            ("extra_discovered_member", "skillguard"),
+            {(finding.code, finding.member_id) for finding in report_without_manifest.findings},
+        )
+
+        self._write_ownership_manifest(
+            member_ids=[member["name"] for member in self.map_data["included_skills"][:-1]]
+        )
+        report_with_incomplete_manifest = validate_skill_suite(self.root)
+        self.assertIn(
+            ("extra_discovered_member", "skillguard"),
+            {(finding.code, finding.member_id) for finding in report_with_incomplete_manifest.findings},
+        )
+
+    def test_owned_mixed_root_still_rejects_reserved_flowguard_extra(self) -> None:
+        self._write_ownership_manifest()
+        self._write_extra_skill("skillguard")
+        self._write_extra_skill("flowguard-unregistered")
+
+        report = validate_skill_suite(self.root)
+
+        self.assertFalse(report.ok)
+        self.assertEqual(("skillguard",), report.co_located_skill_ids)
+        self.assertIn(
+            ("extra_discovered_member", "flowguard-unregistered"),
+            {(finding.code, finding.member_id) for finding in report.findings},
+        )
+
+    def test_owned_mixed_root_does_not_hide_missing_canonical_member(self) -> None:
+        self._write_ownership_manifest()
+        self._write_extra_skill("skillguard")
+        missing = self.map_data["included_skills"][1]["name"]
+        shutil.rmtree(self.root / ".agents" / "skills" / missing)
+
+        report = validate_skill_suite(self.root)
+
+        self.assertFalse(report.ok)
+        self.assertEqual(("skillguard",), report.co_located_skill_ids)
+        self.assertIn(
+            ("missing_declared_member", missing),
+            {(finding.code, finding.member_id) for finding in report.findings},
+        )
+
     def test_missing_declared_directory_fails_forward_discovery(self) -> None:
         missing = self.map_data["included_skills"][1]["name"]
         shutil.rmtree(self.root / ".agents" / "skills" / missing)
@@ -111,6 +205,19 @@ class SkillSuiteInventoryTests(unittest.TestCase):
             {(finding.code, finding.member_id) for finding in report.findings},
         )
 
+    def test_former_skillguard_control_is_rejected_without_fallback(self) -> None:
+        skill_id = "flowguard-behavior-commitment-ledger"
+        former = self.root / ".agents" / "skills" / skill_id / FLOWGUARD_FORMER_MEMBER_PATHS[0]
+        former.parent.mkdir(parents=True, exist_ok=True)
+        former.write_text("{}\n", encoding="utf-8")
+
+        report = validate_skill_suite(self.root)
+
+        self.assertIn(
+            ("former_skillguard_authority_present", skill_id),
+            {(finding.code, finding.member_id) for finding in report.findings},
+        )
+
     def test_second_private_literal_inventory_is_rejected(self) -> None:
         private = self.root / "scripts" / "private_inventory.py"
         private.parent.mkdir(parents=True)
@@ -125,7 +232,7 @@ class SkillSuiteInventoryTests(unittest.TestCase):
         self.assertEqual(set(report.declared_member_ids), set(report.discovered_member_ids))
         self.assertIn("flowguard-behavior-commitment-ledger", report.declared_member_ids)
 
-    def test_compatibility_scripts_project_the_same_inventory(self) -> None:
+    def test_read_only_projection_scripts_use_the_same_inventory(self) -> None:
         suite = subprocess.run(
             [sys.executable, "scripts/verify_skill_suite_markers.py", "--root", ".", "--json"],
             cwd=REPOSITORY_ROOT,

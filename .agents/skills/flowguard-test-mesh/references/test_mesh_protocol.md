@@ -17,6 +17,13 @@ should not inline every child test case, fixture, or internal state route. When
 a child suite grows too large, it can become its own parent gate with another
 local TestMesh.
 
+For a same-intent behavior/product claim, declare the required inventory and
+revision independently from the child suites that happened to run. Include
+every required surface, materialized model/test obligation, family member,
+transition cell, ContractExhaustion case, and shard. A smaller caller-selected
+set cannot be promoted to complete evidence even when every declared child is
+green. Inventory changes stale prior child evidence.
+
 Before child suite evidence can support parent confidence, derive the target
 child suite/script structure from a FlowGuard validation-structure model. The
 target split derivation should name the source model, target suite ids, covered
@@ -141,6 +148,11 @@ When a final confidence claim depends on the parent gate, export child evidence
 ids, status, freshness, and release-scope gaps to the Risk Evidence Ledger.
 Background runs need final exit/result artifacts before a parent gate can treat
 them as complete.
+
+A valid background final receipt names the run identity, terminal status/exit
+code, result artifact, fingerprint, covered required ids, inventory revision,
+and covered artifact and verifier versions. PIDs, heartbeats, logs, and
+progress-only/running status are never final evidence.
 
 When `required_leaf_cell_ids` are declared on the parent gate, every required
 cell must be owned by a registered child suite/script with current passing

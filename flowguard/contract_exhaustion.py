@@ -17,6 +17,7 @@ from itertools import product
 from typing import Any, Iterable, Mapping, Sequence
 
 from .export import to_json_text, to_jsonable
+from .model_similarity import SimilarityHandoff, normalize_similarity_handoff
 
 
 CONTRACT_EXHAUSTION_ROUTE = "contract_exhaustion_mesh"
@@ -60,6 +61,10 @@ CONTRACT_MUTATION_TRANSITION_REPLAY = "transition_replay"
 CONTRACT_MUTATION_SCENARIO_CHALLENGE = "scenario_challenge"
 CONTRACT_MUTATION_ANALOGOUS_DEFECT = "analogous_defect"
 CONTRACT_MUTATION_CARTESIAN_COMBINATION = "cartesian_combination"
+CONTRACT_MUTATION_OMITTED_FAMILY_MEMBER = "omitted_family_member"
+CONTRACT_MUTATION_OMITTED_REDUCTION_CANDIDATE = "omitted_reduction_candidate"
+CONTRACT_MUTATION_SIMILARITY_MATERIALIZATION = "similarity_materialization"
+CONTRACT_MUTATION_UNMATERIALIZED_SIMILARITY_ID = "unmaterialized_similarity_id"
 
 CONTRACT_ORACLE_REJECT_BEFORE_SIDE_EFFECT = "reject_before_side_effect"
 CONTRACT_ORACLE_BLOCK_BEFORE_DOWNSTREAM = "block_before_downstream"
@@ -799,6 +804,9 @@ class ContractCoverageUniverse:
     required_boundary_ids: tuple[str, ...] = ()
     required_case_ids: tuple[str, ...] = ()
     required_coverage_receipt_ids: tuple[str, ...] = ()
+    required_family_member_ids: tuple[str, ...] = ()
+    required_reduction_candidate_ids: tuple[str, ...] = ()
+    required_similarity_ids: tuple[str, ...] = ()
     exclusions: tuple[ContractCoverageExclusion, ...] = ()
     require_full_product: bool = True
     metadata: Mapping[str, Any] = field(default_factory=dict)
@@ -826,6 +834,13 @@ class ContractCoverageUniverse:
             "required_coverage_receipt_ids",
             _as_tuple(self.required_coverage_receipt_ids),
         )
+        object.__setattr__(self, "required_family_member_ids", _as_tuple(self.required_family_member_ids))
+        object.__setattr__(
+            self,
+            "required_reduction_candidate_ids",
+            _as_tuple(self.required_reduction_candidate_ids),
+        )
+        object.__setattr__(self, "required_similarity_ids", _as_tuple(self.required_similarity_ids))
         object.__setattr__(self, "exclusions", tuple(self.exclusions))
         object.__setattr__(self, "require_full_product", bool(self.require_full_product))
         object.__setattr__(self, "metadata", _metadata(self.metadata))
@@ -850,6 +865,9 @@ class ContractCoverageUniverse:
             "required_boundary_ids": list(self.required_boundary_ids),
             "required_case_ids": list(self.required_case_ids),
             "required_coverage_receipt_ids": list(self.required_coverage_receipt_ids),
+            "required_family_member_ids": list(self.required_family_member_ids),
+            "required_reduction_candidate_ids": list(self.required_reduction_candidate_ids),
+            "required_similarity_ids": list(self.required_similarity_ids),
             "exclusions": [exclusion.to_dict() for exclusion in self.exclusions],
             "require_full_product": self.require_full_product,
             "metadata": to_jsonable(dict(self.metadata)),
@@ -1034,6 +1052,19 @@ class ContractExhaustionPlan:
     require_coverage_universe: bool = False
     require_actionable_oracle_feedback: bool = False
     observed_problem_backfeed: tuple[ObservedProblemBackfeed, ...] = ()
+    inventory_revision: str = ""
+    inventory_current: bool = True
+    expected_family_member_ids: tuple[str, ...] = ()
+    materialized_family_member_ids: tuple[str, ...] = ()
+    scoped_family_member_reasons: Mapping[str, str] = field(default_factory=dict)
+    require_family_inventory: bool = False
+    expected_reduction_candidate_ids: tuple[str, ...] = ()
+    materialized_reduction_candidate_ids: tuple[str, ...] = ()
+    scoped_reduction_candidate_reasons: Mapping[str, str] = field(default_factory=dict)
+    require_reduction_inventory: bool = False
+    similarity_handoff: SimilarityHandoff | Mapping[str, Any] | None = None
+    similarity_materializations: Mapping[str, Sequence[str]] = field(default_factory=dict)
+    scoped_similarity_reasons: Mapping[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "plan_id", str(self.plan_id))
@@ -1075,6 +1106,47 @@ class ContractExhaustionPlan:
             self,
             "observed_problem_backfeed",
             tuple(self.observed_problem_backfeed),
+        )
+        object.__setattr__(self, "inventory_revision", str(self.inventory_revision))
+        object.__setattr__(self, "inventory_current", bool(self.inventory_current))
+        object.__setattr__(self, "expected_family_member_ids", _as_tuple(self.expected_family_member_ids))
+        object.__setattr__(
+            self,
+            "materialized_family_member_ids",
+            _as_tuple(self.materialized_family_member_ids),
+        )
+        object.__setattr__(
+            self,
+            "scoped_family_member_reasons",
+            {str(key): str(value) for key, value in dict(self.scoped_family_member_reasons).items()},
+        )
+        object.__setattr__(self, "require_family_inventory", bool(self.require_family_inventory))
+        object.__setattr__(
+            self,
+            "expected_reduction_candidate_ids",
+            _as_tuple(self.expected_reduction_candidate_ids),
+        )
+        object.__setattr__(
+            self,
+            "materialized_reduction_candidate_ids",
+            _as_tuple(self.materialized_reduction_candidate_ids),
+        )
+        object.__setattr__(
+            self,
+            "scoped_reduction_candidate_reasons",
+            {str(key): str(value) for key, value in dict(self.scoped_reduction_candidate_reasons).items()},
+        )
+        object.__setattr__(self, "require_reduction_inventory", bool(self.require_reduction_inventory))
+        object.__setattr__(self, "similarity_handoff", normalize_similarity_handoff(self.similarity_handoff))
+        object.__setattr__(
+            self,
+            "similarity_materializations",
+            {str(key): _as_tuple(value) for key, value in dict(self.similarity_materializations).items()},
+        )
+        object.__setattr__(
+            self,
+            "scoped_similarity_reasons",
+            {str(key): str(value) for key, value in dict(self.scoped_similarity_reasons).items()},
         )
 
     def oracle_ids(self) -> set[str]:
@@ -1118,6 +1190,21 @@ class ContractExhaustionPlan:
                 problem.to_dict()
                 for problem in self.observed_problem_backfeed
             ],
+            "inventory_revision": self.inventory_revision,
+            "inventory_current": self.inventory_current,
+            "expected_family_member_ids": list(self.expected_family_member_ids),
+            "materialized_family_member_ids": list(self.materialized_family_member_ids),
+            "scoped_family_member_reasons": to_jsonable(dict(self.scoped_family_member_reasons)),
+            "require_family_inventory": self.require_family_inventory,
+            "expected_reduction_candidate_ids": list(self.expected_reduction_candidate_ids),
+            "materialized_reduction_candidate_ids": list(self.materialized_reduction_candidate_ids),
+            "scoped_reduction_candidate_reasons": to_jsonable(dict(self.scoped_reduction_candidate_reasons)),
+            "require_reduction_inventory": self.require_reduction_inventory,
+            "similarity_handoff": self.similarity_handoff.to_dict() if self.similarity_handoff else None,
+            "similarity_materializations": {
+                key: list(values) for key, values in self.similarity_materializations.items()
+            },
+            "scoped_similarity_reasons": to_jsonable(dict(self.scoped_similarity_reasons)),
         }
 
 
@@ -1143,6 +1230,12 @@ class ContractExhaustionReport:
     coverage_universe: ContractCoverageUniverse | None = None
     contract_fault_profiles: tuple[ContractFaultProfile, ...] = ()
     observed_problem_backfeed_report: ObservedProblemBackfeedReport | None = None
+    inventory_revision: str = ""
+    omitted_family_member_ids: tuple[str, ...] = ()
+    omitted_reduction_candidate_ids: tuple[str, ...] = ()
+    materialized_similarity_ids: tuple[str, ...] = ()
+    unmaterialized_similarity_ids: tuple[str, ...] = ()
+    downstream_similarity_obligation_ids: tuple[str, ...] = ()
 
     @property
     def required_mta_case_ids(self) -> tuple[str, ...]:
@@ -1218,6 +1311,12 @@ class ContractExhaustionReport:
                 if self.observed_problem_backfeed_report is not None
                 else None
             ),
+            "inventory_revision": self.inventory_revision,
+            "omitted_family_member_ids": list(self.omitted_family_member_ids),
+            "omitted_reduction_candidate_ids": list(self.omitted_reduction_candidate_ids),
+            "materialized_similarity_ids": list(self.materialized_similarity_ids),
+            "unmaterialized_similarity_ids": list(self.unmaterialized_similarity_ids),
+            "downstream_similarity_obligation_ids": list(self.downstream_similarity_obligation_ids),
         }
 
     def to_json_text(self, indent: int = 2) -> str:
@@ -1333,6 +1432,268 @@ def _case_for_dimension(dimension: ContractDimension, mutation_type: str) -> Con
 
 def _generated_cases_for_dimension(dimension: ContractDimension) -> tuple[ContractMutationCase, ...]:
     return tuple(_case_for_dimension(dimension, mutation) for mutation in dimension.default_mutations())
+
+
+def _inventory_and_similarity_cases(
+    plan: ContractExhaustionPlan,
+) -> tuple[
+    tuple[ContractMutationCase, ...],
+    tuple[ContractCoverageShard, ...],
+    tuple[ContractExhaustionFinding, ...],
+    tuple[str, ...],
+    tuple[str, ...],
+    tuple[str, ...],
+    tuple[str, ...],
+]:
+    cases: list[ContractMutationCase] = []
+    findings: list[ContractExhaustionFinding] = []
+    omitted_family: list[str] = []
+    omitted_candidates: list[str] = []
+    materialized_similarity: list[str] = []
+    unmaterialized_similarity: list[str] = []
+    inventory_claimed = bool(
+        plan.require_family_inventory
+        or plan.expected_family_member_ids
+        or plan.require_reduction_inventory
+        or plan.expected_reduction_candidate_ids
+        or plan.similarity_handoff
+    )
+    if inventory_claimed and not plan.inventory_revision:
+        findings.append(
+            _finding(
+                "contract_materialization_inventory_revision_missing",
+                "family/reduction/similarity materialization requires an explicit inventory revision",
+                action="declare the current source inventory revision before generating completeness cases",
+            )
+        )
+    if inventory_claimed and not plan.inventory_current:
+        findings.append(
+            _finding(
+                "contract_materialization_inventory_stale",
+                "family/reduction/similarity materialization inventory is stale",
+                action="refresh the owning inventories and regenerate materialization cases",
+            )
+        )
+    for item_id, reason in (
+        *plan.scoped_family_member_reasons.items(),
+        *plan.scoped_reduction_candidate_reasons.items(),
+        *plan.scoped_similarity_reasons.items(),
+    ):
+        if not reason:
+            findings.append(
+                _finding(
+                    "contract_materialization_scope_reason_missing",
+                    "scoped materialization disposition requires a reason",
+                    action="add a reason or materialize the expected item",
+                    metadata={"item_id": item_id},
+                )
+            )
+    broad = plan.claim_scope in _BROAD_CLAIMS
+    if plan.require_family_inventory and not plan.expected_family_member_ids:
+        findings.append(
+            _finding(
+                "expected_family_member_inventory_missing",
+                "family completeness is claimed without an independent expected-member inventory",
+                action="declare expected_family_member_ids or narrow the completeness claim",
+            )
+        )
+    if broad and plan.materialized_family_member_ids and not plan.expected_family_member_ids:
+        findings.append(
+            _finding(
+                "expected_family_member_inventory_missing",
+                "broad family completeness cannot be inferred from only the materialized member rows",
+                action="declare the independent expected family-member inventory",
+            )
+        )
+    if plan.require_reduction_inventory and not plan.expected_reduction_candidate_ids:
+        findings.append(
+            _finding(
+                "expected_reduction_candidate_inventory_missing",
+                "candidate completeness is claimed without an independent expected-candidate inventory",
+                action="declare expected_reduction_candidate_ids or narrow the completeness claim",
+            )
+        )
+    if broad and plan.materialized_reduction_candidate_ids and not plan.expected_reduction_candidate_ids:
+        findings.append(
+            _finding(
+                "expected_reduction_candidate_inventory_missing",
+                "broad candidate completeness cannot be inferred from only materialized candidate rows",
+                action="declare the independent expected reduction-candidate inventory",
+            )
+        )
+
+    shard_id = _case_id("contract_shard", plan.model_id or plan.plan_id, "owner-materialization")
+
+    def add_case(
+        *,
+        case_id: str,
+        mutation_type: str,
+        description: str,
+        source_case_id: str,
+        metadata: Mapping[str, Any],
+        member_id: str = "",
+    ) -> None:
+        cases.append(
+            ContractMutationCase(
+                case_id=case_id,
+                mutation_type=mutation_type,
+                source_route=CONTRACT_EXHAUSTION_ROUTE,
+                source_case_id=source_case_id,
+                required=True,
+                expected_status=CONTRACT_ORACLE_BLOCK_BEFORE_DOWNSTREAM,
+                member_id=member_id,
+                required_routes=(CONTRACT_ROUTE_MODEL_TEST_ALIGNMENT, CONTRACT_ROUTE_TEST_MESH),
+                required_test_cell_id=case_id,
+                coverage_shard_id=shard_id,
+                model_id=plan.model_id,
+                description=description,
+                metadata={"inventory_revision": plan.inventory_revision, **dict(metadata)},
+            )
+        )
+
+    materialized_family = set(plan.materialized_family_member_ids)
+    scoped_family = set(plan.scoped_family_member_reasons)
+    for member_id in plan.expected_family_member_ids:
+        if member_id in materialized_family or member_id in scoped_family:
+            continue
+        omitted_family.append(member_id)
+        case_id = _case_id("contract", "omitted_family_member", member_id)
+        add_case(
+            case_id=case_id,
+            mutation_type=CONTRACT_MUTATION_OMITTED_FAMILY_MEMBER,
+            description=f"expected obligation-family member {member_id} is omitted",
+            source_case_id=member_id,
+            member_id=member_id,
+            metadata={"expected_family_member_id": member_id},
+        )
+        findings.append(
+            _finding(
+                "expected_family_member_omitted",
+                "expected obligation-family member is not materialized or scoped",
+                case_id=case_id,
+                action="materialize the family member or record an explicit scoped disposition",
+                metadata={"member_id": member_id},
+            )
+        )
+
+    materialized_candidates = set(plan.materialized_reduction_candidate_ids)
+    scoped_candidates = set(plan.scoped_reduction_candidate_reasons)
+    for candidate_id in plan.expected_reduction_candidate_ids:
+        if candidate_id in materialized_candidates or candidate_id in scoped_candidates:
+            continue
+        omitted_candidates.append(candidate_id)
+        case_id = _case_id("contract", "omitted_reduction_candidate", candidate_id)
+        add_case(
+            case_id=case_id,
+            mutation_type=CONTRACT_MUTATION_OMITTED_REDUCTION_CANDIDATE,
+            description=f"expected architecture-reduction candidate {candidate_id} is omitted",
+            source_case_id=candidate_id,
+            metadata={"expected_reduction_candidate_id": candidate_id},
+        )
+        findings.append(
+            _finding(
+                "expected_reduction_candidate_omitted",
+                "expected architecture-reduction candidate is not materialized or scoped",
+                case_id=case_id,
+                action="materialize the candidate or record an explicit scoped disposition",
+                metadata={"candidate_id": candidate_id},
+            )
+        )
+
+    handoff = plan.similarity_handoff
+    if handoff is not None:
+        if not handoff.evidence_current:
+            findings.append(
+                _finding(
+                    "similarity_materialization_evidence_stale",
+                    "similarity handoff changed or is stale relative to generated cases",
+                    action="refresh the similarity handoff and regenerate canonical cases",
+                    metadata=handoff.to_dict(),
+                )
+            )
+        typed_ids = (
+            *((item_id, "relation") for item_id in handoff.relation_ids),
+            *((item_id, "test_obligation") for item_id in handoff.test_obligation_ids),
+            *((item_id, "code_obligation") for item_id in handoff.code_obligation_ids),
+        )
+        for similarity_id, similarity_kind in typed_ids:
+            materializations = tuple(plan.similarity_materializations.get(similarity_id, ()))
+            if similarity_id in plan.scoped_similarity_reasons:
+                continue
+            if materializations:
+                materialized_similarity.append(similarity_id)
+                for item_id in materializations:
+                    case_id = _case_id("contract", "similarity", similarity_id, item_id)
+                    add_case(
+                        case_id=case_id,
+                        mutation_type=CONTRACT_MUTATION_SIMILARITY_MATERIALIZATION,
+                        description=f"similarity {similarity_id} materializes affected item {item_id}",
+                        source_case_id=similarity_id,
+                        metadata={
+                            "similarity_id": similarity_id,
+                            "similarity_kind": similarity_kind,
+                            "materialized_item_id": item_id,
+                            "similarity_relation_ids": (
+                                (similarity_id,) if similarity_kind == "relation" else ()
+                            ),
+                            "similarity_test_obligation_ids": (
+                                (similarity_id,) if similarity_kind == "test_obligation" else ()
+                            ),
+                            "similarity_code_obligation_ids": (
+                                (similarity_id,) if similarity_kind == "code_obligation" else ()
+                            ),
+                        },
+                    )
+                continue
+            unmaterialized_similarity.append(similarity_id)
+            case_id = _case_id("contract", "unmaterialized_similarity", similarity_id)
+            add_case(
+                case_id=case_id,
+                mutation_type=CONTRACT_MUTATION_UNMATERIALIZED_SIMILARITY_ID,
+                description=f"similarity id {similarity_id} has no concrete affected item",
+                source_case_id=similarity_id,
+                metadata={"similarity_id": similarity_id, "similarity_kind": similarity_kind},
+            )
+            findings.append(
+                _finding(
+                    "unmaterialized_similarity_id",
+                    "similarity handoff id has no canonical affected member/candidate case",
+                    case_id=case_id,
+                    action="bind the id to concrete affected items or record a scoped disposition",
+                    metadata={"similarity_id": similarity_id, "similarity_kind": similarity_kind},
+                )
+            )
+
+    shards: tuple[ContractCoverageShard, ...] = ()
+    if cases:
+        blocked = bool(omitted_family or omitted_candidates or unmaterialized_similarity)
+        shards = (
+            ContractCoverageShard(
+                shard_id=shard_id,
+                model_id=plan.model_id,
+                interaction_group_id="owner-materialization",
+                case_ids=tuple(case.case_id for case in cases),
+                complete=not blocked,
+                total_combinations=len(cases),
+                generated_count=len(cases),
+                skipped_count=0,
+                status=(
+                    CONTRACT_COVERAGE_STATUS_BLOCKED
+                    if blocked
+                    else CONTRACT_COVERAGE_STATUS_COVERED
+                ),
+                metadata={"inventory_revision": plan.inventory_revision},
+            ),
+        )
+    return (
+        tuple(cases),
+        shards,
+        tuple(findings),
+        _unique(omitted_family),
+        _unique(omitted_candidates),
+        _unique(materialized_similarity),
+        _unique(unmaterialized_similarity),
+    )
 
 
 def _axis_tokens(
@@ -1969,6 +2330,13 @@ def _coverage_universe_available_ids(
         "boundary": boundary_ids,
         "case": {case.case_id for case in generated_cases} | {case.case_id for case in combination_cases},
         "coverage_receipt": {receipt.receipt_id for receipt in coverage_receipts},
+        "family_member": set(plan.materialized_family_member_ids),
+        "reduction_candidate": set(plan.materialized_reduction_candidate_ids),
+        "similarity": {
+            item_id
+            for item_id, materializations in plan.similarity_materializations.items()
+            if materializations
+        },
     }
 
 
@@ -2018,6 +2386,9 @@ def _coverage_universe_findings(
         "boundary": universe.required_boundary_ids,
         "case": universe.required_case_ids,
         "coverage_receipt": universe.required_coverage_receipt_ids,
+        "family_member": universe.required_family_member_ids,
+        "reduction_candidate": universe.required_reduction_candidate_ids,
+        "similarity": universe.required_similarity_ids,
     }
     for item_kind, required_ids in required_by_kind.items():
         for item_id in required_ids:
@@ -2230,8 +2601,22 @@ def review_contract_exhaustion(plan: ContractExhaustionPlan) -> ContractExhausti
     generated_cases: list[ContractMutationCase] = list(plan.seed_cases)
     combination_cases: list[ContractCombinationCase] = []
     coverage_shards: list[ContractCoverageShard] = list(plan.coverage_shards)
+    materialization_values = _inventory_and_similarity_cases(plan)
+    generated_cases.extend(materialization_values[0])
+    coverage_shards.extend(materialization_values[1])
+    findings.extend(materialization_values[2])
 
-    if not plan.dimensions and not plan.seed_cases and not plan.interaction_groups:
+    if (
+        not plan.dimensions
+        and not plan.seed_cases
+        and not plan.interaction_groups
+        and not materialization_values[0]
+        and not (
+            plan.expected_family_member_ids
+            or plan.expected_reduction_candidate_ids
+            or plan.similarity_handoff
+        )
+    ):
         findings.append(
             _finding(
                 "contract_boundary_missing",
@@ -2392,6 +2777,20 @@ def review_contract_exhaustion(plan: ContractExhaustionPlan) -> ContractExhausti
         coverage_universe=plan.coverage_universe,
         contract_fault_profiles=contract_fault_profiles,
         observed_problem_backfeed_report=backfeed_report,
+        inventory_revision=plan.inventory_revision,
+        omitted_family_member_ids=materialization_values[3],
+        omitted_reduction_candidate_ids=materialization_values[4],
+        materialized_similarity_ids=materialization_values[5],
+        unmaterialized_similarity_ids=materialization_values[6],
+        downstream_similarity_obligation_ids=_unique(
+            f"contract_exhaustion:{case.case_id}"
+            for case in materialization_values[0]
+            if case.mutation_type
+            in {
+                CONTRACT_MUTATION_SIMILARITY_MATERIALIZATION,
+                CONTRACT_MUTATION_UNMATERIALIZED_SIMILARITY_ID,
+            }
+        ),
         summary=(
             "matrix ready; broad chain confidence still requires composite handoff closure"
             if ok and not findings and composite_handoff_acceptances
@@ -2722,6 +3121,18 @@ def contract_exhaustion_to_model_obligations(report: ContractExhaustionReport) -
                     )
                     if str(value)
                 ),
+                similarity_relation_ids=_metadata_values(
+                    case.metadata,
+                    "similarity_relation_ids",
+                ),
+                similarity_test_obligation_ids=_metadata_values(
+                    case.metadata,
+                    "similarity_test_obligation_ids",
+                ),
+                similarity_impacted_model_ids=_metadata_values(
+                    case.metadata,
+                    "impacted_model_ids",
+                ),
             )
         )
     return tuple(obligations)
@@ -2791,14 +3202,18 @@ __all__ = (
     "CONTRACT_MUTATION_MISSING_BODY",
     "CONTRACT_MUTATION_MISSING_EVIDENCE_FILE",
     "CONTRACT_MUTATION_MISSING_REQUIRED_FIELD",
+    "CONTRACT_MUTATION_OMITTED_FAMILY_MEMBER",
+    "CONTRACT_MUTATION_OMITTED_REDUCTION_CANDIDATE",
     "CONTRACT_MUTATION_PATH_MISMATCH",
     "CONTRACT_MUTATION_REPEAT_WITHOUT_DELTA",
     "CONTRACT_MUTATION_SCENARIO_CHALLENGE",
+    "CONTRACT_MUTATION_SIMILARITY_MATERIALIZATION",
     "CONTRACT_MUTATION_STALE_CHILD_EVIDENCE",
     "CONTRACT_MUTATION_STALE_EVIDENCE",
     "CONTRACT_MUTATION_TRANSITION_REPLAY",
     "CONTRACT_MUTATION_UNCONSUMED_CHILD_EVIDENCE",
     "CONTRACT_MUTATION_UNKNOWN_ENUM",
+    "CONTRACT_MUTATION_UNMATERIALIZED_SIMILARITY_ID",
     "CONTRACT_MUTATION_WRONG_TYPE",
     "CONTRACT_ORACLE_BLOCK_BEFORE_DOWNSTREAM",
     "CONTRACT_ORACLE_MARK_STALE",

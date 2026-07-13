@@ -691,6 +691,8 @@ observations from runtime tests, replay, or a harness.
 
 List model obligations:
 
+- stable `business_intent_id`, `behavior_commitment_id`, and singular
+  `primary_path_id` for behavior-bearing obligations;
 - scenario ids;
 - invariant ids;
 - hazard ids;
@@ -710,6 +712,8 @@ List code external contracts for every required model obligation in the review:
 - path, symbol, and surface type;
 - whether the surface is the obligation owner, helper, adapter, facade, or
   read-only support;
+- whether a non-owner surface has current proof that it delegates to the same
+  commitment and selected primary path instead of succeeding independently;
 - implemented model obligation ids;
 - external inputs and outputs;
 - state reads and writes;
@@ -735,6 +739,11 @@ receipt consumption belongs in ModelMesh/Risk Evidence Ledger. Broad/full
 claims must also keep the `ContractCoverageUniverse`, actionable oracle
 feedback fields, and any `ObservedProblemBackfeed` mapping aligned with those
 same obligation ids and receipts.
+
+When Similarity reports an affected family, pass materialized test/code
+obligation ids and expected member/surface inventories into alignment. Opaque
+relation ids are provenance only; they do not prove that the downstream
+obligations were actually created or tested.
 
 List test evidence:
 
@@ -955,6 +964,12 @@ negative evidence, replay evidence, and a synthetic payload case that exercises
 the real payload surface. It is the right first scaffold when the goal is to
 prove a field, state, input/output, side-effect, or payload obligation is
 actually guarded by runtime code and tests.
+
+For behavior-bearing work, the obligation, owner contract, delegate/facade
+contracts, runtime evidence, transition rows, family evidence, and tests must
+agree on one `business_intent_id`, one `behavior_commitment_id`, and one
+singular `primary_path_id`. Similarity ids alone do not count as materialized
+coverage.
 
 Escalate to `model-test-alignment-full-template` when the claim needs
 code-boundary conformance rows, artifact payload contracts, conservative Python source audit,

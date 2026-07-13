@@ -6,19 +6,19 @@ FlowGuard is an AI-agent skill suite powered by an executable check engine. This
 
 | Layer | Question answered | Required evidence | Claim boundary |
 | --- | --- | --- | --- |
-| Prompt and contract structure | Is each skill internally well-formed and route-specific? | canonical 17-member inventory, generated contracts, resolvable references, SkillGuard static/contract/depth results | no route-native behavior has necessarily executed |
+| Prompt and contract structure | Is each skill internally well-formed and route-specific? | canonical 17-member inventory, current contract trios, resolvable references, SkillGuard static/contract results | no route-native behavior has necessarily executed |
 | Native evidence receipt | Did one route's real check run against the declared current inputs? | immutable terminal receipt, command and input fingerprints, exact status, covered obligations, independently derived freshness result | covers that route and receipt scope only |
-| Self-governance parent closure | Are all required member receipts current and consumed by the parent? | 17 required child identities/fingerprints, exact-pass verification results, inventory and route hashes, parent closure receipt, distribution boundary | covers the declared suite obligations only; it does not predict future agent behavior or prove production correctness |
+| SkillGuard parent TestMesh receipt | Did the one SkillGuard execution owner consume all required current member receipts? | 17 required child identities/fingerprints, exact-pass verification results, inventory and route hashes, one immutable parent receipt, distribution boundary | covers the declared suite obligations only; it does not predict future agent behavior or prove production correctness |
 
 `pass`, `partial`, `running`, `pass_with_gaps`, and “the command started” are not interchangeable. A parent closure cannot manufacture missing native evidence. When a prompt, contract, checker, model, test, command, dependency, or covered input changes, the affected receipt must be verified again and may require a rerun.
 
 The structural suite command is:
 
 ```powershell
-python scripts/check_flowguard_skill_suite.py --root . --skillguard all --json
+python scripts/check_flowguard_skill_suite.py --root . --skillguard current --json
 ```
 
-It checks the canonical inventory, generated-contract parity, and all 17 SkillGuard static/contract/depth results. Its own claim boundary is structural: native receipts and the evidence-bound parent closure remain separate gates.
+It checks the canonical inventory and asks the current SkillGuard runtime to read the 17 existing contract trios. It neither compiles contracts nor runs native tests. Native receipts and the parent TestMesh receipt remain SkillGuard-owned gates.
 
 Current native and parent receipts belong under:
 
@@ -87,7 +87,7 @@ Canonical statuses and exit codes are:
 
 ## Background Progress Is Not Completion
 
-A host shell or CI system may run the full command in the background. In human mode, bounded `START` and `DONE` events are written to stderr so a monitor can see which model is active and which children reached a terminal state. Child stdout, stderr, and `receipt.json` files are isolated below the chosen output directory.
+A full tier may run only after governed source and tool identities are frozen, under one explicit SkillGuard execution owner. Do not start it through a background retry helper, Windows Scheduled Task, or `--resume`. In human mode, bounded `START` and `DONE` events are written to stderr so a monitor can see which model is active and which children reached a terminal state. Child stdout, stderr, and receipt files are isolated below the chosen output directory.
 
 Progress proves liveness only. Do not claim completion from a process id, a growing log, a `START` line, or some passing children. The run becomes terminal only after the command exits and the output root contains `report.json`; a passing full claim additionally requires every selected child to be terminal pass, no missing/skipped child, a passing manifest audit, and no tracked mutation.
 
@@ -143,7 +143,7 @@ A distribution pass proves file-tree parity and ownership safety. It does not pr
 
 ## Release Closure
 
-Build both package artifacts, then bind local release readiness to the current eight-child unified result:
+Build both package artifacts, then bind local release readiness to the one current SkillGuard parent receipt:
 
 ```powershell
 python -m build C:\path\to\FlowGuard
@@ -153,7 +153,7 @@ python scripts/verify_flowguard_release.py --root . --phase local --json
 After pushing the immutable tag and creating the GitHub Release with both package assets, verify the remote tag, release metadata, and downloaded asset hashes:
 
 ```powershell
-python scripts/verify_flowguard_release.py --root . --phase published --tag v0.54.0 --repository liuyingxuvka/FlowGuard --json
+python scripts/verify_flowguard_release.py --root . --phase published --tag v0.54.1 --repository liuyingxuvka/FlowGuard --json
 ```
 
 The published phase reuses the local checks and additionally requires the remote tag to resolve to the local release commit, a non-draft GitHub Release, and byte-identical downloaded wheel/source archives. A failed published check requires a corrective version; never move the existing tag.
@@ -181,19 +181,19 @@ FlowGuard 是一套由可执行检查引擎驱动的 AI-agent 技能套件。本
 
 | 层级 | 回答的问题 | 必须有的证据 | 声明边界 |
 | --- | --- | --- | --- |
-| 提示词与合同结构 | 每项技能是否结构完整、route-specific？ | canonical 17 项 inventory、生成合同、可解析引用、SkillGuard static/contract/depth 结果 | 不代表路线原生行为已经执行 |
+| 提示词与合同结构 | 每项技能是否结构完整、route-specific？ | canonical 17 项 inventory、当前合同三件套、可解析引用、SkillGuard static/contract 结果 | 不代表路线原生行为已经执行 |
 | 原生证据回执 | 某条路线的真实检查是否针对声明的当前输入运行？ | 不可变终态回执、命令和输入指纹、exact status、覆盖义务、独立推导的新鲜度结果 | 只覆盖该路线和该回执 scope |
-| 自治理父闭环 | 父级是否消费了所有必需成员的当前回执？ | 17 个必需 child 的 identity/fingerprint、exact-pass 验证结果、inventory/route hash、父级闭环回执、分发边界 | 只覆盖声明的技能套件义务；不预测未来 agent 行为，也不证明生产系统整体正确 |
+| SkillGuard 父级 TestMesh 回执 | 唯一 SkillGuard 执行负责人是否消费了所有必需成员的当前回执？ | 17 个必需 child 的 identity/fingerprint、exact-pass 验证结果、inventory/route hash、一张不可变父回执、分发边界 | 只覆盖声明的技能套件义务；不预测未来 agent 行为，也不证明生产系统整体正确 |
 
 `pass`、`partial`、`running`、`pass_with_gaps` 和“命令已经启动”不是一回事。父级闭环不能凭空制造缺失的原生证据。提示词、合同、检查器、模型、测试、命令、依赖或覆盖输入一旦变化，受影响回执必须重新验证，也可能必须重跑。
 
 结构层的技能套件命令是：
 
 ```powershell
-python scripts/check_flowguard_skill_suite.py --root . --skillguard all --json
+python scripts/check_flowguard_skill_suite.py --root . --skillguard current --json
 ```
 
-它核对 canonical inventory、生成合同一致性，以及 17 项 SkillGuard static/contract/depth 结果。它自己的声明边界是“结构通过”；原生回执和证据绑定的父闭环仍是独立 gate。
+它核对 canonical inventory、当前合同一致性，以及 17 项 SkillGuard static/contract 结果；不执行深度测试或原生功能测试。原生回执和父级 TestMesh 回执仍由 SkillGuard 单一执行负责人管理。
 
 当前原生回执和父级回执放在：
 
@@ -258,9 +258,9 @@ Canonical status 和退出码：
 | `partial` | 6 | 只有局部或不完整证据 |
 | `internal_error` | 70 | 验证系统本身失败 |
 
-### 后台进度不等于完成
+### 进度不等于完成
 
-你可以用宿主 shell 或 CI 把 full 命令放到后台。在人类输出模式下，有限的 `START` / `DONE` event 会写到 stderr，让监控者看到当前模型和已到达终态的 child。每个 child 的 stdout、stderr 和 `receipt.json` 会隔离在选定输出目录下面。
+full 只能在受管源码和工具身份冻结后，由唯一 SkillGuard 执行负责人直接启动；不得使用后台重试脚本、Windows 计划任务或 `--resume`。在人类输出模式下，有限的 `START` / `DONE` event 会写到 stderr，让监控者看到当前模型和已到达终态的 child。每个 child 的 stdout、stderr 和回执会隔离在选定输出目录下面。
 
 Progress 只证明任务还活着。进程 id、不断增长的 log、`START` 行或部分 child 通过，都不能作为完成证据。只有命令退出并在输出根目录生成 `report.json` 后，整次运行才进入终态；full pass 还要求所有选中 child 都是终态 pass、没有 missing/skipped child、manifest audit 通过，并且没有 tracked mutation。
 
@@ -316,7 +316,7 @@ Distribution pass 只证明文件树一致性和 ownership 安全。它不证明
 
 ### 发布闭环
 
-先构建 wheel 和源码包，再把本地发布结论绑定到当前统一门禁的 8 个子结果：
+先构建 wheel 和源码包，再把本地发布结论绑定到一张当前 SkillGuard 父级回执：
 
 ```powershell
 python -m build C:\path\to\FlowGuard
@@ -326,7 +326,7 @@ python scripts/verify_flowguard_release.py --root . --phase local --json
 推送不可变 tag 并创建含两个包资产的 GitHub Release 后，再验证远端 tag、Release 元数据和下载资产哈希：
 
 ```powershell
-python scripts/verify_flowguard_release.py --root . --phase published --tag v0.54.0 --repository liuyingxuvka/FlowGuard --json
+python scripts/verify_flowguard_release.py --root . --phase published --tag v0.54.1 --repository liuyingxuvka/FlowGuard --json
 ```
 
 published 阶段会重新检查本地条件，并要求远端 tag 指向同一提交、Release 不是 draft、下载的 wheel/源码包与本地构建逐字节一致。若发布后验证失败，应发布新的修正版，不能移动已有 tag。

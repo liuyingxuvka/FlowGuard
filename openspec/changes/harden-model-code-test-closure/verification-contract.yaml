@@ -1,124 +1,44 @@
-contract_version: 1
+contract_version: 3
 change: harden-model-code-test-closure
+evidence_roots:
+  SPEC_EVIDENCE: .flowguard/evidence/spec-work-packages
 obligations:
   - id: req.model-test-alignment.source-audit-gate
     source: "specs/model-test-alignment/spec.md#Requirement: Source audit can gate real-code alignment"
     claim: "Required source audit blocks missing, failed, or unrelated real-code audit evidence."
     required: true
-    evidence:
-      - check.model-test-alignment.focused
-      - check.source-audit.model
+    evidence: [owner.change.aggregate]
   - id: req.model-test-alignment.binding-row-summary
     source: "specs/model-test-alignment/spec.md#Requirement: Binding rows summarize behavior closure"
     claim: "Binding rows expose owner code, path/symbol, tests, runtime/boundary/payload ids, source decision, and open gaps."
     required: true
-    evidence:
-      - check.model-test-alignment.focused
+    evidence: [owner.change.aggregate]
   - id: req.model-test-alignment.target-aware-bad-case-closure
     source: "specs/model-test-alignment/spec.md#Requirement: Counterexample and known-bad obligations close through target-aware code tests"
     claim: "Counterexample and known-bad closure requires current external owner-code-bound test evidence for the same target id."
     required: true
-    evidence:
-      - check.model-test-alignment.focused
-      - check.model-miss.model
+    evidence: [owner.change.aggregate]
   - id: req.runtime-gateway.structured-writer-inventory
     source: "specs/runtime-gateway-adoption/spec.md#Requirement: Runtime gateway claims use structured writer inventory evidence"
     claim: "Runtime-gateway claims require structured, current, passing writer inventory evidence that covers critical surfaces and has proof artifacts."
     required: true
-    evidence:
-      - check.runtime-gateway.focused
+    evidence: [owner.change.aggregate]
   - id: req.post-runtime-model-miss.target-projection
     source: "specs/post-runtime-model-miss-review/spec.md#Requirement: Model-miss counterexamples project into Model-Test Alignment closure"
     claim: "Model-miss guidance and model regressions project counterexamples and known-bad misses into target-aware owner-code-bound test closure."
     required: true
-    evidence:
-      - check.model-miss.model
-      - check.skills.docs
+    evidence: [owner.change.aggregate]
 checks:
-  - id: check.model-test-alignment.focused
-    kind: command
-    command: python
-    args:
-      - -m
-      - pytest
-      - tests/test_model_test_alignment.py
-      - -q
-    required: true
-    covers:
-      - req.model-test-alignment.source-audit-gate
-      - req.model-test-alignment.binding-row-summary
-      - req.model-test-alignment.target-aware-bad-case-closure
-    expected:
-      exit_code: 0
-  - id: check.runtime-gateway.focused
-    kind: command
-    command: python
-    args:
-      - -m
-      - pytest
-      - tests/test_runtime_gateway_adoption.py
-      - -q
-    required: true
-    covers:
-      - req.runtime-gateway.structured-writer-inventory
-    expected:
-      exit_code: 0
-  - id: check.source-audit.model
-    kind: command
-    command: python
-    args:
-      - .flowguard/contract_source_audit/run_checks.py
-    required: true
-    covers:
-      - req.model-test-alignment.source-audit-gate
-    expected:
-      exit_code: 0
-  - id: check.model-miss.model
-    kind: command
-    command: python
-    args:
-      - .flowguard/model_miss_review/run_checks.py
-    required: true
-    covers:
-      - req.model-test-alignment.target-aware-bad-case-closure
-      - req.post-runtime-model-miss.target-projection
-    expected:
-      exit_code: 0
-  - id: check.skills.docs
-    kind: command
-    command: python
-    args:
-      - -m
-      - pytest
-      - tests/test_public_templates.py
-      - tests/test_skill_docs.py
-      - -q
-    required: true
-    covers:
-      - req.post-runtime-model-miss.target-projection
-    expected:
-      exit_code: 0
-  - id: check.api-surface
-    kind: command
-    command: python
-    args:
-      - -m
-      - pytest
-      - tests/test_api_surface.py
-      - -q
-    required: true
-    covers:
-      - req.model-test-alignment.source-audit-gate
-      - req.runtime-gateway.structured-writer-inventory
-    expected:
-      exit_code: 0
-  - id: check.openspec.strict
-    kind: command
-    command: openspec
-    args:
-      - validate
-      - harden-model-code-test-closure
-      - --strict
+  - id: owner.change.aggregate
+    kind: receipt
+    semantic_check_id: flowguard.openspec.harden-model-code-test-closure.aggregate
+    execution_id: flowguard.owner.harden-model-code-test-closure.aggregate.current
+    receipt_ref:
+      provider_id: openspec
+      work_package_id: harden-model-code-test-closure
+      adapter: portable-receipt.v1
+      ref_path: "<SPEC_EVIDENCE>/portable-refs/openspec/harden-model-code-test-closure/owner.change.aggregate.json"
+    consumer: openspec.change.harden-model-code-test-closure
     required: true
     covers:
       - req.model-test-alignment.source-audit-gate
@@ -126,8 +46,6 @@ checks:
       - req.model-test-alignment.target-aware-bad-case-closure
       - req.runtime-gateway.structured-writer-inventory
       - req.post-runtime-model-miss.target-projection
-    expected:
-      exit_code: 0
 freshness:
   watch:
     - openspec/changes/harden-model-code-test-closure/proposal.md

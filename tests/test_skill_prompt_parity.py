@@ -91,6 +91,15 @@ class SkillPromptParityTests(unittest.TestCase):
         git = shutil.which("git")
         if not git:
             self.skipTest("git is required to verify public native-command distribution")
+        repository_probe = subprocess.run(
+            [git, "rev-parse", "--is-inside-work-tree"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if repository_probe.returncode != 0:
+            self.skipTest("public git-tree distribution check requires a git checkout")
         completed = subprocess.run(
             [git, "ls-files", "-z"], cwd=ROOT, capture_output=True, check=True
         )

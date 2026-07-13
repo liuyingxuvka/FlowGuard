@@ -1,114 +1,165 @@
 {
-  "activation_keywords": [
-    "model test alignment",
-    "CodeContract",
-    "source audit",
-    "transition cell",
-    "artifact payload"
-  ],
-  "claim_boundary": "Alignment proves only current row-level parity among declared obligations, owner code, and supplied evidence; it does not prove unmodeled behavior or production conformance.",
-  "default_route": false,
-  "direct_references": [
-    "references/model_test_alignment_protocol.md"
-  ],
-  "do_not_use_when": [
-    "The task is test/code/model partitioning, conformance replay, or the obligations have not yet been defined."
-  ],
-  "downstream_targets": [
+  "artifacts": [],
+  "checks": [
     {
-      "claim_scope": "evidence hierarchy and freshness",
-      "condition": "Required transition, leaf, payload, or replay evidence is large, slow, layered, stale-prone, background, or release-only.",
-      "target_id": "flowguard-test-mesh",
-      "target_kind": "skill"
+      "check_id": "check:flowguard-model-test-alignment:plane-boundary",
+      "covers_obligation_ids": [
+        "obligation:flowguard-model-test-alignment:plane-boundary"
+      ],
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "flowguard-model-test-alignment:functional",
+      "execution_owner_id": "owner:flowguard-model-test-alignment:flowguard-model-test-alignment-plane-boundary",
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": ".flowguard/model_test_code_alignment/model.py"
+        }
+      ],
+      "kind": "model_assertion",
+      "timeout_seconds": 30
     },
     {
-      "claim_scope": "model upgrade decision",
-      "condition": "Alignment exposes a missing/coarse/stale model obligation or boundary.",
-      "target_id": "model_maturation_loop",
-      "target_kind": "internal_route"
+      "args": [
+        ".flowguard/model_test_code_alignment/run_checks.py"
+      ],
+      "check_id": "check:flowguard-model-test-alignment:native-authority",
+      "command": "python",
+      "covers_obligation_ids": [
+        "obligation:flowguard-model-test-alignment:native-authority"
+      ],
+      "cwd_token": "repository_root",
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "flowguard-model-test-alignment:functional",
+      "execution_owner_id": "owner:flowguard-model-test-alignment:flowguard-model-test-alignment-native-authority",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": ".flowguard/model_test_code_alignment/model.py"
+        },
+        {
+          "kind": "path",
+          "path": ".flowguard/model_test_code_alignment/run_checks.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/model_test_alignment.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/skill_contract_model.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_model_test_alignment.py"
+        }
+      ],
+      "kind": "command",
+      "timeout_seconds": 180
     },
     {
-      "claim_scope": "final risk confidence",
-      "condition": "Alignment rows support a broad final claim.",
-      "target_id": "risk_evidence_ledger",
-      "target_kind": "internal_route"
-    },
-    {
-      "claim_scope": "closure report",
-      "condition": "Cross-guard or broad closure consumes the alignment result.",
-      "target_id": "flowguard_closure_contract",
-      "target_kind": "internal_route"
+      "check_id": "check:flowguard-model-test-alignment:evidence-closure",
+      "covers_obligation_ids": [
+        "obligation:flowguard-model-test-alignment:evidence-closure"
+      ],
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "flowguard-model-test-alignment:functional",
+      "execution_owner_id": "owner:flowguard-model-test-alignment:flowguard-model-test-alignment-evidence-closure",
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": ".flowguard/model_test_code_alignment/model.py"
+        }
+      ],
+      "kind": "model_assertion",
+      "timeout_seconds": 30
     }
   ],
-  "layout_profiles": {
-    "installed": ".codex/skills/flowguard-model-test-alignment",
-    "source": ".agents/skills/flowguard-model-test-alignment"
-  },
-  "native_checks": [
+  "claim_boundary": "Alignment proves only current row-level parity among declared obligations, one stable behavior authority identity, owner/delegating code, and supplied materialized evidence; it does not prove unmodeled behavior or production conformance.",
+  "closure_profiles": [
     {
-      "binding_id": "model_test_alignment_model",
-      "command": "python .flowguard/model_test_code_alignment/run_checks.py",
-      "evidence_source": "current model runner receipt and final report",
-      "kind": "flowguard_model",
-      "native_check_id": "model_test_code_alignment",
-      "summary": "Run the model-code-test alignment model and known-bad bindings."
+      "profile_id": "routine",
+      "required_obligation_ids": [
+        "obligation:flowguard-model-test-alignment:plane-boundary"
+      ]
+    },
+    {
+      "profile_id": "functional",
+      "required_obligation_ids": [
+        "obligation:flowguard-model-test-alignment:plane-boundary",
+        "obligation:flowguard-model-test-alignment:native-authority"
+      ]
+    },
+    {
+      "profile_id": "release",
+      "required_obligation_ids": [
+        "obligation:flowguard-model-test-alignment:plane-boundary",
+        "obligation:flowguard-model-test-alignment:native-authority",
+        "obligation:flowguard-model-test-alignment:evidence-closure"
+      ]
+    },
+    {
+      "profile_id": "highest_quality",
+      "required_obligation_ids": [
+        "obligation:flowguard-model-test-alignment:plane-boundary",
+        "obligation:flowguard-model-test-alignment:native-authority",
+        "obligation:flowguard-model-test-alignment:evidence-closure"
+      ]
     }
   ],
-  "native_owner": "model_test_alignment",
-  "output_fields": [
-    "evidence",
-    "failures",
-    "blockers",
-    "skipped_checks",
-    "residual_risk",
-    "claim_boundary",
-    "typed_next_actions"
+  "confirmed": true,
+  "implementation_paths": [
+    ".agents/skills/flowguard-model-test-alignment",
+    ".flowguard/model_test_code_alignment",
+    "flowguard/model_test_alignment.py",
+    "flowguard/skill_contract_model.py",
+    "tests/test_model_test_alignment.py"
   ],
-  "route_id": "model_test_alignment",
-  "route_role": "public_owner",
-  "route_summary": "Bind explicit model obligations to owner external code contracts and current same-behavior test, source, boundary, transition, payload, or replay evidence.",
-  "schema_version": "flowguard.skill_contract_source.v1",
+  "judgment_rubrics": [],
+  "model_id": "flowguard.model_test_alignment.skill_contract.v2",
+  "model_path": ".flowguard/model_test_code_alignment/model.py",
+  "release_eligible": false,
+  "schema_version": "skillguard.contract_source.v2",
   "skill_id": "flowguard-model-test-alignment",
-  "source_requirements": [
+  "step_bindings": [
     {
-      "category": "evidence",
-      "requirement_id": "mta.three_way_binding",
-      "summary": "Every required behavior binds one model obligation, owner external code contract, and current same-contract test evidence."
+      "step_id": "step:flowguard-model-test-alignment:intake",
+      "action": {
+        "kind": "inventory",
+        "summary": "Inventory model obligations, execution plane, business intent, commitment, selected path, owner contracts, code, tests, and evidence scope."
+      },
+      "check_ids": [
+        "check:flowguard-model-test-alignment:plane-boundary"
+      ],
+      "output_artifact_ids": []
     },
     {
-      "category": "evidence",
-      "requirement_id": "mta.real_surface_evidence",
-      "summary": "Concrete source/payload/counterexample claims require current target-aware audit, boundary, or external execution evidence."
+      "step_id": "step:flowguard-model-test-alignment:execute",
+      "action": {
+        "kind": "native",
+        "summary": "Run the existing alignment owner to build row-level obligation, owner-code, test, replay, and provenance bindings."
+      },
+      "check_ids": [
+        "check:flowguard-model-test-alignment:native-authority"
+      ],
+      "output_artifact_ids": []
     },
     {
-      "category": "closure",
-      "requirement_id": "mta.typed_testmesh_handoff",
-      "summary": "Large or slow evidence is handed to TestMesh with target ids; MTA retains semantic binding ownership and does not count delegated work as pass."
-    }
-  ],
-  "use_when": [
-    "Obligations, owner code contracts, source audits, boundary observations, payload cases, closure targets, or ordinary tests need direct current comparison."
-  ],
-  "workflow": [
-    {
-      "phase_id": "intake",
-      "summary": "Define claim scope, commitments, obligations, required test kinds, and external behavior boundaries."
-    },
-    {
-      "phase_id": "inventory",
-      "summary": "Inventory owner CodeContracts, tests, source audits, transitions/fields/payloads, boundary observations, and evidence targets."
-    },
-    {
-      "phase_id": "execution",
-      "summary": "Consume canonical cases and build row-level model-code-test bindings with stable target ids and gaps."
-    },
-    {
-      "phase_id": "checks",
-      "summary": "Run the alignment model; send large/slow evidence to TestMesh through typed handoff while retaining semantic ownership."
-    },
-    {
-      "phase_id": "closure",
-      "summary": "Return binding summaries and block broad coverage on stale, missing, orphan, duplicate, internal-only, or overclaimed rows."
+      "step_id": "step:flowguard-model-test-alignment:verify",
+      "action": {
+        "kind": "verifier",
+        "summary": "Reject cross-plane ownership, path drift, parallel facade success, opaque provenance, stale evidence, missing rows, or overclaiming."
+      },
+      "check_ids": [
+        "check:flowguard-model-test-alignment:evidence-closure"
+      ],
+      "output_artifact_ids": []
     }
   ]
 }
+

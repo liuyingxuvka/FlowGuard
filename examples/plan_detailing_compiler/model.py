@@ -295,6 +295,22 @@ def run_plan_detailing_review():
     return review_scenarios(plan_detailing_scenarios())
 
 
+from flowguard.skill_contract_model import build_skill_contract_model_export
+
+FLOWGUARD_MODEL_MARKER = "flowguard-executable-model"
+
+
+def export_contract_model():
+    return build_skill_contract_model_export(
+        skill_id="flowguard-plan-detailing-compiler",
+        route_id="plan_detailing_compiler",
+        owner_id="development_process_flow",
+        parent_model_id="flowguard.development_process_flow",
+        business_intent="Compile a rough non-trivial plan into plane-safe steps, gates, failure branches, and evidence requirements.",
+        claim_boundary="This projection structures a plan and its agent-operation targets; it does not execute steps or absorb referenced product behavior.",
+    )
+
+
 __all__ = [
     "GOOD_PLAN",
     "HAPPY_PATH_ONLY_PLAN",
@@ -302,6 +318,7 @@ __all__ = [
     "SCOPED_HUMAN_REVIEW_PLAN",
     "UNGATED_SIDE_EFFECT_PLAN",
     "VAGUE_PLAN",
+    "export_contract_model",
     "plan_detailing_scenarios",
     "run_plan_detailing_review",
 ]

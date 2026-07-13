@@ -690,6 +690,47 @@ class DevelopmentProcessFlowTests(unittest.TestCase):
 
         self.assertTrue(report.ok, report.format_text())
 
+    def test_process_actions_reference_sibling_planes_without_becoming_their_owner(self):
+        relation_ref = "commitment:process-validation|validates|commitment:product-download"
+        good = DevelopmentProcessPlan(
+            "plane-aware-process",
+            actions=(
+                ProcessAction(
+                    "validate-product-download",
+                    behavior_plane="development_process",
+                    target_behavior_planes=("product_runtime",),
+                    target_commitment_ids=("commitment:product-download",),
+                    typed_commitment_relation_refs=(relation_ref,),
+                ),
+            ),
+            behavior_plane="development_process",
+            require_behavior_plane_boundary=True,
+        )
+
+        report = review_development_process_flow(good)
+        self.assertTrue(report.ok, report.format_text())
+
+        bad = DevelopmentProcessPlan(
+            "mixed-owner-process",
+            actions=(
+                ProcessAction(
+                    "validate-product-download",
+                    behavior_plane="product_runtime",
+                    target_behavior_planes=("product_runtime",),
+                    target_commitment_ids=("commitment:product-download",),
+                    typed_commitment_relation_refs=(relation_ref,),
+                ),
+            ),
+            behavior_plane="development_process",
+            require_behavior_plane_boundary=True,
+        )
+        bad_report = review_development_process_flow(bad)
+        self.assertFalse(bad_report.ok)
+        self.assertIn(
+            "process_action_absorbs_target_behavior_plane",
+            {finding.code for finding in bad_report.findings},
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

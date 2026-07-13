@@ -10,6 +10,9 @@ failure.
 
 Guards against:
 - finalizing after a runtime issue without classifying the model miss;
+- classifying a miss without first looking up the affected behavior plane;
+- attaching a miss to a different plane's commitment or creating a duplicate
+  gap when a same-plane commitment already exists;
 - validating a fix before backpropagating the root cause into the prior
   plan/model/test gap;
 - validating a fix before representing the observed issue in the model;
@@ -50,6 +53,11 @@ class State:
     flowguard_passed: bool = False
     runtime_issue_observed: bool = False
     model_miss_classified: bool = False
+    affected_behavior_plane: str = ""
+    affected_commitment_id: str = ""
+    primary_owner_model_id: str = ""
+    same_plane_lookup_performed: bool = False
+    coverage_gap_registered: bool = False
     root_cause_backpropagated: bool = False
     issue_represented_in_model: bool = False
     generalized_bad_case_in_scope: bool = True
@@ -72,11 +80,22 @@ class State:
 @dataclass(frozen=True)
 class Event:
     name: str
+    affected_behavior_plane: str = ""
+    affected_commitment_id: str = ""
+    primary_owner_model_id: str = ""
+    same_plane_lookup_performed: bool = False
+    coverage_gap_registered: bool = False
 
 
 FLOWGUARD_PASS = Event("flowguard_pass")
 RUNTIME_FAIL = Event("runtime_fail")
-CLASSIFY_MISS = Event("classify_miss")
+CLASSIFY_MISS = Event(
+    "classify_miss",
+    affected_behavior_plane="agent_operation",
+    affected_commitment_id="commitment:flowguard-agent-guidance-route",
+    primary_owner_model_id=".flowguard/minimum_valuable_model_entry/model.py",
+    same_plane_lookup_performed=True,
+)
 BACKPROPAGATE_ROOT_CAUSE = Event("backpropagate_root_cause")
 REPRESENT_ISSUE = Event("represent_issue")
 REPRESENT_GENERALIZED_BAD_CASE = Event("represent_generalized_bad_case")
@@ -100,6 +119,11 @@ class ApplyReviewStep:
         "flowguard_passed",
         "runtime_issue_observed",
         "model_miss_classified",
+        "affected_behavior_plane",
+        "affected_commitment_id",
+        "primary_owner_model_id",
+        "same_plane_lookup_performed",
+        "coverage_gap_registered",
         "root_cause_backpropagated",
         "issue_represented_in_model",
         "generalized_bad_case_in_scope",
@@ -121,6 +145,11 @@ class ApplyReviewStep:
         "flowguard_passed",
         "runtime_issue_observed",
         "model_miss_classified",
+        "affected_behavior_plane",
+        "affected_commitment_id",
+        "primary_owner_model_id",
+        "same_plane_lookup_performed",
+        "coverage_gap_registered",
         "root_cause_backpropagated",
         "issue_represented_in_model",
         "generalized_bad_case_represented_in_model",
@@ -160,9 +189,36 @@ class ApplyReviewStep:
             if not state.runtime_issue_observed:
                 yield FunctionResult("classification_not_needed", state, label="blocked")
                 return
+            if input_obj.affected_behavior_plane not in {
+                "product_runtime",
+                "agent_operation",
+                "development_process",
+            }:
+                yield FunctionResult("classification_missing_behavior_plane", state, label="blocked")
+                return
+            if not input_obj.same_plane_lookup_performed:
+                yield FunctionResult("classification_missing_same_plane_lookup", state, label="blocked")
+                return
+            has_existing_owner = bool(
+                input_obj.affected_commitment_id and input_obj.primary_owner_model_id
+            )
+            if not has_existing_owner and not input_obj.coverage_gap_registered:
+                yield FunctionResult("classification_missing_owner_or_gap", state, label="blocked")
+                return
+            if has_existing_owner and input_obj.coverage_gap_registered:
+                yield FunctionResult("classification_duplicate_gap", state, label="blocked")
+                return
             yield FunctionResult(
                 "model_miss_classified",
-                replace(state, model_miss_classified=True),
+                replace(
+                    state,
+                    model_miss_classified=True,
+                    affected_behavior_plane=input_obj.affected_behavior_plane,
+                    affected_commitment_id=input_obj.affected_commitment_id,
+                    primary_owner_model_id=input_obj.primary_owner_model_id,
+                    same_plane_lookup_performed=True,
+                    coverage_gap_registered=input_obj.coverage_gap_registered,
+                ),
                 label="model_miss_classified",
             )
             return
@@ -303,6 +359,24 @@ class ApplyReviewStep:
             )
             return
         if input_obj.name == "validate_fix":
+            if not (
+                state.same_plane_lookup_performed
+                and state.affected_behavior_plane
+                and (
+                    (
+                        state.affected_commitment_id
+                        and state.primary_owner_model_id
+                        and not state.coverage_gap_registered
+                    )
+                    or (
+                        not state.affected_commitment_id
+                        and not state.primary_owner_model_id
+                        and state.coverage_gap_registered
+                    )
+                )
+            ):
+                yield FunctionResult("same_plane_backfeed_validation_blocked", state, label="blocked")
+                return
             if not state.root_cause_backpropagated:
                 yield FunctionResult("root_cause_backpropagation_validation_blocked", state, label="blocked")
                 return
@@ -363,6 +437,18 @@ class BrokenFinalizeIgnoresModelMiss(ApplyReviewStep):
                 "completed_without_review",
                 replace(state, completed=True),
                 label="broken_completed_without_review",
+            )
+            return
+        yield from super().apply(input_obj, state)
+
+
+class BrokenClassifyWithoutSamePlaneLookup(ApplyReviewStep):
+    def apply(self, input_obj: Event, state: State) -> Iterable[FunctionResult]:
+        if input_obj.name == "classify_miss":
+            yield FunctionResult(
+                "classified_without_same_plane_lookup",
+                replace(state, model_miss_classified=True),
+                label="broken_classified_without_same_plane_lookup",
             )
             return
         yield from super().apply(input_obj, state)
@@ -498,10 +584,44 @@ class BrokenValidateRecurringWithoutDefectFamilyGate(ApplyReviewStep):
 
 
 def invariants() -> tuple[Invariant, ...]:
+    def classification_requires_same_plane_backfeed(state: State, _trace) -> InvariantResult:
+        if not state.model_miss_classified:
+            return InvariantResult.pass_()
+        if not state.same_plane_lookup_performed:
+            return InvariantResult.fail("model miss classified before same-plane commitment lookup")
+        if state.affected_behavior_plane not in {
+            "product_runtime",
+            "agent_operation",
+            "development_process",
+        }:
+            return InvariantResult.fail("model miss classification has no valid affected behavior plane")
+        has_existing_owner = bool(
+            state.affected_commitment_id and state.primary_owner_model_id
+        )
+        if not has_existing_owner and not state.coverage_gap_registered:
+            return InvariantResult.fail("model miss classification has neither a same-plane owner nor a registered gap")
+        if has_existing_owner and state.coverage_gap_registered:
+            return InvariantResult.fail("model miss classification duplicates a gap for an existing same-plane owner")
+        return InvariantResult.pass_()
+
     def completion_requires_review(state: State, _trace) -> InvariantResult:
         if state.completed and state.runtime_issue_observed:
             if not (
                 state.model_miss_classified
+                and state.same_plane_lookup_performed
+                and state.affected_behavior_plane
+                and (
+                    (
+                        state.affected_commitment_id
+                        and state.primary_owner_model_id
+                        and not state.coverage_gap_registered
+                    )
+                    or (
+                        not state.affected_commitment_id
+                        and not state.primary_owner_model_id
+                        and state.coverage_gap_registered
+                    )
+                )
                 and state.root_cause_backpropagated
                 and state.issue_represented_in_model
                 and (
@@ -613,6 +733,11 @@ def invariants() -> tuple[Invariant, ...]:
         return InvariantResult.pass_()
 
     return (
+        Invariant(
+            "classification_requires_same_plane_backfeed",
+            "Model-miss classification first reuses a same-plane commitment or registers a real same-plane gap.",
+            classification_requires_same_plane_backfeed,
+        ),
         Invariant("completion_requires_review", "Runtime issues must be reviewed before completion.", completion_requires_review),
         Invariant(
             "fix_validation_requires_root_cause_backpropagation",
@@ -712,6 +837,16 @@ def run_checks():
     )
     broken = review_scenarios(
         (
+            scenario(
+                "classify_without_same_plane_lookup",
+                "Broken workflow labels a miss but does not look up the affected plane's existing commitment.",
+                (FLOWGUARD_PASS, RUNTIME_FAIL, CLASSIFY_MISS),
+                ScenarioExpectation(
+                    expected_status="violation",
+                    expected_violation_names=("classification_requires_same_plane_backfeed",),
+                ),
+                block=BrokenClassifyWithoutSamePlaneLookup(),
+            ),
             scenario(
                 "finalize_without_review",
                 "Broken workflow finalizes after runtime issue without review.",
@@ -892,3 +1027,19 @@ def run_checks():
         )
     )
     return correct, broken
+
+
+from flowguard.skill_contract_model import build_skill_contract_model_export
+
+FLOWGUARD_MODEL_MARKER = "flowguard-executable-model"
+
+
+def export_contract_model():
+    return build_skill_contract_model_export(
+        skill_id="flowguard-model-miss-review",
+        route_id="model_miss_review",
+        owner_id="model_miss_review",
+        parent_model_id="flowguard.model_first_function_flow",
+        business_intent="Backfeed observed failures to an existing same-plane commitment or register a real coverage gap.",
+        claim_boundary="This projection binds miss classification and backfeed; a proposed fix remains unproven until owner code, tests, replay, and disposition evidence are current.",
+    )

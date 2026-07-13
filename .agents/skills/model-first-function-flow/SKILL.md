@@ -26,7 +26,7 @@ Read `references/route_index.md` for the parity-checked route map and `reference
 - Do not force the kernel before a clear peer satellite, use it for trivial copy/format/direct-command work, or treat check-engine helpers as independently triggerable Codex skills.
 
 ## Required Workflow
-1. Decide applicability/lens, verify adoption, search current models/templates, and name the protected error class and claim boundary.
+1. Decide applicability/lens, verify adoption, run the lightweight commitment/model lookup for non-trivial existing-system work, select or report the primary behavior plane, and name the protected error class and claim boundary.
 2. Build/update the smallest faithful finite model with state, side effects, completion evidence, invariants, and a representative known-bad path.
 3. Run the formal check plan, inspect counterexamples, revise the model/architecture, and record template harvest closure.
 4. Route finite bad cases, commitments, fields, alignment, meshes, topology, UI, process freshness, conformance, and risk evidence only where triggered.
@@ -36,10 +36,13 @@ Read `references/route_index.md` for the parity-checked route map and `reference
 - Verify the real FlowGuard check engine and AGENTS.md managed record; if import fails, connect the real toolchain or report blocked/partial and never create a fake mini-framework.
 - Represent every modeled block as `Input x State -> Set(Output x State)`; do not replace executable modeling with prose or weaken hard invariants to pass.
 - Default replacement disposes old fields/wrappers/aliases/alternate success paths; broad behavior needs a current Behavior Commitment Ledger and PPA for path-sensitive rows.
+- Skill-runtime changes always use direct current replacement; former shapes are rejection fixtures only. Ordinary-software compatibility is modeled only when an explicit requirement names the historical document/data/interface and a bounded reader owner.
+- The shared ledger has three owner planes (`product_runtime`, `agent_operation`, `development_process`). Same-plane hits may guide the owning route; cross-plane rows remain typed context and never silently become instructions or merged owners.
+- Do not impose a universal model execution gate on trivial actions. Escalate lightweight recall to route-native modeling when a non-trivial match, concrete Model Miss, recurring/high-risk operation, or broad claim makes it relevant.
 - Broad model/code/test claims bind obligation ids, owner code contract ids, and current external-contract evidence for the same behavior.
 - Missing, stale, skipped, `not_run`, `progress_only`, `scoped`, or `pass_with_gaps` evidence cannot support broad done, full-governance, release, archive, or publication claims.
 - Long-check progress is liveness only; UI/payload claims need real-surface proof; new/deepened models require template harvest closure.
-- Preserve FlowGuard diagram intent; do not flatten state/process/UI/SourceGuard/TraceGuard/WorldGuard/LogicGuard semantics into a generic flowchart or collapse them without LogicGuard.
+- FlowGuard diagram intent gate: preserve active model semantics. Do not flatten these into a generic flowchart; state/process/UI/SourceGuard/TraceGuard/WorldGuard/LogicGuard diagrams keep their own edge meanings, without LogicGuard being collapsed into FlowGuard control flow.
 
 ## Output Requirements
 - Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`, plus route decision, model snapshot, counterexamples, and current validation status.

@@ -1,107 +1,168 @@
 {
-  "activation_keywords": [
-    "merge duplicate handlers",
-    "collapse adapter",
-    "remove dead branch",
-    "architecture contraction"
-  ],
-  "claim_boundary": "The review classifies current contraction candidates; it does not change code or prove post-refactor parity.",
-  "default_route": false,
-  "direct_references": [
-    "references/architecture_reduction_protocol.md"
-  ],
-  "do_not_use_when": [
-    "The task is greenfield structure planning, direct production refactoring, or intended behavior change."
-  ],
-  "downstream_targets": [
+  "artifacts": [],
+  "checks": [
     {
-      "claim_scope": "recommendation only",
-      "condition": "Ready target actions need module/function ownership design.",
-      "target_id": "flowguard-code-structure-recommendation",
-      "target_kind": "skill"
+      "check_id": "check:flowguard-architecture-reduction:plane-boundary",
+      "covers_obligation_ids": [
+        "obligation:flowguard-architecture-reduction:plane-boundary"
+      ],
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "flowguard-architecture-reduction:functional",
+      "execution_owner_id": "owner:flowguard-architecture-reduction:flowguard-architecture-reduction-plane-boundary",
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": ".flowguard/architecture_reduction/model.py"
+        }
+      ],
+      "kind": "model_assertion",
+      "timeout_seconds": 30
     },
     {
-      "claim_scope": "refactor parity",
-      "condition": "A public entrypoint or existing code boundary will be refactored.",
-      "target_id": "flowguard-structure-mesh",
-      "target_kind": "skill"
+      "args": [
+        "-m",
+        "pytest",
+        "tests/test_architecture_reduction.py",
+        "-q"
+      ],
+      "check_id": "check:flowguard-architecture-reduction:native-authority",
+      "command": "python",
+      "covers_obligation_ids": [
+        "obligation:flowguard-architecture-reduction:native-authority"
+      ],
+      "cwd_token": "repository_root",
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "flowguard-architecture-reduction:functional",
+      "execution_owner_id": "owner:flowguard-architecture-reduction:flowguard-architecture-reduction-native-authority",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": ".flowguard/architecture_reduction/model.py"
+        },
+        {
+          "kind": "path",
+          "path": ".flowguard/architecture_reduction/run_checks.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/architecture_reduction.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/skill_contract_model.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_architecture_reduction.py"
+        }
+      ],
+      "kind": "command",
+      "timeout_seconds": 300
     },
     {
-      "claim_scope": "lifecycle evidence",
-      "condition": "Edit order, evidence freshness, or release scope must be governed.",
-      "target_id": "flowguard-development-process-flow",
-      "target_kind": "skill"
+      "check_id": "check:flowguard-architecture-reduction:evidence-closure",
+      "covers_obligation_ids": [
+        "obligation:flowguard-architecture-reduction:evidence-closure"
+      ],
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "flowguard-architecture-reduction:functional",
+      "execution_owner_id": "owner:flowguard-architecture-reduction:flowguard-architecture-reduction-evidence-closure",
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": ".flowguard/architecture_reduction/model.py"
+        }
+      ],
+      "kind": "model_assertion",
+      "timeout_seconds": 30
     }
   ],
-  "layout_profiles": {
-    "installed": ".codex/skills/flowguard-architecture-reduction",
-    "source": ".agents/skills/flowguard-architecture-reduction"
-  },
-  "native_checks": [
+  "claim_boundary": "The review classifies the complete expected current contraction inventory and delegation proof; it does not change code or prove post-refactor parity.",
+  "closure_profiles": [
     {
-      "binding_id": "architecture_reduction_pytest",
-      "command": "python -m pytest tests/test_architecture_reduction.py -q",
-      "evidence_source": "current owner-specific pytest receipt",
-      "kind": "pytest",
-      "native_check_id": "architecture_reduction_tests",
-      "summary": "Run the tracked architecture-reduction owner tests and known-bad cases."
+      "profile_id": "routine",
+      "required_obligation_ids": [
+        "obligation:flowguard-architecture-reduction:plane-boundary"
+      ]
+    },
+    {
+      "profile_id": "functional",
+      "required_obligation_ids": [
+        "obligation:flowguard-architecture-reduction:plane-boundary",
+        "obligation:flowguard-architecture-reduction:native-authority"
+      ]
+    },
+    {
+      "profile_id": "release",
+      "required_obligation_ids": [
+        "obligation:flowguard-architecture-reduction:plane-boundary",
+        "obligation:flowguard-architecture-reduction:native-authority",
+        "obligation:flowguard-architecture-reduction:evidence-closure"
+      ]
+    },
+    {
+      "profile_id": "highest_quality",
+      "required_obligation_ids": [
+        "obligation:flowguard-architecture-reduction:plane-boundary",
+        "obligation:flowguard-architecture-reduction:native-authority",
+        "obligation:flowguard-architecture-reduction:evidence-closure"
+      ]
     }
   ],
-  "native_owner": "architecture_reduction",
-  "output_fields": [
-    "evidence",
-    "failures",
-    "blockers",
-    "skipped_checks",
-    "residual_risk",
-    "claim_boundary",
-    "typed_next_actions"
+  "confirmed": true,
+  "implementation_paths": [
+    ".agents/skills/flowguard-architecture-reduction",
+    ".flowguard/architecture_reduction",
+    "flowguard/architecture_reduction.py",
+    "flowguard/skill_contract_model.py",
+    "tests/test_architecture_reduction.py"
   ],
-  "route_id": "architecture_reduction",
-  "route_role": "public_owner",
-  "route_summary": "Classify behavior-preserving architecture contraction candidates and their proof/handoff status.",
-  "schema_version": "flowguard.skill_contract_source.v1",
+  "judgment_rubrics": [],
+  "model_id": "flowguard.architecture_reduction.skill_contract.v2",
+  "model_path": ".flowguard/architecture_reduction/model.py",
+  "release_eligible": false,
+  "schema_version": "skillguard.contract_source.v2",
   "skill_id": "flowguard-architecture-reduction",
-  "source_requirements": [
+  "step_bindings": [
     {
-      "category": "inventory",
-      "requirement_id": "architecture_reduction.observable_contract",
-      "summary": "Every candidate must be grounded in an observable contract and model-to-code mapping."
+      "step_id": "step:flowguard-architecture-reduction:intake",
+      "action": {
+        "kind": "inventory",
+        "summary": "Inventory the observable contract, current model/code map, exact intent/path authority, and complete reduction candidate set."
+      },
+      "check_ids": [
+        "check:flowguard-architecture-reduction:plane-boundary"
+      ],
+      "output_artifact_ids": []
     },
     {
-      "category": "evidence",
-      "requirement_id": "architecture_reduction.proof_status",
-      "summary": "Only equivalence or current public-facade proof can make a contraction ready."
+      "step_id": "step:flowguard-architecture-reduction:execute",
+      "action": {
+        "kind": "native",
+        "summary": "Run the existing architecture-reduction owner to classify every candidate, proof status, facade, and target action."
+      },
+      "check_ids": [
+        "check:flowguard-architecture-reduction:native-authority"
+      ],
+      "output_artifact_ids": []
     },
     {
-      "category": "closure",
-      "requirement_id": "architecture_reduction.no_direct_refactor",
-      "summary": "Production edits and public-entrypoint parity remain owned by StructureMesh and DevelopmentProcessFlow."
-    }
-  ],
-  "use_when": [
-    "Existing model/code ownership suggests the implementation can shrink without changing the observable contract."
-  ],
-  "workflow": [
-    {
-      "phase_id": "intake",
-      "summary": "Confirm shrink-oriented scope and the observable behavior that must remain unchanged."
-    },
-    {
-      "phase_id": "inventory",
-      "summary": "Map existing model ownership, code boundaries, state, side effects, entrypoints, and compatibility surfaces."
-    },
-    {
-      "phase_id": "execution",
-      "summary": "Classify merge, collapse, remove, keep-facade, or review candidates with proof status."
-    },
-    {
-      "phase_id": "checks",
-      "summary": "Run the native reduction model and reject candidates lacking equivalence, facade, or disposition evidence."
-    },
-    {
-      "phase_id": "closure",
-      "summary": "Return ready/scoped/risky/blocked candidates and typed implementation/parity handoffs."
+      "step_id": "step:flowguard-architecture-reduction:verify",
+      "action": {
+        "kind": "verifier",
+        "summary": "Reject omitted candidates, opaque similarity, stale proof, or independent-success facades and return typed downstream handoffs."
+      },
+      "check_ids": [
+        "check:flowguard-architecture-reduction:evidence-closure"
+      ],
+      "output_artifact_ids": []
     }
   ]
 }
+

@@ -1,8 +1,10 @@
 """Canonical FlowGuard agent-skill suite inventory and reconciliation.
 
-Membership starts from every ``SKILL.md`` directory.  Control files are then
-checked on the declared member record so a missing control root cannot make a
-skill disappear from readiness results.
+Canonical membership comes from the suite map and is reconciled against every
+``SKILL.md`` directory.  A valid installer ownership manifest may identify
+unrelated skills that merely share the root; undeclared FlowGuard-reserved
+names, missing canonical members, and the one current SkillGuard contract trio
+remain strict. Former control files are rejection evidence only.
 """
 
 from __future__ import annotations
@@ -13,6 +15,8 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
+
+from .distribution_sync import OWNERSHIP_MANIFEST_NAME, OWNERSHIP_SCHEMA
 
 
 FLOWGUARD_SUITE_MAP = ".skillguard/flowguard-suite/suite-map.json"
@@ -27,9 +31,23 @@ FLOWGUARD_REQUIRED_MEMBER_FILES = (
     "SKILL.md",
     "agents/openai.yaml",
     ".skillguard/contract-source.json",
-    ".skillguard/work-contract.json",
+    ".skillguard/compiled-contract.json",
+    ".skillguard/check-manifest.json",
+)
+FLOWGUARD_FORMER_MEMBER_PATHS = (
     ".skillguard/check_manifest.json",
     ".skillguard/check.py",
+    ".skillguard/work-contract.json",
+    ".skillguard/skillguard_closure_policy.json",
+    ".skillguard/skillguard_evidence_rules.json",
+    ".skillguard/skillguard_manifest.json",
+    ".skillguard/skillguard_profile.json",
+    ".skillguard/skillguard_progress_ledger.jsonl",
+    ".skillguard/skillguard_skill_contract.json",
+    ".skillguard/ai_judgments",
+    ".skillguard/checks",
+    ".skillguard/evidence",
+    ".skillguard/reports",
 )
 FLOWGUARD_CONTROL_ROOT = ".skillguard"
 
@@ -116,6 +134,7 @@ class SkillSuiteReport:
     discovered_member_ids: tuple[str, ...]
     members: tuple[SkillSuiteMemberReport, ...]
     findings: tuple[SkillSuiteFinding, ...]
+    co_located_skill_ids: tuple[str, ...] = ()
 
     @property
     def ok(self) -> bool:
@@ -137,12 +156,15 @@ class SkillSuiteReport:
             "semantic_hash": self.semantic_hash,
             "declared_member_count": len(self.declared_member_ids),
             "discovered_member_count": len(self.discovered_member_ids),
+            "co_located_skill_count": len(self.co_located_skill_ids),
             "declared_member_ids": list(self.declared_member_ids),
             "discovered_member_ids": list(self.discovered_member_ids),
+            "co_located_skill_ids": list(self.co_located_skill_ids),
             "members": [member.to_dict() for member in self.members],
             "findings": [finding.to_dict() for finding in self.findings],
             "claim_boundary": (
                 "This report validates current suite membership and required-file presence only; "
+                "co-located skill ids are reported but are not validated as part of FlowGuard; "
                 "it does not replace deep contract checks, native command execution, receipt "
                 "freshness, distribution parity, or release evidence."
             ),
@@ -159,6 +181,8 @@ class SkillSuiteReport:
             f"inventory_hash: {self.inventory_hash}",
             f"semantic_hash: {self.semantic_hash}",
         ]
+        if self.co_located_skill_ids:
+            lines.append(f"co-located skills (not validated): {', '.join(self.co_located_skill_ids)}")
         for finding in self.findings:
             subject = f" member={finding.member_id}" if finding.member_id else ""
             lines.append(f"- {finding.code}:{subject} {finding.message}")
@@ -181,6 +205,52 @@ def discover_skill_ids(skill_root: str | Path) -> tuple[str, ...]:
     if not root.is_dir():
         return ()
     return tuple(sorted(path.name for path in root.iterdir() if path.is_dir() and (path / "SKILL.md").is_file()))
+
+
+def _distribution_owned_member_ids(skill_root: Path) -> tuple[str, ...]:
+    """Return the exact member boundary from one valid installer manifest."""
+
+    path = skill_root / OWNERSHIP_MANIFEST_NAME
+    if not path.is_file():
+        return ()
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return ()
+    if not isinstance(payload, Mapping):
+        return ()
+    if payload.get("artifact_type") != "flowguard_skill_distribution_ownership":
+        return ()
+    if payload.get("schema_version") != OWNERSHIP_SCHEMA:
+        return ()
+
+    raw_member_ids = payload.get("member_ids")
+    raw_files = payload.get("files")
+    if not isinstance(raw_member_ids, list) or not isinstance(raw_files, list):
+        return ()
+    if not all(isinstance(item, str) and item for item in raw_member_ids):
+        return ()
+    member_ids = tuple(raw_member_ids)
+    if len(member_ids) != len(set(member_ids)):
+        return ()
+
+    owned_paths = {
+        str(row.get("relative_path", "")).replace("\\", "/")
+        for row in raw_files
+        if isinstance(row, Mapping)
+    }
+    if any(f"{member_id}/SKILL.md" not in owned_paths for member_id in member_ids):
+        return ()
+    return member_ids
+
+
+def _uses_flowguard_reserved_skill_id(skill_id: str) -> bool:
+    normalized = skill_id.casefold()
+    return (
+        normalized == "flowguard"
+        or normalized.startswith("flowguard-")
+        or normalized.startswith("model-first-function-flow")
+    )
 
 
 def _member_source_hash(skill_dir: Path) -> str:
@@ -256,7 +326,7 @@ def validate_skill_suite(
     skill_root: str | Path | None = None,
     check_private_inventories: bool = True,
 ) -> SkillSuiteReport:
-    """Reconcile the canonical declaration with every discovered skill."""
+    """Reconcile canonical members and report any safely scoped co-location."""
 
     root_path = Path(root).resolve()
     map_path = Path(suite_map_path) if suite_map_path is not None else root_path / FLOWGUARD_SUITE_MAP
@@ -326,13 +396,25 @@ def validate_skill_suite(
     if len(satellite_ids) != FLOWGUARD_EXPECTED_SATELLITE_COUNT:
         findings.append(SkillSuiteFinding("invalid_satellite_cardinality", "suite must declare sixteen satellites", metadata={"satellite_ids": satellite_ids}))
 
-    discovered_ids = discover_skill_ids(skills_path)
+    all_discovered_ids = discover_skill_ids(skills_path)
     declared_set = set(declared_ids)
-    discovered_set = set(discovered_ids)
+    discovered_set = set(all_discovered_ids)
     for skill_id in sorted(declared_set - discovered_set):
         findings.append(SkillSuiteFinding("missing_declared_member", "declared suite member has no SKILL.md directory", member_id=skill_id))
-    for skill_id in sorted(discovered_set - declared_set):
+    extra_ids = discovered_set - declared_set
+    co_located_ids: set[str] = set()
+    owned_member_ids = _distribution_owned_member_ids(skills_path)
+    ownership_matches_declaration = (
+        len(declared_ids) == len(declared_set)
+        and len(owned_member_ids) == len(declared_ids)
+        and set(owned_member_ids) == declared_set
+    )
+    for skill_id in sorted(extra_ids):
+        if ownership_matches_declaration and not _uses_flowguard_reserved_skill_id(skill_id):
+            co_located_ids.add(skill_id)
+            continue
         findings.append(SkillSuiteFinding("extra_discovered_member", "SKILL.md directory is absent from the canonical suite map", member_id=skill_id))
+    suite_discovered_ids = tuple(sorted(discovered_set - co_located_ids))
 
     member_reports: list[SkillSuiteMemberReport] = []
     for raw in member_rows:
@@ -358,6 +440,16 @@ def validate_skill_suite(
         for relative, present in required_files.items():
             if not present:
                 findings.append(SkillSuiteFinding("missing_required_file", "declared suite member is missing a required entry or control file", member_id=skill_id, file_path=f"{declared_path}/{relative}", metadata={"required_file": relative}))
+        for relative in FLOWGUARD_FORMER_MEMBER_PATHS:
+            if (skill_dir / relative).exists():
+                findings.append(
+                    SkillSuiteFinding(
+                        "former_skillguard_authority_present",
+                        "former SkillGuard control or run-output path must be removed; only the current contract trio is authoritative",
+                        member_id=skill_id,
+                        file_path=f"{declared_path}/{relative}",
+                    )
+                )
 
     inventory_hash = _sha256_text(_canonical_json(map_data))
     semantic_hash = _sha256_text(_canonical_json(_semantic_inventory(map_data)))
@@ -377,9 +469,10 @@ def validate_skill_suite(
         inventory_hash=inventory_hash,
         semantic_hash=semantic_hash,
         declared_member_ids=tuple(declared_ids),
-        discovered_member_ids=discovered_ids,
+        discovered_member_ids=suite_discovered_ids,
         members=tuple(member_reports),
         findings=tuple(findings),
+        co_located_skill_ids=tuple(sorted(co_located_ids)),
     )
 
 
@@ -388,6 +481,7 @@ __all__ = [
     "FLOWGUARD_EXPECTED_MEMBER_COUNT",
     "FLOWGUARD_EXPECTED_SATELLITE_COUNT",
     "FLOWGUARD_KERNEL_ROLE",
+    "FLOWGUARD_FORMER_MEMBER_PATHS",
     "FLOWGUARD_REQUIRED_MEMBER_FILES",
     "FLOWGUARD_SATELLITE_ROLE",
     "FLOWGUARD_SKILL_ROOT",

@@ -950,6 +950,12 @@ class MissRepairPlan:
     ui_capability_miss_observed: bool = False
     missing_promised_ui_capability_classified: bool = True
     same_class_ui_capability_scan_added: bool = True
+    behavior_lookup_performed: bool = False
+    affected_behavior_plane: str = ""
+    existing_commitment_reused_or_gap_registered: bool = False
+    primary_owner_model_bound: bool = False
+    error_signature_evidence_bound: bool = False
+    typed_related_context_preserved: bool = True
 
 
 @dataclass(frozen=True)
@@ -975,6 +981,22 @@ def review_compact_model_miss(plan: MissRepairPlan) -> MissRepairReport:
         findings.append("missing_owner_code_contract")
     if not plan.replay_or_negative_check_added:
         findings.append("missing_replay_or_negative_check")
+    if not plan.behavior_lookup_performed:
+        findings.append("missing_same_plane_behavior_lookup")
+    if plan.affected_behavior_plane not in {
+        "product_runtime",
+        "agent_operation",
+        "development_process",
+    }:
+        findings.append("missing_or_invalid_affected_behavior_plane")
+    if not plan.existing_commitment_reused_or_gap_registered:
+        findings.append("existing_commitment_not_reused_and_gap_not_registered")
+    if not plan.primary_owner_model_bound:
+        findings.append("missing_primary_owner_model_binding")
+    if not plan.error_signature_evidence_bound:
+        findings.append("missing_error_signature_evidence_binding")
+    if not plan.typed_related_context_preserved:
+        findings.append("cross_plane_context_promoted_to_primary")
     if plan.ui_capability_miss_observed:
         if not plan.missing_promised_ui_capability_classified:
             findings.append("ui_promised_capability_miss_not_classified")
@@ -999,6 +1021,9 @@ def correct_plan() -> MissRepairPlan:
         replay_or_negative_check_added=True,
         fix_validated_after_refinement=True,
         completed=True,
+        behavior_lookup_performed=True,
+        affected_behavior_plane="agent_operation", existing_commitment_reused_or_gap_registered=True,
+        primary_owner_model_bound=True, error_signature_evidence_bound=True,
     )
 
 
@@ -1023,6 +1048,8 @@ def broken_plans() -> tuple[MissRepairPlan, ...]:
             missing_promised_ui_capability_classified=False,
             same_class_ui_capability_scan_added=False,
         ),
+        MissRepairPlan("validate_without_behavior_lookup", True, True, True, True, True, True, True, True, True, affected_behavior_plane="agent_operation", existing_commitment_reused_or_gap_registered=True, primary_owner_model_bound=True, error_signature_evidence_bound=True),
+        MissRepairPlan("cross_plane_context_used_as_primary", True, True, True, True, True, True, True, True, True, behavior_lookup_performed=True, affected_behavior_plane="agent_operation", existing_commitment_reused_or_gap_registered=True, primary_owner_model_bound=True, error_signature_evidence_bound=True, typed_related_context_preserved=False),
     )
 
 
@@ -1041,6 +1068,7 @@ def main() -> int:
     correct, broken = run_checks()
     print(f"{correct.scenario_name}: {'PASS' if correct.ok else 'FAIL'}")
     print("required gates: root_cause_backpropagated, same_class_test_evidence_added, owner_code_contract_bound")
+    print("behavior binding: same-plane lookup, existing-commitment reuse or registered gap, owner model, error evidence")
     print("required test/replay: replay_or_negative_check_added, target-aware known-bad/counterexample replay when present")
     print(f"expected violations observed: {sum(not report.ok for report in broken)}")
     for report in broken:
@@ -1069,6 +1097,14 @@ Default closure needs:
 - owner code contract binding through Model-Test Alignment;
 - replay or negative check evidence;
 - validation after the refined model/checks.
+- a lightweight behavior-ledger lookup that classifies the failed promise as
+  `product_runtime`, `agent_operation`, or `development_process` before
+  similarity matching;
+- reuse of an existing same-plane commitment and its primary owner model; only
+  register a coverage gap when no matching promise exists;
+- bounded error signatures tied to observed evidence, with cross-plane
+  commitments retained only as typed related context rather than execution
+  instructions;
 - for UI misses where a promised function is absent, classify it as
   `boundary_missing` or `evidence_overclaimed`, record the affected capability
   ids, scan same-class capabilities/controls/fields, and add current

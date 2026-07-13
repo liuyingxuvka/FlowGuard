@@ -237,6 +237,15 @@ class ArchitectureReductionTests(unittest.TestCase):
                     proof_status=PROOF_SAFE_BY_PUBLIC_FACADE,
                     required_next_route=ROUTE_STRUCTURE_MESH,
                     affected_public_entrypoints=("router.cli",),
+                    business_intent_id="intent:router.route",
+                    behavior_commitment_id="commitment:router.route",
+                    primary_path_id="path:router.primary",
+                    owner_code_contract_id="router.route.owner",
+                    delegates_to_code_contract_id="router.route.owner",
+                    delegates_to_primary_path_id="path:router.primary",
+                    delegation_evidence_id="runtime:router.cli:v1",
+                    delegation_evidence_current=True,
+                    delegation_only=True,
                 ),
             ),
             companion_route_triggers=(trigger(),),
@@ -248,6 +257,83 @@ class ArchitectureReductionTests(unittest.TestCase):
         self.assertTrue(report.ok)
         self.assertEqual("architecture_reduction_ready", report.decision)
         self.assertEqual(("keep-cli-facade",), report.ready_candidate_ids)
+
+    def test_expected_candidate_inventory_blocks_omitted_candidate(self):
+        plan = ArchitectureReductionPlan(
+            "router-inventory-reduction",
+            observable_contract=contract(),
+            candidates=(candidate(inventory_revision="candidates:v2"),),
+            expected_candidate_ids=("collapse-normalizer-adapter", "merge-cli-handlers"),
+            inventory_revision="candidates:v2",
+            inventory_source_ref="preflight:router:v2",
+            require_complete_inventory=True,
+            companion_route_triggers=(trigger(),),
+            rationale="candidate completeness uses an independent preflight inventory",
+        )
+
+        report = review_architecture_reduction(plan)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("candidate_inventory_blocked", report.decision)
+        self.assertIn("expected_reduction_candidate_missing", [finding.code for finding in report.findings])
+        self.assertEqual(("merge-cli-handlers",), report.missing_candidate_ids)
+
+    def test_similarity_handoff_cannot_finish_with_empty_candidate_inventory(self):
+        plan = ArchitectureReductionPlan(
+            "router-similarity-reduction",
+            observable_contract=contract(),
+            candidates=(),
+            similarity_handoff={
+                "relation_ids": ("similarity:duplicate-router-handler",),
+                "code_obligation_ids": ("similarity-code:router-handler",),
+            },
+            inventory_revision="candidates:v3",
+            inventory_source_ref="similarity:router:v3",
+            companion_route_triggers=(trigger(),),
+            rationale="duplicate handoff must materialize a reduction candidate",
+        )
+
+        report = review_architecture_reduction(plan)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("candidate_inventory_blocked", report.decision)
+        self.assertIn("similarity_candidate_inventory_empty", [finding.code for finding in report.findings])
+
+    def test_retained_facade_with_independent_authority_is_blocked(self):
+        plan = ArchitectureReductionPlan(
+            "router-facade-parallel-success",
+            observable_contract=contract(),
+            candidates=(
+                candidate(
+                    candidate_id="keep-cli-facade",
+                    candidate_type=CANDIDATE_KEEP_PUBLIC_FACADE,
+                    code_node_id="router.__main__",
+                    source_model_element="PublicCliEntrypoint",
+                    target_action=TARGET_ACTION_KEEP_FACADE,
+                    proof_status=PROOF_SAFE_BY_PUBLIC_FACADE,
+                    required_next_route=ROUTE_STRUCTURE_MESH,
+                    affected_public_entrypoints=("router.cli",),
+                    business_intent_id="intent:router.route",
+                    behavior_commitment_id="commitment:router.route",
+                    primary_path_id="path:router.primary",
+                    owner_code_contract_id="router.route.owner",
+                    delegates_to_code_contract_id="router.route.owner",
+                    delegates_to_primary_path_id="path:router.primary",
+                    delegation_evidence_id="runtime:router.cli:v1",
+                    delegation_evidence_current=True,
+                    delegation_only=False,
+                    independent_business_authority=True,
+                ),
+            ),
+            companion_route_triggers=(trigger(),),
+            rationale="retained facade cannot own a second success path",
+        )
+
+        report = review_architecture_reduction(plan)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("facade_delegation_blocked", report.decision)
+        self.assertIn("facade_independent_business_authority", [finding.code for finding in report.findings])
 
     def test_observable_state_removal_blocks(self):
         plan = ArchitectureReductionPlan(

@@ -27,6 +27,8 @@ Each `ModelSignature` can name:
 - code paths, test paths, public behaviors, shared-kernel id, adapters,
   maintenance tags, and changed references;
 - business path ids, business intents, and expected path terminals;
+- one `behavior_plane`, stable intent/commitment/primary-path ids, and typed
+  commitment relation references;
 - parent/child model ids, evidence ids, freshness, blindspots, and known false
   friends.
 
@@ -110,6 +112,15 @@ Each relation records matched elements, different elements, risk if merged,
 risk if kept separate, recommendation, required next route, required evidence,
 and rationale.
 
+Execution plane is an ownership boundary, not another similarity score. Shared
+words across `product_runtime`, `agent_operation`, and `development_process`
+are quarantined as `false_friend`/manual-review evidence even when the task
+names look alike. Existing typed BCL relations can be carried as context, but
+cross-plane models cannot receive `same_workflow`, shared-kernel, or merge-owner
+recommendations. Consolidation candidates must be justified inside the same
+plane; a product target referenced by an AI/process model remains separately
+owned.
+
 ## Maintenance Output
 
 The same review also turns relation evidence into software-maintenance output:
@@ -149,6 +160,13 @@ Similarity findings are handoffs:
 
 The downstream route owns implementation confidence. Similarity alone is not
 proof that code can be changed.
+
+For exact-intent reuse work, signatures compare stable commitment, intent, and
+path identities together with terminals, material state writes, side effects,
+surface ids, and evidence freshness. The plan declares the expected affected
+inventory independently from the supplied signatures. Its handoff materializes
+test/code obligations and affected members; an opaque relation id is a pointer,
+not proof, and Similarity never selects the runtime authority itself.
 
 ## Full Schema Path
 

@@ -39,6 +39,19 @@ matrix can be treated as complete.
   transition cells are proof targets.
 - ModelMesh: use `model_mesh_closure_to_contract_cases(...)` for stale child
   evidence, unconsumed child output, and repeat-without-delta loops.
+- Behavior authority: use owner-declared stable intent/commitment/selected-path
+  axes for missing identity, same-intent wrong path, parallel success after
+  primary failure, and stale proof.
+- ObligationFamily/ArchitectureReduction completeness: use independently
+  expected member/candidate ids for omission cases; never infer completeness
+  from the materialized subset.
+- Similarity: materialize in-scope relation/test/code obligation ids into
+  concrete member, candidate, obligation, or case targets; opaque ids fail.
+- UI product language: generate illegal fourth visibility class, internal
+  content leak, semantic drift, authority-changing exception, and valid
+  presentation-only exception cases.
+- Facades: prove retained delegation reaches the selected primary path and
+  reject independent business success.
 
 ## Review
 

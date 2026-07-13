@@ -13,6 +13,10 @@ import json
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
+from .behavior_plane import (
+    BCL_BEHAVIOR_PLANES,
+    BCL_PLANE_AGENT_OPERATION,
+)
 from .export import to_jsonable
 
 
@@ -242,6 +246,10 @@ class AgentWorkflowStep:
     validation_required: bool = False
     irreversible: bool = False
     rework_step_id: str = ""
+    behavior_plane: str = ""
+    target_behavior_planes: tuple[str, ...] = ()
+    target_commitment_ids: tuple[str, ...] = ()
+    typed_commitment_relation_refs: tuple[str, ...] = ()
     description: str = ""
 
     def __post_init__(self) -> None:
@@ -257,6 +265,14 @@ class AgentWorkflowStep:
         object.__setattr__(self, "compensating_check_ids", _as_tuple(self.compensating_check_ids))
         object.__setattr__(self, "side_effects", _as_tuple(self.side_effects))
         object.__setattr__(self, "rework_step_id", str(self.rework_step_id))
+        object.__setattr__(self, "behavior_plane", str(self.behavior_plane))
+        object.__setattr__(self, "target_behavior_planes", _as_tuple(self.target_behavior_planes))
+        object.__setattr__(self, "target_commitment_ids", _as_tuple(self.target_commitment_ids))
+        object.__setattr__(
+            self,
+            "typed_commitment_relation_refs",
+            _as_tuple(self.typed_commitment_relation_refs),
+        )
         object.__setattr__(self, "description", str(self.description))
 
     def has_side_effect(self) -> bool:
@@ -281,6 +297,10 @@ class AgentWorkflowStep:
             "validation_required": self.validation_required,
             "irreversible": self.irreversible,
             "rework_step_id": self.rework_step_id,
+            "behavior_plane": self.behavior_plane,
+            "target_behavior_planes": list(self.target_behavior_planes),
+            "target_commitment_ids": list(self.target_commitment_ids),
+            "typed_commitment_relation_refs": list(self.typed_commitment_relation_refs),
             "description": self.description,
         }
 
@@ -300,6 +320,8 @@ class AgentWorkflowPlan:
     risk_flags: tuple[str, ...] = ()
     ui_evidence_roles: tuple[str, ...] = ()
     task_trivial: bool = False
+    behavior_plane: str = ""
+    require_behavior_plane_boundary: bool = False
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "plan_id", str(self.plan_id))
@@ -314,6 +336,12 @@ class AgentWorkflowPlan:
         object.__setattr__(self, "final_evidence_ids", _as_tuple(self.final_evidence_ids))
         object.__setattr__(self, "risk_flags", _as_tuple(self.risk_flags))
         object.__setattr__(self, "ui_evidence_roles", _as_tuple(self.ui_evidence_roles))
+        object.__setattr__(self, "behavior_plane", str(self.behavior_plane))
+        object.__setattr__(
+            self,
+            "require_behavior_plane_boundary",
+            bool(self.require_behavior_plane_boundary),
+        )
 
     def selected_skill_set(self) -> set[str]:
         return set(self.selected_skill_names)
@@ -337,6 +365,8 @@ class AgentWorkflowPlan:
             "risk_flags": list(self.risk_flags),
             "ui_evidence_roles": list(self.ui_evidence_roles),
             "task_trivial": self.task_trivial,
+            "behavior_plane": self.behavior_plane,
+            "require_behavior_plane_boundary": self.require_behavior_plane_boundary,
         }
 
 
@@ -538,6 +568,74 @@ def review_agent_workflow_rehearsal(plan: AgentWorkflowPlan) -> AgentWorkflowReh
     skills = inventory.skill_map()
     selected = plan.selected_skill_set()
     skipped = plan.skipped_skill_map()
+    plane_boundary_active = plan.require_behavior_plane_boundary or bool(
+        plan.behavior_plane
+        or any(
+            step.behavior_plane
+            or step.target_behavior_planes
+            or step.target_commitment_ids
+            or step.typed_commitment_relation_refs
+            for step in plan.steps
+        )
+    )
+
+    if plane_boundary_active and plan.behavior_plane != BCL_PLANE_AGENT_OPERATION:
+        findings.append(
+            AgentWorkflowRehearsalFinding(
+                "agent_workflow_behavior_plane_mismatch",
+                "AgentWorkflowRehearsal owns agent_operation planning; product and process behavior remain target context.",
+                FINDING_SEVERITY_BLOCKED,
+                metadata={"actual": plan.behavior_plane, "expected": BCL_PLANE_AGENT_OPERATION},
+            )
+        )
+    if plane_boundary_active:
+        for step in plan.steps:
+            if step.behavior_plane != BCL_PLANE_AGENT_OPERATION:
+                findings.append(
+                    AgentWorkflowRehearsalFinding(
+                        "agent_step_absorbs_target_behavior_plane",
+                        "An AI workflow step must stay in agent_operation; sibling-plane behavior is referenced as a target, not copied into the step.",
+                        FINDING_SEVERITY_BLOCKED,
+                        step_id=step.step_id,
+                        metadata={"actual": step.behavior_plane},
+                    )
+                )
+            invalid_targets = tuple(
+                plane for plane in step.target_behavior_planes if plane not in BCL_BEHAVIOR_PLANES
+            )
+            if invalid_targets:
+                findings.append(
+                    AgentWorkflowRehearsalFinding(
+                        "agent_step_target_behavior_plane_invalid",
+                        "An AI workflow target references an unsupported behavior plane.",
+                        FINDING_SEVERITY_BLOCKED,
+                        step_id=step.step_id,
+                        metadata={"invalid": list(invalid_targets)},
+                    )
+                )
+            cross_plane_targets = tuple(
+                plane
+                for plane in step.target_behavior_planes
+                if plane != BCL_PLANE_AGENT_OPERATION
+            )
+            if cross_plane_targets and not step.target_commitment_ids:
+                findings.append(
+                    AgentWorkflowRehearsalFinding(
+                        "agent_step_target_commitment_missing",
+                        "A sibling-plane target needs commitment ids so the AI step does not become its owner.",
+                        FINDING_SEVERITY_BLOCKED,
+                        step_id=step.step_id,
+                    )
+                )
+            if cross_plane_targets and not step.typed_commitment_relation_refs:
+                findings.append(
+                    AgentWorkflowRehearsalFinding(
+                        "agent_step_cross_plane_relation_missing",
+                        "A sibling-plane target needs a typed BCL relation reference.",
+                        FINDING_SEVERITY_BLOCKED,
+                        step_id=step.step_id,
+                    )
+                )
 
     if not inventory.is_current_evidence():
         findings.append(

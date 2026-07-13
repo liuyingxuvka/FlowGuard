@@ -14,6 +14,7 @@ from flowguard import (
     FallbackPathCandidate,
     PrimaryPathAuthorityPlan,
     PrimaryPathContract,
+    ProofArtifactRef,
     PPA_AUTHORITY_EXTERNAL_FACADE,
     PPA_AUTHORITY_MANUAL_RECOVERY,
     PPA_CANDIDATE_COMPATIBILITY_FACADE,
@@ -33,6 +34,24 @@ from flowguard import (
 )
 
 
+BUSINESS_INTENT_ID = "intent:submit-order"
+BEHAVIOR_COMMITMENT_ID = "commitment:submit-order"
+PRIMARY_PATH_ID = "submit_order"
+
+
+def current_proof():
+    return ProofArtifactRef(
+        "proof:submit-order-primary",
+        producer_route="runtime_path_evidence",
+        command="python .flowguard/primary_path_authority/run_checks.py",
+        result_path=".flowguard/evidence/submit-order-primary.json",
+        result_status="passed",
+        exit_code=0,
+        artifact_fingerprints={"orders.submit.contract": "sha256:current"},
+        covered_obligation_ids=("obligation:submit-order-primary",),
+    )
+
+
 def good_plan():
     return PrimaryPathAuthorityPlan(
         "good-primary-path-authority",
@@ -40,11 +59,18 @@ def good_plan():
             PrimaryPathContract(
                 "submit_order",
                 business_intent="submit order",
+                business_intent_id=BUSINESS_INTENT_ID,
+                behavior_commitment_id=BEHAVIOR_COMMITMENT_ID,
                 primary_entrypoint_id="orders.submit.primary",
                 owner_model_id="orders.submit.model",
                 owner_code_contract_id="orders.submit.contract",
                 expected_terminal="accepted_or_visible_error",
                 evidence_ids=("runtime:submit-order:no-fallback",),
+                runtime_evidence_state="current_pass",
+                runtime_observation_ids=("runtime:submit-order:no-fallback",),
+                required_obligation_ids=("obligation:submit-order-primary",),
+                proof_artifact=current_proof(),
+                source_surface_ids=("surface:orders-primary",),
             ),
         ),
         fallback_candidates=(
@@ -52,6 +78,10 @@ def good_plan():
                 "orders.submit.legacy-api",
                 fallback_for_path_id="submit_order",
                 business_intent="submit order",
+                business_intent_id=BUSINESS_INTENT_ID,
+                behavior_commitment_id=BEHAVIOR_COMMITMENT_ID,
+                source_surface_id="surface:orders-v1",
+                delegates_to_path_id=PRIMARY_PATH_ID,
                 candidate_surface=PPA_CANDIDATE_COMPATIBILITY_FACADE,
                 candidate_behavior=PPA_BEHAVIOR_DELEGATE_TO_PRIMARY,
                 classification=PPA_AUTHORITY_EXTERNAL_FACADE,
@@ -66,6 +96,16 @@ def good_plan():
         coverage_shard_ids=("contract_shard:primary_path_authority:core_no_fallback",),
         coverage_receipt_ids=("contract_coverage:primary_path_authority",),
         risk_gate_ids=("risk_gate:primary_path_authority", "risk_gate:primary_path_authority_cartesian_coverage"),
+        expected_business_intent_ids=(BUSINESS_INTENT_ID,),
+        expected_candidate_ids=("orders.submit.legacy-api",),
+        expected_surface_ids=("surface:orders-primary", "surface:orders-v1"),
+        inventory_revision="orders-surface-inventory:v1",
+        inventory_evidence_ids=("inventory:orders-surfaces:v1",),
+        preflight_id="preflight:submit-order",
+        behavior_commitment_ledger_id="ledger:orders",
+        existing_current_path_ids=(PRIMARY_PATH_ID,),
+        require_complete_candidate_inventory=True,
+        require_material_runtime_evidence=True,
     )
 
 
@@ -182,10 +222,14 @@ automatically run an alternate implementation and return success.
 
 Required evidence:
 
-- primary path contract for each business intent;
+- one stable `business_intent_id`, one `behavior_commitment_id`, and one
+  singular `primary_path_id` for each exact external purpose;
 - disposition for every old path, alias, wrapper, helper route, compatibility
   facade, old field, backup cache, migration path, and manual recovery surface;
+- an explicit expected-candidate inventory so a caller cannot obtain a green
+  review by leaving an inconvenient candidate out;
 - runtime evidence that no fallback was invoked to mask primary failure;
+- current delegation proof for every preserved compatibility facade;
 - ContractExhaustionMesh axes, interaction groups, cases, shards, and coverage
   receipts for broad claims;
 - TestMesh child shard evidence when the matrix is split;

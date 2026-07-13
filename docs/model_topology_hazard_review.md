@@ -29,8 +29,9 @@ business path. Unanchored AI concerns stay as observations.
   scoped with reason.
 - Anchored blocking hazards block broad confidence until current route evidence
   handles them.
-- Old/new compatibility paths need an explicit preserve, migrate, block,
-  delete, latest-schema-first cleanup, or scoped-out disposition.
+- FlowGuard skill/runtime old/new paths must be blocked or deleted. An ordinary
+  software compatibility path may be preserved only by an explicit bounded
+  requirement and owner.
 - Duplicate, conflicting, unproven, or unresolved old/new business paths are
   anchored hazards. A model that runs locally can still stay scoped or blocked
   if it cannot say which useful business path was proven.

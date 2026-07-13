@@ -26,18 +26,29 @@ For bug repair work inside an existing modeled system, run Existing Model
 Preflight first so the fix extends the current model boundary instead of
 creating a parallel one.
 
+Before backfeed, record whose promise failed: one affected behavior plane,
+affected commitment id when present, primary owner model, evidence-bound error
+signature, and typed related commitments. Search that plane first. Reuse and
+update its existing commitment/owner when it covers the promise; choose
+`coverage_gap_backfill` only when no same-plane promise exists. Multi-plane
+incidents keep one primary miss plus typed related context. Similar symptom
+text across planes is not one recurrence family without an explicit family
+relation and separate plane-local owners.
+
 ## Required Steps
 
 1. Reopen the model-first work instead of treating the prior pass, bug report,
    or failing test as a local patch target.
-2. Classify the miss with one of the practical types:
+2. Classify the miss with one affected behavior plane and one of the practical types:
    `boundary_missing`, `code_boundary_mismatch`, `state_too_coarse`,
    `input_branch_missing`, `invariant_too_weak`, or `evidence_overclaimed`.
 3. Preserve the observed failure evidence and backpropagate the root cause into
    a structured false-negative record when there was any previous green claim:
    previous claim, observed failure, supported cause, `would_have_failed_if`,
    new plan/model/test item, and closure evidence. If there was no previous
-   claim, record that explicitly instead of inventing one.
+   claim, record that explicitly instead of inventing one. Bind any error
+   signature to the observed evidence and keep related-plane ids typed rather
+   than combining their promises into the repair row.
 4. If the issue belongs in scope, represent the observed issue in executable
    evidence: scenario, invariant, replay adapter, representative trace, or
    model boundary note.

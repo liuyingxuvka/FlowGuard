@@ -9,10 +9,12 @@ from flowguard import (
     TARGET_ACTION_COLLAPSE,
     ArchitectureReductionCandidate,
     ArchitectureReductionPlan,
+    CodeContract,
     CodeStructureRecommendation,
     ExistingModelPreflight,
     ExistingOwnershipSnapshot,
     ModelContextHit,
+    ModelObligation,
     ModelTestAlignmentPlan,
     ObservableArchitectureContract,
     ObligationFamily,
@@ -20,6 +22,7 @@ from flowguard import (
     ObligationFamilyMember,
     SimilarityHandoff,
     TargetModuleRecommendation,
+    TestEvidence,
     review_architecture_reduction,
     review_code_structure_recommendation,
     review_existing_model_preflight,
@@ -252,15 +255,41 @@ class ModelSimilarityIntegrationTests(unittest.TestCase):
         self.assertIn("missing_similarity_test_obligations", {finding.code for finding in report.findings})
 
     def test_model_test_alignment_accepts_similarity_test_obligations(self):
+        test_obligation_ids = (
+            "maintenance:checkout-retry+checkout-simple:shared-tests",
+            "maintenance:checkout-retry+checkout-simple:variant-tests",
+        )
+        obligation_id = "checkout-maintenance-tests"
+        contract_id = "checkout.maintenance-tests"
         report = review_model_test_alignment(
             ModelTestAlignmentPlan(
                 "checkout",
+                obligations=(
+                    ModelObligation(
+                        obligation_id,
+                        required_test_kinds=("happy_path",),
+                        similarity_test_obligation_ids=test_obligation_ids,
+                    ),
+                ),
+                code_contracts=(
+                    CodeContract(
+                        contract_id,
+                        path="checkout/tests_contract.py",
+                        symbol="CheckoutMaintenanceTests.run",
+                        implements_obligations=(obligation_id,),
+                    ),
+                ),
+                test_evidence=(
+                    TestEvidence(
+                        "test-checkout-maintenance-family",
+                        result_status="passed",
+                        covered_obligations=(obligation_id,),
+                        covered_code_contracts=(contract_id,),
+                    ),
+                ),
                 similarity_handoff=SimilarityHandoff(
                     maintenance_group_ids=("maintenance:checkout-retry+checkout-simple",),
-                    test_obligation_ids=(
-                        "maintenance:checkout-retry+checkout-simple:shared-tests",
-                        "maintenance:checkout-retry+checkout-simple:variant-tests",
-                    ),
+                    test_obligation_ids=test_obligation_ids,
                 ),
             )
         )
@@ -268,13 +297,45 @@ class ModelSimilarityIntegrationTests(unittest.TestCase):
         self.assertTrue(report.ok, report.format_text())
 
     def test_model_test_alignment_accepts_family_rows_for_similarity_family_claim(self):
+        relation_id = "checkout-simple:checkout-retry:same_family_variant"
+        obligation_id = "checkout-family:simple:dedupe"
+        contract_id = "checkout.simple-dedupe"
         report = review_model_test_alignment(
             ModelTestAlignmentPlan(
                 "checkout",
+                obligations=(
+                    ModelObligation(
+                        obligation_id,
+                        required_test_kinds=("happy_path",),
+                        similarity_relation_ids=(relation_id,),
+                    ),
+                ),
+                code_contracts=(
+                    CodeContract(
+                        contract_id,
+                        path="checkout/simple.py",
+                        symbol="SimpleCheckout.dedupe",
+                        implements_obligations=(obligation_id,),
+                        similarity_relation_ids=(relation_id,),
+                    ),
+                ),
+                test_evidence=(
+                    TestEvidence(
+                        "test-simple-dedupe",
+                        result_status="passed",
+                        covered_obligations=(obligation_id,),
+                        covered_code_contracts=(contract_id,),
+                    ),
+                ),
                 obligation_families=(
                     ObligationFamily(
                         "checkout-family",
-                        members=(ObligationFamilyMember("simple"),),
+                        members=(
+                            ObligationFamilyMember(
+                                "simple",
+                                obligation_ids=(obligation_id,),
+                            ),
+                        ),
                         required_mechanisms=("dedupe",),
                         allowed_provenance=("runtime_observed",),
                     ),
@@ -287,10 +348,11 @@ class ModelSimilarityIntegrationTests(unittest.TestCase):
                         mechanism_id="dedupe",
                         provenance="runtime_observed",
                         result_status="passed",
+                        covered_obligations=(obligation_id,),
                     ),
                 ),
                 similarity_handoff=SimilarityHandoff(
-                    relation_ids=("checkout-simple:checkout-retry:same_family_variant",),
+                    relation_ids=(relation_id,),
                 ),
             )
         )

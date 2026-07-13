@@ -29,6 +29,7 @@ from flowguard.templates import (
     risk_intent_template_files,
     risk_template_library_template_files,
     runtime_path_evidence_template_files,
+    spec_work_package_template_files,
     structure_mesh_template_files,
     test_mesh_template_files as mesh_template_files_factory,
     topology_hazard_template_files,
@@ -57,6 +58,7 @@ PUBLIC_TEMPLATE_FACTORIES = (
     model_similarity_consolidation_template_files,
     risk_evidence_ledger_template_files,
     runtime_path_evidence_template_files,
+    spec_work_package_template_files,
     layered_boundary_proof_template_files,
     closure_contract_template_files,
     ui_flow_structure_template_files,
@@ -106,6 +108,31 @@ def _template_env():
 
 
 class PublicTemplateTests(unittest.TestCase):
+    def test_spec_work_package_template_locks_portable_receipt_owner_flow(self):
+        files = spec_work_package_template_files()
+        self.assertEqual(
+            [item.path for item in files],
+            [
+                ".flowguard/spec_provider_work_packages/model.py",
+                ".flowguard/spec_provider_work_packages/run_checks.py",
+                ".flowguard/spec_provider_work_packages/bindings.json",
+                "docs/flowguard_spec_work_package.md",
+            ],
+        )
+        combined = "\n".join(item.content for item in files)
+        for required in (
+            '"canonical_checks"',
+            '"infrastructure_bindings"',
+            '"execution_mode": "aggregate-child-receipts"',
+            "kind: receipt",
+            "portable-receipt.v1",
+            "FLOWGUARD_SPEC_EVIDENCE_ROOT",
+            "spec-provider-close-review",
+            "read-only",
+            "does not execute the FlowGuard owner",
+        ):
+            self.assertIn(required, combined)
+
     def assert_risk_purpose_header(self, text):
         self.assertIn("FlowGuard Risk Purpose Header", text)
         self.assertIn("Created with FlowGuard:", text)
@@ -248,13 +275,35 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("full_inventory_registered: yes", output)
         self.assertIn("behavior_commitment_coverage_green", output)
 
+    def test_behavior_commitment_template_has_one_canonical_ledger_authority(self):
+        files = behavior_commitment_ledger_template_files()
+        by_path = {file.path: file.content for file in files}
+
+        self.assertIn(".flowguard/behavior_commitment_ledger/ledger.json", by_path)
+        payload = json.loads(by_path[".flowguard/behavior_commitment_ledger/ledger.json"])
+        commitment = payload["ledger"]["commitments"][0]
+        self.assertEqual("product_runtime", commitment["behavior_plane"])
+        self.assertEqual("end_user", commitment["actor_kind"])
+        self.assertEqual("intent:run-primary-workflow", commitment["business_intent_id"])
+        model_text = by_path[".flowguard/behavior_commitment_ledger/model.py"]
+        self.assertIn("load_behavior_commitment_ledger", model_text)
+        self.assertNotIn("BehaviorCommitment(", model_text)
+
+    def test_primary_path_authority_template_executes(self):
+        output = self.run_written_template(
+            primary_path_authority_template_files(),
+            (".flowguard", "primary_path_authority"),
+        )
+        self.assertIn("Primary Path Authority checks passed", output)
+        self.assertIn("primary_path_authority_green", output)
+
     def test_model_miss_review_template_executes(self):
         output = self.run_written_template(
             model_miss_review_template_files(),
             (".flowguard", "model_miss_review"),
         )
         self.assertIn("correct_model_miss_review: PASS", output)
-        self.assertIn("expected violations observed: 5", output)
+        self.assertIn("expected violations observed: 7", output)
         self.assertIn("root_cause_backpropagated", output)
         self.assertIn("same_class_test_evidence_added", output)
         self.assertIn("owner_code_contract_bound", output)
@@ -276,6 +325,9 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("validate_without_owner_code_contract", combined)
         self.assertIn("ui_promised_capability_missing_after_green_claim", combined)
         self.assertIn("missing_same_class_ui_capability_scan", combined)
+        self.assertIn("missing_same_plane_behavior_lookup", combined)
+        self.assertIn("existing_commitment_reused_or_gap_registered", combined)
+        self.assertIn("cross_plane_context_promoted_to_primary", combined)
         self.assertLessEqual(next(file for file in files if file.path.endswith("model.py")).content.count("\n"), 140)
 
     def test_model_miss_full_template_keeps_deep_review_material(self):
@@ -443,6 +495,8 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("internal_content_mapped_to_ui", output)
         self.assertIn("unknown_content_visibility_class", output)
         self.assertIn("on_demand_content_visible_in_default_state", output)
+        self.assertIn("flowguard UI product consistency review", output)
+        self.assertIn("product_semantic_drift", output)
 
     def test_ui_flow_structure_template_uses_visual_job_typography_scale(self):
         files = ui_flow_structure_template_files()
@@ -602,7 +656,10 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("FieldLifecycleMesh", combined)
         self.assertIn("Default replacement policy", combined)
         self.assertIn("old fields", combined)
-        self.assertIn("compatibility intent", combined)
+        self.assertIn("default is one current path", combined)
+        self.assertIn("explicit requirement", combined)
+        self.assertIn("one bounded reader owner", combined)
+        self.assertNotIn("test_old_mode_migrates_to_checkout_mode", combined)
         self.assertIn("field_lifecycle_to_model_obligations", combined)
         self.assertIn("field_lifecycle_to_code_contracts", combined)
         self.assertIn("Model-Test Alignment", combined)
@@ -699,9 +756,10 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("docs/flowguard_adoption_log.md", paths)
         self.assertIn("https://github.com/liuyingxuvka/FlowGuard", combined)
         self.assertIn("project-audit", combined)
-        self.assertIn("project-upgrade", combined)
-        self.assertIn("latest-schema-first", combined)
-        self.assertIn("artifact/model/test upgrade scanning", combined)
+        self.assertIn("project-adopt", combined)
+        self.assertIn("one current authority", combined)
+        self.assertNotIn("project-upgrade", combined)
+        self.assertNotIn("artifact-upgrade", combined)
         self.assertIn("adopted_package_version", combined)
         self.assertIn("schema_version", combined)
 

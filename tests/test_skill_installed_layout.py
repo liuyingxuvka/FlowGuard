@@ -47,23 +47,41 @@ class SkillInstalledLayoutTests(unittest.TestCase):
                         "SKILL.md",
                         "agents/openai.yaml",
                         ".skillguard/contract-source.json",
+                        ".skillguard/compiled-contract.json",
+                        ".skillguard/check-manifest.json",
+                    ):
+                        self.assertTrue((skill / relative).is_file(), relative)
+                    for former in (
                         ".skillguard/work-contract.json",
                         ".skillguard/check_manifest.json",
                         ".skillguard/check.py",
+                        ".skillguard/skillguard_manifest.json",
+                        ".skillguard/skillguard_profile.json",
+                        ".skillguard/skillguard_skill_contract.json",
+                        ".skillguard/skillguard_evidence_rules.json",
+                        ".skillguard/skillguard_closure_policy.json",
+                        ".skillguard/skillguard_progress_ledger.jsonl",
+                        ".skillguard/checks",
+                        ".skillguard/evidence",
+                        ".skillguard/reports",
+                        ".skillguard/ai_judgments",
                     ):
-                        self.assertTrue((skill / relative).is_file(), relative)
+                        self.assertFalse((skill / former).exists(), former)
                     source = json.loads(
                         (skill / ".skillguard" / "contract-source.json").read_text(encoding="utf-8")
                     )
-                    for reference in source["direct_references"]:
-                        self.assertTrue((skill / reference).is_file(), reference)
+                    self.assertEqual("skillguard.contract_source.v2", source["schema_version"])
+                    self.assertNotIn("depth_profile", source)
+                    compiled = json.loads(
+                        (skill / ".skillguard" / "compiled-contract.json").read_text(encoding="utf-8")
+                    )
                     manifest = json.loads(
-                        (skill / ".skillguard" / "check_manifest.json").read_text(encoding="utf-8")
+                        (skill / ".skillguard" / "check-manifest.json").read_text(encoding="utf-8")
                     )
-                    self.assertEqual(5, len(manifest["checks"]))
-                    self.assertTrue(
-                        all(".skillguard/check.py" in row["command"] for row in manifest["checks"])
-                    )
+                    self.assertEqual("skillguard.compiled_contract.v2", compiled["schema_version"])
+                    self.assertEqual("skillguard.check_manifest.v2", manifest["schema_version"])
+                    self.assertEqual(source["model_id"], compiled["model_id"])
+                    self.assertNotIn("depth_profile", compiled)
 
             check = subprocess.run(
                 [

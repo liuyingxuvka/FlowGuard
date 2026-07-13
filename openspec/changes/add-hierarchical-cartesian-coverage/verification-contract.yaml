@@ -1,164 +1,126 @@
-contract_version: 1
+contract_version: 3
 change: add-hierarchical-cartesian-coverage
+evidence_roots:
+  SPEC_EVIDENCE: .flowguard/evidence/spec-work-packages
 obligations:
   - id: req.contract-exhaustion.model-scoped-cartesian
     source: "specs/contract-exhaustion-mesh/spec.md#Requirement: Model-scoped Cartesian coverage"
     claim: "Finite local axes and interaction groups generate stable model-scoped combination cases and receipts."
     required: true
-    evidence: [check.cartesian.contract-exhaustion]
+    evidence: [owner.change.aggregate]
+
   - id: req.contract-exhaustion.receipts-preserve-shards
     source: "specs/contract-exhaustion-mesh/spec.md#Requirement: Coverage receipts preserve shard state"
     claim: "Required unfinished shards remain visible and cannot support full model coverage."
     required: true
-    evidence: [check.cartesian.contract-exhaustion, check.cartesian.test-mesh]
+    evidence: [owner.change.aggregate]
+
   - id: req.contract-exhaustion.parent-uses-child-summaries
     source: "specs/contract-exhaustion-mesh/spec.md#Requirement: Parent interface combinations use child summaries"
     claim: "Parent interface coverage consumes child receipt summaries instead of multiplying all child internals."
     required: true
-    evidence: [check.cartesian.contract-exhaustion, check.cartesian.model-mesh]
+    evidence: [owner.change.aggregate]
+
   - id: req.contract-exhaustion.projects-route-obligations
     source: "specs/contract-exhaustion-mesh/spec.md#Requirement: Combination cases project to route obligations"
     claim: "Generated combination ids project consistently to MTA, TestMesh, ModelMesh, RiskEvidenceLedger, and composite handoff ids."
     required: true
-    evidence: [check.cartesian.contract-exhaustion, check.cartesian.model-test-alignment]
+    evidence: [owner.change.aggregate]
+
   - id: req.model-mesh.all-model-receipts
     source: "specs/hierarchical-model-mesh/spec.md#Requirement: ModelMesh requires all in-scope coverage receipts"
     claim: "Every in-scope model requires a current coverage receipt before parent confidence."
     required: true
-    evidence: [check.cartesian.model-mesh]
+    evidence: [owner.change.aggregate]
+
   - id: req.model-mesh.child-local-not-parent-coverage
     source: "specs/hierarchical-model-mesh/spec.md#Requirement: Child-local green is not parent coverage"
     claim: "A current child receipt does not support parent confidence until the parent consumes it."
     required: true
-    evidence: [check.cartesian.model-mesh, check.cartesian.risk-ledger]
+    evidence: [owner.change.aggregate]
+
   - id: req.model-mesh.cross-model-miss-backpropagates
     source: "specs/hierarchical-model-mesh/spec.md#Requirement: Cross-model misses backpropagate into model coverage"
     claim: "Cross-model misses stale affected child and parent coverage until both are refreshed."
     required: true
-    evidence: [check.cartesian.model-mesh, check.cartesian.model-miss]
+    evidence: [owner.change.aggregate]
+
   - id: req.model-miss.combination-misses-promote-groups
     source: "specs/model-miss-test-evidence-closure/spec.md#Requirement: Combination misses promote interaction groups"
     claim: "Observed multi-axis misses promote interaction groups, combination ids, and receipt requirements."
     required: true
-    evidence: [check.cartesian.model-miss]
+    evidence: [owner.change.aggregate]
+
   - id: req.model-miss.families-deepen-models
     source: "specs/model-miss-test-evidence-closure/spec.md#Requirement: Bug families deepen models instead of replacing coverage"
     claim: "Family notes remain seeds and cannot replace canonical generated coverage."
     required: true
-    evidence: [check.cartesian.model-miss]
+    evidence: [owner.change.aggregate]
+
   - id: req.model-test-alignment.binds-combination-cases
     source: "specs/model-test-alignment/spec.md#Requirement: Combination cases bind model, code, and tests"
     claim: "Every required combination case binds a model obligation, owner code contract, and current external test evidence."
     required: true
-    evidence: [check.cartesian.model-test-alignment]
+    evidence: [owner.change.aggregate]
+
   - id: req.model-test-alignment.tests-cite-case-ids
     source: "specs/model-test-alignment/spec.md#Requirement: Test evidence must cite generated case ids"
     claim: "Test evidence cites the generated case id or a current owning TestMesh shard."
     required: true
-    evidence: [check.cartesian.model-test-alignment, check.cartesian.test-mesh]
+    evidence: [owner.change.aggregate]
+
   - id: req.risk-ledger.all-model-cartesian
     source: "specs/risk-evidence-ledger/spec.md#Requirement: Risk ledger consumes all-model Cartesian coverage"
     claim: "Broad confidence requires current receipts, semantic/test evidence, closed shards, and parent consumption for all in-scope models."
     required: true
-    evidence: [check.cartesian.risk-ledger]
+    evidence: [owner.change.aggregate]
+
   - id: req.risk-ledger.rejects-child-bypass
     source: "specs/risk-evidence-ledger/spec.md#Requirement: Ledger rejects child-local coverage bypass"
     claim: "RiskEvidenceLedger rejects child receipt evidence that bypasses parent ModelMesh consumption."
     required: true
-    evidence: [check.cartesian.risk-ledger, check.cartesian.model-mesh]
+    evidence: [owner.change.aggregate]
+
   - id: req.test-mesh.owns-combination-shards
     source: "specs/test-evidence-mesh/spec.md#Requirement: TestMesh owns combination case shards"
     claim: "Every required combination case or shard has a registered child owner and current evidence."
     required: true
-    evidence: [check.cartesian.test-mesh]
+    evidence: [owner.change.aggregate]
+
   - id: req.test-mesh.progress-not-completion
     source: "specs/test-evidence-mesh/spec.md#Requirement: Progress-only shard evidence is not completion"
     claim: "Background progress without a final result artifact does not satisfy shard completion."
     required: true
-    evidence: [check.cartesian.test-mesh]
+    evidence: [owner.change.aggregate]
+
 checks:
-  - id: check.cartesian.contract-exhaustion
-    kind: command
-    command: python
-    args: [-m, pytest, tests/test_contract_exhaustion.py, -q]
+  - id: owner.change.aggregate
+    kind: receipt
+    semantic_check_id: flowguard.openspec.add-hierarchical-cartesian-coverage.aggregate
+    execution_id: flowguard.owner.add-hierarchical-cartesian-coverage.aggregate.current
+    receipt_ref:
+      provider_id: openspec
+      work_package_id: add-hierarchical-cartesian-coverage
+      adapter: portable-receipt.v1
+      ref_path: "<SPEC_EVIDENCE>/portable-refs/openspec/add-hierarchical-cartesian-coverage/owner.change.aggregate.json"
+    consumer: openspec.change.add-hierarchical-cartesian-coverage
     required: true
     covers:
       - req.contract-exhaustion.model-scoped-cartesian
       - req.contract-exhaustion.receipts-preserve-shards
       - req.contract-exhaustion.parent-uses-child-summaries
       - req.contract-exhaustion.projects-route-obligations
-    expected: {exit_code: 0}
-  - id: check.cartesian.model-mesh
-    kind: command
-    command: python
-    args: [-m, pytest, tests/test_hierarchical_mesh.py, -q]
-    required: true
-    covers:
-      - req.contract-exhaustion.parent-uses-child-summaries
       - req.model-mesh.all-model-receipts
       - req.model-mesh.child-local-not-parent-coverage
-      - req.model-mesh.cross-model-miss-backpropagates
-      - req.risk-ledger.rejects-child-bypass
-    expected: {exit_code: 0}
-  - id: check.cartesian.model-test-alignment
-    kind: command
-    command: python
-    args: [-m, pytest, tests/test_model_test_alignment.py, -q]
-    required: true
-    covers:
-      - req.contract-exhaustion.projects-route-obligations
-      - req.model-test-alignment.binds-combination-cases
-      - req.model-test-alignment.tests-cite-case-ids
-    expected: {exit_code: 0}
-  - id: check.cartesian.test-mesh
-    kind: command
-    command: python
-    args: [-m, pytest, tests/test_test_mesh.py, -q]
-    required: true
-    covers:
-      - req.contract-exhaustion.receipts-preserve-shards
-      - req.model-test-alignment.tests-cite-case-ids
-      - req.test-mesh.owns-combination-shards
-      - req.test-mesh.progress-not-completion
-    expected: {exit_code: 0}
-  - id: check.cartesian.risk-ledger
-    kind: command
-    command: python
-    args: [-m, pytest, tests/test_risk_evidence_ledger.py, -q]
-    required: true
-    covers:
-      - req.model-mesh.child-local-not-parent-coverage
-      - req.risk-ledger.all-model-cartesian
-      - req.risk-ledger.rejects-child-bypass
-    expected: {exit_code: 0}
-  - id: check.cartesian.model-miss
-    kind: command
-    command: python
-    args: [-m, pytest, tests/test_recurring_model_miss.py, tests/test_obligation_family.py, -q]
-    required: true
-    covers:
       - req.model-mesh.cross-model-miss-backpropagates
       - req.model-miss.combination-misses-promote-groups
       - req.model-miss.families-deepen-models
-    expected: {exit_code: 0}
-  - id: check.cartesian.openspec-strict
-    kind: command
-    command: openspec
-    args: [validate, add-hierarchical-cartesian-coverage, --strict]
-    required: true
-    covers:
-      - req.contract-exhaustion.model-scoped-cartesian
-      - req.model-mesh.all-model-receipts
-    expected: {exit_code: 0}
-  - id: check.cartesian.project-audit
-    kind: command
-    command: python
-    args: [-m, flowguard, project-audit, --root, .]
-    required: true
-    covers:
-      - req.contract-exhaustion.projects-route-obligations
+      - req.model-test-alignment.binds-combination-cases
+      - req.model-test-alignment.tests-cite-case-ids
       - req.risk-ledger.all-model-cartesian
-    expected: {exit_code: 0}
+      - req.risk-ledger.rejects-child-bypass
+      - req.test-mesh.owns-combination-shards
+      - req.test-mesh.progress-not-completion
 freshness:
   watch:
     - openspec/changes/add-hierarchical-cartesian-coverage/proposal.md

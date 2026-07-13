@@ -213,6 +213,10 @@ Use this scaffold to model a development lifecycle as a stateful process.
 - AutoSplit, ModelMesh, or TestMesh evidence ids when split review is
   relevant to the process claim;
 - whether done, release, archive, or publish claims have current evidence;
+- independent freshness for the shadow workspace, formal repository, editable
+  package installation, installed skill suite, and local Git version;
+- peer-write observations and post-write revalidation so synchronization
+  preserves concurrent work instead of overwriting or rolling it back;
 - the minimum revalidation needed when evidence is stale or missing.
   Revalidation recommendations include the route that produced prior evidence,
   proof-artifact requirement, freshness gap codes, and claim scopes blocked

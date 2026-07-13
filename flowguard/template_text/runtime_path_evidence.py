@@ -42,6 +42,12 @@ MODEL_ID = "checkout.leaf"
 MODEL_PATH = ".flowguard/checkout_leaf/model.py"
 OBLIGATION_ID = "accept_valid_order"
 CODE_CONTRACT_ID = "checkout.submit"
+BUSINESS_INTENT_ID = "intent:submit-order"
+BEHAVIOR_COMMITMENT_ID = "commitment:submit-order"
+PRIMARY_PATH_ID = "path:submit-order"
+SURFACE_ID = "surface:checkout.submit"
+CANDIDATE_ID = "candidate:checkout.primary"
+INVENTORY_REVISION = "checkout-runtime:v1"
 
 
 def node_contracts():
@@ -56,6 +62,11 @@ def node_contracts():
             boundary_id="checkout.submit.boundary",
             business_path_id="submit_order",
             business_intent="submit order",
+            business_intent_id=BUSINESS_INTENT_ID,
+            behavior_commitment_id=BEHAVIOR_COMMITMENT_ID,
+            primary_path_id=PRIMARY_PATH_ID,
+            surface_id=SURFACE_ID,
+            candidate_id=CANDIDATE_ID,
             expected_terminal="accepted",
             allowed_outputs=("accepted",),
             allowed_state_writes=("order_status",),
@@ -76,6 +87,11 @@ def good_plan():
         boundary_id="checkout.submit.boundary",
         business_path_id="submit_order",
         business_intent="submit order",
+        business_intent_id=BUSINESS_INTENT_ID,
+        behavior_commitment_id=BEHAVIOR_COMMITMENT_ID,
+        primary_path_id=PRIMARY_PATH_ID,
+        surface_id=SURFACE_ID,
+        candidate_id=CANDIDATE_ID,
         observed_output="accepted",
         observed_terminal="accepted",
         observed_state_writes=("order_status",),
@@ -86,8 +102,24 @@ def good_plan():
         "checkout-runtime-path",
         model_id=MODEL_ID,
         node_contracts=node_contracts(),
-        runs=(recorder.to_run(),),
+        runs=(
+            recorder.to_run(
+                business_intent_id=BUSINESS_INTENT_ID,
+                behavior_commitment_id=BEHAVIOR_COMMITMENT_ID,
+                primary_path_id=PRIMARY_PATH_ID,
+                inventory_revision=INVENTORY_REVISION,
+                covered_surface_ids=(SURFACE_ID,),
+                covered_candidate_ids=(CANDIDATE_ID,),
+            ),
+        ),
         require_exact_path=True,
+        business_intent_id=BUSINESS_INTENT_ID,
+        behavior_commitment_id=BEHAVIOR_COMMITMENT_ID,
+        primary_path_id=PRIMARY_PATH_ID,
+        inventory_revision=INVENTORY_REVISION,
+        expected_surface_ids=(SURFACE_ID,),
+        expected_candidate_ids=(CANDIDATE_ID,),
+        require_complete_inventory=True,
     )
 
 
@@ -151,7 +183,9 @@ known.
 
 When a claim depends on a specific useful workflow route, the contract and
 observation should also name `business_path_id`, `business_intent`, and the
-expected or observed terminal.
+expected or observed terminal. Broad evidence also carries the stable
+`business_intent_id`, `behavior_commitment_id`, singular `primary_path_id`,
+surface id, candidate id, and an independently declared inventory revision.
 
 Use it at leaf model boundaries, state writes, side effects, parent/child
 handoffs, runtime gateway writes, and final confidence claims. Do not treat

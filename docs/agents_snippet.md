@@ -1,6 +1,5 @@
 # AGENTS.md Snippet: Global FlowGuard Skill Routing
 Copy this compact section into another repository's `AGENTS.md`.
-
 ```markdown
 ## Global FlowGuard Skill Routing
 
@@ -33,11 +32,13 @@ This is still compact, but it must have teeth. A new or deepened model names the
 ### Hard Gates
 - Verify the real FlowGuard check engine before claiming executable evidence: `python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"`.
 - Verify the check-engine version when adoption/version freshness matters: `python -c "import importlib.metadata as m; print(m.version('flowguard'))"`.
-- If the managed AGENTS block or `.flowguard/project.toml` is missing, use `python -m flowguard project-adopt --root .`; if the installed check engine is newer than the project record, use `python -m flowguard project-upgrade --root .`. Project upgrade scans known FlowGuard artifacts, model evidence, tests, docs, and guidance; use `--records-only` only when intentionally scoping out that scan.
-- FlowGuard is latest-schema-first: old artifacts may be upgraded at project/tool boundaries, but route logic should not keep long-lived old branches for obsolete fields, aliases, or wrappers.
-- Default replacement means dispose the old path, old field, alias, wrapper, or alternate success path. Delete, block, migrate, delegate, repair, replace, or scope it out with a concrete reason; do not leave it as a second successful route.
-- Behavior Commitment Ledger is the default upstream inventory for broad behavior claims: register external behavior promises, map every source surface to commitments, give each commitment exactly one primary owner model, record dependencies/evidence, and scope out removed/deferred/replaced behavior with owner, reason, validation boundary, and rationale. Do not register every helper function as a commitment. Before changing or claiming behavior coverage, classify the ledger mode as `bootstrap_ledger`, `add_behavior`, `change_behavior`, `remove_or_replace_behavior`, `coverage_gap_backfill`, or `model_miss_check`; model misses first map back to an existing commitment and only backfill when the external behavior was never registered.
+- If the managed AGENTS block or `.flowguard/project.toml` is missing or its recorded engine is older, use `python -m flowguard project-adopt --root .` to replace it directly with the one current form.
+- FlowGuard skill/runtime artifacts have one current authority. Former skill, model, check, receipt, and project-control shapes are blocked and appear only as exact rejection fixtures; there is no migration, upgrade, compatibility, alias, renewal, or fallback route.
+- Ordinary software may read historical documents, data, or interfaces only when an explicit requirement assigns a bounded owner, accepted and rejected cases, and a claim boundary.
+- Default replacement means dispose the old path, old field, alias, wrapper, or alternate success path. Delete, block, delegate, repair, replace, or scope it out with a concrete reason; do not leave it as a second successful route.
+- Behavior Commitment Ledger is the default upstream inventory for broad behavior claims: register external promises, map every source surface, and assign exactly one primary owner model. Classify every production commitment as exactly one of `product_runtime`, `agent_operation`, or `development_process`; `commitment_kind` describes form, not ownership. Record `actor_kind`, typed relations, lookup bindings, evidence, and scoped disposition. Cross-plane context never transfers ownership. Before changing or claiming coverage, classify the ledger mode as `bootstrap_ledger`, `add_behavior`, `change_behavior`, `remove_or_replace_behavior`, `coverage_gap_backfill`, or `model_miss_check`; Model Miss searches the affected plane first and creates a gap only when no matching promise exists. Do not register every helper function, force every ordinary action through a model, or treat lookup as a guarantee of future AI behavior.
 - Primary Path Authority is the default for path-sensitive work: enumerate all runtime paths, old paths, aliases, wrappers, helper routes, old fields, backup caches, migration paths, and recovery paths before implementation; select exactly one primary runtime authority per business intent; when the primary path fails, expose the failure and repair the primary path rather than automatically invoking an alternate path that returns success.
+- Give one exact external user purpose one stable `business_intent_id`, one active behavior commitment, and one singular `primary_path_id`. Repeated UI, API, CLI, alias, adapter, wrapper, helper, and compatibility surfaces delegate to that same authority instead of creating another successful implementation.
 - Broad done/release claims need Behavior Commitment Ledger evidence, Primary Path Authority evidence for `path_sensitive=true` commitments, ContractExhaustionMesh Cartesian coverage, TestMesh shard evidence, and Risk Evidence Ledger consumption. Old paths must be disposed or scoped out, not kept as successful route alternatives.
 - Field-bearing work needs a FieldLifecycleMesh view: high-level models include behavior-bearing fields, while child/leaf field models account all discovered fields and record owner, readers, writers, projection, lifecycle, and old-field disposition. For full/runtime/release/production field claims, behavior projections should include minimal `gate:`, `test:`, and `replay:` evidence refs instead of only naming the field. FieldLifecycleMesh hands every field whose reader reaches an ordinary UI boundary to UI Flow Structure as a candidate field id or grouped source id, regardless of source role; it does not decide visibility or force fields with no ordinary-UI reader into the UI model.
 - Same-class, field/schema, payload, transition, parent/child, or no-delta bad-case generation uses ContractExhaustionMesh after the owning route declares the finite boundary; model-scoped Cartesian coverage also needs axes, interaction groups, shards/receipts, and MTA/TestMesh/ModelMesh/RiskLedger consumption. Hand-written analogous examples are seeds, not canonical coverage.
@@ -48,6 +49,7 @@ This is still compact, but it must have teeth. A new or deepened model names the
 - Long background checks are liveness only until final output and exit/status artifacts exist.
 - For existing/runnable UI, first inventory real visible items and map each to `UIControl`, `UIDisplayElement`, `UIVisibleSurfaceItem`, or blindspot; observation records reality but grants no display permission.
 - Before state-exposing candidate content enters display/text/surface modeling, classify it exactly once as `user_visible`, `user_on_demand`, or `internal`. Unclassified/internal content cannot render; user content needs a typed and resolvable `task:`, `state:`, `recovery:`, or `safety:` reference. Only the exact normal label of a registered, in-scope task-owned control—with no extra state, disabled reason, or metadata—needs no duplicate row; do not add audience/role/persona categories. `user_on_demand` stays hidden across display/text/visible/observed mappings, has visible/enabled reveal and return controls, binds to content-specific feedback, and gives hover a distinct keyboard/focus event. Runnable claims use an observed inventory plus structured per-content visibility evidence.
+- Review typography hierarchy, components, navigation, interaction, feedback, recovery, and transition semantics as one product-wide UI language inside UI Flow Structure. Equal semantic roles reuse one rule/token across pages, dialogs, capsules, and repeated components; exceptions are bounded and presentation-only, never a different business intent, commitment, path, visibility class, or result.
 - Every reachable enabled UI control needs a visible-control -> event -> code owner -> backend/local function -> UI state update -> click/test evidence chain; API existence or label matching is not enough.
 - Every supported UI task needs task coverage plus human-operability evidence: primary control, feedback, cancel/error, affordance, dialog/window return, keyboard/focus, and walkthrough.
 - Source-based UI work needs generic source-baseline interaction semantics for native pickers, external opens, save/custom dialogs, no-handler controls, trigger/confirm/cancel/value/result/error branches. Greenfield UI should use user-task, visible-surface, functional-chain, and implementation evidence without inventing a source baseline.
@@ -56,7 +58,7 @@ This is still compact, but it must have teeth. A new or deepened model names the
 - Rough-plan discussion, multi-skill/tool workflow setup, staged execution, install/sync, release/archive/publish, post-change owner scans, and final process claims enter `flowguard-development-process-flow` first. Record `plan_detailing`, `agent_workflow`, and `execution_freshness` modes; delegate to PlanDetailing or AgentWorkflowRehearsal only when explicit or simulator-selected.
 - After `run_model_first_checks()`, read structured ledger routes and obligations before manual route inference.
 - New/deepened models need template harvest closure before broad claims: written, merged, duplicate-linked, or accepted not-harvestable.
-- Before trusting that one existing route or model is enough, let ExistingModelPreflight consume model-angle and similarity evidence when a missing viewpoint or similar workflow may matter.
+- Before trusting that one existing route or model is enough, let ExistingModelPreflight query the canonical behavior ledger by primary plane before path discovery, keep primary and typed related-plane hits separate, and then consume model-angle/similarity evidence when a missing viewpoint or same-plane workflow may matter. Ambiguity or fallback is a visible limitation, not permission to merge owners.
 - When a workflow has multiple useful routes, old/new alternatives, or path-sensitive external proof, record business path identity: stable path id, intent, trigger, expected terminal, state writes, side effects, equivalent/exclusive paths, old-path disposition, and evidence ids.
 - For non-trivial FlowGuard work, first show a short current-situation note: what is being checked, why it matters, current evidence or gaps, and the next step. Add or refresh a route-specific Mermaid snapshot when it clarifies the route/model; diagrams explain and do not validate.
 - Before full done/release/publish confidence, connect risks, obligations, UI click-through gates, artifact-payload gates, code/test evidence, proof artifacts, automatic state-closure gaps, and topology-hazard gaps through Risk Evidence Ledger or equivalent.
@@ -65,7 +67,7 @@ This is still compact, but it must have teeth. A new or deepened model names the
 | Trigger | Route | Entry |
 | --- | --- | --- |
 | FlowGuard itself feels heavy, route groups are incomplete, field layers need folding, or AI needs route-first self-maintenance | `flowguard_self_maintenance` | `default_flowguard_self_maintenance_plan()` then `review_flowguard_self_maintenance()` |
-| Older adopted project, old FlowGuard artifact, old model/test evidence, obsolete API aliases | `artifact_schema_upgrade` | `artifact-upgrade` or `project-upgrade` |
+| Former FlowGuard skill/runtime artifact, old model/check/receipt/project-control shape | `current_authority_rejection` | block; replace directly through the current owner |
 | Existing modeled system, ownership lookup, duplicate-boundary risk, model-angle gaps, or similar workflow evidence | `existing_model_preflight` | `flowguard-existing-model-preflight`; consumes model-angle and similarity rows |
 | Full external behavior inventory, source-to-commitment coverage, one primary model owner per behavior, or broad behavior claim | `behavior_commitment_ledger` | `flowguard-behavior-commitment-ledger`; path-sensitive rows hand off to Primary Path Authority |
 | Field lifecycle, behavior-bearing field projection, old/replaced/deprecated field disposition | `field_lifecycle_mesh` | `flowguard-field-lifecycle-mesh` |
@@ -87,7 +89,6 @@ This is still compact, but it must have teeth. A new or deepened model names the
 | Production conformance, install sync, shadow workspace sync | `conformance_adoption` | `model-first-function-flow` reference |
 | Long-running model/test/regression check | `long_check_observability` | `model-first-function-flow` reference |
 | FlowGuard framework upgrade or benchmark/corpus claim | `framework_upgrade` | `model-first-function-flow` reference |
-
 ### Reference Handoff
 
 Use the matching satellite `references/*.md` file after selecting a route.
@@ -98,7 +99,6 @@ Check-engine helpers such as `review_model_test_alignment()`,
 `review_flowguard_self_maintenance()`, `review_model_similarity_consolidation()`,
 `review_plan_detail()`, `review_agent_workflow_rehearsal()`, templates, and
 starter CLIs are helpers, not separate Codex skills.
-
 When a change touches a feature that resembles another workflow, model,
 test family, or code path, feed Model Similarity Consolidation evidence into
 ExistingModelPreflight or the selected owner route before claiming maintenance

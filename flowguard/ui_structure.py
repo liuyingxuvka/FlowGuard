@@ -78,6 +78,55 @@ UI_CONTENT_VISIBILITY_EVIDENCE_KINDS = (
 
 UI_VISIBLE_SURFACE_PRIORITIES = ("primary", "secondary")
 
+UI_PRODUCT_CONSISTENCY_TYPOGRAPHY = "typography"
+UI_PRODUCT_CONSISTENCY_COMPONENT = "component"
+UI_PRODUCT_CONSISTENCY_NAVIGATION = "navigation"
+UI_PRODUCT_CONSISTENCY_INTERACTION = "interaction"
+UI_PRODUCT_CONSISTENCY_FEEDBACK = "feedback"
+UI_PRODUCT_CONSISTENCY_RECOVERY = "recovery"
+UI_PRODUCT_CONSISTENCY_TRANSITION = "transition"
+UI_PRODUCT_CONSISTENCY_KINDS = (
+    UI_PRODUCT_CONSISTENCY_TYPOGRAPHY,
+    UI_PRODUCT_CONSISTENCY_COMPONENT,
+    UI_PRODUCT_CONSISTENCY_NAVIGATION,
+    UI_PRODUCT_CONSISTENCY_INTERACTION,
+    UI_PRODUCT_CONSISTENCY_FEEDBACK,
+    UI_PRODUCT_CONSISTENCY_RECOVERY,
+    UI_PRODUCT_CONSISTENCY_TRANSITION,
+)
+
+UI_PRODUCT_CLAIM_COMPLETE = "complete_product"
+UI_PRODUCT_CLAIM_SCOPED = "scoped"
+UI_PRODUCT_CLAIM_SCOPES = (UI_PRODUCT_CLAIM_COMPLETE, UI_PRODUCT_CLAIM_SCOPED)
+
+UI_PRODUCT_EXCEPTION_PLATFORM = "platform"
+UI_PRODUCT_EXCEPTION_ACCESSIBILITY = "accessibility"
+UI_PRODUCT_EXCEPTION_NATIVE_CONTROL = "native_control"
+UI_PRODUCT_EXCEPTION_SAFETY = "safety"
+UI_PRODUCT_EXCEPTION_KINDS = (
+    UI_PRODUCT_EXCEPTION_PLATFORM,
+    UI_PRODUCT_EXCEPTION_ACCESSIBILITY,
+    UI_PRODUCT_EXCEPTION_NATIVE_CONTROL,
+    UI_PRODUCT_EXCEPTION_SAFETY,
+)
+
+UI_PRODUCT_PRESENTATION_EXCEPTION_FIELDS = (
+    "typography_token_id",
+    "typography_scale",
+    "typography_weight",
+    "component_role",
+    "navigation_placement",
+    "feedback_copy",
+    "control_kind",
+    "placement",
+    "focus_treatment",
+)
+UI_PRODUCT_AUTHORITY_FIELDS = (
+    "business_intent_id",
+    "behavior_commitment_id",
+    "primary_path_id",
+)
+
 
 @dataclass(frozen=True)
 class UIControl:
@@ -202,6 +251,12 @@ class UITransition:
     output: str = ""
     side_effects: tuple[str, ...] = ()
     rationale: str = ""
+    business_bearing: bool = False
+    pure_ui: bool = False
+    business_intent_id: str = ""
+    behavior_commitment_id: str = ""
+    primary_path_id: str = ""
+    consistency_rule_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "event_id", str(self.event_id))
@@ -214,6 +269,12 @@ class UITransition:
         object.__setattr__(self, "output", str(self.output))
         object.__setattr__(self, "side_effects", _as_tuple(self.side_effects))
         object.__setattr__(self, "rationale", str(self.rationale))
+        object.__setattr__(self, "business_bearing", bool(self.business_bearing))
+        object.__setattr__(self, "pure_ui", bool(self.pure_ui))
+        object.__setattr__(self, "business_intent_id", str(self.business_intent_id))
+        object.__setattr__(self, "behavior_commitment_id", str(self.behavior_commitment_id))
+        object.__setattr__(self, "primary_path_id", str(self.primary_path_id))
+        object.__setattr__(self, "consistency_rule_ids", _as_tuple(self.consistency_rule_ids))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -227,6 +288,12 @@ class UITransition:
             "output": self.output,
             "side_effects": list(self.side_effects),
             "rationale": self.rationale,
+            "business_bearing": self.business_bearing,
+            "pure_ui": self.pure_ui,
+            "business_intent_id": self.business_intent_id,
+            "behavior_commitment_id": self.behavior_commitment_id,
+            "primary_path_id": self.primary_path_id,
+            "consistency_rule_ids": list(self.consistency_rule_ids),
         }
 
 
@@ -899,6 +966,12 @@ class UIFeatureContract:
     required_test_evidence_ids: tuple[str, ...] = ()
     validation_boundaries: tuple[str, ...] = ()
     rationale: str = ""
+    business_bearing: bool = False
+    pure_ui: bool = False
+    business_intent_id: str = ""
+    behavior_commitment_id: str = ""
+    primary_path_id: str = ""
+    consistency_rule_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "feature_id", str(self.feature_id))
@@ -916,6 +989,12 @@ class UIFeatureContract:
         object.__setattr__(self, "required_test_evidence_ids", _as_tuple(self.required_test_evidence_ids))
         object.__setattr__(self, "validation_boundaries", _as_tuple(self.validation_boundaries))
         object.__setattr__(self, "rationale", str(self.rationale))
+        object.__setattr__(self, "business_bearing", bool(self.business_bearing))
+        object.__setattr__(self, "pure_ui", bool(self.pure_ui))
+        object.__setattr__(self, "business_intent_id", str(self.business_intent_id))
+        object.__setattr__(self, "behavior_commitment_id", str(self.behavior_commitment_id))
+        object.__setattr__(self, "primary_path_id", str(self.primary_path_id))
+        object.__setattr__(self, "consistency_rule_ids", _as_tuple(self.consistency_rule_ids))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -934,6 +1013,12 @@ class UIFeatureContract:
             "required_test_evidence_ids": list(self.required_test_evidence_ids),
             "validation_boundaries": list(self.validation_boundaries),
             "rationale": self.rationale,
+            "business_bearing": self.business_bearing,
+            "pure_ui": self.pure_ui,
+            "business_intent_id": self.business_intent_id,
+            "behavior_commitment_id": self.behavior_commitment_id,
+            "primary_path_id": self.primary_path_id,
+            "consistency_rule_ids": list(self.consistency_rule_ids),
         }
 
 
@@ -1959,6 +2044,12 @@ class UIControlFunctionalChain:
     manual_boundary: str = ""
     blindspot_id: str = ""
     rationale: str = ""
+    business_bearing: bool = False
+    pure_ui: bool = False
+    business_intent_id: str = ""
+    behavior_commitment_id: str = ""
+    primary_path_id: str = ""
+    consistency_rule_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "chain_id", str(self.chain_id))
@@ -1978,6 +2069,12 @@ class UIControlFunctionalChain:
         object.__setattr__(self, "manual_boundary", str(self.manual_boundary))
         object.__setattr__(self, "blindspot_id", str(self.blindspot_id))
         object.__setattr__(self, "rationale", str(self.rationale))
+        object.__setattr__(self, "business_bearing", bool(self.business_bearing))
+        object.__setattr__(self, "pure_ui", bool(self.pure_ui))
+        object.__setattr__(self, "business_intent_id", str(self.business_intent_id))
+        object.__setattr__(self, "behavior_commitment_id", str(self.behavior_commitment_id))
+        object.__setattr__(self, "primary_path_id", str(self.primary_path_id))
+        object.__setattr__(self, "consistency_rule_ids", _as_tuple(self.consistency_rule_ids))
 
     def has_observed_ui_effect(self) -> bool:
         return bool(self.observed_state_id or self.observed_display_id or self.observed_output)
@@ -2001,6 +2098,12 @@ class UIControlFunctionalChain:
             "manual_boundary": self.manual_boundary,
             "blindspot_id": self.blindspot_id,
             "rationale": self.rationale,
+            "business_bearing": self.business_bearing,
+            "pure_ui": self.pure_ui,
+            "business_intent_id": self.business_intent_id,
+            "behavior_commitment_id": self.behavior_commitment_id,
+            "primary_path_id": self.primary_path_id,
+            "consistency_rule_ids": list(self.consistency_rule_ids),
         }
 
 
@@ -2581,6 +2684,12 @@ class UIActionGrammar:
     expected_feedback_item_ids: tuple[str, ...] = ()
     duplicate_policy: str = ""
     rationale: str = ""
+    business_bearing: bool = False
+    pure_ui: bool = False
+    business_intent_id: str = ""
+    behavior_commitment_id: str = ""
+    primary_path_id: str = ""
+    consistency_rule_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "action_id", str(self.action_id))
@@ -2595,6 +2704,12 @@ class UIActionGrammar:
         object.__setattr__(self, "expected_feedback_item_ids", _as_tuple(self.expected_feedback_item_ids))
         object.__setattr__(self, "duplicate_policy", str(self.duplicate_policy))
         object.__setattr__(self, "rationale", str(self.rationale))
+        object.__setattr__(self, "business_bearing", bool(self.business_bearing))
+        object.__setattr__(self, "pure_ui", bool(self.pure_ui))
+        object.__setattr__(self, "business_intent_id", str(self.business_intent_id))
+        object.__setattr__(self, "behavior_commitment_id", str(self.behavior_commitment_id))
+        object.__setattr__(self, "primary_path_id", str(self.primary_path_id))
+        object.__setattr__(self, "consistency_rule_ids", _as_tuple(self.consistency_rule_ids))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -2610,6 +2725,12 @@ class UIActionGrammar:
             "expected_feedback_item_ids": list(self.expected_feedback_item_ids),
             "duplicate_policy": self.duplicate_policy,
             "rationale": self.rationale,
+            "business_bearing": self.business_bearing,
+            "pure_ui": self.pure_ui,
+            "business_intent_id": self.business_intent_id,
+            "behavior_commitment_id": self.behavior_commitment_id,
+            "primary_path_id": self.primary_path_id,
+            "consistency_rule_ids": list(self.consistency_rule_ids),
         }
 
 
@@ -3136,6 +3257,367 @@ class UIResponsivenessContract:
 
 
 @dataclass(frozen=True)
+class UIProductConsistencyRule:
+    """Canonical product-language semantics for one intent across UI surfaces."""
+
+    rule_id: str
+    semantic_kind: str
+    semantic_key: str
+    canonical_surface_id: str = ""
+    expected_surface_ids: tuple[str, ...] = ()
+    canonical_value: str = ""
+    hierarchy_role: str = ""
+    typography_token_id: str = ""
+    typography_scale: str = ""
+    typography_weight: str = ""
+    business_intent_id: str = ""
+    behavior_commitment_id: str = ""
+    primary_path_id: str = ""
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "rule_id", str(self.rule_id))
+        object.__setattr__(self, "semantic_kind", str(self.semantic_kind))
+        object.__setattr__(self, "semantic_key", str(self.semantic_key))
+        object.__setattr__(self, "canonical_surface_id", str(self.canonical_surface_id))
+        object.__setattr__(self, "expected_surface_ids", _as_tuple(self.expected_surface_ids))
+        object.__setattr__(self, "canonical_value", str(self.canonical_value))
+        object.__setattr__(self, "hierarchy_role", str(self.hierarchy_role))
+        object.__setattr__(self, "typography_token_id", str(self.typography_token_id))
+        object.__setattr__(self, "typography_scale", str(self.typography_scale))
+        object.__setattr__(self, "typography_weight", str(self.typography_weight))
+        object.__setattr__(self, "business_intent_id", str(self.business_intent_id))
+        object.__setattr__(self, "behavior_commitment_id", str(self.behavior_commitment_id))
+        object.__setattr__(self, "primary_path_id", str(self.primary_path_id))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def authority_identity(self) -> tuple[str, str, str]:
+        return (self.business_intent_id, self.behavior_commitment_id, self.primary_path_id)
+
+    def typography_identity(self) -> tuple[str, str, str]:
+        return (self.typography_token_id, self.typography_scale, self.typography_weight)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "rule_id": self.rule_id,
+            "semantic_kind": self.semantic_kind,
+            "semantic_key": self.semantic_key,
+            "canonical_surface_id": self.canonical_surface_id,
+            "expected_surface_ids": list(self.expected_surface_ids),
+            "canonical_value": self.canonical_value,
+            "hierarchy_role": self.hierarchy_role,
+            "typography_token_id": self.typography_token_id,
+            "typography_scale": self.typography_scale,
+            "typography_weight": self.typography_weight,
+            "business_intent_id": self.business_intent_id,
+            "behavior_commitment_id": self.behavior_commitment_id,
+            "primary_path_id": self.primary_path_id,
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class UIProductSurface:
+    """One declared page, window, menu, dialog, capsule, or repeated component."""
+
+    surface_id: str
+    surface_kind: str
+    label: str = ""
+    business_bearing: bool = False
+    pure_ui: bool = False
+    business_intent_id: str = ""
+    behavior_commitment_id: str = ""
+    primary_path_id: str = ""
+    consistency_rule_ids: tuple[str, ...] = ()
+    current_revision: str = ""
+    evidence_refs: tuple[str, ...] = ()
+    in_scope: bool = True
+    scope_reason: str = ""
+    scope_owner: str = ""
+    scope_validation_boundaries: tuple[str, ...] = ()
+    scope_evidence_ref: str = ""
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "surface_id", str(self.surface_id))
+        object.__setattr__(self, "surface_kind", str(self.surface_kind))
+        object.__setattr__(self, "label", str(self.label))
+        object.__setattr__(self, "business_bearing", bool(self.business_bearing))
+        object.__setattr__(self, "pure_ui", bool(self.pure_ui))
+        object.__setattr__(self, "business_intent_id", str(self.business_intent_id))
+        object.__setattr__(self, "behavior_commitment_id", str(self.behavior_commitment_id))
+        object.__setattr__(self, "primary_path_id", str(self.primary_path_id))
+        object.__setattr__(self, "consistency_rule_ids", _as_tuple(self.consistency_rule_ids))
+        object.__setattr__(self, "current_revision", str(self.current_revision))
+        object.__setattr__(self, "evidence_refs", _as_tuple(self.evidence_refs))
+        object.__setattr__(self, "in_scope", bool(self.in_scope))
+        object.__setattr__(self, "scope_reason", str(self.scope_reason))
+        object.__setattr__(self, "scope_owner", str(self.scope_owner))
+        object.__setattr__(self, "scope_validation_boundaries", _as_tuple(self.scope_validation_boundaries))
+        object.__setattr__(self, "scope_evidence_ref", str(self.scope_evidence_ref))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def authority_identity(self) -> tuple[str, str, str]:
+        return (self.business_intent_id, self.behavior_commitment_id, self.primary_path_id)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "surface_id": self.surface_id,
+            "surface_kind": self.surface_kind,
+            "label": self.label,
+            "business_bearing": self.business_bearing,
+            "pure_ui": self.pure_ui,
+            "business_intent_id": self.business_intent_id,
+            "behavior_commitment_id": self.behavior_commitment_id,
+            "primary_path_id": self.primary_path_id,
+            "consistency_rule_ids": list(self.consistency_rule_ids),
+            "current_revision": self.current_revision,
+            "evidence_refs": list(self.evidence_refs),
+            "in_scope": self.in_scope,
+            "scope_reason": self.scope_reason,
+            "scope_owner": self.scope_owner,
+            "scope_validation_boundaries": list(self.scope_validation_boundaries),
+            "scope_evidence_ref": self.scope_evidence_ref,
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class UIProductConsistencyObservation:
+    """Material observation of one consistency rule on one declared surface."""
+
+    observation_id: str
+    rule_id: str
+    surface_id: str
+    observed_value: str = ""
+    hierarchy_role: str = ""
+    typography_token_id: str = ""
+    typography_scale: str = ""
+    typography_weight: str = ""
+    business_intent_id: str = ""
+    behavior_commitment_id: str = ""
+    primary_path_id: str = ""
+    internal_field_ids: tuple[str, ...] = ()
+    evidence_ref: str = ""
+    result: str = "passed"
+    covered_revision: str = ""
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "observation_id", str(self.observation_id))
+        object.__setattr__(self, "rule_id", str(self.rule_id))
+        object.__setattr__(self, "surface_id", str(self.surface_id))
+        object.__setattr__(self, "observed_value", str(self.observed_value))
+        object.__setattr__(self, "hierarchy_role", str(self.hierarchy_role))
+        object.__setattr__(self, "typography_token_id", str(self.typography_token_id))
+        object.__setattr__(self, "typography_scale", str(self.typography_scale))
+        object.__setattr__(self, "typography_weight", str(self.typography_weight))
+        object.__setattr__(self, "business_intent_id", str(self.business_intent_id))
+        object.__setattr__(self, "behavior_commitment_id", str(self.behavior_commitment_id))
+        object.__setattr__(self, "primary_path_id", str(self.primary_path_id))
+        object.__setattr__(self, "internal_field_ids", _as_tuple(self.internal_field_ids))
+        object.__setattr__(self, "evidence_ref", str(self.evidence_ref))
+        object.__setattr__(self, "result", str(self.result))
+        object.__setattr__(self, "covered_revision", str(self.covered_revision))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def authority_identity(self) -> tuple[str, str, str]:
+        return (self.business_intent_id, self.behavior_commitment_id, self.primary_path_id)
+
+    def typography_identity(self) -> tuple[str, str, str]:
+        return (self.typography_token_id, self.typography_scale, self.typography_weight)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "observation_id": self.observation_id,
+            "rule_id": self.rule_id,
+            "surface_id": self.surface_id,
+            "observed_value": self.observed_value,
+            "hierarchy_role": self.hierarchy_role,
+            "typography_token_id": self.typography_token_id,
+            "typography_scale": self.typography_scale,
+            "typography_weight": self.typography_weight,
+            "business_intent_id": self.business_intent_id,
+            "behavior_commitment_id": self.behavior_commitment_id,
+            "primary_path_id": self.primary_path_id,
+            "internal_field_ids": list(self.internal_field_ids),
+            "evidence_ref": self.evidence_ref,
+            "result": self.result,
+            "covered_revision": self.covered_revision,
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class UIProductConsistencyException:
+    """Typed, bounded, presentation-only difference on one rule and surface."""
+
+    exception_id: str
+    rule_id: str
+    surface_id: str
+    exception_kind: str
+    difference_fields: tuple[str, ...] = ()
+    reason: str = ""
+    owner: str = ""
+    validation_boundaries: tuple[str, ...] = ()
+    evidence_ref: str = ""
+    covered_revision: str = ""
+    result: str = "passed"
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "exception_id", str(self.exception_id))
+        object.__setattr__(self, "rule_id", str(self.rule_id))
+        object.__setattr__(self, "surface_id", str(self.surface_id))
+        object.__setattr__(self, "exception_kind", str(self.exception_kind))
+        object.__setattr__(self, "difference_fields", _as_tuple(self.difference_fields))
+        object.__setattr__(self, "reason", str(self.reason))
+        object.__setattr__(self, "owner", str(self.owner))
+        object.__setattr__(self, "validation_boundaries", _as_tuple(self.validation_boundaries))
+        object.__setattr__(self, "evidence_ref", str(self.evidence_ref))
+        object.__setattr__(self, "covered_revision", str(self.covered_revision))
+        object.__setattr__(self, "result", str(self.result))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "exception_id": self.exception_id,
+            "rule_id": self.rule_id,
+            "surface_id": self.surface_id,
+            "exception_kind": self.exception_kind,
+            "difference_fields": list(self.difference_fields),
+            "reason": self.reason,
+            "owner": self.owner,
+            "validation_boundaries": list(self.validation_boundaries),
+            "evidence_ref": self.evidence_ref,
+            "covered_revision": self.covered_revision,
+            "result": self.result,
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class UIProductConsistencyPlan:
+    """Existing-route plan for product-scope UI semantic consistency review."""
+
+    plan_id: str
+    claim_scope: str = UI_PRODUCT_CLAIM_SCOPED
+    current_revision: str = ""
+    expected_surface_ids: tuple[str, ...] = ()
+    surfaces: tuple[UIProductSurface, ...] = ()
+    rules: tuple[UIProductConsistencyRule, ...] = ()
+    observations: tuple[UIProductConsistencyObservation, ...] = ()
+    exceptions: tuple[UIProductConsistencyException, ...] = ()
+    source_interaction_model_id: str = ""
+    validation_boundaries: tuple[str, ...] = ()
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "plan_id", str(self.plan_id))
+        object.__setattr__(self, "claim_scope", str(self.claim_scope))
+        object.__setattr__(self, "current_revision", str(self.current_revision))
+        object.__setattr__(self, "expected_surface_ids", _as_tuple(self.expected_surface_ids))
+        object.__setattr__(self, "surfaces", tuple(self.surfaces))
+        object.__setattr__(self, "rules", tuple(self.rules))
+        object.__setattr__(self, "observations", tuple(self.observations))
+        object.__setattr__(self, "exceptions", tuple(self.exceptions))
+        object.__setattr__(self, "source_interaction_model_id", str(self.source_interaction_model_id))
+        object.__setattr__(self, "validation_boundaries", _as_tuple(self.validation_boundaries))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def surface_ids(self) -> tuple[str, ...]:
+        return tuple(surface.surface_id for surface in self.surfaces)
+
+    def rule_ids(self) -> tuple[str, ...]:
+        return tuple(rule.rule_id for rule in self.rules)
+
+    def observation_ids(self) -> tuple[str, ...]:
+        return tuple(observation.observation_id for observation in self.observations)
+
+    def exception_ids(self) -> tuple[str, ...]:
+        return tuple(exception.exception_id for exception in self.exceptions)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "plan_id": self.plan_id,
+            "claim_scope": self.claim_scope,
+            "current_revision": self.current_revision,
+            "expected_surface_ids": list(self.expected_surface_ids),
+            "surfaces": [surface.to_dict() for surface in self.surfaces],
+            "rules": [rule.to_dict() for rule in self.rules],
+            "observations": [observation.to_dict() for observation in self.observations],
+            "exceptions": [exception.to_dict() for exception in self.exceptions],
+            "source_interaction_model_id": self.source_interaction_model_id,
+            "validation_boundaries": list(self.validation_boundaries),
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class UIProductLanguageCaseSeed:
+    """Finite counterexample feeder row for canonical ContractExhaustionMesh cases."""
+
+    case_id: str
+    mutation_kind: str
+    expected_finding_code: str = ""
+    expected_ok: bool = False
+    rationale: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "case_id", str(self.case_id))
+        object.__setattr__(self, "mutation_kind", str(self.mutation_kind))
+        object.__setattr__(self, "expected_finding_code", str(self.expected_finding_code))
+        object.__setattr__(self, "expected_ok", bool(self.expected_ok))
+        object.__setattr__(self, "rationale", str(self.rationale))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "case_id": self.case_id,
+            "mutation_kind": self.mutation_kind,
+            "expected_finding_code": self.expected_finding_code,
+            "expected_ok": self.expected_ok,
+            "rationale": self.rationale,
+        }
+
+
+def default_ui_product_language_case_seeds() -> tuple[UIProductLanguageCaseSeed, ...]:
+    """Return the finite UI feeder cases owned by this route, not a second generator."""
+
+    return (
+        UIProductLanguageCaseSeed(
+            "ui_product_language.illegal_fourth_visibility_class",
+            "illegal_visibility_class",
+            "unknown_content_visibility_class",
+            rationale="Audience, role, persona, expert, and product-language classes remain invalid.",
+        ),
+        UIProductLanguageCaseSeed(
+            "ui_product_language.internal_content_leak",
+            "internal_content_leak",
+            "internal_product_content_leak",
+            rationale="Internal identity, audit, evidence, and diagnostic fields do not become product copy.",
+        ),
+        UIProductLanguageCaseSeed(
+            "ui_product_language.semantic_drift",
+            "semantic_drift",
+            "product_semantic_drift",
+            rationale="Repeated surfaces reuse the canonical product grammar.",
+        ),
+        UIProductLanguageCaseSeed(
+            "ui_product_language.invalid_behavior_authority_exception",
+            "invalid_behavior_authority_exception",
+            "invalid_behavior_authority_exception",
+            rationale="A presentation exception cannot waive intent, commitment, or path identity.",
+        ),
+        UIProductLanguageCaseSeed(
+            "ui_product_language.valid_presentation_exception",
+            "valid_presentation_exception",
+            expected_ok=True,
+            rationale="A current typed platform/accessibility/native-control/safety presentation difference is valid.",
+        ),
+    )
+
+
+@dataclass(frozen=True)
 class UIFlowStructureFinding:
     """One finding from reviewing a UI interaction model or structure derivation."""
 
@@ -3159,6 +3641,77 @@ class UIFlowStructureFinding:
             "severity": self.severity,
             "item_id": self.item_id,
             "metadata": to_jsonable(dict(self.metadata)),
+        }
+
+
+class UIProductConsistencyFinding(UIFlowStructureFinding):
+    """Finding emitted by the existing UI Flow Structure consistency reviewer."""
+
+
+@dataclass(frozen=True)
+class UIProductConsistencyReport:
+    """Product-language consistency result with explicit covered and scoped surfaces."""
+
+    ok: bool
+    plan_id: str
+    decision: str = "blocked"
+    findings: tuple[UIProductConsistencyFinding, ...] = ()
+    covered_surface_ids: tuple[str, ...] = ()
+    scoped_surface_ids: tuple[str, ...] = ()
+    missing_surface_ids: tuple[str, ...] = ()
+    covered_rule_ids: tuple[str, ...] = ()
+    business_intent_ids: tuple[str, ...] = ()
+    summary: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "plan_id", str(self.plan_id))
+        object.__setattr__(self, "decision", str(self.decision))
+        object.__setattr__(self, "findings", tuple(self.findings))
+        object.__setattr__(self, "covered_surface_ids", _as_tuple(self.covered_surface_ids))
+        object.__setattr__(self, "scoped_surface_ids", _as_tuple(self.scoped_surface_ids))
+        object.__setattr__(self, "missing_surface_ids", _as_tuple(self.missing_surface_ids))
+        object.__setattr__(self, "covered_rule_ids", _as_tuple(self.covered_rule_ids))
+        object.__setattr__(self, "business_intent_ids", _as_tuple(self.business_intent_ids))
+        if not self.summary:
+            object.__setattr__(
+                self,
+                "summary",
+                f"{self.decision.upper()}: ui_product_consistency={self.plan_id} findings={len(self.findings)}",
+            )
+
+    def blocker_count(self) -> int:
+        return sum(1 for finding in self.findings if finding.severity == "blocker")
+
+    def format_text(self, max_findings: int = 10) -> str:
+        lines = [
+            "=== flowguard UI product consistency review ===",
+            f"status: {'OK' if self.ok else 'BLOCKED'}",
+            f"decision: {self.decision}",
+            f"plan: {self.plan_id}",
+            f"covered_surfaces: {len(self.covered_surface_ids)}",
+            f"scoped_surfaces: {len(self.scoped_surface_ids)}",
+            f"missing_surfaces: {len(self.missing_surface_ids)}",
+            f"findings: {len(self.findings)}",
+        ]
+        for finding in self.findings[:max_findings]:
+            lines.append(
+                f"- [{finding.severity}] {finding.code} "
+                f"item={finding.item_id or '(none)'}: {finding.message}"
+            )
+        return "\n".join(lines)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "ok": self.ok,
+            "plan_id": self.plan_id,
+            "decision": self.decision,
+            "findings": [finding.to_dict() for finding in self.findings],
+            "covered_surface_ids": list(self.covered_surface_ids),
+            "scoped_surface_ids": list(self.scoped_surface_ids),
+            "missing_surface_ids": list(self.missing_surface_ids),
+            "covered_rule_ids": list(self.covered_rule_ids),
+            "business_intent_ids": list(self.business_intent_ids),
+            "summary": self.summary,
         }
 
 
@@ -4088,6 +4641,101 @@ def _duplicate_values(values: Sequence[str], *, code: str, noun: str) -> list[UI
     return findings
 
 
+def _ui_behavior_authority_findings(
+    items: Sequence[Any],
+    *,
+    item_id_attribute: str,
+    noun: str,
+) -> list[UIFlowStructureFinding]:
+    """Review additive UI bindings while preserving legacy unclassified callers."""
+
+    findings: list[UIFlowStructureFinding] = []
+    by_intent: dict[str, list[Any]] = {}
+    for item in items:
+        item_id = str(getattr(item, item_id_attribute, ""))
+        business_bearing = bool(getattr(item, "business_bearing", False))
+        pure_ui = bool(getattr(item, "pure_ui", False))
+        business_intent_id = str(getattr(item, "business_intent_id", ""))
+        behavior_commitment_id = str(getattr(item, "behavior_commitment_id", ""))
+        primary_path_id = str(getattr(item, "primary_path_id", ""))
+        consistency_rule_ids = _as_tuple(getattr(item, "consistency_rule_ids", ()))
+        authority = {
+            "business_intent_id": business_intent_id,
+            "behavior_commitment_id": behavior_commitment_id,
+            "primary_path_id": primary_path_id,
+        }
+        explicit_scope = business_bearing or pure_ui or any(authority.values()) or bool(consistency_rule_ids)
+        if not explicit_scope:
+            continue
+        if business_bearing and pure_ui:
+            findings.append(
+                UIFlowStructureFinding(
+                    "conflicting_ui_behavior_scope",
+                    f"{noun} {item_id} cannot be both business-bearing and pure UI",
+                    item_id=item_id,
+                )
+            )
+        if pure_ui:
+            leaked_fields = sorted(field_name for field_name, value in authority.items() if value)
+            if leaked_fields:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "pure_ui_declares_behavior_authority",
+                        f"pure UI {noun} {item_id} must not invent a business intent, commitment, or primary path",
+                        item_id=item_id,
+                        metadata={"authority_fields": leaked_fields},
+                    )
+                )
+            continue
+        inferred_business = business_bearing or any(authority.values())
+        if not inferred_business:
+            continue
+        missing_fields = sorted(field_name for field_name, value in authority.items() if not value)
+        if missing_fields:
+            findings.append(
+                UIFlowStructureFinding(
+                    "incomplete_ui_behavior_authority",
+                    f"business-bearing {noun} {item_id} needs stable intent, commitment, and singular primary path ids",
+                    item_id=item_id,
+                    metadata={"missing_fields": missing_fields},
+                )
+            )
+        if not consistency_rule_ids:
+            findings.append(
+                UIFlowStructureFinding(
+                    "business_ui_missing_consistency_binding",
+                    f"business-bearing {noun} {item_id} has no product consistency rule binding",
+                    item_id=item_id,
+                )
+            )
+        if not missing_fields:
+            by_intent.setdefault(business_intent_id, []).append(item)
+
+    for business_intent_id, intent_items in sorted(by_intent.items()):
+        commitment_ids = sorted({str(getattr(item, "behavior_commitment_id", "")) for item in intent_items})
+        primary_path_ids = sorted({str(getattr(item, "primary_path_id", "")) for item in intent_items})
+        item_ids = sorted(str(getattr(item, item_id_attribute, "")) for item in intent_items)
+        if len(commitment_ids) > 1:
+            findings.append(
+                UIFlowStructureFinding(
+                    "same_intent_commitment_drift",
+                    f"UI records for exact intent {business_intent_id} bind to multiple commitments",
+                    item_id=business_intent_id,
+                    metadata={"commitment_ids": commitment_ids, "item_ids": item_ids},
+                )
+            )
+        if len(primary_path_ids) > 1:
+            findings.append(
+                UIFlowStructureFinding(
+                    "same_intent_primary_path_drift",
+                    f"UI records for exact intent {business_intent_id} bind to multiple primary paths",
+                    item_id=business_intent_id,
+                    metadata={"primary_path_ids": primary_path_ids, "item_ids": item_ids},
+                )
+            )
+    return findings
+
+
 def _duplicate_pair_keys(
     pairs: Sequence[tuple[str, str]],
     *,
@@ -4194,7 +4842,49 @@ _INTERNAL_VISIBLE_TERMS = (
     "dataset id",
     "render strategy",
     "api route",
+    "business intent id",
+    "business_intent_id",
+    "behavior commitment id",
+    "behavior_commitment_id",
+    "primary path id",
+    "primary_path_id",
+    "evidence state",
+    "evidence id",
+    "audit field",
+    "audit state",
+    "routing diagnostic",
+    "route diagnostic",
+    "model diagnostic",
 )
+_INTERNAL_PRODUCT_FIELD_FRAGMENTS = (
+    "business_intent_id",
+    "behavior_commitment_id",
+    "primary_path_id",
+    "evidence_state",
+    "evidence_id",
+    "audit_field",
+    "audit_state",
+    "routing_diagnostic",
+    "route_diagnostic",
+    "model_diagnostic",
+    "debug_route",
+    "proof_artifact_id",
+)
+_INTERNAL_IDENTITY_VISIBLE_TERMS = {
+    "business intent id",
+    "business_intent_id",
+    "behavior commitment id",
+    "behavior_commitment_id",
+    "primary path id",
+    "primary_path_id",
+    "evidence state",
+    "evidence id",
+    "audit field",
+    "audit state",
+    "routing diagnostic",
+    "route diagnostic",
+    "model diagnostic",
+}
 _STATE_MESSAGE_ITEM_KINDS = {"empty", "loading", "pending", "error", "success", "status"}
 _VISIBLE_HELPER_KINDS = {"helper", "helper_copy", "help_text"}
 _PASSED_UI_RESULTS = {"passed", "pass", "ok"}
@@ -4210,6 +4900,555 @@ def _text_contains_internal_term(value: str) -> str:
         if term in normalized:
             return term
     return ""
+
+
+def _internal_product_field_ids(field_ids: Sequence[str]) -> tuple[str, ...]:
+    leaks: list[str] = []
+    for field_id in field_ids:
+        normalized = str(field_id).strip().lower().replace("-", "_").replace(".", "_").replace(" ", "_")
+        if any(fragment in normalized for fragment in _INTERNAL_PRODUCT_FIELD_FRAGMENTS):
+            leaks.append(str(field_id))
+    return tuple(dict.fromkeys(leaks))
+
+
+def review_ui_product_consistency(plan: UIProductConsistencyPlan) -> UIProductConsistencyReport:
+    """Review product-scope UI language inside the existing UI Flow Structure owner."""
+
+    findings: list[UIProductConsistencyFinding] = []
+
+    def add(
+        code: str,
+        message: str,
+        *,
+        severity: str = "blocker",
+        item_id: str = "",
+        metadata: Mapping[str, Any] | None = None,
+    ) -> None:
+        findings.append(
+            UIProductConsistencyFinding(
+                code,
+                message,
+                severity=severity,
+                item_id=item_id,
+                metadata=dict(metadata or {}),
+            )
+        )
+
+    def add_duplicates(values: Sequence[str], *, code: str, noun: str) -> None:
+        for finding in _duplicate_values(values, code=code, noun=noun):
+            add(
+                finding.code,
+                finding.message,
+                severity=finding.severity,
+                item_id=finding.item_id,
+                metadata=finding.metadata,
+            )
+
+    if not plan.plan_id:
+        add("missing_product_consistency_plan_id", "UI product consistency plan has no id")
+    if plan.claim_scope not in UI_PRODUCT_CLAIM_SCOPES:
+        add(
+            "unknown_product_consistency_claim_scope",
+            "UI product consistency claim scope must be complete_product or scoped",
+            item_id=plan.plan_id,
+            metadata={"claim_scope": plan.claim_scope},
+        )
+    if not plan.current_revision:
+        add("missing_product_consistency_revision", "UI product consistency plan has no current revision", item_id=plan.plan_id)
+    if not plan.expected_surface_ids:
+        add("missing_expected_product_surfaces", "UI product consistency plan has no expected surface inventory", item_id=plan.plan_id)
+    if not plan.surfaces:
+        add("missing_product_surfaces", "UI product consistency plan has no materialized surfaces", item_id=plan.plan_id)
+    if not plan.rules:
+        add("missing_product_consistency_rules", "UI product consistency plan has no semantic rules", item_id=plan.plan_id)
+    if not plan.observations:
+        add("missing_product_consistency_observations", "UI product consistency plan has no material observations", item_id=plan.plan_id)
+    if not plan.validation_boundaries:
+        add("missing_product_consistency_validation", "UI product consistency plan has no validation boundary", item_id=plan.plan_id)
+    if not plan.rationale:
+        add("missing_product_consistency_rationale", "UI product consistency plan has no rationale", item_id=plan.plan_id)
+
+    add_duplicates(plan.expected_surface_ids, code="duplicate_expected_product_surface", noun="expected product surface")
+    add_duplicates(plan.surface_ids(), code="duplicate_product_surface_id", noun="product surface")
+    add_duplicates(plan.rule_ids(), code="duplicate_product_consistency_rule_id", noun="product consistency rule")
+    add_duplicates(plan.observation_ids(), code="duplicate_product_consistency_observation_id", noun="product consistency observation")
+    add_duplicates(plan.exception_ids(), code="duplicate_product_consistency_exception_id", noun="product consistency exception")
+
+    expected_surface_set = set(plan.expected_surface_ids)
+    surfaces_by_id = {surface.surface_id: surface for surface in plan.surfaces}
+    rules_by_id = {rule.rule_id: rule for rule in plan.rules}
+    missing_surface_ids = sorted(expected_surface_set - set(surfaces_by_id))
+    for surface_id in missing_surface_ids:
+        add(
+            "missing_expected_product_surface",
+            "expected product surface has no materialized UIProductSurface row",
+            item_id=surface_id,
+        )
+    for surface_id in sorted(set(surfaces_by_id) - expected_surface_set):
+        add(
+            "unexpected_product_surface",
+            "materialized product surface is absent from the expected inventory",
+            item_id=surface_id,
+        )
+
+    scoped_surface_ids: list[str] = []
+    business_surfaces_by_intent: dict[str, list[UIProductSurface]] = {}
+    for surface in plan.surfaces:
+        if not surface.surface_id:
+            add("missing_product_surface_id", "product surface has no id")
+        if not surface.surface_kind:
+            add("missing_product_surface_kind", "product surface has no page/window/menu/dialog/component kind", item_id=surface.surface_id)
+        if not surface.rationale:
+            add("missing_product_surface_rationale", "product surface has no rationale", item_id=surface.surface_id)
+        if surface.business_bearing and surface.pure_ui:
+            add(
+                "conflicting_product_surface_behavior_scope",
+                "product surface cannot be both business-bearing and pure UI",
+                item_id=surface.surface_id,
+            )
+        if not surface.business_bearing and not surface.pure_ui:
+            add(
+                "missing_product_surface_behavior_scope",
+                "product surface must explicitly declare business_bearing or pure_ui",
+                item_id=surface.surface_id,
+            )
+        authority = surface.authority_identity()
+        if surface.pure_ui and any(authority):
+            add(
+                "pure_ui_declares_behavior_authority",
+                "pure UI product surface must not invent an intent, commitment, or primary path",
+                item_id=surface.surface_id,
+                metadata={"authority_identity": list(authority)},
+            )
+        if surface.business_bearing:
+            missing_authority = [
+                field_name
+                for field_name, value in zip(UI_PRODUCT_AUTHORITY_FIELDS, authority)
+                if not value
+            ]
+            if missing_authority:
+                add(
+                    "incomplete_ui_behavior_authority",
+                    "business-bearing product surface needs stable intent, commitment, and singular primary path ids",
+                    item_id=surface.surface_id,
+                    metadata={"missing_fields": missing_authority},
+                )
+            else:
+                business_surfaces_by_intent.setdefault(surface.business_intent_id, []).append(surface)
+            if not surface.consistency_rule_ids:
+                add(
+                    "business_ui_missing_consistency_binding",
+                    "business-bearing product surface has no consistency rule bindings",
+                    item_id=surface.surface_id,
+                )
+        for rule_id in surface.consistency_rule_ids:
+            if rule_id not in rules_by_id:
+                add(
+                    "product_surface_rule_not_registered",
+                    "product surface references an unknown consistency rule",
+                    item_id=surface.surface_id,
+                    metadata={"rule_id": rule_id},
+                )
+        if surface.in_scope:
+            if not surface.current_revision:
+                add("missing_product_surface_revision", "in-scope product surface has no current revision", item_id=surface.surface_id)
+            elif plan.current_revision and surface.current_revision != plan.current_revision:
+                add(
+                    "stale_product_surface",
+                    "product surface revision does not match the current consistency plan",
+                    item_id=surface.surface_id,
+                    metadata={"surface_revision": surface.current_revision, "plan_revision": plan.current_revision},
+                )
+            if not surface.evidence_refs:
+                add("missing_product_surface_evidence", "in-scope product surface has no current evidence reference", item_id=surface.surface_id)
+        else:
+            scoped_surface_ids.append(surface.surface_id)
+            missing_scope_fields = []
+            if not surface.scope_reason:
+                missing_scope_fields.append("scope_reason")
+            if not surface.scope_owner:
+                missing_scope_fields.append("scope_owner")
+            if not surface.scope_validation_boundaries:
+                missing_scope_fields.append("scope_validation_boundaries")
+            if not surface.scope_evidence_ref:
+                missing_scope_fields.append("scope_evidence_ref")
+            if missing_scope_fields:
+                add(
+                    "incomplete_product_surface_scope_disposition",
+                    "scoped product surface needs reason, owner, validation boundary, and current evidence",
+                    item_id=surface.surface_id,
+                    metadata={"missing_fields": missing_scope_fields},
+                )
+            add(
+                "product_surface_scoped",
+                "product surface remains an explicit scope limitation and is not counted as current coverage",
+                severity="warning",
+                item_id=surface.surface_id,
+            )
+            if plan.claim_scope == UI_PRODUCT_CLAIM_COMPLETE:
+                add(
+                    "complete_product_surface_scoped",
+                    "complete-product confidence cannot exclude a declared expected surface",
+                    item_id=surface.surface_id,
+                )
+
+    for business_intent_id, intent_surfaces in sorted(business_surfaces_by_intent.items()):
+        commitment_ids = sorted({surface.behavior_commitment_id for surface in intent_surfaces})
+        primary_path_ids = sorted({surface.primary_path_id for surface in intent_surfaces})
+        surface_ids = sorted(surface.surface_id for surface in intent_surfaces)
+        if len(commitment_ids) > 1:
+            add(
+                "same_intent_commitment_drift",
+                "product surfaces for one exact business intent bind to multiple commitments",
+                item_id=business_intent_id,
+                metadata={"commitment_ids": commitment_ids, "surface_ids": surface_ids},
+            )
+        if len(primary_path_ids) > 1:
+            add(
+                "same_intent_primary_path_drift",
+                "product surfaces for one exact business intent bind to multiple primary paths",
+                item_id=business_intent_id,
+                metadata={"primary_path_ids": primary_path_ids, "surface_ids": surface_ids},
+            )
+
+    semantic_kinds = {rule.semantic_kind for rule in plan.rules}
+    if plan.claim_scope == UI_PRODUCT_CLAIM_COMPLETE:
+        for semantic_kind in UI_PRODUCT_CONSISTENCY_KINDS:
+            if semantic_kind not in semantic_kinds:
+                add(
+                    "missing_complete_product_semantic_kind",
+                    "complete-product consistency review omits a required semantic kind",
+                    item_id=semantic_kind,
+                )
+
+    for rule in plan.rules:
+        if not rule.rule_id:
+            add("missing_product_consistency_rule_id", "product consistency rule has no id")
+        if rule.semantic_kind not in UI_PRODUCT_CONSISTENCY_KINDS:
+            add(
+                "unknown_product_consistency_kind",
+                "product consistency kind must be typography, component, navigation, interaction, feedback, recovery, or transition",
+                item_id=rule.rule_id,
+                metadata={"semantic_kind": rule.semantic_kind},
+            )
+        if not rule.semantic_key:
+            add("missing_product_consistency_semantic_key", "product consistency rule has no semantic key", item_id=rule.rule_id)
+        if not rule.canonical_surface_id:
+            add("missing_product_consistency_canonical_surface", "product consistency rule has no canonical surface", item_id=rule.rule_id)
+        elif rule.canonical_surface_id not in surfaces_by_id:
+            add("product_consistency_canonical_surface_not_registered", "canonical product surface is not materialized", item_id=rule.rule_id)
+        if not rule.expected_surface_ids:
+            add("missing_rule_expected_surfaces", "product consistency rule has no expected surface inventory", item_id=rule.rule_id)
+        for surface_id in rule.expected_surface_ids:
+            if surface_id not in expected_surface_set:
+                add(
+                    "rule_surface_not_expected",
+                    "product consistency rule references a surface outside the plan inventory",
+                    item_id=rule.rule_id,
+                    metadata={"surface_id": surface_id},
+                )
+        if rule.canonical_surface_id and rule.canonical_surface_id not in set(rule.expected_surface_ids):
+            add("canonical_surface_not_in_rule_inventory", "canonical surface is absent from the rule's expected surfaces", item_id=rule.rule_id)
+        if rule.semantic_kind == UI_PRODUCT_CONSISTENCY_TYPOGRAPHY:
+            missing_typography = [
+                name
+                for name, value in (
+                    ("hierarchy_role", rule.hierarchy_role),
+                    ("typography_token_id", rule.typography_token_id),
+                    ("typography_scale", rule.typography_scale),
+                    ("typography_weight", rule.typography_weight),
+                )
+                if not value
+            ]
+            if missing_typography:
+                add(
+                    "incomplete_canonical_typography",
+                    "typography consistency rule needs hierarchy role, token, scale, and weight",
+                    item_id=rule.rule_id,
+                    metadata={"missing_fields": missing_typography},
+                )
+        elif not rule.canonical_value:
+            add("missing_canonical_product_semantic", "non-typography rule has no canonical semantic value", item_id=rule.rule_id)
+        rule_authority = rule.authority_identity()
+        if any(rule_authority) and not all(rule_authority):
+            add(
+                "incomplete_rule_behavior_authority",
+                "business consistency rule needs stable intent, commitment, and primary path ids",
+                item_id=rule.rule_id,
+            )
+        if rule.business_intent_id:
+            same_intent_surface_ids = {
+                surface.surface_id
+                for surface in plan.surfaces
+                if surface.in_scope and surface.business_intent_id == rule.business_intent_id
+            }
+            missing_rule_surfaces = sorted(same_intent_surface_ids - set(rule.expected_surface_ids))
+            if missing_rule_surfaces:
+                add(
+                    "rule_expected_surface_inventory_incomplete",
+                    "business-intent consistency rule omits declared same-intent surfaces",
+                    item_id=rule.rule_id,
+                    metadata={"missing_surface_ids": missing_rule_surfaces},
+                )
+        if not rule.rationale:
+            add("missing_product_consistency_rule_rationale", "product consistency rule has no rationale", item_id=rule.rule_id)
+
+    observations_by_pair: dict[tuple[str, str], UIProductConsistencyObservation] = {}
+    add_duplicates(
+        tuple(f"{observation.rule_id}::{observation.surface_id}" for observation in plan.observations),
+        code="duplicate_product_consistency_observation_pair",
+        noun="rule/surface observation pair",
+    )
+    for observation in plan.observations:
+        pair = (observation.rule_id, observation.surface_id)
+        observations_by_pair[pair] = observation
+        rule = rules_by_id.get(observation.rule_id)
+        surface = surfaces_by_id.get(observation.surface_id)
+        if not observation.observation_id:
+            add("missing_product_consistency_observation_id", "product consistency observation has no id")
+        if rule is None:
+            add("observation_rule_not_registered", "product consistency observation references an unknown rule", item_id=observation.observation_id)
+        if surface is None:
+            add("observation_surface_not_registered", "product consistency observation references an unknown surface", item_id=observation.observation_id)
+        elif not surface.in_scope:
+            add("observation_targets_scoped_surface", "scoped product surface must not count as current observed coverage", item_id=observation.observation_id)
+        if rule is not None and observation.surface_id not in set(rule.expected_surface_ids):
+            add("observation_surface_not_in_rule_inventory", "observation surface is absent from the rule inventory", item_id=observation.observation_id)
+        if not observation.evidence_ref:
+            add("missing_product_consistency_observation_evidence", "product consistency observation has no evidence reference", item_id=observation.observation_id)
+        if observation.result.lower() not in _PASSED_UI_RESULTS:
+            add("product_consistency_observation_not_passed", "product consistency observation is not passing", item_id=observation.observation_id)
+        if not observation.covered_revision:
+            add("missing_product_consistency_observation_revision", "product consistency observation has no covered revision", item_id=observation.observation_id)
+        elif plan.current_revision and observation.covered_revision != plan.current_revision:
+            add(
+                "stale_product_consistency_observation",
+                "product consistency observation does not cover the current plan revision",
+                item_id=observation.observation_id,
+                metadata={"covered_revision": observation.covered_revision, "current_revision": plan.current_revision},
+            )
+        if not observation.rationale:
+            add("missing_product_consistency_observation_rationale", "product consistency observation has no rationale", item_id=observation.observation_id)
+        leaked_fields = _internal_product_field_ids(observation.internal_field_ids)
+        if leaked_fields:
+            add(
+                "internal_product_content_leak",
+                "observed product surface exposes internal identity, audit, evidence, or diagnostic fields",
+                item_id=observation.observation_id,
+                metadata={"internal_field_ids": list(leaked_fields)},
+            )
+        if surface is not None and surface.business_bearing and observation.authority_identity() != surface.authority_identity():
+            add(
+                "observation_behavior_authority_mismatch",
+                "product consistency observation does not preserve the surface's intent, commitment, and primary path",
+                item_id=observation.observation_id,
+                metadata={
+                    "surface_authority": list(surface.authority_identity()),
+                    "observation_authority": list(observation.authority_identity()),
+                },
+            )
+        if rule is not None and any(rule.authority_identity()) and observation.authority_identity() != rule.authority_identity():
+            add(
+                "observation_rule_authority_mismatch",
+                "product consistency observation does not preserve the rule's behavior authority",
+                item_id=observation.observation_id,
+            )
+
+    valid_exceptions: dict[tuple[str, str], list[UIProductConsistencyException]] = {}
+    for exception in plan.exceptions:
+        valid = True
+        if not exception.exception_id:
+            add("missing_product_consistency_exception_id", "product consistency exception has no id")
+            valid = False
+        if exception.rule_id not in rules_by_id:
+            add("exception_rule_not_registered", "product consistency exception references an unknown rule", item_id=exception.exception_id)
+            valid = False
+        if exception.surface_id not in surfaces_by_id:
+            add("exception_surface_not_registered", "product consistency exception references an unknown surface", item_id=exception.exception_id)
+            valid = False
+        if exception.exception_kind not in UI_PRODUCT_EXCEPTION_KINDS:
+            add(
+                "unknown_product_consistency_exception_kind",
+                "UI exception must be platform, accessibility, native_control, or safety",
+                item_id=exception.exception_id,
+            )
+            valid = False
+        if not exception.difference_fields:
+            add("missing_product_consistency_exception_fields", "UI exception has no bounded presentation fields", item_id=exception.exception_id)
+            valid = False
+        authority_fields = sorted(set(exception.difference_fields) & set(UI_PRODUCT_AUTHORITY_FIELDS))
+        if authority_fields:
+            add(
+                "invalid_behavior_authority_exception",
+                "presentation exception cannot waive business intent, commitment, or primary path identity",
+                item_id=exception.exception_id,
+                metadata={"authority_fields": authority_fields},
+            )
+            valid = False
+        unsupported_fields = sorted(set(exception.difference_fields) - set(UI_PRODUCT_PRESENTATION_EXCEPTION_FIELDS) - set(UI_PRODUCT_AUTHORITY_FIELDS))
+        if unsupported_fields:
+            add(
+                "invalid_product_consistency_exception_field",
+                "UI consistency exception contains a non-presentation field",
+                item_id=exception.exception_id,
+                metadata={"unsupported_fields": unsupported_fields},
+            )
+            valid = False
+        for field_name, value in (
+            ("reason", exception.reason),
+            ("owner", exception.owner),
+            ("validation_boundaries", exception.validation_boundaries),
+            ("evidence_ref", exception.evidence_ref),
+            ("covered_revision", exception.covered_revision),
+            ("rationale", exception.rationale),
+        ):
+            if not value:
+                add(
+                    "incomplete_product_consistency_exception",
+                    "typed UI exception needs scope, reason, owner, validation boundary, current evidence, and rationale",
+                    item_id=exception.exception_id,
+                    metadata={"missing_field": field_name},
+                )
+                valid = False
+        if exception.result.lower() not in _PASSED_UI_RESULTS:
+            add("product_consistency_exception_not_passed", "UI exception evidence is not passing", item_id=exception.exception_id)
+            valid = False
+        if plan.current_revision and exception.covered_revision and exception.covered_revision != plan.current_revision:
+            add(
+                "stale_product_consistency_exception",
+                "UI exception does not cover the current plan revision",
+                item_id=exception.exception_id,
+            )
+            valid = False
+        if valid:
+            valid_exceptions.setdefault((exception.rule_id, exception.surface_id), []).append(exception)
+
+    def exception_covers(rule_id: str, surface_id: str, field_name: str) -> bool:
+        return any(
+            field_name in exception.difference_fields
+            for exception in valid_exceptions.get((rule_id, surface_id), ())
+        )
+
+    semantic_exception_field = {
+        UI_PRODUCT_CONSISTENCY_COMPONENT: "component_role",
+        UI_PRODUCT_CONSISTENCY_NAVIGATION: "navigation_placement",
+        UI_PRODUCT_CONSISTENCY_FEEDBACK: "feedback_copy",
+    }
+    for rule in plan.rules:
+        for surface_id in rule.expected_surface_ids:
+            surface = surfaces_by_id.get(surface_id)
+            if surface is None or not surface.in_scope:
+                continue
+            if rule.rule_id not in set(surface.consistency_rule_ids):
+                add(
+                    "surface_missing_consistency_rule_binding",
+                    "in-scope surface does not bind the consistency rule that expects it",
+                    item_id=surface_id,
+                    metadata={"rule_id": rule.rule_id},
+                )
+            if surface.business_bearing and rule.authority_identity() != surface.authority_identity():
+                add(
+                    "rule_surface_behavior_authority_mismatch",
+                    "business product surface and consistency rule do not share one intent, commitment, and primary path",
+                    item_id=rule.rule_id,
+                    metadata={"surface_id": surface_id},
+                )
+            observation = observations_by_pair.get((rule.rule_id, surface_id))
+            if observation is None:
+                add(
+                    "missing_expected_product_consistency_observation",
+                    "expected rule/surface pair has no material current observation",
+                    item_id=surface_id,
+                    metadata={"rule_id": rule.rule_id},
+                )
+                continue
+            if rule.semantic_kind == UI_PRODUCT_CONSISTENCY_TYPOGRAPHY:
+                differences = []
+                for field_name, canonical_value, observed_value in (
+                    ("hierarchy_role", rule.hierarchy_role, observation.hierarchy_role),
+                    ("typography_token_id", rule.typography_token_id, observation.typography_token_id),
+                    ("typography_scale", rule.typography_scale, observation.typography_scale),
+                    ("typography_weight", rule.typography_weight, observation.typography_weight),
+                ):
+                    if canonical_value != observed_value:
+                        differences.append(field_name)
+                uncovered = [
+                    field_name
+                    for field_name in differences
+                    if field_name == "hierarchy_role" or not exception_covers(rule.rule_id, surface_id, field_name)
+                ]
+                if uncovered:
+                    add(
+                        "typography_role_drift",
+                        "the same semantic hierarchy role must reuse one token, scale, and weight across product surfaces",
+                        item_id=surface_id,
+                        metadata={"rule_id": rule.rule_id, "differing_fields": uncovered},
+                    )
+            elif observation.observed_value != rule.canonical_value:
+                exception_field = semantic_exception_field.get(rule.semantic_kind, "")
+                if not exception_field or not exception_covers(rule.rule_id, surface_id, exception_field):
+                    add(
+                        "product_semantic_drift",
+                        "product surface does not reuse the canonical semantic grammar for this intent",
+                        item_id=surface_id,
+                        metadata={
+                            "rule_id": rule.rule_id,
+                            "semantic_kind": rule.semantic_kind,
+                            "canonical_value": rule.canonical_value,
+                            "observed_value": observation.observed_value,
+                        },
+                    )
+
+    typography_rules_by_role: dict[str, list[UIProductConsistencyRule]] = {}
+    for rule in plan.rules:
+        if rule.semantic_kind == UI_PRODUCT_CONSISTENCY_TYPOGRAPHY and rule.hierarchy_role:
+            typography_rules_by_role.setdefault(rule.hierarchy_role, []).append(rule)
+    for hierarchy_role, rules in sorted(typography_rules_by_role.items()):
+        identities = {rule.typography_identity() for rule in rules}
+        if len(identities) > 1:
+            add(
+                "typography_role_canonical_drift",
+                "canonical typography rules disagree on token, scale, or weight for the same hierarchy role",
+                item_id=hierarchy_role,
+                metadata={"rule_ids": sorted(rule.rule_id for rule in rules), "typography_identities": sorted(identities)},
+            )
+
+    blocker_item_ids = {finding.item_id for finding in findings if finding.severity == "blocker" and finding.item_id}
+    covered_surface_ids: list[str] = []
+    for surface in plan.surfaces:
+        if not surface.in_scope or surface.surface_id in blocker_item_ids:
+            continue
+        expected_rule_ids = {
+            rule.rule_id for rule in plan.rules if surface.surface_id in set(rule.expected_surface_ids)
+        }
+        if expected_rule_ids and all((rule_id, surface.surface_id) in observations_by_pair for rule_id in expected_rule_ids):
+            covered_surface_ids.append(surface.surface_id)
+    covered_rule_ids = [
+        rule.rule_id
+        for rule in plan.rules
+        if rule.rule_id not in blocker_item_ids
+        and all(
+            (rule.rule_id, surface_id) in observations_by_pair
+            for surface_id in rule.expected_surface_ids
+            if surfaces_by_id.get(surface_id) is not None and surfaces_by_id[surface_id].in_scope
+        )
+    ]
+    blockers = tuple(finding for finding in findings if finding.severity == "blocker")
+    ok = not blockers
+    decision = "blocked" if blockers else (
+        "scoped" if plan.claim_scope == UI_PRODUCT_CLAIM_SCOPED or scoped_surface_ids else "green"
+    )
+    return UIProductConsistencyReport(
+        ok=ok,
+        plan_id=plan.plan_id,
+        decision=decision,
+        findings=tuple(findings),
+        covered_surface_ids=tuple(covered_surface_ids),
+        scoped_surface_ids=tuple(scoped_surface_ids),
+        missing_surface_ids=tuple(missing_surface_ids),
+        covered_rule_ids=tuple(covered_rule_ids),
+        business_intent_ids=tuple(sorted(business_surfaces_by_intent)),
+    )
 
 
 def ui_content_visibility_candidate_ids_from_field_lifecycle(
@@ -4564,6 +5803,16 @@ def review_ui_content_visibility(
             )
             continue
         if item.user_facing:
+            leaked_internal_fields = _internal_product_field_ids(item.source_field_ids)
+            if leaked_internal_fields and not item.user_need_refs:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "internal_product_content_leak",
+                        "internal identity, audit, evidence, or diagnostic fields need a typed user-facing need and cannot become product copy by observation alone",
+                        item_id=item.content_id,
+                        metadata={"source_field_ids": list(leaked_internal_fields)},
+                    )
+                )
             if not item.user_need_refs:
                 findings.append(
                     UIFlowStructureFinding(
@@ -4937,6 +6186,7 @@ def review_ui_visible_surface(
     known_controls = set(interaction_model.control_ids()) if interaction_model is not None else set()
     known_displays = set(interaction_model.display_ids()) if interaction_model is not None else set()
     controls_by_id = interaction_model.controls_by_id() if interaction_model is not None else {}
+    visibility_items_by_id = content_visibility_plan.items_by_id() if content_visibility_plan is not None else {}
 
     if not surface.surface_id:
         findings.append(UIFlowStructureFinding("missing_visible_surface_id", "UI visible surface has no id"))
@@ -5049,7 +6299,18 @@ def review_ui_visible_surface(
                 )
             )
         internal_term = _text_contains_internal_term(item.text)
-        if internal_term and not item.internal_term_rationale:
+        visibility_item = visibility_items_by_id.get(item.content_visibility_id)
+        has_typed_user_need = bool(visibility_item is not None and visibility_item.user_need_refs)
+        if internal_term in _INTERNAL_IDENTITY_VISIBLE_TERMS and not has_typed_user_need:
+            findings.append(
+                UIFlowStructureFinding(
+                    "internal_product_content_leak",
+                    f"visible surface item {item.item_id} exposes internal identity, audit, evidence, or diagnostics without a typed user-facing need",
+                    item_id=item.item_id,
+                    metadata={"term": internal_term},
+                )
+            )
+        elif internal_term and not item.internal_term_rationale:
             findings.append(
                 UIFlowStructureFinding(
                     "visible_internal_terminology",
@@ -5598,6 +6859,13 @@ def review_ui_control_functional_chains(
                 )
             )
 
+    findings.extend(
+        _ui_behavior_authority_findings(
+            chain_set.chains,
+            item_id_attribute="chain_id",
+            noun="functional chain",
+        )
+    )
     blockers = _blocker_findings(findings)
     return UIControlFunctionalChainReport(
         ok=not blockers,
@@ -6688,6 +7956,13 @@ def review_ui_human_operability(
                         )
                     )
 
+    findings.extend(
+        _ui_behavior_authority_findings(
+            assessment.action_grammars,
+            item_id_attribute="action_id",
+            noun="action grammar",
+        )
+    )
     blockers = _blocker_findings(findings)
     return UIHumanOperabilityReport(
         ok=not blockers,
@@ -7430,6 +8705,13 @@ def review_ui_interaction_model(
         )
         findings.extend(visibility_report.findings)
 
+    findings.extend(
+        _ui_behavior_authority_findings(
+            model.transitions,
+            item_id_attribute="event_id",
+            noun="transition",
+        )
+    )
     blockers = _blocker_findings(findings)
     return UIInteractionModelReport(
         ok=not blockers,
@@ -8988,6 +10270,13 @@ def review_ui_implementation_validation(
         )
         findings.extend(visibility_report.findings)
 
+    findings.extend(
+        _ui_behavior_authority_findings(
+            validation.feature_contracts,
+            item_id_attribute="feature_id",
+            noun="feature contract",
+        )
+    )
     blockers = _blocker_findings(findings)
     return UIImplementationValidationReport(
         ok=not blockers,
@@ -9695,6 +10984,32 @@ def review_ui_text_hierarchy(
 
 __all__ = [
     "UIControl",
+    "UIProductConsistencyException",
+    "UIProductConsistencyFinding",
+    "UIProductConsistencyObservation",
+    "UIProductConsistencyPlan",
+    "UIProductConsistencyReport",
+    "UIProductConsistencyRule",
+    "UIProductLanguageCaseSeed",
+    "UIProductSurface",
+    "UI_PRODUCT_AUTHORITY_FIELDS",
+    "UI_PRODUCT_CLAIM_COMPLETE",
+    "UI_PRODUCT_CLAIM_SCOPED",
+    "UI_PRODUCT_CLAIM_SCOPES",
+    "UI_PRODUCT_CONSISTENCY_COMPONENT",
+    "UI_PRODUCT_CONSISTENCY_FEEDBACK",
+    "UI_PRODUCT_CONSISTENCY_INTERACTION",
+    "UI_PRODUCT_CONSISTENCY_KINDS",
+    "UI_PRODUCT_CONSISTENCY_NAVIGATION",
+    "UI_PRODUCT_CONSISTENCY_RECOVERY",
+    "UI_PRODUCT_CONSISTENCY_TRANSITION",
+    "UI_PRODUCT_CONSISTENCY_TYPOGRAPHY",
+    "UI_PRODUCT_EXCEPTION_ACCESSIBILITY",
+    "UI_PRODUCT_EXCEPTION_KINDS",
+    "UI_PRODUCT_EXCEPTION_NATIVE_CONTROL",
+    "UI_PRODUCT_EXCEPTION_PLATFORM",
+    "UI_PRODUCT_EXCEPTION_SAFETY",
+    "UI_PRODUCT_PRESENTATION_EXCEPTION_FIELDS",
     "UIContentVisibilityEvidence",
     "UIContentVisibilityItem",
     "UIContentVisibilityPlan",
@@ -9818,10 +11133,12 @@ __all__ = [
     "review_ui_interaction_model",
     "review_ui_journey_coverage",
     "review_ui_observed_surface_inventory",
+    "review_ui_product_consistency",
     "review_ui_render_evidence",
     "review_ui_responsiveness_contract",
     "review_ui_structure_derivation",
     "review_ui_text_hierarchy",
     "review_ui_visible_surface",
     "ui_content_visibility_candidate_ids_from_field_lifecycle",
+    "default_ui_product_language_case_seeds",
 ]

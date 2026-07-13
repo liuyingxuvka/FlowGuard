@@ -1,204 +1,175 @@
-contract_version: 1
+contract_version: 3
 change: collapse-flowguard-helper-control-plane
+evidence_roots:
+  SPEC_EVIDENCE: .flowguard/evidence/spec-work-packages
 obligations:
   - id: req.architecture-reduction.classify-old-helper-surfaces
     source: "specs/architecture-reduction/spec.md#Requirement: ArchitectureReduction classifies old helper surfaces"
     claim: "Old helper prompts, routes, aliases, templates, wrappers, and compatibility-like surfaces receive an explicit cleanup disposition."
     required: true
-    evidence: [check.helper-control-plane.cleanup-and-risk]
+    evidence: [owner.change.aggregate]
+
   - id: req.architecture-reduction.retained-facades-require-route-evidence
     source: "specs/architecture-reduction/spec.md#Requirement: Retained facades require route evidence"
     claim: "A retained public facade requires current public-entrypoint parity evidence rather than fallback status."
     required: true
-    evidence: [check.helper-control-plane.cleanup-and-risk]
+    evidence: [owner.change.aggregate]
+
   - id: req.contract-exhaustion.canonical-after-route-cleanup
     source: "specs/contract-exhaustion-mesh/spec.md#Requirement: ContractExhaustionMesh remains canonical after route cleanup"
     claim: "Finite bad-case seeds are projected to canonical ContractMutationCase ids after route cleanup."
     required: true
-    evidence: [check.helper-control-plane.cleanup-and-risk]
+    evidence: [owner.change.aggregate]
+
   - id: req.contract-exhaustion.composite-handoff-separate
     source: "specs/contract-exhaustion-mesh/spec.md#Requirement: Composite handoff acceptance remains separate"
     claim: "Multi-route handoff acceptance remains distinct from local matrix readiness."
     required: true
-    evidence: [check.helper-control-plane.cleanup-and-risk]
+    evidence: [owner.change.aggregate]
+
   - id: req.development-process.absorbs-simulator-and-scan
     source: "specs/development-process-flow/spec.md#Requirement: DevelopmentProcessFlow absorbs simulator and scan helpers"
     claim: "DevelopmentProcessFlow owns process simulation and post-change scan consumption under one public route id."
     required: true
-    evidence: [check.helper-control-plane.owner-routes]
+    evidence: [owner.change.aggregate]
+
   - id: req.development-process.delegated-modes-owner-selected
     source: "specs/development-process-flow/spec.md#Requirement: Delegated process mode skills are owner-selected"
     claim: "Plan-detailing and agent-workflow modes are delegated by DevelopmentProcessFlow and do not compete as generic first stops."
     required: true
-    evidence: [check.helper-control-plane.owner-routes, check.helper-control-plane.skills-and-templates]
+    evidence: [owner.change.aggregate]
+
   - id: req.existing-preflight.consumes-angle-and-similarity
     source: "specs/existing-model-preflight/spec.md#Requirement: ExistingModelPreflight consumes angle and similarity helpers"
     claim: "Model-angle and model-similarity evidence are consumed by ExistingModelPreflight rather than exposed as public first stops."
     required: true
-    evidence: [check.helper-control-plane.owner-routes]
+    evidence: [owner.change.aggregate]
+
   - id: req.existing-preflight.names-downstream-owner
     source: "specs/existing-model-preflight/spec.md#Requirement: Preflight output names downstream owner"
     claim: "Preflight results name the public downstream route that owns the next action."
     required: true
-    evidence: [check.helper-control-plane.owner-routes]
+    evidence: [owner.change.aggregate]
+
   - id: req.api-registry.separates-public-and-internal
     source: "specs/flowguard-api-registry/spec.md#Requirement: Route registry separates public and internal surfaces"
     claim: "FLOWGUARD_ROUTE_API and ROUTE_STARTER_API contain public owner routes while advanced helpers remain separately discoverable."
     required: true
-    evidence: [check.helper-control-plane.api-and-profiles]
+    evidence: [owner.change.aggregate]
+
   - id: req.api-registry.advanced-availability-not-ownership
     source: "specs/flowguard-api-registry/spec.md#Requirement: Advanced helper availability does not imply route ownership"
     claim: "Importable advanced helpers are not inferred to be direct public route owners."
     required: true
-    evidence: [check.helper-control-plane.api-and-profiles]
+    evidence: [owner.change.aggregate]
+
   - id: req.api-registry.profile-metadata-drives-discovery
     source: "specs/flowguard-api-registry/spec.md#Requirement: Route profile metadata drives public discovery"
     claim: "Public discovery agrees with RouteProfile role and entry-policy metadata."
     required: true
-    evidence: [check.helper-control-plane.api-and-profiles]
+    evidence: [owner.change.aggregate]
+
   - id: req.skills.mirror-route-roles
     source: "specs/flowguard-codex-skill-satellites/spec.md#Requirement: Installed skill shells mirror route roles"
     claim: "Skill shells describe public owners, delegated modes, and internal feeders consistently with registry roles."
     required: true
-    evidence: [check.helper-control-plane.skills-and-templates]
+    evidence: [owner.change.aggregate]
+
   - id: req.skills.clean-stale-prompt-wording
     source: "specs/flowguard-codex-skill-satellites/spec.md#Requirement: Stale prompt wording is cleaned"
     claim: "Active skills and templates do not present helper-first or handwritten same-class paths as canonical coverage."
     required: true
-    evidence: [check.helper-control-plane.skills-and-templates]
+    evidence: [owner.change.aggregate]
+
   - id: req.global-routing.public-owner-routes
     source: "specs/flowguard-global-routing/spec.md#Requirement: Global routing uses public owner routes"
     claim: "AI-facing route selection exposes public owner routes and routes helper evidence through those owners."
     required: true
-    evidence: [check.helper-control-plane.api-and-profiles, check.helper-control-plane.skills-and-templates]
+    evidence: [owner.change.aggregate]
+
   - id: req.global-routing.development-process-hot-path
     source: "specs/flowguard-global-routing/spec.md#Requirement: DevelopmentProcessFlow is the process hot path"
     claim: "DevelopmentProcessFlow is the direct process route and the simulator id remains internal."
     required: true
-    evidence: [check.helper-control-plane.api-and-profiles, check.helper-control-plane.owner-routes]
+    evidence: [owner.change.aggregate]
+
   - id: req.global-routing.preflight-owns-angle-similarity
     source: "specs/flowguard-global-routing/spec.md#Requirement: ExistingModelPreflight owns angle and similarity consumption"
     claim: "Global routing places angle and similarity evidence under ExistingModelPreflight."
     required: true
-    evidence: [check.helper-control-plane.api-and-profiles, check.helper-control-plane.owner-routes]
+    evidence: [owner.change.aggregate]
+
   - id: req.helper-control-plane.explicit-entry-role
     source: "specs/flowguard-helper-control-plane/spec.md#Requirement: Route profiles declare entry role"
     claim: "Every route profile declares a valid route role, entry policy, and owner or absorption metadata when required."
     required: true
-    evidence: [check.helper-control-plane.api-and-profiles]
+    evidence: [owner.change.aggregate]
+
   - id: req.helper-control-plane.public-map-excludes-internal
     source: "specs/flowguard-helper-control-plane/spec.md#Requirement: Public route map excludes internal helpers"
     claim: "Internal feeders and data helpers are absent from direct AI-facing route starters."
     required: true
-    evidence: [check.helper-control-plane.api-and-profiles]
+    evidence: [owner.change.aggregate]
+
   - id: req.helper-control-plane.old-surfaces-have-disposition
     source: "specs/flowguard-helper-control-plane/spec.md#Requirement: Old helper surfaces require disposition"
     claim: "Old helper surfaces are removed, absorbed, made internal, or supported by facade evidence."
     required: true
-    evidence: [check.helper-control-plane.cleanup-and-risk]
+    evidence: [owner.change.aggregate]
+
   - id: req.helper-control-plane.no-fallback-route
     source: "specs/flowguard-helper-control-plane/spec.md#Requirement: No fallback helper route"
     claim: "Old helper-first results cannot independently satisfy current owner-route coverage."
     required: true
-    evidence: [check.helper-control-plane.api-and-profiles, check.helper-control-plane.cleanup-and-risk]
+    evidence: [owner.change.aggregate]
+
   - id: req.risk-ledger.final-broad-confidence-owner
     source: "specs/risk-evidence-ledger/spec.md#Requirement: RiskEvidenceLedger owns final broad confidence"
     claim: "Closure helpers, scans, and single-route matrices cannot independently grant broad confidence."
     required: true
-    evidence: [check.helper-control-plane.cleanup-and-risk]
+    evidence: [owner.change.aggregate]
+
   - id: req.risk-ledger.owner-route-evidence-only
     source: "specs/risk-evidence-ledger/spec.md#Requirement: Ledger consumes owner-route evidence only"
     claim: "Internal helper evidence supports final confidence only after a public owner route consumes it."
     required: true
-    evidence: [check.helper-control-plane.cleanup-and-risk]
+    evidence: [owner.change.aggregate]
+
 checks:
-  - id: check.helper-control-plane.api-and-profiles
-    kind: command
-    command: python
-    args: [-m, pytest, tests/test_api_surface.py, -q]
-    required: true
-    covers:
-      - req.api-registry.separates-public-and-internal
-      - req.api-registry.advanced-availability-not-ownership
-      - req.api-registry.profile-metadata-drives-discovery
-      - req.global-routing.public-owner-routes
-      - req.global-routing.development-process-hot-path
-      - req.global-routing.preflight-owns-angle-similarity
-      - req.helper-control-plane.explicit-entry-role
-      - req.helper-control-plane.public-map-excludes-internal
-      - req.helper-control-plane.no-fallback-route
-    expected: {exit_code: 0}
-  - id: check.helper-control-plane.owner-routes
-    kind: command
-    command: python
-    args:
-      - -m
-      - pytest
-      - tests/test_development_process_flow.py
-      - tests/test_development_process_simulator.py
-      - tests/test_existing_model_preflight.py
-      - tests/test_model_angle_deliberation.py
-      - tests/test_model_similarity.py
-      - -q
-    required: true
-    covers:
-      - req.development-process.absorbs-simulator-and-scan
-      - req.development-process.delegated-modes-owner-selected
-      - req.existing-preflight.consumes-angle-and-similarity
-      - req.existing-preflight.names-downstream-owner
-      - req.global-routing.development-process-hot-path
-      - req.global-routing.preflight-owns-angle-similarity
-    expected: {exit_code: 0}
-  - id: check.helper-control-plane.cleanup-and-risk
-    kind: command
-    command: python
-    args:
-      - -m
-      - pytest
-      - tests/test_architecture_reduction.py
-      - tests/test_contract_exhaustion.py
-      - tests/test_risk_evidence_ledger.py
-      - -q
+  - id: owner.change.aggregate
+    kind: receipt
+    semantic_check_id: flowguard.openspec.collapse-flowguard-helper-control-plane.aggregate
+    execution_id: flowguard.owner.collapse-flowguard-helper-control-plane.aggregate.current
+    receipt_ref:
+      provider_id: openspec
+      work_package_id: collapse-flowguard-helper-control-plane
+      adapter: portable-receipt.v1
+      ref_path: "<SPEC_EVIDENCE>/portable-refs/openspec/collapse-flowguard-helper-control-plane/owner.change.aggregate.json"
+    consumer: openspec.change.collapse-flowguard-helper-control-plane
     required: true
     covers:
       - req.architecture-reduction.classify-old-helper-surfaces
       - req.architecture-reduction.retained-facades-require-route-evidence
       - req.contract-exhaustion.canonical-after-route-cleanup
       - req.contract-exhaustion.composite-handoff-separate
+      - req.development-process.absorbs-simulator-and-scan
+      - req.development-process.delegated-modes-owner-selected
+      - req.existing-preflight.consumes-angle-and-similarity
+      - req.existing-preflight.names-downstream-owner
+      - req.api-registry.separates-public-and-internal
+      - req.api-registry.advanced-availability-not-ownership
+      - req.api-registry.profile-metadata-drives-discovery
+      - req.skills.mirror-route-roles
+      - req.skills.clean-stale-prompt-wording
+      - req.global-routing.public-owner-routes
+      - req.global-routing.development-process-hot-path
+      - req.global-routing.preflight-owns-angle-similarity
+      - req.helper-control-plane.explicit-entry-role
+      - req.helper-control-plane.public-map-excludes-internal
       - req.helper-control-plane.old-surfaces-have-disposition
       - req.helper-control-plane.no-fallback-route
       - req.risk-ledger.final-broad-confidence-owner
       - req.risk-ledger.owner-route-evidence-only
-    expected: {exit_code: 0}
-  - id: check.helper-control-plane.skills-and-templates
-    kind: command
-    command: python
-    args: [-m, pytest, tests/test_skill_docs.py, tests/test_public_templates.py, -q]
-    required: true
-    covers:
-      - req.development-process.delegated-modes-owner-selected
-      - req.skills.mirror-route-roles
-      - req.skills.clean-stale-prompt-wording
-      - req.global-routing.public-owner-routes
-    expected: {exit_code: 0}
-  - id: check.helper-control-plane.project-audit
-    kind: command
-    command: python
-    args: [-m, flowguard, project-audit, --root, .]
-    required: true
-    covers:
-      - req.helper-control-plane.explicit-entry-role
-      - req.skills.mirror-route-roles
-    expected: {exit_code: 0}
-  - id: check.helper-control-plane.openspec-strict
-    kind: command
-    command: openspec
-    args: [validate, collapse-flowguard-helper-control-plane, --strict]
-    required: true
-    covers:
-      - req.helper-control-plane.explicit-entry-role
-      - req.helper-control-plane.public-map-excludes-internal
-    expected: {exit_code: 0}
 freshness:
   watch:
     - openspec/changes/collapse-flowguard-helper-control-plane/proposal.md

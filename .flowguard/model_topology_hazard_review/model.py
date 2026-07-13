@@ -279,3 +279,25 @@ __all__ = [
     "initial_state",
     "terminal_predicate",
 ]
+
+
+from flowguard.skill_contract_model import (
+    FLOWGUARD_MODEL_MARKER,
+    build_skill_contract_model_export,
+)
+
+
+def export_contract_model():
+    """Project the existing topology-hazard owner for SkillGuard V2."""
+
+    return build_skill_contract_model_export(
+        skill_id="flowguard-model-topology-hazard-review",
+        route_id="model_topology_hazard_review",
+        owner_id="model_topology_hazard_review",
+        parent_model_id="flowguard.model_first_function_flow",
+        business_intent="Review topology-anchored future-use hazards without converting unanchored concerns into hard gates.",
+        claim_boundary="Projection only; usage anchors, dispositions, compatibility effects, and native hazard checks remain authoritative.",
+    )
+
+
+__all__ = [*__all__, "FLOWGUARD_MODEL_MARKER", "export_contract_model"]

@@ -14,6 +14,20 @@ from pathlib import Path
 import re
 from typing import Any, Mapping, Sequence
 
+from .behavior_commitment import (
+    BCL_BEHAVIOR_PLANES,
+    BCL_HIT_ROLE_PRIMARY,
+    BCL_LOOKUP_STATUSES,
+    BCL_LOOKUP_STATUS_BLOCKED,
+    BCL_LOOKUP_STATUS_NOT_APPLICABLE,
+    BCL_LOOKUP_STATUS_PERFORMED,
+)
+from .behavior_commitment_lookup import (
+    BehaviorCommitmentHit,
+    BehaviorLookupQuery,
+    query_behavior_commitments_from_path,
+)
+from .behavior_plane import BCL_PLANE_DEVELOPMENT_PROCESS
 from .export import to_jsonable
 from .model_angle_deliberation import (
     MODEL_ANGLE_CONFIDENCE_BLOCKED,
@@ -49,6 +63,17 @@ DUPLICATE_RISK_RESOLUTIONS = {
     "new_boundary_rationale",
     "out_of_scope",
     "blocked",
+}
+
+PREFLIGHT_SURFACE_KINDS = {
+    "ui",
+    "api",
+    "cli",
+    "alias",
+    "adapter",
+    "wrapper",
+    "helper",
+    "compatibility",
 }
 
 
@@ -223,6 +248,109 @@ class DuplicateBoundaryRisk:
 
 
 @dataclass(frozen=True)
+class ExistingIntentSurface:
+    """One affected surface materialized for an exact business intent."""
+
+    surface_id: str
+    surface_kind: str = ""
+    business_intent_id: str = ""
+    behavior_commitment_id: str = ""
+    business_path_id: str = ""
+    primary_path_id: str = ""
+    expected_terminal: str = ""
+    state_writes: tuple[str, ...] = ()
+    side_effects: tuple[str, ...] = ()
+    owner_id: str = ""
+    source_ref: str = ""
+    evidence_ids: tuple[str, ...] = ()
+    evidence_current: bool = True
+    similarity_relation_ids: tuple[str, ...] = ()
+    in_scope: bool = True
+    disposition: str = "materialized"
+    scoped_out_reason: str = ""
+    validation_boundary: str = ""
+    rationale: str = ""
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        for field_name in (
+            "surface_id",
+            "surface_kind",
+            "business_intent_id",
+            "behavior_commitment_id",
+            "business_path_id",
+            "primary_path_id",
+            "expected_terminal",
+            "owner_id",
+            "source_ref",
+            "disposition",
+            "scoped_out_reason",
+            "validation_boundary",
+            "rationale",
+        ):
+            object.__setattr__(self, field_name, str(getattr(self, field_name)))
+        object.__setattr__(self, "state_writes", _as_tuple(self.state_writes))
+        object.__setattr__(self, "side_effects", _as_tuple(self.side_effects))
+        object.__setattr__(self, "evidence_ids", _as_tuple(self.evidence_ids))
+        object.__setattr__(self, "similarity_relation_ids", _as_tuple(self.similarity_relation_ids))
+        object.__setattr__(self, "in_scope", bool(self.in_scope))
+        object.__setattr__(self, "metadata", dict(self.metadata))
+
+    def has_scoped_disposition(self) -> bool:
+        return bool(
+            not self.in_scope
+            and self.disposition
+            and self.scoped_out_reason
+            and self.owner_id
+            and self.validation_boundary
+            and self.rationale
+            and self.evidence_ids
+        )
+
+    def missing_material_fields(self) -> tuple[str, ...]:
+        if not self.in_scope:
+            return ()
+        required = (
+            "surface_id",
+            "surface_kind",
+            "business_intent_id",
+            "behavior_commitment_id",
+            "business_path_id",
+            "primary_path_id",
+            "expected_terminal",
+            "owner_id",
+        )
+        missing = [field_name for field_name in required if not getattr(self, field_name)]
+        if not self.evidence_ids:
+            missing.append("evidence_ids")
+        return tuple(missing)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "surface_id": self.surface_id,
+            "surface_kind": self.surface_kind,
+            "business_intent_id": self.business_intent_id,
+            "behavior_commitment_id": self.behavior_commitment_id,
+            "business_path_id": self.business_path_id,
+            "primary_path_id": self.primary_path_id,
+            "expected_terminal": self.expected_terminal,
+            "state_writes": list(self.state_writes),
+            "side_effects": list(self.side_effects),
+            "owner_id": self.owner_id,
+            "source_ref": self.source_ref,
+            "evidence_ids": list(self.evidence_ids),
+            "evidence_current": self.evidence_current,
+            "similarity_relation_ids": list(self.similarity_relation_ids),
+            "in_scope": self.in_scope,
+            "disposition": self.disposition,
+            "scoped_out_reason": self.scoped_out_reason,
+            "validation_boundary": self.validation_boundary,
+            "rationale": self.rationale,
+            "metadata": to_jsonable(dict(self.metadata)),
+        }
+
+
+@dataclass(frozen=True)
 class ExistingModelPreflight:
     """A light or full report grounding work in existing FlowGuard models."""
 
@@ -232,6 +360,15 @@ class ExistingModelPreflight:
     existing_modeled_system: bool = True
     model_search_performed: bool = False
     search_paths: tuple[str, ...] = ()
+    behavior_lookup_required: bool = False
+    behavior_lookup_status: str = BCL_LOOKUP_STATUS_NOT_APPLICABLE
+    primary_behavior_plane: str = ""
+    primary_commitment_hits: tuple[BehaviorCommitmentHit | Mapping[str, Any], ...] = ()
+    related_commitment_hits: tuple[BehaviorCommitmentHit | Mapping[str, Any], ...] = ()
+    candidate_commitment_hits: tuple[BehaviorCommitmentHit | Mapping[str, Any], ...] = ()
+    plane_ambiguity: bool = False
+    ledger_fingerprint: str = ""
+    behavior_lookup_reason: str = ""
     relevant_models: tuple[ModelContextHit, ...] = ()
     ownership_snapshot: ExistingOwnershipSnapshot | None = None
     reuse_decision: str = ""
@@ -249,13 +386,53 @@ class ExistingModelPreflight:
     model_angle_gap_ids: tuple[str, ...] = ()
     similarity_review_required: bool = False
     similarity_handoff: SimilarityHandoff | Mapping[str, Any] | None = None
+    affected_business_intent_id: str = ""
+    selected_commitment_id: str = ""
+    selected_primary_path_id: str = ""
+    expected_surface_ids: tuple[str, ...] = ()
+    intent_surfaces: tuple[ExistingIntentSurface | Mapping[str, Any], ...] = ()
+    surface_inventory_revision: str = ""
+    surface_inventory_evidence_ids: tuple[str, ...] = ()
+    typed_external_difference_ids: tuple[str, ...] = ()
+    require_complete_surface_inventory: bool = False
     skip_reason: str = ""
+    spec_provider_context: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "preflight_id", str(self.preflight_id))
         object.__setattr__(self, "task_summary", str(self.task_summary))
         object.__setattr__(self, "mode", str(self.mode))
         object.__setattr__(self, "search_paths", _as_tuple(self.search_paths))
+        object.__setattr__(self, "behavior_lookup_required", bool(self.behavior_lookup_required))
+        object.__setattr__(self, "behavior_lookup_status", str(self.behavior_lookup_status))
+        object.__setattr__(self, "primary_behavior_plane", str(self.primary_behavior_plane))
+        object.__setattr__(
+            self,
+            "primary_commitment_hits",
+            tuple(
+                item if isinstance(item, BehaviorCommitmentHit) else BehaviorCommitmentHit(**dict(item))
+                for item in self.primary_commitment_hits
+            ),
+        )
+        object.__setattr__(
+            self,
+            "related_commitment_hits",
+            tuple(
+                item if isinstance(item, BehaviorCommitmentHit) else BehaviorCommitmentHit(**dict(item))
+                for item in self.related_commitment_hits
+            ),
+        )
+        object.__setattr__(
+            self,
+            "candidate_commitment_hits",
+            tuple(
+                item if isinstance(item, BehaviorCommitmentHit) else BehaviorCommitmentHit(**dict(item))
+                for item in self.candidate_commitment_hits
+            ),
+        )
+        object.__setattr__(self, "plane_ambiguity", bool(self.plane_ambiguity))
+        object.__setattr__(self, "ledger_fingerprint", str(self.ledger_fingerprint))
+        object.__setattr__(self, "behavior_lookup_reason", str(self.behavior_lookup_reason))
         object.__setattr__(self, "relevant_models", tuple(self.relevant_models))
         object.__setattr__(self, "reuse_decision", str(self.reuse_decision))
         object.__setattr__(self, "downstream_routes", _as_tuple(self.downstream_routes))
@@ -280,7 +457,24 @@ class ExistingModelPreflight:
         )
         object.__setattr__(self, "model_angle_gap_ids", _as_tuple(self.model_angle_gap_ids))
         object.__setattr__(self, "similarity_handoff", normalize_similarity_handoff(self.similarity_handoff))
+        object.__setattr__(self, "affected_business_intent_id", str(self.affected_business_intent_id))
+        object.__setattr__(self, "selected_commitment_id", str(self.selected_commitment_id))
+        object.__setattr__(self, "selected_primary_path_id", str(self.selected_primary_path_id))
+        object.__setattr__(self, "expected_surface_ids", _as_tuple(self.expected_surface_ids))
+        object.__setattr__(
+            self,
+            "intent_surfaces",
+            tuple(
+                item if isinstance(item, ExistingIntentSurface) else ExistingIntentSurface(**dict(item))
+                for item in self.intent_surfaces
+            ),
+        )
+        object.__setattr__(self, "surface_inventory_revision", str(self.surface_inventory_revision))
+        object.__setattr__(self, "surface_inventory_evidence_ids", _as_tuple(self.surface_inventory_evidence_ids))
+        object.__setattr__(self, "typed_external_difference_ids", _as_tuple(self.typed_external_difference_ids))
+        object.__setattr__(self, "require_complete_surface_inventory", bool(self.require_complete_surface_inventory))
         object.__setattr__(self, "skip_reason", str(self.skip_reason))
+        object.__setattr__(self, "spec_provider_context", dict(self.spec_provider_context))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -290,6 +484,15 @@ class ExistingModelPreflight:
             "existing_modeled_system": self.existing_modeled_system,
             "model_search_performed": self.model_search_performed,
             "search_paths": list(self.search_paths),
+            "behavior_lookup_required": self.behavior_lookup_required,
+            "behavior_lookup_status": self.behavior_lookup_status,
+            "primary_behavior_plane": self.primary_behavior_plane,
+            "primary_commitment_hits": [hit.to_dict() for hit in self.primary_commitment_hits],
+            "related_commitment_hits": [hit.to_dict() for hit in self.related_commitment_hits],
+            "candidate_commitment_hits": [hit.to_dict() for hit in self.candidate_commitment_hits],
+            "plane_ambiguity": self.plane_ambiguity,
+            "ledger_fingerprint": self.ledger_fingerprint,
+            "behavior_lookup_reason": self.behavior_lookup_reason,
             "relevant_models": [model.to_dict() for model in self.relevant_models],
             "ownership_snapshot": self.ownership_snapshot.to_dict()
             if self.ownership_snapshot
@@ -311,7 +514,17 @@ class ExistingModelPreflight:
             "similarity_handoff": self.similarity_handoff.to_dict()
             if self.similarity_handoff
             else None,
+            "affected_business_intent_id": self.affected_business_intent_id,
+            "selected_commitment_id": self.selected_commitment_id,
+            "selected_primary_path_id": self.selected_primary_path_id,
+            "expected_surface_ids": list(self.expected_surface_ids),
+            "intent_surfaces": [surface.to_dict() for surface in self.intent_surfaces],
+            "surface_inventory_revision": self.surface_inventory_revision,
+            "surface_inventory_evidence_ids": list(self.surface_inventory_evidence_ids),
+            "typed_external_difference_ids": list(self.typed_external_difference_ids),
+            "require_complete_surface_inventory": self.require_complete_surface_inventory,
             "skip_reason": self.skip_reason,
+            "spec_provider_context": to_jsonable(dict(self.spec_provider_context)),
         }
 
 
@@ -353,12 +566,24 @@ class ExistingModelPreflightReport:
     preflight_id: str
     decision: str
     findings: tuple[ExistingModelPreflightFinding, ...] = ()
+    covered_surface_ids: tuple[str, ...] = ()
+    scoped_surface_ids: tuple[str, ...] = ()
+    missing_surface_ids: tuple[str, ...] = ()
+    business_intent_id: str = ""
+    behavior_commitment_id: str = ""
+    primary_path_id: str = ""
     summary: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "preflight_id", str(self.preflight_id))
         object.__setattr__(self, "decision", str(self.decision))
         object.__setattr__(self, "findings", tuple(self.findings))
+        object.__setattr__(self, "covered_surface_ids", _as_tuple(self.covered_surface_ids))
+        object.__setattr__(self, "scoped_surface_ids", _as_tuple(self.scoped_surface_ids))
+        object.__setattr__(self, "missing_surface_ids", _as_tuple(self.missing_surface_ids))
+        object.__setattr__(self, "business_intent_id", str(self.business_intent_id))
+        object.__setattr__(self, "behavior_commitment_id", str(self.behavior_commitment_id))
+        object.__setattr__(self, "primary_path_id", str(self.primary_path_id))
         if not self.summary:
             status = "OK" if self.ok else "BLOCKED"
             object.__setattr__(
@@ -397,6 +622,12 @@ class ExistingModelPreflightReport:
             "preflight_id": self.preflight_id,
             "decision": self.decision,
             "findings": [finding.to_dict() for finding in self.findings],
+            "covered_surface_ids": list(self.covered_surface_ids),
+            "scoped_surface_ids": list(self.scoped_surface_ids),
+            "missing_surface_ids": list(self.missing_surface_ids),
+            "business_intent_id": self.business_intent_id,
+            "behavior_commitment_id": self.behavior_commitment_id,
+            "primary_path_id": self.primary_path_id,
             "summary": self.summary,
         }
 
@@ -456,6 +687,21 @@ def _decision_for_findings(
             return "new_boundary_rationale_required"
         if "no_model_found_reason_missing" in codes:
             return "no_model_found_requires_reason"
+        if any(
+            code.startswith(("surface_inventory_", "intent_surface_"))
+            or code
+            in {
+                "missing_expected_intent_surface",
+                "duplicate_intent_surface_id",
+                "missing_stable_intent_identity",
+                "missing_stable_commitment_identity",
+                "missing_stable_primary_path_identity",
+                "same_intent_new_boundary_without_external_difference",
+                "unmaterialized_similarity_obligations",
+            }
+            for code in codes
+        ):
+            return "intent_surface_inventory_blocked"
         return "existing_model_preflight_blocked"
     if preflight.reuse_decision == REUSE_DECISION_NO_MODEL_FOUND:
         return "no_model_found_can_continue"
@@ -511,6 +757,54 @@ def _matches_changed_paths(path: Path, text: str, changed_paths: Sequence[str]) 
     return any(str(item).lower().replace("\\", "/") in haystack for item in changed_paths)
 
 
+def _owner_model_path(root_path: Path, owner_model_id: str) -> str:
+    owner = str(owner_model_id).replace("\\", "/")
+    candidates: list[Path] = []
+    if owner.endswith(".py") or "/" in owner:
+        candidates.append(Path(owner))
+    if owner.startswith("model:"):
+        candidates.append(Path(".flowguard") / owner.split(":", 1)[1] / "model.py")
+    for candidate in candidates:
+        path = candidate if candidate.is_absolute() else root_path / candidate
+        if path.exists():
+            try:
+                return str(path.relative_to(root_path))
+            except ValueError:
+                return str(path)
+    return ""
+
+
+def _lookup_model_hit(
+    root_path: Path,
+    hit: BehaviorCommitmentHit,
+    *,
+    ledger_path: Path,
+) -> ModelContextHit | None:
+    if not hit.primary_owner_model_id:
+        return None
+    relative_ledger = str(ledger_path)
+    try:
+        relative_ledger = str(ledger_path.relative_to(root_path))
+    except ValueError:
+        pass
+    return ModelContextHit(
+        model_id=hit.primary_owner_model_id,
+        model_path=_owner_model_path(root_path, hit.primary_owner_model_id),
+        evidence_id=f"behavior-ledger:{hit.commitment_id}",
+        evidence_tier="canonical_behavior_commitment",
+        evidence_current=True,
+        responsibilities=(
+            f"{hit.hit_role} commitment {hit.commitment_id} in {hit.behavior_plane}",
+        ),
+        validation_evidence=(relative_ledger,),
+        rationale=(
+            "Primary owner selected by plane-first commitment lookup."
+            if hit.hit_role == BCL_HIT_ROLE_PRIMARY
+            else "Related owner reached through a typed commitment relation."
+        ),
+    )
+
+
 def existing_model_preflight_from_project(
     root: str | Path,
     task_summary: str,
@@ -519,6 +813,12 @@ def existing_model_preflight_from_project(
     changed_paths: Sequence[str] = (),
     downstream_routes: Sequence[str] = (),
     mode: str = PREFLIGHT_MODE_FULL,
+    behavior_plane: str = "",
+    canonical_terms: Sequence[str] = (),
+    tool_ids: Sequence[str] = (),
+    error_signatures: Sequence[str] = (),
+    workflow_families: Sequence[str] = (),
+    ledger_path: str | Path = "",
 ) -> ExistingModelPreflight:
     """Create an ExistingModelPreflight input from lightweight project inventory.
 
@@ -536,8 +836,44 @@ def existing_model_preflight_from_project(
         )
         if path.exists()
     )
-    searched_paths = tuple(str(path.relative_to(root_path) if path.is_relative_to(root_path) else path) for path in search_roots)
+    canonical_ledger_path = Path(ledger_path) if ledger_path else root_path / ".flowguard" / "behavior_commitment_ledger" / "ledger.json"
+    if not canonical_ledger_path.is_absolute():
+        canonical_ledger_path = root_path / canonical_ledger_path
+    behavior_lookup_required = bool(ledger_path) or canonical_ledger_path.parent.exists()
+    lookup_report = None
+    if behavior_lookup_required:
+        lookup_report = query_behavior_commitments_from_path(
+            canonical_ledger_path,
+            BehaviorLookupQuery(
+                task_summary,
+                primary_plane=behavior_plane,
+                canonical_terms=tuple(canonical_terms),
+                changed_paths=tuple(changed_paths),
+                tool_ids=tuple(tool_ids),
+                error_signatures=tuple(error_signatures),
+                workflow_families=tuple(workflow_families),
+            ),
+        )
+    searched_path_values = [
+        str(path.relative_to(root_path) if path.is_relative_to(root_path) else path)
+        for path in search_roots
+    ]
+    if behavior_lookup_required:
+        try:
+            searched_path_values.insert(0, str(canonical_ledger_path.relative_to(root_path)))
+        except ValueError:
+            searched_path_values.insert(0, str(canonical_ledger_path))
+    searched_paths = tuple(dict.fromkeys(searched_path_values))
     hits: list[ModelContextHit] = []
+    primary_lookup_hits = lookup_report.primary_hits if lookup_report else ()
+    related_lookup_hits = lookup_report.related_hits if lookup_report else ()
+    candidate_lookup_hits = lookup_report.candidate_hits if lookup_report else ()
+    for lookup_hit in (*primary_lookup_hits, *related_lookup_hits):
+        model_hit = _lookup_model_hit(root_path, lookup_hit, ledger_path=canonical_ledger_path)
+        if model_hit is not None:
+            hits.append(model_hit)
+    seen_model_ids = {hit.model_id for hit in hits}
+    seen_model_paths = {hit.model_path.replace("\\", "/") for hit in hits if hit.model_path}
     flowguard_root = root_path / ".flowguard"
     if flowguard_root.exists():
         for path in sorted(flowguard_root.rglob("*.py")):
@@ -546,6 +882,8 @@ def existing_model_preflight_from_project(
             text = path.read_text(encoding="utf-8", errors="replace")
             if "FlowGuard" not in text and "Workflow" not in text and "Invariant" not in text:
                 continue
+            if primary_lookup_hits and not changed_paths:
+                continue
             if not _matches_changed_paths(path, text, changed_paths):
                 continue
             model_id = _model_id_from_path(path, flowguard_root)
@@ -553,6 +891,9 @@ def existing_model_preflight_from_project(
             responsibilities = _purpose_lines(text) or (model_id,)
             relative_path = str(path.relative_to(root_path))
             fields_owned = tuple(dict.fromkeys(re.findall(r"field:[A-Za-z0-9_.:-]+", text)))
+            normalized_relative = relative_path.replace("\\", "/")
+            if model_id in seen_model_ids or normalized_relative in seen_model_paths:
+                continue
             hits.append(
                 ModelContextHit(
                     model_id=model_id,
@@ -566,6 +907,8 @@ def existing_model_preflight_from_project(
                     rationale="Discovered from project FlowGuard inventory.",
                 )
             )
+            seen_model_ids.add(model_id)
+            seen_model_paths.add(normalized_relative)
 
     ownership_snapshot = None
     if hits:
@@ -586,10 +929,14 @@ def existing_model_preflight_from_project(
                 for field_id in hit.fields_owned
             ),
         )
+    lookup_status = (
+        lookup_report.status if lookup_report else BCL_LOOKUP_STATUS_NOT_APPLICABLE
+    )
+    lookup_reason = lookup_report.status_reason if lookup_report else ""
     reuse_decision = REUSE_DECISION_REUSE_EXISTING if hits else REUSE_DECISION_NO_MODEL_FOUND
     no_model_found_reason = "" if hits else "No relevant FlowGuard model files were found in project inventory."
     rationale = (
-        "Project inventory found existing FlowGuard model context."
+        "Plane-first behavior lookup and project inventory found existing FlowGuard model context."
         if hits
         else "Proceed with explicit no-model-found boundary before downstream modeling."
     )
@@ -600,6 +947,15 @@ def existing_model_preflight_from_project(
         existing_modeled_system=True,
         model_search_performed=True,
         search_paths=searched_paths,
+        behavior_lookup_required=behavior_lookup_required,
+        behavior_lookup_status=lookup_status,
+        primary_behavior_plane=lookup_report.selected_plane if lookup_report else "",
+        primary_commitment_hits=primary_lookup_hits,
+        related_commitment_hits=related_lookup_hits,
+        candidate_commitment_hits=candidate_lookup_hits,
+        plane_ambiguity=lookup_report.plane_ambiguity if lookup_report else False,
+        ledger_fingerprint=lookup_report.ledger_fingerprint if lookup_report else "",
+        behavior_lookup_reason=lookup_reason,
         relevant_models=tuple(hits),
         ownership_snapshot=ownership_snapshot,
         reuse_decision=reuse_decision,
@@ -615,6 +971,29 @@ def review_existing_model_preflight(
     """Review an existing-model preflight report."""
 
     findings: list[ExistingModelPreflightFinding] = []
+
+    inventory_required = bool(
+        preflight.require_complete_surface_inventory
+        or preflight.affected_business_intent_id
+        or preflight.selected_commitment_id
+        or preflight.selected_primary_path_id
+        or preflight.expected_surface_ids
+        or preflight.intent_surfaces
+        or preflight.surface_inventory_revision
+        or preflight.surface_inventory_evidence_ids
+        or preflight.typed_external_difference_ids
+    )
+    covered_surface_ids = tuple(
+        surface.surface_id for surface in preflight.intent_surfaces if surface.in_scope and surface.surface_id
+    )
+    scoped_surface_ids = tuple(
+        surface.surface_id for surface in preflight.intent_surfaces if not surface.in_scope and surface.surface_id
+    )
+    missing_surface_ids = tuple(
+        surface_id
+        for surface_id in preflight.expected_surface_ids
+        if surface_id not in set(covered_surface_ids) | set(scoped_surface_ids)
+    )
 
     if not preflight.preflight_id:
         findings.append(
@@ -644,8 +1023,192 @@ def review_existing_model_preflight(
                 f"reuse decision {preflight.reuse_decision!r} is not recognized",
             )
         )
+    if preflight.behavior_lookup_status not in BCL_LOOKUP_STATUSES:
+        findings.append(
+            ExistingModelPreflightFinding(
+                "invalid_behavior_lookup_status",
+                "preflight behavior lookup status is not recognized",
+                metadata={"behavior_lookup_status": preflight.behavior_lookup_status},
+            )
+        )
+    if preflight.spec_provider_context:
+        context = preflight.spec_provider_context
+        missing = tuple(
+            field_name
+            for field_name in ("spec_provider_id", "work_package_id", "change_id")
+            if not str(context.get(field_name, ""))
+        )
+        if missing:
+            findings.append(
+                ExistingModelPreflightFinding(
+                    "spec_provider_context_identity_missing",
+                    "provider context must preserve provider, work-package, and change identities",
+                    metadata={"missing": list(missing)},
+                )
+            )
+        if context.get("behavior_plane") != BCL_PLANE_DEVELOPMENT_PROCESS:
+            findings.append(
+                ExistingModelPreflightFinding(
+                    "spec_provider_context_wrong_plane",
+                    "spec provider context belongs only to development_process",
+                    metadata=dict(context),
+                )
+            )
+        if context.get("provider_owns_product_behavior") is not False:
+            findings.append(
+                ExistingModelPreflightFinding(
+                    "spec_provider_takes_product_ownership",
+                    "provider tasks may target but cannot own product-runtime commitments",
+                    metadata=dict(context),
+                )
+            )
+        if context.get("provider_current") is not True or context.get("reconciliation_current") is not True:
+            findings.append(
+                ExistingModelPreflightFinding(
+                    "spec_provider_context_not_current",
+                    "provider context must be current and bidirectionally reconciled before it can support model selection",
+                    metadata=dict(context),
+                )
+            )
+        missing_fingerprints = tuple(
+            key
+            for key in ("package_identity_fingerprint", "reconciliation_fingerprint")
+            if not str(context.get(key, ""))
+        )
+        if missing_fingerprints:
+            findings.append(
+                ExistingModelPreflightFinding(
+                    "spec_provider_context_fingerprint_missing",
+                    "provider context needs stable package and reconciliation fingerprints",
+                    metadata={"missing": list(missing_fingerprints)},
+                )
+            )
+        if context.get("target_commitment_ids") and not context.get("typed_relation_ids"):
+            findings.append(
+                ExistingModelPreflightFinding(
+                    "spec_provider_target_relation_missing",
+                    "a product target must remain connected through a typed relation rather than ownership takeover",
+                    metadata=dict(context),
+                )
+            )
+        if preflight.behavior_lookup_status != BCL_LOOKUP_STATUS_PERFORMED:
+            findings.append(
+                ExistingModelPreflightFinding(
+                    "spec_provider_context_before_plane_lookup",
+                    "provider context may be consumed only after canonical plane-first lookup",
+                    metadata=dict(context),
+                )
+            )
+        elif preflight.primary_behavior_plane != BCL_PLANE_DEVELOPMENT_PROCESS:
+            findings.append(
+                ExistingModelPreflightFinding(
+                    "spec_provider_context_lookup_plane_mismatch",
+                    "provider context cannot merge into a primary owner from another plane",
+                    metadata={
+                        "primary_behavior_plane": preflight.primary_behavior_plane,
+                        "provider_context": dict(context),
+                    },
+                )
+            )
+    if preflight.behavior_lookup_required and preflight.behavior_lookup_status in {
+        BCL_LOOKUP_STATUS_BLOCKED,
+        BCL_LOOKUP_STATUS_NOT_APPLICABLE,
+    }:
+        findings.append(
+            ExistingModelPreflightFinding(
+                "behavior_lookup_not_current",
+                "required canonical behavior lookup did not complete; path inventory is diagnostic context only",
+                severity="blocker" if preflight.mode == PREFLIGHT_MODE_FULL else "warning",
+                metadata={
+                    "behavior_lookup_status": preflight.behavior_lookup_status,
+                    "reason": preflight.behavior_lookup_reason,
+                },
+            )
+        )
+    if preflight.behavior_lookup_status == BCL_LOOKUP_STATUS_PERFORMED:
+        if not preflight.ledger_fingerprint:
+            findings.append(
+                ExistingModelPreflightFinding(
+                    "behavior_lookup_missing_ledger_fingerprint",
+                    "performed behavior lookup must preserve the canonical ledger fingerprint",
+                )
+            )
+        if preflight.plane_ambiguity:
+            findings.append(
+                ExistingModelPreflightFinding(
+                    "behavior_lookup_plane_ambiguous",
+                    "behavior lookup kept multiple responsibility planes and cannot select one primary owner set",
+                    severity="blocker" if preflight.mode == PREFLIGHT_MODE_FULL else "warning",
+                    metadata={
+                        "candidate_hits": [hit.to_dict() for hit in preflight.candidate_commitment_hits],
+                    },
+                )
+            )
+        if preflight.primary_commitment_hits and preflight.primary_behavior_plane not in BCL_BEHAVIOR_PLANES:
+            findings.append(
+                ExistingModelPreflightFinding(
+                    "behavior_lookup_primary_plane_missing",
+                    "primary commitment hits require one valid primary behavior plane",
+                )
+            )
+        primary_ids = {hit.commitment_id for hit in preflight.primary_commitment_hits}
+        relevant_owner_ids = {model.model_id for model in preflight.relevant_models}
+        for hit in preflight.primary_commitment_hits:
+            if hit.behavior_plane != preflight.primary_behavior_plane:
+                findings.append(
+                    ExistingModelPreflightFinding(
+                        "behavior_lookup_wrong_plane_primary_hit",
+                        "primary hit belongs to a different behavior plane",
+                        model_id=hit.primary_owner_model_id,
+                        item_id=hit.commitment_id,
+                        metadata=hit.to_dict(),
+                    )
+                )
+            if hit.hit_role != BCL_HIT_ROLE_PRIMARY:
+                findings.append(
+                    ExistingModelPreflightFinding(
+                        "behavior_lookup_primary_hit_role_mismatch",
+                        "primary hit must retain the primary role",
+                        item_id=hit.commitment_id,
+                        metadata=hit.to_dict(),
+                    )
+                )
+            if hit.primary_owner_model_id and hit.primary_owner_model_id not in relevant_owner_ids:
+                findings.append(
+                    ExistingModelPreflightFinding(
+                        "behavior_lookup_owner_model_not_projected",
+                        "primary commitment owner model is missing from relevant model hits",
+                        model_id=hit.primary_owner_model_id,
+                        item_id=hit.commitment_id,
+                    )
+                )
+        for hit in preflight.related_commitment_hits:
+            if hit.hit_role == BCL_HIT_ROLE_PRIMARY:
+                findings.append(
+                    ExistingModelPreflightFinding(
+                        "behavior_lookup_related_hit_promoted",
+                        "typed related commitment cannot be presented as a primary instruction",
+                        item_id=hit.commitment_id,
+                        metadata=hit.to_dict(),
+                    )
+                )
+            if hit.commitment_id in primary_ids:
+                findings.append(
+                    ExistingModelPreflightFinding(
+                        "behavior_lookup_primary_related_overlap",
+                        "one commitment cannot be both primary and related in the same lookup report",
+                        item_id=hit.commitment_id,
+                    )
+                )
 
     if preflight.skip_reason:
+        if inventory_required:
+            findings.append(
+                ExistingModelPreflightFinding(
+                    "surface_inventory_skip_forbidden",
+                    "same-intent surface discovery cannot be skipped after an affected intent or inventory has been declared",
+                )
+            )
         if preflight.reuse_decision and preflight.reuse_decision != REUSE_DECISION_SKIP:
             findings.append(
                 ExistingModelPreflightFinding(
@@ -666,6 +1229,12 @@ def review_existing_model_preflight(
             preflight_id=preflight.preflight_id,
             decision=_decision_for_findings(preflight, findings),
             findings=tuple(findings),
+            covered_surface_ids=covered_surface_ids,
+            scoped_surface_ids=scoped_surface_ids,
+            missing_surface_ids=missing_surface_ids,
+            business_intent_id=preflight.affected_business_intent_id,
+            behavior_commitment_id=preflight.selected_commitment_id,
+            primary_path_id=preflight.selected_primary_path_id,
         )
 
     if not preflight.model_search_performed:
@@ -763,6 +1332,176 @@ def review_existing_model_preflight(
                     "full preflight does not name the downstream FlowGuard route",
                 )
             )
+
+    if inventory_required:
+        if not preflight.affected_business_intent_id:
+            findings.append(
+                ExistingModelPreflightFinding(
+                    "missing_stable_intent_identity",
+                    "intent-surface inventory requires one stable business intent id",
+                )
+            )
+        if not preflight.selected_commitment_id:
+            findings.append(
+                ExistingModelPreflightFinding(
+                    "missing_stable_commitment_identity",
+                    "intent-surface inventory requires the selected behavior commitment id",
+                )
+            )
+        if not preflight.selected_primary_path_id:
+            findings.append(
+                ExistingModelPreflightFinding(
+                    "missing_stable_primary_path_identity",
+                    "intent-surface inventory requires the selected primary path id",
+                )
+            )
+        if not preflight.surface_inventory_revision:
+            findings.append(
+                ExistingModelPreflightFinding(
+                    "surface_inventory_revision_missing",
+                    "intent-surface inventory has no revision or source snapshot identity",
+                )
+            )
+        if not preflight.surface_inventory_evidence_ids:
+            findings.append(
+                ExistingModelPreflightFinding(
+                    "surface_inventory_evidence_missing",
+                    "intent-surface inventory has no current discovery evidence",
+                )
+            )
+        if preflight.require_complete_surface_inventory and not preflight.expected_surface_ids:
+            findings.append(
+                ExistingModelPreflightFinding(
+                    "surface_inventory_expected_set_missing",
+                    "complete intent-surface review requires an explicit expected surface set",
+                )
+            )
+        duplicate_expected_surface_ids = {
+            surface_id
+            for surface_id in preflight.expected_surface_ids
+            if preflight.expected_surface_ids.count(surface_id) > 1
+        }
+        for surface_id in sorted(duplicate_expected_surface_ids):
+            findings.append(
+                ExistingModelPreflightFinding(
+                    "duplicate_expected_intent_surface",
+                    "complete intent-surface inventory repeats an expected surface id",
+                    item_id=surface_id,
+                )
+            )
+        for surface_id in missing_surface_ids:
+            findings.append(
+                ExistingModelPreflightFinding(
+                    "missing_expected_intent_surface",
+                    "an expected same-intent surface is absent from the materialized or scoped inventory",
+                    item_id=surface_id,
+                )
+            )
+        seen_surface_ids: set[str] = set()
+        for surface in preflight.intent_surfaces:
+            if (
+                preflight.require_complete_surface_inventory
+                and preflight.expected_surface_ids
+                and surface.surface_id not in preflight.expected_surface_ids
+            ):
+                findings.append(
+                    ExistingModelPreflightFinding(
+                        "unexpected_intent_surface",
+                        "materialized same-intent surface is absent from the declared complete expected set",
+                        item_id=surface.surface_id,
+                    )
+                )
+            if surface.surface_id in seen_surface_ids:
+                findings.append(
+                    ExistingModelPreflightFinding(
+                        "duplicate_intent_surface_id",
+                        "intent-surface inventory contains the same surface id more than once",
+                        item_id=surface.surface_id,
+                    )
+                )
+            seen_surface_ids.add(surface.surface_id)
+            if surface.surface_kind not in PREFLIGHT_SURFACE_KINDS:
+                findings.append(
+                    ExistingModelPreflightFinding(
+                        "intent_surface_kind_invalid",
+                        "intent surface must use a recognized UI, API, CLI, alias, adapter, wrapper, helper, or compatibility kind",
+                        item_id=surface.surface_id,
+                        metadata={"surface_kind": surface.surface_kind},
+                    )
+                )
+            if surface.in_scope:
+                missing_fields = surface.missing_material_fields()
+                if missing_fields:
+                    findings.append(
+                        ExistingModelPreflightFinding(
+                            "intent_surface_materialization_incomplete",
+                            "in-scope intent surface is missing stable identity, ownership, terminal, or evidence fields",
+                            item_id=surface.surface_id,
+                            metadata={"missing_fields": list(missing_fields)},
+                        )
+                    )
+            elif not surface.has_scoped_disposition():
+                findings.append(
+                    ExistingModelPreflightFinding(
+                        "intent_surface_scoped_disposition_incomplete",
+                        "scoped-out same-intent surface needs owner, evidence, reason, validation boundary, and rationale",
+                        item_id=surface.surface_id,
+                    )
+                )
+            if not surface.evidence_current:
+                findings.append(
+                    ExistingModelPreflightFinding(
+                        "intent_surface_evidence_stale",
+                        "intent surface discovery or scoped-disposition evidence is stale",
+                        item_id=surface.surface_id,
+                    )
+                )
+            for field_name, expected_value in (
+                ("business_intent_id", preflight.affected_business_intent_id),
+                ("behavior_commitment_id", preflight.selected_commitment_id),
+                ("primary_path_id", preflight.selected_primary_path_id),
+            ):
+                actual_value = getattr(surface, field_name)
+                if (
+                    expected_value
+                    and actual_value
+                    and actual_value != expected_value
+                    and (surface.in_scope or field_name == "business_intent_id")
+                ):
+                    findings.append(
+                        ExistingModelPreflightFinding(
+                            f"intent_surface_{field_name}_mismatch",
+                            f"in-scope intent surface points at a different {field_name}",
+                            item_id=surface.surface_id,
+                            metadata={"expected": expected_value, "actual": actual_value},
+                        )
+                    )
+
+        if (
+            preflight.reuse_decision == REUSE_DECISION_NEW_BOUNDARY
+            and preflight.affected_business_intent_id
+            and preflight.intent_surfaces
+            and not preflight.typed_external_difference_ids
+        ):
+            findings.append(
+                ExistingModelPreflightFinding(
+                    "same_intent_new_boundary_without_external_difference",
+                    "a new boundary for an already inventoried intent needs typed externally observable differences",
+                    item_id=preflight.affected_business_intent_id,
+                )
+            )
+
+        if preflight.similarity_handoff and preflight.similarity_handoff.relation_ids:
+            material_test_obligations = getattr(preflight.similarity_handoff, "test_obligations", ())
+            material_code_obligations = getattr(preflight.similarity_handoff, "code_obligations", ())
+            if not (material_test_obligations or material_code_obligations):
+                findings.append(
+                    ExistingModelPreflightFinding(
+                        "unmaterialized_similarity_obligations",
+                        "similarity evidence must hand off material test or code obligations, not only opaque ids",
+                        metadata={"relation_ids": list(preflight.similarity_handoff.relation_ids)},
+                    )
+                )
         if not preflight.rationale:
             findings.append(
                 ExistingModelPreflightFinding(
@@ -954,6 +1693,12 @@ def review_existing_model_preflight(
         preflight_id=preflight.preflight_id,
         decision=_decision_for_findings(preflight, findings),
         findings=tuple(findings),
+        covered_surface_ids=covered_surface_ids,
+        scoped_surface_ids=scoped_surface_ids,
+        missing_surface_ids=missing_surface_ids,
+        business_intent_id=preflight.affected_business_intent_id,
+        behavior_commitment_id=preflight.selected_commitment_id,
+        primary_path_id=preflight.selected_primary_path_id,
     )
 
 
@@ -962,12 +1707,14 @@ __all__ = [
     "ExistingModelPreflight",
     "ExistingModelPreflightFinding",
     "ExistingModelPreflightReport",
+    "ExistingIntentSurface",
     "ExistingOwnershipSnapshot",
     "DuplicateBoundaryRisk",
     "ModelContextHit",
     "PREFLIGHT_MODE_FULL",
     "PREFLIGHT_MODE_LIGHT",
     "PREFLIGHT_MODES",
+    "PREFLIGHT_SURFACE_KINDS",
     "REUSE_DECISION_ADD_CHILD_MODEL",
     "REUSE_DECISION_EXTEND_EXISTING",
     "REUSE_DECISION_NEW_BOUNDARY",

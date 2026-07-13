@@ -29,6 +29,7 @@ def correct_plan() -> ModelSimilarityPlan:
         model_signature_maintenance(
             "checkout-simple",
             workflow_family="checkout",
+            behavior_plane="product_runtime",
             variant_id="simple",
             function_blocks=("ValidateOrder", "PersistOrder"),
             state_owned=("orders",),
@@ -38,6 +39,10 @@ def correct_plan() -> ModelSimilarityPlan:
             owned_public_behaviors=("submit_order",),
             business_path_ids=("submit_order",),
             business_intents=("submit order",),
+            business_intent_ids=("intent:submit-order",),
+            behavior_commitment_ids=("commitment:submit-order",),
+            primary_path_ids=("path:submit-order",),
+            public_surface_ids=("surface:checkout-simple",),
             path_terminals=("accepted",),
             shared_kernel_id="checkout_core",
             adapter_ids=("simple_adapter",),
@@ -47,6 +52,7 @@ def correct_plan() -> ModelSimilarityPlan:
         model_signature_maintenance(
             "checkout-retry",
             workflow_family="checkout",
+            behavior_plane="product_runtime",
             variant_id="retry",
             function_blocks=("ValidateOrder", "PersistOrder"),
             state_owned=("orders",),
@@ -56,6 +62,10 @@ def correct_plan() -> ModelSimilarityPlan:
             owned_public_behaviors=("submit_order", "retry_order"),
             business_path_ids=("submit_order", "retry_order"),
             business_intents=("submit order", "retry order"),
+            business_intent_ids=("intent:submit-order", "intent:retry-order"),
+            behavior_commitment_ids=("commitment:submit-order", "commitment:retry-order"),
+            primary_path_ids=("path:submit-order", "path:retry-order"),
+            public_surface_ids=("surface:checkout-retry",),
             path_terminals=("accepted", "retry_scheduled"),
             shared_kernel_id="checkout_core",
             adapter_ids=("retry_adapter",),
@@ -65,6 +75,7 @@ def correct_plan() -> ModelSimilarityPlan:
         model_signature_maintenance(
             "checkout-cancel",
             workflow_family="checkout",
+            behavior_plane="product_runtime",
             variant_id="cancel",
             function_blocks=("ValidateOrder", "PersistOrder"),
             state_owned=("orders",),
@@ -74,6 +85,10 @@ def correct_plan() -> ModelSimilarityPlan:
             owned_public_behaviors=("cancel_order",),
             business_path_ids=("cancel_order",),
             business_intents=("cancel order",),
+            business_intent_ids=("intent:cancel-order",),
+            behavior_commitment_ids=("commitment:cancel-order",),
+            primary_path_ids=("path:cancel-order",),
+            public_surface_ids=("surface:checkout-cancel",),
             path_terminals=("cancelled",),
             shared_kernel_id="checkout_core",
             adapter_ids=("cancel_adapter",),
@@ -89,8 +104,18 @@ def correct_plan() -> ModelSimilarityPlan:
             ModelSimilarityEvidence(
                 "sim:checkout-family",
                 summary="family review confirmed shared checkout kernel with retry and cancel adapters",
+                compared_behavior_planes=("product_runtime",),
             ),
         ),
+        expected_surface_ids=(
+            "surface:checkout-simple",
+            "surface:checkout-retry",
+            "surface:checkout-cancel",
+        ),
+        surface_inventory_revision="checkout-surfaces:v1",
+        require_complete_surface_inventory=True,
+        require_stable_authority_identity=True,
+        require_behavior_plane_identity=True,
         require_current_evidence=True,
         rationale="Use similarity review before changing one checkout variant or creating a parallel checkout workflow.",
     )
@@ -204,6 +229,8 @@ metadata.
 
 - stable model signatures, including FunctionBlocks, inputs, outputs, state,
   side effects, invariants, failure modes, contracts, entrypoints, and evidence;
+- stable business-intent, behavior-commitment, and primary-path identities,
+  plus an explicit expected-member inventory and its revision/provenance;
 - typed relations such as same workflow, family variant, symmetric flow, shared
   kernel, duplicate boundary, ownership overlap, adapter-only difference,
   evidence duplicate, false friend, and unrelated;
@@ -218,9 +245,14 @@ metadata.
   are both covered;
 - code obligations for shared kernels, adapters, duplicate boundaries,
   ownership overlap, and false-friend quarantine;
+- materialized affected surfaces, test obligations, and code obligations in
+  the handoff instead of opaque relation ids that downstream routes cannot
+  verify;
 - evidence gaps that keep similarity advice scoped rather than full confidence.
 
-Similarity advice is not an implementation proof. Use the downstream route it
+Similarity remains advisory: it may detect resemblance and produce explicit
+obligations, but it never chooses the behavior commitment or runtime authority.
+Use the downstream route it
 names before merging models, extracting shared code, pruning adapters, or
 claiming broad test and code confidence.
 """

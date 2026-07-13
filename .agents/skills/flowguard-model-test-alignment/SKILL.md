@@ -6,35 +6,35 @@ description: Use when model obligations, owner external CodeContracts, source au
 # FlowGuard Model-Test Alignment
 
 ## Purpose
-Compare declared model obligations, owner code external contracts, and current test evidence for the same behavior without owning test/code/model partitioning.
+Compare model obligations, owner external `CodeContract`, and current tests for the same behavior and coverage.
 
 ## Entrypoint Scope
-Route id: `model_test_alignment`; role: `public_owner`; native owner: `model_test_alignment`. This standalone FlowGuard satellite skill owns alignment rows; it sends large/slow evidence to TestMesh through a typed handoff while TestMesh retains its own execution and freshness authority.
+This standalone FlowGuard satellite skill owns `model_test_alignment` (`public_owner`) rows and hands large evidence to TestMesh.
 
 ## Local Material Routing
-Read `references/model_test_alignment_protocol.md` for `CodeContract`, `ArtifactPayloadContract`, source audits, transition/leaf matrices, closure targets, and binding rows.
+Read `references/model_test_alignment_protocol.md` for contracts, audits, matrices, targets, and bindings.
 
 ## Entrypoint Acceptance Map
-Accept explicit obligations, owner contracts, and evidence; compare bindings/freshness; block missing external-contract proof, stale audits, or orphan/duplicate rows; hand evidence hierarchy, model gaps, and final risk decisions to typed owners.
+Accept obligations/contracts/evidence; compare bindings/freshness; block missing/stale/orphan rows and hand gaps to owners.
 
 ## Use When
-- Use for model-code-test coverage, transition/closure cells, field projections, real-code boundaries, counterexample targets, or file/generated/AI work-package payload evidence.
+- Use for model-code-test coverage, cells, field projections, code boundaries, targets, or payload evidence.
 
 ## Do Not Use When
-- Do not split tests, code, or models, run mesh ownership, or replace conformance replay; return undefined obligations to `model-first-function-flow`.
+- Do not split tests/code/models or use TestMesh as a parallel semantic owner; return undefined obligations to `model-first-function-flow`.
 
 ## Required Workflow
-1. List obligations, commitment ids, transitions/fields/payloads, owner `CodeContract` rows, and required evidence kinds.
-2. Consume canonical ContractExhaustionMesh ids, source/boundary observations, and current test evidence; build `ModelCodeTestBindingRow` closure summaries.
-3. Classify gaps and issue typed TestMesh, maturation, risk-ledger, or closure handoffs.
+1. List obligations, stable plane/intent/commitment/path ids, fields, `ArtifactPayloadContract`, owner/delegating contracts, similarity, and evidence kinds.
+2. Materialize similarity/exhaustion rows into obligations, owner contracts, targets, tests, or typed scoped dispositions; consume current source/runtime/family evidence.
+3. Classify gaps and hand them to TestMesh, maturation, risk, or closure owners.
 
 ## Hard Gates
-- Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
-- Full confidence requires each required obligation to bind one owner external code contract and current same-contract test evidence.
-- Missing/stale/skipped/source-audit/payload/target evidence or template harvest closure blocks broad alignment; large evidence may be delegated, never silently counted.
+- Use the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework. Full confidence requires each obligation to bind one owner contract and current same-plane test.
+- One intent cannot align to two primary paths; facades delegate with current no-independent-success evidence.
+- Opaque family/similarity ids and missing/stale/skipped/audit/payload/target evidence do not count; delegate large evidence explicitly.
 
 ## Output Requirements
-- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`, plus coverage bindings and open gap codes.
+- Return evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, typed_next_actions, binding gaps, and a diagram whose edges mean covers, partially covers, or does not cover.
 
 ## SkillGuard Maintenance
-- Edit `.skillguard/contract-source.json`, then regenerate derived contracts; SkillGuard checks native alignment parity and cannot run TestMesh or manufacture code/test proof.
+- Edit contract source, regenerate; SkillGuard cannot manufacture proof.

@@ -4,10 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "flowguard"
-version = "0.54.0"
+version = "0.55.0"
 description = "Model-first workflow checks for AI agents and process preflights."
 requires-python = ">=3.10"
 dependencies = []
+
+[project.optional-dependencies]
+spec-providers = ["PyYAML>=6.0"]
 
 [project.scripts]
 flowguard = "flowguard.__main__:main"

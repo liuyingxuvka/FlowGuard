@@ -3,11 +3,12 @@
 FlowGuard Risk Purpose Header
 Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
 Purpose: make FlowGuard's own route graph, field layering, AI entry profiles,
-child route evidence, install sync, shadow sync, and git boundary visible before
-claiming self-maintenance completion.
+child route evidence, install sync, shadow sync, and repository boundary visible
+before claiming self-maintenance completion.
 Guards against: adding more helpers while leaving routes unconnected, hiding
 required field/evidence expansion, or claiming completion before validation and
-sync evidence is current.
+sync evidence is current; unrelated child identities and wrong-plane completion
+authority cannot stand in for the declared self-maintenance evidence.
 Use before editing: public route API, AI entry guidance, installed skills,
 field lifecycle prompts, structure split plans, and release/sync records.
 Run: python .flowguard/self_maintenance_mesh/run_checks.py
@@ -25,6 +26,7 @@ from flowguard import FunctionResult, Invariant, InvariantResult, Workflow
 @dataclass(frozen=True)
 class SelfMaintenanceAction:
     action_type: str
+    behavior_plane: str = "development_process"
     verified_child_receipt_ids: tuple[str, ...] = ()
     verification_set_fingerprint: str = ""
 
@@ -54,6 +56,7 @@ class SelfMaintenanceState:
     git_status_checked: bool = False
     consumed_child_receipt_ids: tuple[str, ...] = ()
     receipt_set_fingerprint: str = ""
+    completion_authority_plane: str = ""
     done_claim: str = "none"
 
     def ready_for_done(self) -> bool:
@@ -77,6 +80,15 @@ class SelfMaintenanceState:
         )
 
 
+def _receipt_set_current(input_obj: SelfMaintenanceAction) -> bool:
+    skill_receipt_ids = tuple(input_obj.verified_child_receipt_ids)
+    return (
+        len(skill_receipt_ids) == len(REQUIRED_SKILL_RECEIPT_IDS)
+        and set(skill_receipt_ids) == set(REQUIRED_SKILL_RECEIPT_IDS)
+        and bool(input_obj.verification_set_fingerprint)
+    )
+
+
 class CorrectSelfMaintenance:
     name = "CorrectSelfMaintenance"
     reads = (
@@ -96,6 +108,9 @@ class CorrectSelfMaintenance:
         "install_sync_verified",
         "shadow_sync_checked",
         "git_status_checked",
+        "consumed_child_receipt_ids",
+        "receipt_set_fingerprint",
+        "completion_authority_plane",
         "done_claim",
     )
     writes = reads
@@ -104,10 +119,17 @@ class CorrectSelfMaintenance:
     output_description = "self-maintenance state or claim decision"
     idempotency = (
         "Done claims require route graph, profiles, behavior ledger, DCAR, TestMesh, "
-        "model-miss backfeed, validation, install, shadow, and git gates."
+        "model-miss backfeed, exact skill receipts, validation, install, shadow, and repository gates."
     )
 
     def apply(self, input_obj: SelfMaintenanceAction, state: SelfMaintenanceState) -> Iterable[FunctionResult]:
+        if input_obj.behavior_plane != "development_process":
+            yield FunctionResult(
+                SelfMaintenanceOutput("wrong_plane_action_blocked"),
+                state,
+                label="wrong_plane_action_blocked",
+            )
+            return
         action = input_obj.action_type
         if action == "advance_receipt_bound_workflow":
             if not state.route_graph_connected:
@@ -131,11 +153,7 @@ class CorrectSelfMaintenance:
                 )
             elif not state.child_reports_current:
                 receipt_ids = tuple(input_obj.verified_child_receipt_ids)
-                exact_set = (
-                    len(receipt_ids) == REQUIRED_RECEIPT_COUNT
-                    and len(set(receipt_ids)) == REQUIRED_RECEIPT_COUNT
-                    and bool(input_obj.verification_set_fingerprint)
-                )
+                exact_set = _receipt_set_current(input_obj)
                 yield FunctionResult(
                     SelfMaintenanceOutput("receipt_set_consumed" if exact_set else "receipt_set_rejected"),
                     replace(
@@ -171,7 +189,11 @@ class CorrectSelfMaintenance:
             else:
                 yield FunctionResult(
                     SelfMaintenanceOutput("done_accepted"),
-                    replace(state, done_claim="accepted"),
+                    replace(
+                        state,
+                        done_claim="accepted",
+                        completion_authority_plane=input_obj.behavior_plane,
+                    ),
                     label="done_accepted",
                 )
         elif action == "connect_route_graph":
@@ -195,11 +217,7 @@ class CorrectSelfMaintenance:
             )
         elif action == "consume_verified_receipt_set":
             receipt_ids = tuple(input_obj.verified_child_receipt_ids)
-            exact_set = (
-                len(receipt_ids) == REQUIRED_RECEIPT_COUNT
-                and len(set(receipt_ids)) == REQUIRED_RECEIPT_COUNT
-                and bool(input_obj.verification_set_fingerprint)
-            )
+            exact_set = _receipt_set_current(input_obj)
             yield FunctionResult(
                 SelfMaintenanceOutput("receipt_set_consumed" if exact_set else "receipt_set_rejected"),
                 replace(
@@ -236,7 +254,11 @@ class CorrectSelfMaintenance:
             claim = "accepted" if state.ready_for_done() else "rejected"
             yield FunctionResult(
                 SelfMaintenanceOutput(f"done_{claim}"),
-                replace(state, done_claim=claim),
+                replace(
+                    state,
+                    done_claim=claim,
+                    completion_authority_plane=input_obj.behavior_plane if claim == "accepted" else "",
+                ),
                 label=f"done_{claim}",
             )
 
@@ -381,6 +403,25 @@ class BrokenMissingModelMissBackfeed(BrokenMissingCoverageGate):
     omitted_gate = "model_miss_backfeed_current"
 
 
+class BrokenWrongPlaneCompletionAuthority(CorrectSelfMaintenance):
+    name = "BrokenWrongPlaneCompletionAuthority"
+    idempotency = "Broken variant lets an agent-operation action own development-process completion."
+
+    def apply(self, input_obj: SelfMaintenanceAction, state: SelfMaintenanceState) -> Iterable[FunctionResult]:
+        if input_obj.action_type == "claim_done" and input_obj.behavior_plane != "development_process":
+            yield FunctionResult(
+                SelfMaintenanceOutput("done_accepted"),
+                replace(
+                    state,
+                    done_claim="accepted",
+                    completion_authority_plane=input_obj.behavior_plane,
+                ),
+                label="wrong_plane_done_accepted",
+            )
+            return
+        yield from super().apply(input_obj, state)
+
+
 def terminal_predicate(current_output, state, trace) -> bool:
     del state, trace
     return isinstance(current_output, SelfMaintenanceOutput) and current_output.status.startswith("done_")
@@ -390,15 +431,23 @@ def no_done_without_full_route_and_sync(state: SelfMaintenanceState, trace) -> I
     del trace
     if state.done_claim == "accepted" and not state.ready_for_done():
         return InvariantResult.fail(
-            "self-maintenance done accepted before typed route handoffs, unique owners, bounded cycles, profiles, field layers, child reports, behavior ledger, DCAR, TestMesh, model-miss backfeed, tests, install, shadow, and git gates"
+            "self-maintenance done accepted before typed route handoffs, unique owners, bounded cycles, profiles, field layers, exact skill child reports, behavior ledger, DCAR, TestMesh, model-miss backfeed, tests, install, shadow, and repository gates"
         )
     return InvariantResult.pass_()
 
 
 def no_evidence_flags_without_exact_receipt_set(state: SelfMaintenanceState, trace) -> InvariantResult:
     del trace
+    if state.child_reports_current and not (
+        len(state.consumed_child_receipt_ids) == len(REQUIRED_SKILL_RECEIPT_IDS)
+        and set(state.consumed_child_receipt_ids) == set(REQUIRED_SKILL_RECEIPT_IDS)
+        and bool(state.receipt_set_fingerprint)
+    ):
+        return InvariantResult.fail(
+            "skill-suite evidence became current without the exact required child identities"
+        )
+
     evidence_flags = (
-        state.child_reports_current,
         state.behavior_ledger_current,
         state.dcar_coverage_current,
         state.test_mesh_shards_current,
@@ -406,12 +455,12 @@ def no_evidence_flags_without_exact_receipt_set(state: SelfMaintenanceState, tra
         state.route_api_tested,
     )
     if any(evidence_flags) and not (
-        len(state.consumed_child_receipt_ids) == REQUIRED_RECEIPT_COUNT
-        and len(set(state.consumed_child_receipt_ids)) == REQUIRED_RECEIPT_COUNT
+        len(state.consumed_child_receipt_ids) == len(REQUIRED_SKILL_RECEIPT_IDS)
+        and set(state.consumed_child_receipt_ids) == set(REQUIRED_SKILL_RECEIPT_IDS)
         and bool(state.receipt_set_fingerprint)
     ):
         return InvariantResult.fail(
-            "self-maintenance evidence flags became true without an exact independently verified receipt set"
+            "self-maintenance evidence became current without the exact required child identities"
         )
     return InvariantResult.pass_()
 
@@ -420,6 +469,15 @@ def route_graph_does_not_replace_field_layers(state: SelfMaintenanceState, trace
     del trace
     if state.route_graph_connected and state.done_claim == "accepted" and not state.field_layers_declared:
         return InvariantResult.fail("route graph completion replaced field layer evidence")
+    return InvariantResult.pass_()
+
+
+def completion_authority_stays_in_development_process(state: SelfMaintenanceState, trace) -> InvariantResult:
+    del trace
+    if state.done_claim == "accepted" and state.completion_authority_plane != "development_process":
+        return InvariantResult.fail(
+            "self-maintenance completion was owned by a product-runtime or agent-operation action"
+        )
     return InvariantResult.pass_()
 
 
@@ -439,11 +497,34 @@ INVARIANTS = (
         "Evidence views require exact receipt identities and an aggregate verifier fingerprint.",
         no_evidence_flags_without_exact_receipt_set,
     ),
+    Invariant(
+        "completion_authority_stays_in_development_process",
+        "Self-maintenance completion remains owned by the development-process plane; other planes are typed targets or evidence sources.",
+        completion_authority_stays_in_development_process,
+    ),
 )
 
-REQUIRED_RECEIPT_COUNT = 17
-ABSTRACT_RECEIPT_IDS = tuple(f"verified-child-{index:02d}" for index in range(REQUIRED_RECEIPT_COUNT))
-
+REQUIRED_SKILL_RECEIPT_IDS = (
+    "model-first-function-flow",
+    "flowguard-agent-workflow-rehearsal",
+    "flowguard-architecture-reduction",
+    "flowguard-behavior-commitment-ledger",
+    "flowguard-code-structure-recommendation",
+    "flowguard-contract-exhaustion-mesh",
+    "flowguard-development-process-flow",
+    "flowguard-existing-model-preflight",
+    "flowguard-field-lifecycle-mesh",
+    "flowguard-model-mesh",
+    "flowguard-model-miss-review",
+    "flowguard-model-test-alignment",
+    "flowguard-model-topology-hazard-review",
+    "flowguard-plan-detailing-compiler",
+    "flowguard-structure-mesh",
+    "flowguard-test-mesh",
+    "flowguard-ui-flow-structure",
+)
+REQUIRED_RECEIPT_COUNT = len(REQUIRED_SKILL_RECEIPT_IDS)
+ABSTRACT_RECEIPT_IDS = REQUIRED_SKILL_RECEIPT_IDS
 EXTERNAL_INPUTS = (
     SelfMaintenanceAction(
         "advance_receipt_bound_workflow",
@@ -491,6 +572,10 @@ def build_broken_missing_model_miss_backfeed_workflow() -> Workflow:
     return Workflow((BrokenMissingModelMissBackfeed(),), name="self_maintenance_broken_missing_model_miss_backfeed")
 
 
+def build_broken_wrong_plane_completion_workflow() -> Workflow:
+    return Workflow((BrokenWrongPlaneCompletionAuthority(),), name="self_maintenance_broken_wrong_plane_completion")
+
+
 __all__ = [
     "EXTERNAL_INPUTS",
     "INVARIANTS",
@@ -505,6 +590,7 @@ __all__ = [
     "build_broken_synthetic_all_flags_workflow",
     "build_broken_missing_test_mesh_shards_workflow",
     "build_broken_route_graph_only_workflow",
+    "build_broken_wrong_plane_completion_workflow",
     "build_correct_workflow",
     "initial_state",
     "terminal_predicate",

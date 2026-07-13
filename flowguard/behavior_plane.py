@@ -1,0 +1,20 @@
+"""Shared behavior-plane vocabulary with no route or ownership semantics."""
+
+BCL_PLANE_PRODUCT_RUNTIME = "product_runtime"
+BCL_PLANE_AGENT_OPERATION = "agent_operation"
+BCL_PLANE_DEVELOPMENT_PROCESS = "development_process"
+BCL_BEHAVIOR_PLANES = (
+    BCL_PLANE_PRODUCT_RUNTIME,
+    BCL_PLANE_AGENT_OPERATION,
+    BCL_PLANE_DEVELOPMENT_PROCESS,
+)
+BCL_PLANE_UNCLASSIFIED = "unclassified"
+
+
+__all__ = [
+    "BCL_BEHAVIOR_PLANES",
+    "BCL_PLANE_AGENT_OPERATION",
+    "BCL_PLANE_DEVELOPMENT_PROCESS",
+    "BCL_PLANE_PRODUCT_RUNTIME",
+    "BCL_PLANE_UNCLASSIFIED",
+]

@@ -406,3 +406,32 @@ Each satellite's check manifest SHALL include at least one check specific to its
 - **WHEN** a satellite manifest lists no owner-specific check or test-gap disposition
 - **THEN** depth validation fails with an insufficient-native-depth finding
 
+### Requirement: Agent skills prompt primary path authority
+FlowGuard Codex skills SHALL instruct agents to enumerate runtime paths,
+select one primary authority, classify non-primary surfaces, reject automatic
+fallback success, and require coverage evidence before broad claims.
+
+#### Scenario: Agent starts non-trivial implementation
+- **WHEN** an agent uses FlowGuard for feature work, bug repair, refactor,
+  prompt/skill changes, install sync, or release confidence
+- **THEN** the skill guidance SHALL prompt for primary path authority when
+  runtime paths or compatibility surfaces are in scope
+
+#### Scenario: Skill warns against A failed B succeeded
+- **WHEN** a skill describes fallback policy
+- **THEN** it SHALL state that primary failure must be visible and repaired
+  rather than automatically routed to alternate success
+
+### Requirement: Agent skills prompt default commitment registration
+FlowGuard Codex skill satellites SHALL instruct agents to register or review
+behavior commitments before non-trivial FlowGuard work that changes, validates,
+publishes, or claims external behavior.
+
+#### Scenario: New project starts FlowGuard work
+- **WHEN** an agent begins non-trivial FlowGuard adoption or planning for a project without a current behavior ledger
+- **THEN** the skill guidance SHALL route to Behavior Commitment Ledger baseline creation
+
+#### Scenario: Existing behavior changes
+- **WHEN** an agent changes a registered behavior
+- **THEN** the skill guidance SHALL update the ledger row, owner model, evidence, and PPA binding when path-sensitive
+

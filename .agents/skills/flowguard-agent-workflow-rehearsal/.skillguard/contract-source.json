@@ -1,101 +1,172 @@
 {
-  "activation_keywords": [
-    "agent_workflow",
-    "skill workflow rehearsal",
-    "tool sequencing",
-    "external action planning"
+  "artifacts": [],
+  "checks": [
+    {
+      "check_id": "check:flowguard-agent-workflow-rehearsal:plane-boundary",
+      "covers_obligation_ids": [
+        "obligation:flowguard-agent-workflow-rehearsal:plane-boundary"
+      ],
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "flowguard-agent-workflow-rehearsal:functional",
+      "execution_owner_id": "owner:flowguard-agent-workflow-rehearsal:flowguard-agent-workflow-rehearsal-plane-boundary",
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": "examples/flowguard_agent_workflow_rehearsal/model.py"
+        }
+      ],
+      "kind": "model_assertion",
+      "timeout_seconds": 30
+    },
+    {
+      "args": [
+        "-m",
+        "pytest",
+        "tests/test_flowguard_agent_workflow_rehearsal.py",
+        "-q"
+      ],
+      "check_id": "check:flowguard-agent-workflow-rehearsal:native-authority",
+      "command": "python",
+      "covers_obligation_ids": [
+        "obligation:flowguard-agent-workflow-rehearsal:native-authority"
+      ],
+      "cwd_token": "repository_root",
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "flowguard-agent-workflow-rehearsal:functional",
+      "execution_owner_id": "owner:flowguard-agent-workflow-rehearsal:flowguard-agent-workflow-rehearsal-native-authority",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": "examples/flowguard_agent_workflow_rehearsal/__init__.py"
+        },
+        {
+          "kind": "path",
+          "path": "examples/flowguard_agent_workflow_rehearsal/model.py"
+        },
+        {
+          "kind": "path",
+          "path": "examples/flowguard_agent_workflow_rehearsal/run_review.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/agent_workflow_rehearsal.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/skill_contract_model.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_flowguard_agent_workflow_rehearsal.py"
+        }
+      ],
+      "kind": "command",
+      "timeout_seconds": 300
+    },
+    {
+      "check_id": "check:flowguard-agent-workflow-rehearsal:evidence-closure",
+      "covers_obligation_ids": [
+        "obligation:flowguard-agent-workflow-rehearsal:evidence-closure"
+      ],
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "flowguard-agent-workflow-rehearsal:functional",
+      "execution_owner_id": "owner:flowguard-agent-workflow-rehearsal:flowguard-agent-workflow-rehearsal-evidence-closure",
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": "examples/flowguard_agent_workflow_rehearsal/model.py"
+        }
+      ],
+      "kind": "model_assertion",
+      "timeout_seconds": 30
+    }
   ],
   "claim_boundary": "Pass proves only that the planned capability sequence is coherent for the fresh inventory; it does not execute tools or prove final outcomes.",
-  "default_route": false,
-  "direct_references": [
-    "references/agent_workflow_rehearsal_protocol.md"
-  ],
-  "do_not_use_when": [
-    "The request is generic multi-skill planning, execution of the workflow, or a route-native validation task."
-  ],
-  "downstream_targets": [
+  "closure_profiles": [
     {
-      "claim_scope": "process execution",
-      "condition": "The rehearsal is complete or lifecycle execution/freshness must be reviewed.",
-      "target_id": "flowguard-development-process-flow",
-      "target_kind": "skill"
+      "profile_id": "routine",
+      "required_obligation_ids": [
+        "obligation:flowguard-agent-workflow-rehearsal:plane-boundary"
+      ]
     },
     {
-      "claim_scope": "maintenance handoff",
-      "condition": "Skipped or stale capability evidence creates an owner-route obligation.",
-      "target_id": "maintenance_scan_router",
-      "target_kind": "internal_route"
-    }
-  ],
-  "layout_profiles": {
-    "installed": ".codex/skills/flowguard-agent-workflow-rehearsal",
-    "source": ".agents/skills/flowguard-agent-workflow-rehearsal"
-  },
-  "native_checks": [
+      "profile_id": "functional",
+      "required_obligation_ids": [
+        "obligation:flowguard-agent-workflow-rehearsal:plane-boundary",
+        "obligation:flowguard-agent-workflow-rehearsal:native-authority"
+      ]
+    },
     {
-      "binding_id": "agent_workflow_pytest",
-      "command": "python -m pytest tests/test_flowguard_agent_workflow_rehearsal.py -q",
-      "evidence_source": "current pytest receipt",
-      "kind": "pytest",
-      "native_check_id": "agent_workflow_rehearsal_tests",
-      "summary": "Run owner-specific rehearsal route tests."
+      "profile_id": "release",
+      "required_obligation_ids": [
+        "obligation:flowguard-agent-workflow-rehearsal:plane-boundary",
+        "obligation:flowguard-agent-workflow-rehearsal:native-authority",
+        "obligation:flowguard-agent-workflow-rehearsal:evidence-closure"
+      ]
+    },
+    {
+      "profile_id": "highest_quality",
+      "required_obligation_ids": [
+        "obligation:flowguard-agent-workflow-rehearsal:plane-boundary",
+        "obligation:flowguard-agent-workflow-rehearsal:native-authority",
+        "obligation:flowguard-agent-workflow-rehearsal:evidence-closure"
+      ]
     }
   ],
-  "native_owner": "development_process_flow",
-  "output_fields": [
-    "evidence",
-    "failures",
-    "blockers",
-    "skipped_checks",
-    "residual_risk",
-    "claim_boundary",
-    "typed_next_actions"
+  "confirmed": true,
+  "implementation_paths": [
+    ".agents/skills/flowguard-agent-workflow-rehearsal",
+    "examples/flowguard_agent_workflow_rehearsal",
+    "flowguard/agent_workflow_rehearsal.py",
+    "flowguard/skill_contract_model.py",
+    "tests/test_flowguard_agent_workflow_rehearsal.py"
   ],
-  "route_id": "agent_workflow_rehearsal",
-  "route_role": "delegated_mode",
-  "route_summary": "Rehearse selected and skipped capabilities, ordering, evidence gates, side effects, and rework from a fresh inventory.",
-  "schema_version": "flowguard.skill_contract_source.v1",
+  "judgment_rubrics": [],
+  "model_id": "flowguard.agent_workflow_rehearsal.skill_contract.v2",
+  "model_path": "examples/flowguard_agent_workflow_rehearsal/model.py",
+  "release_eligible": false,
+  "schema_version": "skillguard.contract_source.v2",
   "skill_id": "flowguard-agent-workflow-rehearsal",
-  "source_requirements": [
+  "step_bindings": [
     {
-      "category": "activation-boundary",
-      "requirement_id": "agent_workflow.delegated_activation",
-      "summary": "Generic multi-skill requests must enter DevelopmentProcessFlow; this route requires explicit or delegated activation."
+      "step_id": "step:flowguard-agent-workflow-rehearsal:intake",
+      "action": {
+        "kind": "inventory",
+        "summary": "Recall registered agent-operation commitments and keep product behavior as typed target context."
+      },
+      "check_ids": [
+        "check:flowguard-agent-workflow-rehearsal:plane-boundary"
+      ],
+      "output_artifact_ids": []
     },
     {
-      "category": "evidence",
-      "requirement_id": "agent_workflow.fresh_inventory",
-      "summary": "A fresh inventory, accepted skip consequences, prior side-effect gates, and rework paths are required."
+      "step_id": "step:flowguard-agent-workflow-rehearsal:execute",
+      "action": {
+        "kind": "native",
+        "summary": "Rehearse the existing capability order, receipts, continue gates, and rework branches."
+      },
+      "check_ids": [
+        "check:flowguard-agent-workflow-rehearsal:native-authority"
+      ],
+      "output_artifact_ids": []
     },
     {
-      "category": "closure",
-      "requirement_id": "agent_workflow.non_execution",
-      "summary": "Rehearsal readiness cannot be reported as workflow execution or final route evidence."
-    }
-  ],
-  "use_when": [
-    "DevelopmentProcessFlow delegates agent_workflow or the user explicitly requests AgentWorkflowRehearsal."
-  ],
-  "workflow": [
-    {
-      "phase_id": "intake",
-      "summary": "Confirm explicit request or delegated agent_workflow scope and final claim intent."
-    },
-    {
-      "phase_id": "inventory",
-      "summary": "Capture a fresh current-machine inventory and required/candidate capability set."
-    },
-    {
-      "phase_id": "execution",
-      "summary": "Build ordered selected/skipped steps with consequences, side effects, evidence gates, and rework."
-    },
-    {
-      "phase_id": "checks",
-      "summary": "Run the native rehearsal review and reject stale inventory or unsafe/unsupported plans."
-    },
-    {
-      "phase_id": "closure",
-      "summary": "Return scoped rehearsal readiness and hand execution/final evidence to DevelopmentProcessFlow."
+      "step_id": "step:flowguard-agent-workflow-rehearsal:verify",
+      "action": {
+        "kind": "verifier",
+        "summary": "Scope claims when tools, plugins, final receipts, or target evidence are not current."
+      },
+      "check_ids": [
+        "check:flowguard-agent-workflow-rehearsal:evidence-closure"
+      ],
+      "output_artifact_ids": []
     }
   ]
 }
+

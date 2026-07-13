@@ -15,7 +15,6 @@ from flowguard import (
     validate_default_route_topology,
 )
 from flowguard.formal_runner import FormalWorkflowCase, run_exact_workflow_case, run_formal_workflow_suite
-from flowguard.skill_self_governance import load_verification_contexts, run_skill_self_governance
 import model
 
 
@@ -93,6 +92,19 @@ def run_workflow_suite(*, typed_topology_ok: bool) -> bool:
                 max_sequence_length=1,
             ),
             FormalWorkflowCase(
+                "broken_wrong_plane_completion_authority",
+                model.build_broken_wrong_plane_completion_workflow(),
+                False,
+                required_labels=("wrong_plane_done_accepted",),
+                external_inputs=(
+                    model.SelfMaintenanceAction(
+                        "claim_done",
+                        behavior_plane="agent_operation",
+                    ),
+                ),
+                max_sequence_length=1,
+            ),
+            FormalWorkflowCase(
                 "broken_missing_sync",
                 model.build_broken_missing_sync_workflow(),
                 False,
@@ -135,30 +147,6 @@ def run_route_profile_review() -> bool:
     return report.ok and not report.findings
 
 
-def run_receipt_parent_review() -> bool:
-    context_path = ROOT / ".flowguard/evidence/skill-suite-contexts.json"
-    contexts = load_verification_contexts(context_path) if context_path.exists() else {}
-    report = run_skill_self_governance(
-        ROOT,
-        verification_contexts=contexts,
-        save_parent_receipt=True,
-    )
-    print(report.format_text())
-    print()
-    if report.ok:
-        parent = report.self_governance_receipt
-        return bool(
-            parent
-            and len(parent.required_child_receipts) == 17
-            and len(parent.consumed_child_receipts) == 17
-            and report.self_governance_receipt_hash == parent.fingerprint
-        )
-    # Environment-local evidence is intentionally not committed. A model
-    # regression still succeeds only if absence/staleness is rejected without
-    # manufacturing a parent green receipt.
-    return bool(report.blockers and report.self_governance_receipt is None)
-
-
 def run_route_topology_review() -> bool:
     report = validate_default_route_topology(ROOT)
     print(report.format_text())
@@ -191,7 +179,6 @@ def main() -> int:
     checks = (
         run_workflow_suite(typed_topology_ok=typed_topology_ok),
         run_route_profile_review(),
-        run_receipt_parent_review(),
         typed_topology_ok,
     )
     if all(checks):

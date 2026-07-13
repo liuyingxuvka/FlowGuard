@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from typing import Any, Mapping, Sequence
 
+from .behavior_plane import BCL_BEHAVIOR_PLANES
 from .export import to_jsonable
 from .model_similarity import SimilarityHandoff, normalize_similarity_handoff
 from .obligation_family import (
@@ -197,6 +198,13 @@ class ModelObligation:
     required_closure_evidence_roles: tuple[str, ...] = ()
     required_closure_targets: tuple[ClosureEvidenceTarget | Mapping[str, Any], ...] = ()
     required_runtime_node_ids: tuple[str, ...] = ()
+    behavior_plane: str = ""
+    business_intent_id: str = ""
+    behavior_commitment_id: str = ""
+    primary_path_id: str = ""
+    similarity_relation_ids: tuple[str, ...] = ()
+    similarity_test_obligation_ids: tuple[str, ...] = ()
+    similarity_impacted_model_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "obligation_id", str(self.obligation_id))
@@ -225,6 +233,21 @@ class ModelObligation:
             closure_roles.extend(MODEL_MISS_DEFAULT_CLOSURE_ROLES)
         object.__setattr__(self, "required_closure_evidence_roles", _unique_sorted(closure_roles))
         object.__setattr__(self, "required_runtime_node_ids", _as_tuple(self.required_runtime_node_ids))
+        object.__setattr__(self, "behavior_plane", str(self.behavior_plane))
+        object.__setattr__(self, "business_intent_id", str(self.business_intent_id))
+        object.__setattr__(self, "behavior_commitment_id", str(self.behavior_commitment_id))
+        object.__setattr__(self, "primary_path_id", str(self.primary_path_id))
+        object.__setattr__(self, "similarity_relation_ids", _as_tuple(self.similarity_relation_ids))
+        object.__setattr__(
+            self,
+            "similarity_test_obligation_ids",
+            _as_tuple(self.similarity_test_obligation_ids),
+        )
+        object.__setattr__(
+            self,
+            "similarity_impacted_model_ids",
+            _as_tuple(self.similarity_impacted_model_ids),
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -248,6 +271,13 @@ class ModelObligation:
             "required_closure_evidence_roles": list(self.required_closure_evidence_roles),
             "required_closure_targets": [target.to_dict() for target in self.required_closure_targets],
             "required_runtime_node_ids": list(self.required_runtime_node_ids),
+            "behavior_plane": self.behavior_plane,
+            "business_intent_id": self.business_intent_id,
+            "behavior_commitment_id": self.behavior_commitment_id,
+            "primary_path_id": self.primary_path_id,
+            "similarity_relation_ids": list(self.similarity_relation_ids),
+            "similarity_test_obligation_ids": list(self.similarity_test_obligation_ids),
+            "similarity_impacted_model_ids": list(self.similarity_impacted_model_ids),
         }
 
 
@@ -268,6 +298,17 @@ class CodeContract:
     side_effects: tuple[str, ...] = ()
     error_paths: tuple[str, ...] = ()
     required: bool = True
+    behavior_plane: str = ""
+    business_intent_id: str = ""
+    behavior_commitment_id: str = ""
+    primary_path_id: str = ""
+    similarity_relation_ids: tuple[str, ...] = ()
+    similarity_code_obligation_ids: tuple[str, ...] = ()
+    delegates_to_code_contract_id: str = ""
+    delegation_evidence_id: str = ""
+    delegation_evidence_current: bool = False
+    delegation_only: bool = False
+    independent_business_authority: bool = False
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "code_contract_id", str(self.code_contract_id))
@@ -282,6 +323,21 @@ class CodeContract:
         object.__setattr__(self, "state_writes", _as_tuple(self.state_writes))
         object.__setattr__(self, "side_effects", _as_tuple(self.side_effects))
         object.__setattr__(self, "error_paths", _as_tuple(self.error_paths))
+        object.__setattr__(self, "behavior_plane", str(self.behavior_plane))
+        object.__setattr__(self, "business_intent_id", str(self.business_intent_id))
+        object.__setattr__(self, "behavior_commitment_id", str(self.behavior_commitment_id))
+        object.__setattr__(self, "primary_path_id", str(self.primary_path_id))
+        object.__setattr__(self, "similarity_relation_ids", _as_tuple(self.similarity_relation_ids))
+        object.__setattr__(
+            self,
+            "similarity_code_obligation_ids",
+            _as_tuple(self.similarity_code_obligation_ids),
+        )
+        object.__setattr__(self, "delegates_to_code_contract_id", str(self.delegates_to_code_contract_id))
+        object.__setattr__(self, "delegation_evidence_id", str(self.delegation_evidence_id))
+        object.__setattr__(self, "delegation_evidence_current", bool(self.delegation_evidence_current))
+        object.__setattr__(self, "delegation_only", bool(self.delegation_only))
+        object.__setattr__(self, "independent_business_authority", bool(self.independent_business_authority))
 
     def is_owner(self) -> bool:
         return self.role == CODE_CONTRACT_ROLE_OWNER
@@ -301,6 +357,17 @@ class CodeContract:
             "side_effects": list(self.side_effects),
             "error_paths": list(self.error_paths),
             "required": self.required,
+            "behavior_plane": self.behavior_plane,
+            "business_intent_id": self.business_intent_id,
+            "behavior_commitment_id": self.behavior_commitment_id,
+            "primary_path_id": self.primary_path_id,
+            "similarity_relation_ids": list(self.similarity_relation_ids),
+            "similarity_code_obligation_ids": list(self.similarity_code_obligation_ids),
+            "delegates_to_code_contract_id": self.delegates_to_code_contract_id,
+            "delegation_evidence_id": self.delegation_evidence_id,
+            "delegation_evidence_current": self.delegation_evidence_current,
+            "delegation_only": self.delegation_only,
+            "independent_business_authority": self.independent_business_authority,
         }
 
 
@@ -414,6 +481,10 @@ class TestEvidence:
     stale_reasons: tuple[str, ...] = ()
     overclaims_model_confidence: bool = False
     closure_evidence_role: str = TEST_CLOSURE_ROLE_UNSPECIFIED
+    behavior_plane: str = ""
+    business_intent_id: str = ""
+    behavior_commitment_id: str = ""
+    primary_path_id: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "evidence_id", str(self.evidence_id))
@@ -432,6 +503,10 @@ class TestEvidence:
         object.__setattr__(self, "reuse_ticket", coerce_test_result_reuse_ticket(self.reuse_ticket))
         object.__setattr__(self, "stale_reasons", _as_tuple(self.stale_reasons))
         object.__setattr__(self, "closure_evidence_role", str(self.closure_evidence_role))
+        object.__setattr__(self, "behavior_plane", str(self.behavior_plane))
+        object.__setattr__(self, "business_intent_id", str(self.business_intent_id))
+        object.__setattr__(self, "behavior_commitment_id", str(self.behavior_commitment_id))
+        object.__setattr__(self, "primary_path_id", str(self.primary_path_id))
 
     def has_current_pass(self) -> bool:
         return self.result_status in PASSING_STATUSES and self.evidence_current
@@ -462,6 +537,10 @@ class TestEvidence:
             "stale_reasons": list(self.stale_reasons),
             "overclaims_model_confidence": self.overclaims_model_confidence,
             "closure_evidence_role": self.closure_evidence_role,
+            "behavior_plane": self.behavior_plane,
+            "business_intent_id": self.business_intent_id,
+            "behavior_commitment_id": self.behavior_commitment_id,
+            "primary_path_id": self.primary_path_id,
         }
 
 
@@ -965,6 +1044,9 @@ class ModelTestAlignmentPlan:
     require_source_audit: bool = False
     allow_orphan_tests: bool = False
     allow_orphan_code_contracts: bool = False
+    require_stable_authority_ids: bool = False
+    require_behavior_plane_binding: bool = False
+    scoped_similarity_reasons: Mapping[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "model_id", str(self.model_id))
@@ -1025,6 +1107,17 @@ class ModelTestAlignmentPlan:
         object.__setattr__(self, "field_lifecycle_projections", tuple(self.field_lifecycle_projections))
         object.__setattr__(self, "similarity_handoff", normalize_similarity_handoff(self.similarity_handoff))
         object.__setattr__(self, "require_source_audit", bool(self.require_source_audit))
+        object.__setattr__(self, "require_stable_authority_ids", bool(self.require_stable_authority_ids))
+        object.__setattr__(
+            self,
+            "require_behavior_plane_binding",
+            bool(self.require_behavior_plane_binding),
+        )
+        object.__setattr__(
+            self,
+            "scoped_similarity_reasons",
+            {str(key): str(value) for key, value in dict(self.scoped_similarity_reasons).items()},
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -1063,6 +1156,9 @@ class ModelTestAlignmentPlan:
             "require_source_audit": self.require_source_audit,
             "allow_orphan_tests": self.allow_orphan_tests,
             "allow_orphan_code_contracts": self.allow_orphan_code_contracts,
+            "require_stable_authority_ids": self.require_stable_authority_ids,
+            "require_behavior_plane_binding": self.require_behavior_plane_binding,
+            "scoped_similarity_reasons": to_jsonable(dict(self.scoped_similarity_reasons)),
         }
 
 
@@ -1121,6 +1217,13 @@ class ModelCodeTestBindingRow:
     field_projection_ids: tuple[str, ...] = ()
     source_audit_decision: str = ""
     open_gap_codes: tuple[str, ...] = ()
+    behavior_plane: str = ""
+    business_intent_id: str = ""
+    behavior_commitment_id: str = ""
+    primary_path_id: str = ""
+    similarity_relation_ids: tuple[str, ...] = ()
+    similarity_test_obligation_ids: tuple[str, ...] = ()
+    similarity_code_obligation_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "model_obligation_id", str(self.model_obligation_id))
@@ -1148,6 +1251,21 @@ class ModelCodeTestBindingRow:
         object.__setattr__(self, "source_audit_decision", str(self.source_audit_decision))
         object.__setattr__(self, "open_gap_codes", open_gap_codes)
         object.__setattr__(self, "gaps", open_gap_codes)
+        object.__setattr__(self, "behavior_plane", str(self.behavior_plane))
+        object.__setattr__(self, "business_intent_id", str(self.business_intent_id))
+        object.__setattr__(self, "behavior_commitment_id", str(self.behavior_commitment_id))
+        object.__setattr__(self, "primary_path_id", str(self.primary_path_id))
+        object.__setattr__(self, "similarity_relation_ids", _as_tuple(self.similarity_relation_ids))
+        object.__setattr__(
+            self,
+            "similarity_test_obligation_ids",
+            _as_tuple(self.similarity_test_obligation_ids),
+        )
+        object.__setattr__(
+            self,
+            "similarity_code_obligation_ids",
+            _as_tuple(self.similarity_code_obligation_ids),
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -1169,6 +1287,13 @@ class ModelCodeTestBindingRow:
             "field_projection_ids": list(self.field_projection_ids),
             "source_audit_decision": self.source_audit_decision,
             "open_gap_codes": list(self.open_gap_codes),
+            "behavior_plane": self.behavior_plane,
+            "business_intent_id": self.business_intent_id,
+            "behavior_commitment_id": self.behavior_commitment_id,
+            "primary_path_id": self.primary_path_id,
+            "similarity_relation_ids": list(self.similarity_relation_ids),
+            "similarity_test_obligation_ids": list(self.similarity_test_obligation_ids),
+            "similarity_code_obligation_ids": list(self.similarity_code_obligation_ids),
         }
 
 
@@ -2471,6 +2596,9 @@ def _runtime_path_contracts_for_plan(plan: ModelTestAlignmentPlan) -> tuple[Runt
                     node_id=node_id,
                     model_id=plan.model_id,
                     model_obligation_id=obligation.obligation_id,
+                    business_intent_id=obligation.business_intent_id,
+                    behavior_commitment_id=obligation.behavior_commitment_id,
+                    primary_path_id=obligation.primary_path_id,
                     required=True,
                 )
             )
@@ -2669,6 +2797,59 @@ def _code_contract_findings(
     contracts_by_obligation = _code_contracts_by_obligation(code_contracts_by_id, obligations_by_id)
 
     for contract in code_contracts_by_id.values():
+        if contract.role == CODE_CONTRACT_ROLE_FACADE:
+            delegated = code_contracts_by_id.get(contract.delegates_to_code_contract_id)
+            if delegated is None or not delegated.is_owner():
+                findings.append(
+                    ModelTestAlignmentFinding(
+                        "facade_delegation_owner_missing",
+                        f"facade {contract.code_contract_id} does not delegate to a declared owner contract",
+                        metadata=contract.to_dict(),
+                        code_contract_id=contract.code_contract_id,
+                    )
+                )
+            else:
+                if not set(contract.implements_obligations).issubset(set(delegated.implements_obligations)):
+                    findings.append(
+                        ModelTestAlignmentFinding(
+                            "facade_delegation_obligation_mismatch",
+                            f"facade {contract.code_contract_id} exposes obligations outside its delegated owner",
+                            metadata={"facade": contract.to_dict(), "owner": delegated.to_dict()},
+                            code_contract_id=contract.code_contract_id,
+                        )
+                    )
+                for attr in ("business_intent_id", "behavior_commitment_id", "primary_path_id"):
+                    if getattr(contract, attr) != getattr(delegated, attr):
+                        findings.append(
+                            ModelTestAlignmentFinding(
+                                "facade_authority_identity_mismatch",
+                                f"facade {contract.code_contract_id} {attr} differs from its delegated owner",
+                                metadata={
+                                    "field": attr,
+                                    "facade": contract.to_dict(),
+                                    "owner": delegated.to_dict(),
+                                },
+                                code_contract_id=contract.code_contract_id,
+                            )
+                        )
+            if not contract.delegation_evidence_id or not contract.delegation_evidence_current:
+                findings.append(
+                    ModelTestAlignmentFinding(
+                        "facade_delegation_evidence_stale",
+                        f"facade {contract.code_contract_id} lacks current delegation evidence",
+                        metadata=contract.to_dict(),
+                        code_contract_id=contract.code_contract_id,
+                    )
+                )
+            if not contract.delegation_only or contract.independent_business_authority:
+                findings.append(
+                    ModelTestAlignmentFinding(
+                        "facade_independent_business_authority",
+                        f"facade {contract.code_contract_id} retains independent success or side-effect authority",
+                        metadata=contract.to_dict(),
+                        code_contract_id=contract.code_contract_id,
+                    )
+                )
         if not contract.implements_obligations and contract.is_owner():
             severity = "warning" if plan.allow_orphan_code_contracts else "blocker"
             findings.append(
@@ -2760,6 +2941,297 @@ def _code_contract_findings(
                             code_contract_id=contract.code_contract_id,
                         )
                     )
+    return findings
+
+
+def _stable_authority_findings(
+    plan: ModelTestAlignmentPlan,
+    obligations_by_id: Mapping[str, ModelObligation],
+    code_contracts_by_id: Mapping[str, CodeContract],
+) -> list[ModelTestAlignmentFinding]:
+    findings: list[ModelTestAlignmentFinding] = []
+    contracts_by_obligation = _code_contracts_by_obligation(code_contracts_by_id, obligations_by_id)
+    attrs = ("business_intent_id", "behavior_commitment_id", "primary_path_id")
+    for obligation_id, obligation in obligations_by_id.items():
+        authority_declared = any(getattr(obligation, attr) for attr in attrs)
+        if not (plan.require_stable_authority_ids or authority_declared):
+            continue
+        for attr in attrs:
+            expected = str(getattr(obligation, attr))
+            if not expected:
+                findings.append(
+                    ModelTestAlignmentFinding(
+                        f"{attr}_missing",
+                        f"model obligation {obligation_id} omits stable {attr}",
+                        obligation_id=obligation_id,
+                        metadata=obligation.to_dict(),
+                    )
+                )
+                continue
+            for contract in contracts_by_obligation.get(obligation_id, ()):
+                actual = str(getattr(contract, attr))
+                if not actual:
+                    findings.append(
+                        ModelTestAlignmentFinding(
+                            f"code_contract_{attr}_missing",
+                            f"code contract {contract.code_contract_id} omits stable {attr}",
+                            obligation_id=obligation_id,
+                            code_contract_id=contract.code_contract_id,
+                            metadata={"expected": expected, "contract": contract.to_dict()},
+                        )
+                    )
+                elif actual != expected:
+                    findings.append(
+                        ModelTestAlignmentFinding(
+                            f"{attr}_mismatch",
+                            f"code contract {contract.code_contract_id} {attr} differs from its model obligation",
+                            obligation_id=obligation_id,
+                            code_contract_id=contract.code_contract_id,
+                            metadata={"expected": expected, "actual": actual},
+                        )
+                    )
+            for evidence in plan.test_evidence:
+                if obligation_id not in evidence.covered_obligations:
+                    continue
+                actual = str(getattr(evidence, attr))
+                if not actual:
+                    findings.append(
+                        ModelTestAlignmentFinding(
+                            f"test_evidence_{attr}_missing",
+                            f"test evidence {evidence.evidence_id} omits stable {attr}",
+                            obligation_id=obligation_id,
+                            evidence_id=evidence.evidence_id,
+                            metadata={"expected": expected, "evidence": evidence.to_dict()},
+                        )
+                    )
+                elif actual != expected:
+                    findings.append(
+                        ModelTestAlignmentFinding(
+                            f"test_evidence_{attr}_mismatch",
+                            f"test evidence {evidence.evidence_id} {attr} differs from its model obligation",
+                            obligation_id=obligation_id,
+                            evidence_id=evidence.evidence_id,
+                            metadata={"expected": expected, "actual": actual},
+                        )
+                    )
+    return findings
+
+
+def _behavior_plane_findings(
+    plan: ModelTestAlignmentPlan,
+    obligations_by_id: Mapping[str, ModelObligation],
+    code_contracts_by_id: Mapping[str, CodeContract],
+) -> list[ModelTestAlignmentFinding]:
+    """Keep one obligation's model, code, and test evidence in one execution plane."""
+
+    findings: list[ModelTestAlignmentFinding] = []
+    contracts_by_obligation = _code_contracts_by_obligation(code_contracts_by_id, obligations_by_id)
+    allowed_planes = set(BCL_BEHAVIOR_PLANES)
+    for obligation_id, obligation in obligations_by_id.items():
+        expected = obligation.behavior_plane
+        if not (plan.require_behavior_plane_binding or expected):
+            continue
+        if expected not in allowed_planes:
+            findings.append(
+                ModelTestAlignmentFinding(
+                    "behavior_plane_missing_or_invalid",
+                    f"model obligation {obligation_id} must declare one supported behavior plane",
+                    obligation_id=obligation_id,
+                    metadata={
+                        "actual": expected,
+                        "allowed": list(BCL_BEHAVIOR_PLANES),
+                        "obligation": obligation.to_dict(),
+                    },
+                )
+            )
+            continue
+        for contract in contracts_by_obligation.get(obligation_id, ()):
+            actual = contract.behavior_plane
+            if not actual:
+                findings.append(
+                    ModelTestAlignmentFinding(
+                        "code_contract_behavior_plane_missing",
+                        f"code contract {contract.code_contract_id} omits behavior_plane",
+                        obligation_id=obligation_id,
+                        code_contract_id=contract.code_contract_id,
+                        metadata={"expected": expected, "contract": contract.to_dict()},
+                    )
+                )
+            elif actual not in allowed_planes:
+                findings.append(
+                    ModelTestAlignmentFinding(
+                        "code_contract_behavior_plane_invalid",
+                        f"code contract {contract.code_contract_id} declares an unsupported behavior plane",
+                        obligation_id=obligation_id,
+                        code_contract_id=contract.code_contract_id,
+                        metadata={
+                            "expected": expected,
+                            "actual": actual,
+                            "allowed": list(BCL_BEHAVIOR_PLANES),
+                        },
+                    )
+                )
+            elif actual != expected:
+                findings.append(
+                    ModelTestAlignmentFinding(
+                        "behavior_plane_mismatch",
+                        f"code contract {contract.code_contract_id} behavior plane differs from its model obligation",
+                        obligation_id=obligation_id,
+                        code_contract_id=contract.code_contract_id,
+                        metadata={"expected": expected, "actual": actual},
+                    )
+                )
+        for evidence in plan.test_evidence:
+            if obligation_id not in evidence.covered_obligations:
+                continue
+            actual = evidence.behavior_plane
+            if not actual:
+                findings.append(
+                    ModelTestAlignmentFinding(
+                        "test_evidence_behavior_plane_missing",
+                        f"test evidence {evidence.evidence_id} omits behavior_plane",
+                        obligation_id=obligation_id,
+                        evidence_id=evidence.evidence_id,
+                        metadata={"expected": expected, "evidence": evidence.to_dict()},
+                    )
+                )
+            elif actual not in allowed_planes:
+                findings.append(
+                    ModelTestAlignmentFinding(
+                        "test_evidence_behavior_plane_invalid",
+                        f"test evidence {evidence.evidence_id} declares an unsupported behavior plane",
+                        obligation_id=obligation_id,
+                        evidence_id=evidence.evidence_id,
+                        metadata={
+                            "expected": expected,
+                            "actual": actual,
+                            "allowed": list(BCL_BEHAVIOR_PLANES),
+                        },
+                    )
+                )
+            elif actual != expected:
+                findings.append(
+                    ModelTestAlignmentFinding(
+                        "test_evidence_behavior_plane_mismatch",
+                        f"test evidence {evidence.evidence_id} behavior plane differs from its model obligation",
+                        obligation_id=obligation_id,
+                        evidence_id=evidence.evidence_id,
+                        metadata={"expected": expected, "actual": actual},
+                    )
+                )
+    return findings
+
+
+def _similarity_materialization_findings(
+    plan: ModelTestAlignmentPlan,
+) -> list[ModelTestAlignmentFinding]:
+    handoff = plan.similarity_handoff
+    if handoff is None:
+        return []
+    findings: list[ModelTestAlignmentFinding] = []
+    scoped = set(plan.scoped_similarity_reasons)
+    for item_id, reason in plan.scoped_similarity_reasons.items():
+        if not reason:
+            findings.append(
+                ModelTestAlignmentFinding(
+                    "similarity_scoped_reason_missing",
+                    "scoped similarity materialization requires a reason",
+                    metadata={"similarity_id": item_id},
+                )
+            )
+    if not handoff.evidence_current:
+        findings.append(
+            ModelTestAlignmentFinding(
+                "stale_similarity_handoff",
+                "model-similarity handoff evidence is stale",
+                metadata=handoff.to_dict(),
+            )
+        )
+    if handoff.unresolved_gaps:
+        findings.append(
+            ModelTestAlignmentFinding(
+                "similarity_handoff_unresolved_gap",
+                "model-similarity handoff still contains unresolved gaps",
+                metadata=handoff.to_dict(),
+            )
+        )
+    materialized_relations = {
+        relation_id
+        for obligation in plan.obligations
+        for relation_id in obligation.similarity_relation_ids
+    } | {
+        relation_id
+        for contract in plan.code_contracts
+        for relation_id in contract.similarity_relation_ids
+    }
+    materialized_test_obligations = {
+        obligation.obligation_id for obligation in plan.obligations
+    } | {
+        item_id
+        for obligation in plan.obligations
+        for item_id in obligation.similarity_test_obligation_ids
+    }
+    materialized_code_obligations = {
+        contract.code_contract_id for contract in plan.code_contracts
+    } | {
+        item_id
+        for contract in plan.code_contracts
+        for item_id in contract.similarity_code_obligation_ids
+    }
+    materialized_models = {plan.model_id} | {
+        model_id
+        for obligation in plan.obligations
+        for model_id in obligation.similarity_impacted_model_ids
+    }
+    checks = (
+        (handoff.relation_ids, materialized_relations, "unmaterialized_similarity_relation_id"),
+        (handoff.test_obligation_ids, materialized_test_obligations, "unmaterialized_similarity_test_obligation_id"),
+        (handoff.code_obligation_ids, materialized_code_obligations, "unmaterialized_similarity_code_obligation_id"),
+        (handoff.impacted_model_ids, materialized_models, "unmaterialized_similarity_impacted_model_id"),
+    )
+    for expected_ids, materialized_ids, code in checks:
+        for item_id in expected_ids:
+            if item_id in materialized_ids or item_id in scoped:
+                continue
+            findings.append(
+                ModelTestAlignmentFinding(
+                    code,
+                    "model-similarity handoff id is not materialized as a concrete alignment row",
+                    metadata={"similarity_id": item_id, "handoff": handoff.to_dict()},
+                )
+            )
+    return findings
+
+
+def _family_alignment_findings(plan: ModelTestAlignmentPlan) -> list[ModelTestAlignmentFinding]:
+    obligation_ids = {obligation.obligation_id for obligation in plan.obligations}
+    findings: list[ModelTestAlignmentFinding] = []
+    for family in plan.obligation_families:
+        for member in family.members:
+            for obligation_id in member.obligation_ids:
+                if obligation_id in obligation_ids:
+                    continue
+                findings.append(
+                    ModelTestAlignmentFinding(
+                        "family_obligation_not_in_alignment",
+                        "obligation-family member references an obligation absent from this alignment plan",
+                        obligation_id=obligation_id,
+                        metadata={"family_id": family.family_id, "member_id": member.member_id},
+                    )
+                )
+    for evidence in plan.family_evidence:
+        for obligation_id in evidence.covered_obligations:
+            if obligation_id in obligation_ids:
+                continue
+            findings.append(
+                ModelTestAlignmentFinding(
+                    "family_evidence_obligation_not_in_alignment",
+                    "family evidence covers an obligation absent from this alignment plan",
+                    obligation_id=obligation_id,
+                    evidence_id=evidence.evidence_id,
+                    metadata=evidence.to_dict(),
+                )
+            )
     return findings
 
 
@@ -3223,6 +3695,12 @@ def _binding_rows(
                     gaps=gap_codes,
                     source_audit_decision=_binding_source_audit_decision(plan, (), ()),
                     open_gap_codes=gap_codes,
+                    behavior_plane=obligation.behavior_plane,
+                    business_intent_id=obligation.business_intent_id,
+                    behavior_commitment_id=obligation.behavior_commitment_id,
+                    primary_path_id=obligation.primary_path_id,
+                    similarity_relation_ids=obligation.similarity_relation_ids,
+                    similarity_test_obligation_ids=obligation.similarity_test_obligation_ids,
                 )
             )
             continue
@@ -3309,6 +3787,15 @@ def _binding_rows(
                         field_projection_ids=field_projection_ids,
                         source_audit_decision=source_audit_decision,
                         open_gap_codes=gap_codes,
+                        behavior_plane=obligation.behavior_plane,
+                        business_intent_id=obligation.business_intent_id,
+                        behavior_commitment_id=obligation.behavior_commitment_id,
+                        primary_path_id=obligation.primary_path_id,
+                        similarity_relation_ids=_unique_sorted(
+                            obligation.similarity_relation_ids + contract.similarity_relation_ids
+                        ),
+                        similarity_test_obligation_ids=obligation.similarity_test_obligation_ids,
+                        similarity_code_obligation_ids=contract.similarity_code_obligation_ids,
                     )
                 )
             else:
@@ -3332,6 +3819,15 @@ def _binding_rows(
                         field_projection_ids=field_projection_ids,
                         source_audit_decision=source_audit_decision,
                         open_gap_codes=gap_codes,
+                        behavior_plane=obligation.behavior_plane,
+                        business_intent_id=obligation.business_intent_id,
+                        behavior_commitment_id=obligation.behavior_commitment_id,
+                        primary_path_id=obligation.primary_path_id,
+                        similarity_relation_ids=_unique_sorted(
+                            obligation.similarity_relation_ids + contract.similarity_relation_ids
+                        ),
+                        similarity_test_obligation_ids=obligation.similarity_test_obligation_ids,
+                        similarity_code_obligation_ids=contract.similarity_code_obligation_ids,
                     )
                 )
     return tuple(rows)
@@ -3563,6 +4059,8 @@ def review_model_test_alignment(plan: ModelTestAlignmentPlan) -> ModelTestAlignm
     code_contracts_by_id, code_contract_findings = _code_contract_index(plan)
     findings.extend(code_contract_findings)
     findings.extend(_code_contract_findings(plan, obligations_by_id, code_contracts_by_id))
+    findings.extend(_stable_authority_findings(plan, obligations_by_id, code_contracts_by_id))
+    findings.extend(_behavior_plane_findings(plan, obligations_by_id, code_contracts_by_id))
     findings.extend(_evidence_findings(plan, obligations_by_id, code_contracts_by_id))
     findings.extend(_source_audit_findings(plan, code_contracts_by_id))
     if plan.boundary_contracts or plan.boundary_observations:
@@ -3613,6 +4111,8 @@ def review_model_test_alignment(plan: ModelTestAlignmentPlan) -> ModelTestAlignm
             plan.family_evidence,
         )
         findings.extend(_family_findings_as_alignment_findings(family_report.findings))
+        findings.extend(_family_alignment_findings(plan))
+    findings.extend(_similarity_materialization_findings(plan))
     similarity_handoff = plan.similarity_handoff
     same_family_relation_ids = similarity_handoff.same_family_relation_ids if similarity_handoff else ()
     similarity_maintenance_group_ids = similarity_handoff.maintenance_group_ids if similarity_handoff else ()

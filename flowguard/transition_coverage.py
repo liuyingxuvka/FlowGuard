@@ -78,6 +78,12 @@ class TransitionCoverageCell:
     required_test_kinds: tuple[str, ...] = (TEST_KIND_HAPPY_PATH,)
     side_effects: tuple[str, ...] = ()
     rationale: str = ""
+    business_intent_id: str = ""
+    behavior_commitment_id: str = ""
+    primary_path_id: str = ""
+    similarity_relation_ids: tuple[str, ...] = ()
+    similarity_test_obligation_ids: tuple[str, ...] = ()
+    similarity_code_obligation_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "cell_id", str(self.cell_id))
@@ -92,6 +98,20 @@ class TransitionCoverageCell:
         object.__setattr__(self, "required_test_kinds", _as_tuple(self.required_test_kinds))
         object.__setattr__(self, "side_effects", _as_tuple(self.side_effects))
         object.__setattr__(self, "rationale", str(self.rationale))
+        object.__setattr__(self, "business_intent_id", str(self.business_intent_id))
+        object.__setattr__(self, "behavior_commitment_id", str(self.behavior_commitment_id))
+        object.__setattr__(self, "primary_path_id", str(self.primary_path_id))
+        object.__setattr__(self, "similarity_relation_ids", _as_tuple(self.similarity_relation_ids))
+        object.__setattr__(
+            self,
+            "similarity_test_obligation_ids",
+            _as_tuple(self.similarity_test_obligation_ids),
+        )
+        object.__setattr__(
+            self,
+            "similarity_code_obligation_ids",
+            _as_tuple(self.similarity_code_obligation_ids),
+        )
 
     def to_model_obligation(
         self,
@@ -120,6 +140,11 @@ class TransitionCoverageCell:
             state_writes=(self.target_state,),
             side_effects=self.side_effects,
             required_runtime_node_ids=(self.runtime_node_id,) if self.runtime_node_id else (),
+            business_intent_id=self.business_intent_id,
+            behavior_commitment_id=self.behavior_commitment_id,
+            primary_path_id=self.primary_path_id,
+            similarity_relation_ids=self.similarity_relation_ids,
+            similarity_test_obligation_ids=self.similarity_test_obligation_ids,
         )
 
     def to_code_contract(
@@ -141,6 +166,11 @@ class TransitionCoverageCell:
             state_reads=(self.source_state,),
             state_writes=(self.target_state,),
             side_effects=self.side_effects,
+            business_intent_id=self.business_intent_id,
+            behavior_commitment_id=self.behavior_commitment_id,
+            primary_path_id=self.primary_path_id,
+            similarity_relation_ids=self.similarity_relation_ids,
+            similarity_code_obligation_ids=self.similarity_code_obligation_ids,
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -157,6 +187,12 @@ class TransitionCoverageCell:
             "required_test_kinds": list(self.required_test_kinds),
             "side_effects": list(self.side_effects),
             "rationale": self.rationale,
+            "business_intent_id": self.business_intent_id,
+            "behavior_commitment_id": self.behavior_commitment_id,
+            "primary_path_id": self.primary_path_id,
+            "similarity_relation_ids": list(self.similarity_relation_ids),
+            "similarity_test_obligation_ids": list(self.similarity_test_obligation_ids),
+            "similarity_code_obligation_ids": list(self.similarity_code_obligation_ids),
         }
 
 
@@ -283,6 +319,16 @@ def model_mesh_closure_to_transition_coverage(
                 rationale=transition.rationale or (
                     f"ModelMesh closure transition {transition.transition_id}"
                 ),
+                business_intent_id=str(getattr(transition, "business_intent_id", "")),
+                behavior_commitment_id=str(getattr(transition, "behavior_commitment_id", "")),
+                primary_path_id=str(getattr(transition, "primary_path_id", "")),
+                similarity_relation_ids=tuple(getattr(transition, "similarity_relation_ids", ())),
+                similarity_test_obligation_ids=tuple(
+                    getattr(transition, "similarity_test_obligation_ids", ())
+                ),
+                similarity_code_obligation_ids=tuple(
+                    getattr(transition, "similarity_code_obligation_ids", ())
+                ),
             )
         )
     return TransitionCoverageMatrix(
@@ -323,6 +369,16 @@ def ui_interaction_model_to_transition_coverage(
                 required_test_kinds=tuple(required_test_kinds),
                 side_effects=tuple(getattr(transition, "side_effects", ())),
                 rationale=str(getattr(transition, "rationale", "")),
+                business_intent_id=str(getattr(transition, "business_intent_id", "")),
+                behavior_commitment_id=str(getattr(transition, "behavior_commitment_id", "")),
+                primary_path_id=str(getattr(transition, "primary_path_id", "")),
+                similarity_relation_ids=tuple(getattr(transition, "similarity_relation_ids", ())),
+                similarity_test_obligation_ids=tuple(
+                    getattr(transition, "similarity_test_obligation_ids", ())
+                ),
+                similarity_code_obligation_ids=tuple(
+                    getattr(transition, "similarity_code_obligation_ids", ())
+                ),
             )
         )
     resolved_matrix_id = matrix_id or f"{getattr(model, 'model_id', 'ui')}:transition-coverage"

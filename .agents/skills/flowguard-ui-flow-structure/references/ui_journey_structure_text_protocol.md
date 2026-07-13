@@ -24,4 +24,6 @@ Text hierarchy consumes only `user_visible` content or `user_on_demand` content 
 
 Semantic hierarchy levels are not a command to create a distinct visual font size per level. Text with similar jobs should reuse treatments; prefer grouping, spacing, weight, color role, or placement before a one-off visual text style. Preserve justified editorial/brand/warning/state-critical exceptions.
 
+For a complete-product claim, compare equal semantic roles across declared surfaces rather than reviewing each blueprint in isolation. A primary page title, secondary-page title, dialog title, capsule label, body text, helper, and status role each reuse the canonical token/scale/weight wherever that role recurs. A typed presentation-only exception may vary a platform/native/accessibility/safety treatment, but it cannot waive content admission or behavior-authority identity.
+
 Block labels that disagree with modeled consequence, state-exposing text without approved admission or state/control/display owner, on-demand text visible before reveal, error/recovery copy without its path, competing truth sources, and copy/design handoff that contains prose but no ownership maps.

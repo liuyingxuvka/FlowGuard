@@ -270,10 +270,28 @@ class ModelTestAlignmentTests(unittest.TestCase):
                 obligation(
                     "accept_valid_order",
                     required_runtime_node_ids=("validate_order",),
+                    business_intent_id="intent:checkout.accept",
+                    behavior_commitment_id="commitment:checkout.accept",
+                    primary_path_id="path:checkout.accept",
                 ),
             ),
-            code_contracts=(owner_contract("accept_valid_order"),),
-            test_evidence=(bound_evidence("test_accept_valid_order", "accept_valid_order"),),
+            code_contracts=(
+                owner_contract(
+                    "accept_valid_order",
+                    business_intent_id="intent:checkout.accept",
+                    behavior_commitment_id="commitment:checkout.accept",
+                    primary_path_id="path:checkout.accept",
+                ),
+            ),
+            test_evidence=(
+                bound_evidence(
+                    "test_accept_valid_order",
+                    "accept_valid_order",
+                    business_intent_id="intent:checkout.accept",
+                    behavior_commitment_id="commitment:checkout.accept",
+                    primary_path_id="path:checkout.accept",
+                ),
+            ),
             runtime_node_observations=(
                 RuntimeNodeObservation(
                     "obs:validate_order",
@@ -283,6 +301,9 @@ class ModelTestAlignmentTests(unittest.TestCase):
                     model_obligation_id="accept_valid_order",
                     code_contract_id="checkout.submit",
                     observed_output="accepted",
+                    business_intent_id="intent:checkout.accept",
+                    behavior_commitment_id="commitment:checkout.accept",
+                    primary_path_id="path:checkout.accept",
                 ),
             ),
             require_runtime_path_evidence=True,
@@ -319,14 +340,39 @@ class ModelTestAlignmentTests(unittest.TestCase):
     def test_runtime_node_contract_rows_are_consumed_directly(self):
         plan = ModelTestAlignmentPlan(
             model_id="checkout",
-            obligations=(obligation("accept_valid_order"),),
-            code_contracts=(owner_contract("accept_valid_order"),),
-            test_evidence=(bound_evidence("test_accept_valid_order", "accept_valid_order"),),
+            obligations=(
+                obligation(
+                    "accept_valid_order",
+                    business_intent_id="intent:checkout.accept",
+                    behavior_commitment_id="commitment:checkout.accept",
+                    primary_path_id="path:checkout.accept",
+                ),
+            ),
+            code_contracts=(
+                owner_contract(
+                    "accept_valid_order",
+                    business_intent_id="intent:checkout.accept",
+                    behavior_commitment_id="commitment:checkout.accept",
+                    primary_path_id="path:checkout.accept",
+                ),
+            ),
+            test_evidence=(
+                bound_evidence(
+                    "test_accept_valid_order",
+                    "accept_valid_order",
+                    business_intent_id="intent:checkout.accept",
+                    behavior_commitment_id="commitment:checkout.accept",
+                    primary_path_id="path:checkout.accept",
+                ),
+            ),
             runtime_node_contracts=(
                 RuntimeNodeContract(
                     "validate_order",
                     model_id="checkout",
                     model_obligation_id="accept_valid_order",
+                    business_intent_id="intent:checkout.accept",
+                    behavior_commitment_id="commitment:checkout.accept",
+                    primary_path_id="path:checkout.accept",
                 ),
             ),
             runtime_node_observations=(
@@ -335,6 +381,9 @@ class ModelTestAlignmentTests(unittest.TestCase):
                     "validate_order",
                     model_id="checkout",
                     model_obligation_id="accept_valid_order",
+                    business_intent_id="intent:checkout.accept",
+                    behavior_commitment_id="commitment:checkout.accept",
+                    primary_path_id="path:checkout.accept",
                 ),
             ),
         )
@@ -1763,6 +1812,214 @@ def test_submit_order():
         )
 
         self.assertTrue(with_proof.ok, with_proof.format_text())
+
+    def test_stable_authority_identity_and_binding_row_reject_path_drift(self):
+        plan = ModelTestAlignmentPlan(
+            model_id="checkout",
+            obligations=(
+                obligation(
+                    "accept_valid_order",
+                    business_intent_id="intent:checkout.accept",
+                    behavior_commitment_id="commitment:checkout.accept",
+                    primary_path_id="path:checkout.accept",
+                ),
+            ),
+            code_contracts=(
+                owner_contract(
+                    "accept_valid_order",
+                    business_intent_id="intent:checkout.accept",
+                    behavior_commitment_id="commitment:checkout.accept",
+                    primary_path_id="path:checkout.alternate",
+                ),
+            ),
+            test_evidence=(
+                bound_evidence(
+                    "test_accept_valid_order",
+                    "accept_valid_order",
+                    business_intent_id="intent:checkout.accept",
+                    behavior_commitment_id="commitment:checkout.accept",
+                    primary_path_id="path:checkout.accept",
+                ),
+            ),
+        )
+
+        report = review_model_test_alignment(plan)
+
+        self.assertFalse(report.ok)
+        self.assertIn("primary_path_id_mismatch", finding_codes(report))
+        self.assertEqual("intent:checkout.accept", report.binding_rows[0].business_intent_id)
+        self.assertEqual("commitment:checkout.accept", report.binding_rows[0].behavior_commitment_id)
+        self.assertEqual("path:checkout.accept", report.binding_rows[0].primary_path_id)
+
+    def test_facade_must_delegate_to_owner_without_independent_authority(self):
+        authority = {
+            "business_intent_id": "intent:checkout.accept",
+            "behavior_commitment_id": "commitment:checkout.accept",
+            "primary_path_id": "path:checkout.accept",
+        }
+        owner = owner_contract("accept_valid_order", **authority)
+        facade = code_contract(
+            "checkout.public_facade",
+            "accept_valid_order",
+            role=api_name("CODE_CONTRACT_ROLE_FACADE"),
+            delegates_to_code_contract_id=owner.code_contract_id,
+            delegation_evidence_id="runtime:checkout.public_facade:v1",
+            delegation_evidence_current=True,
+            delegation_only=True,
+            **authority,
+        )
+        common = {
+            "model_id": "checkout",
+            "obligations": (obligation("accept_valid_order", **authority),),
+            "test_evidence": (
+                bound_evidence("test_accept_valid_order", "accept_valid_order", **authority),
+            ),
+        }
+
+        good = review_model_test_alignment(
+            ModelTestAlignmentPlan(code_contracts=(owner, facade), **common)
+        )
+        bad = review_model_test_alignment(
+            ModelTestAlignmentPlan(
+                code_contracts=(
+                    owner,
+                    code_contract(
+                        "checkout.public_facade",
+                        "accept_valid_order",
+                        role=api_name("CODE_CONTRACT_ROLE_FACADE"),
+                        delegates_to_code_contract_id=owner.code_contract_id,
+                        delegation_evidence_id="runtime:checkout.public_facade:v1",
+                        delegation_evidence_current=True,
+                        delegation_only=False,
+                        independent_business_authority=True,
+                        **authority,
+                    ),
+                ),
+                **common,
+            )
+        )
+
+        self.assertTrue(good.ok, good.format_text())
+        self.assertFalse(bad.ok)
+        self.assertIn("facade_independent_business_authority", finding_codes(bad))
+
+    def test_similarity_handoff_ids_must_materialize_as_alignment_rows(self):
+        relation_id = "similarity:checkout"
+        test_obligation_id = "similarity-test:checkout"
+        code_obligation_id = "similarity-code:checkout"
+        handoff = {
+            "relation_ids": (relation_id,),
+            "test_obligation_ids": (test_obligation_id,),
+            "code_obligation_ids": (code_obligation_id,),
+            "impacted_model_ids": ("checkout",),
+        }
+        materialized_obligation = obligation(
+            "accept_valid_order",
+            similarity_relation_ids=(relation_id,),
+            similarity_test_obligation_ids=(test_obligation_id,),
+            similarity_impacted_model_ids=("checkout",),
+        )
+        materialized_contract = owner_contract(
+            "accept_valid_order",
+            similarity_relation_ids=(relation_id,),
+            similarity_code_obligation_ids=(code_obligation_id,),
+        )
+        common = {
+            "model_id": "checkout",
+            "test_evidence": (bound_evidence("test_accept_valid_order", "accept_valid_order"),),
+            "similarity_handoff": handoff,
+        }
+
+        good = review_model_test_alignment(
+            ModelTestAlignmentPlan(
+                obligations=(materialized_obligation,),
+                code_contracts=(materialized_contract,),
+                **common,
+            )
+        )
+        opaque = review_model_test_alignment(
+            ModelTestAlignmentPlan(
+                obligations=(obligation("accept_valid_order"),),
+                code_contracts=(owner_contract("accept_valid_order"),),
+                **common,
+            )
+        )
+
+        self.assertTrue(good.ok, good.format_text())
+        self.assertFalse(opaque.ok)
+        self.assertIn("unmaterialized_similarity_relation_id", finding_codes(opaque))
+        self.assertIn("unmaterialized_similarity_test_obligation_id", finding_codes(opaque))
+        self.assertIn("unmaterialized_similarity_code_obligation_id", finding_codes(opaque))
+
+    def test_behavior_plane_binding_projects_into_closure_rows(self):
+        plane = "agent_operation"
+        report = review_model_test_alignment(
+            ModelTestAlignmentPlan(
+                model_id="agent-operation-registry",
+                obligations=(
+                    obligation("recall_registered_operation", behavior_plane=plane),
+                ),
+                code_contracts=(
+                    owner_contract("recall_registered_operation", behavior_plane=plane),
+                ),
+                test_evidence=(
+                    bound_evidence(
+                        "test_recall_registered_operation",
+                        "recall_registered_operation",
+                        behavior_plane=plane,
+                    ),
+                ),
+                require_behavior_plane_binding=True,
+            )
+        )
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual(plane, report.binding_rows[0].behavior_plane)
+        self.assertEqual(plane, report.binding_rows[0].to_dict()["behavior_plane"])
+
+    def test_behavior_plane_binding_rejects_cross_plane_code_and_test_evidence(self):
+        report = review_model_test_alignment(
+            ModelTestAlignmentPlan(
+                model_id="agent-operation-registry",
+                obligations=(
+                    obligation(
+                        "recall_registered_operation",
+                        behavior_plane="agent_operation",
+                    ),
+                ),
+                code_contracts=(
+                    owner_contract(
+                        "recall_registered_operation",
+                        behavior_plane="product_runtime",
+                    ),
+                ),
+                test_evidence=(
+                    bound_evidence(
+                        "test_recall_registered_operation",
+                        "recall_registered_operation",
+                        behavior_plane="development_process",
+                    ),
+                ),
+                require_behavior_plane_binding=True,
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("behavior_plane_mismatch", finding_codes(report))
+        self.assertIn("test_evidence_behavior_plane_mismatch", finding_codes(report))
+
+    def test_behavior_plane_gate_is_opt_in_for_legacy_alignment_plans(self):
+        report = review_model_test_alignment(
+            ModelTestAlignmentPlan(
+                model_id="legacy-checkout",
+                obligations=(obligation("accept_valid_order"),),
+                code_contracts=(owner_contract("accept_valid_order"),),
+                test_evidence=(bound_evidence("test_accept_valid_order", "accept_valid_order"),),
+            )
+        )
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual("", report.binding_rows[0].behavior_plane)
 
 
 if __name__ == "__main__":

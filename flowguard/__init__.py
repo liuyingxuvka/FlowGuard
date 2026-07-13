@@ -11,17 +11,6 @@ from .adoption import (
     utc_now_text,
 )
 from .adoption_audit import AdoptionAuditFinding, AdoptionAuditReport, audit_flowguard_adoption
-from .artifact_upgrade import (
-    ARTIFACT_UPGRADE_STATUS_BLOCKED,
-    ARTIFACT_UPGRADE_STATUS_SKIPPED,
-    ARTIFACT_UPGRADE_STATUS_UNCHANGED,
-    ARTIFACT_UPGRADE_STATUS_UPGRADED,
-    ARTIFACT_UPGRADE_STATUSES,
-    ARTIFACT_UPGRADE_TEXT_REPLACEMENTS,
-    ArtifactUpgradeItem,
-    ArtifactUpgradeReport,
-    review_artifact_upgrades,
-)
 from .project_adoption import (
     FLOWGUARD_AGENTS_BEGIN,
     FLOWGUARD_AGENTS_END,
@@ -33,7 +22,6 @@ from .project_adoption import (
     FLOWGUARD_REQUIRED_RULE_IDS,
     PROJECT_ADOPTION_ACTION_ADOPT,
     PROJECT_ADOPTION_ACTION_AUDIT,
-    PROJECT_ADOPTION_ACTION_UPGRADE,
     PROJECT_ADOPTION_CLAIM_BOUNDARY,
     PROJECT_ADOPTION_STATUS_BLOCKED,
     PROJECT_ADOPTION_STATUS_PASS,
@@ -52,7 +40,6 @@ from .project_adoption import (
     managed_rule_ids_in_block,
     normalize_managed_agents_block,
     update_agents_text,
-    upgrade_project,
 )
 from .architecture_reduction import (
     ARCHITECTURE_REDUCTION_CANDIDATE_DISPOSITIONS,
@@ -243,12 +230,14 @@ from .existing_model_preflight import (
     ExistingModelPreflight,
     ExistingModelPreflightFinding,
     ExistingModelPreflightReport,
+    ExistingIntentSurface,
     ExistingOwnershipSnapshot,
     DuplicateBoundaryRisk,
     ModelContextHit,
     PREFLIGHT_MODE_FULL,
     PREFLIGHT_MODE_LIGHT,
     PREFLIGHT_MODES,
+    PREFLIGHT_SURFACE_KINDS,
     REUSE_DECISION_ADD_CHILD_MODEL,
     REUSE_DECISION_EXTEND_EXISTING,
     REUSE_DECISION_NEW_BOUNDARY,
@@ -405,6 +394,14 @@ from .ui_structure import (
     UIObservedSurfaceInventory,
     UIObservedSurfaceInventoryReport,
     UIObservedSurfaceItem,
+    UIProductConsistencyException,
+    UIProductConsistencyFinding,
+    UIProductConsistencyObservation,
+    UIProductConsistencyPlan,
+    UIProductConsistencyReport,
+    UIProductConsistencyRule,
+    UIProductLanguageCaseSeed,
+    UIProductSurface,
     UIRegionRecommendation,
     UIRegionSemanticMap,
     UIRenderEvidence,
@@ -427,6 +424,24 @@ from .ui_structure import (
     UIVisibleSurface,
     UIVisibleSurfaceItem,
     UIVisibleSurfaceReport,
+    UI_PRODUCT_AUTHORITY_FIELDS,
+    UI_PRODUCT_CLAIM_COMPLETE,
+    UI_PRODUCT_CLAIM_SCOPED,
+    UI_PRODUCT_CLAIM_SCOPES,
+    UI_PRODUCT_CONSISTENCY_COMPONENT,
+    UI_PRODUCT_CONSISTENCY_FEEDBACK,
+    UI_PRODUCT_CONSISTENCY_INTERACTION,
+    UI_PRODUCT_CONSISTENCY_KINDS,
+    UI_PRODUCT_CONSISTENCY_NAVIGATION,
+    UI_PRODUCT_CONSISTENCY_RECOVERY,
+    UI_PRODUCT_CONSISTENCY_TRANSITION,
+    UI_PRODUCT_CONSISTENCY_TYPOGRAPHY,
+    UI_PRODUCT_EXCEPTION_ACCESSIBILITY,
+    UI_PRODUCT_EXCEPTION_KINDS,
+    UI_PRODUCT_EXCEPTION_NATIVE_CONTROL,
+    UI_PRODUCT_EXCEPTION_PLATFORM,
+    UI_PRODUCT_EXCEPTION_SAFETY,
+    UI_PRODUCT_PRESENTATION_EXCEPTION_FIELDS,
     UI_CONTENT_VISIBILITY_CLASSES,
     UI_CONTENT_NEED_KINDS,
     UI_CONTENT_NEED_RECOVERY,
@@ -459,11 +474,13 @@ from .ui_structure import (
     review_ui_interaction_model,
     review_ui_journey_coverage,
     review_ui_observed_surface_inventory,
+    review_ui_product_consistency,
     review_ui_render_evidence,
     review_ui_responsiveness_contract,
     review_ui_structure_derivation,
     review_ui_text_hierarchy,
     review_ui_visible_surface,
+    default_ui_product_language_case_seeds,
     ui_content_visibility_candidate_ids_from_field_lifecycle,
 )
 from .contract import (
@@ -795,6 +812,7 @@ from . import model_angle_deliberation as _model_angle_deliberation
 from . import plan_intake as _plan_intake
 from . import primary_path_authority as _primary_path_authority
 from . import behavior_commitment as _behavior_commitment
+from . import behavior_commitment_lookup as _behavior_commitment_lookup
 from . import recurring_model_miss as _recurring_model_miss
 from . import risk_evidence_ledger as _risk_evidence_ledger
 from . import risk_templates as _risk_templates
@@ -811,9 +829,9 @@ from . import distribution_sync as _distribution_sync
 from . import evidence_receipts as _evidence_receipts
 from . import model_regressions as _model_regressions
 from . import release_verification as _release_verification
-from . import skill_contracts as _skill_contracts
-from . import skill_native_checks as _skill_native_checks
-from . import skill_self_governance as _skill_self_governance
+from . import spec_check_cache as _spec_check_cache
+from . import spec_providers as _spec_providers
+from . import spec_work_package as _spec_work_package
 from . import skill_suite as _skill_suite
 from . import validation_results as _validation_results
 from .self_maintenance import *  # noqa: F403
@@ -1076,6 +1094,11 @@ from .recurring_model_miss import (
     DEFECT_FAMILY_DECISION_BLOCKED,
     DEFECT_FAMILY_DECISION_FULL,
     DEFECT_FAMILY_DECISION_SCOPED,
+    MODEL_MISS_BACKFEED_AMBIGUOUS,
+    MODEL_MISS_BACKFEED_BLOCKED,
+    MODEL_MISS_BACKFEED_COVERAGE_GAP,
+    MODEL_MISS_BACKFEED_DISPOSITIONS,
+    MODEL_MISS_BACKFEED_REUSE_EXISTING,
     NON_PASSING_DEFECT_FAMILY_STATUSES,
     PASSING_DEFECT_FAMILY_STATUSES,
     UI_MODEL_MISS_ACTION_GRAMMAR_CONFLICT,
@@ -1098,10 +1121,14 @@ from .recurring_model_miss import (
     DefectFamilyGateFinding,
     DefectFamilyGatePlan,
     DefectFamilyGateReport,
+    ModelMissBehaviorBackfeed,
+    ModelMissBehaviorContext,
     UIModelMissFinding,
     UIModelMissRecord,
     UIModelMissReviewPlan,
     UIModelMissReviewReport,
+    apply_model_miss_behavior_backfeed,
+    backfeed_model_miss_to_behavior_ledger,
     review_defect_family_gates,
     review_ui_model_misses,
 )
@@ -1196,6 +1223,7 @@ from .templates import (
     risk_intent_template_files,
     risk_template_library_template_files,
     runtime_path_evidence_template_files,
+    spec_work_package_template_files,
     structure_mesh_template_files,
     test_mesh_template_files,
     topology_hazard_template_files,
@@ -1209,14 +1237,14 @@ from .workflow import Workflow, WorkflowPath, WorkflowRun
 
 _GOVERNANCE_MODULES = (
     _evidence_receipts,
-    _skill_self_governance,
-    _skill_native_checks,
     _skill_suite,
-    _skill_contracts,
     _validation_results,
     _model_regressions,
     _distribution_sync,
     _release_verification,
+    _spec_work_package,
+    _spec_providers,
+    _spec_check_cache,
 )
 _GOVERNANCE_EXCLUDED_TOP_LEVEL_NAMES = {"MANIFEST_SCHEMA"}
 for _governance_module in _GOVERNANCE_MODULES:
@@ -1230,12 +1258,19 @@ FLOWGUARD_GOVERNANCE_API = tuple(
     for name in module.__all__
     if name not in _GOVERNANCE_EXCLUDED_TOP_LEVEL_NAMES
 )
+SPEC_WORK_PACKAGE_API = tuple(
+    name
+    for module in (_spec_work_package, _spec_providers, _spec_check_cache)
+    for name in module.__all__
+)
 
 PLAN_INTAKE_CLAIM_API = tuple(_plan_intake.__all__)
 for _name in _primary_path_authority.__all__:
     globals()[_name] = getattr(_primary_path_authority, _name)
 for _name in _behavior_commitment.__all__:
     globals()[_name] = getattr(_behavior_commitment, _name)
+for _name in _behavior_commitment_lookup.__all__:
+    globals()[_name] = getattr(_behavior_commitment_lookup, _name)
 
 PLAN_INTAKE_STARTER_API = (
     "PlanIntakeCompletenessPlan",
@@ -1253,7 +1288,15 @@ FLOWGUARD_CLOSURE_CONTRACT_API = tuple(_closure_contract.__all__)
 CONTRACT_EXHAUSTION_MESH_API = tuple(_contract_exhaustion.__all__)
 DEVELOPMENT_PROCESS_FLOW_ROUTE_API = tuple(name for name in _development_process_flow.__all__ if name in globals())
 DEVELOPMENT_PROCESS_SIMULATOR_ROUTE_API = tuple(_development_process_simulator.__all__)
-EXISTING_MODEL_PREFLIGHT_ROUTE_API = tuple(name for name in _existing_model_preflight.__all__ if name in globals())
+BEHAVIOR_COMMITMENT_LOOKUP_API = tuple(
+    name for name in _behavior_commitment_lookup.__all__ if name in globals()
+)
+EXISTING_MODEL_PREFLIGHT_ROUTE_API = tuple(
+    dict.fromkeys(
+        tuple(name for name in _existing_model_preflight.__all__ if name in globals())
+        + BEHAVIOR_COMMITMENT_LOOKUP_API
+    )
+)
 FIELD_LIFECYCLE_MESH_API = tuple(_field_lifecycle.__all__)
 MODEL_MESH_ROUTE_API = tuple(name for name in _hierarchy.__all__ if name in globals())
 MAINTENANCE_OBLIGATION_MEMORY_API = tuple(_maintenance_obligation.__all__)
@@ -1261,7 +1304,12 @@ MAINTENANCE_SCAN_ROUTE_API = tuple(_maintenance_scan.__all__)
 MODEL_ANGLE_DELIBERATION_API = tuple(_model_angle_deliberation.__all__)
 MODEL_MISS_REVIEW_ROUTE_API = tuple(name for name in _recurring_model_miss.__all__ if name in globals())
 PRIMARY_PATH_AUTHORITY_ROUTE_API = tuple(name for name in _primary_path_authority.__all__ if name in globals())
-BEHAVIOR_COMMITMENT_LEDGER_ROUTE_API = tuple(name for name in _behavior_commitment.__all__ if name in globals())
+BEHAVIOR_COMMITMENT_LEDGER_ROUTE_API = tuple(
+    dict.fromkeys(
+        tuple(name for name in _behavior_commitment.__all__ if name in globals())
+        + BEHAVIOR_COMMITMENT_LOOKUP_API
+    )
+)
 RISK_EVIDENCE_LEDGER_ROUTE_API = tuple(name for name in _risk_evidence_ledger.__all__ if name in globals())
 RISK_TEMPLATE_LIBRARY_API = tuple(_risk_templates.__all__)
 ROUTE_TOPOLOGY_API = tuple(_route_topology.__all__)
@@ -1560,12 +1608,14 @@ MODELING_HELPER_API = (
     "ExistingModelPreflight",
     "ExistingModelPreflightFinding",
     "ExistingModelPreflightReport",
+    "ExistingIntentSurface",
     "ExistingOwnershipSnapshot",
     "DuplicateBoundaryRisk",
     "ModelContextHit",
     "PREFLIGHT_MODE_FULL",
     "PREFLIGHT_MODE_LIGHT",
     "PREFLIGHT_MODES",
+    "PREFLIGHT_SURFACE_KINDS",
     "REUSE_DECISION_REUSE_EXISTING",
     "REUSE_DECISION_EXTEND_EXISTING",
     "REUSE_DECISION_ADD_CHILD_MODEL",
@@ -1682,6 +1732,14 @@ MODELING_HELPER_API = (
     "UIObservedSurfaceInventory",
     "UIObservedSurfaceInventoryReport",
     "UIObservedSurfaceItem",
+    "UIProductConsistencyException",
+    "UIProductConsistencyFinding",
+    "UIProductConsistencyObservation",
+    "UIProductConsistencyPlan",
+    "UIProductConsistencyReport",
+    "UIProductConsistencyRule",
+    "UIProductLanguageCaseSeed",
+    "UIProductSurface",
     "UIRegionRecommendation",
     "UIRegionSemanticMap",
     "UIRenderEvidence",
@@ -1704,6 +1762,24 @@ MODELING_HELPER_API = (
     "UIVisibleSurface",
     "UIVisibleSurfaceItem",
     "UIVisibleSurfaceReport",
+    "UI_PRODUCT_AUTHORITY_FIELDS",
+    "UI_PRODUCT_CLAIM_COMPLETE",
+    "UI_PRODUCT_CLAIM_SCOPED",
+    "UI_PRODUCT_CLAIM_SCOPES",
+    "UI_PRODUCT_CONSISTENCY_COMPONENT",
+    "UI_PRODUCT_CONSISTENCY_FEEDBACK",
+    "UI_PRODUCT_CONSISTENCY_INTERACTION",
+    "UI_PRODUCT_CONSISTENCY_KINDS",
+    "UI_PRODUCT_CONSISTENCY_NAVIGATION",
+    "UI_PRODUCT_CONSISTENCY_RECOVERY",
+    "UI_PRODUCT_CONSISTENCY_TRANSITION",
+    "UI_PRODUCT_CONSISTENCY_TYPOGRAPHY",
+    "UI_PRODUCT_EXCEPTION_ACCESSIBILITY",
+    "UI_PRODUCT_EXCEPTION_KINDS",
+    "UI_PRODUCT_EXCEPTION_NATIVE_CONTROL",
+    "UI_PRODUCT_EXCEPTION_PLATFORM",
+    "UI_PRODUCT_EXCEPTION_SAFETY",
+    "UI_PRODUCT_PRESENTATION_EXCEPTION_FIELDS",
     "UI_CONTENT_VISIBILITY_CLASSES",
     "UI_CONTENT_NEED_KINDS",
     "UI_CONTENT_NEED_RECOVERY",
@@ -1736,11 +1812,13 @@ MODELING_HELPER_API = (
     "review_ui_interaction_model",
     "review_ui_journey_coverage",
     "review_ui_observed_surface_inventory",
+    "review_ui_product_consistency",
     "review_ui_render_evidence",
     "review_ui_responsiveness_contract",
     "review_ui_structure_derivation",
     "review_ui_text_hierarchy",
     "review_ui_visible_surface",
+    "default_ui_product_language_case_seeds",
     "ui_content_visibility_candidate_ids_from_field_lifecycle",
     "CodeBoundaryConformanceReport",
     "CodeBoundaryContract",
@@ -2084,6 +2162,13 @@ REPORTING_HELPER_API = (
     "DefectFamilyGatePlan",
     "DefectFamilyGateFinding",
     "DefectFamilyGateReport",
+    "MODEL_MISS_BACKFEED_AMBIGUOUS",
+    "MODEL_MISS_BACKFEED_BLOCKED",
+    "MODEL_MISS_BACKFEED_COVERAGE_GAP",
+    "MODEL_MISS_BACKFEED_DISPOSITIONS",
+    "MODEL_MISS_BACKFEED_REUSE_EXISTING",
+    "ModelMissBehaviorBackfeed",
+    "ModelMissBehaviorContext",
     "UI_MODEL_MISS_ACTION_GRAMMAR_CONFLICT",
     "UI_MODEL_MISS_AFFORDANCE_MISMATCH",
     "UI_MODEL_MISS_BOUNDARY_MISSING",
@@ -2101,6 +2186,8 @@ REPORTING_HELPER_API = (
     "UIModelMissRecord",
     "UIModelMissReviewPlan",
     "UIModelMissReviewReport",
+    "apply_model_miss_behavior_backfeed",
+    "backfeed_model_miss_to_behavior_ledger",
     "review_defect_family_gates",
     "review_ui_model_misses",
     "ProofArtifactRef",
@@ -2121,9 +2208,6 @@ REPORTING_HELPER_API = (
     "field_rows_to_legacy_path_dispositions",
     "legacy_path_disposition_from_field_row",
     "review_legacy_path_dispositions",
-    "ArtifactUpgradeItem",
-    "ArtifactUpgradeReport",
-    "review_artifact_upgrades",
     "AutoSplitCandidate",
     "AutoSplitFinding",
     "AutoSplitPlan",
@@ -2272,7 +2356,6 @@ REPORTING_HELPER_API = (
     "managed_rule_ids_in_block",
     "normalize_managed_agents_block",
     "update_agents_text",
-    "upgrade_project",
     "FLOWGUARD_AGENTS_BEGIN",
     "FLOWGUARD_AGENTS_END",
     "FLOWGUARD_MANAGED_RULES",
@@ -2283,7 +2366,6 @@ REPORTING_HELPER_API = (
     "FLOWGUARD_REQUIRED_RULE_IDS",
     "PROJECT_ADOPTION_ACTION_ADOPT",
     "PROJECT_ADOPTION_ACTION_AUDIT",
-    "PROJECT_ADOPTION_ACTION_UPGRADE",
     "PROJECT_ADOPTION_CLAIM_BOUNDARY",
     "PROJECT_ADOPTION_STATUS_BLOCKED",
     "PROJECT_ADOPTION_STATUS_PASS",
@@ -2360,6 +2442,7 @@ EVIDENCE_API = (
     "behavior_commitment_ledger_template_files",
     "primary_path_authority_template_files",
     "project_adoption_template_files",
+    "spec_work_package_template_files",
     "project_template_files",
     "risk_evidence_ledger_template_files",
     "risk_intent_template_files",
@@ -2859,6 +2942,7 @@ API_SURFACE = {
     "reporting_helpers_full": REPORTING_HELPER_API,
     "evidence": EVIDENCE_API,
     "governance_and_distribution": FLOWGUARD_GOVERNANCE_API,
+    "spec_work_packages": SPEC_WORK_PACKAGE_API,
 }
 
 _PUBLIC_API_SUPPLEMENT = (
@@ -2877,6 +2961,7 @@ _PUBLIC_API_SUPPLEMENT = (
     "FLOWGUARD_INTERNAL_ROUTE_API",
     "FLOWGUARD_GOVERNANCE_API",
     "FLOWGUARD_ROUTE_API",
+    "BEHAVIOR_COMMITMENT_LOOKUP_API",
     "BEHAVIOR_COMMITMENT_LEDGER_ROUTE_API",
     "FLOWGUARD_CLOSURE_CONTRACT_API",
     "FLOWGUARD_SELF_MAINTENANCE_ROUTE_API",
@@ -2901,6 +2986,7 @@ _PUBLIC_API_SUPPLEMENT = (
     "ROUTE_STARTER_API",
     "PLAN_INTAKE_STARTER_API",
     "STATE_CLOSURE_ROUTE_API",
+    "SPEC_WORK_PACKAGE_API",
     "STRUCTURE_MESH_ROUTE_API",
     "TEST_MESH_ROUTE_API",
     "TOPOLOGY_HAZARD_ROUTE_API",
@@ -2929,12 +3015,6 @@ _PUBLIC_API_SUPPLEMENT = (
     "LEGACY_PATH_SAME_CONTRACT_REPAIRED",
     "LEGACY_PATH_OUT_OF_SCOPE",
     "LEGACY_PATH_UNKNOWN",
-    "ARTIFACT_UPGRADE_STATUS_BLOCKED",
-    "ARTIFACT_UPGRADE_STATUS_SKIPPED",
-    "ARTIFACT_UPGRADE_STATUS_UNCHANGED",
-    "ARTIFACT_UPGRADE_STATUS_UPGRADED",
-    "ARTIFACT_UPGRADE_STATUSES",
-    "ARTIFACT_UPGRADE_TEXT_REPLACEMENTS",
 )
 
 

@@ -46,6 +46,11 @@ class Case:
     expect_change_impact: bool = False
     expected_test_obligations: tuple[str, ...] = ()
     expected_code_obligations: tuple[str, ...] = ()
+    expected_handoff_surface_ids: tuple[str, ...] = ()
+    expected_handoff_behavior_planes: tuple[str, ...] = ()
+    expected_typed_relation_refs: tuple[str, ...] = ()
+    expect_cross_plane_relation: bool = False
+    expect_materialized_handoff: bool = False
 
 
 def family_variant_case() -> Case:
@@ -254,6 +259,128 @@ def unrelated_case() -> Case:
     )
 
 
+def exact_intent_reuse_case() -> Case:
+    return Case(
+        "exact_intent_reuse",
+        ModelSimilarityPlan(
+            "exact-intent-reuse",
+            signatures=(
+                ModelSignature(
+                    "submit-ui",
+                    function_blocks=("SubmitOrder",),
+                    state_owned=("orders",),
+                    side_effects_owned=("write_order",),
+                    code_paths=("flowguard/orders/ui.py",),
+                    test_paths=("tests/test_orders_ui.py",),
+                    business_intent_ids=("intent:submit-order",),
+                    behavior_commitment_ids=("commitment:submit-order",),
+                    primary_path_ids=("path:submit-order",),
+                    business_path_ids=("path:submit-order",),
+                    path_terminals=("accepted_or_visible_error",),
+                    public_surface_ids=("surface:ui-submit",),
+                    behavior_plane="product_runtime",
+                    evidence_ids=("sim:submit-order",),
+                ),
+                ModelSignature(
+                    "submit-api",
+                    function_blocks=("SubmitOrder",),
+                    state_owned=("orders",),
+                    side_effects_owned=("write_order",),
+                    code_paths=("flowguard/orders/api.py",),
+                    test_paths=("tests/test_orders_api.py",),
+                    business_intent_ids=("intent:submit-order",),
+                    behavior_commitment_ids=("commitment:submit-order",),
+                    primary_path_ids=("path:submit-order",),
+                    business_path_ids=("path:submit-order",),
+                    path_terminals=("accepted_or_visible_error",),
+                    public_surface_ids=("surface:api-submit",),
+                    behavior_plane="product_runtime",
+                    evidence_ids=("sim:submit-order",),
+                ),
+            ),
+            evidence=(
+                ModelSimilarityEvidence(
+                    "sim:submit-order",
+                    compared_behavior_planes=("product_runtime",),
+                ),
+            ),
+            expected_surface_ids=("surface:ui-submit", "surface:api-submit"),
+            surface_inventory_revision="submit-order-surfaces:v1",
+            require_complete_surface_inventory=True,
+            require_stable_authority_identity=True,
+            require_behavior_plane_identity=True,
+            require_current_evidence=True,
+        ),
+        True,
+        "duplicate_boundary",
+        ("architecture_reduction",),
+        expected_code_obligations=("duplicate_boundary_contraction",),
+        expected_handoff_surface_ids=("surface:ui-submit", "surface:api-submit"),
+        expected_handoff_behavior_planes=("product_runtime",),
+        expect_materialized_handoff=True,
+    )
+
+
+def omitted_surface_case() -> Case:
+    plan = exact_intent_reuse_case().plan
+    return Case(
+        "omitted_surface",
+        ModelSimilarityPlan(
+            "omitted-surface",
+            signatures=(plan.signatures[0],),
+            expected_surface_ids=plan.expected_surface_ids,
+            surface_inventory_revision=plan.surface_inventory_revision,
+            require_complete_surface_inventory=True,
+            require_stable_authority_identity=True,
+        ),
+        False,
+        "",
+        expected_findings=("missing_expected_similarity_surface",),
+    )
+
+
+def cross_plane_false_friend_case() -> Case:
+    typed_ref = "commitment:agent-download|invokes|commitment:product-download"
+    return Case(
+        "cross_plane_false_friend",
+        ModelSimilarityPlan(
+            "cross-plane-false-friend",
+            signatures=(
+                ModelSignature(
+                    "product-download",
+                    function_blocks=("Download",),
+                    owned_public_behaviors=("download",),
+                    behavior_plane="product_runtime",
+                    typed_commitment_relation_refs=(typed_ref,),
+                ),
+                ModelSignature(
+                    "agent-download",
+                    function_blocks=("Download",),
+                    owned_public_behaviors=("download",),
+                    behavior_plane="agent_operation",
+                    typed_commitment_relation_refs=(typed_ref,),
+                ),
+            ),
+            comparison_pairs=(("product-download", "agent-download"),),
+            evidence=(
+                ModelSimilarityEvidence(
+                    "sim:cross-plane-download",
+                    relation_id="product-download:agent-download:false_friend",
+                    compared_behavior_planes=("product_runtime", "agent_operation"),
+                    typed_commitment_relation_refs=(typed_ref,),
+                ),
+            ),
+            require_behavior_plane_identity=True,
+        ),
+        True,
+        "false_friend",
+        expected_findings=("behavior_plane_conflict",),
+        expected_handoff_behavior_planes=("product_runtime", "agent_operation"),
+        expected_typed_relation_refs=(typed_ref,),
+        expect_cross_plane_relation=True,
+    )
+
+
 CASES = (
     family_variant_case(),
     missing_evidence_case(),
@@ -261,6 +388,9 @@ CASES = (
     duplicate_boundary_case(),
     missing_maintenance_tests_case(),
     unrelated_case(),
+    exact_intent_reuse_case(),
+    omitted_surface_case(),
+    cross_plane_false_friend_case(),
 )
 
 
@@ -291,6 +421,20 @@ def run_case(case: Case) -> tuple[bool, str]:
     for obligation_type in case.expected_code_obligations:
         if obligation_type not in code_obligation_types:
             return False, f"{case.name}: missing code obligation {obligation_type}"
+    handoff = report.to_handoff()
+    for surface_id in case.expected_handoff_surface_ids:
+        if surface_id not in handoff.affected_surface_ids:
+            return False, f"{case.name}: handoff missing affected surface {surface_id}"
+    for plane in case.expected_handoff_behavior_planes:
+        if plane not in handoff.behavior_planes:
+            return False, f"{case.name}: handoff missing behavior plane {plane}"
+    for relation_ref in case.expected_typed_relation_refs:
+        if relation_ref not in handoff.typed_commitment_relation_refs:
+            return False, f"{case.name}: handoff missing typed relation {relation_ref}"
+    if case.expect_cross_plane_relation and not handoff.cross_plane_relation_ids:
+        return False, f"{case.name}: handoff missing cross-plane relation id"
+    if case.expect_materialized_handoff and not (handoff.test_obligations or handoff.code_obligations):
+        return False, f"{case.name}: handoff preserved only opaque obligation ids"
     return True, report.summary
 
 

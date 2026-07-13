@@ -1,108 +1,168 @@
 {
-  "activation_keywords": [
-    "three or more models",
-    "oversized model",
-    "child reattachment",
-    "model mesh closure",
-    "coverage receipts"
+  "artifacts": [],
+  "checks": [
+    {
+      "check_id": "check:flowguard-model-mesh:plane-boundary",
+      "covers_obligation_ids": [
+        "obligation:flowguard-model-mesh:plane-boundary"
+      ],
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "flowguard-model-mesh:functional",
+      "execution_owner_id": "owner:flowguard-model-mesh:flowguard-model-mesh-plane-boundary",
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": ".flowguard/hierarchical_model_mesh/model.py"
+        }
+      ],
+      "kind": "model_assertion",
+      "timeout_seconds": 30
+    },
+    {
+      "args": [
+        "-m",
+        "pytest",
+        "tests/test_hierarchical_mesh.py",
+        "-q"
+      ],
+      "check_id": "check:flowguard-model-mesh:native-authority",
+      "command": "python",
+      "covers_obligation_ids": [
+        "obligation:flowguard-model-mesh:native-authority"
+      ],
+      "cwd_token": "repository_root",
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "flowguard-model-mesh:functional",
+      "execution_owner_id": "owner:flowguard-model-mesh:flowguard-model-mesh-native-authority",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": ".flowguard/hierarchical_model_mesh/model.py"
+        },
+        {
+          "kind": "path",
+          "path": ".flowguard/hierarchical_model_mesh/run_checks.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/hierarchy.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/skill_contract_model.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_hierarchical_mesh.py"
+        }
+      ],
+      "kind": "command",
+      "timeout_seconds": 300
+    },
+    {
+      "check_id": "check:flowguard-model-mesh:evidence-closure",
+      "covers_obligation_ids": [
+        "obligation:flowguard-model-mesh:evidence-closure"
+      ],
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "flowguard-model-mesh:functional",
+      "execution_owner_id": "owner:flowguard-model-mesh:flowguard-model-mesh-evidence-closure",
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": ".flowguard/hierarchical_model_mesh/model.py"
+        }
+      ],
+      "kind": "model_assertion",
+      "timeout_seconds": 30
+    }
   ],
   "claim_boundary": "Mesh confidence covers only registered parent/child boundaries and current consumed evidence; child-local green or background progress is not parent proof.",
-  "default_route": false,
-  "direct_references": [
-    "references/model_mesh_protocol.md"
-  ],
-  "do_not_use_when": [
-    "The work is an ordinary single model, a test hierarchy, or a code structure split."
-  ],
-  "downstream_targets": [
+  "closure_profiles": [
     {
-      "claim_scope": "semantic alignment",
-      "condition": "Leaf/closure transitions need obligation, owner-code, and test binding.",
-      "target_id": "flowguard-model-test-alignment",
-      "target_kind": "skill"
+      "profile_id": "routine",
+      "required_obligation_ids": [
+        "obligation:flowguard-model-mesh:plane-boundary"
+      ]
     },
     {
-      "claim_scope": "test hierarchy",
-      "condition": "Leaf/closure cells need child-suite ownership and freshness.",
-      "target_id": "flowguard-test-mesh",
-      "target_kind": "skill"
+      "profile_id": "functional",
+      "required_obligation_ids": [
+        "obligation:flowguard-model-mesh:plane-boundary",
+        "obligation:flowguard-model-mesh:native-authority"
+      ]
     },
     {
-      "claim_scope": "broad closure",
-      "condition": "Whole-flow parent confidence consumes guard-family closure evidence.",
-      "target_id": "flowguard_closure_contract",
-      "target_kind": "internal_route"
-    }
-  ],
-  "layout_profiles": {
-    "installed": ".codex/skills/flowguard-model-mesh",
-    "source": ".agents/skills/flowguard-model-mesh"
-  },
-  "native_checks": [
+      "profile_id": "release",
+      "required_obligation_ids": [
+        "obligation:flowguard-model-mesh:plane-boundary",
+        "obligation:flowguard-model-mesh:native-authority",
+        "obligation:flowguard-model-mesh:evidence-closure"
+      ]
+    },
     {
-      "binding_id": "hierarchical_mesh_pytest",
-      "command": "python -m pytest tests/test_hierarchical_mesh.py -q",
-      "evidence_source": "current owner-specific pytest receipt",
-      "kind": "pytest",
-      "native_check_id": "hierarchical_model_mesh_tests",
-      "summary": "Run the tracked hierarchical model-mesh and reattachment tests."
+      "profile_id": "highest_quality",
+      "required_obligation_ids": [
+        "obligation:flowguard-model-mesh:plane-boundary",
+        "obligation:flowguard-model-mesh:native-authority",
+        "obligation:flowguard-model-mesh:evidence-closure"
+      ]
     }
   ],
-  "native_owner": "model_mesh_maintenance",
-  "output_fields": [
-    "evidence",
-    "failures",
-    "blockers",
-    "skipped_checks",
-    "residual_risk",
-    "claim_boundary",
-    "typed_next_actions"
+  "confirmed": true,
+  "implementation_paths": [
+    ".agents/skills/flowguard-model-mesh",
+    ".flowguard/hierarchical_model_mesh",
+    "flowguard/hierarchy.py",
+    "flowguard/skill_contract_model.py",
+    "tests/test_hierarchical_mesh.py"
   ],
-  "route_id": "model_mesh_maintenance",
-  "route_role": "public_owner",
-  "route_summary": "Govern model hierarchy through target split derivation, disjoint ownership, current child reattachment, receipts, siblings, and closure liveness.",
-  "schema_version": "flowguard.skill_contract_source.v1",
+  "judgment_rubrics": [],
+  "model_id": "flowguard.model_mesh_maintenance.skill_contract.v2",
+  "model_path": ".flowguard/hierarchical_model_mesh/model.py",
+  "release_eligible": false,
+  "schema_version": "skillguard.contract_source.v2",
   "skill_id": "flowguard-model-mesh",
-  "source_requirements": [
+  "step_bindings": [
     {
-      "category": "inventory",
-      "requirement_id": "model_mesh.target_split_and_ownership",
-      "summary": "Target children derive from a named source model and cover parent partitions without unsafe overlap."
+      "step_id": "step:flowguard-model-mesh:intake",
+      "action": {
+        "kind": "inventory",
+        "summary": "Name the parent claim, child set, target split or reattachment trigger, partitions, and requested claim scope."
+      },
+      "check_ids": [
+        "check:flowguard-model-mesh:plane-boundary"
+      ],
+      "output_artifact_ids": []
     },
     {
-      "category": "evidence",
-      "requirement_id": "model_mesh.current_reattachment",
-      "summary": "Parent confidence consumes current child evidence, runtime paths, coverage receipts, and stable handoff contracts."
+      "step_id": "step:flowguard-model-mesh:execute",
+      "action": {
+        "kind": "native",
+        "summary": "Run the existing model-mesh owner to review disjoint ownership, reattachment, receipt consumption, affected siblings, and liveness."
+      },
+      "check_ids": [
+        "check:flowguard-model-mesh:native-authority"
+      ],
+      "output_artifact_ids": []
     },
     {
-      "category": "closure",
-      "requirement_id": "model_mesh.closure_liveness",
-      "summary": "Missing child-output consumers, joins, feedback, progress/bounds, or affected-sibling review blocks broad parent closure."
-    }
-  ],
-  "use_when": [
-    "Parent confidence depends on several/oversized models, changed child boundaries, stale child evidence, coverage receipts, affected siblings, or whole-flow closure."
-  ],
-  "workflow": [
-    {
-      "phase_id": "intake",
-      "summary": "Name the parent claim, child set, model level, split/reattachment trigger, and required scope."
-    },
-    {
-      "phase_id": "inventory",
-      "summary": "Inventory target split, partition ownership, child contracts, evidence tiers/freshness, receipts, siblings, and closure tokens."
-    },
-    {
-      "phase_id": "execution",
-      "summary": "Review coverage/disjointness, current reattachment, parent receipt consumption, affected siblings, leaf boundaries, and closure liveness."
-    },
-    {
-      "phase_id": "checks",
-      "summary": "Run the hierarchical mesh model and reject overlap, stale/unconsumed evidence, missing closure, or no-delta loops."
-    },
-    {
-      "phase_id": "closure",
-      "summary": "Return parent/child confidence only for current consumed evidence and route unresolved cells/receipts to owners."
+      "step_id": "step:flowguard-model-mesh:verify",
+      "action": {
+        "kind": "verifier",
+        "summary": "Reject overlap, missing owners, stale or unconsumed evidence, incomplete joins, or no-progress loops."
+      },
+      "check_ids": [
+        "check:flowguard-model-mesh:evidence-closure"
+      ],
+      "output_artifact_ids": []
     }
   ]
 }
+

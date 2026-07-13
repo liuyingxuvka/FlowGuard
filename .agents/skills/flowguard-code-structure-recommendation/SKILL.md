@@ -35,6 +35,7 @@ Accept a source model and named responsibilities; produce FunctionBlock-to-modul
 
 ## Output Requirements
 - Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`, plus a code structure diagram and ownership map.
+- When drawing the code structure diagram, edges mean owns, calls, adapts, exposes, or validates.
 
 ## SkillGuard Maintenance
 - Edit `.skillguard/contract-source.json`, then regenerate derived contracts; SkillGuard checks recommendation inputs/outputs and cannot implement the proposed structure.

@@ -1,0 +1,794 @@
+{
+  "artifacts": [],
+  "check_declarations_hash": "1DAF742FBD905C058E4119274A023BE527C15C2AE6F95FC8C5DFF03E5B92B97D",
+  "checks": [
+    {
+      "args": [
+        ".flowguard/ui_flow_structure_skill/model.py"
+      ],
+      "assertion_scope": "current_full_flowguard_model",
+      "check_id": "check:flowguard-ui-flow-structure:plane-boundary",
+      "command": "python",
+      "covers_obligation_ids": [
+        "obligation:flowguard-ui-flow-structure:plane-boundary"
+      ],
+      "cwd_token": "repository_root",
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "flowguard-ui-flow-structure:functional",
+      "execution_owner_id": "owner:flowguard-ui-flow-structure:flowguard-ui-flow-structure-plane-boundary",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_component_ids": [
+        "component:documentation_model:d5d665d273906b9f",
+        "component:runtime_source:afb8d3b670a82913"
+      ],
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": ".flowguard/ui_flow_structure_skill/model.py"
+        }
+      ],
+      "kind": "model_assertion",
+      "owner_declaration_hash": "sha256:ea3eda7a2418d1141fbec48952b0c2db46bd10cce944f0e0589530bd749002ff",
+      "owner_input_projection_hash": "sha256:3fe8dd5a34f585c80ceb193906b539ab5be18e9874ebb215e453d613e4f7a18e",
+      "projection_declaration_hash": "sha256:caa42248ac69b2ebededa63d4be773095c7f6c72c40c10e4b984edc5fbd10575",
+      "semantic_check_id": "check:flowguard-ui-flow-structure:plane-boundary",
+      "timeout_seconds": 30
+    },
+    {
+      "args": [
+        ".flowguard/ui_flow_structure_skill/run_checks.py"
+      ],
+      "check_id": "check:flowguard-ui-flow-structure:native-authority",
+      "command": "python",
+      "covers_obligation_ids": [
+        "obligation:flowguard-ui-flow-structure:native-authority"
+      ],
+      "cwd_token": "repository_root",
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "flowguard-ui-flow-structure:functional",
+      "execution_owner_id": "owner:flowguard-ui-flow-structure:flowguard-ui-flow-structure-native-authority",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_component_ids": [
+        "component:documentation_model:c16bc9357376f331",
+        "component:documentation_model:d5d665d273906b9f",
+        "component:runtime_source:6ce7d3efb1fb7ca7",
+        "component:runtime_source:afb8d3b670a82913",
+        "component:test_dev:e6b81d20b1a48095"
+      ],
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": ".flowguard/ui_flow_structure_skill/model.py"
+        },
+        {
+          "kind": "path",
+          "path": ".flowguard/ui_flow_structure_skill/result.json"
+        },
+        {
+          "kind": "path",
+          "path": ".flowguard/ui_flow_structure_skill/run_checks.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/skill_contract_model.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/ui_structure.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_ui_structure.py"
+        }
+      ],
+      "kind": "command",
+      "owner_declaration_hash": "sha256:131b5e8c0fcc95fab4c3647606d2bbdff5f35239b7306a83c2fcc5582c99bdf0",
+      "owner_input_projection_hash": "sha256:04d36e027088a257cc7de4cd215c1d71e6d16a1a02dd5267ecc80bed2fdd9699",
+      "projection_declaration_hash": "sha256:2d956f0c52cf38bc7a9ac171b6cba39ab24510a5e042422c8dd588512c2bf7c1",
+      "semantic_check_id": "check:flowguard-ui-flow-structure:native-authority",
+      "timeout_seconds": 300
+    },
+    {
+      "args": [
+        ".flowguard/ui_flow_structure_skill/model.py"
+      ],
+      "assertion_scope": "current_full_flowguard_model",
+      "check_id": "check:flowguard-ui-flow-structure:evidence-closure",
+      "command": "python",
+      "covers_obligation_ids": [
+        "obligation:flowguard-ui-flow-structure:evidence-closure"
+      ],
+      "cwd_token": "repository_root",
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "flowguard-ui-flow-structure:functional",
+      "execution_owner_id": "owner:flowguard-ui-flow-structure:flowguard-ui-flow-structure-evidence-closure",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_component_ids": [
+        "component:documentation_model:d5d665d273906b9f",
+        "component:runtime_source:afb8d3b670a82913"
+      ],
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": ".flowguard/ui_flow_structure_skill/model.py"
+        }
+      ],
+      "kind": "model_assertion",
+      "owner_declaration_hash": "sha256:ea3eda7a2418d1141fbec48952b0c2db46bd10cce944f0e0589530bd749002ff",
+      "owner_input_projection_hash": "sha256:3fe8dd5a34f585c80ceb193906b539ab5be18e9874ebb215e453d613e4f7a18e",
+      "projection_declaration_hash": "sha256:2d1ccb36bfa15a8c66b434ad7d2973cc5d17782a517871c7c1e28f4da69c712d",
+      "semantic_check_id": "check:flowguard-ui-flow-structure:evidence-closure",
+      "timeout_seconds": 30
+    }
+  ],
+  "claim_boundary": "The route proves only the declared three-value content-admission boundary, product-scope semantic UI consistency boundary, UI states, tasks, paths, and current observed/implementation evidence; it does not certify unvisited behavior, authorization roles, future AI behavior, brand styling, or pixel-level visual quality.",
+  "closure_profiles": [
+    {
+      "profile_id": "routine",
+      "required_obligation_ids": [
+        "obligation:flowguard-ui-flow-structure:plane-boundary"
+      ]
+    },
+    {
+      "profile_id": "functional",
+      "required_obligation_ids": [
+        "obligation:flowguard-ui-flow-structure:plane-boundary",
+        "obligation:flowguard-ui-flow-structure:native-authority"
+      ]
+    },
+    {
+      "profile_id": "release",
+      "required_obligation_ids": [
+        "obligation:flowguard-ui-flow-structure:plane-boundary",
+        "obligation:flowguard-ui-flow-structure:native-authority",
+        "obligation:flowguard-ui-flow-structure:evidence-closure"
+      ]
+    },
+    {
+      "profile_id": "highest_quality",
+      "required_obligation_ids": [
+        "obligation:flowguard-ui-flow-structure:plane-boundary",
+        "obligation:flowguard-ui-flow-structure:native-authority",
+        "obligation:flowguard-ui-flow-structure:evidence-closure"
+      ]
+    }
+  ],
+  "compiler_version": "skillguard.contract_compiler.v2",
+  "content_impact_plan": {
+    "all_owner_component_ids": [
+      "component:documentation_model:d5d665d273906b9f",
+      "component:runtime_source:afb8d3b670a82913"
+    ],
+    "check_projections": [
+      {
+        "check_id": "check:flowguard-ui-flow-structure:plane-boundary",
+        "covers_obligation_ids": [
+          "obligation:flowguard-ui-flow-structure:plane-boundary"
+        ],
+        "evidence_class": "hard",
+        "execution_owner_id": "owner:flowguard-ui-flow-structure:flowguard-ui-flow-structure-plane-boundary",
+        "projection_declaration_hash": "sha256:caa42248ac69b2ebededa63d4be773095c7f6c72c40c10e4b984edc5fbd10575",
+        "semantic_check_id": "check:flowguard-ui-flow-structure:plane-boundary"
+      },
+      {
+        "check_id": "check:flowguard-ui-flow-structure:native-authority",
+        "covers_obligation_ids": [
+          "obligation:flowguard-ui-flow-structure:native-authority"
+        ],
+        "evidence_class": "hard",
+        "execution_owner_id": "owner:flowguard-ui-flow-structure:flowguard-ui-flow-structure-native-authority",
+        "projection_declaration_hash": "sha256:2d956f0c52cf38bc7a9ac171b6cba39ab24510a5e042422c8dd588512c2bf7c1",
+        "semantic_check_id": "check:flowguard-ui-flow-structure:native-authority"
+      },
+      {
+        "check_id": "check:flowguard-ui-flow-structure:evidence-closure",
+        "covers_obligation_ids": [
+          "obligation:flowguard-ui-flow-structure:evidence-closure"
+        ],
+        "evidence_class": "hard",
+        "execution_owner_id": "owner:flowguard-ui-flow-structure:flowguard-ui-flow-structure-evidence-closure",
+        "projection_declaration_hash": "sha256:2d1ccb36bfa15a8c66b434ad7d2973cc5d17782a517871c7c1e28f4da69c712d",
+        "semantic_check_id": "check:flowguard-ui-flow-structure:evidence-closure"
+      }
+    ],
+    "components": [
+      {
+        "classification_rule_ids": [
+          "skillguard.content_role_classifier.current:contract_schema"
+        ],
+        "component_hash": "sha256:61db535d672b14d27f2a074b8919f50ef97c337510a304ba8036df5f552a1ae1",
+        "component_id": "component:contract_schema:7f367d3fca97688c",
+        "consumer_ids": [
+          "projection:contract-compile",
+          "projection:installation"
+        ],
+        "install_disposition": "copy",
+        "member_paths": [
+          ".agents/skills/flowguard-ui-flow-structure/.skillguard/contract-source.json"
+        ],
+        "role": "contract_schema"
+      },
+      {
+        "classification_rule_ids": [
+          "skillguard.content_role_classifier.current:documentation_model"
+        ],
+        "component_hash": "sha256:6ab95e0878d5490295c276f6cf75b9e6a5a3a7971e2be2e749979e5c293170f5",
+        "component_id": "component:documentation_model:073cc32741365b98",
+        "consumer_ids": [
+          "projection:installation"
+        ],
+        "install_disposition": "copy",
+        "member_paths": [
+          ".agents/skills/flowguard-ui-flow-structure/SKILL.md",
+          ".agents/skills/flowguard-ui-flow-structure/references/ui_capability_interaction_protocol.md",
+          ".agents/skills/flowguard-ui-flow-structure/references/ui_flow_structure_protocol.md",
+          ".agents/skills/flowguard-ui-flow-structure/references/ui_geometry_transition_protocol.md",
+          ".agents/skills/flowguard-ui-flow-structure/references/ui_human_operability_protocol.md",
+          ".agents/skills/flowguard-ui-flow-structure/references/ui_implementation_evidence_protocol.md",
+          ".agents/skills/flowguard-ui-flow-structure/references/ui_journey_structure_text_protocol.md",
+          ".agents/skills/flowguard-ui-flow-structure/references/ui_observed_surface_protocol.md"
+        ],
+        "role": "documentation_model"
+      },
+      {
+        "classification_rule_ids": [
+          "skillguard.content_role_classifier.current:documentation_model"
+        ],
+        "component_hash": "sha256:d6c601abaadbb9a616273a25ff0c93460a7b294584855b4ef644dc5fae6b4a89",
+        "component_id": "component:documentation_model:d5d665d273906b9f",
+        "consumer_ids": [
+          "owner:flowguard-ui-flow-structure:flowguard-ui-flow-structure-evidence-closure",
+          "owner:flowguard-ui-flow-structure:flowguard-ui-flow-structure-native-authority",
+          "owner:flowguard-ui-flow-structure:flowguard-ui-flow-structure-plane-boundary",
+          "projection:contract-compile"
+        ],
+        "install_disposition": "source_only",
+        "member_paths": [
+          ".flowguard/ui_flow_structure_skill/model.py"
+        ],
+        "role": "documentation_model"
+      },
+      {
+        "classification_rule_ids": [
+          "skillguard.content_role_classifier.current:documentation_model"
+        ],
+        "component_hash": "sha256:d95ab5eba7fb1f28dbc374e6e3ea60a6241719884cb04812c85d8782321a1ff9",
+        "component_id": "component:documentation_model:c16bc9357376f331",
+        "consumer_ids": [
+          "owner:flowguard-ui-flow-structure:flowguard-ui-flow-structure-native-authority"
+        ],
+        "install_disposition": "source_only",
+        "member_paths": [
+          ".flowguard/ui_flow_structure_skill/result.json",
+          ".flowguard/ui_flow_structure_skill/run_checks.py"
+        ],
+        "role": "documentation_model"
+      },
+      {
+        "classification_rule_ids": [
+          "skillguard.content_role_classifier.current:runtime_source"
+        ],
+        "component_hash": "sha256:b0c5c2a0cc8feea2a1cdea3733fa8e75f14f61e071d64d22edc93dec804f05d3",
+        "component_id": "component:runtime_source:8a3cfcf0e7acae49",
+        "consumer_ids": [
+          "projection:installation"
+        ],
+        "install_disposition": "copy",
+        "member_paths": [
+          ".agents/skills/flowguard-ui-flow-structure/agents/openai.yaml"
+        ],
+        "role": "runtime_source"
+      },
+      {
+        "classification_rule_ids": [
+          "skillguard.content_role_classifier.current:runtime_source"
+        ],
+        "component_hash": "sha256:f840ca6b0ad40724f61d14999a93471c6cb72efd9fa6d8e4fbc904c403125cec",
+        "component_id": "component:runtime_source:afb8d3b670a82913",
+        "consumer_ids": [
+          "owner:flowguard-ui-flow-structure:flowguard-ui-flow-structure-evidence-closure",
+          "owner:flowguard-ui-flow-structure:flowguard-ui-flow-structure-native-authority",
+          "owner:flowguard-ui-flow-structure:flowguard-ui-flow-structure-plane-boundary",
+          "projection:contract-compile"
+        ],
+        "install_disposition": "source_only",
+        "member_paths": [
+          "flowguard/skill_contract_model.py"
+        ],
+        "role": "runtime_source"
+      },
+      {
+        "classification_rule_ids": [
+          "skillguard.content_role_classifier.current:runtime_source"
+        ],
+        "component_hash": "sha256:8c4b99375ead9ee2f90e76d72b9aba0c045389a31f07e2bd0cd0e8f627e55b9f",
+        "component_id": "component:runtime_source:6ce7d3efb1fb7ca7",
+        "consumer_ids": [
+          "owner:flowguard-ui-flow-structure:flowguard-ui-flow-structure-native-authority"
+        ],
+        "install_disposition": "source_only",
+        "member_paths": [
+          "flowguard/ui_structure.py"
+        ],
+        "role": "runtime_source"
+      },
+      {
+        "classification_rule_ids": [
+          "skillguard.content_role_classifier.current:test_dev"
+        ],
+        "component_hash": "sha256:d8279c22680466986ec0ab498eac83efa6e6bd8f7985b15449f7d32bbf50cfdb",
+        "component_id": "component:test_dev:e6b81d20b1a48095",
+        "consumer_ids": [
+          "owner:flowguard-ui-flow-structure:flowguard-ui-flow-structure-native-authority"
+        ],
+        "install_disposition": "source_only",
+        "member_paths": [
+          "tests/test_ui_structure.py"
+        ],
+        "role": "test_dev"
+      }
+    ],
+    "full_admission_reason_codes": [
+      "explicit_final_gate",
+      "explicit_release_gate",
+      "impact_policy_or_compiler_changed",
+      "shared_validation_runtime_changed",
+      "all_owner_component_changed"
+    ],
+    "health": {
+      "ambiguous_role_paths": [],
+      "dependency_parse_errors": [],
+      "duplicate_owner_ids": [],
+      "invalid_dependency_edges": [],
+      "owner_cycles": [],
+      "unmapped_paths": []
+    },
+    "impact_graph_hash": "sha256:c825cbe2db34feab961caf9c5652ff7c20ba02740646c8af6d844d0136999e8f",
+    "inventory": [
+      {
+        "classification_rule_id": "skillguard.content_role_classifier.current:contract_schema",
+        "content_hash": "sha256:7658dd9ab9f1e22545df77d25842c62703544a4599e35d9fe958e91e577522c7",
+        "install_disposition": "copy",
+        "path": ".agents/skills/flowguard-ui-flow-structure/.skillguard/contract-source.json",
+        "role": "contract_schema"
+      },
+      {
+        "classification_rule_id": "skillguard.content_role_classifier.current:documentation_model",
+        "content_hash": "sha256:337ae78535fb47f939346fb19da12868d7aefd86c7efbb630411e0b81b5a0499",
+        "install_disposition": "copy",
+        "path": ".agents/skills/flowguard-ui-flow-structure/SKILL.md",
+        "role": "documentation_model"
+      },
+      {
+        "classification_rule_id": "skillguard.content_role_classifier.current:runtime_source",
+        "content_hash": "sha256:7855de0141f4cd36d3e801a76f7ca0b8dd8cd68b241f7e4383cd64a268abc073",
+        "install_disposition": "copy",
+        "path": ".agents/skills/flowguard-ui-flow-structure/agents/openai.yaml",
+        "role": "runtime_source"
+      },
+      {
+        "classification_rule_id": "skillguard.content_role_classifier.current:documentation_model",
+        "content_hash": "sha256:0ab308fad8eb1ac145640dec2faa34d13afd7183c7e6bbee9388ea7e35c40cfa",
+        "install_disposition": "copy",
+        "path": ".agents/skills/flowguard-ui-flow-structure/references/ui_capability_interaction_protocol.md",
+        "role": "documentation_model"
+      },
+      {
+        "classification_rule_id": "skillguard.content_role_classifier.current:documentation_model",
+        "content_hash": "sha256:469fa2ad9588c67c5050dbed313d909bdedca95f9855341dad69a074ab7eac54",
+        "install_disposition": "copy",
+        "path": ".agents/skills/flowguard-ui-flow-structure/references/ui_flow_structure_protocol.md",
+        "role": "documentation_model"
+      },
+      {
+        "classification_rule_id": "skillguard.content_role_classifier.current:documentation_model",
+        "content_hash": "sha256:3d0e081f631ab66f00f1d85bf28db903f02865cf3c8620d3e5f32d67c969811e",
+        "install_disposition": "copy",
+        "path": ".agents/skills/flowguard-ui-flow-structure/references/ui_geometry_transition_protocol.md",
+        "role": "documentation_model"
+      },
+      {
+        "classification_rule_id": "skillguard.content_role_classifier.current:documentation_model",
+        "content_hash": "sha256:eda81ae3a17bfcc7c5bf031a94b0b1966ea5df42e6da9985cddbdc9312d6aa0a",
+        "install_disposition": "copy",
+        "path": ".agents/skills/flowguard-ui-flow-structure/references/ui_human_operability_protocol.md",
+        "role": "documentation_model"
+      },
+      {
+        "classification_rule_id": "skillguard.content_role_classifier.current:documentation_model",
+        "content_hash": "sha256:03ffcf488aefefafb3393523ef9dbbacf7d8c26313331789304fa3944d3f06a4",
+        "install_disposition": "copy",
+        "path": ".agents/skills/flowguard-ui-flow-structure/references/ui_implementation_evidence_protocol.md",
+        "role": "documentation_model"
+      },
+      {
+        "classification_rule_id": "skillguard.content_role_classifier.current:documentation_model",
+        "content_hash": "sha256:6753d08bac64bf8042f80e4a4aef6d559c72d2b753c59c15506dd4e85496e301",
+        "install_disposition": "copy",
+        "path": ".agents/skills/flowguard-ui-flow-structure/references/ui_journey_structure_text_protocol.md",
+        "role": "documentation_model"
+      },
+      {
+        "classification_rule_id": "skillguard.content_role_classifier.current:documentation_model",
+        "content_hash": "sha256:d7999ba4b4f44e10b9b4f3671e91dd98a838221617d33051dbd370e0a089bae5",
+        "install_disposition": "copy",
+        "path": ".agents/skills/flowguard-ui-flow-structure/references/ui_observed_surface_protocol.md",
+        "role": "documentation_model"
+      },
+      {
+        "classification_rule_id": "skillguard.content_role_classifier.current:documentation_model",
+        "content_hash": "sha256:95f5fc219f3ff3f8d7d3fa930b7cac19ed1453ae135f318619920e5b22d73a0a",
+        "install_disposition": "source_only",
+        "path": ".flowguard/ui_flow_structure_skill/model.py",
+        "role": "documentation_model"
+      },
+      {
+        "classification_rule_id": "skillguard.content_role_classifier.current:documentation_model",
+        "content_hash": "sha256:2d446feec2fbc7917bea5cdb0e4379df4492bd26e7995ce9329609001bd3b4bf",
+        "install_disposition": "source_only",
+        "path": ".flowguard/ui_flow_structure_skill/result.json",
+        "role": "documentation_model"
+      },
+      {
+        "classification_rule_id": "skillguard.content_role_classifier.current:documentation_model",
+        "content_hash": "sha256:c23526ec84ae28a82a6b9a8951124a9716b5ad984369b39e095764347433dab0",
+        "install_disposition": "source_only",
+        "path": ".flowguard/ui_flow_structure_skill/run_checks.py",
+        "role": "documentation_model"
+      },
+      {
+        "classification_rule_id": "skillguard.content_role_classifier.current:runtime_source",
+        "content_hash": "sha256:950be5371110546ec94ae5c0c3d6818cf378a4ed706e1e2410ddadc4fa0148d5",
+        "install_disposition": "source_only",
+        "path": "flowguard/skill_contract_model.py",
+        "role": "runtime_source"
+      },
+      {
+        "classification_rule_id": "skillguard.content_role_classifier.current:runtime_source",
+        "content_hash": "sha256:26776b364bf4d80bce7fd09627b494dea4e20e029ceaddad59362952f1fc880f",
+        "install_disposition": "source_only",
+        "path": "flowguard/ui_structure.py",
+        "role": "runtime_source"
+      },
+      {
+        "classification_rule_id": "skillguard.content_role_classifier.current:test_dev",
+        "content_hash": "sha256:cb5db6fef3e3507fca04a4c2b61ff099850e204c2cc3ae8fce529cfee4ac82e3",
+        "install_disposition": "source_only",
+        "path": "tests/test_ui_structure.py",
+        "role": "test_dev"
+      }
+    ],
+    "inventory_hash": "sha256:353804e87909e95dd5f900ca57956ca37ed014de5f08ae2dc639cebb93ad1157",
+    "owner_receipt_root_ref": {
+      "path_token": "owner_evidence_root",
+      "relative_path": "check-executions"
+    },
+    "owners": [
+      {
+        "check_ids": [
+          "check:flowguard-ui-flow-structure:evidence-closure"
+        ],
+        "depends_on_owner_ids": [],
+        "evidence_domain_id": "flowguard-ui-flow-structure:functional",
+        "execution_owner_id": "owner:flowguard-ui-flow-structure:flowguard-ui-flow-structure-evidence-closure",
+        "input_component_ids": [
+          "component:documentation_model:d5d665d273906b9f",
+          "component:runtime_source:afb8d3b670a82913"
+        ],
+        "input_selectors": [
+          {
+            "kind": "path",
+            "path": ".flowguard/ui_flow_structure_skill/model.py"
+          }
+        ],
+        "owner_declaration_hash": "sha256:ea3eda7a2418d1141fbec48952b0c2db46bd10cce944f0e0589530bd749002ff",
+        "owner_input_projection_hash": "sha256:3fe8dd5a34f585c80ceb193906b539ab5be18e9874ebb215e453d613e4f7a18e"
+      },
+      {
+        "check_ids": [
+          "check:flowguard-ui-flow-structure:native-authority"
+        ],
+        "depends_on_owner_ids": [],
+        "evidence_domain_id": "flowguard-ui-flow-structure:functional",
+        "execution_owner_id": "owner:flowguard-ui-flow-structure:flowguard-ui-flow-structure-native-authority",
+        "input_component_ids": [
+          "component:documentation_model:c16bc9357376f331",
+          "component:documentation_model:d5d665d273906b9f",
+          "component:runtime_source:6ce7d3efb1fb7ca7",
+          "component:runtime_source:afb8d3b670a82913",
+          "component:test_dev:e6b81d20b1a48095"
+        ],
+        "input_selectors": [
+          {
+            "kind": "path",
+            "path": ".flowguard/ui_flow_structure_skill/model.py"
+          },
+          {
+            "kind": "path",
+            "path": ".flowguard/ui_flow_structure_skill/result.json"
+          },
+          {
+            "kind": "path",
+            "path": ".flowguard/ui_flow_structure_skill/run_checks.py"
+          },
+          {
+            "kind": "path",
+            "path": "flowguard/skill_contract_model.py"
+          },
+          {
+            "kind": "path",
+            "path": "flowguard/ui_structure.py"
+          },
+          {
+            "kind": "path",
+            "path": "tests/test_ui_structure.py"
+          }
+        ],
+        "owner_declaration_hash": "sha256:131b5e8c0fcc95fab4c3647606d2bbdff5f35239b7306a83c2fcc5582c99bdf0",
+        "owner_input_projection_hash": "sha256:04d36e027088a257cc7de4cd215c1d71e6d16a1a02dd5267ecc80bed2fdd9699"
+      },
+      {
+        "check_ids": [
+          "check:flowguard-ui-flow-structure:plane-boundary"
+        ],
+        "depends_on_owner_ids": [],
+        "evidence_domain_id": "flowguard-ui-flow-structure:functional",
+        "execution_owner_id": "owner:flowguard-ui-flow-structure:flowguard-ui-flow-structure-plane-boundary",
+        "input_component_ids": [
+          "component:documentation_model:d5d665d273906b9f",
+          "component:runtime_source:afb8d3b670a82913"
+        ],
+        "input_selectors": [
+          {
+            "kind": "path",
+            "path": ".flowguard/ui_flow_structure_skill/model.py"
+          }
+        ],
+        "owner_declaration_hash": "sha256:ea3eda7a2418d1141fbec48952b0c2db46bd10cce944f0e0589530bd749002ff",
+        "owner_input_projection_hash": "sha256:3fe8dd5a34f585c80ceb193906b539ab5be18e9874ebb215e453d613e4f7a18e"
+      }
+    ],
+    "policy_id": "skillguard.content_impact_policy.current",
+    "portfolio_target_edges": [],
+    "projection_consumers": [
+      {
+        "consumer_id": "projection:contract-compile",
+        "consumer_projection_hash": "sha256:cf46a196bd2885faf58a50d2e4192a939771b200ca3bae91780d7d7c9ca60785",
+        "impact_plan_schema_version": "skillguard.content_impact_plan.current",
+        "impact_policy_id": "skillguard.content_impact_policy.current",
+        "input_component_ids": [
+          "component:contract_schema:7f367d3fca97688c",
+          "component:documentation_model:d5d665d273906b9f",
+          "component:runtime_source:afb8d3b670a82913"
+        ],
+        "input_projection_hash": "sha256:8041e04bb8c45e51919630814eed955ae79c10835813c888846565893338f662",
+        "kind": "contract_compile",
+        "projection_declaration_hash": "sha256:1669bf74ab42419785b6e697598958ef39492851fe53fda7f8953a1336117bbb"
+      },
+      {
+        "consumer_id": "projection:global-router",
+        "consumer_projection_hash": "sha256:c05984df180fa719bed1a62a48db6052b1a7e03b87e7a9e6eda3430a1905cf86",
+        "impact_plan_schema_version": "skillguard.content_impact_plan.current",
+        "impact_policy_id": "skillguard.content_impact_policy.current",
+        "input_component_ids": [],
+        "input_projection_hash": "sha256:37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+        "kind": "global_router",
+        "projection_declaration_hash": "sha256:667973c38b6c505040402a17baf7ebb4fb1ebe562415b046f317c029a3861f2a"
+      },
+      {
+        "consumer_id": "projection:installation",
+        "consumer_projection_hash": "sha256:915cf3bef56167bdf80aa85b1cff5bcd2f42e032a50316f3b2fc7de852529c31",
+        "impact_plan_schema_version": "skillguard.content_impact_plan.current",
+        "impact_policy_id": "skillguard.content_impact_policy.current",
+        "input_component_ids": [
+          "component:contract_schema:7f367d3fca97688c",
+          "component:documentation_model:073cc32741365b98",
+          "component:runtime_source:8a3cfcf0e7acae49"
+        ],
+        "input_projection_hash": "sha256:8b99b34712ff079e059751967f488ee8881ed1fc2b2ae0c02466df3b3f296c47",
+        "kind": "installation",
+        "projection_declaration_hash": "sha256:5c4d4b34ed73cf9a1c5c654a95f2e11dac9e1a4df7cfd428fa348b36049b9f39"
+      },
+      {
+        "consumer_id": "projection:portfolio",
+        "consumer_projection_hash": "sha256:9829573143198c085bf05b11cfa1f5d2f0b51f7dcf833f143c0b53b00bf4bbae",
+        "impact_plan_schema_version": "skillguard.content_impact_plan.current",
+        "impact_policy_id": "skillguard.content_impact_policy.current",
+        "input_component_ids": [],
+        "input_projection_hash": "sha256:37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+        "kind": "portfolio",
+        "projection_declaration_hash": "sha256:9194e37d395a5756ddd87565ee97fe8dcdae46c150b4b03754291a80060b8b26"
+      },
+      {
+        "consumer_id": "projection:source-maintenance",
+        "consumer_projection_hash": "sha256:13be01e10a981898727db9510b3c43dc1fddb727f0fd9bbb8c5009db65106e6c",
+        "impact_plan_schema_version": "skillguard.content_impact_plan.current",
+        "impact_policy_id": "skillguard.content_impact_policy.current",
+        "input_component_ids": [],
+        "input_projection_hash": "sha256:37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+        "kind": "source_maintenance",
+        "projection_declaration_hash": "sha256:b55f389a1ff76e45148a5e9c63699fe47970e1d99e9b1d3805bec3f98aafa235"
+      }
+    ],
+    "schema_version": "skillguard.content_impact_plan.current",
+    "unknown_mapping_disposition": "block"
+  },
+  "contract_hash": "B42B2C5DB82A9101F9417ECA45615FAAA5ACC1D1C569174694E5125E26429453",
+  "flowguard_schema_version": "1.0",
+  "functions": [
+    {
+      "business_intent": "Admit UI content and preserve one product language across typography, components, navigation, interaction, feedback, recovery, and transitions.",
+      "function_id": "function:ui_flow_structure",
+      "owner_id": "ui_flow_structure",
+      "route_ids": [
+        "route:ui_flow_structure"
+      ]
+    }
+  ],
+  "judgment_rubrics": [],
+  "model_id": "flowguard.ui_flow_structure.skill_contract.v2",
+  "model_path": ".flowguard/ui_flow_structure_skill/model.py",
+  "obligations": [
+    {
+      "evidence_classes": [
+        "hard"
+      ],
+      "invariant_id": "invariant:plane-boundary",
+      "obligation_id": "obligation:flowguard-ui-flow-structure:plane-boundary",
+      "owner_step_ids": [
+        "step:flowguard-ui-flow-structure:intake"
+      ],
+      "required": true,
+      "required_check_ids": [
+        "check:flowguard-ui-flow-structure:plane-boundary"
+      ]
+    },
+    {
+      "evidence_classes": [
+        "hard"
+      ],
+      "invariant_id": "invariant:native-authority",
+      "obligation_id": "obligation:flowguard-ui-flow-structure:native-authority",
+      "owner_step_ids": [
+        "step:flowguard-ui-flow-structure:execute"
+      ],
+      "required": true,
+      "required_check_ids": [
+        "check:flowguard-ui-flow-structure:native-authority"
+      ]
+    },
+    {
+      "evidence_classes": [
+        "hard"
+      ],
+      "invariant_id": "invariant:evidence-closure",
+      "obligation_id": "obligation:flowguard-ui-flow-structure:evidence-closure",
+      "owner_step_ids": [
+        "step:flowguard-ui-flow-structure:verify"
+      ],
+      "required": true,
+      "required_check_ids": [
+        "check:flowguard-ui-flow-structure:evidence-closure"
+      ]
+    }
+  ],
+  "parent_model_id": "flowguard.model_first_function_flow",
+  "portfolio_capability_contracts": [],
+  "routes": [
+    {
+      "blocked_terminal_step_id": "step:flowguard-ui-flow-structure:blocked",
+      "function_id": "function:ui_flow_structure",
+      "handoffs": [],
+      "owner_id": "ui_flow_structure",
+      "route_id": "route:ui_flow_structure",
+      "step_ids": [
+        "step:flowguard-ui-flow-structure:intake",
+        "step:flowguard-ui-flow-structure:execute",
+        "step:flowguard-ui-flow-structure:verify",
+        "step:flowguard-ui-flow-structure:success",
+        "step:flowguard-ui-flow-structure:blocked"
+      ],
+      "success_terminal_step_id": "step:flowguard-ui-flow-structure:success"
+    }
+  ],
+  "schema_version": "skillguard.compiled_contract.v2",
+  "skill_id": "flowguard-ui-flow-structure",
+  "source_fingerprints": {
+    "binding": "7658DD9AB9F1E22545DF77D25842C62703544A4599E35D9FE958E91E577522C7",
+    "entrypoint": "337AE78535FB47F939346FB19DA12868D7AEFD86C7EFBB630411E0B81B5A0499",
+    "implementation:.agents/skills/flowguard-ui-flow-structure": "86F64B6D518FC0BE33EA81EC09ED36452C03845708A26313B3E16B165B7F8457",
+    "implementation:.flowguard/ui_flow_structure_skill": "4378D4D9D359337D884D1B83E9EE1CE191685DAC1AE45ED0B64077986A9D8653",
+    "implementation:flowguard/skill_contract_model.py": "950BE5371110546EC94AE5C0C3D6818CF378A4ED706E1E2410DDADC4FA0148D5",
+    "implementation:flowguard/ui_structure.py": "26776B364BF4D80BCE7FD09627B494DEA4E20E029CEADDAD59362952F1FC880F",
+    "implementation:tests/test_ui_structure.py": "CB5DB6FEF3E3507FCA04A4C2B61FF099850E204C2CC3AE8FCE529CFEE4AC82E3",
+    "model": "95F5FC219F3FF3F8D7D3FA930B7CAC19ED1453AE135F318619920E5B22D73A0A",
+    "model_export": "A11B7F9881A4CE8182BE67B166F8E459512F82274CA1F013E09409DFA9883EBB"
+  },
+  "steps": [
+    {
+      "action_kind": "inventory",
+      "binding": {
+        "action": {
+          "kind": "inventory",
+          "summary": "Declare UI work mode, product surface scope, candidate content boundary, source authority, and requested UI claim."
+        },
+        "check_ids": [
+          "check:flowguard-ui-flow-structure:plane-boundary"
+        ],
+        "output_artifact_ids": []
+      },
+      "owner_id": "ui_flow_structure",
+      "prerequisite_step_ids": [],
+      "route_id": "route:ui_flow_structure",
+      "step_id": "step:flowguard-ui-flow-structure:intake",
+      "terminal_kind": ""
+    },
+    {
+      "action_kind": "native",
+      "binding": {
+        "action": {
+          "kind": "native",
+          "summary": "Run the existing UI Flow owner to apply three-class content admission and one product-wide typography, component, navigation, interaction, feedback, recovery, and transition language."
+        },
+        "check_ids": [
+          "check:flowguard-ui-flow-structure:native-authority"
+        ],
+        "output_artifact_ids": []
+      },
+      "owner_id": "ui_flow_structure",
+      "prerequisite_step_ids": [
+        "step:flowguard-ui-flow-structure:intake"
+      ],
+      "route_id": "route:ui_flow_structure",
+      "step_id": "step:flowguard-ui-flow-structure:execute",
+      "terminal_kind": ""
+    },
+    {
+      "action_kind": "verifier",
+      "binding": {
+        "action": {
+          "kind": "verifier",
+          "summary": "Reject internal leaks, unclassified content, invalid on-demand paths, semantic or typography drift, authority drift, and design-only runnable claims."
+        },
+        "check_ids": [
+          "check:flowguard-ui-flow-structure:evidence-closure"
+        ],
+        "output_artifact_ids": []
+      },
+      "owner_id": "ui_flow_structure",
+      "prerequisite_step_ids": [
+        "step:flowguard-ui-flow-structure:execute"
+      ],
+      "route_id": "route:ui_flow_structure",
+      "step_id": "step:flowguard-ui-flow-structure:verify",
+      "terminal_kind": ""
+    },
+    {
+      "action_kind": "terminal",
+      "owner_id": "ui_flow_structure",
+      "prerequisite_step_ids": [
+        "step:flowguard-ui-flow-structure:verify"
+      ],
+      "route_id": "route:ui_flow_structure",
+      "step_id": "step:flowguard-ui-flow-structure:success",
+      "terminal_kind": "success"
+    },
+    {
+      "action_kind": "terminal",
+      "owner_id": "ui_flow_structure",
+      "prerequisite_step_ids": [],
+      "route_id": "route:ui_flow_structure",
+      "step_id": "step:flowguard-ui-flow-structure:blocked",
+      "terminal_kind": "blocked"
+    }
+  ]
+}

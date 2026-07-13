@@ -140,6 +140,40 @@ class FlowguardAgentWorkflowRehearsalTests(unittest.TestCase):
 
         self.assertEqual(REHEARSAL_STATUS_PASS, report.status, report.format_text())
 
+    def test_agent_operation_steps_reference_product_targets_without_absorbing_them(self):
+        relation_ref = "commitment:agent-release|validates|commitment:product-release"
+        steps = tuple(
+            replace(
+                step,
+                behavior_plane="agent_operation",
+                target_behavior_planes=("product_runtime",),
+                target_commitment_ids=("commitment:product-release",),
+                typed_commitment_relation_refs=(relation_ref,),
+            )
+            for step in GOOD_PLAN.steps
+        )
+        good = replace(
+            GOOD_PLAN,
+            plan_id="plane-aware-agent-workflow",
+            steps=steps,
+            behavior_plane="agent_operation",
+            require_behavior_plane_boundary=True,
+        )
+
+        report = review_agent_workflow_rehearsal(good)
+        self.assertEqual(REHEARSAL_STATUS_PASS, report.status, report.format_text())
+
+        bad = replace(
+            good,
+            steps=(replace(steps[0], behavior_plane="product_runtime"),) + steps[1:],
+        )
+        bad_report = review_agent_workflow_rehearsal(bad)
+        self.assertEqual(REHEARSAL_STATUS_BLOCKED, bad_report.status, bad_report.format_text())
+        self.assertIn(
+            "agent_step_absorbs_target_behavior_plane",
+            {finding.code for finding in bad_report.findings},
+        )
+
     def test_rehearsal_script_succeeds(self):
         completed = subprocess.run(
             [sys.executable, "examples/flowguard_agent_workflow_rehearsal/run_review.py"],

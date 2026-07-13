@@ -81,6 +81,16 @@ TEST_EVIDENCE_IDS = (
     "test:ui-content-admission:failure",
 )
 
+
+def _artifact_path(path: Path) -> str:
+    """Return a portable evidence path for repository-local or isolated runs."""
+
+    resolved = path.resolve()
+    try:
+        return resolved.relative_to(ROOT.resolve()).as_posix()
+    except ValueError:
+        return resolved.as_posix()
+
 CORE_PYTEST_ARGS = (
     "-m",
     "pytest",
@@ -89,7 +99,7 @@ CORE_PYTEST_ARGS = (
     "tests/test_behavior_commitment_ledger.py",
     "tests/test_field_lifecycle.py",
     "-q",
-    f"--junitxml={CORE_JUNIT.relative_to(ROOT).as_posix()}",
+    f"--junitxml={_artifact_path(CORE_JUNIT)}",
 )
 TEMPLATE_PYTEST_ARGS = (
     "-m",
@@ -98,7 +108,7 @@ TEMPLATE_PYTEST_ARGS = (
     "-q",
     "-k",
     "ui_flow_structure",
-    f"--junitxml={TEMPLATE_JUNIT.relative_to(ROOT).as_posix()}",
+    f"--junitxml={_artifact_path(TEMPLATE_JUNIT)}",
 )
 MATRIX_PYTEST_ARGS = (
     "-m",
@@ -110,7 +120,7 @@ MATRIX_PYTEST_ARGS = (
         "visibility_contract_exhaustion_declares_finite_matrix_and_shard "
         "or content_visibility_matrix_executes_all_80_combinations"
     ),
-    f"--junitxml={MATRIX_JUNIT.relative_to(ROOT).as_posix()}",
+    f"--junitxml={_artifact_path(MATRIX_JUNIT)}",
 )
 
 
@@ -127,7 +137,7 @@ def _proof(
 ) -> ProofArtifactRef:
     """Create a current proof reference from a result artifact produced this run."""
 
-    relative = path.relative_to(ROOT).as_posix()
+    relative = _artifact_path(path)
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
     return ProofArtifactRef(
         artifact_id,
@@ -301,7 +311,7 @@ def test_mesh_plan() -> TestMeshPlan:
             test_count=_junit_test_count(CORE_JUNIT),
             selected_count=_junit_test_count(CORE_JUNIT),
             exit_code=0,
-            result_path=CORE_JUNIT.relative_to(ROOT).as_posix(),
+            result_path=_artifact_path(CORE_JUNIT),
             proof_artifact=_proof("artifact:testmesh:ui-content-core", CORE_JUNIT, command=core_command),
         ),
         TestSuiteEvidence(
@@ -312,7 +322,7 @@ def test_mesh_plan() -> TestMeshPlan:
             test_count=_junit_test_count(TEMPLATE_JUNIT),
             selected_count=_junit_test_count(TEMPLATE_JUNIT),
             exit_code=0,
-            result_path=TEMPLATE_JUNIT.relative_to(ROOT).as_posix(),
+            result_path=_artifact_path(TEMPLATE_JUNIT),
             proof_artifact=_proof("artifact:testmesh:ui-content-templates", TEMPLATE_JUNIT, command=template_command),
         ),
         TestSuiteEvidence(
@@ -324,7 +334,7 @@ def test_mesh_plan() -> TestMeshPlan:
             test_count=_junit_test_count(MATRIX_JUNIT),
             selected_count=_junit_test_count(MATRIX_JUNIT),
             exit_code=0,
-            result_path=MATRIX_JUNIT.relative_to(ROOT).as_posix(),
+            result_path=_artifact_path(MATRIX_JUNIT),
             owned_coverage_shard_ids=(CONTRACT_SHARD_ID,),
             proof_artifact=_proof(
                 "artifact:testmesh:ui-content-contract-matrix",

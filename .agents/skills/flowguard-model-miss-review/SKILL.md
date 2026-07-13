@@ -1,6 +1,6 @@
 ---
 name: flowguard-model-miss-review
-description: Use when runtime, tests, replay, logs, manual validation, production evidence, or a user-visible UI failure exposes a missed behavior class after FlowGuard passed, or when a non-trivial repair needs generalized closure.
+description: Use when post-FlowGuard runtime, test, replay, log, manual, production, or UI evidence exposes a missed behavior class, or a repair needs generalized closure.
 ---
 
 # FlowGuard Model Miss Review
@@ -9,7 +9,7 @@ description: Use when runtime, tests, replay, logs, manual validation, productio
 Backpropagate a real post-green failure into the owning commitment, model boundary, owner code contract, canonical same-class cases, tests, and final claim.
 
 ## Entrypoint Scope
-Route id: `model_miss_review`; role: `public_owner`; native owner: `model_miss_review`. This standalone FlowGuard satellite skill owns miss classification and repair closure, not ungrounded feature creation.
+This standalone FlowGuard satellite skill owns `model_miss_review` (`public_owner`) and grounded miss classification/closure, not feature invention.
 
 ## Local Material Routing
 Read `references/model_miss_protocol.md` for miss types, root-cause backpropagation, field/UI handling, same-class evidence, reattachment, and closure.
@@ -24,17 +24,19 @@ Accept concrete failure evidence and prior claim state; classify and generalize 
 - Do not patch only the observed instance, invent a new feature commitment, or use without concrete failure evidence; return ordinary unclear modeling to `model-first-function-flow`.
 
 ## Required Workflow
-1. Run existing-model preflight, identify the affected commitment/owner, and classify the miss.
-2. Backpropagate root cause; add one family seed/finite boundary through ContractExhaustionMesh and bind fields/old paths where relevant.
-3. Add observed and same-class owner-code evidence, rerun alignment/mesh/freshness/risk gates, and close or scope the class.
+1. Run existing-model preflight, identify whose promise failed (`behavior_plane`, commitment, primary owner, error signature), and classify the miss.
+2. Search the affected plane first: reuse the existing commitment/owner when present; create a coverage-gap row only when that plane has no matching promise; preserve other planes only as typed related context.
+3. Backpropagate root cause; add one contract-exhaustion same-class case/family seed and bind fields/old paths where relevant.
+4. Add observed and same-class owner-code evidence, rerun alignment/mesh/freshness/risk gates, and close or scope the class.
 
 ## Hard Gates
 - Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
 - A later green command or point regression alone cannot close the class; target-aware replay and owner code binding remain required when applicable.
 - Unknown old-path/field disposition, stale parent reattachment, open same-family scan, or missing template harvest closure blocks broad repair confidence.
+- Same symptom text in product, AI-operation, and development-process planes is not one recurrence family unless an explicit family relation preserves separate plane-local owners.
 
 ## Output Requirements
-- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`, plus a miss-repair diagram and generalized-case status.
+- Return evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, typed_next_actions, a miss-repair diagram, and generalized-case status.
 
 ## SkillGuard Maintenance
-- Edit `.skillguard/contract-source.json`, then regenerate derived contracts; SkillGuard gates miss closure and cannot convert a patch or progress log into native evidence.
+- Edit contract source, regenerate; SkillGuard cannot turn patches/logs into evidence.

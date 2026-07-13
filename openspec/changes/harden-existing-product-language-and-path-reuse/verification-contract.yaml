@@ -1,0 +1,203 @@
+contract_version: 3
+change: harden-existing-product-language-and-path-reuse
+evidence_roots:
+  SPEC_EVIDENCE: .flowguard/evidence/spec-work-packages
+obligations:
+  - id: req.infrastructure.models-full
+    source: "proposal.md"
+    claim: "The registered FlowGuard model inventory is consumed from one exact current cross-change-safe owner receipt."
+    required: true
+    evidence: [owner.models.full]
+
+  - id: req.infrastructure.tests-full
+    source: "proposal.md"
+    claim: "Full pytest is consumed from one exact current cross-change-safe owner receipt after the model inventory."
+    required: true
+    evidence: [owner.tests.full]
+
+  - id: req.preflight.surface-family
+    source: "specs/existing-model-preflight/spec.md#Requirement: Preflight inventories the affected same-intent surface family"
+    claim: "Preflight inventories every affected UI, API, CLI, alias, adapter, wrapper, helper, and compatibility surface and preserves the existing commitment/path reuse handoff."
+    required: true
+    evidence: [owner.change.aggregate]
+
+  - id: req.similarity.materialized-handoff
+    source: "specs/model-similarity-consolidation/spec.md#Requirement: Similarity handoffs materialize downstream obligations"
+    claim: "Similarity compares stable authority identities and materializes affected surfaces, test/code obligations, differences, and inventory gaps without selecting runtime authority."
+    required: true
+    evidence: [owner.change.aggregate]
+
+  - id: req.behavior.one-commitment
+    source: "specs/behavior-commitment-ledger/spec.md#Requirement: Each exact business intent has one active commitment"
+    claim: "Every exact external business intent has one active commitment, delegating surfaces share it, and path-sensitive bindings emit one unambiguous green primary_path_id."
+    required: true
+    evidence: [owner.change.aggregate]
+
+  - id: req.path.one-authority
+    source: "specs/primary-path-authority/spec.md#Requirement: Each exact business intent has one primary runtime path"
+    claim: "PPA keys uniqueness by business_intent_id, accounts the complete candidate inventory, reuses current equivalent paths, and requires material runtime/proof evidence."
+    required: true
+    evidence: [owner.change.aggregate]
+
+  - id: req.ui.product-language
+    source: "specs/flowguard-ui-flow-structure/spec.md#Requirement: Product-scope UI language is reviewed by the existing UI route"
+    claim: "The existing UI route compares typography, component, navigation, interaction, feedback, recovery, and transition semantics across declared surfaces while retaining exactly three visibility classes."
+    required: true
+    evidence: [owner.change.aggregate]
+
+  - id: req.runtime.identity-inventory
+    source: "specs/runtime-path-evidence/spec.md#Requirement: Runtime path evidence preserves stable behavior authority identity"
+    claim: "Runtime contracts, observations, and runs preserve intent/commitment/path identity, complete surface/candidate accounting, and facade delegation to the selected path."
+    required: true
+    evidence: [owner.change.aggregate]
+
+  - id: req.family.complete-obligations
+    source: "specs/obligation-family-parity-provenance/spec.md#Requirement: Family evidence binds the actual obligations owned by each member"
+    claim: "Expected family members are complete and evidence covered_obligations resolves to every obligation owned by the same member and mechanism."
+    required: true
+    evidence: [owner.change.aggregate]
+
+  - id: req.alignment.materialized-authority
+    source: "specs/model-test-alignment/spec.md#Requirement: Alignment preserves one exact behavior authority identity"
+    claim: "MTA materializes similarity obligations and aligns model obligations, owner/delegate code contracts, family evidence, runtime evidence, tests, and one stable authority identity."
+    required: true
+    evidence: [owner.change.aggregate]
+
+  - id: req.reduction.complete-candidates
+    source: "specs/architecture-reduction/spec.md#Requirement: Architecture Reduction accounts the complete same-intent candidate inventory"
+    claim: "Architecture Reduction consumes every expected similarity/surface candidate and retains public facades only as currently evidenced delegates."
+    required: true
+    evidence: [owner.change.aggregate]
+
+  - id: req.exhaustion.canonical-faults
+    source: "specs/contract-exhaustion-mesh/spec.md#Requirement: ContractExhaustionMesh generates stable behavior-authority identity faults"
+    claim: "Finite matrices include missing identity, wrong path, parallel success, stale proof, omitted member/candidate, unmaterialized similarity, facade, and invalid UI-exception faults."
+    required: true
+    evidence: [owner.change.aggregate]
+
+  - id: req.testmesh.current-complete
+    source: "specs/test-evidence-mesh/spec.md#Requirement: Background regressions provide liveness until a final receipt passes"
+    claim: "TestMesh requires complete current inventory receipts and never promotes a running/progress-only background run to passing evidence."
+    required: true
+    evidence: [owner.change.aggregate]
+
+  - id: req.process.sync-peer-safety
+    source: "specs/development-process-flow/spec.md#Requirement: Synchronization domains have independent freshness gates"
+    claim: "Post-change scanning, package/skill installation, shadow/formal parity, local Git closure, and peer-write freshness are independently evidenced without rollback."
+    required: true
+    evidence: [owner.change.aggregate]
+
+  - id: req.api.existing-owner
+    source: "specs/flowguard-api-registry/spec.md#Requirement: UI consistency helpers extend the existing UI Flow Structure API group"
+    claim: "New public helpers remain in ui_flow_structure and flat exports, existing constructors/imports remain valid, and no new route or CLI command is introduced."
+    required: true
+    evidence: [owner.change.aggregate]
+
+checks:
+  - id: owner.models.full
+    kind: receipt
+    semantic_check_id: flowguard.models.full
+    execution_id: flowguard.owner.models.full.v1
+    receipt_ref:
+      provider_id: openspec
+      work_package_id: harden-existing-product-language-and-path-reuse
+      adapter: portable-receipt.v1
+      ref_path: "<SPEC_EVIDENCE>/portable-refs/openspec/harden-existing-product-language-and-path-reuse/owner.models.full.json"
+    consumer: openspec.change.harden-existing-product-language-and-path-reuse
+    required: true
+    covers: [req.infrastructure.models-full]
+
+  - id: owner.tests.full
+    kind: receipt
+    semantic_check_id: flowguard.tests.full
+    execution_id: flowguard.owner.tests.full.v1
+    receipt_ref:
+      provider_id: openspec
+      work_package_id: harden-existing-product-language-and-path-reuse
+      adapter: portable-receipt.v1
+      ref_path: "<SPEC_EVIDENCE>/portable-refs/openspec/harden-existing-product-language-and-path-reuse/owner.tests.full.json"
+    consumer: openspec.change.harden-existing-product-language-and-path-reuse
+    required: true
+    covers: [req.infrastructure.tests-full]
+
+  - id: owner.change.aggregate
+    kind: receipt
+    semantic_check_id: flowguard.openspec.harden-existing-product-language-and-path-reuse.aggregate
+    execution_id: flowguard.owner.harden-existing-product-language-and-path-reuse.aggregate.current
+    receipt_ref:
+      provider_id: openspec
+      work_package_id: harden-existing-product-language-and-path-reuse
+      adapter: portable-receipt.v1
+      ref_path: "<SPEC_EVIDENCE>/portable-refs/openspec/harden-existing-product-language-and-path-reuse/owner.change.aggregate.json"
+    consumer: openspec.change.harden-existing-product-language-and-path-reuse
+    required: true
+    covers:
+      - req.preflight.surface-family
+      - req.similarity.materialized-handoff
+      - req.behavior.one-commitment
+      - req.path.one-authority
+      - req.ui.product-language
+      - req.runtime.identity-inventory
+      - req.family.complete-obligations
+      - req.alignment.materialized-authority
+      - req.reduction.complete-candidates
+      - req.exhaustion.canonical-faults
+      - req.testmesh.current-complete
+      - req.process.sync-peer-safety
+      - req.api.existing-owner
+freshness:
+  watch:
+    - openspec/changes/harden-existing-product-language-and-path-reuse/**/*.md
+    - openspec/changes/harden-existing-product-language-and-path-reuse/verification-contract.yaml
+    - flowguard/existing_model_preflight.py
+    - flowguard/model_similarity.py
+    - flowguard/behavior_commitment.py
+    - flowguard/primary_path_authority.py
+    - flowguard/runtime_path.py
+    - flowguard/ui_structure.py
+    - flowguard/transition_coverage.py
+    - flowguard/obligation_family.py
+    - flowguard/model_test_alignment.py
+    - flowguard/architecture_reduction.py
+    - flowguard/testmesh.py
+    - flowguard/development_process_flow.py
+    - flowguard/development_process_simulator.py
+    - flowguard/__init__.py
+    - flowguard/template_text/**/*.py
+    - .flowguard/existing_model_preflight/**/*.py
+    - .flowguard/model_similarity_consolidation/**/*.py
+    - .flowguard/behavior_commitment_ledger/**/*.py
+    - .flowguard/primary_path_authority/**/*.py
+    - .flowguard/ui_flow_structure_skill/**/*.py
+    - .flowguard/runtime_path_evidence/**/*.py
+    - .flowguard/model_test_code_alignment/**/*.py
+    - .flowguard/architecture_reduction/**/*.py
+    - .flowguard/test_evidence_mesh/**/*.py
+    - .flowguard/development_process_flow/**/*.py
+    - .agents/skills/flowguard-existing-model-preflight/**/*
+    - .agents/skills/flowguard-behavior-commitment-ledger/**/*
+    - .agents/skills/flowguard-ui-flow-structure/**/*
+    - .agents/skills/flowguard-model-test-alignment/**/*
+    - .agents/skills/flowguard-architecture-reduction/**/*
+    - .agents/skills/flowguard-contract-exhaustion-mesh/**/*
+    - .agents/skills/flowguard-test-mesh/**/*
+    - .agents/skills/flowguard-development-process-flow/**/*
+    - docs/**/*.md
+    - README.md
+    - tests/test_product_language_path_reuse.py
+    - tests/test_existing_model_preflight.py
+    - tests/test_model_similarity.py
+    - tests/test_behavior_commitment_ledger.py
+    - tests/test_behavior_commitment_primary_path.py
+    - tests/test_primary_path_authority.py
+    - tests/test_ui_structure.py
+    - tests/test_runtime_path_evidence.py
+    - tests/test_obligation_family.py
+    - tests/test_model_test_alignment.py
+    - tests/test_transition_coverage.py
+    - tests/test_architecture_reduction.py
+    - tests/test_contract_exhaustion.py
+    - tests/test_test_mesh.py
+    - tests/test_api_surface.py
+    - pyproject.toml
+    - .flowguard/project.toml

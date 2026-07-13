@@ -113,6 +113,14 @@ class ProofArtifactRef:
             return True
         return bool(required & set(self.covered_obligation_ids))
 
+    def covers_all(self, obligation_ids: Sequence[str]) -> bool:
+        """Return whether every requested obligation is bound by this artifact."""
+
+        required = {str(value) for value in obligation_ids if str(value)}
+        if not required:
+            return True
+        return required.issubset(set(self.covered_obligation_ids))
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "artifact_id": self.artifact_id,
@@ -179,7 +187,7 @@ def proof_artifact_gap_codes(
         gaps.append(("proof_artifact_missing_result_path", "proof artifact has no result path"))
     if require_fingerprints and not artifact.artifact_fingerprints:
         gaps.append(("proof_artifact_missing_fingerprint", "proof artifact has no artifact fingerprints"))
-    if required_obligation_ids and not artifact.covers_any(required_obligation_ids):
+    if required_obligation_ids and not artifact.covers_all(required_obligation_ids):
         gaps.append(("proof_artifact_missing_obligation", "proof artifact does not cover required obligations"))
     if require_external_scope and not artifact.has_external_scope():
         gaps.append(("proof_artifact_internal_path_only", "proof artifact does not exercise the external contract"))

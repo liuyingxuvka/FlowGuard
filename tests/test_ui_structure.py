@@ -102,6 +102,20 @@ from flowguard.contract_exhaustion import (
     CONTRACT_ROUTE_TEST_MESH,
     ContractCoverageUniverse,
 )
+from flowguard.ui_structure import (
+    UIProductConsistencyException,
+    UIProductConsistencyObservation,
+    UIProductConsistencyPlan,
+    UIProductConsistencyRule,
+    UIProductSurface,
+    UI_PRODUCT_CLAIM_COMPLETE,
+    UI_PRODUCT_CLAIM_SCOPED,
+    UI_PRODUCT_CONSISTENCY_KINDS,
+    UI_PRODUCT_CONSISTENCY_TYPOGRAPHY,
+    UI_PRODUCT_EXCEPTION_ACCESSIBILITY,
+    default_ui_product_language_case_seeds,
+    review_ui_product_consistency,
+)
 
 
 def state(state_id: str, **kwargs) -> UIStateNode:
@@ -4147,6 +4161,442 @@ class UIContentVisibilityTests(unittest.TestCase):
         )
 
         self.assertEqual(("field:result",), candidate_ids)
+
+
+class UIProductConsistencyTests(unittest.TestCase):
+    _INTENT = "intent:run-analysis"
+    _COMMITMENT = "commitment:run-analysis"
+    _PATH = "path:run-analysis"
+    _REVISION = "ui-product-rev-1"
+
+    def plan(self, **kwargs) -> UIProductConsistencyPlan:
+        rule_ids = tuple(f"rule:{kind}" for kind in UI_PRODUCT_CONSISTENCY_KINDS)
+        surfaces = (
+            UIProductSurface(
+                "surface:page",
+                "page",
+                label="Analysis page",
+                business_bearing=True,
+                business_intent_id=self._INTENT,
+                behavior_commitment_id=self._COMMITMENT,
+                primary_path_id=self._PATH,
+                consistency_rule_ids=rule_ids,
+                current_revision=self._REVISION,
+                evidence_refs=("evidence://page",),
+                rationale="The page exposes the canonical run-analysis intent.",
+            ),
+            UIProductSurface(
+                "surface:dialog",
+                "dialog",
+                label="Run dialog",
+                business_bearing=True,
+                business_intent_id=self._INTENT,
+                behavior_commitment_id=self._COMMITMENT,
+                primary_path_id=self._PATH,
+                consistency_rule_ids=rule_ids,
+                current_revision=self._REVISION,
+                evidence_refs=("evidence://dialog",),
+                rationale="The dialog delegates the same run-analysis intent.",
+            ),
+        )
+        canonical_values = {
+            "component": "primary_action",
+            "navigation": "workbench_action_area",
+            "interaction": "invoke_run_analysis",
+            "feedback": "run_started",
+            "recovery": "return_to_configured_state",
+            "transition": "configured_to_running",
+        }
+        rules = tuple(
+            UIProductConsistencyRule(
+                f"rule:{kind}",
+                kind,
+                f"run-analysis:{kind}",
+                canonical_surface_id="surface:page",
+                expected_surface_ids=("surface:page", "surface:dialog"),
+                canonical_value=canonical_values.get(kind, ""),
+                hierarchy_role="primary_action_label" if kind == UI_PRODUCT_CONSISTENCY_TYPOGRAPHY else "",
+                typography_token_id="action-primary" if kind == UI_PRODUCT_CONSISTENCY_TYPOGRAPHY else "",
+                typography_scale="1rem" if kind == UI_PRODUCT_CONSISTENCY_TYPOGRAPHY else "",
+                typography_weight="600" if kind == UI_PRODUCT_CONSISTENCY_TYPOGRAPHY else "",
+                business_intent_id=self._INTENT,
+                behavior_commitment_id=self._COMMITMENT,
+                primary_path_id=self._PATH,
+                rationale=f"{kind} is canonical for the run-analysis intent.",
+            )
+            for kind in UI_PRODUCT_CONSISTENCY_KINDS
+        )
+        observations = tuple(
+            UIProductConsistencyObservation(
+                f"observation:{kind}:{surface_id.rsplit(':', 1)[-1]}",
+                f"rule:{kind}",
+                surface_id,
+                observed_value=canonical_values.get(kind, ""),
+                hierarchy_role="primary_action_label" if kind == UI_PRODUCT_CONSISTENCY_TYPOGRAPHY else "",
+                typography_token_id="action-primary" if kind == UI_PRODUCT_CONSISTENCY_TYPOGRAPHY else "",
+                typography_scale="1rem" if kind == UI_PRODUCT_CONSISTENCY_TYPOGRAPHY else "",
+                typography_weight="600" if kind == UI_PRODUCT_CONSISTENCY_TYPOGRAPHY else "",
+                business_intent_id=self._INTENT,
+                behavior_commitment_id=self._COMMITMENT,
+                primary_path_id=self._PATH,
+                evidence_ref=f"evidence://{kind}/{surface_id}",
+                covered_revision=self._REVISION,
+                rationale=f"The rendered {surface_id} matches the {kind} rule.",
+            )
+            for kind in UI_PRODUCT_CONSISTENCY_KINDS
+            for surface_id in ("surface:page", "surface:dialog")
+        )
+        defaults = {
+            "claim_scope": UI_PRODUCT_CLAIM_COMPLETE,
+            "current_revision": self._REVISION,
+            "expected_surface_ids": ("surface:page", "surface:dialog"),
+            "surfaces": surfaces,
+            "rules": rules,
+            "observations": observations,
+            "source_interaction_model_id": "import-run-ui-flow",
+            "validation_boundaries": ("cross-surface product-language review",),
+            "rationale": "Complete product review compares every declared surface and semantic kind.",
+        }
+        defaults.update(kwargs)
+        return UIProductConsistencyPlan("run-analysis-product-language", **defaults)
+
+    def test_complete_product_reuses_all_seven_semantic_kinds(self):
+        report = review_ui_product_consistency(self.plan())
+
+        self.assertTrue(report.ok, report.format_text(max_findings=30))
+        self.assertEqual("green", report.decision)
+        self.assertEqual(set(UI_PRODUCT_CONSISTENCY_KINDS), {rule.semantic_kind for rule in self.plan().rules})
+        self.assertEqual({"surface:page", "surface:dialog"}, set(report.covered_surface_ids))
+
+    def test_expected_surface_inventory_cannot_shrink_to_caller_subset(self):
+        report = review_ui_product_consistency(
+            self.plan(expected_surface_ids=("surface:page", "surface:dialog", "surface:menu"))
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("missing_expected_product_surface", finding_codes(report))
+        self.assertEqual(("surface:menu",), report.missing_surface_ids)
+
+    def test_unexplained_interaction_semantic_drift_blocks(self):
+        plan = self.plan()
+        observations = tuple(
+            replace(observation, observed_value="open_independent_handler")
+            if observation.rule_id == "rule:interaction" and observation.surface_id == "surface:dialog"
+            else observation
+            for observation in plan.observations
+        )
+        report = review_ui_product_consistency(replace(plan, observations=observations))
+
+        self.assertFalse(report.ok)
+        self.assertIn("product_semantic_drift", finding_codes(report))
+
+    def test_valid_presentation_only_exception_can_bound_typography_difference(self):
+        plan = self.plan()
+        observations = tuple(
+            replace(observation, typography_weight="700")
+            if observation.rule_id == "rule:typography" and observation.surface_id == "surface:dialog"
+            else observation
+            for observation in plan.observations
+        )
+        exception = UIProductConsistencyException(
+            "exception:dialog-accessibility-weight",
+            "rule:typography",
+            "surface:dialog",
+            UI_PRODUCT_EXCEPTION_ACCESSIBILITY,
+            difference_fields=("typography_weight",),
+            reason="The native high-contrast dialog needs a heavier label weight.",
+            owner="accessibility review",
+            validation_boundaries=("Windows high-contrast dialog",),
+            evidence_ref="evidence://dialog/high-contrast",
+            covered_revision=self._REVISION,
+            rationale="The exception changes presentation only and preserves the same business path.",
+        )
+
+        report = review_ui_product_consistency(
+            replace(plan, observations=observations, exceptions=(exception,))
+        )
+
+        self.assertTrue(report.ok, report.format_text(max_findings=30))
+
+    def test_exception_cannot_waive_primary_path_identity(self):
+        plan = self.plan()
+        exception = UIProductConsistencyException(
+            "exception:invalid-path",
+            "rule:interaction",
+            "surface:dialog",
+            UI_PRODUCT_EXCEPTION_ACCESSIBILITY,
+            difference_fields=("primary_path_id",),
+            reason="Invalid attempt to treat another handler as presentation.",
+            owner="UI review",
+            validation_boundaries=("dialog",),
+            evidence_ref="evidence://invalid-path",
+            covered_revision=self._REVISION,
+            rationale="Known-bad behavior-authority exception.",
+        )
+
+        report = review_ui_product_consistency(replace(plan, exceptions=(exception,)))
+
+        self.assertFalse(report.ok)
+        self.assertIn("invalid_behavior_authority_exception", finding_codes(report))
+
+    def test_same_hierarchy_role_must_reuse_token_scale_and_weight(self):
+        plan = self.plan()
+        observations = tuple(
+            replace(observation, typography_token_id="dialog-action", typography_scale="0.875rem")
+            if observation.rule_id == "rule:typography" and observation.surface_id == "surface:dialog"
+            else observation
+            for observation in plan.observations
+        )
+
+        report = review_ui_product_consistency(replace(plan, observations=observations))
+
+        self.assertFalse(report.ok)
+        self.assertIn("typography_role_drift", finding_codes(report))
+
+    def test_same_business_intent_cannot_bind_to_different_primary_paths(self):
+        plan = self.plan()
+        surfaces = tuple(
+            replace(surface, primary_path_id="path:dialog-independent")
+            if surface.surface_id == "surface:dialog"
+            else surface
+            for surface in plan.surfaces
+        )
+
+        report = review_ui_product_consistency(replace(plan, surfaces=surfaces))
+
+        self.assertFalse(report.ok)
+        self.assertIn("same_intent_primary_path_drift", finding_codes(report))
+
+    def test_pure_ui_interaction_needs_no_behavior_commitment(self):
+        surface = UIProductSurface(
+            "surface:local-filter",
+            "component",
+            pure_ui=True,
+            consistency_rule_ids=("rule:local-selection",),
+            current_revision=self._REVISION,
+            evidence_refs=("evidence://local-filter",),
+            rationale="Local filter selection changes no external business promise.",
+        )
+        rule = UIProductConsistencyRule(
+            "rule:local-selection",
+            "interaction",
+            "local-filter-selection",
+            canonical_surface_id=surface.surface_id,
+            expected_surface_ids=(surface.surface_id,),
+            canonical_value="update_local_selection",
+            rationale="Pure UI selection remains UI-owned.",
+        )
+        observation = UIProductConsistencyObservation(
+            "observation:local-selection",
+            rule.rule_id,
+            surface.surface_id,
+            observed_value="update_local_selection",
+            evidence_ref="evidence://local-filter/click",
+            covered_revision=self._REVISION,
+            rationale="Click changes only local selection state.",
+        )
+        plan = UIProductConsistencyPlan(
+            "local-filter-consistency",
+            claim_scope=UI_PRODUCT_CLAIM_SCOPED,
+            current_revision=self._REVISION,
+            expected_surface_ids=(surface.surface_id,),
+            surfaces=(surface,),
+            rules=(rule,),
+            observations=(observation,),
+            validation_boundaries=("local component",),
+            rationale="Scoped review does not claim complete-product coverage.",
+        )
+
+        report = review_ui_product_consistency(plan)
+
+        self.assertTrue(report.ok, report.format_text(max_findings=30))
+        self.assertEqual("scoped", report.decision)
+
+    def test_internal_identity_field_without_typed_need_is_a_content_leak(self):
+        plan = UIContentVisibilityPlan(
+            "internal-field-leak",
+            current_revision="visibility-rev-1",
+            candidate_content_ids=("content:commitment",),
+            items=(
+                UIContentVisibilityItem(
+                    "content:commitment",
+                    source_field_ids=("behavior_commitment_id",),
+                    visibility_class=UI_CONTENT_VISIBILITY_USER_VISIBLE,
+                    rationale="Known-bad internal identity exposure.",
+                ),
+            ),
+            validation_boundaries=("content admission",),
+            rationale="Internal fields need explicit user-facing need evidence.",
+        )
+
+        report = review_ui_content_visibility(plan)
+
+        self.assertFalse(report.ok)
+        self.assertIn("internal_product_content_leak", finding_codes(report))
+
+    def test_fourth_audience_visibility_class_is_rejected(self):
+        plan = UIContentVisibilityPlan(
+            "fourth-visibility-class",
+            current_revision="visibility-rev-1",
+            candidate_content_ids=("content:expert",),
+            items=(
+                UIContentVisibilityItem(
+                    "content:expert",
+                    visibility_class="expert_visible",
+                    user_need_refs=("task:inspect-result",),
+                    rationale="Known-bad fourth visibility class.",
+                ),
+            ),
+            validation_boundaries=("content admission",),
+            rationale="Audience labels do not extend the three-class visibility taxonomy.",
+        )
+
+        report = review_ui_content_visibility(plan)
+
+        self.assertFalse(report.ok)
+        self.assertIn("unknown_content_visibility_class", finding_codes(report))
+
+    def test_existing_ui_records_serialize_additive_authority_bindings(self):
+        binding = {
+            "business_bearing": True,
+            "business_intent_id": self._INTENT,
+            "behavior_commitment_id": self._COMMITMENT,
+            "primary_path_id": self._PATH,
+            "consistency_rule_ids": ("rule:interaction",),
+        }
+        records = (
+            UITransition("event", "control", "before", "after", **binding),
+            UIFeatureContract("feature", **binding),
+            UIActionGrammar("action", "task", "run analysis", **binding),
+            UIControlFunctionalChain("chain", "control", "event", "owner", "function", **binding),
+        )
+
+        for record in records:
+            serialized = record.to_dict()
+            self.assertEqual(self._INTENT, serialized["business_intent_id"])
+            self.assertEqual(self._COMMITMENT, serialized["behavior_commitment_id"])
+            self.assertEqual(self._PATH, serialized["primary_path_id"])
+            self.assertEqual(["rule:interaction"], serialized["consistency_rule_ids"])
+
+    def test_action_grammar_reviewer_detects_same_intent_path_drift(self):
+        base = human_operability_assessment()
+        first = replace(
+            base.action_grammars[0],
+            business_bearing=True,
+            business_intent_id=self._INTENT,
+            behavior_commitment_id=self._COMMITMENT,
+            primary_path_id=self._PATH,
+            consistency_rule_ids=("rule:interaction",),
+        )
+        second = replace(
+            first,
+            action_id="select-file-action-dialog",
+            primary_control_id="settings",
+            primary_path_id="path:dialog-independent",
+        )
+        report = review_ui_human_operability(
+            replace(base, action_grammars=(first, second)),
+            interaction_model=ui_model(),
+            visible_surface=visible_surface(),
+            functional_chains=functional_chain_set(),
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("same_intent_primary_path_drift", finding_codes(report))
+
+    def test_pure_ui_action_grammar_does_not_invent_authority(self):
+        assessment = human_operability_assessment()
+        pure_ui_action = replace(assessment.action_grammars[0], pure_ui=True)
+
+        report = review_ui_human_operability(
+            replace(assessment, action_grammars=(pure_ui_action,)),
+            interaction_model=ui_model(),
+            visible_surface=visible_surface(),
+            functional_chains=functional_chain_set(),
+        )
+
+        self.assertTrue(report.ok, report.format_text(max_findings=30))
+
+    def test_transition_reviewer_detects_same_intent_path_drift(self):
+        model = ui_model()
+        binding = {
+            "business_bearing": True,
+            "business_intent_id": self._INTENT,
+            "behavior_commitment_id": self._COMMITMENT,
+            "consistency_rule_ids": ("rule:transition",),
+        }
+        transitions = tuple(
+            replace(transition_row, primary_path_id=self._PATH, **binding)
+            if index == 0
+            else replace(transition_row, primary_path_id="path:alternate", **binding)
+            if index == 1
+            else transition_row
+            for index, transition_row in enumerate(model.transitions)
+        )
+
+        report = review_ui_interaction_model(replace(model, transitions=transitions))
+
+        self.assertFalse(report.ok)
+        self.assertIn("same_intent_primary_path_drift", finding_codes(report))
+
+    def test_business_functional_chain_requires_complete_authority_binding(self):
+        chain_set = functional_chain_set()
+        business_chain = replace(
+            chain_set.chains[0],
+            business_bearing=True,
+            consistency_rule_ids=("rule:interaction",),
+        )
+
+        report = review_ui_control_functional_chains(
+            replace(chain_set, chains=(business_chain,)),
+            observed_inventory=observed_inventory(),
+            interaction_model=ui_model(),
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("incomplete_ui_behavior_authority", finding_codes(report))
+
+    def test_feature_contract_reviewer_detects_same_intent_path_drift(self):
+        validation = implementation_validation()
+        binding = {
+            "business_bearing": True,
+            "business_intent_id": self._INTENT,
+            "behavior_commitment_id": self._COMMITMENT,
+            "consistency_rule_ids": ("rule:interaction",),
+        }
+        contracts = tuple(
+            replace(contract, primary_path_id=self._PATH, **binding)
+            if index == 0
+            else replace(contract, primary_path_id="path:alternate", **binding)
+            if index == 1
+            else contract
+            for index, contract in enumerate(validation.feature_contracts)
+        )
+
+        report = review_ui_implementation_validation(
+            replace(validation, feature_contracts=contracts),
+            interaction_model=app_ui_model(),
+            journey_coverage=journey_coverage(),
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("same_intent_primary_path_drift", finding_codes(report))
+
+    def test_finite_product_language_case_seed_inventory_is_complete(self):
+        cases = default_ui_product_language_case_seeds()
+
+        self.assertEqual(5, len(cases))
+        self.assertEqual(
+            {
+                "illegal_visibility_class",
+                "internal_content_leak",
+                "semantic_drift",
+                "invalid_behavior_authority_exception",
+                "valid_presentation_exception",
+            },
+            {case.mutation_kind for case in cases},
+        )
+        self.assertTrue(next(case for case in cases if case.mutation_kind == "valid_presentation_exception").expected_ok)
 
 
 if __name__ == "__main__":

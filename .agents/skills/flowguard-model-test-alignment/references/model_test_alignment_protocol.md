@@ -10,6 +10,16 @@ It does not split tests, split code, split models, or read mesh reports. It
 compares explicit model obligations, required owner code external contracts, and
 plain test evidence.
 
+When a path-sensitive external behavior is in scope, preserve the same stable
+`business_intent_id`, `behavior_commitment_id`, and selected `primary_path_id`
+across model obligations, UI transition projections, owner/delegating code
+contracts, runtime evidence, family evidence, tests, and final binding rows.
+Two selected paths for one intent are drift, not two valid implementations.
+Every in-scope Similarity handoff relation/test/code obligation id must
+materialize as a concrete row or typed scoped disposition; an opaque id is not
+proof. A retained facade needs current delegation evidence and cannot own
+independent business success.
+
 When a change touches behavior-bearing fields, consume FieldLifecycleMesh
 reports or projections. `field_lifecycle_to_model_obligations(...)` and
 `field_lifecycle_to_code_contracts(...)` turn field rows into the same
@@ -56,6 +66,9 @@ For related obligations that share a family-level confidence claim, add
 is not the defect-family gate; it verifies that every sibling obligation has
 the same required mechanism coverage from allowed provenance sources before the
 family claim is treated as full confidence.
+Family evidence must list the same concrete member obligation ids used by this
+alignment. Evidence that names an unknown, sibling-only, or partial obligation
+set does not cover the member-mechanism cell.
 
 When real code observations are available for a finite code boundary, add the
 code-boundary conformance layer before trusting a hand-authored code contract.

@@ -88,8 +88,17 @@ class RuntimeNodeContract:
     state_case: str = ""
     business_path_id: str = ""
     business_intent: str = ""
+    business_intent_id: str = ""
+    behavior_commitment_id: str = ""
     expected_terminal: str = ""
     primary_path_id: str = ""
+    surface_id: str = ""
+    candidate_id: str = ""
+    surface_role: str = "owner"
+    delegates_to_primary_path_id: str = ""
+    delegation_evidence_id: str = ""
+    delegation_evidence_current: bool = False
+    delegation_only: bool = False
     require_no_fallback: bool = False
     required: bool = True
     ordered: bool = True
@@ -120,8 +129,17 @@ class RuntimeNodeContract:
         object.__setattr__(self, "state_case", str(self.state_case))
         object.__setattr__(self, "business_path_id", str(self.business_path_id))
         object.__setattr__(self, "business_intent", str(self.business_intent))
+        object.__setattr__(self, "business_intent_id", str(self.business_intent_id))
+        object.__setattr__(self, "behavior_commitment_id", str(self.behavior_commitment_id))
         object.__setattr__(self, "expected_terminal", str(self.expected_terminal))
         object.__setattr__(self, "primary_path_id", str(self.primary_path_id))
+        object.__setattr__(self, "surface_id", str(self.surface_id))
+        object.__setattr__(self, "candidate_id", str(self.candidate_id))
+        object.__setattr__(self, "surface_role", str(self.surface_role or "owner"))
+        object.__setattr__(self, "delegates_to_primary_path_id", str(self.delegates_to_primary_path_id))
+        object.__setattr__(self, "delegation_evidence_id", str(self.delegation_evidence_id))
+        object.__setattr__(self, "delegation_evidence_current", bool(self.delegation_evidence_current))
+        object.__setattr__(self, "delegation_only", bool(self.delegation_only))
         object.__setattr__(self, "require_no_fallback", bool(self.require_no_fallback))
         object.__setattr__(self, "required", bool(self.required))
         object.__setattr__(self, "ordered", bool(self.ordered))
@@ -151,8 +169,17 @@ class RuntimeNodeContract:
             "state_case": self.state_case,
             "business_path_id": self.business_path_id,
             "business_intent": self.business_intent,
+            "business_intent_id": self.business_intent_id,
+            "behavior_commitment_id": self.behavior_commitment_id,
             "expected_terminal": self.expected_terminal,
             "primary_path_id": self.primary_path_id,
+            "surface_id": self.surface_id,
+            "candidate_id": self.candidate_id,
+            "surface_role": self.surface_role,
+            "delegates_to_primary_path_id": self.delegates_to_primary_path_id,
+            "delegation_evidence_id": self.delegation_evidence_id,
+            "delegation_evidence_current": self.delegation_evidence_current,
+            "delegation_only": self.delegation_only,
             "require_no_fallback": self.require_no_fallback,
             "required": self.required,
             "ordered": self.ordered,
@@ -187,7 +214,17 @@ class RuntimeNodeObservation:
     state_case: str = ""
     business_path_id: str = ""
     business_intent: str = ""
+    business_intent_id: str = ""
+    behavior_commitment_id: str = ""
     primary_path_id: str = ""
+    surface_id: str = ""
+    candidate_id: str = ""
+    surface_role: str = "owner"
+    delegates_to_primary_path_id: str = ""
+    delegation_evidence_id: str = ""
+    delegation_evidence_current: bool = False
+    delegation_observed: bool = False
+    independent_business_success: bool = False
     fallback_path_id: str = ""
     primary_failure_id: str = ""
     fallback_invoked: bool = False
@@ -230,7 +267,17 @@ class RuntimeNodeObservation:
         object.__setattr__(self, "state_case", str(self.state_case))
         object.__setattr__(self, "business_path_id", str(self.business_path_id))
         object.__setattr__(self, "business_intent", str(self.business_intent))
+        object.__setattr__(self, "business_intent_id", str(self.business_intent_id))
+        object.__setattr__(self, "behavior_commitment_id", str(self.behavior_commitment_id))
         object.__setattr__(self, "primary_path_id", str(self.primary_path_id))
+        object.__setattr__(self, "surface_id", str(self.surface_id))
+        object.__setattr__(self, "candidate_id", str(self.candidate_id))
+        object.__setattr__(self, "surface_role", str(self.surface_role or "owner"))
+        object.__setattr__(self, "delegates_to_primary_path_id", str(self.delegates_to_primary_path_id))
+        object.__setattr__(self, "delegation_evidence_id", str(self.delegation_evidence_id))
+        object.__setattr__(self, "delegation_evidence_current", bool(self.delegation_evidence_current))
+        object.__setattr__(self, "delegation_observed", bool(self.delegation_observed))
+        object.__setattr__(self, "independent_business_success", bool(self.independent_business_success))
         object.__setattr__(self, "fallback_path_id", str(self.fallback_path_id))
         object.__setattr__(self, "primary_failure_id", str(self.primary_failure_id))
         object.__setattr__(self, "fallback_invoked", bool(self.fallback_invoked))
@@ -283,7 +330,11 @@ class RuntimeNodeObservation:
             ("state_case", self.state_case),
             ("business_path", self.business_path_id),
             ("business_intent", self.business_intent),
+            ("business_intent_id", self.business_intent_id),
+            ("behavior_commitment_id", self.behavior_commitment_id),
             ("primary_path", self.primary_path_id),
+            ("surface", self.surface_id),
+            ("candidate", self.candidate_id),
             ("fallback_path", self.fallback_path_id),
             ("primary_failure", self.primary_failure_id),
             ("evidence", self.evidence_key()),
@@ -310,7 +361,17 @@ class RuntimeNodeObservation:
             "state_case": self.state_case,
             "business_path_id": self.business_path_id,
             "business_intent": self.business_intent,
+            "business_intent_id": self.business_intent_id,
+            "behavior_commitment_id": self.behavior_commitment_id,
             "primary_path_id": self.primary_path_id,
+            "surface_id": self.surface_id,
+            "candidate_id": self.candidate_id,
+            "surface_role": self.surface_role,
+            "delegates_to_primary_path_id": self.delegates_to_primary_path_id,
+            "delegation_evidence_id": self.delegation_evidence_id,
+            "delegation_evidence_current": self.delegation_evidence_current,
+            "delegation_observed": self.delegation_observed,
+            "independent_business_success": self.independent_business_success,
             "fallback_path_id": self.fallback_path_id,
             "primary_failure_id": self.primary_failure_id,
             "fallback_invoked": self.fallback_invoked,
@@ -343,6 +404,12 @@ class RuntimePathRun:
     source_evidence_id: str = ""
     result_status: str = RUNTIME_PATH_STATUS_PASSED
     current: bool = True
+    business_intent_id: str = ""
+    behavior_commitment_id: str = ""
+    primary_path_id: str = ""
+    inventory_revision: str = ""
+    covered_surface_ids: tuple[str, ...] = ()
+    covered_candidate_ids: tuple[str, ...] = ()
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -363,6 +430,12 @@ class RuntimePathRun:
         object.__setattr__(self, "source_evidence_id", str(self.source_evidence_id))
         object.__setattr__(self, "result_status", str(self.result_status))
         object.__setattr__(self, "current", bool(self.current))
+        object.__setattr__(self, "business_intent_id", str(self.business_intent_id))
+        object.__setattr__(self, "behavior_commitment_id", str(self.behavior_commitment_id))
+        object.__setattr__(self, "primary_path_id", str(self.primary_path_id))
+        object.__setattr__(self, "inventory_revision", str(self.inventory_revision))
+        object.__setattr__(self, "covered_surface_ids", _as_tuple(self.covered_surface_ids))
+        object.__setattr__(self, "covered_candidate_ids", _as_tuple(self.covered_candidate_ids))
         object.__setattr__(self, "metadata", _metadata(self.metadata))
 
     def to_dict(self) -> dict[str, Any]:
@@ -372,6 +445,12 @@ class RuntimePathRun:
             "source_evidence_id": self.source_evidence_id,
             "result_status": self.result_status,
             "current": self.current,
+            "business_intent_id": self.business_intent_id,
+            "behavior_commitment_id": self.behavior_commitment_id,
+            "primary_path_id": self.primary_path_id,
+            "inventory_revision": self.inventory_revision,
+            "covered_surface_ids": list(self.covered_surface_ids),
+            "covered_candidate_ids": list(self.covered_candidate_ids),
             "metadata": to_jsonable(dict(self.metadata)),
         }
 
@@ -392,6 +471,15 @@ class RuntimePathAlignmentPlan:
     require_proof_artifacts: bool = False
     allow_uncontracted_nodes: bool = False
     claim_scope: str = RUNTIME_PATH_CONFIDENCE_FULL
+    business_intent_id: str = ""
+    behavior_commitment_id: str = ""
+    primary_path_id: str = ""
+    inventory_revision: str = ""
+    expected_surface_ids: tuple[str, ...] = ()
+    expected_candidate_ids: tuple[str, ...] = ()
+    scoped_surface_reasons: Mapping[str, str] = field(default_factory=dict)
+    scoped_candidate_reasons: Mapping[str, str] = field(default_factory=dict)
+    require_complete_inventory: bool = False
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -429,6 +517,23 @@ class RuntimePathAlignmentPlan:
         object.__setattr__(self, "require_proof_artifacts", bool(self.require_proof_artifacts))
         object.__setattr__(self, "allow_uncontracted_nodes", bool(self.allow_uncontracted_nodes))
         object.__setattr__(self, "claim_scope", str(self.claim_scope))
+        object.__setattr__(self, "business_intent_id", str(self.business_intent_id))
+        object.__setattr__(self, "behavior_commitment_id", str(self.behavior_commitment_id))
+        object.__setattr__(self, "primary_path_id", str(self.primary_path_id))
+        object.__setattr__(self, "inventory_revision", str(self.inventory_revision))
+        object.__setattr__(self, "expected_surface_ids", _as_tuple(self.expected_surface_ids))
+        object.__setattr__(self, "expected_candidate_ids", _as_tuple(self.expected_candidate_ids))
+        object.__setattr__(
+            self,
+            "scoped_surface_reasons",
+            {str(key): str(value) for key, value in dict(self.scoped_surface_reasons).items()},
+        )
+        object.__setattr__(
+            self,
+            "scoped_candidate_reasons",
+            {str(key): str(value) for key, value in dict(self.scoped_candidate_reasons).items()},
+        )
+        object.__setattr__(self, "require_complete_inventory", bool(self.require_complete_inventory))
         object.__setattr__(self, "metadata", _metadata(self.metadata))
 
     def all_observations(self) -> tuple[RuntimeNodeObservation, ...]:
@@ -448,6 +553,15 @@ class RuntimePathAlignmentPlan:
             "require_proof_artifacts": self.require_proof_artifacts,
             "allow_uncontracted_nodes": self.allow_uncontracted_nodes,
             "claim_scope": self.claim_scope,
+            "business_intent_id": self.business_intent_id,
+            "behavior_commitment_id": self.behavior_commitment_id,
+            "primary_path_id": self.primary_path_id,
+            "inventory_revision": self.inventory_revision,
+            "expected_surface_ids": list(self.expected_surface_ids),
+            "expected_candidate_ids": list(self.expected_candidate_ids),
+            "scoped_surface_reasons": to_jsonable(dict(self.scoped_surface_reasons)),
+            "scoped_candidate_reasons": to_jsonable(dict(self.scoped_candidate_reasons)),
+            "require_complete_inventory": self.require_complete_inventory,
             "metadata": to_jsonable(dict(self.metadata)),
         }
 
@@ -496,6 +610,16 @@ class RuntimePathAlignmentReport:
     findings: tuple[RuntimePathFinding, ...] = ()
     checked_contracts: int = 0
     checked_observations: int = 0
+    business_intent_id: str = ""
+    behavior_commitment_id: str = ""
+    primary_path_id: str = ""
+    inventory_revision: str = ""
+    covered_surface_ids: tuple[str, ...] = ()
+    scoped_surface_ids: tuple[str, ...] = ()
+    missing_surface_ids: tuple[str, ...] = ()
+    covered_candidate_ids: tuple[str, ...] = ()
+    scoped_candidate_ids: tuple[str, ...] = ()
+    missing_candidate_ids: tuple[str, ...] = ()
     summary: str = ""
 
     def __post_init__(self) -> None:
@@ -503,6 +627,16 @@ class RuntimePathAlignmentReport:
         object.__setattr__(self, "decision", str(self.decision))
         object.__setattr__(self, "confidence", str(self.confidence))
         object.__setattr__(self, "findings", tuple(self.findings))
+        object.__setattr__(self, "business_intent_id", str(self.business_intent_id))
+        object.__setattr__(self, "behavior_commitment_id", str(self.behavior_commitment_id))
+        object.__setattr__(self, "primary_path_id", str(self.primary_path_id))
+        object.__setattr__(self, "inventory_revision", str(self.inventory_revision))
+        object.__setattr__(self, "covered_surface_ids", _as_tuple(self.covered_surface_ids))
+        object.__setattr__(self, "scoped_surface_ids", _as_tuple(self.scoped_surface_ids))
+        object.__setattr__(self, "missing_surface_ids", _as_tuple(self.missing_surface_ids))
+        object.__setattr__(self, "covered_candidate_ids", _as_tuple(self.covered_candidate_ids))
+        object.__setattr__(self, "scoped_candidate_ids", _as_tuple(self.scoped_candidate_ids))
+        object.__setattr__(self, "missing_candidate_ids", _as_tuple(self.missing_candidate_ids))
         if not self.summary:
             status = "OK" if self.ok else "BLOCKED"
             object.__setattr__(
@@ -528,6 +662,11 @@ class RuntimePathAlignmentReport:
             f"confidence: {self.confidence}",
             f"contracts: {self.checked_contracts}",
             f"observations: {self.checked_observations}",
+            f"business_intent_id: {self.business_intent_id or '(missing)'}",
+            f"behavior_commitment_id: {self.behavior_commitment_id or '(missing)'}",
+            f"primary_path_id: {self.primary_path_id or '(missing)'}",
+            f"covered_surfaces: {', '.join(self.covered_surface_ids) or '(none)'}",
+            f"covered_candidates: {', '.join(self.covered_candidate_ids) or '(none)'}",
             f"findings: {len(self.findings)}",
         ]
         for finding in self.findings[:max_findings]:
@@ -553,6 +692,16 @@ class RuntimePathAlignmentReport:
             "findings": [finding.to_dict() for finding in self.findings],
             "checked_contracts": self.checked_contracts,
             "checked_observations": self.checked_observations,
+            "business_intent_id": self.business_intent_id,
+            "behavior_commitment_id": self.behavior_commitment_id,
+            "primary_path_id": self.primary_path_id,
+            "inventory_revision": self.inventory_revision,
+            "covered_surface_ids": list(self.covered_surface_ids),
+            "scoped_surface_ids": list(self.scoped_surface_ids),
+            "missing_surface_ids": list(self.missing_surface_ids),
+            "covered_candidate_ids": list(self.covered_candidate_ids),
+            "scoped_candidate_ids": list(self.scoped_candidate_ids),
+            "missing_candidate_ids": list(self.missing_candidate_ids),
             "summary": self.summary,
         }
 
@@ -597,6 +746,261 @@ class RuntimePathRecorder:
 
     def format_progress_lines(self) -> str:
         return "\n".join(observation.format_progress_line() for observation in self._observations)
+
+
+def _runtime_authority_values(
+    plan: RuntimePathAlignmentPlan,
+) -> tuple[str, str, str]:
+    values: list[str] = []
+    for attr in ("business_intent_id", "behavior_commitment_id", "primary_path_id"):
+        plan_value = str(getattr(plan, attr))
+        contract_values = _unique(
+            tuple(
+                str(getattr(contract, attr))
+                for contract in plan.node_contracts
+                if contract.required and str(getattr(contract, attr))
+            )
+        )
+        values.append(plan_value or (contract_values[0] if len(contract_values) == 1 else ""))
+    return tuple(values)  # type: ignore[return-value]
+
+
+def _review_runtime_authority(
+    plan: RuntimePathAlignmentPlan,
+    observations: tuple[RuntimeNodeObservation, ...],
+    findings: list[RuntimePathFinding],
+) -> tuple[str, str, str]:
+    expected_values = _runtime_authority_values(plan)
+    attrs = ("business_intent_id", "behavior_commitment_id", "primary_path_id")
+    broad_claim = plan.claim_scope == RUNTIME_PATH_CONFIDENCE_FULL
+    for attr, expected in zip(attrs, expected_values):
+        if broad_claim and not expected:
+            findings.append(
+                RuntimePathFinding(
+                    f"runtime_path_{attr}_missing",
+                    f"broad runtime path confidence requires stable {attr}",
+                    metadata={"plan_id": plan.plan_id, "claim_scope": plan.claim_scope},
+                )
+            )
+            continue
+        if not expected:
+            continue
+        plan_value = str(getattr(plan, attr))
+        if plan_value and plan_value != expected:
+            findings.append(
+                RuntimePathFinding(
+                    f"runtime_path_{attr}_mismatch",
+                    f"runtime path plan {attr} does not match the selected authority",
+                    metadata={"expected": expected, "actual": plan_value},
+                )
+            )
+        for contract in plan.node_contracts:
+            if not contract.required:
+                continue
+            actual = str(getattr(contract, attr))
+            if not actual:
+                findings.append(
+                    RuntimePathFinding(
+                        f"runtime_node_{attr}_missing",
+                        f"required runtime node {contract.node_id!r} omits stable {attr}",
+                        node_id=contract.node_id,
+                        metadata={"expected": expected, "contract": contract.to_dict()},
+                    )
+                )
+            elif actual != expected:
+                findings.append(
+                    RuntimePathFinding(
+                        f"runtime_node_{attr}_mismatch",
+                        f"required runtime node {contract.node_id!r} uses a different {attr}",
+                        node_id=contract.node_id,
+                        metadata={"expected": expected, "actual": actual},
+                    )
+                )
+        for observation in observations:
+            actual = str(getattr(observation, attr))
+            if not actual:
+                findings.append(
+                    RuntimePathFinding(
+                        f"runtime_observation_{attr}_missing",
+                        f"runtime observation {observation.observation_id!r} omits stable {attr}",
+                        node_id=observation.node_id,
+                        observation_id=observation.observation_id,
+                        evidence_id=observation.evidence_key(),
+                        metadata={"expected": expected},
+                    )
+                )
+            elif actual != expected:
+                findings.append(
+                    RuntimePathFinding(
+                        f"runtime_observation_{attr}_mismatch",
+                        f"runtime observation {observation.observation_id!r} uses a different {attr}",
+                        node_id=observation.node_id,
+                        observation_id=observation.observation_id,
+                        evidence_id=observation.evidence_key(),
+                        metadata={"expected": expected, "actual": actual},
+                    )
+                )
+        for run in plan.runs:
+            actual = str(getattr(run, attr))
+            if not actual:
+                findings.append(
+                    RuntimePathFinding(
+                        f"runtime_run_{attr}_missing",
+                        f"runtime path run {run.run_id!r} omits stable {attr}",
+                        evidence_id=run.source_evidence_id or run.run_id,
+                        metadata={"expected": expected, "run": run.to_dict()},
+                    )
+                )
+            elif actual != expected:
+                findings.append(
+                    RuntimePathFinding(
+                        f"runtime_run_{attr}_mismatch",
+                        f"runtime path run {run.run_id!r} uses a different {attr}",
+                        evidence_id=run.source_evidence_id or run.run_id,
+                        metadata={"expected": expected, "actual": actual},
+                    )
+                )
+    for run in plan.runs:
+        if not run.current or run.result_status not in PASSING_RUNTIME_PATH_STATUSES:
+            findings.append(
+                RuntimePathFinding(
+                    "runtime_path_run_not_current_pass",
+                    f"runtime path run {run.run_id!r} is not current passing evidence",
+                    evidence_id=run.source_evidence_id or run.run_id,
+                    metadata=run.to_dict(),
+                )
+            )
+        if plan.inventory_revision and run.inventory_revision != plan.inventory_revision:
+            findings.append(
+                RuntimePathFinding(
+                    "runtime_path_inventory_revision_mismatch",
+                    f"runtime path run {run.run_id!r} does not match inventory revision",
+                    evidence_id=run.source_evidence_id or run.run_id,
+                    metadata={"expected": plan.inventory_revision, "actual": run.inventory_revision},
+                )
+            )
+    return expected_values
+
+
+def _review_runtime_inventory(
+    plan: RuntimePathAlignmentPlan,
+    observations: tuple[RuntimeNodeObservation, ...],
+    findings: list[RuntimePathFinding],
+) -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...], tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
+    expected_surfaces = _unique(plan.expected_surface_ids)
+    expected_candidates = _unique(plan.expected_candidate_ids)
+    scoped_surfaces = set(plan.scoped_surface_reasons)
+    scoped_candidates = set(plan.scoped_candidate_reasons)
+    inventory_claimed = bool(plan.require_complete_inventory or expected_surfaces or expected_candidates)
+    if inventory_claimed and not plan.inventory_revision:
+        findings.append(
+            RuntimePathFinding(
+                "runtime_path_inventory_revision_missing",
+                "runtime surface/candidate inventory requires an explicit revision",
+                metadata={"plan_id": plan.plan_id},
+            )
+        )
+    if plan.require_complete_inventory and not (expected_surfaces or expected_candidates):
+        findings.append(
+            RuntimePathFinding(
+                "missing_expected_runtime_inventory",
+                "complete runtime inventory was requested without expected surface or candidate ids",
+                metadata={"plan_id": plan.plan_id},
+            )
+        )
+    for item_id, reason in (*plan.scoped_surface_reasons.items(), *plan.scoped_candidate_reasons.items()):
+        if not reason:
+            findings.append(
+                RuntimePathFinding(
+                    "runtime_inventory_scoped_reason_missing",
+                    "runtime inventory disposition requires a reason",
+                    metadata={"item_id": item_id},
+                )
+            )
+
+    contracts_by_surface = {
+        contract.surface_id: contract
+        for contract in plan.node_contracts
+        if contract.surface_id
+    }
+    contracts_by_candidate = {
+        contract.candidate_id: contract
+        for contract in plan.node_contracts
+        if contract.candidate_id
+    }
+    passing = tuple(
+        observation
+        for observation in observations
+        if observation.has_current_pass() and observation.has_external_scope()
+    )
+    observed_surfaces = {observation.surface_id for observation in passing if observation.surface_id}
+    observed_candidates = {observation.candidate_id for observation in passing if observation.candidate_id}
+    covered_surfaces: list[str] = []
+    missing_surfaces: list[str] = []
+    for surface_id in expected_surfaces:
+        if surface_id in scoped_surfaces:
+            continue
+        if surface_id not in contracts_by_surface:
+            missing_surfaces.append(surface_id)
+            findings.append(
+                RuntimePathFinding(
+                    "expected_runtime_surface_contract_missing",
+                    f"expected runtime surface {surface_id!r} has no runtime node contract",
+                    metadata={"surface_id": surface_id, "inventory_revision": plan.inventory_revision},
+                )
+            )
+        elif surface_id not in observed_surfaces:
+            missing_surfaces.append(surface_id)
+            findings.append(
+                RuntimePathFinding(
+                    "expected_runtime_surface_observation_missing",
+                    f"expected runtime surface {surface_id!r} has no current passing observation",
+                    metadata={"surface_id": surface_id, "inventory_revision": plan.inventory_revision},
+                )
+            )
+        else:
+            covered_surfaces.append(surface_id)
+    covered_candidates: list[str] = []
+    missing_candidates: list[str] = []
+    for candidate_id in expected_candidates:
+        if candidate_id in scoped_candidates:
+            continue
+        if candidate_id not in contracts_by_candidate or candidate_id not in observed_candidates:
+            missing_candidates.append(candidate_id)
+            findings.append(
+                RuntimePathFinding(
+                    "expected_runtime_candidate_unaccounted",
+                    f"expected runtime candidate {candidate_id!r} lacks current contract/observation evidence",
+                    metadata={"candidate_id": candidate_id, "inventory_revision": plan.inventory_revision},
+                )
+            )
+        else:
+            covered_candidates.append(candidate_id)
+    if plan.require_complete_inventory:
+        for surface_id in sorted(set(contracts_by_surface) - set(expected_surfaces) - scoped_surfaces):
+            findings.append(
+                RuntimePathFinding(
+                    "unexpected_runtime_surface",
+                    f"runtime surface {surface_id!r} is outside the complete expected inventory",
+                    metadata={"surface_id": surface_id},
+                )
+            )
+        for candidate_id in sorted(set(contracts_by_candidate) - set(expected_candidates) - scoped_candidates):
+            findings.append(
+                RuntimePathFinding(
+                    "unexpected_runtime_candidate",
+                    f"runtime candidate {candidate_id!r} is outside the complete expected inventory",
+                    metadata={"candidate_id": candidate_id},
+                )
+            )
+    return (
+        _unique(covered_surfaces),
+        _unique(tuple(sorted(scoped_surfaces & set(expected_surfaces)))),
+        _unique(missing_surfaces),
+        _unique(covered_candidates),
+        _unique(tuple(sorted(scoped_candidates & set(expected_candidates)))),
+        _unique(missing_candidates),
+    )
 
 
 def review_runtime_path_alignment(
@@ -645,6 +1049,9 @@ def review_runtime_path_alignment(
     if plan.require_exact_path:
         _review_exact_path(plan.node_contracts, observations, findings)
 
+    authority_values = _review_runtime_authority(plan, observations, findings)
+    inventory_values = _review_runtime_inventory(plan, observations, findings)
+
     blockers = tuple(finding for finding in findings if finding.severity == "blocker")
     if blockers:
         decision = RUNTIME_PATH_DECISION_BLOCKED
@@ -664,6 +1071,16 @@ def review_runtime_path_alignment(
         findings=tuple(findings),
         checked_contracts=len(plan.node_contracts),
         checked_observations=len(observations),
+        business_intent_id=authority_values[0],
+        behavior_commitment_id=authority_values[1],
+        primary_path_id=authority_values[2],
+        inventory_revision=plan.inventory_revision,
+        covered_surface_ids=inventory_values[0],
+        scoped_surface_ids=inventory_values[1],
+        missing_surface_ids=inventory_values[2],
+        covered_candidate_ids=inventory_values[3],
+        scoped_candidate_ids=inventory_values[4],
+        missing_candidate_ids=inventory_values[5],
     )
 
 
@@ -745,6 +1162,7 @@ def _review_contract_observations(
     for observation in passing:
         _review_binding(contract, observation, findings)
         _review_behavior(contract, observation, findings)
+        _review_facade_delegation(contract, observation, findings)
         if contract.require_no_fallback and observation.fallback_invoked:
             findings.append(
                 RuntimePathFinding(
@@ -785,6 +1203,8 @@ def _review_binding(
         ("boundary_id", "runtime_node_boundary_mismatch"),
         ("input_case", "runtime_node_input_case_mismatch"),
         ("state_case", "runtime_node_state_case_mismatch"),
+        ("surface_id", "runtime_node_surface_mismatch"),
+        ("candidate_id", "runtime_node_candidate_mismatch"),
     )
     for attr, code in checks:
         expected = getattr(contract, attr)
@@ -816,6 +1236,16 @@ def _review_binding(
             "runtime_node_primary_path_mismatch",
             "runtime_node_primary_path_missing",
         ),
+        (
+            "business_intent_id",
+            "runtime_node_business_intent_id_mismatch",
+            "runtime_node_business_intent_id_missing",
+        ),
+        (
+            "behavior_commitment_id",
+            "runtime_node_behavior_commitment_id_mismatch",
+            "runtime_node_behavior_commitment_id_missing",
+        ),
     )
     for attr, mismatch_code, missing_code in business_checks:
         expected = getattr(contract, attr)
@@ -844,6 +1274,86 @@ def _review_binding(
             )
 
 
+def _review_facade_delegation(
+    contract: RuntimeNodeContract,
+    observation: RuntimeNodeObservation,
+    findings: list[RuntimePathFinding],
+) -> None:
+    if contract.surface_role == "owner":
+        return
+    metadata = {"contract": contract.to_dict(), "observation": observation.to_dict()}
+    if not contract.delegation_only:
+        findings.append(
+            RuntimePathFinding(
+                "runtime_facade_not_delegation_only",
+                f"runtime facade {contract.node_id!r} is not declared as delegation-only",
+                node_id=contract.node_id,
+                observation_id=observation.observation_id,
+                evidence_id=observation.evidence_key(),
+                metadata=metadata,
+            )
+        )
+    if (
+        not contract.delegates_to_primary_path_id
+        or contract.delegates_to_primary_path_id != contract.primary_path_id
+    ):
+        findings.append(
+            RuntimePathFinding(
+                "runtime_facade_primary_path_delegation_mismatch",
+                f"runtime facade {contract.node_id!r} does not delegate to the selected primary path",
+                node_id=contract.node_id,
+                observation_id=observation.observation_id,
+                evidence_id=observation.evidence_key(),
+                metadata=metadata,
+            )
+        )
+    if not contract.delegation_evidence_id or not contract.delegation_evidence_current:
+        findings.append(
+            RuntimePathFinding(
+                "runtime_facade_delegation_evidence_stale",
+                f"runtime facade {contract.node_id!r} lacks current delegation contract evidence",
+                node_id=contract.node_id,
+                observation_id=observation.observation_id,
+                evidence_id=observation.evidence_key(),
+                metadata=metadata,
+            )
+        )
+    if (
+        not observation.delegation_observed
+        or observation.delegates_to_primary_path_id != contract.primary_path_id
+    ):
+        findings.append(
+            RuntimePathFinding(
+                "runtime_facade_delegation_not_observed",
+                f"runtime facade {contract.node_id!r} did not reach the selected primary path",
+                node_id=contract.node_id,
+                observation_id=observation.observation_id,
+                evidence_id=observation.evidence_key(),
+                metadata=metadata,
+            )
+        )
+    if not observation.delegation_evidence_id or not observation.delegation_evidence_current:
+        findings.append(
+            RuntimePathFinding(
+                "runtime_facade_observation_stale",
+                f"runtime facade {contract.node_id!r} lacks current delegation observation evidence",
+                node_id=contract.node_id,
+                observation_id=observation.observation_id,
+                evidence_id=observation.evidence_key(),
+                metadata=metadata,
+            )
+        )
+    if observation.independent_business_success or observation.fallback_returned_success:
+        findings.append(
+            RuntimePathFinding(
+                "runtime_facade_alternate_success",
+                f"runtime facade {contract.node_id!r} returned independent business success",
+                node_id=contract.node_id,
+                observation_id=observation.observation_id,
+                evidence_id=observation.evidence_key(),
+                metadata=metadata,
+            )
+        )
 def _review_behavior(
     contract: RuntimeNodeContract,
     observation: RuntimeNodeObservation,

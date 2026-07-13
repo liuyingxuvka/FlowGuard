@@ -26,6 +26,23 @@ def suite(suite_id, **kwargs):
     return TestSuiteEvidence(suite_id, **defaults)
 
 
+def final_suite(suite_id, *inventory_item_ids, revision="inventory:v1", **kwargs):
+    defaults = {
+        "inventory_revision": revision,
+        "owned_inventory_item_ids": tuple(inventory_item_ids),
+        "run_id": f"run:{suite_id}:1",
+        "terminal_status": "passed",
+        "exit_code": 0,
+        "result_path": f"tmp/{suite_id}.json",
+        "result_fingerprint": f"sha256:{suite_id}",
+        "covered_obligation_ids": tuple(inventory_item_ids),
+        "artifact_version": "artifact:v1",
+        "verifier_version": "flowguard:0.54.1",
+    }
+    defaults.update(kwargs)
+    return suite(suite_id, **defaults)
+
+
 def proof_artifact(artifact_id, *covered):
     return ProofArtifactRef(
         artifact_id,
@@ -86,6 +103,58 @@ class TestMeshTests(unittest.TestCase):
         self.assertEqual("test_mesh_green_can_continue", report.decision)
         self.assertEqual([], report.to_dict()["findings"])
         self.assertIn("flowguard test mesh", report.format_text())
+
+    def test_revisioned_required_inventory_with_final_receipts_can_continue(self):
+        plan = TestMeshPlan(
+            parent_suite_id="router-runtime",
+            partition_items=(
+                TestPartitionItem("controller", owner_suite_id="controller", inventory_revision="inventory:v1"),
+                TestPartitionItem("packets", owner_suite_id="packets", inventory_revision="inventory:v1"),
+            ),
+            child_suites=(
+                final_suite("controller", "controller"),
+                final_suite("packets", "packets"),
+            ),
+            target_split_derivation=target(
+                "router-runtime-validation",
+                ("controller", "packets"),
+                ("controller", "packets"),
+            ),
+            inventory_revision="inventory:v1",
+            required_inventory_item_ids=("controller", "packets"),
+            require_complete_inventory=True,
+            require_final_receipts=True,
+        )
+
+        report = review_test_mesh(plan)
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual(("controller", "packets"), report.covered_inventory_item_ids)
+        self.assertEqual("inventory:v1", report.inventory_revision)
+
+    def test_caller_subset_cannot_replace_complete_required_inventory(self):
+        plan = TestMeshPlan(
+            parent_suite_id="router-runtime",
+            partition_items=(
+                TestPartitionItem("controller", owner_suite_id="controller", inventory_revision="inventory:v2"),
+            ),
+            child_suites=(final_suite("controller", "controller", revision="inventory:v2"),),
+            target_split_derivation=target(
+                "router-runtime-validation",
+                ("controller",),
+                ("controller",),
+            ),
+            inventory_revision="inventory:v2",
+            required_inventory_item_ids=("controller", "packets"),
+            require_complete_inventory=True,
+        )
+
+        report = review_test_mesh(plan)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("test_inventory_required", report.decision)
+        self.assertIn("required_inventory_item_missing", [finding.code for finding in report.findings])
+        self.assertEqual(("packets",), report.missing_inventory_item_ids)
 
     def test_leaf_matrix_cell_evidence_can_support_parent_gate(self):
         plan = TestMeshPlan(
@@ -220,7 +289,7 @@ class TestMeshTests(unittest.TestCase):
         report = review_test_mesh(plan)
 
         self.assertFalse(report.ok)
-        self.assertEqual("leaf_matrix_cell_evidence_required", report.decision)
+        self.assertEqual("final_receipt_required", report.decision)
         self.assertIn("background_incomplete", [finding.code for finding in report.findings])
         self.assertIn("leaf_matrix_cell_evidence_missing", [finding.code for finding in report.findings])
 
@@ -299,8 +368,22 @@ class TestMeshTests(unittest.TestCase):
         report = review_test_mesh(plan)
 
         self.assertFalse(report.ok)
-        self.assertEqual("background_incomplete", report.decision)
+        self.assertEqual("final_receipt_required", report.decision)
         self.assertIn("background_incomplete", [finding.code for finding in report.findings])
+
+    def test_foreground_progress_only_status_never_counts_as_pass(self):
+        plan = TestMeshPlan(
+            parent_suite_id="router-runtime",
+            partition_items=(TestPartitionItem("startup", owner_suite_id="startup"),),
+            child_suites=(suite("startup", progress_only=True),),
+            target_split_derivation=target("router-runtime-validation", ("startup",), ("startup",)),
+        )
+
+        report = review_test_mesh(plan)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("final_receipt_required", report.decision)
+        self.assertIn("suite_progress_only", [finding.code for finding in report.findings])
 
     def test_reused_child_suite_requires_ticket_and_proof_artifact(self):
         plan = TestMeshPlan(

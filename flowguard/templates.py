@@ -19,6 +19,7 @@ from .template_text.core import (
     MODEL_NOTES_TEMPLATE,
 )
 from .template_text.behavior_commitment_ledger import (
+    BEHAVIOR_COMMITMENT_LEDGER_LEDGER_TEMPLATE,
     BEHAVIOR_COMMITMENT_LEDGER_MODEL_TEMPLATE,
     BEHAVIOR_COMMITMENT_LEDGER_RUN_CHECKS_TEMPLATE,
     BEHAVIOR_COMMITMENT_LEDGER_NOTES_TEMPLATE,
@@ -141,12 +142,96 @@ from .template_text.workflow_step_contracts import (
     WORKFLOW_STEP_CONTRACTS_RUN_CHECKS_TEMPLATE,
     WORKFLOW_STEP_CONTRACTS_NOTES_TEMPLATE,
 )
+from .template_text.spec_work_package import (
+    SPEC_WORK_PACKAGE_MODEL_TEMPLATE,
+    SPEC_WORK_PACKAGE_RUN_CHECKS_TEMPLATE,
+)
 
 
 @dataclass(frozen=True)
 class TemplateFile:
     path: str
     content: str
+
+
+SPEC_WORK_PACKAGE_BINDINGS_TEMPLATE = """{
+  "packages": [
+    {
+      "provider_id": "openspec",
+      "work_package_id": "replace-with-change-id",
+      "change_id": "replace-with-change-id",
+      "canonical_checks": [
+        {
+          "check_id": "owner.example.focused",
+          "semantic_check_id": "flowguard.owner.example.focused",
+          "execution_id": "flowguard.owner.example.focused.v1",
+          "command": ["python", "-m", "pytest", "-q", "tests/test_example.py"],
+          "input_paths": ["flowguard/example.py", "tests/test_example.py"],
+          "validation_obligation_ids": ["validation:example:focused"],
+          "snapshot_policy": "frozen-required",
+          "validation_scope": "focused",
+          "toolchain_identity": "flowguard-python-pytest-v1",
+          "timeout_seconds": 600
+        },
+        {
+          "check_id": "owner.change.aggregate",
+          "semantic_check_id": "flowguard.owner.example.aggregate",
+          "execution_id": "flowguard.owner.example.aggregate.v1",
+          "execution_mode": "aggregate-child-receipts",
+          "child_check_ids": ["owner.example.focused"],
+          "input_paths": ["openspec/changes/replace-with-change-id/**"],
+          "validation_obligation_ids": ["validation:example:aggregate"],
+          "snapshot_policy": "frozen-required",
+          "validation_scope": "focused",
+          "toolchain_identity": "flowguard-receipt-aggregate-v1"
+        }
+      ],
+      "infrastructure_bindings": [
+        {
+          "binding_id": "infrastructure:canonical-flowguard-owner-receipts",
+          "check_ids": ["owner.example.focused", "owner.change.aggregate"],
+          "binding_kind": "infrastructure",
+          "owner_id": "flowguard.spec_check_cache",
+          "reason": "FlowGuard executes each physical check once; OpenSpec consumes portable receipts."
+        }
+      ],
+      "task_binding_rules": [
+        {
+          "task_prefix": "1.",
+          "obligation_ids": ["req.example"]
+        }
+      ]
+    }
+  ],
+  "schema_version": "flowguard.spec-work-package-bindings.v1"
+}
+"""
+
+SPEC_WORK_PACKAGE_NOTES_TEMPLATE = """# FlowGuard specification work package
+
+Keep provider, work-package, change, task, obligation, semantic-check,
+execution, receipt, and consumer identities distinct. `canonical_checks` is
+the only physical execution declaration; `infrastructure_bindings` names
+`flowguard.spec_check_cache` as its owner.
+
+Set `FLOWGUARD_SPEC_EVIDENCE_ROOT` to a persistent evidence directory. Start a
+frozen session with `spec-session-begin`; FlowGuard runs each child owner once
+with `spec-check-run`, aggregates exact child receipts, and closes the frozen
+owner session with `spec-session-close`. This produces stable
+`portable-receipt.v1` refs below `<SPEC_EVIDENCE>/portable-refs/...`.
+
+The OpenSpec verification contract contains only `kind: receipt` checks. It
+does not execute the FlowGuard owner, call FlowGuard session lifecycle
+commands, or copy commands/input selectors into the provider contract. Its
+native verifier reads the stable refs and writes the version-3 provider report.
+Only after that report exists may `spec-provider-close-review` perform the
+read-only reconciliation of frozen owner receipts against provider rows.
+That review never runs a check and never replaces OpenSpec archive authority.
+
+Derived reports, logs, caches, refs, envelopes, and receipts are outputs, not
+governed source inputs. Do not expose these development-process fields as
+product UI content.
+"""
 
 
 def project_template_files() -> tuple[TemplateFile, ...]:
@@ -180,6 +265,15 @@ def risk_intent_template_files() -> tuple[TemplateFile, ...]:
     )
 
 
+def spec_work_package_template_files() -> tuple[TemplateFile, ...]:
+    return (
+        TemplateFile(".flowguard/spec_provider_work_packages/model.py", SPEC_WORK_PACKAGE_MODEL_TEMPLATE),
+        TemplateFile(".flowguard/spec_provider_work_packages/run_checks.py", SPEC_WORK_PACKAGE_RUN_CHECKS_TEMPLATE),
+        TemplateFile(".flowguard/spec_provider_work_packages/bindings.json", SPEC_WORK_PACKAGE_BINDINGS_TEMPLATE),
+        TemplateFile("docs/flowguard_spec_work_package.md", SPEC_WORK_PACKAGE_NOTES_TEMPLATE),
+    )
+
+
 def risk_template_library_template_files() -> tuple[TemplateFile, ...]:
     return (
         TemplateFile(".flowguard/risk_template_library/model.py", RISK_TEMPLATE_LIBRARY_MODEL_TEMPLATE),
@@ -198,6 +292,7 @@ def plan_detailing_template_files() -> tuple[TemplateFile, ...]:
 
 def behavior_commitment_ledger_template_files() -> tuple[TemplateFile, ...]:
     return (
+        TemplateFile(".flowguard/behavior_commitment_ledger/ledger.json", BEHAVIOR_COMMITMENT_LEDGER_LEDGER_TEMPLATE),
         TemplateFile(".flowguard/behavior_commitment_ledger/model.py", BEHAVIOR_COMMITMENT_LEDGER_MODEL_TEMPLATE),
         TemplateFile(".flowguard/behavior_commitment_ledger/run_checks.py", BEHAVIOR_COMMITMENT_LEDGER_RUN_CHECKS_TEMPLATE),
         TemplateFile("docs/flowguard_behavior_commitment_ledger.md", BEHAVIOR_COMMITMENT_LEDGER_NOTES_TEMPLATE),
@@ -428,6 +523,7 @@ def write_template_files(
 
 __all__ = [
     "ADOPTION_LOG_TEMPLATE",
+    "BEHAVIOR_COMMITMENT_LEDGER_LEDGER_TEMPLATE",
     "BEHAVIOR_COMMITMENT_LEDGER_MODEL_TEMPLATE",
     "BEHAVIOR_COMMITMENT_LEDGER_NOTES_TEMPLATE",
     "BEHAVIOR_COMMITMENT_LEDGER_RUN_CHECKS_TEMPLATE",
@@ -488,6 +584,10 @@ __all__ = [
     "RUNTIME_PATH_EVIDENCE_MODEL_TEMPLATE",
     "RUNTIME_PATH_EVIDENCE_NOTES_TEMPLATE",
     "RUNTIME_PATH_EVIDENCE_RUN_CHECKS_TEMPLATE",
+    "SPEC_WORK_PACKAGE_BINDINGS_TEMPLATE",
+    "SPEC_WORK_PACKAGE_MODEL_TEMPLATE",
+    "SPEC_WORK_PACKAGE_NOTES_TEMPLATE",
+    "SPEC_WORK_PACKAGE_RUN_CHECKS_TEMPLATE",
     "STRUCTURE_MESH_MODEL_TEMPLATE",
     "STRUCTURE_MESH_NOTES_TEMPLATE",
     "STRUCTURE_MESH_RUN_CHECKS_TEMPLATE",
@@ -527,6 +627,7 @@ __all__ = [
     "risk_evidence_ledger_template_files",
     "risk_intent_template_files",
     "risk_template_library_template_files",
+    "spec_work_package_template_files",
     "runtime_path_evidence_template_files",
     "structure_mesh_template_files",
     "test_mesh_template_files",

@@ -1,120 +1,183 @@
 {
-  "activation_keywords": [
-    "behavior inventory",
-    "behavior commitment",
-    "source coverage",
-    "primary path authority",
-    "broad release confidence"
-  ],
-  "claim_boundary": "The ledger proves only current registered behavior/source/owner/path accounting; sibling evidence and final release authority remain separate.",
-  "default_route": false,
-  "direct_references": [
-    "references/behavior_commitment_ledger_protocol.md"
-  ],
-  "do_not_use_when": [
-    "The scope is helper internals, no external behavior inventory exists, or a sibling evidence route owns the question."
-  ],
-  "downstream_targets": [
+  "artifacts": [],
+  "checks": [
     {
-      "claim_scope": "single primary runtime authority",
-      "condition": "A commitment is path_sensitive=true.",
-      "target_id": "primary_path_authority",
-      "target_kind": "internal_route"
+      "check_id": "check:flowguard-behavior-commitment-ledger:plane-boundary",
+      "covers_obligation_ids": [
+        "obligation:flowguard-behavior-commitment-ledger:plane-boundary"
+      ],
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "flowguard-behavior-commitment-ledger:functional",
+      "execution_owner_id": "owner:flowguard-behavior-commitment-ledger:flowguard-behavior-commitment-ledger-plane-boundary",
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": ".flowguard/behavior_commitment_ledger/model.py"
+        }
+      ],
+      "kind": "model_assertion",
+      "timeout_seconds": 30
     },
     {
-      "claim_scope": "canonical case generation",
-      "condition": "Commitment/DCAR/PPA finite coverage must be generated.",
-      "target_id": "flowguard-contract-exhaustion-mesh",
-      "target_kind": "skill"
+      "args": [
+        ".flowguard/behavior_commitment_ledger/run_checks.py"
+      ],
+      "check_id": "check:flowguard-behavior-commitment-ledger:native-authority",
+      "command": "python",
+      "covers_obligation_ids": [
+        "obligation:flowguard-behavior-commitment-ledger:native-authority"
+      ],
+      "cwd_token": "repository_root",
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "flowguard-behavior-commitment-ledger:functional",
+      "execution_owner_id": "owner:flowguard-behavior-commitment-ledger:flowguard-behavior-commitment-ledger-native-authority",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": ".flowguard/behavior_commitment_ledger/ledger.json"
+        },
+        {
+          "kind": "path",
+          "path": ".flowguard/behavior_commitment_ledger/model.py"
+        },
+        {
+          "kind": "path",
+          "path": ".flowguard/behavior_commitment_ledger/result.json"
+        },
+        {
+          "kind": "path",
+          "path": ".flowguard/behavior_commitment_ledger/run_checks.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/behavior_commitment_lookup.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/behavior_commitment.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/skill_contract_model.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_behavior_commitment_ledger.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_behavior_commitment_lookup.py"
+        }
+      ],
+      "kind": "command",
+      "timeout_seconds": 180
     },
     {
-      "claim_scope": "alignment rows",
-      "condition": "Commitments must bind model, owner code, and tests.",
-      "target_id": "flowguard-model-test-alignment",
-      "target_kind": "skill"
-    },
-    {
-      "claim_scope": "validation hierarchy",
-      "condition": "Commitment shards need child-suite ownership and freshness.",
-      "target_id": "flowguard-test-mesh",
-      "target_kind": "skill"
-    },
-    {
-      "claim_scope": "final risk confidence",
-      "condition": "Broad done/release/archive/publish confidence is requested.",
-      "target_id": "risk_evidence_ledger",
-      "target_kind": "internal_route"
+      "check_id": "check:flowguard-behavior-commitment-ledger:evidence-closure",
+      "covers_obligation_ids": [
+        "obligation:flowguard-behavior-commitment-ledger:evidence-closure"
+      ],
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "flowguard-behavior-commitment-ledger:functional",
+      "execution_owner_id": "owner:flowguard-behavior-commitment-ledger:flowguard-behavior-commitment-ledger-evidence-closure",
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": ".flowguard/behavior_commitment_ledger/model.py"
+        }
+      ],
+      "kind": "model_assertion",
+      "timeout_seconds": 30
     }
   ],
-  "layout_profiles": {
-    "installed": ".codex/skills/flowguard-behavior-commitment-ledger",
-    "source": ".agents/skills/flowguard-behavior-commitment-ledger"
-  },
-  "native_checks": [
+  "claim_boundary": "The ledger proves only current registered plane-partitioned exact-intent, behavior/source, typed-relation, single-owner, lookup, and singular-path accounting; runtime proof, sibling evidence, and final release authority remain separate.",
+  "closure_profiles": [
     {
-      "binding_id": "behavior_ledger_model",
-      "command": "python .flowguard/behavior_commitment_ledger/run_checks.py",
-      "evidence_source": "current model runner receipt and final report",
-      "kind": "flowguard_model",
-      "native_check_id": "behavior_commitment_ledger",
-      "summary": "Run the behavior commitment ledger model and failure variants."
+      "profile_id": "routine",
+      "required_obligation_ids": [
+        "obligation:flowguard-behavior-commitment-ledger:plane-boundary"
+      ]
+    },
+    {
+      "profile_id": "functional",
+      "required_obligation_ids": [
+        "obligation:flowguard-behavior-commitment-ledger:plane-boundary",
+        "obligation:flowguard-behavior-commitment-ledger:native-authority"
+      ]
+    },
+    {
+      "profile_id": "release",
+      "required_obligation_ids": [
+        "obligation:flowguard-behavior-commitment-ledger:plane-boundary",
+        "obligation:flowguard-behavior-commitment-ledger:native-authority",
+        "obligation:flowguard-behavior-commitment-ledger:evidence-closure"
+      ]
+    },
+    {
+      "profile_id": "highest_quality",
+      "required_obligation_ids": [
+        "obligation:flowguard-behavior-commitment-ledger:plane-boundary",
+        "obligation:flowguard-behavior-commitment-ledger:native-authority",
+        "obligation:flowguard-behavior-commitment-ledger:evidence-closure"
+      ]
     }
   ],
-  "native_owner": "behavior_commitment_ledger",
-  "output_fields": [
-    "evidence",
-    "failures",
-    "blockers",
-    "skipped_checks",
-    "residual_risk",
-    "claim_boundary",
-    "typed_next_actions"
+  "confirmed": true,
+  "implementation_paths": [
+    ".agents/skills/flowguard-behavior-commitment-ledger",
+    ".flowguard/behavior_commitment_ledger",
+    "flowguard/behavior_commitment.py",
+    "flowguard/behavior_commitment_lookup.py",
+    "flowguard/skill_contract_model.py",
+    "tests/test_behavior_commitment_ledger.py",
+    "tests/test_behavior_commitment_lookup.py"
   ],
-  "route_id": "behavior_commitment_ledger",
-  "route_role": "public_owner",
-  "route_summary": "Bind external behavior commitments to fresh sources, exactly one primary owner model, dependencies, evidence, and path authority.",
-  "schema_version": "flowguard.skill_contract_source.v1",
+  "judgment_rubrics": [],
+  "model_id": "flowguard.behavior_commitment_ledger.skill_contract.v2",
+  "model_path": ".flowguard/behavior_commitment_ledger/model.py",
+  "release_eligible": false,
+  "schema_version": "skillguard.contract_source.v2",
   "skill_id": "flowguard-behavior-commitment-ledger",
-  "source_requirements": [
+  "step_bindings": [
     {
-      "category": "inventory",
-      "requirement_id": "behavior_ledger.bidirectional_coverage",
-      "summary": "Every current source maps to commitments and every commitment maps back to fresh source evidence."
+      "step_id": "step:flowguard-behavior-commitment-ledger:intake",
+      "action": {
+        "kind": "inventory",
+        "summary": "Classify the external promise by plane and query the canonical ledger before broad discovery."
+      },
+      "check_ids": [
+        "check:flowguard-behavior-commitment-ledger:plane-boundary"
+      ],
+      "output_artifact_ids": []
     },
     {
-      "category": "evidence",
-      "requirement_id": "behavior_ledger.single_owner_and_ppa",
-      "summary": "Each commitment has exactly one primary owner and path-sensitive rows consume internal Primary Path Authority evidence."
+      "step_id": "step:flowguard-behavior-commitment-ledger:execute",
+      "action": {
+        "kind": "native",
+        "summary": "Run the existing Behavior Commitment Ledger owner model and its same-plane boundaries."
+      },
+      "check_ids": [
+        "check:flowguard-behavior-commitment-ledger:native-authority"
+      ],
+      "output_artifact_ids": []
     },
     {
-      "category": "closure",
-      "requirement_id": "behavior_ledger.broad_gate",
-      "summary": "Missing DCAR, TestMesh, alignment, risk, replacement, dependency, or PPA evidence blocks broad confidence."
-    }
-  ],
-  "use_when": [
-    "External behavior must be added, changed, removed, backfilled, miss-checked, or fully accounted before a broad claim."
-  ],
-  "workflow": [
-    {
-      "phase_id": "intake",
-      "summary": "Define the work-package boundary and select one of the six ledger modes."
-    },
-    {
-      "phase_id": "inventory",
-      "summary": "Inventory fresh source surfaces and external commitments bidirectionally with one primary owner each."
-    },
-    {
-      "phase_id": "execution",
-      "summary": "Record dependencies, replacement/model-sync state, evidence, and internal PPA bindings for path-sensitive rows."
-    },
-    {
-      "phase_id": "checks",
-      "summary": "Run ledger and Primary Path Authority checks plus required DCAR/shard/risk projections."
-    },
-    {
-      "phase_id": "closure",
-      "summary": "Block broad confidence on any missing, extra, overlap, stale, dependency, disposition, or PPA gap."
+      "step_id": "step:flowguard-behavior-commitment-ledger:verify",
+      "action": {
+        "kind": "verifier",
+        "summary": "Keep typed related-plane context separate and block broad confidence without current owner evidence."
+      },
+      "check_ids": [
+        "check:flowguard-behavior-commitment-ledger:evidence-closure"
+      ],
+      "output_artifact_ids": []
     }
   ]
 }
+

@@ -30,6 +30,7 @@ def run_case(name: str, block, *, expect_done: str, expect_invariant: bool = Tru
     state, rows = run_block(block, model.HAPPY_PATH)
     invariant = all(
         (
+            model.no_full_done_with_internal_product_content(state, ()).passed,
             model.no_full_done_without_allowed_observed_content(state, ()).passed,
             model.no_full_done_without_last_mile_evidence(state, ()).passed,
         )
@@ -60,6 +61,12 @@ def main() -> int:
         run_case(
             "broken_observed_mapping_grants_permission",
             model.BrokenObservedMappingGrantsPermission(),
+            expect_done="accepted",
+            expect_invariant=False,
+        ),
+        run_case(
+            "broken_internal_product_content_leak",
+            model.BrokenInternalProductContentLeak(),
             expect_done="accepted",
             expect_invariant=False,
         ),

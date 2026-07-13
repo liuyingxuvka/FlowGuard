@@ -17,6 +17,9 @@ standalone satellite skills.
 - route map to specialized protocols, public owner satellites, and delegated
   mode satellites;
 - distinction between agent sub-protocols and package helper APIs.
+- lightweight non-trivial lookup of the shared BCL/model inventory before
+  route choice: same-plane hits guide the native owner, typed related-plane
+  rows remain context, and ambiguous planes remain separated;
 - the FlowGuard closure contract: complete FlowGuard use is not a mode, and a
   full done/release/publish/production-confidence claim requires current
   intake, model ownership, ContractExhaustionMesh case evidence when relevant,
@@ -138,6 +141,11 @@ sub-skills.
 - Keep the current bug instance separate from bug-class responsibility:
   patching the observed instance is not closure until the miss is classified
   and the ContractExhaustionMesh case is represented or explicitly out of scope.
+- Keep `product_runtime`, `agent_operation`, and `development_process` in one
+  BCL structure without merging their owners. Do not turn product rows into AI
+  instructions or force trivial actions through a model; escalate recall when
+  a non-trivial match, Model Miss, recurring/high-risk operation, or broad claim
+  makes route-native evidence relevant.
 - Keep LongCheck evidence boundaries explicit: background progress is liveness,
   not pass evidence, until final output, error, combined log, exit, and
   metadata artifacts exist.

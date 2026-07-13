@@ -8,24 +8,18 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import tarfile
 import tempfile
 import tomllib
-from typing import Any, Callable, Sequence
+from typing import Any, Callable, Mapping, Sequence
 import zipfile
 
+from .spec_check_cache import consume_spec_receipt
 
-REQUIRED_UNIFIED_CHILDREN = (
-    "project_audit",
-    "skill_suite_static",
-    "skill_self_governance",
-    "model_regressions_full",
-    "pytest",
-    "openspec_strict",
-    "distribution_check",
-    "distribution_parity",
-)
+
+REQUIRED_UNIFIED_CHILDREN = ("skillguard_parent_receipt",)
 
 
 @dataclass(frozen=True)
@@ -104,13 +98,23 @@ CommandRunner = Callable[[Sequence[str], Path], subprocess.CompletedProcess[str]
 
 
 def _command_runner(command: Sequence[str], cwd: Path) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        list(command),
-        cwd=cwd,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
+    executable = shutil.which(command[0])
+    invocation = [executable or command[0], *command[1:]]
+    try:
+        return subprocess.run(
+            invocation,
+            cwd=cwd,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+    except OSError as error:
+        return subprocess.CompletedProcess(
+            invocation,
+            127,
+            stdout="",
+            stderr=str(error),
+        )
 
 
 def _check(check_id: str, ok: bool, message: str, **details: Any) -> ReleaseCheck:
@@ -151,52 +155,6 @@ def _release_assets(root: Path, version: str) -> tuple[Path, ...]:
     return assets
 
 
-def _latest_governed_source(root: Path) -> tuple[Path | None, int]:
-    roots = (
-        root / "flowguard",
-        root / "scripts",
-        root / "tests",
-        root / "docs",
-        root / "openspec" / "changes",
-        root / "openspec" / "specs",
-        root / ".agents" / "skills",
-        root / ".skillguard" / "flowguard-suite",
-        root / ".flowguard",
-    )
-    direct = (root / "pyproject.toml", root / "README.md", root / "CHANGELOG.md", root / "AGENTS.md")
-    candidates: list[Path] = [path for path in direct if path.is_file()]
-    for source_root in roots:
-        if not source_root.exists():
-            continue
-        for path in source_root.rglob("*"):
-            if not path.is_file():
-                continue
-            relative = path.relative_to(root).as_posix()
-            if (
-                "/__pycache__/" in f"/{relative}/"
-                or relative.startswith(".flowguard/evidence/")
-                or relative.endswith(".pyc")
-                or relative.endswith("/result.json")
-                or (
-                    relative.startswith("openspec/changes/")
-                    and (
-                        relative.endswith("/tasks.md")
-                        or relative.endswith("/verification-report.json")
-                    )
-                )
-                or "/reports/current_" in relative
-                or "/ai_judgments/current_" in relative
-                or "/evidence/current_" in relative
-                or relative.endswith("skillguard_progress_ledger.jsonl")
-            ):
-                continue
-            candidates.append(path)
-    if not candidates:
-        return None, 0
-    latest = max(candidates, key=lambda path: path.stat().st_mtime_ns)
-    return latest, latest.stat().st_mtime_ns
-
-
 def verify_local_release(
     root: str | Path,
     *,
@@ -205,6 +163,7 @@ def verify_local_release(
     installed_version: str | None = None,
     schema_version: str | None = None,
     source_path: str | Path | None = None,
+    receipt_consumer: Callable[[Path, str], Any] = consume_spec_receipt,
 ) -> ReleaseVerificationReport:
     root_path = Path(root).resolve()
     selected_version = version or _project_version(root_path)
@@ -268,35 +227,52 @@ def verify_local_release(
     evidence_payload: dict[str, Any] = {}
     if evidence.exists():
         evidence_payload = json.loads(evidence.read_text(encoding="utf-8"))
-    child_status = {
-        str(child.get("child_id")): str(child.get("status"))
+    child_rows = {
+        str(child.get("child_id")): child
         for child in evidence_payload.get("children", [])
+        if isinstance(child, Mapping)
     }
+    child_status = {
+        child_id: str(child.get("status"))
+        for child_id, child in child_rows.items()
+    }
+    parent_row = child_rows.get("skillguard_parent_receipt", {})
+    parent_receipt_id = str(parent_row.get("receipt_id", ""))
+    parent_review = None
+    if parent_receipt_id:
+        try:
+            parent_review = receipt_consumer(root_path, parent_receipt_id)
+        except (OSError, ValueError, TypeError):
+            parent_review = None
+    parent_current = bool(parent_review is not None and getattr(parent_review, "ok", False))
     evidence_ok = (
         evidence_payload.get("status") == "pass"
         and evidence_payload.get("broad_success") is True
         and not evidence_payload.get("blockers")
         and not evidence_payload.get("skipped_checks")
         and all(child_status.get(child_id) == "pass" for child_id in REQUIRED_UNIFIED_CHILDREN)
+        and parent_current
     )
     checks.append(
         _check(
             "release.local_evidence",
             evidence_ok,
-            "the unified local gate has eight exact-pass children and no skipped checks",
+            "the local release gate consumes one exact current SkillGuard parent receipt and no skipped checks",
             evidence_path=str(evidence),
             child_status=child_status,
+            parent_receipt_id=parent_receipt_id,
+            parent_receipt_current=parent_current,
         )
     )
-    latest_source, latest_source_mtime = _latest_governed_source(root_path)
-    evidence_mtime = evidence.stat().st_mtime_ns if evidence.exists() else 0
     checks.append(
         _check(
             "release.evidence_freshness",
-            bool(evidence_mtime) and evidence_mtime >= latest_source_mtime,
-            "the unified result is not older than any governed source, model, prompt, contract, test, or OpenSpec input",
+            parent_current,
+            "the exact parent receipt replays current against its declared functional inputs; report timestamps and bookkeeping do not determine freshness",
             evidence_path=str(evidence),
-            latest_source=str(latest_source) if latest_source else "",
+            parent_receipt_id=parent_receipt_id,
+            findings=list(getattr(parent_review, "findings", ())) if parent_review is not None else ["parent_receipt_unavailable"],
+            minimum_revalidation=list(getattr(parent_review, "minimum_revalidation", ())) if parent_review is not None else [],
         )
     )
 
@@ -331,6 +307,16 @@ def _parse_github_repository(remote_url: str) -> str:
     return match.group(1) if match else ""
 
 
+def _remote_tag_commit(output: str, tag: str) -> tuple[str, dict[str, str]]:
+    refs: dict[str, str] = {}
+    for line in output.splitlines():
+        fields = line.split()
+        if len(fields) >= 2:
+            refs[fields[1]] = fields[0]
+    tag_ref = f"refs/tags/{tag}"
+    return refs.get(f"{tag_ref}^{{}}") or refs.get(tag_ref, ""), refs
+
+
 def verify_published_release(
     root: str | Path,
     *,
@@ -360,14 +346,10 @@ def verify_published_release(
 
     local_tag = command_runner(("git", "rev-list", "-n", "1", tag), root_path)
     remote_tag = command_runner(
-        ("git", "ls-remote", "--tags", "origin", f"refs/tags/{tag}", f"refs/tags/{tag}^{{}}"),
+        ("git", "ls-remote", "--tags", "origin", f"refs/tags/{tag}*"),
         root_path,
     )
-    remote_hashes = {
-        line.split()[0]
-        for line in remote_tag.stdout.splitlines()
-        if line.strip() and len(line.split()) >= 2
-    }
+    remote_commit, remote_refs = _remote_tag_commit(remote_tag.stdout, tag)
     local_commit = local_tag.stdout.strip()
     checks.append(
         _check(
@@ -375,10 +357,11 @@ def verify_published_release(
             local_tag.returncode == 0
             and remote_tag.returncode == 0
             and bool(local_commit)
-            and local_commit in remote_hashes,
+            and local_commit == remote_commit,
             "the immutable remote tag resolves to the same commit as the local release tag",
             local_commit=local_commit,
-            remote_hashes=sorted(remote_hashes),
+            remote_commit=remote_commit,
+            remote_refs=remote_refs,
         )
     )
 

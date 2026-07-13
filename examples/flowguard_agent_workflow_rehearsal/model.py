@@ -325,7 +325,24 @@ def run_agent_workflow_rehearsal_review():
     return review_scenarios(agent_workflow_rehearsal_scenarios())
 
 
+from flowguard.skill_contract_model import build_skill_contract_model_export
+
+FLOWGUARD_MODEL_MARKER = "flowguard-executable-model"
+
+
+def export_contract_model():
+    return build_skill_contract_model_export(
+        skill_id="flowguard-agent-workflow-rehearsal",
+        route_id="agent_workflow_rehearsal",
+        owner_id="development_process_flow",
+        parent_model_id="flowguard.development_process_flow",
+        business_intent="Rehearse a selected AI-operation workflow while keeping referenced product commitments as typed target context.",
+        claim_boundary="This projection rehearses agent-operation order and gates only; it neither owns product runtime behavior nor guarantees future AI choices.",
+    )
+
+
 __all__ = [
     "agent_workflow_rehearsal_scenarios",
+    "export_contract_model",
     "run_agent_workflow_rehearsal_review",
 ]

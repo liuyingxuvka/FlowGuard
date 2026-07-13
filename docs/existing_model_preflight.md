@@ -36,6 +36,25 @@ the existing owner should be extended, split into a child model, or blocked for
 manual review. Do not create a second owner model simply because the old one
 missed a branch.
 
+## Plane-First Commitment Lookup
+
+When the canonical behavior ledger is present, project preflight queries it
+before scanning paths. The caller supplies or resolves one primary plane:
+`product_runtime`, `agent_operation`, or `development_process`. The report then
+keeps three groups separate:
+
+- `primary_commitment_hits`: same-plane candidates that may guide the current work;
+- `related_commitment_hits`: typed targets, governing processes, or evidence sources;
+- `candidate_commitment_hits`: unresolved candidates when the plane is ambiguous.
+
+The report also records `behavior_lookup_status`, `primary_behavior_plane`,
+`plane_ambiguity`, `ledger_fingerprint`, and `behavior_lookup_reason`.
+`performed` means canonical lookup completed. `fallback` means the path/model
+inventory supplied partial context after a blocked or unavailable ledger.
+`blocked` and ambiguity are visible gaps, not permission to mix all planes into
+one instruction list. Related product context never makes an AI/process step
+the owner of product behavior.
+
 ## Light And Full Modes
 
 Light mode is for discussion and early analysis. It records likely relevant
@@ -63,6 +82,10 @@ The main objects are:
   existing owner.
 - `ExistingModelPreflight`: the light or full preflight report.
 - `ExistingModelPreflightReport`: structured review output.
+- `BehaviorLookupQuery`, `BehaviorCommitmentHit`, and `BehaviorLookupReport`:
+  the existing BCL/preflight-owned, plane-first recall objects.
+- `existing_model_preflight_from_project(...)`: queries the canonical ledger
+  first, then supplements the selected owner context with project path inventory.
 - `review_existing_model_preflight(preflight)`: the executable checker.
 
 ## Example
@@ -123,6 +146,16 @@ For a ready scaffold, run:
 ```powershell
 python -m flowguard existing-model-preflight-template --output .
 ```
+
+To inspect the commitment lookup without changing the ledger, run:
+
+```powershell
+python -m flowguard behavior-commitment-query "start the UI test and check the port bridge" --root . --plane agent_operation --term port_bridge --json
+```
+
+This helper improves recall and explains why a model was selected. It does not
+execute a workflow, require a formal model for every ordinary action, or prove
+that a future agent will follow the hit.
 
 ## Relationship To Other Routes
 

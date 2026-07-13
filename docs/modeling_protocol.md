@@ -24,11 +24,9 @@ Before changing files, separate three situations:
 - `model_maintenance`: existing `.flowguard` models, replay adapters, or
   adoption evidence appear stale. Update those artifacts before making claims
   from them.
-- `artifact_schema_upgrade`: a repository has an older FlowGuard adoption
-  record or old FlowGuard artifacts/tests/guidance. Run `project-upgrade` or
-  `artifact-upgrade` to move deterministic cases into the current shape; block
-  ambiguous behavior-bearing scripts instead of preserving old runtime
-  compatibility.
+- `current_authority_rejection`: a repository contains a former FlowGuard
+  skill, model, check, receipt, or project-control shape. Block that shape and
+  replace it directly through the current owner; do not read or convert it.
 - `layered_boundary_proof`: parent model confidence depends on child models and
   leaf real-code boundary evidence. Join parent coverage, child disjointness,
   child reattachment, and leaf boundary-matrix rows before claiming the parent
@@ -1113,10 +1111,9 @@ Recommended low-friction agent flow:
    real-code evidence exists.
 11. Record skipped checks; skipped is not pass.
 
-For older adopted repositories, run project upgrade before relying on existing
-FlowGuard files. FlowGuard's runtime path is latest-schema-first: old artifacts
-can be detected and upgraded at project/tool boundaries, but current route
-reviews should not keep accepting obsolete fields, aliases, or wrappers.
+For a non-current adopted repository, run `project-adopt` to write the one
+current project record before relying on FlowGuard files. Former FlowGuard
+skill/runtime shapes remain rejected; they are not compatibility inputs.
 
 ## Completion Checklist
 

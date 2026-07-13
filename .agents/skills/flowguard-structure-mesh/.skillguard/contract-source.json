@@ -1,108 +1,168 @@
 {
-  "activation_keywords": [
-    "large module split",
-    "public facade parity",
-    "dependency cycle",
-    "config ownership",
-    "StructureMesh"
+  "artifacts": [],
+  "checks": [
+    {
+      "check_id": "check:flowguard-structure-mesh:plane-boundary",
+      "covers_obligation_ids": [
+        "obligation:flowguard-structure-mesh:plane-boundary"
+      ],
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "flowguard-structure-mesh:functional",
+      "execution_owner_id": "owner:flowguard-structure-mesh:flowguard-structure-mesh-plane-boundary",
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": ".flowguard/structure_refactor_mesh/model.py"
+        }
+      ],
+      "kind": "model_assertion",
+      "timeout_seconds": 30
+    },
+    {
+      "args": [
+        "-m",
+        "pytest",
+        "tests/test_structure_mesh.py",
+        "-q"
+      ],
+      "check_id": "check:flowguard-structure-mesh:native-authority",
+      "command": "python",
+      "covers_obligation_ids": [
+        "obligation:flowguard-structure-mesh:native-authority"
+      ],
+      "cwd_token": "repository_root",
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "flowguard-structure-mesh:functional",
+      "execution_owner_id": "owner:flowguard-structure-mesh:flowguard-structure-mesh-native-authority",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": ".flowguard/structure_refactor_mesh/model.py"
+        },
+        {
+          "kind": "path",
+          "path": ".flowguard/structure_refactor_mesh/run_checks.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/skill_contract_model.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/structuremesh.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_structure_mesh.py"
+        }
+      ],
+      "kind": "command",
+      "timeout_seconds": 300
+    },
+    {
+      "check_id": "check:flowguard-structure-mesh:evidence-closure",
+      "covers_obligation_ids": [
+        "obligation:flowguard-structure-mesh:evidence-closure"
+      ],
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "flowguard-structure-mesh:functional",
+      "execution_owner_id": "owner:flowguard-structure-mesh:flowguard-structure-mesh-evidence-closure",
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": ".flowguard/structure_refactor_mesh/model.py"
+        }
+      ],
+      "kind": "model_assertion",
+      "timeout_seconds": 30
+    }
   ],
   "claim_boundary": "StructureMesh proves only the declared existing-code split, ownership, facade, dependency/config, and parity evidence for the current scope.",
-  "default_route": false,
-  "direct_references": [
-    "references/structure_mesh_protocol.md"
-  ],
-  "do_not_use_when": [
-    "The work is greenfield architecture recommendation, behavior discovery, direct code edits, or internal/formatting-only parity."
-  ],
-  "downstream_targets": [
+  "closure_profiles": [
     {
-      "claim_scope": "process freshness",
-      "condition": "Refactor actions, evidence freshness, peer writes, or release scope need lifecycle governance.",
-      "target_id": "flowguard-development-process-flow",
-      "target_kind": "skill"
+      "profile_id": "routine",
+      "required_obligation_ids": [
+        "obligation:flowguard-structure-mesh:plane-boundary"
+      ]
     },
     {
-      "claim_scope": "alignment",
-      "condition": "Moved behavior contracts need model/code/test parity evidence.",
-      "target_id": "flowguard-model-test-alignment",
-      "target_kind": "skill"
+      "profile_id": "functional",
+      "required_obligation_ids": [
+        "obligation:flowguard-structure-mesh:plane-boundary",
+        "obligation:flowguard-structure-mesh:native-authority"
+      ]
     },
     {
-      "claim_scope": "final risk confidence",
-      "condition": "Public compatibility or release confidence is claimed.",
-      "target_id": "risk_evidence_ledger",
-      "target_kind": "internal_route"
-    }
-  ],
-  "layout_profiles": {
-    "installed": ".codex/skills/flowguard-structure-mesh",
-    "source": ".agents/skills/flowguard-structure-mesh"
-  },
-  "native_checks": [
+      "profile_id": "release",
+      "required_obligation_ids": [
+        "obligation:flowguard-structure-mesh:plane-boundary",
+        "obligation:flowguard-structure-mesh:native-authority",
+        "obligation:flowguard-structure-mesh:evidence-closure"
+      ]
+    },
     {
-      "binding_id": "structure_mesh_pytest",
-      "command": "python -m pytest tests/test_structure_mesh.py -q",
-      "evidence_source": "current owner-specific pytest receipt",
-      "kind": "pytest",
-      "native_check_id": "structure_mesh_tests",
-      "summary": "Run the tracked structure-mesh owner and parity tests."
+      "profile_id": "highest_quality",
+      "required_obligation_ids": [
+        "obligation:flowguard-structure-mesh:plane-boundary",
+        "obligation:flowguard-structure-mesh:native-authority",
+        "obligation:flowguard-structure-mesh:evidence-closure"
+      ]
     }
   ],
-  "native_owner": "structure_mesh_maintenance",
-  "output_fields": [
-    "evidence",
-    "failures",
-    "blockers",
-    "skipped_checks",
-    "residual_risk",
-    "claim_boundary",
-    "typed_next_actions"
+  "confirmed": true,
+  "implementation_paths": [
+    ".agents/skills/flowguard-structure-mesh",
+    ".flowguard/structure_refactor_mesh",
+    "flowguard/structuremesh.py",
+    "flowguard/skill_contract_model.py",
+    "tests/test_structure_mesh.py"
   ],
-  "route_id": "structure_mesh_maintenance",
-  "route_role": "public_owner",
-  "route_summary": "Govern existing-code parent/child structure splits through model-derived ownership, facade compatibility, dependency/config safety, and parity evidence.",
-  "schema_version": "flowguard.skill_contract_source.v1",
+  "judgment_rubrics": [],
+  "model_id": "flowguard.structure_mesh_maintenance.skill_contract.v2",
+  "model_path": ".flowguard/structure_refactor_mesh/model.py",
+  "release_eligible": false,
+  "schema_version": "skillguard.contract_source.v2",
   "skill_id": "flowguard-structure-mesh",
-  "source_requirements": [
+  "step_bindings": [
     {
-      "category": "inventory",
-      "requirement_id": "structure_mesh.model_derived_target",
-      "summary": "Target modules and ownership derive from a named FlowGuard functional model."
+      "step_id": "step:flowguard-structure-mesh:intake",
+      "action": {
+        "kind": "inventory",
+        "summary": "Inventory the existing public surface, model-derived target structure, FunctionBlocks, state, side effects, configuration, and parity boundary."
+      },
+      "check_ids": [
+        "check:flowguard-structure-mesh:plane-boundary"
+      ],
+      "output_artifact_ids": []
     },
     {
-      "category": "evidence",
-      "requirement_id": "structure_mesh.facade_and_parity",
-      "summary": "Public entrypoints, facades, behavior parity, config/defaults, dependencies, and ownership are current for the claim scope."
+      "step_id": "step:flowguard-structure-mesh:execute",
+      "action": {
+        "kind": "native",
+        "summary": "Run the existing StructureMesh owner to assign one owner per partition and preserve facades, dependencies, configuration, and public compatibility."
+      },
+      "check_ids": [
+        "check:flowguard-structure-mesh:native-authority"
+      ],
+      "output_artifact_ids": []
     },
     {
-      "category": "closure",
-      "requirement_id": "structure_mesh.no_direct_refactor",
-      "summary": "The route governs structure evidence but does not perform code edits or invent behavior parity."
-    }
-  ],
-  "use_when": [
-    "An existing large script/module/package/command/API/plugin surface is split or public entrypoints/state/config/side effects move."
-  ],
-  "workflow": [
-    {
-      "phase_id": "intake",
-      "summary": "Define parent surface, routine/release scope, compatibility promise, and named source model."
-    },
-    {
-      "phase_id": "inventory",
-      "summary": "Derive target modules and inventory functions, state, config, side effects, dependencies, contracts, entrypoints, and facades."
-    },
-    {
-      "phase_id": "execution",
-      "summary": "Assign one owner per partition and attach module/public-entrypoint compatibility and parity evidence."
-    },
-    {
-      "phase_id": "checks",
-      "summary": "Run structure-mesh checks and reject missing derivation/owners/facades, cycles, config drift, or stale parity."
-    },
-    {
-      "phase_id": "closure",
-      "summary": "Return current routine/release structural confidence and typed freshness/alignment/risk obligations."
+      "step_id": "step:flowguard-structure-mesh:verify",
+      "action": {
+        "kind": "verifier",
+        "summary": "Reject missing derivation or owners, removed entrypoints, cycles, configuration drift, or stale parity evidence."
+      },
+      "check_ids": [
+        "check:flowguard-structure-mesh:evidence-closure"
+      ],
+      "output_artifact_ids": []
     }
   ]
 }
+

@@ -55,6 +55,7 @@ class ApiSurfaceTests(unittest.TestCase):
                 "reporting_helpers_full",
                 "evidence",
                 "governance_and_distribution",
+                "spec_work_packages",
             },
         )
 
@@ -80,6 +81,22 @@ class ApiSurfaceTests(unittest.TestCase):
 
         public_first_read_names = set(canonical_grouped_names) | set(flowguard._PUBLIC_API_SUPPLEMENT)
         self.assertTrue(set(flowguard.AGENT_DEFAULT_API).issubset(public_first_read_names))
+
+    def test_spec_work_package_api_is_one_public_group(self):
+        expected = set(flowguard.SPEC_WORK_PACKAGE_API)
+        self.assertTrue(
+            {
+                "review_spec_work_package",
+                "run_spec_check",
+                "consume_spec_receipt",
+                "review_spec_provider_close",
+                "load_openspec_canonical_checks",
+            }.issubset(expected)
+        )
+        self.assertEqual(tuple(flowguard.API_SURFACE["spec_work_packages"]), flowguard.SPEC_WORK_PACKAGE_API)
+        for name in expected:
+            self.assertIn(name, flowguard.__all__)
+            self.assertTrue(hasattr(flowguard, name), name)
 
     def test_agent_default_api_is_compact_first_read_surface(self):
         self.assertLessEqual(len(flowguard.AGENT_DEFAULT_API), 24)
@@ -167,10 +184,7 @@ class ApiSurfaceTests(unittest.TestCase):
         self.assertIn("maintenance_scan_template_files", flowguard.EVIDENCE_API)
         self.assertNotIn("review_maintenance_scan", flowguard.CORE_API)
         self.assertNotIn("maintenance_scan_plan_from_summary_report", flowguard.CORE_API)
-        self.assertIn("ArtifactUpgradeItem", flowguard.REPORTING_HELPER_API)
-        self.assertIn("ArtifactUpgradeReport", flowguard.REPORTING_HELPER_API)
-        self.assertIn("review_artifact_upgrades", flowguard.REPORTING_HELPER_API)
-        self.assertNotIn("review_artifact_upgrades", flowguard.CORE_API)
+        self.assertNotIn("review_artifact_upgrades", flowguard.REPORTING_HELPER_API)
         self.assertIn("ModelFreshnessRecord", flowguard.REPORTING_HELPER_API)
         self.assertIn("UpgradeImpact", flowguard.REPORTING_HELPER_API)
         self.assertIn("ModelImpactAssessment", flowguard.REPORTING_HELPER_API)
@@ -183,7 +197,7 @@ class ApiSurfaceTests(unittest.TestCase):
         self.assertIn("ProjectAdoptionReport", flowguard.REPORTING_HELPER_API)
         self.assertIn("audit_project_adoption", flowguard.REPORTING_HELPER_API)
         self.assertIn("adopt_project", flowguard.REPORTING_HELPER_API)
-        self.assertIn("upgrade_project", flowguard.REPORTING_HELPER_API)
+        self.assertNotIn("upgrade_project", flowguard.REPORTING_HELPER_API)
         self.assertIn("run_model_first_checks", flowguard.REPORTING_HELPER_API)
         self.assertIn("audit_model", flowguard.REPORTING_HELPER_API)
         self.assertIn("CodeStructureRecommendation", flowguard.MODELING_HELPER_API)
@@ -328,6 +342,27 @@ class ApiSurfaceTests(unittest.TestCase):
             "review_ui_human_operability",
         )
         for name in new_ui_human_operability_helpers:
+            self.assertIn(name, flowguard.MODELING_HELPER_API)
+            self.assertIn(name, flowguard.UI_FLOW_STRUCTURE_ROUTE_API)
+            self.assertIn(name, flowguard.__all__)
+            self.assertTrue(hasattr(flowguard, name), name)
+            self.assertNotIn(name, flowguard.CORE_API)
+        product_language_helpers = (
+            "UIProductConsistencyRule",
+            "UIProductSurface",
+            "UIProductConsistencyObservation",
+            "UIProductConsistencyException",
+            "UIProductConsistencyPlan",
+            "UIProductConsistencyFinding",
+            "UIProductConsistencyReport",
+            "UIProductLanguageCaseSeed",
+            "UI_PRODUCT_CONSISTENCY_KINDS",
+            "UI_PRODUCT_EXCEPTION_KINDS",
+            "UI_PRODUCT_CLAIM_SCOPES",
+            "review_ui_product_consistency",
+            "default_ui_product_language_case_seeds",
+        )
+        for name in product_language_helpers:
             self.assertIn(name, flowguard.MODELING_HELPER_API)
             self.assertIn(name, flowguard.UI_FLOW_STRUCTURE_ROUTE_API)
             self.assertIn(name, flowguard.__all__)
@@ -856,6 +891,7 @@ class ApiSurfaceTests(unittest.TestCase):
             "FLOWGUARD_INTERNAL_ROUTE_API",
             "FLOWGUARD_GOVERNANCE_API",
             "FLOWGUARD_ROUTE_API",
+            "BEHAVIOR_COMMITMENT_LOOKUP_API",
             "BEHAVIOR_COMMITMENT_LEDGER_ROUTE_API",
             "FLOWGUARD_CLOSURE_CONTRACT_API",
             "FLOWGUARD_SELF_MAINTENANCE_ROUTE_API",

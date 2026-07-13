@@ -1,5 +1,53 @@
 # Changelog
 
+## v0.55.0 - 2026-07-12
+
+FlowGuard product-language, behavior-plane, and validated-path reuse hardening.
+
+- Partitioned behavior commitment lookup by execution plane while preserving
+  typed actor/relationship bindings and canonical ledger I/O, so plane-aware
+  discovery composes with existing commitment ownership instead of replacing
+  it.
+- Added stable exact business-intent identity, one active commitment per exact
+  external promise, one singular selected primary path, deterministic one-item
+  legacy plural migration, complete affected-surface/candidate inventories, and
+  material current runtime/proof requirements.
+- Extended the existing UI Flow Structure owner with product-scope typography,
+  component, navigation, interaction, feedback, recovery, and transition
+  consistency; repeated business surfaces bind the same commitment/path, while
+  pure UI interactions stay local.
+- Kept UI content admission exactly `user_visible`, `user_on_demand`, or
+  `internal`; internal intent, commitment, path, audit, evidence, and diagnostic
+  ids remain outside ordinary UI.
+- Hardened RuntimePathEvidence, ObligationFamily, Model-Test Alignment,
+  Architecture Reduction, ContractExhaustionMesh, TestMesh, and
+  DevelopmentProcessFlow against omitted inventories, opaque handoff ids,
+  sibling-obligation evidence, parallel facade success, stale proofs,
+  progress-only background runs, cross-domain sync overclaims, and peer-write
+  rollback.
+- Updated OpenSpec requirements, existing FlowGuard models, tests, templates,
+  public API guidance, skill prompts/contracts, local installation parity, and
+  non-destructive shadow/formal/Git synchronization evidence without adding a
+  product-language route, path-reuse route, intent ledger, or evidence engine.
+  Added the read-only `behavior-commitment-query` command under the existing
+  Behavior Commitment Ledger / Existing Model Preflight owners; it is not a new
+  FlowGuard route and does not execute the retrieved commitment.
+- Migrated all seventeen bundled skills to `skillguard.contract_source.v2`
+  with existing-owner model projections, generated V2 contracts/manifests, and
+  `contract_mapped` depth profiles. Static contract-depth certification remains
+  distinct from actual execution-depth receipts and adds no parallel executor.
+
+## v0.54.1 - 2026-07-10
+
+FlowGuard published-release verification compatibility patch.
+
+- Resolve external commands through the operating system executable search so
+  Windows `PATHEXT` shims such as `git.CMD` work in published verification.
+- Convert missing external commands into structured failed checks instead of
+  terminating the verifier with an unhandled process-launch exception.
+- Correct annotated-tag verification by comparing the local release commit
+  with the remote tag's peeled commit while retaining lightweight-tag support.
+
 ## v0.54.0 - 2026-07-10
 
 FlowGuard skill-suite governance and verified distribution release.

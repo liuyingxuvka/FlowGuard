@@ -21,6 +21,14 @@ jobs. Project adapters run those commands and pass structured evidence into
 FlowGuard. FlowGuard then checks coverage, ownership, freshness, skipped tests,
 background completion, and routine-vs-release confidence.
 
+For a same-intent product-language/path-reuse claim, the parent boundary also
+declares the required inventory revision and every required surface,
+materialized obligation, family member, transition cell, ContractExhaustion
+case, and shard. Passing only the smaller set a caller happened to register is
+not complete evidence. A background PID, heartbeat, log line, or running status
+is liveness only; pass requires a terminal receipt with result artifact,
+fingerprint, covered ids, and current artifact/verifier versions.
+
 The parent test gate should not inline every child test case, fixture, or
 internal state route. It should consume each child suite/script as a contract:
 owned partition, freshness rule, result status, skipped visibility, and output
@@ -119,6 +127,10 @@ Each child suite or child test script reports a `TestSuiteEvidence` summary:
 - whether skipped tests are visible;
 - duration, timeout, exit code, and result path;
 - background log root and final artifact flags;
+- `inventory_revision`, owned inventory item ids, and a unique `run_id`;
+- final `terminal_status`, exit code, concrete result path,
+  `result_fingerprint`, `covered_obligation_ids`, `artifact_version`, and
+  `verifier_version`;
 - optional `proof_artifact` for strict proof of the concrete suite result;
 - optional `result_reused=True` plus `reuse_ticket=TestResultReuseTicket(...)`
   when an old suite result is reused because command, test source, tested
@@ -132,7 +144,19 @@ Each child suite or child test script reports a `TestSuiteEvidence` summary:
 - not-run and stale reasons.
 
 Progress output is not completion evidence. A background suite is complete only
-when final exit/result artifacts exist and the run is not progress-only.
+when all final-receipt fields above exist, terminal status is `passed`, exit
+code is 0, the required ids are covered, final artifacts exist, and the run is
+not progress-only. PID disappearance, heartbeat, logs, or a parent command that
+ended without its canonical result file remain incomplete.
+
+For a Spec Work Package, keep the declared physical owners explicit and let one
+light parent receipt consume their exact terminal receipts. A full registered
+model run or full Python test run may be reused across changes only when its
+execution definition, governed inputs, toolchain, dependencies, coverage, and
+cross-change authorization are identical. Reuse publishes a consumer-local
+portable reference; it does not copy a receipt or execute the owner again.
+OpenSpec consumes those references read-only, and a green self-maintenance
+model cannot substitute for missing provider-session or owner-receipt evidence.
 If a child suite reuses a previous result, TestMesh requires a current reuse
 ticket and a current proof artifact before the child can support parent
 confidence. A `passed` status string alone is not enough for reused evidence.

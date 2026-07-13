@@ -77,3 +77,26 @@ The parent self-maintenance model checks only that the route graph, AI entry
 profiles, field layers, child reports, install/shadow sync, and git boundary
 are current enough for the self-maintenance claim. It does not replace the
 specialist route checks or full release evidence.
+
+The model uses the exact 17 canonical skill identities when rehearsing its own
+child-report gate, but it does not execute SkillGuard or copy a provider's
+verification contract. The SkillGuard parent owner verifies real skill
+receipts, while DevelopmentProcessFlow and the Spec Work Package own provider
+session, receipt freshness, and archive closure. Unrelated child identities or
+wrong-plane completion authority cannot satisfy the self-maintenance gate.
+
+This is a gate-semantics check, not the child evidence itself:
+
+```text
+self-maintenance model green
+!= SkillGuard, Spec Work Package, or release evidence is current
+```
+
+The final DevelopmentProcessFlow/TestMesh claim consumes the real terminal
+owner receipts through the Spec Work Package. A cross-change-safe full check
+runs once for one frozen execution identity; each downstream change receives a
+consumer-local portable reference and a light aggregate receipt, not a copied
+receipt or a second execution. In a shadow workspace without `.git`, an empty
+mutation list is not proof that files stayed unchanged; use an explicit
+before/after source hash manifest and rerun only a child made stale by a later
+functional input change.

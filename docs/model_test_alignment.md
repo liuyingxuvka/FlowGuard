@@ -8,6 +8,21 @@ read TestMesh, StructureMesh, or ModelMesh reports.
 Use it before claiming that model coverage, code behavior, and test coverage
 describe the same behavioral surface.
 
+When behavior authority is in scope, alignment carries the same stable intent,
+commitment, and selected-path ids across model obligations, UI transition
+projections, owner and delegating code contracts, runtime evidence, family
+evidence, and tests. Similarity test/code ids must materialize into these rows;
+an id that no obligation, owner contract, test target, or scoped disposition
+consumes does not count as coverage.
+
+Plane-aware alignment adds the same `behavior_plane` to `ModelObligation`, the
+public owner/delegating `CodeContract`, and every supporting `TestEvidence` row.
+Set `require_behavior_plane_binding=True` when the promise is plane-sensitive.
+Missing, invalid, or mismatched planes block the row even if the intent,
+commitment, and primary-path ids happen to match. A cross-plane target relation
+is context, not permission for an AI/process contract to become the product
+runtime owner.
+
 For real Python code claims, make the source-audit decision part of the same
 plan instead of leaving it as a side note. Add
 `ModelTestAlignmentPlan.source_audit_reports` and set

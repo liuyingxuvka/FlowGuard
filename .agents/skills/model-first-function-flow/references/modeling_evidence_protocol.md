@@ -27,7 +27,7 @@ Only the first can satisfy the matching current obligation. A summary, checkbox,
 
 ## Model miss and maturation
 
-If runtime, tests, replay, logs, manual validation, or UI behavior fails after green, use `flowguard-model-miss-review`. Preserve prior claim/failure, map the existing commitment/owner first, classify/backpropagate the miss, generate a canonical same-class case, bind owner code/tests, close old paths/fields, and rerun affected parent/sibling/freshness/risk gates.
+If runtime, tests, replay, logs, manual validation, or UI behavior fails after green, use `flowguard-model-miss-review`. Preserve prior claim/failure, identify the affected behavior plane, search that plane for the existing commitment/owner first, keep related planes typed and separate, classify/backpropagate the miss, generate a canonical same-class case, bind owner code/tests, close old paths/fields, and rerun affected parent/sibling/freshness/risk gates.
 
 Use internal `model_maturation_loop` when miss/alignment/state-closure/mesh/code-boundary/freshness evidence shows the model is too coarse, stale, disconnected, or supports only a scoped claim. Upgrade or preserve the scoped boundary; a later green command alone does not close the maturation action.
 
@@ -35,7 +35,7 @@ Use internal `model_maturation_loop` when miss/alignment/state-closure/mesh/code
 
 Convert non-pass findings into route-owned maintenance obligations. DevelopmentProcessFlow's post-change scan consumes changed artifacts, stale evidence, skipped routes, and open obligations, then reopens the canonical owner. Do not leave actionable gaps as prose TODOs.
 
-Broad behavior claims require a current Behavior Commitment Ledger, exactly one primary model owner per commitment, PPA for path-sensitive rows, canonical cases/shards/receipts, model-code-test bindings, process freshness, and Risk Evidence Ledger/closure consumption as triggered.
+Broad behavior claims require a current Behavior Commitment Ledger with one production plane and actor kind per row, exactly one primary model owner per commitment, typed cross-plane relations, PPA for path-sensitive rows, canonical cases/shards/receipts, model-code-test bindings, process freshness, and Risk Evidence Ledger/closure consumption as triggered.
 
 Broad done/release/archive/publish/production confidence cannot consume missing, stale, skipped, not-run, progress-only, scoped, blocked, downgraded, or `pass_with_gaps` child evidence. Guard-family children return structured closure reports; the kernel preserves their safe claim and unsafe boundary.
 

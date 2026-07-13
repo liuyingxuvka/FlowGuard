@@ -30,7 +30,8 @@ Accept a bounded field inventory; create leaf rows and behavior projections; blo
 
 ## Hard Gates
 - Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
-- Default replacement requires delete, block, migrate, delegate, repair, explicit preserve, or scoped reason; unknown disposition blocks full confidence.
+- For `skill_runtime`, default replacement is direct: delete, block, delegate, repair, or replace under the current contract; former shapes are rejection fixtures and never a compatibility reader or migration route.
+- For `ordinary_software`, a historical reader is allowed only when an explicit requirement names the historical input and one bounded owner; otherwise direct replacement applies.
 - Behavior claims still require current obligations, owner code contracts, tests, freshness, and template harvest closure where the model deepens.
 
 ## Output Requirements

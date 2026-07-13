@@ -184,6 +184,12 @@ FILE_TEMPLATE_COMMANDS: tuple[FileTemplateCommand, ...] = (
         "project_adoption_template_files",
     ),
     FileTemplateCommand(
+        "spec-work-package-template",
+        "Print or write a provider work-package binding and receipt-orchestration example.",
+        "spec_work_package",
+        "spec_work_package_template_files",
+    ),
+    FileTemplateCommand(
         "risk-intent-template",
         "Print or write the Risk Intent + CheckPlan template.",
         "risk_intent_check_plan",
@@ -400,29 +406,46 @@ def _run_adoption_entry(args: argparse.Namespace) -> int:
 
 
 def _run_project_adoption_command(args: argparse.Namespace) -> int:
-    from .project_adoption import adopt_project, audit_project_adoption, upgrade_project
+    from .project_adoption import adopt_project, audit_project_adoption
 
     if args.project_action == "audit":
         report = audit_project_adoption(args.root)
     elif args.project_action == "adopt":
         report = adopt_project(args.root)
-    elif args.project_action == "upgrade":
-        report = upgrade_project(
-            args.root,
-            records_only=args.records_only,
-            dry_run=args.dry_run,
-        )
     else:  # pragma: no cover
         raise ValueError(f"unknown project adoption action: {args.project_action}")
     print(report.to_json_text() if args.json else report.format_text())
     return 0 if report.ok else 1
 
 
-def _run_artifact_upgrade_command(args: argparse.Namespace) -> int:
-    from .artifact_upgrade import review_artifact_upgrades
+def _run_behavior_commitment_query_command(args: argparse.Namespace) -> int:
+    from .behavior_commitment_lookup import (
+        BehaviorLookupQuery,
+        query_behavior_commitments_from_path,
+    )
 
-    report = review_artifact_upgrades(args.root, apply=args.apply, paths=tuple(args.path or ()))
-    print(report.to_json_text() if args.json else report.format_text())
+    root = Path(args.root).resolve()
+    ledger_path = Path(args.ledger)
+    if not ledger_path.is_absolute():
+        ledger_path = root / ledger_path
+    query = BehaviorLookupQuery(
+        task_summary=args.task_summary or "",
+        primary_plane=args.plane or "",
+        canonical_terms=tuple(args.term or ()),
+        changed_paths=tuple(args.path or ()),
+        tool_ids=tuple(args.tool_id or ()),
+        error_signatures=tuple(args.error_signature or ()),
+        workflow_families=tuple(args.workflow_family or ()),
+        top_k=args.top_k,
+    )
+    report = query_behavior_commitments_from_path(ledger_path, query)
+    if args.json:
+        payload = report.to_dict()
+        payload["query"] = query.to_dict()
+        payload["ledger_path"] = str(ledger_path)
+        print(json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False))
+    else:
+        print(report.format_text())
     return 0 if report.ok else 1
 
 
@@ -484,6 +507,136 @@ def _run_risk_template_harvest_review_command(args: argparse.Namespace) -> int:
     }
     print(json.dumps(payload, indent=2, sort_keys=True) if args.json else "\n".join((review.format_text(), report.format_text())))
     return 0 if report.ok else 1
+
+
+def _run_spec_work_package_audit_command(args: argparse.Namespace) -> int:
+    from .spec_providers import discover_spec_work_packages
+    from .spec_work_package import review_spec_work_package
+
+    packages = discover_spec_work_packages(
+        args.root,
+        provider_id=args.provider,
+        change_id=args.change,
+        bindings_path=args.bindings or None,
+    )
+    reports = tuple(review_spec_work_package(package) for package in packages)
+    payload = {
+        "artifact_type": "flowguard_spec_work_package_audit",
+        "provider": args.provider,
+        "change": args.change,
+        "package_count": len(packages),
+        "ok": bool(reports) and all(report.ok for report in reports),
+        "packages": [package.to_dict() for package in packages],
+        "reports": [report.to_dict() for report in reports],
+        "claim_boundary": (
+            "Development-process reconciliation only; provider-native task, verification, and archive authority is preserved."
+        ),
+    }
+    print(json.dumps(payload, indent=2, sort_keys=True))
+    return 0 if payload["ok"] else 1
+
+
+def _run_spec_session_begin_command(args: argparse.Namespace) -> int:
+    from .spec_check_cache import begin_spec_session
+
+    result = begin_spec_session(
+        args.root,
+        args.provider,
+        args.work_package,
+        snapshot_policy=args.snapshot_policy,
+    )
+    print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+    return 0 if result.ok else 1
+
+
+def _run_spec_session_close_command(args: argparse.Namespace) -> int:
+    from .spec_check_cache import close_spec_session
+
+    result = close_spec_session(args.root, args.provider, args.work_package)
+    print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+    return 0 if result.ok else 1
+
+
+def _run_spec_check_command(args: argparse.Namespace) -> int:
+    from .spec_check_cache import run_spec_check
+    from .spec_providers import load_openspec_work_package, load_speckit_work_package
+
+    package = (
+        load_openspec_work_package(args.root, args.work_package)
+        if args.provider == "openspec"
+        else load_speckit_work_package(args.root, args.work_package)
+    )
+    declared = next((item for item in package.checks if item.check_id == args.check_id), None)
+    validation_ids = tuple(args.validation_obligation or ()) or (
+        declared.validation_obligation_ids if declared is not None else ()
+    )
+    dependencies = tuple(args.depends_on or ()) or (declared.depends_on if declared is not None else ())
+    timeout_seconds = args.timeout_seconds or (declared.timeout_seconds if declared is not None else 1800)
+    expected_exit_code = (
+        args.expected_exit_code
+        if args.expected_exit_code is not None
+        else declared.expected_exit_code
+        if declared is not None
+        else 0
+    )
+    cross_change_safe = bool(args.cross_change_safe or (declared.cross_change_safe if declared else False))
+    command = tuple(args.inner_command or ())
+    if command and command[0] == "--":
+        command = command[1:]
+    result = run_spec_check(
+        args.root,
+        provider_id=args.provider,
+        work_package_id=args.work_package,
+        check_id=args.check_id,
+        semantic_id=args.semantic_check_id or args.semantic_id,
+        command=command,
+        validation_obligation_ids=validation_ids,
+        coverage=tuple(args.coverage or ()),
+        depends_on=dependencies,
+        timeout_seconds=timeout_seconds,
+        expected_exit_code=expected_exit_code,
+        cross_change_safe=cross_change_safe,
+        working_directory=args.cwd,
+    )
+    print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+    return 0 if result.ok else 1
+
+
+def _run_spec_receipt_aggregate_command(args: argparse.Namespace) -> int:
+    from .spec_check_cache import aggregate_spec_check_receipts
+
+    result = aggregate_spec_check_receipts(
+        args.root,
+        provider_id=args.provider,
+        work_package_id=args.work_package,
+        check_id=args.check_id,
+        child_receipt_ids=tuple(args.child_receipt or ()),
+    )
+    print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+    return 0 if result.ok else 1
+
+
+def _run_spec_receipt_consume_command(args: argparse.Namespace) -> int:
+    from .spec_check_cache import consume_spec_receipt
+
+    result = consume_spec_receipt(
+        args.root,
+        receipt_id=args.receipt_id,
+        provider_id=args.provider,
+        work_package_id=args.work_package,
+        check_id=args.check_id,
+        portable_ref=args.portable_ref,
+    )
+    print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+    return 0 if result.ok else 1
+
+
+def _run_spec_provider_close_review_command(args: argparse.Namespace) -> int:
+    from .spec_check_cache import review_spec_provider_close
+
+    result = review_spec_provider_close(args.root, args.provider, args.work_package)
+    print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+    return 0 if result.ok else 1
 
 
 COMMANDS: dict[str, Callable[[], int]] = {
@@ -566,37 +719,34 @@ def _add_project_adoption_parser(
     parser = subparsers.add_parser(command_name, help=help_text)
     parser.add_argument("--root", default=".", help="Target project root.")
     parser.add_argument("--json", action="store_true", help="Print the report as JSON.")
-    if action == "upgrade":
-        parser.add_argument(
-            "--records-only",
-            action="store_true",
-            help="Only update AGENTS/manifest/adoption records; skip artifact/model/test upgrade scanning.",
-        )
-        parser.add_argument(
-            "--dry-run",
-            action="store_true",
-            help="Preview files, semantic rule changes, suite findings, and revalidation without writing.",
-        )
-    else:
-        parser.set_defaults(records_only=False, dry_run=False)
     parser.set_defaults(handler=_run_project_adoption_command, project_action=action)
 
 
-def _add_artifact_upgrade_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
+def _add_behavior_commitment_query_parser(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    from .behavior_commitment import BCL_BEHAVIOR_PLANES
+
     parser = subparsers.add_parser(
-        "artifact-upgrade",
-        help="Scan or apply deterministic upgrades for older FlowGuard artifacts.",
+        "behavior-commitment-query",
+        help="Read-only plane-first lookup in a project's canonical behavior ledger.",
     )
+    parser.add_argument("task_summary", nargs="?", default="", help="Short task or operation description.")
     parser.add_argument("--root", default=".", help="Target project root.")
     parser.add_argument(
-        "--path",
-        action="append",
-        default=[],
-        help="Specific file or directory to scan. May be passed more than once.",
+        "--ledger",
+        default=".flowguard/behavior_commitment_ledger/ledger.json",
+        help="Canonical ledger path, relative to --root unless absolute.",
     )
-    parser.add_argument("--apply", action="store_true", help="Write deterministic upgrades.")
-    parser.add_argument("--json", action="store_true", help="Print the report as JSON.")
-    parser.set_defaults(handler=_run_artifact_upgrade_command)
+    parser.add_argument("--plane", choices=BCL_BEHAVIOR_PLANES, default="")
+    parser.add_argument("--term", action="append", default=[], help="Canonical task or commitment term.")
+    parser.add_argument("--path", action="append", default=[], help="Changed or operated path clue.")
+    parser.add_argument("--tool-id", action="append", default=[], help="Tool identifier clue.")
+    parser.add_argument("--error-signature", action="append", default=[], help="Observed error signature clue.")
+    parser.add_argument("--workflow-family", action="append", default=[], help="Workflow-family clue.")
+    parser.add_argument("--top-k", type=int, default=5, help="Maximum hits per result group (1-50).")
+    parser.add_argument("--json", action="store_true", help="Print canonical JSON output.")
+    parser.set_defaults(handler=_run_behavior_commitment_query_command)
 
 
 def _add_risk_template_search_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
@@ -663,6 +813,94 @@ def _add_risk_template_harvest_review_parser(subparsers: argparse._SubParsersAct
     parser.set_defaults(handler=_run_risk_template_harvest_review_command)
 
 
+def _add_spec_work_package_parsers(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    audit = subparsers.add_parser(
+        "spec-work-package-audit",
+        help="Read-only provider task/obligation/check reconciliation under one project root.",
+    )
+    audit.add_argument("--root", default=".")
+    audit.add_argument("--provider", choices=("auto", "openspec", "speckit"), default="auto")
+    audit.add_argument("--change", default="")
+    audit.add_argument("--bindings", default="")
+    audit.add_argument("--json", action="store_true", help="Canonical JSON is always emitted.")
+    audit.set_defaults(handler=_run_spec_work_package_audit_command)
+
+    for command_name, help_text, handler in (
+        ("spec-session-begin", "Capture the immutable begin snapshot for one provider work package.", _run_spec_session_begin_command),
+        ("spec-session-close", "Capture the post snapshot and reject stale or incomplete closure.", _run_spec_session_close_command),
+    ):
+        parser = subparsers.add_parser(command_name, help=help_text)
+        parser.add_argument("--root", default=".")
+        parser.add_argument("--provider", choices=("openspec", "speckit"), required=True)
+        parser.add_argument("--work-package", required=True)
+        if command_name == "spec-session-begin":
+            parser.add_argument(
+                "--snapshot-policy",
+                choices=("live-scoped", "frozen-required"),
+                default="live-scoped",
+            )
+        parser.add_argument("--json", action="store_true", help="Canonical JSON is always emitted.")
+        parser.set_defaults(handler=handler)
+
+    run = subparsers.add_parser(
+        "spec-check-run",
+        help="Run or safely reuse one exact check inside an active provider session.",
+    )
+    run.add_argument("--root", default=".")
+    run.add_argument("--provider", choices=("openspec", "speckit"), required=True)
+    run.add_argument("--work-package", required=True)
+    run.add_argument("--check-id", required=True)
+    run.add_argument("--semantic-id", default="", help="Deprecated alias for --semantic-check-id.")
+    run.add_argument("--semantic-check-id", default="")
+    run.add_argument("--validation-obligation", action="append", default=[])
+    run.add_argument("--coverage", action="append", default=[])
+    run.add_argument("--depends-on", action="append", default=[])
+    run.add_argument("--timeout-seconds", type=int, default=0)
+    run.add_argument("--expected-exit-code", type=int, default=None)
+    run.add_argument("--cross-change-safe", action="store_true")
+    run.add_argument("--cwd", default=".")
+    run.add_argument("--json", action="store_true", help="Canonical JSON is always emitted.")
+    run.add_argument("inner_command", nargs=argparse.REMAINDER)
+    run.set_defaults(handler=_run_spec_check_command)
+
+    aggregate = subparsers.add_parser(
+        "spec-receipt-aggregate",
+        help="Consume exact child receipts for a parent check without reexecuting covered children.",
+    )
+    aggregate.add_argument("--root", default=".")
+    aggregate.add_argument("--provider", choices=("openspec", "speckit"), required=True)
+    aggregate.add_argument("--work-package", required=True)
+    aggregate.add_argument("--check-id", required=True)
+    aggregate.add_argument("--child-receipt", action="append", default=[])
+    aggregate.add_argument("--json", action="store_true", help="Canonical JSON is always emitted.")
+    aggregate.set_defaults(handler=_run_spec_receipt_aggregate_command)
+
+    consume = subparsers.add_parser(
+        "spec-receipt-consume",
+        help="Purely read and independently reverify one canonical portable receipt.",
+    )
+    consume.add_argument("--root", default=".")
+    consume.add_argument("--receipt-id", default="")
+    consume.add_argument("--provider", choices=("openspec", "speckit"), default="")
+    consume.add_argument("--work-package", default="")
+    consume.add_argument("--check-id", default="")
+    consume.add_argument("--portable-ref", default="")
+    consume.add_argument("--json", action="store_true", help="Canonical JSON is always emitted.")
+    consume.set_defaults(handler=_run_spec_receipt_consume_command)
+
+    close_review = subparsers.add_parser(
+        "spec-provider-close-review",
+        help="Read-only post-report reconciliation; never executes provider checks.",
+    )
+    close_review.add_argument("--root", default=".")
+    close_review.add_argument("--provider", choices=("openspec", "speckit"), required=True)
+    close_review.add_argument("--work-package", required=True)
+    close_review.add_argument("--json", action="store_true", help="Canonical JSON is always emitted.")
+    close_review.set_defaults(handler=_run_spec_provider_close_review_command)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m flowguard",
@@ -672,10 +910,11 @@ def main(argv: list[str] | None = None) -> int:
     _add_existing_command_subparsers(subparsers)
     for command in FILE_TEMPLATE_COMMANDS:
         _add_file_template_parser(subparsers, command)
-    _add_artifact_upgrade_parser(subparsers)
+    _add_behavior_commitment_query_parser(subparsers)
     _add_risk_template_search_parser(subparsers)
     _add_risk_template_harvest_parser(subparsers)
     _add_risk_template_harvest_review_parser(subparsers)
+    _add_spec_work_package_parsers(subparsers)
     _add_project_adoption_parser(
         subparsers,
         "project-audit",
@@ -687,12 +926,6 @@ def main(argv: list[str] | None = None) -> int:
         "project-adopt",
         action="adopt",
         help_text="Write or refresh target-project FlowGuard AGENTS/manifest adoption records.",
-    )
-    _add_project_adoption_parser(
-        subparsers,
-        "project-upgrade",
-        action="upgrade",
-        help_text="Explicitly update target-project FlowGuard records to the installed package version.",
     )
     _add_adoption_entry_args(
         subparsers.add_parser("adoption-start", help="Append an in-progress adoption log entry."),

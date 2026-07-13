@@ -9,7 +9,7 @@ description: Use only when explicitly requested or delegated by flowguard-develo
 Turn rough plan prose into checkable `PlanDetail` rows before execution; never execute the plan or treat detail as implementation proof.
 
 ## Entrypoint Scope
-Route id: `plan_detailing_compiler`; role: `delegated_mode`; native owner: `development_process_flow`. Direct use requires an explicit request; generic rough-plan work enters `flowguard-development-process-flow` first.
+Delegated FlowGuard mode skill; route `plan_detailing_compiler`, role `delegated_mode`, native owner `development_process_flow`. Generic work enters `flowguard-development-process-flow` first.
 
 ## Local Material Routing
 Read `references/plan_detailing_compiler_protocol.md` for required rows, finding codes, projection order, and confidence decisions.
@@ -25,16 +25,17 @@ Accept an explicit/delegated rough plan and sources; compile scope/state/artifac
 
 ## Required Workflow
 1. Capture goal, assumptions, sources, risk surfaces, state/side effects, artifacts, UI actions, and payload/work-package surfaces.
-2. Add ordered steps, step receipts, validations, failure/rework/continue gates, freshness rules, and human questions; run `review_plan_detail()`.
+2. Keep AI steps in `agent_operation`; record sibling-plane targets separately, then add ordered steps, step receipts, validations, failure/rework/continue gates, freshness rules, and questions; run `review_plan_detail()`.
 3. Project passing/scoped rows to process, agent workflow, UI, Model-Test Alignment, and TestMesh owners.
 
 ## Hard Gates
 - Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
 - Long prose, checkboxes, or plan progress cannot satisfy structured detail or terminal evidence.
-- Full claims require resolved questions, final evidence ids, real-surface payload cases, relevant human-operability gates, and template harvest closure for deepened models.
+- Full claims require resolved questions, final evidence ids, payload cases for the real surface, human-operability gates, and template harvest closure.
+- Projection preserves receipts and target references: AgentWorkflow owns AI-operation order, DevelopmentProcessFlow owns lifecycle freshness, and neither absorbs product-runtime behavior.
 
 ## Output Requirements
-- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`, plus PlanDetail rows, gaps, and projections.
+- Return evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, typed_next_actions, `PlanDetail` rows, gaps, and projections.
 
 ## SkillGuard Maintenance
-- Edit `.skillguard/contract-source.json`, then regenerate derived contracts; SkillGuard validates this delegated compiler and cannot execute steps or manufacture receipts.
+- Edit contract source, regenerate; SkillGuard cannot execute or create receipts.

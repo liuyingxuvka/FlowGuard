@@ -152,6 +152,91 @@ class ModelSimilarityReviewTests(unittest.TestCase):
         self.assertEqual("keep_separate", report.relations[0].recommendation)
         self.assertEqual("blocked", report.relations[0].confidence)
 
+    def test_cross_plane_shared_language_is_quarantined_with_typed_context(self):
+        typed_ref = "commitment:agent-download|invokes|commitment:product-download"
+        report = review_model_similarity_consolidation(
+            ModelSimilarityPlan(
+                "cross-plane-download",
+                signatures=(
+                    signature(
+                        "product-download",
+                        behavior_plane="product_runtime",
+                        typed_commitment_relation_refs=(typed_ref,),
+                    ),
+                    signature(
+                        "agent-download",
+                        behavior_plane="agent_operation",
+                        typed_commitment_relation_refs=(typed_ref,),
+                    ),
+                ),
+                comparison_pairs=(("product-download", "agent-download"),),
+                evidence=(
+                    ModelSimilarityEvidence(
+                        "evidence:cross-plane-download",
+                        relation_id="product-download:agent-download:false_friend",
+                        compared_behavior_planes=("product_runtime", "agent_operation"),
+                        typed_commitment_relation_refs=(typed_ref,),
+                    ),
+                ),
+                require_behavior_plane_identity=True,
+            )
+        )
+
+        self.assertTrue(report.ok, report.format_text())
+        relation = report.relations[0]
+        self.assertEqual(RELATION_FALSE_FRIEND, relation.relation_type)
+        self.assertEqual("keep_separate", relation.recommendation)
+        self.assertEqual("product_runtime", relation.left_behavior_plane)
+        self.assertEqual("agent_operation", relation.right_behavior_plane)
+        self.assertEqual((typed_ref,), relation.typed_commitment_relation_refs)
+        self.assertIn("behavior_plane_conflict", {item.code for item in report.findings})
+        self.assertEqual((), report.maintenance_groups)
+        handoff = report.to_handoff()
+        self.assertEqual({"product_runtime", "agent_operation"}, set(handoff.behavior_planes))
+        self.assertEqual((typed_ref,), handoff.typed_commitment_relation_refs)
+        self.assertEqual((relation.relation_id,), handoff.cross_plane_relation_ids)
+
+    def test_plane_aware_similarity_requires_every_signature_identity(self):
+        report = review_model_similarity_consolidation(
+            ModelSimilarityPlan(
+                "missing-plane",
+                signatures=(
+                    signature("product-download", behavior_plane="product_runtime"),
+                    signature("unclassified-download"),
+                ),
+                require_behavior_plane_identity=True,
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("missing_behavior_plane_identity", {item.code for item in report.findings})
+
+    def test_similarity_evidence_must_bind_the_compared_planes(self):
+        report = review_model_similarity_consolidation(
+            ModelSimilarityPlan(
+                "plane-evidence-mismatch",
+                signatures=(
+                    signature("checkout-a", behavior_plane="product_runtime"),
+                    signature("checkout-b", behavior_plane="product_runtime"),
+                ),
+                comparison_pairs=(("checkout-a", "checkout-b"),),
+                evidence=(
+                    ModelSimilarityEvidence(
+                        "evidence:wrong-plane",
+                        relation_id="checkout-a:checkout-b:same_workflow",
+                        compared_behavior_planes=("agent_operation",),
+                    ),
+                ),
+                require_behavior_plane_identity=True,
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn(
+            "similarity_evidence_behavior_plane_mismatch",
+            {item.code for item in report.findings},
+        )
+
     def test_shared_business_path_marks_duplicate_boundary(self):
         report = review_model_similarity_consolidation(
             ModelSimilarityPlan(
@@ -411,6 +496,134 @@ class ModelSimilarityReviewTests(unittest.TestCase):
 
         self.assertFalse(report.ok)
         self.assertIn("missing_maintenance_test_path", {finding.code for finding in report.findings})
+
+    def test_stable_exact_intent_handoff_materializes_surface_test_and_code_obligations(self):
+        shared = {
+            "function_blocks": ("SubmitOrder",),
+            "state_owned": ("orders",),
+            "side_effects_owned": ("write_order",),
+            "business_intent_ids": ("intent:submit-order",),
+            "behavior_commitment_ids": ("commitment:submit-order",),
+            "primary_path_ids": ("path:submit-order",),
+            "path_terminals": ("accepted_or_visible_error",),
+        }
+        report = review_model_similarity_consolidation(
+            ModelSimilarityPlan(
+                "stable-exact-intent",
+                signatures=(
+                    ModelSignature(
+                        "submit-ui",
+                        public_surface_ids=("surface:ui-submit",),
+                        test_paths=("tests/test_submit_ui.py",),
+                        **shared,
+                    ),
+                    ModelSignature(
+                        "submit-api",
+                        public_surface_ids=("surface:api-submit",),
+                        test_paths=("tests/test_submit_api.py",),
+                        **shared,
+                    ),
+                ),
+                expected_surface_ids=("surface:ui-submit", "surface:api-submit"),
+                surface_inventory_revision="submit-order-surfaces:v1",
+                require_complete_surface_inventory=True,
+                require_stable_authority_identity=True,
+            )
+        )
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual(RELATION_DUPLICATE_BOUNDARY, report.relations[0].relation_type)
+        handoff = report.to_handoff()
+        self.assertTrue(handoff.test_obligations)
+        self.assertTrue(handoff.code_obligations)
+        self.assertEqual(("intent:submit-order",), handoff.business_intent_ids)
+        self.assertEqual(
+            {"surface:ui-submit", "surface:api-submit"},
+            set(handoff.affected_surface_ids),
+        )
+        self.assertTrue(all(item.surface_ids for item in handoff.test_obligations))
+
+    def test_complete_similarity_inventory_blocks_omitted_same_intent_surface(self):
+        report = review_model_similarity_consolidation(
+            ModelSimilarityPlan(
+                "missing-stable-surface",
+                signatures=(
+                    ModelSignature(
+                        "submit-ui",
+                        business_intent_ids=("intent:submit-order",),
+                        behavior_commitment_ids=("commitment:submit-order",),
+                        primary_path_ids=("path:submit-order",),
+                        public_surface_ids=("surface:ui-submit",),
+                    ),
+                ),
+                expected_surface_ids=("surface:ui-submit", "surface:api-submit"),
+                surface_inventory_revision="submit-order-surfaces:v1",
+                require_complete_surface_inventory=True,
+                require_stable_authority_identity=True,
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn(
+            "missing_expected_similarity_surface",
+            {finding.code for finding in report.findings},
+        )
+
+    def test_maintenance_helpers_preserve_stable_authority_and_surface_inventory(self):
+        common = {
+            "workflow_family": "submit-order",
+            "behavior_plane": "product_runtime",
+            "function_blocks": ("SubmitOrder",),
+            "business_path_ids": ("submit-order",),
+            "business_intents": ("submit order",),
+            "business_intent_ids": ("intent:submit-order",),
+            "behavior_commitment_ids": ("commitment:submit-order",),
+            "primary_path_ids": ("path:submit-order",),
+            "evidence_ids": ("sim:submit-order",),
+        }
+        signatures = (
+            model_signature_maintenance(
+                "submit-ui",
+                variant_id="ui",
+                code_paths=("submit/ui.py",),
+                test_paths=("tests/test_submit_ui.py",),
+                public_surface_ids=("surface:ui-submit",),
+                **common,
+            ),
+            model_signature_maintenance(
+                "submit-api",
+                variant_id="api",
+                code_paths=("submit/api.py",),
+                test_paths=("tests/test_submit_api.py",),
+                public_surface_ids=("surface:api-submit",),
+                **common,
+            ),
+        )
+        plan = model_similarity_plan_for_changed_member(
+            "submit-order-helper-plan",
+            signatures,
+            changed_model_id="submit-ui",
+            evidence=(
+                ModelSimilarityEvidence(
+                    "sim:submit-order",
+                    summary="current family review",
+                    compared_behavior_planes=("product_runtime",),
+                ),
+            ),
+            expected_surface_ids=("surface:ui-submit", "surface:api-submit"),
+            surface_inventory_revision="submit-order-surfaces:v1",
+            require_complete_surface_inventory=True,
+            require_stable_authority_identity=True,
+            require_behavior_plane_identity=True,
+            require_current_evidence=True,
+        )
+
+        report = review_model_similarity_consolidation(plan)
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual(("intent:submit-order",), signatures[0].business_intent_ids)
+        self.assertEqual(("surface:api-submit",), signatures[1].public_surface_ids)
+        self.assertEqual("submit-order-surfaces:v1", plan.surface_inventory_revision)
 
 
 if __name__ == "__main__":

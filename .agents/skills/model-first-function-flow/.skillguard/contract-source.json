@@ -1,116 +1,170 @@
 {
-  "activation_keywords": [
-    "ordinary behavior modeling",
-    "unclear FlowGuard route",
-    "cross-route coordination",
-    "kernel closure"
+  "artifacts": [],
+  "checks": [
+    {
+      "check_id": "check:model-first-function-flow:plane-boundary",
+      "covers_obligation_ids": [
+        "obligation:model-first-function-flow:plane-boundary"
+      ],
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "model-first-function-flow:functional",
+      "execution_owner_id": "owner:model-first-function-flow:model-first-function-flow-plane-boundary",
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": ".flowguard/minimum_valuable_model_entry/model.py"
+        }
+      ],
+      "kind": "model_assertion",
+      "timeout_seconds": 30
+    },
+    {
+      "args": [
+        ".flowguard/minimum_valuable_model_entry/run_checks.py"
+      ],
+      "check_id": "check:model-first-function-flow:native-authority",
+      "command": "python",
+      "covers_obligation_ids": [
+        "obligation:model-first-function-flow:native-authority"
+      ],
+      "cwd_token": "repository_root",
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "model-first-function-flow:functional",
+      "execution_owner_id": "owner:model-first-function-flow:model-first-function-flow-native-authority",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": ".flowguard/minimum_valuable_model_entry/model.py"
+        },
+        {
+          "kind": "path",
+          "path": ".flowguard/minimum_valuable_model_entry/run_checks.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/behavior_commitment_lookup.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/skill_contract_model.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_flowguard_skill_collaboration.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_flowguard_skill_trigger.py"
+        }
+      ],
+      "kind": "command",
+      "timeout_seconds": 180
+    },
+    {
+      "check_id": "check:model-first-function-flow:evidence-closure",
+      "covers_obligation_ids": [
+        "obligation:model-first-function-flow:evidence-closure"
+      ],
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "model-first-function-flow:functional",
+      "execution_owner_id": "owner:model-first-function-flow:model-first-function-flow-evidence-closure",
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": ".flowguard/minimum_valuable_model_entry/model.py"
+        }
+      ],
+      "kind": "model_assertion",
+      "timeout_seconds": 30
+    }
   ],
   "claim_boundary": "Only the current route decision, executable model boundary, and consumed current evidence are claimed; no future behavior or unrun route is certified.",
-  "default_route": true,
-  "direct_references": [
-    "references/route_index.md",
-    "references/modeling_protocol.md",
-    "references/modeling_core_protocol.md",
-    "references/modeling_evidence_protocol.md",
-    "references/skill_kernel_protocol.md",
-    "references/adoption_protocol.md",
-    "references/conformance_adoption_protocol.md",
-    "references/long_check_protocol.md",
-    "references/framework_upgrade_protocol.md",
-    "references/invariant_examples.md"
-  ],
-  "do_not_use_when": [
-    "A direct satellite already owns the boundary or the task is trivial and has no behavior, state, process, or evidence risk."
-  ],
-  "downstream_targets": [
+  "closure_profiles": [
     {
-      "claim_scope": "preflight only",
-      "condition": "Existing modeled ownership may already cover the boundary.",
-      "target_id": "flowguard-existing-model-preflight",
-      "target_kind": "skill"
+      "profile_id": "routine",
+      "required_obligation_ids": [
+        "obligation:model-first-function-flow:plane-boundary"
+      ]
     },
     {
-      "claim_scope": "process evidence",
-      "condition": "Plan, workflow, lifecycle freshness, synchronization, or release scope controls confidence.",
-      "target_id": "flowguard-development-process-flow",
-      "target_kind": "skill"
+      "profile_id": "functional",
+      "required_obligation_ids": [
+        "obligation:model-first-function-flow:plane-boundary",
+        "obligation:model-first-function-flow:native-authority"
+      ]
     },
     {
-      "claim_scope": "final risk confidence",
-      "condition": "A broad done, release, archive, publish, or production claim is requested.",
-      "target_id": "risk_evidence_ledger",
-      "target_kind": "internal_route"
-    }
-  ],
-  "layout_profiles": {
-    "installed": ".codex/skills/model-first-function-flow",
-    "source": ".agents/skills/model-first-function-flow"
-  },
-  "native_checks": [
+      "profile_id": "release",
+      "required_obligation_ids": [
+        "obligation:model-first-function-flow:plane-boundary",
+        "obligation:model-first-function-flow:native-authority",
+        "obligation:model-first-function-flow:evidence-closure"
+      ]
+    },
     {
-      "binding_id": "model_first_entry_model",
-      "command": "python .flowguard/minimum_valuable_model_entry/run_checks.py",
-      "evidence_source": "current model runner receipt and final report",
-      "kind": "flowguard_model",
-      "native_check_id": "minimum_valuable_model_entry",
-      "summary": "Run the minimum valuable model-first entry model."
+      "profile_id": "highest_quality",
+      "required_obligation_ids": [
+        "obligation:model-first-function-flow:plane-boundary",
+        "obligation:model-first-function-flow:native-authority",
+        "obligation:model-first-function-flow:evidence-closure"
+      ]
     }
   ],
-  "native_owner": "model_first_function_flow",
-  "output_fields": [
-    "evidence",
-    "failures",
-    "blockers",
-    "skipped_checks",
-    "residual_risk",
-    "claim_boundary",
-    "typed_next_actions"
+  "confirmed": true,
+  "implementation_paths": [
+    ".agents/skills/model-first-function-flow",
+    ".flowguard/minimum_valuable_model_entry",
+    "flowguard/skill_contract_model.py",
+    "flowguard/behavior_commitment_lookup.py",
+    "tests/test_flowguard_skill_trigger.py",
+    "tests/test_flowguard_skill_collaboration.py"
   ],
-  "route_id": "model_first_function_flow",
-  "route_role": "kernel",
-  "route_summary": "Select the owning FlowGuard route and execute the minimum valuable model-first kernel workflow.",
-  "schema_version": "flowguard.skill_contract_source.v1",
+  "judgment_rubrics": [],
+  "model_id": "flowguard.model_first_function_flow.skill_contract.v2",
+  "model_path": ".flowguard/minimum_valuable_model_entry/model.py",
+  "release_eligible": false,
+  "schema_version": "skillguard.contract_source.v2",
   "skill_id": "model-first-function-flow",
-  "source_requirements": [
+  "step_bindings": [
     {
-      "category": "activation-boundary",
-      "requirement_id": "kernel.route_selection",
-      "summary": "The kernel must defer to a clear public owner and coordinate only unclear, ordinary, or cross-route work."
+      "step_id": "step:model-first-function-flow:intake",
+      "action": {
+        "kind": "inventory",
+        "summary": "Classify the primary behavior plane and perform lightweight commitment/model recall before creating a model."
+      },
+      "check_ids": [
+        "check:model-first-function-flow:plane-boundary"
+      ],
+      "output_artifact_ids": []
     },
     {
-      "category": "evidence",
-      "requirement_id": "kernel.executable_model",
-      "summary": "Executable Input x State modeling and a representative known-bad proof are required before model confidence."
+      "step_id": "step:model-first-function-flow:execute",
+      "action": {
+        "kind": "native",
+        "summary": "Select the existing owner or build the minimum useful executable model without creating a duplicate route."
+      },
+      "check_ids": [
+        "check:model-first-function-flow:native-authority"
+      ],
+      "output_artifact_ids": []
     },
     {
-      "category": "closure",
-      "requirement_id": "kernel.broad_claim_boundary",
-      "summary": "Missing, stale, skipped, scoped, progress-only, not-run, or pass-with-gaps evidence blocks broad closure."
-    }
-  ],
-  "use_when": [
-    "No direct satellite clearly owns the risk or ordinary finite behavior/state modeling is required."
-  ],
-  "workflow": [
-    {
-      "phase_id": "intake",
-      "summary": "Decide applicability, flow lens, protected error class, and claim boundary."
-    },
-    {
-      "phase_id": "inventory",
-      "summary": "Inspect adoption, existing models, templates, state, side effects, and route ownership."
-    },
-    {
-      "phase_id": "execution",
-      "summary": "Build or update the minimum faithful Input x State model and representative known-bad path."
-    },
-    {
-      "phase_id": "checks",
-      "summary": "Run formal model-first checks, inspect counterexamples, and invoke only triggered owner routes."
-    },
-    {
-      "phase_id": "closure",
-      "summary": "Preserve every gap and close only with current model, route, and claim evidence."
+      "step_id": "step:model-first-function-flow:verify",
+      "action": {
+        "kind": "verifier",
+        "summary": "Require current scenarios, bad cases, invariants, and scoped evidence; do not force a model for trivial actions."
+      },
+      "check_ids": [
+        "check:model-first-function-flow:evidence-closure"
+      ],
+      "output_artifact_ids": []
     }
   ]
 }
+

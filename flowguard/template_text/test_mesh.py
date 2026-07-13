@@ -230,7 +230,14 @@ Use this scaffold to keep a project's validation hierarchy explicit.
   file/work-package payload matrix is too large or slow for direct Model-Test
   Alignment rows;
 - whether background logs include final exit/result artifacts;
+- whether the required suite/member/cell/shard inventory and inventory
+  revision are explicit and fully covered by terminal receipts;
 - whether skipped, timed-out, not-run, or release-only checks remain visible.
+
+A PID, periodic liveness signal, running flag, log line, or partial progress count proves only
+that work is alive. It must never be promoted to a passing final receipt;
+parent confidence waits for a terminal status, exit code, result artifact, and
+complete required-id accounting.
 
 TestMesh is parallel to ModelMesh and StructureMesh: the object being split is
 the test structure. The parent should consume child ownership and evidence

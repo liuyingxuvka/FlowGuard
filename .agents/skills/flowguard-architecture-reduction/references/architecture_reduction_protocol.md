@@ -11,6 +11,15 @@ model ownership, code-boundary mapping, observable behavior, candidate
 reductions, and proof evidence, then pass that evidence into
 `review_architecture_reduction(...)`.
 
+When Existing Model Preflight or Model Similarity supplies a same-intent or
+duplicate-boundary handoff, declare the expected candidate ids independently
+from the materialized candidates. Every alias, adapter, wrapper, helper,
+fallback, facade, and duplicate handler needs a candidate or typed keep/scoped
+disposition. Materialize each in-scope similarity relation and code-obligation
+id on concrete candidates, target nodes, and target actions; plan-level opaque
+ids are not contraction proof. Inventory/source revision changes stale the
+review.
+
 ## Trigger
 
 Create or update an Architecture Reduction review when any of these are true:
@@ -105,6 +114,12 @@ remains reachable.
 It also does not replace FieldLifecycleMesh disposition when an old or
 compatibility-like field remains reachable.
 
+A retained same-intent facade preserves only an external entry boundary. It
+must name the stable intent, active commitment, selected primary path, and owner
+contract, with current evidence that it delegates to that path. Independent
+business success, primary side effects, terminal mutation, or delegation to a
+different same-intent path blocks keep-facade readiness.
+
 ## Proof Status
 
 Every candidate must have one proof status:
@@ -179,6 +194,9 @@ Before trusting the route, make these known-bad variants fail:
   maintenance obligations.
 - illegal child overlap treated as a testing problem instead of a duplicate
   ownership or architecture-reduction candidate.
+- expected same-intent candidate or similarity relation side omitted;
+- similarity/code-obligation ids left only in plan metadata;
+- retained facade able to succeed without the selected primary path.
 
 ## Reporting
 

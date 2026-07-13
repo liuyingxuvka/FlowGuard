@@ -1,6 +1,8 @@
 import json
+import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -28,6 +30,15 @@ class ModelRegressionManifestTests(unittest.TestCase):
         if not git:
             self.skipTest("git is required to verify public model distribution")
         root = Path(__file__).resolve().parents[1]
+        repository_probe = subprocess.run(
+            [git, "rev-parse", "--is-inside-work-tree"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if repository_probe.returncode != 0:
+            self.skipTest("public model distribution check requires a git checkout")
         completed = subprocess.run([git, "ls-files", "-z"], cwd=root, capture_output=True, check=True)
         tracked = {
             item.decode("utf-8", errors="surrogateescape").replace("\\", "/")
@@ -51,6 +62,30 @@ class ModelRegressionManifestTests(unittest.TestCase):
                     self.assertIn(entry.runner[1], tracked)
                 else:
                     self.assertGreaterEqual(len(entry.absence_reason), 12)
+
+    def test_ui_content_visibility_model_accepts_external_output_directory(self):
+        root = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as directory:
+            env = os.environ.copy()
+            env["FLOWGUARD_OUTPUT_DIR"] = directory
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "-c",
+                    (
+                        "import runpy; "
+                        "model = runpy.run_path('.flowguard/harden_ui_content_visibility_validation/model.py'); "
+                        "print(model['CORE_PYTEST_ARGS'][-1])"
+                    ),
+                ],
+                cwd=root,
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(0, completed.returncode, completed.stderr)
+            self.assertIn(Path(directory).resolve().as_posix(), completed.stdout.replace("\\", "/"))
 
     def test_unregistered_and_extra_records_are_both_visible(self):
         with tempfile.TemporaryDirectory() as directory:

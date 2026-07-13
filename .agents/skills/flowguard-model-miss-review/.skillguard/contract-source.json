@@ -1,120 +1,174 @@
 {
-  "activation_keywords": [
-    "post-green failure",
-    "model miss",
-    "boundary_missing",
-    "root cause backpropagation",
-    "same-class repair"
+  "artifacts": [],
+  "checks": [
+    {
+      "check_id": "check:flowguard-model-miss-review:plane-boundary",
+      "covers_obligation_ids": [
+        "obligation:flowguard-model-miss-review:plane-boundary"
+      ],
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "flowguard-model-miss-review:functional",
+      "execution_owner_id": "owner:flowguard-model-miss-review:flowguard-model-miss-review-plane-boundary",
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": ".flowguard/model_miss_review/model.py"
+        }
+      ],
+      "kind": "model_assertion",
+      "timeout_seconds": 30
+    },
+    {
+      "args": [
+        ".flowguard/model_miss_review/run_checks.py"
+      ],
+      "check_id": "check:flowguard-model-miss-review:native-authority",
+      "command": "python",
+      "covers_obligation_ids": [
+        "obligation:flowguard-model-miss-review:native-authority"
+      ],
+      "cwd_token": "repository_root",
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "flowguard-model-miss-review:functional",
+      "execution_owner_id": "owner:flowguard-model-miss-review:flowguard-model-miss-review-native-authority",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": ".flowguard/lightweight_model_miss_review/model.py"
+        },
+        {
+          "kind": "path",
+          "path": ".flowguard/lightweight_model_miss_review/run_checks.py"
+        },
+        {
+          "kind": "path",
+          "path": ".flowguard/model_miss_review/model.py"
+        },
+        {
+          "kind": "path",
+          "path": ".flowguard/model_miss_review/run_checks.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/recurring_model_miss.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/skill_contract_model.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_recurring_model_miss.py"
+        }
+      ],
+      "kind": "command",
+      "timeout_seconds": 180
+    },
+    {
+      "check_id": "check:flowguard-model-miss-review:evidence-closure",
+      "covers_obligation_ids": [
+        "obligation:flowguard-model-miss-review:evidence-closure"
+      ],
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "flowguard-model-miss-review:functional",
+      "execution_owner_id": "owner:flowguard-model-miss-review:flowguard-model-miss-review-evidence-closure",
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": ".flowguard/model_miss_review/model.py"
+        }
+      ],
+      "kind": "model_assertion",
+      "timeout_seconds": 30
+    }
   ],
   "claim_boundary": "Closure covers only the classified, generalized, currently evidenced failure class; a point fix, isolated test, or progress log cannot support broader confidence.",
-  "default_route": false,
-  "direct_references": [
-    "references/model_miss_protocol.md"
-  ],
-  "do_not_use_when": [
-    "No concrete failure evidence exists, the request is a new feature, or a point patch is being treated as full bug-class closure."
-  ],
-  "downstream_targets": [
+  "closure_profiles": [
     {
-      "claim_scope": "commitment coverage",
-      "condition": "The observed external behavior is unregistered or needs model-miss backfeed.",
-      "target_id": "flowguard-behavior-commitment-ledger",
-      "target_kind": "skill"
+      "profile_id": "routine",
+      "required_obligation_ids": [
+        "obligation:flowguard-model-miss-review:plane-boundary"
+      ]
     },
     {
-      "claim_scope": "case generation",
-      "condition": "A family seed or finite miss boundary needs canonical same-class cases.",
-      "target_id": "flowguard-contract-exhaustion-mesh",
-      "target_kind": "skill"
+      "profile_id": "functional",
+      "required_obligation_ids": [
+        "obligation:flowguard-model-miss-review:plane-boundary",
+        "obligation:flowguard-model-miss-review:native-authority"
+      ]
     },
     {
-      "claim_scope": "repair alignment",
-      "condition": "The repaired obligation must bind owner code and observed/same-class evidence.",
-      "target_id": "flowguard-model-test-alignment",
-      "target_kind": "skill"
+      "profile_id": "release",
+      "required_obligation_ids": [
+        "obligation:flowguard-model-miss-review:plane-boundary",
+        "obligation:flowguard-model-miss-review:native-authority",
+        "obligation:flowguard-model-miss-review:evidence-closure"
+      ]
     },
     {
-      "claim_scope": "mesh reattachment",
-      "condition": "A repaired child or boundary change affects parent/sibling confidence.",
-      "target_id": "flowguard-model-mesh",
-      "target_kind": "skill"
-    },
-    {
-      "claim_scope": "process freshness",
-      "condition": "Changed model/code/test/docs artifacts stale prior repair evidence.",
-      "target_id": "flowguard-development-process-flow",
-      "target_kind": "skill"
+      "profile_id": "highest_quality",
+      "required_obligation_ids": [
+        "obligation:flowguard-model-miss-review:plane-boundary",
+        "obligation:flowguard-model-miss-review:native-authority",
+        "obligation:flowguard-model-miss-review:evidence-closure"
+      ]
     }
   ],
-  "layout_profiles": {
-    "installed": ".codex/skills/flowguard-model-miss-review",
-    "source": ".agents/skills/flowguard-model-miss-review"
-  },
-  "native_checks": [
-    {
-      "binding_id": "model_miss_model",
-      "command": "python .flowguard/model_miss_review/run_checks.py",
-      "evidence_source": "current model runner receipt and final report",
-      "kind": "flowguard_model",
-      "native_check_id": "model_miss_review",
-      "summary": "Run model-miss review and broken closure variants."
-    }
+  "confirmed": true,
+  "implementation_paths": [
+    ".agents/skills/flowguard-model-miss-review",
+    ".flowguard/model_miss_review",
+    ".flowguard/lightweight_model_miss_review",
+    "flowguard/recurring_model_miss.py",
+    "flowguard/skill_contract_model.py",
+    "tests/test_recurring_model_miss.py"
   ],
-  "native_owner": "model_miss_review",
-  "output_fields": [
-    "evidence",
-    "failures",
-    "blockers",
-    "skipped_checks",
-    "residual_risk",
-    "claim_boundary",
-    "typed_next_actions"
-  ],
-  "route_id": "model_miss_review",
-  "route_role": "public_owner",
-  "route_summary": "Classify a concrete post-green failure and close its generalized behavior class across model, owner code, tests, fields, mesh, and risk evidence.",
-  "schema_version": "flowguard.skill_contract_source.v1",
+  "judgment_rubrics": [],
+  "model_id": "flowguard.model_miss_review.skill_contract.v2",
+  "model_path": ".flowguard/model_miss_review/model.py",
+  "release_eligible": false,
+  "schema_version": "skillguard.contract_source.v2",
   "skill_id": "flowguard-model-miss-review",
-  "source_requirements": [
+  "step_bindings": [
     {
-      "category": "inventory",
-      "requirement_id": "model_miss.classification_and_backprop",
-      "summary": "Concrete failure evidence must map to an existing commitment/owner, miss type, and prior model/test gap."
+      "step_id": "step:flowguard-model-miss-review:intake",
+      "action": {
+        "kind": "inventory",
+        "summary": "Identify the failed external promise and search its affected plane before creating a gap."
+      },
+      "check_ids": [
+        "check:flowguard-model-miss-review:plane-boundary"
+      ],
+      "output_artifact_ids": []
     },
     {
-      "category": "evidence",
-      "requirement_id": "model_miss.same_class_owner_evidence",
-      "summary": "Observed and canonical same-class cases bind the repaired obligation, owner code contract, and current external tests."
+      "step_id": "step:flowguard-model-miss-review:execute",
+      "action": {
+        "kind": "native",
+        "summary": "Run the existing Model Miss owner to generalize, backfeed, and retain typed multi-plane context."
+      },
+      "check_ids": [
+        "check:flowguard-model-miss-review:native-authority"
+      ],
+      "output_artifact_ids": []
     },
     {
-      "category": "closure",
-      "requirement_id": "model_miss.no_point_fix_closure",
-      "summary": "Open fields, old paths, analogous siblings, parent reattachment, freshness, or risk evidence blocks broad class closure."
-    }
-  ],
-  "use_when": [
-    "Runtime, tests, replay, logs, manual/UI validation, or production evidence fails after FlowGuard passed or a non-trivial repair needs generalized closure."
-  ],
-  "workflow": [
-    {
-      "phase_id": "intake",
-      "summary": "Preserve prior claim and observed failure, run preflight, and identify the existing commitment/owner."
-    },
-    {
-      "phase_id": "inventory",
-      "summary": "Classify the miss and inventory root cause, fields, old paths, siblings, parent handoffs, and evidence targets."
-    },
-    {
-      "phase_id": "execution",
-      "summary": "Backpropagate the gap, generate canonical same-class cases, update model/field/owner-code boundaries, and add tests."
-    },
-    {
-      "phase_id": "checks",
-      "summary": "Run native miss review plus alignment, mesh, freshness, analogous scan, and risk gates for the changed class."
-    },
-    {
-      "phase_id": "closure",
-      "summary": "Close or explicitly scope the generalized class; never close from a point patch or later green command alone."
+      "step_id": "step:flowguard-model-miss-review:verify",
+      "action": {
+        "kind": "verifier",
+        "summary": "Require owner code, replay, tests, and old-path disposition before scoped closure."
+      },
+      "check_ids": [
+        "check:flowguard-model-miss-review:evidence-closure"
+      ],
+      "output_artifact_ids": []
     }
   ]
 }
+

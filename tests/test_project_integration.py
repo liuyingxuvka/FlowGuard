@@ -35,9 +35,10 @@ class ProjectIntegrationTests(unittest.TestCase):
         self.assertIn("https://github.com/liuyingxuvka/FlowGuard", text)
         self.assertIn("project-adopt", text)
         self.assertIn("project-audit", text)
-        self.assertIn("project-upgrade", text)
-        self.assertIn("artifact-upgrade", text)
-        self.assertIn("latest-schema-first", text)
+        self.assertIn("one current", text)
+        self.assertNotIn("project-upgrade", text)
+        self.assertNotIn("artifact-upgrade", text)
+        self.assertNotIn("latest-schema-first", text)
         self.assertIn(".flowguard/project.toml", text)
         self.assertLess(text.index("Agent Skill Suite Setup"), text.index("python -m pip install -e"))
 

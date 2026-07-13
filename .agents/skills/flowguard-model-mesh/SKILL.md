@@ -35,6 +35,7 @@ Accept a parent and bounded children; derive/verify partitions and current recei
 
 ## Output Requirements
 - Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`, plus a mesh diagram, reattachment, siblings, and receipt status.
+- In the mesh diagram, edges mean delegates, reattaches, consumes output, or blocks the parent claim boundary.
 
 ## SkillGuard Maintenance
 - Edit `.skillguard/contract-source.json`, then regenerate derived contracts; SkillGuard checks the native mesh contract and cannot reattach children or manufacture receipts.

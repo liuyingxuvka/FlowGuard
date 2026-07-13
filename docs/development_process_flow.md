@@ -6,10 +6,20 @@ covered which versions, and whether the agent can safely continue or claim
 done. It also checks whether a release, archive, or publish claim still has
 current evidence.
 
-It is a sibling helper route. It can reference evidence ids produced by
-ContractExhaustionMesh, ModelMesh, TestMesh, StructureMesh, Model-Test Alignment, Model Topology Hazard
-Review, LongCheck, or Conformance Adoption, but it does not inspect or
-supervise those route internals.
+It is the development-process front door for non-trivial rough-plan discussion,
+multi-skill/tool setup, staged execution, install/sync, archive/publish/release,
+post-change scanning, and final process claims. It can reference evidence ids
+produced by ContractExhaustionMesh, ModelMesh, TestMesh, StructureMesh,
+Model-Test Alignment, Model Topology Hazard Review, LongCheck, or Conformance
+Adoption, but it does not inspect or supervise those route internals.
+
+For product-language and validated-path changes, repository source, shadow
+workspace, formal repository, editable package, installed skills, and local Git
+are separate freshness domains. A passing receipt from one cannot stand in for
+another. Peer or unknown-writer edits stale affected evidence and must be
+re-read and merged; restoring an older green snapshot is not permission to
+overwrite concurrent work. Background logs, PIDs, and heartbeats prove only
+liveness until a terminal TestMesh receipt exists.
 
 For behavior-bearing work, DevelopmentProcessFlow is also the first routing
 place to select the behavior-ledger change mode: `bootstrap_ledger`,
@@ -21,19 +31,27 @@ updates the external behavior row, ContractExhaustionMesh generates DCAR cases,
 Model-Test Alignment and TestMesh bind current evidence, and SelfMaintenance
 consumes the child reports before broad claims.
 
+Process actions themselves remain in the `development_process` plane. Use
+`ProcessAction.behavior_plane`, `target_behavior_planes`,
+`target_commitment_ids`, and `typed_commitment_relation_refs` to say what the
+process governs, invokes, validates, or consumes as evidence. Product
+commitments and `agent_operation` steps are typed targets; referencing them
+does not copy their behavior into this route or transfer their owner.
+
 When a lifecycle claim is broad enough to say done, release, archive, publish,
 or framework-sync confidence, use `require_proof_artifacts=True`. In that mode,
 each consumed `ProcessEvidence` row must attach a proof artifact with a result
 path and fingerprint; a green status string without a concrete artifact remains
 only a declaration.
 
-For vague or short upstream plans, use the plan-detailing compiler before this
-route. `plan_detail_to_development_process(...)` converts `ProcessArtifact`,
-ordered `PlanDetailStep`, `PlanDetailEvidence`, `PlanDetailValidation`, and
-`PlanDetailFreshnessRule` rows into the lifecycle shape below, including proof
-artifact references when a result path exists. DevelopmentProcessFlow then owns
-the evidence-freshness decision; the plan-detail pass only proves that enough
-rows exist to start the lifecycle review.
+For vague or short upstream plans, enter DevelopmentProcessFlow first and let
+its simulator select `plan_detailing` when needed (or use that delegated mode
+when explicitly requested). `plan_detail_to_development_process(...)` converts
+`ProcessArtifact`, ordered `PlanDetailStep`, `PlanDetailEvidence`,
+`PlanDetailValidation`, and `PlanDetailFreshnessRule` rows into the lifecycle
+shape below, including proof artifact references when a result path exists.
+DevelopmentProcessFlow owns lifecycle order and evidence freshness; the
+delegated plan-detail pass only proves that enough rows exist to continue.
 
 ## Public API
 
@@ -129,6 +147,9 @@ while the current artifact is `code.checkout@4`.
 - ambiguous freshness policy for declared upstream/downstream artifacts;
 - progress-only background evidence, hidden skipped validation, failed
   evidence, and not-run evidence;
+- background completion claims without a final `run_id`, terminal `passed`
+  status, exit code 0, concrete result artifact and fingerprint, covered
+  obligation ids, inventory revision, and current artifact/verifier versions;
 - UI task checkboxes without current evidence type, such as model coverage,
   static test, runtime click, browser DOM/geometry, desktop/manual
   observation, native-dialog blindspot, work mode, source baseline,

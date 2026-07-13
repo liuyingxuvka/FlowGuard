@@ -172,6 +172,20 @@ This keeps workflow-heavy UI design from drifting into arbitrary placement. The
 visual design and frontend implementation can still be creative, but they
 receive a stable structure contract first.
 
+For a complete-product claim, UI Flow Structure also compares the declared
+surfaces as one product language. Equal semantic roles reuse the same
+typography treatment, component role, navigation pattern, interaction,
+feedback, recovery, and transition grammar. A platform, accessibility,
+native-control, or safety exception may change presentation with current
+evidence, but it cannot change the user's exact intent, active behavior
+commitment, selected primary path, visibility class, or external result.
+
+The UI route does not own the runtime path. Business-bearing features,
+actions, functional chains, and transitions carry internal
+`business_intent_id`, `behavior_commitment_id`, and `primary_path_id` bindings
+so several pages or controls can reuse the same proven behavior. Those ids are
+model/evidence fields and are not ordinary UI content.
+
 FieldLifecycleMesh supplies every field candidate whose reader reaches the
 ordinary UI boundary, regardless of source role. UI Flow Structure owns final
 admission; fields with no ordinary-UI reader remain internally accounted.

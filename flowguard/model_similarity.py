@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from itertools import combinations
 from typing import Any, Mapping, Sequence
 
+from .behavior_plane import BCL_BEHAVIOR_PLANES
 from .export import to_jsonable
 
 
@@ -130,7 +131,14 @@ class ModelSignature:
     owned_public_behaviors: tuple[str, ...] = ()
     business_path_ids: tuple[str, ...] = ()
     business_intents: tuple[str, ...] = ()
+    business_intent_ids: tuple[str, ...] = ()
+    behavior_commitment_ids: tuple[str, ...] = ()
+    primary_path_ids: tuple[str, ...] = ()
+    public_surface_ids: tuple[str, ...] = ()
     path_terminals: tuple[str, ...] = ()
+    behavior_plane: str = ""
+    multi_plane_scope_reason: str = ""
+    typed_commitment_relation_refs: tuple[str, ...] = ()
     shared_kernel_id: str = ""
     adapter_ids: tuple[str, ...] = ()
     maintenance_tags: tuple[str, ...] = ()
@@ -168,7 +176,18 @@ class ModelSignature:
         object.__setattr__(self, "owned_public_behaviors", _as_tuple(self.owned_public_behaviors))
         object.__setattr__(self, "business_path_ids", _as_tuple(self.business_path_ids))
         object.__setattr__(self, "business_intents", _as_tuple(self.business_intents))
+        object.__setattr__(self, "business_intent_ids", _as_tuple(self.business_intent_ids))
+        object.__setattr__(self, "behavior_commitment_ids", _as_tuple(self.behavior_commitment_ids))
+        object.__setattr__(self, "primary_path_ids", _as_tuple(self.primary_path_ids))
+        object.__setattr__(self, "public_surface_ids", _as_tuple(self.public_surface_ids))
         object.__setattr__(self, "path_terminals", _as_tuple(self.path_terminals))
+        object.__setattr__(self, "behavior_plane", str(self.behavior_plane))
+        object.__setattr__(self, "multi_plane_scope_reason", str(self.multi_plane_scope_reason))
+        object.__setattr__(
+            self,
+            "typed_commitment_relation_refs",
+            _as_tuple(self.typed_commitment_relation_refs),
+        )
         object.__setattr__(self, "shared_kernel_id", str(self.shared_kernel_id))
         object.__setattr__(self, "adapter_ids", _as_tuple(self.adapter_ids))
         object.__setattr__(self, "maintenance_tags", _as_tuple(self.maintenance_tags))
@@ -203,6 +222,10 @@ class ModelSignature:
             + self.owned_public_behaviors
             + self.business_path_ids
             + self.business_intents
+            + self.business_intent_ids
+            + self.behavior_commitment_ids
+            + self.primary_path_ids
+            + self.public_surface_ids
             + self.path_terminals
         )
 
@@ -231,7 +254,14 @@ class ModelSignature:
             "owned_public_behaviors": list(self.owned_public_behaviors),
             "business_path_ids": list(self.business_path_ids),
             "business_intents": list(self.business_intents),
+            "business_intent_ids": list(self.business_intent_ids),
+            "behavior_commitment_ids": list(self.behavior_commitment_ids),
+            "primary_path_ids": list(self.primary_path_ids),
+            "public_surface_ids": list(self.public_surface_ids),
             "path_terminals": list(self.path_terminals),
+            "behavior_plane": self.behavior_plane,
+            "multi_plane_scope_reason": self.multi_plane_scope_reason,
+            "typed_commitment_relation_refs": list(self.typed_commitment_relation_refs),
             "shared_kernel_id": self.shared_kernel_id,
             "adapter_ids": list(self.adapter_ids),
             "maintenance_tags": list(self.maintenance_tags),
@@ -260,6 +290,8 @@ class ModelSimilarityEvidence:
     result_status: str = EVIDENCE_STATUS_PASSED
     current: bool = True
     summary: str = ""
+    compared_behavior_planes: tuple[str, ...] = ()
+    typed_commitment_relation_refs: tuple[str, ...] = ()
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -268,6 +300,12 @@ class ModelSimilarityEvidence:
         object.__setattr__(self, "evidence_type", str(self.evidence_type))
         object.__setattr__(self, "result_status", str(self.result_status))
         object.__setattr__(self, "summary", str(self.summary))
+        object.__setattr__(self, "compared_behavior_planes", _as_tuple(self.compared_behavior_planes))
+        object.__setattr__(
+            self,
+            "typed_commitment_relation_refs",
+            _as_tuple(self.typed_commitment_relation_refs),
+        )
         object.__setattr__(self, "metadata", dict(self.metadata))
 
     def is_current_pass(self) -> bool:
@@ -281,6 +319,8 @@ class ModelSimilarityEvidence:
             "result_status": self.result_status,
             "current": self.current,
             "summary": self.summary,
+            "compared_behavior_planes": list(self.compared_behavior_planes),
+            "typed_commitment_relation_refs": list(self.typed_commitment_relation_refs),
             "metadata": to_jsonable(dict(self.metadata)),
         }
 
@@ -304,6 +344,9 @@ class ModelSimilarityRelation:
     evidence_refs: tuple[str, ...] = ()
     rationale: str = ""
     manual_review_required: bool = False
+    left_behavior_plane: str = ""
+    right_behavior_plane: str = ""
+    typed_commitment_relation_refs: tuple[str, ...] = ()
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -321,6 +364,13 @@ class ModelSimilarityRelation:
         object.__setattr__(self, "required_evidence", _as_tuple(self.required_evidence))
         object.__setattr__(self, "evidence_refs", _as_tuple(self.evidence_refs))
         object.__setattr__(self, "rationale", str(self.rationale))
+        object.__setattr__(self, "left_behavior_plane", str(self.left_behavior_plane))
+        object.__setattr__(self, "right_behavior_plane", str(self.right_behavior_plane))
+        object.__setattr__(
+            self,
+            "typed_commitment_relation_refs",
+            _as_tuple(self.typed_commitment_relation_refs),
+        )
         object.__setattr__(self, "metadata", dict(self.metadata))
 
     def is_consolidation_candidate(self) -> bool:
@@ -347,6 +397,9 @@ class ModelSimilarityRelation:
             "evidence_refs": list(self.evidence_refs),
             "rationale": self.rationale,
             "manual_review_required": self.manual_review_required,
+            "left_behavior_plane": self.left_behavior_plane,
+            "right_behavior_plane": self.right_behavior_plane,
+            "typed_commitment_relation_refs": list(self.typed_commitment_relation_refs),
             "metadata": to_jsonable(dict(self.metadata)),
         }
 
@@ -362,6 +415,11 @@ class ModelSimilarityPlan:
     required_relation_ids: tuple[str, ...] = ()
     changed_model_ids: tuple[str, ...] = ()
     changed_code_paths: tuple[str, ...] = ()
+    expected_surface_ids: tuple[str, ...] = ()
+    surface_inventory_revision: str = ""
+    require_complete_surface_inventory: bool = False
+    require_stable_authority_identity: bool = False
+    require_behavior_plane_identity: bool = False
     require_current_evidence: bool = False
     require_maintenance_test_paths: bool = False
     rationale: str = ""
@@ -378,6 +436,15 @@ class ModelSimilarityPlan:
         object.__setattr__(self, "required_relation_ids", _as_tuple(self.required_relation_ids))
         object.__setattr__(self, "changed_model_ids", _as_tuple(self.changed_model_ids))
         object.__setattr__(self, "changed_code_paths", _as_tuple(self.changed_code_paths))
+        object.__setattr__(self, "expected_surface_ids", _as_tuple(self.expected_surface_ids))
+        object.__setattr__(self, "surface_inventory_revision", str(self.surface_inventory_revision))
+        object.__setattr__(self, "require_complete_surface_inventory", bool(self.require_complete_surface_inventory))
+        object.__setattr__(self, "require_stable_authority_identity", bool(self.require_stable_authority_identity))
+        object.__setattr__(
+            self,
+            "require_behavior_plane_identity",
+            bool(self.require_behavior_plane_identity),
+        )
         object.__setattr__(self, "rationale", str(self.rationale))
 
     def to_dict(self) -> dict[str, Any]:
@@ -389,6 +456,11 @@ class ModelSimilarityPlan:
             "required_relation_ids": list(self.required_relation_ids),
             "changed_model_ids": list(self.changed_model_ids),
             "changed_code_paths": list(self.changed_code_paths),
+            "expected_surface_ids": list(self.expected_surface_ids),
+            "surface_inventory_revision": self.surface_inventory_revision,
+            "require_complete_surface_inventory": self.require_complete_surface_inventory,
+            "require_stable_authority_identity": self.require_stable_authority_identity,
+            "require_behavior_plane_identity": self.require_behavior_plane_identity,
             "require_current_evidence": self.require_current_evidence,
             "require_maintenance_test_paths": self.require_maintenance_test_paths,
             "rationale": self.rationale,
@@ -398,6 +470,9 @@ class ModelSimilarityPlan:
 def model_signature_minimal(
     model_id: str,
     *,
+    behavior_plane: str = "",
+    multi_plane_scope_reason: str = "",
+    typed_commitment_relation_refs: Sequence[str] = (),
     workflow_family: str = "",
     variant_id: str = "",
     function_blocks: Sequence[str] = (),
@@ -413,6 +488,10 @@ def model_signature_minimal(
     evidence_gate_ids: Sequence[str] = (),
     business_path_ids: Sequence[str] = (),
     business_intents: Sequence[str] = (),
+    business_intent_ids: Sequence[str] = (),
+    behavior_commitment_ids: Sequence[str] = (),
+    primary_path_ids: Sequence[str] = (),
+    public_surface_ids: Sequence[str] = (),
     path_terminals: Sequence[str] = (),
     maturity_level: str = "",
     model_path: str = "",
@@ -422,6 +501,9 @@ def model_signature_minimal(
 
     return ModelSignature(
         model_id,
+        behavior_plane=behavior_plane,
+        multi_plane_scope_reason=multi_plane_scope_reason,
+        typed_commitment_relation_refs=tuple(typed_commitment_relation_refs),
         model_path=model_path,
         workflow_family=workflow_family,
         variant_id=variant_id,
@@ -438,6 +520,10 @@ def model_signature_minimal(
         evidence_gate_ids=tuple(evidence_gate_ids),
         business_path_ids=tuple(business_path_ids),
         business_intents=tuple(business_intents),
+        business_intent_ids=tuple(business_intent_ids),
+        behavior_commitment_ids=tuple(behavior_commitment_ids),
+        primary_path_ids=tuple(primary_path_ids),
+        public_surface_ids=tuple(public_surface_ids),
         path_terminals=tuple(path_terminals),
         maturity_level=maturity_level,
         metadata=dict(metadata or {}),
@@ -448,6 +534,9 @@ def model_signature_maintenance(
     model_id: str,
     *,
     workflow_family: str,
+    behavior_plane: str = "",
+    multi_plane_scope_reason: str = "",
+    typed_commitment_relation_refs: Sequence[str] = (),
     variant_id: str = "",
     function_blocks: Sequence[str] = (),
     state_owned: Sequence[str] = (),
@@ -457,6 +546,10 @@ def model_signature_maintenance(
     owned_public_behaviors: Sequence[str] = (),
     business_path_ids: Sequence[str] = (),
     business_intents: Sequence[str] = (),
+    business_intent_ids: Sequence[str] = (),
+    behavior_commitment_ids: Sequence[str] = (),
+    primary_path_ids: Sequence[str] = (),
+    public_surface_ids: Sequence[str] = (),
     path_terminals: Sequence[str] = (),
     shared_kernel_id: str = "",
     adapter_ids: Sequence[str] = (),
@@ -474,6 +567,9 @@ def model_signature_maintenance(
 
     return ModelSignature(
         model_id,
+        behavior_plane=behavior_plane,
+        multi_plane_scope_reason=multi_plane_scope_reason,
+        typed_commitment_relation_refs=tuple(typed_commitment_relation_refs),
         workflow_family=workflow_family,
         variant_id=variant_id,
         function_blocks=tuple(function_blocks),
@@ -484,6 +580,10 @@ def model_signature_maintenance(
         owned_public_behaviors=tuple(owned_public_behaviors),
         business_path_ids=tuple(business_path_ids),
         business_intents=tuple(business_intents),
+        business_intent_ids=tuple(business_intent_ids),
+        behavior_commitment_ids=tuple(behavior_commitment_ids),
+        primary_path_ids=tuple(primary_path_ids),
+        public_surface_ids=tuple(public_surface_ids),
         path_terminals=tuple(path_terminals),
         shared_kernel_id=shared_kernel_id,
         adapter_ids=tuple(adapter_ids),
@@ -509,6 +609,11 @@ def model_similarity_plan_for_changed_member(
     evidence: Sequence[ModelSimilarityEvidence] = (),
     comparison_pairs: Sequence[tuple[str, str]] = (),
     required_relation_ids: Sequence[str] = (),
+    expected_surface_ids: Sequence[str] = (),
+    surface_inventory_revision: str = "",
+    require_complete_surface_inventory: bool = False,
+    require_stable_authority_identity: bool = False,
+    require_behavior_plane_identity: bool = False,
     require_current_evidence: bool = False,
     require_maintenance_test_paths: bool = True,
     rationale: str = "",
@@ -524,6 +629,11 @@ def model_similarity_plan_for_changed_member(
         required_relation_ids=tuple(required_relation_ids),
         changed_model_ids=_unique(changed + tuple(changed_model_ids)),
         changed_code_paths=tuple(changed_code_paths),
+        expected_surface_ids=tuple(expected_surface_ids),
+        surface_inventory_revision=surface_inventory_revision,
+        require_complete_surface_inventory=require_complete_surface_inventory,
+        require_stable_authority_identity=require_stable_authority_identity,
+        require_behavior_plane_identity=require_behavior_plane_identity,
         require_current_evidence=require_current_evidence,
         require_maintenance_test_paths=require_maintenance_test_paths,
         rationale=rationale,
@@ -579,6 +689,8 @@ class ModelSimilarityMaintenanceGroup:
     adapter_ids: tuple[str, ...] = ()
     maintenance_tags: tuple[str, ...] = ()
     required_next_routes: tuple[str, ...] = ()
+    behavior_planes: tuple[str, ...] = ()
+    typed_commitment_relation_refs: tuple[str, ...] = ()
     rationale: str = ""
 
     def __post_init__(self) -> None:
@@ -594,6 +706,12 @@ class ModelSimilarityMaintenanceGroup:
         object.__setattr__(self, "adapter_ids", _as_tuple(self.adapter_ids))
         object.__setattr__(self, "maintenance_tags", _as_tuple(self.maintenance_tags))
         object.__setattr__(self, "required_next_routes", _as_tuple(self.required_next_routes))
+        object.__setattr__(self, "behavior_planes", _as_tuple(self.behavior_planes))
+        object.__setattr__(
+            self,
+            "typed_commitment_relation_refs",
+            _as_tuple(self.typed_commitment_relation_refs),
+        )
         object.__setattr__(self, "rationale", str(self.rationale))
 
     def to_dict(self) -> dict[str, Any]:
@@ -610,6 +728,8 @@ class ModelSimilarityMaintenanceGroup:
             "adapter_ids": list(self.adapter_ids),
             "maintenance_tags": list(self.maintenance_tags),
             "required_next_routes": list(self.required_next_routes),
+            "behavior_planes": list(self.behavior_planes),
+            "typed_commitment_relation_refs": list(self.typed_commitment_relation_refs),
             "rationale": self.rationale,
         }
 
@@ -670,6 +790,14 @@ class ModelSimilarityTestObligation:
     behaviors: tuple[str, ...] = ()
     test_paths: tuple[str, ...] = ()
     relation_ids: tuple[str, ...] = ()
+    business_intent_ids: tuple[str, ...] = ()
+    behavior_commitment_ids: tuple[str, ...] = ()
+    primary_path_ids: tuple[str, ...] = ()
+    surface_ids: tuple[str, ...] = ()
+    behavior_planes: tuple[str, ...] = ()
+    typed_commitment_relation_refs: tuple[str, ...] = ()
+    matched_elements: tuple[str, ...] = ()
+    different_elements: tuple[str, ...] = ()
     rationale: str = ""
 
     def __post_init__(self) -> None:
@@ -680,6 +808,18 @@ class ModelSimilarityTestObligation:
         object.__setattr__(self, "behaviors", _as_tuple(self.behaviors))
         object.__setattr__(self, "test_paths", _as_tuple(self.test_paths))
         object.__setattr__(self, "relation_ids", _as_tuple(self.relation_ids))
+        object.__setattr__(self, "business_intent_ids", _as_tuple(self.business_intent_ids))
+        object.__setattr__(self, "behavior_commitment_ids", _as_tuple(self.behavior_commitment_ids))
+        object.__setattr__(self, "primary_path_ids", _as_tuple(self.primary_path_ids))
+        object.__setattr__(self, "surface_ids", _as_tuple(self.surface_ids))
+        object.__setattr__(self, "behavior_planes", _as_tuple(self.behavior_planes))
+        object.__setattr__(
+            self,
+            "typed_commitment_relation_refs",
+            _as_tuple(self.typed_commitment_relation_refs),
+        )
+        object.__setattr__(self, "matched_elements", _as_tuple(self.matched_elements))
+        object.__setattr__(self, "different_elements", _as_tuple(self.different_elements))
         object.__setattr__(self, "rationale", str(self.rationale))
 
     def to_dict(self) -> dict[str, Any]:
@@ -691,6 +831,14 @@ class ModelSimilarityTestObligation:
             "behaviors": list(self.behaviors),
             "test_paths": list(self.test_paths),
             "relation_ids": list(self.relation_ids),
+            "business_intent_ids": list(self.business_intent_ids),
+            "behavior_commitment_ids": list(self.behavior_commitment_ids),
+            "primary_path_ids": list(self.primary_path_ids),
+            "surface_ids": list(self.surface_ids),
+            "behavior_planes": list(self.behavior_planes),
+            "typed_commitment_relation_refs": list(self.typed_commitment_relation_refs),
+            "matched_elements": list(self.matched_elements),
+            "different_elements": list(self.different_elements),
             "rationale": self.rationale,
         }
 
@@ -708,6 +856,14 @@ class ModelSimilarityCodeObligation:
     adapter_owners: tuple[str, ...] = ()
     code_paths: tuple[str, ...] = ()
     required_next_routes: tuple[str, ...] = ()
+    business_intent_ids: tuple[str, ...] = ()
+    behavior_commitment_ids: tuple[str, ...] = ()
+    primary_path_ids: tuple[str, ...] = ()
+    surface_ids: tuple[str, ...] = ()
+    behavior_planes: tuple[str, ...] = ()
+    typed_commitment_relation_refs: tuple[str, ...] = ()
+    matched_elements: tuple[str, ...] = ()
+    different_elements: tuple[str, ...] = ()
     rationale: str = ""
 
     def __post_init__(self) -> None:
@@ -720,6 +876,18 @@ class ModelSimilarityCodeObligation:
         object.__setattr__(self, "adapter_owners", _as_tuple(self.adapter_owners))
         object.__setattr__(self, "code_paths", _as_tuple(self.code_paths))
         object.__setattr__(self, "required_next_routes", _as_tuple(self.required_next_routes))
+        object.__setattr__(self, "business_intent_ids", _as_tuple(self.business_intent_ids))
+        object.__setattr__(self, "behavior_commitment_ids", _as_tuple(self.behavior_commitment_ids))
+        object.__setattr__(self, "primary_path_ids", _as_tuple(self.primary_path_ids))
+        object.__setattr__(self, "surface_ids", _as_tuple(self.surface_ids))
+        object.__setattr__(self, "behavior_planes", _as_tuple(self.behavior_planes))
+        object.__setattr__(
+            self,
+            "typed_commitment_relation_refs",
+            _as_tuple(self.typed_commitment_relation_refs),
+        )
+        object.__setattr__(self, "matched_elements", _as_tuple(self.matched_elements))
+        object.__setattr__(self, "different_elements", _as_tuple(self.different_elements))
         object.__setattr__(self, "rationale", str(self.rationale))
 
     def to_dict(self) -> dict[str, Any]:
@@ -733,6 +901,14 @@ class ModelSimilarityCodeObligation:
             "adapter_owners": list(self.adapter_owners),
             "code_paths": list(self.code_paths),
             "required_next_routes": list(self.required_next_routes),
+            "business_intent_ids": list(self.business_intent_ids),
+            "behavior_commitment_ids": list(self.behavior_commitment_ids),
+            "primary_path_ids": list(self.primary_path_ids),
+            "surface_ids": list(self.surface_ids),
+            "behavior_planes": list(self.behavior_planes),
+            "typed_commitment_relation_refs": list(self.typed_commitment_relation_refs),
+            "matched_elements": list(self.matched_elements),
+            "different_elements": list(self.different_elements),
             "rationale": self.rationale,
         }
 
@@ -747,6 +923,19 @@ class SimilarityHandoff:
     impacted_model_ids: tuple[str, ...] = ()
     test_obligation_ids: tuple[str, ...] = ()
     code_obligation_ids: tuple[str, ...] = ()
+    test_obligations: tuple[ModelSimilarityTestObligation | Mapping[str, Any], ...] = ()
+    code_obligations: tuple[ModelSimilarityCodeObligation | Mapping[str, Any], ...] = ()
+    business_intent_ids: tuple[str, ...] = ()
+    behavior_commitment_ids: tuple[str, ...] = ()
+    primary_path_ids: tuple[str, ...] = ()
+    expected_surface_ids: tuple[str, ...] = ()
+    affected_surface_ids: tuple[str, ...] = ()
+    missing_surface_ids: tuple[str, ...] = ()
+    behavior_planes: tuple[str, ...] = ()
+    cross_plane_relation_ids: tuple[str, ...] = ()
+    typed_commitment_relation_refs: tuple[str, ...] = ()
+    matched_elements: tuple[str, ...] = ()
+    different_elements: tuple[str, ...] = ()
     risk_template_ids: tuple[str, ...] = ()
     known_bad_case_ids: tuple[str, ...] = ()
     evidence_gate_ids: tuple[str, ...] = ()
@@ -776,6 +965,37 @@ class SimilarityHandoff:
         object.__setattr__(self, "impacted_model_ids", _as_tuple(self.impacted_model_ids))
         object.__setattr__(self, "test_obligation_ids", _as_tuple(self.test_obligation_ids))
         object.__setattr__(self, "code_obligation_ids", _as_tuple(self.code_obligation_ids))
+        object.__setattr__(
+            self,
+            "test_obligations",
+            tuple(
+                item if isinstance(item, ModelSimilarityTestObligation) else ModelSimilarityTestObligation(**dict(item))
+                for item in self.test_obligations
+            ),
+        )
+        object.__setattr__(
+            self,
+            "code_obligations",
+            tuple(
+                item if isinstance(item, ModelSimilarityCodeObligation) else ModelSimilarityCodeObligation(**dict(item))
+                for item in self.code_obligations
+            ),
+        )
+        object.__setattr__(self, "business_intent_ids", _as_tuple(self.business_intent_ids))
+        object.__setattr__(self, "behavior_commitment_ids", _as_tuple(self.behavior_commitment_ids))
+        object.__setattr__(self, "primary_path_ids", _as_tuple(self.primary_path_ids))
+        object.__setattr__(self, "expected_surface_ids", _as_tuple(self.expected_surface_ids))
+        object.__setattr__(self, "affected_surface_ids", _as_tuple(self.affected_surface_ids))
+        object.__setattr__(self, "missing_surface_ids", _as_tuple(self.missing_surface_ids))
+        object.__setattr__(self, "behavior_planes", _as_tuple(self.behavior_planes))
+        object.__setattr__(self, "cross_plane_relation_ids", _as_tuple(self.cross_plane_relation_ids))
+        object.__setattr__(
+            self,
+            "typed_commitment_relation_refs",
+            _as_tuple(self.typed_commitment_relation_refs),
+        )
+        object.__setattr__(self, "matched_elements", _as_tuple(self.matched_elements))
+        object.__setattr__(self, "different_elements", _as_tuple(self.different_elements))
         object.__setattr__(self, "risk_template_ids", _as_tuple(self.risk_template_ids))
         object.__setattr__(self, "known_bad_case_ids", _as_tuple(self.known_bad_case_ids))
         object.__setattr__(self, "evidence_gate_ids", _as_tuple(self.evidence_gate_ids))
@@ -798,6 +1018,19 @@ class SimilarityHandoff:
             "impacted_model_ids": list(self.impacted_model_ids),
             "test_obligation_ids": list(self.test_obligation_ids),
             "code_obligation_ids": list(self.code_obligation_ids),
+            "test_obligations": [item.to_dict() for item in self.test_obligations],
+            "code_obligations": [item.to_dict() for item in self.code_obligations],
+            "business_intent_ids": list(self.business_intent_ids),
+            "behavior_commitment_ids": list(self.behavior_commitment_ids),
+            "primary_path_ids": list(self.primary_path_ids),
+            "expected_surface_ids": list(self.expected_surface_ids),
+            "affected_surface_ids": list(self.affected_surface_ids),
+            "missing_surface_ids": list(self.missing_surface_ids),
+            "behavior_planes": list(self.behavior_planes),
+            "cross_plane_relation_ids": list(self.cross_plane_relation_ids),
+            "typed_commitment_relation_refs": list(self.typed_commitment_relation_refs),
+            "matched_elements": list(self.matched_elements),
+            "different_elements": list(self.different_elements),
             "risk_template_ids": list(self.risk_template_ids),
             "known_bad_case_ids": list(self.known_bad_case_ids),
             "evidence_gate_ids": list(self.evidence_gate_ids),
@@ -841,6 +1074,15 @@ class ModelSimilarityReport:
     risk_template_ids: tuple[str, ...] = ()
     known_bad_case_ids: tuple[str, ...] = ()
     evidence_gate_ids: tuple[str, ...] = ()
+    business_intent_ids: tuple[str, ...] = ()
+    behavior_commitment_ids: tuple[str, ...] = ()
+    primary_path_ids: tuple[str, ...] = ()
+    expected_surface_ids: tuple[str, ...] = ()
+    affected_surface_ids: tuple[str, ...] = ()
+    missing_surface_ids: tuple[str, ...] = ()
+    behavior_planes: tuple[str, ...] = ()
+    cross_plane_relation_ids: tuple[str, ...] = ()
+    typed_commitment_relation_refs: tuple[str, ...] = ()
     summary: str = ""
 
     def __post_init__(self) -> None:
@@ -855,6 +1097,19 @@ class ModelSimilarityReport:
         object.__setattr__(self, "risk_template_ids", _as_tuple(self.risk_template_ids))
         object.__setattr__(self, "known_bad_case_ids", _as_tuple(self.known_bad_case_ids))
         object.__setattr__(self, "evidence_gate_ids", _as_tuple(self.evidence_gate_ids))
+        object.__setattr__(self, "business_intent_ids", _as_tuple(self.business_intent_ids))
+        object.__setattr__(self, "behavior_commitment_ids", _as_tuple(self.behavior_commitment_ids))
+        object.__setattr__(self, "primary_path_ids", _as_tuple(self.primary_path_ids))
+        object.__setattr__(self, "expected_surface_ids", _as_tuple(self.expected_surface_ids))
+        object.__setattr__(self, "affected_surface_ids", _as_tuple(self.affected_surface_ids))
+        object.__setattr__(self, "missing_surface_ids", _as_tuple(self.missing_surface_ids))
+        object.__setattr__(self, "behavior_planes", _as_tuple(self.behavior_planes))
+        object.__setattr__(self, "cross_plane_relation_ids", _as_tuple(self.cross_plane_relation_ids))
+        object.__setattr__(
+            self,
+            "typed_commitment_relation_refs",
+            _as_tuple(self.typed_commitment_relation_refs),
+        )
         if not self.summary:
             object.__setattr__(
                 self,
@@ -935,6 +1190,8 @@ class ModelSimilarityReport:
                     f"models: {relation.left_model_id} <-> {relation.right_model_id}",
                     f"confidence: {relation.confidence}",
                     f"recommendation: {relation.recommendation}",
+                    f"behavior_planes: {relation.left_behavior_plane or '(unspecified)'} <-> {relation.right_behavior_plane or '(unspecified)'}",
+                    f"typed_commitment_relations: {', '.join(relation.typed_commitment_relation_refs) or '(none)'}",
                     f"routes: {', '.join(relation.required_next_routes) or '(none)'}",
                     f"matched: {', '.join(relation.matched_elements) or '(none)'}",
                     f"different: {', '.join(relation.different_elements) or '(none)'}",
@@ -969,6 +1226,15 @@ class ModelSimilarityReport:
             "risk_template_ids": list(self.risk_template_ids),
             "known_bad_case_ids": list(self.known_bad_case_ids),
             "evidence_gate_ids": list(self.evidence_gate_ids),
+            "business_intent_ids": list(self.business_intent_ids),
+            "behavior_commitment_ids": list(self.behavior_commitment_ids),
+            "primary_path_ids": list(self.primary_path_ids),
+            "expected_surface_ids": list(self.expected_surface_ids),
+            "affected_surface_ids": list(self.affected_surface_ids),
+            "missing_surface_ids": list(self.missing_surface_ids),
+            "behavior_planes": list(self.behavior_planes),
+            "cross_plane_relation_ids": list(self.cross_plane_relation_ids),
+            "typed_commitment_relation_refs": list(self.typed_commitment_relation_refs),
             "summary": self.summary,
         }
 
@@ -995,6 +1261,23 @@ class ModelSimilarityReport:
             ),
             test_obligation_ids=tuple(obligation.obligation_id for obligation in self.test_obligations),
             code_obligation_ids=tuple(obligation.obligation_id for obligation in self.code_obligations),
+            test_obligations=self.test_obligations,
+            code_obligations=self.code_obligations,
+            business_intent_ids=self.business_intent_ids,
+            behavior_commitment_ids=self.behavior_commitment_ids,
+            primary_path_ids=self.primary_path_ids,
+            expected_surface_ids=self.expected_surface_ids,
+            affected_surface_ids=self.affected_surface_ids,
+            missing_surface_ids=self.missing_surface_ids,
+            behavior_planes=self.behavior_planes,
+            cross_plane_relation_ids=self.cross_plane_relation_ids,
+            typed_commitment_relation_refs=self.typed_commitment_relation_refs,
+            matched_elements=_unique(
+                item for relation in self.relations for item in relation.matched_elements
+            ),
+            different_elements=_unique(
+                item for relation in self.relations for item in relation.different_elements
+            ),
             risk_template_ids=self.risk_template_ids,
             known_bad_case_ids=self.known_bad_case_ids,
             evidence_gate_ids=self.evidence_gate_ids,
@@ -1041,6 +1324,10 @@ def _matching_elements(left: ModelSignature, right: ModelSignature) -> tuple[str
         ("public_behavior", left.owned_public_behaviors, right.owned_public_behaviors),
         ("business_path", left.business_path_ids, right.business_path_ids),
         ("business_intent", left.business_intents, right.business_intents),
+        ("business_intent_id", left.business_intent_ids, right.business_intent_ids),
+        ("behavior_commitment_id", left.behavior_commitment_ids, right.behavior_commitment_ids),
+        ("primary_path_id", left.primary_path_ids, right.primary_path_ids),
+        ("public_surface_id", left.public_surface_ids, right.public_surface_ids),
         ("business_terminal", left.path_terminals, right.path_terminals),
         ("maintenance_tag", left.maintenance_tags, right.maintenance_tags),
         ("evidence", left.evidence_ids, right.evidence_ids),
@@ -1053,6 +1340,8 @@ def _matching_elements(left: ModelSignature, right: ModelSignature) -> tuple[str
 
 def _different_elements(left: ModelSignature, right: ModelSignature) -> tuple[str, ...]:
     differences: list[str] = []
+    if left.behavior_plane and right.behavior_plane and left.behavior_plane != right.behavior_plane:
+        differences.append(f"behavior_plane:{left.behavior_plane}!={right.behavior_plane}")
     if left.variant_id and right.variant_id and left.variant_id != right.variant_id:
         differences.append(f"variant:{left.variant_id}!={right.variant_id}")
     for label, left_values, right_values in (
@@ -1067,6 +1356,10 @@ def _different_elements(left: ModelSignature, right: ModelSignature) -> tuple[st
         ("public_behavior", left.owned_public_behaviors, right.owned_public_behaviors),
         ("business_path", left.business_path_ids, right.business_path_ids),
         ("business_intent", left.business_intents, right.business_intents),
+        ("business_intent_id", left.business_intent_ids, right.business_intent_ids),
+        ("behavior_commitment_id", left.behavior_commitment_ids, right.behavior_commitment_ids),
+        ("primary_path_id", left.primary_path_ids, right.primary_path_ids),
+        ("public_surface_id", left.public_surface_ids, right.public_surface_ids),
         ("business_terminal", left.path_terminals, right.path_terminals),
         ("adapter", left.adapter_ids, right.adapter_ids),
     ):
@@ -1095,6 +1388,7 @@ def _material_conflict(left: ModelSignature, right: ModelSignature) -> bool:
         | set(left.owned_public_behaviors)
         | set(left.business_path_ids)
         | set(left.business_intents)
+        | set(left.business_intent_ids)
     ).intersection(
         set(right.function_blocks)
         | set(right.state_owned)
@@ -1106,6 +1400,7 @@ def _material_conflict(left: ModelSignature, right: ModelSignature) -> bool:
         | set(right.owned_public_behaviors)
         | set(right.business_path_ids)
         | set(right.business_intents)
+        | set(right.business_intent_ids)
     )
     return not shared_behavior and (
         bool(left.state_owned or left.side_effects_owned or left.failure_modes)
@@ -1183,9 +1478,12 @@ def _classify_pair(left: ModelSignature, right: ModelSignature) -> str:
     evidence_overlap = bool(_intersection(left.evidence_ids, right.evidence_ids))
     business_path_overlap = bool(_intersection(left.business_path_ids, right.business_path_ids))
     business_intent_overlap = bool(_intersection(left.business_intents, right.business_intents))
+    stable_business_intent_overlap = bool(
+        _intersection(left.business_intent_ids, right.business_intent_ids)
+    )
     business_terminal_overlap = bool(_intersection(left.path_terminals, right.path_terminals))
     business_terminal_divergence = bool(
-        (business_path_overlap or business_intent_overlap)
+        (business_path_overlap or business_intent_overlap or stable_business_intent_overlap)
         and left.path_terminals
         and right.path_terminals
         and not business_terminal_overlap
@@ -1199,6 +1497,8 @@ def _classify_pair(left: ModelSignature, right: ModelSignature) -> str:
     false_friend_declared = right.model_id in left.false_friend_model_ids or left.model_id in right.false_friend_model_ids
     same_shared_kernel = bool(left.shared_kernel_id and left.shared_kernel_id == right.shared_kernel_id)
 
+    if left.behavior_plane and right.behavior_plane and left.behavior_plane != right.behavior_plane:
+        return RELATION_FALSE_FRIEND
     if business_terminal_divergence:
         return RELATION_FALSE_FRIEND
     if false_friend_declared or ((_has_name_overlap(left, right) or same_family) and _material_conflict(left, right)):
@@ -1210,6 +1510,10 @@ def _classify_pair(left: ModelSignature, right: ModelSignature) -> str:
     if same_family and different_variants and (function_overlap or failure_overlap or invariant_overlap):
         return RELATION_SAME_FAMILY_VARIANT
     if same_family and (function_overlap or failure_overlap) and not different_variants:
+        return RELATION_SAME_WORKFLOW
+    if stable_business_intent_overlap and business_terminal_overlap:
+        return RELATION_DUPLICATE_BOUNDARY
+    if stable_business_intent_overlap:
         return RELATION_SAME_WORKFLOW
     if business_path_overlap and (state_overlap or side_effect_overlap or function_overlap):
         return RELATION_DUPLICATE_BOUNDARY
@@ -1274,6 +1578,7 @@ def _build_relation(
     *,
     evidence: Sequence[ModelSimilarityEvidence],
     require_current_evidence: bool,
+    require_behavior_plane_identity: bool,
 ) -> tuple[ModelSimilarityRelation, tuple[ModelSimilarityFinding, ...]]:
     relation_type = _classify_pair(left, right)
     relation_id = _relation_id(left, right, relation_type)
@@ -1282,9 +1587,62 @@ def _build_relation(
     different = _different_elements(left, right)
     relation_evidence = _evidence_for_relation(relation_id, left, right, evidence)
     evidence_refs = tuple(item.evidence_id for item in relation_evidence if item.is_current_pass())
+    compared_planes = _unique((left.behavior_plane, right.behavior_plane))
+    typed_relation_refs = _unique(
+        left.typed_commitment_relation_refs
+        + right.typed_commitment_relation_refs
+        + tuple(
+            relation_ref
+            for item in relation_evidence
+            for relation_ref in item.typed_commitment_relation_refs
+        )
+    )
     required_evidence: list[str] = []
     findings: list[ModelSimilarityFinding] = []
     current_signature_evidence = left.evidence_current and right.evidence_current
+    cross_plane = bool(
+        left.behavior_plane
+        and right.behavior_plane
+        and left.behavior_plane != right.behavior_plane
+    )
+
+    if require_behavior_plane_identity:
+        expected_planes = set(compared_planes)
+        for item in relation_evidence:
+            actual_planes = set(item.compared_behavior_planes)
+            if actual_planes != expected_planes:
+                findings.append(
+                    ModelSimilarityFinding(
+                        "similarity_evidence_behavior_plane_mismatch",
+                        "similarity relation evidence does not bind the compared behavior planes",
+                        relation_id=relation_id,
+                        item_id=item.evidence_id,
+                        metadata={
+                            "expected": sorted(expected_planes),
+                            "actual": sorted(actual_planes),
+                        },
+                    )
+                )
+
+    if cross_plane:
+        findings.append(
+            ModelSimilarityFinding(
+                "behavior_plane_conflict",
+                (
+                    "cross-plane similarity is quarantined as false-friend context; "
+                    "typed commitment relations are preserved without merging owners"
+                    if typed_relation_refs
+                    else "cross-plane shared language has no typed commitment context and cannot support consolidation"
+                ),
+                severity="warning",
+                relation_id=relation_id,
+                metadata={
+                    "left_behavior_plane": left.behavior_plane,
+                    "right_behavior_plane": right.behavior_plane,
+                    "typed_commitment_relation_refs": list(typed_relation_refs),
+                },
+            )
+        )
 
     if relation_type not in {RELATION_UNRELATED, RELATION_FALSE_FRIEND, RELATION_MANUAL_REVIEW}:
         required_evidence.append("current_similarity_evidence")
@@ -1316,6 +1674,13 @@ def _build_relation(
     if relation_type == RELATION_UNRELATED:
         confidence = CONFIDENCE_FULL
 
+    rationale = _rationale_for_relation(relation_type, matched, different)
+    if cross_plane:
+        rationale = (
+            "The models use language from different behavior planes; typed BCL context is retained while owner boundaries remain separate."
+            if typed_relation_refs
+            else "The models use similar language in different behavior planes and are quarantined as false friends."
+        )
     relation = ModelSimilarityRelation(
         relation_id=relation_id,
         left_model_id=left.model_id,
@@ -1330,8 +1695,11 @@ def _build_relation(
         required_next_routes=routes,
         required_evidence=tuple(required_evidence),
         evidence_refs=evidence_refs,
-        rationale=_rationale_for_relation(relation_type, matched, different),
+        rationale=rationale,
         manual_review_required=relation_type in {RELATION_FALSE_FRIEND, RELATION_MANUAL_REVIEW},
+        left_behavior_plane=left.behavior_plane,
+        right_behavior_plane=right.behavior_plane,
+        typed_commitment_relation_refs=typed_relation_refs,
     )
     return relation, tuple(findings)
 
@@ -1490,6 +1858,16 @@ def _derive_maintenance_groups(
                 required_next_routes=_unique(
                     [route for relation in group_relations for route in relation.required_next_routes]
                 ),
+                behavior_planes=_unique(
+                    [signature.behavior_plane for signature in signatures if signature.behavior_plane]
+                ),
+                typed_commitment_relation_refs=_unique(
+                    [
+                        relation_ref
+                        for signature in signatures
+                        for relation_ref in signature.typed_commitment_relation_refs
+                    ]
+                ),
                 rationale="Connected model-similarity relations require these models to be maintained together.",
             )
         )
@@ -1550,6 +1928,8 @@ def _derive_test_obligations(
     obligations: list[ModelSimilarityTestObligation] = []
     findings: list[ModelSimilarityFinding] = []
     for group in groups:
+        group_signatures = tuple(signatures_by_id[model_id] for model_id in group.member_model_ids)
+        identity_fields = _material_obligation_identity(group_signatures)
         if group.shared_elements:
             obligations.append(
                 ModelSimilarityTestObligation(
@@ -1560,6 +1940,9 @@ def _derive_test_obligations(
                     behaviors=group.shared_elements,
                     test_paths=group.test_paths,
                     relation_ids=group.relation_ids,
+                    matched_elements=group.shared_elements,
+                    different_elements=group.variant_elements,
+                    **identity_fields,
                     rationale="Shared behavior in a maintenance group needs tests that prove the family, not only one member.",
                 )
             )
@@ -1573,6 +1956,9 @@ def _derive_test_obligations(
                     behaviors=group.variant_elements,
                     test_paths=group.test_paths,
                     relation_ids=group.relation_ids,
+                    matched_elements=group.shared_elements,
+                    different_elements=group.variant_elements,
+                    **identity_fields,
                     rationale="Variant-specific behavior needs per-member tests so shared-kernel work does not erase differences.",
                 )
             )
@@ -1601,6 +1987,35 @@ def _group_for_relation(
     return ""
 
 
+def _material_obligation_identity(
+    signatures: Sequence[ModelSignature],
+) -> dict[str, tuple[str, ...]]:
+    """Material stable identity and surface scope carried by every obligation."""
+
+    return {
+        "business_intent_ids": _unique(
+            item for signature in signatures for item in signature.business_intent_ids
+        ),
+        "behavior_commitment_ids": _unique(
+            item for signature in signatures for item in signature.behavior_commitment_ids
+        ),
+        "primary_path_ids": _unique(
+            item for signature in signatures for item in signature.primary_path_ids
+        ),
+        "surface_ids": _unique(
+            item for signature in signatures for item in signature.public_surface_ids
+        ),
+        "behavior_planes": _unique(
+            signature.behavior_plane for signature in signatures if signature.behavior_plane
+        ),
+        "typed_commitment_relation_refs": _unique(
+            item
+            for signature in signatures
+            for item in signature.typed_commitment_relation_refs
+        ),
+    }
+
+
 def _shared_kernel_owner(
     signatures: Sequence[ModelSignature],
     group_id: str,
@@ -1622,6 +2037,9 @@ def _derive_code_obligations(
     obligations: list[ModelSimilarityCodeObligation] = []
     for group in groups:
         if group.shared_kernel_ids or group.adapter_ids:
+            group_signatures = tuple(
+                signatures_by_id[model_id] for model_id in group.member_model_ids
+            )
             obligations.append(
                 ModelSimilarityCodeObligation(
                     obligation_id=f"{group.group_id}:shared-kernel",
@@ -1638,12 +2056,16 @@ def _derive_code_obligations(
                     adapter_owners=group.adapter_ids,
                     code_paths=group.code_paths,
                     required_next_routes=group.required_next_routes,
+                    matched_elements=group.shared_elements,
+                    different_elements=group.variant_elements,
+                    **_material_obligation_identity(group_signatures),
                     rationale="The maintenance group declares shared-kernel or adapter metadata that should drive code structure review.",
                 )
             )
     for relation in relations:
         model_ids = (relation.left_model_id, relation.right_model_id)
         signatures = tuple(signatures_by_id[model_id] for model_id in model_ids if model_id in signatures_by_id)
+        identity_fields = _material_obligation_identity(signatures)
         group_id = _group_for_relation(groups, relation)
         code_paths = _unique([path for signature in signatures for path in signature.code_paths])
         adapter_owners = _unique(
@@ -1665,6 +2087,9 @@ def _derive_code_obligations(
                     adapter_owners=adapter_owners,
                     code_paths=code_paths,
                     required_next_routes=relation.required_next_routes,
+                    matched_elements=relation.matched_elements,
+                    different_elements=relation.different_elements,
+                    **identity_fields,
                     rationale="Similarity suggests a shared kernel with variant or adapter owners, subject to downstream structure evidence.",
                 )
             )
@@ -1679,6 +2104,9 @@ def _derive_code_obligations(
                     adapter_owners=adapter_owners,
                     code_paths=code_paths,
                     required_next_routes=relation.required_next_routes,
+                    matched_elements=relation.matched_elements,
+                    different_elements=relation.different_elements,
+                    **identity_fields,
                     rationale="Duplicate or adapter-only boundaries are maintenance debt until Architecture Reduction evidence proves contraction is safe.",
                 )
             )
@@ -1692,6 +2120,9 @@ def _derive_code_obligations(
                     relation_ids=(relation.relation_id,),
                     code_paths=code_paths,
                     required_next_routes=relation.required_next_routes,
+                    matched_elements=relation.matched_elements,
+                    different_elements=relation.different_elements,
+                    **identity_fields,
                     rationale="Overlapping ownership needs model-mesh review before one side is treated as safely maintained.",
                 )
             )
@@ -1704,6 +2135,9 @@ def _derive_code_obligations(
                     relation_ids=(relation.relation_id,),
                     code_paths=code_paths,
                     required_next_routes=relation.required_next_routes,
+                    matched_elements=relation.matched_elements,
+                    different_elements=relation.different_elements,
+                    **identity_fields,
                     rationale="False-friend similarity keeps code and test maintenance separate unless manual review proves otherwise.",
                 )
             )
@@ -1741,6 +2175,10 @@ def review_model_similarity_consolidation(plan: ModelSimilarityPlan) -> ModelSim
         )
 
     signatures_by_id: dict[str, ModelSignature] = {}
+    plane_identity_active = plan.require_behavior_plane_identity or any(
+        signature.behavior_plane or signature.multi_plane_scope_reason
+        for signature in plan.signatures
+    )
     for signature in plan.signatures:
         if not signature.model_id:
             findings.append(
@@ -1769,6 +2207,73 @@ def review_model_similarity_consolidation(plan: ModelSimilarityPlan) -> ModelSim
                     metadata=signature.to_dict(),
                 )
             )
+        if plane_identity_active:
+            if not signature.behavior_plane and not signature.multi_plane_scope_reason:
+                findings.append(
+                    ModelSimilarityFinding(
+                        "missing_behavior_plane_identity",
+                        "model signature must declare one behavior plane or an explicit multi-plane scope reason",
+                        model_id=signature.model_id,
+                    )
+                )
+            elif signature.behavior_plane and signature.behavior_plane not in BCL_BEHAVIOR_PLANES:
+                findings.append(
+                    ModelSimilarityFinding(
+                        "invalid_behavior_plane",
+                        "model signature declares an unsupported behavior plane",
+                        model_id=signature.model_id,
+                        metadata={
+                            "actual": signature.behavior_plane,
+                            "allowed": list(BCL_BEHAVIOR_PLANES),
+                        },
+                    )
+                )
+        if plan.require_stable_authority_identity:
+            for field_name in (
+                "business_intent_ids",
+                "behavior_commitment_ids",
+                "primary_path_ids",
+            ):
+                if not getattr(signature, field_name):
+                    findings.append(
+                        ModelSimilarityFinding(
+                            f"missing_stable_{field_name}",
+                            f"stable-authority similarity review requires {field_name} on every signature",
+                            model_id=signature.model_id,
+                        )
+                    )
+
+    affected_surface_ids = _unique(
+        item for signature in signatures_by_id.values() for item in signature.public_surface_ids
+    )
+    missing_surface_ids = tuple(
+        surface_id
+        for surface_id in plan.expected_surface_ids
+        if surface_id not in affected_surface_ids
+    )
+    if plan.require_complete_surface_inventory:
+        if not plan.surface_inventory_revision:
+            findings.append(
+                ModelSimilarityFinding(
+                    "missing_similarity_surface_inventory_revision",
+                    "complete similarity review requires a revision for the discovered surface inventory",
+                )
+            )
+        if not plan.expected_surface_ids:
+            findings.append(
+                ModelSimilarityFinding(
+                    "missing_expected_similarity_surface_set",
+                    "complete similarity review requires an explicit expected surface set",
+                )
+            )
+    for surface_id in missing_surface_ids:
+        findings.append(
+            ModelSimilarityFinding(
+                "missing_expected_similarity_surface",
+                "expected same-intent surface is absent from the compared model signatures",
+                item_id=surface_id,
+            )
+        )
 
     pairs = plan.comparison_pairs
     if not pairs and len(signatures_by_id) >= 2:
@@ -1792,6 +2297,7 @@ def review_model_similarity_consolidation(plan: ModelSimilarityPlan) -> ModelSim
             right,
             evidence=plan.evidence,
             require_current_evidence=plan.require_current_evidence,
+            require_behavior_plane_identity=plane_identity_active,
         )
         relations.append(relation)
         findings.extend(relation_findings)
@@ -1813,6 +2319,15 @@ def review_model_similarity_consolidation(plan: ModelSimilarityPlan) -> ModelSim
     code_obligations = _derive_code_obligations(signatures_by_id, relations, maintenance_groups)
     findings.extend(impact_findings)
     findings.extend(test_findings)
+    if plan.require_stable_authority_identity and relations and not (
+        test_obligations or code_obligations
+    ):
+        findings.append(
+            ModelSimilarityFinding(
+                "unmaterialized_similarity_obligation",
+                "stable-authority similarity review must materialize a test or code obligation",
+            )
+        )
 
     recommended_routes = tuple(
         sorted(
@@ -1858,6 +2373,35 @@ def review_model_similarity_consolidation(plan: ModelSimilarityPlan) -> ModelSim
         risk_template_ids=risk_template_ids,
         known_bad_case_ids=known_bad_case_ids,
         evidence_gate_ids=evidence_gate_ids,
+        business_intent_ids=_unique(
+            item for signature in signatures_by_id.values() for item in signature.business_intent_ids
+        ),
+        behavior_commitment_ids=_unique(
+            item for signature in signatures_by_id.values() for item in signature.behavior_commitment_ids
+        ),
+        primary_path_ids=_unique(
+            item for signature in signatures_by_id.values() for item in signature.primary_path_ids
+        ),
+        expected_surface_ids=plan.expected_surface_ids,
+        affected_surface_ids=affected_surface_ids,
+        missing_surface_ids=missing_surface_ids,
+        behavior_planes=_unique(
+            signature.behavior_plane
+            for signature in signatures_by_id.values()
+            if signature.behavior_plane
+        ),
+        cross_plane_relation_ids=tuple(
+            relation.relation_id
+            for relation in relations
+            if relation.left_behavior_plane
+            and relation.right_behavior_plane
+            and relation.left_behavior_plane != relation.right_behavior_plane
+        ),
+        typed_commitment_relation_refs=_unique(
+            relation_ref
+            for relation in relations
+            for relation_ref in relation.typed_commitment_relation_refs
+        ),
     )
 
 

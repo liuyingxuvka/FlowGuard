@@ -29,8 +29,8 @@ def family(**kwargs):
         "required_mechanisms": ("result_envelope_to_return_event",),
         "allowed_provenance": (FAMILY_EVIDENCE_PROVENANCE_DURABLE_RECONCILIATION,),
         "members": (
-            ObligationFamilyMember("material"),
-            ObligationFamilyMember("research"),
+            ObligationFamilyMember("material", obligation_ids=("obligation:material",)),
+            ObligationFamilyMember("research", obligation_ids=("obligation:research",)),
         ),
     }
     defaults.update(kwargs)
@@ -45,6 +45,7 @@ def evidence(evidence_id, member_id, **kwargs):
         "provenance": FAMILY_EVIDENCE_PROVENANCE_DURABLE_RECONCILIATION,
         "result_status": FAMILY_EVIDENCE_STATUS_PASSED,
         "current": True,
+        "covered_obligations": (f"obligation:{member_id}",),
     }
     defaults.update(kwargs)
     return ObligationFamilyEvidence(evidence_id, **defaults)
@@ -80,6 +81,65 @@ class ObligationFamilyParityTests(unittest.TestCase):
         self.assertIn("missing_family_member_mechanism_evidence", finding_codes(report))
         missing = [cell for cell in report.coverage_matrix if cell.member_id == "research"][0]
         self.assertEqual("missing", missing.status)
+
+    def test_expected_member_inventory_is_independent_and_revisioned(self):
+        report = review_obligation_family_parity(
+            (
+                family(
+                    expected_member_ids=("material", "research", "current_node"),
+                    inventory_revision="family:v2",
+                    inventory_source_ref="preflight:packet-result:v2",
+                    require_complete_inventory=True,
+                    scoped_member_reasons={"current_node": "owned by a separately reviewed release surface"},
+                ),
+            ),
+            (
+                evidence("material-reconcile", "material"),
+                evidence("research-reconcile", "research"),
+            ),
+        )
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual(("packet-result:current_node",), report.scoped_member_ids)
+        self.assertEqual("family:v2", report.inventory_revisions["packet-result"])
+
+    def test_omitted_expected_member_blocks_complete_family_claim(self):
+        report = review_obligation_family_parity(
+            (
+                family(
+                    expected_member_ids=("material", "research", "current_node"),
+                    inventory_revision="family:v2",
+                    inventory_source_ref="preflight:packet-result:v2",
+                    require_complete_inventory=True,
+                ),
+            ),
+            (
+                evidence("material-reconcile", "material"),
+                evidence("research-reconcile", "research"),
+            ),
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("expected_family_member_missing", finding_codes(report))
+        self.assertEqual(("packet-result:current_node",), report.missing_member_ids)
+
+    def test_family_evidence_must_bind_exact_member_obligations(self):
+        report = review_obligation_family_parity(
+            (family(),),
+            (
+                evidence(
+                    "material-reconcile",
+                    "material",
+                    covered_obligations=("obligation:research",),
+                ),
+                evidence("research-reconcile", "research"),
+            ),
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("family_evidence_sibling_obligation_reference", finding_codes(report))
+        material = [cell for cell in report.coverage_matrix if cell.member_id == "material"][0]
+        self.assertEqual("invalid_provenance", material.status)
 
     def test_manual_event_cannot_prove_durable_reconciliation(self):
         report = review_obligation_family_parity(

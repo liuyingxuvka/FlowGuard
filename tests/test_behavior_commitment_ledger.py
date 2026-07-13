@@ -4,16 +4,20 @@ import unittest
 from pathlib import Path
 
 from flowguard import (
+    BCL_ACTOR_END_USER,
     BCL_COMMITMENT_WORKFLOW,
     BCL_EVIDENCE_CURRENT_PASS,
     BCL_MISS_ORIGIN_OBSERVED,
     BCL_MODEL_SYNC_OWNER_STALE,
+    BCL_PLANE_PRODUCT_RUNTIME,
+    BCL_RELATION_DEPENDS_ON,
     BCL_REPLACEMENT_REPLACED,
     BCL_SCOPE_FULL,
     BCL_SOURCE_DOC,
     BCL_SOURCE_FRESHNESS_CHANGED,
     BCL_TEST_MESH_SHARD_MISSING,
     BehaviorCommitment,
+    BehaviorCommitmentRelation,
     BehaviorCommitmentLedger,
     BehaviorEvidenceBinding,
     BehaviorSourceSurface,
@@ -44,6 +48,7 @@ def surface(**kwargs):
         "label": "docs workflow surface",
         "source_ref": "README.md#usage",
         "commitment_ids": ("commitment:workflow",),
+        "business_intent_ids": ("intent:workflow",),
         "owner": "docs-owner",
         "validation_boundary": "docs and tests",
         "rationale": "public docs expose the behavior",
@@ -55,11 +60,15 @@ def surface(**kwargs):
 def commitment(**kwargs):
     defaults = {
         "commitment_id": "commitment:workflow",
+        "business_intent_id": "intent:workflow",
         "label": "run workflow",
         "commitment_kind": BCL_COMMITMENT_WORKFLOW,
+        "behavior_plane": BCL_PLANE_PRODUCT_RUNTIME,
+        "actor_kind": BCL_ACTOR_END_USER,
         "actor": "user",
         "trigger": "runs the documented command",
         "expected_result": "documented success or visible repairable error",
+        "expected_terminal": "documented success or visible repairable error",
         "failure_boundary": "fail closed with repair information",
         "source_surface_ids": ("surface:docs-workflow",),
         "primary_owner_model_id": "model:workflow",
@@ -81,6 +90,7 @@ def ledger(*, commitments=None, surfaces=None, expected=None, **kwargs):
         "validation_boundary": "full behavior claim",
         "rationale": "register all external behavior promises",
         "expected_commitment_ids": expected or ("commitment:workflow",),
+        "expected_business_intent_ids": ("intent:workflow",),
         "source_surfaces": tuple(surfaces if surfaces is not None else (surface(),)),
         "commitments": tuple(commitments if commitments is not None else (commitment(),)),
     }
@@ -201,11 +211,53 @@ class BehaviorCommitmentLedgerTests(unittest.TestCase):
 
     def test_unknown_dependency_blocks(self):
         report = review_behavior_commitment_ledger(
-            ledger(commitments=(commitment(dependency_commitment_ids=("commitment:missing",)),))
+            ledger(
+                commitments=(
+                    commitment(
+                        relations=(
+                            BehaviorCommitmentRelation(
+                                "commitment:missing",
+                                BCL_RELATION_DEPENDS_ON,
+                                rationale="workflow depends on missing external promise",
+                            ),
+                        ),
+                    ),
+                )
+            )
         )
 
         self.assertFalse(report.ok)
-        self.assertIn("commitment_dependency_unknown", codes(report))
+        self.assertIn("commitment_relation_target_unknown", codes(report))
+
+    def test_same_exact_intent_cannot_create_second_active_commitment(self):
+        report = review_behavior_commitment_ledger(
+            ledger(
+                commitments=(
+                    commitment(),
+                    commitment(commitment_id="commitment:workflow-parallel"),
+                ),
+                surfaces=(
+                    surface(
+                        commitment_ids=(
+                            "commitment:workflow",
+                            "commitment:workflow-parallel",
+                        )
+                    ),
+                ),
+                expected=("commitment:workflow", "commitment:workflow-parallel"),
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("duplicate_exact_intent_commitment", codes(report))
+
+    def test_delegate_surface_must_not_be_registered_as_second_commitment(self):
+        report = review_behavior_commitment_ledger(
+            ledger(commitments=(commitment(surface_delegation_only=True),))
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("delegate_commitment_forbidden", codes(report))
 
     def test_scoped_out_commitment_requires_disposition(self):
         report = review_behavior_commitment_ledger(

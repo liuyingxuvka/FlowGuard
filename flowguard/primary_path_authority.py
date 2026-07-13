@@ -14,6 +14,11 @@ from .contract_exhaustion import (
     ContractOracle,
 )
 from .export import to_jsonable
+from .proof_artifact import (
+    ProofArtifactRef,
+    coerce_proof_artifact_ref,
+    proof_artifact_gap_codes,
+)
 
 
 PRIMARY_PATH_ROUTE_ID = "primary_path_authority"
@@ -214,38 +219,69 @@ class PrimaryPathContract:
 
     business_path_id: str
     business_intent: str = ""
+    business_intent_id: str = ""
+    behavior_commitment_id: str = ""
     primary_entrypoint_id: str = ""
     owner_model_id: str = ""
     owner_code_contract_id: str = ""
     expected_terminal: str = ""
+    preconditions: tuple[str, ...] = ()
+    state_writes: tuple[str, ...] = ()
+    side_effects: tuple[str, ...] = ()
     failure_policy: str = PPA_FAILURE_POLICY_FAIL_CLOSED
     allowed_error_state_ids: tuple[str, ...] = ()
     evidence_ids: tuple[str, ...] = ()
+    runtime_evidence_state: str = ""
+    runtime_observation_ids: tuple[str, ...] = ()
+    required_obligation_ids: tuple[str, ...] = ()
+    proof_artifact: ProofArtifactRef | Mapping[str, Any] | None = None
+    source_surface_ids: tuple[str, ...] = ()
+    replaces_primary_path_id: str = ""
+    old_primary_path_disposition: str = ""
+    replacement_evidence_ids: tuple[str, ...] = ()
     authority_role: str = PPA_AUTHORITY_PRIMARY
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "business_path_id", str(self.business_path_id))
         object.__setattr__(self, "business_intent", str(self.business_intent))
+        object.__setattr__(self, "business_intent_id", str(self.business_intent_id))
+        object.__setattr__(self, "behavior_commitment_id", str(self.behavior_commitment_id))
         object.__setattr__(self, "primary_entrypoint_id", str(self.primary_entrypoint_id))
         object.__setattr__(self, "owner_model_id", str(self.owner_model_id))
         object.__setattr__(self, "owner_code_contract_id", str(self.owner_code_contract_id))
         object.__setattr__(self, "expected_terminal", str(self.expected_terminal))
+        object.__setattr__(self, "preconditions", _as_tuple(self.preconditions))
+        object.__setattr__(self, "state_writes", _as_tuple(self.state_writes))
+        object.__setattr__(self, "side_effects", _as_tuple(self.side_effects))
         object.__setattr__(self, "failure_policy", str(self.failure_policy))
         object.__setattr__(self, "allowed_error_state_ids", _as_tuple(self.allowed_error_state_ids))
         object.__setattr__(self, "evidence_ids", _as_tuple(self.evidence_ids))
+        object.__setattr__(self, "runtime_evidence_state", str(self.runtime_evidence_state))
+        object.__setattr__(self, "runtime_observation_ids", _as_tuple(self.runtime_observation_ids))
+        object.__setattr__(self, "required_obligation_ids", _as_tuple(self.required_obligation_ids))
+        object.__setattr__(self, "proof_artifact", coerce_proof_artifact_ref(self.proof_artifact))
+        object.__setattr__(self, "source_surface_ids", _as_tuple(self.source_surface_ids))
+        object.__setattr__(self, "replaces_primary_path_id", str(self.replaces_primary_path_id))
+        object.__setattr__(self, "old_primary_path_disposition", str(self.old_primary_path_disposition))
+        object.__setattr__(self, "replacement_evidence_ids", _as_tuple(self.replacement_evidence_ids))
         object.__setattr__(self, "authority_role", str(self.authority_role or PPA_AUTHORITY_PRIMARY))
         object.__setattr__(self, "metadata", _metadata(self.metadata))
 
     def identity_key(self) -> tuple[str, str]:
-        return (self.business_intent.strip().lower(), self.business_path_id.strip().lower())
+        intent_id = self.business_intent_id.strip().lower()
+        if not intent_id:
+            intent_id = self.business_intent.strip().lower()
+        return (intent_id, "exact_business_intent")
 
     def complete(self) -> bool:
         return bool(
             self.business_path_id
+            and (self.business_intent_id or self.business_intent)
             and self.primary_entrypoint_id
             and self.owner_model_id
             and self.owner_code_contract_id
+            and self.expected_terminal
             and self.failure_policy in PPA_FAILURE_POLICIES
         )
 
@@ -253,13 +289,26 @@ class PrimaryPathContract:
         return {
             "business_path_id": self.business_path_id,
             "business_intent": self.business_intent,
+            "business_intent_id": self.business_intent_id,
+            "behavior_commitment_id": self.behavior_commitment_id,
             "primary_entrypoint_id": self.primary_entrypoint_id,
             "owner_model_id": self.owner_model_id,
             "owner_code_contract_id": self.owner_code_contract_id,
             "expected_terminal": self.expected_terminal,
+            "preconditions": list(self.preconditions),
+            "state_writes": list(self.state_writes),
+            "side_effects": list(self.side_effects),
             "failure_policy": self.failure_policy,
             "allowed_error_state_ids": list(self.allowed_error_state_ids),
             "evidence_ids": list(self.evidence_ids),
+            "runtime_evidence_state": self.runtime_evidence_state,
+            "runtime_observation_ids": list(self.runtime_observation_ids),
+            "required_obligation_ids": list(self.required_obligation_ids),
+            "proof_artifact": self.proof_artifact.to_dict() if self.proof_artifact else None,
+            "source_surface_ids": list(self.source_surface_ids),
+            "replaces_primary_path_id": self.replaces_primary_path_id,
+            "old_primary_path_disposition": self.old_primary_path_disposition,
+            "replacement_evidence_ids": list(self.replacement_evidence_ids),
             "authority_role": self.authority_role,
             "metadata": to_jsonable(dict(self.metadata)),
         }
@@ -272,6 +321,13 @@ class FallbackPathCandidate:
     candidate_path_id: str
     fallback_for_path_id: str = ""
     business_intent: str = ""
+    business_intent_id: str = ""
+    behavior_commitment_id: str = ""
+    source_surface_id: str = ""
+    delegates_to_path_id: str = ""
+    expected_terminal: str = ""
+    runtime_observation_ids: tuple[str, ...] = ()
+    proof_artifact: ProofArtifactRef | Mapping[str, Any] | None = None
     candidate_surface: str = PPA_CANDIDATE_UNKNOWN
     candidate_trigger: str = PPA_TRIGGER_NEVER
     candidate_behavior: str = PPA_BEHAVIOR_NO_OP
@@ -292,6 +348,13 @@ class FallbackPathCandidate:
         object.__setattr__(self, "candidate_path_id", str(self.candidate_path_id))
         object.__setattr__(self, "fallback_for_path_id", str(self.fallback_for_path_id))
         object.__setattr__(self, "business_intent", str(self.business_intent))
+        object.__setattr__(self, "business_intent_id", str(self.business_intent_id))
+        object.__setattr__(self, "behavior_commitment_id", str(self.behavior_commitment_id))
+        object.__setattr__(self, "source_surface_id", str(self.source_surface_id))
+        object.__setattr__(self, "delegates_to_path_id", str(self.delegates_to_path_id))
+        object.__setattr__(self, "expected_terminal", str(self.expected_terminal))
+        object.__setattr__(self, "runtime_observation_ids", _as_tuple(self.runtime_observation_ids))
+        object.__setattr__(self, "proof_artifact", coerce_proof_artifact_ref(self.proof_artifact))
         object.__setattr__(self, "candidate_surface", str(self.candidate_surface or PPA_CANDIDATE_UNKNOWN))
         object.__setattr__(self, "candidate_trigger", str(self.candidate_trigger or PPA_TRIGGER_NEVER))
         object.__setattr__(self, "candidate_behavior", str(self.candidate_behavior or PPA_BEHAVIOR_NO_OP))
@@ -319,6 +382,13 @@ class FallbackPathCandidate:
             "candidate_path_id": self.candidate_path_id,
             "fallback_for_path_id": self.fallback_for_path_id,
             "business_intent": self.business_intent,
+            "business_intent_id": self.business_intent_id,
+            "behavior_commitment_id": self.behavior_commitment_id,
+            "source_surface_id": self.source_surface_id,
+            "delegates_to_path_id": self.delegates_to_path_id,
+            "expected_terminal": self.expected_terminal,
+            "runtime_observation_ids": list(self.runtime_observation_ids),
+            "proof_artifact": self.proof_artifact.to_dict() if self.proof_artifact else None,
             "candidate_surface": self.candidate_surface,
             "candidate_trigger": self.candidate_trigger,
             "candidate_behavior": self.candidate_behavior,
@@ -351,6 +421,16 @@ class PrimaryPathAuthorityPlan:
     coverage_receipt_ids: tuple[str, ...] = ()
     risk_gate_ids: tuple[str, ...] = ()
     expected_business_intents: tuple[str, ...] = ()
+    expected_business_intent_ids: tuple[str, ...] = ()
+    expected_candidate_ids: tuple[str, ...] = ()
+    expected_surface_ids: tuple[str, ...] = ()
+    inventory_revision: str = ""
+    inventory_evidence_ids: tuple[str, ...] = ()
+    preflight_id: str = ""
+    behavior_commitment_ledger_id: str = ""
+    existing_current_path_ids: tuple[str, ...] = ()
+    require_complete_candidate_inventory: bool = False
+    require_material_runtime_evidence: bool = False
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -375,6 +455,16 @@ class PrimaryPathAuthorityPlan:
         object.__setattr__(self, "coverage_receipt_ids", _as_tuple(self.coverage_receipt_ids))
         object.__setattr__(self, "risk_gate_ids", _as_tuple(self.risk_gate_ids))
         object.__setattr__(self, "expected_business_intents", _as_tuple(self.expected_business_intents))
+        object.__setattr__(self, "expected_business_intent_ids", _as_tuple(self.expected_business_intent_ids))
+        object.__setattr__(self, "expected_candidate_ids", _as_tuple(self.expected_candidate_ids))
+        object.__setattr__(self, "expected_surface_ids", _as_tuple(self.expected_surface_ids))
+        object.__setattr__(self, "inventory_revision", str(self.inventory_revision))
+        object.__setattr__(self, "inventory_evidence_ids", _as_tuple(self.inventory_evidence_ids))
+        object.__setattr__(self, "preflight_id", str(self.preflight_id))
+        object.__setattr__(self, "behavior_commitment_ledger_id", str(self.behavior_commitment_ledger_id))
+        object.__setattr__(self, "existing_current_path_ids", _as_tuple(self.existing_current_path_ids))
+        object.__setattr__(self, "require_complete_candidate_inventory", bool(self.require_complete_candidate_inventory))
+        object.__setattr__(self, "require_material_runtime_evidence", bool(self.require_material_runtime_evidence))
         object.__setattr__(self, "metadata", _metadata(self.metadata))
 
     def broad_claim(self) -> bool:
@@ -382,6 +472,23 @@ class PrimaryPathAuthorityPlan:
 
     def coverage_required(self) -> bool:
         return self.require_cartesian_coverage or self.broad_claim()
+
+    def material_authority_required(self) -> bool:
+        return bool(
+            self.require_material_runtime_evidence
+            or self.broad_claim()
+            or self.expected_business_intent_ids
+            or self.expected_candidate_ids
+            or self.expected_surface_ids
+            or self.inventory_revision
+            or self.inventory_evidence_ids
+            or self.preflight_id
+            or self.behavior_commitment_ledger_id
+            or self.existing_current_path_ids
+        )
+
+    def complete_inventory_required(self) -> bool:
+        return self.require_complete_candidate_inventory or self.material_authority_required()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -395,6 +502,16 @@ class PrimaryPathAuthorityPlan:
             "coverage_receipt_ids": list(self.coverage_receipt_ids),
             "risk_gate_ids": list(self.risk_gate_ids),
             "expected_business_intents": list(self.expected_business_intents),
+            "expected_business_intent_ids": list(self.expected_business_intent_ids),
+            "expected_candidate_ids": list(self.expected_candidate_ids),
+            "expected_surface_ids": list(self.expected_surface_ids),
+            "inventory_revision": self.inventory_revision,
+            "inventory_evidence_ids": list(self.inventory_evidence_ids),
+            "preflight_id": self.preflight_id,
+            "behavior_commitment_ledger_id": self.behavior_commitment_ledger_id,
+            "existing_current_path_ids": list(self.existing_current_path_ids),
+            "require_complete_candidate_inventory": self.require_complete_candidate_inventory,
+            "require_material_runtime_evidence": self.require_material_runtime_evidence,
             "metadata": to_jsonable(dict(self.metadata)),
         }
 
@@ -438,8 +555,19 @@ class PrimaryPathAuthorityReport:
     decision: str
     confidence: str
     findings: tuple[PrimaryPathAuthorityFinding, ...] = ()
+    primary_path_id: str = ""
     primary_path_ids: tuple[str, ...] = ()
+    business_intent_id: str = ""
+    business_intent_ids: tuple[str, ...] = ()
+    behavior_commitment_id: str = ""
+    behavior_commitment_ids: tuple[str, ...] = ()
     fallback_candidate_ids: tuple[str, ...] = ()
+    missing_candidate_ids: tuple[str, ...] = ()
+    covered_surface_ids: tuple[str, ...] = ()
+    missing_surface_ids: tuple[str, ...] = ()
+    runtime_observation_ids: tuple[str, ...] = ()
+    proof_artifact_ids: tuple[str, ...] = ()
+    evidence_current: bool = False
     coverage_case_ids: tuple[str, ...] = ()
     coverage_shard_ids: tuple[str, ...] = ()
     coverage_receipt_ids: tuple[str, ...] = ()
@@ -448,8 +576,25 @@ class PrimaryPathAuthorityReport:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "findings", tuple(self.findings))
+        object.__setattr__(self, "primary_path_id", str(self.primary_path_id))
         object.__setattr__(self, "primary_path_ids", _as_tuple(self.primary_path_ids))
+        if not self.primary_path_id and len(self.primary_path_ids) == 1:
+            object.__setattr__(self, "primary_path_id", self.primary_path_ids[0])
+        object.__setattr__(self, "business_intent_id", str(self.business_intent_id))
+        object.__setattr__(self, "business_intent_ids", _as_tuple(self.business_intent_ids))
+        if not self.business_intent_id and len(self.business_intent_ids) == 1:
+            object.__setattr__(self, "business_intent_id", self.business_intent_ids[0])
+        object.__setattr__(self, "behavior_commitment_id", str(self.behavior_commitment_id))
+        object.__setattr__(self, "behavior_commitment_ids", _as_tuple(self.behavior_commitment_ids))
+        if not self.behavior_commitment_id and len(self.behavior_commitment_ids) == 1:
+            object.__setattr__(self, "behavior_commitment_id", self.behavior_commitment_ids[0])
         object.__setattr__(self, "fallback_candidate_ids", _as_tuple(self.fallback_candidate_ids))
+        object.__setattr__(self, "missing_candidate_ids", _as_tuple(self.missing_candidate_ids))
+        object.__setattr__(self, "covered_surface_ids", _as_tuple(self.covered_surface_ids))
+        object.__setattr__(self, "missing_surface_ids", _as_tuple(self.missing_surface_ids))
+        object.__setattr__(self, "runtime_observation_ids", _as_tuple(self.runtime_observation_ids))
+        object.__setattr__(self, "proof_artifact_ids", _as_tuple(self.proof_artifact_ids))
+        object.__setattr__(self, "evidence_current", bool(self.evidence_current))
         object.__setattr__(self, "coverage_case_ids", _as_tuple(self.coverage_case_ids))
         object.__setattr__(self, "coverage_shard_ids", _as_tuple(self.coverage_shard_ids))
         object.__setattr__(self, "coverage_receipt_ids", _as_tuple(self.coverage_receipt_ids))
@@ -497,8 +642,19 @@ class PrimaryPathAuthorityReport:
             "decision": self.decision,
             "confidence": self.confidence,
             "findings": [finding.to_dict() for finding in self.findings],
+            "primary_path_id": self.primary_path_id,
             "primary_path_ids": list(self.primary_path_ids),
+            "business_intent_id": self.business_intent_id,
+            "business_intent_ids": list(self.business_intent_ids),
+            "behavior_commitment_id": self.behavior_commitment_id,
+            "behavior_commitment_ids": list(self.behavior_commitment_ids),
             "fallback_candidate_ids": list(self.fallback_candidate_ids),
+            "missing_candidate_ids": list(self.missing_candidate_ids),
+            "covered_surface_ids": list(self.covered_surface_ids),
+            "missing_surface_ids": list(self.missing_surface_ids),
+            "runtime_observation_ids": list(self.runtime_observation_ids),
+            "proof_artifact_ids": list(self.proof_artifact_ids),
+            "evidence_current": self.evidence_current,
             "coverage_case_ids": list(self.coverage_case_ids),
             "coverage_shard_ids": list(self.coverage_shard_ids),
             "coverage_receipt_ids": list(self.coverage_receipt_ids),
@@ -533,6 +689,7 @@ def review_primary_path_authority(
 
     plan = plan if isinstance(plan, PrimaryPathAuthorityPlan) else PrimaryPathAuthorityPlan(**plan)
     findings: list[PrimaryPathAuthorityFinding] = []
+    material_required = plan.material_authority_required()
 
     if not plan.primary_paths:
         findings.append(_finding("missing_primary_authority", "no primary path contract is declared"))
@@ -570,6 +727,81 @@ def review_primary_path_authority(
                 )
             )
         seen_keys[key] = path
+        if material_required:
+            missing_identity_fields = tuple(
+                field_name
+                for field_name in (
+                    "business_intent_id",
+                    "behavior_commitment_id",
+                )
+                if not getattr(path, field_name)
+            )
+            if missing_identity_fields:
+                findings.append(
+                    _finding(
+                        "primary_path_stable_identity_missing",
+                        "material primary-path authority requires stable business-intent and commitment ids",
+                        path_id=path.business_path_id,
+                        metadata={"missing_fields": list(missing_identity_fields)},
+                    )
+                )
+            if not path.source_surface_ids:
+                findings.append(
+                    _finding(
+                        "primary_path_source_surface_missing",
+                        "material primary-path authority must identify the public surfaces owned by the path",
+                        path_id=path.business_path_id,
+                    )
+                )
+            evidence_gaps = list(
+                proof_artifact_gap_codes(
+                    path.proof_artifact,
+                    declared_status="passed" if path.runtime_evidence_state == PPA_EVIDENCE_CURRENT_PASS else "",
+                    required_obligation_ids=path.required_obligation_ids,
+                    require_result_path=True,
+                    require_fingerprints=True,
+                    require_external_scope=True,
+                )
+            )
+            if path.runtime_evidence_state != PPA_EVIDENCE_CURRENT_PASS:
+                evidence_gaps.append(
+                    ("runtime_evidence_state_not_current_pass", path.runtime_evidence_state or "missing")
+                )
+            if not path.runtime_observation_ids:
+                evidence_gaps.append(("runtime_observation_missing", "no runtime observation ids"))
+            if not path.required_obligation_ids:
+                evidence_gaps.append(("runtime_obligation_missing", "no required obligation ids"))
+            elif path.proof_artifact is not None and not set(path.required_obligation_ids).issubset(
+                path.proof_artifact.covered_obligation_ids
+            ):
+                evidence_gaps.append(
+                    ("runtime_obligation_coverage_incomplete", "proof artifact does not cover every required obligation")
+                )
+            if evidence_gaps:
+                findings.append(
+                    _finding(
+                        "primary_path_runtime_evidence_not_current",
+                        "primary-path authority lacks a current external runtime observation and proof artifact",
+                        path_id=path.business_path_id,
+                        metadata={"gaps": [list(item) for item in evidence_gaps]},
+                    )
+                )
+            if plan.existing_current_path_ids and path.business_path_id not in plan.existing_current_path_ids:
+                replacement_complete = bool(
+                    path.replaces_primary_path_id in plan.existing_current_path_ids
+                    and path.old_primary_path_disposition in PPA_DISPOSITIONS
+                    and path.old_primary_path_disposition != PPA_DISPOSITION_UNKNOWN
+                    and path.replacement_evidence_ids
+                )
+                if not replacement_complete:
+                    findings.append(
+                        _finding(
+                            "existing_primary_path_not_reused",
+                            "an equivalent current primary path exists; selecting another path requires explicit replacement disposition and evidence",
+                            path_id=path.business_path_id,
+                            metadata={"existing_current_path_ids": list(plan.existing_current_path_ids)},
+                        )
+                    )
 
     declared_intents = {path.business_intent for path in plan.primary_paths if path.business_intent}
     for expected in plan.expected_business_intents:
@@ -582,8 +814,137 @@ def review_primary_path_authority(
                 )
             )
 
+    declared_intent_ids = {
+        path.business_intent_id for path in plan.primary_paths if path.business_intent_id
+    }
+    for expected in plan.expected_business_intent_ids:
+        if expected not in declared_intent_ids:
+            findings.append(
+                _finding(
+                    "expected_business_intent_id_missing_primary",
+                    "expected stable business intent has no primary runtime authority",
+                    metadata={"business_intent_id": expected},
+                )
+            )
+
+    primary_path_by_id = {
+        path.business_path_id: path for path in plan.primary_paths if path.business_path_id
+    }
+    seen_candidate_ids: set[str] = set()
+    seen_surface_owners: dict[str, str] = {
+        surface_id: path.business_path_id
+        for path in plan.primary_paths
+        for surface_id in path.source_surface_ids
+    }
     for candidate in plan.fallback_candidates:
-        _review_candidate(candidate, findings)
+        _review_candidate(candidate, findings, material_required=material_required)
+        if not candidate.candidate_path_id:
+            findings.append(
+                _finding(
+                    "fallback_candidate_path_id_missing",
+                    "candidate inventory row must name a stable candidate path id",
+                )
+            )
+        elif candidate.candidate_path_id in seen_candidate_ids:
+            findings.append(
+                _finding(
+                    "duplicate_primary_path_candidate_id",
+                    "candidate inventory contains the same candidate path id more than once",
+                    candidate_path_id=candidate.candidate_path_id,
+                )
+            )
+        seen_candidate_ids.add(candidate.candidate_path_id)
+        primary = primary_path_by_id.get(candidate.fallback_for_path_id)
+        if candidate.in_scope and primary is None:
+            findings.append(
+                _finding(
+                    "fallback_candidate_primary_path_unknown",
+                    "candidate points to a primary path that is not declared in the authority plan",
+                    path_id=candidate.fallback_for_path_id,
+                    candidate_path_id=candidate.candidate_path_id,
+                )
+            )
+        if material_required and primary is not None:
+            if candidate.business_intent_id != primary.business_intent_id:
+                findings.append(
+                    _finding(
+                        "fallback_candidate_intent_mismatch",
+                        "candidate and primary path disagree on stable business intent identity",
+                        path_id=primary.business_path_id,
+                        candidate_path_id=candidate.candidate_path_id,
+                    )
+                )
+            if candidate.behavior_commitment_id != primary.behavior_commitment_id:
+                findings.append(
+                    _finding(
+                        "fallback_candidate_commitment_mismatch",
+                        "candidate and primary path disagree on behavior commitment identity",
+                        path_id=primary.business_path_id,
+                        candidate_path_id=candidate.candidate_path_id,
+                    )
+                )
+        if candidate.source_surface_id:
+            existing_owner = seen_surface_owners.get(candidate.source_surface_id)
+            if existing_owner and existing_owner != candidate.candidate_path_id:
+                findings.append(
+                    _finding(
+                        "duplicate_primary_path_surface_id",
+                        "one public surface is claimed by more than one primary or candidate path inventory row",
+                        candidate_path_id=candidate.candidate_path_id,
+                        metadata={"first_owner": existing_owner, "surface_id": candidate.source_surface_id},
+                    )
+                )
+            seen_surface_owners[candidate.source_surface_id] = candidate.candidate_path_id
+
+    candidate_ids = {
+        candidate.candidate_path_id for candidate in plan.fallback_candidates if candidate.candidate_path_id
+    }
+    missing_candidate_ids = tuple(
+        candidate_id for candidate_id in plan.expected_candidate_ids if candidate_id not in candidate_ids
+    )
+    for candidate_id in missing_candidate_ids:
+        findings.append(
+            _finding(
+                "expected_primary_path_candidate_missing",
+                "expected same-intent path candidate is absent from the complete candidate inventory",
+                candidate_path_id=candidate_id,
+            )
+        )
+
+    covered_surface_ids = tuple(
+        dict.fromkeys(
+            [surface_id for path in plan.primary_paths for surface_id in path.source_surface_ids]
+            + [candidate.source_surface_id for candidate in plan.fallback_candidates if candidate.source_surface_id]
+        )
+    )
+    missing_surface_ids = tuple(
+        surface_id for surface_id in plan.expected_surface_ids if surface_id not in covered_surface_ids
+    )
+    for surface_id in missing_surface_ids:
+        findings.append(
+            _finding(
+                "expected_primary_path_surface_missing",
+                "expected same-intent public surface is absent from the authority inventory",
+                candidate_path_id=surface_id,
+            )
+        )
+    if plan.complete_inventory_required():
+        for field_name, present in (
+            ("inventory_revision", bool(plan.inventory_revision)),
+            ("inventory_evidence_ids", bool(plan.inventory_evidence_ids)),
+            ("preflight_id", bool(plan.preflight_id)),
+            ("behavior_commitment_ledger_id", bool(plan.behavior_commitment_ledger_id)),
+            ("expected_business_intent_ids", bool(plan.expected_business_intent_ids)),
+            ("expected_surface_ids", bool(plan.expected_surface_ids)),
+        ):
+            if not present:
+                findings.append(
+                    _finding(
+                        "primary_path_inventory_material_missing",
+                        "complete primary-path inventory is missing a required discovery or ownership reference",
+                        metadata={"missing_field": field_name},
+                    )
+                )
 
     if plan.coverage_required():
         if not plan.coverage_receipt_ids:
@@ -625,8 +986,33 @@ def review_primary_path_authority(
         decision=decision,
         confidence=confidence,
         findings=tuple(findings),
+        primary_path_id=plan.primary_paths[0].business_path_id if len(plan.primary_paths) == 1 else "",
         primary_path_ids=tuple(path.business_path_id for path in plan.primary_paths),
+        business_intent_id=plan.primary_paths[0].business_intent_id if len(plan.primary_paths) == 1 else "",
+        business_intent_ids=tuple(
+            dict.fromkeys(path.business_intent_id for path in plan.primary_paths if path.business_intent_id)
+        ),
+        behavior_commitment_id=plan.primary_paths[0].behavior_commitment_id if len(plan.primary_paths) == 1 else "",
+        behavior_commitment_ids=tuple(
+            dict.fromkeys(path.behavior_commitment_id for path in plan.primary_paths if path.behavior_commitment_id)
+        ),
         fallback_candidate_ids=tuple(candidate.candidate_path_id for candidate in plan.fallback_candidates),
+        missing_candidate_ids=missing_candidate_ids,
+        covered_surface_ids=covered_surface_ids,
+        missing_surface_ids=missing_surface_ids,
+        runtime_observation_ids=tuple(
+            dict.fromkeys(
+                observation_id
+                for path in plan.primary_paths
+                for observation_id in path.runtime_observation_ids
+            )
+        ),
+        proof_artifact_ids=tuple(
+            path.proof_artifact.artifact_id
+            for path in plan.primary_paths
+            if path.proof_artifact is not None
+        ),
+        evidence_current=bool(material_required and not blockers),
         coverage_case_ids=plan.coverage_case_ids,
         coverage_shard_ids=plan.coverage_shard_ids,
         coverage_receipt_ids=plan.coverage_receipt_ids,
@@ -637,6 +1023,8 @@ def review_primary_path_authority(
 def _review_candidate(
     candidate: FallbackPathCandidate,
     findings: list[PrimaryPathAuthorityFinding],
+    *,
+    material_required: bool = False,
 ) -> None:
     metadata = candidate.to_dict()
     if not candidate.in_scope:
@@ -650,6 +1038,25 @@ def _review_candidate(
                 )
             )
         return
+    if material_required:
+        missing_fields = tuple(
+            field_name
+            for field_name in (
+                "business_intent_id",
+                "behavior_commitment_id",
+                "source_surface_id",
+            )
+            if not getattr(candidate, field_name)
+        )
+        if missing_fields:
+            findings.append(
+                _finding(
+                    "fallback_candidate_stable_identity_missing",
+                    "material candidate inventory requires stable intent, commitment, and source-surface identity",
+                    candidate_path_id=candidate.candidate_path_id,
+                    metadata={"missing_fields": list(missing_fields)},
+                )
+            )
     if candidate.candidate_surface not in PPA_CANDIDATE_SURFACES:
         findings.append(
             _finding(
@@ -686,6 +1093,23 @@ def _review_candidate(
             _finding(
                 "primary_failure_masked_by_fallback_success",
                 "primary path failure is masked by automatic alternate success",
+                path_id=candidate.fallback_for_path_id,
+                candidate_path_id=candidate.candidate_path_id,
+                metadata=metadata,
+            )
+        )
+    if (
+        candidate.shares_business_intent
+        and (
+            candidate.returns_success_after_primary_failure
+            or candidate.candidate_behavior == PPA_BEHAVIOR_RETURN_SUCCESS
+        )
+        and candidate.candidate_behavior != PPA_BEHAVIOR_DELEGATE_TO_PRIMARY
+    ):
+        findings.append(
+            _finding(
+                "parallel_same_intent_success_path",
+                "same-intent candidate can return independent business success instead of delegating to the primary path",
                 path_id=candidate.fallback_for_path_id,
                 candidate_path_id=candidate.candidate_path_id,
                 metadata=metadata,
@@ -735,6 +1159,16 @@ def _review_candidate(
                     metadata=metadata,
                 )
             )
+        if material_required and candidate.delegates_to_path_id != candidate.fallback_for_path_id:
+            findings.append(
+                _finding(
+                    "facade_primary_delegation_mismatch",
+                    "compatibility facade must name the exact primary path it delegates to",
+                    path_id=candidate.fallback_for_path_id,
+                    candidate_path_id=candidate.candidate_path_id,
+                    metadata=metadata,
+                )
+            )
     if candidate.candidate_surface in {PPA_CANDIDATE_OLD_FIELD, PPA_CANDIDATE_BACKUP_CACHE} and (
         candidate.candidate_trigger in {PPA_TRIGGER_MISSING_FIELD, PPA_TRIGGER_PRIMARY_FAILURE}
         and candidate.returns_success_after_primary_failure
@@ -773,6 +1207,30 @@ def default_primary_path_authority_axes(
         ContractAxis("candidate_behavior", model_id=model_id, values=PPA_DEFAULT_CANDIDATE_BEHAVIORS, source_route=PRIMARY_PATH_ROUTE_ID),
         ContractAxis("disposition", model_id=model_id, values=tuple(sorted(PPA_DISPOSITIONS)), source_route=PRIMARY_PATH_ROUTE_ID),
         ContractAxis("evidence_state", model_id=model_id, values=PPA_DEFAULT_EVIDENCE_STATES, source_route=PRIMARY_PATH_ROUTE_ID),
+        ContractAxis(
+            "business_intent_identity",
+            model_id=model_id,
+            values=("stable_match", "missing", "mismatch", "duplicate"),
+            source_route=PRIMARY_PATH_ROUTE_ID,
+        ),
+        ContractAxis(
+            "primary_path_selection",
+            model_id=model_id,
+            values=("reuse_current", "wrong_equivalent_path", "explicit_replacement"),
+            source_route=PRIMARY_PATH_ROUTE_ID,
+        ),
+        ContractAxis(
+            "candidate_inventory_state",
+            model_id=model_id,
+            values=("complete", "candidate_omitted", "surface_omitted", "scoped_with_evidence"),
+            source_route=PRIMARY_PATH_ROUTE_ID,
+        ),
+        ContractAxis(
+            "runtime_proof_state",
+            model_id=model_id,
+            values=("current_material", "stale", "missing", "progress_only"),
+            source_route=PRIMARY_PATH_ROUTE_ID,
+        ),
     )
 
 
@@ -821,6 +1279,30 @@ def default_primary_path_authority_interaction_groups(
             "release_evidence",
             model_id=model_id,
             axis_ids=("business_intent", "candidate_surface", "evidence_state", "disposition"),
+            required_routes=routes,
+            max_combinations=max_combinations,
+            oracle_id=PPA_CONTRACT_ORACLE_PRIMARY_FAILURE,
+        ),
+        ContractInteractionGroup(
+            "stable_intent_authority",
+            model_id=model_id,
+            axis_ids=("business_intent_identity", "primary_path_selection", "candidate_inventory_state"),
+            required_routes=routes,
+            max_combinations=max_combinations,
+            oracle_id=PPA_CONTRACT_ORACLE_PRIMARY_FAILURE,
+        ),
+        ContractInteractionGroup(
+            "material_runtime_proof",
+            model_id=model_id,
+            axis_ids=("business_intent_identity", "runtime_proof_state", "evidence_state"),
+            required_routes=routes,
+            max_combinations=max_combinations,
+            oracle_id=PPA_CONTRACT_ORACLE_PRIMARY_FAILURE,
+        ),
+        ContractInteractionGroup(
+            "parallel_success_and_omission",
+            model_id=model_id,
+            axis_ids=("primary_path_selection", "candidate_inventory_state", "candidate_behavior", "candidate_trigger"),
             required_routes=routes,
             max_combinations=max_combinations,
             oracle_id=PPA_CONTRACT_ORACLE_PRIMARY_FAILURE,

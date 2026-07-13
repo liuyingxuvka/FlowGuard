@@ -276,7 +276,7 @@ class SelfMaintenanceChildReport:
 
     This object is deliberately not evidence authority.  ``current`` and
     ``closure_status`` are read-only projections of the verifier result, while
-    full self-governance re-verifies the underlying ``EvidenceReceipt``.
+    the single SkillGuard parent consumer re-verifies the underlying ``EvidenceReceipt``.
     """
 
     child_id: str

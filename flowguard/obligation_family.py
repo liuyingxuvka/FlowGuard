@@ -146,6 +146,16 @@ class ObligationFamily:
     require_external_evidence: bool = True
     require_proof_artifacts: bool = False
     allow_scoped_confidence: bool = True
+    inventory_revision: str = ""
+    inventory_source_ref: str = ""
+    expected_member_ids: tuple[str, ...] = ()
+    scoped_member_reasons: Mapping[str, str] = field(default_factory=dict)
+    require_complete_inventory: bool = False
+    similarity_relation_ids: tuple[str, ...] = ()
+    similarity_impacted_member_ids: tuple[str, ...] = ()
+    similarity_impacted_obligation_ids: tuple[str, ...] = ()
+    scoped_similarity_reasons: Mapping[str, str] = field(default_factory=dict)
+    similarity_provenance_current: bool = True
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -154,6 +164,28 @@ class ObligationFamily:
         object.__setattr__(self, "members", tuple(self.members))
         object.__setattr__(self, "required_mechanisms", _as_tuple(self.required_mechanisms))
         object.__setattr__(self, "allowed_provenance", _as_tuple(self.allowed_provenance))
+        object.__setattr__(self, "inventory_revision", str(self.inventory_revision))
+        object.__setattr__(self, "inventory_source_ref", str(self.inventory_source_ref))
+        object.__setattr__(self, "expected_member_ids", _as_tuple(self.expected_member_ids))
+        object.__setattr__(
+            self,
+            "scoped_member_reasons",
+            {str(key): str(value) for key, value in dict(self.scoped_member_reasons).items()},
+        )
+        object.__setattr__(self, "require_complete_inventory", bool(self.require_complete_inventory))
+        object.__setattr__(self, "similarity_relation_ids", _as_tuple(self.similarity_relation_ids))
+        object.__setattr__(self, "similarity_impacted_member_ids", _as_tuple(self.similarity_impacted_member_ids))
+        object.__setattr__(
+            self,
+            "similarity_impacted_obligation_ids",
+            _as_tuple(self.similarity_impacted_obligation_ids),
+        )
+        object.__setattr__(
+            self,
+            "scoped_similarity_reasons",
+            {str(key): str(value) for key, value in dict(self.scoped_similarity_reasons).items()},
+        )
+        object.__setattr__(self, "similarity_provenance_current", bool(self.similarity_provenance_current))
         object.__setattr__(self, "metadata", dict(self.metadata))
 
     def mechanisms_for(self, member: ObligationFamilyMember) -> tuple[str, ...]:
@@ -173,6 +205,16 @@ class ObligationFamily:
             "require_external_evidence": self.require_external_evidence,
             "require_proof_artifacts": self.require_proof_artifacts,
             "allow_scoped_confidence": self.allow_scoped_confidence,
+            "inventory_revision": self.inventory_revision,
+            "inventory_source_ref": self.inventory_source_ref,
+            "expected_member_ids": list(self.expected_member_ids),
+            "scoped_member_reasons": to_jsonable(dict(self.scoped_member_reasons)),
+            "require_complete_inventory": self.require_complete_inventory,
+            "similarity_relation_ids": list(self.similarity_relation_ids),
+            "similarity_impacted_member_ids": list(self.similarity_impacted_member_ids),
+            "similarity_impacted_obligation_ids": list(self.similarity_impacted_obligation_ids),
+            "scoped_similarity_reasons": to_jsonable(dict(self.scoped_similarity_reasons)),
+            "similarity_provenance_current": self.similarity_provenance_current,
             "metadata": to_jsonable(dict(self.metadata)),
         }
 
@@ -587,6 +629,11 @@ class ObligationFamilyParityReport:
     findings: tuple[ObligationFamilyParityFinding, ...] = ()
     coverage_matrix: tuple[ObligationFamilyCoverageCell, ...] = ()
     derived_bad_cases: tuple[DerivedFamilyBadCase, ...] = ()
+    inventory_revisions: Mapping[str, str] = field(default_factory=dict)
+    covered_member_ids: tuple[str, ...] = ()
+    scoped_member_ids: tuple[str, ...] = ()
+    missing_member_ids: tuple[str, ...] = ()
+    unexpected_member_ids: tuple[str, ...] = ()
     summary: str = ""
 
     def __post_init__(self) -> None:
@@ -595,6 +642,11 @@ class ObligationFamilyParityReport:
         object.__setattr__(self, "findings", tuple(self.findings))
         object.__setattr__(self, "coverage_matrix", tuple(self.coverage_matrix))
         object.__setattr__(self, "derived_bad_cases", tuple(self.derived_bad_cases))
+        object.__setattr__(self, "inventory_revisions", dict(self.inventory_revisions))
+        object.__setattr__(self, "covered_member_ids", _as_tuple(self.covered_member_ids))
+        object.__setattr__(self, "scoped_member_ids", _as_tuple(self.scoped_member_ids))
+        object.__setattr__(self, "missing_member_ids", _as_tuple(self.missing_member_ids))
+        object.__setattr__(self, "unexpected_member_ids", _as_tuple(self.unexpected_member_ids))
         if not self.summary:
             status = "OK" if self.ok else "BLOCKED"
             object.__setattr__(
@@ -638,6 +690,11 @@ class ObligationFamilyParityReport:
             "findings": [finding.to_dict() for finding in self.findings],
             "coverage_matrix": [cell.to_dict() for cell in self.coverage_matrix],
             "derived_bad_cases": [case.to_dict() for case in self.derived_bad_cases],
+            "inventory_revisions": to_jsonable(dict(self.inventory_revisions)),
+            "covered_member_ids": list(self.covered_member_ids),
+            "scoped_member_ids": list(self.scoped_member_ids),
+            "missing_member_ids": list(self.missing_member_ids),
+            "unexpected_member_ids": list(self.unexpected_member_ids),
             "summary": self.summary,
         }
 
@@ -1086,6 +1143,12 @@ def _cell_for(
     not_current: list[ObligationFamilyEvidence] = []
     non_passing: list[ObligationFamilyEvidence] = []
     internal_only: list[ObligationFamilyEvidence] = []
+    invalid_obligation_binding: list[ObligationFamilyEvidence] = []
+    family_obligation_ids = {
+        obligation_id
+        for family_member in family.members
+        for obligation_id in family_member.obligation_ids
+    }
 
     for item in matching_evidence:
         if item.result_status not in PASSING_FAMILY_EVIDENCE_STATUSES:
@@ -1100,6 +1163,53 @@ def _cell_for(
         if allowed_provenance and item.provenance not in allowed_provenance:
             wrong_provenance.append(item)
             continue
+        if member.obligation_ids:
+            covered = set(item.covered_obligations)
+            required = set(member.obligation_ids)
+            missing = tuple(sorted(required - covered))
+            sibling = tuple(sorted((covered & family_obligation_ids) - required))
+            unknown = tuple(sorted(covered - family_obligation_ids))
+            if not covered:
+                findings.append(
+                    _finding(
+                        "family_evidence_covered_obligations_missing",
+                        "family evidence does not bind the member's declared obligations",
+                        family_id=family.family_id,
+                        member_id=member.member_id,
+                        mechanism_id=mechanism_id,
+                        evidence_id=item.evidence_id,
+                        metadata={"required_obligation_ids": list(member.obligation_ids)},
+                    )
+                )
+                invalid_obligation_binding.append(item)
+                continue
+            if missing or sibling or unknown:
+                code = (
+                    "family_evidence_unknown_obligation_reference"
+                    if unknown
+                    else "family_evidence_sibling_obligation_reference"
+                    if sibling
+                    else "family_evidence_obligation_binding_incomplete"
+                )
+                findings.append(
+                    _finding(
+                        code,
+                        "family evidence covered_obligations do not exactly bind the member obligation set",
+                        family_id=family.family_id,
+                        member_id=member.member_id,
+                        mechanism_id=mechanism_id,
+                        evidence_id=item.evidence_id,
+                        metadata={
+                            "required_obligation_ids": list(member.obligation_ids),
+                            "covered_obligation_ids": list(item.covered_obligations),
+                            "missing_obligation_ids": list(missing),
+                            "sibling_obligation_ids": list(sibling),
+                            "unknown_obligation_ids": list(unknown),
+                        },
+                    )
+                )
+                invalid_obligation_binding.append(item)
+                continue
         gaps = proof_artifact_gap_codes(item.proof_artifact) if family.require_proof_artifacts else ()
         if gaps:
             findings.append(
@@ -1124,6 +1234,16 @@ def _cell_for(
             status=COVERAGE_CELL_COVERED,
             evidence_ids=_unique(tuple(item.evidence_id for item in accepted)),
             accepted_provenance=_unique(tuple(item.provenance for item in accepted)),
+        )
+
+    if invalid_obligation_binding:
+        return ObligationFamilyCoverageCell(
+            family_id=family.family_id,
+            member_id=member.member_id,
+            mechanism_id=mechanism_id,
+            status=COVERAGE_CELL_INVALID_PROVENANCE,
+            evidence_ids=_unique(tuple(item.evidence_id for item in invalid_obligation_binding)),
+            scoped_reasons=("family_evidence_obligation_binding_invalid",),
         )
 
     if wrong_provenance:
@@ -1234,6 +1354,131 @@ def _cell_for(
     )
 
 
+def _review_family_inventory(
+    family: ObligationFamily,
+    findings: list[ObligationFamilyParityFinding],
+) -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
+    expected = set(family.expected_member_ids)
+    materialized = {member.member_id for member in family.members}
+    scoped = set(family.scoped_member_reasons)
+    inventory_claimed = bool(family.require_complete_inventory or expected)
+    if inventory_claimed and not family.inventory_revision:
+        findings.append(
+            _finding(
+                "family_inventory_revision_missing",
+                "obligation-family completeness requires an explicit inventory revision",
+                family_id=family.family_id,
+            )
+        )
+    if inventory_claimed and not family.inventory_source_ref:
+        findings.append(
+            _finding(
+                "family_inventory_provenance_missing",
+                "obligation-family expected inventory lacks source provenance",
+                family_id=family.family_id,
+            )
+        )
+    if family.require_complete_inventory and not expected:
+        findings.append(
+            _finding(
+                "family_expected_member_inventory_missing",
+                "complete obligation-family review has no independently declared expected members",
+                family_id=family.family_id,
+            )
+        )
+    for member_id, reason in family.scoped_member_reasons.items():
+        if not reason:
+            findings.append(
+                _finding(
+                    "family_member_scoped_reason_missing",
+                    "scoped family member disposition requires a reason",
+                    family_id=family.family_id,
+                    member_id=member_id,
+                )
+            )
+    missing = expected - materialized - scoped
+    for member_id in sorted(missing):
+        findings.append(
+            _finding(
+                "expected_family_member_missing",
+                "expected obligation-family member is not materialized or explicitly scoped",
+                family_id=family.family_id,
+                member_id=member_id,
+                metadata={"inventory_revision": family.inventory_revision},
+            )
+        )
+    unexpected = materialized - expected if family.require_complete_inventory else set()
+    for member_id in sorted(unexpected):
+        findings.append(
+            _finding(
+                "unexpected_family_member",
+                "materialized family member is outside the complete expected inventory",
+                family_id=family.family_id,
+                member_id=member_id,
+                metadata={"inventory_revision": family.inventory_revision},
+            )
+        )
+
+    if family.similarity_relation_ids:
+        if not family.similarity_provenance_current:
+            findings.append(
+                _finding(
+                    "stale_family_similarity_provenance",
+                    "family similarity provenance is stale",
+                    family_id=family.family_id,
+                    metadata={"similarity_relation_ids": list(family.similarity_relation_ids)},
+                )
+            )
+        similarity_scoped = set(family.scoped_similarity_reasons)
+        for item_id, reason in family.scoped_similarity_reasons.items():
+            if not reason:
+                findings.append(
+                    _finding(
+                        "family_similarity_scoped_reason_missing",
+                        "scoped similarity materialization requires a reason",
+                        family_id=family.family_id,
+                        metadata={"similarity_id": item_id},
+                    )
+                )
+        for member_id in family.similarity_impacted_member_ids:
+            if member_id not in materialized and member_id not in scoped and member_id not in similarity_scoped:
+                findings.append(
+                    _finding(
+                        "unmaterialized_family_similarity_member",
+                        "similarity handoff names an impacted member that is not materialized",
+                        family_id=family.family_id,
+                        member_id=member_id,
+                        metadata={"similarity_relation_ids": list(family.similarity_relation_ids)},
+                    )
+                )
+        materialized_obligations = {
+            obligation_id
+            for member in family.members
+            for obligation_id in member.obligation_ids
+        }
+        for obligation_id in family.similarity_impacted_obligation_ids:
+            if obligation_id not in materialized_obligations and obligation_id not in similarity_scoped:
+                findings.append(
+                    _finding(
+                        "unmaterialized_family_similarity_obligation",
+                        "similarity handoff names an obligation that is not bound to a family member",
+                        family_id=family.family_id,
+                        metadata={
+                            "similarity_relation_ids": list(family.similarity_relation_ids),
+                            "obligation_id": obligation_id,
+                        },
+                    )
+                )
+    covered = expected & materialized
+    scoped_expected = expected & scoped
+    return (
+        _unique(tuple(sorted(covered))),
+        _unique(tuple(sorted(scoped_expected))),
+        _unique(tuple(sorted(missing))),
+        _unique(tuple(sorted(unexpected))),
+    )
+
+
 def review_obligation_family_parity(
     families: Sequence[ObligationFamily],
     evidence: Sequence[ObligationFamilyEvidence] = (),
@@ -1245,6 +1490,11 @@ def review_obligation_family_parity(
     evidence_by_id, evidence_findings = _evidence_index(evidence)
     findings.extend(evidence_findings)
     coverage_matrix: list[ObligationFamilyCoverageCell] = []
+    inventory_revisions: dict[str, str] = {}
+    covered_member_ids: list[str] = []
+    scoped_member_ids: list[str] = []
+    missing_member_ids: list[str] = []
+    unexpected_member_ids: list[str] = []
 
     family_member_indexes: dict[str, dict[str, ObligationFamilyMember]] = {}
     for family in families:
@@ -1292,6 +1542,13 @@ def review_obligation_family_parity(
             )
 
     for family in families:
+        inventory_values = _review_family_inventory(family, findings)
+        if family.inventory_revision:
+            inventory_revisions[family.family_id] = family.inventory_revision
+        covered_member_ids.extend(f"{family.family_id}:{item}" for item in inventory_values[0])
+        scoped_member_ids.extend(f"{family.family_id}:{item}" for item in inventory_values[1])
+        missing_member_ids.extend(f"{family.family_id}:{item}" for item in inventory_values[2])
+        unexpected_member_ids.extend(f"{family.family_id}:{item}" for item in inventory_values[3])
         for member in family.members:
             mechanisms = family.mechanisms_for(member)
             if not member.required:
@@ -1370,6 +1627,11 @@ def review_obligation_family_parity(
         findings=tuple(findings),
         coverage_matrix=tuple(coverage_matrix),
         derived_bad_cases=tuple(derived_cases),
+        inventory_revisions=inventory_revisions,
+        covered_member_ids=_unique(covered_member_ids),
+        scoped_member_ids=_unique(scoped_member_ids),
+        missing_member_ids=_unique(missing_member_ids),
+        unexpected_member_ids=_unique(unexpected_member_ids),
     )
 
 

@@ -43,7 +43,6 @@ DEFAULT_EXCLUSION_RULES = (
     ExclusionRule("current_evidence", "*/.skillguard/evidence/*", "current-run evidence is environment-local and is re-created by validation"),
     ExclusionRule("current_report", "*/.skillguard/reports/current_*.json", "current-run reports are receipts, not installed skill source"),
     ExclusionRule("current_ai_judgment", "*/.skillguard/ai_judgments/current_*.json", "current AI judgments are run receipts, not installed skill source"),
-    ExclusionRule("progress_ledger", "*/.skillguard/skillguard_progress_ledger.jsonl", "the append-only local run ledger is not distributed"),
     ExclusionRule("run_receipt", "*/.skillguard/*run*receipt*.json", "current-run receipt files are not distributed"),
     ExclusionRule("run_record", "*/.skillguard/*run*record*.json", "current-run record files are not distributed"),
 )

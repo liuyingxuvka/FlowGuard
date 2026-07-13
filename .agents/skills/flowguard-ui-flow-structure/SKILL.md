@@ -6,37 +6,39 @@ description: Use for UI content admission, observed surface, behavior, structure
 # FlowGuard UI Flow Structure
 
 ## Purpose
-Admit content, model UI event x UI state behavior, and prove runnable evidence.
+Admit content, model UI event x UI state behavior, and prove runnable visible surface evidence.
 
 ## Entrypoint Scope
-Route `ui_flow_structure`; role `public_owner`; native owner `ui_flow_structure`. This standalone FlowGuard satellite skill owns content admission and UI evidence, not styling, code structure, or audience roles.
+This standalone FlowGuard satellite skill owns `ui_flow_structure` (`public_owner`) admission/UI evidence, not styling or code structure.
 
 ## Local Material Routing
-Read `references/ui_flow_structure_protocol.md`; it routes observed surface, interaction, journey/structure/text, human, implementation, and geometry protocols.
+Read `references/ui_flow_structure_protocol.md` for observed surface, interaction, journey, structure, text hierarchy, human, implementation, and geometry.
 
 ## Entrypoint Acceptance Map
-Accept typed admission, a complete UI state model, task/control coverage, and current evidence; block leaks, unsafe disclosure, blindspots, or stale proof.
+Accept admission, UI state/task/control coverage, and current evidence; block leaks, blindspots, or stale proof.
 
 ## Use When
-- Use for displayed/status/helper/metadata content, optional details, controls, visible surface, tasks, actions, runs, or layout evidence.
+- Use for UI content/details, controls, surfaces, tasks/actions, runnable/layout evidence, typography hierarchy, or product-wide interaction language.
 
 ## Do Not Use When
-- Do not style first, invent roles, or treat observed visibility, labels, APIs, or prose as permission/proof; return non-UI work to `model-first-function-flow`.
+- Do not style first, invent roles, or treat observation as permission; return non-UI work to `model-first-function-flow`.
 
 ## Required Workflow
 1. Declare `greenfield`, `source_based`, or `mixed`; observation never grants display permission.
-2. Classify candidates only as `user_visible`, `user_on_demand`, or `internal`; require typed/resolvable task/state/recovery/safety needs. Exempt only the exact normal label of a registered, in-scope task-owned control with no extra state, disabled reason, or metadata. Then build capabilities, states/events/controls/displays, journeys, structure, text hierarchy, tasks, and operability.
-3. Bind claims to the plan, observed inventory, structured content rows, screenshot/DOM/event/result evidence, click chains, blindspots, and tests.
+2. Classify only `user_visible`, `user_on_demand`, or `internal`; require task/state/recovery/safety need. Exempt only an exact normal task-control label with no extra state/metadata. Build behavior, journeys, structure, text hierarchy, tasks, and operability.
+3. For complete-product claims compare canonical typography/component/navigation/interaction/feedback/recovery/transitions across surfaces. Business rows reuse existing intent/commitment/path ids; keep ids internal.
+4. Bind claims to plan, inventory, content rows, screenshot/DOM/event/result evidence, click chains, blindspots, and tests.
 
 ## Hard Gates
-- Verify the real FlowGuard check engine and AGENTS.md managed project record; never create a fake mini-framework.
+- Use the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
 - Unclassified/internal content cannot render; do not add audience/role/persona categories.
-- `user_on_demand` stays hidden across display/text/visible/observed mappings. Reveal/return controls are visible, enabled, labeled, task-owned, and tied to content feedback; hover uses a distinct keyboard/focus event.
-- Every reachable enabled action needs control -> event -> owner -> function -> UI update -> evidence, a pure-UI disposition, or a blindspot.
+- On-demand stays hidden until an accessible task-owned reveal/return; hover has keyboard/focus parity.
+- Every reachable enabled action needs control -> event -> owner -> function -> UI update -> evidence, pure-UI disposition, or blindspot.
+- Repeated surfaces for one exact intent reuse one commitment, selected path, and canonical semantic grammar. Exceptions may change presentation for a typed platform/accessibility/native/safety reason, but never intent, path, visibility class, or external result.
 - Design evidence cannot prove runnable UI; source, recovery, freshness, and harvest gaps stay explicit.
 
 ## Output Requirements
-Return the visibility plan, UI state diagram, task/control coverage, blindspots, `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`.
+Return evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, typed_next_actions, blindspots, and a UI state diagram; edges mean reachable interaction transitions.
 
 ## SkillGuard Maintenance
-Edit `.skillguard/contract-source.json`, regenerate derived contracts, and never treat SkillGuard as click/screenshot/DOM/human evidence.
+Edit contract source, regenerate; SkillGuard is not UI runtime/human evidence.

@@ -161,11 +161,37 @@ class SkillDocsTests(unittest.TestCase):
     def test_kernel_preserves_route_specific_diagram_intent(self):
         text = self.read(KERNEL_ROOT / "SKILL.md")
 
-        self.assertIn("Preserve FlowGuard diagram intent", text)
-        self.assertIn("do not flatten", text)
+        self.assertIn("FlowGuard diagram intent gate", text)
+        self.assertIn("Do not flatten these into a generic flowchart", text)
         self.assertIn("generic flowchart", text)
         self.assertIn("without LogicGuard", text)
-        self.assertIn("SourceGuard/TraceGuard/WorldGuard/LogicGuard semantics", text)
+        self.assertIn("SourceGuard/TraceGuard/WorldGuard/LogicGuard diagrams", text)
+
+    def test_satellite_diagrams_keep_route_specific_edge_semantics(self):
+        expected = {
+            "flowguard-development-process-flow": (
+                "edges mean order, invalidation, or required revalidation",
+            ),
+            "flowguard-ui-flow-structure": (
+                "edges mean reachable",
+                "interaction transitions",
+            ),
+            "flowguard-model-test-alignment": (
+                "edges mean covers, partially covers",
+            ),
+            "flowguard-code-structure-recommendation": (
+                "edges mean owns, calls, adapts, exposes, or validates",
+            ),
+            "flowguard-model-mesh": (
+                "edges mean delegates, reattaches, consumes output",
+            ),
+        }
+
+        for skill_name, phrases in expected.items():
+            with self.subTest(skill=skill_name):
+                text = self.read(SKILLS_ROOT / skill_name / "SKILL.md")
+                for phrase in phrases:
+                    self.assertIn(phrase, text)
 
     def test_satellite_skills_are_concise_route_shells(self):
         route_expectations = {
@@ -239,7 +265,7 @@ class SkillDocsTests(unittest.TestCase):
                 "ArtifactPayloadContract",
                 "Full confidence requires",
                 "coverage",
-                "Do not invoke TestMesh",
+                "hands large evidence to TestMesh",
             ),
             "flowguard-model-topology-hazard-review": (
                 "future-use hazard",
@@ -529,7 +555,7 @@ class SkillDocsTests(unittest.TestCase):
             "Input x State -> Set(Output x State)",
             "real FlowGuard check engine",
             "project-adopt",
-            "project-upgrade",
+            "one current authority",
             "Risk Evidence Ledger",
             "public/local risk template",
             "template harvest closure",

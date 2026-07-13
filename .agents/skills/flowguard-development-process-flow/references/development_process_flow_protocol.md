@@ -36,6 +36,60 @@ those route internals.
 For a full plan-to-release path, record all applicable modes in order:
 `plan_detailing` -> `agent_workflow` -> `execution_freshness`.
 
+## Current-Authority And Compatibility Admission
+
+Classify the subject before design or implementation:
+
+- `skill_runtime`: the maintained Codex skill, its prompt, contract, command,
+  router, or validation workflow;
+- `ordinary_software`: a product that may have an externally required
+  historical document, stored-data, protocol, or public-interface obligation.
+
+For `skill_runtime`, direct current replacement is the only normal path. The
+current source, generated contract, installed projection, and router projection
+must converge on one authority. Former shapes may exist only as exact rejection
+fixtures. Do not create or preserve a compatibility reader, fallback success,
+migration or upgrade command, converter, alias, renewal path, dual manifest, or
+parallel authority. An AI encountering a former shape rewrites it to the current
+shape; it does not run a live migration route.
+
+For `ordinary_software`, a compatibility branch is allowed only when an
+explicit requirement identifies the historical document/data/interface that
+must remain readable. Record the requirement id, historical artifact/interface
+identity, bounded reader owner, accepted and rejected inputs, output semantics,
+sunset or claim boundary, and dedicated good/bad cases. Without those fields,
+use direct current replacement. A vague wish to be safe, an existing old file,
+or a test that happens to mention an old shape is not compatibility authority.
+
+Validation receipts, reports, logs, caches, timestamps, generated status, and
+other execution outputs are never historical business inputs. They remain
+outside governed source identity and cannot justify a compatibility branch or
+invalidate their own owner receipt.
+
+## Plane Ownership During Projection
+
+DevelopmentProcessFlow owns `development_process` order, artifact versions,
+peer-write invalidation, background liveness, and terminal evidence freshness.
+AgentWorkflowRehearsal owns `agent_operation` step selection/order. Product
+runtime commitments remain owned by their product models. A process or AI step
+may name target behavior planes, commitment ids, evidence ids, and typed BCL
+relations, but it must not copy the target promise into its own ownership row.
+
+PlanDetail receipts, continue gates, rework targets, and invalidations survive
+projection. A running child is liveness-only until its final exit/result/receipt
+is consumed. Peer or unknown-writer changes preserve the write, stale affected
+evidence, and derive minimum revalidation; they never justify rollback.
+
+Treat repository source, shadow workspace, formal repository, editable or
+installed package, installed skill tree, and local Git as separate freshness
+domains. Each in-scope domain needs its own current receipt for the same
+intended revision; install success is not repository parity and shadow tests
+are not Git closure. Peer or unknown-writer changes stale affected evidence.
+Re-read and merge the current state, and never restore/overwrite peer work to
+recover an earlier green receipt. After non-trivial changes, consume the
+post-change owner scan as routing input and run every derived owner-specific
+minimum revalidation; a quiet scan is not pass evidence by itself.
+
 ## Trigger
 
 Create or update a DevelopmentProcessFlow review when:
@@ -99,7 +153,12 @@ Use grouped process rows instead of separate blanks for every lifecycle field.
 - changed artifacts: id/type, current version or fingerprint, path/owner, and
   upstream artifact ids when they affect freshness;
 - process steps: action id/type, actor, status, decision scope, read/write
-  artifacts, invalidations, and ordering dependencies;
+  artifacts, invalidations, ordering dependencies, process plane, and any
+  separately typed target commitment/plane/relation references;
+- compatibility admission: subject class, decision (`direct_current_replacement`
+  or `explicit_software_compatibility`), explicit requirement id when admitted,
+  bounded reader owner, historical input identity, rejection boundary, and
+  sunset/claim boundary;
 - simulator mode decisions: selected modes, reason, delegated skill if any,
   required mode evidence, and scoped gaps;
 - validation evidence: evidence id, kind, producer route, status, command or
@@ -124,6 +183,8 @@ Use grouped process rows instead of separate blanks for every lifecycle field.
   depends on the row;
 - final claim boundary: routine vs release/archive/publish scope and the Risk
   Evidence Ledger row that consumes the lifecycle evidence.
+- synchronization domains: source/shadow/formal/install/skills/Git revision,
+  receipt, peer-write baseline, invalidation, and independent pass/scoped state.
 
 ## Validation Failure Triage
 
@@ -250,6 +311,13 @@ Keep these findings visible:
 - `final_claim_missing_risk_evidence_ledger`;
 - `final_claim_uses_blocked_risk_evidence`;
 - `open_maintenance_obligation_claimed_done`.
+- `post_change_owner_scan_missing`;
+- `synchronization_domain_receipt_missing`;
+- `peer_write_rollback_attempted`.
+- `skill_runtime_compatibility_surface_present`;
+- `software_compatibility_requirement_missing`;
+- `software_compatibility_reader_unbounded`;
+- `runtime_output_misclassified_as_historical_input`.
 
 ## Prompt Template
 
@@ -324,7 +392,8 @@ A DevelopmentProcessFlow review can support a lifecycle claim only when:
 - remembered maintenance obligations touched by changed artifacts have current
   owner-route evidence or are carried as scoped confidence;
 - bug-repair claims consume current root-cause backpropagation,
-  model-code-test alignment, compatibility or legacy path disposition, and
+  model-code-test alignment, the current-authority/compatibility-admission
+  decision, and
   Risk Evidence Ledger evidence instead of only a later green test command;
 - any validation failure has a visible triage class, and non-ordinary triage
   classes have current evidence from the owning satellite or parent evidence

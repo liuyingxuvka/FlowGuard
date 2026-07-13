@@ -468,3 +468,25 @@ __all__ = [
     "initial_state",
     "terminal_predicate",
 ]
+
+
+from flowguard.skill_contract_model import (
+    FLOWGUARD_MODEL_MARKER,
+    build_skill_contract_model_export,
+)
+
+
+def export_contract_model():
+    """Project the existing field-lifecycle owner for SkillGuard V2."""
+
+    return build_skill_contract_model_export(
+        skill_id="flowguard-field-lifecycle-mesh",
+        route_id="field_lifecycle_mesh",
+        owner_id="field_lifecycle_mesh",
+        parent_model_id="flowguard.model_first_function_flow",
+        business_intent="Account for each behavior-bearing field, projection, reader, writer, and old-field disposition.",
+        claim_boundary="Projection only; field inventory, UI-reader handoff, replacement disposition, and native tests remain authoritative.",
+    )
+
+
+__all__ = [*__all__, "FLOWGUARD_MODEL_MARKER", "export_contract_model"]

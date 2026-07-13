@@ -30,6 +30,13 @@ Guards against:
   display owner, purpose, or free-text rationale.
 - accepting user-on-demand content that is visible by default, has no explicit
   reveal path, or cannot return to its hidden state.
+- accepting complete-product UI language claims without every expected product
+  surface, canonical typography/component/navigation/interaction/feedback/
+  recovery/transition semantics, or bounded presentation-only exceptions.
+- allowing the same business intent to drift across commitments or primary
+  paths while pure UI interactions are forced to invent business authority.
+- exposing internal identity, audit, evidence, or diagnostic fields as product
+  language, or introducing a fourth content-visibility class.
 
 Use before editing:
 UI flow structure helper APIs, satellite skill wording, templates, docs, and
@@ -61,6 +68,14 @@ class RolloutOutput:
 class RolloutState:
     ui_model_created: bool = False
     ui_model_reviewed: bool = False
+    product_language_reviewed: bool = False
+    expected_product_surfaces_complete: bool = False
+    canonical_product_semantics_reused: bool = False
+    bounded_presentation_exceptions_reviewed: bool = False
+    typography_roles_reused: bool = False
+    business_authority_bindings_aligned: bool = False
+    three_visibility_classes_preserved: bool = False
+    no_internal_content_leaks: bool = False
     visibility_plan_reviewed: bool = False
     all_content_candidates_classified: bool = False
     typed_user_need_refs_reviewed: bool = False
@@ -104,12 +119,32 @@ class RolloutState:
             and self.on_demand_affordance_feedback_reviewed
         )
 
+    def product_language_ready(self) -> bool:
+        return (
+            self.product_language_reviewed
+            and self.expected_product_surfaces_complete
+            and self.canonical_product_semantics_reused
+            and self.bounded_presentation_exceptions_reviewed
+            and self.typography_roles_reused
+            and self.business_authority_bindings_aligned
+            and self.three_visibility_classes_preserved
+            and self.no_internal_content_leaks
+        )
+
 
 class CorrectUiFlowStructureRollout:
     name = "CorrectUiFlowStructureRollout"
     reads = (
         "ui_model_created",
         "ui_model_reviewed",
+        "product_language_reviewed",
+        "expected_product_surfaces_complete",
+        "canonical_product_semantics_reused",
+        "bounded_presentation_exceptions_reviewed",
+        "typography_roles_reused",
+        "business_authority_bindings_aligned",
+        "three_visibility_classes_preserved",
+        "no_internal_content_leaks",
         "visibility_plan_reviewed",
         "all_content_candidates_classified",
         "typed_user_need_refs_reviewed",
@@ -194,6 +229,30 @@ class CorrectUiFlowStructureRollout:
                 label="content_visibility_plan_reviewed",
             )
             return
+        if action == "review_product_language":
+            if not state.ui_model_reviewed:
+                yield FunctionResult(
+                    RolloutOutput("product_language_review_rejected"),
+                    state,
+                    label="product_language_review_rejected",
+                )
+                return
+            yield FunctionResult(
+                RolloutOutput("product_language_reviewed"),
+                replace(
+                    state,
+                    product_language_reviewed=True,
+                    expected_product_surfaces_complete=True,
+                    canonical_product_semantics_reused=True,
+                    bounded_presentation_exceptions_reviewed=True,
+                    typography_roles_reused=True,
+                    business_authority_bindings_aligned=True,
+                    three_visibility_classes_preserved=True,
+                    no_internal_content_leaks=True,
+                ),
+                label="product_language_reviewed",
+            )
+            return
         if action == "review_journey_coverage":
             if not state.ui_model_reviewed:
                 yield FunctionResult(
@@ -218,6 +277,7 @@ class CorrectUiFlowStructureRollout:
             if not (
                 state.ui_model_reviewed
                 and state.content_visibility_ready()
+                and state.product_language_ready()
                 and state.journey_coverage_reviewed
             ):
                 yield FunctionResult(
@@ -243,6 +303,7 @@ class CorrectUiFlowStructureRollout:
             if not (
                 state.ui_model_reviewed
                 and state.content_visibility_ready()
+                and state.product_language_ready()
                 and state.journey_coverage_reviewed
                 and state.structure_derived
                 and state.text_hierarchy_reviewed
@@ -286,6 +347,110 @@ class CorrectUiFlowStructureRollout:
             accepted = (
                 state.ui_model_reviewed
                 and state.content_visibility_ready()
+                and state.product_language_ready()
+                and state.journey_coverage_reviewed
+                and state.launch_entry_inventory_present
+                and state.terminal_recovery_paths_reviewed
+                and state.visible_control_branches_reviewed
+                and state.structure_derived
+                and state.parent_child_topology_present
+                and state.redundancy_reviewed
+                and state.text_hierarchy_reviewed
+                and state.typography_handoff_guidance_reviewed
+                and state.skill_documented
+            )
+            yield FunctionResult(
+                RolloutOutput("release_accepted" if accepted else "release_rejected"),
+                replace(state, release_claim="accepted" if accepted else "rejected"),
+                label="release_accepted" if accepted else "release_rejected",
+            )
+            return
+        if action == "claim_implemented_ui":
+            accepted = (
+                state.skill_documented
+                and state.content_visibility_ready()
+                and state.product_language_ready()
+                and state.feature_contracts_aligned
+                and state.implementation_validation_reviewed
+                and state.implementation_content_evidence_structured
+                and state.implementation_content_evidence_content_exact
+                and state.clickthrough_evidence_reviewed
+                and state.implementation_evidence_fresh
+            )
+            yield FunctionResult(
+                RolloutOutput("implemented_ui_accepted" if accepted else "implemented_ui_rejected"),
+                replace(state, implemented_ui_claim="accepted" if accepted else "rejected"),
+                label="implemented_ui_accepted" if accepted else "implemented_ui_rejected",
+            )
+
+
+class BrokenProductLanguageRollout(CorrectUiFlowStructureRollout):
+    """Known-bad base that lets one product-language defect survive a broad claim."""
+
+    expected_product_surfaces_complete = True
+    canonical_product_semantics_reused = True
+    bounded_presentation_exceptions_reviewed = True
+    typography_roles_reused = True
+    business_authority_bindings_aligned = True
+    three_visibility_classes_preserved = True
+    no_internal_content_leaks = True
+    product_language_status = "product_language_reviewed_with_gap"
+
+    def apply(self, input_obj: RolloutAction, state: RolloutState) -> Iterable[FunctionResult]:
+        action = input_obj.action_type
+        if action == "review_product_language":
+            if not state.ui_model_reviewed:
+                yield FunctionResult(
+                    RolloutOutput("product_language_review_rejected"),
+                    state,
+                    label="product_language_review_rejected",
+                )
+                return
+            yield FunctionResult(
+                RolloutOutput(self.product_language_status),
+                replace(
+                    state,
+                    product_language_reviewed=True,
+                    expected_product_surfaces_complete=self.expected_product_surfaces_complete,
+                    canonical_product_semantics_reused=self.canonical_product_semantics_reused,
+                    bounded_presentation_exceptions_reviewed=self.bounded_presentation_exceptions_reviewed,
+                    typography_roles_reused=self.typography_roles_reused,
+                    business_authority_bindings_aligned=self.business_authority_bindings_aligned,
+                    three_visibility_classes_preserved=self.three_visibility_classes_preserved,
+                    no_internal_content_leaks=self.no_internal_content_leaks,
+                ),
+                label=self.product_language_status,
+            )
+            return
+        if action == "derive_structure":
+            if not (
+                state.ui_model_reviewed
+                and state.content_visibility_ready()
+                and state.journey_coverage_reviewed
+            ):
+                yield FunctionResult(
+                    RolloutOutput("structure_derivation_rejected"),
+                    state,
+                    label="structure_derivation_rejected",
+                )
+                return
+            yield FunctionResult(
+                RolloutOutput("structure_derived_despite_product_language_gap"),
+                replace(
+                    state,
+                    structure_derived=True,
+                    parent_child_topology_present=True,
+                    redundancy_reviewed=True,
+                    text_hierarchy_reviewed=True,
+                    typography_handoff_guidance_reviewed=True,
+                ),
+                label="structure_derived_despite_product_language_gap",
+            )
+            return
+        if action == "claim_release":
+            accepted = (
+                state.ui_model_reviewed
+                and state.content_visibility_ready()
                 and state.journey_coverage_reviewed
                 and state.launch_entry_inventory_present
                 and state.terminal_recovery_paths_reviewed
@@ -319,6 +484,57 @@ class CorrectUiFlowStructureRollout:
                 replace(state, implemented_ui_claim="accepted" if accepted else "rejected"),
                 label="implemented_ui_accepted" if accepted else "implemented_ui_rejected",
             )
+            return
+        yield from super().apply(input_obj, state)
+
+
+class BrokenMissingProductSurfaceRollout(BrokenProductLanguageRollout):
+    name = "BrokenMissingProductSurfaceRollout"
+    idempotency = "Broken variant accepts a caller-selected subset as complete product scope."
+    expected_product_surfaces_complete = False
+    product_language_status = "missing_product_surface_accepted"
+
+
+class BrokenProductSemanticDriftRollout(BrokenProductLanguageRollout):
+    name = "BrokenProductSemanticDriftRollout"
+    idempotency = "Broken variant accepts cross-surface product semantic drift."
+    canonical_product_semantics_reused = False
+    product_language_status = "product_semantic_drift_accepted"
+
+
+class BrokenInvalidProductExceptionRollout(BrokenProductLanguageRollout):
+    name = "BrokenInvalidProductExceptionRollout"
+    idempotency = "Broken variant lets a presentation exception waive behavior authority."
+    bounded_presentation_exceptions_reviewed = False
+    product_language_status = "invalid_behavior_authority_exception_accepted"
+
+
+class BrokenTypographyRoleDriftRollout(BrokenProductLanguageRollout):
+    name = "BrokenTypographyRoleDriftRollout"
+    idempotency = "Broken variant accepts different token, scale, or weight for one hierarchy role."
+    typography_roles_reused = False
+    product_language_status = "typography_role_drift_accepted"
+
+
+class BrokenBusinessAuthorityDriftRollout(BrokenProductLanguageRollout):
+    name = "BrokenBusinessAuthorityDriftRollout"
+    idempotency = "Broken variant lets one exact UI intent point to multiple business authorities."
+    business_authority_bindings_aligned = False
+    product_language_status = "business_authority_drift_accepted"
+
+
+class BrokenFourthVisibilityClassRollout(BrokenProductLanguageRollout):
+    name = "BrokenFourthVisibilityClassRollout"
+    idempotency = "Broken variant accepts an administrator or expert visibility class."
+    three_visibility_classes_preserved = False
+    product_language_status = "fourth_visibility_class_accepted"
+
+
+class BrokenInternalProductContentLeakRollout(BrokenProductLanguageRollout):
+    name = "BrokenInternalProductContentLeakRollout"
+    idempotency = "Broken variant exposes internal identity, audit, evidence, or diagnostics as product copy."
+    no_internal_content_leaks = False
+    product_language_status = "internal_product_content_leak_accepted"
 
 
 class BrokenVisibilityAdmissionRollout(CorrectUiFlowStructureRollout):
@@ -977,6 +1193,61 @@ def ui_claim_requires_on_demand_affordance_feedback(state: RolloutState, trace) 
     return InvariantResult.pass_()
 
 
+def ui_claim_requires_complete_product_surface_inventory(state: RolloutState, trace) -> InvariantResult:
+    del trace
+    if _ui_claim_accepted(state) and not (
+        state.product_language_reviewed and state.expected_product_surfaces_complete
+    ):
+        return InvariantResult.fail("UI claim accepted without every expected product surface or an explicit scoped disposition")
+    return InvariantResult.pass_()
+
+
+def ui_claim_requires_canonical_product_semantics(state: RolloutState, trace) -> InvariantResult:
+    del trace
+    if _ui_claim_accepted(state) and not state.canonical_product_semantics_reused:
+        return InvariantResult.fail(
+            "UI claim accepted with typography, component, navigation, interaction, feedback, recovery, or transition semantic drift"
+        )
+    return InvariantResult.pass_()
+
+
+def ui_claim_requires_bounded_presentation_exceptions(state: RolloutState, trace) -> InvariantResult:
+    del trace
+    if _ui_claim_accepted(state) and not state.bounded_presentation_exceptions_reviewed:
+        return InvariantResult.fail("UI claim accepted with an unbounded exception that can waive behavior authority")
+    return InvariantResult.pass_()
+
+
+def ui_claim_requires_typography_role_reuse(state: RolloutState, trace) -> InvariantResult:
+    del trace
+    if _ui_claim_accepted(state) and not state.typography_roles_reused:
+        return InvariantResult.fail("UI claim accepted while the same hierarchy role uses different token, scale, or weight")
+    return InvariantResult.pass_()
+
+
+def ui_claim_requires_one_business_authority(state: RolloutState, trace) -> InvariantResult:
+    del trace
+    if _ui_claim_accepted(state) and not state.business_authority_bindings_aligned:
+        return InvariantResult.fail(
+            "UI claim accepted while one exact business intent uses different commitments or primary paths, or pure UI invents authority"
+        )
+    return InvariantResult.pass_()
+
+
+def ui_claim_preserves_three_visibility_classes(state: RolloutState, trace) -> InvariantResult:
+    del trace
+    if _ui_claim_accepted(state) and not state.three_visibility_classes_preserved:
+        return InvariantResult.fail("UI claim accepted after introducing a fourth content-visibility class")
+    return InvariantResult.pass_()
+
+
+def ui_claim_forbids_internal_product_content_leaks(state: RolloutState, trace) -> InvariantResult:
+    del trace
+    if _ui_claim_accepted(state) and not state.no_internal_content_leaks:
+        return InvariantResult.fail("UI claim accepted while internal identity, audit, evidence, or diagnostic content is visible")
+    return InvariantResult.pass_()
+
+
 def release_requires_reviewed_ui_model(state: RolloutState, trace) -> InvariantResult:
     del trace
     if state.release_claim == "accepted" and not state.ui_model_reviewed:
@@ -1111,6 +1382,41 @@ INVARIANTS = (
         ui_claim_requires_on_demand_affordance_feedback,
     ),
     Invariant(
+        "ui_claim_requires_complete_product_surface_inventory",
+        "Complete-product language claims require every expected surface or a typed scoped disposition.",
+        ui_claim_requires_complete_product_surface_inventory,
+    ),
+    Invariant(
+        "ui_claim_requires_canonical_product_semantics",
+        "Declared product surfaces reuse canonical typography and UI grammar semantics.",
+        ui_claim_requires_canonical_product_semantics,
+    ),
+    Invariant(
+        "ui_claim_requires_bounded_presentation_exceptions",
+        "UI consistency exceptions are typed, bounded, and presentation-only.",
+        ui_claim_requires_bounded_presentation_exceptions,
+    ),
+    Invariant(
+        "ui_claim_requires_typography_role_reuse",
+        "The same hierarchy role reuses one typography token, scale, and weight across surfaces.",
+        ui_claim_requires_typography_role_reuse,
+    ),
+    Invariant(
+        "ui_claim_requires_one_business_authority",
+        "Business-bearing UI surfaces preserve one commitment and primary path; pure UI needs neither.",
+        ui_claim_requires_one_business_authority,
+    ),
+    Invariant(
+        "ui_claim_preserves_three_visibility_classes",
+        "Product-language review preserves exactly user_visible, user_on_demand, and internal.",
+        ui_claim_preserves_three_visibility_classes,
+    ),
+    Invariant(
+        "ui_claim_forbids_internal_product_content_leaks",
+        "Internal identity, audit, evidence, and diagnostic fields remain outside ordinary product UI.",
+        ui_claim_forbids_internal_product_content_leaks,
+    ),
+    Invariant(
         "release_requires_reviewed_ui_model",
         "UI flow structure release claims require a reviewed UI interaction model.",
         release_requires_reviewed_ui_model,
@@ -1171,6 +1477,7 @@ EXTERNAL_INPUTS = (
     RolloutAction("create_ui_model"),
     RolloutAction("review_ui_model"),
     RolloutAction("review_content_visibility_plan"),
+    RolloutAction("review_product_language"),
     RolloutAction("review_journey_coverage"),
     RolloutAction("derive_structure"),
     RolloutAction("review_implementation_validation"),
@@ -1183,6 +1490,7 @@ RELEASE_INPUTS = (
     RolloutAction("create_ui_model"),
     RolloutAction("review_ui_model"),
     RolloutAction("review_content_visibility_plan"),
+    RolloutAction("review_product_language"),
     RolloutAction("review_journey_coverage"),
     RolloutAction("derive_structure"),
     RolloutAction("document_skill"),
@@ -1193,6 +1501,7 @@ IMPLEMENTATION_INPUTS = (
     RolloutAction("create_ui_model"),
     RolloutAction("review_ui_model"),
     RolloutAction("review_content_visibility_plan"),
+    RolloutAction("review_product_language"),
     RolloutAction("review_journey_coverage"),
     RolloutAction("derive_structure"),
     RolloutAction("review_implementation_validation"),
@@ -1209,6 +1518,34 @@ def initial_state() -> RolloutState:
 
 def build_correct_workflow() -> Workflow:
     return Workflow((CorrectUiFlowStructureRollout(),), name="ui_flow_structure_correct")
+
+
+def build_broken_missing_product_surface_workflow() -> Workflow:
+    return Workflow((BrokenMissingProductSurfaceRollout(),), name="ui_product_surface_inventory_broken")
+
+
+def build_broken_product_semantic_drift_workflow() -> Workflow:
+    return Workflow((BrokenProductSemanticDriftRollout(),), name="ui_product_semantic_drift_broken")
+
+
+def build_broken_invalid_product_exception_workflow() -> Workflow:
+    return Workflow((BrokenInvalidProductExceptionRollout(),), name="ui_product_exception_broken")
+
+
+def build_broken_typography_role_drift_workflow() -> Workflow:
+    return Workflow((BrokenTypographyRoleDriftRollout(),), name="ui_typography_role_drift_broken")
+
+
+def build_broken_business_authority_drift_workflow() -> Workflow:
+    return Workflow((BrokenBusinessAuthorityDriftRollout(),), name="ui_business_authority_drift_broken")
+
+
+def build_broken_fourth_visibility_class_workflow() -> Workflow:
+    return Workflow((BrokenFourthVisibilityClassRollout(),), name="ui_fourth_visibility_class_broken")
+
+
+def build_broken_internal_product_content_leak_workflow() -> Workflow:
+    return Workflow((BrokenInternalProductContentLeakRollout(),), name="ui_internal_product_content_leak_broken")
 
 
 def build_broken_layout_only_workflow() -> Workflow:
@@ -1345,7 +1682,14 @@ __all__ = [
     "RolloutAction",
     "RolloutOutput",
     "RolloutState",
+    "build_broken_business_authority_drift_workflow",
+    "build_broken_fourth_visibility_class_workflow",
+    "build_broken_internal_product_content_leak_workflow",
+    "build_broken_invalid_product_exception_workflow",
     "build_broken_layout_only_workflow",
+    "build_broken_missing_product_surface_workflow",
+    "build_broken_product_semantic_drift_workflow",
+    "build_broken_typography_role_drift_workflow",
     "build_broken_internal_content_mapping_workflow",
     "build_broken_cross_content_visibility_evidence_workflow",
     "build_broken_opaque_content_visibility_evidence_workflow",
@@ -1369,3 +1713,25 @@ __all__ = [
     "initial_state",
     "terminal_predicate",
 ]
+
+
+from flowguard.skill_contract_model import (
+    FLOWGUARD_MODEL_MARKER,
+    build_skill_contract_model_export,
+)
+
+
+def export_contract_model():
+    """Project the existing UI-flow owner for SkillGuard V2."""
+
+    return build_skill_contract_model_export(
+        skill_id="flowguard-ui-flow-structure",
+        route_id="ui_flow_structure",
+        owner_id="ui_flow_structure",
+        parent_model_id="flowguard.model_first_function_flow",
+        business_intent="Admit UI content and preserve one product language across typography, components, navigation, interaction, feedback, recovery, and transitions.",
+        claim_boundary="Projection only; three-class content admission, product-surface consistency, journeys, and current runnable evidence remain native UI Flow authority.",
+    )
+
+
+__all__ = [*__all__, "FLOWGUARD_MODEL_MARKER", "export_contract_model"]

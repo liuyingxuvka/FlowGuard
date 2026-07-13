@@ -5,6 +5,16 @@ issue after a FlowGuard pass.
 
 ## Review Questions
 
+- Which execution plane's promise failed: `product_runtime`,
+  `agent_operation`, or `development_process`?
+- Which same-plane `affected_commitment_id` and `owner_model_id` already own
+  that promise? Search the same plane before creating a coverage gap.
+- If the incident touches other planes, which typed relation ids describe the
+  invoked target, governing process, validation target, or evidence source
+  without transferring ownership?
+- Which stable error signatures should be added to the existing commitment's
+  lookup binding so the next preflight can recall it?
+
 - Why did the earlier model miss this bug class?
 - Was there a previous green or broad-confidence claim? If yes, what was the
   previous claim id, observed failure, supported root cause, and
@@ -96,3 +106,13 @@ interaction groups, generated combination case ids, TestMesh shard evidence
 when sharded, and coverage receipts consumed by the relevant ModelMesh parent.
 Child-local green is not enough when parent mesh confidence depends on the
 child's input/output/state/side-effect handoff.
+
+## Same-Plane Backfeed Rule
+
+Model Miss first records `affected_behavior_plane`,
+`affected_commitment_id`, `owner_model_id`, typed related relation ids, and
+evidence-bound error signatures. If a matching same-plane commitment exists,
+reuse it and deepen its owner model, cases, tests, and evidence. Create a new
+coverage-gap row only when no matching promise exists in that plane. A
+multi-plane incident may have related rows, but it still has one primary failed
+promise; cross-plane context never becomes a duplicate owner.

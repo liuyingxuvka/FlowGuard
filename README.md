@@ -16,7 +16,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.54.0` | `1.0` | Python standard library only | MIT |
+| `v0.55.0` | `1.0` | Python standard library only | MIT |
 
 English comes first. A Chinese mirror follows below.
 
@@ -77,6 +77,8 @@ The important output is often the counterexample: a concrete sequence of states 
 | Retry or repeated job processing | the same input creates a second side effect | a repeated-input trace and an idempotency invariant |
 | Cache or refresh logic | old state is reused after it should be invalid | state fields and freshness rules that need to change |
 | UI workflows | buttons exist, but the user cannot recover, cancel, or reach a terminal state | launch-to-terminal journeys, visible controls, disabled reasons, and recovery paths |
+| UI product language | each page uses different title sizes, controls, navigation, feedback, or recovery for the same job | one product-scope UI Flow Structure comparison across typography, components, navigation, interaction, feedback, recovery, and transitions |
+| Repeated functional paths | downloading or submitting the same kind of result quietly grows a different handler per page, API, command, alias, or wrapper | one stable exact intent, one active behavior commitment, one selected current path, and evidence that extra surfaces delegate |
 | Refactors | a new module split loses the real state or side-effect owner | facade boundaries, state owners, side-effect owners, and parity evidence |
 | Tests and releases | an old passing test is treated as proof after code, docs, models, or fixtures changed | evidence freshness and minimum revalidation requirements |
 | Feature or behavior inventory | AI fixes one local path while missing, duplicating, or inventing external behavior | a Behavior Commitment Ledger: source surfaces, commitments, one primary owner model, dependencies, evidence, and PPA handoff for path-sensitive behavior |
@@ -118,18 +120,17 @@ The example should report:
 
 That example is intentionally abstract. It does not search real jobs or call an AI model. It exists to show the FlowGuard pattern: repeated inputs, state writes, invariants, and counterexamples.
 
-If you need the compatibility command wrapper for project records or template generation, run it from the repository with `python -m flowguard ...`. That wrapper executes checks and helpers; it is not the AI-agent skill install.
+If you need the current command wrapper for project records or template generation, run it from the repository with `python -m flowguard ...`. That wrapper executes checks and helpers; it is not the AI-agent skill install.
 
 ## Use It In Another Project
 
 For a target project, first make the FlowGuard skill suite available to the AI agent that will work there. The agent needs `AGENTS.md` plus every FlowGuard `SKILL.md` under `.agents/skills/`.
 
-Then, when executable project records are useful, run the compatibility check commands:
+Then, when executable project records are useful, run the current commands:
 
 ```powershell
 python -m flowguard project-adopt --root <target-project>
 python -m flowguard project-audit --root <target-project>
-python -m flowguard project-upgrade --root <target-project>
 ```
 
 Then start small:
@@ -152,6 +153,36 @@ claims, start with the Behavior Commitment Ledger. It registers external
 behavior promises, maps them to source surfaces, assigns exactly one primary
 owner model, and sends `path_sensitive=true` rows to Primary Path Authority so
 the work does not accumulate hidden fallback paths.
+
+Surface shape is not behavior identity. When a page control, API, CLI, alias,
+adapter, wrapper, or compatibility facade has the same actor, preconditions,
+terminal result, failure boundary, material state writes, and side effects, it
+maps to the same stable business intent and active commitment. Primary Path
+Authority keeps one current selected path, while extra surfaces delegate. UI
+Flow Structure then checks that repeated pages use one semantic typography and
+interaction language without exposing the internal intent, commitment, path,
+audit, or evidence ids to ordinary users. Content admission remains exactly
+`user_visible`, `user_on_demand`, or `internal`.
+
+Behavior ownership is a separate question from UI visibility and from
+`commitment_kind`. Every registered production commitment belongs to exactly
+one execution plane:
+
+- `product_runtime`: what the application promises to users or external systems;
+- `agent_operation`: how the current AI agent operates tools to complete work;
+- `development_process`: how development, validation, installation, archive,
+  publish, and release work is governed.
+
+Existing Model Preflight queries the requested plane first, then shows typed
+related-plane context separately. A product target can be invoked or validated
+by an AI action without transferring ownership to that action. The lookup is a
+small, explainable recall aid; it does not force every ordinary action to run a
+model and cannot guarantee that a future AI will obey the retrieved guidance.
+Inspect a decision with the existing BCL/preflight-owned read-only command:
+
+```powershell
+python -m flowguard behavior-commitment-query "start the UI test and check the port bridge" --root . --plane agent_operation --term port_bridge --json
+```
 
 ## Minimal Model Sketch
 
@@ -259,11 +290,16 @@ persona or admin/operator/developer/auditor classes.
 
 FlowGuard deliberately keeps three different meanings of “green” separate:
 
+All seventeen bundled skills use one current contract trio and bind one
+existing FlowGuard owner/model projection. SkillGuard records and executes the
+declared native test path; it does not add a duplicate depth or functional test
+suite for each FlowGuard skill.
+
 | Layer | What passed | What it does not prove |
 | --- | --- | --- |
-| Prompt and contract structure | the skill prompt, generated contract, references, and SkillGuard static/depth rules agree | the route's executable check did not necessarily run |
+| Prompt and contract structure | the skill prompt, current contract trio, references, and exact native-test declaration agree | the route's executable check did not necessarily run |
 | Native evidence receipt | the route-owned command ran against declared current inputs and produced a terminal, freshness-verifiable receipt | one route receipt does not close the other sixteen routes or the parent claim |
-| Self-governance parent closure | the parent consumed current exact-pass receipts for all required members and checked inventory, freshness, and distribution boundaries | it still proves only the declared suite obligations, not future AI behavior or production correctness |
+| SkillGuard parent TestMesh receipt | the one SkillGuard execution owner consumed current exact-pass receipts for all required members and checked inventory, freshness, and distribution boundaries | it still proves only the declared suite obligations, not future AI behavior or production correctness |
 
 If a prompt, contract, native checker, model, test, or covered input changes, older evidence may become stale. A previous pass is not silently carried forward.
 
@@ -278,7 +314,7 @@ python scripts/run_flowguard_model_regressions.py --tier focused --model "ui_*" 
 python scripts/run_flowguard_model_regressions.py --tier full --jobs 1 --timeout 900 --output-dir .flowguard/evidence/model-regressions/full-local --full
 ```
 
-Default human output is concise. `--json` emits the canonical machine result, while `--full` expands human-readable child details; neither option upgrades the evidence scope. During a long foreground or background run, progress events show liveness only. Completion requires the final `report.json` and terminal child receipts in the selected output directory.
+Default human output is concise. `--json` emits the canonical machine result, while `--full` expands human-readable child details; neither option upgrades the evidence scope. A full tier starts only after source/tool freeze under one SkillGuard execution owner, never through a background retry helper, Scheduled Task, or `--resume`. Progress events show liveness only; completion requires the final result and terminal child receipts.
 
 The skill installer manages the complete 17-member tree and records which files it owns:
 
@@ -464,18 +500,17 @@ python examples/job_matching/run_checks.py
 
 这个例子是抽象的。它不搜索真实岗位，也不调用 AI 模型。它只用来展示 FlowGuard 的基本方式：重复输入、状态写入、invariant 和反例。
 
-如果你需要 project record 或模板生成的兼容命令，可以在仓库里运行 `python -m flowguard ...`。这个命令包装层用于执行检查和 helper，不是 AI-agent 技能安装本身。
+如果你需要当前 project record 或模板生成命令，可以在仓库里运行 `python -m flowguard ...`。这个命令包装层用于执行检查和 helper，不是 AI-agent 技能安装本身。
 
 ## 接入到另一个项目
 
 如果要让另一个项目支持 FlowGuard，第一步是让那个项目里的 AI agent 能看到 FlowGuard 技能套件。也就是让它能读取 `AGENTS.md` 和 `.agents/skills/` 下的所有 FlowGuard `SKILL.md`。
 
-然后，在需要可执行项目记录时，再运行兼容检查命令：
+然后，在需要可执行项目记录时，再运行当前检查命令：
 
 ```powershell
 python -m flowguard project-adopt --root <target-project>
 python -m flowguard project-audit --root <target-project>
-python -m flowguard project-upgrade --root <target-project>
 ```
 
 然后从一个小风险边界开始：
@@ -592,15 +627,39 @@ FlowGuard 有一个 model-first kernel 和多条 route-specific 技能。AI agen
 正常标签不用重复登记；可运行声明还要有 observed inventory 和逐内容结构化证据。
 这里也不引入 audience/role/persona 或 admin/operator/developer/auditor 角色体系。
 
+完整产品的 UI 还会按同一套语义语言检查字体层级、组件、导航、交互、反馈、
+恢复和转场：同样职责的页面标题、次级页面标题、弹窗标题、胶囊标签、正文和
+状态文字尽量复用同一 token、字号层级和字重；有平台、原生控件、无障碍或安全
+差异时，可以记录“只改变呈现”的有证据例外，但不能借例外改变用户目的、行为
+承诺、主路径、显示类别或外部结果。页面、API、CLI、别名和包装层如果做的是同
+一件事，也共用一个稳定业务目的、一个 active commitment 和一条已验证主路径；
+这些内部 id 只用于模型和审计，不显示给普通用户。
+
+行为属于谁，是另一条独立的分类，不能拿 UI 显示类别或 `commitment_kind` 代替。
+每条正式承诺只属于一个层面：`product_runtime` 表示软件对用户或外部系统的
+行为，`agent_operation` 表示当前 AI 怎样使用工具完成操作，
+`development_process` 表示开发、验证、安装、归档和发布怎样治理。预检先在
+主要层面查找，再把有类型关系的其他层面单独列作目标、治理或证据上下文；关联
+不会转移负责人。这个查询只是轻量、可解释的提醒，不会强迫每个普通动作都跑
+模型，也不能保证未来的 AI 一定遵守。可用现有 BCL/预检名下的只读命令查看命中：
+
+```powershell
+python -m flowguard behavior-commitment-query "启动 UI 测试并检查端口桥接" --root . --plane agent_operation --term port_bridge --json
+```
+
 ### 三层证据状态
 
 FlowGuard 刻意把三种不同的“通过”分开：
 
+内置的 17 个技能现在全部使用一套当前合同三件套，各自只绑定一个既有
+FlowGuard owner 和模型投影。SkillGuard 只登记并执行技能已经声明的原生测试路径，
+不会给每项 FlowGuard 技能另造一套深度测试或功能测试。
+
 | 层级 | 真正通过了什么 | 还没有证明什么 |
 | --- | --- | --- |
-| 提示词与合同结构 | 技能提示词、生成合同、引用和 SkillGuard 静态/深度规则一致 | 该路线的原生可执行检查不一定运行过 |
+| 提示词与合同结构 | 技能提示词、当前合同三件套、引用和原生测试声明一致 | 该路线的原生可执行检查不一定运行过 |
 | 原生证据回执 | 路线 owner 的命令针对声明的当前输入运行，并产生可独立验证新鲜度的终态回执 | 一条路线的回执不能替代其他 16 条路线，也不能自动关闭父级声明 |
-| 自治理父闭环 | 父级消费了所有必需成员的当前 exact-pass 回执，并核对 inventory、freshness 和分发边界 | 它仍只证明声明过的技能套件义务，不证明未来 AI 行为或生产系统整体正确 |
+| SkillGuard 父级 TestMesh 回执 | 唯一 SkillGuard 执行负责人消费了所有必需成员的当前 exact-pass 回执，并核对 inventory、freshness 和分发边界 | 它仍只证明声明过的技能套件义务，不证明未来 AI 行为或生产系统整体正确 |
 
 如果提示词、合同、原生检查器、模型、测试或被覆盖输入发生变化，旧证据可能立刻过期。以前绿过，不会被自动续期。
 
@@ -615,7 +674,7 @@ python scripts/run_flowguard_model_regressions.py --tier focused --model "ui_*" 
 python scripts/run_flowguard_model_regressions.py --tier full --jobs 1 --timeout 900 --output-dir .flowguard/evidence/model-regressions/full-local --full
 ```
 
-默认的人类输出是精简摘要；`--json` 输出稳定的机器结果，`--full` 展开人类可读的子项详情，它们都不会改变证据范围。长任务在前台或后台运行时，progress event 只代表“还活着”，不代表完成。真正完成需要选定输出目录里的最终 `report.json` 和所有子任务终态回执。
+默认的人类输出是精简摘要；`--json` 输出稳定的机器结果，`--full` 展开人类可读的子项详情，它们都不会改变证据范围。full 只能在源码和工具冻结后由唯一 SkillGuard 执行负责人启动，不能通过后台重试脚本、Windows 计划任务或 `--resume` 启动。progress event 只代表“还活着”，不代表完成；真正完成需要最终结果和所有子任务终态回执。
 
 技能安装器管理完整的 17 项文件树，并记录自己拥有的文件：
 
@@ -630,7 +689,7 @@ python scripts/install_flowguard_skills.py uninstall --codex-home $env:CODEX_HOM
 
 `check` 和 `parity` 本身只读，因此不接受 `--dry-run`。卸载只删除未被用户改动、且有 installer ownership 记录的文件；修改过或不归安装器拥有的文件会保留并报告 conflict。当前技能回执放在 `.flowguard/evidence/skill-suite`，模型运行产物放在回归命令指定的 `--output-dir`。环境本地回执会被明确排除在技能分发树之外，需要在提出声明的环境中重新生成。
 
-更完整的命令契约、状态/退出码、后台监控边界、证据目录和安全安装生命周期，见 [`docs/validation_and_distribution.md`](./docs/validation_and_distribution.md)。
+更完整的命令契约、状态/退出码、单一执行者边界、证据目录和安全安装生命周期，见 [`docs/validation_and_distribution.md`](./docs/validation_and_distribution.md)。
 
 常用检查和模板命令：
 
@@ -684,7 +743,7 @@ python -m flowguard --help
 | [`docs/flowguard_closure_contract.md`](./docs/flowguard_closure_contract.md) | 完整 FlowGuard 使用的 closure contract |
 | [`docs/risk_evidence_ledger.md`](./docs/risk_evidence_ledger.md) | risk-to-model-to-code-to-evidence 信心边界 |
 | [`docs/runtime_gateway_adoption.md`](./docs/runtime_gateway_adoption.md) | runtime gateway adoption level 和 critical-state writer inventory |
-| [`docs/validation_and_distribution.md`](./docs/validation_and_distribution.md) | 分层验证、三层证据、后台进度和技能分发生命周期 |
+| [`docs/validation_and_distribution.md`](./docs/validation_and_distribution.md) | 分层验证、三层证据、单一执行者和技能分发生命周期 |
 
 ## 仓库结构
 

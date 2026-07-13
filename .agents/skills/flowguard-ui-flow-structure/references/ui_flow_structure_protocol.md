@@ -18,9 +18,10 @@ Load only the directly routed protocol needed for the active claim:
 3. Build `UIContentVisibilityPlan` for in-scope displayed values, status/helper/metadata content, non-action labels, and optional details. Use exactly `user_visible`, `user_on_demand`, or `internal`; use typed/resolvable task/state/recovery/safety needs. Exempt only exact normal labels for registered, in-scope task-owned controls with no extra state, disabled reason, or metadata.
 4. Inventory required user-visible capabilities and output contracts, then build the interaction model with admitted displays and default-hidden on-demand state.
 5. For complete app claims, review launch-to-terminal journeys before structure and text derivation.
-6. For usable/human-operable claims, run the task and human-operability package, including reveal and return accessibility.
-7. For implemented/runnable/complete claims, require current visibility, click-through, and evidence-kind rows; design/model evidence is insufficient.
-8. Add geometry/responsiveness and transition projection only when those claims are in scope.
+6. For complete-product language claims, declare the expected surface inventory and compare canonical typography, component, navigation, interaction, feedback, recovery, and transition rules. Bind business-bearing UI rows to the existing intent, commitment, and singular selected path.
+7. For usable/human-operable claims, run the task and human-operability package, including reveal and return accessibility.
+8. For implemented/runnable/complete claims, require current visibility, click-through, and evidence-kind rows; design/model evidence is insufficient.
+9. Add geometry/responsiveness and transition projection only when those claims are in scope.
 
 ## Shared hard boundary
 
@@ -33,6 +34,8 @@ Content admission has two conceptual groups and no audience/role/persona taxonom
 Source-based work preserves success, cancel, error, selected-value, no-handler, and external-effect semantics; greenfield work must not invent a source baseline.
 
 Typography handoff stays semantic and calm: semantic hierarchy levels are not a command to create one size per level; text with similar jobs should reuse treatments; avoid a one-off visual text style without a named attention/meaning role.
+
+Complete-product consistency is still this route, not a new design-language owner. Equal semantic roles across pages, windows, dialogs, menus, and repeated components reuse the same rule and typography token/scale/weight. A bounded presentation exception records scope, reason, owner, validation boundary, current evidence, and preserves the same behavior authority and external result. Internal intent/commitment/path/evidence/audit ids never become ordinary UI content.
 
 Screenshot, DOM text, event traces, geometry, accessibility/ARIA, test results, and manual observation are evidence kinds only when tied to a current model/implementation revision and an evidence reference. Label/API existence alone is not functional proof.
 

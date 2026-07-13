@@ -11,6 +11,11 @@ import json
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
+from .behavior_plane import (
+    BCL_BEHAVIOR_PLANES,
+    BCL_PLANE_AGENT_OPERATION,
+    BCL_PLANE_DEVELOPMENT_PROCESS,
+)
 from .agent_workflow_rehearsal import (
     AgentWorkflowPlan,
     AgentWorkflowStep,
@@ -172,6 +177,13 @@ class PlanDetailSource:
     supports_surface_ids: tuple[str, ...] = ()
     summary: str = ""
     metadata: Mapping[str, Any] = field(default_factory=dict)
+    spec_provider_id: str = ""
+    work_package_id: str = ""
+    change_id: str = ""
+    spec_task_ids: tuple[str, ...] = ()
+    spec_obligation_ids: tuple[str, ...] = ()
+    spec_check_ids: tuple[str, ...] = ()
+    spec_binding_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "source_id", str(self.source_id))
@@ -179,6 +191,13 @@ class PlanDetailSource:
         object.__setattr__(self, "supports_surface_ids", _as_tuple(self.supports_surface_ids))
         object.__setattr__(self, "summary", str(self.summary))
         object.__setattr__(self, "metadata", _as_mapping(self.metadata))
+        object.__setattr__(self, "spec_provider_id", str(self.spec_provider_id))
+        object.__setattr__(self, "work_package_id", str(self.work_package_id))
+        object.__setattr__(self, "change_id", str(self.change_id))
+        object.__setattr__(self, "spec_task_ids", _as_tuple(self.spec_task_ids))
+        object.__setattr__(self, "spec_obligation_ids", _as_tuple(self.spec_obligation_ids))
+        object.__setattr__(self, "spec_check_ids", _as_tuple(self.spec_check_ids))
+        object.__setattr__(self, "spec_binding_ids", _as_tuple(self.spec_binding_ids))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -188,6 +207,13 @@ class PlanDetailSource:
             "supports_surface_ids": list(self.supports_surface_ids),
             "summary": self.summary,
             "metadata": to_jsonable(dict(self.metadata)),
+            "spec_provider_id": self.spec_provider_id,
+            "work_package_id": self.work_package_id,
+            "change_id": self.change_id,
+            "spec_task_ids": list(self.spec_task_ids),
+            "spec_obligation_ids": list(self.spec_obligation_ids),
+            "spec_check_ids": list(self.spec_check_ids),
+            "spec_binding_ids": list(self.spec_binding_ids),
         }
 
 
@@ -332,6 +358,17 @@ class PlanDetailStep:
     rework_step_id: str = ""
     claim_labels: tuple[str, ...] = ()
     side_effect_ids: tuple[str, ...] = ()
+    behavior_plane: str = ""
+    target_behavior_planes: tuple[str, ...] = ()
+    target_commitment_ids: tuple[str, ...] = ()
+    typed_commitment_relation_refs: tuple[str, ...] = ()
+    spec_provider_id: str = ""
+    work_package_id: str = ""
+    change_id: str = ""
+    spec_task_ids: tuple[str, ...] = ()
+    spec_obligation_ids: tuple[str, ...] = ()
+    spec_check_ids: tuple[str, ...] = ()
+    spec_binding_ids: tuple[str, ...] = ()
     description: str = ""
 
     def __post_init__(self) -> None:
@@ -352,6 +389,21 @@ class PlanDetailStep:
         object.__setattr__(self, "rework_step_id", str(self.rework_step_id))
         object.__setattr__(self, "claim_labels", _as_tuple(self.claim_labels))
         object.__setattr__(self, "side_effect_ids", _as_tuple(self.side_effect_ids))
+        object.__setattr__(self, "behavior_plane", str(self.behavior_plane))
+        object.__setattr__(self, "target_behavior_planes", _as_tuple(self.target_behavior_planes))
+        object.__setattr__(self, "target_commitment_ids", _as_tuple(self.target_commitment_ids))
+        object.__setattr__(
+            self,
+            "typed_commitment_relation_refs",
+            _as_tuple(self.typed_commitment_relation_refs),
+        )
+        object.__setattr__(self, "spec_provider_id", str(self.spec_provider_id))
+        object.__setattr__(self, "work_package_id", str(self.work_package_id))
+        object.__setattr__(self, "change_id", str(self.change_id))
+        object.__setattr__(self, "spec_task_ids", _as_tuple(self.spec_task_ids))
+        object.__setattr__(self, "spec_obligation_ids", _as_tuple(self.spec_obligation_ids))
+        object.__setattr__(self, "spec_check_ids", _as_tuple(self.spec_check_ids))
+        object.__setattr__(self, "spec_binding_ids", _as_tuple(self.spec_binding_ids))
         object.__setattr__(self, "description", str(self.description))
 
     def completion_receipts(self) -> tuple[str, ...]:
@@ -377,6 +429,17 @@ class PlanDetailStep:
             "rework_step_id": self.rework_step_id,
             "claim_labels": list(self.claim_labels),
             "side_effect_ids": list(self.side_effect_ids),
+            "behavior_plane": self.behavior_plane,
+            "target_behavior_planes": list(self.target_behavior_planes),
+            "target_commitment_ids": list(self.target_commitment_ids),
+            "typed_commitment_relation_refs": list(self.typed_commitment_relation_refs),
+            "spec_provider_id": self.spec_provider_id,
+            "work_package_id": self.work_package_id,
+            "change_id": self.change_id,
+            "spec_task_ids": list(self.spec_task_ids),
+            "spec_obligation_ids": list(self.spec_obligation_ids),
+            "spec_check_ids": list(self.spec_check_ids),
+            "spec_binding_ids": list(self.spec_binding_ids),
             "description": self.description,
         }
 
@@ -392,6 +455,13 @@ class PlanDetailValidation:
     command: str = ""
     scope: str = "routine"
     release_required: bool = False
+    spec_provider_id: str = ""
+    work_package_id: str = ""
+    change_id: str = ""
+    spec_task_ids: tuple[str, ...] = ()
+    spec_obligation_ids: tuple[str, ...] = ()
+    spec_check_ids: tuple[str, ...] = ()
+    spec_binding_ids: tuple[str, ...] = ()
     description: str = ""
 
     def __post_init__(self) -> None:
@@ -401,6 +471,13 @@ class PlanDetailValidation:
         object.__setattr__(self, "evidence_ids", _as_tuple(self.evidence_ids))
         object.__setattr__(self, "command", str(self.command))
         object.__setattr__(self, "scope", str(self.scope))
+        object.__setattr__(self, "spec_provider_id", str(self.spec_provider_id))
+        object.__setattr__(self, "work_package_id", str(self.work_package_id))
+        object.__setattr__(self, "change_id", str(self.change_id))
+        object.__setattr__(self, "spec_task_ids", _as_tuple(self.spec_task_ids))
+        object.__setattr__(self, "spec_obligation_ids", _as_tuple(self.spec_obligation_ids))
+        object.__setattr__(self, "spec_check_ids", _as_tuple(self.spec_check_ids))
+        object.__setattr__(self, "spec_binding_ids", _as_tuple(self.spec_binding_ids))
         object.__setattr__(self, "description", str(self.description))
 
     def to_dict(self) -> dict[str, Any]:
@@ -412,6 +489,13 @@ class PlanDetailValidation:
             "command": self.command,
             "scope": self.scope,
             "release_required": self.release_required,
+            "spec_provider_id": self.spec_provider_id,
+            "work_package_id": self.work_package_id,
+            "change_id": self.change_id,
+            "spec_task_ids": list(self.spec_task_ids),
+            "spec_obligation_ids": list(self.spec_obligation_ids),
+            "spec_check_ids": list(self.spec_check_ids),
+            "spec_binding_ids": list(self.spec_binding_ids),
             "description": self.description,
         }
 
@@ -571,6 +655,7 @@ class PlanDetail:
     non_trivial: bool = True
     exploratory: bool = False
     allow_scoped_confidence: bool = True
+    require_behavior_plane_boundary: bool = False
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -592,6 +677,11 @@ class PlanDetail:
         object.__setattr__(self, "final_claim", _claim_scope(self.final_claim))
         object.__setattr__(self, "final_evidence_ids", _as_tuple(self.final_evidence_ids))
         object.__setattr__(self, "claim_labels", _as_tuple(self.claim_labels))
+        object.__setattr__(
+            self,
+            "require_behavior_plane_boundary",
+            bool(self.require_behavior_plane_boundary),
+        )
         object.__setattr__(self, "metadata", _as_mapping(self.metadata))
 
     def source_ids(self) -> tuple[str, ...]:
@@ -629,6 +719,7 @@ class PlanDetail:
             "non_trivial": self.non_trivial,
             "exploratory": self.exploratory,
             "allow_scoped_confidence": self.allow_scoped_confidence,
+            "require_behavior_plane_boundary": self.require_behavior_plane_boundary,
             "metadata": to_jsonable(dict(self.metadata)),
         }
 
@@ -736,6 +827,60 @@ def review_plan_detail(plan: PlanDetail) -> PlanDetailReviewReport:
     if not plan.task_summary.strip() and not plan.goal.strip():
         findings.append(_finding("missing_goal", "plan detail needs a task summary or goal", severity=PLAN_DETAIL_SEVERITY_BLOCKED))
 
+    plane_boundary_active = plan.require_behavior_plane_boundary or any(
+        step.behavior_plane
+        or step.target_behavior_planes
+        or step.target_commitment_ids
+        or step.typed_commitment_relation_refs
+        for step in plan.steps
+    )
+    if plane_boundary_active:
+        for step in plan.steps:
+            if step.behavior_plane != BCL_PLANE_AGENT_OPERATION:
+                findings.append(
+                    _finding(
+                        "plan_step_absorbs_target_behavior_plane",
+                        "A planned AI step must remain in agent_operation; product/process behavior stays target context.",
+                        severity=PLAN_DETAIL_SEVERITY_BLOCKED,
+                        row_id=step.step_id,
+                        metadata={"actual": step.behavior_plane},
+                    )
+                )
+            invalid_targets = tuple(
+                plane for plane in step.target_behavior_planes if plane not in BCL_BEHAVIOR_PLANES
+            )
+            if invalid_targets:
+                findings.append(
+                    _finding(
+                        "plan_step_target_behavior_plane_invalid",
+                        "A planned step references an unsupported target behavior plane.",
+                        severity=PLAN_DETAIL_SEVERITY_BLOCKED,
+                        row_id=step.step_id,
+                        metadata={"invalid": list(invalid_targets)},
+                    )
+                )
+            cross_plane_targets = tuple(
+                plane for plane in step.target_behavior_planes if plane != BCL_PLANE_AGENT_OPERATION
+            )
+            if cross_plane_targets and not step.target_commitment_ids:
+                findings.append(
+                    _finding(
+                        "plan_step_target_commitment_missing",
+                        "A sibling-plane target needs commitment ids before projection.",
+                        severity=PLAN_DETAIL_SEVERITY_BLOCKED,
+                        row_id=step.step_id,
+                    )
+                )
+            if cross_plane_targets and not step.typed_commitment_relation_refs:
+                findings.append(
+                    _finding(
+                        "plan_step_cross_plane_relation_missing",
+                        "A sibling-plane target needs a typed BCL relation reference before projection.",
+                        severity=PLAN_DETAIL_SEVERITY_BLOCKED,
+                        row_id=step.step_id,
+                    )
+                )
+
     if plan.non_trivial and not plan.sources:
         findings.append(_finding("missing_source_evidence", "non-trivial plan detail needs current source evidence"))
 
@@ -748,6 +893,66 @@ def review_plan_detail(plan: PlanDetail) -> PlanDetailReviewReport:
                     severity=_severity_for_claim(plan, scoped_ok=True),
                     row_id=source.source_id,
                 )
+            )
+        spec_bound = bool(
+            source.spec_provider_id
+            or source.work_package_id
+            or source.change_id
+            or source.spec_task_ids
+            or source.spec_obligation_ids
+            or source.spec_check_ids
+            or source.spec_binding_ids
+        )
+        if spec_bound and not (source.spec_provider_id and source.work_package_id and source.change_id):
+            findings.append(
+                _finding(
+                    "spec_provider_identity_incomplete",
+                    "spec plan source must retain provider, work-package, and change identities",
+                    row_id=source.source_id,
+                )
+            )
+        if spec_bound and source.spec_task_ids and not source.spec_binding_ids:
+            findings.append(
+                _finding(
+                    "spec_task_mapping_missing",
+                    "spec plan source tasks need explicit bidirectional binding ids",
+                    row_id=source.source_id,
+                )
+            )
+
+    source_spec_tasks = {
+        task_id for source in plan.sources if source.source_kind == "spec_work_package" for task_id in source.spec_task_ids
+    }
+    source_spec_obligations = {
+        item_id for source in plan.sources if source.source_kind == "spec_work_package" for item_id in source.spec_obligation_ids
+    }
+    source_spec_checks = {
+        item_id for source in plan.sources if source.source_kind == "spec_work_package" for item_id in source.spec_check_ids
+    }
+    step_spec_tasks = {task_id for step in plan.steps for task_id in step.spec_task_ids}
+    validation_spec_obligations = {
+        item_id for validation in plan.validations for item_id in validation.spec_obligation_ids
+    }
+    validation_spec_checks = {item_id for validation in plan.validations for item_id in validation.spec_check_ids}
+    for code, message, missing in (
+        ("spec_task_step_mapping_missing", "provider tasks must remain mapped on plan steps", source_spec_tasks - step_spec_tasks),
+        (
+            "spec_obligation_validation_mapping_missing",
+            "provider obligations must remain mapped on validations",
+            source_spec_obligations - validation_spec_obligations,
+        ),
+        ("spec_check_validation_mapping_missing", "provider checks must remain mapped on validations", source_spec_checks - validation_spec_checks),
+        ("spec_step_task_unknown", "plan steps reference provider tasks absent from the source", step_spec_tasks - source_spec_tasks),
+        (
+            "spec_validation_obligation_unknown",
+            "validations reference provider obligations absent from the source",
+            validation_spec_obligations - source_spec_obligations,
+        ),
+        ("spec_validation_check_unknown", "validations reference provider checks absent from the source", validation_spec_checks - source_spec_checks),
+    ):
+        if missing:
+            findings.append(
+                _finding(code, message, severity=PLAN_DETAIL_SEVERITY_BLOCKED, metadata={"ids": sorted(missing)})
             )
 
     if plan.non_trivial and not plan.surfaces:
@@ -1094,7 +1299,13 @@ def plan_detail_to_step_contracts(plan: PlanDetail) -> tuple[WorkflowStepContrac
                 skip_policy=STEP_SKIP_FORBIDDEN if step.validation_required else STEP_SKIP_ALLOWED_WITH_REASON,
                 description=step.description or step.action,
                 artifact_ids=tuple(dict.fromkeys(step.reads_artifacts + step.writes_artifacts)),
-                metadata={"source_plan_id": plan.plan_id},
+                metadata={
+                    "source_plan_id": plan.plan_id,
+                    "behavior_plane": step.behavior_plane,
+                    "target_behavior_planes": list(step.target_behavior_planes),
+                    "target_commitment_ids": list(step.target_commitment_ids),
+                    "typed_commitment_relation_refs": list(step.typed_commitment_relation_refs),
+                },
             )
         )
     return tuple(contracts)
@@ -1114,6 +1325,20 @@ def plan_detail_to_development_process(plan: PlanDetail) -> DevelopmentProcessPl
             produced_evidence_ids=step.produced_evidence_ids,
             required_evidence_ids=step.required_evidence_ids,
             order_after=step.order_after,
+            behavior_plane=(
+                BCL_PLANE_DEVELOPMENT_PROCESS
+                if plan.require_behavior_plane_boundary
+                else ""
+            ),
+            target_behavior_planes=step.target_behavior_planes,
+            target_commitment_ids=step.target_commitment_ids,
+            typed_commitment_relation_refs=step.typed_commitment_relation_refs,
+            spec_provider_id=step.spec_provider_id,
+            spec_work_package_id=step.work_package_id,
+            spec_task_ids=step.spec_task_ids,
+            spec_obligation_ids=step.spec_obligation_ids,
+            spec_check_ids=step.spec_check_ids,
+            spec_binding_ids=step.spec_binding_ids,
             description=step.description or step.action,
         )
         for step in plan.steps
@@ -1154,6 +1379,12 @@ def plan_detail_to_development_process(plan: PlanDetail) -> DevelopmentProcessPl
             scope=validation.scope,
             release_required=validation.release_required,
             command=validation.command,
+            spec_provider_id=validation.spec_provider_id,
+            spec_work_package_id=validation.work_package_id,
+            spec_task_ids=validation.spec_task_ids,
+            spec_obligation_ids=validation.spec_obligation_ids,
+            spec_check_ids=validation.spec_check_ids,
+            spec_binding_ids=validation.spec_binding_ids,
             description=validation.description,
         )
         for validation in plan.validations
@@ -1176,6 +1407,12 @@ def plan_detail_to_development_process(plan: PlanDetail) -> DevelopmentProcessPl
         validation_requirements=validations,
         freshness_rules=freshness_rules,
         require_proof_artifacts=plan.final_claim == PLAN_DETAIL_CLAIM_FULL,
+        behavior_plane=(
+            BCL_PLANE_DEVELOPMENT_PROCESS
+            if plan.require_behavior_plane_boundary
+            else ""
+        ),
+        require_behavior_plane_boundary=plan.require_behavior_plane_boundary,
     )
 
 
@@ -1201,6 +1438,13 @@ def plan_detail_to_agent_workflow_plan(plan: PlanDetail, inventory: SkillInvento
             validation_required=step.validation_required,
             irreversible=any(effect.step_id == step.step_id and not effect.reversible for effect in plan.side_effects),
             rework_step_id=step.rework_step_id,
+            behavior_plane=(
+                step.behavior_plane
+                or (BCL_PLANE_AGENT_OPERATION if plan.require_behavior_plane_boundary else "")
+            ),
+            target_behavior_planes=step.target_behavior_planes,
+            target_commitment_ids=step.target_commitment_ids,
+            typed_commitment_relation_refs=step.typed_commitment_relation_refs,
             description=step.description,
         )
         for step in plan.steps
@@ -1215,6 +1459,12 @@ def plan_detail_to_agent_workflow_plan(plan: PlanDetail, inventory: SkillInvento
         final_evidence_ids=plan.final_evidence_ids,
         risk_flags=tuple(surface.surface_id for surface in plan.surfaces if surface.in_scope),
         task_trivial=not plan.non_trivial,
+        behavior_plane=(
+            BCL_PLANE_AGENT_OPERATION
+            if plan.require_behavior_plane_boundary
+            else ""
+        ),
+        require_behavior_plane_boundary=plan.require_behavior_plane_boundary,
     )
 
 

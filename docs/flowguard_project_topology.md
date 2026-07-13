@@ -84,7 +84,7 @@ Current role shape:
   seeds. They declare finite boundaries; canonical bad-case ids are generated
   by ContractExhaustionMesh.
 
-The maintenance rule is latest-schema-first. A helper-first public route,
-obsolete alias, fallback prompt, wrapper, or compatibility-like surface must be
-deleted, absorbed into the owner route, converted to an internal helper, or
-kept only as an explicitly proven public facade.
+The maintenance rule is one current authority. A helper-first public route,
+obsolete alias, fallback prompt, wrapper, or compatibility-like skill surface
+must be deleted, absorbed into the owner route, or blocked. Ordinary software
+history requires an explicit bounded compatibility contract.

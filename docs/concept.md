@@ -8,9 +8,9 @@ It is not a normal test framework, not a prompt-engineering trick, and not an LL
 
 FlowGuard keeps three governance layers separate because each answers a different question:
 
-1. **Prompt and contract structure:** Does a skill say the right things, reference resolvable material, and satisfy its static/depth contract?
+1. **Prompt and contract structure:** Does a skill say the right things, reference resolvable material, and declare one exact current native-test path?
 2. **Native evidence receipt:** Did that route's real executable command run against the declared current inputs and end with an independently verifiable exact-pass receipt?
-3. **Self-governance parent closure:** Did the parent consume every required current child receipt and check inventory, freshness, and distribution boundaries before making a suite-level claim?
+3. **SkillGuard parent TestMesh receipt:** Did the one SkillGuard execution owner consume every required current child receipt and check inventory, freshness, and distribution boundaries before making a suite-level claim?
 
 A layer-one pass is not a layer-two run. One layer-two receipt is not layer-three closure. Any changed prompt, contract, native checker, model, test, or covered input may make older evidence stale. This separation is the practical defense against a local green result being promoted into an unsupported full or release claim.
 
