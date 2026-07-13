@@ -21,8 +21,10 @@ class ModelRegressionManifestTests(unittest.TestCase):
         manifest = ModelRegressionManifest.load(root)
         audit = audit_manifest(root, manifest)
         self.assertTrue(audit.ok, audit.errors)
-        self.assertEqual(57, len(audit.registered_model_ids))
-        self.assertEqual(57, len(discover_model_directories(root)))
+        self.assertEqual(
+            {path.name for path in discover_model_directories(root)},
+            set(audit.registered_model_ids),
+        )
         self.assertIn("template_public_release", audit.registered_model_ids)
 
     def test_required_public_model_entries_are_tracked_release_files(self):
