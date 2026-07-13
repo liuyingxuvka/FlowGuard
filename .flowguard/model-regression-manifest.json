@@ -964,6 +964,27 @@
       "timeout_seconds": 300
     },
     {
+      "absence_reason": "This executable model is a checkout-local OpenSpec reconciliation record and is run when present but is not required in a clean public distribution.",
+      "distribution_policy": "optional_local",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/spec_provider_work_packages/model.py",
+        ".flowguard/spec_provider_work_packages/run_checks.py",
+        ".flowguard/spec_provider_work_packages/bindings.json"
+      ],
+      "model_id": "spec_provider_work_packages",
+      "model_path": ".flowguard/spec_provider_work_packages/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/spec_provider_work_packages/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "focused",
+      "timeout_seconds": 300
+    },
+    {
       "absence_reason": "",
       "distribution_policy": "required_public",
       "exclusion_reason": "",

@@ -178,6 +178,21 @@ class EvidenceReceiptSchemaTests(unittest.TestCase):
         with self.assertRaisesRegex(ReceiptValidationError, "absolute path"):
             receipt(metadata={"raw_log_path": str(Path.home() / "private.log")})
 
+    def test_relative_glob_metadata_is_not_mistaken_for_an_absolute_path(self):
+        value = receipt(
+            metadata={
+                "input_paths": [
+                    "flowguard/**/*.py",
+                    ".flowguard/**/model.py",
+                    "tests/test_*.py",
+                ]
+            }
+        )
+
+        self.assertEqual("flowguard/**/*.py", value.metadata["input_paths"][0])
+        with self.assertRaisesRegex(ReceiptValidationError, "absolute path"):
+            receipt(metadata={"input_paths": ["/private/**/*.py"]})
+
     def test_default_storage_round_trip_is_repository_local_and_private_path_free(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
