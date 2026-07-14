@@ -7,6 +7,7 @@ import tempfile
 import threading
 import unittest
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
@@ -32,9 +33,11 @@ from flowguard.spec_check_cache import (
     _pid_alive,
     _session_record_path,
     capture_spec_input_manifest,
+    capture_spec_toolchain_snapshot,
     close_spec_session,
     consume_spec_receipt,
     discover_governed_input_paths,
+    project_execution_toolchain_snapshot,
     run_spec_check,
     review_spec_provider_close,
     spec_receipt_to_proof_artifact,
@@ -44,6 +47,7 @@ from flowguard.spec_providers import (
     PROVIDER_HASH_POLICY_TASK_DEFINITION,
     provider_source_sha256,
 )
+from flowguard.spec_work_package import SpecProviderRef, SpecWorkPackage
 
 
 def _write(path: Path, text: str) -> None:
@@ -223,6 +227,46 @@ def _run(root: Path, **overrides):
 
 
 class SpecInputManifestTests(unittest.TestCase):
+    def test_cross_change_owner_toolchain_excludes_provider_local_identity(self) -> None:
+        package = SpecWorkPackage(
+            provider=SpecProviderRef(
+                "openspec",
+                "openspec",
+                provider_version="1.6.0",
+                schema_version="1",
+                adapter_version="1.0",
+            ),
+            work_package_id="change-one",
+            change_id="change-one",
+        )
+        changed_provider = replace(
+            package,
+            provider=replace(
+                package.provider,
+                provider_version="1.7.0",
+                schema_version="2",
+                adapter_version="2.0",
+            ),
+        )
+
+        first = capture_spec_toolchain_snapshot(package)
+        second = capture_spec_toolchain_snapshot(changed_provider)
+        self.assertNotEqual(first.fingerprint, second.fingerprint)
+
+        projected_first = project_execution_toolchain_snapshot(
+            first,
+            cross_change_safe=True,
+        )
+        projected_second = project_execution_toolchain_snapshot(
+            second,
+            cross_change_safe=True,
+        )
+        self.assertEqual(projected_first, projected_second)
+        self.assertFalse(
+            {"provider_id", "provider_version", "provider_schema_version", "provider_adapter_version"}
+            & set(projected_first.metadata)
+        )
+
     def test_session_history_directory_is_bounded_for_long_windows_roots(self) -> None:
         root = Path("C:/") / ("nested-" * 20)
         first = _session_record_path(root, "session:" + ("owner:" * 80), "begin")

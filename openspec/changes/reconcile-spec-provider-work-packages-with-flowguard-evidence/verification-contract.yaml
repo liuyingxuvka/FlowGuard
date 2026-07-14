@@ -1,4 +1,4 @@
-contract_version: 3
+contract_version: 1
 change: reconcile-spec-provider-work-packages-with-flowguard-evidence
 evidence_roots:
   SPEC_EVIDENCE: .flowguard/evidence/spec-work-packages

@@ -1,4 +1,4 @@
-contract_version: 3
+contract_version: 1
 change: harden-existing-product-language-and-path-reuse
 evidence_roots:
   SPEC_EVIDENCE: .flowguard/evidence/spec-work-packages

@@ -489,6 +489,39 @@ def capture_spec_toolchain_snapshot(package: SpecWorkPackage) -> SpecToolchainSn
     return SpecToolchainSnapshot(fingerprint=fingerprint_value(metadata), metadata=metadata)
 
 
+_PROVIDER_LOCAL_TOOLCHAIN_FIELDS = frozenset(
+    {
+        "provider_id",
+        "provider_version",
+        "provider_schema_version",
+        "provider_adapter_version",
+    }
+)
+
+
+def project_execution_toolchain_snapshot(
+    snapshot: SpecToolchainSnapshot,
+    *,
+    cross_change_safe: bool,
+) -> SpecToolchainSnapshot:
+    """Project the toolchain identity actually consumed by one physical owner.
+
+    Provider adapter/schema metadata belongs to a consumer projection.  A
+    declared cross-change-safe FlowGuard owner does not execute that adapter,
+    so coupling those fields to its execution identity would make a provider
+    task/contract edit spuriously rerun the physical check.
+    """
+
+    if not cross_change_safe:
+        return snapshot
+    metadata = {
+        key: value
+        for key, value in snapshot.metadata.items()
+        if key not in _PROVIDER_LOCAL_TOOLCHAIN_FIELDS
+    }
+    return SpecToolchainSnapshot(fingerprint=fingerprint_value(metadata), metadata=metadata)
+
+
 def _manifest_with_obligations(
     manifest: SpecInputManifest,
     obligation_ids: Sequence[str],
@@ -1894,7 +1927,10 @@ def _stored_spec_receipt_review(
         declared = next((row for row in owner_checks if row.check_id == envelope.check_id), None)
         if declared is None:
             raise ValueError("declared check is unavailable")
-        current_toolchain = capture_spec_toolchain_snapshot(package)
+        current_toolchain = project_execution_toolchain_snapshot(
+            capture_spec_toolchain_snapshot(package),
+            cross_change_safe=bool(declared.cross_change_safe),
+        )
         current_scope = capture_spec_input_manifest(
             root,
             input_paths=declared.input_paths,
@@ -2553,8 +2589,14 @@ def run_spec_check(
         else SPEC_SNAPSHOT_LIVE_SCOPED
     )
     input_paths = declared_check.input_paths
-    begin_toolchain = SpecToolchainSnapshot.from_dict(session.get("toolchain_snapshot", {}))
-    current_toolchain = capture_spec_toolchain_snapshot(package)
+    begin_toolchain = project_execution_toolchain_snapshot(
+        SpecToolchainSnapshot.from_dict(session.get("toolchain_snapshot", {})),
+        cross_change_safe=bool(declared_check.cross_change_safe),
+    )
+    current_toolchain = project_execution_toolchain_snapshot(
+        capture_spec_toolchain_snapshot(package),
+        cross_change_safe=bool(declared_check.cross_change_safe),
+    )
     if cross_change_safe and not declared_check.cross_change_safe:
         result = SpecCheckExecutionResult(
             provider_id,
@@ -3429,7 +3471,11 @@ def close_spec_session(root: str | Path, provider_id: str, work_package_id: str)
         ) != SPEC_SNAPSHOT_FROZEN_REQUIRED:
             blockers.append(f"required_check_not_on_frozen_snapshot:{check_id}")
             minimum_revalidation.append(check_id)
-        if row.get("toolchain_fingerprint") != post_toolchain.fingerprint:
+        expected_check_toolchain = project_execution_toolchain_snapshot(
+            post_toolchain,
+            cross_change_safe=bool(declared.cross_change_safe),
+        )
+        if row.get("toolchain_fingerprint") != expected_check_toolchain.fingerprint:
             blockers.append(f"required_check_toolchain_stale:{check_id}")
             minimum_revalidation.append(check_id)
         if bool(row.get("ok", False)) and str(row.get("receipt_id", "")):
