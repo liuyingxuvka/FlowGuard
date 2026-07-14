@@ -960,6 +960,19 @@ class SpecReceiptReuseTests(unittest.TestCase):
         )
         pointer = json.loads(pointer_path.read_text(encoding="utf-8"))
         self.assertEqual(["req.two"], pointer["coverage_ids"])
+        portable_id, envelope = _load_portable_receipt_ref(
+            root,
+            "openspec",
+            "change-two",
+            "check.one",
+        )
+        self.assertEqual(portable_id, envelope.receipt_id)
+        self.assertEqual("change-one", envelope.work_package_id)
+
+        del pointer["coverage_ids"]
+        _write(pointer_path, json.dumps(pointer, indent=2) + "\n")
+        with self.assertRaisesRegex(ValueError, "unknown or missing fields"):
+            _load_portable_receipt_ref(root, "openspec", "change-two", "check.one")
 
     def test_caller_cannot_expand_provider_cross_change_authority(self) -> None:
         temporary = _project()

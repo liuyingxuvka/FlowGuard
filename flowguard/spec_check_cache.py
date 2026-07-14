@@ -1625,9 +1625,8 @@ def _load_portable_receipt_ref(
         "envelope_ref", "envelope_fingerprint", "receipt_id", "receipt_fingerprint",
         "coverage_ids",
     }
-    unknown = set(pointer) - allowed
-    if unknown:
-        raise ValueError(f"unknown portable receipt ref fields: {sorted(unknown)}")
+    if set(pointer) != allowed:
+        raise ValueError("portable receipt ref contains unknown or missing fields")
     if pointer.get("schema_version") != "portable-receipt-ref.v1":
         raise ValueError("unsupported portable receipt ref schema")
     if pointer.get("protocol_version") != SPEC_PORTABLE_RECEIPT_PROTOCOL:
@@ -1635,7 +1634,7 @@ def _load_portable_receipt_ref(
     if pointer.get("root_token") != SPEC_EVIDENCE_ROOT_TOKEN:
         raise ValueError("portable receipt ref root token mismatch")
     pointer_coverage = pointer.get("coverage_ids")
-    if pointer_coverage is not None and (
+    if (
         not isinstance(pointer_coverage, list)
         or len(pointer_coverage) != len(set(pointer_coverage))
         or any(not isinstance(value, str) or not value for value in pointer_coverage)
@@ -1662,8 +1661,27 @@ def _load_portable_receipt_ref(
         raise ValueError("portable receipt ref semantic identity mismatch")
     if pointer.get("execution_id") != envelope.execution_id:
         raise ValueError("portable receipt ref execution identity mismatch")
-    if pointer_coverage is not None and set(pointer_coverage) != set(envelope.coverage_ids):
-        raise ValueError("portable receipt ref coverage identity mismatch")
+    if provider_id in {"openspec", "speckit"}:
+        declared_consumer = next(
+            (
+                item
+                for item in _load_package(root, provider_id, work_package_id).checks
+                if item.check_id == check_id
+            ),
+            None,
+        )
+        consumer_coverage = (
+            set((*declared_consumer.obligation_ids, *declared_consumer.coverage_ids))
+            if declared_consumer is not None
+            else set()
+        )
+    else:
+        # A foreign provider's portable ref is its physical owner ref rather
+        # than a local spec-consumer projection, so its exact coverage remains
+        # bound to the immutable owner envelope.
+        consumer_coverage = set(envelope.coverage_ids)
+    if set(pointer_coverage) != consumer_coverage:
+        raise ValueError("portable receipt ref consumer coverage identity mismatch")
 
     source_manifest_value = _read_json(
         _resolve_evidence_token(root, envelope.source_manifest_ref)

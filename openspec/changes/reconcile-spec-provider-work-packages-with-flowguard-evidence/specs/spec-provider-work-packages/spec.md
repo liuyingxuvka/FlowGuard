@@ -90,8 +90,12 @@ FlowGuard SHALL execute an identical current check key once and MAY reuse its im
 - **THEN** FlowGuard SHALL execute or block within that change rather than reuse implicitly
 
 #### Scenario: Cross-change reuse is declared and exact
-- **WHEN** an explicitly cross-change-safe check has identical current execution identity and complete coverage
-- **THEN** several changes MAY reference the one receipt id through consumer-local portable refs, without copying the immutable receipt or reexecuting its owner
+- **WHEN** an explicitly cross-change-safe check has identical current physical execution identity and each consumer ref declares its own exact coverage set
+- **THEN** several changes MAY reference the one owner receipt id through consumer-local portable refs, without copying the immutable receipt or reexecuting its owner
+
+#### Scenario: Only consumer coverage changes
+- **WHEN** the owner receipt remains current but one consumer changes its projected coverage declaration
+- **THEN** only that consumer projection SHALL become stale and the owner command SHALL NOT rerun
 
 #### Scenario: One reuse-key field changes
 - **WHEN** the check definition, inputs, tools, environment, coverage, or terminal receipt identity differs

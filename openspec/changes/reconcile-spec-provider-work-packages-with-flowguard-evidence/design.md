@@ -57,9 +57,9 @@ The session begins with an immutable governed-input manifest and ends with a new
 
 ### 6. Receipts are immutable and reuse is fail-closed
 
-A receipt binds work-package/check identity, check-definition hash, command/cwd, input fingerprint, tool/schema/version, environment boundary, coverage ids, terminal status, exit code, output hashes, and begin/post snapshot ids. Only a terminal successful receipt with complete coverage can be reused. Running, progress-only, skipped, failed, timeout, ambiguous, or stale evidence never becomes a cache hit.
+A receipt binds its physical owner identity, check-definition hash, command/cwd, input fingerprint, tool/schema/version, environment boundary, owner validation obligations, terminal status, exit code, output hashes, and begin/post snapshot ids. A consumer-local portable ref separately binds the consumer work package, check id, and exact projected `coverage_ids`. Only a terminal successful owner receipt with a current exact consumer projection can be reused. Running, progress-only, skipped, failed, timeout, ambiguous, or stale evidence never becomes a cache hit.
 
-Cross-change reuse requires the check definition to declare `cross_change_safe=true`. The reuse key omits consumer change ids only in that case; the receipt still records every consumer through fan-out references. Default reuse stays within one work package.
+Cross-change reuse requires the check definition to declare `cross_change_safe=true`. The physical reuse key omits consumer change ids and consumer-only coverage only in that case; each consumer remains independently identified by its portable ref and provider projection receipt. Changing consumer coverage stales only that projection and never reruns the still-current physical owner. Default reuse stays within one work package.
 
 ### 7. The CLI is a thin native FlowGuard surface
 
@@ -72,7 +72,7 @@ All seventeen managed skills contain only `.skillguard/contract-source.json`, `.
 ## Risks / Trade-offs
 
 - **[Broad input inventory reduces cache hits]** → Prefer safety first; later owner-declared input subsets may narrow keys only with tests proving complete dependency coverage.
-- **[A shared receipt could leak across unrelated changes]** → Default to package-local reuse and require explicit cross-change safety plus identical command/input/tool/environment/coverage identities.
+- **[A shared receipt could leak across unrelated changes]** → Default to package-local reuse and require explicit cross-change safety plus identical physical command/input/tool/environment identity; bind each consumer's exact coverage separately in its current projection.
 - **[Provider file formats evolve]** → Bind provider and adapter versions, fail with `provider_schema_unsupported`, and keep adapters read-only.
 - **[Concurrent agents race for one check]** → Use an atomic receipt lock; a live lock reports running/blocked, while an abandoned lock is recovered only with explicit stale-lock evidence.
 - **[Former runtime residue reappears]** → Fail the current-authority audit and installation parity check; never route through the residue.
