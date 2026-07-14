@@ -677,6 +677,58 @@ class PortableReceiptWireTests(unittest.TestCase):
 
 
 class SpecReceiptReuseTests(unittest.TestCase):
+    def test_parent_accepts_current_scoped_children_from_an_earlier_global_snapshot(self) -> None:
+        temporary = _aggregate_project()
+        self.addCleanup(temporary.cleanup)
+        root = Path(temporary.name)
+        begin_spec_session(root, "openspec", "change-one")
+        first_a = _run(
+            root,
+            check_id="owner.a",
+            semantic_id="semantic.a",
+            validation_obligation_ids=("validation:a",),
+            command=(sys.executable, "-c", "pass"),
+            cross_change_safe=True,
+        )
+        first_b = _run(
+            root,
+            check_id="owner.b",
+            semantic_id="semantic.b",
+            validation_obligation_ids=("validation:b",),
+            command=(sys.executable, "-c", "pass"),
+        )
+
+        _write(root / "docs/unrelated.md", "Unrelated provider note.\n")
+        begin_spec_session(root, "openspec", "change-one")
+        reused_a = _run(
+            root,
+            check_id="owner.a",
+            semantic_id="semantic.a",
+            validation_obligation_ids=("validation:a",),
+            command=(sys.executable, "-c", "pass"),
+            cross_change_safe=True,
+        )
+        reused_b = _run(
+            root,
+            check_id="owner.b",
+            semantic_id="semantic.b",
+            validation_obligation_ids=("validation:b",),
+            command=(sys.executable, "-c", "pass"),
+        )
+        parent = aggregate_spec_check_receipts(
+            root,
+            provider_id="openspec",
+            work_package_id="change-one",
+            check_id="owner.parent",
+        )
+
+        self.assertEqual(SPEC_CHECK_STATE_REUSED_CURRENT, reused_a.state)
+        self.assertEqual(SPEC_CHECK_STATE_REUSED_CURRENT, reused_b.state)
+        self.assertEqual(first_a.receipt_id, reused_a.receipt_id)
+        self.assertEqual(first_b.receipt_id, reused_b.receipt_id)
+        self.assertEqual(SPEC_CHECK_STATE_EXECUTED, parent.state)
+        self.assertTrue(parent.ok, parent.blockers)
+
     def test_orchestrator_evidence_root_is_not_inherited_by_check_process(self) -> None:
         temporary = _project()
         self.addCleanup(temporary.cleanup)

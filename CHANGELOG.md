@@ -47,8 +47,10 @@ FlowGuard product-language, behavior-plane, and validated-path reuse hardening.
   child execution key unless they are separately declared as functional
   dependency inputs. Parent aggregation independently validates and binds each
   child toolchain instead of requiring unrelated child tools to share one
-  fingerprint. Ambiguous or unmapped inputs block instead of falling back to a
-  repository-wide rerun.
+  fingerprint. Independently current scoped child receipts may come from
+  different whole-repository session snapshots; an unrelated component change
+  therefore does not poison their parent aggregation. Ambiguous or unmapped
+  inputs block instead of falling back to a repository-wide rerun.
 - Corrected project adoption so ordinary external projects without a local
   FlowGuard suite pass without vendoring all seventeen skills, while any
   explicit local suite marker activates strict complete-suite validation and a
