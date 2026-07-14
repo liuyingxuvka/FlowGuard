@@ -2560,7 +2560,7 @@ def run_spec_check(
 
     project_root = _project_root(root)
     consumer_id = f"consumer:{provider_id}:{work_package_id}:{check_id}"
-    dependency_ids = tuple(dict.fromkeys(str(value) for value in depends_on if str(value)))
+    requested_dependency_ids = tuple(dict.fromkeys(str(value) for value in depends_on if str(value)))
     if not command:
         raise ValueError("spec check command is required")
     if not semantic_id:
@@ -2579,6 +2579,15 @@ def run_spec_check(
         raise ValueError(
             f"check is not owned by the canonical FlowGuard executor: {check_id}"
         )
+    dependency_ids = tuple(
+        dict.fromkeys(
+            (
+                *declared_check.depends_on,
+                *declared_check.dependency_input_ids,
+                *requested_dependency_ids,
+            )
+        )
+    )
     semantic_check_id = declared_check.semantic_check_id or semantic_id
     execution_id = declared_check.execution_id
     session_snapshot_policy = str(session.get("snapshot_policy", SPEC_SNAPSHOT_LIVE_SCOPED))
@@ -2705,9 +2714,13 @@ def run_spec_check(
         _record_check_result(project_root, result)
         return result
     current = _manifest_with_obligations(current_scope, validation_obligation_ids)
+    # Ordering dependencies gate execution but do not implicitly redefine the
+    # physical result.  Only explicitly declared dependency inputs participate
+    # in the execution key; the parent aggregation still binds the complete
+    # child receipt set for release/closure claims.
     dependency_receipt_fingerprints = {
         dependency: str(recorded[dependency]["receipt_fingerprint"])
-        for dependency in dependency_ids
+        for dependency in declared_check.dependency_input_ids
     }
 
     cwd = Path(working_directory)

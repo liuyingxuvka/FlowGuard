@@ -520,7 +520,7 @@ def _canonical_check_definitions(config: Mapping[str, Any]) -> tuple[SpecCheckDe
                 execution_owner_id="flowguard.spec_check_cache",
                 input_paths=input_paths,
                 dependency_input_ids=tuple(
-                    str(value) for value in row.get("dependency_input_ids", row.get("depends_on", ()))
+                    str(value) for value in row.get("dependency_input_ids", ())
                 ),
                 snapshot_policy=str(row.get("snapshot_policy", "frozen-required")),
                 execution_mode=execution_mode,
@@ -722,7 +722,7 @@ def load_openspec_work_package(
                     str(value)
                     for value in input_scope.get(
                         "dependency_ids",
-                        policy.get("dependency_input_ids", row.get("depends_on_receipts", ())),
+                        policy.get("dependency_input_ids", ()),
                     )
                 ),
                 snapshot_policy=str(

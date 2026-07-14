@@ -170,6 +170,18 @@ class SpecProviderAdapterTests(unittest.TestCase):
             ):
                 load_openspec_canonical_checks(root, "change-one")
 
+    def test_ordering_dependency_is_not_an_implicit_execution_input(self) -> None:
+        check = SpecCheckDefinition(
+            "check.child",
+            command=("python", "-c", "pass"),
+            depends_on=("check.parent",),
+        )
+        explicit = replace(check, dependency_input_ids=("check.parent",))
+
+        self.assertEqual((), check.dependency_input_ids)
+        self.assertEqual(("check.parent",), check.depends_on)
+        self.assertEqual(("check.parent",), explicit.dependency_input_ids)
+
     def test_external_receipt_only_package_does_not_require_a_second_flowguard_owner(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
