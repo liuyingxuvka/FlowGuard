@@ -559,14 +559,34 @@ def _run_spec_session_close_command(args: argparse.Namespace) -> int:
 
 def _run_spec_check_command(args: argparse.Namespace) -> int:
     from .spec_check_cache import run_spec_check
-    from .spec_providers import load_openspec_work_package, load_speckit_work_package
+    from .spec_providers import (
+        load_openspec_canonical_checks,
+        load_openspec_work_package,
+        load_speckit_work_package,
+    )
 
     package = (
         load_openspec_work_package(args.root, args.work_package)
         if args.provider == "openspec"
         else load_speckit_work_package(args.root, args.work_package)
     )
-    declared = next((item for item in package.checks if item.check_id == args.check_id), None)
+    provider_declared = next(
+        (item for item in package.checks if item.check_id == args.check_id),
+        None,
+    )
+    canonical_declared = (
+        next(
+            (
+                item
+                for item in load_openspec_canonical_checks(args.root, args.work_package)
+                if item.check_id == args.check_id
+            ),
+            None,
+        )
+        if args.provider == "openspec"
+        else None
+    )
+    declared = canonical_declared or provider_declared
     validation_ids = tuple(args.validation_obligation or ()) or (
         declared.validation_obligation_ids if declared is not None else ()
     )
@@ -583,12 +603,18 @@ def _run_spec_check_command(args: argparse.Namespace) -> int:
     command = tuple(args.inner_command or ())
     if command and command[0] == "--":
         command = command[1:]
+    if not command and declared is not None:
+        command = declared.command
     result = run_spec_check(
         args.root,
         provider_id=args.provider,
         work_package_id=args.work_package,
         check_id=args.check_id,
-        semantic_id=args.semantic_check_id or args.semantic_id,
+        semantic_id=(
+            args.semantic_check_id
+            or args.semantic_id
+            or (declared.semantic_check_id if declared is not None else "")
+        ),
         command=command,
         validation_obligation_ids=validation_ids,
         coverage=tuple(args.coverage or ()),
