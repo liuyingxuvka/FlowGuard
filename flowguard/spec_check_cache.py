@@ -3207,7 +3207,6 @@ def aggregate_spec_check_receipts(
         if snapshot_policy == SPEC_SNAPSHOT_FROZEN_REQUIRED and (
             metadata.get("snapshot_policy") != SPEC_SNAPSHOT_FROZEN_REQUIRED
             or metadata.get("session_begin_fingerprint") != begin_fingerprint
-            or metadata.get("toolchain_fingerprint") != toolchain_fingerprint
         ):
             blockers.append(f"child_receipt_frozen_snapshot_mismatch:{receipt.receipt_id}")
     # Child receipts cover the provider-facing obligations.  The parent's own

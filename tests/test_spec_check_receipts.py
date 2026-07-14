@@ -157,6 +157,7 @@ checks:
             "command": ["python", "-c", "pass"],
             "input_paths": ["flowguard/source.py"],
             "validation_obligation_ids": ["validation:a"],
+            "cross_change_safe": True,
             "snapshot_policy": "live-scoped",
         },
         {

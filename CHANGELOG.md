@@ -45,8 +45,10 @@ FlowGuard product-language, behavior-plane, and validated-path reuse hardening.
   provider-local adapter/schema metadata no longer invalidate cross-change
   physical test owners. Ordering-only receipt dependencies no longer enter a
   child execution key unless they are separately declared as functional
-  dependency inputs. Ambiguous or unmapped inputs block instead of falling back
-  to a repository-wide rerun.
+  dependency inputs. Parent aggregation independently validates and binds each
+  child toolchain instead of requiring unrelated child tools to share one
+  fingerprint. Ambiguous or unmapped inputs block instead of falling back to a
+  repository-wide rerun.
 - Corrected project adoption so ordinary external projects without a local
   FlowGuard suite pass without vendoring all seventeen skills, while any
   explicit local suite marker activates strict complete-suite validation and a
