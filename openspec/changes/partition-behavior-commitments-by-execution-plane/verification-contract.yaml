@@ -100,7 +100,19 @@ checks:
       ref_path: "<SPEC_EVIDENCE>/portable-refs/openspec/partition-behavior-commitments-by-execution-plane/owner.models.full.json"
     consumer: openspec.change.partition-behavior-commitments-by-execution-plane
     required: true
-    covers: [req.infrastructure.models-full]
+    covers:
+      - req.infrastructure.models-full
+      - req.bcl.plane-actor-relations
+      - req.bcl.canonical-replacement
+      - req.lookup.plane-first
+      - req.lookup.explainable-cli
+      - req.preflight.commitment-first
+      - req.similarity.plane-quarantine
+      - req.miss.same-plane-backfeed
+      - req.fields.lifecycle
+      - req.contracts.finite-cases
+      - req.alignment.owner-contracts
+      - req.process.order-peer-writes
   - id: owner.tests.full
     kind: receipt
     semantic_check_id: flowguard.tests.full
@@ -112,7 +124,12 @@ checks:
       ref_path: "<SPEC_EVIDENCE>/portable-refs/openspec/partition-behavior-commitments-by-execution-plane/owner.tests.full.json"
     consumer: openspec.change.partition-behavior-commitments-by-execution-plane
     required: true
-    covers: [req.infrastructure.tests-full]
+    covers:
+      - req.infrastructure.tests-full
+      - req.testmesh.owner-receipts
+      - req.api.existing-owners
+      - req.skills.guidance-parity
+      - req.change.strict-valid
   - id: owner.change.aggregate
     kind: receipt
     semantic_check_id: flowguard.openspec.partition-behavior-commitments-by-execution-plane.aggregate

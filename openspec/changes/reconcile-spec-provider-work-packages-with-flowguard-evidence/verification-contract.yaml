@@ -157,7 +157,7 @@ checks:
       ref_path: "<SPEC_EVIDENCE>/portable-refs/openspec/reconcile-spec-provider-work-packages-with-flowguard-evidence/owner.spec.focused.json"
     consumer: openspec.change.reconcile-spec-provider-work-packages-with-flowguard-evidence
     required: true
-    covers: [req.spec.stable-identities, req.spec.input-output-boundary, req.spec.immutable-receipts, req.proof.session-identity]
+    covers: [req.spec.provider-authority, req.spec.stable-identities, req.spec.bidirectional-reconciliation, req.spec.input-output-boundary, req.spec.immutable-receipts, req.spec.archive, req.proof.session-identity]
 
   - id: owner.process.focused
     kind: receipt
@@ -170,7 +170,7 @@ checks:
       ref_path: "<SPEC_EVIDENCE>/portable-refs/openspec/reconcile-spec-provider-work-packages-with-flowguard-evidence/owner.process.focused.json"
     consumer: openspec.change.reconcile-spec-provider-work-packages-with-flowguard-evidence
     required: true
-    covers: [req.spec.input-output-boundary, req.process.work-packages, req.plan.provider-mapping, req.preflight.provider-context]
+    covers: [req.spec.input-output-boundary, req.process.work-packages, req.testmesh.spec-receipts, req.plan.provider-mapping, req.preflight.provider-context]
 
   - id: owner.model.focused
     kind: receipt

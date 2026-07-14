@@ -209,6 +209,81 @@ checks:
             self.assertEqual(("req.bridge",), owners[0].obligation_ids)
             self.assertTrue(review_spec_work_package(package).ok)
 
+    def test_aggregate_owner_cannot_claim_coverage_missing_from_children(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            change = root / "openspec/changes/change-one"
+            _write(change / "tasks.md", "# Tasks\n\n- [x] 1.1 Aggregate receipts\n")
+            _write(
+                change / "verification-contract.yaml",
+                """contract_version: 3
+evidence_roots:
+  SPEC_EVIDENCE: .flowguard/evidence/spec-work-packages
+obligations:
+  - id: req.child
+    source: specs/bridge/spec.md
+    claim: Child coverage.
+    evidence: [owner.child, owner.parent]
+  - id: req.parent-only
+    source: specs/bridge/spec.md
+    claim: Missing child coverage.
+    evidence: [owner.parent]
+checks:
+  - id: owner.child
+    kind: receipt
+    semantic_check_id: semantic.child
+    execution_id: owner.child.v1
+    receipt_ref: {provider_id: openspec, work_package_id: change-one, adapter: portable-receipt.v1, ref_path: <SPEC_EVIDENCE>/portable-refs/openspec/change-one/owner.child.json}
+    consumer: openspec.change.change-one
+    covers: [req.child]
+  - id: owner.parent
+    kind: receipt
+    semantic_check_id: semantic.parent
+    execution_id: owner.parent.v1
+    receipt_ref: {provider_id: openspec, work_package_id: change-one, adapter: portable-receipt.v1, ref_path: <SPEC_EVIDENCE>/portable-refs/openspec/change-one/owner.parent.json}
+    consumer: openspec.change.change-one
+    covers: [req.child, req.parent-only]
+""",
+            )
+            _bindings(
+                root,
+                [
+                    {
+                        "provider_id": "openspec",
+                        "work_package_id": "change-one",
+                        "canonical_checks": [
+                            {
+                                "check_id": "owner.child",
+                                "semantic_check_id": "semantic.child",
+                                "execution_id": "owner.child.v1",
+                                "command": ["python", "-c", "pass"],
+                                "validation_obligation_ids": ["validation:child"],
+                            },
+                            {
+                                "check_id": "owner.parent",
+                                "semantic_check_id": "semantic.parent",
+                                "execution_id": "owner.parent.v1",
+                                "execution_mode": "aggregate-child-receipts",
+                                "child_check_ids": ["owner.child"],
+                                "validation_obligation_ids": ["validation:parent"],
+                            },
+                        ],
+                        "task_binding_rules": [
+                            {
+                                "task_prefix": "1.",
+                                "obligation_ids": ["req.child", "req.parent-only"],
+                            }
+                        ],
+                    }
+                ],
+            )
+
+            with self.assertRaisesRegex(
+                SpecProviderError,
+                "aggregate check coverage must be provided by declared children",
+            ):
+                load_openspec_canonical_checks(root, "change-one")
+
     def test_openspec_adapter_is_read_only_and_preserves_stable_identity(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

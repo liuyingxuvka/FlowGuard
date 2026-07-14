@@ -105,7 +105,17 @@ checks:
       ref_path: "<SPEC_EVIDENCE>/portable-refs/openspec/harden-existing-product-language-and-path-reuse/owner.models.full.json"
     consumer: openspec.change.harden-existing-product-language-and-path-reuse
     required: true
-    covers: [req.infrastructure.models-full]
+    covers:
+      - req.infrastructure.models-full
+      - req.preflight.surface-family
+      - req.similarity.materialized-handoff
+      - req.behavior.one-commitment
+      - req.path.one-authority
+      - req.ui.product-language
+      - req.runtime.identity-inventory
+      - req.family.complete-obligations
+      - req.alignment.materialized-authority
+      - req.reduction.complete-candidates
 
   - id: owner.tests.full
     kind: receipt
@@ -118,7 +128,12 @@ checks:
       ref_path: "<SPEC_EVIDENCE>/portable-refs/openspec/harden-existing-product-language-and-path-reuse/owner.tests.full.json"
     consumer: openspec.change.harden-existing-product-language-and-path-reuse
     required: true
-    covers: [req.infrastructure.tests-full]
+    covers:
+      - req.infrastructure.tests-full
+      - req.exhaustion.canonical-faults
+      - req.testmesh.current-complete
+      - req.process.sync-peer-safety
+      - req.api.existing-owner
 
   - id: owner.change.aggregate
     kind: receipt

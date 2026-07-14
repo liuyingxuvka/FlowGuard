@@ -21,6 +21,7 @@ from .spec_work_package import (
     SPEC_PROVIDER_MODE_NATIVE,
     SPEC_PROVIDER_OPEN_SPEC,
     SPEC_PROVIDER_SPEC_KIT,
+    SPEC_EXECUTION_AGGREGATE_CHILD_RECEIPTS,
     SPEC_SNAPSHOT_LIVE_SCOPED,
     SpecCheckDefinition,
     SpecObligation,
@@ -529,6 +530,29 @@ def _bind_canonical_checks_to_contract(
         if not covers:
             raise SpecProviderError(f"external receipt covers are required: {check.check_id}")
         projected.append(replace(check, obligation_ids=covers, coverage_ids=covers))
+    projected_by_id = {check.check_id: check for check in projected}
+    for check in projected:
+        if check.execution_mode != SPEC_EXECUTION_AGGREGATE_CHILD_RECEIPTS:
+            continue
+        unknown_children = tuple(
+            child_id for child_id in check.child_check_ids if child_id not in projected_by_id
+        )
+        if unknown_children:
+            raise SpecProviderError(
+                f"aggregate check has undeclared children: {check.check_id}:"
+                + ",".join(unknown_children)
+            )
+        child_coverage = {
+            coverage_id
+            for child_id in check.child_check_ids
+            for coverage_id in projected_by_id[child_id].coverage_ids
+        }
+        uncovered = tuple(sorted(set(check.coverage_ids) - child_coverage))
+        if uncovered:
+            raise SpecProviderError(
+                f"aggregate check coverage must be provided by declared children: {check.check_id}:"
+                + ",".join(uncovered)
+            )
     return tuple(projected)
 
 
