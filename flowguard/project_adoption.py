@@ -407,7 +407,7 @@ class ProjectAdoptionReport:
     def status(self) -> str:
         if not self.ok:
             return PROJECT_ADOPTION_STATUS_BLOCKED
-        if self.findings:
+        if any(finding.severity == "warning" for finding in self.findings):
             return PROJECT_ADOPTION_STATUS_PASS_WITH_GAPS
         return PROJECT_ADOPTION_STATUS_PASS
 
@@ -839,13 +839,6 @@ def _write_project_adoption(
 
     post_audit = audit_project_adoption(root_path)
     post_findings = list(post_audit.findings)
-    if action == PROJECT_ADOPTION_ACTION_ADOPT:
-        post_findings = [
-            _with_severity(finding, "warning")
-            if finding.category == "suite_inventory_unresolved"
-            else finding
-            for finding in post_findings
-        ]
     post_findings.append(
         ProjectAdoptionFinding(
             "info",
@@ -1294,7 +1287,11 @@ def _load_suite_evidence(root_path: Path) -> _SuiteEvidence:
     """Load the canonical suite validator lazily to avoid import cycles."""
 
     try:
-        from .skill_suite import validate_skill_suite
+        from .skill_suite import (
+            FLOWGUARD_SKILL_ROOT,
+            FLOWGUARD_SUITE_MAP,
+            validate_skill_suite,
+        )
     except (ImportError, ModuleNotFoundError) as exc:
         return _SuiteEvidence(
             False,
@@ -1308,6 +1305,30 @@ def _load_suite_evidence(root_path: Path) -> _SuiteEvidence:
                 },
             ),
         )
+    suite_map = root_path / FLOWGUARD_SUITE_MAP
+    suite_control_root = suite_map.parent
+    skill_root = root_path / FLOWGUARD_SKILL_ROOT
+    reserved_skill_present = False
+    if skill_root.is_dir():
+        reserved_skill_present = any(
+            child.is_dir()
+            and (
+                child.name.casefold() == "flowguard"
+                or child.name.casefold().startswith("flowguard-")
+                or child.name.casefold().startswith("model-first-function-flow")
+            )
+            for child in skill_root.iterdir()
+        )
+
+    if not suite_map.is_file() and not suite_control_root.is_dir() and not reserved_skill_present:
+        external_identity = json.dumps(
+            {"local_flowguard_suite": False, "scope": "ordinary_external_project"},
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        identity_hash = hashlib.sha256(external_identity.encode("utf-8")).hexdigest().upper()
+        return _SuiteEvidence(True, "pass", identity_hash, identity_hash, ())
+
     try:
         report = validate_skill_suite(root_path)
     except Exception as exc:  # validator failures must remain visible, not crash writes
@@ -1357,8 +1378,6 @@ def _projected_current_adoption_findings(
     projected: list[ProjectAdoptionFinding] = []
     for finding in findings:
         if finding.category in repairable:
-            projected.append(_with_severity(finding, "warning"))
-        elif finding.category == "suite_inventory_unresolved":
             projected.append(_with_severity(finding, "warning"))
         else:
             projected.append(finding)

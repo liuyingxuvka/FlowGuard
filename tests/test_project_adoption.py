@@ -244,7 +244,50 @@ class ProjectAdoptionTests(unittest.TestCase):
             payload = json.loads(result.stdout)
             self.assertEqual("flowguard_project_adoption_report", payload["artifact_type"])
             self.assertEqual("adopt", payload["action"])
+            self.assertEqual("pass", payload["status"])
+            self.assertEqual("pass", payload["suite_status"])
             self.assertNotIn("artifact_upgrade_report", payload)
+
+    def test_ordinary_external_project_does_not_require_local_skill_suite(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "AGENTS.md").write_text("# External project\n", encoding="utf-8")
+
+            report = adopt_project(root)
+
+            self.assertTrue(report.ok, report.format_text())
+            self.assertEqual("pass", report.status)
+            self.assertEqual("pass", report.suite_status)
+            self.assertEqual(
+                {"adoption_record_written"},
+                {finding.category for finding in report.findings},
+            )
+            audited = audit_project_adoption(root)
+            self.assertTrue(audited.ok, audited.format_text())
+            self.assertEqual("pass", audited.suite_status)
+
+    def test_explicit_partial_local_suite_blocks_before_project_adoption_write(self):
+        markers = (
+            ".skillguard/flowguard-suite",
+            ".agents/skills/flowguard-test-mesh",
+            ".agents/skills/model-first-function-flow",
+        )
+        for marker in markers:
+            with self.subTest(marker=marker), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                marker_path = root / marker
+                marker_path.mkdir(parents=True)
+                before = _tree_snapshot(root)
+
+                report = adopt_project(root)
+
+                self.assertFalse(report.ok)
+                self.assertEqual("blocked", report.suite_status)
+                self.assertIn(
+                    "suite_inventory_unresolved",
+                    {finding.category for finding in report.findings},
+                )
+                self.assertEqual(before, _tree_snapshot(root))
 
     def test_former_upgrade_commands_are_rejected(self):
         for command in ("project-upgrade", "artifact-upgrade"):

@@ -148,6 +148,28 @@ class SpecProviderAdapterTests(unittest.TestCase):
                 review = review_spec_work_package(replace(package, checks=(check,)))
                 self.assertIn(finding_code, review.finding_codes)
 
+    def test_cross_change_owner_rejects_provider_lifecycle_inputs(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            _openspec_change(root)
+            binding = _openspec_binding()
+            binding["canonical_checks"] = [
+                {
+                    "check_id": "check.bridge",
+                    "command": ["python", "-c", "pass"],
+                    "cross_change_safe": True,
+                    "input_paths": ["flowguard/**/*.py", "openspec/changes/**"],
+                    "validation_obligation_ids": ["validation:bridge"],
+                }
+            ]
+            _bindings(root, [binding])
+
+            with self.assertRaisesRegex(
+                SpecProviderError,
+                "cross-change-safe owner cannot consume provider lifecycle inputs",
+            ):
+                load_openspec_canonical_checks(root, "change-one")
+
     def test_external_receipt_only_package_does_not_require_a_second_flowguard_owner(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

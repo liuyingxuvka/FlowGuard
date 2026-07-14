@@ -491,6 +491,20 @@ def _canonical_check_definitions(config: Mapping[str, Any]) -> tuple[SpecCheckDe
             raise SpecProviderError("canonical FlowGuard check_id is required")
         if execution_mode == "direct" and not command:
             raise SpecProviderError(f"canonical FlowGuard owner command is missing: {check_id}")
+        input_paths = tuple(str(value) for value in row.get("input_paths", ()))
+        if bool(row.get("cross_change_safe", False)):
+            provider_lifecycle_inputs = tuple(
+                value
+                for value in input_paths
+                if value.replace("\\", "/").lstrip("./").startswith(
+                    ("openspec/changes/", "openspec/specs/")
+                )
+            )
+            if provider_lifecycle_inputs:
+                raise SpecProviderError(
+                    "cross-change-safe owner cannot consume provider lifecycle inputs: "
+                    f"{check_id}:" + ",".join(provider_lifecycle_inputs)
+                )
         checks.append(
             SpecCheckDefinition(
                 check_id=check_id,
@@ -504,7 +518,7 @@ def _canonical_check_definitions(config: Mapping[str, Any]) -> tuple[SpecCheckDe
                 expected_exit_code=int(row.get("expected_exit_code", 0)),
                 semantic_check_id=str(row.get("semantic_check_id", check_id)),
                 execution_owner_id="flowguard.spec_check_cache",
-                input_paths=tuple(str(value) for value in row.get("input_paths", ())),
+                input_paths=input_paths,
                 dependency_input_ids=tuple(
                     str(value) for value in row.get("dependency_input_ids", row.get("depends_on", ()))
                 ),

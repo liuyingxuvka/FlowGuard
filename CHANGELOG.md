@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.55.0 - 2026-07-12
+## v0.55.0 - 2026-07-14
 
 FlowGuard product-language, behavior-plane, and validated-path reuse hardening.
 
@@ -36,6 +36,18 @@ FlowGuard product-language, behavior-plane, and validated-path reuse hardening.
   with existing-owner model projections, generated V2 contracts/manifests, and
   `contract_mapped` depth profiles. Static contract-depth certification remains
   distinct from actual execution-depth receipts and adds no parallel executor.
+- Added current-only cross-skill validation receipts, exact execution ownership,
+  immutable child aggregation, frozen-snapshot reuse, process-tree cleanup
+  evidence, and read-only OpenSpec consumption so equivalent checks execute once
+  and later skills verify the same receipt instead of nesting test runners.
+- Reduced freshness to declared functional components: reports, receipts,
+  progress files, task checkboxes, and provider archive/spec lifecycle paths no
+  longer invalidate cross-change physical test owners. Ambiguous or unmapped
+  inputs block instead of falling back to a repository-wide rerun.
+- Corrected project adoption so ordinary external projects without a local
+  FlowGuard suite pass without vendoring all seventeen skills, while any
+  explicit local suite marker activates strict complete-suite validation and a
+  partial suite blocks before adoption state is written.
 
 ## v0.54.1 - 2026-07-10
 
