@@ -1227,7 +1227,11 @@ def _definition(
         "expected_exit_code": expected_exit_code,
         "timeout_seconds": timeout_seconds,
         "validation_obligation_ids": sorted(set(validation_obligation_ids)),
-        "coverage": sorted(set(coverage)),
+        "coverage": (
+            ["consumer-local"]
+            if cross_change_safe
+            else sorted(set(coverage))
+        ),
         "input_fingerprint": input_fingerprint,
         "environment_fingerprint": environment_fingerprint,
         "tool_fingerprint": tool_fingerprint,
@@ -1490,6 +1494,7 @@ def _save_portable_receipt_ref(
     provider_id: str,
     work_package_id: str,
     check_id: str,
+    coverage_ids: Sequence[str] | None = None,
 ) -> None:
     """Publish one consumer-local pointer without copying the owner receipt."""
 
@@ -1507,6 +1512,13 @@ def _save_portable_receipt_ref(
         "envelope_fingerprint": envelope.fingerprint,
         "receipt_id": envelope.receipt_id,
         "receipt_fingerprint": envelope.receipt_fingerprint,
+        "coverage_ids": sorted(
+            set(
+                envelope.coverage_ids
+                if coverage_ids is None
+                else (str(value) for value in coverage_ids)
+            )
+        ),
     }
     _atomic_json(
         _portable_receipt_ref_path(root, provider_id, work_package_id, check_id),
@@ -1555,6 +1567,7 @@ def _load_portable_receipt_ref(
         "schema_version", "protocol_version", "root_token", "provider_id",
         "work_package_id", "check_id", "semantic_check_id", "execution_id",
         "envelope_ref", "envelope_fingerprint", "receipt_id", "receipt_fingerprint",
+        "coverage_ids",
     }
     unknown = set(pointer) - allowed
     if unknown:
@@ -1565,6 +1578,11 @@ def _load_portable_receipt_ref(
         raise ValueError("unsupported portable receipt ref protocol")
     if pointer.get("root_token") != SPEC_EVIDENCE_ROOT_TOKEN:
         raise ValueError("portable receipt ref root token mismatch")
+    pointer_coverage = pointer.get("coverage_ids", ())
+    if not isinstance(pointer_coverage, list) or any(
+        not isinstance(value, str) or not value for value in pointer_coverage
+    ):
+        raise ValueError("portable receipt ref coverage_ids are not canonical")
     for field_name in ("envelope_fingerprint", "receipt_id", "receipt_fingerprint"):
         if re.fullmatch(r"sha256:[0-9a-f]{64}", str(pointer.get(field_name, ""))) is None:
             raise ValueError(f"portable receipt ref {field_name} is not canonical")
@@ -1776,7 +1794,7 @@ def _stored_spec_receipt_review(
         findings.append("portable_execution_id_not_current")
     if set(declared.validation_obligation_ids) != set(envelope.validation_obligation_ids):
         findings.append("portable_required_validation_coverage_missing")
-    if set(declared.coverage_ids) != set(envelope.coverage_ids):
+    if set((*declared.obligation_ids, *declared.coverage_ids)) != set(envelope.coverage_ids):
         findings.append("portable_required_coverage_missing")
     if current_toolchain.fingerprint != envelope.toolchain_fingerprint:
         findings.append("portable_toolchain_not_current")
@@ -1936,7 +1954,14 @@ def _stored_spec_receipt_review(
         expected_execution_key = fingerprint_value(definition)
         definition_hash = fingerprint_value({key: value for key, value in definition.items() if key != "input_fingerprint"})
         suite_map_hash = fingerprint_value(
-            {"validation_obligations": list(validation_ids), "coverage": list(coverage)}
+            {
+                "validation_obligations": list(validation_ids),
+                "coverage": (
+                    "consumer-local"
+                    if bool(metadata.get("cross_change_safe", declared.cross_change_safe))
+                    else list(coverage)
+                ),
+            }
         )
         expected_result = _result_files_fingerprint(root, receipt)
         terminal_status = str(metadata.get("terminal_status", ""))
@@ -2545,7 +2570,17 @@ def run_spec_check(
     )
     validation_ids = tuple(sorted(set(str(value) for value in validation_obligation_ids)))
     coverage_ids = tuple(
-        sorted(set(str(value) for value in (*declared_check.coverage_ids, *coverage) if str(value)))
+        sorted(
+            set(
+                str(value)
+                for value in (
+                    *declared_check.obligation_ids,
+                    *declared_check.coverage_ids,
+                    *coverage,
+                )
+                if str(value)
+            )
+        )
     )
     definition = _definition(
         provider_id=provider_id,
@@ -2571,7 +2606,12 @@ def run_spec_check(
     )
     execution_key = fingerprint_value(definition)
     definition_hash = fingerprint_value({key: value for key, value in definition.items() if key != "input_fingerprint"})
-    suite_map_hash = fingerprint_value({"validation_obligations": validation_ids, "coverage": coverage_ids})
+    suite_map_hash = fingerprint_value(
+        {
+            "validation_obligations": validation_ids,
+            "coverage": ("consumer-local" if cross_change_safe else coverage_ids),
+        }
+    )
     producer_version = _version("flowguard")
     reusable, stale_reasons = _find_reusable_receipt(
         project_root,
@@ -2598,6 +2638,7 @@ def run_spec_check(
             provider_id=provider_id,
             work_package_id=work_package_id,
             check_id=check_id,
+            coverage_ids=coverage_ids,
         )
         result = SpecCheckExecutionResult(
             provider_id,
@@ -2654,6 +2695,7 @@ def run_spec_check(
                     provider_id=provider_id,
                     work_package_id=work_package_id,
                     check_id=check_id,
+                    coverage_ids=coverage_ids,
                 )
                 result = SpecCheckExecutionResult(
                     provider_id,
@@ -2975,10 +3017,14 @@ def aggregate_spec_check_receipts(
         blockers.append(f"aggregate_source_scope_stale:{check_id}")
         revalidation_seeds.append(check_id)
     covered: set[str] = set()
+    declared_by_id = {item.check_id: item for item in owner_checks}
     for receipt in receipts:
         metadata = dict(receipt.metadata)
         covered.update(receipt.covered_obligations)
-        covered.update(str(value) for value in metadata.get("coverage", ()))
+        receipt_check_id = str(metadata.get("check_id", ""))
+        current_child = declared_by_id.get(receipt_check_id)
+        if current_child is not None:
+            covered.update(current_child.coverage_ids)
         if snapshot_policy == SPEC_SNAPSHOT_FROZEN_REQUIRED and (
             metadata.get("snapshot_policy") != SPEC_SNAPSHOT_FROZEN_REQUIRED
             or metadata.get("session_begin_fingerprint") != begin_fingerprint
@@ -3416,7 +3462,15 @@ def review_spec_provider_close(
                 findings.append(
                     f"provider_external_receipt_binding_mismatch:{external_check.check_id}:{field_name}"
                 )
-        if set(external_check.obligation_ids) != set(envelope.coverage_ids):
+        pointer = _read_json(
+            _portable_receipt_ref_path(
+                project_root,
+                provider_id,
+                work_package_id,
+                external_check.check_id,
+            )
+        )
+        if set(external_check.obligation_ids) != set(pointer.get("coverage_ids", ())):
             findings.append(f"provider_external_receipt_coverage_mismatch:{external_check.check_id}")
     report_failures = package.metadata.get("report_check_failures", ())
     if report_failures:

@@ -734,6 +734,41 @@ class SpecReceiptReuseTests(unittest.TestCase):
                     )
                     self.assertTrue(consumed.ok, consumed.findings)
 
+    def test_cross_change_reuse_keeps_coverage_in_the_consumer_pointer(self) -> None:
+        temporary = _project(("change-one", "change-two"))
+        self.addCleanup(temporary.cleanup)
+        root = Path(temporary.name)
+        second_contract = root / "openspec/changes/change-two/verification-contract.yaml"
+        second_contract.write_text(
+            second_contract.read_text(encoding="utf-8").replace("req.one", "req.two"),
+            encoding="utf-8",
+            newline="\n",
+        )
+        bindings_path = root / ".flowguard/spec_provider_work_packages/bindings.json"
+        bindings = json.loads(bindings_path.read_text(encoding="utf-8"))
+        bindings["packages"][1]["task_binding_rules"][0]["obligation_ids"] = ["req.two"]
+        _write(bindings_path, json.dumps(bindings, indent=2) + "\n")
+
+        begin_spec_session(root, "openspec", "change-one")
+        first = _run(root, cross_change_safe=True)
+        begin_spec_session(root, "openspec", "change-two")
+        second = _run(
+            root,
+            work_package_id="change-two",
+            cross_change_safe=True,
+        )
+
+        self.assertEqual(SPEC_CHECK_STATE_EXECUTED, first.state)
+        self.assertEqual(SPEC_CHECK_STATE_REUSED_CURRENT, second.state)
+        self.assertEqual(first.receipt_id, second.receipt_id)
+        self.assertEqual("1", (root / "counter.txt").read_text())
+        pointer_path = (
+            root
+            / ".flowguard/evidence/spec-work-packages/portable-refs/openspec/change-two/check.one.json"
+        )
+        pointer = json.loads(pointer_path.read_text(encoding="utf-8"))
+        self.assertEqual(["req.two"], pointer["coverage_ids"])
+
     def test_caller_cannot_expand_provider_cross_change_authority(self) -> None:
         temporary = _project()
         self.addCleanup(temporary.cleanup)
