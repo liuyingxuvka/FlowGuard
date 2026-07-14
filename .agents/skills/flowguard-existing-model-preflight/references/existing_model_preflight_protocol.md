@@ -52,10 +52,13 @@ ambiguity, match explanations, owner models, and `ledger_fingerprint`.
 
 Primary hits come from one selected plane. A related product/process/AI row may
 explain context only through a typed relation and cannot become the primary
-owner through shared wording. If the ledger is missing or stale, fall back to
-the existing path/model scan and say so. If several planes remain plausible,
-keep their candidates separate and block full-confidence downstream selection
-until caller context selects one.
+owner through shared wording. In full preflight for an adopted/modeled project,
+a missing or stale canonical ledger keeps lookup blocked; the existing
+path/model scan may still be shown as diagnostic context but is not an alternate
+successful commitment authority. Light discussion or explicitly trivial work
+may keep lookup `not_applicable`. If several planes remain plausible, keep their
+candidates separate and block full-confidence downstream selection until caller
+context selects one.
 
 ## Light Mode
 

@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "report_protocol_version": 3,
+  "execution_key": "sha256:7360b28ae5bc48287a7c0ba3a472cce967563814531e55d2a0fc5664129021c2",
+  "result_hash": "sha256:eea131581b3883167bb4673d576bac425c2267bf54a7e77e5f6a2de2a307c059",
+  "receipt_id": "sha256:d87f46a9676252885de5819374a002658684a26914686a2014cc857e948f15c2",
+  "result": {
+    "status": "passed",
+    "args": [],
+    "message": "Verified external openspec receipt sha256:b6ca010d309fac00ade2880dbf5595d632f085d37ba72bbf0ba880c5645b6173 without executing its owner.",
+    "stdout": "",
+    "stderr": "",
+    "stdout_preview": "",
+    "stderr_preview": ""
+  }
+}

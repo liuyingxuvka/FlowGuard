@@ -163,6 +163,97 @@
       ],
       "output_artifact_ids": []
     }
-  ]
+  ],
+  "depth_profile": {
+    "schema_version": "skillguard.depth_profile.v2",
+    "profile_id": "flowguard-architecture-reduction.current_contract_depth.v2",
+    "target_skill_id": "flowguard-architecture-reduction",
+    "integration_mode": "native-integrated",
+    "native_owner_id": "architecture_reduction",
+    "native_route_ids": [
+      "route:architecture_reduction"
+    ],
+    "native_check_ids": [
+      "check:flowguard-architecture-reduction:native-authority"
+    ],
+    "skillguard_adds_domain_route": false,
+    "enforcement_level": "contract_mapped",
+    "required_closure_profiles": [
+      "functional",
+      "release",
+      "highest_quality"
+    ],
+    "coverage_universes": [],
+    "dimensions": [
+      {
+        "dimension_id": "scope",
+        "required": true,
+        "minimum_coverage": 1,
+        "obligation_ids": [
+          "obligation:flowguard-architecture-reduction:plane-boundary"
+        ],
+        "important_obligation_ids": [
+          "obligation:flowguard-architecture-reduction:plane-boundary"
+        ],
+        "accepted_evidence_classes": [
+          "hard"
+        ],
+        "allow_shared_evidence": true,
+        "claim_blocker": true,
+        "coverage_universe_ids": []
+      },
+      {
+        "dimension_id": "workflow",
+        "required": true,
+        "minimum_coverage": 1,
+        "obligation_ids": [
+          "obligation:flowguard-architecture-reduction:native-authority"
+        ],
+        "important_obligation_ids": [
+          "obligation:flowguard-architecture-reduction:native-authority"
+        ],
+        "accepted_evidence_classes": [
+          "hard"
+        ],
+        "allow_shared_evidence": true,
+        "claim_blocker": true,
+        "coverage_universe_ids": []
+      },
+      {
+        "dimension_id": "closure",
+        "required": true,
+        "minimum_coverage": 1,
+        "obligation_ids": [
+          "obligation:flowguard-architecture-reduction:evidence-closure"
+        ],
+        "important_obligation_ids": [
+          "obligation:flowguard-architecture-reduction:evidence-closure"
+        ],
+        "accepted_evidence_classes": [
+          "hard"
+        ],
+        "allow_shared_evidence": true,
+        "claim_blocker": true,
+        "coverage_universe_ids": []
+      }
+    ],
+    "calibration": {
+      "calibration_pair_id": "flowguard-architecture-reduction.contract-mapped.no-execution-calibration.v1",
+      "native_evaluator_id": "architecture_reduction_native_contract_evaluator",
+      "native_evaluator_version": "2787E2BF475EA09CFA0FADAA6482D6A3DBBF12035B7C622D756563D8A257B5B8",
+      "native_evaluator_check_id": "check:flowguard-architecture-reduction:native-authority",
+      "important_obligation_ids": [
+        "obligation:flowguard-architecture-reduction:plane-boundary",
+        "obligation:flowguard-architecture-reduction:native-authority",
+        "obligation:flowguard-architecture-reduction:evidence-closure"
+      ],
+      "required_capability_ids": [
+        "flowguard-architecture-reduction.current_contract_mapping"
+      ],
+      "positive_cases": [],
+      "shallow_cases": []
+    },
+    "claim_boundary": "Contract-depth mapping only for flowguard-architecture-reduction. No coverage universe or portable positive/shallow calibration receipt is declared, so this profile cannot license EXECUTION_DEPTH_PASS or replace the target-owned native checks and closure evidence."
+  }
 }
 

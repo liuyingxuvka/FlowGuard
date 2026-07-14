@@ -201,7 +201,7 @@
         "classification_rule_ids": [
           "skillguard.content_role_classifier.current:contract_schema"
         ],
-        "component_hash": "sha256:566463f32bfc9df8ca7678b4c4d30393fb61585b01951a5c9d49269b37cf2938",
+        "component_hash": "sha256:61021ba1493ab483480d933c58613b5ee7480a86c8f069f0afaa104a5166efd5",
         "component_id": "component:contract_schema:a91e893f41c02047",
         "consumer_ids": [
           "projection:contract-compile",
@@ -342,11 +342,11 @@
       "owner_cycles": [],
       "unmapped_paths": []
     },
-    "impact_graph_hash": "sha256:059d9b4ac099165459cd7b7beee8784edee02ada89afb97eeca24f50f70f63cc",
+    "impact_graph_hash": "sha256:094e19f18d3e05fb81b6e0fb277ea3ede36ea3b00832199160e47a0fd8accc1c",
     "inventory": [
       {
         "classification_rule_id": "skillguard.content_role_classifier.current:contract_schema",
-        "content_hash": "sha256:e658db5dbcf885e650d33b2ee00971c6e0a08b9804f453e048bd703ba52a7007",
+        "content_hash": "sha256:2b59b5abfa1e8375088dd609ea63375557026181ae0e613c836736a61833f56d",
         "install_disposition": "copy",
         "path": ".agents/skills/flowguard-model-test-alignment/.skillguard/contract-source.json",
         "role": "contract_schema"
@@ -415,7 +415,7 @@
         "role": "test_dev"
       }
     ],
-    "inventory_hash": "sha256:6dfb4ab5759e2b7b81fbfba09937853aa1e006063c866575421c2b42f64c252d",
+    "inventory_hash": "sha256:7805e24cb8826567f4cddeec46b01f4f6b8397fddefb55206c3400146dcdb505",
     "owner_receipt_root_ref": {
       "path_token": "owner_evidence_root",
       "relative_path": "check-executions"
@@ -506,7 +506,7 @@
     "projection_consumers": [
       {
         "consumer_id": "projection:contract-compile",
-        "consumer_projection_hash": "sha256:f0f05d54effe1781052f6fc96eb9b8bae114333c978b8038ecb38fe539782a47",
+        "consumer_projection_hash": "sha256:95fc6927c37a90070ec0fdd3fd1d9e6453af31efc0b24b8ce5a07824db4309ee",
         "impact_plan_schema_version": "skillguard.content_impact_plan.current",
         "impact_policy_id": "skillguard.content_impact_policy.current",
         "input_component_ids": [
@@ -514,7 +514,7 @@
           "component:documentation_model:38cad301d45e2730",
           "component:runtime_source:a5d707ff16e442b0"
         ],
-        "input_projection_hash": "sha256:93c7f766f0502ad260479688279b6d29ef4f093b4d923c7d6b1de07e90303762",
+        "input_projection_hash": "sha256:a8f6d1cadd7febb32a4abb5fb7f14492d5dd711d0b0fa104440e5368a33e12c9",
         "kind": "contract_compile",
         "projection_declaration_hash": "sha256:cd513bed654752cd8a47fcf98e84ffd88e5ee241ec071a1ef1ef9a87301428a0"
       },
@@ -530,7 +530,7 @@
       },
       {
         "consumer_id": "projection:installation",
-        "consumer_projection_hash": "sha256:fae2df8caff1496f709545e9188bdd48a094e54c9cdbce967c25966592c59dba",
+        "consumer_projection_hash": "sha256:8f4065255cade05cb25632b035c57ca2dc23ff7235e2acfec5856e906e7df9ec",
         "impact_plan_schema_version": "skillguard.content_impact_plan.current",
         "impact_policy_id": "skillguard.content_impact_policy.current",
         "input_component_ids": [
@@ -538,7 +538,7 @@
           "component:documentation_model:d321054e5c45c23a",
           "component:runtime_source:fc6741f76d243005"
         ],
-        "input_projection_hash": "sha256:ce657d269c2417ecc61e1f260a250dba5e7729e90403053ae0d5b589d7de2724",
+        "input_projection_hash": "sha256:1d6744423d52bc1d37c4ab5fb7135d2a1f1d2a120b8b7ca486c3d3d2bd94eef7",
         "kind": "installation",
         "projection_declaration_hash": "sha256:62442de7662f7aaab0538dafa1c23cc54c194364357ba7dc44dc771335c0edf4"
       },
@@ -566,7 +566,98 @@
     "schema_version": "skillguard.content_impact_plan.current",
     "unknown_mapping_disposition": "block"
   },
-  "contract_hash": "D0903DF132AC2A885A7028EA79B60D5A2C0430F255EC09E16C80A93780FA8F28",
+  "contract_hash": "79793B3E56681C625E7DB78DA5E5051FD16CF923C6604DA4CB6BE0301553F2CA",
+  "depth_profile": {
+    "calibration": {
+      "calibration_pair_id": "flowguard-model-test-alignment.contract-mapped.no-execution-calibration.v1",
+      "important_obligation_ids": [
+        "obligation:flowguard-model-test-alignment:plane-boundary",
+        "obligation:flowguard-model-test-alignment:native-authority",
+        "obligation:flowguard-model-test-alignment:evidence-closure"
+      ],
+      "native_evaluator_check_id": "check:flowguard-model-test-alignment:native-authority",
+      "native_evaluator_id": "model_test_alignment_native_contract_evaluator",
+      "native_evaluator_version": "57E90D6A6D27B179BBA22860DA7201DB7EAE1BEC89B4322152AB5B14F9C17280",
+      "positive_cases": [],
+      "required_capability_ids": [
+        "flowguard-model-test-alignment.current_contract_mapping"
+      ],
+      "shallow_cases": []
+    },
+    "claim_boundary": "Contract-depth mapping only for flowguard-model-test-alignment. No coverage universe or portable positive/shallow calibration receipt is declared, so this profile cannot license EXECUTION_DEPTH_PASS or replace the target-owned native checks and closure evidence.",
+    "coverage_universes": [],
+    "dimensions": [
+      {
+        "accepted_evidence_classes": [
+          "hard"
+        ],
+        "allow_shared_evidence": true,
+        "claim_blocker": true,
+        "coverage_universe_ids": [],
+        "dimension_id": "scope",
+        "important_obligation_ids": [
+          "obligation:flowguard-model-test-alignment:plane-boundary"
+        ],
+        "minimum_coverage": 1,
+        "obligation_ids": [
+          "obligation:flowguard-model-test-alignment:plane-boundary"
+        ],
+        "required": true
+      },
+      {
+        "accepted_evidence_classes": [
+          "hard"
+        ],
+        "allow_shared_evidence": true,
+        "claim_blocker": true,
+        "coverage_universe_ids": [],
+        "dimension_id": "workflow",
+        "important_obligation_ids": [
+          "obligation:flowguard-model-test-alignment:native-authority"
+        ],
+        "minimum_coverage": 1,
+        "obligation_ids": [
+          "obligation:flowguard-model-test-alignment:native-authority"
+        ],
+        "required": true
+      },
+      {
+        "accepted_evidence_classes": [
+          "hard"
+        ],
+        "allow_shared_evidence": true,
+        "claim_blocker": true,
+        "coverage_universe_ids": [],
+        "dimension_id": "closure",
+        "important_obligation_ids": [
+          "obligation:flowguard-model-test-alignment:evidence-closure"
+        ],
+        "minimum_coverage": 1,
+        "obligation_ids": [
+          "obligation:flowguard-model-test-alignment:evidence-closure"
+        ],
+        "required": true
+      }
+    ],
+    "enforcement_level": "contract_mapped",
+    "integration_mode": "native-integrated",
+    "native_check_ids": [
+      "check:flowguard-model-test-alignment:native-authority"
+    ],
+    "native_owner_id": "model_test_alignment",
+    "native_route_ids": [
+      "route:model_test_alignment"
+    ],
+    "profile_id": "flowguard-model-test-alignment.current_contract_depth.v2",
+    "required_closure_profiles": [
+      "functional",
+      "release",
+      "highest_quality"
+    ],
+    "schema_version": "skillguard.depth_profile.v2",
+    "skillguard_adds_domain_route": false,
+    "target_skill_id": "flowguard-model-test-alignment"
+  },
   "flowguard_schema_version": "1.0",
   "functions": [
     {
@@ -647,7 +738,7 @@
   "schema_version": "skillguard.compiled_contract.v2",
   "skill_id": "flowguard-model-test-alignment",
   "source_fingerprints": {
-    "binding": "E658DB5DBCF885E650D33B2EE00971C6E0A08B9804F453E048BD703BA52A7007",
+    "binding": "2B59B5ABFA1E8375088DD609EA63375557026181AE0E613C836736A61833F56D",
     "entrypoint": "DE4B70B82B956F40415715A685AA8BA69AC287D3F4B33933D64FE4E0589E9AF2",
     "implementation:.agents/skills/flowguard-model-test-alignment": "FCE5F13A228485DEB534564F178D05B20226720A20D191C6DF15DC950755C492",
     "implementation:.flowguard/model_test_code_alignment": "10BC66BF8C2F9E475CC8F1840BB3F4583FB7315BD497077C8A65598B2D23D9D8",

@@ -177,7 +177,7 @@
         "classification_rule_ids": [
           "skillguard.content_role_classifier.current:contract_schema"
         ],
-        "component_hash": "sha256:a13b48f1a08ab334d61263494e7d5cfca173f40df9b6b6d8ecaf9452a583809f",
+        "component_hash": "sha256:607511f90815cb0b2a0af4f5bf9fba412fd78e1e620eb4fbd6639b70ef4005fe",
         "component_id": "component:contract_schema:c181df03209dbed0",
         "consumer_ids": [
           "projection:contract-compile",
@@ -318,11 +318,11 @@
       "owner_cycles": [],
       "unmapped_paths": []
     },
-    "impact_graph_hash": "sha256:345a9c0c0e6e86f0539914ff634d4082409658b5173ea89cb7fcc2e5b23921b7",
+    "impact_graph_hash": "sha256:34adadcc7946faf9172123560f7b23e601e0c632ddf6b1e7452d8efd4f43486c",
     "inventory": [
       {
         "classification_rule_id": "skillguard.content_role_classifier.current:contract_schema",
-        "content_hash": "sha256:11552931cc51fb6e0e9ad24187e16faf4fd22a3ca9d0eac9a85452a19385cc24",
+        "content_hash": "sha256:e90b3baa0fad04c0615b6e8207f3393dba9210163c6747e771897ae50988c575",
         "install_disposition": "copy",
         "path": ".agents/skills/flowguard-development-process-flow/.skillguard/contract-source.json",
         "role": "contract_schema"
@@ -391,7 +391,7 @@
         "role": "test_dev"
       }
     ],
-    "inventory_hash": "sha256:f261b8323576c054de70d4ce03cc8a158c432356211e3a2e7f75cd7479129de5",
+    "inventory_hash": "sha256:87caa5e1ebde62a3fb9a51e1060ef2a0ffc91c314f1a028e9a1a6ac7525c9fd8",
     "owner_receipt_root_ref": {
       "path_token": "owner_evidence_root",
       "relative_path": "check-executions"
@@ -486,7 +486,7 @@
     "projection_consumers": [
       {
         "consumer_id": "projection:contract-compile",
-        "consumer_projection_hash": "sha256:55feb13e7fd79107dc798b7fafb3bd3ea48f3f9b7a23efb0bd69d8dc61fc393e",
+        "consumer_projection_hash": "sha256:f531496fb47c3be9a2f32df9839a6e0353bf171af885a8e9f5ee2a5f443c3f77",
         "impact_plan_schema_version": "skillguard.content_impact_plan.current",
         "impact_policy_id": "skillguard.content_impact_policy.current",
         "input_component_ids": [
@@ -494,7 +494,7 @@
           "component:documentation_model:0ed9c45490299c20",
           "component:runtime_source:bb57d33aa5db99da"
         ],
-        "input_projection_hash": "sha256:62b6121b5abafec5c721538410d3b122f87dffa02000445e334e3eff7d3c9472",
+        "input_projection_hash": "sha256:bb8090f7bcd763b671f6e8b9a26c5d842d099caec44209a0bd663266bc7449b7",
         "kind": "contract_compile",
         "projection_declaration_hash": "sha256:346b27ed40eaff27067e7eb6470557d4072dc932b16401f6f5d49def2efc7352"
       },
@@ -510,7 +510,7 @@
       },
       {
         "consumer_id": "projection:installation",
-        "consumer_projection_hash": "sha256:7c44480ebd146ea1c07d3f41994398ca87042f975236fde52f86a0f8d2c0c152",
+        "consumer_projection_hash": "sha256:d15f166790571a932a8a35a02275c0531968c13b30393aefa61d8c9a232e767a",
         "impact_plan_schema_version": "skillguard.content_impact_plan.current",
         "impact_policy_id": "skillguard.content_impact_policy.current",
         "input_component_ids": [
@@ -518,7 +518,7 @@
           "component:documentation_model:4c5c63018baef9cb",
           "component:runtime_source:9f0c7069ba6a81b4"
         ],
-        "input_projection_hash": "sha256:205423d52cdca2020b70936b6a911c768ca0155ce2e97c50b8a86fa847ea192f",
+        "input_projection_hash": "sha256:e1b3bcfa0c6d732ebb96e176a3b0aa98327a6989c64c7a015456806f0194c873",
         "kind": "installation",
         "projection_declaration_hash": "sha256:c8d46fa2b01890613fb30da6d6872741574e9aa55040f6ff546cf33ed6408be8"
       },
@@ -546,13 +546,13 @@
     "schema_version": "skillguard.content_impact_plan.current",
     "unknown_mapping_disposition": "block"
   },
-  "contract_hash": "024830E6AA64FE15F2D85C5E2311B52C1ACDE79D24EA529599956DF7CC255CB4",
-  "manifest_hash": "5534F084DB417B158D27C432E008E6A6BD23E810C8D3155B6AD6B64225EBA8AF",
+  "contract_hash": "E67501E4D972760CEEF409939B3A3B5EC6F7EF7B1E9267847D5BA35F047EBCD3",
+  "manifest_hash": "7C8E70A9BE03F61EB318577ADAD8B047B85DEDB3DDF4664751C6313207A94F0E",
   "model_id": "flowguard.development_process_flow.skill_contract.v2",
   "schema_version": "skillguard.check_manifest.v2",
   "skill_id": "flowguard-development-process-flow",
   "source_fingerprints": {
-    "binding": "11552931CC51FB6E0E9AD24187E16FAF4FD22A3CA9D0EAC9A85452A19385CC24",
+    "binding": "E90B3BAA0FAD04C0615B6E8207F3393DBA9210163C6747E771897AE50988C575",
     "entrypoint": "9F260E7DA024D1FD1CB06A95354889DF77E8A4C952132117E3E29305DB4A0B3F",
     "implementation:.agents/skills/flowguard-development-process-flow": "D8AE131A7497C285F18E75CADA52AA050275A5A55F08E330942702A9F4A3E9E7",
     "implementation:.flowguard/development_process_flow": "D70C4F663BC4A623AF9801C1718DA6B68352571166DDBC35399A0CE6646B4BA6",

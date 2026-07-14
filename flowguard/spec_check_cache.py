@@ -95,6 +95,7 @@ SPEC_TOOLCHAIN_SCHEMA = "spec-toolchain-snapshot.v1"
 SPEC_PORTABLE_RECEIPT_SCHEMA = "portable-receipt-envelope.v1"
 SPEC_PORTABLE_SOURCE_MANIFEST_SCHEMA = "portable-source-manifest.v1"
 SPEC_PORTABLE_RECEIPT_PROTOCOL = 1
+SPEC_PORTABLE_RECEIPT_ENCODING_AUTHORITY = "portable-receipt-v1-locale-ascii"
 SPEC_EVIDENCE_ROOT_TOKEN = "<SPEC_EVIDENCE>"
 
 _ROOT_FILES = {
@@ -126,6 +127,58 @@ def _utc_now() -> str:
 
 def _canonical_json(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+
+
+_PORTABLE_WIRE_KEY = re.compile(r"[A-Za-z0-9._/-]+")
+_PORTABLE_WIRE_PUNCTUATION_ORDER = {"_": 0, "-": 1, ".": 2, "/": 3}
+
+
+def _portable_wire_sort_key(value: str) -> tuple[tuple[int, int, int], ...]:
+    """Match portable-receipt.v1's localeCompare order for ASCII wire keys.
+
+    OpenSpec's version-1 receipt verifier canonicalizes object keys with
+    ``localeCompare``.  Python's ordinary JSON ``sort_keys`` puts ``.`` before
+    ``_`` and therefore produces a different identity for realistic source
+    maps such as ``adoption.py`` plus ``adoption_audit.py``.  Portable machine
+    paths are deliberately ASCII-bounded so this ordering is deterministic
+    across the two runtimes instead of inheriting either host locale.
+    """
+
+    if _PORTABLE_WIRE_KEY.fullmatch(value) is None:
+        raise ValueError(
+            "portable receipt v1 map keys must use ASCII letters, digits, '.', '_', '-', or '/'"
+        )
+    result: list[tuple[int, int, int]] = []
+    for character in value:
+        if character in _PORTABLE_WIRE_PUNCTUATION_ORDER:
+            result.append((0, _PORTABLE_WIRE_PUNCTUATION_ORDER[character], 0))
+        elif character.isdigit():
+            result.append((1, ord(character), 0))
+        else:
+            result.append((2, ord(character.casefold()), 0 if character.islower() else 1))
+    return tuple(result)
+
+
+def _portable_wire_canonicalize(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        if any(not isinstance(key, str) for key in value):
+            raise ValueError("portable receipt v1 object keys must be strings")
+        return {
+            key: _portable_wire_canonicalize(value[key])
+            for key in sorted(value, key=_portable_wire_sort_key)
+        }
+    if isinstance(value, (list, tuple)):
+        return [_portable_wire_canonicalize(item) for item in value]
+    return value
+
+
+def _portable_wire_fingerprint(value: Any) -> str:
+    canonical = json.dumps(
+        _portable_wire_canonicalize(value),
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+    return _sha256_bytes(canonical.encode("utf-8"))
 
 
 def _sha256_bytes(value: bytes) -> str:
@@ -254,6 +307,8 @@ def _is_governed_path(root: Path, path: Path) -> bool:
             return relative.name in _SKILLGUARD_SOURCE_FILES
         return path.suffix.casefold() in {".md", ".py", ".yaml", ".yml", ".json"}
     if top == "openspec":
+        if "verification-receipts" in lowered:
+            return False
         return path.suffix.casefold() in {".md", ".yaml", ".yml", ".json"}
     if top in {"flowguard", "examples", "scripts", "tests"}:
         return path.suffix.casefold() == ".py"
@@ -1323,7 +1378,12 @@ def _result_files_fingerprint(root: Path, receipt: EvidenceReceipt) -> str:
 
 
 def _portable_envelope_path(root: Path, receipt_id: str) -> Path:
-    return _evidence_root(root) / "envelopes" / f"{_safe_component(receipt_id)}.json"
+    return (
+        _evidence_root(root)
+        / "envelopes"
+        / SPEC_PORTABLE_RECEIPT_ENCODING_AUTHORITY
+        / f"{_safe_component(receipt_id)}.json"
+    )
 
 
 def _portable_receipt_ref_path(root: Path, provider_id: str, work_package_id: str, check_id: str) -> Path:
@@ -1424,7 +1484,7 @@ def _portable_receipt_semantic_identity(
 
 def _save_portable_source_manifest(root: Path, manifest: SpecInputManifest) -> tuple[str, str, str]:
     files = _portable_source_files(manifest)
-    manifest_id = fingerprint_value(
+    manifest_id = _portable_wire_fingerprint(
         {"source_hash_policy": _portable_source_hash_policy(), "files": dict(sorted(files.items()))}
     )
     value: dict[str, Any] = {
@@ -1433,7 +1493,7 @@ def _save_portable_source_manifest(root: Path, manifest: SpecInputManifest) -> t
         "manifest_id": manifest_id,
         "files": dict(sorted(files.items())),
     }
-    manifest_hash = _sha256_bytes(_canonical_json(value).encode("utf-8"))
+    manifest_hash = _portable_wire_fingerprint(value)
     path = (
         _evidence_root(root)
         / "portable-source-manifests"
@@ -1481,7 +1541,7 @@ def _portable_envelope_for_receipt(root: Path, receipt: EvidenceReceipt) -> Port
     source_manifest_ref, source_manifest_hash, source_manifest_id = _save_portable_source_manifest(
         root, source_manifest
     )
-    source_fingerprint = fingerprint_value(
+    source_fingerprint = _portable_wire_fingerprint(
         dict(sorted(_portable_source_files(source_manifest).items()))
     )
     wire_snapshot_policy = (
@@ -1706,18 +1766,16 @@ def _load_portable_receipt_ref(
         for digest in portable_files.values()
     ):
         raise ValueError("portable source manifest contains a non-canonical digest")
-    expected_manifest_id = fingerprint_value(
+    expected_manifest_id = _portable_wire_fingerprint(
         {"source_hash_policy": _portable_source_hash_policy(), "files": portable_files}
     )
     if source_manifest_value.get("manifest_id") != expected_manifest_id:
         raise ValueError("portable source manifest self identity mismatch")
     if envelope.source_manifest_id != expected_manifest_id:
         raise ValueError("portable source manifest identity mismatch")
-    if envelope.source_manifest_hash != _sha256_bytes(
-        _canonical_json(source_manifest_value).encode("utf-8")
-    ):
+    if envelope.source_manifest_hash != _portable_wire_fingerprint(source_manifest_value):
         raise ValueError("portable source manifest content hash mismatch")
-    if envelope.source_fingerprint != fingerprint_value(portable_files):
+    if envelope.source_fingerprint != _portable_wire_fingerprint(portable_files):
         raise ValueError("portable source fingerprint mismatch")
     for path_token, expected_hash in portable_files.items():
         source_path = (root / path_token).resolve()
@@ -1911,20 +1969,20 @@ def _stored_spec_receipt_review(
             for digest in files.values()
         ):
             raise ValueError("portable source manifest contains a non-canonical digest")
-        expected_manifest_id = fingerprint_value(
+        expected_manifest_id = _portable_wire_fingerprint(
             {
                 "source_hash_policy": _portable_source_hash_policy(),
                 "files": dict(sorted((str(path), str(digest)) for path, digest in files.items())),
             }
         )
-        canonical_manifest_hash = _sha256_bytes(_canonical_json(source_manifest_value).encode("utf-8"))
+        canonical_manifest_hash = _portable_wire_fingerprint(source_manifest_value)
         if canonical_manifest_hash != envelope.source_manifest_hash:
             findings.append("portable_source_manifest_hash_mismatch")
         if source_manifest_value.get("manifest_id") != expected_manifest_id:
             findings.append("portable_source_manifest_self_identity_mismatch")
         if expected_manifest_id != envelope.source_manifest_id:
             findings.append("portable_source_manifest_identity_mismatch")
-        if fingerprint_value(portable_files) != envelope.source_fingerprint:
+        if _portable_wire_fingerprint(portable_files) != envelope.source_fingerprint:
             findings.append("portable_source_fingerprint_mismatch")
         if envelope.source_hash_policy != _portable_source_hash_policy():
             findings.append("portable_source_hash_policy_unsupported")
@@ -2827,7 +2885,10 @@ def run_spec_check(
     )
     if reusable is not None:
         reusable_envelope_path = _portable_envelope_path(project_root, reusable.receipt_id)
-        reusable_envelope = _load_portable_envelope(project_root, reusable.receipt_id)
+        # A current physical receipt may outlive its derived wire projection.
+        # Rebuild the projection inside the single current encoding namespace;
+        # never read or rewrite a former encoding authority.
+        reusable_envelope = _save_portable_envelope(project_root, reusable)
         _save_portable_receipt_ref(
             project_root,
             envelope=reusable_envelope,
@@ -2884,7 +2945,7 @@ def run_spec_check(
             )
             if reusable is not None:
                 reusable_envelope_path = _portable_envelope_path(project_root, reusable.receipt_id)
-                reusable_envelope = _load_portable_envelope(project_root, reusable.receipt_id)
+                reusable_envelope = _save_portable_envelope(project_root, reusable)
                 _save_portable_receipt_ref(
                     project_root,
                     envelope=reusable_envelope,

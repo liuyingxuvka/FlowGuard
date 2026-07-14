@@ -167,6 +167,97 @@
       ],
       "output_artifact_ids": []
     }
-  ]
+  ],
+  "depth_profile": {
+    "schema_version": "skillguard.depth_profile.v2",
+    "profile_id": "flowguard-agent-workflow-rehearsal.current_contract_depth.v2",
+    "target_skill_id": "flowguard-agent-workflow-rehearsal",
+    "integration_mode": "native-integrated",
+    "native_owner_id": "development_process_flow",
+    "native_route_ids": [
+      "route:agent_workflow_rehearsal"
+    ],
+    "native_check_ids": [
+      "check:flowguard-agent-workflow-rehearsal:native-authority"
+    ],
+    "skillguard_adds_domain_route": false,
+    "enforcement_level": "contract_mapped",
+    "required_closure_profiles": [
+      "functional",
+      "release",
+      "highest_quality"
+    ],
+    "coverage_universes": [],
+    "dimensions": [
+      {
+        "dimension_id": "scope",
+        "required": true,
+        "minimum_coverage": 1,
+        "obligation_ids": [
+          "obligation:flowguard-agent-workflow-rehearsal:plane-boundary"
+        ],
+        "important_obligation_ids": [
+          "obligation:flowguard-agent-workflow-rehearsal:plane-boundary"
+        ],
+        "accepted_evidence_classes": [
+          "hard"
+        ],
+        "allow_shared_evidence": true,
+        "claim_blocker": true,
+        "coverage_universe_ids": []
+      },
+      {
+        "dimension_id": "workflow",
+        "required": true,
+        "minimum_coverage": 1,
+        "obligation_ids": [
+          "obligation:flowguard-agent-workflow-rehearsal:native-authority"
+        ],
+        "important_obligation_ids": [
+          "obligation:flowguard-agent-workflow-rehearsal:native-authority"
+        ],
+        "accepted_evidence_classes": [
+          "hard"
+        ],
+        "allow_shared_evidence": true,
+        "claim_blocker": true,
+        "coverage_universe_ids": []
+      },
+      {
+        "dimension_id": "closure",
+        "required": true,
+        "minimum_coverage": 1,
+        "obligation_ids": [
+          "obligation:flowguard-agent-workflow-rehearsal:evidence-closure"
+        ],
+        "important_obligation_ids": [
+          "obligation:flowguard-agent-workflow-rehearsal:evidence-closure"
+        ],
+        "accepted_evidence_classes": [
+          "hard"
+        ],
+        "allow_shared_evidence": true,
+        "claim_blocker": true,
+        "coverage_universe_ids": []
+      }
+    ],
+    "calibration": {
+      "calibration_pair_id": "flowguard-agent-workflow-rehearsal.contract-mapped.no-execution-calibration.v1",
+      "native_evaluator_id": "development_process_flow_native_contract_evaluator",
+      "native_evaluator_version": "F39CD1660B260EF74ADD96DE0F6280703A8DF667C31280E2262BA6A844F25F57",
+      "native_evaluator_check_id": "check:flowguard-agent-workflow-rehearsal:native-authority",
+      "important_obligation_ids": [
+        "obligation:flowguard-agent-workflow-rehearsal:plane-boundary",
+        "obligation:flowguard-agent-workflow-rehearsal:native-authority",
+        "obligation:flowguard-agent-workflow-rehearsal:evidence-closure"
+      ],
+      "required_capability_ids": [
+        "flowguard-agent-workflow-rehearsal.current_contract_mapping"
+      ],
+      "positive_cases": [],
+      "shallow_cases": []
+    },
+    "claim_boundary": "Contract-depth mapping only for flowguard-agent-workflow-rehearsal. No coverage universe or portable positive/shallow calibration receipt is declared, so this profile cannot license EXECUTION_DEPTH_PASS or replace the target-owned native checks and closure evidence."
+  }
 }
 

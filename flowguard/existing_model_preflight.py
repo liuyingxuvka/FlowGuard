@@ -839,7 +839,20 @@ def existing_model_preflight_from_project(
     canonical_ledger_path = Path(ledger_path) if ledger_path else root_path / ".flowguard" / "behavior_commitment_ledger" / "ledger.json"
     if not canonical_ledger_path.is_absolute():
         canonical_ledger_path = root_path / canonical_ledger_path
-    behavior_lookup_required = bool(ledger_path) or canonical_ledger_path.parent.exists()
+    # A full preflight in an adopted/modeled FlowGuard project must attempt the
+    # canonical ledger even when the ledger directory itself is missing.  The
+    # resulting blocked lookup keeps later path discovery diagnostic-only
+    # instead of silently turning it into an alternate commitment authority.
+    # Light mode remains optional unless the caller names a ledger or the
+    # canonical ledger surface is already present.
+    behavior_lookup_required = bool(
+        ledger_path
+        or canonical_ledger_path.parent.exists()
+        or (
+            mode == PREFLIGHT_MODE_FULL
+            and (root_path / ".flowguard").exists()
+        )
+    )
     lookup_report = None
     if behavior_lookup_required:
         lookup_report = query_behavior_commitments_from_path(

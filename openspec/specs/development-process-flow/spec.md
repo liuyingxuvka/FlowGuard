@@ -626,3 +626,143 @@ DevelopmentProcessFlow claims broad completion.
 - **WHEN** a ledger report lists a PPA-blocked commitment
 - **THEN** DevelopmentProcessFlow SHALL block done, release, publish, archive, production, and full-confidence claims for the affected boundary
 
+### Requirement: Post-change scans gate lifecycle completion
+DevelopmentProcessFlow SHALL consume a post-change owner scan after non-trivial
+changes to stable business-intent inventories, behavior commitments, primary
+paths, UI consistency models, materialized obligations, tests, public exports,
+skills, templates, or synchronization artifacts. The scan SHALL preserve
+changed artifacts, peer writes, skipped routes, stale evidence, open
+obligations, and split or reduction signals, and SHALL route each unresolved
+item to its existing owner before broad lifecycle confidence.
+
+#### Scenario: Post-change scan finds stale owner evidence
+- **WHEN** the post-change scan finds that a changed artifact invalidates
+  Primary Path Authority, UI Flow Structure, Model-Test Alignment, TestMesh,
+  install, shadow, formal-repository, or Git evidence
+- **THEN** DevelopmentProcessFlow MUST derive the minimum owner-route
+  revalidation and MUST NOT treat the prior evidence as current
+
+#### Scenario: Required post-change scan is missing
+- **WHEN** non-trivial work claims done, release, archive, publish, or full
+  confidence without a current post-change scan for the changed artifacts
+- **THEN** DevelopmentProcessFlow MUST report missing required revalidation and
+  block the broad process claim
+
+#### Scenario: Scan output is not pass evidence
+- **WHEN** a post-change scan reports no new route recommendation but the
+  required validation or synchronization receipts are absent
+- **THEN** DevelopmentProcessFlow MUST treat the scan as routing input only and
+  MUST NOT manufacture a passing validation result
+
+#### Scenario: Background regression is visible but not terminal
+- **WHEN** the post-change scan sees background regression progress without a
+  current final TestMesh receipt
+- **THEN** DevelopmentProcessFlow MUST preserve the run as liveness only and
+  keep the associated completion gate unsatisfied
+
+### Requirement: Synchronization domains have independent freshness gates
+DevelopmentProcessFlow SHALL track repository source, editable or installed
+package and skill state, shadow workspace, formal repository, and local Git
+state as distinct freshness domains. Evidence from one domain MUST NOT stand in
+for another domain, and a broad claim SHALL consume a current receipt for each
+in-scope domain or preserve an explicit scoped boundary.
+
+#### Scenario: Install evidence does not prove shadow or formal parity
+- **WHEN** editable-install or installed-skill evidence is current but shadow
+  workspace or formal-repository evidence is missing or stale
+- **THEN** DevelopmentProcessFlow MUST report the missing synchronization gate
+  instead of treating install success as cross-domain parity
+
+#### Scenario: Shadow evidence does not prove local Git closure
+- **WHEN** shadow-workspace validation passes but local Git evidence does not
+  identify the current intended files and revision state
+- **THEN** DevelopmentProcessFlow MUST keep local Git closure unsupported
+
+#### Scenario: One synchronization domain changes after its receipt
+- **WHEN** a package, installed skill, shadow copy, formal repository, or local
+  Git artifact changes after that domain's receipt was produced
+- **THEN** DevelopmentProcessFlow MUST stale that receipt and every dependent
+  downstream claim while preserving unrelated current domain evidence
+
+#### Scenario: All required synchronization receipts are current
+- **WHEN** every in-scope install, shadow, formal-repository, and local Git gate
+  has a current passing receipt for the same intended source revision
+- **THEN** DevelopmentProcessFlow MAY treat synchronization freshness as
+  satisfied without using one receipt as a proxy for another
+
+### Requirement: Peer writes invalidate evidence without authorizing rollback
+DevelopmentProcessFlow SHALL treat peer-agent or unknown-writer changes as
+freshness events. It MUST preserve the current peer-written state, re-read and
+merge against that state when work continues, and MUST NOT restore, overwrite,
+or roll back peer work merely to recover an earlier green receipt.
+
+#### Scenario: Peer writes after validation
+- **WHEN** a peer or unknown writer changes an artifact after validation or
+  synchronization evidence was produced
+- **THEN** DevelopmentProcessFlow MUST mark the affected evidence stale and
+  require validation against the current artifact state
+
+#### Scenario: Earlier snapshot would restore green evidence
+- **WHEN** restoring an earlier local snapshot would make an old receipt appear
+  current but would discard peer-written content
+- **THEN** DevelopmentProcessFlow MUST reject that rollback path and preserve
+  the peer-written content
+
+#### Scenario: Peer overlap cannot be merged safely
+- **WHEN** current peer changes overlap the intended edit and the correct merge
+  cannot be established from current evidence
+- **THEN** DevelopmentProcessFlow MUST block the affected action or require
+  human resolution rather than overwriting either side
+
+### Requirement: Plane upgrade preserves route ownership
+DevelopmentProcessFlow SHALL own lifecycle ordering and freshness for this change while leaving product-runtime behavior with its product owner, AI-operation behavior with AgentWorkflowRehearsal/owner models, and external behavior inventory with BCL.
+
+#### Scenario: Development plan references product target
+- **WHEN** a process step validates a product-runtime commitment
+- **THEN** DevelopmentProcessFlow SHALL reference the commitment/evidence ids without becoming the product behavior owner
+
+### Requirement: Plane upgrade lifecycle is explicitly ordered
+The process plan SHALL order OpenSpec artifacts, model/field/structure decisions, schema/direct replacement, lookup/preflight, miss/similarity integration, prompts/contracts, focused owner validation, installation parity, source freeze, one final parent validation, and read-only OpenSpec consumption.
+
+#### Scenario: Implementation begins before apply-ready artifacts
+- **WHEN** required OpenSpec design/spec/verification/task artifacts are missing
+- **THEN** the lifecycle review SHALL block implementation edits
+
+#### Scenario: Prompt installation precedes focused checks
+- **WHEN** installation is attempted before source prompt and contract checks pass
+- **THEN** the lifecycle review SHALL report an out-of-order process step
+
+### Requirement: Peer writes invalidate affected evidence without rollback
+DevelopmentProcessFlow SHALL record peer/unknown writer changes as artifact-version changes, preserve those changes, and derive minimum revalidation rather than resetting or overwriting the workspace.
+
+#### Scenario: Peer updates a shared module
+- **WHEN** a peer changes a shared BCL/preflight/model file after local evidence was produced
+- **THEN** affected evidence SHALL be stale
+- **AND** the process SHALL reread, merge, and rerun the affected validations without reverting the peer change
+
+### Requirement: Validation execution remains single-owner and bounded
+Long model regressions and full tests SHALL have one explicit execution owner. A full gate starts only after source/tool freeze and SHALL NOT use scheduled tasks, `--resume`, or unattended retry scripts.
+
+#### Scenario: A launcher times out
+- **WHEN** a validation launcher times out or is interrupted
+- **THEN** the entire descendant process tree SHALL be confirmed absent before any result is accepted or another owner starts
+- **AND** cleanup-unconfirmed output SHALL be non-reusable
+
+### Requirement: DevelopmentProcessFlow consumes spec work packages
+DevelopmentProcessFlow SHALL treat provider work packages, reconciliation reports, session snapshots, and receipt fan-out as development-process artifacts without absorbing provider or product behavior authority.
+
+#### Scenario: Work package enters the lifecycle
+- **WHEN** a provider work package is selected for implementation or verification
+- **THEN** DevelopmentProcessFlow SHALL order provider read, task/obligation reconciliation, begin snapshot, execute-or-reuse checks, post snapshot, native provider verification, synchronization, and archive readiness
+
+#### Scenario: Peer write occurs during the session
+- **WHEN** a peer or unknown writer changes a covered canonical input after begin
+- **THEN** DevelopmentProcessFlow SHALL preserve the write, stale affected receipts, and derive minimum revalidation rather than roll back the peer
+
+### Requirement: Process closure requires post-snapshot evidence
+DevelopmentProcessFlow SHALL reject done, archive, release, or publish confidence based only on provider checkboxes, a pre-run snapshot, or background liveness.
+
+#### Scenario: Session lacks terminal post evidence
+- **WHEN** the process has no matching immutable post snapshot and terminal child receipts
+- **THEN** the process SHALL remain incomplete even if every provider task is checked
+

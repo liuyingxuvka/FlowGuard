@@ -160,6 +160,97 @@
       ],
       "output_artifact_ids": []
     }
-  ]
+  ],
+  "depth_profile": {
+    "schema_version": "skillguard.depth_profile.v2",
+    "profile_id": "flowguard-model-test-alignment.current_contract_depth.v2",
+    "target_skill_id": "flowguard-model-test-alignment",
+    "integration_mode": "native-integrated",
+    "native_owner_id": "model_test_alignment",
+    "native_route_ids": [
+      "route:model_test_alignment"
+    ],
+    "native_check_ids": [
+      "check:flowguard-model-test-alignment:native-authority"
+    ],
+    "skillguard_adds_domain_route": false,
+    "enforcement_level": "contract_mapped",
+    "required_closure_profiles": [
+      "functional",
+      "release",
+      "highest_quality"
+    ],
+    "coverage_universes": [],
+    "dimensions": [
+      {
+        "dimension_id": "scope",
+        "required": true,
+        "minimum_coverage": 1,
+        "obligation_ids": [
+          "obligation:flowguard-model-test-alignment:plane-boundary"
+        ],
+        "important_obligation_ids": [
+          "obligation:flowguard-model-test-alignment:plane-boundary"
+        ],
+        "accepted_evidence_classes": [
+          "hard"
+        ],
+        "allow_shared_evidence": true,
+        "claim_blocker": true,
+        "coverage_universe_ids": []
+      },
+      {
+        "dimension_id": "workflow",
+        "required": true,
+        "minimum_coverage": 1,
+        "obligation_ids": [
+          "obligation:flowguard-model-test-alignment:native-authority"
+        ],
+        "important_obligation_ids": [
+          "obligation:flowguard-model-test-alignment:native-authority"
+        ],
+        "accepted_evidence_classes": [
+          "hard"
+        ],
+        "allow_shared_evidence": true,
+        "claim_blocker": true,
+        "coverage_universe_ids": []
+      },
+      {
+        "dimension_id": "closure",
+        "required": true,
+        "minimum_coverage": 1,
+        "obligation_ids": [
+          "obligation:flowguard-model-test-alignment:evidence-closure"
+        ],
+        "important_obligation_ids": [
+          "obligation:flowguard-model-test-alignment:evidence-closure"
+        ],
+        "accepted_evidence_classes": [
+          "hard"
+        ],
+        "allow_shared_evidence": true,
+        "claim_blocker": true,
+        "coverage_universe_ids": []
+      }
+    ],
+    "calibration": {
+      "calibration_pair_id": "flowguard-model-test-alignment.contract-mapped.no-execution-calibration.v1",
+      "native_evaluator_id": "model_test_alignment_native_contract_evaluator",
+      "native_evaluator_version": "57E90D6A6D27B179BBA22860DA7201DB7EAE1BEC89B4322152AB5B14F9C17280",
+      "native_evaluator_check_id": "check:flowguard-model-test-alignment:native-authority",
+      "important_obligation_ids": [
+        "obligation:flowguard-model-test-alignment:plane-boundary",
+        "obligation:flowguard-model-test-alignment:native-authority",
+        "obligation:flowguard-model-test-alignment:evidence-closure"
+      ],
+      "required_capability_ids": [
+        "flowguard-model-test-alignment.current_contract_mapping"
+      ],
+      "positive_cases": [],
+      "shallow_cases": []
+    },
+    "claim_boundary": "Contract-depth mapping only for flowguard-model-test-alignment. No coverage universe or portable positive/shallow calibration receipt is declared, so this profile cannot license EXECUTION_DEPTH_PASS or replace the target-owned native checks and closure evidence."
+  }
 }
 

@@ -30,6 +30,7 @@ from flowguard.spec_check_cache import (
     _load_portable_envelope,
     _load_portable_receipt_ref,
     _portable_receipt_semantic_identity,
+    _portable_wire_fingerprint,
     _pid_alive,
     _session_record_path,
     capture_spec_input_manifest,
@@ -285,6 +286,10 @@ class SpecInputManifestTests(unittest.TestCase):
         before = capture_spec_input_manifest(root)
         derived = root / ".flowguard/evidence/spec-work-packages/outputs/run/stdout.log"
         _write(derived, "derived\n")
+        provider_report = root / "openspec/changes/change-one/verification-report.json"
+        provider_receipt = root / "openspec/changes/change-one/verification-receipts/run.json"
+        _write(provider_report, '{"status":"pass"}\n')
+        _write(provider_receipt, '{"status":"pass"}\n')
         for path in discover_governed_input_paths(root):
             path.touch()
         after = capture_spec_input_manifest(root)
@@ -294,6 +299,9 @@ class SpecInputManifestTests(unittest.TestCase):
             derived.resolve(),
             {path.resolve() for path in discover_governed_input_paths(root)},
         )
+        governed = {path.resolve() for path in discover_governed_input_paths(root)}
+        self.assertNotIn(provider_report.resolve(), governed)
+        self.assertNotIn(provider_receipt.resolve(), governed)
 
     def test_model_result_files_cannot_make_their_own_check_stale(self) -> None:
         temporary = _project()
@@ -403,6 +411,44 @@ class SpecInputManifestTests(unittest.TestCase):
 
 
 class PortableReceiptWireTests(unittest.TestCase):
+    def test_source_manifest_hash_matches_openspec_locale_compare_wire_order(self) -> None:
+        policy = {
+            "version": 2,
+            "algorithm": "sha256",
+            "task_checkbox_normalization": "markdown-checkbox-state-v1",
+            "output_classifier_version": "verification-generated-output-v2",
+        }
+        files = {
+            "flowguard/adoption.py": "sha256:" + "1" * 64,
+            "flowguard/adoption_audit.py": "sha256:" + "2" * 64,
+        }
+        manifest_id = _portable_wire_fingerprint(
+            {"source_hash_policy": policy, "files": files}
+        )
+        manifest = {
+            "schema_version": "portable-source-manifest.v1",
+            "source_hash_policy": policy,
+            "manifest_id": manifest_id,
+            "files": files,
+        }
+
+        self.assertEqual(
+            "sha256:9e9af8aae245eba9d5e5ff74eaec8597256111a567be5dfbc70846bc1c872d3c",
+            manifest_id,
+        )
+        self.assertEqual(
+            "sha256:45897512668f87632b48b1d05d487c5b8d602d61268c939b72c88d7f39cf56ae",
+            _portable_wire_fingerprint(manifest),
+        )
+        self.assertEqual(
+            "sha256:df4bb001534543d920e7b394dd289fc65cc49657a8bff790eb5c68333f9f00f8",
+            _portable_wire_fingerprint(files),
+        )
+
+    def test_source_manifest_wire_rejects_locale_dependent_non_ascii_keys(self) -> None:
+        with self.assertRaisesRegex(ValueError, "ASCII letters"):
+            _portable_wire_fingerprint({"flowguard/模型.py": "sha256:" + "0" * 64})
+
     def test_external_owner_ref_is_verified_in_place_without_a_flowguard_copy(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -965,6 +1011,10 @@ class SpecReceiptReuseTests(unittest.TestCase):
         )
         pointer = json.loads(pointer_path.read_text(encoding="utf-8"))
         self.assertEqual(["req.two"], pointer["coverage_ids"])
+        self.assertIn(
+            "/envelopes/portable-receipt-v1-locale-ascii/",
+            pointer["envelope_ref"],
+        )
         portable_id, envelope = _load_portable_receipt_ref(
             root,
             "openspec",

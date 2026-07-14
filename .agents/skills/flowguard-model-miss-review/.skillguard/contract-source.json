@@ -169,6 +169,97 @@
       ],
       "output_artifact_ids": []
     }
-  ]
+  ],
+  "depth_profile": {
+    "schema_version": "skillguard.depth_profile.v2",
+    "profile_id": "flowguard-model-miss-review.current_contract_depth.v2",
+    "target_skill_id": "flowguard-model-miss-review",
+    "integration_mode": "native-integrated",
+    "native_owner_id": "model_miss_review",
+    "native_route_ids": [
+      "route:model_miss_review"
+    ],
+    "native_check_ids": [
+      "check:flowguard-model-miss-review:native-authority"
+    ],
+    "skillguard_adds_domain_route": false,
+    "enforcement_level": "contract_mapped",
+    "required_closure_profiles": [
+      "functional",
+      "release",
+      "highest_quality"
+    ],
+    "coverage_universes": [],
+    "dimensions": [
+      {
+        "dimension_id": "scope",
+        "required": true,
+        "minimum_coverage": 1,
+        "obligation_ids": [
+          "obligation:flowguard-model-miss-review:plane-boundary"
+        ],
+        "important_obligation_ids": [
+          "obligation:flowguard-model-miss-review:plane-boundary"
+        ],
+        "accepted_evidence_classes": [
+          "hard"
+        ],
+        "allow_shared_evidence": true,
+        "claim_blocker": true,
+        "coverage_universe_ids": []
+      },
+      {
+        "dimension_id": "workflow",
+        "required": true,
+        "minimum_coverage": 1,
+        "obligation_ids": [
+          "obligation:flowguard-model-miss-review:native-authority"
+        ],
+        "important_obligation_ids": [
+          "obligation:flowguard-model-miss-review:native-authority"
+        ],
+        "accepted_evidence_classes": [
+          "hard"
+        ],
+        "allow_shared_evidence": true,
+        "claim_blocker": true,
+        "coverage_universe_ids": []
+      },
+      {
+        "dimension_id": "closure",
+        "required": true,
+        "minimum_coverage": 1,
+        "obligation_ids": [
+          "obligation:flowguard-model-miss-review:evidence-closure"
+        ],
+        "important_obligation_ids": [
+          "obligation:flowguard-model-miss-review:evidence-closure"
+        ],
+        "accepted_evidence_classes": [
+          "hard"
+        ],
+        "allow_shared_evidence": true,
+        "claim_blocker": true,
+        "coverage_universe_ids": []
+      }
+    ],
+    "calibration": {
+      "calibration_pair_id": "flowguard-model-miss-review.contract-mapped.no-execution-calibration.v1",
+      "native_evaluator_id": "model_miss_review_native_contract_evaluator",
+      "native_evaluator_version": "9354ADB8FA750EF06C65963CDDD0117F740D593D1900FD2D822A6CC09D373BF2",
+      "native_evaluator_check_id": "check:flowguard-model-miss-review:native-authority",
+      "important_obligation_ids": [
+        "obligation:flowguard-model-miss-review:plane-boundary",
+        "obligation:flowguard-model-miss-review:native-authority",
+        "obligation:flowguard-model-miss-review:evidence-closure"
+      ],
+      "required_capability_ids": [
+        "flowguard-model-miss-review.current_contract_mapping"
+      ],
+      "positive_cases": [],
+      "shallow_cases": []
+    },
+    "claim_boundary": "Contract-depth mapping only for flowguard-model-miss-review. No coverage universe or portable positive/shallow calibration receipt is declared, so this profile cannot license EXECUTION_DEPTH_PASS or replace the target-owned native checks and closure evidence."
+  }
 }
 

@@ -161,13 +161,104 @@
       "step_id": "step:flowguard-existing-model-preflight:verify",
       "action": {
         "kind": "verifier",
-        "summary": "Require an explainable owner selection or an explicit missing, stale, or ambiguous fallback."
+        "summary": "Require an explainable owner selection; in full preflight, missing or stale canonical lookup stays blocked while path inventory remains diagnostic-only, and ambiguity stays separated."
       },
       "check_ids": [
         "check:flowguard-existing-model-preflight:evidence-closure"
       ],
       "output_artifact_ids": []
     }
-  ]
+  ],
+  "depth_profile": {
+    "schema_version": "skillguard.depth_profile.v2",
+    "profile_id": "flowguard-existing-model-preflight.current_contract_depth.v2",
+    "target_skill_id": "flowguard-existing-model-preflight",
+    "integration_mode": "native-integrated",
+    "native_owner_id": "existing_model_preflight",
+    "native_route_ids": [
+      "route:existing_model_preflight"
+    ],
+    "native_check_ids": [
+      "check:flowguard-existing-model-preflight:native-authority"
+    ],
+    "skillguard_adds_domain_route": false,
+    "enforcement_level": "contract_mapped",
+    "required_closure_profiles": [
+      "functional",
+      "release",
+      "highest_quality"
+    ],
+    "coverage_universes": [],
+    "dimensions": [
+      {
+        "dimension_id": "scope",
+        "required": true,
+        "minimum_coverage": 1,
+        "obligation_ids": [
+          "obligation:flowguard-existing-model-preflight:plane-boundary"
+        ],
+        "important_obligation_ids": [
+          "obligation:flowguard-existing-model-preflight:plane-boundary"
+        ],
+        "accepted_evidence_classes": [
+          "hard"
+        ],
+        "allow_shared_evidence": true,
+        "claim_blocker": true,
+        "coverage_universe_ids": []
+      },
+      {
+        "dimension_id": "workflow",
+        "required": true,
+        "minimum_coverage": 1,
+        "obligation_ids": [
+          "obligation:flowguard-existing-model-preflight:native-authority"
+        ],
+        "important_obligation_ids": [
+          "obligation:flowguard-existing-model-preflight:native-authority"
+        ],
+        "accepted_evidence_classes": [
+          "hard"
+        ],
+        "allow_shared_evidence": true,
+        "claim_blocker": true,
+        "coverage_universe_ids": []
+      },
+      {
+        "dimension_id": "closure",
+        "required": true,
+        "minimum_coverage": 1,
+        "obligation_ids": [
+          "obligation:flowguard-existing-model-preflight:evidence-closure"
+        ],
+        "important_obligation_ids": [
+          "obligation:flowguard-existing-model-preflight:evidence-closure"
+        ],
+        "accepted_evidence_classes": [
+          "hard"
+        ],
+        "allow_shared_evidence": true,
+        "claim_blocker": true,
+        "coverage_universe_ids": []
+      }
+    ],
+    "calibration": {
+      "calibration_pair_id": "flowguard-existing-model-preflight.contract-mapped.no-execution-calibration.v1",
+      "native_evaluator_id": "existing_model_preflight_native_contract_evaluator",
+      "native_evaluator_version": "B06502FB40973F69872E0A14F5CF6288668CD7DE63EB42705432EE8DC6BE3065",
+      "native_evaluator_check_id": "check:flowguard-existing-model-preflight:native-authority",
+      "important_obligation_ids": [
+        "obligation:flowguard-existing-model-preflight:plane-boundary",
+        "obligation:flowguard-existing-model-preflight:native-authority",
+        "obligation:flowguard-existing-model-preflight:evidence-closure"
+      ],
+      "required_capability_ids": [
+        "flowguard-existing-model-preflight.current_contract_mapping"
+      ],
+      "positive_cases": [],
+      "shallow_cases": []
+    },
+    "claim_boundary": "Contract-depth mapping only for flowguard-existing-model-preflight. No coverage universe or portable positive/shallow calibration receipt is declared, so this profile cannot license EXECUTION_DEPTH_PASS or replace the target-owned native checks and closure evidence."
+  }
 }
 

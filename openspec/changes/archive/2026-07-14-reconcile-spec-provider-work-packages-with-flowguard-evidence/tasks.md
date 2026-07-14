@@ -70,10 +70,10 @@
 - [x] 9.1 Update API, DevelopmentProcessFlow, TestMesh, ExistingModelPreflight, SkillGuard distribution, validation, and product architecture documentation with provider and claim boundaries.
 - [x] 9.2 Update AGENTS/project guidance through owned templates so future agents use provider reconciliation without mixing it into product UI rules.
 - [x] 9.3 Run focused tests and models, provider audit, SkillGuard project/static/depth checks, project audit, and strict OpenSpec validation; fix every failure.
-- [ ] 9.4 Run the full registered model inventory and full pytest through the new receipt runner on a frozen snapshot; consume terminal receipts and verify no watched input changed during either run.
-- [ ] 9.5 Synchronize the canonical repository and installed skills without deleting or rolling back peer work; audit the retired shadow read-only, record it as non-authoritative, and verify canonical/installed parity.
-- [ ] 9.6 Run `openspec verify reconcile-spec-provider-work-packages-with-flowguard-evidence`, confirm the report is current, and archive only after every task/evidence gate passes.
-- [ ] 9.7 Return to the two UI/product-language/execution-plane changes, rerun only their current required evidence using safe shared receipts, then archive and complete local Git version/tag closure.
+- [x] 9.4 Run the full registered model inventory and full pytest through the new receipt runner on a frozen snapshot; consume terminal receipts and verify no watched input changed during either run.
+- [x] 9.5 Synchronize the canonical repository and installed skills without deleting or rolling back peer work; audit the retired shadow read-only, record it as non-authoritative, and verify canonical/installed parity.
+- [x] 9.6 Run `openspec verify reconcile-spec-provider-work-packages-with-flowguard-evidence`, confirm the report is current, and archive only after every task/evidence gate passes.
+- [x] 9.7 Return to the two UI/product-language/execution-plane changes, rerun only their current required evidence using safe shared receipts, and archive them; local Git version/tag closure follows this change's own archive as the final repository step.
 
 ## Current source-freeze candidate evidence (2026-07-13)
 

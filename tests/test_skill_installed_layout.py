@@ -71,7 +71,29 @@ class SkillInstalledLayoutTests(unittest.TestCase):
                         (skill / ".skillguard" / "contract-source.json").read_text(encoding="utf-8")
                     )
                     self.assertEqual("skillguard.contract_source.v2", source["schema_version"])
-                    self.assertNotIn("depth_profile", source)
+                    depth = source["depth_profile"]
+                    self.assertEqual("skillguard.depth_profile.v2", depth["schema_version"])
+                    self.assertEqual(skill_id, depth["target_skill_id"])
+                    self.assertEqual("native-integrated", depth["integration_mode"])
+                    self.assertEqual("contract_mapped", depth["enforcement_level"])
+                    self.assertFalse(depth["skillguard_adds_domain_route"])
+                    self.assertEqual([], depth["coverage_universes"])
+                    self.assertEqual(
+                        {"scope", "workflow", "closure"},
+                        {row["dimension_id"] for row in depth["dimensions"]},
+                    )
+                    important_obligations = {
+                        obligation_id
+                        for row in depth["dimensions"]
+                        for obligation_id in row["important_obligation_ids"]
+                    }
+                    self.assertEqual(
+                        important_obligations,
+                        set(depth["calibration"]["important_obligation_ids"]),
+                    )
+                    self.assertEqual([], depth["calibration"]["positive_cases"])
+                    self.assertEqual([], depth["calibration"]["shallow_cases"])
+                    self.assertIn("cannot license EXECUTION_DEPTH_PASS", depth["claim_boundary"])
                     compiled = json.loads(
                         (skill / ".skillguard" / "compiled-contract.json").read_text(encoding="utf-8")
                     )
@@ -81,7 +103,7 @@ class SkillInstalledLayoutTests(unittest.TestCase):
                     self.assertEqual("skillguard.compiled_contract.v2", compiled["schema_version"])
                     self.assertEqual("skillguard.check_manifest.v2", manifest["schema_version"])
                     self.assertEqual(source["model_id"], compiled["model_id"])
-                    self.assertNotIn("depth_profile", compiled)
+                    self.assertEqual(depth, compiled["depth_profile"])
 
             check = subprocess.run(
                 [

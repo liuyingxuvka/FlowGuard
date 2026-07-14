@@ -222,7 +222,7 @@ checks:
       ref_path: "<SPEC_EVIDENCE>/portable-refs/openspec/reconcile-spec-provider-work-packages-with-flowguard-evidence/owner.change.aggregate.json"
     consumer: openspec.change.reconcile-spec-provider-work-packages-with-flowguard-evidence
     required: true
-    covers: [req.spec.provider-authority, req.spec.stable-identities, req.spec.bidirectional-reconciliation, req.spec.session-snapshots, req.spec.immutable-receipts, req.spec.safe-reuse, req.spec.archive, req.testmesh.spec-receipts, req.skills.native-routing, req.skills.current-authority]
+    covers: [req.spec.provider-authority, req.spec.stable-identities, req.spec.bidirectional-reconciliation, req.spec.input-output-boundary, req.spec.session-snapshots, req.spec.immutable-receipts, req.spec.safe-reuse, req.spec.states, req.spec.archive, req.process.work-packages, req.testmesh.spec-receipts, req.plan.provider-mapping, req.preflight.provider-context, req.proof.session-identity, req.api.spec-work-package, req.skills.native-routing, req.skills.current-authority]
 
 freshness:
   watch:

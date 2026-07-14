@@ -199,7 +199,7 @@
         "classification_rule_ids": [
           "skillguard.content_role_classifier.current:contract_schema"
         ],
-        "component_hash": "sha256:1e1f70fed58a62580c309aa1f7281adf111ac68fca5193e69bc9428f18572baf",
+        "component_hash": "sha256:9ceb36c2f02b064ebd8c83c317cdab94c051b22d913cd0cb1334cb38946cc9a6",
         "component_id": "component:contract_schema:0b5b8624b3ee7fea",
         "consumer_ids": [
           "projection:contract-compile",
@@ -324,11 +324,11 @@
       "owner_cycles": [],
       "unmapped_paths": []
     },
-    "impact_graph_hash": "sha256:f4ab15d4c149773e243e1d22b1a74608c863a2a976c01c7955e4c0803d5b2500",
+    "impact_graph_hash": "sha256:5f21c3547056c22abde59e313a7d46ca6f625bf974308738207222293e6d1322",
     "inventory": [
       {
         "classification_rule_id": "skillguard.content_role_classifier.current:contract_schema",
-        "content_hash": "sha256:65f9d5c0ef9a57a3777d6fd56981edc08dc131ee549dd6549b6c00d3f92fdc65",
+        "content_hash": "sha256:7b7213d6ccb04a74f1fb99f0565cd84f5b2c53ba239bedf55c8d28546e94e733",
         "install_disposition": "copy",
         "path": ".agents/skills/flowguard-code-structure-recommendation/.skillguard/contract-source.json",
         "role": "contract_schema"
@@ -383,7 +383,7 @@
         "role": "test_dev"
       }
     ],
-    "inventory_hash": "sha256:5bbb8507e8c3a6ee17668018dcc5fec7fe17b548753087cc4a32102716b5fe53",
+    "inventory_hash": "sha256:b75b782fe28ac3b09be51febd06ef0352ee9ac644f835a2b152b939fe37cc176",
     "owner_receipt_root_ref": {
       "path_token": "owner_evidence_root",
       "relative_path": "check-executions"
@@ -469,7 +469,7 @@
     "projection_consumers": [
       {
         "consumer_id": "projection:contract-compile",
-        "consumer_projection_hash": "sha256:bf634628c2603ea9beca0632c346222491331e6e0bf305c9c22f2f5602632c44",
+        "consumer_projection_hash": "sha256:b2910dda775ac45775088542b3421aa804a60815b848f7e5a6406e80d5e17687",
         "impact_plan_schema_version": "skillguard.content_impact_plan.current",
         "impact_policy_id": "skillguard.content_impact_policy.current",
         "input_component_ids": [
@@ -477,7 +477,7 @@
           "component:documentation_model:3a9132f75d9dab77",
           "component:runtime_source:02716b8848184c2a"
         ],
-        "input_projection_hash": "sha256:8da93bee660bc2b94814cdfef72a4d9d6818a2ab6bae16cc8cadb1dba43947a3",
+        "input_projection_hash": "sha256:16c4666b4d6cab7c1ea4d95729c6f763aedb472f3a631f4b1d183f0082d303ce",
         "kind": "contract_compile",
         "projection_declaration_hash": "sha256:54b00afe1629e587611a1e41773e8b1b3f84922caa93719703ec8a6d81586f7d"
       },
@@ -493,7 +493,7 @@
       },
       {
         "consumer_id": "projection:installation",
-        "consumer_projection_hash": "sha256:b92fcbbfd465690a016e70f1d800bbde3ffe5d74744ea215455643fc8e69c9d2",
+        "consumer_projection_hash": "sha256:07e151b03bae6aa964ccc39acb5baf5acee686e30e8fa38ef8e8a72c6b8f7f1c",
         "impact_plan_schema_version": "skillguard.content_impact_plan.current",
         "impact_policy_id": "skillguard.content_impact_policy.current",
         "input_component_ids": [
@@ -501,7 +501,7 @@
           "component:documentation_model:07ea8ee137a27bbf",
           "component:runtime_source:8e2d3c5c47741db1"
         ],
-        "input_projection_hash": "sha256:7352cb86aad3a29e1c1cf59f3bc0447981547fb5be540b4d34018ef98591ebd3",
+        "input_projection_hash": "sha256:6ba3234bbab1fc716ad39b69aa41ce3710560e914962ce5fff7b78e3adc5b842",
         "kind": "installation",
         "projection_declaration_hash": "sha256:3889907e933bbd9d241ddc470ff3d50c814116c6acb51f5d7348c1ef2ac7a465"
       },
@@ -529,7 +529,98 @@
     "schema_version": "skillguard.content_impact_plan.current",
     "unknown_mapping_disposition": "block"
   },
-  "contract_hash": "9E9BD148EEA1B57C59CCA4A0812F40B57F9565EFD2C442E6211B8ACC2F0E194C",
+  "contract_hash": "9373EC23CC70D93A7A815155D02DB8B0D51A3984DF514C7A6FC01D86BAD9838B",
+  "depth_profile": {
+    "calibration": {
+      "calibration_pair_id": "flowguard-code-structure-recommendation.contract-mapped.no-execution-calibration.v1",
+      "important_obligation_ids": [
+        "obligation:flowguard-code-structure-recommendation:plane-boundary",
+        "obligation:flowguard-code-structure-recommendation:native-authority",
+        "obligation:flowguard-code-structure-recommendation:evidence-closure"
+      ],
+      "native_evaluator_check_id": "check:flowguard-code-structure-recommendation:native-authority",
+      "native_evaluator_id": "code_structure_recommendation_native_contract_evaluator",
+      "native_evaluator_version": "01316AC7D7AEDB6F932DE0FD0A2D40417932438D0C3772FB27F3A0EB3BA76AC0",
+      "positive_cases": [],
+      "required_capability_ids": [
+        "flowguard-code-structure-recommendation.current_contract_mapping"
+      ],
+      "shallow_cases": []
+    },
+    "claim_boundary": "Contract-depth mapping only for flowguard-code-structure-recommendation. No coverage universe or portable positive/shallow calibration receipt is declared, so this profile cannot license EXECUTION_DEPTH_PASS or replace the target-owned native checks and closure evidence.",
+    "coverage_universes": [],
+    "dimensions": [
+      {
+        "accepted_evidence_classes": [
+          "hard"
+        ],
+        "allow_shared_evidence": true,
+        "claim_blocker": true,
+        "coverage_universe_ids": [],
+        "dimension_id": "scope",
+        "important_obligation_ids": [
+          "obligation:flowguard-code-structure-recommendation:plane-boundary"
+        ],
+        "minimum_coverage": 1,
+        "obligation_ids": [
+          "obligation:flowguard-code-structure-recommendation:plane-boundary"
+        ],
+        "required": true
+      },
+      {
+        "accepted_evidence_classes": [
+          "hard"
+        ],
+        "allow_shared_evidence": true,
+        "claim_blocker": true,
+        "coverage_universe_ids": [],
+        "dimension_id": "workflow",
+        "important_obligation_ids": [
+          "obligation:flowguard-code-structure-recommendation:native-authority"
+        ],
+        "minimum_coverage": 1,
+        "obligation_ids": [
+          "obligation:flowguard-code-structure-recommendation:native-authority"
+        ],
+        "required": true
+      },
+      {
+        "accepted_evidence_classes": [
+          "hard"
+        ],
+        "allow_shared_evidence": true,
+        "claim_blocker": true,
+        "coverage_universe_ids": [],
+        "dimension_id": "closure",
+        "important_obligation_ids": [
+          "obligation:flowguard-code-structure-recommendation:evidence-closure"
+        ],
+        "minimum_coverage": 1,
+        "obligation_ids": [
+          "obligation:flowguard-code-structure-recommendation:evidence-closure"
+        ],
+        "required": true
+      }
+    ],
+    "enforcement_level": "contract_mapped",
+    "integration_mode": "native-integrated",
+    "native_check_ids": [
+      "check:flowguard-code-structure-recommendation:native-authority"
+    ],
+    "native_owner_id": "code_structure_recommendation",
+    "native_route_ids": [
+      "route:code_structure_recommendation"
+    ],
+    "profile_id": "flowguard-code-structure-recommendation.current_contract_depth.v2",
+    "required_closure_profiles": [
+      "functional",
+      "release",
+      "highest_quality"
+    ],
+    "schema_version": "skillguard.depth_profile.v2",
+    "skillguard_adds_domain_route": false,
+    "target_skill_id": "flowguard-code-structure-recommendation"
+  },
   "flowguard_schema_version": "1.0",
   "functions": [
     {
@@ -610,7 +701,7 @@
   "schema_version": "skillguard.compiled_contract.v2",
   "skill_id": "flowguard-code-structure-recommendation",
   "source_fingerprints": {
-    "binding": "65F9D5C0EF9A57A3777D6FD56981EDC08DC131EE549DD6549B6C00D3F92FDC65",
+    "binding": "7B7213D6CCB04A74F1FB99F0565CD84F5B2C53BA239BEDF55C8D28546E94E733",
     "entrypoint": "F3CAE7BE0641388AB4E1E42FAC3287C3197B7D2F23768E170B80B378BC8128D6",
     "implementation:.agents/skills/flowguard-code-structure-recommendation": "F7B3E634791B34B31E8199A4427781DDDC102A2EF76B882CCEFB932CC5D8CB9D",
     "implementation:examples/skill_contract_model_exports/code_structure_recommendation.py": "0984BD52D2DF6E4D01D9CE41904076CD2543A28A82D11DDA2D44EE4BB0B2342C",

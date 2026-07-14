@@ -33,7 +33,7 @@ Accept boundary/root; query/search; choose reuse, extend, child, new, or none; b
 ## Hard Gates
 - Use the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework. Full mode precedes proposal/implementation.
 - Missing/stale search or ownership, duplicate owners, unresolved mesh proof, or omitted same-intent surfaces block full preflight; equivalent current semantics default to reuse.
-- Shared words cannot promote a wrong-plane hit. Missing/stale lookup falls back explicitly; ambiguity blocks full-confidence selection.
+- Shared words cannot promote a wrong-plane hit. In full preflight, missing/stale canonical lookup stays blocked and path/model inventory remains diagnostic only; light or trivial work may keep lookup `not_applicable`. Ambiguity blocks full-confidence selection.
 - Former `skill_runtime` shapes are rejection evidence, not live routes. An `ordinary_software` compatibility surface needs an explicit historical-input requirement and bounded reader owner before it can be proposed or reused.
 
 ## Output Requirements

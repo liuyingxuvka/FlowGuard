@@ -178,6 +178,97 @@
       ],
       "output_artifact_ids": []
     }
-  ]
+  ],
+  "depth_profile": {
+    "schema_version": "skillguard.depth_profile.v2",
+    "profile_id": "flowguard-behavior-commitment-ledger.current_contract_depth.v2",
+    "target_skill_id": "flowguard-behavior-commitment-ledger",
+    "integration_mode": "native-integrated",
+    "native_owner_id": "behavior_commitment_ledger",
+    "native_route_ids": [
+      "route:behavior_commitment_ledger"
+    ],
+    "native_check_ids": [
+      "check:flowguard-behavior-commitment-ledger:native-authority"
+    ],
+    "skillguard_adds_domain_route": false,
+    "enforcement_level": "contract_mapped",
+    "required_closure_profiles": [
+      "functional",
+      "release",
+      "highest_quality"
+    ],
+    "coverage_universes": [],
+    "dimensions": [
+      {
+        "dimension_id": "scope",
+        "required": true,
+        "minimum_coverage": 1,
+        "obligation_ids": [
+          "obligation:flowguard-behavior-commitment-ledger:plane-boundary"
+        ],
+        "important_obligation_ids": [
+          "obligation:flowguard-behavior-commitment-ledger:plane-boundary"
+        ],
+        "accepted_evidence_classes": [
+          "hard"
+        ],
+        "allow_shared_evidence": true,
+        "claim_blocker": true,
+        "coverage_universe_ids": []
+      },
+      {
+        "dimension_id": "workflow",
+        "required": true,
+        "minimum_coverage": 1,
+        "obligation_ids": [
+          "obligation:flowguard-behavior-commitment-ledger:native-authority"
+        ],
+        "important_obligation_ids": [
+          "obligation:flowguard-behavior-commitment-ledger:native-authority"
+        ],
+        "accepted_evidence_classes": [
+          "hard"
+        ],
+        "allow_shared_evidence": true,
+        "claim_blocker": true,
+        "coverage_universe_ids": []
+      },
+      {
+        "dimension_id": "closure",
+        "required": true,
+        "minimum_coverage": 1,
+        "obligation_ids": [
+          "obligation:flowguard-behavior-commitment-ledger:evidence-closure"
+        ],
+        "important_obligation_ids": [
+          "obligation:flowguard-behavior-commitment-ledger:evidence-closure"
+        ],
+        "accepted_evidence_classes": [
+          "hard"
+        ],
+        "allow_shared_evidence": true,
+        "claim_blocker": true,
+        "coverage_universe_ids": []
+      }
+    ],
+    "calibration": {
+      "calibration_pair_id": "flowguard-behavior-commitment-ledger.contract-mapped.no-execution-calibration.v1",
+      "native_evaluator_id": "behavior_commitment_ledger_native_contract_evaluator",
+      "native_evaluator_version": "691B9F9B13606A6ACA43182BAF0994A6D2B941B1CF852B018B068ECCEF0E8993",
+      "native_evaluator_check_id": "check:flowguard-behavior-commitment-ledger:native-authority",
+      "important_obligation_ids": [
+        "obligation:flowguard-behavior-commitment-ledger:plane-boundary",
+        "obligation:flowguard-behavior-commitment-ledger:native-authority",
+        "obligation:flowguard-behavior-commitment-ledger:evidence-closure"
+      ],
+      "required_capability_ids": [
+        "flowguard-behavior-commitment-ledger.current_contract_mapping"
+      ],
+      "positive_cases": [],
+      "shallow_cases": []
+    },
+    "claim_boundary": "Contract-depth mapping only for flowguard-behavior-commitment-ledger. No coverage universe or portable positive/shallow calibration receipt is declared, so this profile cannot license EXECUTION_DEPTH_PASS or replace the target-owned native checks and closure evidence."
+  }
 }
 

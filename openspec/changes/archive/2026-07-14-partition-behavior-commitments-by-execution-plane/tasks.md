@@ -65,6 +65,6 @@
 
 - [x] 9.1 Install the complete skill suite to an isolated shadow target; run installer check/parity, static suite checks, markers, SkillGuard project audit, and repair every mismatch.
 - [x] 9.2 Re-read recent peer writes, merge compatible changes, rerun minimum affected validation, and preserve any newer package/schema/version state.
-- [ ] 9.3 Freeze functional source/tool identities, reuse current owner receipts, and let one explicit owner run only missing affected checks followed by one final parent TestMesh; never schedule, resume, or background-retry it.
-- [ ] 9.4 Run FlowGuard project audit and strict OpenSpec validation; OpenSpec must consume the final parent receipt read-only and must not execute FlowGuard checks.
-- [ ] 9.5 Perform a requirement-by-requirement completion audit against current files and evidence, record KB postflight, and leave external publication/Git operations explicitly out of scope.
+- [x] 9.3 Freeze functional source/tool identities, reuse current owner receipts, and let one explicit owner run only missing affected checks followed by one final parent TestMesh; never schedule, resume, or background-retry it.
+- [x] 9.4 Run FlowGuard project audit and strict OpenSpec validation; OpenSpec must consume the final parent receipt read-only and must not execute FlowGuard checks.
+- [x] 9.5 Perform a requirement-by-requirement completion audit against current files and evidence, record KB postflight, and leave external publication/Git operations explicitly out of scope.
