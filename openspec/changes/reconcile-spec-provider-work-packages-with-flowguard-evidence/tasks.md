@@ -71,7 +71,7 @@
 - [x] 9.2 Update AGENTS/project guidance through owned templates so future agents use provider reconciliation without mixing it into product UI rules.
 - [x] 9.3 Run focused tests and models, provider audit, SkillGuard project/static/depth checks, project audit, and strict OpenSpec validation; fix every failure.
 - [ ] 9.4 Run the full registered model inventory and full pytest through the new receipt runner on a frozen snapshot; consume terminal receipts and verify no watched input changed during either run.
-- [ ] 9.5 Synchronize shadow, formal repository, and installed skills without deleting or rolling back peer work; verify source/shadow/installed parity.
+- [ ] 9.5 Synchronize the canonical repository and installed skills without deleting or rolling back peer work; audit the retired shadow read-only, record it as non-authoritative, and verify canonical/installed parity.
 - [ ] 9.6 Run `openspec verify reconcile-spec-provider-work-packages-with-flowguard-evidence`, confirm the report is current, and archive only after every task/evidence gate passes.
 - [ ] 9.7 Return to the two UI/product-language/execution-plane changes, rerun only their current required evidence using safe shared receipts, then archive and complete local Git version/tag closure.
 
@@ -83,4 +83,4 @@
 - Packaging contract: canonical `pyproject.toml` declares `spec-providers = ["PyYAML>=6.0"]`; the exact positive/missing-empty/wrong-version `tomllib` node passes (`1 passed`) without installing the extra and leaves zero matching descendant processes.
 - Executable model: scenario, conformance, loop/deduplication, progress, and function-block contract reviews all pass; FlowGuard owner execution count is two (child plus aggregate), OpenSpec execution count is zero, and only the post-report read-only review returns archive readiness.
 - Earlier API/template commands that timed out or overlapped are explicitly invalid evidence and are not counted.
-- Items 9.4-9.7 remain open: no full model inventory, full pytest, install/shadow synchronization, OpenSpec verify/archive, release/tag, or downstream-change archive is claimed by this evidence block.
+- Items 9.4-9.7 close only from current terminal receipts, canonical/installed parity, read-only retired-shadow disposition, OpenSpec verification/archive evidence, and local Git/tag closure; this note does not claim those gates by itself.
