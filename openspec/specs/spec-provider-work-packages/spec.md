@@ -1,7 +1,8 @@
 # spec-provider-work-packages Specification
 
 ## Purpose
-TBD - created by archiving change reconcile-spec-provider-work-packages-with-flowguard-evidence. Update Purpose after archive.
+Define how FlowGuard reconciles OpenSpec, Spec Kit, and other provider-owned tasks with FlowGuard obligations and current receipts without replacing the provider's native authority or rerunning shared checks unnecessarily.
+
 ## Requirements
 ### Requirement: Specification providers retain native authority
 FlowGuard SHALL read declared specification providers without replacing their requirement, task, strict-verification, implementation, or archive authority.

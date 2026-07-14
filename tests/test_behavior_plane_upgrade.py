@@ -33,6 +33,20 @@ from flowguard import (
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def openspec_change_artifact(change_id: str, artifact_name: str) -> Path:
+    active_path = ROOT / "openspec" / "changes" / change_id / artifact_name
+    if active_path.exists():
+        return active_path
+    archived_paths = sorted(
+        (ROOT / "openspec" / "changes" / "archive").glob(
+            f"*-{change_id}/{artifact_name}"
+        )
+    )
+    if archived_paths:
+        return archived_paths[-1]
+    return active_path
+
+
 def row(
     commitment_id: str,
     *,
@@ -102,12 +116,9 @@ class BehaviorPlaneUpgradeTests(unittest.TestCase):
         self.assertNotIn("evidence engine, or\n  CLI command", (ROOT / "CHANGELOG.md").read_text(encoding="utf-8"))
 
     def test_verification_contract_uses_receipt_authority_without_self_maintenance_hash_coupling(self):
-        contract_path = (
-            ROOT
-            / "openspec"
-            / "changes"
-            / "partition-behavior-commitments-by-execution-plane"
-            / "verification-contract.yaml"
+        contract_path = openspec_change_artifact(
+            "partition-behavior-commitments-by-execution-plane",
+            "verification-contract.yaml",
         )
         contract = contract_path.read_text(encoding="utf-8")
 

@@ -1,7 +1,8 @@
 # behavior-commitment-lookup Specification
 
 ## Purpose
-TBD - created by archiving change partition-behavior-commitments-by-execution-plane. Update Purpose after archive.
+Define how FlowGuard finds the existing behavior commitment that owns a task while keeping product-runtime, AI-agent-operation, and development-process commitments separated and explainable.
+
 ## Requirements
 ### Requirement: Lookup filters by behavior plane before similarity
 FlowGuard SHALL provide a deterministic commitment lookup that selects or reports one primary behavior plane before text similarity can produce primary hits.
