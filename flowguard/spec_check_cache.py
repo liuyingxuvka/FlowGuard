@@ -3438,6 +3438,42 @@ def aggregate_spec_check_receipts(
 def close_spec_session(root: str | Path, provider_id: str, work_package_id: str) -> SpecSessionResult:
     project_root = _project_root(root)
     session = _load_session(project_root, provider_id, work_package_id)
+    existing_close_ref = str(session.get("close_record_path", ""))
+    if session.get("state") in {"closed", "blocked"} and existing_close_ref:
+        existing = _read_json(_resolve_evidence_token(project_root, existing_close_ref))
+        if (
+            existing.get("session_id") != session.get("session_id")
+            or existing.get("provider_id") != provider_id
+            or existing.get("work_package_id") != work_package_id
+            or existing.get("state") != session.get("state")
+        ):
+            raise ValueError("immutable spec session close record identity mismatch")
+        return SpecSessionResult(
+            provider_id=provider_id,
+            work_package_id=work_package_id,
+            session_id=str(existing["session_id"]),
+            state=str(existing["state"]),
+            begin_fingerprint=str(existing.get("begin_fingerprint", "")),
+            post_fingerprint=str(existing.get("post_fingerprint", "")),
+            begin_manifest_path=str(existing.get("begin_manifest_path", "")),
+            post_manifest_path=str(existing.get("post_manifest_path", "")),
+            begin_record_path=str(existing.get("begin_record_path", "")),
+            close_record_path=existing_close_ref,
+            changed_inputs=existing.get("changed_inputs", {}),
+            check_states={
+                key: str(value.get("state", ""))
+                for key, value in existing.get("check_results", {}).items()
+                if isinstance(value, Mapping)
+            },
+            blockers=tuple(str(value) for value in existing.get("blockers", ())),
+            snapshot_policy=str(existing.get("snapshot_policy", SPEC_SNAPSHOT_LIVE_SCOPED)),
+            toolchain_fingerprint=str(existing.get("toolchain_fingerprint", "")),
+            toolchain_snapshot=existing.get("toolchain_snapshot", {}),
+            minimum_revalidation=tuple(
+                str(value) for value in existing.get("minimum_revalidation", ())
+            ),
+            archive_ready=bool(existing.get("archive_ready", False)),
+        )
     begin = _load_manifest(project_root, str(session["begin_manifest_path"]))
     post = capture_spec_input_manifest(project_root, normalize_provider_tasks=True)
     post_path = _save_manifest(project_root, post)

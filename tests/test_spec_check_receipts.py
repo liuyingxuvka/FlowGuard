@@ -363,6 +363,11 @@ class SpecInputManifestTests(unittest.TestCase):
         self.assertTrue((root / begun.begin_record_path).is_file())
         self.assertTrue((root / closed.close_record_path).is_file())
 
+        close_bytes = (root / closed.close_record_path).read_bytes()
+        repeated = close_spec_session(root, "openspec", "change-one")
+        self.assertEqual(closed.to_dict(), repeated.to_dict())
+        self.assertEqual(close_bytes, (root / closed.close_record_path).read_bytes())
+
         old_close = (root / closed.close_record_path).read_bytes()
         newer = begin_spec_session(root, "openspec", "change-one")
         self.assertNotEqual(begun.session_id, newer.session_id)

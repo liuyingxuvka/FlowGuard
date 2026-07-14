@@ -97,6 +97,10 @@ FlowGuard SHALL execute an identical current check key once and MAY reuse its im
 - **WHEN** the owner receipt remains current but one consumer changes its projected coverage declaration
 - **THEN** only that consumer projection SHALL become stale and the owner command SHALL NOT rerun
 
+#### Scenario: Close response is lost after the immutable record is written
+- **WHEN** a caller repeats close for an already closed or blocked session
+- **THEN** FlowGuard SHALL return the same immutable close record without rescanning inputs, changing observation time, or executing any check
+
 #### Scenario: One reuse-key field changes
 - **WHEN** the check definition, inputs, tools, environment, coverage, or terminal receipt identity differs
 - **THEN** the previous receipt SHALL be stale and the check SHALL rerun or remain blocked

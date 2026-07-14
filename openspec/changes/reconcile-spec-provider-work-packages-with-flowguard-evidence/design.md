@@ -55,6 +55,8 @@ The filesystem classifier includes source, specifications, models, tests, prompt
 
 The session begins with an immutable governed-input manifest and ends with a newly computed manifest. Missing post snapshot, changed canonical input, tool/schema/version drift, or a peer write blocks session close and archive. The check that first observes a mutation records the changed paths. Derived-output changes do not stale the session.
 
+Once a session has written its immutable close record, a repeated close request only returns that same record. It does not rescan inputs, mint a new timestamp, rewrite evidence, or execute checks; later currentness belongs to the separate read-only post-report review.
+
 ### 6. Receipts are immutable and reuse is fail-closed
 
 A receipt binds its physical owner identity, check-definition hash, command/cwd, input fingerprint, tool/schema/version, environment boundary, owner validation obligations, terminal status, exit code, output hashes, and begin/post snapshot ids. A consumer-local portable ref separately binds the consumer work package, check id, and exact projected `coverage_ids`. Only a terminal successful owner receipt with a current exact consumer projection can be reused. Running, progress-only, skipped, failed, timeout, ambiguous, or stale evidence never becomes a cache hit.
