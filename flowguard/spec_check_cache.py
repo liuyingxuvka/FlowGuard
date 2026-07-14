@@ -138,6 +138,17 @@ def _safe_component(value: str) -> str:
     return f"{stem[:80].strip('._') or 'item'}-{digest}"
 
 
+_EVIDENCE_REF = re.compile(r"^<[A-Z][A-Z0-9_]*_EVIDENCE>/(.+)$")
+
+
+def _is_evidence_ref(value: str) -> bool:
+    match = _EVIDENCE_REF.fullmatch(str(value))
+    if match is None:
+        return False
+    relative = match.group(1)
+    return bool(relative) and "\\" not in relative and ".." not in relative.split("/")
+
+
 def _project_root(root: str | Path) -> Path:
     candidate = Path(root).expanduser().resolve()
     if not candidate.is_dir():
@@ -169,9 +180,11 @@ def _evidence_token(root: Path, path: Path) -> str:
 
 
 def _resolve_evidence_token(root: Path, path_token: str) -> Path:
-    prefix = "<SPEC_EVIDENCE>/"
-    if path_token.startswith(prefix):
-        path = (_evidence_root(root) / path_token.removeprefix(prefix)).resolve()
+    match = _EVIDENCE_REF.fullmatch(path_token)
+    if match is not None:
+        if not _is_evidence_ref(path_token):
+            raise ValueError("evidence path token is unsafe")
+        path = (_evidence_root(root) / match.group(1)).resolve()
         path.relative_to(_evidence_root(root).resolve())
         return path
     path = (root / path_token).resolve()
@@ -555,7 +568,11 @@ def _session_pointer_path(root: Path, provider_id: str, work_package_id: str) ->
 
 
 def _session_record_path(root: Path, session_id: str, stage: str) -> Path:
-    return _evidence_root(root) / "sessions" / "history" / _safe_component(session_id) / f"{stage}.json"
+    # Session ids already live inside the immutable record.  A bounded
+    # content-addressed directory keeps persistent evidence usable below long
+    # Windows project roots without creating a second lookup authority.
+    session_component = f"session-{hashlib.sha256(session_id.encode('utf-8')).hexdigest()[:24]}"
+    return _evidence_root(root) / "sessions" / "history" / session_component / f"{stage}.json"
 
 
 def _save_immutable_session_record(root: Path, session_id: str, stage: str, value: Mapping[str, Any]) -> str:
@@ -909,7 +926,7 @@ class PortableSpecReceiptEnvelope:
         )
         if any(re.fullmatch(r"sha256:[0-9a-f]{64}", str(value)) is None for value in digest_values):
             raise ValueError("portable receipt envelope contains a non-canonical sha256 digest")
-        if not self.source_manifest_ref.startswith(f"{SPEC_EVIDENCE_ROOT_TOKEN}/"):
+        if not _is_evidence_ref(self.source_manifest_ref):
             raise ValueError("portable source manifest must use the evidence-root token")
         object.__setattr__(self, "source_hash_policy", dict(self.source_hash_policy))
         object.__setattr__(self, "coverage_ids", tuple(sorted(set(str(value) for value in self.coverage_ids))))
@@ -932,13 +949,13 @@ class PortableSpecReceiptEnvelope:
             "child_receipt_hashes",
             dict(sorted((str(ref), str(digest)) for ref, digest in self.child_receipt_hashes.items())),
         )
-        if any(not value.startswith(f"{SPEC_EVIDENCE_ROOT_TOKEN}/") for value in self.sidecar_refs.values()):
+        if any(not _is_evidence_ref(value) for value in self.sidecar_refs.values()):
             raise ValueError("portable receipt envelope sidecars must use evidence-root tokens")
         if set(self.sidecar_refs) != {"stdout", "stderr", "result", "termination"}:
             raise ValueError("portable receipt envelope must contain exactly four canonical sidecars")
         if set(self.sidecar_hashes) != set(self.sidecar_refs):
             raise ValueError("portable receipt sidecar refs and hashes must have identical roles")
-        if any(not value.startswith(f"{SPEC_EVIDENCE_ROOT_TOKEN}/") for value in self.child_receipt_refs):
+        if any(not _is_evidence_ref(value) for value in self.child_receipt_refs):
             raise ValueError("portable child receipt references must use evidence-root tokens")
         if set(self.child_receipt_refs) != set(self.child_receipt_hashes):
             raise ValueError("portable child receipt refs and hashes must have identical identities")
@@ -1558,8 +1575,14 @@ def _load_portable_receipt_ref(
     provider_id: str,
     work_package_id: str,
     check_id: str,
+    *,
+    ref_path: str = "",
 ) -> tuple[str, PortableSpecReceiptEnvelope]:
-    pointer_path = _portable_receipt_ref_path(root, provider_id, work_package_id, check_id)
+    pointer_path = (
+        _resolve_evidence_token(root, ref_path)
+        if ref_path
+        else _portable_receipt_ref_path(root, provider_id, work_package_id, check_id)
+    )
     if not pointer_path.is_file():
         raise ValueError(f"portable receipt ref is unavailable: {check_id}")
     pointer = _read_json(pointer_path)
@@ -1578,9 +1601,11 @@ def _load_portable_receipt_ref(
         raise ValueError("unsupported portable receipt ref protocol")
     if pointer.get("root_token") != SPEC_EVIDENCE_ROOT_TOKEN:
         raise ValueError("portable receipt ref root token mismatch")
-    pointer_coverage = pointer.get("coverage_ids", ())
-    if not isinstance(pointer_coverage, list) or any(
-        not isinstance(value, str) or not value for value in pointer_coverage
+    pointer_coverage = pointer.get("coverage_ids")
+    if pointer_coverage is not None and (
+        not isinstance(pointer_coverage, list)
+        or len(pointer_coverage) != len(set(pointer_coverage))
+        or any(not isinstance(value, str) or not value for value in pointer_coverage)
     ):
         raise ValueError("portable receipt ref coverage_ids are not canonical")
     for field_name in ("envelope_fingerprint", "receipt_id", "receipt_fingerprint"):
@@ -1592,12 +1617,111 @@ def _load_portable_receipt_ref(
         raise ValueError("portable receipt ref envelope fingerprint mismatch")
     if pointer.get("receipt_id") != envelope.receipt_id:
         raise ValueError("portable receipt ref receipt identity mismatch")
+    if pointer.get("receipt_fingerprint") != envelope.receipt_fingerprint:
+        raise ValueError("portable receipt ref receipt fingerprint mismatch")
     if (
         pointer.get("provider_id"),
         pointer.get("work_package_id"),
         pointer.get("check_id"),
     ) != (provider_id, work_package_id, check_id):
         raise ValueError("portable receipt ref stable identity mismatch")
+    if pointer.get("semantic_check_id") != envelope.semantic_check_id:
+        raise ValueError("portable receipt ref semantic identity mismatch")
+    if pointer.get("execution_id") != envelope.execution_id:
+        raise ValueError("portable receipt ref execution identity mismatch")
+    if pointer_coverage is not None and set(pointer_coverage) != set(envelope.coverage_ids):
+        raise ValueError("portable receipt ref coverage identity mismatch")
+
+    source_manifest_value = _read_json(
+        _resolve_evidence_token(root, envelope.source_manifest_ref)
+    )
+    unknown_manifest_fields = set(source_manifest_value) - {
+        "schema_version", "source_hash_policy", "manifest_id", "files"
+    }
+    if unknown_manifest_fields:
+        raise ValueError(
+            f"unknown portable source manifest fields: {sorted(unknown_manifest_fields)}"
+        )
+    if source_manifest_value.get("schema_version") != SPEC_PORTABLE_SOURCE_MANIFEST_SCHEMA:
+        raise ValueError("unsupported portable source manifest schema")
+    if source_manifest_value.get("source_hash_policy") != _portable_source_hash_policy():
+        raise ValueError("unsupported portable source hash policy")
+    files = source_manifest_value.get("files", {})
+    if not isinstance(files, Mapping):
+        raise ValueError("portable source manifest files must be a path/hash map")
+    portable_files = dict(sorted((str(path), str(digest)) for path, digest in files.items()))
+    if any(
+        re.fullmatch(r"sha256:[0-9a-f]{64}", digest) is None
+        for digest in portable_files.values()
+    ):
+        raise ValueError("portable source manifest contains a non-canonical digest")
+    expected_manifest_id = fingerprint_value(
+        {"source_hash_policy": _portable_source_hash_policy(), "files": portable_files}
+    )
+    if source_manifest_value.get("manifest_id") != expected_manifest_id:
+        raise ValueError("portable source manifest self identity mismatch")
+    if envelope.source_manifest_id != expected_manifest_id:
+        raise ValueError("portable source manifest identity mismatch")
+    if envelope.source_manifest_hash != _sha256_bytes(
+        _canonical_json(source_manifest_value).encode("utf-8")
+    ):
+        raise ValueError("portable source manifest content hash mismatch")
+    if envelope.source_fingerprint != fingerprint_value(portable_files):
+        raise ValueError("portable source fingerprint mismatch")
+    for path_token, expected_hash in portable_files.items():
+        source_path = (root / path_token).resolve()
+        try:
+            source_path.relative_to(root.resolve())
+        except ValueError as exc:
+            raise ValueError("portable source path escapes the project root") from exc
+        if not source_path.is_file():
+            raise ValueError(f"portable source file is unavailable: {path_token}")
+        source_bytes = source_path.read_bytes()
+        if path_token.endswith("/tasks.md") and (
+            path_token.startswith("openspec/changes/") or path_token.startswith("specs/")
+        ):
+            source_bytes = normalize_provider_task_definition_bytes(source_bytes)
+        if _sha256_bytes(source_bytes) != expected_hash:
+            raise ValueError(f"portable source file is stale: {path_token}")
+
+    for role, sidecar_ref in envelope.sidecar_refs.items():
+        observed_hash = _sha256_bytes(
+            _resolve_evidence_token(root, sidecar_ref).read_bytes()
+        )
+        if observed_hash != envelope.sidecar_hashes.get(role):
+            raise ValueError(f"portable sidecar content hash mismatch: {role}")
+
+    child_receipts: list[tuple[str, str]] = []
+    for child_ref in envelope.child_receipt_refs:
+        child_path = _resolve_evidence_token(root, child_ref)
+        if _sha256_bytes(child_path.read_bytes()) != envelope.child_receipt_hashes.get(child_ref):
+            raise ValueError("portable child receipt content hash mismatch")
+        child = PortableSpecReceiptEnvelope.from_dict(_read_json(child_path))
+        child_receipts.append((child.receipt_id, child.receipt_fingerprint))
+    expected_receipt_id, expected_receipt_fingerprint = _portable_receipt_semantic_identity(
+        provider_id=envelope.provider_id,
+        work_package_id=envelope.work_package_id,
+        check_id=envelope.check_id,
+        semantic_check_id=envelope.semantic_check_id,
+        execution_id=envelope.execution_id,
+        execution_key=envelope.execution_key,
+        source_manifest_id=envelope.source_manifest_id,
+        source_manifest_hash=envelope.source_manifest_hash,
+        source_hash_policy=envelope.source_hash_policy,
+        source_fingerprint=envelope.source_fingerprint,
+        toolchain_fingerprint=envelope.toolchain_fingerprint,
+        result_fingerprint=envelope.result_fingerprint,
+        termination_fingerprint=envelope.termination_fingerprint,
+        snapshot_policy=envelope.snapshot_policy,
+        coverage_ids=envelope.coverage_ids,
+        validation_obligation_ids=envelope.validation_obligation_ids,
+        sidecar_hashes=envelope.sidecar_hashes,
+        child_receipts=child_receipts,
+    )
+    if envelope.receipt_id != expected_receipt_id:
+        raise ValueError("portable receipt semantic identity mismatch")
+    if envelope.receipt_fingerprint != expected_receipt_fingerprint:
+        raise ValueError("portable receipt semantic fingerprint mismatch")
     return envelope.receipt_id, envelope
 
 
@@ -1995,7 +2119,7 @@ def _stored_spec_receipt_review(
             continue
         try:
             value = _read_json(_resolve_evidence_token(root, path_token))
-        except ValueError:
+        except (OSError, ValueError):
             findings.append(f"portable_identity_sidecar_invalid:{content_name}")
             continue
         if fingerprint_value(value) != expected_fingerprint:
@@ -3434,44 +3558,46 @@ def review_spec_provider_close(
             findings.append(f"provider_external_receipt_row_missing:{external_check.check_id}")
             continue
         expected_ref = str(external_check.external_receipt_ref.get("ref_path", ""))
+        external_provider_id = str(external_check.external_receipt_ref.get("provider_id", ""))
+        external_work_package_id = str(
+            external_check.external_receipt_ref.get("work_package_id", "")
+        )
         try:
             receipt_id, envelope = _load_portable_receipt_ref(
                 project_root,
-                provider_id,
-                work_package_id,
+                external_provider_id,
+                external_work_package_id,
                 external_check.check_id,
+                ref_path=expected_ref,
             )
-        except ValueError:
+        except (OSError, ValueError):
             findings.append(f"provider_external_receipt_ref_missing:{external_check.check_id}")
             minimum.append(external_check.check_id)
             continue
         expected_values = {
-            "portable_receipt_ref": expected_ref,
-            "receipt_id": receipt_id,
-            "envelope_fingerprint": envelope.fingerprint,
             "semantic_check_id": envelope.semantic_check_id,
-            "execution_id": envelope.execution_id,
-            "execution_key": envelope.execution_key,
-            "result_hash": envelope.result_fingerprint,
-            "source_manifest_id": envelope.source_manifest_id,
-            "source_manifest_hash": envelope.source_manifest_hash,
+            "execution_owner": f"{envelope.provider_id}:{envelope.execution_id}",
+            "snapshot_policy": envelope.snapshot_policy,
             "toolchain_identity": envelope.toolchain_fingerprint,
+            "source_hash_policy": dict(envelope.source_hash_policy),
+            "accounting": "aggregated",
         }
         for field_name, expected in expected_values.items():
             if report_row.get(field_name) != expected:
                 findings.append(
                     f"provider_external_receipt_binding_mismatch:{external_check.check_id}:{field_name}"
                 )
-        pointer = _read_json(
-            _portable_receipt_ref_path(
-                project_root,
-                provider_id,
-                work_package_id,
-                external_check.check_id,
+        dependencies = report_row.get("depends_on_receipt_ids", ())
+        if not isinstance(dependencies, Sequence) or isinstance(dependencies, (str, bytes)) or list(
+            dependencies
+        ) != [receipt_id]:
+            findings.append(
+                f"provider_external_receipt_binding_mismatch:{external_check.check_id}:depends_on_receipt_ids"
             )
-        )
-        if set(external_check.obligation_ids) != set(pointer.get("coverage_ids", ())):
+        if set(external_check.obligation_ids) != set(envelope.coverage_ids):
             findings.append(f"provider_external_receipt_coverage_mismatch:{external_check.check_id}")
+        if set(report_row.get("covers", ())) != set(external_check.obligation_ids):
+            findings.append(f"provider_report_coverage_mismatch:{external_check.check_id}")
     report_failures = package.metadata.get("report_check_failures", ())
     if report_failures:
         findings.extend(f"provider_report:{value}" for value in report_failures)

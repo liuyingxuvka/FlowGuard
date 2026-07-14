@@ -378,29 +378,51 @@ def _provider_report_state(
         row_status = str(row.get("status", row.get("result", ""))).casefold()
         if row_status not in {"pass", "passed", "ok", "success"}:
             check_failures.append(f"required_check_not_passed:{check_id}")
+        receipt_projection = isinstance(declaration.get("receipt_ref"), Mapping)
         required_fields = {
             "semantic_check_id": row.get("semantic_check_id"),
-            "execution_id": row.get("execution_id"),
             "execution_key": row.get("execution_key"),
             "receipt_id": row.get("receipt_id"),
             "result_hash": row.get("result_hash"),
             "toolchain_identity": row.get("toolchain_identity"),
-            "input_hashes": row.get("input_hashes"),
             "accounting": row.get("accounting"),
-            "portable_receipt_ref": row.get("portable_receipt_ref"),
-            "envelope_fingerprint": row.get("envelope_fingerprint"),
-            "source_manifest_id": row.get("source_manifest_id"),
-            "source_manifest_hash": row.get("source_manifest_hash"),
         }
+        if receipt_projection:
+            required_fields.update(
+                {
+                    "execution_owner": row.get("execution_owner"),
+                    "depends_on_receipt_ids": row.get("depends_on_receipt_ids"),
+                }
+            )
+        else:
+            required_fields.update(
+                {
+                    "execution_id": row.get("execution_id"),
+                    "input_hashes": row.get("input_hashes"),
+                    "portable_receipt_ref": row.get("portable_receipt_ref"),
+                    "envelope_fingerprint": row.get("envelope_fingerprint"),
+                    "source_manifest_id": row.get("source_manifest_id"),
+                    "source_manifest_hash": row.get("source_manifest_hash"),
+                }
+            )
         for field_name, value in required_fields.items():
             if value in (None, "", {}, []):
                 check_failures.append(f"required_check_field_missing:{check_id}:{field_name}")
-        for digest_field in (
-            "execution_key", "receipt_id", "result_hash", "envelope_fingerprint",
-            "source_manifest_id", "source_manifest_hash",
-        ):
+        digest_fields = ["execution_key", "receipt_id", "result_hash"]
+        if not receipt_projection:
+            digest_fields.extend(["envelope_fingerprint", "source_manifest_id", "source_manifest_hash"])
+        for digest_field in digest_fields:
             if re.fullmatch(r"sha256:[0-9a-f]{64}", str(row.get(digest_field, ""))) is None:
                 check_failures.append(f"required_check_digest_noncanonical:{check_id}:{digest_field}")
+        if receipt_projection:
+            dependencies = row.get("depends_on_receipt_ids", ())
+            if not isinstance(dependencies, Sequence) or isinstance(dependencies, (str, bytes)) or any(
+                re.fullmatch(r"sha256:[0-9a-f]{64}", str(value)) is None
+                for value in dependencies
+            ):
+                check_failures.append(f"required_check_receipt_dependencies_invalid:{check_id}")
+            if row.get("accounting") != "aggregated":
+                check_failures.append(f"required_check_receipt_accounting_invalid:{check_id}")
         if row.get("snapshot_policy") != "frozen":
             check_failures.append(f"required_check_snapshot_policy_not_frozen:{check_id}")
         if row.get("snapshot_manifest_id") != snapshot_manifest_id:
@@ -504,6 +526,14 @@ def _bind_canonical_checks_to_contract(
     canonical_checks: Sequence[SpecCheckDefinition],
     raw_checks: Sequence[Mapping[str, Any]],
 ) -> tuple[SpecCheckDefinition, ...]:
+    # A receipt-only provider contract may consume an owner receipt produced by
+    # another tool without assigning FlowGuard a second execution owner.  In
+    # that case the package can still carry task/obligation bindings while
+    # intentionally declaring no canonical FlowGuard checks.  Once any
+    # canonical owner is declared, however, the exact-set check below remains
+    # fail-closed so partial ownership cannot be hidden.
+    if not canonical_checks:
+        return ()
     external_rows = {
         str(row.get("id", "")): row
         for row in raw_checks

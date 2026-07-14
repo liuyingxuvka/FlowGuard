@@ -148,6 +148,52 @@ class SpecProviderAdapterTests(unittest.TestCase):
                 review = review_spec_work_package(replace(package, checks=(check,)))
                 self.assertIn(finding_code, review.finding_codes)
 
+    def test_external_receipt_only_package_does_not_require_a_second_flowguard_owner(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            change = root / "openspec/changes/change-one"
+            _write(change / "tasks.md", "# Tasks\n\n- [x] 1.1 Consume the owner receipt\n")
+            _write(
+                change / "verification-contract.yaml",
+                """contract_version: 3
+obligations:
+  - id: req.bridge
+    source: specs/bridge/spec.md
+    claim: Consume one external owner receipt without rerunning it.
+    evidence: [owner.bridge]
+checks:
+  - id: owner.bridge
+    kind: receipt
+    semantic_check_id: semantic.bridge
+    execution_id: owner.bridge.v1
+    receipt_ref:
+      provider_id: skillguard
+      work_package_id: change-one
+      adapter: portable-receipt.v1
+      ref_path: <SPEC_EVIDENCE>/portable/change-one/ref.json
+    consumer: openspec.change.change-one
+    covers: [req.bridge]
+    required: true
+""",
+            )
+            _bindings(
+                root,
+                [
+                    {
+                        "provider_id": "openspec",
+                        "work_package_id": "change-one",
+                        "task_binding_rules": [
+                            {"task_prefix": "1.", "obligation_ids": ["req.bridge"]}
+                        ],
+                    }
+                ],
+            )
+
+            self.assertEqual((), load_openspec_canonical_checks(root, "change-one"))
+            package = load_openspec_work_package(root, "change-one")
+            review = review_spec_work_package(package)
+            self.assertTrue(review.ok, review.finding_codes)
+
     def test_external_receipt_covers_are_the_single_owner_coverage_source(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

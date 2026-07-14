@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from dataclasses import dataclass, field, replace
 from typing import Any, Mapping, Sequence
 
@@ -687,12 +688,18 @@ def review_spec_work_package(package: SpecWorkPackage) -> SpecWorkPackageReview:
                 (package.provider.adapter_version,),
             )
         )
-    supported_schemas = {SPEC_PROVIDER_OPEN_SPEC: {"3"}, SPEC_PROVIDER_SPEC_KIT: {"artifact-v1"}}
-    if package.provider.schema_version not in supported_schemas.get(package.provider.provider_id, set()):
+    schema_supported = (
+        bool(re.fullmatch(r"[1-9][0-9]*", package.provider.schema_version))
+        if package.provider.provider_id == SPEC_PROVIDER_OPEN_SPEC
+        else package.provider.schema_version == "artifact-v1"
+        if package.provider.provider_id == SPEC_PROVIDER_SPEC_KIT
+        else False
+    )
+    if not schema_supported:
         findings.append(
             SpecWorkPackageFinding(
                 "provider_schema_unsupported",
-                "the provider artifact schema is unsupported",
+                "the provider artifact schema identity is missing or malformed",
                 (package.provider.schema_version or "missing",),
             )
         )
@@ -907,25 +914,36 @@ def review_spec_work_package(package: SpecWorkPackage) -> SpecWorkPackageReview:
                 )
             )
         if external_receipt_consumer:
-            expected_path = (
-                f"<SPEC_EVIDENCE>/portable-refs/{package.provider.provider_id}/"
-                f"{package.work_package_id}/{check.check_id}.json"
-            )
             canonical_semantics = package.metadata.get("canonical_check_semantics", {})
             canonical_check_ids = set(package.metadata.get("canonical_check_ids", ()))
-            if (
-                check.check_id not in canonical_check_ids
-                or check.external_receipt_ref.get("provider_id") != package.provider.provider_id
-                or check.external_receipt_ref.get("work_package_id") != package.work_package_id
-                or check.external_receipt_ref.get("adapter") != "portable-receipt.v1"
-                or check.external_receipt_ref.get("ref_path") != expected_path
-                or not isinstance(canonical_semantics, Mapping)
-                or canonical_semantics.get(check.check_id) != check.semantic_check_id
-            ):
+            ref_path = str(check.external_receipt_ref.get("ref_path", ""))
+            external_ref_shape_ok = bool(
+                str(check.external_receipt_ref.get("provider_id", ""))
+                and check.external_receipt_ref.get("work_package_id") == package.work_package_id
+                and check.external_receipt_ref.get("adapter") == "portable-receipt.v1"
+                and re.fullmatch(r"<[A-Z][A-Z0-9_]*_EVIDENCE>/[A-Za-z0-9._/-]+", ref_path)
+                and ".." not in ref_path.split("/")
+                and check.semantic_check_id
+            )
+            if check.check_id in canonical_check_ids:
+                expected_path = (
+                    f"<SPEC_EVIDENCE>/portable-refs/{package.provider.provider_id}/"
+                    f"{package.work_package_id}/{check.check_id}.json"
+                )
+                external_ref_shape_ok = bool(
+                    external_ref_shape_ok
+                    and check.external_receipt_ref.get("provider_id") == package.provider.provider_id
+                    and ref_path == expected_path
+                    and isinstance(canonical_semantics, Mapping)
+                    and canonical_semantics.get(check.check_id) == check.semantic_check_id
+                )
+            elif canonical_check_ids:
+                external_ref_shape_ok = False
+            if not external_ref_shape_ok:
                 findings.append(
                     SpecWorkPackageFinding(
                         "external_receipt_ref_identity_mismatch",
-                        f"external receipt {check.check_id} must match its canonical FlowGuard owner identity",
+                        f"external receipt {check.check_id} must name one safe, exact owner receipt identity",
                         (check.check_id,),
                     )
                 )

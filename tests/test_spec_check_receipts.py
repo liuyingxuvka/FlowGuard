@@ -30,6 +30,7 @@ from flowguard.spec_check_cache import (
     _load_portable_receipt_ref,
     _portable_receipt_semantic_identity,
     _pid_alive,
+    _session_record_path,
     capture_spec_input_manifest,
     close_spec_session,
     consume_spec_receipt,
@@ -222,6 +223,16 @@ def _run(root: Path, **overrides):
 
 
 class SpecInputManifestTests(unittest.TestCase):
+    def test_session_history_directory_is_bounded_for_long_windows_roots(self) -> None:
+        root = Path("C:/") / ("nested-" * 20)
+        first = _session_record_path(root, "session:" + ("owner:" * 80), "begin")
+        second = _session_record_path(root, "session:" + ("owner:" * 80), "begin")
+        other = _session_record_path(root, "session:" + ("other:" * 80), "begin")
+
+        self.assertEqual(first, second)
+        self.assertNotEqual(first.parent, other.parent)
+        self.assertLessEqual(len(first.parent.name), 32)
+
     def test_derived_outputs_and_mtime_do_not_enter_input_fingerprint(self) -> None:
         temporary = _project()
         self.addCleanup(temporary.cleanup)
@@ -342,6 +353,86 @@ class SpecInputManifestTests(unittest.TestCase):
 
 
 class PortableReceiptWireTests(unittest.TestCase):
+    def test_external_owner_ref_is_verified_in_place_without_a_flowguard_copy(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            _write(root / "flowguard/source.py", "VALUE = 1\n")
+            evidence_root = root / "persistent-evidence"
+            fixture = Path(__file__).parent / "fixtures/portable_receipt_wire"
+            target = evidence_root / "fixture"
+            target.mkdir(parents=True)
+            for source in fixture.iterdir():
+                (target / source.name).write_bytes(source.read_bytes())
+
+            envelope_value = json.loads((target / "envelope.json").read_text(encoding="utf-8"))
+            envelope_value["provider_id"] = "skillguard"
+            envelope_value["source_manifest_ref"] = envelope_value["source_manifest_ref"].replace(
+                "<SPEC_EVIDENCE>", "<SKILLGUARD_EVIDENCE>"
+            )
+            envelope_value["sidecar_refs"] = {
+                role: value.replace("<SPEC_EVIDENCE>", "<SKILLGUARD_EVIDENCE>")
+                for role, value in envelope_value["sidecar_refs"].items()
+            }
+            receipt_id, receipt_fingerprint = _portable_receipt_semantic_identity(
+                provider_id=envelope_value["provider_id"],
+                work_package_id=envelope_value["work_package_id"],
+                check_id=envelope_value["check_id"],
+                semantic_check_id=envelope_value["semantic_check_id"],
+                execution_id=envelope_value["execution_id"],
+                execution_key=envelope_value["execution_key"],
+                source_manifest_id=envelope_value["source_manifest_id"],
+                source_manifest_hash=envelope_value["source_manifest_hash"],
+                source_hash_policy=envelope_value["source_hash_policy"],
+                source_fingerprint=envelope_value["source_fingerprint"],
+                toolchain_fingerprint=envelope_value["toolchain_fingerprint"],
+                result_fingerprint=envelope_value["result_fingerprint"],
+                termination_fingerprint=envelope_value["termination_fingerprint"],
+                snapshot_policy=envelope_value["snapshot_policy"],
+                coverage_ids=envelope_value["coverage_ids"],
+                validation_obligation_ids=envelope_value["validation_obligation_ids"],
+                sidecar_hashes=envelope_value["sidecar_hashes"],
+                child_receipts=(),
+            )
+            envelope_value["receipt_id"] = receipt_id
+            envelope_value["receipt_fingerprint"] = receipt_fingerprint
+            envelope_value["envelope_fingerprint"] = fingerprint_value(
+                {key: value for key, value in envelope_value.items() if key != "envelope_fingerprint"}
+            )
+            _write(target / "envelope.json", json.dumps(envelope_value, sort_keys=True) + "\n")
+
+            pointer = json.loads((target / "ref.json").read_text(encoding="utf-8"))
+            pointer.update(
+                {
+                    "provider_id": "skillguard",
+                    "envelope_ref": "<SKILLGUARD_EVIDENCE>/fixture/envelope.json",
+                    "envelope_fingerprint": envelope_value["envelope_fingerprint"],
+                    "receipt_id": receipt_id,
+                    "receipt_fingerprint": receipt_fingerprint,
+                }
+            )
+            _write(target / "ref.json", json.dumps(pointer, sort_keys=True) + "\n")
+
+            with patch.dict(os.environ, {"FLOWGUARD_SPEC_EVIDENCE_ROOT": str(evidence_root)}):
+                observed_id, observed = _load_portable_receipt_ref(
+                    root,
+                    "skillguard",
+                    "fixture-change",
+                    "owner.fixture",
+                    ref_path="<SKILLGUARD_EVIDENCE>/fixture/ref.json",
+                )
+                self.assertEqual(receipt_id, observed_id)
+                self.assertEqual("skillguard", observed.provider_id)
+
+                _write(target / "result.json", "{\"tampered\":true}\n")
+                with self.assertRaisesRegex(ValueError, "sidecar content hash mismatch"):
+                    _load_portable_receipt_ref(
+                        root,
+                        "skillguard",
+                        "fixture-change",
+                        "owner.fixture",
+                        ref_path="<SKILLGUARD_EVIDENCE>/fixture/ref.json",
+                    )
+
     def test_frozen_receipts_flow_into_v3_report_then_read_only_close_review(self) -> None:
         temporary = _aggregate_project()
         self.addCleanup(temporary.cleanup)
@@ -387,15 +478,19 @@ class PortableReceiptWireTests(unittest.TestCase):
                     root, "openspec", "change-one", check_id
                 )
                 rows[check_id] = {
-                    "status": "pass",
+                    "status": "passed",
+                    "kind": "receipt",
+                    "covers": list(envelope.coverage_ids),
                     "semantic_check_id": envelope.semantic_check_id,
                     "execution_id": envelope.execution_id,
+                    "execution_owner": f"{envelope.provider_id}:{envelope.execution_id}",
                     "execution_key": envelope.execution_key,
                     "receipt_id": envelope.receipt_id,
+                    "depends_on_receipt_ids": [envelope.receipt_id],
                     "result_hash": envelope.result_fingerprint,
                     "toolchain_identity": envelope.toolchain_fingerprint,
                     "input_hashes": {"source_manifest_id": envelope.source_manifest_id},
-                    "accounting": {"state": "external-receipt-consumed"},
+                    "accounting": "aggregated",
                     "portable_receipt_ref": (
                         f"<SPEC_EVIDENCE>/portable-refs/openspec/change-one/{check_id}.json"
                     ),
